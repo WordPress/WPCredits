@@ -418,7 +418,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in verify_ajax().
 		// Not sanitize_key(): it lower-cases, which would no longer match the run ID
 		// the queue was stored under. Stripping to the alphanumerics is the sanitizer here -
-		// phpcs does not recognise preg_replace() as one, hence the annotation.
+		// phpcs does not recognize preg_replace() as one, hence the annotation.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized by the preg_replace() on this line.
 		$run_id = isset( $_POST['run_id'] ) ? preg_replace( '/[^A-Za-z0-9]/', '', wp_unslash( $_POST['run_id'] ) ) : '';
 		$offset = isset( $_POST['offset'] ) ? (int) $_POST['offset'] : 0;

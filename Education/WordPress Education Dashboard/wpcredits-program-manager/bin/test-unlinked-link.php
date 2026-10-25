@@ -805,8 +805,16 @@ ck( 'an order assertion says no when either check is missing, where strpos() sai
 // The only two things read from the form are which row and which institution. Whether that row
 // carries a mentor, what its status is and what its address is are read from the base, because
 // they are the facts the refusals rest on and a form cannot be asked about them.
-preg_match_all( '/posted_(?:text|key|id)\(\s*\'([^\']+)\'/', $handler, $posted );
-ck( 'the handler reads two fields from the form and no more', $posted[1], array( 'wpcpm_student', 'wpcpm_institution' ) );
+// The institution's field is read by the class's own constant (`WPCPM_Institutions::ARG_INSTITUTION`), which the form
+// that draws it names it with too, so it is read here through that constant's value.
+preg_match_all( '/posted_(?:text|key|id)\(\s*(\'[^\']+\'|self::[A-Z_]+)/', $handler, $posted );
+$read_fields = array_map(
+	static function ( $argument ) {
+		return 'self::ARG_INSTITUTION' === $argument ? WPCPM_Institutions::ARG_INSTITUTION : trim( $argument, "'" );
+	},
+	$posted[1]
+);
+ck( 'the handler reads two fields from the form and no more', $read_fields, array( 'wpcpm_student', 'wpcpm_institution' ) );
 
 $nobody = press_link( 9, array( 'wpcpm_student' => $CLEAN, 'wpcpm_institution' => $B ) );
 ck( 'somebody without the capability is refused', has( $nobody, 'wp_die:You do not have permission' ), true );

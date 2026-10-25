@@ -1,14 +1,15 @@
 <?php
 /**
- * Assemble the four program guides from one set of sections.
+ * Assemble the five program guides from one set of sections.
  *
- * Four audiences, and each guide has to be complete on its own: the access levels do not
+ * Five audiences, and each guide has to be complete on its own: the access levels do not
  * nest, so a mentor holding only `wpcpm_view_mentor_content` cannot open a Student-level
  * page. A mentor guide that linked to the student guide would be linking them somewhere
  * they get an access notice.
  *
  * So the shared parts are written once, in docs/sections, and each guide is composed from
- * them here. Change the student booking section and it changes in all three.
+ * them here. Change the student booking section and it changes in every guide that carries
+ * it; the sponsor and institution guides carry only the signing-in section they share.
  *
  * Two outputs per guide:
  *   docs/<audience>.md          - for reading in the repository.
@@ -110,6 +111,12 @@ $guides = array(
 			'13-student-feedback',
 			'12-student-help',
 		),
+	),
+	'institutions'   => array(
+		'title' => 'Institution guide',
+		'lede'  => 'Your Institution Dashboard, your students, your details and your Collaboration Agreement.',
+		'intro' => "Thank you for bringing the WordPress Credits Program to your institution. This guide covers the Institution Dashboard, the page your institution has on the Education Directory: your students and the lists you can download, enrolling more of them, the semester report, your institution's details and how to correct them, your colleagues, and your Collaboration Agreement.\n\nIt is written for the people who act for an institution. The program's Administrators have a guide of their own.",
+		'parts' => array( '00-signing-in', '50-institution-dashboard', '51-institution-students', '52-institution-details' ),
 	),
 	'sponsors'       => array(
 		'title' => 'Sponsor guide',

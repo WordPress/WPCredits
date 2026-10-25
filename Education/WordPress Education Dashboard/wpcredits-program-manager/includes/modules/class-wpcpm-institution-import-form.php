@@ -1,6 +1,6 @@
 <?php
 /**
- * The screen a school enrols students through, and the two handlers behind it.
+ * The screen a school enrolls students through, and the two handlers behind it.
  *
  * Kept apart from `WPCPM_Institution_Import`, which reads and decides and never learns who is
  * asking. This file is the half that touches the request: it reads `$_POST` and `$_FILES`,
@@ -114,7 +114,7 @@ final class WPCPM_Institution_Import_Form {
 		// **Read once, here, and carried down.** The disclosure has to know whether there is a
 		// message before the message is printed, and `WPCPM_Flash::take()` empties the channel.
 		// It memoizes per request, so asking twice does work in production; relying on that
-		// made the behaviour depend on a subtlety two files away, and a test harness that
+		// made the behavior depend on a subtlety two files away, and a test harness that
 		// simulates several requests in one process could not honestly reproduce it. One read
 		// and one argument is less to know.
 		$flash = WPCPM_Flash::take( self::FLASH );
@@ -250,7 +250,7 @@ final class WPCPM_Institution_Import_Form {
 		//
 		// It names the name and the address and nothing else. A WordPress.org profile is not
 		// shared at this point because there is none to share: getting one is the student's own
-		// first step after enrolment, so a school confirming it had been notified about would
+		// first step after enrollment, so a school confirming it had been notified about would
 		// be confirming something that has not happened.
 		// The sentence and its mark share one `<span>`: the label is a flex row (institution.css),
 		// where a bare text node and the mark beside it are two items with a gap between them, so
@@ -305,7 +305,7 @@ final class WPCPM_Institution_Import_Form {
 		printf( '<h3 class="wpcpm-import__subtitle">%s</h3>', esc_html__( 'Or a list', 'wpcredits-program-manager' ) );
 
 		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-file">%1$s</label><input type="file" id="wpcpm-import-file" name="list" accept=".csv,text/csv" /><span class="wpcpm-field__hint">%2$s</span></p>',
+			'<p class="wpcpm-field"><label for="wpcpm-import-file">%1$s</label><input type="file" id="wpcpm-import-file" name="list" accept=".csv,text/csv" /><span class="wpcpm-field__hint">%2$s</span>',
 			esc_html__( 'A CSV file', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
@@ -315,6 +315,21 @@ final class WPCPM_Institution_Import_Form {
 				)
 			)
 		);
+
+		// The format, shown rather than only described: a list the export class makes on request, with the
+		// four headers and one example student, which the import's own reader takes whole. The nonced link is
+		// the export class's (`sample_url()`), keyed to this institution, so this file decides nothing about
+		// the download beyond where its link goes. Guarded, as the student card guards its controls, so a site
+		// that has not loaded the class draws the form without the link.
+		if ( class_exists( 'WPCPM_Institution_Export' ) ) {
+			printf(
+				'<a class="wpcpm-import__sample" href="%1$s">%2$s</a>',
+				esc_url( WPCPM_Institution_Export::sample_url( $record ) ),
+				esc_html__( 'Download a sample list', 'wpcredits-program-manager' )
+			);
+		}
+
+		echo '</p>';
 
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-import-paste">%1$s</label><textarea id="wpcpm-import-paste" name="paste" rows="6"></textarea><span class="wpcpm-field__hint">%2$s</span></p>',
@@ -473,7 +488,7 @@ final class WPCPM_Institution_Import_Form {
 	 * will hear from anybody, and the one instruction that prevents the duplicate this plugin
 	 * cannot close: a student who is imported and then sent to the public registration form
 	 * creates a second record under their own hand, and no ladder here can tell that from a
-	 * new enrolment.
+	 * new enrollment.
 	 *
 	 * @param int    $batch_id The staged batch.
 	 * @param array  $batch    The batch.
@@ -491,7 +506,7 @@ final class WPCPM_Institution_Import_Form {
 		$values = isset( $batch['values'] ) && is_array( $batch['values'] ) ? $batch['values'] : array();
 		$says   = sprintf(
 			/* translators: 1: how many student records, 2: the program's name, 3: the start date. */
-			__( 'Create %1$s student records on the %2$s program, starting %3$s. No email is sent now. Each student is emailed by the program once a mentor is assigned, and receives their login when their account is created. Do not send these students to the registration form; it would create a second record.', 'wpcredits-program-manager' ),
+			__( 'Create %1$s student records on the %2$s program, starting %3$s. No email is sent now. The program emails each student when their place is set up, and they receive their login when their account is created. Do not send these students to the registration form; it would create a second record.', 'wpcredits-program-manager' ),
 			number_format_i18n( $creating ),
 			WPCPM_Program::label( isset( $values['status'] ) ? (string) $values['status'] : '' ),
 			isset( $values['start'] ) ? (string) $values['start'] : ''
@@ -1169,7 +1184,7 @@ final class WPCPM_Institution_Import_Form {
 
 		// **`is_uploaded_file()` is the check that matters, and it is PHP's own.** It answers
 		// yes only for a path this request's upload handler created, so a posted `tmp_name`
-		// naming `/etc/passwd` reads nothing: the sanitising above satisfies a linter, this
+		// naming `/etc/passwd` reads nothing: the sanitizing above satisfies a linter, this
 		// line is the control.
 		if ( '' !== $path && is_uploaded_file( $path ) ) {
 			// Before the read, so a large file costs the memory of nothing.

@@ -393,7 +393,7 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 	 *
 	 * ACT_AGREEMENT is the only ungated action, so a member passes it whether or not their
 	 * agreement is settled. That is deliberate here: the shell asks this question precisely
-	 * because it must recognise a locked member as a member.
+	 * because it must recognize a locked member as a member.
 	 */
 	class WPCPM_Institution_Policy {
 		const GROUND_MANAGER = 'manager';
@@ -533,28 +533,9 @@ function cards_run() {
 	return array_map( function ( $card ) { return $card[0]; }, $GLOBALS['cards'] );
 }
 
-/**
- * The words a school is not meant to read, found in one rendered page or one sentence.
- *
- * Table and view names, a record kind, the program's pipeline stage and the name of the
- * base itself are the base's words, and no sentence on a member's page may hold one. Decoded
- * before it is searched, because the page escapes its apostrophes.
- *
- * @param string $html A rendered page, or one sentence.
- * @return string[] The words found, in this list's order: empty when nothing is.
- */
-function internal_words( $html ) {
-	$html = html_entity_decode( (string) $html, ENT_QUOTES, 'UTF-8' );
-	$out  = array();
-
-	foreach ( array( 'Students table', 'report record', 'Stage:', 'viw', 'the program\'s contact', 'Airtable' ) as $word ) {
-		if ( false !== stripos( $html, $word ) ) {
-			$out[] = $word;
-		}
-	}
-
-	return $out;
-}
+// The rule's word list is shared with the school's details card suite, which draws the real card in every
+// state it has and holds it to the same list (`bin/stubs/internal-words.php`).
+require_once __DIR__ . '/stubs/internal-words.php';
 
 /* ---- the fixture --------------------------------------------------------- */
 
@@ -695,8 +676,20 @@ if ( ! class_exists( 'WPCPM_Institution_Roster_View' ) ) {
 		}
 	}
 }
+if ( ! class_exists( 'WPCPM_Institution_Details_Card' ) ) {
+	class WPCPM_Institution_Details_Card {
+		public static function render( $record_id, array $context ) {
+			$GLOBALS['cards'][] = array( 'details', $record_id, $context );
+			echo '<div class="wpcpm-institution__card" data-card="details"></div>';
+		}
+	}
+}
 if ( ! class_exists( 'WPCPM_Institution_People' ) ) {
 	class WPCPM_Institution_People {
+		// The words the institution's history reads a member row with (`WPCPM_Institution_History`), which its own
+		// suite checks against the real card.
+		public static function how_label( $how ) { return 'How: ' . $how; }
+		public static function reason_label( $reason ) { return 'Reason: ' . $reason; }
 		public static function render( $record_id, array $context ) {
 			$GLOBALS['cards'][] = array( 'people', $record_id, $context );
 			echo '<div class="wpcpm-institution__card" data-card="people"></div>';
@@ -715,7 +708,7 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement_Card' ) ) {
 // The same render, now that they have: the guards let the pieces land in any order, and
 // this is the order they landed in.
 render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
-ck( 'and once they land, every card is drawn', cards_run(), array( 'panel', 'roster', 'people', 'agreement-card' ) );
+ck( 'and once they land, every card is drawn', cards_run(), array( 'panel', 'roster', 'details', 'people', 'agreement-card' ) );
 
 /* ---- the page ------------------------------------------------------------ */
 
@@ -820,6 +813,9 @@ ck( 'and the panel', false !== strpos( $out, 'data-card="panel"' ), true );
 ck( 'and nothing else at all', cards_run(), array( 'panel' ) );
 ck( 'no roster markup', false !== strpos( $out, 'data-card="roster"' ), false );
 ck( 'no People card', false !== strpos( $out, 'data-card="people"' ), false );
+// The details card is a gated action (`ACT_EDIT_DETAILS` is not in `ungated()`) and a school whose agreement
+// is not settled sets its name on the agreement document in the panel instead (Institutions release 2).
+ck( 'no details card: a school whose agreement is not settled corrects nothing here', false !== strpos( $out, 'data-card="details"' ), false );
 ck( 'no agreement card at the foot', false !== strpos( $out, 'data-card="agreement-card"' ), false );
 ck( 'no banner: that is the manager\'s, not theirs', false !== strpos( $out, 'wpcpm-institution__banner' ), false );
 ck( 'and no switcher', false !== strpos( $out, 'wpcpm-institution-switcher' ), false );
@@ -874,7 +870,8 @@ ck( 'and the read line once, as the member does', substr_count( $out, 'Read from
 ck( 'naming the state in words', false !== strpos( $out, 'not settled: a signed copy is waiting for review' ), true );
 ck( 'and what the members see: only the Collaboration Agreement card, no panel', array( false !== strpos( $out, 'This institution&#039;s agreement is not settled: a signed copy is waiting for review. Members see only the Collaboration Agreement card.' ), false === stripos( $out, 'agreement panel' ) ), array( true, true ) );
 ck( 'and what the base says, which is the other half of the predicate', false !== strpos( $out, 'Agreement Status as Awaiting review' ), true );
-ck( 'and gets the whole dashboard under it', cards_run(), array( 'panel', 'roster', 'people', 'agreement-card' ) );
+ck( 'and gets the whole dashboard under it', cards_run(), array( 'panel', 'roster', 'details', 'people', 'agreement-card' ) );
+ck( 'the details card included, drawn for the institution being viewed and not for the manager', array( $GLOBALS['cards'][2][0], $GLOBALS['cards'][2][1] ), array( 'details', $krakow ) );
 ck( 'with the switcher', false !== strpos( $out, 'id="wpcpm-institution-switcher"' ), true );
 ck( 'posting the field the resolver actually reads', false !== strpos( $out, 'name="' . WPCPM_Institution_Roster::ARG_VIEW . '"' ), true );
 ck( 'listing both institutions', substr_count( $out, '<option value="rec' ), 2 );
@@ -905,7 +902,7 @@ ck( 'and does not when there are', false !== strpos( $out, 'name="page_id"' ), f
 unset( $GLOBALS['opts']['permalink_structure'] );
 $GLOBALS['queried'] = 0;
 
-// The switcher, honoured.
+// The switcher, honored.
 $out = render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
 ck( 'the switcher moves a manager to another institution', false !== strpos( $out, 'Institute Example' ), true );
 ck( 'and the roster it is handed is that institution\'s', $GLOBALS['cards'][1][1], $institute );
@@ -919,7 +916,7 @@ ck( 'with no argument a manager lands on the first institution with a member', $
 /**
  * The banner a manager sees over the Krakow record, in one agreement state.
  *
- * Through a render because the labelling is private, which is the right way round: what is
+ * Through a render because the labeling is private, which is the right way round: what is
  * worth pinning is the sentence a manager reads, not the branch that produced it.
  *
  * @param string $state           A summary state.
@@ -1002,10 +999,28 @@ $GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array(
 );
 
 $out = render_as( 2 );
-ck( 'a settled member gets the whole dashboard', cards_run(), array( 'panel', 'roster', 'people', 'agreement-card' ) );
+ck( 'a settled member gets the whole dashboard', cards_run(), array( 'panel', 'roster', 'details', 'people', 'agreement-card' ) );
+
+// The school's details card is the first card of the Representatives and agreement module, above the people
+// and the agreement, for a member and for an Administrator alike.
+ck( 'the details card is drawn once, and first in the people module, above the people and the agreement', array( substr_count( $out, 'data-card="details"' ), 1 === preg_match( '/id="wpcpm-module-people">.*?data-card="details".*?data-card="people".*?data-card="agreement-card"/s', $out ) ), array( 1, true ) );
+ck( 'handed the record and the dashboard\'s context like every card', array( $GLOBALS['cards'][2][0], $GLOBALS['cards'][2][1], $GLOBALS['cards'][2][2]['can_manage'] ), array( 'details', $krakow, false ) );
+
+$manager_page = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'and an Administrator is handed the same card first in the same module', array( substr_count( $manager_page, 'data-card="details"' ), 1 === preg_match( '/id="wpcpm-module-people">.*?data-card="details".*?data-card="people"/s', $manager_page ) ), array( 1, true ) );
+ck( 'with the Administrator\'s own flag', array( $GLOBALS['cards'][2][0], $GLOBALS['cards'][2][2]['can_manage'] ), array( 'details', true ) );
+render_as( 2 );
 ck( 'and no banner, because there is nothing outstanding', false !== strpos( $out, 'wpcpm-institution__banner' ), false );
 ck( 'and no switcher: it is drawn under CAP_MANAGE and nowhere else', false !== strpos( $out, 'wpcpm-institution-switcher' ), false );
 ck( 'a settled member\'s page holds none of the base\'s words either', internal_words( $out ), array() );
+
+// The page above draws stand-ins for its cards, so the rule is held to the real details card as well: its own suite
+// draws it in every state it has, as a member and as an Administrator, and holds every page and every sentence it can
+// say to this suite's word list (`bin/stubs/internal-words.php`), and tells this one what it found.
+$words_out = array();
+exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __DIR__ . '/test-institution-details-card.php' ) . ' words 2>&1', $words_out );
+$words_line = array_values( array_filter( $words_out, function ( $line ) { return 0 === strpos( $line, 'WORDS:' ); } ) );
+ck( 'the real details card, in every state it is drawn in and every sentence it says, holds none of the base\'s words', array( count( $words_line ), $words_line ? json_decode( substr( $words_line[0], 6 ), true ) : null ), array( 1, array() ) );
 ck( 'nor the Stage line, which is the Administrators\'', false !== strpos( $out, 'wpcpm-institution__stage' ), false );
 
 // The read line is the page's, once, at the foot: the roster is told its module is titled and
@@ -1031,6 +1046,7 @@ ck( 'a stranger is told this page is not theirs', false !== strpos( $out, WPCPM_
 ck( 'in the shared words and no others', false !== strpos( $out, 'not linked to one' ), false );
 ck( 'and no institution is named', array( false !== strpos( $out, 'Politechnika Example' ), false !== strpos( $out, 'Institute Example' ) ), array( false, false ) );
 ck( 'and no card ran', cards_run(), array() );
+ck( 'the details card included', false !== strpos( $out, 'data-card="details"' ), false );
 
 // The same, with another institution's record asked for by hand.
 $out = render_as( 5, array( 'wpcpm_institution_view' => $institute ) );
@@ -1362,7 +1378,7 @@ $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 ck( 'a link tag in the body is not the site\'s icon', false !== strpos( $out, 'body-crest.png' ), false );
 ck( 'and the conventional path is what was tried instead', in_array( array( 'head', 'https://politechnika.example/favicon.ico' ), $GLOBALS['fetched'], true ), true );
 
-// A 200 that is not an image is what a missing favicon usually is: a sign-in page apologising.
+// A 200 that is not an image is what a missing favicon usually is: a sign-in page apologizing.
 $GLOBALS['transients'] = array();
 $GLOBALS['http'] = array(
 	'https://politechnika.example' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
@@ -1582,6 +1598,8 @@ if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
 }
 if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 	class WPCPM_Institution_Audit {
+		// The ground a withdrawal is read by (`WPCPM_Institution_History`).
+		const GROUND_MANAGER = 'manager';
 		public static function entries_for( $record_id, $limit = 50 ) {
 			$GLOBALS['history_reads'][] = array( 'audit', $record_id, $limit );
 			return isset( $GLOBALS['audit_rows'][ $record_id ] ) ? array_slice( $GLOBALS['audit_rows'][ $record_id ], 0, $limit ) : array();
@@ -1609,6 +1627,11 @@ if ( ! function_exists( 'wp_date' ) ) {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
+// What a history row is read with: the request's kinds and states, for a closed request (the real class, which
+// nothing here stands in for), and from the People card and the audit the words and the ground a member row and
+// a withdrawal are read with (this suite's stand-ins for those two carry them, below). Loaded before the history,
+// as the history suite loads them, so a fixture that draws such a row cannot turn into a fatal.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-history.php';
 
 // Everything the section prints for Krakow, by the words an Administrator reads, for the pages
@@ -1635,6 +1658,16 @@ function tells_in( $html ) {
 }
 
 ck( 'the class is loaded for everything below, so a page without the section is the page\'s doing', class_exists( 'WPCPM_Institution_History' ), true );
+// A member row and a closed request are read with classes this suite stands in for or loads before the history,
+// so a fixture that draws one is a sentence and not a fatal.
+ck(
+	'the history reads a member row and a closed request with what this suite carries for them',
+	array(
+		WPCPM_Institution_History::sentence( array( 'kind' => 'member_added', 'message' => '', 'data' => array( 'user' => 99999, 'how' => 'manager' ) ) ),
+		WPCPM_Institution_History::sentence( array( 'kind' => 'request_resolved', 'message' => '', 'ground' => 'manager', 'data' => array( 'state' => WPCPM_Institution_Request::STATE_WITHDRAWN, 'kind' => 'details' ) ) ),
+	),
+	array( 'A former member was added as a member. How: manager.', 'An Administrator withdrew a request.' )
+);
 
 // An Administrator, through the switcher.
 $GLOBALS['history_reads'] = array();

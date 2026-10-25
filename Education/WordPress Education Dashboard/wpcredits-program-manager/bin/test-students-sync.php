@@ -209,7 +209,7 @@ function wp_insert_user( array $data ) {
 }
 
 /**
- * Users by exact meta match, or by a meta key existing, honouring `fields`.
+ * Users by exact meta match, or by a meta key existing, honoring `fields`.
  */
 function get_users( $args = array() ) {
 	$GLOBALS['user_queries'] = ( $GLOBALS['user_queries'] ?? 0 ) + 1;
@@ -252,7 +252,7 @@ function get_users( $args = array() ) {
  * shown a rate limit or a dead connection. `$GLOBALS['after_read'][ table ]` is a callback
  * fired once, the moment that table's page has been built and before it is returned: what a
  * school member or an import does on the site while the sync is between its read and its
- * finish. And a fixture record's own `createdTime` is honoured, because which of two report
+ * finish. And a fixture record's own `createdTime` is honored, because which of two report
  * rows for one address was created last is now something the sync decides on.
  */
 class WPCPM_Airtable {
@@ -980,7 +980,7 @@ ck( 'a student with neither has none', $roster['rows'][ $ids['k2'] ]['username']
 // never signed in, which is most students on a school's roster.
 ck( 'the website comes off the report record too', $k1['website'], 'https://reference-grad-one.example.test' );
 ck( 'and so does the contribution team', $k1['team'], 'Polyglots' );
-// A row the reports side never reached lends nothing, rather than borrowing a neighbour's.
+// A row the reports side never reached lends nothing, rather than borrowing a neighbor's.
 ck( 'a student with no report record has none of them', array( $roster['rows'][ $ids['k2'] ]['website'], $roster['rows'][ $ids['k2'] ]['team'] ), array( '', '' ) );
 
 echo "\n=== Hours reach the roster ===\n";
@@ -1328,7 +1328,7 @@ $GLOBALS['airtable'][ $mentors_table ] = array(
 	array( 'id' => 'recMENTOR00000002', 'fields' => array( $fields['mentor_name'] => 'Second Mentor', $fields['mentor_email'] => 'second@example.test' ) ),
 );
 
-// A re-enrolment: last term's row, created first and now Dropped out, and this term's, In
+// A re-enrollment: last term's row, created first and now Dropped out, and this term's, In
 // Sensei with a mentor. The account last term's sync made is stamped with the old row.
 $email = 're-enrolled@example.test';
 $s_re  = student_row( 'Re-enrolled Student', $email, 'In Sensei', $dee, '2026-08-03' );

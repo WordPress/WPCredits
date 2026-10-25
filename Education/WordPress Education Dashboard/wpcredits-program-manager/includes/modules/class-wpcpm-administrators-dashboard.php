@@ -505,9 +505,9 @@ final class WPCPM_Administrators_Dashboard {
 			return;
 		}
 
-		// Only bounce() honours the return field, so every report message that lands here is a
+		// Only bounce() honors the return field, so every report message that lands here is a
 		// refusal: a successful Draft now opens the new draft in the editor instead. The error
-		// tone is what the theme colours; the status keeps the screen's own modifier for a
+		// tone is what the theme colors; the status keeps the screen's own modifier for a
 		// rule that wants one sentence in particular.
 		printf(
 			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error wpcpm-dashboard__message--%1$s">%2$s</p>',

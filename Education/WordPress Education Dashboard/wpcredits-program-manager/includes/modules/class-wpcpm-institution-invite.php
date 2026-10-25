@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * rather than waiting for a program manager to make an account. An invitation is a
  * `wpcpm_inst_invite` post: the institution it is for, the address it went to, when
  * it was sent, who sent it, and a hash of the secret in its link. It is `pending` until it
- * is accepted, cancelled, or lapses.
+ * is accepted, canceled, or lapses.
  *
  * **The token is the security of this class, and it is never stored.** What the row holds
  * is `wp_hash()` of it, so somebody reading the database, a backup or an export cannot
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * link stops working, which is the safer half of the trade anyway.
  *
  * **Every failure on the accept path gives the same message.** "This invitation expired",
- * "that invitation was cancelled" and "no such invitation" are three different sentences
+ * "that invitation was canceled" and "no such invitation" are three different sentences
  * that together tell a stranger walking tokens which addresses this program has invited,
  * and a signed-in visitor whose address is not the invited one is refused with that same
  * message rather than with a helpful one. The four states are still recorded, in the row
@@ -151,7 +151,7 @@ class WPCPM_Institution_Invite {
 	 *
 	 * Accept is the one action with a `nopriv` arm, and it has to be: the person following
 	 * the link is a colleague who has never signed in here, and often has no account for the
-	 * site to recognise. Both halves of accepting go through that one action, the page the
+	 * site to recognize. Both halves of accepting go through that one action, the page the
 	 * link draws and the button on it; `handle_accept()` says why. Every other action needs a
 	 * member, and a logged-out request would learn something from a handler that answered it
 	 * at all.
@@ -478,7 +478,7 @@ class WPCPM_Institution_Invite {
 		$detail = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
 		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
 
-		// Routing, not authorisation: which card prints a sentence, never who may read one.
+		// Routing, not authorization: which card prints a sentence, never who may read one.
 		// Every fence in this module is the policy's, and this comparison decides nothing
 		// about access.
 		if ( trim( (string) $record_id ) !== $about ) {
@@ -806,7 +806,7 @@ class WPCPM_Institution_Invite {
 	 *
 	 * @param string $token   The secret, from the link or from the form.
 	 * @param bool   $pressed True on the button's POST, the one arm allowed to write: an
-	 *                        invitation whose sender no longer vouches for it is cancelled
+	 *                        invitation whose sender no longer vouches for it is canceled
 	 *                        there, and only refused on the link's GET.
 	 * @return array `id`, `record`, `email`.
 	 */
@@ -844,7 +844,7 @@ class WPCPM_Institution_Invite {
 		// institution whose agreement was revoked has had every member's access closed; a
 		// pending invitation issued before that is a way back in for somebody the program has
 		// never met, and the one action a locked account keeps is the agreement panel, which
-		// is the last place a stranger should arrive. Cancelling on revoke is not enough on
+		// is the last place a stranger should arrive. Canceling on revoke is not enough on
 		// its own: a link already in a mailbox is not recalled by a database write, so the
 		// state is asked again here, at the moment it matters.
 		if ( ! WPCPM_Institution_Agreement::is_settled( $record ) ) {
@@ -1108,8 +1108,8 @@ class WPCPM_Institution_Invite {
 	/**
 	 * Cancel a waiting invitation.
 	 *
-	 * The nonce is keyed to the invitation, so a token for cancelling one is not a token for
-	 * cancelling another, and the institution is **the one the invitation names**, read from
+	 * The nonce is keyed to the invitation, so a token for canceling one is not a token for
+	 * canceling another, and the institution is **the one the invitation names**, read from
 	 * the post's own meta. A member of B posting A's invitation ID is decided against A, is
 	 * not a member of A, and gets the one refusal.
 	 */
@@ -1132,7 +1132,7 @@ class WPCPM_Institution_Invite {
 			$decision,
 			WPCPM_Institution_Audit::EVIDENCE_CACHE,
 			sprintf(
-				/* translators: 1: who cancelled it, 2: the address it had gone to. */
+				/* translators: 1: who canceled it, 2: the address it had gone to. */
 				__( '%1$s canceled the invitation to %2$s.', 'wpcredits-program-manager' ),
 				self::actor_name( get_current_user_id() ),
 				$email
@@ -1155,7 +1155,7 @@ class WPCPM_Institution_Invite {
 	 *
 	 * An invitation whose sender no longer vouches for it (`sender_vouches()`) is not sent again:
 	 * the new link would be one more way in for somebody nobody now stands behind, and accepting
-	 * it would be refused anyway. It is cancelled as the site's own act, as accepting cancels one,
+	 * it would be refused anyway. It is canceled as the site's own act, as accepting cancels one,
 	 * before a send of the day is claimed, and the press is told it is no longer waiting.
 	 */
 	public static function handle_resend() {
@@ -1302,7 +1302,7 @@ class WPCPM_Institution_Invite {
 	 * `WPCPM_Institution_Members::detach()`.
 	 *
 	 * @param string $record_id Airtable institution record ID.
-	 * @return int How many were cancelled.
+	 * @return int How many were canceled.
 	 */
 	public static function cancel_for_institution( $record_id ) {
 		$cancelled = 0;
@@ -1328,7 +1328,7 @@ class WPCPM_Institution_Invite {
 	 *
 	 * @param int    $user_id   The account whose invitations end with its membership.
 	 * @param string $record_id The institution the membership was of.
-	 * @return int How many were cancelled.
+	 * @return int How many were canceled.
 	 */
 	public static function cancel_by_actor( $user_id, $record_id ) {
 		$user_id   = absint( $user_id );
@@ -1449,7 +1449,7 @@ class WPCPM_Institution_Invite {
 	 *
 	 * The moment is stamped here because this is the only way out of `pending`, and it is
 	 * what `forget_settled()` measures the retention window from. The post date will not do:
-	 * that is when the invitation was *sent*, so a row cancelled an hour after a month-old
+	 * that is when the invitation was *sent*, so a row canceled an hour after a month-old
 	 * send would be deleted the same night.
 	 *
 	 * @param int    $post_id The invitation.
@@ -1711,8 +1711,8 @@ class WPCPM_Institution_Invite {
 	 *
 	 * **Measured from when the row settled and not from when it was written.** Those are the
 	 * same day for an invitation that runs its fourteen days out, and a month apart for one
-	 * cancelled long after it was sent; measuring from the post date deletes the second the
-	 * night after it is cancelled, which is not thirty days of anything. The stamp `settle()`
+	 * canceled long after it was sent; measuring from the post date deletes the second the
+	 * night after it is canceled, which is not thirty days of anything. The stamp `settle()`
 	 * writes is the one clock this reads.
 	 *
 	 * @return int How many rows were deleted.
@@ -1862,7 +1862,7 @@ class WPCPM_Institution_Invite {
 	 *
 	 * Through `WPCPM_Mail::send_to()`, the single exit for mail to somebody with no account:
 	 * a message sent straight to `wp_mail()` would go past the filter, the log and the subject
-	 * sanitising, which would make the one message this module sends to a stranger the one
+	 * sanitizing, which would make the one message this module sends to a stranger the one
 	 * message nobody could trace. Reply-to is the member who invited them, because the person
 	 * who can answer "why am I getting this" is the colleague who pressed the button.
 	 *
@@ -1916,7 +1916,7 @@ class WPCPM_Institution_Invite {
 	/**
 	 * The one answer every failed acceptance gets.
 	 *
-	 * Expired, cancelled, already accepted, never existed, or followed while signed in as
+	 * Expired, canceled, already accepted, never existed, or followed while signed in as
 	 * somebody else: one sentence, byte for byte. Telling them apart would let a stranger
 	 * walking tokens learn which addresses this program has invited, and would tell whoever a
 	 * forwarded mail reached that the address it was sent to is real.
@@ -1960,7 +1960,7 @@ class WPCPM_Institution_Invite {
 	/**
 	 * Write the audit row for a cancellation nobody pressed.
 	 *
-	 * The ground is `system` and the actor is 0 for both of these: a rule cancelled them, not
+	 * The ground is `system` and the actor is 0 for both of these: a rule canceled them, not
 	 * a person, and the row that records the person is the `member_removed` one `detach()`
 	 * wrote a moment before.
 	 *

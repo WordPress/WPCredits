@@ -109,7 +109,7 @@ class WPCPM_Mentors_Dashboard {
 	/**
 	 * Whether this user should be treated as a mentor for routing purposes.
 	 *
-	 * Recognised the same way the toolbar link recognises them, then narrowed twice.
+	 * Recognized the same way the toolbar link recognizes them, then narrowed twice.
 	 *
 	 * Program managers are excluded - they need wp-admin. So is anyone who can write posts:
 	 * an account that happens to hold the Mentor role *and* an editor or author role has a
@@ -172,7 +172,7 @@ class WPCPM_Mentors_Dashboard {
 		}
 
 		// A specific destination was asked for - typically because they followed a link to
-		// gated content and were bounced through the login form. Honour it; overriding would
+		// gated content and were bounced through the login form. Honor it; overriding would
 		// take them somewhere they did not ask to go.
 		//
 		// Asked through `is_explicit_redirect()` rather than by testing for a non-empty
@@ -388,7 +388,7 @@ class WPCPM_Mentors_Dashboard {
 
 		return array(
 			'students' => $students,
-			// The site's today, not the browser's: a mentor travelling should see the same
+			// The site's today, not the browser's: a mentor traveling should see the same
 			// grouping as the program manager looking at the same list.
 			'today'    => wp_date( 'Y-m-d' ),
 			'windows'  => array(

@@ -196,7 +196,7 @@ class WPCPM_Agreement_Generate {
 	 * 1. logged in. There is no public route to this document; it names an institution.
 	 * 2. the institution, resolved the way section 5.5 resolves it. A member's own
 	 *    membership is what places them, so a posted record ID cannot move a member to
-	 *    another institution; a manager's switcher is honoured, which is what lets a
+	 *    another institution; a manager's switcher is honored, which is what lets a
 	 *    manager look at what an institution would get, and it arrives in the form's own
 	 *    hidden field because a POST to `admin-post.php` carries no query string.
 	 * 3. the nonce, keyed to that institution, so a form drawn for one record cannot be
@@ -848,7 +848,7 @@ class WPCPM_Agreement_Generate {
 	 * Phase 3's review it is the only answer this route has. Design spec 5.5 says so in as
 	 * many words: the resolver is "the acting institution for every manager-on-behalf action
 	 * (import, generate, upload)". A member's own membership places them and nothing in the
-	 * request can move them; a manager's switcher is honoured, from the query string or from
+	 * request can move them; a manager's switcher is honored, from the query string or from
 	 * a posted `wpcpm_institution_view`, both of which `requested_view()` reads.
 	 *
 	 * **Two mechanisms, and which one won.** This method used to read a posted

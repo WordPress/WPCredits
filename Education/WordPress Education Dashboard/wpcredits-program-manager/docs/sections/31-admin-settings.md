@@ -217,7 +217,11 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   institution approved before 1.123.29 has no such record.
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
-  the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the
+  the program and the term and then adds one student or sends a CSV. Off by default. Beside the file
+  box, a link **Download a sample list** sends a file, `students-sample.csv`, with the four headers
+  the import reads (`name`, `email`, `field_of_study`, `tutor`) and one example student, so a school
+  that has never seen the format is shown one. The site makes the file when the link is followed, to
+  an account that may enroll students, and holds no copy of it. Its fold: the
   list is read and checked against the program records, and the school sees what was understood
   before anything is created; while this is off, the section does not appear at all. Each
   institution is held to five checks an hour and 600 students a day, and the files are read and
@@ -253,13 +257,16 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   same setting) - who gets every email about institutions an Administrator is sent: a new
   application from an institution, a signed agreement uploaded for review, the nightly reminder of
   agreements waiting past the review days, the notice that the agreement template cannot be used,
-  and an institution's last member leaving. A box for each Administrator, under
-  **Administrators**, and an **Other addresses** line for anybody else, separated by commas. With
-  nobody named, every Administrator account gets them, and a notice under the field says so:
-  "Nobody is named, so every Administrator account gets these emails." That means every account
-  with the WordPress Administrator role, technical ones too, so name somebody. Where no
-  Administrator account with an email address can be listed, the addresses are typed, separated by
-  commas.
+  an institution's last member leaving, and the three emails about a school's details: a school
+  saving a correction of its contact or agreement details (what changed, from what to what), a school
+  asking to correct its name, website, city, country or contact's email (what it asks for, with a link
+  to the request on the Administrator Dashboard), and a school withdrawing that request. A box for
+  each Administrator, under **Administrators**, and an **Other addresses** line for anybody else,
+  separated by commas. With nobody named, every Administrator account gets them, and a notice under
+  the field says so: "Nobody is named, so every Administrator account gets these emails." That
+  means every account with the WordPress Administrator role, technical ones too, so name somebody.
+  Where no Administrator account with an email address can be listed, the addresses are typed,
+  separated by commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
   taken from, linked from the Agreement template card on the Institutions screen's Agreements tab;
   Google addresses only. Its fold: it is kept on this site rather than in the code, because the

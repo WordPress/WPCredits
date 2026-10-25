@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * What went with it is the guarantee. The restriction to wordpress.org now exists only because
  * the instructions ask for it, so two things compensate: the sites are named in the system
  * message and repeated, and every citation that comes back is checked against them. An answer
- * grounded in nothing recognisable is shown but marked, because an uncited answer from a model
+ * grounded in nothing recognizable is shown but marked, because an uncited answer from a model
  * that was told to cite is the one most likely to be invented.
  *
  * **Google AI Studio is the only provider.** It is the one that will search the web for free
@@ -122,7 +122,7 @@ class WPCPM_Handbook_Answer {
 		// Gone, or misspelled. The only failure that will never fix itself by waiting, and the
 		// only one worth sending somebody to the settings for.
 		//
-		// Recognised by status *and* by a short list of unmistakable phrases, because Google
+		// Recognized by status *and* by a short list of unmistakable phrases, because Google
 		// has answered 404 for one retired model and 400 for another. What is deliberately not
 		// used is the bare word "model": that matched "this model is currently experiencing
 		// high demand" and told somebody to replace a model that was merely busy.
@@ -318,7 +318,7 @@ class WPCPM_Handbook_Answer {
 		$answer['sources']   = $generated['sources'];
 		$answer['generated'] = true;
 
-		// Grounded in nothing we recognise. The answer still shows - the model may simply not
+		// Grounded in nothing we recognize. The answer still shows - the model may simply not
 		// have cited anything - but it is marked, because an uncited answer from a model that
 		// was asked to cite is the one most likely to be invented.
 		$answer['unsourced'] = empty( $generated['sources'] );

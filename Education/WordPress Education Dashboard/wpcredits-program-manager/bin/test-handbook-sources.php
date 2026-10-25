@@ -57,7 +57,7 @@ function wp_parse_url( $u, $c = -1 ) {
  *
  * The list is WordPress's own. Dropping control characters and spaces first is `esc_url()`'s
  * own first move, and it is what stops a scheme broken up with a newline from slipping past
- * the test - `kses` normalises the same way before it judges the protocol.
+ * the test - `kses` normalizes the same way before it judges the protocol.
  */
 function esc_url_raw( $url, $protocols = null ) {
 	$url = preg_replace( '/[\x00-\x20\x7f]+/', '', (string) $url );

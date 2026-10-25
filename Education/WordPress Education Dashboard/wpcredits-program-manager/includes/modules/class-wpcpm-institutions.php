@@ -102,7 +102,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The query argument that names one institution by its record ID: on the Accounts tab, the
 	 * institution whose Manage members view is drawn; on a row's Create account, the institution
-	 * the account is created for.
+	 * the account is created for; and in the reconciliation card's Link control, the institution a
+	 * Students row is linked to, which the form posts under it and the handler reads by it.
 	 */
 	const ARG_INSTITUTION = 'wpcpm_institution';
 
@@ -128,6 +129,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	const FILTER_GAP = 'agreement_gap';
 
+	/** The stage of a record the program has set aside as spam, as the index stores it. */
+	const STAGE_SPAM = 'SPAM';
+
 	/**
 	 * The stages the Pipeline tab leaves out of its counts (1.123.29): the records the program has set
 	 * aside, and the ones with no stage at all. Every count on the tab is over the other records
@@ -138,7 +142,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * other screens treat as active, and an Administrator may change it, but what the Pipeline counts
 	 * is what a manager compares from one week to the next.
 	 */
-	const UNCOUNTED_STAGES = array( 'SPAM', 'Not Moving Forward', 'Revisit Later', '' );
+	const UNCOUNTED_STAGES = array( self::STAGE_SPAM, 'Not Moving Forward', 'Revisit Later', '' );
 
 	/**
 	 * Linking one unlinked Students row to an institution, from the reconciliation card.
@@ -445,9 +449,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		WPCPM_Institutions_Dashboard::init();
 		WPCPM_Institution_People::init();
 		WPCPM_Institution_Student_Form::init();
-		WPCPM_Institution_Notes::init();
 		WPCPM_Institution_Invite::init();
 		WPCPM_Institution_Request::init();
+		WPCPM_Institution_Details_Card::init();
 		WPCPM_Institution_Students::init();
 		WPCPM_Institution_Resend::init();
 		WPCPM_Institution_Export::init();
@@ -612,6 +616,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Institutions_Sync::OPT_LOCK );
 
 		delete_option( WPCPM_Institutions_Index::OPT_NAME );
+		delete_option( WPCPM_Institutions_Index::OPT_LOCK );
 		delete_option( WPCPM_Countries::OPT_NAME );
 		delete_option( WPCPM_Private_Files::OPT_PROBE );
 		delete_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
@@ -895,7 +900,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		$this->verify( self::ACTION_LINK . '_' . $students_record );
 
-		$institution = WPCPM_Request::posted_text( 'wpcpm_institution' );
+		$institution = WPCPM_Request::posted_text( self::ARG_INSTITUTION );
 
 		// Shape, then the policy, then the state of the record, in the order
 		// `WPCPM_Institution_People::handle_add_account()` explains: a value that is not a
@@ -1601,7 +1606,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Tell the program managers something.
 	 *
 	 * The one mechanism for every queue event: recipients are the setting named by
-	 * `$setting_key` (`agreement_notify`, labelled Who is emailed about institutions since
+	 * `$setting_key` (`agreement_notify`, labeled Who is emailed about institutions since
 	 * 1.123.26, for every institution email that names no other: a new application, an upload,
 	 * the reminder, the template notice and a last member leaving; `report_notify` for the
 	 * semester report job) when it names anybody, otherwise every account holding the
@@ -1956,7 +1961,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Add one row to an application's own history.
 	 *
 	 * Through the form's own writer, so the shape of a history row is decided in one place
-	 * and the sanitising with it. This is where a rejection's reason lives, and the only
+	 * and the sanitizing with it. This is where a rejection's reason lives, and the only
 	 * place it lives.
 	 *
 	 * @param int    $post_id Application post ID.
@@ -2107,9 +2112,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * desk, and a request measures a school waiting on the program.
 	 *
 	 * A request row is labeled by the request's kind: "Mentor request" for `mentor`, raised from a
-	 * student's card, and "Request" for any other kind the store holds, with the kind's own words
-	 * printed under it: `add`, which the import raises for a student it created, is one of those,
-	 * so no other kind is ever called a mentor request.
+	 * student's card, "Details to correct" for `details`, a school's request to correct its name,
+	 * website, city, country or contact's email, and "Request" for any other kind the store holds,
+	 * with the kind's own words printed under it: `add`, which the import raises for a student it
+	 * created, is one of those, so no other kind is ever called a mentor request.
 	 *
 	 * @param int $limit How many rows to build, at most.
 	 * @return array{rows: array[], waiting: int} Rows: `kind` (`application`, `agreement` or
@@ -2199,11 +2205,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			}
 
 			$country = isset( $facts['country'] ) ? (string) $facts['country'] : '';
-			$mentor  = WPCPM_Institution_Request::KIND_MENTOR === (string) $facts['kind'];
 
 			$rows[] = array(
 				'kind'          => 'request',
-				'kind_label'    => $mentor ? __( 'Mentor request', 'wpcredits-program-manager' ) : __( 'Request', 'wpcredits-program-manager' ),
+				'kind_label'    => self::request_row_label( (string) $facts['kind'] ),
 				'id'            => (int) $facts['id'],
 				'at'            => (int) $facts['at'],
 				'overdue'       => ! empty( $facts['overdue'] ),
@@ -2239,6 +2244,27 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * What a request row is called in the queue, by the request's kind.
+	 *
+	 * A mentor request, raised from a student's card; the details to correct a school asked for; and a
+	 * request for any other kind the store holds, whose own words the row prints under it.
+	 *
+	 * @param string $kind The request's kind.
+	 * @return string
+	 */
+	private static function request_row_label( $kind ) {
+		switch ( $kind ) {
+			case WPCPM_Institution_Request::KIND_MENTOR:
+				return __( 'Mentor request', 'wpcredits-program-manager' );
+
+			case WPCPM_Institution_Request::KIND_DETAILS:
+				return __( 'Details to correct', 'wpcredits-program-manager' );
+		}
+
+		return __( 'Request', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * What the form's checks recorded against one application.
 	 *
 	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
@@ -2264,7 +2290,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * a manager decides, on the hashed address the form stored and on the trimmed, lowered
 	 * name, which is the same pair the live search asks Airtable about.
 	 *
-	 * The form's own signal is honoured too, whichever way round it stores it, so a duplicate
+	 * The form's own signal is honored too, whichever way round it stores it, so a duplicate
 	 * of something already decided is still flagged after the twin has left the queue, and the
 	 * later of a pair the queue's window has split still carries its flag when it is drawn.
 	 * The older one of such a pair does not, which is one of the things the card is saying
@@ -3491,8 +3517,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * This screen is the only place `_wpcpm_app_signals` is ever read back, and until it was
 	 * printed a held row looked like any other: a manager pressing Reject or Send this
 	 * question on one was acting on a submission the site had quietly decided was suspect,
-	 * without being shown either that or why. Every decision here is somebody's judgement
-	 * about an institution, and a judgement taken on a hidden opinion is not one.
+	 * without being shown either that or why. Every decision here is somebody's judgment
+	 * about an institution, and a judgment taken on a hidden opinion is not one.
 	 *
 	 * Printed for every application and not only for a held one. Two of the checks hold
 	 * nothing by themselves, `duplicate` and the site-wide ceiling, so a row can be `new` and
@@ -3667,7 +3693,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * every one of them.
 	 *
 	 * A match is information and never an action: whether this is the same institution is a
-	 * judgement, and the approval makes the same search again when it is pressed.
+	 * judgment, and the approval makes the same search again when it is pressed.
 	 *
 	 * @param WP_Post $post The application.
 	 */
@@ -4096,7 +4122,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The nonce is keyed to the action and the application together, so a nonce harvested
 	 * from one row's Reject cannot approve another's.
 	 *
-	 * Since 1.92.0, forms.js's double-submit guard yields to a cancelled confirm: it checks
+	 * Since 1.92.0, forms.js's double-submit guard yields to a canceled confirm: it checks
 	 * `event.defaultPrevented` before anything else, so a manager who presses Cancel on one of
 	 * these confirm-guarded forms is not left looking at a form stuck reading "Working".
 	 *
@@ -4172,7 +4198,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * once here: without it the names print plain and the field is not drawn.
 	 *
 	 * @param array  $index  The pipeline index, from `WPCPM_Institutions_Index::read()`.
-	 * @param string $filter The `wpcpm_filter` argument, already sanitised.
+	 * @param string $filter The `wpcpm_filter` argument, already sanitized.
 	 * @param array  $gaps   The membership counts, from `membership_gaps()` over the counted rows.
 	 */
 	private function render_pipeline( array $index, $filter, array $gaps ) {
@@ -4320,10 +4346,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * opens the institution's page, the address its name in the list links to.
 	 *
 	 * The one field for a long list (`WPCPM_Dashboards::render_combo()`), so it drops down, takes
-	 * typing and narrows; without the script the plain select, sorted by name, and the button still
-	 * work. Each entry reads "Name, City (Stage)", trimmed, the city or the stage left out where the
-	 * record has none, because a hundred names include some alike and the city and stage tell them
-	 * apart. A record with no name is listed by its record ID, as the Viewing as switcher lists it.
+	 * typing and narrows; without the script the plain select, sorted as the Viewing as lists are, and
+	 * the button still work. Each entry reads "Name, City (Stage)", trimmed, the city or the stage left
+	 * out where the record has none, because a hundred names include some alike and the city and stage
+	 * tell them apart. A record with no name is listed by its record ID, as the Viewing as switcher
+	 * lists it.
 	 *
 	 * A GET form drops the query of the address it is sent to, so an Institution Dashboard addressed
 	 * by its query, as a site without pretty permalinks addresses it, gets each argument back in a
@@ -4337,7 +4364,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return;
 		}
 
-		$entries = array();
+		$options = array();
 
 		foreach ( $rows as $key => $row ) {
 			if ( ! is_array( $row ) || '' === trim( (string) $key ) ) {
@@ -4352,26 +4379,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$label     = '' !== $city ? sprintf( '%1$s, %2$s', $name, $city ) : $name;
 			$label     = '' !== $stage ? sprintf( '%1$s (%2$s)', $label, $stage ) : $label;
 
-			$entries[] = array( $record_id, $name, $label );
+			$options[ $record_id ] = $label;
 		}
 
-		// By name, as a reader looks for one (`WPCPM_Dashboards::compare_names()`); two of one name by
-		// the rest of the entry, then by record ID, so the list does not reshuffle between two reads.
-		usort(
-			$entries,
-			static function ( $a, $b ) {
-				$order = WPCPM_Dashboards::compare_names( $a[1], $b[1] );
-				$order = 0 !== $order ? $order : WPCPM_Dashboards::compare_names( $a[2], $b[2] );
-
-				return 0 !== $order ? $order : strnatcmp( $a[0], $b[0] );
-			}
-		);
-
-		$options = array();
-
-		foreach ( $entries as $entry ) {
-			$options[ $entry[0] ] = $entry[2];
-		}
+		// A to Z as the Viewing as switchers list names (`WPCPM_Dashboards::sort_switcher_options()`): by the
+		// whole entry, "Name, City (Stage)", which is what a reader looks the record up by, and two entries
+		// alike by their record IDs, so the list does not reshuffle between two reads.
+		$options = WPCPM_Dashboards::sort_switcher_options( $options );
 
 		printf( '<form method="get" action="%s" class="wpcpm-inst-find wpcpm-admin-picker">', esc_url( $page ) );
 
@@ -5575,7 +5589,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		WPCPM_Dashboards::render_combo(
 			array(
 				'id'      => 'wpcpm-link-' . $record_id,
-				'name'    => 'wpcpm_institution',
+				'name'    => self::ARG_INSTITUTION,
 				'options' => array( '' => __( 'Choose an institution', 'wpcredits-program-manager' ) ) + $choices,
 				'label'   => __( 'Institution to link this row to', 'wpcredits-program-manager' ),
 				'find'    => __( 'Find an institution', 'wpcredits-program-manager' ),
@@ -5686,7 +5700,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				continue;
 			}
 
-			if ( is_array( $row ) && isset( $row['stage'] ) && 'SPAM' === trim( (string) $row['stage'] ) ) {
+			if ( is_array( $row ) && isset( $row['stage'] ) && self::STAGE_SPAM === trim( (string) $row['stage'] ) ) {
 				continue;
 			}
 

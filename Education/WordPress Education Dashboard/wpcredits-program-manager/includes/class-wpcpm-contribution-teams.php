@@ -152,12 +152,12 @@ class WPCPM_Contribution_Teams {
 	/**
 	 * The icon for the *row label*, given whatever the student's team value is.
 	 *
-	 * Three answers, and the question mark is the point of it: a row labelled with a team
-	 * icon says "this is the team", and a row labelled with a question mark says "nobody
+	 * Three answers, and the question mark is the point of it: a row labeled with a team
+	 * icon says "this is the team", and a row labeled with a question mark says "nobody
 	 * has picked one" - which is a different fact from an empty value cell, and the one a
 	 * mentor scanning a list of students is looking for.
 	 *
-	 * A student can be on more than one team. The first recognised one supplies the icon,
+	 * A student can be on more than one team. The first recognized one supplies the icon,
 	 * because a label has room for one and the value cell lists them all anyway.
 	 *
 	 * @param string $value Stored team value, possibly comma joined.

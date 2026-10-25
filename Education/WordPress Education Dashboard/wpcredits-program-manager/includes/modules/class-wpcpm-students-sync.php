@@ -141,7 +141,7 @@ class WPCPM_Students_Sync {
 	 * Thirty seconds is what an Airtable 429 means and is the client's own default backoff.
 	 * The run's schedule states the number for itself because it also covers failures the
 	 * client never saw - a timeout is answered by WordPress's HTTP layer, not by Airtable -
-	 * and a 429 that asks for longer is honoured over it (`retry_delay()`).
+	 * and a 429 that asks for longer is honored over it (`retry_delay()`).
 	 */
 	const RETRY_DELAY = 30;
 
@@ -270,7 +270,7 @@ class WPCPM_Students_Sync {
 	 * The moment the three-hour cycle every sync is staggered inside is measured from.
 	 *
 	 * The syncs need one origin between them, or each would place itself against whichever
-	 * neighbour happened to be on the clock and a missing event would silently move the rest.
+	 * neighbor happened to be on the clock and a missing event would silently move the rest.
 	 * This sync's next run is that origin: it is scheduled first (the Students module boots
 	 * before the others), and subtracting its own offset from it gives the cycle's start. A site
 	 * where it is not on the clock yet falls back to now, which is where `schedule()` is about to
@@ -1501,7 +1501,7 @@ class WPCPM_Students_Sync {
 	 * The report row an address's account follows, when the run fetched more than one.
 	 *
 	 * Twenty-three students today have two Students Reports rows for one address: a
-	 * re-enrolment whose first row now says Dropped out, a pair an automation created twice.
+	 * re-enrollment whose first row now says Dropped out, a pair an automation created twice.
 	 * Until this the account went to whichever row Airtable returned first and every other
 	 * row for the address was a conflict on every run, so a re-enrolled student stayed bound
 	 * to last term's row - inactive, with no mentor and no Student role - while the active
@@ -1824,7 +1824,7 @@ class WPCPM_Students_Sync {
 	 *
 	 * **An account stamped with another report record is not, by itself, a conflict.** It was:
 	 * the first row to claim an address kept the account for good, and a second row for the
-	 * same person - the re-enrolment, the pair an automation made twice - was refused on every
+	 * same person - the re-enrollment, the pair an automation made twice - was refused on every
 	 * run while the account followed the stale row into inactivity. Now a row the address's
 	 * account should follow (`governs()`) takes the account over when the stamped record has
 	 * left the tracked set or is a same-address row that lost the choice (`may_follow()`), and

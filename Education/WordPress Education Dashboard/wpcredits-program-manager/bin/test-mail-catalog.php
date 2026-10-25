@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, 105', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 105 );
+ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, 110', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 110 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -134,7 +134,7 @@ foreach ( $emails as $id => $e ) {
 	}
 }
 ck(
-	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, and the invitation with no sender named, its own since 1.122.23, each with who receives it',
+	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, the invitation with no sender named, its own since 1.122.23, and the five about a school\'s details of Institutions release 2, each with who receives it',
 	isset( $named['institutions'] ) ? $named['institutions'] : null,
 	array(
 		'institution-applied'          => 'Institution application received, to the applicant / applicant',
@@ -155,6 +155,11 @@ ck(
 		'agreement-reminder'           => 'Collaboration Agreements from institutions waiting for review, to Administrators / administrator',
 		'agreement-template'           => 'Collaboration Agreement for an institution could not be generated, to Administrators / administrator',
 		'member-last'                  => 'Institution has no members left, to Administrators / administrator',
+		'institution-details-saved'     => 'Institution details corrected, to Administrators / administrator',
+		'institution-details-request'   => 'Institution asks to correct its details, to Administrators / administrator',
+		'institution-details-approved'  => 'Correction of institution details approved, to the institution / institution',
+		'institution-details-declined'  => 'Correction of institution details declined, to the institution / institution',
+		'institution-details-withdrawn' => 'Institution withdrew its request to correct its details, to Administrators / administrator',
 	)
 );
 ck(

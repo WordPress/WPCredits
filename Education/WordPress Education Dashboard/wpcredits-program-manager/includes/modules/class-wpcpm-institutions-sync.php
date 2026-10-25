@@ -59,7 +59,7 @@ class WPCPM_Institutions_Sync {
 	 * (`WPCPM_Students_Sync::EVERY_THREE_HOURS`), so the offset is the whole of what keeps two of
 	 * them out of the same WP-Cron request and off the same Airtable rate limit: the students run
 	 * takes +0:30, the mentors run +1:00 and this one +1:30. Measured from the cycle's own start
-	 * rather than from the neighbour before it, so a sync whose event is missing cannot drag the
+	 * rather than from the neighbor before it, so a sync whose event is missing cannot drag the
 	 * rest along with it.
 	 *
 	 * Minutes, not hours: +0:30 and +1:30 are not whole numbers of hours, so one unit has to serve
@@ -68,6 +68,20 @@ class WPCPM_Institutions_Sync {
 	 * time constants would fatal there instead of in the method that uses it.
 	 */
 	const SCHEDULE_OFFSET_MINUTES = 90;
+
+	/**
+	 * The arguments the one extra run `read_again_soon()` asks for is scheduled with, on the recurring
+	 * run's own hook.
+	 *
+	 * An event with none would be the recurring run's twin: `schedule()` reads the hook's next event to
+	 * check its recurrence, would find the extra run first, take it for a recurrence gone wrong and clear
+	 * both. With its own arguments it is an event of its own, which `wp_next_scheduled()` can be asked
+	 * about and `unschedule()` clears by name. `cron_daily()` is handed the word and reads nothing from it.
+	 */
+	const AGAIN_ARGS = array( 'again' );
+
+	/** Minutes after a patch of the index the extra run comes: past the end of the run that was reading. */
+	const AGAIN_MINUTES = 5;
 
 	/**
 	 * Agreement options rebuilt per slice, once the index is written.
@@ -255,6 +269,7 @@ class WPCPM_Institutions_Sync {
 	 */
 	public static function unschedule() {
 		wp_clear_scheduled_hook( self::CRON_DAILY );
+		wp_clear_scheduled_hook( self::CRON_DAILY, self::AGAIN_ARGS );
 		wp_clear_scheduled_hook( self::CRON_TICK );
 	}
 
@@ -526,6 +541,43 @@ class WPCPM_Institutions_Sync {
 	 */
 	private static function release_lock() {
 		delete_option( self::OPT_LOCK );
+	}
+
+	/**
+	 * Whether a tick holds the run's lock at this moment.
+	 *
+	 * The lock is a row of the options table whose value is the time the tick took it (`acquire_lock()`),
+	 * and it holds for `LOCK_TIMEOUT` at most. The tick is another request, so the row is read in one
+	 * statement straight from the table, as `WPCPM_Lock::until()` reads a row, and never through this
+	 * request's options cache.
+	 *
+	 * @return bool
+	 */
+	public static function lock_held() {
+		$taken = WPCPM_Lock::until( self::OPT_LOCK );
+
+		return $taken > 0 && time() - $taken < self::LOCK_TIMEOUT;
+	}
+
+	/**
+	 * Ask for one more run a few minutes from now, when a tick holds the run's lock at this moment.
+	 *
+	 * For a row of the index patched on the site (`WPCPM_Institutions_Index::patch()`) once Airtable has
+	 * taken the change: the records phase writes the whole index from what it read of the base, and a
+	 * tick that read the table before the patch writes the old values after it, which would stand until
+	 * the next three-hour run. One more run, `AGAIN_MINUTES` later on the recurring run's hook, reads the
+	 * change from the base, so the site heals in minutes. Only one is asked for at a time
+	 * (`AGAIN_ARGS`), however many patches are made meanwhile; the run is the recurring run's, so it
+	 * keeps to the automatic sync setting and leaves a run still in progress alone.
+	 *
+	 * @return bool Whether a run was asked for.
+	 */
+	public static function read_again_soon() {
+		if ( ! self::lock_held() || false !== wp_next_scheduled( self::CRON_DAILY, self::AGAIN_ARGS ) ) {
+			return false;
+		}
+
+		return true === wp_schedule_single_event( time() + self::AGAIN_MINUTES * MINUTE_IN_SECONDS, self::CRON_DAILY, self::AGAIN_ARGS );
 	}
 
 	/**

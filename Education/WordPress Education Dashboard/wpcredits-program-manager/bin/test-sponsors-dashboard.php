@@ -75,7 +75,7 @@
  *   keeps a detail as core's one-line cleaner leaves it (bin/stubs/cleaners.php), and the esc_html()
  *   stand-in keeps an entity it finds, as core's does.
  * - **The toolbar entry is membership, never the role**, and login routing mirrors the
- *   institution page's: an explicit destination is honoured, and the setting is a switch.
+ *   institution page's: an explicit destination is honored, and the setting is a switch.
  *
  * Run from the plugin root:  php bin/test-sponsors-dashboard.php
  */

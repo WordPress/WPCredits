@@ -34,7 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * after writing its post. One function producing the option from the two sources is
  * what makes "an accepted one stands" have a single meaning everywhere.
  *
- * **Why a legacy post is materialised.** Every real Confirmed institution signed years ago,
+ * **Why a legacy post is materialized.** Every real Confirmed institution signed years ago,
  * so the fastest route to a settled row is a manager typing `On file` and the Drive link into
  * the grid. The rebuild turns such a row into a legacy post (author 0, event `recorded in
  * Airtable`) so the site side agrees with the grid side, and so the upload, return and replace
@@ -175,7 +175,7 @@ class WPCPM_Institution_Agreement {
 	/** The `Agreement Status` value a grid-recorded legacy agreement carries. */
 	const AIRTABLE_ON_FILE = 'On file';
 
-	/** The event a materialised legacy post carries, and the only way one is told from a manager's. */
+	/** The event a materialized legacy post carries, and the only way one is told from a manager's. */
 	const EVENT_RECORDED = 'recorded in Airtable';
 
 	/** The hosts a Drive link may point at. Exact, lowercase, no `www.`. */
@@ -499,7 +499,7 @@ class WPCPM_Institution_Agreement {
 	 * option is deleted by a revoke and may be absent or unreadable after a lost write, and a
 	 * panel must still be able to say "revoked" or "returned" then. The Airtable half comes
 	 * from the option, since the posts know nothing about the base. `route` says which side
-	 * produced the accepted row: `grid` for a legacy post the rebuild materialised from an
+	 * produced the accepted row: `grid` for a legacy post the rebuild materialized from an
 	 * `On file` row, `site` for anything a person did here, empty when nothing is accepted.
 	 *
 	 * @param string $record_id Institutions record ID.
@@ -559,7 +559,7 @@ class WPCPM_Institution_Agreement {
 	 *
 	 * Order matters. The lock is taken first: a held lock means another rebuild or a site
 	 * transition is mid-write, and the right move is to skip and let the next run catch up,
-	 * never to wait or overwrite. The legacy post is materialised before the site half is
+	 * never to wait or overwrite. The legacy post is materialized before the site half is
 	 * computed, so an `On file` row with a Drive link settles in the same call that notices
 	 * it. The option is written last and the lock released after it.
 	 *
@@ -839,7 +839,7 @@ class WPCPM_Institution_Agreement {
 	 *    still says `Not started` is exactly the shape this design exists to prevent, and a
 	 *    site that wrote its own record first would produce it on every failed PATCH.
 	 * 4. then the post, then the option through `rebuild()`. If the process dies between
-	 *    them, the next reconcile (T12) materialises the post from the `On file` row it now
+	 *    them, the next reconcile (T12) materializes the post from the `On file` row it now
 	 *    finds and settles the institution: the same end state, one sync later.
 	 *
 	 * No mail. Nobody at the institution asked for this and nothing about it is news to
@@ -2023,7 +2023,7 @@ class WPCPM_Institution_Agreement {
 	 * Take a submitted document back before anybody has read it (T4).
 	 *
 	 * A member's control, and a manager's on their behalf. The file goes at once rather than
-	 * on the discard cron's schedule: withdrawing is what somebody does when they realise
+	 * on the discard cron's schedule: withdrawing is what somebody does when they realize
 	 * they attached the wrong document, and "it will be deleted within thirty days" is not
 	 * the answer that person wants. Nothing is mailed, because nothing happened that anyone
 	 * else needs to be told about, and the base was never told the document arrived in a way
@@ -2773,7 +2773,7 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
-	 * Whether a post is one the rebuild materialised from the grid.
+	 * Whether a post is one the rebuild materialized from the grid.
 	 *
 	 * Read from the event rows rather than `post_author` or the kind. An Administrator recording
 	 * an agreement on file by hand, on its institution's page, also makes a legacy post, so the
@@ -2802,7 +2802,7 @@ class WPCPM_Institution_Agreement {
 	 * did not fill it, so the panel's "accepted on" line never reads blank.
 	 *
 	 * @param string $record_id Institutions record ID.
-	 * @param array  $airtable  The normalised block.
+	 * @param array  $airtable  The normalized block.
 	 * @return int The new post's ID, or 0.
 	 */
 	private static function materialise_legacy( $record_id, array $airtable ) {
@@ -2928,7 +2928,7 @@ class WPCPM_Institution_Agreement {
 	 * Which institution this request acts for.
 	 *
 	 * A member's own stamp wins, always. The posted record is the manager's on-behalf form
-	 * saying which row it was drawn on, and honouring it for a member would make a hidden
+	 * saying which row it was drawn on, and honoring it for a member would make a hidden
 	 * input the fence rather than the membership. A manager with neither a posted record nor
 	 * a membership falls through to the switcher, which is where `resolve_institution()`
 	 * keeps that logic for every other screen in the module.
@@ -2982,7 +2982,7 @@ class WPCPM_Institution_Agreement {
 	 *
 	 * `$_FILES` is the one superglobal a form field cannot be read out of with
 	 * `WPCPM_Request`, so it is read here, once, and each member is cast on the way out. The
-	 * name is sanitised and capped because it is kept for display beside the reviewer's
+	 * name is sanitized and capped because it is kept for display beside the reviewer's
 	 * checklist; it is never used on disk and never put in a header.
 	 *
 	 * @return array{error: int, size: int, tmp_name: string, name: string}
@@ -3000,7 +3000,7 @@ class WPCPM_Institution_Agreement {
 			return $empty;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above for the nonce; every member is cast or sanitised on the lines below, which is the only sanitising an upload admits. What makes the bytes safe is the six checks `handle_upload()` runs over them, not a filter on this array.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above for the nonce; every member is cast or sanitized on the lines below, which is the only sanitizing an upload admits. What makes the bytes safe is the six checks `handle_upload()` runs over them, not a filter on this array.
 		$raw = wp_unslash( $_FILES['wpcpm_agreement_file'] );
 
 		return array(
@@ -3317,7 +3317,7 @@ class WPCPM_Institution_Agreement {
 			);
 
 			// The account of the manager who decided, not whoever the cron is running as. A
-			// row the reconcile materialised from the grid records nobody, and the name the
+			// row the reconcile materialized from the grid records nobody, and the name the
 			// base already carries is then the only one anybody has.
 			if ( $by instanceof WP_User && '' !== trim( (string) $by->display_name ) ) {
 				$cells[ $fields['agr_accepted_by'] ] = $by->display_name;

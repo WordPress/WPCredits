@@ -142,7 +142,7 @@ $student = new WP_User( 3, 'Lu', array( WPCPM_Roles::ROLE_STUDENT ) );
 $admin   = new WP_User( 4, 'Admin', array( 'administrator' ) );
 $editor  = new WP_User( 5, 'Mentor who edits', array( WPCPM_Roles::ROLE_MENTOR, 'editor' ) );
 
-// Recognised by their Airtable link and nothing else - no role. This is the shape the
+// Recognized by their Airtable link and nothing else - no role. This is the shape the
 // reported bug had: the toolbar offered them the Mentor Report Card while the redirects
 // treated them as a stranger, so they logged in and sat on the wp-admin dashboard. The
 // first version of this suite gave every fixture the role and therefore agreed with the

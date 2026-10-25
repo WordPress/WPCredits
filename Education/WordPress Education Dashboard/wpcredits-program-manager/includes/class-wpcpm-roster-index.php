@@ -234,7 +234,7 @@ class WPCPM_Roster_Index {
 	 * lengths and the comparison strip above them all describe the same semester. Note
 	 * that a group's length and `WPCPM_Cohort::participation()`'s `signed_up` answer
 	 * different questions: participation also drops `Interested`, which is a lead rather
-	 * than an enrolment, while a lead that somehow reached a roster is still shown here.
+	 * than an enrollment, while a lead that somehow reached a roster is still shown here.
 	 *
 	 * @param string $record_id Institutions record ID.
 	 * @param string $cohort    A `WPCPM_Cohort` key to narrow to; anything else shows every row.

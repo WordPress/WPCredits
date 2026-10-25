@@ -1,24 +1,27 @@
 # Program documentation
 
-Three guides, one per audience:
+Five guides, one per audience:
 
 | Guide | Contains | Published as |
 | --- | --- | --- |
 | [Student guide](students.md) | The Student Report Card and booking a call. | `/student-guide/`, Student level |
 | [Mentor guide](mentors.md) | The Mentor Report Card, availability, **and the whole student guide**. | `/mentor-guide/`, Mentor level |
-| [Administrator guide](administrators.md) | wp-admin, settings, access levels, the sync, **and both guides above**. | `/program-manager-guide/`, Administrators only |
+| [Administrator guide](administrators.md) | wp-admin, settings, access levels, the sync, **and the mentor and student guides**. | `/program-manager-guide/`, Administrators only |
+| [Sponsor guide](sponsors.md) | The Sponsor Dashboard, offers and codes, what a company can see, and posts. | The handbook's `sponsor-guide/` page |
+| [Institution guide](institutions.md) | The Institution Dashboard: students, enrollment, the semester report, the institution's details and the Collaboration Agreement. | `/institution-guide/`, Institution level and Administrators, made at launch |
 
 ## Why each guide repeats the ones below it
 
 The plugin's access levels do not nest. A mentor holds `wpcpm_view_mentor_content` and nothing
 else, so a mentor opening a Student-level page gets the restricted notice - a mentor guide that
 *linked* to the student guide would be sending them somewhere they cannot go. Each guide is
-therefore complete on its own.
+therefore complete on its own. The sponsor and institution guides stand alone: they carry the
+signing-in section they share with the others and nothing of the student or mentor guides.
 
 ## Do not edit the guides
 
-`students.md`, `mentors.md`, `administrators.md` and everything in `build/` are generated. Edit
-the sections in `sections/` and rebuild:
+`students.md`, `mentors.md`, `administrators.md`, `sponsors.md`, `institutions.md` and everything in
+`build/` are generated. Edit the sections in `sections/` and rebuild:
 
 ```
 php bin/build-docs.php

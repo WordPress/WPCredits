@@ -254,7 +254,7 @@ class WPCPM_Request {
 	public static function posted_raw( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? (string) wp_unslash( $_POST[ $n ] ) : $f; }
 }
 /**
- * The flash: each outcome a press leaves is journalled in the order it was set, and a refused
+ * The flash: each outcome a press leaves is journaled in the order it was set, and a refused
  * form's typing waits per user and channel, as user meta keeps it, until `take()` hands it back
  * once and clears it, or `sweep()` clears it unread. bin/test-flash.php pins the real class.
  */

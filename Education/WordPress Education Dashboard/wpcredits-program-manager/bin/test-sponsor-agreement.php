@@ -263,7 +263,7 @@ class WPCPM_Roles {
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
 class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
-// The private store, in memory, journalling every call: half the assertions below are about a
+// The private store, in memory, journaling every call: half the assertions below are about a
 // call that must not have happened.
 class WPCPM_Private_Files {
 	const OPT_KEY = 'wpcpm_private_key';
@@ -313,7 +313,7 @@ class WPCPM_Sponsor_Interests {
 }
 class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { return 0; } }
 /**
- * The flash: each outcome a press leaves is journalled in the order it was set, and a refused
+ * The flash: each outcome a press leaves is journaled in the order it was set, and a refused
  * form's typing waits per user and channel, as user meta keeps it, until `take()` hands it back
  * once and clears it, or `sweep()` clears it unread. bin/test-flash.php pins the real class.
  */

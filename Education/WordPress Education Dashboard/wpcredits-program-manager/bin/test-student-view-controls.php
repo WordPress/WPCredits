@@ -1,9 +1,10 @@
 <?php
 /**
- * The two controls on one student's detail view: the export link, and the status card.
+ * The controls on one student's detail view: the export link, the status card, the sign-in line and
+ * the folded correction form.
  *
- * The card itself is `bin/test-institution-student-view.php`'s. This suite is about the two
- * things hung off it, and about the four properties that make them safe to hang there:
+ * The card itself is `bin/test-institution-student-view.php`'s. This suite is about the things
+ * hung off it, and about the properties that make them safe to hang there:
  *
  * - **Neither is drawn for a reader the fence refuses.** Not as a disabled button, not with a
  *   sentence explaining what they may not do. Refusing the card refuses both; refusing the
@@ -23,6 +24,12 @@
  *   whose write cannot be taken back, and it draws a card box of its own.
  * - **The sign-in line sits under the name, inside the card, and is handed the student on
  *   screen.** What it says and who may press its button are `bin/test-institution-resend.php`'s.
+ * - **"Correct this student's details" is the existing form, folded inside the card.** It is
+ *   handed the Students Reports record and the student's account, it is drawn only when the form
+ *   itself draws (a reader refused `ACT_EDIT_STUDENT` gets no folded summary with nothing behind
+ *   it), it stays closed until a save has left something to say, and it sits between the Student
+ *   Report Card and the export link. Who may correct and what is saved are
+ *   `bin/test-institution-student-form.php`'s.
  *
  * Nothing real is loaded but the card under test, `WPCPM_Roles`, `WPCPM_Request` and the two
  * small value classes it formats with. The fence, the export and the status card are stand-ins
@@ -56,6 +63,8 @@ $GLOBALS['decisions'] = array();
 $GLOBALS['export_calls'] = array();
 $GLOBALS['status_calls'] = array();
 $GLOBALS['invite_calls'] = array();
+$GLOBALS['correct_calls']   = array();
+$GLOBALS['correct_message'] = false;
 
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $roles = array();
@@ -193,6 +202,7 @@ class WPCPM_Roster_Index {
  */
 class WPCPM_Institution_Policy {
 	const ACT_VIEW_STUDENT  = 'view_student';
+	const ACT_EDIT_STUDENT  = 'edit_student';
 	const ACT_CHANGE_STATUS = 'change_status';
 	const ACT_EXPORT        = 'export';
 
@@ -338,6 +348,52 @@ class WPCPM_Institution_Resend {
 	}
 }
 
+/**
+ * The correction form, to the contract the card has to satisfy.
+ *
+ * Kept: it is handed the Students Reports record and a context naming the institution and the student's
+ * account; a record that is not a record ID draws nothing; the decision is asked for itself with
+ * `ACT_EDIT_STUDENT` on the student's account and a refusal draws nothing at all; and what it draws is a
+ * `wpcpm-institution__card` section with a heading of its own, which holds the outcome of the last save
+ * when there is one. Dropped: the five controls, the nonce and the handler, which belong to
+ * `bin/test-institution-student-form.php`.
+ */
+class WPCPM_Institution_Student_Form {
+	const ANCHOR        = 'wpcpm-student-form';
+	const CLASS_MESSAGE = 'wpcpm-institution__edit-message';
+
+	public static function render_form( $record, array $context ) {
+		$record  = trim( (string) $record );
+		$user_id = isset( $context['user_id'] ) ? (int) $context['user_id'] : 0;
+
+		$GLOBALS['correct_calls'][] = array( 'record' => $record, 'context' => $context );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			return;
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_EDIT_STUDENT,
+			WPCPM_Institution_Policy::subject_student_account( $user_id )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			return;
+		}
+
+		printf(
+			'<section class="wpcpm-institution__card wpcpm-institution__edit" id="%s"><h3 class="wpcpm-institution__heading">Correct this student\'s details</h3>',
+			esc_attr( self::ANCHOR )
+		);
+
+		if ( $GLOBALS['correct_message'] ) {
+			echo '<p class="' . self::CLASS_MESSAGE . ' is-error" role="status">Nothing was saved.</p>';
+		}
+
+		echo '<form class="wpcpm-institution__edit-form" method="post"><input type="hidden" name="record" value="' . esc_attr( $record ) . '" /></form></section>';
+	}
+}
+
 /** The three display helpers and the script handle the card uses. */
 class WPCPM_Mentors_Dashboard {
 	const SCRIPT = 'wpcpm-mentor-dashboard';
@@ -431,6 +487,8 @@ function card( $institution, $user_id, $reader, array $allow = array() ) {
 	$GLOBALS['export_calls'] = array();
 	$GLOBALS['status_calls'] = array();
 	$GLOBALS['invite_calls'] = array();
+	$GLOBALS['correct_calls']   = array();
+	$GLOBALS['correct_message'] = false;
 
 	ob_start();
 	WPCPM_Institution_Student_View::render( $institution, $user_id, array() );
@@ -501,6 +559,7 @@ $GLOBALS['users'] = array(
 	12 => new WP_User( 12, 'Cleo Silva', 'cleo@example.test', array( WPCPM_Roles::ROLE_STUDENT ) ),
 	20 => new WP_User( 20, 'Ines Ruiz', 'ines@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ),
 	21 => new WP_User( 21, 'Bruno Bianchi', 'bruno@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ),
+	13 => new WP_User( 13, 'Student Without Record', 'norecord@example.test', array( WPCPM_Roles::ROLE_STUDENT ) ),
 	30 => new WP_User( 30, 'Program Manager', 'pm@example.test', array( 'administrator' ) ),
 );
 
@@ -521,6 +580,12 @@ $GLOBALS['umeta'] = array(
 		WPCPM_Students_Sync::META_RECORD_ID   => $report_b,
 		WPCPM_Students_Sync::META_INSTITUTION => $inst_b,
 		WPCPM_Students_Sync::META_PROGRAM     => array( 'name' => 'Bea Rossi', 'program' => 'In Sensei' ),
+	),
+	// 13 has an account and a roster stamp and no progress record at all, so there is no
+	// Student Report Card and nothing for the correction form to be keyed to.
+	13 => array(
+		WPCPM_Students_Sync::META_INSTITUTION => $inst_a,
+		WPCPM_Students_Sync::META_PROGRAM     => array( 'name' => 'Student Without Record', 'program' => 'In Sensei' ),
 	),
 	// The dashboard's fifth list: an account the reports side placed, with no Students row
 	// behind it at all. She has a report record and no roster row.
@@ -749,6 +814,99 @@ ck( 'an Administrator reading another student asks about that student', $GLOBALS
 
 card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_VIEW_STUDENT => false ) );
 ck( 'a reader refused the card never reaches the line', $GLOBALS['invite_calls'], array() );
+
+/* ---- 6. the correction form is folded inside the card -------------------- */
+
+echo "\n=== The correction form is folded inside the card ===\n";
+
+$ana      = card( $inst_a, 10, 20 );
+$folded   = '<details class="wpcpm-institution__correct"><summary class="wpcpm-institution__correct-toggle">Correct this student&#039;s details</summary><section class="wpcpm-institution__card wpcpm-institution__edit" id="wpcpm-student-form">';
+$one_form = substr_count( $ana, '<details class="wpcpm-institution__correct"' );
+
+ck( 'the form is drawn once, in a closed disclosure whose summary names it', array( $one_form, false !== strpos( $ana, $folded ) ), array( 1, true ) );
+ck( 'and the disclosure holds the form and closes right after it', 1 === preg_match( '#<details class="wpcpm-institution__correct">.*</form></section></details>#s', $ana ), true );
+ck( 'a closed disclosure carries no open attribute', false !== strpos( $ana, '<details class="wpcpm-institution__correct" open' ), false );
+
+// The Students Reports record, and not the Students record the status card is keyed to: the form
+// is claimed against the report, and the nonce it mints is keyed to it.
+ck( 'the form is handed the Students Reports record and the student on screen',
+	$GLOBALS['correct_calls'], array( array( 'record' => $report_a, 'context' => array( 'institution' => $inst_a, 'user_id' => 10 ) ) ) );
+ck( 'and never the Students record', $GLOBALS['correct_calls'][0]['record'] === $row_a, false );
+ck( 'nor the reader', $GLOBALS['correct_calls'][0]['context']['user_id'] === 20, false );
+
+ck( 'the fence was asked about editing, on the student\'s own account',
+	in_array( array( WPCPM_Institution_Policy::ACT_EDIT_STUDENT, 10 ), $GLOBALS['decisions'], true ), true );
+
+// Between the Student Report Card and the export link: both of those are read, and this is the
+// one block that changes something, so it comes after the reading and before the way out.
+ck( 'it sits after the Student Report Card and before the export link, inside the card',
+	order( $ana, array(
+		'wpcpm-institution__student-export',
+		'wpcpm-institution__correct',
+		'wpcpm-report__disclosure',
+		'wpcpm-institution__status',
+	) ),
+	array( 'wpcpm-report__disclosure', 'wpcpm-institution__correct', 'wpcpm-institution__student-export', 'wpcpm-institution__status' ) );
+
+$opens_before_form = substr( $ana, 0, (int) strpos( $ana, 'wpcpm-institution__correct' ) );
+ck( 'in the student card, not beside it', substr_count( $opens_before_form, '<section' ) - substr_count( $opens_before_form, '</section>' ), 1 );
+
+$by_manager = card( $inst_a, 10, 30 );
+ck( 'an Administrator reading the same student gets the same folded form', false !== strpos( $by_manager, $folded ), true );
+
+// A refusal to edit is a form the card is not given: not a closed summary with nothing behind it.
+$no_edit = card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_EDIT_STUDENT => false ) );
+
+ck( 'a reader allowed the card and refused the edit gets no disclosure', false !== strpos( $no_edit, 'wpcpm-institution__correct' ), false );
+ck( 'and no summary line naming a form they cannot use', false !== strpos( $no_edit, 'Correct this student&#039;s details</summary>' ), false );
+ck( 'while the rest of the card is there', array( false !== strpos( $no_edit, 'Ana Lopez' ), '' !== export_href( $no_edit ), false !== strpos( $no_edit, 'wpcpm-institution__status' ) ), array( true, true, true ) );
+
+$shut = card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_VIEW_STUDENT => false ) );
+ck( 'a reader refused the card is never even offered the form', array( $shut, $GLOBALS['correct_calls'] ), array( '', array() ) );
+
+// Closing the other two controls leaves this one alone: three permissions, three controls.
+$no_export_no_status = card( $inst_a, 10, 20, array( WPCPM_Institution_Policy::ACT_EXPORT => false, WPCPM_Institution_Policy::ACT_CHANGE_STATUS => false ) );
+ck( 'closing the export and the status change does not close the correction form', false !== strpos( $no_export_no_status, $folded ), true );
+
+$no_record = card( $inst_a, 13, 20 );
+ck( 'a student with no progress record is given no disclosure', array( false !== strpos( $no_record, 'wpcpm-institution__correct' ), false !== strpos( $no_record, 'no Student Report Card to show' ) ), array( false, true ) );
+
+// A save that was refused or that changed something leaves its sentence inside the form, and a
+// sentence inside a closed disclosure is a sentence nobody reads. So the disclosure opens for it.
+$GLOBALS['correct_message'] = true;
+ob_start();
+WPCPM_Institution_Student_View::render( $inst_a, 10, array() );
+$said = (string) ob_get_clean();
+
+ck( 'the disclosure opens when the last save left a message', false !== strpos( $said, '<details class="wpcpm-institution__correct" open><summary' ), true );
+ck( 'and the message is inside it', 1 === preg_match( '#<details class="wpcpm-institution__correct" open>.*Nothing was saved\..*</details>#s', $said ), true );
+$GLOBALS['correct_message'] = false;
+
+// Every class the disclosure prints has a rule in the stylesheet this page loads. The form folded inside it
+// is a part of the card and not a second one: on the WPCredits theme every `wpcpm-institution__card` takes
+// a 32px inset, so a card inside a card would be inset twice unless the plugin takes it off.
+$css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
+
+foreach ( array( 'wpcpm-institution__correct', 'wpcpm-institution__correct-toggle' ) as $class ) {
+	ck( sprintf( '.%s is styled on this page', $class ), false !== strpos( $css, '.' . $class . ' {' ), true );
+}
+
+ck( 'the form inside the disclosure is not a second card: no second inset, no repeated heading',
+	array(
+		false !== strpos( $css, '.wpc-institution-page .wpcpm-institution__correct > .wpcpm-institution__card {' . "\n\tpadding-inline: 0;" ),
+		false !== strpos( $css, '.wpcpm-institution__correct .wpcpm-institution__edit > .wpcpm-institution__heading {' . "\n\tdisplay: none;" ),
+	),
+	array( true, true ) );
+
+$dashes = array();
+
+foreach ( array( 'includes/modules/class-wpcpm-institution-student-view.php', 'bin/test-student-view-controls.php' ) as $rel ) {
+	if ( preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( WPCPM_PLUGIN_DIR . $rel ) ) ) {
+		$dashes[] = $rel;
+	}
+}
+
+ck( 'no dash but the plain hyphen in the card or this suite', $dashes, array() );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

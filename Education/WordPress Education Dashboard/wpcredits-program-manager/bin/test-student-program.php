@@ -143,7 +143,7 @@ function get_users( $args = array() ) {
 		}
 
 		// `fields` decides the shape, the way WordPress does it: `'ID'` gives a flat list of IDs,
-		// `array( 'ID' )` gives rows, anything else gives users. Honoured rather than ignored
+		// `array( 'ID' )` gives rows, anything else gives users. Honored rather than ignored
 		// because the production code asks for `'ID'` specifically - to keep core's user-meta
 		// cache from warning - and a stub that always returned objects would pass whichever shape
 		// the code used and prove nothing.
@@ -567,7 +567,7 @@ ck( 'the 150-hour track keeps the sensei badge', WPCPM_Program::badge( WPCPM_Pro
 ck( 'the 50-hour track has its own', WPCPM_Program::badge( WPCPM_Program::STATUS_50H ), '50h' );
 ck( 'and so does the Developer Track', WPCPM_Program::badge( WPCPM_Program::STATUS_DEV ), 'dev' );
 ck( 'and the Designer Track', WPCPM_Program::badge( WPCPM_Program::STATUS_DESIGN ), 'design' );
-// The two statuses decision 21 added. Before this they fell through to the sensei colour, which
+// The two statuses decision 21 added. Before this they fell through to the sensei color, which
 // told a mentor that a paused student was still working.
 ck( 'Paused is its own badge, not the sensei one', WPCPM_Program::badge( 'Paused' ), 'paused' );
 ck( 'Pending graduation is its own too', WPCPM_Program::badge( 'Pending graduation' ), 'pending' );

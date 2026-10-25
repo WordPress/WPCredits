@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.35
+Stable tag: 1.123.36
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,18 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.36 =
+
+* An institution corrects its own details on its Institution Dashboard. The card "Your institution's details", in Representatives and agreement, reads as a list first. The contact person, their role, who signs the agreement and their title, the languages the students study in and the institution's page about WordPress Credits are saved at once, the contact person in Airtable as well; the name, website, city, country and contact's email are asked for, and wait for an Administrator. A refused save keeps what was typed and names what was refused, and two tabs pressing the same save write it once.
+* A request to correct an institution's details waits in "Requests from institutions" on the Administrator Dashboard, with what is on record now beside what was asked for, and is approved or declined as a whole. Approve writes the change to Airtable and to the site, Decline needs a note the school reads, and the person who asked is told either way by email. One request waits per school at a time; the school may withdraw it, and a second decision or withdrawal from another tab is refused without a second email. The emails are in Tools > Emails.
+* A student's card on the Institution Dashboard holds "Correct this student's details", folded, for an account allowed to correct students, in plain words and keeping what was typed when a save is refused. Its Mentor row reads "No mentor yet" when the student has none.
+* Enroll students has "Download a sample list", a CSV the site makes when it is pressed, with the four headings the import reads and one example student.
+* Removed from the Institution Dashboard: the institution's notes card (no institution held a note) and the school's "Ask for a mentor". A mentor request already on record is still decided on the Administrator Dashboard.
+* A new Institution guide, built with the other four, describes the Institution Dashboard; the dashboard's Institution guide button opens the site's page at /institution-guide/ once it is published, and the handbook until then.
+* An institution's history reads in today's words, whatever the date of the entry: members joining and leaving as the People card says it, "Administrator" for every old "program manager", every request's outcome and who withdrew it, and the new details entries.
+* The Pipeline's "Find an institution" orders names as the other long lists do. A correction written to the site's copy of the institutions list no longer loses a correction saved at the same moment, and one saved while a sync is reading Airtable is read again within minutes.
+* The code's comments are in US English.
 
 = 1.123.35 =
 

@@ -169,7 +169,7 @@ echo "\n=== The mentors sync's schedule ===\n";
 // own: its schedule was pinned nowhere at all, which is how it stayed daily while four docblocks
 // said otherwise. What is held here: the recurrence, the minute, and that the move off daily runs
 // once. The cycle's origin is the students sync's next run less its own offset, so every position
-// is measured from one point rather than chained off a neighbour.
+// is measured from one point rather than chained off a neighbor.
 //
 // **With nothing on the `cron_schedules` filter**, which is the activation request exactly:
 // `register_activation_hook()` fires where `plugins_loaded` has already run, so nothing has

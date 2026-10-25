@@ -2,7 +2,7 @@
 /**
  * Does pressing Save actually save?
  *
- * This exists because it did not. Adding a field took three edits - render it, sanitise it in
+ * This exists because it did not. Adding a field took three edits - render it, sanitize it in
  * `WPCPM_Settings::save()`, and add it to a hand-written allowlist in the save handler - and
  * forgetting the third produced a field that renders, accepts what you type, posts it, and
  * discards it without a word. Twenty-one settings were in that state, including the AI
@@ -47,7 +47,7 @@ function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return $s; }
 /**
- * Honours the protocol allowlist, as the real one does, and does what core does since 6.9 with text that
+ * Honors the protocol allowlist, as the real one does, and does what core does since 6.9 with text that
  * names no scheme: it is given https:// when https is the first protocol allowed, http:// otherwise, and
  * the spaces typed in it become %20, all before the allowlist is asked. So "not a link at all" is kept
  * as https://not%20a%20link%20at%20all where https is the only protocol allowed, as it is for the
@@ -462,8 +462,8 @@ ck( 'the handler derives its keys from the defaults, not a hand-written list',
     ),
     array( true, false ) );
 
-// A round trip through the real sanitiser for every non-boolean field, with a value that is
-// recognisably ours coming back. Every key in the defaults must appear here or in the
+// A round trip through the real sanitizer for every non-boolean field, with a value that is
+// recognizably ours coming back. Every key in the defaults must appear here or in the
 // boolean probe below, and that is asserted, so a setting cannot be added without its
 // round trip - the failure this file exists for is a field that saves nothing.
 $probe = array(

@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Links to the posts in the "Updates" category.
  *
  * Announcements are ordinary posts rather than anything of this plugin's own, so they are
- * written, categorised and scheduled with the editor everybody already knows, and they have a
+ * written, categorized and scheduled with the editor everybody already knows, and they have a
  * permalink somebody can send to somebody else.
  *
  * **Who sees what is decided by `WPCPM_Content_Access`, not here.** A post's "Program access"

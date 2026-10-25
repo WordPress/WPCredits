@@ -299,7 +299,7 @@ class WPCPM_Airtable {
 			// A refusal that is about the base rather than this record: the client hands the
 			// same object back for every call that follows, so the slice has to stop.
 			if ( ! empty( $GLOBALS['base_refusal'] ) ) {
-				// Four shapes of "the whole import, not this row": a backoff the client honours
+				// Four shapes of "the whole import, not this row": a backoff the client honors
 				// before sending, the base being unwell, a table that is not there (a wrong
 				// students-table setting), and a request the client built too large.
 				switch ( $GLOBALS['base_refusal'] ) {

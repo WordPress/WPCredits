@@ -24,8 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * login, with nothing for the account holder to set up first.
  *
  * That is the whole design, and the alternative is worse in a way that is easy to miss: letting
- * people sign in with a password and then blocking the site until they enrol an authenticator
- * leaves a window in which somebody holding a stolen password signs in and enrols *their own*
+ * people sign in with a password and then blocking the site until they enroll an authenticator
+ * leaves a window in which somebody holding a stolen password signs in and enrolls *their own*
  * authenticator, ending up better attached to the account than its owner. Turning on emailed
  * codes by role closes that window, because the second factor exists before anyone has
  * configured anything. An emailed code is only as good as the mailbox, which is why the account

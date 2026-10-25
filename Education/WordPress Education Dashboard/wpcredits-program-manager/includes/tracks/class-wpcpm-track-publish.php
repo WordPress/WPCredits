@@ -49,7 +49,7 @@ final class WPCPM_Track_Publish {
 	const OPT_LOCK = 'wpcpm_track_publish_lock';
 
 	/**
-	 * How long a lock is honoured before a run that never let it go is treated as dead.
+	 * How long a lock is honored before a run that never let it go is treated as dead.
 	 *
 	 * `add_option()` is what makes claiming the lock atomic: it returns false when the option is
 	 * already there, whatever value is stored. That is unrelated to T2a's final review, which

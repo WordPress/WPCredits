@@ -248,7 +248,7 @@ class WPCPM_Ceiling {
 	 *
 	 * Each part goes through `sanitize_key()` except one that is a hash, which is kept whole.
 	 * Callers pass `wp_hash()` of an address rather than the address, and that is the point
-	 * of the rule: a raw address sanitised loses its dots, so two addresses could share a key,
+	 * of the rule: a raw address sanitized loses its dots, so two addresses could share a key,
 	 * and a hashed one is never readable from the options table.
 	 *
 	 * @param string ...$parts Key parts, joined with `:`.

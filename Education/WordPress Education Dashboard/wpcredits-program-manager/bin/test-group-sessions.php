@@ -368,7 +368,7 @@ $nobody = WPCPM_Mentor_Notes::add_for_records( $group, 'Nobody came.', array() )
 ck( 'a note with no attendees is refused',
     is_wp_error( $nobody ) ? $nobody->get_error_code() : '', 'wpcpm_note_nobody' );
 
-// Partial permission is not something one shared note can honour, so it is refused outright.
+// Partial permission is not something one shared note can honor, so it is refused outright.
 $GLOBALS['caps'] = false;
 $denied          = WPCPM_Mentor_Notes::add_for_records( $group, 'Not mine.', array( 'recSTUDENT0000009' ) );
 

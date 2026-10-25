@@ -18,7 +18,7 @@
  *   held, and the managers are not paged - so a flood cannot close the form to the one real
  *   institution applying that afternoon. Both are exercised as sequences of real submissions
  *   rather than by calling `WPCPM_Ceiling` directly, because what is being pinned is the
- *   handler's behaviour at the boundary and not the counter's.
+ *   handler's behavior at the boundary and not the counter's.
  * - **The per-actor ceiling stands in front of everything that writes.** A hundred posts with
  *   a wrong nonce leave one option row and no transient at all, because a refusal that hands
  *   nothing back travels as its own slug instead of two rows in the options table, and because
@@ -30,7 +30,7 @@
  * - **An answer is drawn even when the form cannot be.** The confirmation link keeps working
  *   after the form is switched off, and the `closed` sentence is only ever stashed while it is.
  * - **The honeypot is a hold, not a refusal, and the sender is told nothing.** A bot that
- *   learns which attempt was recognised writes a better one.
+ *   learns which attempt was recognized writes a better one.
  * - **Three columns never reach the stored fields.** `Country`, `Current Stage` and
  *   `Privacy Policy Compliance` are the server's, and the fields meta is what an approval
  *   writes to Airtable unchanged.
@@ -1046,6 +1046,20 @@ ck( 'a page address naming any other scheme is refused, never stored as typed', 
 ) );
 ck( 'and so is a website that names one', WPCPM_Institution_Application::clean( 'Website', 'javascript:alert(1)' )['problem'], 'bad_url' );
 
+// The two web addresses are capped at their 200 characters on the server too (Institutions release
+// 2): the box's `maxlength` is a courtesy a hand-made request never meets. The cap is on the address
+// as it is kept, the scheme a scheme-less one gains included, so no address longer than the box
+// takes is ever stored.
+$edge = 'https://example.edu/' . str_repeat( 'a', 180 );
+
+ck( 'the Website is held to 200 characters, as the form\'s box is', isset( WPCPM_Institution_Application::fields()['Website']['maxlength'] ) ? WPCPM_Institution_Application::fields()['Website']['maxlength'] : null, 200 );
+ck( 'an address of exactly 200 characters is kept, in both answers', array( strlen( $edge ), WPCPM_Institution_Application::clean( 'Website', $edge ), WPCPM_Institution_Application::clean( 'credits_page', $edge ) ), array( 200, array( 'ok' => true, 'value' => $edge, 'problem' => '' ), array( 'ok' => true, 'value' => $edge, 'problem' => '' ) ) );
+ck( 'one of 201 is refused as too long, in both answers, and nothing of it is kept', array( WPCPM_Institution_Application::clean( 'Website', $edge . 'a' ), WPCPM_Institution_Application::clean( 'credits_page', $edge . 'a' ) ), array( array( 'ok' => false, 'value' => null, 'problem' => 'too_long' ), array( 'ok' => false, 'value' => null, 'problem' => 'too_long' ) ) );
+ck( 'one of 500 characters is refused too', WPCPM_Institution_Application::clean( 'Website', 'example.edu/' . str_repeat( 'a', 500 ) )['problem'], 'too_long' );
+ck( 'a scheme-less address is counted as it will be kept, with the scheme: 194 typed characters become 202', array( WPCPM_Institution_Application::clean( 'Website', 'example.edu/' . str_repeat( 'a', 182 ) )['problem'], WPCPM_Institution_Application::clean( 'Website', 'example.edu/' . str_repeat( 'a', 180 ) )['ok'] ), array( 'too_long', true ) );
+ck( 'an address that names another scheme is still refused as that, not as too long', WPCPM_Institution_Application::clean( 'credits_page', 'javascript:' . str_repeat( 'a', 300 ) )['problem'], 'bad_url' );
+ck( 'the sentence for a refusal says how many characters the answer may have', WPCPM_Institution_Application::problem_text( 'too_long', array( 'maxlength' => 200 ) ), 'Please keep this to 200 characters or fewer.' );
+
 echo "\n-- what is drawn, and when nothing is ---------------------------------\n";
 
 // Since 1.123.24 the form links the WordPress.org privacy policy (the site's owner, 22 October
@@ -1531,7 +1545,7 @@ echo "\n-- the dwell token ----------------------------------------------------\
  * Put the form's nonce in the request, which is where `check_token()` reads it from.
  *
  * The token is signed with it, so a token checked against no nonce at all is a forgery as
- * far as this class is concerned - which is the behaviour, and is why the direct checks below
+ * far as this class is concerned - which is the behavior, and is why the direct checks below
  * arm it first.
  */
 function arm_nonce() {
@@ -1914,6 +1928,17 @@ ck( 'and the form handed back says the answer could not be read, the address gon
 	strpos( $again, 'javascript:' ),
 ), array( true, false ) );
 
+// The same cap on a post: a hand-made request is not stopped by the box's `maxlength`.
+reset_world();
+$too_long = submit( answers( array( 'Website' => 'https://example.edu/' . str_repeat( 'a', 200 ), 'credits_page' => 'https://example.edu/' . str_repeat( 'a', 200 ) ) ) );
+
+ck( 'a website and a page address over 200 characters are each refused as too long, and nothing is stored', array( $too_long['outcome'], $too_long['stash']['problems'] ?? null, count( stored() ) ), array( 'again', array( 'Website' => 'too_long', 'credits_page' => 'too_long' ), 0 ) );
+
+follow( $too_long['url'] );
+$again = WPCPM_Institution_Application::render();
+
+ck( 'and the form handed back says how long an address may be, under each', substr_count( $again, 'Please keep this to 200 characters or fewer.</span>' ), 2 );
+
 // A row filed as spam skips requiredness, so a title with no signer is not refused there; it is
 // not kept either, or approving that row once it was put back in the queue would copy a title
 // with nobody to hold it. The tampered answers that are cleaned are still dropped on that path.
@@ -2130,7 +2155,7 @@ ck( 'following it confirms the address', verify( array( 'app' => $parts[1], 't' 
 ck( 'so a held application ends up carrying the stamp approval demands', is_int( get_post_meta( $held->ID, WPCPM_Institution_Application::META_VERIFIED, true ) ), true );
 
 // Spam is the one hold that stays silent in both directions: the address is forged or a probe,
-// so a reply is wrong, and the sender learns nothing about which attempt was recognised.
+// so a reply is wrong, and the sender learns nothing about which attempt was recognized.
 reset_world();
 $quiet = submit( answers(), array( 'honeypot' => 'x' ) );
 
@@ -2201,7 +2226,7 @@ ck( 'and with the form on and no countries to offer, sees nothing at all', WPCPM
 echo "\n-- when storage itself fails -----------------------------------------\n";
 
 // The one branch nothing else in this suite reaches: `wp_insert_post()` refusing. It is
-// contract behaviour rather than an accident. The sender is told the truth - nothing saved and
+// contract behavior rather than an accident. The sender is told the truth - nothing saved and
 // nothing sent - and gets every word back, because the alternative is an institution retyping
 // three paragraphs it has no reason to believe will survive this time either.
 

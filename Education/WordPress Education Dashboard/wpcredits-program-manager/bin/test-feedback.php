@@ -1075,7 +1075,7 @@ ck( 'a manager may not', array( control_for( $theirs, $list_column ), control_fo
 ck( 'while the questions above stay editable for both',
     array( control_for( $own, $proud ), control_for( $theirs, $proud ) ), array( 'editable', 'editable' ) );
 
-// Greyed-out boxes with no explanation read as a bug, and the next thing that happens is somebody
+// Grayed-out boxes with no explanation read as a bug, and the next thing that happens is somebody
 // asking the student to send their password.
 ck( 'and the page says why, rather than leaving grey boxes to be puzzled over',
     array(

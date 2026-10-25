@@ -1143,7 +1143,7 @@ class WPCPM_Students_Dashboard {
 	/**
 	 * Whether this user should be routed to their report card.
 	 *
-	 * Recognised the same way the toolbar link recognises them, then narrowed twice: not a
+	 * Recognized the same way the toolbar link recognizes them, then narrowed twice: not a
 	 * program manager, not anyone who can write posts. Those two exclusions are also what
 	 * makes it safe to start from `is_student()`, which counts somebody linked to an Airtable
 	 * record without holding the role.
@@ -1161,7 +1161,7 @@ class WPCPM_Students_Dashboard {
 		// The same test the toolbar link uses - the role *or* an Airtable link - and not the
 		// role alone. `is_student()` counts somebody matched to a record without holding the role,
 		// which is how a student provisioned before the role existed, or one whose role was
-		// removed and restored by hand, is still recognised. Testing the role here meant the
+		// removed and restored by hand, is still recognized. Testing the role here meant the
 		// toolbar offered them their page while the redirects behaved as though they were not
 		// a student at all: they logged in and stayed on the wp-admin dashboard.
 		if ( ! self::is_student( $user ) ) {
@@ -1205,7 +1205,7 @@ class WPCPM_Students_Dashboard {
 		}
 
 		// A specific destination was asked for - typically because they followed a link to
-		// gated content and were bounced through the login form. Honour it; overriding would
+		// gated content and were bounced through the login form. Honor it; overriding would
 		// take them somewhere they did not ask to go.
 		//
 		// Asked through `is_explicit_redirect()` rather than by testing for a non-empty

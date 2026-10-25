@@ -10,7 +10,7 @@
  * The shape that produced every fence bug in this module's history, an empty stamp meeting
  * an empty subject, is asserted refused.
  *
- * The last two sections read source, not behaviour: every `admin_post_` handler the
+ * The last two sections read source, not behavior: every `admin_post_` handler the
  * institution classes register must decide before it touches Airtable, and no module file
  * but the policy may compare institution IDs with `===`. Both scan whatever files exist
  * when the suite runs, so a handler added in a later phase is covered the day it lands.
@@ -269,6 +269,10 @@ $expected_map = array(
 	'edit_semester_report' => array( 'manager' ),
 	'manage_members'       => array( 'manager', 'member' ),
 	'agreement'            => array( 'manager', 'member' ),
+	// Institutions release 2: a school's own details, corrected and withdrawn by the accounts that act
+	// for it and decided on by the Administrators. Gated like every action but the agreement: a school
+	// whose agreement is not settled has no details card.
+	'edit_details'         => array( 'manager', 'member' ),
 );
 
 ck( 'grounds() is exactly the expected map, in order', $P::grounds(), $expected_map );

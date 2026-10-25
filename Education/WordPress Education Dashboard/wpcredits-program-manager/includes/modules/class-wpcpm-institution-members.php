@@ -351,7 +351,7 @@ class WPCPM_Institution_Members {
 	 * is an administrator, and an account left with no role at all becomes a Subscriber;
 	 * the account itself is kept, it is a person. One audit row with the reason. When no
 	 * live member remains, the last-member rule: the institution's pending invitations are
-	 * cancelled and the managers are told, because an institution nobody can act for is
+	 * canceled and the managers are told, because an institution nobody can act for is
 	 * the one that pages a manager.
 	 *
 	 * The sync's revoke phase calls `detach( $id, 'revoked', 0 )` per member rather than
@@ -444,7 +444,7 @@ class WPCPM_Institution_Members {
 	 *
 	 * @param int    $user_id   The account whose invitations end with its membership.
 	 * @param string $record_id The institution the membership was of.
-	 * @return int How many were cancelled.
+	 * @return int How many were canceled.
 	 */
 	private static function cancel_invitations_by( $user_id, $record_id ) {
 		if ( ! class_exists( 'WPCPM_Institution_Invite' ) || ! method_exists( 'WPCPM_Institution_Invite', 'cancel_by_actor' ) ) {
@@ -463,7 +463,7 @@ class WPCPM_Institution_Members {
 	 * guard as `cancel_invitations_by()` and for the same reason; a stub until 1.123.26.
 	 *
 	 * @param string $record_id Airtable record ID.
-	 * @return int How many were cancelled.
+	 * @return int How many were canceled.
 	 */
 	private static function cancel_invitations_for( $record_id ) {
 		if ( ! class_exists( 'WPCPM_Institution_Invite' ) || ! method_exists( 'WPCPM_Institution_Invite', 'cancel_for_institution' ) ) {
@@ -636,7 +636,7 @@ class WPCPM_Institution_Members {
 	}
 
 	/**
-	 * Normalise a user argument for the readers.
+	 * Normalize a user argument for the readers.
 	 *
 	 * Null means the current user, as everywhere in the plugin. A number that is not a
 	 * real ID is nobody, not the current user: 0 is what an unset actor or a failed lookup

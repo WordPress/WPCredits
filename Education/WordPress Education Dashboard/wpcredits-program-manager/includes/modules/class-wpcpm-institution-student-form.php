@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **The Students row that is written is the one `claim()` proved, and nothing else.** The
  * claim reads that row live and allows the action on the `Educational Institutions` link
  * that row carries, so its record ID is the only Students record the request holds an
- * authorisation for. The second resolution in `students_row_for()` - the report's `Students`
+ * authorization for. The second resolution in `students_row_for()` - the report's `Students`
  * link when it has one and `LOWER({Email})` otherwise, the two Airtable tables having no
  * populated link between them today - confirms that identity and never supplies one. An
  * address that answers with two rows, or with a row the claim did not name, refuses that
@@ -47,6 +47,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * written back with the stale value the form had shown, on a save that meant to change one
  * other thing. What a change *replaces* is still read live, because that is what the write
  * is about to overwrite and an audit row saying otherwise would be a false one.
+ *
+ * **A refused post keeps what was typed** (the design's section 3.3), as the plugin's other forms
+ * do and the details card does: whatever the post asked to change and did not save, refused by its
+ * own rules, refused by the base or left unfiled for a student the records hold twice, waits for
+ * the account's next drawing of the form (`WPCPM_Typed_Text::keep()`, keyed to the account by the
+ * flash and to the student by the form's name) and comes back in its box as it was typed, while
+ * what was saved comes back as the caches now hold it. Every post the claim allows forgets what an
+ * earlier refusal kept, so a save that went through never meets an older typing at the next draw.
  *
  * **One audit row per save**, naming the actor, the field, both values and the ground the
  * decision was allowed on, because "who changed this student's end date, and were they
@@ -73,6 +81,15 @@ final class WPCPM_Institution_Student_Form {
 	/** The form's anchor, so a save lands back on the form it came from. */
 	const ANCHOR = 'wpcpm-student-form';
 
+	/**
+	 * The class of the paragraph that prints the outcome of the last save.
+	 *
+	 * A constant because the student card reads it: the form is folded inside a closed disclosure there,
+	 * and the card opens it when this class is among what the form drew, so a save's sentence is not left
+	 * inside a section nobody has opened. The stylesheet names the same class.
+	 */
+	const CLASS_MESSAGE = 'wpcpm-institution__edit-message';
+
 	/** The posted array every allowlisted value arrives in. Nothing else in it is read. */
 	const FIELD_GROUP = 'student';
 
@@ -87,6 +104,12 @@ final class WPCPM_Institution_Student_Form {
 
 	/** `students_row_for()`: the Students table holds no row for this student at all. */
 	const CODE_NONE = 'wpcpm_students_none';
+
+	/**
+	 * The most characters a refused post's date or choice is kept with: a date is ten, and the longest
+	 * of the program's choices well under this. A name is kept with the room its box was drawn with.
+	 */
+	const TYPED_ROOM = 100;
 
 	/**
 	 * Hooks.
@@ -166,7 +189,7 @@ final class WPCPM_Institution_Student_Form {
 	 */
 	public static function labels() {
 		return array(
-			'reports|Name'                 => __( 'Name on the report record', 'wpcredits-program-manager' ),
+			'reports|Name'                 => __( 'Name on the Student Report Card', 'wpcredits-program-manager' ),
 			'students|Full Name'           => __( 'Full name', 'wpcredits-program-manager' ),
 			'students|Start Date'          => __( 'Start date', 'wpcredits-program-manager' ),
 			'students|End Date'            => __( 'End date', 'wpcredits-program-manager' ),
@@ -290,6 +313,11 @@ final class WPCPM_Institution_Student_Form {
 		$values  = self::current( $user_id, $rows );
 		$settled = count( $rows ) < 2;
 
+		// What the account's last post of this form typed and did not save, given back once and taken
+		// whether or not a box is drawn for it, so none of it waits in the account's meta to surprise a
+		// later visit.
+		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record ) );
+
 		// `fields` is null for every ground this module ships, so this narrows nothing today.
 		// It is here for the reason every other renderer in the module has it: a field-scoped
 		// ground added later has to narrow every form without one of them being edited, and
@@ -336,14 +364,21 @@ final class WPCPM_Institution_Student_Form {
 				// The Students half is drawn without its controls when the site cannot say
 				// which Students row this student is: a form that took a date it could not
 				// file would be a promise it cannot keep.
-				self::render_field( $table, $name, $spec, (string) $drawn[ $slot ], 'reports' === $table || $settled );
+				self::render_field(
+					$table,
+					$name,
+					$spec,
+					(string) $drawn[ $slot ],
+					isset( $kept[ $slot ] ) && is_string( $kept[ $slot ] ) ? $kept[ $slot ] : null,
+					'reports' === $table || $settled
+				);
 			}
 		}
 
 		if ( ! $settled ) {
 			printf(
 				'<p class="wpcpm-institution__edit-note">%s</p>',
-				esc_html__( 'This student has more than one row in the program\'s student records, so the site cannot tell which of them a change belongs to. An Administrator needs to merge them first. The name on the report record can still be corrected.', 'wpcredits-program-manager' )
+				esc_html__( 'This student has more than one entry in the program\'s records, so the site cannot tell which of them a change belongs to. An Administrator needs to merge them first. The name on the Student Report Card can still be corrected.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -362,15 +397,19 @@ final class WPCPM_Institution_Student_Form {
 	 * A select prints only the choices this site holds, so an option that is not one of them
 	 * cannot be picked; a value already stored that is not among them is still shown, and
 	 * marked, because a school looking at a record should see what it says rather than a
-	 * blank where a value is.
+	 * blank where a value is. A choice a refused post kept is shown the same way.
 	 *
-	 * @param string $table   `reports` or `students`.
-	 * @param string $name    The base's own column name.
-	 * @param array  $spec    The field spec from `fields()`.
-	 * @param string $value   The current value, as the caches hold it.
-	 * @param bool   $enabled Whether this control may be used.
+	 * A box a refused post kept a typing for is drawn with that typing, exactly as it was typed
+	 * (`WPCPM_Typed_Text::kept_attr()`), and every other box with what the caches hold.
+	 *
+	 * @param string      $table   `reports` or `students`.
+	 * @param string      $name    The base's own column name.
+	 * @param array       $spec    The field spec from `fields()`.
+	 * @param string      $value   The current value, as the caches hold it.
+	 * @param string|null $typed   What a refused post kept for this box, or null.
+	 * @param bool        $enabled Whether this control may be used.
 	 */
-	private static function render_field( $table, $name, array $spec, $value, $enabled ) {
+	private static function render_field( $table, $name, array $spec, $value, $typed, $enabled ) {
 		$slot   = $table . '|' . $name;
 		$labels = self::labels();
 		$label  = isset( $labels[ $slot ] ) ? $labels[ $slot ] : $name;
@@ -378,6 +417,8 @@ final class WPCPM_Institution_Student_Form {
 		$field  = self::FIELD_GROUP . '[' . self::key( $table, $name ) . ']';
 		$off    = $enabled ? '' : ' disabled="disabled"';
 		$type   = isset( $spec['type'] ) ? (string) $spec['type'] : 'text';
+		$value  = null === $typed ? $value : (string) $typed;
+		$shown  = null === $typed ? $value : WPCPM_Typed_Text::kept_attr( $typed );
 
 		echo '<p class="wpcpm-institution__edit-field">';
 
@@ -432,7 +473,7 @@ final class WPCPM_Institution_Student_Form {
 				esc_attr( 'date' === $type ? 'date' : 'text' ),
 				esc_attr( $id ),
 				esc_attr( $field ),
-				esc_attr( $value ),
+				esc_attr( $shown ),
 				isset( $spec['maxlength'] ) ? ' maxlength="' . esc_attr( (string) (int) $spec['maxlength'] ) . '"' : '',
 				$off // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
 			);
@@ -452,7 +493,7 @@ final class WPCPM_Institution_Student_Form {
 		$detail = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
 		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
 
-		// Routing, not authorisation: which card prints a sentence, never who may read one.
+		// Routing, not authorization: which card prints a sentence, never who may read one.
 		if ( '' === $status || 0 !== strcmp( trim( (string) $record ), $about ) ) {
 			return;
 		}
@@ -464,7 +505,8 @@ final class WPCPM_Institution_Student_Form {
 		}
 
 		printf(
-			'<p class="wpcpm-institution__edit-message is-%1$s" role="status">%2$s%3$s</p>',
+			'<p class="%1$s is-%2$s" role="status">%3$s%4$s</p>',
+			esc_attr( self::CLASS_MESSAGE ),
 			esc_attr( $messages[ $status ][0] ),
 			esc_html( $messages[ $status ][1] ),
 			'' === $detail ? '' : ' ' . esc_html( $detail )
@@ -482,23 +524,23 @@ final class WPCPM_Institution_Student_Form {
 	 * @return array<string, array{0:string,1:string}>
 	 */
 	public static function messages() {
-		$merge = __( 'This student has more than one row in the program\'s student records, so the site cannot tell which of them the change belongs to, and an Administrator needs to merge them first.', 'wpcredits-program-manager' );
-		$none  = __( 'The program\'s student records hold no row for this student yet, so there is nothing to write the dates or the field of study to. An Administrator completes the record.', 'wpcredits-program-manager' );
+		$merge = __( 'This student has more than one entry in the program\'s records, so the site cannot tell which of them the change belongs to, and an Administrator needs to merge them first.', 'wpcredits-program-manager' );
+		$none  = __( 'The program\'s records hold no entry for this student yet, so there is nothing to write the dates or the field of study to. An Administrator completes this student\'s entry.', 'wpcredits-program-manager' );
 
 		return array(
 			'student-saved'         => array( 'success', __( 'Saved. The change is in the program records and on your roster.', 'wpcredits-program-manager' ) ),
 			'student-nothing'       => array( 'info', __( 'Nothing changed, so nothing was saved.', 'wpcredits-program-manager' ) ),
 			'student-partly'        => array( 'error', __( 'Saved, except for the following. A date is written as YYYY-MM-DD, an end date has to be after the start date, a placement cannot run longer than a year, and the field of study has to be one of the program\'s own choices.', 'wpcredits-program-manager' ) ),
 			'student-rejected'      => array( 'error', __( 'Nothing was saved. A date is written as YYYY-MM-DD, an end date has to be after the start date, a placement cannot run longer than a year, and the field of study has to be one of the program\'s own choices. What was refused:', 'wpcredits-program-manager' ) ),
-			'student-merge'         => array( 'error', __( 'The name on the report record was saved. The dates and the field of study were not.', 'wpcredits-program-manager' ) . ' ' . $merge ),
+			'student-merge'         => array( 'error', __( 'The name on the Student Report Card was saved. The dates and the field of study were not.', 'wpcredits-program-manager' ) . ' ' . $merge ),
 			'student-merge-only'    => array( 'error', __( 'Nothing was saved.', 'wpcredits-program-manager' ) . ' ' . $merge ),
-			'student-no-row'        => array( 'error', __( 'The name on the report record was saved. The dates and the field of study were not.', 'wpcredits-program-manager' ) . ' ' . $none ),
+			'student-no-row'        => array( 'error', __( 'The name on the Student Report Card was saved. The dates and the field of study were not.', 'wpcredits-program-manager' ) . ' ' . $none ),
 			'student-no-row-only'   => array( 'error', __( 'Nothing was saved.', 'wpcredits-program-manager' ) . ' ' . $none ),
 			'student-refused'       => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
 			'student-unreadable'    => array( 'error', __( 'Nothing was saved: the program records could not be read just now, so the site did not write anything it could not check first. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'student-airtable'      => array( 'error', __( 'Nothing was saved: the program records refused the change. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
 			'student-part-airtable' => array( 'error', __( 'Part of this change was saved and part was not: the program records refused the rest. Reload this card to see what stands, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
-			'student-unfiled'       => array( 'error', __( 'Nothing was saved: this student\'s row in the program records is not linked to any institution, so there is nothing to record the change against and this form does not make a change it cannot record. An Administrator links the row first.', 'wpcredits-program-manager' ) ),
+			'student-unfiled'       => array( 'error', __( 'Nothing was saved: this student\'s entry in the program\'s records is not linked to any institution, so there is nothing to record the change against and this form does not make a change it cannot record. An Administrator links the entry first.', 'wpcredits-program-manager' ) ),
 			'student-unlogged'      => array( 'error', __( 'The change reached the program records, but the entry saying who made it could not be written, so it is not in this institution\'s history. Tell your program contact, and do not save again until they have looked.', 'wpcredits-program-manager' ) ),
 		);
 	}
@@ -515,7 +557,7 @@ final class WPCPM_Institution_Student_Form {
 	 * for anything, because the next step makes an HTTP request on this site's Airtable
 	 * credentials and a cross-site POST must not be able to cause one. Then `claim()`, which
 	 * decides from cache, reads the live Students row and decides again against the link that
-	 * row carries - so the write is authorised against what the base says now and not against
+	 * row carries - so the write is authorized against what the base says now and not against
 	 * what the last sync cached. Only then is the request read at all, and only through the
 	 * allowlist.
 	 *
@@ -534,27 +576,47 @@ final class WPCPM_Institution_Student_Form {
 		// reader is told. Split this way so a suite can drive each step and read its answer:
 		// the 215-line handler this replaces had twelve exits woven through one body, and the
 		// branch that fires when the audit row will not insert had never been executed by any
-		// test. Behaviour is unchanged; only the seams are new.
+		// test. Behavior is unchanged; only the seams are new.
 		$claim = self::resolve_claim( $record );
 
 		if ( isset( $claim['outcome'] ) ) {
 			self::bounce( $claim['outcome'], '', $record );
 		}
 
-		$diff = self::diff_cells( $record, $claim );
+		// What an earlier refusal of this form kept is stale once the form is posted again. Forgotten
+		// only once the claim has allowed the post, as the details card forgets only past its policy
+		// check: a post the fence refuses changes nothing for the account that sent it.
+		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
+
+		// **What the form was drawn from, recomputed here rather than carried in the request.**
+		// `render_form()` fills every control from `current()`, and this is that same call on the
+		// same two site-held caches. It is what the diff compares against, so a cell counts as
+		// changed only when the person changed it; comparing against the live row instead would
+		// count every cell where the caches had drifted, and write each of them back with the value
+		// the form happened to show. It is also what a refused post's typing is told apart by.
+		//
+		// The roster asked for is the claim's, not the card's - the request says nothing about
+		// which institution this is, here as everywhere else in this handler. The two are the
+		// same roster whenever the index and the live link agree, and when they do not the
+		// card the reader is looking at is itself about to be corrected by a sync.
+		$shown = self::current( $claim['user_id'], self::index_rows( $claim['institution'], $claim['user_id'] ) );
+		$diff  = self::diff_cells( $record, $claim, $shown );
 
 		if ( isset( $diff['outcome'] ) ) {
+			self::keep_typing( $record, $shown, array() );
 			self::bounce( $diff['outcome'], self::listing( $diff['rejected'] ), $record );
 		}
 
 		$written = self::write_cells( $record, $diff );
 
 		if ( isset( $written['outcome'] ) ) {
+			self::keep_typing( $record, $shown, array() );
 			self::bounce( $written['outcome'], '', $record );
 		}
 
 		$final = self::record_outcome( $record, $claim, $written );
 
+		self::keep_typing( $record, $shown, array_keys( $written['changes'] ) );
 		self::bounce( $final['outcome'], $final['listing'], $record );
 	}
 
@@ -586,10 +648,10 @@ final class WPCPM_Institution_Student_Form {
 
 		// **The identity of what is about to be written.** `claim()` read this Students row
 		// live and allowed the action on the `Educational Institutions` link that row carries,
-		// so this record ID is the only Students record this request holds an authorisation
+		// so this record ID is the only Students record this request holds an authorization
 		// for. It is taken from the claim and from nowhere else - a row resolved a second time
 		// out of a cache is a different question with its own answer, and a write that landed
-		// on that answer would be a write nobody authorised.
+		// on that answer would be a write nobody authorized.
 		$students_id = isset( $claim['record']['id'] ) ? trim( (string) $claim['record']['id'] ) : '';
 
 		// The institution the audit row is filed under, from the same decision that allowed
@@ -625,28 +687,14 @@ final class WPCPM_Institution_Student_Form {
 	 *
 	 * @param string $record Students Reports record ID.
 	 * @param array  $claim  Step one's answer.
+	 * @param array  $shown  What the form was drawn from (`current()`), slot to value.
 	 * @return array Either `outcome` and `rejected`, or `changes`, `rejected`, `students_cells`,
 	 *               `reports_cells`, `blocked` and `students_id` (emptied when blocked).
 	 */
-	private static function diff_cells( $record, array $claim ) {
+	private static function diff_cells( $record, array $claim, array $shown ) {
 		$decision    = $claim['decision'];
 		$before      = $claim['before'];
 		$students_id = $claim['students_id'];
-		$institution = $claim['institution'];
-		$user_id     = $claim['user_id'];
-
-		// **What the form was drawn from, recomputed here rather than carried in the request.**
-		// `render_form()` fills every control from `current()`, and this is that same call on
-		// the same two site-held caches. It is what the diff below compares against, so a cell
-		// counts as changed only when the person changed it; comparing against the live row
-		// instead would count every cell where the caches had drifted, and write each of them
-		// back with the value the form happened to show.
-		//
-		// The roster asked for is the claim's, not the card's - the request says nothing about
-		// which institution this is, here as everywhere else in this handler. The two are the
-		// same roster whenever the index and the live link agree, and when they do not the
-		// card the reader is looking at is itself about to be corrected by a sync.
-		$shown = self::current( $user_id, self::index_rows( $institution, $user_id ) );
 
 		// The reports row, for three things and no more: the current `Name`, the `Students`
 		// link and the address. Read through the report form's own cached reader, which the
@@ -1458,6 +1506,62 @@ final class WPCPM_Institution_Student_Form {
 			'students|End Date'            => $read( $row, 'end' ),
 			'students|Your field of study' => '' !== $read( $row, 'field_of_study' ) ? $read( $row, 'field_of_study' ) : $read( $program, 'field_of_study' ),
 		);
+	}
+
+	/**
+	 * The form, as `WPCPM_Typed_Text::keep()` names it: the correction of one student's report.
+	 *
+	 * The account is the flash's, so the name needs only the record: what one account typed for one
+	 * student comes back on that student's form for that account, and on no other.
+	 *
+	 * @param string $record Students Reports record ID.
+	 * @return string
+	 */
+	private static function typed_form( $record ) {
+		return 'student:' . trim( (string) $record );
+	}
+
+	/**
+	 * Keep what a post typed and did not save, for the one time the form is drawn again.
+	 *
+	 * Every box the post carried, as typed and not cleaned, except a box posted back as it was drawn,
+	 * which the form draws so again, and a box whose change was saved, which comes back as the caches
+	 * now hold it. Each is kept with the room its box was drawn with, a date or a choice with
+	 * `TYPED_ROOM`. When nothing is left, nothing is kept.
+	 *
+	 * @param string   $record Students Reports record ID.
+	 * @param array    $shown  What the form was drawn from, slot to value.
+	 * @param string[] $landed The slots this post saved.
+	 */
+	private static function keep_typing( $record, array $shown, array $landed ) {
+		$posted = self::posted();
+		$typed  = array();
+		$room   = array();
+
+		foreach ( self::fields() as $table => $columns ) {
+			foreach ( $columns as $name => $spec ) {
+				$slot = $table . '|' . $name;
+				$key  = self::key( $table, $name );
+
+				if ( ! isset( $posted[ $key ] ) || ! is_scalar( $posted[ $key ] ) || in_array( $slot, $landed, true ) ) {
+					continue;
+				}
+
+				$value = (string) $posted[ $key ];
+				$had   = isset( $shown[ $slot ] ) ? (string) $shown[ $slot ] : '';
+
+				if ( 0 === strcmp( trim( $value ), trim( $had ) ) ) {
+					continue;
+				}
+
+				$typed[ $slot ] = $value;
+				$room[ $slot ]  = WPCPM_Typed_Text::kept_room( $had, isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : self::TYPED_ROOM );
+			}
+		}
+
+		if ( array() !== $typed ) {
+			WPCPM_Typed_Text::keep( self::typed_form( $record ), $typed, $room );
+		}
 	}
 
 	/**

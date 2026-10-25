@@ -254,7 +254,7 @@ ck( 'and lowering can be turned off, column and needle together',
 	$airtable->formula_contains( 'WP Profile', array( 'Student-One' ), false ),
 	"FIND('Student-One', {WP Profile}) > 0" );
 
-/* ---- a 429 is honoured --------------------------------------------------- */
+/* ---- a 429 is honored --------------------------------------------------- */
 
 echo "\n=== A 429 records a backoff that every later request honours ===\n";
 

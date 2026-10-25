@@ -198,7 +198,7 @@ final class WPCPM_Semester_Report {
 	 * **Not the column whose label asks about sharing a quote publicly.** That one reads like
 	 * the obvious source and is empty on all 834 rows of the table (design spec section 3): no
 	 * student has ever written into it, and its name is deliberately not spelled out here, so
-	 * that a search of this file for it finds nothing. Every quote in the reference report is recognisably an answer
+	 * that a search of this file for it finds nothing. Every quote in the reference report is recognizably an answer
 	 * to the question below, which is filled on 289 rows, and the permission a student gives
 	 * is about *their feedback*, so this is the feedback it releases. A reader who "corrects"
 	 * this back to the quoting column gets a Student Feedback section that generates empty for
@@ -295,7 +295,7 @@ final class WPCPM_Semester_Report {
 	 * (decision 13 puts several equal accounts on one record) and because a school that
 	 * overwrote a paragraph needs it back. `editor` is supported so `post_content` carries a
 	 * plain-text rendering of the narrative and the revision diff screen shows words rather
-	 * than a serialised blob.
+	 * than a serialized blob.
 	 */
 	public static function register_post_type() {
 		register_post_type(
@@ -471,7 +471,7 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
-	 * The stored snapshot, normalised, or an empty array at a version this code does not know.
+	 * The stored snapshot, normalized, or an empty array at a version this code does not know.
 	 *
 	 * Every key is present and typed on the way out, so a renderer never has to test whether
 	 * the document it was handed has a `teams` key. An empty array is the one answer a caller
@@ -629,7 +629,7 @@ final class WPCPM_Semester_Report {
 				array(
 					'ID'           => $post_id,
 					// The narrative as words, so the revision diff screen shows a paragraph that
-					// changed instead of two serialised arrays. Nothing reads it back.
+					// changed instead of two serialized arrays. Nothing reads it back.
 					'post_content' => self::narrative_text( $narratives ),
 				)
 			),
@@ -1924,7 +1924,7 @@ final class WPCPM_Semester_Report {
 	 * Which Students Reports row is this student's, or null when it cannot be said.
 	 *
 	 * Twenty-three students in the base today have more than one row. The tie is broken on the
-	 * normalised name and on nothing else: none matching or several matching means the row
+	 * normalized name and on nothing else: none matching or several matching means the row
 	 * cannot be identified, and **no field is taken from any of them**. Unioning the rows would
 	 * put one person's closing post beside another person's website under a third person's
 	 * name, and a document that did that would be wrong in a way nobody could see.
@@ -2332,7 +2332,7 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
-	 * The projects list in the order it is printed, and its links labelled.
+	 * The projects list in the order it is printed, and its links labeled.
 	 *
 	 * Sorted on what each student chose to be called, which is the only thing about them this
 	 * document holds. The labels are attached here rather than in the shaping pass because they
@@ -2862,7 +2862,7 @@ final class WPCPM_Semester_Report {
 	/**
 	 * A name reduced to its letters and digits, lowercased.
 	 *
-	 * The same normalisation the import uses to compare a file's name against a roster name.
+	 * The same normalization the import uses to compare a file's name against a roster name.
 	 * Restated here rather than shared because the import's copy is private to a class whose
 	 * job is reading files, and a helper reaching across for it would tie two unrelated
 	 * modules together.

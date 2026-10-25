@@ -667,6 +667,247 @@ preg_match_all( '/\*\*([^*]+)\*\*/', isset( $audience_cells[1] ) ? $audience_cel
 ck( 'and its row of audiences names each by the one name its screen gives it, the people who manage the program as Administrators alone',
     $audience_names[1], array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Administrators' ) );
 
+echo "\n=== The Institution guide says what the dashboard says and promises nothing it does not ===\n";
+
+// The fifth guide is written for the people of a school (Institutions release 2), and the owner's rules
+// for its words are tests like any other. Read as the three sections and as the two files built from
+// them, because a rule that held for the sections and not for the build would be a rule about the
+// wrong file.
+require_once __DIR__ . '/refused-strings.php';
+
+$institution_parts = array( '50-institution-dashboard', '51-institution-students', '52-institution-details' );
+$institution_said  = array();
+
+foreach ( $institution_parts as $institution_part ) {
+	$institution_said[ 'sections/' . $institution_part . '.md' ] = is_file( WPCPM_PLUGIN_DIR . 'docs/sections/' . $institution_part . '.md' ) ? (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/' . $institution_part . '.md' ) : '';
+}
+
+$institution_said['institutions.md']            = is_file( WPCPM_PLUGIN_DIR . 'docs/institutions.md' ) ? (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/institutions.md' ) : '';
+$institution_said['build/institutions.html']    = is_file( WPCPM_PLUGIN_DIR . 'docs/build/institutions.html' ) ? (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/build/institutions.html' ) : '';
+$institution_guide                              = implode( "\n", array_slice( $institution_said, 0, 3 ) );
+
+ck( 'the guide is three sections of some length, built to a Markdown file and a block markup file',
+    array_map( static function ( $text ) { return strlen( $text ) > 1500; }, $institution_said ),
+    array_fill_keys( array_keys( $institution_said ), true ) );
+
+$names_a_person = array();
+
+foreach ( $institution_said as $file => $text ) {
+	if ( array() !== wpcpm_refused_found( $text ) || preg_match( '/@/', $text ) ) {
+		$names_a_person[] = $file;
+	}
+}
+
+ck( 'it names no person, and holds no address or handle: roles only', $names_a_person, array() );
+
+$dashes = array();
+
+foreach ( $institution_said as $file => $text ) {
+	if ( preg_match( '/\x{2013}|\x{2014}|&mdash;|&ndash;|&#821[12];/u', $text ) ) {
+		$dashes[] = $file;
+	}
+}
+
+ck( 'it holds no em or en dash', $dashes, array() );
+
+// Sentences, so a rule about a mentor is read where the word is said: split after a full stop, a
+// question mark or a colon, and at a line.
+$institution_sentences = preg_split( '/(?<=[.?!:])\s+|\n+/', strip_tags( $institution_guide ), -1, PREG_SPLIT_NO_EMPTY );
+$mentor_sentences      = array_values( array_filter( $institution_sentences, static function ( $sentence ) { return false !== stripos( $sentence, 'mentor' ); } ) );
+
+// The program may move away from mentors, students working alone or with an AI mentor: it is
+// undecided, so a school is never told a student will be given one, or to ask for one. What the page
+// shows ("Waiting for a mentor", "No mentor yet") is described as the page shows it and nothing more.
+$mentor_promises = array(
+	'a future'            => '/\b(?:will|shall|going to|soon|eventually|shortly|in time|by the end)\b/i',
+	'a giving'            => '/\b(?:is|are|be|been|gets?|getting|receives?|receiving)\b[^.]{0,24}\b(?:given|assigned|matched|paired|allocated|found)\b/i',
+	'a getting'           => '/\b(?:gets?|getting|receives?|receiving|given)\b[^.]{0,20}\bmentor\b/i',
+	'an asking'           => '/\b(?:ask(?:s|ed|ing)?|request(?:s|ed|ing)?|apply(?:ing)?|need(?:s|ed)?|want(?:s|ed)?)\b[^.]{0,30}\bmentor\b/i',
+	'every student'       => '/\b(?:every|each|all|any)\s+(?:of your\s+)?students?\b/i',
+	'what a mentor does'  => '/\bmentors?\s+(?:guides?|helps?|supports?|works?|answers?|reviews?)\b/i',
+);
+$promised        = array();
+
+foreach ( $mentor_sentences as $sentence ) {
+	foreach ( $mentor_promises as $kind => $pattern ) {
+		if ( preg_match( $pattern, $sentence ) ) {
+			$promised[] = $kind . ': ' . substr( $sentence, 0, 100 );
+		}
+	}
+}
+
+ck( 'it never says a student will be given a mentor, never tells a school to ask for one, and says nothing of what a mentor does',
+    array( count( $mentor_sentences ) >= 4, $promised ), array( true, array() ) );
+
+// "Waiting for a mentor" is described as it is, in the words the page prints under the group's name, and
+// the words are the code's: a guide quoting a sentence the page no longer prints would be a guide
+// promising something else.
+$roster_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' );
+$waiting_note = 'Signed up, with no mentor assigned and no progress record yet.';
+
+ck( 'the guide describes the roster\'s Waiting for a mentor group by the sentence the page prints under it, and the mentor cell and the card\'s Mentor row by theirs',
+    array(
+		false !== strpos( $roster_src, "'" . $waiting_note . "'" ),
+		false !== strpos( $roster_src, "'Waiting for a mentor'" ),
+		false !== strpos( $roster_src, "'No mentor yet.'" ),
+		false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), "'No mentor yet'" ),
+		substr_count( $institution_guide, '**Waiting for a mentor**' ) >= 1,
+		substr_count( $institution_guide, $waiting_note ) >= 1,
+		substr_count( $institution_guide, 'No mentor yet' ) >= 2,
+	),
+    array( true, true, true, true, true, true, true ) );
+
+// What the guide says of the records and of the program: a school is never told about Airtable or the
+// tables behind its page, and the people who run the program are the Administrators.
+$base_named = array();
+
+foreach ( $institution_said as $file => $text ) {
+	if ( preg_match( '/airtable|\bthe base\b|\b(?:Students|Institutions|Reports|Countries) table\b/i', $text ) ) {
+		$base_named[] = $file;
+	}
+}
+
+ck( 'it never names Airtable, the base or a table to a school: the program\'s records are what it says', $base_named, array() );
+
+$bare = array();
+
+foreach ( $institution_said as $file => $text ) {
+	if ( preg_match( '/(?<!Student )(?<!Mentor )\bReport Cards?\b/', $text ) || preg_match( '/Education Hub/', $text ) ) {
+		$bare[] = $file;
+	}
+}
+
+ck( 'it says Student Report Card and Mentor Report Card in full, never a bare Report Card, and never calls the site the Education Hub, which is the hub homepage\'s design and not the site\'s name', $bare, array() );
+
+// The two features this release retired are not in the guide, and neither is their history.
+$retired_named = array();
+
+foreach ( $institution_said as $file => $text ) {
+	if ( preg_match( '/ask(?:ing)? for a mentor|notes? card|institution\'s notes|notes? (?:about|on) (?:a|your) students?|your notes/i', $text ) ) {
+		$retired_named[] = $file;
+	}
+}
+
+ck( 'it says nothing of the notes card or of asking for a mentor, which this release retired, nor of what they were', $retired_named, array() );
+
+// Every word the guide sets in bold is a word the page prints, a button, a link, a heading or a row's
+// label, spelled as the code spells it. Read from the quoted string literals of the shipped source and
+// from nothing else (the tokenizer's constant strings, unquoted the way PHP reads them), so a label
+// that survives only in a comment or a docblock does not count: a control renamed in the code fails
+// here, a name the guide misspells fails here, and a short word like Name or Leave is found only where
+// something prints it.
+$shipped = '';
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) ) as $source_file ) {
+	if ( 'php' !== $source_file->getExtension() ) {
+		continue;
+	}
+
+	foreach ( token_get_all( (string) file_get_contents( $source_file->getPathname() ) ) as $token ) {
+		if ( ! is_array( $token ) || T_CONSTANT_ENCAPSED_STRING !== $token[0] ) {
+			continue;
+		}
+
+		$literal  = (string) $token[1];
+		$body     = substr( $literal, 1, -1 );
+		$shipped .= ( "'" === $literal[0] ? str_replace( array( "\\'", '\\\\' ), array( "'", '\\' ), $body ) : stripcslashes( $body ) ) . "\n";
+	}
+}
+
+$bold_names  = array();
+$not_printed = array();
+
+if ( preg_match_all( '/\*\*([^*]+)\*\*/', $institution_guide, $found ) ) {
+	$bold_names = array_values( array_unique( $found[1] ) );
+}
+
+foreach ( $bold_names as $bold ) {
+	if ( false === strpos( $shipped, $bold ) ) {
+		$not_printed[] = $bold;
+	}
+}
+
+ck( 'every name the guide sets in bold is printed by the plugin exactly as the guide spells it, and there are plenty of them',
+    array( count( $bold_names ) >= 30, $not_printed ), array( true, array() ) );
+
+// The review of the guide (fix round 1): five sentences that were true for a common case and not for
+// every case, each held against the code that makes the exception.
+$students_part = $institution_said['sections/51-institution-students.md'];
+$dashboard_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php' );
+$details_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details.php' );
+$resend_src    = str_replace( "\\'", "'", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-resend.php' ) );
+
+ck( 'a student\'s name opens their card only when the student has an account on the site, and the guide says what a school sees for one who has none: the name without a link, and no card',
+    array(
+		false !== strpos( $roster_src, '<span class="wpcpm-roster__student">%s</span>' ),
+		substr_count( $students_part, 'has an account on this site' ) >= 2,
+		false !== strpos( $students_part, 'the name is not a link and there is no card of their own' ),
+		false !== strpos( $students_part, 'A student without an account has none of this: no correction form, no **Finishing this placement** and no download of their own.' ),
+	),
+    array( true, true, true, true ) );
+
+ck( 'the program contact\'s links are conditional in the code and in the guide: a link to write to them when there is an address, Book a call when there is a booking link',
+    array(
+		false !== strpos( $dashboard_src, "if ( '' !== \$email ) {" ),
+		false !== strpos( $dashboard_src, "if ( '' !== \$calendly ) {" ),
+		false !== strpos( $institution_said['sections/50-institution-dashboard.md'], 'with a link to write to them when the program has an address for them, and **Book a call** when it has a booking link' ),
+	),
+    array( true, true, true ) );
+
+ck( 'the first group\'s details are kept in two places, and the guide says which: the contact person in the program\'s records and the rest on this site, with the sentence for each refusal',
+    array(
+		1 === preg_match( "/'contact_person'\\s*=> array\\(\\s*'group'\\s*=> self::GROUP_NOW,\\s*'label'\\s*=> __\\( 'Contact person'.*?'source'\\s*=> 'airtable'/s", $details_src ),
+		1 === preg_match( "/'contact_role'\\s*=> array\\(\\s*'group'\\s*=> self::GROUP_NOW,\\s*'label'\\s*=> __\\( 'Their role'.*?'source'\\s*=> 'record'/s", $details_src ),
+		false !== strpos( $details_src, "The details could not be kept on the site, so nothing was saved. Please try again in a while." ),
+		false !== strpos( $institution_said['sections/52-institution-details.md'], 'The contact person is written to the program\'s records and the other details are kept on this site, straight away' ),
+		false !== strpos( $institution_said['sections/52-institution-details.md'], 'The details could not be kept on the site, so nothing was saved. Please try again in a while.' ),
+	),
+    array( true, true, true, true, true ) );
+
+ck( 'a student whose invitation is held has a line and no button, in the code and in the guide',
+    array(
+		false !== strpos( $resend_src, 'The program\'s Administrators send this invitation once they have confirmed the account belongs to this student.' ),
+		false !== strpos( $students_part, 'or, for a student whose account the program has still to confirm, a line saying the Administrators send the invitation once they have confirmed it' ),
+	),
+    array( true, true ) );
+
+// The sign-in section every guide carries speaks of the two pages that are shared by a whole company or
+// a whole institution, so the Institution guide does not name a dashboard its reader does not have.
+$shared_sentence = array();
+
+foreach ( array( 'students', 'mentors', 'administrators', 'sponsors', 'institutions' ) as $built_guide ) {
+	$built_text = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/' . $built_guide . '.md' );
+
+	if ( false === strpos( $built_text, "A company's people share one Sponsor Dashboard, and an\ninstitution's people share one Institution Dashboard: everyone attached to the company or the\ninstitution sees the same page." ) ) {
+		$shared_sentence[] = $built_guide;
+	}
+}
+
+ck( 'every guide carries the one sentence about a shared page worded for both a company and an institution', $shared_sentence, array() );
+
+$operations = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/34-admin-operations.md' );
+
+ck( 'the Administrator guide says where the Institution Dashboard\'s guide button goes: a published page at institution-guide, and the handbook until that page exists',
+    array(
+		false !== strpos( $operations, "The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists." ),
+		false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php' ), "const INSTITUTION_GUIDE_PATH = 'institution-guide';" ),
+	),
+    array( true, true ) );
+
+// Said where the guide describes the pages the site reads today, and not in the paragraph of what 1.98.0
+// changed, which that sentence is not.
+$sentence_at   = (int) strpos( $operations, "The Institution Dashboard's guide button follows a published page at `institution-guide`" );
+$paragraph_of  = static function ( $text, $at ) {
+	$start = strrpos( substr( $text, 0, $at ), "\n\n" );
+	$end   = strpos( $text, "\n\n", $at );
+	return substr( $text, false === $start ? 0 : $start + 2, ( false === $end ? strlen( $text ) : $end ) - ( false === $start ? 0 : $start + 2 ) );
+};
+$pages_section = substr( $operations, (int) strpos( $operations, '### Pages the plugin owns' ), (int) strpos( $operations, '### Uninstall' ) - (int) strpos( $operations, '### Pages the plugin owns' ) );
+ck( 'the sentence about the Institution Dashboard\'s guide button sits with the pages the plugin owns, not in the paragraph labeled 1.98.0',
+	array( false !== strpos( $paragraph_of( $operations, $sentence_at ), '(1.98.0)' ), false !== strpos( $pages_section, "The Institution Dashboard's guide button follows" ) ),
+	array( false, true ) );
+ck( 'and the sentence on a withdrawn request ends before the next begins', array( false !== strpos( $operations, 'when an Administrator took it back) Each decision' ), false !== strpos( $operations, 'when an Administrator took it back). Each decision' ) ), array( false, true ) );
+
 echo "\n=== The plugin's description, its readme and its blocks use the same words ===\n";
 
 // The description wp-admin's Plugins screen prints under the plugin's name, read from the main file's

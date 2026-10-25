@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * 1. **The directory name begins with a dot.** Probing this host on 2 September 2026: a file in
  *    `uploads/wpcpm-probe-plain/` answers 200 with its body, and the same file in
  *    `uploads/.wpcpm-probe-dot/` answers 403 with none. The rule that denies dot-prefixed path
- *    segments is nginx's own and needs nobody's cooperation. It is a host behaviour rather than
+ *    segments is nginx's own and needs nobody's cooperation. It is a host behavior rather than
  *    a promise, which is why it is not relied on alone and why `probe()` re-checks it.
  * 2. **Every stored file is encrypted at rest**, AES-256-GCM, one random key per site held in a
  *    non-autoloaded option. If the host ever stops refusing dot paths, what it hands over is
@@ -439,7 +439,7 @@ class WPCPM_Private_Files {
 		}
 
 		// Owner-only, for the hosts where that means something. It is not the control here.
-		@chmod( $absolute, 0640 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- A best effort on hosts that honour it; failure changes nothing about the two controls that do the work.
+		@chmod( $absolute, 0640 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- A best effort on hosts that honor it; failure changes nothing about the two controls that do the work.
 
 		return array(
 			'path'   => $relative,
@@ -481,7 +481,7 @@ class WPCPM_Private_Files {
 			return new WP_Error( 'wpcpm_private_write', __( 'The file could not be written.', 'wpcredits-program-manager' ) );
 		}
 
-		@chmod( $absolute, 0640 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- A best effort on hosts that honour it.
+		@chmod( $absolute, 0640 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- A best effort on hosts that honor it.
 
 		return $name;
 	}

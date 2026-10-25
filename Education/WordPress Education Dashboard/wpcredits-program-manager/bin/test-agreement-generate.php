@@ -1048,7 +1048,7 @@ try {
 // POST to `admin-post.php`; `resolve_institution()` is what reads it, and after Phase 3's
 // review it is the only thing this route asks. The fallback is set to a different record
 // throughout, because "the first institution in the index with a live member" is what a
-// manager silently generates for when the switcher is not honoured, and a document naming
+// manager silently generates for when the switcher is not honored, and a document naming
 // the wrong institution is the failure this block exists to catch.
 ck( "a manager's switcher is honoured, in the nonce",
     array( $GLOBALS['nonces'], $outcome ),
@@ -1097,7 +1097,7 @@ try {
 	$outcome = $e->getMessage();
 }
 
-// The dead mechanism, asserted dead by behaviour. Phase 3 shipped a manager branch here that
+// The dead mechanism, asserted dead by behavior. Phase 3 shipped a manager branch here that
 // read this field and a panel that never posted it, so one job had two answers and the one
 // written in this class was never asked. The resolver won and the branch is gone: a POST
 // carrying this field is now resolved as though it were absent, which for a manager with no

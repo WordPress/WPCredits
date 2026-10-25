@@ -11,7 +11,7 @@
  * - **A cell that begins `=`, `+`, `-` or `@` is prefixed with an apostrophe.** Those four
  *   begin a formula in every spreadsheet the file will be opened in. The import refuses such a
  *   value at the door; an export cannot, because the value is already in the base and was put
- *   there by somebody nobody can go back and ask, so it is neutralised instead. The fixture
+ *   there by somebody nobody can go back and ask, so it is neutralized instead. The fixture
  *   holds one such name, from before the import's rule existed.
  * - **`accessibility` is in no column and no cell of either file.** The fixture student carries
  *   a disclosure on her index row *and* inside her cached `wpcpm_student_program` block, which
@@ -26,6 +26,11 @@
  * - Both files have the same shape, so one can be filed under the other.
  * - The fence is asked with `ACT_EXPORT` and its answer is passed through `scope()`, so a
  *   ground that one day narrows fields narrows the files too.
+ * - **The sample list** (Institutions release 2) is a third file, made on request for the import form's
+ *   "Download a sample list" and never a file of the repository, whose public mirror refuses an address
+ *   in a tracked .csv. Its handler asks `ACT_ADD_STUDENT`, the import's own question, on the institution
+ *   the page resolves, behind a nonce keyed to that institution; the file it sends is read in a child
+ *   process, since the handler ends the request.
  *
  * Run from the plugin root:  php bin/test-institution-export.php
  */
@@ -49,6 +54,10 @@ $GLOBALS['index']   = array();
 $GLOBALS['allowed'] = true;
 $GLOBALS['fields']  = null;
 $GLOBALS['asked']   = array();
+$GLOBALS['hooks']   = array();
+$GLOBALS['referer'] = array();
+$GLOBALS['imports_on'] = true;
+$GLOBALS['manager'] = false;
 
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '';
@@ -74,7 +83,7 @@ function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 // export a Track Builder track's questions the way the plugin does. Everything else runs what was
 // hooked, which is where the four original tracks' forms come from (bin/stubs/compiled-seeds.php).
 function apply_filters( $t, $v, ...$a ) { return 'wpcpm_report_form_fields' === $t && isset( $GLOBALS['form_fields'] ) ? $GLOBALS['form_fields'] : wpcpm_stub_apply_filters( $t, $v, ...$a ); }
-function add_action() {}
+function add_action( $hook = '', $callback = null ) { $GLOBALS['hooks'][] = $hook; }
 function absint( $v ) { return abs( (int) $v ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
@@ -86,6 +95,22 @@ function wp_date( $f, $t = null, $z = null ) {
 }
 
 /* ---- the other pieces, stubbed to their contracts ------------------------ */
+
+function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function add_query_arg( $args, $url = '' ) {
+	$sep = false === strpos( (string) $url, '?' ) ? '?' : '&';
+	return (string) $url . $sep . http_build_query( (array) $args );
+}
+/** Core hashes the action away; here it stays readable, so an assertion can say what a token was keyed to. */
+function wp_nonce_url( $url, $action = -1, $name = '_wpnonce' ) {
+	$sep = false === strpos( (string) $url, '?' ) ? '?' : '&';
+	return (string) $url . $sep . $name . '=nonce-' . $action;
+}
+function check_admin_referer( $action = -1, $q = '_wpnonce' ) { $GLOBALS['referer'][] = $action; return true; }
+function current_user_can( $cap ) { return ! empty( $GLOBALS['manager'] ); }
+function wp_get_current_user() { return new WP_User( 7, 'Member' ); }
+function nocache_headers() {}
+function wp_die( $message = '', $code = 0 ) { throw new Exception( 'wp_die:' . $code . ':' . $message ); }
 
 class WPCPM_Mentors_Sync {
 	const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
@@ -114,7 +139,8 @@ class WPCPM_Roles {
 
 /** The fence. Every call is recorded, so the action the export names can be asserted. */
 class WPCPM_Institution_Policy {
-	const ACT_EXPORT = 'export';
+	const ACT_EXPORT      = 'export';
+	const ACT_ADD_STUDENT = 'add_student';
 	public static function subject_institution( $record_id ) {
 		return array( 'type' => 'institution', 'id' => (string) $record_id, 'institution_ids' => array( (string) $record_id ), 'evidence' => 'index' );
 	}
@@ -189,6 +215,7 @@ class WPCPM_Institutions_Index {
 
 class WPCPM_Institution_Roster {
 	const TYPE_REPORT = 'report';
+	const ARG_VIEW    = 'wpcpm_institution_view';
 	public static function resolve_institution( $viewer, $can_manage ) { return $GLOBALS['acting'] ?? ''; }
 	public static function claim( $record, $action, $type = 'student', $user = null ) {
 		return WPCPM_Institution_Policy::refusal();
@@ -197,6 +224,11 @@ class WPCPM_Institution_Roster {
 
 class WPCPM_Mentor_Calls {
 	public static function student_record( $user_id ) { return ''; }
+}
+
+/** The one question the sample list asks of the import form: whether this site takes imports at all. */
+class WPCPM_Institution_Import_Form {
+	public static function enabled() { return ! empty( $GLOBALS['imports_on'] ); }
 }
 
 // Declares add_filter() and get_option(), neither of which this suite had any use for until the
@@ -208,6 +240,14 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-export.php';
+
+// The sample list's handler ends the request after it has sent the file, so the suite reads what it sent
+// from a second run of itself: the same stubs, the handler called for an allowed member, and nothing else.
+if ( isset( $argv[1] ) && 'sample-child' === $argv[1] ) {
+	$GLOBALS['acting'] = 'recINSTAAA0000001';
+	WPCPM_Institution_Export::handle_sample();
+	exit( 3 );
+}
 
 // The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
 WPCPM_Tracks::init();
@@ -423,7 +463,7 @@ ck( 'a leading plus is prefixed', WPCPM_Institution_Export::cell( '+1' ), "'+1" 
 ck( 'a leading hyphen is prefixed', WPCPM_Institution_Export::cell( '-Smith' ), "'-Smith" );
 ck( 'a leading at sign is prefixed', WPCPM_Institution_Export::cell( '@SUM(A1)' ), "'@SUM(A1)" );
 
-// The value survives the prefix. Neutralising is not sanitising: nothing is dropped, so the
+// The value survives the prefix. Neutralizing is not sanitizing: nothing is dropped, so the
 // school can still read what the base holds and a program manager can still find the row.
 ck( 'the original text is kept whole after the prefix', substr( WPCPM_Institution_Export::cell( '=cmd|x' ), 1 ), '=cmd|x' );
 
@@ -717,8 +757,76 @@ ck( 'the cohort argument is the roster view\'s', WPCPM_Institution_Export::ARG_C
 ck( 'the group column uses the screen\'s headings', array_values( WPCPM_Institution_Roster_View::group_labels() ), array( 'Current', 'Waiting for a mentor', 'Finished', 'Not on the program now' ) );
 
 // The four characters are one rule with two halves: the import refuses them, the export
-// neutralises them. Listed as data so the two halves can be read side by side.
+// neutralizes them. Listed as data so the two halves can be read side by side.
 ck( 'the formula characters are the four the import refuses', WPCPM_Institution_Export::FORMULA_LEADERS, array( '=', '+', '-', '@' ) );
+
+echo "\n=== The sample list ===\n";
+
+$sample_body = "\xEF\xBB\xBFname,email,field_of_study,tutor\r\nAna Example,ana@example.test,Technology & Engineering,Tutor Example\r\n";
+
+ck( 'the action and the file name', array( WPCPM_Institution_Export::ACTION_SAMPLE, WPCPM_Institution_Export::sample_filename() ), array( 'wpcpm_import_sample', 'students-sample.csv' ) );
+ck( 'the file is the four headers and one example row, with the mark first and CRLF between', WPCPM_Institution_Export::sample_csv(), $sample_body );
+ck( 'it is made in PHP: no sample file is kept in the repository', array(
+	file_exists( WPCPM_PLUGIN_DIR . 'students-sample.csv' ),
+	file_exists( WPCPM_PLUGIN_DIR . 'docs/students-sample.csv' ),
+	file_exists( WPCPM_PLUGIN_DIR . 'assets/students-sample.csv' ),
+), array( false, false, false ) );
+
+$GLOBALS['hooks'] = array();
+WPCPM_Institution_Export::init();
+ck( 'the handler is registered beside the two exports, for a signed-in reader only', $GLOBALS['hooks'], array( 'admin_post_wpcpm_export_roster', 'admin_post_wpcpm_export_student', 'admin_post_wpcpm_import_sample' ) );
+
+// The link: nonced, and keyed to the institution it is for, as the import's own forms are.
+$member_url = 'https://example.test/wp-admin/admin-post.php?action=wpcpm_import_sample&_wpnonce=nonce-wpcpm_import_sample_' . $A;
+ck( 'the link a member is given is the handler, with a nonce keyed to their institution', WPCPM_Institution_Export::sample_url( $A ), $member_url );
+
+// A manager's switcher has to travel, or the nonce the handler checks is keyed to another school.
+$GLOBALS['manager'] = true;
+ck( 'a manager\'s link also names the institution the page shows, as the import form\'s own address does',
+	WPCPM_Institution_Export::sample_url( $A ),
+	'https://example.test/wp-admin/admin-post.php?action=wpcpm_import_sample&wpcpm_institution_view=' . $A . '&_wpnonce=nonce-wpcpm_import_sample_' . $A );
+$GLOBALS['manager'] = false;
+
+/** Run the handler and say how it ended: the file it would have sent never gets here, a refusal does. */
+function sample_attempt( array $over = array() ) {
+	$GLOBALS['referer'] = array();
+	$GLOBALS['asked']   = array();
+	$GLOBALS['allowed'] = isset( $over['allowed'] ) ? $over['allowed'] : true;
+	$GLOBALS['acting']  = isset( $over['acting'] ) ? $over['acting'] : $GLOBALS['fixture_institution'];
+	$GLOBALS['imports_on'] = isset( $over['imports'] ) ? $over['imports'] : true;
+
+	try {
+		WPCPM_Institution_Export::handle_sample();
+	} catch ( Exception $e ) {
+		return $e->getMessage();
+	}
+
+	return 'sent';
+}
+
+$GLOBALS['fixture_institution'] = $A;
+$refusal = 'wp_die:403:That record is not on your roster.';
+
+ck( 'an account refused ACT_ADD_STUDENT is refused with the one message', sample_attempt( array( 'allowed' => false ) ), $refusal );
+ck( 'the question was the import\'s own, asked of the institution the page resolved', $GLOBALS['asked'], array( array( 'add_student', $A ) ) );
+ck( 'an account that resolves to no institution is refused the same way', sample_attempt( array( 'acting' => '' ) ), $refusal );
+ck( 'and so is every account while this site takes no imports', sample_attempt( array( 'imports' => false ) ), $refusal );
+
+// The nonce is the institution's, as the import's handlers key theirs, and it is checked on the way to the file.
+$GLOBALS['allowed'] = true;
+$GLOBALS['referer'] = array();
+$child = (string) shell_exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' sample-child 2>/dev/null' );
+
+ck( 'an allowed member is sent the sample list, byte for byte', $child, $sample_body );
+
+$handler_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-export.php' );
+$body        = '';
+if ( preg_match( '/public static function handle_sample\(\)\s*\{(.*?)\n\t\}\n/s', $handler_src, $m ) ) { $body = $m[1]; }
+
+ck( 'the handler decides ACT_ADD_STUDENT, then checks the nonce keyed to that institution, then sends',
+	1 === preg_match( '/ACT_ADD_STUDENT.*check_admin_referer\( self::ACTION_SAMPLE \. \'_\' \. \$institution \).*self::send\( self::sample_csv\(\), self::sample_filename\(\) \)/s', $body ), true );
+ck( 'and it reads nothing else from the request: the institution is the page\'s answer, never a posted value',
+	array( has( $body, '$_POST' ), has( $body, '$_GET' ), has( $body, '$_REQUEST' ), has( $body, 'WPCPM_Request::' ) ), array( false, false, false, false ) );
 
 echo "\n=== House rules ===\n";
 

@@ -40,7 +40,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * (`term_from()`), is counted in the term before, and an event of the renewed term is never moved
  * back into it.
  *
- * **Planned, approved, cancelled.** An event waits for a program manager before anybody but the
+ * **Planned, approved, canceled.** An event waits for a program manager before anybody but the
  * sponsor sees it, because it carries the program's name. A manager approves it while its sponsor
  * still offers events (`offers_events()`), or returns it with a note, which cancels it; the sponsor's
  * members and the managers change it or cancel it. A change keeps the state, so the program approves

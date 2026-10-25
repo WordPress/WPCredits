@@ -34,6 +34,24 @@ class WPCPM_Institutions_Index {
 	const VERSION = 1;
 
 	/**
+	 * The option the lock a patch holds while it reads and writes the index is kept under, through
+	 * `WPCPM_Lock` (`patch()`). The uninstaller removes it.
+	 */
+	const OPT_LOCK = 'wpcpm_institutions_index_lock';
+
+	/**
+	 * How long a patch's lock holds at most, in seconds: many times one read and one write of an
+	 * option, so a lock a request that died left runs out by itself.
+	 */
+	const LOCK_TTL = 10;
+
+	/** How many times a patch asks for its lock before it gives up. */
+	const LOCK_TRIES = 10;
+
+	/** How long a patch waits between two asks for its lock, in microseconds: a tenth of a second. */
+	const LOCK_PAUSE = 100000;
+
+	/**
 	 * The keys every row carries, with the value each takes when Airtable has none.
 	 *
 	 * `name` is stored as Airtable holds it, trailing space and all: ten records end in one,
@@ -94,6 +112,17 @@ class WPCPM_Institutions_Index {
 			'read' => isset( $stored['read'] ) ? (int) $stored['read'] : 0,
 			'rows' => ( isset( $stored['rows'] ) && is_array( $stored['rows'] ) ) ? $stored['rows'] : array(),
 		);
+	}
+
+	/**
+	 * Drop this request's copy of the index, so the next read is the table's.
+	 *
+	 * The option is read through the options cache, which holds what this request read first for the
+	 * rest of it. A read under a lock, after another request may have written the index, has to be the
+	 * table's, or it is the copy from before that write.
+	 */
+	public static function forget_cached() {
+		wp_cache_delete( self::OPT_NAME, 'options' );
 	}
 
 	/**
@@ -199,6 +228,106 @@ class WPCPM_Institutions_Index {
 		$index['rows'][ $row['record_id'] ] = $row;
 
 		update_option( self::OPT_NAME, $index, false );
+	}
+
+	/**
+	 * Change a few keys of one row in place, keeping the read time and every other key.
+	 *
+	 * For a school's details corrected on the site (`WPCPM_Institution_Details::write()`), once
+	 * Airtable has taken the same change: the row follows at once instead of waiting for the next
+	 * sync, which would write it again from the base and find nothing to disagree about. The read time
+	 * is the table's, and one row moving does not make the rest of the table any newer.
+	 *
+	 * **Only a row the index holds.** A patch never makes a row (that is `insert()`'s, for an
+	 * approval), and an index of another version reads as empty (`read()`), so a patch on one finds no
+	 * row and writes nothing, rather than graft a row onto a shape this code does not know. A key
+	 * outside the row's contract is dropped, and `record_id` cannot be changed: the row stays the one it
+	 * is. The new row is shaped as every write shapes it, so a value is typed and nothing else rides in.
+	 *
+	 * **One patch at a time.** A patch reads the whole index and writes it back, so two at once, of two
+	 * schools, would each write the copy it read and drop the other's row. It reads and writes under a
+	 * short lock of its own (`OPT_LOCK`, through `WPCPM_Lock`), reading the table and not this request's
+	 * copy once it holds it. A lock it cannot take after a short wait (`LOCK_TRIES` asks, `LOCK_PAUSE`
+	 * apart) is a patch not made, said as a row the index does not hold is: the change is in Airtable
+	 * already, and the next sync brings it here.
+	 *
+	 * **A sync reading meanwhile.** The institutions sync writes the whole index from what it read of the
+	 * base, and a tick that read the table before this patch writes the old values after it. So a patch
+	 * made while a tick holds the sync's lock asks for one more run a few minutes later
+	 * (`WPCPM_Institutions_Sync::read_again_soon()`), which reads the change from the base.
+	 *
+	 * @param string $record_id Airtable record ID.
+	 * @param array  $fields    Keys of `empty_row()` and their new values.
+	 * @return bool Whether the index held the row, and so changed it; false too when the lock could not
+	 *              be taken.
+	 */
+	public static function patch( $record_id, array $fields ) {
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return false;
+		}
+
+		$record_id = trim( (string) $record_id );
+		$token     = self::take_lock();
+
+		if ( '' === $token ) {
+			return false;
+		}
+
+		$patched = false;
+
+		try {
+			self::forget_cached();
+
+			$index = self::read();
+
+			if ( isset( $index['rows'][ $record_id ] ) && is_array( $index['rows'][ $record_id ] ) ) {
+				$row = $index['rows'][ $record_id ];
+
+				foreach ( array_intersect_key( $fields, self::empty_row() ) as $key => $value ) {
+					if ( 'record_id' !== $key ) {
+						$row[ $key ] = $value;
+					}
+				}
+
+				$row['record_id']            = $record_id;
+				$index['rows'][ $record_id ] = self::shape( $row );
+
+				update_option( self::OPT_NAME, $index, false );
+
+				$patched = true;
+			}
+		} finally {
+			WPCPM_Lock::release( self::OPT_LOCK, $token );
+		}
+
+		if ( $patched ) {
+			WPCPM_Institutions_Sync::read_again_soon();
+		}
+
+		return $patched;
+	}
+
+	/**
+	 * Take the lock a patch reads and writes under, asking again a few times while another holds it.
+	 *
+	 * Another patch holds it for one read and one write, so a short wait is enough; a lock that stays held
+	 * past it is a request that died holding it, and is taken over once its `LOCK_TTL` has passed.
+	 *
+	 * @return string The token `WPCPM_Lock::release()` takes, or '' when the lock could not be taken.
+	 */
+	private static function take_lock() {
+		$tries = 0;
+
+		while ( true ) {
+			$token = WPCPM_Lock::take( self::OPT_LOCK, self::LOCK_TTL );
+			++$tries;
+
+			if ( '' !== $token || $tries >= self::LOCK_TRIES ) {
+				return $token;
+			}
+
+			usleep( self::LOCK_PAUSE );
+		}
 	}
 
 	/**

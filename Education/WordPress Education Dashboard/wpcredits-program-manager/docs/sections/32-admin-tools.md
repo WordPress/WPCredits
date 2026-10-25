@@ -54,11 +54,14 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   Administrator's question and the rejection; a member's invitation to a colleague; the institution's
   Collaboration Agreement received, uploaded, accepted, put back in force, returned with a note and
   revoked, the daily list of agreements waiting too long, and the notice that the agreement's
-  template could not be used; and the notice that an institution has no members left. An email that
-  says other words in one case than in another is two: the acknowledgement for a country with a call
-  to book and for one without, the upload with the courtesy scan's notes and without, the
-  revocation with a country contact named and without one, and the invitation with its inviter
-  named and with nobody to name as its sender, the inviter's account gone or holding no name.
+  template could not be used; the notice that an institution has no members left; and what happens
+  to an institution's details: a correction saved at once, a request to correct a checked detail
+  (its name, website, city, country or contact's email), the request's approval, its decline with
+  the Administrator's note, and its withdrawal. An email that says other words in one case than in
+  another is two: the acknowledgement for a country with a call to book and for one without, the
+  upload with the courtesy scan's notes and without, the revocation with a country contact named and
+  without one, and the invitation with its inviter named and with nobody to name as its sender, the
+  inviter's account gone or holding no name.
 - **Semester reports**: the notice to the Administrators that the daily job drafted a report, the
   approval to the institution's accounts, and the question to the students whether the report may
   mention them.

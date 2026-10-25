@@ -58,7 +58,7 @@ function add_action() {} function add_filter() {}
 /**
  * Stands in for `wp_kses_post()`, with the tag list WordPress allows in the post context.
  *
- * The list matters: a narrower stub would have this suite asserting *its own* behaviour
+ * The list matters: a narrower stub would have this suite asserting *its own* behavior
  * rather than WordPress's - the first version kept only `a`, `strong`, `em` and reported
  * that images and lists were being stripped when they are not. What this plugin actually
  * controls is *which* filter it calls, and that is pinned by a static assertion further
@@ -169,7 +169,7 @@ set_notices(
 
 // 10 plain student. 20 plain mentor. 30 institution. 40 administrator.
 $GLOBALS['institution_members'] = array( 30 );
-// 50 administrator who also mentors - recognised by an Airtable record, never by role.
+// 50 administrator who also mentors - recognized by an Airtable record, never by role.
 // 60 student who also mentors. 70 subscriber in no audience.
 // 80 holds the Institution role with no live membership, 90 acts for an institution with no
 // role yet: the two accounts that tell membership and the role apart.

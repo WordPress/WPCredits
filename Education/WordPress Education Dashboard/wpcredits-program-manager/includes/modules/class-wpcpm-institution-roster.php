@@ -411,7 +411,7 @@ class WPCPM_Institution_Roster {
 		// link. The reports row's own link is not consulted, on purpose: decision 19 makes
 		// the Students table the institution side's authority, and on the 758 addresses that
 		// exist in both tables the two links agree, so a disagreement is a fault to be fixed
-		// in the base rather than a second opinion to be honoured here.
+		// in the base rather than a second opinion to be honored here.
 		$decision = WPCPM_Institution_Policy::decide(
 			$action,
 			WPCPM_Institution_Policy::subject_live(
@@ -668,7 +668,7 @@ class WPCPM_Institution_Roster {
 
 		// Both sides of this link are empty on every row of both tables today, measured on
 		// 2 September 2026, so the address below is the route every claim takes. The link is
-		// honoured first anyway, because the day somebody fills it in it is the better join,
+		// honored first anyway, because the day somebody fills it in it is the better join,
 		// and because a row that names two students is one nobody can resolve - a refusal,
 		// for the same reason two email matches are.
 		if ( count( $links ) > 1 ) {

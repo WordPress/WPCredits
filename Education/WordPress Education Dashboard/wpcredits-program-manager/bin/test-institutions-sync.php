@@ -813,7 +813,7 @@ echo "\n=== A record with no name ===\n";
 
 // Proven with a record the suite empties rather than one the base happens to hold: the two that
 // were nameless on 2 September were deleted by a program manager the same day, and this
-// behaviour has to keep working the next time somebody adds a blank row.
+// behavior has to keep working the next time somebody adds a blank row.
 reset_site( $seed, array( $confirmed => array( 'Name' => '' ) ) );
 
 WPCPM_Institutions_Sync::start();
@@ -1394,7 +1394,7 @@ ck( 'and no daily event is left behind', 'daily' === wp_get_schedule( WPCPM_Inst
 // The recurrence is registered once, by the students sync, and referenced here. Registering a
 // second interval under another name would give two sets of events nobody could keep in step.
 ck( 'the offset is read from the class rather than copied', WPCPM_Institutions_Sync::SCHEDULE_OFFSET_MINUTES, 90 );
-// The mentors run is named here too, because it is the neighbour this one is nearest to: it
+// The mentors run is named here too, because it is the neighbor this one is nearest to: it
 // takes +1:00 and this takes +1:30. Its offset is read from the source rather than the class -
 // this suite carries a two-method stand-in for WPCPM_Mentors_Sync and the real one needs an
 // Airtable stand-in that is not here - and every offset of the cycle is held apart from the

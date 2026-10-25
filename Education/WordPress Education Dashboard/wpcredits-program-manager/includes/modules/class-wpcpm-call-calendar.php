@@ -374,7 +374,7 @@ class WPCPM_Call_Calendar {
 	 * @return string
 	 */
 	private static function url( array $args ) {
-		// `wpcpm_call` used to be stripped here too, because the outcome travelled in the
+		// `wpcpm_call` used to be stripped here too, because the outcome traveled in the
 		// URL and a month link had to shed it. It is a flash now, so there is nothing to
 		// strip - and leaving the name here would suggest otherwise.
 		$base = remove_query_arg(

@@ -6,7 +6,7 @@
  *
  * The gap this closes: `php -l` parses, and a static scan can check that a name exists,
  * but neither *executes* a handler. The `WPCPM_Mentor_Calls::ANCHOR` fatal lived in
- * `bounce()` - which every path through booking, cancelling and setting a timezone ends
+ * `bounce()` - which every path through booking, canceling and setting a timezone ends
  * at - and survived four releases because nothing here ever called them.
  *
  * A handler "passes" if it reaches a redirect or a `wp_die()`. Both are normal outcomes.

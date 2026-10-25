@@ -133,6 +133,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-agreeme
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-application.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-approval.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-record.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-details.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-history.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-student-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-students.php';
@@ -140,9 +141,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institu
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-import.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-import-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-create.php';
-require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-notes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-request.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-details-card.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-resend.php';
 // The semester report's two halves. `WPCPM_Institutions::uninstall()` calls `delete_all()` on
 // the data half, so leaving them out of this list would be a fatal in the middle of cleanup.
@@ -296,9 +297,11 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // course, so they are swept by prefix too, from the two rows a transient is where no object cache
 // is installed, the value and its timeout; where one is installed they are not in this table and
 // expire in the cache within the day. And the lock an account's invitation holds while it is sent
-// (1.122.32), which a request that dies sending leaves behind, one row per account; and the lock an
-// application holds while it is made a mentor (1.122.33), one row per application, the same way.
-foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX ) as $wpcpm_prefix ) {
+// (1.122.32), which a request that dies sending leaves behind, one row per account; the lock an
+// application holds while it is made a mentor (1.122.33), one row per application, the same way; and
+// the locks a school's details request is raised, decided and withdrawn under (Institutions release 2),
+// one row per request and one per school.
+foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}
@@ -344,6 +347,9 @@ wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_TICK );
 wp_clear_scheduled_hook( WPCPM_Mentor_Calls::CRON_REMINDERS );
 wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY );
+// The one extra run a patch of the institutions index asks for while a sync reads (Institutions
+// release 2), on the same hook with arguments of its own, which a clear that names none leaves.
+wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY, WPCPM_Institutions_Sync::AGAIN_ARGS );
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_TICK );
 // The Claude access log's daily sweep (1.123.30), which `WPCPM_MCP::deactivate()` clears too.
 wp_clear_scheduled_hook( WPCPM_MCP::CRON_SWEEP );

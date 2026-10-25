@@ -37,6 +37,14 @@
  *   note when the anti-spam checks held it. The requests card and its tile are called Requests from
  *   institutions.
  * - **A viewer without the capability sees the refusal and no form.**
+ * - **A school's request to correct its details is drawn as the chosen mockup A** (Institutions
+ *   release 2): the school's name linked as every name here is, who asked and on which day, the
+ *   waiting line the other requests use, a table of Detail, On record now and Asked for, the note
+ *   box for the school (required to decline) and the two buttons, Approve and update the records
+ *   and Decline, in a form that posts the details decision keyed to the request and comes back to
+ *   the card. What is asked is escaped, a note the decision refused is given back once, and the
+ *   closed ones are Approved, Declined or Withdrawn in the fold. The facts, "On record now" among
+ *   them, are the request class's to read when they are built (bin/test-institution-request.php).
  * - **Every card is drawn in the dashboards' one shell** (WPCPM_Dashboard_Card, pinned in
  *   bin/test-dashboard-card.php) in this page's shape: the anchor on the card's section, where the
  *   mails, the wp-admin screens and every decision's way back land, and the page's class on the
@@ -164,9 +172,10 @@ function _n( $a, $b, $n, $d = null ) { if ( isset( $GLOBALS['plurals_asked'] ) )
 // with a context of its own.
 function _nx( $a, $b, $n, $c, $d = null ) { if ( isset( $GLOBALS['plurals_asked'] ) ) { $GLOBALS['plurals_asked'][] = array( $a, $b, (int) $n, $c ); } return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function esc_html__( $s, $d = null ) { return esc_html( $s ); }
+function esc_html__( $s, $d = null ) { return esc_html( isset( $GLOBALS['translations'][ $s ] ) ? $GLOBALS['translations'][ $s ] : $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
+function esc_textarea( $s ) { return esc_html( $s ); }
 function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $s ) { return (string) $s; }
 function wp_kses( $s, $allowed ) { return (string) $s; }
@@ -649,8 +658,14 @@ class WPCPM_Semester_Report_Screen {
 	}
 }
 class WPCPM_Institution_Request {
-	const STATE_OPEN = 'open'; const STATE_DONE = 'done'; const STATE_DECLINED = 'declined'; const OVERDUE_DAYS = 14;
+	const STATE_OPEN = 'open'; const STATE_DONE = 'done'; const STATE_DECLINED = 'declined'; const STATE_WITHDRAWN = 'withdrawn'; const OVERDUE_DAYS = 14;
+	const KIND_DETAILS = 'details';
 	const ACTION_RESOLVE = 'wpcpm_resolve_request';
+	// A school's details request is decided by the card's own buttons (Institutions release 2). The
+	// names are the real class's, which the check below reads out of its file.
+	const ACTION_DETAILS_DECIDE = 'wpcpm_decide_details';
+	const TYPED_NOTE = 'request-close';
+	const MAX_NOTE = 2000;
 	public static function open_requests( $limit = 20 ) { return isset( $GLOBALS['requests']['open'] ) ? $GLOBALS['requests']['open'] : array(); }
 	public static function closed_requests( $limit = 20 ) { return isset( $GLOBALS['requests']['closed'] ) ? $GLOBALS['requests']['closed'] : array(); }
 	public static function facts( $id ) { return isset( $GLOBALS['facts'][ (int) $id ] ) ? $GLOBALS['facts'][ (int) $id ] : array(); }
@@ -903,6 +918,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
 // The rules for typed text, which the plugin loads on every request: the queue's refusals of lost
 // words are said in their sentences.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 // The queue is the real one, loaded only when it is there, so the checks that need it fail on
 // their own before it exists rather than ending the run.
 if ( file_exists( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-event-queue.php' ) ) {
@@ -1755,7 +1771,7 @@ ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-appli
 ck( 'each open application names itself, its reference, country and routed manager', has( $apps, 'Uni Nueva' ) && has( $apps, 'APP-2026-0501' ) && has( $apps, 'Poland' ) && has( $apps, 'Ana Manager' ), true );
 ck( 'the answers are the module\'s, behind a disclosure', has( $apps, '<details class="wpcpm-administrator__answers"><summary>Read the application</summary><table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>' ), true );
 ck( 'the decisions are the module\'s, and come back here', substr_count( $apps, 'name="wpcpm_return" value="dashboard"' ), 4 );
-// Reject, Reject as spam and Delete for good carry a confirm; a cancelled dialog must not
+// Reject, Reject as spam and Delete for good carry a confirm; a canceled dialog must not
 // leave the guard thinking a submit is on its way (final review, Critical 1).
 preg_match( '/<form[^>]*data-wpcpm-confirm="[^>]*>/', $apps, $confirm_form );
 ck( 'a decision drawn with a confirm still carries the double-submit guard', isset( $confirm_form[0] ) && has( $confirm_form[0], 'data-wpcpm-once' ) && has( $confirm_form[0], 'data-wpcpm-busy=' ), true );
@@ -1926,6 +1942,150 @@ $closed_two = array(
 );
 $req_dates  = capture( static function () use ( $closed_two ) { WPCPM_Administrators_Cards::render_requests( $closed_two ); } );
 ck( 'a stamped row is dated by its closing and an unstamped one says the date is the opening', array( substr_count( $req_dates, 'closed on' ), substr_count( $req_dates, 'opened on' ) ), array( 1, 1 ) );
+
+// A school's details request (Institutions release 2), drawn as the chosen mockup A: one decision for
+// the whole request. The school's name linked as the Institutions screen links names, who asked and on
+// which day, the waiting line the card's other requests use, a table of Detail, On record now and
+// Asked for, a note box for the school that is required to decline, and the two buttons. "On record
+// now" is the request's facts' (`WPCPM_Institution_Request::facts()` reads it from the index when it
+// is drawn), so this draws whatever it is handed, escaped.
+$details_at    = time() - 3 * DAY_IN_SECONDS;
+$details_facts = array_merge( $GLOBALS['facts'][802], array(
+	'id'           => 810,
+	'kind'         => 'details',
+	'kind_label'   => 'A change to its details',
+	'institution'  => $A,
+	'student'      => '',
+	'student_name' => '',
+	'actor_name'   => 'School Representative',
+	'note'         => '',
+	'at'           => $details_at,
+	'overdue'      => false,
+	'changes'      => array(
+		array( 'key' => 'name', 'label' => 'Name', 'now' => 'Uniwersytet Alpha', 'asked' => 'Alpha University <b>of Poland</b>' ),
+		array( 'key' => 'website', 'label' => 'Website', 'now' => 'not given', 'asked' => 'https://alpha.example.edu' ),
+	),
+) );
+$GLOBALS['uid']    = 3;
+$GLOBALS['manage'] = array( 3 );
+$details_card      = capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( $details_facts ), 'closed' => array(), 'overdue' => 0 ) ); } );
+$details_item      = '';
+preg_match( '#<article class="wpcpm-administrator__item wpcpm-request[^"]*">.*?</article>#s', $details_card, $details_found );
+$details_item = isset( $details_found[0] ) ? $details_found[0] : '';
+ck( 'a details request is one item of the card, headed by the school\'s name, linked as the Institutions screen links names, and what it asks', array(
+	substr_count( $details_card, '<article' ),
+	has( $details_item, '<h4 class="wpcpm-administrator__item-title" id="wpcpm-request-810-title"><a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $A . '">Uniwersytet Alpha</a> asks to correct its details</h4>' ),
+	has( $details_item, 'wpcpm-administrator__kind' ),
+), array( 1, true, false ) );
+// The heading is a sentence with the school's linked name in it, so a translator can put the name where their
+// language wants it: the template is one string with a placeholder, and not the school's name beside a
+// fragment. A stand-in translation moves the name to the end, and the markup around it stays.
+$cards_source           = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' );
+$GLOBALS['translations'] = array( '%s asks to correct its details' => 'Details to correct: %s' );
+$moved_card              = capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( $details_facts ), 'closed' => array(), 'overdue' => 0 ) ); } );
+$GLOBALS['translations'] = array();
+ck( 'the heading is one translatable sentence with the linked name in it, so a translator can move the name', has( $moved_card, '<h4 class="wpcpm-administrator__item-title" id="wpcpm-request-810-title">Details to correct: <a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $A . '">Uniwersytet Alpha</a></h4>' ), true );
+ck( 'the sentence is built by sprintf with a translators comment, and the name is the one escaped link', array(
+	1 === preg_match( '#/\* translators: %s: [^*]*\*/\s*esc_html__\( \'%s asks to correct its details\'#', $cards_source ),
+	false !== strpos( $cards_source, "esc_html__( 'asks to correct its details'" ),
+), array( true, false ) );
+ck( 'it says who asked and on which day, in the site\'s date format, and the waiting line the other requests use', array(
+	has( $details_item, '<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">Asked by School Representative on ' . wp_date( 'j F Y', $details_at ) . '</span><span class="wpcpm-administrator__fact">Opened 4 hours ago</span></p>' ),
+	has( $details_item, 'wpcpm-administrator__item--overdue' ),
+	has( $details_item, 'Overdue' ),
+), array( true, false, false ) );
+ck( 'a request that has waited past the days is marked overdue, as the others are', array(
+	has( capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( array_merge( $details_facts, array( 'overdue' => true ) ) ), 'closed' => array(), 'overdue' => 1 ) ); } ), 'wpcpm-request--details wpcpm-administrator__item--overdue' ),
+	has( capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( array_merge( $details_facts, array( 'overdue' => true ) ) ), 'closed' => array(), 'overdue' => 1 ) ); } ), '<span class="wpcpm-administrator__fact wpcpm-administrator__fact--overdue">Overdue</span>' ),
+), array( true, true ) );
+ck( 'an account that has gone asked as a member of the institution', has( capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( array_merge( $details_facts, array( 'actor_name' => '' ) ) ), 'closed' => array(), 'overdue' => 0 ) ); } ), 'Asked by a member of the institution on ' ), true );
+ck( 'the changes are a table of Detail, On record now and Asked for, a row to a detail, what is asked in bold and every value as text', array(
+	has( $details_item, '<div class="wpcpm-administrator__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-requests-title wpcpm-request-810-title"><table class="wpcpm-admin-table wpcpm-request__changes"><thead><tr><th scope="col">Detail</th><th scope="col">On record now</th><th scope="col">Asked for</th></tr></thead><tbody>' ),
+	has( $details_item, '<tr><th scope="row">Name</th><td>Uniwersytet Alpha</td><td><strong>Alpha University &lt;b&gt;of Poland&lt;/b&gt;</strong></td></tr>' ),
+	has( $details_item, '<tr><th scope="row">Website</th><td>not given</td><td><strong>https://alpha.example.edu</strong></td></tr>' ),
+	has( $details_item, '<b>of Poland</b>' ),
+), array( true, true, true, false ) );
+ck( 'the table sits in a named, focusable box like every column table of the page', scroll_regions( $details_card ), array( array( 'box' => 'div.wpcpm-administrator__scroll', 'tabindex' => '0', 'role' => 'region', 'alone' => true, 'name' => 'Requests from institutions Uniwersytet Alpha asks to correct its details' ) ) );
+ck( 'the note box is labeled for the school and says it is required to decline, takes the limit the handler holds it to, and is not required by the browser: Approve needs no note', array(
+	has( $details_item, '<label for="wpcpm-request-note-810">A note for the school (required to decline)</label>' ),
+	has( $details_item, '<textarea id="wpcpm-request-note-810" name="wpcpm_request_note" rows="3" maxlength="2000"></textarea>' ),
+	has( $details_item, ' required' ),
+), array( true, true, false ) );
+ck( 'the primary button approves and updates the records, and Decline sits beside it, both naming the decision they make', array(
+	has( $details_item, '<button type="submit" class="button button-primary" name="decision" value="approve">Approve and update the records</button> <button type="submit" class="button" name="decision" value="decline">Decline</button>' ),
+	before_in( $details_item, 'value="approve"', 'value="decline"' ),
+), array( true, true ) );
+ck( 'the form posts the details decision keyed to that request, and comes back here, once', array(
+	has( $details_item, '<form class="wpcpm-request__decide" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Saving">' ),
+	has( $details_item, '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_decide_details_810" />' ),
+	has( $details_item, '<input type="hidden" name="action" value="wpcpm_decide_details" />' ),
+	has( $details_item, '<input type="hidden" name="request" value="810" />' ),
+	has( $details_item, 'name="wpcpm_return" value="dashboard"' ) && has( $details_item, 'name="wpcpm_return_to" value="requests"' ),
+	has( $details_item, 'wpcpm_resolve_request' ),
+	has( $details_item, 'Mark as handled' ),
+), array( true, true, true, true, true, false, false ) );
+ck( 'the order is the mockup\'s: the school, who asked, the table, the note, the buttons', array(
+	before_in( $details_item, 'asks to correct its details', 'Asked by' ),
+	before_in( $details_item, 'Asked by', '<table' ),
+	before_in( $details_item, '</table>', '<label for="wpcpm-request-note-810">' ),
+	before_in( $details_item, '<label for="wpcpm-request-note-810">', 'Approve and update the records' ),
+), array( true, true, true, true ) );
+
+$GLOBALS['flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:810' ] = array( 'at' => time(), 'typed' => array( 'note' => "Too <short>\nand kept" ) );
+$kept_card = capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( $details_facts ), 'closed' => array(), 'overdue' => 0 ) ); } );
+ck( 'a note the decision refused is given back in its request\'s box, once, escaped', array(
+	has( $kept_card, 'maxlength="2000">' . "\n" . "Too &lt;short&gt;\nand kept" . '</textarea>' ),
+	isset( $GLOBALS['flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:810' ] ),
+), array( true, false ) );
+
+$GLOBALS['uid'] = 9;
+$GLOBALS['manage'] = array();
+$bystander_card = capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( $details_facts ), 'closed' => array(), 'overdue' => 0 ) ); } );
+ck( 'an account that may not manage the program is drawn the table and no form', array( has( $bystander_card, '<table' ), has( $bystander_card, '<form' ), has( $bystander_card, 'Approve and update the records' ) ), array( true, false, false ) );
+$GLOBALS['uid'] = 3;
+$GLOBALS['manage'] = array( 3 );
+
+$no_changes = capture( static function () use ( $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array( array_merge( $details_facts, array( 'changes' => array() ) ) ), 'closed' => array(), 'overdue' => 0 ) ); } );
+ck( 'a request that holds nothing to approve says so, draws no table, and can still be declined', array( has( $no_changes, 'This request holds no change to approve.' ), has( $no_changes, '<table' ), has( $no_changes, 'value="decline"' ) ), array( true, false, true ) );
+
+$mixed = capture( static function () use ( $data, $details_facts ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array_merge( $data['requests']['open'], array( $details_facts ) ), 'closed' => array(), 'overdue' => 1 ) ); } );
+ck( 'beside the other kinds, which are drawn as ever, each with the mentor form and no table', array(
+	substr_count( $mixed, '<article' ),
+	substr_count( $mixed, 'value="wpcpm_resolve_request"' ),
+	substr_count( $mixed, 'value="wpcpm_decide_details"' ),
+	substr_count( $mixed, '<table' ),
+	has( $mixed, '<span class="wpcpm-administrator__kind">A mentor is wanted</span>' ),
+), array( 3, 2, 1, 1, true ) );
+
+// What the card says of a closed request, in its fold: an approval, a decline and a withdrawal in their
+// own words, and a mentor request still Handled.
+$closed_rows = array(
+	array_merge( $details_facts, array( 'id' => 811, 'state' => 'done', 'closed_at' => time() - DAY_IN_SECONDS, 'changes' => array() ) ),
+	array_merge( $details_facts, array( 'id' => 812, 'state' => 'declined', 'closed_at' => time() - 2 * DAY_IN_SECONDS, 'changes' => array() ) ),
+	array_merge( $details_facts, array( 'id' => 813, 'state' => 'withdrawn', 'closed_at' => time() - 3 * DAY_IN_SECONDS, 'changes' => array() ) ),
+	array_merge( $GLOBALS['facts'][803], array( 'id' => 814, 'closed_at' => time() - 4 * DAY_IN_SECONDS ) ),
+);
+$closed_card = capture( static function () use ( $closed_rows ) { WPCPM_Administrators_Cards::render_requests( array( 'open' => array(), 'closed' => $closed_rows, 'overdue' => 0 ) ); } );
+preg_match_all( '#<li>(.*?)</li>#s', $closed_card, $closed_lis );
+ck( 'the fold names each outcome: Approved for an approval, Declined, Withdrawn, and Handled for the other kinds', array_map( static function ( $li ) { return preg_replace( '#<a [^>]*>|</a>|, closed on .*$#', '', $li ); }, $closed_lis[1] ), array(
+	'Uniwersytet Alpha, A change to its details: Approved',
+	'Uniwersytet Alpha, A change to its details: Declined',
+	'Uniwersytet Alpha, A change to its details: Withdrawn',
+	'Uniwersytet Alpha, A mentor is wanted: Handled',
+) );
+
+$request_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php' );
+$declared    = array();
+foreach ( array( 'KIND_DETAILS', 'STATE_WITHDRAWN', 'ACTION_DETAILS_DECIDE', 'TYPED_NOTE', 'MAX_NOTE' ) as $const ) {
+	$declared[ $const ] = preg_match( "/const {$const} = ('[a-z_-]+'|\d+);/", $request_src, $value ) ? $value[1] : null;
+}
+ck( 'the names the stand-in request class carries here are the real class\'s, which the card draws the form with', $declared, array(
+	'KIND_DETAILS'          => "'" . WPCPM_Institution_Request::KIND_DETAILS . "'",
+	'STATE_WITHDRAWN'       => "'" . WPCPM_Institution_Request::STATE_WITHDRAWN . "'",
+	'ACTION_DETAILS_DECIDE' => "'" . WPCPM_Institution_Request::ACTION_DETAILS_DECIDE . "'",
+	'TYPED_NOTE'            => "'" . WPCPM_Institution_Request::TYPED_NOTE . "'",
+	'MAX_NOTE'              => (string) WPCPM_Institution_Request::MAX_NOTE,
+) );
 
 $prog = capture( static function () use ( $programs ) { WPCPM_Administrators_Cards::render_programs( $programs ); } );
 // One per track, plus the finished tile, plus one for the wrapping
@@ -3255,8 +3415,10 @@ foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_P
 		$boxed_sites += preg_match_all( '/self::scroll_open\( [^;]+ \);\s*echo \'<table class="wpcpm-admin-table/', $source );
 	}
 }
-// Nine on this line: main's five and the line's own four (Sponsor terms ending, and Sponsor reports' three).
-ck( 'in the source, the nine column tables are all in the cards, each opens right after its box, and the cards open no other box', array( $table_sites, $boxed_sites, $box_calls ), array( array( 'class-wpcpm-administrators-cards.php' => 9 ), 9, 9 ) );
+// Ten on this line: main's five, the line's own four (Sponsor terms ending, and Sponsor reports' three)
+// and a school's details request's table of what it asks (Institutions release 2), which the page's
+// fixtures draw none of, so the page above still holds nine boxes.
+ck( 'in the source, the ten column tables are all in the cards, each opens right after its box, and the cards open no other box', array( $table_sites, $boxed_sites, $box_calls ), array( array( 'class-wpcpm-administrators-cards.php' => 10 ), 10, 10 ) );
 
 $admin_rules = scroll_css_rules( $css );
 $phone_box   = array();

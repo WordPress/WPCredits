@@ -409,7 +409,7 @@ class WPCPM_Institution_Application {
 	 *
 	 * **The page is left ungated on purpose, and this is the line that does it.** Every other
 	 * page this plugin provisions calls a `gate_page()` helper here that stamps
-	 * `WPCPM_Content_Access::META_KEY`; copying the neighbouring class and keeping that call
+	 * `WPCPM_Content_Access::META_KEY`; copying the neighboring class and keeping that call
 	 * is the obvious mistake, and it fails silently - an absent access level means public, so
 	 * the only symptom of gating this one would be that nobody outside the program can reach
 	 * the form nobody outside the program has any other way of finding. An application form
@@ -718,14 +718,17 @@ class WPCPM_Institution_Application {
 				'auto'      => 'address-level2',
 			),
 			'Website'                              => array(
-				'group'    => 'about',
-				'label'    => __( 'Website', 'wpcredits-program-manager' ),
+				'group'     => 'about',
+				'label'     => __( 'Website', 'wpcredits-program-manager' ),
 				// `type="text"` with `inputmode="url"`, never `type="url"`: the browser refuses
 				// a scheme-less address, and `example.edu` is how most people write one.
 				// `WPCPM_Field_Value::clean_url()` adds the scheme instead of arguing about it.
-				'type'     => 'url',
-				'required' => true,
-				'help'     => __( 'For example: example.edu', 'wpcredits-program-manager' ),
+				'type'      => 'url',
+				'required'  => true,
+				// Named here rather than left to the box's default of 200, because `clean()` holds
+				// the server to it: the box's `maxlength` is a courtesy a hand-made request never meets.
+				'maxlength' => 200,
+				'help'      => __( 'For example: example.edu', 'wpcredits-program-manager' ),
 			),
 			'Contact Person'                       => array(
 				'group'     => 'contact',
@@ -963,6 +966,10 @@ class WPCPM_Institution_Application {
 	 * to `WPCPM_Field_Value::clean_url()`, which would put `https://` in front of it and keep it.
 	 * Since 1.123.29, for the Website and the page about the program alike, as one rule for both.
 	 *
+	 * The second rule added is the web address's length (Institutions release 2): one longer than its
+	 * `maxlength` once the scheme is on it is refused as `too_long`, for both addresses alike, since
+	 * `WPCPM_Field_Value` cuts a text at its `maxlength` and takes an address whole.
+	 *
 	 * @param string $column Airtable column name, or a site answer's key.
 	 * @param mixed  $raw    Posted value.
 	 * @return array{ok:bool,value:mixed,problem:string}
@@ -1050,7 +1057,18 @@ class WPCPM_Institution_Application {
 			$rules['max_text'] = self::MAX_TEXT;
 		}
 
-		return WPCPM_Field_Value::clean( $raw, $rules );
+		$clean = WPCPM_Field_Value::clean( $raw, $rules );
+
+		// A web address is held to its length here, because `WPCPM_Field_Value` cuts a one-line text
+		// at `maxlength` but takes an address whole, and the box's own `maxlength` is a courtesy a
+		// hand-made request never meets. It is refused rather than cut, since half an address is
+		// another address, and measured as it will be kept: the scheme a scheme-less one gains
+		// counts, so nothing longer than the box takes is ever stored.
+		if ( 'url' === $type && ! empty( $clean['ok'] ) && isset( $spec['maxlength'] ) && mb_strlen( (string) $clean['value'] ) > (int) $spec['maxlength'] ) {
+			return self::refuse( 'too_long' );
+		}
+
+		return $clean;
 	}
 
 	/**
@@ -1701,13 +1719,24 @@ class WPCPM_Institution_Application {
 	/**
 	 * What to say about one refused answer.
 	 *
+	 * Public since Institutions release 2, so the card where a school corrects its details says a
+	 * refusal in the words the form does (`WPCPM_Institution_Details::clean()`).
+	 *
 	 * @param string $problem Problem slug.
-	 * @param array  $spec    The field's spec, for the numbers a range refusal names.
+	 * @param array  $spec    The field's spec, for the numbers a range or a length refusal names.
 	 * @return string
 	 */
-	private static function problem_text( $problem, array $spec ) {
+	public static function problem_text( $problem, array $spec ) {
 		if ( 'required' === $problem ) {
 			return __( 'Please fill this in.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'too_long' === $problem ) {
+			return sprintf(
+				/* translators: %s: the most characters the answer may have, as a number. */
+				__( 'Please keep this to %s characters or fewer.', 'wpcredits-program-manager' ),
+				number_format_i18n( isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : 0 )
+			);
 		}
 
 		if ( 'bad_email' === $problem ) {
@@ -1759,7 +1788,7 @@ class WPCPM_Institution_Application {
 	 * Three answers, and the difference between them matters. `spam` is a form that was posted
 	 * faster than anybody can read it, a token that was never minted here, or one that has
 	 * already been used: those rows are stored and held as spam, and the sender is told
-	 * nothing, because a bot that learns which of its attempts was recognised writes a better
+	 * nothing, because a bot that learns which of its attempts was recognized writes a better
 	 * one. `stale` is a token older than half a day, which is an ordinary human with a tab
 	 * left open overnight and is not spam: they are asked to send it again, with everything
 	 * they typed still in the boxes. `ok` is everything else.
@@ -1772,7 +1801,7 @@ class WPCPM_Institution_Application {
 	 * replayed once into the next bucket, which is the price of a bucketed counter and is
 	 * still one replay rather than a thousand.
 	 *
-	 * The judgement is the guard's since 1.97.0; the name stays because `handle_submit()` and
+	 * The judgment is the guard's since 1.97.0; the name stays because `handle_submit()` and
 	 * the suite read it.
 	 *
 	 * @param string $token The posted token.
@@ -1869,7 +1898,7 @@ class WPCPM_Institution_Application {
 		$spam    = false;
 
 		// 4. The honeypot. A filled one is stored and held as spam rather than refused, and the
-		// sender sees the ordinary confirmation: a bot told which attempt was recognised comes
+		// sender sees the ordinary confirmation: a bot told which attempt was recognized comes
 		// back with a better one, and a human whose browser filled it in has still applied.
 		if ( WPCPM_Form_Guard::honeypot_filled( self::HONEYPOT ) ) {
 			$spam      = true;
@@ -2080,13 +2109,17 @@ class WPCPM_Institution_Application {
 	 * Add the requiredness problems, once, after everything has been cleaned.
 	 *
 	 * Once, because a rule applied in two places is a rule that will disagree with itself: the
-	 * browser's own `required` attribute is a courtesy and this is the check.
+	 * browser's own `required` attribute is a courtesy and this is the check. Public since
+	 * Institutions release 2, with the questions to check named, so the card where a school corrects
+	 * its details asks the form's rules about the group it shows and not about the whole form
+	 * (`WPCPM_Institution_Details::clean()`).
 	 *
-	 * @param array $values   Cleaned values.
-	 * @param array $problems Problems so far.
+	 * @param array    $values   Cleaned values.
+	 * @param array    $problems Problems so far.
+	 * @param string[] $only     The columns or field keys to check; every question when empty.
 	 * @return array
 	 */
-	private static function add_required( array $values, array $problems ) {
+	public static function add_required( array $values, array $problems, array $only = array() ) {
 		$internships = 'How do your internships or practices typically work?';
 
 		foreach ( self::fields() as $column => $spec ) {
@@ -2094,6 +2127,10 @@ class WPCPM_Institution_Application {
 			// refused for a reason of its own keeps that reason rather than being told it is
 			// missing when it is not.
 			if ( 'consent' === $spec['type'] || isset( $problems[ $column ] ) ) {
+				continue;
+			}
+
+			if ( ! empty( $only ) && ! in_array( $column, $only, true ) ) {
 				continue;
 			}
 
@@ -2832,7 +2869,7 @@ class WPCPM_Institution_Application {
 	 *
 	 * Through `WPCPM_Mail::send_to()`, which is the single exit for all plugin mail: a message
 	 * to somebody with no account used to go straight to `wp_mail()`, past the filter, the log
-	 * and the subject sanitising, which made the one message sent to a stranger the one message
+	 * and the subject sanitizing, which made the one message sent to a stranger the one message
 	 * nobody could trace.
 	 *
 	 * The booking link is the program's own, reproduced from the Countries map. Until this form

@@ -39,24 +39,32 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The Student Report Card is the exception to reading from cache: it is fetched from Airtable
  * when the disclosure is opened, through the same route and the same script the mentor's page
- * uses, and authorised there by `WPCPM_Institution_Roster::claim()` rather than by anything
+ * uses, and authorized there by `WPCPM_Institution_Roster::claim()` rather than by anything
  * this file can see. Grades live in it, and this is the one screen an institution meets them on.
  * It arrives with the calendar stylesheet, which is where the rules for that markup live: one
  * copy of the report's markup wants one copy of its dress, not a second in institution.css.
  *
- * **Three controls hang off the card, and none of them belongs to this file.** The single
+ * **Four controls hang off the card, and none of them belongs to this file.** The single
  * student export is `WPCPM_Institution_Export`'s, drawn as a link when `decide( ACT_EXPORT )`
  * allows it; graduate and withdraw are `WPCPM_Institution_Students`', drawn by calling its own
  * renderer; the line saying whether the student has signed in yet, with the button that sends
- * their invitation again, is `WPCPM_Institution_Resend`'s, drawn the same way. Every rule about
- * any of them - which states are offered, that a `Paused` student is refused by name, what the
- * confirm dialog says, who may send an invitation and how often, how the nonces are keyed -
- * lives in those three classes, and this file decides nothing about them beyond where they go.
+ * their invitation again, is `WPCPM_Institution_Resend`'s, drawn the same way; and "Correct this
+ * student's details" is `WPCPM_Institution_Student_Form`'s own form, folded inside the card. Every
+ * rule about any of them - which states are offered, that a `Paused` student is refused by name,
+ * what the confirm dialog says, who may send an invitation and how often, who may correct a
+ * detail and what is saved, how the nonces are keyed - lives in those classes, and this file
+ * decides nothing about them beyond where they go.
  *
- * **Where they go is a rule of its own.** The export is a quiet link inside the card. The status
- * card is the only thing on this page that cannot be taken back - it moves `Status` on the
- * Students table and the program records answer that with mail nobody can recall - so it is
- * drawn last, after the card closes, and nobody meets it on the way to something they came for.
+ * **Where they go is a rule of its own.** The export is a quiet link inside the card. The
+ * correction form is a closed disclosure inside the card, after the Student Report Card, so a
+ * reader meets what the record says before the way to change it. The status card is the only
+ * thing on this page that cannot be taken back - it moves `Status` on the Students table and the
+ * program records answer that with mail nobody can recall - so it is drawn last, after the card
+ * closes, and nobody meets it on the way to something they came for.
+ *
+ * **A student with no mentor reads as normal.** The program may move away from mentors for every
+ * student, so the Mentor row says "No mentor yet", as the roster's mentor cell does, and the
+ * Mentor email row is left out, since there is nobody to write to. Nothing here asks for one.
  */
 class WPCPM_Institution_Student_View {
 
@@ -161,6 +169,7 @@ class WPCPM_Institution_Student_View {
 		echo '</tbody></table>';
 
 		self::render_report( $student );
+		self::render_correction( $record_id, $student );
 		self::render_export( $user_id );
 		self::render_footer( $record_id, $user_id, $context );
 
@@ -387,7 +396,7 @@ class WPCPM_Institution_Student_View {
 	 * they are not the same vocabulary: the Students table's is the application pipeline -
 	 * `Interested`, `Not moving forward`, `Fail`, `SPAM`, and on this base one row whose status
 	 * is the name of a school - while the reports side holds the track the program is named
-	 * after. `WPCPM_Program::label()` passes anything it does not recognise straight through,
+	 * after. `WPCPM_Program::label()` passes anything it does not recognize straight through,
 	 * so reading the roster index row here printed a raw pipeline value in the row a school
 	 * reads as "Program". The badge is painted from this same answer, so the two cannot
 	 * disagree about which track a student is on.
@@ -436,6 +445,10 @@ class WPCPM_Institution_Student_View {
 		$website  = self::first( array( isset( $program['website'] ) ? $program['website'] : '' ) );
 		$team     = WPCPM_Mentors_Sync::resolve_stored( isset( $program['team'] ) ? (string) $program['team'] : '', 'teams' );
 
+		// Whether there is a mentor to name: the Mentor row's value, and the one thing that decides whether
+		// the Mentor email row is drawn at all.
+		$mentor_name = isset( $mentor['name'] ) ? trim( (string) $mentor['name'] ) : '';
+
 		// The row the three cards share, with the words this page's roster prints for a status: the
 		// shared row says "Graduate" where the roster says "Graduated", and it is not this page's to
 		// change for the Mentor Report Card and the Student Report Card. A row with markup of its
@@ -447,7 +460,7 @@ class WPCPM_Institution_Student_View {
 			$program_field['value'] = WPCPM_Program::status_words( $status );
 		}
 
-		return array(
+		$cells = array(
 			// The Learn WordPress course for their track, so the syllabus is one click from the row
 			// that says which track they are on. The cards' shared row: for a student waiting to
 			// graduate it names the course they took, with the Pending graduation badge beside it.
@@ -503,19 +516,29 @@ class WPCPM_Institution_Student_View {
 			// contribute to - is the mentor's own and was disclosed to the program.
 			'mentors|Full Name'              => array(
 				'label' => __( 'Mentor', 'wpcredits-program-manager' ),
-				'value' => isset( $mentor['name'] ) ? (string) $mentor['name'] : '',
+				'value' => $mentor_name,
 				// An empty row here is the answer to the question institutions ask most often
-				// about a new student, so it says what it means rather than "Not set".
-				'blank' => __( 'No mentor assigned yet', 'wpcredits-program-manager' ),
+				// about a new student, so it says what it means rather than "Not set". The words are
+				// the roster's mentor cell's, so the list and the card agree.
+				'blank' => __( 'No mentor yet', 'wpcredits-program-manager' ),
 			),
-			'mentors|Email'                  => array(
+		);
+
+		// The mentor's address is a row only when there is a mentor to write to. A student with
+		// none is the ordinary case now and not a gap in the record, so a "Not set" row for
+		// somebody who does not exist would send a school looking for an address that is not late.
+		// A mentor known by name and not by address keeps the row: that is a gap in the record.
+		if ( '' !== $mentor_name ) {
+			$cells['mentors|Email'] = array(
 				'label'    => __( 'Mentor email', 'wpcredits-program-manager' ),
 				'value'    => isset( $mentor['email'] ) ? (string) $mentor['email'] : '',
 				'url'      => ! empty( $mentor['email'] ) ? 'mailto:' . $mentor['email'] : '',
 				'external' => false,
 				'icon'     => 'email',
-			),
-		);
+			);
+		}
+
+		return $cells;
 	}
 
 	/**
@@ -527,7 +550,7 @@ class WPCPM_Institution_Student_View {
 	 * disagreement is the point.
 	 *
 	 * An empty value prints as a muted placeholder rather than being skipped, unless the row
-	 * says what its own blank means - "No mentor assigned yet" is an answer, and painting it as
+	 * says what its own blank means - "No mentor yet" is an answer, and painting it as
 	 * missing data would send somebody looking for a record that is not late.
 	 *
 	 * @param array $field {
@@ -620,7 +643,7 @@ class WPCPM_Institution_Student_View {
 	 * The Student Report Card, read only, fetched when it is opened.
 	 *
 	 * The same disclosure, the same attributes and the same route as the mentor's page, so
-	 * there is one copy of the report markup and one place it is authorised. Reading one costs
+	 * there is one copy of the report markup and one place it is authorized. Reading one costs
 	 * an Airtable request: a roster of forty students would pay for forty of them to look at
 	 * one, so the body arrives on the toggle and not with the page.
 	 *
@@ -682,6 +705,67 @@ class WPCPM_Institution_Student_View {
 			esc_html__( 'Loading…', 'wpcredits-program-manager' ),
 			esc_html__( 'This one needs JavaScript: the Student Report Card is read from the program records when you open it, so that a roster of forty students does not read forty reports nobody asked for.', 'wpcredits-program-manager' )
 		);
+	}
+
+	/**
+	 * "Correct this student's details", folded inside the card.
+	 *
+	 * The existing form, `WPCPM_Institution_Student_Form::render_form()`, in a closed disclosure whose
+	 * summary names it. Whether to draw anything at all is the form's: it asks `ACT_EDIT_STUDENT` for
+	 * itself and draws nothing for a reader who is refused, for a student with no Students Reports record
+	 * and for a student whose record it cannot key a nonce to. So the form is drawn into a buffer and
+	 * wrapped only when it drew something, or a refused reader would meet a summary that opens onto
+	 * nothing, which is itself an answer about whose student this is.
+	 *
+	 * **The Students Reports record, and not the Students one.** The form claims the report and keys its
+	 * nonce to it, the same record the disclosure above is keyed to; the status card is the one that wants
+	 * the Students record, for the reason `render_status()` gives. The context names the institution the
+	 * reader came from and the student on screen, never the reader.
+	 *
+	 * **Closed, except for a save that left something to say.** The form prints the outcome of the last
+	 * save inside itself, and a sentence inside a closed disclosure is a sentence nobody reads, so the
+	 * disclosure opens when the form drew one. The form is given no flag for it: the buffer already
+	 * carries the one class that outcome is printed with, which the form names as a constant
+	 * (`CLASS_MESSAGE`) and `bin/test-institution-student-form.php` pins on the real form, and that class
+	 * is what is looked for.
+	 *
+	 * Guarded, as the other controls are, so a site that has not loaded the class draws the card without it.
+	 *
+	 * @param string  $record_id Institutions record ID whose roster the reader came from.
+	 * @param WP_User $student   The student.
+	 */
+	private static function render_correction( $record_id, WP_User $student ) {
+		if ( ! class_exists( 'WPCPM_Institution_Student_Form' ) ) {
+			return;
+		}
+
+		ob_start();
+
+		WPCPM_Institution_Student_Form::render_form(
+			WPCPM_Mentor_Calls::student_record( $student->ID ),
+			array(
+				'institution' => (string) $record_id,
+				'user_id'     => (int) $student->ID,
+			)
+		);
+
+		$form = (string) ob_get_clean();
+
+		if ( '' === trim( $form ) ) {
+			return;
+		}
+
+		printf(
+			'<details class="wpcpm-institution__correct"%1$s><summary class="wpcpm-institution__correct-toggle">%2$s</summary>',
+			false !== strpos( $form, WPCPM_Institution_Student_Form::CLASS_MESSAGE ) ? ' open' : '',
+			esc_html__( 'Correct this student\'s details', 'wpcredits-program-manager' )
+		);
+
+		// Built and escaped by the form class, field by field; passing it through kses would strip the
+		// form's own inputs and its nonce.
+		echo $form; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup the form class escapes as it builds it.
+
+		echo '</details>';
 	}
 
 	/**

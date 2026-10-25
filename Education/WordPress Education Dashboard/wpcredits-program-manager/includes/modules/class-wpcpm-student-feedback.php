@@ -18,12 +18,12 @@
  *   poor - "what slowed you down" after a low *how easy was it to get started*, and "what is making
  *   the hours hard to reach" after an unsure or no. Asked of everybody they collect mostly blanks;
  *   asked of the people who had trouble they collect the reason.
- * - **Questions that were retired** because they duplicated their neighbour and returned the most
+ * - **Questions that were retired** because they duplicated their neighbor and returned the most
  *   empty answers, so they are absent here rather than carried over: onboarding-smoother, project
  *   satisfaction, mentor contact frequency, and the two backward-looking "why not" questions.
  * - **The permissions block is separate**, at the end of Form 3, and says so. Sharing a quote
  *   publicly and being contacted about opportunities are not feedback, and a student who does not
- *   want either must not feel that saying so colours the answers above.
+ *   want either must not feel that saying so colors the answers above.
  *
  * **One Airtable record per student, not per submission.** The Feedback table is one row of
  * `F1 - …`, `F2 - …`, `F3 - …` and `F4 - …` columns, so a stage fills in its own columns on the
@@ -402,7 +402,7 @@ class WPCPM_Student_Feedback {
 	 * Whether a finished status means they completed the program.
 	 *
 	 * Matched loosely, because this decides which survey somebody is asked and the statuses are
-	 * configurable: anything that is not recognisably a graduation is treated as leaving early,
+	 * configurable: anything that is not recognizably a graduation is treated as leaving early,
 	 * which asks the gentler set of questions and never hands a graduate an exit survey.
 	 *
 	 * @param string $status Airtable status.
@@ -1045,7 +1045,7 @@ class WPCPM_Student_Feedback {
 			);
 
 			// **Read-only for anybody but the student**, said out loud rather than left as a row of
-			// greyed-out boxes nobody can explain. A manager can fill in the rest of this form on a
+			// grayed-out boxes nobody can explain. A manager can fill in the rest of this form on a
 			// student's behalf, and that is useful; a manager choosing "Yes, with my name" here
 			// would be a consent nobody gave, recorded under the student's name in a document their
 			// university prints. `handle_save()` refuses the write as well, because a disabled
@@ -1293,7 +1293,7 @@ class WPCPM_Student_Feedback {
 	 * A one-to-five scale.
 	 *
 	 * Radio buttons rather than stars: they work without JavaScript, they are operable from the
-	 * keyboard, a screen reader announces which of five is chosen, and the ends are labelled - so
+	 * keyboard, a screen reader announces which of five is chosen, and the ends are labeled - so
 	 * nobody has to guess whether 1 is the good end.
 	 *
 	 * @param string $key   Field key.

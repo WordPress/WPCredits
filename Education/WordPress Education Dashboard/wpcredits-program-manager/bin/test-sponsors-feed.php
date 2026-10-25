@@ -221,7 +221,7 @@ class WPCPM_Ceiling {
 	}
 }
 
-/** The real class hashes and honours the trusted-proxy setting; the feed only needs the prefixed key back. */
+/** The real class hashes and honors the trusted-proxy setting; the feed only needs the prefixed key back. */
 class WPCPM_Form_Guard {
 	public static function actor_key( $prefix ) {
 		return (string) $prefix . ':' . ( isset( $GLOBALS['ip_hash'] ) ? $GLOBALS['ip_hash'] : '' );

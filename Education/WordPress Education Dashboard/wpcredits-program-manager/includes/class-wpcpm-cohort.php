@@ -32,7 +32,7 @@ class WPCPM_Cohort {
 	/** The bucket for rows with no usable start date; a first-class key in every picker and count. */
 	const NONE = 'none';
 
-	/** Statuses that are not a person who signed up. `Interested` is a lead, not an enrolment. */
+	/** Statuses that are not a person who signed up. `Interested` is a lead, not an enrollment. */
 	const NOT_SIGNED_UP = array( 'SPAM', 'Duplicated', 'Interested' );
 
 	/**

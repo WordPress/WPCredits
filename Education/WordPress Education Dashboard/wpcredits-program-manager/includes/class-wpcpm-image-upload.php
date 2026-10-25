@@ -157,7 +157,7 @@ final class WPCPM_Image_Upload {
 	 * @param string $name     The base name to store under, without extension.
 	 * @param int    $author   The attachment's author; 0 for a file no account owns yet, as the
 	 *                         application form stores a logo until approval.
-	 * @param string $title    The attachment's title, e.g. "Weglot logo (colour)".
+	 * @param string $title    The attachment's title, e.g. "Weglot logo (color)".
 	 * @param array  $options  `private` (bool) and `generated_name` (bool); both default to off.
 	 * @return int|WP_Error The attachment ID.
 	 */

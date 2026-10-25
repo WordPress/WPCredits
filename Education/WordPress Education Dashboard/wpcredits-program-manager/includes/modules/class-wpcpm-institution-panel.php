@@ -917,7 +917,7 @@ class WPCPM_Institution_Panel {
 	 *
 	 * The forms sit inside the steps they belong to rather than under the list, so that the
 	 * numbers mean something: step 1 is a control, step 2 is a thing done on paper, step 3
-	 * is a control. A list of three sentences followed by two unlabelled forms is the same
+	 * is a control. A list of three sentences followed by two unlabeled forms is the same
 	 * information with the ordering taken out of it.
 	 *
 	 * @param string $record_id Institutions record ID.
@@ -1364,7 +1364,7 @@ class WPCPM_Institution_Panel {
 	 * What the withdraw dialog asks, in the words of whoever is being asked.
 	 *
 	 * The member's copy is about their own document and their own next step. The manager's
-	 * copy is about another organisation's document: it names the institution, it says that
+	 * copy is about another organization's document: it names the institution, it says that
 	 * nobody there is emailed - the one thing a manager has to know, because telling them
 	 * becomes their job the moment they press it - and it says what the institution is left
 	 * with, which is a queue with nothing in it.
@@ -1389,7 +1389,7 @@ class WPCPM_Institution_Panel {
 	 * An institution's name as the last sync read it, falling back to its record ID.
 	 *
 	 * The record ID is a poor name and a true one. A manager's dialog that named the wrong
-	 * institution would be worse than one naming a record nobody recognises, and the index is
+	 * institution would be worse than one naming a record nobody recognizes, and the index is
 	 * a cache: an institution created between two syncs is not in it yet.
 	 *
 	 * @param string $record_id Institutions record ID.

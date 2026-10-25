@@ -103,7 +103,7 @@ function ck( $label, $actual, $expected ) {
 
 // rec + 14 alphanumeric characters, the shape WPCPM_Airtable::RECORD_ID_PATTERN and this
 // stub both require; a mnemonic string one character over that length would be refused by
-// is_record_id() and every write below would fail before the behaviour under test ran.
+// is_record_id() and every write below would fail before the behavior under test ran.
 $A = 'recSPONSOR0000001';
 $B = 'recSPONSOR0000002';
 $I = 'recINSTITUTION001';

@@ -131,7 +131,7 @@ function get_post_meta( $id, $key = '', $single = false ) {
 function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) ); return true; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**
- * `get_posts()` by type and one meta clause, newest first, honouring `numberposts` and
+ * `get_posts()` by type and one meta clause, newest first, honoring `numberposts` and
  * `fields => ids`. Posts are numbered in insertion order, which is the only "date" the
  * harness has.
  */

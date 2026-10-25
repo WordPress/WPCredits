@@ -31,6 +31,13 @@
  * email does not list is set aside (`WPCPM_Mail_Templates::state()`), and an edit saved while they
  * said it must keep working.
  *
+ * Five emails tell what happens to the details of a school (Institutions release 2): a correction
+ * saved at once, a request to correct a checked detail, its approval, its decline with the
+ * Administrator's note, and its withdrawal. The first, the second and the last go to the addresses in
+ * "Who is emailed about institutions"; the approval and the decline go to the account that asked. What
+ * changed is told in a few lines (`{changes}`, worked out by `WPCPM_Institution_Details::lines()`), so
+ * the words around them can be edited.
+ *
  * @package WPCreditsProgramManager
  */
 
@@ -38,10 +45,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// What the examples of a school's details say changed: two details, the name and the city.
+$wpcpm_sample_changes = static function () {
+	return array(
+		'name' => array(
+			'from' => 'Example College',
+			'to'   => 'Example University',
+		),
+		'city' => array(
+			'from' => 'Example City',
+			'to'   => 'Example Town',
+		),
+	);
+};
+
 // Every placeholder an email of the area may have: what each means and its example, a value or a
 // function that works one out when a preview or a test asks for it. An email takes the ones it uses
 // (`$wpcpm_take`).
-$wpcpm_placeholders = static function () {
+$wpcpm_placeholders = static function () use ( $wpcpm_sample_changes ) {
 	// The day an example email is about, on the site's clock, a number of whole days from today.
 	$day = static function ( $days = 0 ) {
 		return ( new DateTimeImmutable( 'now', wp_timezone() ) )->modify( ( $days < 0 ? '-' : '+' ) . abs( (int) $days ) . ' days' )->format( 'Y-m-d' );
@@ -292,6 +313,25 @@ $wpcpm_placeholders = static function () {
 			'means'   => __( 'Why the membership ended, as the site records it: removed, left or revoked.', 'wpcredits-program-manager' ),
 			'example' => 'left',
 		),
+		'actor_name'         => array(
+			'means'   => __( 'Who made the change or asked for it: their name, or "A member of the institution" when their account holds none.', 'wpcredits-program-manager' ),
+			'example' => 'Ada Okonjo',
+		),
+		'changes'            => array(
+			'means'     => __( 'What changed, a line to each detail: its name, what the program had, and what it reads now, or what the institution asked for. The email needs it, in its body.', 'wpcredits-program-manager' ),
+			'example'   => static function () use ( $wpcpm_sample_changes ) {
+				return WPCPM_Institution_Details::lines( $wpcpm_sample_changes() );
+			},
+			'body_only' => true,
+		),
+		'request_link'       => array(
+			'means'   => __( 'The Administrator Dashboard, where the request waits for an Administrator to approve or decline it. Empty leaves its sentence out.', 'wpcredits-program-manager' ),
+			'example' => static function () {
+				$page = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_ADMIN );
+
+				return '' !== $page ? $page : admin_url( 'admin.php?page=wpcpm-institutions' );
+			},
+		),
 	);
 };
 
@@ -318,6 +358,27 @@ $wpcpm_take = static function ( array $names, array $required, array $own = arra
 // A body: its paragraphs, a blank line between each two.
 $wpcpm_body = static function ( array $paragraphs ) {
 	return implode( "\n\n", $paragraphs );
+};
+
+// In the email about a request, the changes are the ones the school asked for, worded as asked.
+$wpcpm_as_asked = static function () use ( $wpcpm_sample_changes ) {
+	return array(
+		'changes' => array(
+			'example' => static function () use ( $wpcpm_sample_changes ) {
+				return WPCPM_Institution_Details::lines( $wpcpm_sample_changes(), true );
+			},
+		),
+	);
+};
+
+// In the email about a decline, the note is the Administrator's reason for leaving the details as
+// they are.
+$wpcpm_as_declined = static function () {
+	return array(
+		'note' => array(
+			'example' => 'Please give the name as it appears on your website.',
+		),
+	);
 };
 
 // In the emails about an application, the institution's name is the one the application gave: no
@@ -475,21 +536,21 @@ $wpcpm_revoked_subject = sprintf(
 );
 
 return array(
-	'institution-applied'          => array(
+	'institution-applied'           => array(
 		'trigger'      => __( 'When an institution applies through the form on the site and its country has a call to book: to the address the application gives.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_applied_subject,
 		'body'         => $wpcpm_applied( true ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'reference', 'verify_link', 'booking_link', 'applicant_email' ), array( 'verify_link', 'booking_link' ), $wpcpm_as_applied ),
 	),
-	'institution-applied-no-call'  => array(
+	'institution-applied-no-call'   => array(
 		'trigger'      => __( 'When an institution applies through the form on the site and its country has no call to book: to the address the application gives.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_applied_subject,
 		'body'         => $wpcpm_applied( false ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'reference', 'verify_link', 'applicant_email' ), array( 'verify_link' ), $wpcpm_as_applied ),
 	),
-	'institution-application'      => array(
+	'institution-application'       => array(
 		'trigger'      => __( 'When an institution\'s application passes every check: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: institution name. */
@@ -520,7 +581,7 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'city', 'country', 'contact_name', 'contact_email', 'queue_link' ), array(), $wpcpm_as_applied ),
 	),
-	'institution-information'      => array(
+	'institution-information'       => array(
 		'trigger'      => __( 'When an Administrator asks an applicant a question about the institution\'s application: to the address the application gives, with the Administrator\'s address to reply to.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: application reference, e.g. APP-2026-0007. */
@@ -538,7 +599,7 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'reference', 'question' ), array( 'question' ) ),
 	),
-	'institution-declined'         => array(
+	'institution-declined'          => array(
 		'trigger'      => __( 'When an Administrator rejects an institution\'s application: to the address the application gives. The reason the Administrator wrote stays on the application, and is never sent.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
@@ -555,21 +616,21 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name' ), array() ),
 	),
-	'institution-invite'           => array(
+	'institution-invite'            => array(
 		'trigger'      => __( 'When a member of an institution, or an Administrator acting for it, invites a colleague to its account: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_invite_subject,
 		'body'         => $wpcpm_invite( true ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'inviter_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
 	),
-	'institution-invite-no-sender' => array(
+	'institution-invite-no-sender'  => array(
 		'trigger'      => __( 'When a colleague is invited to an institution\'s account and the invitation has nobody to name as its sender, the inviter\'s account being gone or holding no name: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_invite_subject,
 		'body'         => $wpcpm_invite( false ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
 	),
-	'agreement-received'           => array(
+	'agreement-received'            => array(
 		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
@@ -595,21 +656,21 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'uploaded_on', 'uploaded_by', 'review_window' ), array() ),
 	),
-	'agreement-landed'             => array(
+	'agreement-landed'              => array(
 		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement and the courtesy scan notices nothing: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_landed_subject,
 		'body'         => $wpcpm_landed( false ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'uploaded_on', 'uploaded_by', 'queue_link' ), array() ),
 	),
-	'agreement-landed-flagged'     => array(
+	'agreement-landed-flagged'      => array(
 		'trigger'      => __( 'When an institution uploads its signed Collaboration Agreement and the courtesy scan notices something: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_landed_subject,
 		'body'         => $wpcpm_landed( true ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'uploaded_on', 'uploaded_by', 'scan_flags', 'queue_link' ), array( 'scan_flags' ) ),
 	),
-	'agreement-accepted'           => array(
+	'agreement-accepted'            => array(
 		'trigger'      => __( 'When an Administrator accepts an institution\'s signed Collaboration Agreement: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
@@ -630,7 +691,7 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'accepted_on', 'dashboard_link' ), array() ),
 	),
-	'agreement-reinstated'         => array(
+	'agreement-reinstated'          => array(
 		'trigger'      => __( 'When an Administrator puts an institution\'s revoked Collaboration Agreement back in force: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
@@ -651,7 +712,7 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'reinstated_on', 'dashboard_link' ), array() ),
 	),
-	'agreement-returned'           => array(
+	'agreement-returned'            => array(
 		'trigger'      => __( 'When an Administrator sends an institution\'s signed Collaboration Agreement back with a note: to every member of the institution, with the Administrator\'s address to reply to.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
@@ -673,21 +734,21 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'returned_on', 'administrator_name', 'note' ), array( 'note' ) ),
 	),
-	'agreement-revoked'            => array(
+	'agreement-revoked'             => array(
 		'trigger'      => __( 'When an Administrator revokes an institution\'s Collaboration Agreement and its country has a program contact: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_revoked_subject,
 		'body'         => $wpcpm_revoked( true ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'revoked_on', 'administrator_name', 'note', 'country', 'country_contact' ), array( 'note', 'country_contact' ) ),
 	),
-	'agreement-revoked-no-contact' => array(
+	'agreement-revoked-no-contact'  => array(
 		'trigger'      => __( 'When an Administrator revokes an institution\'s Collaboration Agreement and its country has no program contact on file: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_revoked_subject,
 		'body'         => $wpcpm_revoked( false ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'revoked_on', 'administrator_name', 'note' ), array( 'note' ) ),
 	),
-	'agreement-reminder'           => array(
+	'agreement-reminder'            => array(
 		'trigger'      => __( 'Once a day, when signed agreements have waited longer than the review window: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: how many signed agreements, counted with their verb, such as "3 signed agreements are". */
@@ -710,7 +771,7 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'agreements_waiting', 'agreements_overdue', 'review_days', 'overdue_list', 'queue_link' ), array() ),
 	),
-	'agreement-template'           => array(
+	'agreement-template'            => array(
 		'trigger'      => __( 'When an institution asks the site to generate the Collaboration Agreement and the template cannot be used: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
@@ -734,7 +795,7 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'reason', 'language', 'institution_name', 'institution_record', 'name_asked_for' ), array() ),
 	),
-	'member-last'                  => array(
+	'member-last'                   => array(
 		'trigger'      => __( 'When the last member of an institution leaves or is removed: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: institution name. */
@@ -757,5 +818,113 @@ return array(
 		),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'member_name', 'institution_name', 'institution_record', 'left_on', 'ended_because' ), array() ),
+	),
+	'institution-details-saved'     => array(
+		'trigger'      => __( 'When an institution\'s member saves a change to the institution\'s contact and agreement details, or an Administrator saves any detail: to the people the setting names.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: institution name. */
+			__( '[%1$s] %2$s\'s details were corrected', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{institution_name}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				sprintf(
+					/* translators: 1: the person who changed the details, 2: the institution's name. */
+					__( '%1$s changed %2$s\'s details on the Institution Dashboard:', 'wpcredits-program-manager' ),
+					'{actor_name}',
+					'{institution_name}'
+				),
+				'{changes}',
+				__( 'They are saved, and the program\'s records follow. Nothing waits for you.', 'wpcredits-program-manager' ),
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'actor_name', 'changes' ), array( 'changes' ) ),
+	),
+	'institution-details-request'   => array(
+		'trigger'      => __( 'When an institution asks to correct its name, website, city, country or contact\'s email: to the people the setting names.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: institution name. */
+			__( '[%1$s] %2$s asks to correct its details', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{institution_name}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				sprintf(
+					/* translators: 1: the person who asked, 2: the institution's name. */
+					__( '%1$s asks to correct %2$s\'s details:', 'wpcredits-program-manager' ),
+					'{actor_name}',
+					'{institution_name}'
+				),
+				'{changes}',
+				sprintf(
+					/* translators: %s: the link to the request on the Administrator Dashboard. */
+					__( 'Nothing is changed until an Administrator approves it. Approve or decline it on the Administrator Dashboard: %s', 'wpcredits-program-manager' ),
+					'{request_link}'
+				),
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'actor_name', 'changes', 'request_link' ), array( 'changes' ), $wpcpm_as_asked() ),
+	),
+	'institution-details-approved'  => array(
+		'trigger'      => __( 'When an Administrator approves an institution\'s request to correct its details: to the person who asked.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: %s: site name. */
+			__( '[%s] Your institution\'s details are updated', 'wpcredits-program-manager' ),
+			'{site_name}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				__( 'An Administrator approved the change you asked for, and the program\'s records now read:', 'wpcredits-program-manager' ),
+				'{changes}',
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'changes' ), array( 'changes' ) ),
+	),
+	'institution-details-declined'  => array(
+		'trigger'      => __( 'When an Administrator declines an institution\'s request to correct its details: to the person who asked.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: %s: site name. */
+			__( '[%s] Your request to correct your institution\'s details', 'wpcredits-program-manager' ),
+			'{site_name}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				__( 'An Administrator did not make the change you asked for, and wrote:', 'wpcredits-program-manager' ),
+				'{note}',
+				sprintf(
+					/* translators: %s: the link to the Institution Dashboard. */
+					__( 'The details on record are unchanged. You can ask again from the Institution Dashboard: %s', 'wpcredits-program-manager' ),
+					'{dashboard_link}'
+				),
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'note', 'dashboard_link' ), array( 'note' ), $wpcpm_as_declined() ),
+	),
+	'institution-details-withdrawn' => array(
+		'trigger'      => __( 'When an institution withdraws its request to correct its details: to the people the setting names.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: institution name. */
+			__( '[%1$s] %2$s withdrew its request', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{institution_name}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				sprintf(
+					/* translators: 1: the person who withdrew it, 2: the institution's name. */
+					__( '%1$s withdrew the request to correct %2$s\'s details. Nothing waits for you.', 'wpcredits-program-manager' ),
+					'{actor_name}',
+					'{institution_name}'
+				),
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'actor_name' ), array() ),
 	),
 );

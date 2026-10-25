@@ -157,7 +157,7 @@ class WPCPM_Header_Notices extends WPCPM_Tool {
 			$body = isset( $bodies[ $slug ] ) ? $bodies[ $slug ] : '';
 
 			// The editor ID has to be lowercase letters and underscores only - TinyMCE is
-			// initialised by that ID, and a hyphen in it breaks the editor rather than
+			// initialized by that ID, and a hyphen in it breaks the editor rather than
 			// degrading it.
 			$editor_id = 'wpcpm_notice_' . $slug;
 

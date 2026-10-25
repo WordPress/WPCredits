@@ -106,7 +106,7 @@ function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $echo = true ) {
 }
 
 /**
- * Honours the protocol allow-list, so the URL assertions are not vacuous.
+ * Honors the protocol allow-list, so the URL assertions are not vacuous.
  *
  * A pass-through stub here once made a security assertion prove nothing, which is the reason this
  * is spelled out rather than returning its input.
@@ -800,14 +800,14 @@ ck( 'and it prints between the practical lesson and the team list it names',
 ck( 'the second project summary follows the first',
     $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );
 
-// They read as end-of-programme questions, which is why they were in Wrap-up at first. The base's
+// They read as end-of-program questions, which is why they were in Wrap-up at first. The base's
 // dev-track view asks them in the middle of Project, between the first-contribution post and the
 // halfway one, and that is the program's decision rather than something to infer from the wording.
 ck( 'the alumni questions are in the project section',
     array( $dev['Alumni program: personal email']['group'], $dev['Alumni program: mentoring opt-in']['group'], $dev['Contributing beyond WP Credits']['group'] ),
     array( 'project', 'project', 'project' ) );
 
-// The alumni programme is lesson 7 and the first-contribution reflection is lesson 9, so the
+// The alumni program is lesson 7 and the first-contribution reflection is lesson 9, so the
 // alumni questions come *before* it. They were after it while the Airtable view was the only
 // guide. The three of them also close the pair: they carry no row, so the run of stacked questions
 // beside the team list ends here, which is what puts them full width.
@@ -1318,7 +1318,7 @@ echo "\n=== What an institution's copy of the card leaves out ===\n";
 
 // The institution's student card fetches this body over REST, and it used to draw every field
 // of the track: for a Developer Track student that included the personal alumni address and
-// the post-programme plans, on a card whose docblock promises the school sees no address.
+// the post-program plans, on a card whose docblock promises the school sees no address.
 $dev  = WPCPM_Student_Report_Form::fields( 'dev' );
 $for  = WPCPM_Student_Report_Form::for_institution( $dev );
 $gone = array_diff( array_keys( $dev ), array_keys( $for ) );

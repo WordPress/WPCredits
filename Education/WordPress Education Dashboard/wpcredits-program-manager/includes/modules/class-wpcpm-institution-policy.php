@@ -1,6 +1,6 @@
 <?php
 /**
- * The Institutions module's one authorisation fence.
+ * The Institutions module's one authorization fence.
  *
  * @package WPCreditsProgramManager
  */
@@ -75,6 +75,13 @@ final class WPCPM_Institution_Policy {
 	/** View, generate, upload, withdraw, download. The only ungated action. */
 	const ACT_AGREEMENT = 'agreement';
 
+	/**
+	 * A school's own details: correct them, ask to correct the checked ones, withdraw that request,
+	 * and, for an Administrator, decide it (Institutions release 2). Gated like every action but the
+	 * agreement: a school whose agreement is not settled has no details card to act from.
+	 */
+	const ACT_EDIT_DETAILS = 'edit_details';
+
 	/** The one refusal code every refused request carries. */
 	const REFUSAL_CODE = 'wpcpm_inst_unknown';
 
@@ -107,6 +114,7 @@ final class WPCPM_Institution_Policy {
 			self::ACT_EDIT_SEMESTER_REPORT => array( self::GROUND_MANAGER ),
 			self::ACT_MANAGE_MEMBERS       => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_AGREEMENT            => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_EDIT_DETAILS         => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 		);
 	}
 
@@ -198,7 +206,7 @@ final class WPCPM_Institution_Policy {
 	public static function subject_post( WP_Post $post, $meta_key ) {
 		// The subject vocabulary names the document, not the storage: the audit log reads
 		// `type` and should not have to know which post type holds what. A post type this
-		// map does not know passes through as itself rather than being mislabelled.
+		// map does not know passes through as itself rather than being mislabeled.
 		$types = array(
 			'wpcpm_agreement'    => 'agreement',
 			'wpcpm_inst_report'  => 'semester_report',

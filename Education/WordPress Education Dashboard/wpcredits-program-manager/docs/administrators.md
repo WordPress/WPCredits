@@ -80,8 +80,9 @@ once. They are how you get back in if you lose the phone.
 Your page is drawn for whoever is signed in, so the same address shows each person their own
 page, and no change to a link shows anybody else's. The
 program's Administrators are the one exception: to help, they can open anyone's page, through a
-switcher only they are shown. A company's people share one Sponsor Dashboard: everyone the program
-attached to the company sees the same page.
+switcher only they are shown. A company's people share one Sponsor Dashboard, and an
+institution's people share one Institution Dashboard: everyone attached to the company or the
+institution sees the same page.
 
 ## The plugin in wp-admin
 
@@ -457,7 +458,7 @@ order:
 
 The Institutions screen is six tabs, and a press on any of them comes back to it, with what came of it said above the tabs. **Waiting for review**, the tab **WPCredits Program > Institutions** opens on, holds the queue; the others are **Pipeline**, **Accounts**, **Semester reports**, **Agreements** and **Sync and storage**. While Airtable is not connected, every tab says so above the tabs, with the way to the setting. The menu entry carries a bubble counting the applications, the signed agreements and the requests from institutions waiting.
 
-**Waiting for review** lists the applications from institutions, the signed agreements and the requests from institutions in one list, oldest first, each with how long it has waited and the country's person of contact, for information. An application or a signed agreement is marked *overdue* once it has waited longer than the days set under **Agreement review** on the Institutions tab of Settings, and a request from an institution once it has waited longer than fourteen days; an application the anti-spam checks held is marked *held*, and one that names the same institution or the same address as another in the queue *possible duplicate*. The queue is read here and decided on the Administrator Dashboard: every row ends with **Open on the Administrator Dashboard**, the way to the card there that decides it. An application's row also has **Open this application**, a mentor request's says who the mentor is wanted for and who asked, any other request's says what it asks, the student it is about and who raised it, and a signed agreement's row is the review block the dashboard draws, its checklist, what the scan noticed and the download link, with **Open on the Administrator Dashboard** where the dashboard's block has **Accept it** and **Return it with this note**. While the Administrator Dashboard's page is missing, the list says so once above the rows, and no row links there.
+**Waiting for review** lists the applications from institutions, the signed agreements and the requests from institutions in one list, oldest first, each with how long it has waited and the country's person of contact, for information. An application or a signed agreement is marked *overdue* once it has waited longer than the days set under **Agreement review** on the Institutions tab of Settings, and a request from an institution once it has waited longer than fourteen days; an application the anti-spam checks held is marked *held*, and one that names the same institution or the same address as another in the queue *possible duplicate*. The queue is read here and decided on the Administrator Dashboard: every row ends with **Open on the Administrator Dashboard**, the way to the card there that decides it. An application's row also has **Open this application**, a mentor request's says who the mentor is wanted for and who asked, a school's request to correct its details is labeled **Details to correct** and says what it asks and who raised it, any other request's says what it asks, the student it is about and who raised it, and a signed agreement's row is the review block the dashboard draws, its checklist, what the scan noticed and the download link, with **Open on the Administrator Dashboard** where the dashboard's block has **Accept it** and **Return it with this note**. While the Administrator Dashboard's page is missing, the list says so once above the rows, and no row links there.
 
 **Open this application** shows one application in the list's place, with **Back to the queue**: what the anti-spam checks noticed, whether the applicant has confirmed the address, every answer with the consent (the sentence the applicant agreed to, when, and the policy's address: the WordPress.org privacy policy since 1.123.24, this site's own page, with the date it last changed, for an application filed before), each under the Airtable column it is written to, and what Airtable already holds under the same name or address. Since 1.123.29 the answers include the five the form keeps on this site and never sends to Airtable, in the order the form asks them: the contact's role, the languages the students study in, who will sign the agreement, their title and the institution's page about WordPress Credits. They have no column under them, and an application filed before they were asked shows them unanswered. The Administrator Dashboard's **Read the application** shows the same answers. Under **Where it is decided**, an open application that the Administrator Dashboard's **Institution applications** card lists says it is decided there, with the way there. That card lists the fifty oldest open applications, so one past them is decided here, with the same four decisions, **Approve**, **Send this question**, **Reject** and **Reject as spam**, and each press comes back to the queue. Since 1.123.26 an open application whose address is not confirmed also has **Send the confirmation link again**, before the four, wherever they are drawn: **Approve** is refused until the applicant follows the link in the acknowledgement, and this sends the acknowledgement again, with the same link the first one carried, so that one keeps working too. It counts against the day's limit on acknowledgements as the form's own send does; past the limit nothing is sent and the notice says so. The application stays where it is, its history records the send, and the notice says "The confirmation link was sent again." **Put back in the queue** on an application the form's checks filed as spam, or one that came past the day's limit, sends it the acknowledgement as well, once; one acknowledged before is sent nothing. An application whose approval stopped halfway, after the Airtable record was created and maybe the account, is finished by pressing **Approve** again: since 1.123.26 it is marked *approval stopped partway* here and on its row in the list, with "Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.", and on the dashboard's card with the same sentences in a note, and **Reject**, **Reject as spam** and **Put back in the queue** refuse it, so no decline goes to an institution whose record already stands. The acknowledgement itself says the link is needed: "Please follow this link: we cannot take your application further until you do." The record-keeping on a closed application stays here: one rejected or marked as spam has **Put back in the queue** and **Delete for good**, since the dashboard folds in only the oldest fifty of those, and an approved one has **Delete for good**, since the dashboard never lists it. **Delete for good** keeps only the application's reference and the date.
 
@@ -737,7 +738,11 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   institution approved before 1.123.29 has no such record.
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
-  the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the
+  the program and the term and then adds one student or sends a CSV. Off by default. Beside the file
+  box, a link **Download a sample list** sends a file, `students-sample.csv`, with the four headers
+  the import reads (`name`, `email`, `field_of_study`, `tutor`) and one example student, so a school
+  that has never seen the format is shown one. The site makes the file when the link is followed, to
+  an account that may enroll students, and holds no copy of it. Its fold: the
   list is read and checked against the program records, and the school sees what was understood
   before anything is created; while this is off, the section does not appear at all. Each
   institution is held to five checks an hour and 600 students a day, and the files are read and
@@ -773,13 +778,16 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   same setting) - who gets every email about institutions an Administrator is sent: a new
   application from an institution, a signed agreement uploaded for review, the nightly reminder of
   agreements waiting past the review days, the notice that the agreement template cannot be used,
-  and an institution's last member leaving. A box for each Administrator, under
-  **Administrators**, and an **Other addresses** line for anybody else, separated by commas. With
-  nobody named, every Administrator account gets them, and a notice under the field says so:
-  "Nobody is named, so every Administrator account gets these emails." That means every account
-  with the WordPress Administrator role, technical ones too, so name somebody. Where no
-  Administrator account with an email address can be listed, the addresses are typed, separated by
-  commas.
+  an institution's last member leaving, and the three emails about a school's details: a school
+  saving a correction of its contact or agreement details (what changed, from what to what), a school
+  asking to correct its name, website, city, country or contact's email (what it asks for, with a link
+  to the request on the Administrator Dashboard), and a school withdrawing that request. A box for
+  each Administrator, under **Administrators**, and an **Other addresses** line for anybody else,
+  separated by commas. With nobody named, every Administrator account gets them, and a notice under
+  the field says so: "Nobody is named, so every Administrator account gets these emails." That
+  means every account with the WordPress Administrator role, technical ones too, so name somebody.
+  Where no Administrator account with an email address can be listed, the addresses are typed,
+  separated by commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
   taken from, linked from the Agreement template card on the Institutions screen's Agreements tab;
   Google addresses only. Its fold: it is kept on this site rather than in the code, because the
@@ -1119,11 +1127,14 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   Administrator's question and the rejection; a member's invitation to a colleague; the institution's
   Collaboration Agreement received, uploaded, accepted, put back in force, returned with a note and
   revoked, the daily list of agreements waiting too long, and the notice that the agreement's
-  template could not be used; and the notice that an institution has no members left. An email that
-  says other words in one case than in another is two: the acknowledgement for a country with a call
-  to book and for one without, the upload with the courtesy scan's notes and without, the
-  revocation with a country contact named and without one, and the invitation with its inviter
-  named and with nobody to name as its sender, the inviter's account gone or holding no name.
+  template could not be used; the notice that an institution has no members left; and what happens
+  to an institution's details: a correction saved at once, a request to correct a checked detail
+  (its name, website, city, country or contact's email), the request's approval, its decline with
+  the Administrator's note, and its withdrawal. An email that says other words in one case than in
+  another is two: the acknowledgement for a country with a call to book and for one without, the
+  upload with the courtesy scan's notes and without, the revocation with a country contact named and
+  without one, and the invitation with its inviter named and with nobody to name as its sender, the
+  inviter's account gone or holding no name.
 - **Semester reports**: the notice to the Administrators that the daily job drafted a report, the
   approval to the institution's accounts, and the question to the students whether the report may
   mention them.
@@ -1954,6 +1965,94 @@ which is the one **Show** opens. Enter in the field never sends the form, and a 
 how many names the list shows. In a browser running no JavaScript the field is not shown, and the
 plain sorted list works on its own.
 
+### The details card on an institution's page
+
+At the head of the **Representatives and agreement** module on an institution's Institution Dashboard,
+above the people who act for it and its Collaboration Agreement, is the card **Your institution's
+details**, with the line "What the program has on record." It is drawn to every account of an
+institution whose agreement is settled and to an Administrator on any institution's page, opened through
+the switcher or reached as the page you land on. An institution whose agreement is not settled has no
+card: its accounts see the agreement panel alone, where they set its name on the agreement document.
+
+The details read as rows under two small headings, in this order. **Contact and agreement**: the contact
+person, their role, who signs the agreement, their title, the languages the students study in, and the
+institution's page about WordPress Credits. **Name and address**: the name, the website, the city, the
+country and the contact's email. A detail the program holds nothing for reads "Not given yet".
+
+Under each list a closed section opens the form for that group alone, with the application's own
+questions, labels and help, and the application's rules:
+
+- **Correct these** (saved at once) is under the first list. Saving writes the contact person to the
+  Institutions table in Airtable and to the program records here, and the other answers to the
+  institution's record on this site. It adds a line to the institution's history that names the details
+  changed and none of their values, emails the people **Who is emailed about institutions** names what
+  changed, from what to what, and says "Your institution's details are saved."
+- **Ask to correct these** (an Administrator checks first) is under the second. A member's press on **Send
+  to an Administrator** writes nothing: it raises a request, shown on the Administrator Dashboard's
+  *Requests from institutions* card, emails the same people with a link to it, and says "Sent: an
+  Administrator checks the change, and you will see it here once it is decided." An Administrator is
+  drawn this second form as **Correct these** (saved at once), with **Save the details**, as the first:
+  their press saves at once, in either form, and emails as a save does, since an Administrator is the one
+  who checks, and nobody approves their own change. While the school's request waits, an
+  Administrator is offered no second form either: under the second list they read "A request from the
+  school is waiting. Decide it in Requests from institutions on the Administrator Dashboard.", linked to
+  that card while the page is published, and a post of that form is refused with the same sentence. The
+  first form stays open to everyone allowed.
+
+While a request waits, every account of the institution reads, under each row it would change, "Waiting
+for an Administrator:", what was asked and the day it was asked, with **Withdraw it**; an Administrator
+reads the same lines without the button, since the request is decided on the Administrator Dashboard. The
+second list then offers no form, because an institution has one request at a time. A second account, or a second tab,
+that asks meanwhile is told "One change is already waiting for an Administrator." and nothing is made.
+Once the request is decided, every account of the institution reads its outcome until the next request is
+sent: "Updated on" and the day after an approval; "An Administrator did not make the change you asked for:"
+and the note after a decline; nothing after a withdrawal. Withdraw it brings the account back to this card.
+
+A form posted with nothing changed says "Nothing was changed." and sends no email; a value posted back as
+it was drawn is not a change, even one the program holds in a form the application would not accept. A
+refused post gives back what was typed, with the problem under the field that has one, and a text that
+WordPress would take words from is refused whole, as on the application. If Airtable refuses the contact
+person's save, nothing is saved on this site either, the typed values come back, and the card says
+"The program records could not be updated, so nothing was saved. Please try again in a while." The card
+never names Airtable to the institution.
+
+A save at once is made under a lock of the institution's own, the option
+`wpcpm_req_lock_details_<record>` its request is raised under, with what the program has on record read
+again under it. Two tabs, or two accounts, posting the same correction save it once: the second is told
+"Nothing was changed." and writes, emails and records nothing. A save that finds the lock held, and a
+request sent while it is held, is told "Someone else is saving your institution's details at this
+moment, so nothing was done. Try again in a moment.", saves or makes nothing, and gives back the typed
+values; "One change is already waiting for an Administrator." is for a request that truly waits. The
+forms leave every rule to the site, so a box the browser would refuse, such as a stored contact's email
+that holds two addresses, does not stop a post of the rest.
+
+### A student's card on an institution's page
+
+An institution's accounts open a student's card from the roster, and an Administrator opens the same card
+through the switcher. The card shows the student's name and program, whether they have signed in yet, the
+internship dates and cohort, the field of study, the tutor, the WordPress.org profile, the contribution
+teams and the personal website, then the mentor, the Student Report Card (read only, fetched when it is
+opened) and a link that downloads the student's details and course grades as a CSV file.
+
+A mentor is optional in the program, and a student without one reads as normal. The **Mentor** row says
+"No mentor yet", in the roster's words, and the **Mentor email** row is left out, since there is nobody to
+write to. A mentor known by name and not by address keeps the row, which then reads "Not set". The card
+asks for no mentor and offers no way to ask for one.
+
+Under the Student Report Card, a closed section named **Correct this student's details** holds the form
+that corrects five details: the name on the Student Report Card, the full name, the start date, the end
+date (at most a year after the start) and the field of study, which must be one of the program's own
+choices. It is shown to every account of the student's institution and to an Administrator, and to
+nobody else; a student with no progress record yet has no Student Report Card and no section. Saving
+writes to the program records at once, through a live read that places the student with the institution,
+and adds a line to the institution's history. When a value is refused the section names what was refused
+and says whether the rest was saved, and the form comes back with what was typed and not saved, for the
+account that typed it, while what was saved shows as the program records now hold it. The section opens
+by itself when the last save left something to say, so its sentence is not hidden in a closed section.
+Nothing on this card asks for a mentor or keeps notes. A mentor request already on record is still on
+the Administrator Dashboard's *Requests from institutions* card, where an Administrator closes it as
+before.
+
 ### The For Administrators section of an institution's page
 
 At the foot of an institution's Institution Dashboard, under its sections and above the line that says
@@ -1973,10 +2072,23 @@ when, in the site's date and time formats; who, as the account's name, "The site
 itself, as when an invitation expires, or "A removed account" when the account is gone; and what happened,
 in a plain sentence. It covers the institution's members and invitations, with the address each invitation
 went to, its application and its agreement from the template being generated to a revoke, which also gives
-the note it was revoked with after "Note:", its requests, the notes about its students, its imports, the
-changes made to its students, and the roster's refusals. When there are more than 100, the card says
-"Showing the latest 100." An institution with nothing recorded says "Nothing has been recorded for this
-institution yet."
+the note it was revoked with after "Note:", its details (the corrections it saved, and its requests to
+correct them), its requests, its imports, the changes made to its students, and the roster's refusals; a
+line about a note on a student, if the history holds one, reads "A note about a student was added." or "A
+note about a student was deleted." When there are more than 100, the card says "Showing the latest 100."
+An institution with nothing recorded says "Nothing has been recorded for this institution yet."
+
+A row reads in today's words whatever the day it was written. A member row names the account as it is
+called now, "A former member" when the account is gone, says that it was added as a member or is no longer
+one, and then says how it joined or left in the words of the People card ("Added by an Administrator",
+"Joined by invitation", "Their access was removed", "They removed their own access"), never the code the row
+was stored with. A request that was closed is worded by what became of it: "An Administrator closed a request
+as handled.", "An Administrator declined a request.", "An Administrator approved a change to the
+institution's details." or, for one taken back, "The institution withdrew a request." (or "An Administrator
+withdrew a request." when an Administrator withdrew it), with the Administrator's note after it when the note
+can be shown, and the outcome alone when it cannot. A school's request to correct its details reads "The
+institution asked to correct its details.", and a correction it saved "Details were corrected:" and the names
+of the details. A line written before the Administrators were named is read in the words used now.
 
 ### Arranging the Student Report Card
 
@@ -2029,6 +2141,16 @@ runs, the two agreement discards, the nightly reminder of agreements waiting, in
 drafting and the ceiling's sweep - because the settings behind them are in days and a base that is
 down must not stop a file being forgotten on time. The Mentor Status Checker is not a sync either: it
 reads WordPress.org profiles rather than Airtable, and its automatic run is daily (weekly until 1.122.4).
+
+**A correction made while the institutions sync reads (Institutions release 2).** A school's details
+corrected on the site, on its Institution Dashboard or by an Administrator's approval of its
+request, are written to Airtable and then to the site's copy of the Institutions table, one
+correction at a time, under the option `wpcpm_institutions_index_lock`; a correction that cannot
+take it within a second is in Airtable and reaches the site with the next run. The institutions sync
+writes that copy whole from what it read of the base, so a run that read before a correction could
+put back the value it replaced. A correction made while a run holds its lock therefore asks for one
+more run five minutes later, which reads the change from the base. Only one such run waits at a
+time, and it keeps to **Automatic sync** and leaves a run still going alone.
 
 Accounts are matched by the Airtable record the sync stored, then by email address, and, for
 mentors, last by WordPress.org username. **No account is ever deleted by a sync** - the most it will
@@ -2145,6 +2267,8 @@ The institution application form's page is at /institution-application/ since 1.
 the update (its slug, title and content each only while still the plugin's own), and /apply/
 takes a visitor there.
 
+The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
+
 ### Uninstall
 
 Uninstall removes the settings, the sync state, the access-level meta, the last sign-in and last visit the site records for every account, and the custom roles, and moves
@@ -2191,7 +2315,9 @@ The Administrator Dashboard at /administrator-dashboard/ is the page to start th
 
 **Waiting for you** holds what needs an Administrator's decision: *Institution applications*, *Collaboration Agreements*, *Semester reports*, *Requests from institutions*, *Sponsor applications*, *Sponsor posts to review*, *Sponsor offers to review*, *Events* while Sponsor tiers is on, *Sponsor Collaboration Agreements* and *Sponsor reports*. Each is open while it holds something, and folded with nothing, its line then saying "0 waiting". **Watch** holds what to keep an eye on this week, each card folded whatever it holds: *Offers running low*, *Duplicated students*, *New interests*, *Sponsor terms ending* and *Syncs and health*. *Syncs and health* counts the syncs that need a look: while Automatic sync is on, an audience's sync whose last run left an error or that has finished no run in the last six hours; while it is off, an audience's sync whose last run left an error, under the words "Automatic sync is off"; and, the switch on or off, the outcome figures' weekly read when its last read was held or failed, or when the read has stopped and the figures stored are more than 29 days old, so the homepage shows none. With nothing else to look at, the row says which: "The outcome figures are held for a look", "The outcome figures' last read failed" or "The outcome figures are no longer shown on the homepage"; with nothing to look at, "Every audience's sync ran in the last six hours". With the switch off, the row begins "Automatic sync is off;" before the first three, and says only "Automatic sync is off" when nothing needs a look. **Reference** holds the program's numbers, folded too: *Sponsors*, *Programs running* and *Mentor engagement*.
 
-The queues are decided on this page, all but the mentor applications, which are decided on the Mentors screen. An open institution application, a signed Collaboration Agreement and a mentor request are decided here: the Institutions screen's **Waiting for review** tab lists them to be read, each with a link to its card here, and keeps the record-keeping on a closed application and the four decisions on an open application past the fifty oldest this page's card lists, which no card here reaches. The sponsor queues are decided here the same way: an open sponsor application; a sponsor post, published with *Publish* or returned with *Return it with this note*, under *Return with a note*; a sponsor offer, or a change to what students see of a live one, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; a sponsor's planned event, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; and a sponsor's signed agreement, accepted with *Accept it* or returned with *Return it with this note*, while an agreement out of force is put back with *Reinstate*, under *Out of force* in the same card. *Accept it* and *Reinstate* ask before they act, since each records a new state for the agreement and emails everybody at the company. The Sponsors screen lists them to be read on its **Waiting for review** tab, each application, post, offer, event and document with a link to its own item here, and keeps the record-keeping on a decided application and every decision on an open one past the fifty oldest this page's card lists; its **Agreements** tab reinstates an agreement past the fifty oldest out of force that this page lists. *Reinstate* on an institution's Collaboration Agreement is offered on this page alone, and revoking one is offered on the Institutions screen's **Agreements** tab alone, with **Revoke this agreement**. A decision a wp-admin screen offers too is the same decision there, posted to the same handler with the same safeguards, and every decision lands back on the page with its card open (Draft now opens the new draft in the editor, and a refusal comes back to the page). A Collaboration Agreement is decided in the same words whoever signed it, an institution or a sponsor: *Accept it*, *Return it with this note* and, once it is out of force, *Reinstate*. What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or create an account by hand, beyond the one an approved sponsor application makes in the same press; those stay in wp-admin, where the rows of *Syncs and health* and the resources lead.
+The queues are decided on this page, all but the mentor applications, which are decided on the Mentors screen. An open institution application, a signed Collaboration Agreement and a mentor request are decided here (a school has no way to make a mentor request now, so only one already on record is open): the Institutions screen's **Waiting for review** tab lists them to be read, each with a link to its card here, and keeps the record-keeping on a closed application and the four decisions on an open application past the fifty oldest this page's card lists, which no card here reaches. The sponsor queues are decided here the same way: an open sponsor application; a sponsor post, published with *Publish* or returned with *Return it with this note*, under *Return with a note*; a sponsor offer, or a change to what students see of a live one, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; a sponsor's planned event, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; and a sponsor's signed agreement, accepted with *Accept it* or returned with *Return it with this note*, while an agreement out of force is put back with *Reinstate*, under *Out of force* in the same card. *Accept it* and *Reinstate* ask before they act, since each records a new state for the agreement and emails everybody at the company. The Sponsors screen lists them to be read on its **Waiting for review** tab, each application, post, offer, event and document with a link to its own item here, and keeps the record-keeping on a decided application and every decision on an open one past the fifty oldest this page's card lists; its **Agreements** tab reinstates an agreement past the fifty oldest out of force that this page lists. *Reinstate* on an institution's Collaboration Agreement is offered on this page alone, and revoking one is offered on the Institutions screen's **Agreements** tab alone, with **Revoke this agreement**. A decision a wp-admin screen offers too is the same decision there, posted to the same handler with the same safeguards, and every decision lands back on the page with its card open (Draft now opens the new draft in the editor, and a refusal comes back to the page). A Collaboration Agreement is decided in the same words whoever signed it, an institution or a sponsor: *Accept it*, *Return it with this note* and, once it is out of force, *Reinstate*. What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or create an account by hand, beyond the one an approved sponsor application makes in the same press; those stay in wp-admin, where the rows of *Syncs and health* and the resources lead.
+
+**A school's request to correct its details.** *Requests from institutions* also holds a school's request to correct the name, website, city, country or contact's email the program has on record for it, which the school makes with **Ask to correct these** on the details card of its Institution Dashboard (the card is described under *The details card on an institution's page*). A school has one such request open at a time, and an Administrator's own correction of the same details is saved at once on that card and raises none, except while the school's request waits, when the card sends the Administrator here to decide it. The item reads "<school> asks to correct its details", with who asked and on which day, how long it has waited (and *Overdue* past fourteen days), then a table of *Detail*, *On record now* and *Asked for*, a row to each detail it asks to change. *On record now* is read from the program records when the page is drawn, so a detail the program team has changed in Airtable since the school asked shows as it is now, and nothing is written over it unseen. Under the table are the box *A note for the school (required to decline)* and two buttons. **Approve and update the records** writes every asked value to the Institutions table in Airtable in one update, then to the program records here, closes the request, writes the history and emails the account that asked; if Airtable refuses, nothing is written here either, and the request stays open with "Airtable could not be updated, so nothing was changed here either. The request stays open." **Decline** needs a note of 20 to 2000 characters, which the school reads in the email it is sent; it writes nothing to Airtable, and a note it refuses is given back in the box. The school can withdraw its request until an Administrator decides it: it then closes as *Withdrawn*, the people *Who is emailed about institutions* names are emailed, and Approve or Decline on it says "Nothing was changed: the school withdrew this request." (or "Nothing was changed: an Administrator withdrew this request." when an Administrator took it back). Each decision is made under a lock of the request's own, the option `wpcpm_req_lock_<request>`, with its state read again under it, so two Administrators pressing Approve and Decline on one request together do not both act: the first decides it, and the second is told "Nothing was changed: that request had already been closed." (or "Nothing was changed: the school withdrew this request." when the school took it back first, "Nothing was changed: an Administrator withdrew this request." when an Administrator did) and writes, emails and records nothing. When the second press arrives while the first is still being made, so that the request's lock is held, it is told "Someone else is deciding this request at this moment, so nothing was done. Try again in a moment.", nothing is changed, and a note typed for Decline is given back in the box to send again. A Decline posted for a request that is already closed is answered with the sentence for its state before its note is looked at, so a note that was too short is not reported for a request nothing can be done with. The closed ones are listed under *Recently closed* as *Approved*, *Declined* or *Withdrawn*, and the Institutions screen's **Waiting for review** tab lists a school's request as **Details to correct**, counted with the rest. A mentor request already on record keeps its *Mark as handled* and *Decline*; nothing on an institution's pages asks for one, so no new one arrives from a school, and closing one is not shown to the institution.
 
 **Below the cards.** *Tools from our sponsors* lists every live offer with its audience. Then come the program's updates and the resources: the program's Slack channel, the *WordPress Credits handbook*, *Need help?* when it is set up, and, under **For administrators**, links to the *Settings*, *Overview* and *Tools* screens in wp-admin.
 
@@ -2337,6 +2463,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
 | `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_institutions_index` | `WPCPM_Institutions_Index::OPT_NAME` |
+| `wpcpm_institutions_index_lock` | `WPCPM_Institutions_Index::OPT_LOCK` (the lock a correction of one row holds while it rewrites the index) |
 | `wpcpm_institutions_last_error` | `WPCPM_Institutions_Sync::OPT_ERROR` |
 | `wpcpm_institutions_last_sync` | `WPCPM_Institutions_Sync::OPT_LAST` |
 | `wpcpm_institutions_lock` | `WPCPM_Institutions_Sync::OPT_LOCK` |

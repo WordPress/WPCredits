@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  * AJAX tick), the same capability-then-nonce check, the same redirect, and a map of outcome
  * sentences that had drifted three ways: one screen said "Sync started" with a dash and one
  * without, one told the reader to "see the error below" and two did not, and the outcome
- * travelled by a query argument on two screens and by a per-user flash on the third. Hand
+ * traveled by a query argument on two screens and by a per-user flash on the third. Hand
  * copies are how one fix lands in one place; this class is where the three now agree.
  *
  * **The outcome travels by flash, on every screen.** A status in the URL is bookmarkable and

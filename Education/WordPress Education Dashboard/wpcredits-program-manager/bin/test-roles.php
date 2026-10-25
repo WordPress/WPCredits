@@ -8,7 +8,7 @@
  * else. Nothing fails loudly when one is missed: the role simply cannot read its own
  * content, or a capability survives an uninstall on a site that removed the plugin.
  *
- * So this asserts the wiring rather than any one behaviour, and does it in a loop over the
+ * So this asserts the wiring rather than any one behavior, and does it in a loop over the
  * roles, so the next audience is covered the day it is added.
  *
  * Run from the plugin root:  php bin/test-roles.php
@@ -144,7 +144,7 @@ foreach ( array( 'sponsors' => 'WPCPM_Sponsors', 'institutions' => 'WPCPM_Instit
 
 // A notice aimed at Sponsors would silently reach nobody if the audience were listed
 // without a matching membership test - the switch returns false for anything it does not
-// recognise, so the notice just never appears.
+// recognize, so the notice just never appears.
 ck( 'Sponsors are a notice audience, and membership is actually tested',
     array(
         false !== strpos( $notices, "'sponsor'     => __( 'Sponsors'" ),

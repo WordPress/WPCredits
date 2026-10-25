@@ -34,6 +34,10 @@ $GLOBALS['posts']  = array();
 $GLOBALS['manage'] = array();
 $GLOBALS['uid']    = 0;
 $GLOBALS['status'] = array();
+// Pages by path, and the address each one is published at: what get_page_by_path() and get_permalink()
+// answer from, so a check can publish, unpublish or move the Institution guide's page.
+$GLOBALS['pages']      = array();
+$GLOBALS['permalinks'] = array();
 
 class WP_Error {
 	private $code, $message, $data;
@@ -180,8 +184,8 @@ function get_post( $id ) {
 	$p = new WP_Post(); $p->ID = (int) $id; $p->post_status = $GLOBALS['status'][ (int) $id ]; $p->post_type = 'page';
 	return $p;
 }
-function get_page_by_path( $p ) { return null; }
-function get_permalink( $id ) { return 'https://example.test/handbook-assistant/'; }
+function get_page_by_path( $p ) { return $GLOBALS['pages'][ $p ] ?? null; }
+function get_permalink( $id ) { return $GLOBALS['permalinks'][ is_object( $id ) ? (int) $id->ID : (int) $id ] ?? 'https://example.test/handbook-assistant/'; }
 function wp_insert_post( $a, $e = false ) {
 	$id = 900 + count( $GLOBALS['status'] );
 	$GLOBALS['status'][ $id ] = $a['post_status'] ?? 'publish';
@@ -402,7 +406,7 @@ ck( 'its citation survives, with the redirect kept as the link and the host as t
     array( count( $grounded['sources'] ), $grounded['sources'][0]['title'], 0 === strpos( $grounded['sources'][0]['link'], 'https://vertexaisearch.cloud.google.com/' ) ),
     array( 1, 'make.wordpress.org', true ) );
 
-// The judgement has to be made on `domain`, because Google returns its own redirect URL -
+// The judgment has to be made on `domain`, because Google returns its own redirect URL -
 // whose host says nothing about where the page actually is. Judging the URI would refuse
 // every citation Gemini ever returns.
 $GLOBALS['http'] = gemini_reply( 'From a blog.', array( 'wpbeginner.example' ) );
@@ -451,7 +455,7 @@ ck( 'a second page on another site resolves too',
     array( 'Get your certificate - learn.wordpress.org' ) );
 
 // The resolved address is what the host check now judges, so a redirect that lands somewhere
-// else is refused however Google labelled it.
+// else is refused however Google labeled it.
 $GLOBALS['redirects'] = array( 0 => 'https://wpbeginner.example/wordpress-certificates/' );
 $GLOBALS['http'] = gemini_reply( 'Mislabelled.', array( 'wordpress.org' ) );
 $lied = WPCPM_Handbook_Answer::ask( 'anything', 61 );
@@ -941,8 +945,8 @@ ck( 'the logo link is named for a screen reader',
     ),
     array( true, true ) );
 
-// Slack's logo is licensed only while it looks like the logo, so it keeps its own colours
-// rather than inheriting the button's text colour the way every other icon here does.
+// Slack's logo is licensed only while it looks like the logo, so it keeps its own colors
+// rather than inheriting the button's text color the way every other icon here does.
 ck( 'the logo keeps Slack\'s own colours and its viewBox',
     array(
         false !== strpos( $mentor_section, '#36C5F0' ),
@@ -1222,6 +1226,68 @@ ck( 'and no built guide still says the students\' channel', $built_with_it, arra
 $build_src = file_get_contents( __DIR__ . '/build-docs.php' );
 ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sections and the sign-in section', array( false !== strpos( $build_src, "'sponsors'       => array(" ), false !== strpos( $build_src, "'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' )" ), file_exists( __DIR__ . '/../docs/build/sponsors.html' ), file_exists( __DIR__ . '/../docs/sections/42-sponsor-visibility.md' ) ), array( true, true, true, true ) );
 
+// The fifth guide (Institutions release 2): the Institution Dashboard's, for the people of a school. It sits
+// right after the Administrator guide, is composed of the sign-in section and three of its own, and is
+// written out twice like the others, for reading here and as block markup for the page.
+$institution_parts = array( '50-institution-dashboard', '51-institution-students', '52-institution-details' );
+$institution_files = array();
+foreach ( $institution_parts as $institution_part ) {
+    $institution_files[] = file_exists( __DIR__ . '/../docs/sections/' . $institution_part . '.md' );
+}
+
+ck( 'the docs build composes a fifth guide, institutions, right after the Administrator guide, from the sign-in section and the three institution sections',
+    array(
+        false !== strpos( $build_src, "'institutions'   => array(" ),
+        false !== strpos( $build_src, "'title' => 'Institution guide'," ),
+        false !== strpos( $build_src, "'lede'  => 'Your Institution Dashboard, your students, your details and your Collaboration Agreement.'," ),
+        false !== strpos( $build_src, "'parts' => array( '00-signing-in', '50-institution-dashboard', '51-institution-students', '52-institution-details' )" ),
+        strpos( $build_src, "'administrators' => array(" ) < strpos( $build_src, "'institutions'   => array(" ) && strpos( $build_src, "'institutions'   => array(" ) < strpos( $build_src, "'sponsors'       => array(" ),
+        $institution_files,
+    ),
+    array( true, true, true, true, true, array( true, true, true ) ) );
+
+$institution_md   = file_exists( __DIR__ . '/../docs/institutions.md' ) ? (string) file_get_contents( __DIR__ . '/../docs/institutions.md' ) : '';
+$institution_html = file_exists( __DIR__ . '/../docs/build/institutions.html' ) ? (string) file_get_contents( __DIR__ . '/../docs/build/institutions.html' ) : '';
+
+ck( 'the build writes both outputs of the Institution guide, headed with its title and its lede',
+    array(
+        0 === strpos( $institution_md, "# Institution guide\n\n*Your Institution Dashboard, your students, your details and your Collaboration Agreement.*\n\n" ),
+        '' !== $institution_html && 0 === strpos( $institution_html, '<!-- wp:paragraph -->' ),
+    ),
+    array( true, true ) );
+
+// Written out is not the same as written out since the last edit: each section's text is in the
+// Markdown whole, and each section's first heading is in the block markup with its anchor, so a
+// section edited without a rebuild fails here.
+$stale = array();
+foreach ( $institution_parts as $institution_part ) {
+    $text = file_exists( __DIR__ . '/../docs/sections/' . $institution_part . '.md' ) ? trim( (string) file_get_contents( __DIR__ . '/../docs/sections/' . $institution_part . '.md' ) ) : '';
+    if ( '' === $text || false === strpos( $institution_md, $text ) ) {
+        $stale[] = $institution_part . '.md';
+    }
+    if ( '' === $text || ! preg_match( '/^## (.+)$/m', $text, $heading ) || false === strpos( $institution_html, '>' . htmlspecialchars( str_replace( '*', '', $heading[1] ), ENT_NOQUOTES ) . '</h2>' ) ) {
+        $stale[] = $institution_part . '.html';
+    }
+}
+ck( 'and both outputs hold the three sections as they are now', $stale, array() );
+
+// The mirror's privacy guard refuses an email address in a tracked .html file, and the guide has no use
+// for one: the sample list's example address is the site's to make, not the guide's to print.
+ck( 'neither output of the Institution guide holds an email address',
+    array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $institution_md ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $institution_html ) ),
+    array( 0, 0 ) );
+
+$docs_readme = (string) file_get_contents( __DIR__ . '/../docs/README.md' );
+ck( 'the docs README counts five guides and names the Institution guide, with the files it says are generated',
+    array(
+        false !== strpos( $docs_readme, 'Five guides, one per audience' ),
+        false !== strpos( $docs_readme, 'Three guides' ),
+        false !== strpos( $docs_readme, '[Institution guide](institutions.md)' ),
+        false !== strpos( $docs_readme, '[Sponsor guide](sponsors.md)' ),
+        false !== strpos( $docs_readme, '`students.md`, `mentors.md`, `administrators.md`, `sponsors.md`, `institutions.md`' ),
+    ),
+    array( true, false, true, true, true ) );
+
 $built = file_get_contents( __DIR__ . '/../docs/build/administrators.html' );
 ck( 'the docs build escapes a section\'s text: a literal <record> reaches the HTML as text, never as a tag (1.98.1)', array( false !== strpos( $built, 'wpcpm_roster_&lt;record&gt;' ), strpos( $built, 'wpcpm_roster_<record>' ) ), array( true, false ) );
 // Links in a section, added 1.102.2. Before it, a section that wrote one got the Markdown
@@ -1283,6 +1349,53 @@ ck( 'and its channel is the program\'s own, not a student or mentor one',
 		'' !== $guides['institution']['slack'],
 	),
     array( true, true ) );
+
+// The Institution guide is a page on this site once the release has created one (Institutions release
+// 2): the dashboard's guide button links the published page at the path the constant names, and the
+// handbook's institutions page for as long as there is none. The page does not exist when the release
+// is installed, so the handbook's address is the entry's address until launch. A draft is not the guide,
+// as the Settings screen's own guide link has it, and nothing about the entry but its address moves.
+$guide_const = defined( 'WPCPM_Handbook_Assistant::INSTITUTION_GUIDE_PATH' ) ? constant( 'WPCPM_Handbook_Assistant::INSTITUTION_GUIDE_PATH' ) : null;
+ck( 'the Institution guide is looked up at the path institution-guide', $guide_const, 'institution-guide' );
+
+$handbook_page = 'https://make.wordpress.org/community/handbook/education/credits/institutions/';
+$guide_page    = new WP_Post();
+$guide_page->ID          = 4321;
+$guide_page->post_type   = 'page';
+$guide_page->post_status = 'draft';
+
+$GLOBALS['pages']['institution-guide']  = $guide_page;
+$GLOBALS['permalinks'][ $guide_page->ID ] = 'https://example.test/institution-guide/';
+
+$before = WPCPM_Handbook_Assistant::guides();
+ck( 'a draft page at that path is not the guide: the entry keeps the handbook\'s page', $before['institution']['url'], $handbook_page );
+
+$guide_page->post_status = 'publish';
+$with_page = WPCPM_Handbook_Assistant::guides();
+
+ck( 'the published page at that path is the guide the institution entry links', $with_page['institution']['url'], 'https://example.test/institution-guide/' );
+ck( 'and the entry keeps its label, its channel and the name of its channel',
+    array( $with_page['institution']['label'], $with_page['institution']['slack'], $with_page['institution']['chat'] ),
+    array( 'Institution guide', 'https://wordpress.slack.com/archives/C0959D2M3T8', 'Ask in the WordPress Credits Slack channel' ) );
+
+$others_move = array();
+foreach ( array( 'student', 'mentor', 'administrator', 'sponsor' ) as $audience ) {
+    if ( $with_page[ $audience ] !== $before[ $audience ] ) {
+        $others_move[] = $audience;
+    }
+}
+ck( 'and no other audience\'s entry moves with it', $others_move, array() );
+
+$section = WPCPM_Handbook_Assistant::render_resources( 'institution' );
+ck( 'the Institution Dashboard\'s Resources section links the published page with the entry\'s label',
+    array( false !== strpos( $section, 'href="https://example.test/institution-guide/"' ), false !== strpos( $section, '>Institution guide</a>' ), false !== strpos( $section, $handbook_page ) ),
+    array( true, true, false ) );
+
+// Unpublished again (a trashed page has no path at all in WordPress, so the lookup finds nothing).
+unset( $GLOBALS['pages']['institution-guide'] );
+$gone = WPCPM_Handbook_Assistant::guides();
+ck( 'with the page gone the entry goes back to the handbook\'s page', $gone['institution']['url'], $handbook_page );
+$GLOBALS['permalinks'] = array();
 
 // The audience-specific block is what the Institution Dashboard puts its contact in, and it
 // is enough on its own to make a section worth drawing.
@@ -1505,7 +1618,7 @@ ck( 'a retired model sends them to the settings, in the Need help? screen\'s Set
     array( true, false ) );
 
 // Google has answered 404 for one retired model and 400 for another, so the phrase has to be
-// recognised whatever the status says.
+// recognized whatever the status says.
 $GLOBALS['http'] = array( 'code' => 404, 'body' => json_encode( array( 'error' => array( 'message' => 'models/x is no longer available' ) ) ) );
 ck( 'and so does the same thing on a 404',
     array( false !== strpos( WPCPM_Handbook_Answer::ask( 'anything', 98 )['text'], $place ) ),

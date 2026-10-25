@@ -63,6 +63,94 @@ which is the one **Show** opens. Enter in the field never sends the form, and a 
 how many names the list shows. In a browser running no JavaScript the field is not shown, and the
 plain sorted list works on its own.
 
+### The details card on an institution's page
+
+At the head of the **Representatives and agreement** module on an institution's Institution Dashboard,
+above the people who act for it and its Collaboration Agreement, is the card **Your institution's
+details**, with the line "What the program has on record." It is drawn to every account of an
+institution whose agreement is settled and to an Administrator on any institution's page, opened through
+the switcher or reached as the page you land on. An institution whose agreement is not settled has no
+card: its accounts see the agreement panel alone, where they set its name on the agreement document.
+
+The details read as rows under two small headings, in this order. **Contact and agreement**: the contact
+person, their role, who signs the agreement, their title, the languages the students study in, and the
+institution's page about WordPress Credits. **Name and address**: the name, the website, the city, the
+country and the contact's email. A detail the program holds nothing for reads "Not given yet".
+
+Under each list a closed section opens the form for that group alone, with the application's own
+questions, labels and help, and the application's rules:
+
+- **Correct these** (saved at once) is under the first list. Saving writes the contact person to the
+  Institutions table in Airtable and to the program records here, and the other answers to the
+  institution's record on this site. It adds a line to the institution's history that names the details
+  changed and none of their values, emails the people **Who is emailed about institutions** names what
+  changed, from what to what, and says "Your institution's details are saved."
+- **Ask to correct these** (an Administrator checks first) is under the second. A member's press on **Send
+  to an Administrator** writes nothing: it raises a request, shown on the Administrator Dashboard's
+  *Requests from institutions* card, emails the same people with a link to it, and says "Sent: an
+  Administrator checks the change, and you will see it here once it is decided." An Administrator is
+  drawn this second form as **Correct these** (saved at once), with **Save the details**, as the first:
+  their press saves at once, in either form, and emails as a save does, since an Administrator is the one
+  who checks, and nobody approves their own change. While the school's request waits, an
+  Administrator is offered no second form either: under the second list they read "A request from the
+  school is waiting. Decide it in Requests from institutions on the Administrator Dashboard.", linked to
+  that card while the page is published, and a post of that form is refused with the same sentence. The
+  first form stays open to everyone allowed.
+
+While a request waits, every account of the institution reads, under each row it would change, "Waiting
+for an Administrator:", what was asked and the day it was asked, with **Withdraw it**; an Administrator
+reads the same lines without the button, since the request is decided on the Administrator Dashboard. The
+second list then offers no form, because an institution has one request at a time. A second account, or a second tab,
+that asks meanwhile is told "One change is already waiting for an Administrator." and nothing is made.
+Once the request is decided, every account of the institution reads its outcome until the next request is
+sent: "Updated on" and the day after an approval; "An Administrator did not make the change you asked for:"
+and the note after a decline; nothing after a withdrawal. Withdraw it brings the account back to this card.
+
+A form posted with nothing changed says "Nothing was changed." and sends no email; a value posted back as
+it was drawn is not a change, even one the program holds in a form the application would not accept. A
+refused post gives back what was typed, with the problem under the field that has one, and a text that
+WordPress would take words from is refused whole, as on the application. If Airtable refuses the contact
+person's save, nothing is saved on this site either, the typed values come back, and the card says
+"The program records could not be updated, so nothing was saved. Please try again in a while." The card
+never names Airtable to the institution.
+
+A save at once is made under a lock of the institution's own, the option
+`wpcpm_req_lock_details_<record>` its request is raised under, with what the program has on record read
+again under it. Two tabs, or two accounts, posting the same correction save it once: the second is told
+"Nothing was changed." and writes, emails and records nothing. A save that finds the lock held, and a
+request sent while it is held, is told "Someone else is saving your institution's details at this
+moment, so nothing was done. Try again in a moment.", saves or makes nothing, and gives back the typed
+values; "One change is already waiting for an Administrator." is for a request that truly waits. The
+forms leave every rule to the site, so a box the browser would refuse, such as a stored contact's email
+that holds two addresses, does not stop a post of the rest.
+
+### A student's card on an institution's page
+
+An institution's accounts open a student's card from the roster, and an Administrator opens the same card
+through the switcher. The card shows the student's name and program, whether they have signed in yet, the
+internship dates and cohort, the field of study, the tutor, the WordPress.org profile, the contribution
+teams and the personal website, then the mentor, the Student Report Card (read only, fetched when it is
+opened) and a link that downloads the student's details and course grades as a CSV file.
+
+A mentor is optional in the program, and a student without one reads as normal. The **Mentor** row says
+"No mentor yet", in the roster's words, and the **Mentor email** row is left out, since there is nobody to
+write to. A mentor known by name and not by address keeps the row, which then reads "Not set". The card
+asks for no mentor and offers no way to ask for one.
+
+Under the Student Report Card, a closed section named **Correct this student's details** holds the form
+that corrects five details: the name on the Student Report Card, the full name, the start date, the end
+date (at most a year after the start) and the field of study, which must be one of the program's own
+choices. It is shown to every account of the student's institution and to an Administrator, and to
+nobody else; a student with no progress record yet has no Student Report Card and no section. Saving
+writes to the program records at once, through a live read that places the student with the institution,
+and adds a line to the institution's history. When a value is refused the section names what was refused
+and says whether the rest was saved, and the form comes back with what was typed and not saved, for the
+account that typed it, while what was saved shows as the program records now hold it. The section opens
+by itself when the last save left something to say, so its sentence is not hidden in a closed section.
+Nothing on this card asks for a mentor or keeps notes. A mentor request already on record is still on
+the Administrator Dashboard's *Requests from institutions* card, where an Administrator closes it as
+before.
+
 ### The For Administrators section of an institution's page
 
 At the foot of an institution's Institution Dashboard, under its sections and above the line that says
@@ -82,10 +170,23 @@ when, in the site's date and time formats; who, as the account's name, "The site
 itself, as when an invitation expires, or "A removed account" when the account is gone; and what happened,
 in a plain sentence. It covers the institution's members and invitations, with the address each invitation
 went to, its application and its agreement from the template being generated to a revoke, which also gives
-the note it was revoked with after "Note:", its requests, the notes about its students, its imports, the
-changes made to its students, and the roster's refusals. When there are more than 100, the card says
-"Showing the latest 100." An institution with nothing recorded says "Nothing has been recorded for this
-institution yet."
+the note it was revoked with after "Note:", its details (the corrections it saved, and its requests to
+correct them), its requests, its imports, the changes made to its students, and the roster's refusals; a
+line about a note on a student, if the history holds one, reads "A note about a student was added." or "A
+note about a student was deleted." When there are more than 100, the card says "Showing the latest 100."
+An institution with nothing recorded says "Nothing has been recorded for this institution yet."
+
+A row reads in today's words whatever the day it was written. A member row names the account as it is
+called now, "A former member" when the account is gone, says that it was added as a member or is no longer
+one, and then says how it joined or left in the words of the People card ("Added by an Administrator",
+"Joined by invitation", "Their access was removed", "They removed their own access"), never the code the row
+was stored with. A request that was closed is worded by what became of it: "An Administrator closed a request
+as handled.", "An Administrator declined a request.", "An Administrator approved a change to the
+institution's details." or, for one taken back, "The institution withdrew a request." (or "An Administrator
+withdrew a request." when an Administrator withdrew it), with the Administrator's note after it when the note
+can be shown, and the outcome alone when it cannot. A school's request to correct its details reads "The
+institution asked to correct its details.", and a correction it saved "Details were corrected:" and the names
+of the details. A line written before the Administrators were named is read in the words used now.
 
 ### Arranging the Student Report Card
 

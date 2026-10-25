@@ -272,7 +272,7 @@ class WPCPM_Notices {
 	 *
 	 * Deliberately delegating: `is_student()` and `is_mentor()` each count somebody matched
 	 * to an Airtable record without holding the role, which is how an administrator who
-	 * mentors is recognised - the sync never gives an administrator the Mentor role.
+	 * mentors is recognized - the sync never gives an administrator the Mentor role.
 	 * Testing roles here instead would miss exactly those people.
 	 *
 	 * @param string           $slug Audience slug.

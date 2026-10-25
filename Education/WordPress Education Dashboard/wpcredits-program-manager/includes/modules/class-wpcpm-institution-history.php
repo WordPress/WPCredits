@@ -34,12 +34,25 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **A row says what happened in a plain sentence.** The audit's stored message is that sentence for
  * most kinds, and `sentence()` returns it when it is one. It is not one when it is empty
- * (`student_linked` stores no message) or when it is built round a slug, a record ID or a key, and
- * then the words come from `words()`, one map keyed by kind, as
+ * (`student_linked` stores no message), when it is built round a slug, a record ID or a key, or when
+ * it still speaks in a word the program has retired ("program manager", before the Administrators were
+ * named), and then the words come from `words()`, one map keyed by kind, as
  * `WPCPM_Institution_Agreement::summary_label()` keeps the agreement states. No kind slug, record ID
  * or meta key is ever shown. A kind the map does not know yet reads as its stored message when that
  * is plain and as a sentence that names nothing otherwise, so a new kind is a line in the history
  * before it has its own words.
+ *
+ * **Three kinds of row are read from their facts and not from the message, so they read in today's
+ * words whatever the day they were written** (Institutions release 2). A member row
+ * (`member_added`, `member_removed`) names the account as it is called now ("A former member" when the
+ * account is gone), then how it joined or left in the People card's own words
+ * (`WPCPM_Institution_People::how_label()` and `reason_label()`): the stored message ends in the code,
+ * "(provisioned)", which is not a thing to read. A closed request (`request_resolved`) is worded from the
+ * state it was closed in, and for a withdrawal from the ground it was made on, so it keeps its outcome
+ * when the Administrator's note cannot be shown; the note follows the outcome when it can. The raise of
+ * a school's request to correct its details (`request_raised` of kind `details`) has a sentence of its
+ * own. When the facts are not there, as an older row's may not be, a closed request is read as any other
+ * row is, from its message, and a member row reads the words for its kind (its message names the code).
  *
  * **The stopped import is the one kind whose message is never used.** `WPCPM_Institution_Create::park()`
  * stores "The import stopped: <reason>. N students had been created." with the reason as a slug
@@ -107,16 +120,24 @@ class WPCPM_Institution_History {
 	public static function sentence( array $entry ) {
 		$kind    = isset( $entry['kind'] ) ? (string) $entry['kind'] : '';
 		$data    = isset( $entry['data'] ) && is_array( $entry['data'] ) ? $entry['data'] : array();
-		$message = self::fold( isset( $entry['message'] ) ? $entry['message'] : '' );
+		$raw     = isset( $entry['message'] ) && is_scalar( $entry['message'] ) ? (string) $entry['message'] : '';
+		$message = self::fold( $raw );
 		$words   = self::words();
+		$kinds   = array_merge( array_keys( $words ), array( self::KIND_IMPORT_STOPPED ) );
 
 		if ( self::KIND_IMPORT_STOPPED === $kind ) {
 			return self::stopped_import( $data );
 		}
 
+		$read = self::from_facts( $kind, $data, isset( $entry['ground'] ) ? (string) $entry['ground'] : '', $raw, $words, $kinds );
+
+		if ( '' !== $read ) {
+			return $read;
+		}
+
 		$sentence = $message;
 
-		if ( ! self::is_plain( $message, array_merge( array_keys( $words ), array( self::KIND_IMPORT_STOPPED ) ) ) ) {
+		if ( ! self::is_plain( $message, $kinds ) || self::is_old_wording( $message ) ) {
 			$sentence = isset( $words[ $kind ] ) ? $words[ $kind ] : __( 'Something was recorded for this institution.', 'wpcredits-program-manager' );
 		}
 
@@ -150,19 +171,27 @@ class WPCPM_Institution_History {
 			return __( 'The site', 'wpcredits-program-manager' );
 		}
 
-		$user = get_userdata( $actor );
+		$name = self::account_name( $actor );
+
+		return '' !== $name ? $name : __( 'A removed account', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What an account is called now.
+	 *
+	 * @param int $user_id The account.
+	 * @return string The display name, the login when it has none, and '' for an account that is gone.
+	 */
+	private static function account_name( $user_id ) {
+		$user = get_userdata( (int) $user_id );
 
 		if ( ! $user instanceof WP_User ) {
-			return __( 'A removed account', 'wpcredits-program-manager' );
+			return '';
 		}
 
 		$name = trim( (string) $user->display_name );
 
-		if ( '' === $name ) {
-			$name = trim( (string) $user->user_login );
-		}
-
-		return '' !== $name ? $name : __( 'A removed account', 'wpcredits-program-manager' );
+		return '' !== $name ? $name : trim( (string) $user->user_login );
 	}
 
 	/**
@@ -271,6 +300,134 @@ class WPCPM_Institution_History {
 	}
 
 	/**
+	 * The sentence for a row that is read from its facts and not from its message, or '' for any other.
+	 *
+	 * The kinds are the literals the writers store, as `words()` keys them: the suite reads the writers'
+	 * constants, so a kind renamed there fails it.
+	 *
+	 * @param string   $kind   The row's kind.
+	 * @param array    $data   The row's facts.
+	 * @param string   $ground The ground the row was written under.
+	 * @param string   $raw    The row's stored message, its lines kept.
+	 * @param string[] $words  `words()`.
+	 * @param string[] $kinds  The kinds a plain message may not hold.
+	 * @return string
+	 */
+	private static function from_facts( $kind, array $data, $ground, $raw, array $words, array $kinds ) {
+		switch ( $kind ) {
+			case 'member_added':
+			case 'member_removed':
+				return self::member_sentence( 'member_added' === $kind, $data, $words[ $kind ] );
+
+			case 'request_raised':
+				return isset( $data['kind'] ) && WPCPM_Institution_Request::KIND_DETAILS === $data['kind']
+					? __( 'The institution asked to correct its details.', 'wpcredits-program-manager' )
+					: '';
+
+			case 'request_resolved':
+				return self::resolved_sentence( $data, $ground, $raw, $kinds );
+		}
+
+		return '';
+	}
+
+	/**
+	 * The sentence for a member row: the account's name now, then how it joined or left in the People
+	 * card's words.
+	 *
+	 * The row stores the name as it was and the way as a code in brackets ("(provisioned)"), neither of
+	 * which is to be read: the name is looked up again, "A former member" when the account is gone, and
+	 * the way is `WPCPM_Institution_People::how_label()` or `reason_label()`, which say a way or a reason
+	 * they do not know is unrecorded and never print it. A row that names no account, as an older one may
+	 * not, reads the words for its kind, whatever its message says.
+	 *
+	 * @param bool   $added    Whether the row is an account joining, and not leaving.
+	 * @param array  $data     The row's facts: `user` and `how`, or `user` and `reason`.
+	 * @param string $fallback The words for the kind.
+	 * @return string
+	 */
+	private static function member_sentence( $added, array $data, $fallback ) {
+		$user = isset( $data['user'] ) && is_numeric( $data['user'] ) ? (int) $data['user'] : 0;
+
+		if ( $user <= 0 ) {
+			return $fallback;
+		}
+
+		$name = self::account_name( $user );
+		$name = '' !== $name ? $name : __( 'A former member', 'wpcredits-program-manager' );
+
+		if ( $added ) {
+			return sprintf(
+				/* translators: 1: the account's name, 2: how it came to be a member, in a short phrase such as "Joined by invitation". */
+				__( '%1$s was added as a member. %2$s.', 'wpcredits-program-manager' ),
+				$name,
+				WPCPM_Institution_People::how_label( isset( $data['how'] ) && is_string( $data['how'] ) ? $data['how'] : '' )
+			);
+		}
+
+		return sprintf(
+			/* translators: 1: the account's name, 2: why it is no longer one, in a short phrase such as "They removed their own access". */
+			__( '%1$s is no longer a member. %2$s.', 'wpcredits-program-manager' ),
+			$name,
+			WPCPM_Institution_People::reason_label( isset( $data['reason'] ) && is_string( $data['reason'] ) ? $data['reason'] : '' )
+		);
+	}
+
+	/**
+	 * The sentence for a closed request, from the state it was closed in.
+	 *
+	 * The outcome is the state's, and for a withdrawal the ground's: the school's own act, or an
+	 * Administrator's on its behalf. The stored message's first line is the closing sentence of the day
+	 * it was written, in that day's words, and is not read; what follows it is the Administrator's note,
+	 * which follows the outcome on the same line when it is a sentence to show
+	 * (`is_plain()`), and is left out when it is not, so the outcome is kept either way.
+	 *
+	 * @param array    $data   The row's facts: `request`, `kind` and `state`.
+	 * @param string   $ground The ground the row was written under.
+	 * @param string   $raw    The row's stored message, its lines kept.
+	 * @param string[] $kinds  The kinds a plain note may not hold.
+	 * @return string The sentence, or '' for a row that holds no state this knows.
+	 */
+	private static function resolved_sentence( array $data, $ground, $raw, array $kinds ) {
+		$state = isset( $data['state'] ) && is_string( $data['state'] ) ? $data['state'] : '';
+
+		switch ( $state ) {
+			case WPCPM_Institution_Request::STATE_DONE:
+				$sentence = isset( $data['kind'] ) && WPCPM_Institution_Request::KIND_DETAILS === $data['kind']
+					? __( 'An Administrator approved a change to the institution\'s details.', 'wpcredits-program-manager' )
+					: __( 'An Administrator closed a request as handled.', 'wpcredits-program-manager' );
+				break;
+
+			case WPCPM_Institution_Request::STATE_DECLINED:
+				$sentence = __( 'An Administrator declined a request.', 'wpcredits-program-manager' );
+				break;
+
+			case WPCPM_Institution_Request::STATE_WITHDRAWN:
+				$sentence = WPCPM_Institution_Audit::GROUND_MANAGER === $ground
+					? __( 'An Administrator withdrew a request.', 'wpcredits-program-manager' )
+					: __( 'The institution withdrew a request.', 'wpcredits-program-manager' );
+				break;
+
+			default:
+				return '';
+		}
+
+		$lines = preg_split( '/\R/', trim( $raw ), 2 );
+		$note  = isset( $lines[1] ) ? self::fold( $lines[1] ) : '';
+
+		if ( '' === $note || ! self::is_plain( $note, $kinds ) ) {
+			return $sentence;
+		}
+
+		return sprintf(
+			/* translators: 1: what became of the request, as a sentence, 2: the note an Administrator closed it with. */
+			__( '%1$s %2$s', 'wpcredits-program-manager' ),
+			$sentence,
+			$note
+		);
+	}
+
+	/**
 	 * The sentence for a row a stopped import left, from the facts the row stores.
 	 *
 	 * The reasons are the three `WPCPM_Institution_Create::park()` is handed, as it stores them: the
@@ -367,24 +524,46 @@ class WPCPM_Institution_History {
 	}
 
 	/**
+	 * Whether a stored message still speaks in a word the program has retired.
+	 *
+	 * Rows written before the program's people were named Administrators say "program manager", in any
+	 * case and number. The words for the kind are read in its place; the Administrator's own words in a
+	 * note are never judged by this.
+	 *
+	 * @param string $message A stored message, folded to one line.
+	 * @return bool
+	 */
+	private static function is_old_wording( $message ) {
+		return false !== stripos( $message, 'program manager' );
+	}
+
+	/**
 	 * The words for each kind of row an institution has, for a row whose stored message is not a
 	 * sentence to show.
 	 *
-	 * One map, keyed by the kind each writer stores. It holds twenty-nine of the plugin's thirty
+	 * One map, keyed by the kind each writer stores. It holds thirty of the plugin's thirty-one
 	 * kinds, written in these places: members (`WPCPM_Institution_Audit::KIND_MEMBER_ADDED`,
 	 * `KIND_MEMBER_REMOVED`), an approved application (`WPCPM_Institution_Approval::LOG_APPROVED`),
 	 * the agreement (`WPCPM_Institution_Agreement::LOG_*` and
 	 * `WPCPM_Agreement_Generate::LOG_GENERATED`), the roster's fence
 	 * (`WPCPM_Institution_Roster::LOG_*`), imports (`WPCPM_Institution_Create::LOG_*`),
-	 * invitations (`WPCPM_Institution_Invite::LOG_*`), notes (`WPCPM_Institution_Notes::KIND_*`),
-	 * requests (`WPCPM_Institution_Request::LOG_*`) and students
-	 * (`WPCPM_Institution_Student_Form::KIND_*`, `WPCPM_Institution_Students::KIND_*`,
-	 * `WPCPM_Institutions::LOG_LINKED` and `WPCPM_Institution_Resend::KIND`). The suite reads the
-	 * constants from those files, so a kind renamed there fails it.
+	 * invitations (`WPCPM_Institution_Invite::LOG_*`), requests (`WPCPM_Institution_Request::LOG_*`),
+	 * students (`WPCPM_Institution_Student_Form::KIND_*`, `WPCPM_Institution_Students::KIND_*`,
+	 * `WPCPM_Institutions::LOG_LINKED` and `WPCPM_Institution_Resend::KIND`) and a school's corrected
+	 * details (`WPCPM_Institution_Details::LOG_SAVED`). The suite reads the constants from those files, and
+	 * every kind passed to `WPCPM_Institution_Audit::record(` in includes/, so a kind renamed there, or
+	 * written without words here, fails it.
 	 *
-	 * The thirtieth kind, `import_stopped`, is not in this map, which is why it holds twenty-nine:
+	 * Two of the thirty, `note_added` and `note_deleted`, are no longer written by anything: they
+	 * were the institution's notes, retired in Institutions release 2. Their words stay, because a row an
+	 * older site holds is still read in the history, and the suite lists them apart from the declared kinds.
+	 *
+	 * The thirty-first kind, `import_stopped`, is not in this map, which is why it holds thirty:
 	 * its row is worded from its facts (`stopped_import()`), and its slug is added to the kinds a
 	 * plain message may not hold.
+	 *
+	 * These words are what a row reads when its stored message is no sentence to show. Three kinds are
+	 * read from their facts first (see the class), and these are what they fall back to.
 	 *
 	 * Written so that none of these sentences holds a kind slug as a word: "extended" is not the
 	 * kind `extend`.
@@ -422,6 +601,7 @@ class WPCPM_Institution_History {
 			'student_withdrawn'     => __( 'A student was marked as withdrawn.', 'wpcredits-program-manager' ),
 			'student_linked'        => __( 'A student was linked to this institution.', 'wpcredits-program-manager' ),
 			'student-invite-resent' => __( 'A welcome invitation was sent to a student.', 'wpcredits-program-manager' ),
+			'details_saved'         => __( 'The institution\'s details were corrected.', 'wpcredits-program-manager' ),
 		);
 	}
 }

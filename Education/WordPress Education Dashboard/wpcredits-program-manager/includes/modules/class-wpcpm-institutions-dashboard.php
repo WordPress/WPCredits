@@ -151,7 +151,7 @@ class WPCPM_Institutions_Dashboard {
 	 * Register (but do not enqueue) the stylesheet.
 	 *
 	 * It depends on the mentor stylesheet on purpose, exactly as the student page's does.
-	 * The three pages share a shell - the colour tokens, the "view as" switcher, the detail
+	 * The three pages share a shell - the color tokens, the "view as" switcher, the detail
 	 * tables, badges, buttons and the muted-text treatment - and defining that once means
 	 * they cannot drift apart, and that a theme styling one page has already styled this one.
 	 */
@@ -252,7 +252,7 @@ class WPCPM_Institutions_Dashboard {
 		}
 
 		// A specific destination was asked for - typically because they followed the link in
-		// an invitation and were bounced through the login form. Honour it; overriding would
+		// an invitation and were bounced through the login form. Honor it; overriding would
 		// take them somewhere they did not ask to go.
 		//
 		// Asked through `is_explicit_redirect()` rather than by testing for a non-empty
@@ -688,6 +688,9 @@ class WPCPM_Institutions_Dashboard {
 				break;
 
 			case self::MODULE_PEOPLE:
+				// The school's own details first, above the people who act for it and the agreement it
+				// signed (Institutions release 2): what the program has on record, and how to correct it.
+				self::card( 'WPCPM_Institution_Details_Card', $record, $context );
 				self::card( 'WPCPM_Institution_People', $record, $context );
 				self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
 				break;
@@ -798,7 +801,7 @@ class WPCPM_Institutions_Dashboard {
 	 * attacker-controlled data as far as this plugin is concerned, since it comes out of a
 	 * document the program does not own.
 	 *
-	 * @param string $website The institution's website, already normalised to a URL.
+	 * @param string $website The institution's website, already normalized to a URL.
 	 * @return string An icon URL, or ''.
 	 */
 	private static function site_icon( $website ) {
@@ -865,7 +868,7 @@ class WPCPM_Institutions_Dashboard {
 		// Only the head declares an icon. Cutting there keeps a `<link>` written in the body
 		// out of the match, and it is what makes the megabyte above cheap: the regex runs over
 		// the head and not over the page. A document whose head never closes within the cap is
-		// read as far as it was fetched, which is the old behaviour and still better than
+		// read as far as it was fetched, which is the old behavior and still better than
 		// nothing.
 		if ( false !== $head ) {
 			$html = substr( $html, 0, $head );
@@ -1131,7 +1134,7 @@ class WPCPM_Institutions_Dashboard {
 		// separator behind; each line carries its own label now, so a line that is not there is
 		// simply not there and nothing needs joining.
 		//
-		// No full stops: these are labelled values on their own lines, not sentences, and a
+		// No full stops: these are labeled values on their own lines, not sentences, and a
 		// trailing point on "Stage: Confirmed" reads as a typo rather than as grammar.
 		$place = array_values( array_filter( array( $profile['city'], $profile['country_name'] ) ) );
 

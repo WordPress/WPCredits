@@ -132,7 +132,7 @@ class WPCPM_Institution_People {
 		// `wpcpm-people` hooks style only what is this card's own.
 		printf( '<section class="wpcpm-institution__card wpcpm-people" id="%s">', esc_attr( self::ANCHOR ) );
 
-		// The same disclosure the roster's groups and the enrolment form are drawn in, open by
+		// The same disclosure the roster's groups and the enrollment form are drawn in, open by
 		// default: a short list of colleagues is not something to hide, but a page on which
 		// every other panel folds and this one does not hands the reader a chevron that works
 		// on one row and is missing on the next. Same classes on purpose, so the theme's one
@@ -475,10 +475,13 @@ class WPCPM_Institution_People {
 	 * not know is named as unrecorded rather than printed raw, because the stamp is shown to
 	 * the school and a slug is not an answer.
 	 *
+	 * Public since the institution's history words a member row with it (`WPCPM_Institution_History`),
+	 * so the card and the history cannot say it two ways.
+	 *
 	 * @param string $how One of `WPCPM_Institution_Members::hows()`.
 	 * @return string
 	 */
-	private static function how_label( $how ) {
+	public static function how_label( $how ) {
 		$labels = array(
 			WPCPM_Institution_Members::HOW_PROVISIONED => __( 'Added by the institutions sync', 'wpcredits-program-manager' ),
 			WPCPM_Institution_Members::HOW_APPROVED    => __( 'Added when the application was approved', 'wpcredits-program-manager' ),
@@ -488,6 +491,26 @@ class WPCPM_Institution_People {
 		);
 
 		return isset( $labels[ $how ] ) ? $labels[ $how ] : __( 'How this access was given was not recorded', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The reason a membership ended, in words, in the voice of `how_label()`.
+	 *
+	 * The card itself shows no former member's reason, so these are the words the institution's
+	 * history gives a removed member's row (`WPCPM_Institution_History`). A value it does not know
+	 * is named as unrecorded rather than printed raw, for the reason `how_label()` gives.
+	 *
+	 * @param string $reason One of `WPCPM_Institution_Members::reasons()`.
+	 * @return string
+	 */
+	public static function reason_label( $reason ) {
+		$labels = array(
+			WPCPM_Institution_Members::REASON_REMOVED => __( 'Their access was removed', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Members::REASON_LEFT    => __( 'They removed their own access', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Members::REASON_REVOKED => __( 'Ended by the institutions sync', 'wpcredits-program-manager' ),
+		);
+
+		return isset( $labels[ $reason ] ) ? $labels[ $reason ] : __( 'Why this access ended was not recorded', 'wpcredits-program-manager' );
 	}
 
 	/*
@@ -1221,7 +1244,7 @@ class WPCPM_Institution_People {
 		$detail = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
 		$about  = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
 
-		// Routing, not authorisation: which card prints a sentence, never who may read one.
+		// Routing, not authorization: which card prints a sentence, never who may read one.
 		// Every fence in this module is the policy's, and this comparison decides nothing
 		// about access.
 		if ( trim( (string) $record_id ) !== $about ) {

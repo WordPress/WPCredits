@@ -71,7 +71,7 @@ class WPCPM_Program {
 	 * A status in the words a school reads it by, for the pages an institution sees.
 	 *
 	 * **Printed only.** A status stays the base's own word everywhere it is read: the roster's
-	 * groups, its search, the cohort counts, the export, the badge's colour and every decision are
+	 * groups, its search, the cohort counts, the export, the badge's color and every decision are
 	 * made on the raw status, and none of them goes through here. This is the one place the words
 	 * a school is shown for a status are chosen, so the Program cell, the closed row's badge and
 	 * the placement card's quote cannot give the same student two names.
@@ -477,7 +477,7 @@ class WPCPM_Program {
 	 *
 	 * The track where there is one, so a new track is one entry in `track()` and nothing
 	 * here. Paused and Pending graduation are on no track and are not finished either: they
-	 * are a student who is still the mentor's, and painting them in the 150-hour colour said
+	 * are a student who is still the mentor's, and painting them in the 150-hour color said
 	 * they were still working when the point of the status is that they are not. Every other
 	 * status keeps the plain badge.
 	 *

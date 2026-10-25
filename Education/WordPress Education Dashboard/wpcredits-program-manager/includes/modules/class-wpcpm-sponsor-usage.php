@@ -336,7 +336,7 @@ final class WPCPM_Sponsor_Usage {
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="' . $name . '"' );
 		header( 'Content-Length: ' . strlen( $body ) );
-		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A CSV body built by WPCPM_Institution_Export::csv(), which neutralises every cell.
+		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A CSV body built by WPCPM_Institution_Export::csv(), which neutralizes every cell.
 		exit;
 	}
 }

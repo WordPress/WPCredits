@@ -14,7 +14,7 @@
  *
  * And that a claim carries the roster's columns and not the row. The stand-in answers with
  * `Accessibility needs` and `Notes` whatever field list it was sent - which is the honest
- * behaviour, since Airtable's `fields[]` is a request and not a promise - and the fence has
+ * behavior, since Airtable's `fields[]` is a request and not a promise - and the fence has
  * to be what removes them. The disclosure was made to the program, not to the school
  * (design spec 7.5), and `claim()` is the one call in the module that turns a record ID
  * into live Airtable columns.
@@ -109,7 +109,7 @@ function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
  * again in PHP. The stand-in matches case-insensitively on purpose, so a caller that
  * forgot fails here rather than in production.
  *
- * @param array $args Only `meta_key` and `meta_value` are honoured.
+ * @param array $args Only `meta_key` and `meta_value` are honored.
  * @return WP_User[]
  */
 function get_users( $args = array() ) {
@@ -263,7 +263,7 @@ if ( ! class_exists( 'WPCPM_Airtable' ) ) {
 	 * `fields[]` is recorded and then **ignored**: the whole row is answered whatever was
 	 * asked for. That is the point of it. Airtable's field list is a request and not a
 	 * promise, so a base that answers with a column nobody asked for is exactly what the
-	 * fence on the way out is for, and a stand-in that honoured the list would prove nothing
+	 * fence on the way out is for, and a stand-in that honored the list would prove nothing
 	 * about it.
 	 */
 	class WPCPM_Airtable {

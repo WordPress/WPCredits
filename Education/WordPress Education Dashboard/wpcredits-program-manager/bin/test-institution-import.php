@@ -92,7 +92,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-import.php'
  *
  * `wporg_username()` is the real thing's contract, not a re-implementation of its parser: what
  * the import needs from it is a handle out of any of the spellings a school's file carries, and
- * pinning that here would pin the wrong file's behaviour. Its own suite owns the parser.
+ * pinning that here would pin the wrong file's behavior. Its own suite owns the parser.
  */
 if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	class WPCPM_Mentors_Sync {
@@ -725,7 +725,7 @@ $substring = ladder(
 ck( 'a handle inside a longer one is not a match', $substring[0]['verdict'], 'ok' );
 
 // The same person, written three ways. None of the spellings can defeat the comparison,
-// because both sides go through the normaliser the file went through.
+// because both sides go through the normalizer the file went through.
 foreach ( array( 'profiles.wordpress.org/student-one', 'https://profiles.wordpress.org/Student-One/', 'student-one' ) as $spelling ) {
 	$variant = ladder(
 		"Name,Email,Profile\nAnna Kowalska,fresh@institution-3.example,@student-one\n",
@@ -944,6 +944,33 @@ ck( 'no method of the check log is left', array_values( array_filter( array( 'lo
 	return method_exists( 'WPCPM_Institution_Import', $name );
 } ) ), array() );
 ck( 'and no constant of it', array( defined( 'WPCPM_Institution_Import::OPT_LOG' ), defined( 'WPCPM_Institution_Import::LOG_MAX' ) ), array( false, false ) );
+
+echo "\n=== The sample list is a file the import reads whole ===\n";
+
+// Institutions release 2: the import form offers "Download a sample list". The list is made by the export
+// class on request and is never a file in the repository (the public mirror refuses an address in a tracked
+// .csv), so the only way to know it keeps importing is to give its body to the import's own reader.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-export.php';
+
+$sample = WPCPM_Institution_Export::sample_csv();
+$lines  = preg_split( '/\r\n/', substr( $sample, 3 ) );
+
+ck( 'it opens with the byte order mark Excel needs, and its lines end the way the exports\' do', array( substr( $sample, 0, 3 ), count( $lines ), end( $lines ) ), array( "\xEF\xBB\xBF", 3, '' ) );
+ck( 'its header is the four columns, in the order the import reads them', $lines[0], 'name,email,field_of_study,tutor' );
+ck( 'and its one row is an example student at example.test, in a field of study the program offers', $lines[1], 'Ana Example,ana@example.test,Technology & Engineering,Tutor Example' );
+
+$sample_read = WPCPM_Institution_Import::parse( $sample );
+ck( 'the import\'s reader takes it', array( $sample_read['ok'], count( $sample_read['rows'] ), $sample_read['unknown'] ), array( true, 1, array() ) );
+
+$sample_rows = WPCPM_Institution_Import::clean_rows( $sample_read['rows'] );
+ck( 'and cleaning gives one row, and its verdict is ok', verdicts( $sample_rows ), array( 'ok' ) );
+ck( 'with nothing dropped and nothing wrong', array( $sample_rows[0]['problems'], $sample_rows[0]['warnings'] ), array( array(), array() ) );
+ck( 'every column arrived as the example says', array(
+	$sample_rows[0]['name'], $sample_rows[0]['email'], $sample_rows[0]['field_of_study'], $sample_rows[0]['tutor'],
+), array( 'Ana Example', 'ana@example.test', 'Technology & Engineering', 'Tutor Example' ) );
+ck( 'the field of study is one of the nine the import accepts', in_array( $sample_rows[0]['field_of_study'], WPCPM_Institution_Student_Form::choices( 'field_of_study' ), true ), true );
+
+ck( 'it is valid UTF-8, which the import refuses to repair when it is not', mb_check_encoding( $sample, 'UTF-8' ), true );
 
 echo "\n=== This file touches nothing ===\n";
 

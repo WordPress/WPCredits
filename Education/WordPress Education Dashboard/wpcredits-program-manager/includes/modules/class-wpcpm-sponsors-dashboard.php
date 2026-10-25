@@ -88,7 +88,7 @@ final class WPCPM_Sponsors_Dashboard {
 	 * Register (but do not enqueue) the stylesheet.
 	 *
 	 * It depends on the mentor stylesheet, exactly as the institution page's does: the pages
-	 * share a shell - the colour tokens, the "view as" switcher, the disclosure cards, the
+	 * share a shell - the color tokens, the "view as" switcher, the disclosure cards, the
 	 * muted-text treatment - and defining that once means a theme styling one page has already
 	 * styled this one. It depends on the Administrator Dashboard's too, for the same reason: the
 	 * At a glance strip is that page's attention strip, its tiles dressed by that page's rules, so
@@ -312,7 +312,7 @@ final class WPCPM_Sponsors_Dashboard {
 			return $redirect_to;
 		}
 
-		// A specific destination was asked for - honour it, the way the institution page does:
+		// A specific destination was asked for - honor it, the way the institution page does:
 		// overriding would take them somewhere they did not ask to go.
 		if ( WPCPM_Request::is_explicit_redirect( $requested_redirect_to ) ) {
 			return $redirect_to;

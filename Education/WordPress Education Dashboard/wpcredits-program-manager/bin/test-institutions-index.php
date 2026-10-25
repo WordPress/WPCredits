@@ -41,13 +41,39 @@ function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function apply_filters( $t, $v ) { return $v; }
 function add_action() {} function add_filter() {}
-function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+function get_option( $k, $d = false ) {
+	if ( 'wpcpm_institutions_index' === $k && is_array( $GLOBALS['events'] ) ) { $GLOBALS['events'][] = 'read index'; }
+	return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d;
+}
 function update_option( $k, $v, $a = null ) {
+	// Another request a check plants, played once in the moment before the index is written.
+	if ( 'wpcpm_institutions_index' === $k && is_callable( $GLOBALS['before_index_write'] ) ) { call_user_func( $GLOBALS['before_index_write'] ); }
+	if ( 'wpcpm_institutions_index' === $k && is_array( $GLOBALS['events'] ) ) { $GLOBALS['events'][] = 'write index'; }
 	$GLOBALS['opts'][ $k ] = $v;
 	$GLOBALS['autoload'][ $k ] = $a;
 	return true;
 }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+/** The options cache this request holds: a drop of the index's copy is what a read under a lock needs first. */
+function wp_cache_delete( $key, $group = '' ) {
+	if ( is_array( $GLOBALS['events'] ) ) { $GLOBALS['events'][] = 'forget ' . $group . ':' . $key; }
+	return true;
+}
+/** The cron events scheduled, each its hook, its arguments and its time. */
+function wp_next_scheduled( $hook, $args = array() ) {
+	foreach ( $GLOBALS['scheduled'] as $event ) {
+		if ( $hook === $event['hook'] && $args === $event['args'] ) { return $event['at']; }
+	}
+	return false;
+}
+function wp_schedule_single_event( $at, $hook, $args = array(), $wp_error = false ) {
+	$GLOBALS['scheduled'][] = array( 'at' => (int) $at, 'hook' => $hook, 'args' => $args );
+	return true;
+}
+
+$GLOBALS['events']             = null;
+$GLOBALS['before_index_write'] = null;
+$GLOBALS['scheduled']          = array();
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
@@ -71,6 +97,11 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+// The lock a patch holds over the options table this suite keeps in `$GLOBALS['opts']`, and the sync whose
+// lock a patch looks at.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -352,6 +383,168 @@ ck( 'without growing the index', count( WPCPM_Institutions_Index::rows() ), $SEE
 
 WPCPM_Institutions_Index::insert( array( 'record_id' => 'nonsense', 'name' => 'Nope' ) );
 ck( 'a malformed ID is not inserted', count( WPCPM_Institutions_Index::rows() ), $SEEDED + 1 );
+
+/* ---- patch --------------------------------------------------------------- */
+
+echo "\n=== patch() ===\n";
+
+// A school's details are corrected on the site (Institutions release 2): the row is changed in place,
+// the keys given and no others, and the table's read time stays the table's.
+WPCPM_Institutions_Index::write( $rows, $read_at );
+
+$kept_row   = WPCPM_Institutions_Index::row( 'recSEED0000000008' );
+$kept_other = WPCPM_Institutions_Index::row( 'recSEED0000000001' );
+
+ck( 'patch() says true for a row the index holds', WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Heredia', 'contact_person' => 'Eva Example' ) ), true );
+
+$patched = WPCPM_Institutions_Index::row( 'recSEED0000000008' );
+
+ck( 'the keys named are changed', array( $patched['city'], $patched['contact_person'] ), array( 'Heredia', 'Eva Example' ) );
+ck( 'and every other key of the row is as it was', array_diff_key( $patched, array( 'city' => 1, 'contact_person' => 1 ) ), array_diff_key( $kept_row, array( 'city' => 1, 'contact_person' => 1 ) ) );
+ck( 'no other row moved', WPCPM_Institutions_Index::row( 'recSEED0000000001' ), $kept_other );
+ck( 'the index holds the rows it held', count( WPCPM_Institutions_Index::rows() ), $SEEDED );
+ck( 'the read time is the table\'s, not the patch\'s', WPCPM_Institutions_Index::read()['read'], $read_at );
+ck( 'the row keeps the full shape, in the contract\'s order', array_keys( $patched ), $contract );
+ck( 'and is stored with autoload off, as every write of the index is', $GLOBALS['autoload'][ WPCPM_Institutions_Index::OPT_NAME ], false );
+
+WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'country' => 'recSEED0000000010', 'country_name' => 'Spain', 'consent' => 1, 'name' => 'Renamed ' ) );
+$patched = WPCPM_Institutions_Index::row( 'recSEED0000000008' );
+
+ck( 'a country and its name go together, a name is kept as given, and a flag is typed', array( $patched['country'], $patched['country_name'], $patched['name'], $patched['consent'] ), array( 'recSEED0000000010', 'Spain', 'Renamed ', true ) );
+
+WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'record_id' => 'recSEED0000000001', 'department' => 'Computer Science', 'city' => 'Alajuela' ) );
+$patched = WPCPM_Institutions_Index::row( 'recSEED0000000008' );
+
+ck( 'a row cannot be given another record ID by a patch, and a key outside the contract is dropped', array( $patched['record_id'], isset( $patched['department'] ), $patched['city'], WPCPM_Institutions_Index::row( 'recSEED0000000001' ) ), array( 'recSEED0000000008', false, 'Alajuela', $kept_other ) );
+
+$stored_before = get_option( WPCPM_Institutions_Index::OPT_NAME );
+
+ck( 'a record the index does not hold is false', WPCPM_Institutions_Index::patch( 'recNOPE0000000000', array( 'city' => 'Nowhere' ) ), false );
+ck( 'a malformed ID is false', WPCPM_Institutions_Index::patch( 'nonsense', array( 'city' => 'Nowhere' ) ), false );
+ck( 'an empty ID is false', WPCPM_Institutions_Index::patch( '', array( 'city' => 'Nowhere' ) ), false );
+ck( 'and none of them wrote anything, nor made a row', array( get_option( WPCPM_Institutions_Index::OPT_NAME ) === $stored_before, WPCPM_Institutions_Index::has( 'recNOPE0000000000' ) ), array( true, false ) );
+ck( 'a patch with nothing to change leaves the row as it is', array( WPCPM_Institutions_Index::patch( 'recSEED0000000008', array() ), WPCPM_Institutions_Index::row( 'recSEED0000000008' ) ), array( true, $patched ) );
+ck( 'an ID with space around it is the record', WPCPM_Institutions_Index::patch( ' recSEED0000000008 ', array( 'city' => 'Cartago' ) ), true );
+ck( 'and was patched', WPCPM_Institutions_Index::row( 'recSEED0000000008' )['city'], 'Cartago' );
+
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 99;
+$stale = get_option( WPCPM_Institutions_Index::OPT_NAME );
+
+ck( 'on an index of another version a patch is false, and writes nothing rather than graft a row onto a shape it does not know', array( WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Heredia' ) ), get_option( WPCPM_Institutions_Index::OPT_NAME ) === $stale ), array( false, true ) );
+
+WPCPM_Institutions_Index::write( $rows, $read_at );
+
+/* ---- patch() under a lock of its own ------------------------------------- */
+
+echo "\n=== patch(): two at once, and a sync reading meanwhile ===\n";
+
+// The option a patch's lock is kept under, as the uninstaller and the data table in the guide name it.
+const INDEX_LOCK = 'wpcpm_institutions_index_lock';
+
+/** A constant of the index, or null before it is declared, so a missing one fails a check and not the run. */
+function index_const( $name ) { return defined( 'WPCPM_Institutions_Index::' . $name ) ? constant( 'WPCPM_Institutions_Index::' . $name ) : null; }
+/** Whether every needle is in the list and they come in the order given. */
+function in_order( array $list, array $needles ) {
+	$at = -1;
+	foreach ( $needles as $needle ) {
+		$found = false;
+		foreach ( $list as $i => $item ) {
+			if ( $i > $at && $needle === $item ) { $at = $i; $found = true; break; }
+		}
+		if ( ! $found ) { return false; }
+	}
+	return true;
+}
+/**
+ * Plant another request: a patch of another school that is between its read of the index and its write when
+ * the patch under test starts. Played once, at the first of two moments: just before the patch under test
+ * takes the index's lock over from its holder, which is where it waits for the other to finish; or, should it
+ * take no lock, just before it writes the index, which is where the other's write lands between its read and
+ * its own.
+ */
+function other_patch( callable $finish ) {
+	$played = false;
+	$play   = static function () use ( &$played, $finish ) {
+		if ( $played ) { return; }
+		$played                           = true;
+		$GLOBALS['before_index_write']    = null;
+		$GLOBALS['wpdb']->before_takeover = null;
+		$finish();
+	};
+	$GLOBALS['before_index_write']    = $play;
+	$GLOBALS['wpdb']->before_takeover = $play;
+}
+
+ck( 'the lock is an option of the index\'s own', index_const( 'OPT_LOCK' ), INDEX_LOCK );
+
+WPCPM_Institutions_Index::write( $rows, $read_at );
+$GLOBALS['events'] = array();
+$read_by_other     = WPCPM_Institutions_Index::read();
+// The other patch took the index's lock and read the index; it has not written yet.
+$GLOBALS['opts'][ INDEX_LOCK ] = (string) ( time() + 10 );
+other_patch(
+	static function () use ( $read_by_other ) {
+		$read_by_other['rows']['recSEED0000000008']['city'] = 'Heredia';
+		update_option( WPCPM_Institutions_Index::OPT_NAME, $read_by_other, false );
+		unset( $GLOBALS['opts'][ INDEX_LOCK ] );
+	}
+);
+$patched_both = WPCPM_Institutions_Index::patch( 'recSEED0000000001', array( 'city' => 'Lima' ) );
+ck( 'two patches of different schools at once both survive', array( $patched_both, WPCPM_Institutions_Index::row( 'recSEED0000000008' )['city'], WPCPM_Institutions_Index::row( 'recSEED0000000001' )['city'] ), array( true, 'Heredia', 'Lima' ) );
+ck( 'the second waited for the first: it read the index under its lock, from the table and not from the copy it had, and let the lock go after its write', in_order( $GLOBALS['events'], array( 'lock insert', 'lock insert', 'forget options:wpcpm_institutions_index', 'read index', 'write index', 'lock delete' ) ), true );
+ck( 'and no lock is left behind', array_key_exists( INDEX_LOCK, $GLOBALS['opts'] ), false );
+ck( 'the read time is still the table\'s', WPCPM_Institutions_Index::read()['read'], $read_at );
+
+// A lock its holder never lets go: a request that died holding it, until its time runs out.
+WPCPM_Institutions_Index::write( $rows, $read_at );
+$GLOBALS['events']             = array();
+$held_until                    = (string) ( time() + 10 );
+$GLOBALS['opts'][ INDEX_LOCK ] = $held_until;
+$stored_before                 = get_option( WPCPM_Institutions_Index::OPT_NAME );
+$GLOBALS['events']             = array();
+$started                       = microtime( true );
+$given_up                      = WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Heredia' ) );
+$waited                        = microtime( true ) - $started;
+$asked                         = count( array_keys( $GLOBALS['events'], 'lock insert', true ) );
+ck( 'a patch that cannot take the lock after a short wait says false, as for a row the index does not hold, and writes nothing', array( $given_up, get_option( WPCPM_Institutions_Index::OPT_NAME ) === $stored_before, in_array( 'write index', $GLOBALS['events'], true ) ), array( false, true, false ) );
+ck( 'it asked again a few times, a short while apart, then gave up within a second or two', array( $asked, index_const( 'LOCK_TRIES' ), $waited > 0.5, $waited < 3 ), array( index_const( 'LOCK_TRIES' ), 10, true, true ) );
+ck( 'and the lock it never took is left to its holder', $GLOBALS['opts'][ INDEX_LOCK ] ?? null, $held_until );
+unset( $GLOBALS['opts'][ INDEX_LOCK ] );
+
+// The sync reads the Institutions table and writes the whole index once it has read the last page. A patch
+// made while a tick holds the sync's lock can be written over by values read before it, so the patch asks for
+// one more run, a few minutes later, and the site heals in minutes rather than at the next three-hour run.
+WPCPM_Institutions_Index::write( $rows, $read_at );
+$GLOBALS['events']    = null;
+$recurring            = array( 'at' => time() + 7200, 'hook' => WPCPM_Institutions_Sync::CRON_DAILY, 'args' => array() );
+$GLOBALS['scheduled'] = array( $recurring );
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time();
+WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Heredia' ) );
+$again = array_values( array_filter( $GLOBALS['scheduled'], static function ( $event ) use ( $recurring ) { return $event !== $recurring; } ) );
+ck( 'a patch while the sync holds its lock asks for one run of the sync, on its run hook, a few minutes later', array(
+	count( $again ),
+	isset( $again[0] ) ? $again[0]['hook'] : null,
+	isset( $again[0] ) && $again[0]['at'] >= time() + 4 * MINUTE_IN_SECONDS && $again[0]['at'] <= time() + 6 * MINUTE_IN_SECONDS,
+), array( 1, WPCPM_Institutions_Sync::CRON_DAILY, true ) );
+ck( 'told apart from the recurring run, which it leaves as it was', array( isset( $again[0] ) && array() !== $again[0]['args'], in_array( $recurring, $GLOBALS['scheduled'], true ) ), array( true, true ) );
+WPCPM_Institutions_Index::patch( 'recSEED0000000001', array( 'city' => 'Lima' ) );
+ck( 'a second patch meanwhile asks for no second run', count( $GLOBALS['scheduled'] ), 2 );
+ck( 'the patches are made all the same', array( WPCPM_Institutions_Index::row( 'recSEED0000000008' )['city'], WPCPM_Institutions_Index::row( 'recSEED0000000001' )['city'] ), array( 'Heredia', 'Lima' ) );
+
+$GLOBALS['scheduled'] = array( $recurring );
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] );
+WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Cartago' ) );
+$no_sync = $GLOBALS['scheduled'];
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time() - WPCPM_Institutions_Sync::LOCK_TIMEOUT - 5;
+WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Alajuela' ) );
+$stale_sync = $GLOBALS['scheduled'];
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time();
+WPCPM_Institutions_Index::patch( 'recNOPE0000000000', array( 'city' => 'Nowhere' ) );
+ck( 'no run is asked for when no tick holds the lock, when its lock has run out, or when nothing was patched', array( $no_sync, $stale_sync, $GLOBALS['scheduled'] ), array( array( $recurring ), array( $recurring ), array( $recurring ) ) );
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] );
+$GLOBALS['scheduled'] = array();
+
+WPCPM_Institutions_Index::write( $rows, $read_at );
 
 /* ---- stages the lists do not name ---------------------------------------- */
 

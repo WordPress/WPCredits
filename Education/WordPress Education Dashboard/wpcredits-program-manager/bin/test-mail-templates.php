@@ -156,6 +156,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-semester-report-screen.
 require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-application.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-invite.php';
+// And a school's details' (Institutions release 2): the lines that tell what changed.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-details.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 // And the Mentor applications' (1.122.31): the confirming link's handler.
@@ -269,6 +271,11 @@ ck(
 		'agreement-reminder',
 		'agreement-template',
 		'member-last',
+		'institution-details-saved',
+		'institution-details-request',
+		'institution-details-approved',
+		'institution-details-declined',
+		'institution-details-withdrawn',
 		'report-drafted',
 		'report-approved',
 		'report-consent',
@@ -497,6 +504,14 @@ $shape = array(
 	'agreement-reminder'            => array( "\r\n", array(), array() ),
 	'agreement-template'            => array( "\r\n", array(), array( 'name_asked_for' ) ),
 	'member-last'                   => array( "\r\n", array(), array() ),
+	// A school's details (Institutions release 2): what changed is needed, in the body alone, in the
+	// three that tell it; the Administrator's note is, in the one that carries it; the link to the
+	// request is not, since an Administrator's dashboard may have no page to link.
+	'institution-details-saved'     => array( "\r\n", array( 'changes' ), array( 'changes' ) ),
+	'institution-details-request'   => array( "\r\n", array( 'changes' ), array( 'changes' ) ),
+	'institution-details-approved'  => array( "\r\n", array( 'changes' ), array( 'changes' ) ),
+	'institution-details-declined'  => array( "\r\n", array( 'note' ), array( 'note' ) ),
+	'institution-details-withdrawn' => array( "\r\n", array(), array() ),
 	'report-drafted'                => array( "\n", array( 'semester' ), array() ),
 	'report-approved'               => array( "\n", array( 'semester' ), array() ),
 	'report-consent'                => array( "\n", array( 'semester' ), array() ),
@@ -628,7 +643,9 @@ foreach ( $lists_1_123_26 as $id => $list ) {
 		$added[ $id ] = array_values( array_diff( $lists_now[ $id ], $was ) );
 	}
 }
-ck( 'the Institutions and the Semester reports have the 21 emails they had', array_keys( $lists_now ), array_keys( $lists_1_123_26 ) );
+$details_emails = array( 'institution-details-saved', 'institution-details-request', 'institution-details-approved', 'institution-details-declined', 'institution-details-withdrawn' );
+
+ck( 'the Institutions and the Semester reports have the 21 emails they had, and the five about a school\'s details of Institutions release 2 after the Institutions\' own', array_keys( $lists_now ), array_merge( array_slice( array_keys( $lists_1_123_26 ), 0, 18 ), $details_emails, array_slice( array_keys( $lists_1_123_26 ), 18 ) ) );
 ck( 'no placeholder is taken out of any of their lists, none is made required and none is moved to the body alone, so no saved edit is set aside', $removed, array() );
 ck(
 	'and what the lists gain is optional and in the body or the subject: the institution\'s name, in the notice of a template that cannot be used, and the site\'s name in the three Semester reports emails\' subjects',
@@ -690,6 +707,137 @@ foreach ( $said as $id => $wanted_paragraphs ) {
 	}
 }
 ck( 'each changed paragraph is the one worded for it, a paragraph of its own, in the acknowledgements, the invitations, the revocation, the received and returned notices, the notice of a template that cannot be used and the last member\'s', $missing, array() );
+
+// The five emails about a school's details (Institutions release 2), word for word: who they go to,
+// what sends them, their subject, each paragraph of their body and the placeholders they use, with
+// the marks of the lists above (`*` needed, `^` in the body alone).
+$details = array(
+	'institution-details-saved'     => array(
+		'audience' => 'administrator',
+		'trigger'  => 'When an institution\'s member saves a change to the institution\'s contact and agreement details, or an Administrator saves any detail: to the people the setting names.',
+		'subject'  => '[{site_name}] {institution_name}\'s details were corrected',
+		'body'     => array(
+			'{actor_name} changed {institution_name}\'s details on the Institution Dashboard:',
+			'{changes}',
+			'They are saved, and the program\'s records follow. Nothing waits for you.',
+		),
+		'list'     => 'site_name institution_name actor_name changes*^',
+	),
+	'institution-details-request'   => array(
+		'audience' => 'administrator',
+		'trigger'  => 'When an institution asks to correct its name, website, city, country or contact\'s email: to the people the setting names.',
+		'subject'  => '[{site_name}] {institution_name} asks to correct its details',
+		'body'     => array(
+			'{actor_name} asks to correct {institution_name}\'s details:',
+			'{changes}',
+			'Nothing is changed until an Administrator approves it. Approve or decline it on the Administrator Dashboard: {request_link}',
+		),
+		'list'     => 'site_name institution_name actor_name changes*^ request_link',
+	),
+	'institution-details-approved'  => array(
+		'audience' => 'institution',
+		'trigger'  => 'When an Administrator approves an institution\'s request to correct its details: to the person who asked.',
+		'subject'  => '[{site_name}] Your institution\'s details are updated',
+		'body'     => array(
+			'An Administrator approved the change you asked for, and the program\'s records now read:',
+			'{changes}',
+		),
+		'list'     => 'site_name changes*^',
+	),
+	'institution-details-declined'  => array(
+		'audience' => 'institution',
+		'trigger'  => 'When an Administrator declines an institution\'s request to correct its details: to the person who asked.',
+		'subject'  => '[{site_name}] Your request to correct your institution\'s details',
+		'body'     => array(
+			'An Administrator did not make the change you asked for, and wrote:',
+			'{note}',
+			'The details on record are unchanged. You can ask again from the Institution Dashboard: {dashboard_link}',
+		),
+		'list'     => 'site_name note*^ dashboard_link',
+	),
+	'institution-details-withdrawn' => array(
+		'audience' => 'administrator',
+		'trigger'  => 'When an institution withdraws its request to correct its details: to the people the setting names.',
+		'subject'  => '[{site_name}] {institution_name} withdrew its request',
+		'body'     => array(
+			'{actor_name} withdrew the request to correct {institution_name}\'s details. Nothing waits for you.',
+		),
+		'list'     => 'site_name institution_name actor_name',
+	),
+);
+$details_said = array();
+foreach ( $details as $id => $want ) {
+	$details_said[ $id ] = array(
+		$all[ $id ]['audience'],
+		$all[ $id ]['trigger'],
+		$all[ $id ]['subject'],
+		$paragraphs( $id ),
+		implode( ' ', $lists_now[ $id ] ),
+		$all[ $id ]['module'],
+	);
+}
+ck(
+	'each of the five is to the people the setting names or to the asking account, says what sends it, and has the subject, the paragraphs and the placeholders it was worded with, in the Institutions area',
+	$details_said,
+	array_map(
+		static function ( $want ) {
+			return array( $want['audience'], $want['trigger'], $want['subject'], $want['body'], $want['list'], 'institutions' );
+		},
+		$details
+	)
+);
+
+$filled = array();
+foreach ( array_keys( $details ) as $id ) {
+	$mail           = WPCPM_Mail_Templates::render( $id, WPCPM_Mail_Templates::example_values( $id ) );
+	$filled[ $id ] = array( $mail['subject'], $mail['body'] );
+}
+ck(
+	'filled with their examples they read as the emails they are, every line break the template\'s own "\\r\\n", the lines of what changed among them: the people named, the institution, what changed and where to decide',
+	$filled,
+	array(
+		'institution-details-saved'     => array(
+			'[WordPress Credits] Example University\'s details were corrected',
+			"Ada Okonjo changed Example University's details on the Institution Dashboard:\r\n\r\nName: Example College, now Example University\r\nCity: Example City, now Example Town\r\n\r\nThey are saved, and the program's records follow. Nothing waits for you.",
+		),
+		'institution-details-request'   => array(
+			'[WordPress Credits] Example University asks to correct its details',
+			"Ada Okonjo asks to correct Example University's details:\r\n\r\nName: Example College, asked to be Example University\r\nCity: Example City, asked to be Example Town\r\n\r\nNothing is changed until an Administrator approves it. Approve or decline it on the Administrator Dashboard: https://example.test/administrator-dashboard/",
+		),
+		'institution-details-approved'  => array(
+			'[WordPress Credits] Your institution\'s details are updated',
+			"An Administrator approved the change you asked for, and the program's records now read:\r\n\r\nName: Example College, now Example University\r\nCity: Example City, now Example Town",
+		),
+		'institution-details-declined'  => array(
+			'[WordPress Credits] Your request to correct your institution\'s details',
+			"An Administrator did not make the change you asked for, and wrote:\r\n\r\nPlease give the name as it appears on your website.\r\n\r\nThe details on record are unchanged. You can ask again from the Institution Dashboard: https://example.test/institution-dashboard/",
+		),
+		'institution-details-withdrawn' => array(
+			'[WordPress Credits] Example University withdrew its request',
+			"Ada Okonjo withdrew the request to correct Example University's details. Nothing waits for you.",
+		),
+	)
+);
+ck(
+	'the request\'s sentence about where to decide, and the decline\'s about asking again, are left out while their link is empty, and the rest of each stays',
+	array(
+		WPCPM_Mail_Templates::render( 'institution-details-request', array( 'request_link' => '' ) + WPCPM_Mail_Templates::example_values( 'institution-details-request' ) )['body'],
+		WPCPM_Mail_Templates::render( 'institution-details-declined', array( 'dashboard_link' => '' ) + WPCPM_Mail_Templates::example_values( 'institution-details-declined' ) )['body'],
+	),
+	array(
+		"Ada Okonjo asks to correct Example University's details:\r\n\r\nName: Example College, asked to be Example University\r\nCity: Example City, asked to be Example Town\r\n\r\nNothing is changed until an Administrator approves it.",
+		"An Administrator did not make the change you asked for, and wrote:\r\n\r\nPlease give the name as it appears on your website.\r\n\r\nThe details on record are unchanged.",
+	)
+);
+ck(
+	'who made the change is explained as a name the email opens with, with the words to use when there is none, and what changed as the lines the email needs',
+	array( $all['institution-details-saved']['placeholders']['actor_name']['means'], $all['institution-details-saved']['placeholders']['changes']['means'], $all['institution-details-request']['placeholders']['request_link']['means'] ),
+	array(
+		'Who made the change or asked for it: their name, or "A member of the institution" when their account holds none.',
+		'What changed, a line to each detail: its name, what the program had, and what it reads now, or what the institution asked for. The email needs it, in its body.',
+		'The Administrator Dashboard, where the request waits for an Administrator to approve or decline it. Empty leaves its sentence out.',
+	)
+);
 
 $subjects = array(
 	'report-drafted'  => '[{site_name}] Semester report drafted: {institution_name}',

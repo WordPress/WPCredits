@@ -362,7 +362,7 @@ class WPCPM_Flash {
 	public static function take( $channel, $user_id = 0 ) { $uid = $user_id ?: $GLOBALS['uid']; $v = $GLOBALS['flash'][ $channel ][ $uid ] ?? ''; unset( $GLOBALS['flash'][ $channel ][ $uid ] ); return $v; }
 	public static function sweep( $stale, $user_id = 0 ) { $uid = $user_id ?: $GLOBALS['uid']; foreach ( $GLOBALS['flash'] ?? array() as $channel => $by ) { if ( is_array( $by ) && array_key_exists( $uid, $by ) && $stale( (string) $channel, $by[ $uid ] ) ) { unset( $GLOBALS['flash'][ $channel ][ $uid ] ); } } }
 }
-/** The real writer's contract: a BOM, one line per row, cells joined by commas, a leading formula character neutralised. */
+/** The real writer's contract: a BOM, one line per row, cells joined by commas, a leading formula character neutralized. */
 class WPCPM_Institution_Export {
 	public static function cell( $value ) { $text = is_scalar( $value ) ? (string) $value : ''; $lead = ltrim( $text ); return ( '' !== $lead && in_array( substr( $lead, 0, 1 ), array( '=', '+', '-', '@' ), true ) ) ? "'" . $text : $text; }
 	public static function csv( array $matrix ) { $out = "\xEF\xBB\xBF"; foreach ( $matrix as $row ) { $out .= implode( ',', array_map( array( __CLASS__, 'cell' ), $row ) ) . "\r\n"; } return $out; }

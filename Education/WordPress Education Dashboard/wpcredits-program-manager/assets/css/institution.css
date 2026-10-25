@@ -109,7 +109,8 @@
  */
 .wpcpm-roster,
 .wpcpm-import,
-.wpcpm-people {
+.wpcpm-people,
+.wpcpm-details {
 	border-top: 1px solid var( --wpcpm-border );
 	margin: 2.5em 0 0;
 	padding: 2em 0 0;
@@ -209,7 +210,11 @@
 .wpcpm-agreement-panel__lede,
 .wpcpm-agreement-panel__on-file-lede,
 .wpcpm-people__intro,
-.wpcpm-people__subtitle {
+.wpcpm-people__subtitle,
+.wpcpm-details__subtitle,
+.wpcpm-details__lead,
+.wpcpm-institution__edit-lede,
+.wpcpm-institution__edit-note {
 	margin: 0 0 1em;
 }
 
@@ -251,6 +256,8 @@
 .wpcpm-people__facts,
 .wpcpm-people__note,
 .wpcpm-people__read,
+.wpcpm-details__when,
+.wpcpm-details__note,
 .wpcpm-roster__note,
 .wpcpm-roster__read,
 .wpcpm-roster__empty,
@@ -271,7 +278,9 @@
    the page has one way of saying something out of band. */
 .wpcpm-agreement-panel__message,
 .wpcpm-institution__invite-message,
-.wpcpm-people__message {
+.wpcpm-people__message,
+.wpcpm-details__message,
+.wpcpm-institution__edit-message {
 	border: 1px solid var( --wpcpm-border );
 	border-inline-start-width: 4px;
 	border-radius: var( --wpcpm-radius );
@@ -691,6 +700,47 @@
 	padding-top: 1.25em;
 }
 
+/**
+ * "Correct this student's details", the card's second folded block.
+ *
+ * Drawn as the Student Report Card above it is: a hairline over it and the same room, and a summary in
+ * the same weight, so the two read as the same kind of thing. The form inside is the student edit
+ * form's own, which is a `wpcpm-institution__card` box of its own wherever else it could be drawn;
+ * folded inside this card it is a part of the card and not a second one, so its heading, which the
+ * summary has just said, its margin and, on the WPCredits theme, the 32px inset the theme gives every
+ * card of the page, are taken off. The theme's inset rule has two classes
+ * (`.wpc-institution-page .wpcpm-institution__card`); the last rule here has three, naming the page and
+ * the disclosure, so it outranks the theme's whatever order the stylesheets load in.
+ *
+ * The form's own fields, lede, note and outcome are dressed further down by the rules they share with the
+ * details card and the enrollment form (the label above its box, the box at the page's width, a date and a
+ * select sized to what they hold, the outcome in the page's bordered flash), so the three forms read alike.
+ */
+.wpcpm-institution__correct {
+	border-top: 1px solid var( --wpcpm-border );
+	margin-top: 1.25em;
+	padding-top: 1.25em;
+}
+
+.wpcpm-institution__correct-toggle {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+/* The same space under its title as the details card's own folds (.wpcpm-details__form), measured
+   on the Docker trial of Institutions release 2: 0.75em left it 3px tighter than both. */
+.wpcpm-institution__correct > .wpcpm-institution__edit {
+	margin: 1em 0 0;
+}
+
+.wpcpm-institution__correct .wpcpm-institution__edit > .wpcpm-institution__heading {
+	display: none;
+}
+
+.wpc-institution-page .wpcpm-institution__correct > .wpcpm-institution__card {
+	padding-inline: 0;
+}
+
 /* Something the reader has to act on: a status that blocks a graduation, a
    missing Drive link. Marked on the leading edge, never by colour alone. */
 .wpcpm-warning {
@@ -873,23 +923,30 @@
 	margin-top: 0;
 }
 
-.wpcpm-import .wpcpm-field {
+.wpcpm-import .wpcpm-field,
+.wpcpm-details .wpcpm-field,
+.wpcpm-institution__correct .wpcpm-institution__edit-field {
 	display: block;
 	margin: 0 0 1.25em;
 }
 
-.wpcpm-import .wpcpm-field:last-child {
+.wpcpm-import .wpcpm-field:last-child,
+.wpcpm-details .wpcpm-field:last-child {
 	margin-bottom: 0;
 }
 
-.wpcpm-import .wpcpm-field > label {
+.wpcpm-import .wpcpm-field > label,
+.wpcpm-details .wpcpm-field > label,
+.wpcpm-details .wpcpm-field__label,
+.wpcpm-institution__correct .wpcpm-institution__edit-field > label {
 	display: block;
 	font-weight: 600;
 	margin-bottom: 0.3em;
 }
 
 /* "Required" beside a label: the label's voice, not a red asterisk nobody can read. */
-.wpcpm-import .wpcpm-field__required {
+.wpcpm-import .wpcpm-field__required,
+.wpcpm-details .wpcpm-field__required {
 	font-weight: 400;
 	opacity: 0.72;
 }
@@ -897,7 +954,11 @@
 .wpcpm-import .wpcpm-field input[type="text"],
 .wpcpm-import .wpcpm-field input[type="date"],
 .wpcpm-import .wpcpm-field select,
-.wpcpm-import .wpcpm-field textarea {
+.wpcpm-import .wpcpm-field textarea,
+.wpcpm-details .wpcpm-field input[type="text"],
+.wpcpm-details .wpcpm-field input[type="email"],
+.wpcpm-details .wpcpm-field select,
+.wpcpm-institution__correct .wpcpm-institution__edit-input {
 	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
 	border-radius: var( --wpcpm-radius );
 	box-sizing: border-box;
@@ -909,11 +970,13 @@
 
 /* A date is eight characters and a full-width box for it reads as a paragraph field. The
    select is sized to its longest option rather than to the column. */
-.wpcpm-import .wpcpm-field input[type="date"] {
+.wpcpm-import .wpcpm-field input[type="date"],
+.wpcpm-institution__correct input[type="date"].wpcpm-institution__edit-input {
 	max-width: 14em;
 }
 
-.wpcpm-import .wpcpm-field select {
+.wpcpm-import .wpcpm-field select,
+.wpcpm-institution__correct select.wpcpm-institution__edit-input {
 	max-width: 28em;
 	width: auto;
 }
@@ -945,11 +1008,20 @@
 	width: auto;
 }
 
-.wpcpm-import .wpcpm-field__hint {
+.wpcpm-import .wpcpm-field__hint,
+.wpcpm-details .wpcpm-field__hint {
 	display: block;
 	font-size: 0.9em;
 	margin-top: 0.35em;
 	opacity: 0.72;
+}
+
+/* The sample list's link, on a line under the file box's hint: the hint's size, not its faded tone, since
+   it is the one thing on the line a reader can press. */
+.wpcpm-import__sample {
+	display: inline-block;
+	font-size: 0.9em;
+	margin-top: 0.35em;
 }
 
 .wpcpm-import__actions {
@@ -1154,4 +1226,136 @@
 
 .wpc-institution-page .wpcpm-institution__admin > .wpcpm-institution__card + .wpcpm-institution__card {
 	margin-top: 10px;
+}
+
+/* -------------------------------------------------------------------------
+ * The school's details card (Institutions release 2).
+ *
+ * The details read as rows under two small headings, and each group opens its
+ * own form in place. The card's box, its heading and its rhythm are the ones
+ * above, shared with the People card; its form is the enrollment form's, drawn
+ * by the same rules for the second time (the `.wpcpm-details .wpcpm-field`
+ * selectors beside the `.wpcpm-import` ones), so this section holds only what
+ * is the card's own.
+ * ---------------------------------------------------------------------- */
+.wpcpm-details__list {
+	margin: 0 0 0.75em;
+}
+
+/* A row is its label over to the left and its value beside it; a change that waits is a line of its
+   own under both, so it reads as part of the row it is about. */
+.wpcpm-details__row {
+	display: grid;
+	gap: 0.15em 1em;
+	grid-template-columns: minmax( 0, 40% ) minmax( 0, 1fr );
+	padding: 0.35em 0;
+}
+
+.wpcpm-details__row dt {
+	margin: 0;
+	opacity: 0.72;
+}
+
+.wpcpm-details__row dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+/* The line takes the page's warning tone from its `wpcpm-warning` class, the leading edge the page uses for
+   what the reader has to act on, and only its place in the row and its size are the card's own. */
+.wpcpm-details__row .wpcpm-details__waiting {
+	font-size: 0.9em;
+	grid-column: 1 / -1;
+	padding-block: 0.25em;
+}
+
+.wpcpm-details__withdraw {
+	display: inline;
+	margin: 0;
+}
+
+.wpcpm-details__withdraw-button {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0;
+	text-decoration: underline;
+}
+
+/* The Administrator's note is the Administrator's own line breaks. */
+.wpcpm-details__outcome {
+	margin: 0 0 0.75em;
+	white-space: pre-line;
+}
+
+.wpcpm-details__more,
+.wpcpm-details__decide {
+	margin: 0 0 1.5em;
+}
+
+.wpcpm-details__toggle {
+	cursor: pointer;
+}
+
+.wpcpm-details__form {
+	margin-top: 1em;
+}
+
+.wpcpm-details__note {
+	margin: 0 0 1em;
+}
+
+.wpcpm-details__actions {
+	margin: 1.5em 0 0;
+}
+
+/* What is wrong with one answer. Never color alone: the sentence says what to do, and the field is
+   marked `aria-invalid`. */
+.wpcpm-details .wpcpm-field__problem {
+	display: block;
+	font-weight: 600;
+	margin-top: 0.3em;
+}
+
+.wpcpm-details .wpcpm-field.has-problem input,
+.wpcpm-details .wpcpm-field.has-problem select {
+	border-width: 2px;
+}
+
+/* An author `display` beats the browser's `[hidden]`, so the plain select the country's field stands in
+   for is hidden again here, as the script hides it. */
+.wpcpm-details .wpcpm-field select[hidden] {
+	display: none;
+}
+
+/* The languages: boxes with the label after the control, in columns as wide as the longest name needs. The
+   width the fields above give every input would stretch a tick across the page, so a box takes none. */
+.wpcpm-details .wpcpm-field__check {
+	align-items: flex-start;
+	display: flex;
+	font-weight: 400;
+	gap: 0.5em;
+	margin-bottom: 0.4em;
+}
+
+.wpcpm-details .wpcpm-field__check input {
+	flex: none;
+	height: auto;
+	margin: 0.25em 0 0;
+	width: auto;
+}
+
+.wpcpm-details .wpcpm-field--columns .wpcpm-field__choices {
+	display: grid;
+	gap: 0 1.25em;
+	grid-template-columns: repeat( auto-fill, minmax( 13em, 1fr ) );
+}
+
+/* A phone: the label over its value. */
+@media ( max-width: 600px ) {
+	.wpcpm-details__row {
+		grid-template-columns: minmax( 0, 1fr );
+	}
 }

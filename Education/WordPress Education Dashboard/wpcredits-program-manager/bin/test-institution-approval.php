@@ -322,7 +322,7 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 
 if ( ! class_exists( 'WPCPM_Airtable' ) ) {
 	/**
-	 * The three calls approval makes, journalled so their order can be asserted.
+	 * The three calls approval makes, journaled so their order can be asserted.
 	 *
 	 * `create_records()` answers with a list of record IDs and `fetch_page()` with records
 	 * and an offset, which is what the real client returns; the tests drive both through
@@ -532,7 +532,7 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	 * `queue_invites()` drops an account already waiting in the queue and one already stamped
 	 * invited, so the invitation is what remembers that it was sent and the approval may ask
 	 * again on every press. Both halves of that test are here, because "one invitation" on a
-	 * resume is an assertion about this behaviour and not about the caller counting presses.
+	 * resume is an assertion about this behavior and not about the caller counting presses.
 	 * `welcome_email()`'s wording is `bin/test-mail.php`'s.
 	 */
 	class WPCPM_Mail {

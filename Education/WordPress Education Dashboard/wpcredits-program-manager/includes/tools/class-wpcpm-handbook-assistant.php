@@ -37,6 +37,13 @@ class WPCPM_Handbook_Assistant {
 	const MAX_LENGTH = 400;
 
 	/**
+	 * Where this site publishes the Institution guide: the page at this path, which the release creates
+	 * at launch (Institutions release 2). `guides()` links it from the Institution Dashboard while it is
+	 * published, and the handbook's institutions page until then.
+	 */
+	const INSTITUTION_GUIDE_PATH = 'institution-guide';
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -360,8 +367,10 @@ class WPCPM_Handbook_Assistant {
 	/**
 	 * The handbook guide belonging to each dashboard.
 	 *
-	 * Two fixed pages rather than anything derived: these are the two documents a mentor and a
-	 * student are each told to read, and they are the same for everybody on the program.
+	 * Fixed pages rather than anything derived: these are the documents each audience is told to
+	 * read, and they are the same for everybody on it. The one exception is the institutions' guide,
+	 * which this site publishes itself once the release has made its page, so the address of that
+	 * entry is looked up (`institution_guide_url()`) and the others are written out.
 	 *
 	 * @return array<string, array> Audience => `label` and `url`.
 	 */
@@ -387,12 +396,13 @@ class WPCPM_Handbook_Assistant {
 					'slack' => 'https://wordpress.slack.com/archives/C09KYQLS7F1',
 					'chat'  => __( 'Ask in the mentors Slack channel', 'wpcredits-program-manager' ),
 				),
-				// The institutions page of the same handbook, and the program's own channel, which
-				// the students' entry links too (the mentors have one of their own): a school's
-				// question is about running the program, not about a student's work or a mentor's.
+				// This site's own Institution guide once its page is published, and the institutions page
+				// of the handbook until then; and the program's own channel, which the students' entry
+				// links too (the mentors have one of their own): a school's question is about running the
+				// program, not about a student's work or a mentor's.
 				'institution'   => array(
 					'label' => __( 'Institution guide', 'wpcredits-program-manager' ),
-					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/institutions/',
+					'url'   => self::institution_guide_url(),
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
@@ -414,6 +424,31 @@ class WPCPM_Handbook_Assistant {
 				),
 			)
 		);
+	}
+
+	/**
+	 * The address the Institution Dashboard's guide button opens.
+	 *
+	 * The page this site publishes at `INSTITUTION_GUIDE_PATH` while there is one, found the way
+	 * WordPress finds a page by its path and counted only while it is published: a draft is not the guide
+	 * a school is sent to, and neither is a page that is gone, which WordPress no longer finds by its
+	 * path at all. Otherwise the handbook's institutions page, the address this entry has always had, so
+	 * the button never leads nowhere, and installing the release changes nothing a school sees until the
+	 * page is made. The same lookup the Settings screen makes for the Administrator guide.
+	 *
+	 * @return string
+	 */
+	private static function institution_guide_url() {
+		$handbook = 'https://make.wordpress.org/community/handbook/education/credits/institutions/';
+		$page     = get_page_by_path( self::INSTITUTION_GUIDE_PATH );
+
+		if ( ! $page instanceof WP_Post || 'publish' !== $page->post_status ) {
+			return $handbook;
+		}
+
+		$url = (string) get_permalink( $page );
+
+		return '' !== $url ? $url : $handbook;
 	}
 
 	/**
@@ -452,7 +487,7 @@ class WPCPM_Handbook_Assistant {
 		// On a student's own card the question is whether *students* may ask, not whether the
 		// person looking at it may - otherwise a program manager inspecting a student would see
 		// the button on a page the student never would.
-		// A provider as well as permission. Without one the panel can only apologise, so the
+		// A provider as well as permission. Without one the panel can only apologize, so the
 		// button would be an invitation to a dead end - and this guard was in the version
 		// before the section grew a guide beside it.
 		$may_ask = WPCPM_Handbook_Answer::provider_ready()
@@ -502,7 +537,7 @@ class WPCPM_Handbook_Assistant {
 			// Slack's published logo - mark and wordmark - as a bare link and not a button:
 			// deliberately none of the `wpcpm-button` classes the two beside it carry, so no
 			// border or fill is drawn around it. A box around a logo fights the logo, and the
-			// artwork is recognisable enough on its own to read as somewhere to go.
+			// artwork is recognizable enough on its own to read as somewhere to go.
 			//
 			// `aria-label` carries the name: the wordmark is artwork, so a screen reader would
 			// otherwise announce the link and nothing else.
@@ -519,7 +554,7 @@ class WPCPM_Handbook_Assistant {
 		}
 
 		if ( $guide ) {
-			// Filled rather than outlined, and first among the labelled buttons: the guide is
+			// Filled rather than outlined, and first among the labeled buttons: the guide is
 			// the thing to read, the assistant is what you use when it has not answered your
 			// question. The same relationship "Open your course" has to "Open your report form".
 			$out .= sprintf(

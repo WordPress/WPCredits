@@ -1,6 +1,6 @@
 <?php
 /**
- * The one authorisation fence of the Sponsors module.
+ * The one authorization fence of the Sponsors module.
  *
  * @package WPCreditsProgramManager
  */

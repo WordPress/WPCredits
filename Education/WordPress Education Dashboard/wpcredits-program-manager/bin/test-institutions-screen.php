@@ -35,8 +35,9 @@
  *   an opened application says whether that card lists it yet, and while the dashboard's page is
  *   missing the list says so once and links nowhere. The record-keeping on a closed application
  *   stays here, because the dashboard folds in only the oldest fifty rejected and spam ones and
- *   never lists an approved one. A request row speaks by its kind. The dashboard's own draw of an
- *   application keeps every form it had.
+ *   never lists an approved one. A request row speaks by its kind: a mentor request, the details a
+ *   school asks to correct (counted with the rest, and decided on the dashboard's card like every
+ *   request), and any other. The dashboard's own draw of an application keeps every form it had.
  * - A held row says on the list that it is held, and the application says in plain words
  *   which checks held it. The list is what a manager triages from, so a manager rejecting a
  *   submission the site quietly decided was suspect has to be told that it did, and why.
@@ -216,7 +217,7 @@ function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['calls'][] = array( 'add_action', $h ); }
 function add_filter() {}
-// Every option read is journalled by name, so a check can say a load read none it had no need of.
+// Every option read is journaled by name, so a check can say a load read none it had no need of.
 function get_option( $k, $d = false ) { $GLOBALS['option_reads'][] = $k; return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 // Core's reads the option before it writes, and writes nothing over a value already stored.
 function add_option( $k, $v, $deprecated = '', $a = null ) {
@@ -452,6 +453,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 	class WPCPM_Institutions_Index {
 		const OPT_NAME  = 'wpcpm_institutions_index';
+		const OPT_LOCK  = 'wpcpm_institutions_index_lock';
 		const VERSION = 1;
 		public static function read() {
 			$o = get_option( self::OPT_NAME );
@@ -580,15 +582,6 @@ if ( ! class_exists( 'WPCPM_Institution_Student_Form' ) ) {
 	}
 }
 
-if ( ! class_exists( 'WPCPM_Institution_Notes' ) ) {
-	/** Stands in for institution notes. */
-	class WPCPM_Institution_Notes {
-		public static function init() {
-			$GLOBALS['calls'][] = array( 'notes_init' );
-		}
-	}
-}
-
 if ( ! class_exists( 'WPCPM_Institution_Invite' ) ) {
 	/** Stands in for member invitations. */
 	class WPCPM_Institution_Invite {
@@ -652,6 +645,13 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		}
 	}
 
+	/** The school's details card (Institutions release 2): its two handlers are started by `boot()` and nothing more here. */
+	class WPCPM_Institution_Details_Card {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'details_card_init' );
+		}
+	}
+
 	/**
 	 * Mentor requests, as the queue reads them: the open ones oldest first, each one's facts in the
 	 * shape `facts()` answers, the numbers and the kind the queue reads off the class, and the
@@ -666,6 +666,7 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		const QUEUE_MAX    = 200;
 		const OVERDUE_DAYS = 14;
 		const KIND_MENTOR  = 'mentor';
+		const KIND_DETAILS = 'details';
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'request_init' );
 		}
@@ -687,7 +688,7 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		// One of the outcomes a decision on a request flashes on this screen's channel, in the
 		// request class's own words, which the screen merges into its one map.
 		public static function messages() {
-			return array( 'request-done' => array( 'success', 'That request is closed as handled. The institution sees it is no longer waiting.' ) );
+			return array( 'request-done' => array( 'success', 'That request is closed as handled.' ) );
 		}
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Request::delete_all' ); return 0; }
 	}
@@ -1551,14 +1552,15 @@ function queue_links( $html ) {
  * @param string $actor   Who raised it, or '' for an account that is gone.
  * @param string $note    The note on the row, or ''.
  * @param int    $at      When it was raised, unix time.
- * @param string $kind    `mentor`, `add` or `format`.
+ * @param string $kind    `mentor`, `add`, `format` or `details`.
  */
 function seed_request( $id, $record, $student, $actor, $note, $at, $kind = 'mentor' ) {
 	$row    = WPCPM_Institutions_Index::row( $record );
 	$labels = array(
-		'add'    => 'A student to add',
-		'mentor' => 'A mentor is wanted',
-		'format' => 'A change to the report',
+		'add'     => 'A student to add',
+		'mentor'  => 'A mentor is wanted',
+		'format'  => 'A change to the report',
+		'details' => 'A change to its details',
 	);
 
 	$GLOBALS['request_facts'][ (int) $id ] = array(
@@ -2026,7 +2028,7 @@ $GLOBALS['uid'] = 60;
 WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'request-done' );
 $request_notice = render_screen();
 $GLOBALS['uid'] = 1;
-$printed_at     = strpos( $request_notice, '<div class="notice notice-success is-dismissible"><p>That request is closed as handled. The institution sees it is no longer waiting.</p></div>' );
+$printed_at     = strpos( $request_notice, '<div class="notice notice-success is-dismissible"><p>That request is closed as handled.</p></div>' );
 ck( 'a mentor request decided without the dashboard\'s return lands on the queue, and its outcome prints there, above the bar', array(
 	false !== $printed_at && $printed_at < (int) strpos( $request_notice, '<nav class="nav-tab-wrapper' ),
 	cards_of( $request_notice ),
@@ -2395,6 +2397,37 @@ ck( 'with no published Institution Dashboard the names are plain and no field is
 	false !== strpos( $no_page, 'Pipeline <span class="wpcpm-count">88</span>' ),
 ), array( true, false, false, false, true ) );
 
+// The Find options come from the shared sort (`WPCPM_Dashboards::sort_switcher_options()`, the one the Viewing
+// as switchers sort their entries with), and not from a sort of the Pipeline's own. The two differ for a name
+// that opens another: sorted by the whole entry, "Teo School, Athens" comes before "Teo, Zagreb", where a sort
+// by the bare name put "Teo" first. The entries are the same ones in both, so the fixture holds such a pair.
+$twins          = $focus;
+$twins['recTWINALPHA00001'] = array_merge( reset( $rows ), array( 'record_id' => 'recTWINALPHA00001', 'name' => 'Teo', 'stage' => 'Info Sent', 'city' => 'Zagreb' ) );
+$twins['recTWINBETA000001'] = array_merge( reset( $rows ), array( 'record_id' => 'recTWINBETA000001', 'name' => 'Teo School', 'stage' => 'Info Sent', 'city' => 'Athens' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $twins;
+$twins_html = render_tab( 'pipeline' );
+preg_match( '#<select name="wpcpm_institution_view" id="wpcpm-pipeline-find" autocomplete="off">(.*?)</select>#s', $twins_html, $twins_select );
+preg_match_all( '#<option value="([^"]*)"[^>]*>([^<]*)</option>#', $twins_select[1] ?? '', $twins_options, PREG_SET_ORDER );
+$twins_shown = array();
+foreach ( $twins_options as $option ) { if ( '' !== $option[1] ) { $twins_shown[ $option[1] ] = html_entity_decode( $option[2], ENT_QUOTES ); } }
+$shared_sort = is_callable( array( 'WPCPM_Dashboards', 'sort_switcher_options' ) ) ? call_user_func( array( 'WPCPM_Dashboards', 'sort_switcher_options' ), $twins_shown ) : null;
+ck( 'the Find options are the shared sort of their labels, in that order and no other', array( array_keys( $twins_shown ) === array_keys( (array) $shared_sort ), count( $twins_shown ) ), array( true, 108 ) );
+ck( 'so a name that opens another comes after it as the whole entry sorts: "Teo School, Athens" before "Teo, Zagreb"', array(
+	array_search( 'recTWINBETA000001', array_keys( $twins_shown ), true ) < array_search( 'recTWINALPHA00001', array_keys( $twins_shown ), true ),
+	$twins_shown['recTWINBETA000001'] ?? null,
+	$twins_shown['recTWINALPHA00001'] ?? null,
+), array( true, 'Teo School, Athens (Info Sent)', 'Teo, Zagreb (Info Sent)' ) );
+$find_body = body_of_method( file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ), 'render_pipeline_find' );
+ck( 'and the method sorts nothing itself: it hands its options to the shared sort', array( false !== strpos( $find_body, 'WPCPM_Dashboards::sort_switcher_options(' ), false !== strpos( $find_body, 'usort(' ), false !== strpos( $find_body, 'compare_names(' ) ), array( true, false, false ) );
+
+// The routing line, over two countries: sorted by name and not in the order the records came, each with its
+// count, joined by a comma and a space. Two records name Nigeria and one Cambodia, and Nigeria is met first.
+$routing_rows = $focus;
+$routing_rows['recGAPCAMBODIA001'] = array_merge( reset( $rows ), array( 'record_id' => 'recGAPCAMBODIA001', 'name' => 'Gap College Cambodia', 'stage' => 'Info Sent', 'country' => $country_id( 'Cambodia' ), 'country_name' => 'Cambodia', 'city' => 'City G' ) );
+$routing_rows['recGAPNIGERIA0001'] = array_merge( reset( $rows ), array( 'record_id' => 'recGAPNIGERIA0001', 'name' => 'Gap College Nigeria', 'stage' => 'Info Sent', 'country' => $country_id( 'Nigeria' ), 'country_name' => 'Nigeria', 'city' => 'City H' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $routing_rows;
+$routing_html = render_tab( 'pipeline' );
+ck( 'the routing line lists two countries sorted and joined: "Cambodia (1), Nigeria (2)"', preg_match( '#<p class="wpcpm-inst-routing">(.*?)</p>#', $routing_html, $routing_line ) ? $routing_line[1] : null, 'Countries named by institutions with no Administrator contact in the Countries table: Cambodia (1), Nigeria (2)' );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- the reconciliation card -------------------------------------------- */
@@ -2490,7 +2523,7 @@ ck( 'the promise that it would ship later is gone', false !== strpos( $html, 'sh
 // These fixture rows are accounts the sync could only place from the reports side, so none of
 // them carries a Students record ID and the control has nothing to address. It says so rather
 // than drawing a control that could not work, and that sentence is what stands here now.
-// `bin/test-unlinked-link.php` owns the control's own behaviour, on rows that do have one.
+// `bin/test-unlinked-link.php` owns the control's own behavior, on rows that do have one.
 ck( 'and a row with no record ID is told what to do in Airtable instead', false !== strpos( $html, 'carries no usable Airtable record ID' ), true );
 
 // A stamp the sync deleted on purpose is not a broken sync: it wrote `institution_source`,
@@ -3178,7 +3211,7 @@ ck( 'and its words are the ones the screen has always used, a state it does not 
 
 /* ---- the storage card --------------------------------------------------- */
 
-// The store's own behaviour, its directory and its encryption belong to
+// The store's own behavior, its directory and its encryption belong to
 // bin/test-private-files.php. What is checked here is only what this screen says about it.
 
 echo "\n=== The storage card ===\n";
@@ -3328,7 +3361,7 @@ $GLOBALS['caps']  = true;
 $GLOBALS['calls'] = array();
 $_POST            = form_fields( $sync_tab, 'wpcpm_institutions_sync' );
 ck( 'handle_sync starts the sync and comes back to the Sync and storage tab', array( outcome( array( $module, 'handle_sync' ) ), $GLOBALS['referer'], in_array( array( 'WPCPM_Institutions_Sync::start' ), $GLOBALS['calls'], true ) ), array( $back_sync, array( 'wpcpm_institutions_sync' ), true ) );
-// Read from the pending meta rather than through take(): take() memoises per request, and
+// Read from the pending meta rather than through take(): take() memoizes per request, and
 // the renders above already consumed this channel for this process.
 ck( 'leaving a one-shot flash for the screen to show', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'started' ) );
 delete_user_meta( 1, WPCPM_Flash::META );
@@ -3628,6 +3661,33 @@ ck( 'a request of another kind is labeled a request, says its kind, and names a 
 	array( true, false ),
 	array( $dashboard . '#wpcpm-requests', $dashboard . '#wpcpm-requests' ),
 ) );
+
+// A school's request to correct its details (Institutions release 2) is a row of its own kind: labeled
+// "Details to correct" in the row's heading, counted in the queue's number and the menu's bubble with
+// the rest, about no student, and decided on the Administrator Dashboard like every request.
+$before_details = $GLOBALS['open_requests'];
+seed_request( 805, $request_records[0], '', 'Rep One', '', $now - ( 2 * $day ), 'details' );
+$GLOBALS['open_requests'] = array( 802, 801, 805 );
+$GLOBALS['calls']         = array();
+$details_html             = render_screen();
+$details_rows             = queue_chunks( $details_html );
+$details_pos              = array_search( 'Details to correct', array_column( queue_items( $details_html ), 1 ), true );
+$GLOBALS['request_facts'][805]['actor_name'] = '';
+$gone_html                = render_screen();
+$GLOBALS['open_requests'] = $before_details;
+unset( $GLOBALS['request_facts'][805] );
+
+ck( 'a details request is labeled Details to correct, among the others by its age: the newest of them last', array_column( queue_items( $details_html ), 1 ), array( 'Mentor request', 'Application', 'Mentor request', 'Application', 'Signed agreement', 'Application', 'Details to correct' ) );
+ck( 'it is counted with the rest, and says what it asks and who asked, and no student', array(
+	preg_match( '#<h2 id="wpcpm-queue">Waiting for review <span class="wpcpm-count">7</span></h2>#', $details_html ),
+	false !== $details_pos && false !== strpos( $details_rows[ $details_pos ], '<p>A change to its details</p><p>Raised by Rep One.</p>' ),
+	false !== $details_pos && false !== strpos( $details_rows[ $details_pos ], 'student' ),
+), array( 1, true, false ) );
+ck( 'its row links to the card that decides it, as a request\'s does, and an account that is gone is said so', array(
+	false !== $details_pos ? array_column( queue_links( $details_html ), 2 )[ $details_pos ] : null,
+	false !== strpos( $gone_html, '<p>A change to its details</p><p>Raised by somebody whose account is gone.</p>' ),
+), array( $dashboard . '#wpcpm-requests', true ) );
+ck( 'and nothing on the list decides it: no form, and none of its decisions drawn', array( substr_count( $details_html, '<form' ), $GLOBALS['request_decisions'] ), array( 0, array() ) );
 
 // The queue reads and the Administrator Dashboard decides: every row ends with the way to its place
 // there, an application to its own item on the card that decides it, which carries the
@@ -5197,7 +5257,7 @@ ck( 'boot() wires every handler this module has, the retention cron and the scre
 // Everything `boot()` starts, in order. Read as a slice so a handler added later fails here
 // rather than passing unnoticed: this assertion is the only thing that says the module's
 // pieces are actually started, and a subset check would say nothing.
-ck( 'boots the post types, then every module this screen owns, then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 12 ), array(
+ck( 'boots the post types, then every module this screen owns (the institution\'s notes among them no more), then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 11 ), array(
 	array( 'WPCPM_Institution_Agreement::init' ),
 	array( 'WPCPM_Institution_Audit::init' ),
 	array( 'WPCPM_Institution_Record::init' ),
@@ -5208,12 +5268,12 @@ ck( 'boots the post types, then every module this screen owns, then hands the cr
 	array( 'dashboard_init' ),
 	array( 'people_init' ),
 	array( 'student_form_init' ),
-	array( 'notes_init' ),
 	array( 'invite_init' ),
 ) );
 $started = array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] );
 ck( 'and starts the resend of a student\'s invitation right after graduate and withdraw, the card\'s other student control',
 	array_slice( $started, (int) array_search( 'students_init', $started, true ), 2 ), array( 'students_init', 'resend_init' ) );
+ck( 'and the school\'s details card, whose handlers post to the requests it raises, right after the requests', array_slice( $started, (int) array_search( 'request_init', $started, true ), 2 ), array( 'request_init', 'details_card_init' ) );
 
 // The six daily jobs are scheduled from boot as well as from activation, because the
 // activation hook never fires on this site's deploy path (`wp plugin install --force` goes
@@ -5322,6 +5382,7 @@ ck( 'uninstall() drops the three options, every delete_all(), the membership sta
 	// A manager's rows-per-page choice for the institution accounts, which core keeps as user meta.
 	in_array( 'delete_metadata:wpcpm_institutions_per_page', $names, true ),
 ), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
+ck( 'and the lock a patch of the index holds while it rewrites it, which a request that died holding it leaves', in_array( 'delete_option:wpcpm_institutions_index_lock', $names, true ), true );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
 // The form's page is the site's to keep, but the plugin's note of which page it is goes, and so does
 // the stamp of its one-time move to /institution-application/, or a reinstall would never move it.
@@ -5624,6 +5685,22 @@ ck( 'and the read reaches every source: a sample of each press\'s outcomes is am
 		)
 	),
 	array() );
+
+// The Pipeline's two DRY points beside the shared sort. The SPAM stage has a name on the class, and the Link
+// picker and the uncounted list both say it through that name; the Link control's institution field is the
+// class's own argument name, in the form that draws it and in the handler that reads it.
+$pipeline_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
+$choices_body = body_of_method( $pipeline_src, 'link_choices' );
+$form_body    = body_of_method( $pipeline_src, 'render_link_form' );
+$handler_body = body_of_method( $pipeline_src, 'handle_link' );
+ck( 'the SPAM stage is a constant of the class, and the uncounted stages begin with it', array( WPCPM_Institutions::STAGE_SPAM, WPCPM_Institutions::UNCOUNTED_STAGES[0], false !== strpos( $pipeline_src, 'const UNCOUNTED_STAGES = array( self::STAGE_SPAM,' ) ), array( 'SPAM', 'SPAM', true ) );
+ck( 'link_choices() leaves it out by that constant, and has no literal "SPAM" in it', array( false !== strpos( $choices_body, 'self::STAGE_SPAM' ), false !== strpos( $choices_body, "'SPAM'" ), '' !== $choices_body ), array( true, false, true ) );
+ck( 'render_link_form() names its institution field with ARG_INSTITUTION, whose value is the field the handler has always read', array(
+	false !== strpos( $form_body, "'name'    => self::ARG_INSTITUTION" ),
+	false !== strpos( $form_body, "'wpcpm_institution'" ),
+	WPCPM_Institutions::ARG_INSTITUTION,
+), array( true, false, 'wpcpm_institution' ) );
+ck( 'and the handler that reads the press reads the same constant', array( '' !== $handler_body, false !== strpos( $handler_body, 'posted_text( self::ARG_INSTITUTION )' ), false !== strpos( $handler_body, "'wpcpm_institution'" ) ), array( true, true, false ) );
 
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 

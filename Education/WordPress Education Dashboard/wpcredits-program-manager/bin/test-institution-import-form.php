@@ -56,6 +56,7 @@ $GLOBALS['inserted'] = array();
 $GLOBALS['cron']     = array();
 $GLOBALS['created']  = array();
 $GLOBALS['indexed']  = array();
+$GLOBALS['sample_calls'] = array();
 
 function __( $t, $d = null ) { return $t; }
 function esc_html__( $t, $d = null ) { return $t; }
@@ -238,6 +239,17 @@ class WPCPM_Institutions_Index {
 class WPCPM_Institution_Student_Form {
 	public static function choices( $n ) { return 'field_of_study' === $n ? array( 'Technology & Engineering' ) : array(); }
 }
+/**
+ * The sample list's link, to the one contract the form has to satisfy: it is handed the institution the
+ * form is for, and nothing else. The nonce keyed to that institution, the switcher for a manager and the
+ * file are `bin/test-institution-export.php`'s.
+ */
+class WPCPM_Institution_Export {
+	public static function sample_url( $record ) {
+		$GLOBALS['sample_calls'][] = $record;
+		return 'https://example.test/wp-admin/admin-post.php?action=wpcpm_import_sample&_wpnonce=nonce-wpcpm_import_sample_' . $record;
+	}
+}
 
 function wp_insert_post( $args, $e = false ) {
 	$id = ++$GLOBALS['next_id'];
@@ -344,7 +356,7 @@ ck( 'a valid list is checked and staged', $status, 'checked' );
 ck( 'and checking it writes no log of checks', array_key_exists( 'wpcpm_import_log', $GLOBALS['opts'] ), false );
 
 // **The lines survived the request, which is what failed in production.** A pasted CSV read
-// through the text sanitiser arrives as one line, so the header and the first student run
+// through the text sanitizer arrives as one line, so the header and the first student run
 // together and the file is refused for having no email column. Three lines in, three rows out.
 fresh_world();
 $status = post_check( batch_fields( array( 'paste' => "Name,Email\nAnna Kowalska,anna@institution-3.example\nBartek Zielinski,bartek@institution-3.example\nCecylia Nowak,cecylia@institution-3.example\n" ) ) );
@@ -627,6 +639,10 @@ $staged   = draw_section( $HERE );
 // prevents the duplicate this plugin cannot close.
 ck( 'a staged list offers the create control', false !== strpos( $staged, 'Create these student records' ), true );
 ck( 'saying no email is sent now', false !== strpos( $staged, 'No email is sent now' ), true );
+// The welcome goes when the student's place is set up, which no longer waits for a mentor (a mentor is
+// optional in every design), so the confirmation promises none.
+ck( 'and when the program emails each student: when their place is set up, and the login when their account is created', false !== strpos( $staged, 'The program emails each student when their place is set up, and they receive their login when their account is created.' ), true );
+ck( 'saying nothing of a mentor being assigned', array( false !== stripos( $staged, 'mentor' ), false !== strpos( $staged, 'once a mentor is assigned' ) ), array( false, false ) );
 ck( 'and warning against the registration form', false !== strpos( $staged, 'would create a second record' ), true );
 ck( 'and it can still be thrown away', false !== strpos( $staged, 'Throw this list away' ), true );
 
@@ -687,7 +703,8 @@ function draw_section( $record ) {
 }
 
 fresh_world();
-$closed = draw_section( $HERE );
+$GLOBALS['sample_calls'] = array();
+$closed                  = draw_section( $HERE );
 
 // The same disclosure the roster's own buckets use, so it opens with the control the reader
 // has already met four times above it rather than with a fifth kind of thing.
@@ -709,6 +726,27 @@ ck( 'the start date label carries the mark, and the input keeps the attribute', 
 // than as two columns; asserted here because the wrapper is the whole of that fix.
 ck( 'so does the notified confirmation, right after its sentence and inside its own run', false !== strpos( $closed, 'for the WordPress Credits Program. <span class="wpcpm-field__required">Required</span></span></label>' ), true );
 ck( 'and every other field is left alone: the program picker is not marked', false !== strpos( $closed, '<label for="wpcpm-import-program">Program</label>' ), true );
+
+echo "\n=== A sample list is one link away ===\n";
+
+// Institutions release 2: a school that has never seen the format is shown one. The link follows the file
+// box's hint, so it is read right after the sentence that describes the file, and it is the nonced handler
+// of the export class, which makes the file; no sample is stored anywhere in the repository.
+$sample_href = 'https://example.test/wp-admin/admin-post.php?action=wpcpm_import_sample&_wpnonce=nonce-wpcpm_import_sample_' . $HERE;
+
+ck( 'the file box\'s hint is followed by "Download a sample list", linking the nonced handler',
+	false !== strpos( $closed, 'The file is read and never stored.</span><a class="wpcpm-import__sample" href="' . $sample_href . '">Download a sample list</a></p>' ), true );
+ck( 'it is drawn once', substr_count( $closed, 'Download a sample list' ), 1 );
+ck( 'and it is the file box\'s own: after the file input, before the paste box',
+	1 === preg_match( '#name="list" accept="\.csv,text/csv" />.*Download a sample list.*<label for="wpcpm-import-paste">#s', $closed ), true );
+ck( 'the link is made for the institution the form is for and for no other', $GLOBALS['sample_calls'], array( $HERE ) );
+
+// A staged list, or an outcome, replaces the form; the link belongs to the form alone.
+post_check( batch_fields() );
+$GLOBALS['sample_calls'] = array();
+$with_batch_link = draw_section( $HERE );
+ck( 'a waiting list shows its preview and not the link', array( false !== strpos( $with_batch_link, 'Download a sample list' ), $GLOBALS['sample_calls'] ), array( false, array() ) );
+fresh_world();
 
 // A list waiting to be looked at is the page asking the reader for something.
 post_check( batch_fields() );
@@ -734,12 +772,13 @@ $GLOBALS['settings'] = array( 'import_enabled' => true );
 // the browser's own on the day this shipped.
 $css = file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
 
-foreach ( array( 'wpcpm-import__body', 'wpcpm-import__batch', 'wpcpm-import__subtitle', 'wpcpm-import__row', 'wpcpm-import__verdict', 'wpcpm-import__message', 'wpcpm-field--check', 'wpcpm-field__hint' ) as $class ) {
+foreach ( array( 'wpcpm-import__body', 'wpcpm-import__batch', 'wpcpm-import__subtitle', 'wpcpm-import__row', 'wpcpm-import__verdict', 'wpcpm-import__message', 'wpcpm-import__sample', 'wpcpm-field--check', 'wpcpm-field__hint' ) as $class ) {
 	ck( sprintf( '.%s is styled on this page', $class ), false !== strpos( $css, '.' . $class ), true );
 }
 
-// It carries a rule above it and the page's rhythm, like the two sections it sits between.
-ck( 'the section joins the two that already carry a rule', false !== strpos( $css, ".wpcpm-roster,\n.wpcpm-import,\n.wpcpm-people {" ), true );
+// It carries a rule above it and the page's rhythm, like the two sections it sits between. The school's
+// details card (Institutions release 2) joins the same rule after them.
+ck( 'the section joins the two that already carry a rule', false !== strpos( $css, ".wpcpm-roster,\n.wpcpm-import,\n.wpcpm-people,\n.wpcpm-details {" ), true );
 
 echo "\n=== The file is read, never stored ===\n";
 

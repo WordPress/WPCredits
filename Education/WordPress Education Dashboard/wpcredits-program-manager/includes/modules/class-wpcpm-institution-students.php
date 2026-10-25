@@ -669,7 +669,7 @@ final class WPCPM_Institution_Students {
 		$detail  = is_array( $flash ) && isset( $flash['detail'] ) ? (string) $flash['detail'] : '';
 		$about   = is_array( $flash ) && isset( $flash['record'] ) ? trim( (string) $flash['record'] ) : '';
 
-		// Routing, not authorisation: which card prints a sentence, never who may read one.
+		// Routing, not authorization: which card prints a sentence, never who may read one.
 		if ( '' === $outcome || 0 !== strcmp( trim( (string) $record ), $about ) ) {
 			return;
 		}
@@ -828,7 +828,7 @@ final class WPCPM_Institution_Students {
 
 		// **The identity of what is about to be written.** `claim()` read this row live and
 		// allowed the action on the `Educational Institutions` link that row carries, so this
-		// record ID is the only Students record this request holds an authorisation for. Taken
+		// record ID is the only Students record this request holds an authorization for. Taken
 		// from the claim and not from the request, which named the record but proved nothing.
 		$students_id = isset( $claim['record']['id'] ) ? trim( (string) $claim['record']['id'] ) : '';
 

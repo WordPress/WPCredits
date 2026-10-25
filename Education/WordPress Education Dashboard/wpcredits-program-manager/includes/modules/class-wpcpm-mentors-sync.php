@@ -44,10 +44,10 @@ class WPCPM_Mentors_Sync {
 	 * (`WPCPM_Students_Sync::EVERY_THREE_HOURS`), so the offset is the whole of what keeps two of
 	 * them out of the same WP-Cron request and off the same Airtable rate limit: the students run
 	 * takes +0:30, this one +1:00 and the institutions sync +1:30. Measured from the cycle's own
-	 * start rather than from the neighbour before it, so a sync whose event is missing cannot drag
+	 * start rather than from the neighbor before it, so a sync whose event is missing cannot drag
 	 * the rest along with it.
 	 *
-	 * This run is the students run's nearest neighbour and reads the same three Airtable tables
+	 * This run is the students run's nearest neighbor and reads the same three Airtable tables
 	 * a moment later, which is why it takes the half hour after it rather than a later gap: the
 	 * two together are the pair a manager waits on, and the pair worth keeping close.
 	 *

@@ -43,7 +43,7 @@ final class WPCPM_Institution_Create {
 	const BUDGET = 12;
 
 	/**
-	 * How long a lock is honoured before it is treated as abandoned.
+	 * How long a lock is honored before it is treated as abandoned.
 	 *
 	 * Longer than a slice can take, so a request that is merely slow is never overtaken by a
 	 * second one creating the same rows; short enough that a request killed while holding the
@@ -591,7 +591,7 @@ final class WPCPM_Institution_Create {
 		$code = $error instanceof WP_Error ? (string) $error->get_error_code() : '';
 
 		// Refused before a socket was opened: no token, no base, no table, or a backoff window
-		// this client is honouring on Airtable's own instruction.
+		// this client is honoring on Airtable's own instruction.
 		if ( in_array( $code, array( 'wpcpm_no_token', 'wpcpm_no_base', 'wpcpm_no_table', 'wpcpm_airtable_rate_limited' ), true ) ) {
 			return self::BLAME_UNSENT;
 		}
@@ -1057,7 +1057,7 @@ final class WPCPM_Institution_Create {
 	 * Claim the right to create for one institution.
 	 *
 	 * `add_option()` is the test and set: it writes only when the row does not exist and says
-	 * which of the two it did, in one statement the database serialises. Two requests reaching
+	 * which of the two it did, in one statement the database serializes. Two requests reaching
 	 * this line together therefore cannot both be told yes, which `get_option()` followed by
 	 * `update_option()` would happily do.
 	 *

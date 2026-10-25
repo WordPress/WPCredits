@@ -30,7 +30,7 @@ function sanitize_email( $s ) { return trim( preg_replace( '/[^a-zA-Z0-9.!#$%&\'
 function is_email( $s ) { return (bool) filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
 
 /**
- * Honours the protocol allow-list, so the URL assertions are not vacuous.
+ * Honors the protocol allow-list, so the URL assertions are not vacuous.
  *
  * A pass-through stub would let "a javascript: URL is refused" pass whatever the class did.
  */

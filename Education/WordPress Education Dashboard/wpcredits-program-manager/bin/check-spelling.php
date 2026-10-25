@@ -64,6 +64,16 @@ $words = array(
 	'summaris(?:e|ed|ing)', 'authoris(?:e|ed|ing)', 'prioritis(?:e|ed|ing)', 'optimis(?:e|ed|ing)', 'finalis(?:e|ed|ing)',
 	'realis(?:e|ed|ing)', 'practis(?:e|ed|ing)', 'learnt', 'honour(?:ed|ing)?', 'neighbour(?:ed|ing)?', 'judgement',
 	'fulfil', 'model(?:led|ling)', 'travel(?:led|ling)', 'grey(?:ed|ing)?',
+	// The forms the sweep of the comments in Institutions release 2 turned up and fixed, so a string
+	// cannot bring them back: the -es, -able and -er forms the stems above did not spell out, and
+	// the stems the list had not named at all. Six forms are left out because the readme's older
+	// changelog entries, which are history and are not rewritten, still spell them the British way:
+	// sanitiser, normalised, materialises, honours, recognisable and unlabelled.
+	'recognis(?:es|ably)', 'organises', 'neighbours', 'favour(?:s|ed|ing|able)?',
+	'authoris(?:es|ation|ations)', 'sanitis(?:e|ed|es|ing)', 'normalis(?:e|es|ing|er|ers|ation)',
+	'materialis(?:e|ed|ing)', 'serialis(?:e|ed|es|ing)', 'initialis(?:e|ed|es|ing)', 'categoris(?:e|ed|es|ing)',
+	'neutralis(?:e|ed|es|ing)', 'memoises', 'journal(?:led|ling)', 'artefacts?', 'apologis(?:e|ed|es|ing)',
+	'mislabel(?:led|ling)', 'recolour(?:s|ed|ing)?', 'judgements',
 );
 $i18n  = array( '__', '_e', '_x', '_ex', '_n', '_nx', 'esc_html__', 'esc_html_e', 'esc_html_x', 'esc_attr__', 'esc_attr_e', 'esc_attr_x', '_n_noop', '_nx_noop' );
 $re    = '/\b(' . implode( '|', $words ) . ')\b/i';

@@ -137,7 +137,7 @@
 - [ ] **Step 3: Implement.** The five templates, verbatim (`{...}` are placeholders; paragraphs joined as the file's other templates join them):
   - **`institution-details-saved`**, to "Who is emailed about institutions".
     - Trigger: "When an institution's member saves a change to the institution's contact and agreement details, or an Administrator saves any detail: to the people the setting names."
-    - Subject: "[{site_name}] {institution_name} corrected its details"
+    - Subject: "[{site_name}] {institution_name}'s details were corrected" (changed in Task 3's review from "{institution_name} corrected its details", so it is true when an Administrator saves the correction too)
     - Body: "{actor_name} changed {institution_name}'s details on the Institution Dashboard:" / "{changes}" / "They are saved, and the program's records follow. Nothing waits for you."
   - **`institution-details-request`**, to the same.
     - Trigger: "When an institution asks to correct its name, website, city, country or contact's email: to the people the setting names."

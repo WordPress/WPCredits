@@ -772,7 +772,7 @@ class WPCPM_Mentor_Availability {
 
 		$published = self::is_published( $mentor->ID );
 
-		// The unset state is a class, not a colour decided here - the stylesheets say what
+		// The unset state is a class, not a color decided here - the stylesheets say what
 		// it looks like, and one of them is a theme's.
 		printf(
 			'<section class="wpcpm-availability%s" id="wpcpm-availability">',

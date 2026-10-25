@@ -411,7 +411,7 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 }
 
 if ( ! class_exists( 'WPCPM_Airtable' ) ) {
-	/** The one write path, journalled so its position among the three writes can be asserted. */
+	/** The one write path, journaled so its position among the three writes can be asserted. */
 	class WPCPM_Airtable {
 		public function __construct( $settings = null ) {}
 		public function update_records( $table, array $records ) {
@@ -1491,7 +1491,7 @@ preg_match( "/const ARG_VIEW\s*=\s*'([^']+)'/", $roster_src, $v );
 ck( 'the switcher argument stubbed here is the roster\'s own', WPCPM_Institution_Roster::ARG_VIEW, $v[1] ?? '' );
 
 // The two facts on the other side that an argument on a form's action depends on, read off
-// the roster rather than assumed here: `resolve_institution()` honours the switcher for a
+// the roster rather than assumed here: `resolve_institution()` honors the switcher for a
 // manager, and `requested_view()` looks in the query string as well as in the posted
 // fields. Take either away and this form posts an argument nobody reads.
 ck( 'the resolver honours the switcher, and looks where a form action puts it', array(
@@ -1750,7 +1750,7 @@ echo "\n=== Withdraw asks whoever is pressing it, in their own words ===\n";
 // both surfaces. What must not travel between them is the wording: the same dialog that reads
 // right to somebody taking back their own upload reads, on a manager's row, as though the
 // institution were pressing it - and what the manager is actually about to do is delete
-// another organisation's document, with nobody emailed about it. A control drawn on forty rows
+// another organization's document, with nobody emailed about it. A control drawn on forty rows
 // has to name which one it belongs to as well.
 reset_world();
 seed_index( $rec_a, '' );
@@ -2060,7 +2060,7 @@ update_post_meta( $own_id, WPCPM_Institution_Agreement::META_STATE, WPCPM_Instit
 ck( 'a post ID that is not an agreement at all draws nothing', review( 999999 ), '' );
 
 // The block reads one source, so it has to survive that source answering with nothing:
-// `review_facts()` returns an empty array for a post it does not recognise, and a heading
+// `review_facts()` returns an empty array for a post it does not recognize, and a heading
 // reading "Review the signed agreement from" over two live buttons is worse than silence.
 $orphan = wp_insert_post( array( 'post_type' => WPCPM_Institution_Agreement::POST_TYPE, 'post_status' => WPCPM_Institution_Agreement::POST_STATUS ) );
 update_post_meta( $orphan, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_SUBMITTED );

@@ -11,7 +11,7 @@
  *   The real `add_option()` is an INSERT that reports success by rows affected, so a second
  *   first claim writing a different value would overwrite the winner and be told it won. The
  *   dwell token's single use rests on this, so it is asserted from the write the stub records
- *   and from two fresh first claims serialising identically.
+ *   and from two fresh first claims serializing identically.
  * - **A failed `add_option()` is a refused claim.** Another request created the row in the same
  *   instant; counting on top of a row this request cannot see is how a limit of 1 admits two.
  * - **A new bucket resets, and two keys never share a row.** Once by arithmetic (the previous
@@ -24,7 +24,7 @@
  *   row and an hour-long row cut at the same moment age at different rates; a row it cannot
  *   read goes too, because nothing else ever will remove it; nothing outside the prefix is
  *   touched.
- * - **`key()` keeps a hash whole and sanitises everything else.** A raw address loses its dots
+ * - **`key()` keeps a hash whole and sanitizes everything else.** A raw address loses its dots
  *   under `sanitize_key()`, so two addresses could share a key, which is why callers hash
  *   first and why the hash must survive.
  *

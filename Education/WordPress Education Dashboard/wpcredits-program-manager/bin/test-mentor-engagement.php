@@ -7,7 +7,7 @@
  * first numbers the site prints match that answer: who counts as an active mentor (Airtable says
  * Active, not an Administrator), when a held call counts as noted (a note by its mentor about one
  * of its students, dated no earlier than a day before the call), what a program action is (a note,
- * a saved schedule, a group session created, a call cancelled by the mentor; never a student's
+ * a saved schedule, a group session created, a call canceled by the mentor; never a student's
  * booking), and that the call figures count every call on the site.
  *
  * Run from the plugin root:  php bin/test-mentor-engagement.php
@@ -181,8 +181,8 @@ $calls = array(
 	call( 201, 1, $NOW - 25 * $DAY, array( 'records' => array( 'recSTUDENTC' ) ) ), // Held; no note on that student: not noted.
 	call( 202, 1, $NOW - 8 * $DAY - 2 * 3600 ),                         // Held; note 102 a day before: noted.
 	call( 203, 1, $NOW + 2 * $DAY ),                                    // Upcoming.
-	call( 204, 1, $NOW - 5 * $DAY, array( 'status' => 'trash', 'cancelled_by' => 1 ) ),  // Cancelled by the mentor.
-	call( 205, 2, $NOW - 4 * $DAY, array( 'status' => 'trash', 'cancelled_by' => 55 ) ), // Cancelled by the student.
+	call( 204, 1, $NOW - 5 * $DAY, array( 'status' => 'trash', 'cancelled_by' => 1 ) ),  // Canceled by the mentor.
+	call( 205, 2, $NOW - 4 * $DAY, array( 'status' => 'trash', 'cancelled_by' => 55 ) ), // Canceled by the student.
 	call( 206, 1, 0 ),                                                  // No start: booked, neither held nor upcoming.
 	call( 207, 0, $NOW - 3 * $DAY ),                                    // No mentor: no row, still a held call.
 	call( 208, 888, $NOW - 3 * $DAY ),                                  // A deleted mentor: no row, still a held call.
@@ -190,7 +190,7 @@ $calls = array(
 	call( 301, 2, $NOW - 6 * $DAY, array( 'group' => true, 'author' => 2 ) ),           // Created and held.
 	call( 302, 2, $NOW + 6 * $DAY, array( 'group' => true, 'author' => 900 ) ),         // Upcoming; a manager made it.
 	call( 303, 2, $NOW - 2 * $DAY - 3600, array( 'group' => true, 'author' => 2 ) ),    // Held, noted by note 106.
-	call( 304, 2, $NOW + 9 * $DAY, array( 'group' => true, 'author' => 2, 'status' => 'trash', 'cancelled_by' => 2 ) ), // Created, cancelled by the mentor.
+	call( 304, 2, $NOW + 9 * $DAY, array( 'group' => true, 'author' => 2, 'status' => 'trash', 'cancelled_by' => 2 ) ), // Created, canceled by the mentor.
 );
 
 $out = WPCPM_Mentor_Engagement::compute( $accounts, $notes, $calls, $NOW );

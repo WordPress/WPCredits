@@ -140,7 +140,7 @@ final class WPCPM_Institution_Import {
 	/** Checked, and waiting for somebody to confirm or cancel it. */
 	const STATE_STAGED = 'staged';
 
-	/** Being created. Cannot be cancelled: some of it exists. */
+	/** Being created. Cannot be canceled: some of it exists. */
 	const STATE_CREATING = 'creating';
 
 	/** Finished, whatever the mix of created, blocked and failed rows. */
@@ -1335,7 +1335,7 @@ final class WPCPM_Institution_Import {
 	 * **`FIND()` finds candidates; PHP decides.** The base holds profiles as URLs, so a handle
 	 * has to be looked for inside them, and a substring search says yes to `student-three`
 	 * inside `other-student-three`. Every value that comes back is put through the same
-	 * normaliser the import used on the file and compared for exact equality, which also means
+	 * normalizer the import used on the file and compared for exact equality, which also means
 	 * a row holding `profiles.wordpress.org/student-one` and one holding
 	 * `https://profiles.wordpress.org/student-one/` both match, and neither can be defeated by
 	 * writing the URL a third way.

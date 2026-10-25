@@ -385,7 +385,7 @@ class WPCPM_Institution_Roster_View {
 			}
 		}
 
-		// Only a manager's switcher argument is honoured, so only a manager's form carries
+		// Only a manager's switcher argument is honored, so only a manager's form carries
 		// one. A member who arrived with one in the URL had it ignored, and echoing it back
 		// into their form would put a record ID nobody answered for into every link they
 		// send on from here.
@@ -836,7 +836,7 @@ class WPCPM_Institution_Roster_View {
 		);
 
 		// The program badge, from the same place the mentor card takes it, so one student
-		// wears the same colour on both pages.
+		// wears the same color on both pages.
 		$program = self::program_of( $row );
 
 		if ( '' !== $program ) {
@@ -851,7 +851,7 @@ class WPCPM_Institution_Roster_View {
 		// and who mentored them, which is what a school scans a roster for.
 		// The dates, and the mentor's name if there is one. The Mentor column's own cell is not
 		// what goes here: where there is no name it carries a sentence explaining whether one
-		// has been assigned, which is the right answer in a labelled row and, repeated under
+		// has been assigned, which is the right answer in a labeled row and, repeated under
 		// every name in a group of eight, is noise.
 		$preview = array_filter(
 			array(
@@ -1150,7 +1150,7 @@ class WPCPM_Institution_Roster_View {
 	 * The program badge for one Airtable status, or an empty string when there is no status.
 	 *
 	 * One calculation, drawn by the roster table and by the fifth list, so two lists on one
-	 * page cannot paint the same student's track in two different colours. The colour is the raw
+	 * page cannot paint the same student's track in two different colors. The color is the raw
 	 * status's and the words are `WPCPM_Program::status_words()`'s, as the closed row's badge says
 	 * them too.
 	 *
@@ -1178,8 +1178,9 @@ class WPCPM_Institution_Roster_View {
 	 *
 	 * Design spec 7.5 gives a row with no start date a "Set start date" link into the edit
 	 * form. The marker links nowhere: the student edit form
-	 * (`WPCPM_Institution_Student_Form::render_form()`) is drawn on no page, and a link that
-	 * opened nothing would be worse than the marker.
+	 * (`WPCPM_Institution_Student_Form::render_form()`) is drawn only inside a student's card, folded
+	 * and closed (Institutions release 2), so a link from here would land on a card whose form is
+	 * still shut, which is no better than the marker.
 	 *
 	 * @param string $start Start date, `Y-m-d`.
 	 * @param string $end   End date, `Y-m-d`.

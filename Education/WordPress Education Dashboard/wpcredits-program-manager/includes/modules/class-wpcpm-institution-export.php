@@ -1,6 +1,6 @@
 <?php
 /**
- * Institutions module - the two CSV exports.
+ * Institutions module - the two CSV exports, and the import's sample list.
  *
  * @package WPCreditsProgramManager
  */
@@ -27,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * code page, and every accented letter then arrives as two wrong characters. The program's
  * rosters are made of such names: a partner institution's name carries an accent in the base, and so
  * do most of the Spanish, Portuguese and Polish student names underneath it. A school opening
- * a file of its own students to find their names broken has been handed a worse artefact than
+ * a file of its own students to find their names broken has been handed a worse artifact than
  * none. The import side refuses a Latin-1 file for the same reason, from the other direction.
  *
  * **Any cell whose first character is `=`, `+`, `-` or `@` is prefixed with an apostrophe.**
@@ -35,7 +35,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * a formula in an imported cell has been a remote-code-execution route in Excel for years.
  * This is the export side of the rule `WPCPM_Institution_Import` enforces by refusing a name
  * that starts with one; here the value is already in the base, put there by somebody the
- * program cannot go back and ask, so it is neutralised rather than refused. Refusing at this
+ * program cannot go back and ask, so it is neutralized rather than refused. Refusing at this
  * end would mean a school unable to export its own roster because of one row it did not write.
  *
  * **`accessibility` is absent from both files**, asserted in `bin/test-institution-export.php`
@@ -49,6 +49,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * option the reader is already looking at, and the largest institution in the base has 41
  * students. The single-student export makes one live claim and one record read, which is what
  * opening the same student's card already costs.
+ *
+ * **The sample list is the third file, and it lives here because it is a download.** The import
+ * form offers "Download a sample list" beside its file box (Institutions release 2), so a school
+ * that has never seen the format is shown one: the four headers the import reads and one example
+ * student at example.test. It is made on request, as the exports are, and is never a file in the
+ * repository, whose public mirror refuses an email address in a tracked .csv. It holds nothing of
+ * any institution, so it asks no question about one beyond the import's own: the account must be
+ * allowed `ACT_ADD_STUDENT` on the institution its page resolves to, and the site must take imports
+ * at all. `bin/test-institution-import.php` reads its body with the import's own reader, so the
+ * sample always imports.
  */
 class WPCPM_Institution_Export {
 
@@ -60,6 +70,9 @@ class WPCPM_Institution_Export {
 
 	/** The single-student export's argument: which account to write out. */
 	const ARG_STUDENT = 'wpcpm_export_student_id';
+
+	/** The import's sample list. A `wp_nonce_url()` link on the import form, nonce keyed to the institution. */
+	const ACTION_SAMPLE = 'wpcpm_import_sample';
 
 	/**
 	 * The cohort filter's argument, which is `WPCPM_Institution_Roster_View`'s.
@@ -106,6 +119,7 @@ class WPCPM_Institution_Export {
 	public static function init() {
 		add_action( 'admin_post_' . self::ACTION_ROSTER, array( __CLASS__, 'handle_roster' ) );
 		add_action( 'admin_post_' . self::ACTION_STUDENT, array( __CLASS__, 'handle_student' ) );
+		add_action( 'admin_post_' . self::ACTION_SAMPLE, array( __CLASS__, 'handle_sample' ) );
 	}
 
 	/*
@@ -304,8 +318,7 @@ class WPCPM_Institution_Export {
 		$user_id     = (int) $user_id;
 		$institution = isset( $decision['institution'] ) ? (string) $decision['institution'] : '';
 
-		// The decision's institution and never the request's, for the reason
-		// `WPCPM_Institution_Notes` gives about a notebook: `decide()` has already named the
+		// The decision's institution and never the request's: `decide()` has already named the
 		// institution this reader was allowed on, and reading the row from any other one would
 		// be a second answer to a question that has been answered.
 		$row = self::index_row( $institution, $user_id );
@@ -453,9 +466,30 @@ class WPCPM_Institution_Export {
 	}
 
 	/**
+	 * The import's sample list, as the bytes of a CSV file.
+	 *
+	 * The four headers the import reads, in the order the form's hint names them, and one example
+	 * student at example.test with a field of study from the nine the import accepts. The mark and the
+	 * line ends are `csv()`'s, so the sample is a file Excel opens the way the exports are.
+	 *
+	 * **Written out rather than passed through `csv()`.** `fputcsv()` quotes every cell that holds a
+	 * space, and the point of this file is to show a school the format as the import reads it, which a
+	 * text editor should be able to do without quotation marks to explain. No cell holds a comma, a
+	 * quotation mark or a line break, which `bin/test-institution-import.php` proves by giving the body
+	 * to the import's own reader and expecting one row with the verdict ok.
+	 *
+	 * @return string The file, ready to send.
+	 */
+	public static function sample_csv() {
+		return self::BOM
+			. 'name,email,field_of_study,tutor' . self::EOL
+			. 'Ana Example,ana@example.test,Technology & Engineering,Tutor Example' . self::EOL;
+	}
+
+	/**
 	 * One row of cells as one CSV line, without its terminator.
 	 *
-	 * Every cell goes through `cell()` on the way in, headings included, so the neutralising is
+	 * Every cell goes through `cell()` on the way in, headings included, so the neutralizing is
 	 * a property of writing a line rather than something each builder has to remember.
 	 *
 	 * The comma and not the semicolon, although Excel in most of the program's countries
@@ -507,7 +541,7 @@ class WPCPM_Institution_Export {
 	}
 
 	/**
-	 * One cell, with a leading formula character neutralised.
+	 * One cell, with a leading formula character neutralized.
 	 *
 	 * **A cell that begins `=`, `+`, `-` or `@` is a formula to every spreadsheet this file
 	 * will be opened in**, and an imported formula has been a code execution route in Excel for
@@ -519,7 +553,7 @@ class WPCPM_Institution_Export {
 	 * trims a cell before deciding whether it is a formula: a first-character test alone would
 	 * let ` =HYPERLINK(...)` past, which is the same evasion with a space in front of it.
 	 *
-	 * Neutralised and never refused. The import refuses, because there the value is being
+	 * Neutralized and never refused. The import refuses, because there the value is being
 	 * created and no real name starts with those; here the value already exists in the base,
 	 * written by somebody nobody can go back and ask, and refusing would leave a school unable
 	 * to export its own roster because of one row it did not write.
@@ -663,6 +697,41 @@ class WPCPM_Institution_Export {
 	}
 
 	/**
+	 * Send the import's sample list.
+	 *
+	 * The import's own pattern, in its own order: the institution is the page's answer
+	 * (`resolve_institution()`) and never a posted value, the site must take imports, the reader must be
+	 * allowed `ACT_ADD_STUDENT` on that institution, and the nonce is keyed to it. A link followed by an
+	 * account that would be refused the form is refused with the one message, like the other two downloads.
+	 * Nothing about the institution is in the file, so nothing past those questions is asked.
+	 */
+	public static function handle_sample() {
+		$institution = WPCPM_Institution_Roster::resolve_institution(
+			wp_get_current_user(),
+			current_user_can( WPCPM_Roles::CAP_MANAGE )
+		);
+
+		// The form is not drawn while this site takes no imports, so a link to its sample is not one
+		// a reader was given; a class that has not loaded is the same answer.
+		if ( '' === $institution || ! class_exists( 'WPCPM_Institution_Import_Form' ) || ! WPCPM_Institution_Import_Form::enabled() ) {
+			self::refuse();
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_ADD_STUDENT,
+			WPCPM_Institution_Policy::subject_institution( $institution )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			self::refuse();
+		}
+
+		check_admin_referer( self::ACTION_SAMPLE . '_' . $institution );
+
+		self::send( self::sample_csv(), self::sample_filename() );
+	}
+
+	/**
 	 * Send one file and stop.
 	 *
 	 * `nosniff` with `attachment` is the pair that matters for a CSV: without it a browser may
@@ -765,6 +834,38 @@ class WPCPM_Institution_Export {
 	}
 
 	/**
+	 * The nonced address of the import's sample list.
+	 *
+	 * Keyed to the institution the import form is for, as the form's own nonces are. A manager's switcher
+	 * travels in the link and only in a manager's, as it does on the form's post address: without it
+	 * the handler resolves the first institution that has a member, and the nonce is keyed to another.
+	 *
+	 * @param string $record Institutions record ID the form is drawn for.
+	 * @return string
+	 */
+	public static function sample_url( $record ) {
+		$record = trim( (string) $record );
+		$args   = array( 'action' => self::ACTION_SAMPLE );
+
+		if ( '' !== $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$args[ WPCPM_Institution_Roster::ARG_VIEW ] = $record;
+		}
+
+		return wp_nonce_url( add_query_arg( $args, admin_url( 'admin-post.php' ) ), self::ACTION_SAMPLE . '_' . $record );
+	}
+
+	/**
+	 * The sample list's file name, as the school's browser saves it.
+	 *
+	 * The same for everybody and built from nothing the request carried, as the other two names are.
+	 *
+	 * @return string
+	 */
+	public static function sample_filename() {
+		return 'students-sample.csv';
+	}
+
+	/**
 	 * The roster file's name.
 	 *
 	 * Built from the institution's own name in the pipeline index and never from anything the
@@ -792,8 +893,8 @@ class WPCPM_Institution_Export {
 	/**
 	 * One student's file name.
 	 *
-	 * The student's own name is in it, sanitised to a slug, because a school downloading five
-	 * of these needs to tell them apart and the account ID does not help anybody. Sanitised
+	 * The student's own name is in it, sanitized to a slug, because a school downloading five
+	 * of these needs to tell them apart and the account ID does not help anybody. Sanitized
 	 * first, so no name can reach the header as anything but a slug.
 	 *
 	 * @param array   $decision What the fence returned; its institution names the file.

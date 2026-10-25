@@ -164,7 +164,7 @@ class WPCPM_Settings {
 			// because on means accepting submissions from anybody on the internet.
 			'applications_enabled'          => false,
 			// How long each kind of application is kept, in days. Spam goes quickly,
-			// a rejection stays long enough to recognise the same institution applying
+			// a rejection stays long enough to recognize the same institution applying
 			// again, and approved ones are kept for ever (0): they are the audit trail
 			// of who was let in.
 			'application_spam_days'         => 30,

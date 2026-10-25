@@ -532,7 +532,7 @@ final class WPCPM_Sponsor_Claims {
 	}
 
 	/**
-	 * The same numbers as a CSV, through the neutralised writer the institution exports use.
+	 * The same numbers as a CSV, through the neutralized writer the institution exports use.
 	 *
 	 * A CSV is plain text, so each offer's title is read back to what the sponsor typed
 	 * (`WPCPM_Typed_Text::mail_text()`): a spreadsheet would show `&lt;` as four characters. The

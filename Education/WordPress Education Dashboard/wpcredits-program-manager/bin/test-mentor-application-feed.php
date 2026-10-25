@@ -251,7 +251,7 @@ ck(
 
 fresh();
 // What a corrupted or hand-edited option of kept counts can hold: keys that look like a month and
-// are not one (a month 00 and a month 13, which read as a neighbouring month if they were let in),
+// are not one (a month 00 and a month 13, which read as a neighboring month if they were let in),
 // keys after this month (the next one, and the last a four-digit year allows), and a number where a
 // row of counts belongs, in the month a live row counts in. None is a month of the answer, and the
 // walk still runs from the first real month to this one.

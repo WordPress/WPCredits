@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * never removes one.
  *
  * Every request goes through `request()`, which keeps this process under Airtable's
- * five-a-second ceiling and honours a 429 for as long as Airtable asked. Both matter
+ * five-a-second ceiling and honors a 429 for as long as Airtable asked. Both matter
  * because a 429 does not refuse one request, it refuses every request for the base for
  * thirty seconds - from every client - and two live-read paths on this site can be
  * reached by Subscriber-based accounts.
@@ -1014,7 +1014,7 @@ class WPCPM_Airtable {
 	 * being looked for is a handle, so equality would miss every row: `student-one` has to find
 	 * `https://profiles.wordpress.org/student-one/`. The cost of that is that `student-three`
 	 * also finds `other-student-three`, so every row this returns is a candidate and not a match,
-	 * and the caller normalises both sides and compares them exactly before believing it.
+	 * and the caller normalizes both sides and compares them exactly before believing it.
 	 *
 	 * The quoting lives here, with `formula_in()` and the escaper, rather than in the modules
 	 * that build queries. A second place that assembles a formula out of somebody's file is a
@@ -1175,7 +1175,7 @@ class WPCPM_Airtable {
 	 */
 	private function request( $url, $method = 'GET', $body = null, $token = '' ) {
 		// A 429 seen earlier - by this process, or through the option by any other - is
-		// honoured before anything is sent. Airtable counts the requests it refuses, so
+		// honored before anything is sent. Airtable counts the requests it refuses, so
 		// every one sent inside the window pushes the base's thirty seconds out again,
 		// for everybody.
 		$until = self::backoff_until();
@@ -1539,7 +1539,7 @@ class WPCPM_Airtable {
 	 * A table URL with a query string, every value percent-encoded.
 	 *
 	 * Not `add_query_arg()`. That function does not encode the values it is handed (core
-	 * says the caller must), and the URL normaliser WP_Http then runs leaves `+`, `&` and
+	 * says the caller must), and the URL normalizer WP_Http then runs leaves `+`, `&` and
 	 * `=` exactly as they are. So a formula built from a plus-addressed email reached
 	 * Airtable with the plus decoded as a space: `anna+wp@example.org` matched no row, and
 	 * the roster fence told an institution a real student was not on its roster. An

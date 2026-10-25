@@ -126,7 +126,7 @@ class WPCPM_Airtable {
 
 	/**
 	 * The canned schema. `$later` is what a second read sees, which is how the race the resume
-	 * exists for is modelled: the column was not there when the preflight looked, and was by the
+	 * exists for is modeled: the column was not there when the preflight looked, and was by the
 	 * time creation was refused.
 	 */
 	public static $later = null;

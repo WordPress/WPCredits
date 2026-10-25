@@ -35,6 +35,11 @@
  *   decision naming no institution - does not happen at all.
  * - The four caches are invalidated, so the report card, the student's own card and the
  *   school's roster all show the change before any sync runs.
+ * - **A refused post keeps what was typed**, for the account that typed it and once: a refused
+ *   end date comes back as typed beside a saved name that comes back as stored, and the next
+ *   post that saves forgets it.
+ * - **The form speaks a school's words**, in every state a save leaves it in: no table, row or
+ *   record kind of the base, and the name it corrects is the Student Report Card's.
  *
  * Run from the plugin root:  php bin/test-institution-student-form.php
  */
@@ -186,7 +191,51 @@ define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
-require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
+// The words a school is not meant to read, one list with the Institution Dashboard's and the details card's suites.
+require_once __DIR__ . '/stubs/internal-words.php';
+
+/**
+ * The flash as the real one reads and writes it, without its memory of what a request took.
+ *
+ * This suite plays a refused post, the drawing that follows it and the next post in one process, and the
+ * real flash answers a second take of a channel in one request from its memory: the typing a refused post
+ * kept would never reach the form drawn after it, and a later post could not forget it. `bin/test-flash.php`
+ * holds the real one to its memory.
+ */
+class WPCPM_Flash {
+	const META = 'wpcpm_flash';
+	private static function pending( $user_id ) { $p = get_user_meta( (int) $user_id, self::META, true ); return is_array( $p ) ? $p : array(); }
+	public static function set( $channel, $value, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+		if ( ! $user_id ) { return; }
+		$pending                      = self::pending( $user_id );
+		$pending[ (string) $channel ] = $value;
+		update_user_meta( $user_id, self::META, wp_slash( $pending ) );
+	}
+	public static function take( $channel, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+		if ( ! $user_id ) { return ''; }
+		$pending = self::pending( $user_id );
+		if ( ! array_key_exists( (string) $channel, $pending ) ) { return ''; }
+		$value = $pending[ (string) $channel ];
+		unset( $pending[ (string) $channel ] );
+		if ( empty( $pending ) ) { delete_user_meta( $user_id, self::META ); } else { update_user_meta( $user_id, self::META, wp_slash( $pending ) ); }
+		return $value;
+	}
+	public static function sweep( callable $stale, $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : get_current_user_id();
+		if ( ! $user_id ) { return; }
+		$pending = self::pending( $user_id );
+		$left    = array();
+		foreach ( $pending as $channel => $value ) {
+			if ( ! call_user_func( $stale, (string) $channel, $value ) ) { $left[ $channel ] = $value; }
+		}
+		if ( count( $left ) === count( $pending ) ) { return; }
+		if ( empty( $left ) ) { delete_user_meta( $user_id, self::META ); } else { update_user_meta( $user_id, self::META, wp_slash( $left ) ); }
+	}
+}
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -609,6 +658,14 @@ ck( 'and it is the hash the spec names', k( 'students', 'End Date' ), 'f' . subs
 ck( 'the field of study choices are a server-held list', count( WPCPM_Institution_Student_Form::choices( 'field_of_study' ) ), 9 );
 ck( 'a list nobody holds is empty, so a select with a typo in it accepts nothing', WPCPM_Institution_Student_Form::choices( 'made_up' ), array() );
 
+// The import's sample list (Institutions release 2) names a field of study, and the import drops one that is
+// not among these nine; the import's own suite holds a copy of the list, so this is where the sample meets the
+// real one.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-export.php';
+
+$sample_row = str_getcsv( explode( "\r\n", substr( WPCPM_Institution_Export::sample_csv(), 3 ) )[1], ',', '"', '' );
+ck( 'the sample list\'s field of study is one of the nine the program offers', in_array( $sample_row[2], WPCPM_Institution_Student_Form::choices( 'field_of_study' ), true ), true );
+
 $fixture = json_decode( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'bin/fixtures/students-table-fields.json' ), true );
 ck(
 	'and the nine are the base\'s own, as the fixture recorded them',
@@ -873,7 +930,7 @@ echo "\n=== And the row that is written is the one the claim proved ===\n";
 reset_world();
 
 // `claim()` read the live Students row and allowed the write on the link that row carries,
-// so `$student` is the only Students record this request is authorised against. The report
+// so `$student` is the only Students record this request is authorized against. The report
 // row, read from a cache that can be five minutes old, names another one. The second answer
 // is a proof that failed, not a second address to write to.
 $GLOBALS['report_row']['Students'] = array( $dupe );
@@ -1110,6 +1167,80 @@ ck( 'nothing the student told the program in confidence is on the form', has( $h
 
 $refused = draw( 3, $report, $inst_a, 10 );
 ck( 'a member of another institution is drawn nothing at all', $refused, '' );
+
+// The outcome of the last save is printed inside the form, in a paragraph of the class the student card
+// looks for to open its folded section (a sentence inside a closed one would be read by nobody). Renaming
+// the class here without the card would hide it again, so the real form is pinned to the constant the card
+// reads. A reader of its own, so the sentence drawn is the one set for it and no other reader's.
+$GLOBALS['users'][4]   = new WP_User( 4, 'C Member', 'c@example.test' );
+$GLOBALS['members'][4] = array( $inst_a );
+WPCPM_Flash::set( 'institution_student', array( 'status' => 'student-saved', 'detail' => '', 'record' => $report ), 4 );
+$said = draw( 4, $report, $inst_a, 10 );
+
+ck( 'the class the card opens its folded section for is a constant of the form', WPCPM_Institution_Student_Form::CLASS_MESSAGE, 'wpcpm-institution__edit-message' );
+ck( 'and the real form prints a save\'s outcome in a paragraph of exactly that class',
+	has( $said, '<p class="' . WPCPM_Institution_Student_Form::CLASS_MESSAGE . ' is-success" role="status">Saved. The change is in the program records and on your roster.</p>' ), true );
+ck( 'while a form with nothing to say prints none', has( draw( 2, $report, $inst_a, 10 ), WPCPM_Institution_Student_Form::CLASS_MESSAGE ), false );
+ck( 'and the student card reads the constant, not the string', array(
+	false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), 'WPCPM_Institution_Student_Form::CLASS_MESSAGE' ),
+	false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php' ), "'wpcpm-institution__edit-message'" ),
+), array( true, false ) );
+
+// The form is drawn on a page now (inside the student card), so every class it prints has a rule: the lesson
+// of the import form's first ship, when every label and every box came out as the browser's own. Read from
+// the form's own source, so a class added to it fails here until it is dressed. The button is the shared
+// one (the dashboard stylesheet, which the institution stylesheet depends on); the form element itself
+// has no box of its own to dress; `is-success` and `is-error` are state hooks the page's other flashes
+// have no rule for either.
+$form_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-form.php' );
+preg_match_all( '/class="([^"]+)"/', $form_source, $class_lists );
+
+$printed = array( WPCPM_Institution_Student_Form::CLASS_MESSAGE => true );
+
+foreach ( $class_lists[1] as $list ) {
+	foreach ( preg_split( '/\s+/', $list ) as $class ) {
+		if ( 0 === strpos( $class, 'wpcpm-' ) ) {
+			$printed[ $class ] = true;
+		}
+	}
+}
+
+$printed = array_keys( $printed );
+sort( $printed );
+
+ck( 'the form prints these ten classes', $printed, array(
+	'wpcpm-button',
+	'wpcpm-institution__card',
+	'wpcpm-institution__edit',
+	'wpcpm-institution__edit-field',
+	'wpcpm-institution__edit-form',
+	'wpcpm-institution__edit-input',
+	'wpcpm-institution__edit-lede',
+	'wpcpm-institution__edit-message',
+	'wpcpm-institution__edit-note',
+	'wpcpm-institution__heading',
+) );
+
+$sheets = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' );
+$bare   = array();
+
+foreach ( array_diff( $printed, array( 'wpcpm-institution__edit-form' ) ) as $class ) {
+	if ( 1 !== preg_match( '/\.' . preg_quote( $class, '/' ) . '(?![\w-])/', $sheets ) ) {
+		$bare[] = $class;
+	}
+}
+
+ck( 'every class the form prints is styled on the page it is drawn on', $bare, array() );
+
+// The save's sentence is a flash like the page's others: the same bordered box, by the same rule.
+$css_institution = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
+ck( 'the outcome of a save is in the page\'s bordered flash group', 1 === preg_match( '/\.wpcpm-details__message,\n\.wpcpm-institution__edit-message \{\n\tborder: 1px solid/', $css_institution ), true );
+ck( 'the fields inside the folded form share the details card\'s label-above layout and control widths', array(
+	false !== strpos( $css_institution, ".wpcpm-details .wpcpm-field,\n.wpcpm-institution__correct .wpcpm-institution__edit-field {" ),
+	false !== strpos( $css_institution, ".wpcpm-details .wpcpm-field > label,\n.wpcpm-details .wpcpm-field__label,\n.wpcpm-institution__correct .wpcpm-institution__edit-field > label {" ),
+	false !== strpos( $css_institution, ".wpcpm-details .wpcpm-field select,\n.wpcpm-institution__correct .wpcpm-institution__edit-input {" ),
+), array( true, true, true ) );
+ck( 'and the lede and the note are spaced as the details card\'s lead is', 1 === preg_match( '/\.wpcpm-details__lead,\n\.wpcpm-institution__edit-lede,\n\.wpcpm-institution__edit-note \{\n\tmargin: 0 0 1em;/', $css_institution ), true );
 ck( 'and so is a reader whose student has no report record', draw( 2, '', $inst_a, 10 ), '' );
 
 $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] = array(
@@ -1218,6 +1349,131 @@ ck( 're-saving the card refuses it rather than clearing the column', $GLOBALS['w
 ck( 'by name', array( flash_status(), flash_detail() ), array( 'student-rejected', 'Field of study.' ) );
 ck( 'and the roster still says what it said', WPCPM_Roster_Index::rows( $inst_a )[ $student ]['field_of_study'], 'Underwater Basket Weaving' );
 
+
+/* ---- what a refused post keeps -------------------------------------------- */
+
+echo "\n=== A refused post keeps what was typed ===\n";
+
+// The approved design's section 3.3: a refused post keeps what was typed, as the plugin's other forms do. What
+// the post asked to change and did not save comes back in its box as it was typed, for the account that typed
+// it and for the one drawing of the form that follows; what was saved comes back as the program records hold it.
+reset_world();
+$GLOBALS['users'][5]   = new WP_User( 5, 'D Member', 'd@example.test' );
+$GLOBALS['members'][5] = array( $inst_a );
+$typed_channel         = WPCPM_Typed_Text::KEPT_CHANNEL . 'student:' . $report;
+
+save( 2, $report, array( k( 'students', 'Full Name' ) => '  Ada Nowak  ', k( 'students', 'End Date' ) => '2036-06-30' ) );
+ck( 'an end date more than a year after the start is refused by name, and the full name beside it saved', array( flash_status(), flash_detail(), writes_to( 'tblSTUDENTS' ) ), array(
+	'student-partly',
+	'End date.',
+	array( array( 'table' => 'tblSTUDENTS', 'id' => $student, 'fields' => array( 'Full Name' => 'Ada Nowak' ) ) ),
+) );
+ck( 'what was typed waits for this account\'s next drawing of the form, and for no other account', array( isset( $GLOBALS['umeta'][2]['wpcpm_flash'][ $typed_channel ] ), isset( $GLOBALS['umeta'][5]['wpcpm_flash'][ $typed_channel ] ) ), array( true, false ) );
+
+$colleague = drawn_values( draw( 5, $report, $inst_a, 10 ) );
+$kept_form = draw( 2, $report, $inst_a, 10 );
+$kept      = drawn_values( $kept_form );
+ck( 'a colleague drawing the same student reads the program records', $colleague[ k( 'students', 'End Date' ) ], '2026-06-30' );
+ck( 'the refused end date comes back as it was typed, and the saved full name as it is stored', array( $kept[ k( 'students', 'End Date' ) ], $kept[ k( 'students', 'Full Name' ) ] ), array( '2036-06-30', 'Ada Nowak' ) );
+ck( 'under the sentence that names what was refused', 1 === preg_match( '#<p class="wpcpm-institution__edit-message is-error" role="status">Saved, except for the following\. [^<]*End date\.</p>#', $kept_form ), true );
+ck( 'once: the next drawing is the program records again', array( drawn_values( draw( 2, $report, $inst_a, 10 ) )[ k( 'students', 'End Date' ) ], isset( $GLOBALS['umeta'][2]['wpcpm_flash'][ $typed_channel ] ) ), array( '2026-06-30', false ) );
+
+reset_world();
+save( 2, $report, array( k( 'students', 'End Date' ) => '2026-01-01' ) );
+ck( 'a refused post that saved nothing keeps its typing too', isset( $GLOBALS['umeta'][2]['wpcpm_flash'][ $typed_channel ] ), true );
+save( 2, $report, array( k( 'students', 'End Date' ) => '2026-07-31' ) );
+ck( 'and the next post that saves forgets it before anything is drawn', array( flash_status(), isset( $GLOBALS['umeta'][2]['wpcpm_flash'][ $typed_channel ] ) ), array( 'student-saved', false ) );
+ck( 'so the form shows what was saved and not what an earlier refusal kept', drawn_values( draw( 2, $report, $inst_a, 10 ) )[ k( 'students', 'End Date' ) ], '2026-07-31' );
+
+reset_world();
+$GLOBALS['refuse'] = array( 'tblSTUDENTS' );
+save( 2, $report, array( k( 'students', 'End Date' ) => '2026-07-31' ) );
+$refused_status = flash_status();
+ck( 'a change the program records refused comes back as typed', array( $refused_status, drawn_values( draw( 2, $report, $inst_a, 10 ) )[ k( 'students', 'End Date' ) ] ), array( 'student-airtable', '2026-07-31' ) );
+
+reset_world();
+$GLOBALS['students_rows'][] = array( 'id' => $dupe, 'fields' => array( 'Email' => 'ada@example.test' ) );
+save( 2, $report, array( k( 'reports', 'Name' ) => 'Ada Example-Nowak', k( 'students', 'End Date' ) => '2026-07-31' ) );
+$merge_status = flash_status();
+$merged       = drawn_values( draw( 2, $report, $inst_a, 10 ) );
+ck( 'a date the site could not file comes back as typed', array( $merge_status, $merged[ k( 'students', 'End Date' ) ] ), array( 'student-merge', '2026-07-31' ) );
+
+reset_world();
+save( 3, $report, array( k( 'students', 'End Date' ) => '2036-06-30' ) );
+ck( 'a post the fence refuses keeps nothing', array( flash_status(), isset( $GLOBALS['umeta'][3]['wpcpm_flash'][ $typed_channel ] ) ), array( 'student-refused', false ) );
+
+/* ---- the words a school reads -------------------------------------------- */
+
+echo "\n=== The form says nothing in the base's words ===\n";
+
+// The form is drawn on a school's student card, and a school's pages name no table, row or record kind of the
+// base (`bin/stubs/internal-words.php`): the label is the Student Report Card's, and the sentences speak of
+// the program's records. Drawn for real in each state a save can leave it in.
+/** A page's words: tags gone, entities read, space folded. */
+function form_words( $html ) { return trim( (string) preg_replace( '/\s+/', ' ', html_entity_decode( strip_tags( str_replace( '<', ' <', (string) $html ) ), ENT_QUOTES ) ) ); }
+
+$drawn_states = array();
+
+reset_world();
+$drawn_states['untouched'] = draw( 2, $report, $inst_a, 10 );
+save( 2, $report, array( k( 'students', 'End Date' ) => '2026-07-31' ) );
+$drawn_states['saved'] = draw( 2, $report, $inst_a, 10 );
+
+reset_world();
+save( 2, $report, array( k( 'students', 'Start Date' ) => '2026-03-01', k( 'students', 'End Date' ) => '2026-02-01' ) );
+$drawn_states['half-saved'] = draw( 2, $report, $inst_a, 10 );
+
+reset_world();
+$GLOBALS['students_rows'][] = array( 'id' => $dupe, 'fields' => array( 'Email' => 'ada@example.test' ) );
+save( 2, $report, array( k( 'reports', 'Name' ) => 'Ada Example-Nowak', k( 'students', 'End Date' ) => '2026-07-31' ) );
+$drawn_states['half-saved, the dates unfiled'] = draw( 2, $report, $inst_a, 10 );
+
+reset_world();
+$GLOBALS['students_rows'] = array();
+save( 2, $report, array( k( 'reports', 'Name' ) => 'Ada Example-Nowak', k( 'students', 'End Date' ) => '2026-07-31' ) );
+$drawn_states['half-saved, no entry for the dates'] = draw( 2, $report, $inst_a, 10 );
+
+reset_world();
+save( 2, $report, array( k( 'students', 'End Date' ) => '2036-06-30' ) );
+$drawn_states['refused'] = draw( 2, $report, $inst_a, 10 );
+
+reset_world();
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $dupe ] = array(
+	'record_id'   => $dupe,
+	'name'        => 'Ada Example',
+	'email'       => 'ada@example.test',
+	'email_key'   => 'ada@example.test',
+	'institution' => $inst_a,
+	'user_id'     => 0,
+);
+$drawn_states['duplicate'] = draw( 2, $report, $inst_a, 10 );
+
+$expected_states = array( 'untouched', 'saved', 'half-saved', 'half-saved, the dates unfiled', 'half-saved, no entry for the dates', 'refused', 'duplicate' );
+ck( 'every state is drawn, each with its outcome where a save left one', array( array_keys( array_filter( $drawn_states, 'strlen' ) ), substr_count( implode( '', $drawn_states ), WPCPM_Institution_Student_Form::CLASS_MESSAGE ) ), array( $expected_states, 5 ) );
+ck( 'the duplicate state draws its note', has( $drawn_states['duplicate'], 'An Administrator needs to merge them first.' ), true );
+
+$base_words = array();
+$data_words = array();
+foreach ( $drawn_states as $state => $html ) {
+	if ( array() !== internal_words( $html ) ) {
+		$base_words[ $state ] = internal_words( $html );
+	}
+	if ( preg_match_all( '/\b(rows?|tables?)\b/i', form_words( $html ), $found ) ) {
+		$data_words[ $state ] = $found[0];
+	}
+}
+ck( 'no state of the form holds a word a school is not meant to read', $base_words, array() );
+ck( 'nor names a row or a table', $data_words, array() );
+
+$sentences = array_merge( array_column( WPCPM_Institution_Student_Form::messages(), 1 ), array_values( WPCPM_Institution_Student_Form::labels() ) );
+$said      = array();
+foreach ( $sentences as $sentence ) {
+	if ( array() !== internal_words( $sentence ) || preg_match( '/\b(rows?|tables?)\b/i', $sentence ) ) {
+		$said[] = $sentence;
+	}
+}
+ck( 'and neither does any sentence or label it can say', $said, array() );
+ck( 'the name it corrects is the Student Report Card\'s, in the product\'s full name', WPCPM_Institution_Student_Form::labels()['reports|Name'], 'Name on the Student Report Card' );
 
 /* ---- the order, and the file --------------------------------------------- */
 

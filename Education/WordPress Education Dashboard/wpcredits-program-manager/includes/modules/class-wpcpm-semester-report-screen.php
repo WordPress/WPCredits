@@ -1418,7 +1418,7 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * What the students say **now**, normalised, with a flag saying whether it was read.
+	 * What the students say **now**, normalized, with a flag saying whether it was read.
 	 *
 	 * `consent_check()` reads the live Feedback rows, so it is the one call on this screen
 	 * that can fail for a reason that has nothing to do with the reader. Its answer is
@@ -1644,7 +1644,7 @@ final class WPCPM_Semester_Report_Screen {
 	 * number, only left out of the sum. Each snapshot student carries their own URLs for
 	 * exactly this, so the grouping is done again over whoever `consent_check()` returned.
 	 * Without it a withdrawal would drop somebody's name from Student Projects and go on
-	 * counting them here, which is the withdrawal not being honoured.
+	 * counting them here, which is the withdrawal not being honored.
 	 *
 	 * @param array $students The live consenting students.
 	 * @return string
@@ -1753,7 +1753,7 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * One labelled link whose visible text is its own address.
+	 * One labeled link whose visible text is its own address.
 	 *
 	 * @param string $label What the link is.
 	 * @param string $url   Where it goes.

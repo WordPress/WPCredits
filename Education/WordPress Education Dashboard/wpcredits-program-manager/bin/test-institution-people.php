@@ -663,7 +663,7 @@ ck( 'nothing is queued for a leaver who can no longer read the card', flash(), n
 WPCPM_Institution_Members::attach( 7, $A, 'manager', 1 );
 $back = render_card( 7, $A );
 // Not asserted here: whether the old message greets the new membership. `WPCPM_Flash::take()`
-// memoises per user and channel for the whole process, so a second render for user 7 in this
+// memoizes per user and channel for the whole process, so a second render for user 7 in this
 // run can print nothing whatever is queued, and an assertion on it passes by construction. The
 // guard is the one above: nothing was queued for the leaver in the first place.
 ck( 'the card itself is drawn again', has( $back, 'Institution representatives' ), true );

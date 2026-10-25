@@ -61,7 +61,7 @@ function sanitize_email( $e ) {
 }
 function is_email( $e ) { return false !== filter_var( (string) $e, FILTER_VALIDATE_EMAIL ) ? $e : false; }
 /**
- * Honours the protocol allowlist, as the real one does.
+ * Honors the protocol allowlist, as the real one does.
  *
  * A pass-through stub would make the "a javascript: booking link is refused" assertion
  * pass no matter what the class did.

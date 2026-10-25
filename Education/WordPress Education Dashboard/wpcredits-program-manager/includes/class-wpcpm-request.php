@@ -188,7 +188,7 @@ class WPCPM_Request {
 	 * Whether a login actually asked to be sent somewhere in particular.
 	 *
 	 * `login_redirect` hands over a `$requested_redirect_to`, and the obvious reading - "if
-	 * it is not empty, the visitor asked for somewhere, so honour it" - is wrong. Core's
+	 * it is not empty, the visitor asked for somewhere, so honor it" - is wrong. Core's
 	 * login form carries a hidden `redirect_to` field, and when the visitor did not ask for
 	 * anywhere its value is `admin_url()`. So *every* ordinary login arrives looking like an
 	 * explicit request for the admin dashboard, and a filter that steps aside for a non-empty
@@ -196,7 +196,7 @@ class WPCPM_Request {
 	 *
 	 * The admin root therefore counts as "nothing was asked for". Anything else - a gated
 	 * page somebody was bounced off, a specific admin screen - is a real request and is
-	 * honoured, which is what the guard was for in the first place.
+	 * honored, which is what the guard was for in the first place.
 	 *
 	 * @param string $requested The `$requested_redirect_to` passed to `login_redirect`.
 	 * @return bool

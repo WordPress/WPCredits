@@ -14,8 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Drawn from primitives - circles, rectangles and short paths on a 24×24 box, stroked
  * in `currentColor` - rather than copied from a brand's own artwork. Two reasons. A
- * stroked line icon inherits the text colour it sits beside, so it cannot end up the
- * wrong colour in a theme nobody has seen; and a plugin that ships Slack's or GitHub's
+ * stroked line icon inherits the text color it sits beside, so it cannot end up the
+ * wrong color in a theme nobody has seen; and a plugin that ships Slack's or GitHub's
  * logo is redistributing a trademark, which is a licensing question this feature does
  * not need to raise. Nothing here is a brand mark: the Slack row gets a channel hash,
  * the GitHub row gets code brackets, the profile row gets a person.
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * row is, so announcing the icon as well would just read the same thing twice.
  *
  * **One exception, added deliberately: `slack_logo()`.** A link whose only job is "this goes to
- * Slack" needs to be recognisable at a glance, and a channel hash is not. It is Slack's own
+ * Slack" needs to be recognizable at a glance, and a channel hash is not. It is Slack's own
  * published asset rather than a redrawing of it, and it is kept out of the icon set above so it
  * cannot be pressed into service as a line icon.
  */
@@ -39,7 +39,7 @@ class WPCPM_Icons {
 		return array(
 			// An envelope: the body, then the flap as a single fold.
 			'email'    => '<rect x="3" y="5.25" width="18" height="13.5" rx="2"/><path d="M3.6 7.2 12 13l8.4-5.8"/>',
-			// A channel hash. Recognisable for Slack without being Slack's mark.
+			// A channel hash. Recognizable for Slack without being Slack's mark.
 			'slack'    => '<path d="M9.3 4.5 7.8 19.5M16.2 4.5l-1.5 15M4.5 9.3h15M4.5 15h15"/>',
 			// A person, because the row links to somebody's profile page.
 			'profile'  => '<circle cx="12" cy="8.5" r="3.75"/><path d="M5.25 19.5c0-3.2 3-5.75 6.75-5.75s6.75 2.55 6.75 5.75"/>',
@@ -55,13 +55,13 @@ class WPCPM_Icons {
 	/**
 	 * Slack's logo, from Slack's own brand assets.
 	 *
-	 * This is `Slack_RGB.svg` as published in Slack's Brandfolder - the four-colour mark
+	 * This is `Slack_RGB.svg` as published in Slack's Brandfolder - the four-color mark
 	 * followed by the wordmark - with two mechanical changes and no visual ones. The class-based
 	 * `<style>` block is flattened into a `fill` on each shape, and the wordmark's shapes are
 	 * given an explicit black rather than relying on the default. Both are necessary for an
 	 * inline SVG: class names like `.st0` inside a page would collide with whatever else uses
-	 * them, and an unspecified fill inherits the surrounding text colour - recolouring the
-	 * logo, which is the one thing the licence does not allow.
+	 * them, and an unspecified fill inherits the surrounding text color - recoloring the
+	 * logo, which is the one thing the license does not allow.
 	 *
 	 * Every drawable element is kept, and not only the eleven `<path>`s: the wordmark's "l" is
 	 * a `<rect>` and its "k" a `<polygon>`, so a paths-only copy of this file renders as

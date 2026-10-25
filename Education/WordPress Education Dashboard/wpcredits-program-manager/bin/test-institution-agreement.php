@@ -7,7 +7,7 @@
  * option, a malformed one, one at another version, one whose flag contradicts its own sides, a
  * grid row that says `Accepted` with no accepted post, an accepted post under a grid row that
  * says `Revoked`. And the one way it opens without an upload: a manager types `On file` and a
- * Drive link into the grid, the rebuild materialises a legacy post, and the two sides agree.
+ * Drive link into the grid, the rebuild materializes a legacy post, and the two sides agree.
  *
  * The second half is the transitions that reach it, and what each one is worth pinning for:
  *
@@ -495,7 +495,7 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 }
 
 if ( ! class_exists( 'WPCPM_Airtable' ) ) {
-	/** Both routes, journalled, so their order among the other writes can be asserted. */
+	/** Both routes, journaled, so their order among the other writes can be asserted. */
 	class WPCPM_Airtable {
 		public function __construct( $settings = null ) {}
 		public function get_record( $table, $record_id ) {
@@ -517,7 +517,7 @@ if ( ! class_exists( 'WPCPM_Private_Files' ) ) {
 	/**
 	 * The store, in memory, at its three-method contract.
 	 *
-	 * Every call is journalled, because half the assertions in this file are about a call
+	 * Every call is journaled, because half the assertions in this file are about a call
 	 * that must NOT have happened: nothing reaches the private directory that has not passed
 	 * every check, and the only way to see that is to watch the door.
 	 */
@@ -997,7 +997,7 @@ function states_of( $record ) {
 }
 
 /**
- * One method's body, by brace depth, for the assertions that read source rather than behaviour.
+ * One method's body, by brace depth, for the assertions that read source rather than behavior.
  *
  * The response headers of a download cannot be read back at all under CLI, and the order of
  * the checks in an upload is a property of the text rather than of any one run, so both are

@@ -1705,7 +1705,7 @@ class WPCPM_Sponsors {
 	const FLASH = 'sponsors_admin';
 }
 if ( ! class_exists( 'WPCPM_Sponsor_Approval' ) ) {
-	/** The approval, at its contract: journalled, answering what the test says. The real approval class is never loaded here. */
+	/** The approval, at its contract: journaled, answering what the test says. The real approval class is never loaded here. */
 	class WPCPM_Sponsor_Approval {
 		public static function approve( $application_id, $manager_id, $test = false ) {
 			$GLOBALS['approve_calls'][] = array( (int) $application_id, (int) $manager_id, (bool) $test );

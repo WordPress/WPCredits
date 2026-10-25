@@ -10,14 +10,23 @@
  *   rewrite, no query variable, and a capability type nobody is granted: a row names an
  *   institution's contact and who signs for it. It is registered on `init`, and its name is
  *   under WordPress's twenty-character limit.
- * - **`fill_empty()` is the one way in, and it only fills.** An unknown institution gets one
- *   private post whose title and `_wpcpm_inst_record` meta are the record ID and whose
+ * - **`fill_empty()` is the way in for an application, and it only fills.** An unknown institution
+ *   gets one private post whose title and `_wpcpm_inst_record` meta are the record ID and whose
  *   `_wpcpm_inst_answers` meta holds the answers. A second call fills the keys that are empty and
  *   keeps the others, and says `false` when it changed nothing, which is what a second press of
  *   Approve and an approval that joined a record the program already had both rely on: the first
  *   answers stand. A blank answer is not an answer: a call with only blank ones writes no post.
- * - **A record ID is `rec` and fourteen letters or digits.** Anything else is refused and writes
- *   nothing, whatever type it arrives as.
+ * - **`set()` is the way in for a correction (Institutions release 2), and it overwrites.** A key it
+ *   is given takes the new answer over the old one, a blank one clears the key, a key it is not
+ *   given is left alone, and it says `false` when it changed nothing. The post is made by the first
+ *   call that has something to keep, as `fill_empty()`'s is.
+ * - **A post found in any other status is put back to private when it is written,** by either
+ *   method: a record another process trashed, drafted or left as an auto-draft is the institution's
+ *   post still, and a record nobody should read as anything but private is private again once it is
+ *   written. A call that changes nothing writes nothing, the status included.
+ * - **A record ID is `rec` and fourteen letters or digits,** and the check is the Airtable client's
+ *   `WPCPM_Airtable::is_record_id()`, the one shape every module tests. Anything else is refused and
+ *   writes nothing, whatever type it arrives as.
  * - **The words survive the round trip.** Post meta is unslashed by core, so the write slashes
  *   first; a backslash or a quote comes back as typed.
  * - **One institution, one post.** A post another process trashed or drafted is still the
@@ -46,6 +55,8 @@ $GLOBALS['hooks']       = array();
 $GLOBALS['next_post']   = 100;
 $GLOBALS['insert_fail'] = '';      // A post title wp_insert_post() refuses.
 $GLOBALS['meta_writes'] = 0;       // How many times update_post_meta() was called.
+$GLOBALS['status_puts'] = array(); // Every wp_update_post() call, as it was handed over.
+$GLOBALS['meta_fail']   = '';      // A meta key update_post_meta() refuses, as core does with a database error.
 $GLOBALS['options']     = 0;       // How many option writes were made.
 
 class WP_Error {
@@ -135,6 +146,18 @@ function get_post( $id ) {
 	return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null;
 }
 
+// Core unslashes the array it is handed, and a post it is given an ID for takes the status named.
+function wp_update_post( $postarr, $wp_error = false ) {
+	$postarr                   = wp_unslash( $postarr );
+	$GLOBALS['status_puts'][] = $postarr;
+
+	if ( isset( $GLOBALS['posts'][ (int) $postarr['ID'] ], $postarr['post_status'] ) ) {
+		$GLOBALS['posts'][ (int) $postarr['ID'] ]->post_status = $postarr['post_status'];
+	}
+
+	return (int) $postarr['ID'];
+}
+
 function get_post_meta( $id, $key = '', $single = false ) {
 	return isset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $key ] : '';
 }
@@ -142,6 +165,11 @@ function get_post_meta( $id, $key = '', $single = false ) {
 // Core unslashes what it is handed; that is the whole reason the class slashes first.
 function update_post_meta( $id, $key, $value ) {
 	++$GLOBALS['meta_writes'];
+
+	if ( '' !== $GLOBALS['meta_fail'] && $GLOBALS['meta_fail'] === $key ) {
+		return false;
+	}
+
 	$GLOBALS['pmeta'][ (int) $id ][ $key ] = wp_unslash( $value );
 	return true;
 }
@@ -207,6 +235,8 @@ function get_posts( $args = array() ) {
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 
+// The client, for the one check of a record ID's shape every module shares.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-record.php';
 
 $fail = 0;
@@ -229,6 +259,8 @@ function reset_world() {
 	$GLOBALS['insert_fail'] = '';
 	$GLOBALS['meta_writes'] = 0;
 	$GLOBALS['options']     = 0;
+	$GLOBALS['status_puts'] = array();
+	$GLOBALS['meta_fail']   = '';
 }
 
 /**
@@ -469,11 +501,13 @@ ck(
 );
 ck( 'and is filled, not duplicated', WPCPM_Institution_Record::fill_empty( $one, array( 'signer_name' => 'First Signer' ) ), true );
 ck( 'there are still two posts', count( records() ), 2 );
+ck( 'and the trashed record is private again once it is written', $first->post_status, 'private' );
 
 $first->post_status = 'draft';
 
 ck( 'a draft is found the same way', WPCPM_Institution_Record::fill_empty( $one, array( 'signer_title' => 'Dean' ) ), true );
 ck( 'still two posts', count( records() ), 2 );
+ck( 'and the draft is private again once it is written', $first->post_status, 'private' );
 ck( 'and the first institution holds all three answers', WPCPM_Institution_Record::get( $one ), array( 'contact_role' => 'Registrar', 'signer_name' => 'First Signer', 'signer_title' => 'Dean' ) );
 ck( 'the other institution is untouched', WPCPM_Institution_Record::get( $two ), array( 'contact_role' => 'Director' ) );
 
@@ -543,12 +577,212 @@ ck( 'get() has nothing left to read', WPCPM_Institution_Record::get( $one ), arr
 ck( 'a second sweep has nothing to do', WPCPM_Institution_Record::delete_all(), null );
 ck( 'and can be followed by a fresh record', WPCPM_Institution_Record::fill_empty( $one, array( 'contact_role' => 'Registrar' ) ), true );
 
-echo "\n-- the source --\n";
+echo "\n-- set(): a correction overwrites, and a blank clears --\n";
+
+reset_world();
+
+$kept = array(
+	'contact_role'      => 'Registrar',
+	'student_languages' => array( 'English', 'Spanish' ),
+	'signer_name'       => 'First Signer',
+	'signer_title'      => 'Dean',
+	'credits_page'      => 'https://example.test/credits',
+);
+
+ck( 'set() on an institution with no record makes the one post and says it changed', WPCPM_Institution_Record::set( $one, $kept ), true );
+ck(
+	'a private post, titled and keyed by the record ID, holding the answers in the order they came',
+	array( count( records() ), records()[0]->post_status, records()[0]->post_title, get_post_meta( records()[0]->ID, '_wpcpm_inst_record', true ), WPCPM_Institution_Record::get( $one ) ),
+	array( 1, 'private', $one, $one, $kept )
+);
+ck( 'set() overwrites an answer the record holds, which fill_empty() never does', WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director', 'student_languages' => array( 'French' ) ) ), true );
+ck(
+	'the keys it was given are the new ones, and the rest stand',
+	WPCPM_Institution_Record::get( $one ),
+	array( 'contact_role' => 'Director', 'student_languages' => array( 'French' ), 'signer_name' => 'First Signer', 'signer_title' => 'Dean', 'credits_page' => 'https://example.test/credits' )
+);
+ck( 'a blank answer clears the key', WPCPM_Institution_Record::set( $one, array( 'signer_name' => '', 'signer_title' => '   ', 'student_languages' => array() ) ), true );
+ck(
+	'it is gone from the record, and the others are untouched',
+	WPCPM_Institution_Record::get( $one ),
+	array( 'contact_role' => 'Director', 'credits_page' => 'https://example.test/credits' )
+);
+ck( 'a zero is an answer, and is kept', array( WPCPM_Institution_Record::set( $one, array( 'estimated_students' => 0 ) ), WPCPM_Institution_Record::get( $one )['estimated_students'] ), array( true, 0 ) );
+ck( 'still one post', count( records() ), 1 );
+
+$writes = $GLOBALS['meta_writes'];
+
+ck( 'the same answers again change nothing, and say so', WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director', 'signer_name' => '' ) ), false );
+ck( 'and write nothing at all', $GLOBALS['meta_writes'], $writes );
+ck( 'an empty list of answers is the same', WPCPM_Institution_Record::set( $one, array() ), false );
+ck( 'another institution is untouched', WPCPM_Institution_Record::get( $two ), array() );
+
+reset_world();
+
+ck( 'only blank answers for an institution with no record say false', WPCPM_Institution_Record::set( $one, array( 'contact_role' => '', 'student_languages' => array(), 'signer_name' => null ) ), false );
+ck( 'and make no post', array( count( records() ), $GLOBALS['pmeta'] ), array( 0, array() ) );
+
+$typed = array(
+	'contact_role' => 'Head of "Languages" \\ Culture',
+	'signer_name'  => "O'Brien \\n Signer",
+);
+
+WPCPM_Institution_Record::set( $one, $typed );
+
+ck( 'the words come back as typed, a quote and a backslash among them', WPCPM_Institution_Record::get( $one ), $typed );
+
+WPCPM_Institution_Record::set( $one, array( 'signer_title' => "Dean's \\ office" ) );
+
+ck( 'and again on a second correction', WPCPM_Institution_Record::get( $one ), $typed + array( 'signer_title' => "Dean's \\ office" ) );
+
+reset_world();
+
+foreach ( $bad as $why => $id ) {
+	ck( sprintf( 'set() refuses a record ID that is %s', $why ), WPCPM_Institution_Record::set( $id, array( 'contact_role' => 'Registrar' ) ), false );
+}
+
+ck( 'and writes nothing for any of them', array( count( $GLOBALS['posts'] ), $GLOBALS['pmeta'], $GLOBALS['meta_writes'] ), array( 0, array(), 0 ) );
+ck( 'a record ID with space around it is the record ID', WPCPM_Institution_Record::set( "  {$one}\n", array( 'contact_role' => 'Registrar' ) ), true );
+
+reset_world();
+$GLOBALS['insert_fail'] = $one;
+
+ck( 'a post WordPress refuses to make says false from set() too', WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Registrar' ) ), false );
+ck( 'and leaves nothing behind', array( count( $GLOBALS['posts'] ), $GLOBALS['pmeta'] ), array( 0, array() ) );
+
+// A meta write WordPress refuses is a write that failed, from either method, whether the post was
+// there already or was made for it: the answer is "no", not "changed".
+reset_world();
+$GLOBALS['meta_fail'] = '_wpcpm_inst_answers';
+
+ck( 'a refused answers write says false from set(), for an institution with no record yet', WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Registrar' ) ), false );
+ck( 'and from fill_empty() too', WPCPM_Institution_Record::fill_empty( $two, array( 'contact_role' => 'Registrar' ) ), false );
+ck( 'with no answer kept for either', array( WPCPM_Institution_Record::get( $one ), WPCPM_Institution_Record::get( $two ) ), array( array(), array() ) );
+
+$GLOBALS['meta_fail'] = '';
+
+WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Registrar' ) );
+
+$GLOBALS['meta_fail'] = '_wpcpm_inst_answers';
+
+ck( 'a refused write over an existing record says false from set()', WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director' ) ), false );
+ck( 'and from fill_empty()', WPCPM_Institution_Record::fill_empty( $one, array( 'signer_name' => 'First Signer' ) ), false );
+ck( 'and the record still holds what it held', WPCPM_Institution_Record::get( $one ), array( 'contact_role' => 'Registrar' ) );
+
+$GLOBALS['meta_fail'] = '';
+
+ck( 'once WordPress takes the write it is made', WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director' ) ), true );
+
+reset_world();
+
+WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Registrar' ) );
+
+$GLOBALS['pmeta'][ records()[0]->ID ]['_wpcpm_inst_answers'] = 'garbled';
+
+ck( 'set() over meta that is not a list starts the list again', array( WPCPM_Institution_Record::set( $one, array( 'signer_name' => 'First Signer' ) ), WPCPM_Institution_Record::get( $one ) ), array( true, array( 'signer_name' => 'First Signer' ) ) );
+
+echo "\n-- a post found in another status is put back to private when it is written --\n";
+
+foreach ( array( 'trash', 'auto-draft', 'draft', 'pending', 'publish', 'future' ) as $status ) {
+	reset_world();
+
+	WPCPM_Institution_Record::fill_empty( $one, array( 'contact_role' => 'Registrar' ) );
+
+	records()[0]->post_status = $status;
+	$GLOBALS['status_puts']   = array();
+
+	ck( sprintf( 'a record found as %s is written by fill_empty()', $status ), WPCPM_Institution_Record::fill_empty( $one, array( 'signer_name' => 'First Signer' ) ), true );
+	ck( sprintf( 'and %s is private again, put back through WordPress with its ID and the status and nothing else', $status ), array( records()[0]->post_status, $GLOBALS['status_puts'] ), array( 'private', array( array( 'ID' => records()[0]->ID, 'post_status' => 'private' ) ) ) );
+
+	records()[0]->post_status = $status;
+	$GLOBALS['status_puts']   = array();
+
+	ck( sprintf( 'a record found as %s is written by set()', $status ), WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director' ) ), true );
+	ck( sprintf( 'and %s is private again, put back once', $status ), array( records()[0]->post_status, count( $GLOBALS['status_puts'] ), count( records() ) ), array( 'private', 1, 1 ) );
+}
+
+reset_world();
+
+WPCPM_Institution_Record::fill_empty( $one, array( 'contact_role' => 'Registrar' ) );
+
+ck( 'a record that is private already is not put back through WordPress at all', array( WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director' ) ), $GLOBALS['status_puts'] ), array( true, array() ) );
+
+records()[0]->post_status = 'trash';
+
+ck( 'a call that changes nothing leaves a trashed record trashed, as it writes nothing', array( WPCPM_Institution_Record::set( $one, array( 'contact_role' => 'Director' ) ), WPCPM_Institution_Record::fill_empty( $one, array( 'contact_role' => 'Third' ) ), records()[0]->post_status, $GLOBALS['status_puts'] ), array( false, false, 'trash', array() ) );
+
+echo "\n-- the record ID check is the Airtable client's --\n";
 
 $src  = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-record.php' );
+
+ck( 'the class asks WPCPM_Airtable::is_record_id() and holds no pattern of its own', array( false !== strpos( $src, 'WPCPM_Airtable::is_record_id(' ), defined( 'WPCPM_Institution_Record::ID_PATTERN' ), false !== strpos( $src, 'preg_match' ) ), array( true, false, false ) );
+ck(
+	'every shape the client calls a record ID is one the record takes, and every shape it does not is refused',
+	array_map(
+		function ( $id ) {
+			reset_world();
+
+			return array( WPCPM_Airtable::is_record_id( $id ), WPCPM_Institution_Record::set( $id, array( 'contact_role' => 'Registrar' ) ) );
+		},
+		array( 'recINSTITUTION001', "  recINSTITUTION001\n", 'recINSTITUTION', 'xyzINSTITUTION001', 'recINSTITUTI-N001', null, 12345 )
+	),
+	array(
+		array( true, true ),
+		array( true, true ),
+		array( false, false ),
+		array( false, false ),
+		array( false, false ),
+		array( false, false ),
+		array( false, false ),
+	)
+);
+ck( 'the statuses the lookup names leave out inherit, which only an attachment or a revision has, and the docblock says why', array( false !== strpos( $src, 'inherit' ), false !== strpos( $src, "'inherit'" ) ), array( true, false ) );
+
+echo "\n-- the source --\n";
+
 $mine = file_get_contents( __FILE__ );
 
 ck( 'the class writes no option, so nothing it keeps can be autoloaded', array( strpos( $src, 'update_option(' ), strpos( $src, 'add_option(' ), strpos( $src, 'set_transient(' ) ), array( false, false, false ) );
+/**
+ * The argument text of the first get_posts() call inside one method, read by brace and
+ * parenthesis depth, or null when the method or the call is missing (so a lost call fails
+ * the check below and does not pass it by saying nothing).
+ */
+function get_posts_args_in( $source, $name ) {
+	if ( ! preg_match( '/function\s+' . preg_quote( $name, '/' ) . '\s*\([^)]*\)\s*\{/', $source, $m, PREG_OFFSET_CAPTURE ) ) {
+		return null;
+	}
+
+	$from = $m[0][1] + strlen( $m[0][0] );
+	$call = strpos( $source, 'get_posts(', $from );
+
+	if ( false === $call ) {
+		return null;
+	}
+
+	$start = $call + strlen( 'get_posts(' );
+	$depth = 1;
+	$end   = $start;
+	$size  = strlen( $source );
+
+	while ( $end < $size && $depth > 0 ) {
+		if ( '(' === $source[ $end ] ) {
+			++$depth;
+		} elseif ( ')' === $source[ $end ] ) {
+			--$depth;
+		}
+
+		++$end;
+	}
+
+	return substr( $source, $start, $end - $start - 1 );
+}
+
+// The lookup decides under the school's lock, so it must see a post another request made a
+// moment ago and not the answer this request's own query cache filled before it took the lock.
+$lookup_args = get_posts_args_in( $src, 'post_id_of' );
+ck( 'the lookup behind a record ID reads fresh: its get_posts() asks for no cached results', null !== $lookup_args && 1 === preg_match( "/'cache_results'\s*=>\s*false\b/", $lookup_args ), true );
+
 ck( 'it is not a form handler and checks no nonce of its own', array( strpos( $src, 'check_admin_referer' ), strpos( $src, 'wp_verify_nonce' ) ), array( false, false ) );
 ck( 'it prints nothing', strpos( $src, 'echo ' ), false );
 ck( 'no em dash or en dash in the class', preg_match( '/[\x{2013}\x{2014}]/u', $src ), 0 );

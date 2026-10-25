@@ -460,7 +460,7 @@ ck( 'a recipient who does not exist is not mailed', array( $sent ), array( false
 echo "\n=== WPCPM_Mail::send_to ===\n";
 
 // An applicant is an address and nothing else. Before `send_to()`, mail to one went to
-// `wp_mail()` directly and so past the filter, the log and the subject sanitising - which is
+// `wp_mail()` directly and so past the filter, the log and the subject sanitizing - which is
 // why every claim made about `send()` above is made again here, against a bare address.
 $GLOBALS['mail'] = array();
 $seen_locale     = null;

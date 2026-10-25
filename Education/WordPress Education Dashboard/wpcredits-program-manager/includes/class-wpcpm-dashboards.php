@@ -208,7 +208,7 @@ class WPCPM_Dashboards {
 		// Every audience is named - five of them now - because what an unnamed one used to get
 		// was the mentor wording: the fall-through was written when `students` and `mentors`
 		// were the only two, and it told an institution it did not hold the Mentor role.
-		// Unknown IDs keep that old behaviour rather than inventing a sixth sentence for a
+		// Unknown IDs keep that old behavior rather than inventing a sixth sentence for a
 		// caller that does not exist.
 		$module = isset( $theirs[ $module ] ) ? $module : 'mentors';
 
@@ -460,7 +460,7 @@ class WPCPM_Dashboards {
 	}
 
 	/**
-	 * A switcher's entries in A to Z order, as a reader of the list expects names
+	 * A combo's entries in A to Z order, as a reader of the list expects names
 	 * (`compare_names()`).
 	 *
 	 * Two names alike in that reading are settled by their values, read as numbers where they are
@@ -468,10 +468,15 @@ class WPCPM_Dashboards {
 	 * entries. The sources hand them over in their own orders: Airtable's for the institutions and
 	 * the sponsors, the database's for the students.
 	 *
+	 * Public since the Institutions screen's Pipeline lists its Find an institution field in the same
+	 * order as the Viewing as switchers (`WPCPM_Institutions::render_pipeline_find()`), which it sorted for
+	 * itself before: the switchers and that field are what use it, so they cannot order the same names two
+	 * ways.
+	 *
 	 * @param array $options Value to label.
 	 * @return array The same pairs, sorted by label.
 	 */
-	private static function sort_switcher_options( array $options ) {
+	public static function sort_switcher_options( array $options ) {
 		$entries = array();
 
 		foreach ( $options as $value => $label ) {

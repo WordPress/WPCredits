@@ -728,7 +728,7 @@ ck( 'and that write is Dropped out', $GLOBALS['writes'][0]['fields'], array( 'St
 
 // The record written is the claim's, never the form's. The claim is the only step that read the
 // row live and decided on the link it carries, so its ID is the only one this request holds an
-// authorisation for.
+// authorization for.
 reset_world( 'In Sensei' );
 set_live( 'In Sensei', null, $other );
 press( 2, $student, 'graduated' );

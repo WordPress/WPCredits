@@ -175,6 +175,14 @@ final class WPCPM_Mail_Catalog {
 			'agreement-reminder'                 => array( __( 'Collaboration Agreements from institutions waiting for review, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'agreement-template'                 => array( __( 'Collaboration Agreement for an institution could not be generated, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'member-last'                        => array( __( 'Institution has no members left, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			// What happens to the details of an institution (Institutions release 2): a correction saved
+			// at once, a request to correct a checked detail and its withdrawal go to Administrators; the
+			// approval and the decline go to the account that asked.
+			'institution-details-saved'          => array( __( 'Institution details corrected, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			'institution-details-request'        => array( __( 'Institution asks to correct its details, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			'institution-details-approved'       => array( __( 'Correction of institution details approved, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
+			'institution-details-declined'       => array( __( 'Correction of institution details declined, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
+			'institution-details-withdrawn'      => array( __( 'Institution withdrew its request to correct its details, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			// Semester reports.
 			'report-drafted'                     => array( __( 'Semester report drafted, to Administrators', 'wpcredits-program-manager' ), $r, self::TYPE_ADMIN ),
 			'report-approved'                    => array( __( 'Semester report approved, to the institution', 'wpcredits-program-manager' ), $r, self::TYPE_INSTITUTION ),

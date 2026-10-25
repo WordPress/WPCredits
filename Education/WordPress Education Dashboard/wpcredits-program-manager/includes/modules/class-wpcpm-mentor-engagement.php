@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * 2): an active mentor is one Airtable holds as Active who is not an Administrator; a held call is
  * noted when its mentor wrote a note about one of its students, dated no earlier than a day before the
  * call; a program action is a note, a saved schedule, a group session created or a call the mentor
- * cancelled, never a student's booking; the call figures count every call on the site.
+ * canceled, never a student's booking; the call figures count every call on the site.
  *
  * `compute()` holds every rule and reads nothing, so a suite pins each one on plain arrays; `read()`
  * reads the site once (Task 4). Counts and dates only: never a note's text, a call's topic or a

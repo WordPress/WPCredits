@@ -1079,7 +1079,7 @@ class WPCPM_Student_Report_Form {
 
 		// A checkbox reads as "[x] Yes, I agree to…", so the box comes first and the label after
 		// it. Printing the label above would turn a consent question into a heading with an
-		// unlabelled tick under it. The Required mark goes inside that label, after the words, as
+		// unlabeled tick under it. The Required mark goes inside that label, after the words, as
 		// every other control prints it: without it a consent box marked Required read as optional
 		// (TRACKS-6).
 		if ( 'checkbox' === $type ) {
@@ -1424,7 +1424,7 @@ class WPCPM_Student_Report_Form {
 		foreach ( $teams as $record_id => $team_name ) {
 			printf(
 				// The team's own icon, the same one the student's card and the mentor's table
-				// show for it, so a team is recognisable here by the mark rather than only by
+				// show for it, so a team is recognizable here by the mark rather than only by
 				// reading the name. `label_icon()` escapes what it builds and is decorative -
 				// `aria-hidden` - because the name beside it already says which team this is.
 				'<label class="wpcpm-report__check"><input type="checkbox" name="report[%1$s][]" value="%2$s"%3$s%4$s />%5$s <span>%6$s</span></label>',

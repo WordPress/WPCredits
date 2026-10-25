@@ -14,7 +14,7 @@
  *   state is followed by mail gateways, security scanners and prefetchers, and the suite
  *   asserts the world is untouched after a GET rather than trusting the reading.
  * - **Every failure on the accept path gives one message, byte for byte, on both arms.** An
- *   expired row, a cancelled one, an unknown token, a token that has already been used, and a
+ *   expired row, a canceled one, an unknown token, a token that has already been used, and a
  *   signed-in visitor whose address is not the invited one: five different situations, one
  *   sentence, whether the reader met the link or the button. Telling them apart would let a
  *   stranger walking tokens learn which addresses this program has invited.
@@ -28,12 +28,12 @@
  * - **The five sends a day are per member, not per institution** (spec 14.13), so a colleague
  *   who has sent none can still invite somebody on a day another member has spent theirs.
  * - **Retention runs from the moment a row settled**, not from the day it was written: a row
- *   sent forty days ago and cancelled last night has a month to run, and one that has been
+ *   sent forty days ago and canceled last night has a month to run, and one that has been
  *   settled for thirty-one days is gone.
  * - **Cancel and resend are decided against the institution the invitation names**, read
  *   from the post's own meta, so a member of B posting A's invitation ID gets the one
- *   refusal. The nonce on each is keyed to the invitation, so a token for cancelling one is
- *   not a token for cancelling another.
+ *   refusal. The nonce on each is keyed to the invitation, so a token for canceling one is
+ *   not a token for canceling another.
  * - Accepting attaches with `invited` and the inviter as the actor, so the People card can
  *   say who let this person in.
  * - **An invitation is only as good as the person who sent it.** Removing a member through
@@ -838,7 +838,7 @@ $stale_token = token_from_mail();
 update_post_meta( newest_invite(), '_wpcpm_inv_sent', time() - ( 15 * DAY_IN_SECONDS ) );
 $expired = accept_as( 0, $stale_token );
 
-// A cancelled one.
+// A canceled one.
 invite_as( 7, $A, 'dropped@example.test' );
 $dropped_id    = newest_invite();
 $dropped_token = token_from_mail();
@@ -1051,7 +1051,7 @@ ck( 'and running it again changes nothing', WPCPM_Institution_Invite::expire(), 
 
 // Retention: the address goes, the audit row stays, and the thirty days run from the day the
 // row settled rather than from the day it was written. The two are the same day for an
-// invitation that runs its fourteen out, and a month apart for one cancelled long after it
+// invitation that runs its fourteen out, and a month apart for one canceled long after it
 // was sent - which is why `settle()` stamps the moment and this reads the stamp.
 ck( 'settling stamped the moment', pmeta( $stale, '_wpcpm_inv_settled' ) > 0, true );
 
@@ -1133,9 +1133,9 @@ WPCPM_Institution_Members::attach( 9, $B, 'manager', 1 );
 
 echo "\n=== An invitation from somebody who no longer vouches for it is refused ===\n";
 
-// An invitation sent before 1.123.26 by a member removed before it: `detach()` cancelled
+// An invitation sent before 1.123.26 by a member removed before it: `detach()` canceled
 // nothing then, so the row is still pending with a live token. The membership is ended here
-// the way 1.123.25 ended it, by the meta alone, so nothing has cancelled the invitation.
+// the way 1.123.25 ended it, by the meta alone, so nothing has canceled the invitation.
 reset_world();
 
 invite_as( 7, $A, 'orphaned@example.test' );
@@ -1190,7 +1190,7 @@ $GLOBALS['manage'] = array( 1 );
 
 // Send again is the other way a link reaches a mailbox: a colleague pressing it on an invitation
 // whose sender has since been removed would mail a fresh link for a vouch nobody stands behind.
-// It is cancelled instead, as the site's own act, and nothing is sent.
+// It is canceled instead, as the site's own act, and nothing is sent.
 reset_world();
 
 invite_as( 8, $A, 'unvouched@example.test' );

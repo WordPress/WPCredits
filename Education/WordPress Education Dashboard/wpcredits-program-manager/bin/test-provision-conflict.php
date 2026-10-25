@@ -165,7 +165,7 @@ function wp_insert_user( array $data ) {
 }
 
 /**
- * Users by exact meta match, or by a meta key existing, honouring `fields`.
+ * Users by exact meta match, or by a meta key existing, honoring `fields`.
  */
 function get_users( $args = array() ) {
 	$out = array();

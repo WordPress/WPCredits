@@ -356,9 +356,6 @@ class WPCPM_Agreement_Generate {
 class WPCPM_Institution_Student_Form {
 	public static function init() {}
 }
-class WPCPM_Institution_Notes {
-	public static function init() {}
-}
 /** A member inviting a colleague, whose outcome the Manage members view prints where it lands: its own suite reads it. */
 class WPCPM_Institution_Invite {
 	public static function init() {}
@@ -368,6 +365,9 @@ class WPCPM_Institution_Students {
 	public static function init() {}
 }
 class WPCPM_Institution_Resend {
+	public static function init() {}
+}
+class WPCPM_Institution_Details_Card {
 	public static function init() {}
 }
 class WPCPM_Institution_Export {

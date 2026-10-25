@@ -2531,6 +2531,10 @@ final class WPCPM_Administrators_Cards {
 	 * Requests from institutions: the open ones with the request class's two decisions, the closed
 	 * folded, and last the way to the Institutions screen's queue tab.
 	 *
+	 * A school's request to correct its details is the one kind with a decision of its own
+	 * (`render_details_request()`), drawn as the chosen mockup A; the others keep the request class's
+	 * "Mark as handled" and "Decline".
+	 *
 	 * @param array $data `open`, `closed` (facts rows), `overdue`.
 	 */
 	public static function render_requests( array $data ) {
@@ -2558,6 +2562,12 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		foreach ( $open as $facts ) {
+			if ( WPCPM_Institution_Request::KIND_DETAILS === (string) $facts['kind'] ) {
+				self::render_details_request( $facts );
+
+				continue;
+			}
+
 			printf( '<article class="wpcpm-administrator__item wpcpm-request%s">', ! empty( $facts['overdue'] ) ? ' wpcpm-administrator__item--overdue' : '' );
 			printf( '<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>', self::institution_link( $facts['institution'] ), esc_html( $facts['kind_label'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
 			echo '<p class="wpcpm-administrator__facts">';
@@ -2596,7 +2606,7 @@ final class WPCPM_Administrators_Cards {
 					'<li>%1$s, %2$s: %3$s, %4$s</li>',
 					self::institution_link( $facts['institution'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
 					esc_html( $facts['kind_label'] ),
-					esc_html( WPCPM_Institution_Request::STATE_DONE === $facts['state'] ? __( 'Handled', 'wpcredits-program-manager' ) : __( 'Declined', 'wpcredits-program-manager' ) ),
+					esc_html( self::request_outcome( $facts ) ),
 					esc_html( $dated )
 				);
 			}
@@ -2606,6 +2616,136 @@ final class WPCPM_Administrators_Cards {
 
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * What became of a closed request, in a word: a school's details request that was approved,
+	 * Approved, any other that was closed as handled, Handled; Declined; and Withdrawn, which only a
+	 * school's own request to correct its details can be.
+	 *
+	 * @param array $facts A closed request's facts.
+	 * @return string
+	 */
+	private static function request_outcome( array $facts ) {
+		switch ( (string) $facts['state'] ) {
+			case WPCPM_Institution_Request::STATE_WITHDRAWN:
+				return __( 'Withdrawn', 'wpcredits-program-manager' );
+
+			case WPCPM_Institution_Request::STATE_DECLINED:
+				return __( 'Declined', 'wpcredits-program-manager' );
+		}
+
+		return WPCPM_Institution_Request::KIND_DETAILS === (string) $facts['kind'] ? __( 'Approved', 'wpcredits-program-manager' ) : __( 'Handled', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * One open request to correct a school's details, drawn as the chosen mockup A: one decision for the
+	 * whole request (Institutions release 2).
+	 *
+	 * The school's name linked as every other name here is, who asked and on which day, how long it has
+	 * waited as the other requests say it, the details it asks to change as a table of Detail, On record
+	 * now and Asked for, then the note box and the two buttons. **"On record now" is what the request's
+	 * facts hold, which they read from the index when they were built (`WPCPM_Institution_Request::facts()`),
+	 * so a detail the program team changed in Airtable since the school asked shows as it is.** Approve
+	 * writes the asked values to the program's records and tells the school; Decline needs the note, which
+	 * the school reads. The handler behind both is `WPCPM_Institution_Request::handle_details_decide()`,
+	 * and the form posts the names it reads.
+	 *
+	 * The form is drawn for an account that manages the program and for nobody else, as the other
+	 * requests' is.
+	 *
+	 * @param array $facts One open details request's facts, with its `changes` rows.
+	 */
+	private static function render_details_request( array $facts ) {
+		$id      = (int) $facts['id'];
+		$heading = 'wpcpm-request-' . $id . '-title';
+		$asker   = '' !== (string) $facts['actor_name'] ? (string) $facts['actor_name'] : __( 'a member of the institution', 'wpcredits-program-manager' );
+		$changes = isset( $facts['changes'] ) ? (array) $facts['changes'] : array();
+
+		printf( '<article class="wpcpm-administrator__item wpcpm-request wpcpm-request--details%s">', ! empty( $facts['overdue'] ) ? ' wpcpm-administrator__item--overdue' : '' );
+		// One sentence with the school's name in it, so a translator can put the name where the language wants it.
+		$title = sprintf(
+			/* translators: %s: the institution's name, as a link to its page. */
+			esc_html__( '%s asks to correct its details', 'wpcredits-program-manager' ),
+			self::institution_link( $facts['institution'] )
+		);
+
+		printf( '<h4 class="wpcpm-administrator__item-title" id="%1$s">%2$s</h4>', esc_attr( $heading ), $title ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href, and the sentence around it is escaped; escaping it again would print its own markup.
+		echo '<p class="wpcpm-administrator__facts">';
+		printf(
+			'<span class="wpcpm-administrator__fact">%s</span>',
+			esc_html(
+				sprintf(
+					/* translators: 1: the name of the person who asked, or "a member of the institution" when their account is gone, 2: the day they asked. */
+					__( 'Asked by %1$s on %2$s', 'wpcredits-program-manager' ),
+					$asker,
+					WPCPM_Dates::day( (int) $facts['at'] )
+				)
+			)
+		);
+		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( /* translators: %s: how long ago. */ __( 'Opened %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $facts['at'], time() ) ) ) );
+
+		if ( ! empty( $facts['overdue'] ) ) {
+			printf( '<span class="wpcpm-administrator__fact wpcpm-administrator__fact--overdue">%s</span>', esc_html__( 'Overdue', 'wpcredits-program-manager' ) );
+		}
+
+		echo '</p>';
+
+		if ( empty( $changes ) ) {
+			self::empty_line( __( 'This request holds no change to approve.', 'wpcredits-program-manager' ) );
+		} else {
+			self::scroll_open( array( self::title_id( 'requests' ), $heading ) );
+			echo '<table class="wpcpm-admin-table wpcpm-request__changes"><thead><tr>';
+			printf( '<th scope="col">%s</th>', esc_html__( 'Detail', 'wpcredits-program-manager' ) );
+			printf( '<th scope="col">%s</th>', esc_html__( 'On record now', 'wpcredits-program-manager' ) );
+			printf( '<th scope="col">%s</th>', esc_html__( 'Asked for', 'wpcredits-program-manager' ) );
+			echo '</tr></thead><tbody>';
+
+			foreach ( $changes as $change ) {
+				printf(
+					'<tr><th scope="row">%1$s</th><td>%2$s</td><td><strong>%3$s</strong></td></tr>',
+					esc_html( (string) $change['label'] ),
+					esc_html( (string) $change['now'] ),
+					esc_html( (string) $change['asked'] )
+				);
+			}
+
+			echo '</tbody></table></div>';
+		}
+
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			printf(
+				'<form class="wpcpm-request__decide" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Saving', 'wpcredits-program-manager' )
+			);
+			wp_nonce_field( WPCPM_Institution_Request::ACTION_DETAILS_DECIDE . '_' . $id );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Request::ACTION_DETAILS_DECIDE ) );
+			printf( '<input type="hidden" name="request" value="%d" />', (int) $id );
+			WPCPM_Return::field( WPCPM_Return::DASHBOARD, 'requests' );
+
+			// A decision refused for its note comes back with the note as it was typed, in this
+			// request's box only.
+			$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Request::TYPED_NOTE, $id ), 'note' );
+
+			printf(
+				'<p><label for="wpcpm-request-note-%1$d">%2$s</label><br /><textarea id="wpcpm-request-note-%1$d" name="wpcpm_request_note" rows="3" maxlength="%3$d">%4$s</textarea></p>',
+				(int) $id,
+				esc_html__( 'A note for the school (required to decline)', 'wpcredits-program-manager' ),
+				(int) WPCPM_Institution_Request::MAX_NOTE,
+				// The parser drops one line feed right after the opening tag, so a kept note that begins
+				// with a line break keeps it.
+				null === $kept ? '' : "\n" . esc_textarea( $kept )
+			);
+			printf(
+				'<p><button type="submit" class="button button-primary" name="decision" value="approve">%1$s</button> <button type="submit" class="button" name="decision" value="decline">%2$s</button></p>',
+				esc_html__( 'Approve and update the records', 'wpcredits-program-manager' ),
+				esc_html__( 'Decline', 'wpcredits-program-manager' )
+			);
+			echo '</form>';
+		}
+
+		echo '</article>';
 	}
 
 	/**

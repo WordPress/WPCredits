@@ -25,6 +25,18 @@
  *   a plain sentence (it is returned), empty (`student_linked` stores none), or built around a
  *   slug, an ID or a key (the words for the kind take its place). An agreement's revoke row reads
  *   its sentence and then "Note: " and the note it was revoked with.
+ * - **Today's words, whatever the date of the row (Institutions release 2).**
+ *   - A member row (`member_added`, `member_removed`) is built from its facts and not read from its
+ *     stored message: the account's display name now ("A former member" when the account is gone),
+ *     then the way it joined or left in the People card's words (`WPCPM_Institution_People::how_label()`
+ *     and `reason_label()`). A stored "(provisioned)" never shows.
+ *   - A stored message that says "program manager" is not read as it is: the words for the kind are.
+ *   - A closed request (`request_resolved`) reads its state, and for a withdrawal the ground it was made
+ *     on, so it keeps its outcome when its note cannot be shown. The raise of a details request, and the
+ *     details saved, have words of their own.
+ *   - The kinds are checked both ways: every kind passed to `WPCPM_Institution_Audit::record(` in
+ *     `includes/`, found by reading the source, has words, and every kind listed here is written
+ *     (but the two the retired notes wrote, whose words stay for the rows an older site holds).
  * - **Every string is escaped at output.**
  *
  * The stand-ins below model enough of WordPress for the audit log and the institution record, which
@@ -116,7 +128,7 @@ class WPCPM_Institution_Application {
 }
 
 function __( $text, $domain = null ) {
-	return $text;
+	return isset( $GLOBALS['translations'][ $text ] ) ? $GLOBALS['translations'][ $text ] : $text;
 }
 
 function esc_html( $text ) {
@@ -266,6 +278,14 @@ function get_posts( array $args ) {
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php';
+// The classes whose words and constants a row is read with: the People card's words for how a member
+// joined or left, the members' ways and reasons, and the request's kinds and states.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-members.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-people.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-request.php';
+// The client, for the one check of a record ID's shape the institution's record makes (Institutions
+// release 2).
+require_once __DIR__ . '/../includes/class-wpcpm-airtable.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-record.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-history.php';
 
@@ -291,16 +311,17 @@ function ck( $label, $actual, $expected ) {
  * @param string $message     The stored message.
  * @param int    $actor       The user, 0 for the system.
  * @param array  $data        The row's facts.
+ * @param string $ground      The ground the row is written under.
  * @return int The row's post ID.
  */
-function audit_row( $institution, $kind, $message, $actor = 0, array $data = array() ) {
+function audit_row( $institution, $kind, $message, $actor = 0, array $data = array(), $ground = WPCPM_Institution_Audit::GROUND_MANAGER ) {
 	$row = WPCPM_Institution_Audit::record(
 		array(
 			'kind'        => $kind,
 			'institution' => $institution,
 			'subject'     => '5',
 			'actor'       => $actor,
-			'ground'      => WPCPM_Institution_Audit::GROUND_MANAGER,
+			'ground'      => $ground,
 			'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
 			'message'     => $message,
 			'data'        => $data,
@@ -367,7 +388,7 @@ WPCPM_Institution_Record::fill_empty(
 		'not_a_question'    => 'Never shown',
 	)
 );
-audit_row( $krakow, 'member_added', 'Test Member was added as a member (approved).', 7 );
+audit_row( $krakow, 'member_added', 'Test Member was added as a member (approved).', 7, array( 'user' => 7, 'how' => 'approved', 'invite' => 0, 'readded' => false ) );
 audit_row( $krakow, 'student_linked', '', 0 );
 audit_row( $krakow, 'invite_accepted', 'The invitation to invitee@example.test was accepted.', 99 );
 
@@ -437,7 +458,7 @@ echo "\n=== History ===\n";
 
 $rows = history_rows( $html );
 ck( 'one row per entry', count( $rows ), 3 );
-ck( 'newest first', array( false !== strpos( $rows[0], 'The invitation to invitee@example.test was accepted.' ), false !== strpos( $rows[1], 'A student was linked' ), false !== strpos( $rows[2], 'Test Member was added as a member (approved).' ) ), array( true, true, true ) );
+ck( 'newest first, a member row in the People card\'s words and not its stored ones', array( false !== strpos( $rows[0], 'The invitation to invitee@example.test was accepted.' ), false !== strpos( $rows[1], 'A student was linked' ), false !== strpos( $rows[2], 'Test Member was added as a member. Added when the application was approved.' ), false !== strpos( $rows[2], '(approved)' ) ), array( true, true, true, false ) );
 
 $entries = WPCPM_Institution_Audit::entries_for( $krakow, 10 );
 ck( 'each row holds the moment in the site\'s formats', array( false !== strpos( $rows[0], esc_html( WPCPM_Dates::moment( $entries[0]['time'] ) ) ), false !== strpos( $rows[2], esc_html( WPCPM_Dates::moment( $entries[2]['time'] ) ) ) ), array( true, true ) );
@@ -459,7 +480,7 @@ ck( 'a name is escaped, and a user with no display name is known by their login'
 echo "\n=== The latest 100 ===\n";
 
 for ( $n = 1; $n <= 101; $n++ ) {
-	audit_row( $crowded, 'member_added', sprintf( 'Entry %03d.', $n ), 7 );
+	audit_row( $crowded, 'invite_sent', sprintf( 'Entry %03d.', $n ), 7 );
 }
 
 $page = WPCPM_Institution_History::render( $crowded );
@@ -469,7 +490,7 @@ ck( 'and the line says there were more, once, after the list', array( substr_cou
 ck( 'in the card\'s own paragraph', false !== strpos( $page, '<p class="wpcpm-institution__empty wpcpm-admin-history__limit">Showing the latest 100.</p>' ), true );
 
 for ( $n = 1; $n <= 100; $n++ ) {
-	audit_row( $full, 'member_added', sprintf( 'Entry %03d.', $n ), 7 );
+	audit_row( $full, 'invite_sent', sprintf( 'Entry %03d.', $n ), 7 );
 }
 
 $page = WPCPM_Institution_History::render( $full );
@@ -477,7 +498,7 @@ ck( 'exactly a hundred entries draw a hundred rows and no line', array( count( h
 
 echo "\n=== A sponsor's rows are not an institution's ===\n";
 
-audit_row( $sponsored, 'member_added', 'Institution member row.', 7 );
+audit_row( $sponsored, 'member_added', 'Institution member row.', 7, array( 'user' => 7, 'how' => 'manager' ) );
 foreach ( array( 'member_added', 'application_approved', 'provisioned' ) as $kind ) {
 	WPCPM_Institution_Audit::record_sponsor(
 		array(
@@ -505,14 +526,15 @@ WPCPM_Institution_Audit::record_program(
 $shown = WPCPM_Institution_History::render( $sponsored );
 ck(
 	'a sponsor row with the same kind, under the very same key, is not in the institution\'s history; nor is the program\'s',
-	array( count( history_rows( $shown ) ), false !== strpos( $shown, 'Institution member row.' ), false !== strpos( $shown, 'SPONSOR ROW' ), false !== strpos( $shown, 'PROGRAM ROW' ) ),
+	array( count( history_rows( $shown ) ), false !== strpos( $shown, 'Test Member was added as a member. Added by an Administrator.' ), false !== strpos( $shown, 'SPONSOR ROW' ), false !== strpos( $shown, 'PROGRAM ROW' ) ),
 	array( 1, true, false, false )
 );
 
 echo "\n=== Plain sentences ===\n";
 
-// The thirty kinds the plugin writes about an institution, and where each is declared. The
-// source is read below, so a kind renamed there fails here rather than reaching a row unworded.
+// The thirty-one kinds the plugin has written about an institution (the two the retired notes wrote
+// among them), and where each is declared. The source is read below, so a kind renamed there fails here
+// rather than reaching a row unworded.
 $kinds = array(
 	'member_added',
 	'member_removed',
@@ -544,22 +566,27 @@ $kinds = array(
 	'student_withdrawn',
 	'student_linked',
 	'student-invite-resent',
+	'details_saved',
 );
 
-ck( 'thirty kinds, each once', array( count( $kinds ), count( array_unique( $kinds ) ) ), array( 30, 30 ) );
+ck( 'thirty-one kinds, each once', array( count( $kinds ), count( array_unique( $kinds ) ) ), array( 31, 31 ) );
 
 $declared = '';
 foreach ( array_merge( glob( __DIR__ . '/../includes/modules/class-wpcpm-institution-*.php' ), array( __DIR__ . '/../includes/modules/class-wpcpm-institutions.php', __DIR__ . '/../includes/modules/class-wpcpm-agreement-generate.php' ) ) as $file ) {
 	$declared .= (string) file_get_contents( $file );
 }
 
+// The two kinds the institution's notes wrote (retired in Institutions release 2, with the class that
+// declared them): nothing writes them now, and a row an older site holds is still worded below.
+$retired = array( 'note_added', 'note_deleted' );
+
 $undeclared = array();
-foreach ( $kinds as $kind ) {
+foreach ( array_diff( $kinds, $retired ) as $kind ) {
 	if ( 1 !== preg_match( '/const\s+\w+\s*=\s*\'' . preg_quote( $kind, '/' ) . '\'\s*;/', $declared ) ) {
 		$undeclared[] = $kind;
 	}
 }
-ck( 'every kind is a constant the plugin declares', $undeclared, array() );
+ck( 'every kind but the two retired ones is a constant the plugin declares', $undeclared, array() );
 
 // What each writer stores, as it stores it (translated at write time, so in English here).
 $stored = array(
@@ -595,9 +622,10 @@ $stored = array(
 	'student_withdrawn'     => 'Status: In Sensei to Withdrawn.',
 	'student_linked'        => '',
 	'student-invite-resent' => 'Welcome invitation sent from the Institution Dashboard.',
+	'details_saved'         => 'Details were corrected: Website, City.',
 );
 
-ck( 'the stored messages above cover the same thirty kinds', array_keys( $stored ), $kinds );
+ck( 'the stored messages above cover the same thirty-one kinds', array_keys( $stored ), $kinds );
 
 // What may never show: a record ID, a kind slug, or a meta key. The slug is matched as a word, so
 // "extend" does not count against "extended".
@@ -630,7 +658,13 @@ $worded   = array();
 $returned = array();
 // The facts a writer stores beside its message, for the kind whose sentence is built from them.
 $stored_data = array(
-	'import_stopped' => array( 'batch' => 7, 'reason' => 'not-allowed', 'created' => 3 ),
+	'import_stopped'   => array( 'batch' => 7, 'reason' => 'not-allowed', 'created' => 3 ),
+	// The facts the writers store beside these messages: the member rows and the closed request are read
+	// from them and not from the message, and the raise of a mentor request is still its message.
+	'member_added'     => array( 'user' => 7, 'how' => 'approved', 'invite' => 0, 'readded' => false ),
+	'member_removed'   => array( 'user' => 7, 'reason' => 'removed' ),
+	'request_raised'   => array( 'request' => 5, 'kind' => 'mentor' ),
+	'request_resolved' => array( 'request' => 5, 'kind' => 'mentor', 'state' => 'done' ),
 );
 
 foreach ( $kinds as $kind ) {
@@ -662,11 +696,11 @@ foreach ( $kinds as $kind ) {
 		}
 	}
 }
-ck( 'for all thirty kinds, a stored message, an empty one or a leaking one gives a sentence with no ID, slug or key', $problems, array() );
-ck( 'each kind has words of its own', array( count( $worded ), count( array_unique( $worded ) ) ), array( 30, 30 ) );
+ck( 'for all thirty-one kinds, a stored message, an empty one or a leaking one gives a sentence with no ID, slug or key', $problems, array() );
+ck( 'each kind has words of its own', array( count( $worded ), count( array_unique( $worded ) ) ), array( 31, 31 ) );
 ck( 'and a sentence ends with a full stop', array_values( array_filter( $worded, static function ( $sentence ) { return '.' !== substr( $sentence, -1 ); } ) ), array() );
 
-$plain = array_diff( $kinds, array( 'import_stopped', 'student_linked', 'request_resolved', 'agreement_revoke' ) );
+$plain = array_diff( $kinds, array( 'import_stopped', 'student_linked', 'request_resolved', 'agreement_revoke', 'member_added', 'member_removed' ) );
 $kept  = array();
 foreach ( $plain as $kind ) {
 	if ( $returned[ $kind ] !== $stored[ $kind ] ) {
@@ -676,7 +710,8 @@ foreach ( $plain as $kind ) {
 ck( 'a stored message that is a plain sentence is the one returned', $kept, array() );
 ck( 'the stopped import never reads its stored message, which names a slug and says "1 students"', array( $returned['import_stopped'] === $stored['import_stopped'], false !== strpos( $returned['import_stopped'], 'not-allowed' ) ), array( false, false ) );
 ck( 'the linked student, whose message is empty, gets words', $returned['student_linked'], $worded['student_linked'] );
-ck( 'a request closed with a note keeps its lines run into one', $returned['request_resolved'], 'An Administrator closed this request as handled. The mentor was found.' );
+ck( 'a request closed with a note reads its state, and keeps the note run into one line', $returned['request_resolved'], 'An Administrator closed a request as handled. The mentor was found.' );
+ck( 'the member rows read the facts and not their stored messages, which name the code', array( $returned['member_added'], $returned['member_removed'] ), array( 'Test Member was added as a member. Added when the application was approved.', 'Test Member is no longer a member. Their access was removed.' ) );
 
 ck( 'a kind the map does not know, with a plain message, reads as that message', WPCPM_Institution_History::sentence( array( 'kind' => 'some_future_kind', 'message' => 'Something happened to this institution.' ) ), 'Something happened to this institution.' );
 $unknown = WPCPM_Institution_History::sentence( array( 'kind' => 'some_future_kind', 'message' => '' ) );
@@ -735,6 +770,462 @@ ck( 'no other kind reads a note', WPCPM_Institution_History::sentence( array( 'k
 audit_row( $revoked, 'agreement_revoke', $stored['agreement_revoke'], 7, array( 'kind' => 'own', 'members' => 2, 'note' => 'It ended <b>early</b> & for good.' ) );
 $revoked_rows = history_rows( WPCPM_Institution_History::render( $revoked ) );
 ck( 'the row draws the note, escaped at output', array( count( $revoked_rows ), false !== strpos( $revoked_rows[0], 'account closed. Note: It ended early &amp; for good.' ) ), array( 1, true ) );
+
+echo "\n=== Member rows are built from their facts ===\n";
+
+// `member_added` and `member_removed` store the account's name as it was and the way it joined or left as a
+// slug in brackets, "(provisioned)". The row reads the account's name now, and the way in the People card's
+// words (`WPCPM_Institution_People::how_label()` and `reason_label()`), from the facts the writer stores
+// beside the message: `user`, `how` and `reason`.
+$GLOBALS['users'][10] = new WP_User( 10, 'Renamed Member', 'oldlogin' );
+$member_row           = static function ( $kind, array $data, $message = '' ) {
+	return WPCPM_Institution_History::sentence( array( 'kind' => $kind, 'message' => $message, 'data' => $data ) );
+};
+
+// The words for a kind alone, as a row that holds none of the facts it is read from gets them.
+$bare = static function ( $kind ) {
+	return WPCPM_Institution_History::sentence( array( 'kind' => $kind, 'message' => '' ) );
+};
+
+$hows = array(
+	'provisioned' => 'Added by the institutions sync',
+	'approved'    => 'Added when the application was approved',
+	'manager'     => 'Added by an Administrator',
+	'invited'     => 'Joined by invitation',
+	'legacy'      => 'Added before memberships were recorded',
+	'something'   => 'How this access was given was not recorded',
+	''            => 'How this access was given was not recorded',
+);
+foreach ( $hows as $how => $words ) {
+	ck(
+		'a member added ' . ( '' === $how ? 'with no way recorded' : 'as ' . $how ) . ' reads "<name> was added as a member. <how words>."',
+		array( $member_row( 'member_added', array( 'user' => 10, 'how' => $how ), 'Old Name was added as a member (' . $how . ').' ), WPCPM_Institution_People::how_label( $how ) ),
+		array( 'Renamed Member was added as a member. ' . $words . '.', $words )
+	);
+}
+
+$reasons = array(
+	'removed'   => 'Their access was removed',
+	'left'      => 'They removed their own access',
+	'revoked'   => 'Ended by the institutions sync',
+	'something' => 'Why this access ended was not recorded',
+	''          => 'Why this access ended was not recorded',
+);
+foreach ( $reasons as $reason => $words ) {
+	ck(
+		'a member removed ' . ( '' === $reason ? 'with no reason recorded' : 'for ' . $reason ) . ' reads "<name> is no longer a member. <reason words>."',
+		array( $member_row( 'member_removed', array( 'user' => 10, 'reason' => $reason ), 'Old Name is no longer a member (' . $reason . ').' ), WPCPM_Institution_People::reason_label( $reason ) ),
+		array( 'Renamed Member is no longer a member. ' . $words . '.', $words )
+	);
+}
+
+$provisioned = $member_row( 'member_added', array( 'user' => 7, 'how' => 'provisioned' ), 'Test Member was added as a member (provisioned).' );
+ck( 'a stored "(provisioned)" never shows, nor its slug', array( $provisioned, false !== strpos( $provisioned, '(' ), false !== stripos( $provisioned, 'provisioned' ) ), array( 'Test Member was added as a member. Added by the institutions sync.', false, false ) );
+ck( 'the name is the account\'s now, and not the one the message stored', false !== strpos( $member_row( 'member_added', array( 'user' => 10, 'how' => 'manager' ), 'Old Name was added as a member (manager).' ), 'Old Name' ), false );
+ck(
+	'an account that is gone is "A former member", for a row of either kind',
+	array(
+		$member_row( 'member_added', array( 'user' => 4040, 'how' => 'manager' ), 'Gone Person was added as a member (manager).' ),
+		$member_row( 'member_removed', array( 'user' => 4040, 'reason' => 'left' ), 'Gone Person is no longer a member (left).' ),
+	),
+	array( 'A former member was added as a member. Added by an Administrator.', 'A former member is no longer a member. They removed their own access.' )
+);
+ck( 'an account with no display name is known by its login', $member_row( 'member_added', array( 'user' => 8, 'how' => 'invited' ) ), 'login-only was added as a member. Joined by invitation.' );
+ck(
+	'a row that holds no account (an older one) reads the words for the kind and not its message, which may still carry the code',
+	array(
+		$member_row( 'member_added', array(), 'Test Member was added as a member (provisioned).' ),
+		$member_row( 'member_removed', array( 'reason' => 'removed' ), 'Test Member is no longer a member (removed).' ),
+		$member_row( 'member_added', array( 'user' => 0, 'how' => 'manager' ), 'Test Member was added as a member (manager).' ),
+	),
+	array( $bare( 'member_added' ), $bare( 'member_removed' ), $bare( 'member_added' ) )
+);
+ck( 'which are the plain words for the kinds', array( $bare( 'member_added' ), $bare( 'member_removed' ) ), array( 'A member was added to this institution.', 'A member was removed from this institution.' ) );
+
+audit_row( $escaping, 'member_added', 'Added.', 9, array( 'user' => 9, 'how' => 'invited' ) );
+$drawn = history_rows( WPCPM_Institution_History::render( $escaping ) );
+ck( 'a member row is drawn in the People card\'s words, the name escaped', array( false !== strpos( $drawn[0], '&lt;script&gt;alert(1)&lt;/script&gt;Bold was added as a member. Joined by invitation.' ), false !== strpos( $drawn[0], '<script>' ) ), array( true, false ) );
+
+echo "\n=== A message in the old words is read through the words for its kind ===\n";
+
+// Agreement rows written before the rename say "program manager". A stored message that says so is not
+// read as it is, whatever its case or number, and the words for the kind take its place.
+foreach ( array(
+	'agreement_accept'  => 'A signed Collaboration Agreement was accepted by a program manager.',
+	'agreement_return'  => 'A Program Manager returned the signed Collaboration Agreement with a note.',
+	'agreement_upload'  => 'A signed Collaboration Agreement was uploaded and is waiting for the program managers to read it.',
+	'agreement_on_file' => 'The program manager recorded a Collaboration Agreement as on file.',
+) as $kind => $old ) {
+	ck( $kind . ': an old message reads as the words for the kind', WPCPM_Institution_History::sentence( array( 'kind' => $kind, 'message' => $old ) ), $worded[ $kind ] );
+}
+ck( 'and the words for a kind do not themselves say it', array_values( array_filter( $worded, static function ( $sentence ) { return false !== stripos( $sentence, 'program manager' ); } ) ), array() );
+ck( 'a message in today\'s words is returned as it is', WPCPM_Institution_History::sentence( array( 'kind' => 'agreement_accept', 'message' => 'A signed Collaboration Agreement was accepted by an Administrator.' ) ), 'A signed Collaboration Agreement was accepted by an Administrator.' );
+ck(
+	'a revoke row in the old words keeps its note after the words for the kind',
+	WPCPM_Institution_History::sentence( array( 'kind' => 'agreement_revoke', 'message' => 'A program manager revoked the agreement.', 'data' => array( 'note' => 'It ended.' ) ) ),
+	$worded['agreement_revoke'] . ' Note: It ended.'
+);
+
+echo "\n=== A closed request reads its state ===\n";
+
+$state_row = static function ( $state, $kind, $ground, $message = '' ) {
+	return WPCPM_Institution_History::sentence(
+		array(
+			'kind'    => 'request_resolved',
+			'ground'  => $ground,
+			'message' => $message,
+			'data'    => array( 'request' => 5, 'kind' => $kind, 'state' => $state ),
+		)
+	);
+};
+$done      = WPCPM_Institution_Request::STATE_DONE;
+$declined  = WPCPM_Institution_Request::STATE_DECLINED;
+$withdrawn = WPCPM_Institution_Request::STATE_WITHDRAWN;
+$details   = WPCPM_Institution_Request::KIND_DETAILS;
+$mentor    = WPCPM_Institution_Request::KIND_MENTOR;
+
+ck(
+	'closed as handled, declined, approved (a details request) and withdrawn by the school, each in its own sentence',
+	array(
+		$state_row( $done, $mentor, 'manager' ),
+		$state_row( $declined, $mentor, 'manager' ),
+		$state_row( $done, $details, 'manager' ),
+		$state_row( $declined, $details, 'manager' ),
+		$state_row( $withdrawn, $details, 'member' ),
+	),
+	array(
+		'An Administrator closed a request as handled.',
+		'An Administrator declined a request.',
+		'An Administrator approved a change to the institution\'s details.',
+		'An Administrator declined a request.',
+		'The institution withdrew a request.',
+	)
+);
+ck(
+	'a withdrawal reads by who withdrew it: an Administrator on the manager ground, the institution on any other, an older row with no ground among them',
+	array(
+		$state_row( $withdrawn, $details, WPCPM_Institution_Audit::GROUND_MANAGER ),
+		$state_row( $withdrawn, $details, WPCPM_Institution_Audit::GROUND_MEMBER ),
+		$state_row( $withdrawn, $details, WPCPM_Institution_Audit::GROUND_SYSTEM ),
+		$state_row( $withdrawn, $details, '' ),
+		WPCPM_Institution_History::sentence( array( 'kind' => 'request_resolved', 'data' => array( 'kind' => $details, 'state' => $withdrawn ) ) ),
+	),
+	array(
+		'An Administrator withdrew a request.',
+		'The institution withdrew a request.',
+		'The institution withdrew a request.',
+		'The institution withdrew a request.',
+		'The institution withdrew a request.',
+	)
+);
+ck(
+	'the stored first line is not what is read, so a row written in the old words reads in today\'s',
+	array(
+		$state_row( $done, $mentor, 'manager', "A program manager closed this request as handled.\nThe mentor was found." ),
+		$state_row( $declined, $details, 'manager', 'A program manager declined this request.' ),
+	),
+	array( 'An Administrator closed a request as handled. The mentor was found.', 'An Administrator declined a request.' )
+);
+ck(
+	'the Administrator\'s note follows on the same line when it can be shown',
+	$state_row( $declined, $details, 'manager', "An Administrator declined this request.\nPlease give the legal name as it is on your website,\nnot the short one." ),
+	'An Administrator declined a request. Please give the legal name as it is on your website, not the short one.'
+);
+ck(
+	'and when it cannot (it holds a record ID, a meta key or a pipe) the outcome is kept without it',
+	array(
+		$state_row( $declined, $details, 'manager', "An Administrator declined this request.\nSee recABCDEFGHIJKLMN." ),
+		$state_row( $declined, $details, 'manager', "An Administrator declined this request.\nThe _wpcpm_req_note was wrong." ),
+		$state_row( $done, $mentor, 'manager', "An Administrator closed this request as handled.\nName|Value" ),
+		$state_row( $withdrawn, $details, 'member', "The institution withdrew this request.\nrecABCDEFGHIJKLMN" ),
+	),
+	array(
+		'An Administrator declined a request.',
+		'An Administrator declined a request.',
+		'An Administrator closed a request as handled.',
+		'The institution withdrew a request.',
+	)
+);
+// The outcome and the note are joined by a translatable format and not by a space of ours, so a language that
+// orders them the other way, or joins them with something else, can say so.
+$GLOBALS['translations'] = array( '%1$s %2$s' => '%2$s <- %1$s' );
+$moved                   = $state_row( $declined, $details, 'manager', "An Administrator declined this request.\nPlease give the legal name." );
+$GLOBALS['translations'] = array();
+ck( 'the note is joined to the outcome by a format a translator can reorder', $moved, 'Please give the legal name. <- An Administrator declined a request.' );
+ck( 'an Administrator\'s own words for the note are theirs, whatever they say', $state_row( $declined, $details, 'manager', "An Administrator declined this request.\nAsk the program manager of your country." ), 'An Administrator declined a request. Ask the program manager of your country.' );
+ck(
+	'a row with no state it knows is read as before: its message when that is plain, the words for the kind when it is not',
+	array(
+		WPCPM_Institution_History::sentence( array( 'kind' => 'request_resolved', 'message' => "An Administrator closed this request as handled.\nThe mentor was found." ) ),
+		WPCPM_Institution_History::sentence( array( 'kind' => 'request_resolved', 'message' => 'A program manager closed this request as handled.' ) ),
+		WPCPM_Institution_History::sentence( array( 'kind' => 'request_resolved', 'message' => '', 'data' => array( 'state' => 'mystery' ) ) ),
+	),
+	array( 'An Administrator closed this request as handled. The mentor was found.', $bare( 'request_resolved' ), $bare( 'request_resolved' ) )
+);
+
+audit_row( $revoked, 'request_resolved', "An Administrator declined this request.\nSee recABCDEFGHIJKLMN.", 7, array( 'request' => 5, 'kind' => $details, 'state' => $declined ) );
+audit_row( $revoked, 'request_resolved', 'The institution withdrew this request.', 7, array( 'request' => 6, 'kind' => $details, 'state' => $withdrawn ), WPCPM_Institution_Audit::GROUND_MANAGER );
+$drawn = history_rows( WPCPM_Institution_History::render( $revoked ) );
+ck(
+	'the History card draws them, newest first, by state and by ground, with no record ID',
+	array( count( $drawn ), false !== strpos( $drawn[0], 'An Administrator withdrew a request.' ), false !== strpos( $drawn[1], 'An Administrator declined a request.</span>' ), false !== strpos( implode( '', $drawn ), 'recABC' ) ),
+	array( 3, true, true, false )
+);
+
+echo "\n=== The kinds a details correction adds ===\n";
+
+ck( 'details saved reads "The institution\'s details were corrected." when its row holds no sentence', WPCPM_Institution_History::sentence( array( 'kind' => 'details_saved', 'message' => '' ) ), 'The institution\'s details were corrected.' );
+ck( 'and the sentence its writer stores, which names the details, when it does', WPCPM_Institution_History::sentence( array( 'kind' => 'details_saved', 'message' => $stored['details_saved'] ) ), 'Details were corrected: Website, City.' );
+$raised = static function ( $kind, $message ) {
+	return WPCPM_Institution_History::sentence( array( 'kind' => 'request_raised', 'message' => $message, 'data' => array( 'request' => 5, 'kind' => $kind ) ) );
+};
+ck(
+	'the raise of a details request reads "The institution asked to correct its details.", whatever its stored message says',
+	array(
+		$raised( $details, 'A change to its details. Raised by the institution and waiting for an Administrator.' ),
+		$raised( $details, '' ),
+		$raised( $details, 'A change to its details: recABCDEFGHIJKLMN at _wpcpm_req_kind.' ),
+	),
+	array( 'The institution asked to correct its details.', 'The institution asked to correct its details.', 'The institution asked to correct its details.' )
+);
+ck(
+	'the raise of another kind is read as it was: its message when plain, the words for the kind when not',
+	array( $raised( $mentor, 'A mentor is wanted. Raised by the institution and waiting for an Administrator.' ), $raised( $mentor, '' ), $raised( $mentor, 'See recABCDEFGHIJKLMN.' ) ),
+	array( 'A mentor is wanted. Raised by the institution and waiting for an Administrator.', $worded['request_raised'], $worded['request_raised'] )
+);
+
+echo "\n=== The kinds, both ways ===\n";
+
+/** Every PHP file under a directory. */
+function php_files_under( $dir ) {
+	$found = array();
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ) ) as $file ) {
+		if ( 'php' === $file->getExtension() ) {
+			$found[] = $file->getPathname();
+		}
+	}
+	sort( $found );
+	return $found;
+}
+
+/**
+ * Source without its comments, so a docblock that names `WPCPM_Institution_Audit::record(` is not read as a call.
+ *
+ * @param string $code PHP source, with its opening tag.
+ * @return string
+ */
+function code_without_comments( $code ) {
+	$out = '';
+	foreach ( token_get_all( $code ) as $token ) {
+		if ( is_array( $token ) ) {
+			if ( ! in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+				$out .= $token[1];
+			}
+		} else {
+			$out .= $token;
+		}
+	}
+	return $out;
+}
+
+/**
+ * The kinds the plugin passes to `WPCPM_Institution_Audit::record(`, found by reading the source, and the calls
+ * it could not read.
+ *
+ * Every call is read, whatever follows `record(`. A call's kind is a quoted literal (`'some_kind'`), a constant of
+ * its own class (`self::LOG_RAISED`) or of another (`WPCPM_Institution_Audit::KIND_MEMBER_ADDED`, read from
+ * that class's file in the sources). Anything else is a call the scan cannot read: an array held in a variable,
+ * a kind held in one, a lookup, a constant it cannot find, no kind at all. That is a failure and not a skip,
+ * unless the file is in `$allowed`, with the constants its kind can take (and the reason), which are then read as
+ * written, so long as the file uses each of them; a listed constant nothing uses, and a listed file that has no
+ * such call, fail as well.
+ *
+ * @param array $source  Base name of a file => its PHP source.
+ * @param array $allowed Base name => `reason` and `constants` (the constant names a computed kind takes there).
+ * @return array `kinds` (sorted, each once), `calls` (how many calls were found) and `unresolved` (each a
+ *               "file: why" line; empty when every call was read).
+ */
+function written_kinds( array $source, array $allowed ) {
+	$kinds      = array();
+	$unresolved = array();
+	$calls      = 0;
+	$consts     = array();
+	$clean      = array();
+
+	foreach ( $source as $name => $code ) {
+		$clean[ $name ] = code_without_comments( $code );
+		preg_match_all( '/const\s+([A-Z][A-Z0-9_]*)\s*=\s*\'([^\']*)\'\s*;/', $clean[ $name ], $found, PREG_SET_ORDER );
+		foreach ( $found as $c ) {
+			$consts[ $name ][ $c[1] ] = $c[2];
+		}
+	}
+
+	$computed = array();
+
+	foreach ( $clean as $name => $code ) {
+		if ( ! preg_match_all( '/WPCPM_Institution_Audit::record\(/', $code, $found, PREG_OFFSET_CAPTURE ) ) {
+			continue;
+		}
+
+		foreach ( $found[0] as $call ) {
+			++$calls;
+			$head = substr( $code, $call[1] + strlen( $call[0] ), 600 );
+			$why  = '';
+
+			if ( ! preg_match( '/^\s*array\(/', $head ) ) {
+				$why = 'the argument is not an inline array, so its kind cannot be read';
+			} elseif ( ! preg_match( '/\'kind\'\s*=>\s*([^\n]+?),\s*\n/', $head, $k ) ) {
+				$why = 'no kind line was found in the array';
+			} elseif ( preg_match( '/^\'([^\']+)\'$/', trim( $k[1] ), $literal ) ) {
+				$kinds[ $literal[1] ] = true;
+			} elseif ( preg_match( '/^([A-Za-z_]+)::([A-Z][A-Z0-9_]*)$/', trim( $k[1] ), $ref ) ) {
+				$file  = 'self' === $ref[1] ? $name : 'class-' . strtolower( str_replace( '_', '-', $ref[1] ) ) . '.php';
+				$value = isset( $consts[ $file ][ $ref[2] ] ) ? $consts[ $file ][ $ref[2] ] : null;
+				if ( null === $value ) {
+					$why = 'the constant ' . trim( $k[1] ) . ' was not found';
+				} else {
+					$kinds[ $value ] = true;
+				}
+			} else {
+				$why = 'the kind (' . trim( $k[1] ) . ') is not a literal or a constant';
+			}
+
+			if ( '' === $why ) {
+				continue;
+			}
+
+			if ( isset( $allowed[ $name ] ) ) {
+				$computed[ $name ] = true;
+			} else {
+				$unresolved[] = $name . ': ' . $why;
+			}
+		}
+	}
+
+	foreach ( $allowed as $name => $site ) {
+		if ( empty( $computed[ $name ] ) ) {
+			$unresolved[] = $name . ': listed as computing a kind, but no call there needs it';
+			continue;
+		}
+
+		foreach ( $site['constants'] as $constant ) {
+			if ( ! isset( $consts[ $name ][ $constant ] ) ) {
+				$unresolved[] = $name . ': the listed constant ' . $constant . ' is not declared';
+			} elseif ( false === strpos( $clean[ $name ], 'self::' . $constant ) ) {
+				$unresolved[] = $name . ': the listed constant ' . $constant . ' is never used';
+			} else {
+				$kinds[ $consts[ $name ][ $constant ] ] = true;
+			}
+		}
+	}
+
+	$kinds = array_keys( $kinds );
+	sort( $kinds );
+
+	return array(
+		'kinds'      => $kinds,
+		'calls'      => $calls,
+		'unresolved' => $unresolved,
+	);
+}
+
+/** Every PHP file under a directory, as base name => source. */
+function source_map( $dir ) {
+	$map = array();
+	foreach ( php_files_under( $dir ) as $file ) {
+		$map[ basename( $file ) ] = (string) file_get_contents( $file );
+	}
+	return $map;
+}
+
+// The calls whose kind the scan cannot read off the call, each by file with the reason, and the constants the
+// kind can be there. A kind that is computed is a variable (or a lookup) filled from constants of its own
+// class; the scan takes those constants as written, and fails a constant that is declared and never used.
+// Any other call it cannot read is a failure, so a new one is looked at by whoever adds it.
+$computed_sites = array(
+	'class-wpcpm-institution-invite.php'       => array(
+		'reason'    => 'log() writes the row and each caller hands it a LOG_ constant',
+		'constants' => array( 'LOG_SENT', 'LOG_RESENT' ),
+	),
+	'class-wpcpm-institution-student-form.php' => array(
+		'reason'    => 'the kind is picked between two constants by what the correction changed',
+		'constants' => array( 'KIND_EDIT', 'KIND_EXTEND' ),
+	),
+	'class-wpcpm-institution-students.php'     => array(
+		'reason'    => 'the kind is looked up by the state written, in a map of constants',
+		'constants' => array( 'KIND_GRADUATED', 'KIND_WITHDRAWN' ),
+	),
+);
+
+// The scan against scratch sources, the way a mutation of the real tree would be read: each case is one file
+// of PHP (and the file next to it, where a constant of another class is read).
+$fixture = static function ( $code, array $allowed = array(), array $others = array() ) {
+	return written_kinds( array_merge( array( 'class-wpcpm-fixture.php' => '<?php ' . $code ), $others ), $allowed );
+};
+$call    = static function ( $kind_line, $head = 'WPCPM_Institution_Audit::record( array(' ) {
+	return "class WPCPM_Fixture {\n" . "\tconst LOG_NEVER = 'declared_never_passed';\n\tfunction f() {\n\t\t" . $head . "\n\t\t\t" . $kind_line . "\n\t\t\t'institution' => \$i,\n\t\t) );\n\t}\n}\n";
+};
+
+$r = $fixture( $call( "'kind'        => 'brand_new_kind'," ) );
+ck( 'the scan collects a kind written as a quoted literal, and not a constant that is declared and never passed', array( $r['kinds'], $r['calls'], $r['unresolved'] ), array( array( 'brand_new_kind' ), 1, array() ) );
+
+$r = $fixture( str_replace( 'function f()', "const LOG_OWN = 'own_kind';\n\tfunction f()", $call( "'kind'        => self::LOG_OWN," ) ), array(), array( 'class-other-class.php' => "<?php class Other_Class {\n\tconst KIND_THEIRS = 'their_kind';\n}\n" ) );
+ck( 'and a constant of its own class', array( $r['kinds'], $r['unresolved'] ), array( array( 'own_kind' ), array() ) );
+
+$r = $fixture( $call( "'kind'        => Other_Class::KIND_THEIRS," ), array(), array( 'class-other-class.php' => "<?php class Other_Class {\n\tconst KIND_THEIRS = 'their_kind';\n}\n" ) );
+ck( 'and a constant of another class, read from that class\'s file', array( $r['kinds'], $r['unresolved'] ), array( array( 'their_kind' ), array() ) );
+
+$unreadable = array(
+	'an array held in a variable'     => $call( '', 'WPCPM_Institution_Audit::record( $args );' ),
+	'a kind held in a variable'       => $call( "'kind'        => \$kind," ),
+	'a kind that is a lookup'         => $call( "'kind'        => isset( \$kinds[ \$state ] ) ? \$kinds[ \$state ] : ''," ),
+	'a constant of a class not there' => $call( "'kind'        => Missing_Class::KIND_NOPE," ),
+	'a constant that is not there'    => $call( "'kind'        => self::LOG_NOT_DECLARED," ),
+	'an array with no kind in it'     => $call( "'subject'     => '5'," ),
+);
+foreach ( $unreadable as $why => $code ) {
+	$r = $fixture( $code );
+	ck( 'a call the scan cannot read is a failure: ' . $why, array( $r['calls'], $r['kinds'], count( $r['unresolved'] ), 0 === strpos( (string) ( $r['unresolved'][0] ?? '' ), 'class-wpcpm-fixture.php: ' ) ), array( 1, array(), 1, true ) );
+}
+
+$r = $fixture( "// Passed to WPCPM_Institution_Audit::record( by every writer.\n/**\n * Calls WPCPM_Institution_Audit::record() once.\n */\nclass WPCPM_Fixture {\n\tfunction f() {\n\t\tWPCPM_Institution_Audit::record_sponsor( \$entry );\n\t\tWPCPM_Institution_Audit::record_program( \$entry );\n\t}\n}\n" );
+ck( 'a comment that names record( is not a call, and neither are record_sponsor( and record_program(', array( $r['calls'], $r['kinds'], $r['unresolved'] ), array( 0, array(), array() ) );
+
+$computed = "class WPCPM_Fixture {\n\tconst LOG_A = 'a_one';\n\tconst LOG_B = 'b_two';\n\tconst LOG_C = 'c_three';\n\tfunction f() {\n\t\tself::log( self::LOG_A );\n\t\tself::log( self::LOG_B );\n\t}\n\tfunction log( \$kind ) {\n\t\tWPCPM_Institution_Audit::record( array(\n\t\t\t'kind'        => \$kind,\n\t\t) );\n\t}\n}\n";
+$allowed  = array( 'class-wpcpm-fixture.php' => array( 'reason' => 'log() is handed a constant', 'constants' => array( 'LOG_A', 'LOG_B' ) ) );
+$r        = $fixture( $computed, $allowed );
+ck( 'a computed kind is read when the file is listed with the constants it takes, and no other constant of the file counts', array( $r['kinds'], $r['unresolved'] ), array( array( 'a_one', 'b_two' ), array() ) );
+$r = $fixture( str_replace( "\t\tself::log( self::LOG_B );\n", '', $computed ), $allowed );
+ck( 'but a listed constant that nothing uses fails, so a kind no longer written is not counted as written', array( count( $r['unresolved'] ), false !== strpos( (string) ( $r['unresolved'][0] ?? '' ), 'LOG_B' ) ), array( 1, true ) );
+$r = $fixture( $call( "'kind'        => 'plain_literal'," ), $allowed );
+ck( 'and a listed file that no longer computes a kind fails too, so the list does not outlive its reason', array( $r['kinds'], count( $r['unresolved'] ) ), array( array( 'plain_literal' ), 1 ) );
+$r = $fixture( $computed, array( 'class-wpcpm-gone.php' => array( 'reason' => 'x', 'constants' => array( 'LOG_A' ) ) ) );
+ck( 'and so does a listed file the tree does not have, beside the unlisted call it leaves unread', count( $r['unresolved'] ), 2 );
+
+$scan    = written_kinds( source_map( __DIR__ . '/../includes' ), $computed_sites );
+$written = $scan['kinds'];
+$listed  = array_values( array_diff( $kinds, $retired ) );
+sort( $listed );
+$generic = WPCPM_Institution_History::sentence( array( 'kind' => 'a_kind_nothing_writes', 'message' => '' ) );
+
+ck( 'every call to record( in includes/ is read: none is left whose kind cannot be told, and the calls are found', array( $scan['unresolved'], $scan['calls'] > 25 ), array( array(), true ) );
+ck( 'the source of includes/ passes 29 kinds to record(', count( $written ), 29 );
+ck( 'every kind it passes is in this suite\'s list, so a new one is a line here before it reaches a row', array_values( array_diff( $written, $listed ) ), array() );
+ck( 'and every kind in the list but the two retired ones is passed there, so a kind renamed or dropped fails here', array_values( array_diff( $listed, $written ) ), array() );
+ck(
+	'every kind it passes has words of its own, and not the sentence that names nothing',
+	array_values(
+		array_filter(
+			$written,
+			static function ( $kind ) use ( $generic, $stored_data ) {
+				$words = WPCPM_Institution_History::sentence( array( 'kind' => $kind, 'message' => '', 'data' => isset( $stored_data[ $kind ] ) ? $stored_data[ $kind ] : array() ) );
+				return $words === $generic;
+			}
+		)
+	),
+	array()
+);
+ck( 'the two retired kinds keep their words, for the rows an older site holds', array( $worded['note_added'] === $generic, $worded['note_deleted'] === $generic ), array( false, false ) );
 
 echo "\n=== Who ===\n";
 

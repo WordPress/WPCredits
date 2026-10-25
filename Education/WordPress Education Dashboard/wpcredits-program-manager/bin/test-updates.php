@@ -155,7 +155,7 @@ function get_term_by( $field, $value, $taxonomy = 'category' ) {
 }
 
 /**
- * Posts in a category, newest first, honouring `numberposts` and `post_status`.
+ * Posts in a category, newest first, honoring `numberposts` and `post_status`.
  *
  * Deliberately does **not** apply the access meta query. `WPCPM_Content_Access::filter_queries()`
  * would do that on a real site, and stubbing it in would hide whether `WPCPM_Updates` filters

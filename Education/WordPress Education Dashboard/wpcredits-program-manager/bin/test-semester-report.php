@@ -555,7 +555,7 @@ class WPCPM_Mentors_Sync {
 		);
 	}
 
-	/** The real one's behaviour: record IDs become names, everything else is passed through. */
+	/** The real one's behavior: record IDs become names, everything else is passed through. */
 	public static function resolve( $value, $type ) {
 		$value = trim( (string) $value );
 
@@ -617,7 +617,7 @@ class WPCPM_Settings {
 /**
  * Airtable, recording every read so the formulas can be inspected.
  *
- * `formula_in()` is the real one's behaviour rather than a marker, because two of the
+ * `formula_in()` is the real one's behavior rather than a marker, because two of the
  * assertions in this suite are about what the formula says: that it compares `LOWER({Email})`
  * against a lowercased address, and that it never contains the institution's name.
  */
@@ -2031,7 +2031,7 @@ ck( 'and still holds the quote the render dropped', count( $still['quotes'] ), 4
  * is Bruno's alone. A grouped count cannot have one person taken out of it, so the section has
  * to be rebuilt from whoever is left rather than read off the snapshot - and a report that
  * dropped her name from Student Projects while still counting her here would be a withdrawal
- * that had not been honoured.
+ * that had not been honored.
  */
 $drawn = array();
 

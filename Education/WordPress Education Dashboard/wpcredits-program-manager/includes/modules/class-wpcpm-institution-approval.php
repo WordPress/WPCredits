@@ -55,7 +55,7 @@ class WPCPM_Institution_Approval {
 	const LOCK_PREFIX = 'wpcpm_app_lock_';
 
 	/**
-	 * How long a lock is honoured, in seconds.
+	 * How long a lock is honored, in seconds.
 	 *
 	 * Short, unlike the agreement's five minutes: this holds across at most three API calls
 	 * on a screen a manager is watching, and a lock nobody released must not keep the one

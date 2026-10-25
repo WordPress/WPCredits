@@ -207,7 +207,7 @@ class WPCPM_Mail {
 	 * An applicant is an email address and nothing more: no user to look up, no profile
 	 * language to switch into. `send()` needs a `WP_User`, so mail to somebody who has not
 	 * been provisioned went straight to `wp_mail()` before this - past the filter, the log
-	 * and the subject sanitising - which made the one message sent to a stranger the one
+	 * and the subject sanitizing - which made the one message sent to a stranger the one
 	 * message nobody could trace.
 	 *
 	 * The language comes from the caller, because an applicant's form is the only place it
@@ -1146,7 +1146,7 @@ class WPCPM_Mail {
 	 *
 	 * Setting a query parameter to steer another plugin is not pretty. It is done this way because
 	 * `QUERY_PARAM_TO_SHORT_CIRCUIT` is the opt-out wpcomsh defines for the purpose, so it survives
-	 * them renaming or re-prioritising the callback - which `remove_action()` on their class name
+	 * them renaming or re-prioritizing the callback - which `remove_action()` on their class name
 	 * would not.
 	 *
 	 * Only the password screens are exempted. Detection exists to stop a support session acting on

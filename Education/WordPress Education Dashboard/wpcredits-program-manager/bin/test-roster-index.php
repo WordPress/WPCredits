@@ -41,9 +41,9 @@ function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 /**
  * Just enough `$wpdb` for the sweep's one query, with real LIKE semantics.
  *
- * `esc_like()` escapes `_` and `%`, and `get_col()` honours the escapes: an unescaped
+ * `esc_like()` escapes `_` and `%`, and `get_col()` honors the escapes: an unescaped
  * `wpcpm_roster_%` would also match `wpcpm-roster-…`, since `_` is a one-character
- * wildcard, and a sweep that deleted by an unescaped prefix would take a neighbour's
+ * wildcard, and a sweep that deleted by an unescaped prefix would take a neighbor's
  * option with it. The decoy below exists to catch exactly that.
  */
 class WPCPM_Fake_WPDB {
@@ -435,7 +435,7 @@ $GLOBALS['opts'] = array(
 	'wpcpm_roster_' . $inst_b               => array( 'v' => 1 ),
 	WPCPM_Roster_Index::OPT_UNLINKED     => array( 'v' => 1 ),
 	WPCPM_Roster_Index::OPT_COUNTS       => array( 'v' => 1 ),
-	// A neighbour an unescaped LIKE would match, since `_` matches any one character.
+	// A neighbor an unescaped LIKE would match, since `_` matches any one character.
 	'wpcpm-roster-' . $inst_a               => 'decoy',
 	'wpcpm_settings'                        => array( 'api_token' => 'keep' ),
 	'wpcpm_students_state'                  => array( 'phase' => 'reports' ),

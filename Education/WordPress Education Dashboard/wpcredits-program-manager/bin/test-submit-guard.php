@@ -612,7 +612,6 @@ $surfaces = array(
 	'includes/modules/class-wpcpm-group-sessions.php'                    => array( 'calendar' ),
 	'includes/modules/class-wpcpm-institution-import-form.php'           => array( 'institution-dashboard' ),
 	'includes/modules/class-wpcpm-institution-invite.php'                => array( 'institution-dashboard' ),
-	'includes/modules/class-wpcpm-institution-notes.php'                 => array(),
 	'includes/modules/class-wpcpm-institution-panel.php'                 => array( 'admin', 'administrator-dashboard', 'institution-dashboard' ),
 	'includes/modules/class-wpcpm-institution-people.php'                => array( 'admin', 'institution-dashboard' ),
 	'includes/modules/class-wpcpm-institution-students.php'              => array( 'institution-dashboard' ),

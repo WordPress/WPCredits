@@ -132,7 +132,7 @@ ck( 'nor is a trailing newline', WPCPM_Cohort::key( "2026-07-01\n" ), '2026-H2' 
 ck( 'but a second line after the date is', WPCPM_Cohort::key( "2026-07-01\n2026-07-02" ), $none );
 
 // The docblock's claim: read from the string, so the site's timezone cannot move a boundary
-// day into the neighbouring semester. A timestamp taken at local midnight east of UTC is
+// day into the neighboring semester. A timestamp taken at local midnight east of UTC is
 // still the previous UTC day, which is exactly the misfiling being ruled out.
 $zone_before = date_default_timezone_get();
 foreach ( array( 'Pacific/Kiritimati', 'America/Los_Angeles', 'Pacific/Pago_Pago' ) as $zone ) {

@@ -734,6 +734,14 @@ foreach ( $swept_options as $name ) {
 // writes it.
 $GLOBALS['opts']['wpcpm_mapp_lock_501'] = (string) ( time() + 600 );
 
+// The locks a details request is decided under, and a school's request is raised under (Institutions
+// release 2), which a request that dies holding one leaves behind: a row per request and a row per
+// school, the time each runs to.
+$GLOBALS['opts']['wpcpm_req_lock_810']                     = (string) ( time() + 300 );
+$GLOBALS['opts']['wpcpm_req_lock_details_recSEED0000000001'] = (string) ( time() + 300 );
+// And the lock a patch of the institutions index holds while it rewrites the index, the same way.
+$GLOBALS['opts']['wpcpm_institutions_index_lock'] = (string) ( time() + 10 );
+
 // Two mentors the Mentor Status Checker promoted and has not announced on Slack yet (1.122.4), a row
 // each, which the tool's own uninstall forgets.
 $GLOBALS['opts']['wpcpm_checker_slack_pending_recSEED0000000003'] = array( 'record_id' => 'recSEED0000000003' );
@@ -936,6 +944,12 @@ foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) 
 		'args' => array(),
 	);
 }
+// The one extra run a patch of the institutions index asks for while a sync reads (Institutions release 2): the
+// sync's run hook with arguments of its own, which a clear that names none would leave.
+$GLOBALS['cron'][] = array(
+	'hook' => 'wpcpm_institutions_sync_daily',
+	'args' => array( 'again' ),
+);
 
 // The two single events scheduled with an ID: a semester report's ask queue, named after the
 // report, and an import's next slice, named after its batch.
@@ -1104,6 +1118,8 @@ echo "\n=== The meta ===\n";
 
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
 ck( 'the three keys an activation leaves on a mentor\'s account go, the held invitation among them, and the account\'s own stays', $GLOBALS['umeta'][ $mentor ], array( 'nickname' => 'mentor-one' ) );
+ck( 'the locks a details request left behind, one per request and one per school, go with the rest', array( get_option( 'wpcpm_req_lock_810', 'gone' ), get_option( 'wpcpm_req_lock_details_recSEED0000000001', 'gone' ) ), array( 'gone', 'gone' ) );
+ck( 'so does the lock a patch of the institutions index left behind, and the extra sync run a patch asked for', array( get_option( 'wpcpm_institutions_index_lock', 'gone' ), in_array( array( 'hook' => 'wpcpm_institutions_sync_daily', 'args' => array( 'again' ) ), $GLOBALS['cron'], true ) ), array( 'gone', false ) );
 ck( 'a lock an application left behind goes with the rest, and the two account keys of an activation', array( get_option( 'wpcpm_mapp_lock_501', 'gone' ), array_intersect_key( $GLOBALS['umeta'][ $mentor ], array_flip( array( 'wpcpm_mentor_row_pending', 'wpcpm_mentor_activated_at' ) ) ) ), array( 'gone', array() ) );
 ck( 'an Administrator\'s booking link and rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too, and the account\'s own row stays', $GLOBALS['umeta'][ $admin ], array( 'nickname' => 'manager-one' ) );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
@@ -1176,6 +1192,7 @@ $names = array(
 	'WPCPM_Track_Store::POST_TYPE'                  => 'wpcpm_track',
 	'WPCPM_Semester_Report::POST_TYPE'              => 'wpcpm_inst_report',
 	'WPCPM_Institution_Request::POST_TYPE'          => 'wpcpm_inst_request',
+	'WPCPM_Institution_Request::LOCK_PREFIX'        => 'wpcpm_req_lock_',
 	'WPCPM_Institution_Record::POST_TYPE'           => 'wpcpm_inst_record',
 	'WPCPM_Institution_Record::META_RECORD'         => '_wpcpm_inst_record',
 	'WPCPM_Institution_Record::META_ANSWERS'        => '_wpcpm_inst_answers',
@@ -1225,6 +1242,8 @@ $names = array(
 	'WPCPM_Mail::CRON_QUEUE'                        => 'wpcpm_drain_invite_queue',
 	'WPCPM_Institutions_Sync::CRON_DAILY'           => 'wpcpm_institutions_sync_daily',
 	'WPCPM_Institutions_Sync::CRON_TICK'            => 'wpcpm_institutions_sync_tick',
+	'WPCPM_Institutions_Sync::AGAIN_ARGS'           => array( 'again' ),
+	'WPCPM_Institutions_Index::OPT_LOCK'            => 'wpcpm_institutions_index_lock',
 	'WPCPM_Ceiling::CRON_SWEEP'                     => 'wpcpm_ceiling_sweep',
 	'WPCPM_MCP::CRON_SWEEP'                         => 'wpcpm_mcp_log_sweep',
 	'WPCPM_Institutions::CRON_PURGE'                => 'wpcpm_purge_applications',

@@ -166,7 +166,7 @@ ck( 'and a second load does nothing', count( $wpdb->updates ), $before );
 echo "\n=== Nothing the plugin keeps about people is published ===\n";
 
 $publish = array();
-foreach ( array( 'class-wpcpm-mentor-calls.php', 'class-wpcpm-mentor-notes.php', 'class-wpcpm-institution-notes.php', 'class-wpcpm-institution-audit.php', 'class-wpcpm-institution-record.php', 'class-wpcpm-group-sessions.php' ) as $file ) {
+foreach ( array( 'class-wpcpm-mentor-calls.php', 'class-wpcpm-mentor-notes.php', 'class-wpcpm-institution-audit.php', 'class-wpcpm-institution-record.php', 'class-wpcpm-group-sessions.php' ) as $file ) {
 	$src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/' . $file );
 	if ( preg_match( "/'post_status'\s*=>\s*'publish'/", $src ) ) {
 		$publish[] = $file;

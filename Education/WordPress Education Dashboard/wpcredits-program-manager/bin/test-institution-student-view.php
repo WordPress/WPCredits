@@ -18,7 +18,7 @@
  *   handle, a WordPress.org profile and a website; none of them may appear. The one address on
  *   the card is theirs: the student's own is not one of section 7.5's columns, and the fixture
  *   carries it in both caches so a row that came back would be caught here.
- * - **The row labelled "Program" speaks one vocabulary.** The two tables both have a `Status`
+ * - **The row labeled "Program" speaks one vocabulary.** The two tables both have a `Status`
  *   column and they do not mean the same thing: the Students table's is an application pipeline
  *   (`Not moving forward`, `Fail`, and on this base one row whose status is a school's name),
  *   and `WPCPM_Program::label()` passes anything it does not know straight through. The fixture
@@ -374,7 +374,7 @@ function card( $institution, $user_id, array $context = array() ) {
 }
 
 /**
- * The value cell of one labelled row.
+ * The value cell of one labeled row.
  *
  * So that an assertion about the Program row is about the Program row: "Not set" appears on
  * several rows of this card, and a search of the whole card would pass on any of them.
@@ -586,11 +586,30 @@ ck( 'and it reads "Not set"', false !== strpos( $html, 'Not set' ), true );
 $GLOBALS['uid'] = 21;
 $bare           = card( $inst_b, 11, array() );
 
-ck( 'a student the sync has barely seen has the same rows', substr_count( $bare, '<tr class="wpcpm-mentee__row' ), $rows_full );
-ck( 'and the mentor row says what its blank means', false !== strpos( $bare, 'No mentor assigned yet' ), true );
+// A student with no mentor reads as normal (Institutions release 2): the Mentor row says "No mentor yet",
+// as the roster's mentor cell does, and the Mentor email row is left out, since there is nobody to write to.
+ck( 'a student the sync has barely seen has every row but the mentor\'s address', substr_count( $bare, '<tr class="wpcpm-mentee__row' ), $rows_full - 1 );
+ck( 'the mentor row says what its blank means, in the roster\'s words', row_of( $bare, 'Mentor' ), 'No mentor yet' );
+ck( 'and the old words are gone', false !== strpos( $bare, 'No mentor assigned yet' ), false );
+ck( 'there is no Mentor email row for a student with no mentor', array( row_of( $bare, 'Mentor email' ), false !== strpos( $bare, 'Mentor email' ) ), array( '', false ) );
+ck( 'while the student who has one still has both rows', array( '' !== row_of( $html, 'Mentor email' ), 'Marta Mentor' === row_of( $html, 'Mentor' ) ), array( true, true ) );
+
+$bare_cells = new ReflectionMethod( 'WPCPM_Institution_Student_View', 'cells' );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	$bare_cells->setAccessible( true );
+}
+
+$bare_keys = array_keys( $bare_cells->invoke( null, $GLOBALS['users'][11], array(), array(), array() ) );
+ck( 'the cell for the mentor\'s address is not among the keys when there is no mentor', array( in_array( 'mentors|Email', $bare_keys, true ), in_array( 'mentors|Full Name', $bare_keys, true ) ), array( false, true ) );
+
+// A mentor the card knows by name and not by address keeps the row, and it says "Not set": the missing
+// address is a fact about the record, and the row is the place the school looks for it.
+$name_only = array_keys( $bare_cells->invoke( null, $GLOBALS['users'][11], array(), array(), array( 'name' => 'Marta Mentor' ) ) );
+ck( 'a mentor with a name and no address still has the row', in_array( 'mentors|Email', $name_only, true ), true );
 ck( 'a missing start date reads as no cohort rather than as nothing', false !== strpos( $bare, 'No start date' ), true );
 
-/* ---- 5. the row labelled "Program" speaks one vocabulary ------------------ */
+/* ---- 5. the row labeled "Program" speaks one vocabulary ------------------ */
 
 echo "\n=== The Program row speaks one vocabulary ===\n";
 
@@ -598,7 +617,7 @@ $GLOBALS['uid'] = 20;
 
 // The Students table's `Status` is an application pipeline - `Interested`, `Not moving
 // forward`, `Fail`, `SPAM`, and on this base one row whose status is the name of a school -
-// and `WPCPM_Program::label()` passes anything it does not recognise straight through. The
+// and `WPCPM_Program::label()` passes anything it does not recognize straight through. The
 // roster index carries that column, so a card that read it would print a raw pipeline value
 // in the row a school reads as "Program". Put one in every place the card could reach.
 $GLOBALS['roster'][ $inst_a ][ $row_a ]['status'] = 'Not moving forward';
@@ -660,7 +679,7 @@ unset( $GLOBALS['umeta'][10][ WPCPM_Students_Sync::META_COURSE ] );
 
 // A student who has finished, and the other statuses the base writes that are not a track: the
 // card says what the roster's row says ("Graduated", not the base's own "Graduate"), in the badge
-// beside the name and in the Program row, while the badge keeps the colour of the raw status.
+// beside the name and in the Program row, while the badge keeps the color of the raw status.
 $plain_words = array(
 	'Graduate'                  => 'Graduated',
 	'Fail'                      => 'Did not complete',

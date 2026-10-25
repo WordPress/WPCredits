@@ -70,8 +70,8 @@ function __( $s, $d = null ) { return $s; }
 function __return_false() { return false; }
 
 /*
- * A working filter registry, because the behaviour under test is what happens to a filter while
- * one function runs. Priorities are honoured; a callback is identified the way core does it, by
+ * A working filter registry, because the behavior under test is what happens to a filter while
+ * one function runs. Priorities are honored; a callback is identified the way core does it, by
  * the callable itself.
  */
 function wpcpm_test_callback_id( $fn ) {

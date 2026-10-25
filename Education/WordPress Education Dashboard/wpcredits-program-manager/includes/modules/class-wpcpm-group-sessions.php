@@ -71,7 +71,7 @@ class WPCPM_Group_Sessions {
 	/**
 	 * Most students one session may hold.
 	 *
-	 * A ceiling rather than a judgement about group size: the number goes into a form a mentor
+	 * A ceiling rather than a judgment about group size: the number goes into a form a mentor
 	 * fills in by hand, and a typo of 200 should not become a session nobody can moderate.
 	 */
 	const MAX_CAPACITY = 50;
@@ -824,7 +824,7 @@ class WPCPM_Group_Sessions {
 	 * Change a session that has already been announced.
 	 *
 	 * A mentor could cancel a session but not move it, so a room double-booked or a clash with a
-	 * class meant cancelling on everybody and asking them to join again. This is the same form
+	 * class meant canceling on everybody and asking them to join again. This is the same form
 	 * as creating one, with the three rules an edit needs and a create does not.
 	 *
 	 * **Places may not fall below the people already on it.** Reducing capacity cannot be allowed
@@ -835,7 +835,7 @@ class WPCPM_Group_Sessions {
 	 * that stops two things starting at once has to be told which one is being moved.
 	 *
 	 * **Everybody on it is told, and their calendar is moved.** A session whose time changed
-	 * without an invitation is worse than one that was cancelled: the student has an entry that
+	 * without an invitation is worse than one that was canceled: the student has an entry that
 	 * is now wrong and no reason to look again.
 	 */
 	public static function handle_edit() {
@@ -1240,7 +1240,7 @@ class WPCPM_Group_Sessions {
 	/**
 	 * Leave a session.
 	 *
-	 * Leaving is not cancelling. The session goes on for everybody else, so only the person
+	 * Leaving is not canceling. The session goes on for everybody else, so only the person
 	 * leaving is told - and the place they free goes straight back.
 	 */
 	public static function handle_leave() {
@@ -2031,9 +2031,9 @@ class WPCPM_Group_Sessions {
 	/**
 	 * The mentor's controls for a session: change it, or cancel it.
 	 *
-	 * Cancelling is the existing call cancellation, which trashes the post and tells every
+	 * Canceling is the existing call cancellation, which trashes the post and tells every
 	 * attendee - there is nothing group-specific to add. Changing it is this module's own, and
-	 * comes first because cancelling on everybody used to be the only way to move a session.
+	 * comes first because canceling on everybody used to be the only way to move a session.
 	 *
 	 * @param WP_Post $session The session.
 	 * @param array   $facts   From `details()`.

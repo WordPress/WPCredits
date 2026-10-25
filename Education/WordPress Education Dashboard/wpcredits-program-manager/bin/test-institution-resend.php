@@ -1072,7 +1072,9 @@ foreach ( array( 'wpcpm-institution__invite', 'wpcpm-institution__invite-note', 
 	ck( sprintf( 'institution.css has a rule for .%s', $class ), 1 === preg_match( '/\.' . preg_quote( $class, '/' ) . '(?![a-zA-Z0-9_-])/', $css ), true );
 }
 
-ck( 'the notice takes the shape every flash on this page has', 1 === preg_match( '/\.wpcpm-agreement-panel__message,\s*\.wpcpm-institution__invite-message,\s*\.wpcpm-people__message\s*\{/', $css ), true );
+// The school's details card's own line and the student correction form's outcome (Institutions release 2) take
+// the same shape, after these three.
+ck( 'the notice takes the shape every flash on this page has', 1 === preg_match( '/\.wpcpm-agreement-panel__message,\s*\.wpcpm-institution__invite-message,\s*\.wpcpm-people__message,\s*\.wpcpm-details__message,\s*\.wpcpm-institution__edit-message\s*\{/', $css ), true );
 ck( 'and the line sits close under the name it is about', 1 === preg_match( '/\.wpcpm-institution__student-identity:has\(\s*\+\s*\.wpcpm-institution__invite\s*\)\s*\{\s*margin-bottom:\s*0\.5em;/', $css ), true );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );

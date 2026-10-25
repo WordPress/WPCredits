@@ -714,7 +714,7 @@ class WPCPM_Mentor_Checker_Runner {
 	}
 
 	/**
-	 * Summarise a run's rows into counts: an application that waits for Make mentors from
+	 * Summarize a run's rows into counts: an application that waits for Make mentors from
 	 * applications (`waits_for_switch()`) is counted as `waiting`, never as `eligible`, since nothing
 	 * can promote it until the switch is on.
 	 *
