@@ -255,6 +255,12 @@ ksort( $dressed );
 // it; the entry and its rule go together once that version is no longer supported.
 $kept = array(
 	'wpcpm-dashboard__switcher-none' => '1.122.14',
+	// The Sponsor Dashboard's four groups became modules in Institutions release 3 (theme 1.32.5), so
+	// plugin 1.123.37 was the last to print a group, its title and its lead. Their rules stay for a
+	// plugin rolled back to it. The Administrator Dashboard's groups carry their own classes.
+	'wpcpm-sponsor__group'       => '1.123.37',
+	'wpcpm-sponsor__group-title' => '1.123.37',
+	'wpcpm-sponsor__group-lead'  => '1.123.37',
 );
 
 $misses = 0;
@@ -496,6 +502,13 @@ printf( "%d plugin %s read by the theme's scripts, %d set by nothing.\n", count(
 //     shell's comment by the institution rules). The events from sponsors are drawn after the
 //     modules with no card of their own, and stood at the frame's edge while every module stood
 //     32px in: a page with two left edges.
+//   - The Sponsor Dashboard's four sections are modules in the Institution Dashboard's shape
+//     (Institutions release 3, theme 1.32.5), so a section's line and room, the room between
+//     sections, its cards' bare top and the gap between them, its title's and lead's inset and the
+//     lead's margins read what the Institution Dashboard's read at every width, the strip stands
+//     the header's 21px over the help's hairline as the header does, the strip's waiting tile keeps
+//     its red leading edge past the tile rule that resets the border, and nothing of the theme puts
+//     the help at the foot of the page.
 //   - The Sponsor Dashboard's Events card opens its Change the event fold with the room the
 //     offers' own fold opens with, and a sub-heading that follows something in a card stands
 //     24px under it, as the offers' own sub-headings do.
@@ -612,10 +625,53 @@ function wpcredits_side( array $rules, $selector, $box, $side, $width ) {
 	return $value;
 }
 
+/**
+ * Whether a rule applies at a width: not inside a query, or inside a `max-width` one the width is
+ * within. Other queries are not read, as in `wpcredits_side()`.
+ *
+ * @param array $rule  One row of `wpcredits_rules()`.
+ * @param int   $width The viewport's width in pixels.
+ * @return bool
+ */
+function wpcredits_applies( array $rule, $width ) {
+	if ( '' === $rule['media'] ) {
+		return true;
+	}
+
+	return (bool) preg_match( '/^@media\s*\(\s*max-width:\s*(\d+)px\s*\)$/', $rule['media'], $max ) && $width <= (int) $max[1];
+}
+
+/**
+ * One property of a selector, as the rules that name it leave it at a width: a side of padding or
+ * margin through `wpcredits_side()`, which reads the shorthand, any other property as the last rule
+ * that sets it has it.
+ *
+ * @param array[] $rules    As `wpcredits_rules()` answers.
+ * @param string  $selector One selector, spelled as the sheet spells it.
+ * @param string  $prop     The property, such as `padding-top` or `border-top`.
+ * @param int     $width    The viewport's width in pixels.
+ * @return string The value, or '' when no rule sets it.
+ */
+function wpcredits_declared( array $rules, $selector, $prop, $width ) {
+	if ( preg_match( '/^(padding|margin)-(top|right|bottom|left)$/', $prop, $box ) ) {
+		return wpcredits_side( $rules, $selector, $box[1], $box[2], $width );
+	}
+
+	$value = '';
+
+	foreach ( $rules as $rule ) {
+		if ( in_array( $selector, $rule['selectors'], true ) && wpcredits_applies( $rule, $width ) && isset( $rule['decls'][ $prop ] ) ) {
+			$value = $rule['decls'][ $prop ];
+		}
+	}
+
+	return $value;
+}
+
 $placed    = wpcredits_rules( (string) file_get_contents( $theme . '/assets/css/dashboard.css' ) );
 $misplaced = array();
 
-foreach ( array( '.wpc-institution-page .wpcpm-institution__identity', '.wpc-institution-page .wpcpm-institution__card', '.wpc-institution-page .wpcpm-roster', '.wpc-institution-page .wpcpm-institution__module-title', '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-institution-page .wpcpm-sevents' ) as $block ) {
+foreach ( array( '.wpc-institution-page .wpcpm-institution__identity', '.wpc-institution-page .wpcpm-institution__card', '.wpc-institution-page .wpcpm-roster', '.wpc-institution-page .wpcpm-institution__module-title', '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-institution-page .wpcpm-sevents', '.wpc-sponsor-page .wpcpm-sponsor__module-title', '.wpc-sponsor-page .wpcpm-sponsor__module-lead' ) as $block ) {
 	foreach ( array( 1280 => '32px', 900 => '20px' ) as $width => $inset ) {
 		foreach ( array( 'left', 'right' ) as $side ) {
 			$got = wpcredits_side( $placed, $block, 'padding', $side, $width );
@@ -640,6 +696,70 @@ foreach ( array( 1280, 900 ) as $width ) {
 
 	if ( '' === $lead || $lead !== $got ) {
 		$misplaced[] = sprintf( 'a card\'s sub-heading after something stands %s under it at %dpx, the offers\' sub-headings %s', '' === $got ? 'unset' : $got, $width, '' === $lead ? 'unset' : $lead );
+	}
+}
+
+// The Sponsor Dashboard's sections, twin by twin: each selector of the Institution Dashboard's module
+// rules, the property each sets, and the sponsor selector that has to read the same at every width
+// (the page's phone value is the 900px query's, so 375px reads it too).
+$twins = array(
+	array( '.wpc-institution-page .wpcpm-module', '.wpc-sponsor-page .wpcpm-module', array( 'border-top', 'padding-top' ) ),
+	array( '.wpc-institution-page .wpcpm-module + .wpcpm-module', '.wpc-sponsor-page .wpcpm-module + .wpcpm-module', array( 'margin-top' ) ),
+	array( '.wpc-institution-page .wpcpm-module > .wpcpm-institution__card', '.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card', array( 'border-top', 'margin-bottom', 'margin-top', 'padding-top' ) ),
+	array( '.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card', '.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card + .wpcpm-sponsor__card', array( 'margin-top' ) ),
+	array( '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-sponsor-page .wpcpm-sponsor__module-lead', array( 'margin-bottom', 'margin-top' ) ),
+);
+
+foreach ( $twins as $twin ) {
+	foreach ( array( 1280, 900, 375 ) as $width ) {
+		foreach ( $twin[2] as $prop ) {
+			$want = wpcredits_declared( $placed, $twin[0], $prop, $width );
+			$got  = wpcredits_declared( $placed, $twin[1], $prop, $width );
+
+			if ( '' === $want || $want !== $got ) {
+				$misplaced[] = sprintf( '%s  %s at %dpx is %s, the Institution Dashboard\'s %s', $twin[1], $prop, $width, '' === $got ? 'unset' : $got, '' === $want ? 'unset' : $want );
+			}
+		}
+	}
+}
+
+// The strip stands 21px over the help's hairline, as the Institution Dashboard's header does: its
+// 1.5em bottom margin at 14px (assets/css/institution.css in the plugin).
+foreach ( array( 1280, 900 ) as $width ) {
+	$got = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-sponsor__glance', 'margin', 'bottom', $width );
+
+	if ( '21px' !== $got ) {
+		$misplaced[] = sprintf( 'the At a glance strip stands %s over the help at %dpx, the header\'s 21px', '' === $got ? 'unset' : $got, $width );
+	}
+}
+
+// The waiting tile's leading edge: the theme's one rule for a strip's tiles draws a 1px line on all
+// four sides and so resets the plugin's one-class edge, which is why a rule of two classes restates
+// it; and it has to come after the rule that resets it, since the two tie.
+$reset = -1;
+$edge  = -1;
+
+foreach ( $placed as $at => $rule ) {
+	if ( in_array( '.wpc-sponsor-page .wpcpm-attention__tile', $rule['selectors'], true ) && isset( $rule['decls']['border'] ) ) {
+		$reset = $at;
+	}
+
+	if ( in_array( '.wpc-sponsor-page .wpcpm-attention__tile--waiting', $rule['selectors'], true ) && '' === $rule['media'] && '4px' === ( isset( $rule['decls']['border-inline-start-width'] ) ? $rule['decls']['border-inline-start-width'] : '' ) && 0 === strpos( isset( $rule['decls']['border-inline-start-color'] ) ? $rule['decls']['border-inline-start-color'] : '', 'var( --wpc-red' ) ) {
+		$edge = $at;
+	}
+}
+
+if ( $edge < 0 || $edge < $reset ) {
+	$misplaced[] = 'a waiting tile of the At a glance strip has no red leading edge of 4px after the rule that draws every tile a 1px border';
+}
+
+// The help is the third block of the Sponsor Dashboard, under the strip. No selector of the theme
+// that names the Sponsor Dashboard places it, which is what the foot of the page used to need.
+foreach ( $placed as $rule ) {
+	foreach ( $rule['selectors'] as $selector ) {
+		if ( false !== strpos( $selector, '.wpc-sponsor-page' ) && false !== strpos( $selector, '.wpcpm-handbook__resources' ) ) {
+			$misplaced[] = sprintf( 'the Sponsor Dashboard\'s help is placed by a rule of its own: %s', $selector );
+		}
 	}
 }
 

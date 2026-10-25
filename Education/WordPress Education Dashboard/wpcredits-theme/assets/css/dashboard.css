@@ -756,17 +756,27 @@
    and a lead sentence at the cards' 32px inset, the shapes and values of the Sponsor Dashboard's
    groups (`.wpcpm-sponsor__group-title` and `-lead` below), and the modules are divided the way
    those groups are: one line, the card base's 2.5em margin and 2em padding. The mover rules
-   above are the dashboards' now, not the student page's alone. */
+   above are the dashboards' now, not the student page's alone.
+
+   The Sponsor Dashboard's four sections are the same modules since Institutions release 3 (theme
+   1.32.5): `WPCPM_Module_Order::render_module()` prints both pages', with `wpcpm-sponsor__module-title`
+   and `-lead` where the institution's carry theirs, and the sponsor's cards are all
+   `wpcpm-sponsor__card` where the institution's are a roster, cards and an agreement card. So each
+   rule below that dresses a module takes the sponsor page's selector in the same rule, value for
+   value, and the two pages' modules cannot drift apart (the owner's rule that the dashboards look
+   alike). The groups' own rules, further down, stay for a plugin rolled back to 1.123.37. */
 /* The one line a module draws is the one above its title, first module included (owner,
    1.23.12), and 20px over every title - the student section's top padding - so the title's line
    sits where the arrows expect it (18px down, centered on a 14px/20px line), the way it does on
    the Student Report Card. */
-.wpc-institution-page .wpcpm-module {
+.wpc-institution-page .wpcpm-module,
+.wpc-sponsor-page .wpcpm-module {
 	border-top: 1px solid var( --wpc-line-soft );
 	padding-top: 20px;
 }
 
-.wpc-institution-page .wpcpm-module + .wpcpm-module {
+.wpc-institution-page .wpcpm-module + .wpcpm-module,
+.wpc-sponsor-page .wpcpm-module + .wpcpm-module {
 	/* The room between the last row of a module and the next module's line is the room between
 	   the last row of the page and its bottom border: the root's 22px (owner, 1.23.13). */
 	margin-top: 22px;
@@ -775,11 +785,13 @@
 /* Inside a module the cards draw no line of their own: the plugin's card base puts one over
    every card with 2.5em of margin and 2em of padding, which read as a rule under the title and
    between the roster and the enrollment form. The first card follows the lead's own 16px; the
-   next ones keep 24px between them, unlined. The Collaboration Agreement card loses its grey
-   box too and is the same disclosure as the representatives above it (owner, 1.23.12). */
+   next ones keep 10px between them, unlined. The Collaboration Agreement card loses its grey
+   box too and is the same disclosure as the representatives above it (owner, 1.23.12). The
+   Sponsor Dashboard's cards, one class for all of them, take the same rule. */
 .wpc-institution-page .wpcpm-module > .wpcpm-roster,
 .wpc-institution-page .wpcpm-module > .wpcpm-institution__card,
-.wpc-institution-page .wpcpm-module > .wpcpm-agreement-card {
+.wpc-institution-page .wpcpm-module > .wpcpm-agreement-card,
+.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card {
 	border-top: 0;
 	/* No bottom margin either: the plugin's card base gives every card 1.25em below, which
 	   collapsed with the 10px above the next card into 18px between the representatives and the
@@ -791,9 +803,12 @@
 
 .wpc-institution-page .wpcpm-module > .wpcpm-roster + .wpcpm-institution__card,
 .wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card,
-.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-agreement-card {
+.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-agreement-card,
+.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card + .wpcpm-sponsor__card {
 	/* The gap between two disclosures in the roster, 10px, between two cards of a module too
-	   (owner, 1.23.13). */
+	   (owner, 1.23.13). It is four classes deep on the Sponsor Dashboard, one more than its group
+	   rule for a card after a card (below), so a module's cards keep this gap and a group's, for a
+	   plugin rolled back, keeps its own. */
 	margin-top: 10px;
 }
 
@@ -820,12 +835,15 @@
 }
 
 .wpc-institution-page .wpcpm-institution__module-title,
-.wpc-institution-page .wpcpm-institution__module-lead {
+.wpc-institution-page .wpcpm-institution__module-lead,
+.wpc-sponsor-page .wpcpm-sponsor__module-title,
+.wpc-sponsor-page .wpcpm-sponsor__module-lead {
 	padding-left: 32px;
 	padding-right: 32px;
 }
 
-.wpc-institution-page .wpcpm-institution__module-lead {
+.wpc-institution-page .wpcpm-institution__module-lead,
+.wpc-sponsor-page .wpcpm-sponsor__module-lead {
 	margin-bottom: 16px;
 	margin-top: 0;
 }
@@ -861,7 +879,9 @@
 	}
 
 	.wpc-institution-page .wpcpm-institution__module-title,
-	.wpc-institution-page .wpcpm-institution__module-lead {
+	.wpc-institution-page .wpcpm-institution__module-lead,
+	.wpc-sponsor-page .wpcpm-sponsor__module-title,
+	.wpc-sponsor-page .wpcpm-sponsor__module-lead {
 		padding-left: 20px;
 		padding-right: 20px;
 	}
@@ -901,8 +921,11 @@
    announcements read as part of the header above them. The sponsor page (theme 1.18.1) opened
    the same way, header then section, until plugin 1.118.0 moved its Resources section below the
    cards and put the At a glance strip under the header, drawing this line itself (the Sponsor
-   Dashboard block). The rule still keeps the section's line at the foot, where the section is the
-   root's first `section` whenever the strip is not drawn. */
+   Dashboard block). Since Institutions release 3 (theme 1.32.5) the section is back under the strip.
+   With the strip drawn it is the root's second `section`, which this rule does not reach and which
+   the shared section rule above gives the same hairline and the same 20px under it; with no strip
+   (a sponsor the store holds no row for) it is the first, under the header as on the Institution
+   Dashboard, and this rule gives it the line. */
 .wpc-institution-page .wpcpm-student__section:first-of-type,
 .wpc-sponsor-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
@@ -973,16 +996,14 @@
    third number, and put on the root so it holds whichever block happens to be last - the
    panel, the People card, or the notice a member sees before their agreement is settled. The
    sponsor page took the same inset while it ended on its People card, a bordered disclosure
-   (1.18.2). Since plugin 1.118.0 it ends on its Resources section, unbordered text with its own
-   24px under it, the way the Administrator Dashboard ends, so the root's room stands down there
-   (the rule below); it still holds for a page drawn without that section, which ends on a card. */
+   (1.18.2). From plugin 1.118.0 to 1.123.37 it ended on its Resources section, unbordered text
+   with its own 24px under it, and the root's room stood down there; since Institutions release 3
+   (theme 1.32.5) the help sits under the strip and the page ends on its last module again, whose
+   last card carries no margin below it, so the root's 22px is the room under the last row, the
+   room a module leaves before the next one's line, as it is on the Institution Dashboard. */
 .wpc-institution-page .wpcpm-institution,
 .wpc-sponsor-page .wpcpm-sponsor {
 	padding-bottom: 22px;
-}
-
-.wpc-sponsor-page .wpcpm-sponsor:has( > .wpcpm-handbook__resources:last-child ) {
-	padding-bottom: 0;
 }
 
 /* The hairline under the title that the Student Report Card's first section and the Mentor
@@ -1572,6 +1593,18 @@
 	border-radius: var( --wpc-radius-card );
 }
 
+/* A tile that waits on the sponsor's people (plugin, Institutions release 3) keeps the leading edge
+   the plugin gives it, 4px in the dashboards' attention red (`border-inline-start` on
+   `.wpcpm-attention__tile--waiting`, one class). The rule above draws all four sides at two classes
+   and so resets that edge, hence this one, at two classes and after it: the width and the color of
+   the logical side alone, as the People card's refusal takes its color, so the edge leads in a
+   right-to-left locale too and the line style the rule above sets stays. The label says what
+   waits, so the edge is never the only sign of it. */
+.wpc-sponsor-page .wpcpm-attention__tile--waiting {
+	border-inline-start-color: var( --wpc-red, #b32d2e );
+	border-inline-start-width: 4px;
+}
+
 /* A hair of tracking off the number. The longest word the tiles hold, a tier's name on the Sponsor
    Dashboard, ran 0.75px into its tile's line where the tile is narrowest, 152px wide in a 601px
    window; with it the word clears the line by 1.5px, though it still reaches into the tile's
@@ -1936,7 +1969,14 @@
    under the heading and its lead with no line of its own. Values: the Sponsor Dashboard's card base,
    its 2.5em margin and 2em padding (assets/css/sponsor.css in the plugin), and its line variable,
    so the line is the one the cards drew before; the Administrator Dashboard's cards never drew
-   one. */
+   one.
+
+   The Sponsor Dashboard's four groups became modules in Institutions release 3 (theme 1.32.5),
+   dressed by the module rules near the top of this file, and plugin 1.123.37 was the last to print
+   `wpcpm-sponsor__group` and its title and lead. The sponsor selectors of the group rules below
+   (and the 900px list near the end of this file) stay for a plugin rolled back to it, and
+   `bin/check-selectors.php` lists the three classes as kept; they go together with that version.
+   The Administrator Dashboard's groups are still printed, and keep their selectors. */
 .wpc-sponsor-page .wpcpm-sponsor__group,
 .wpc-administrator-page .wpcpm-administrator__group {
 	border-top: 1px solid var( --wpcpm-border );
@@ -1978,7 +2018,8 @@
    room, which reads 17.5px on both pages: the plugin's 1.25em bottom margin on the card before it
    (sponsor.css and administrator.css alike), 17.5px at the card's 14px, collapses with these 16px
    and the larger wins. The Institution Dashboard's module cards carry no bottom margin since
-   1.23.14. */
+   1.23.14, and since Institutions release 3 the Sponsor Dashboard's cards in a module are the
+   module rules' (10px, above), which are one class deeper than this rule and so win. */
 .wpc-sponsor-page .wpcpm-sponsor__card + .wpcpm-sponsor__card,
 .wpc-administrator-page .wpcpm-administrator__card + .wpcpm-administrator__card {
 	border-top: 0;
@@ -1991,9 +2032,19 @@
    line under its header, value for value, the header's own 21px above a line-soft hairline and a
    section's 20px under it. The plugin gives the strip the card rhythm, a group's 2.5em and 2em
    over the darker card line, which read as a group with no heading. Its tiles take the tile rules
-   the two strips share, above. */
+   the two strips share, above.
+
+   The help follows the strip since Institutions release 3 (theme 1.32.5), where the Institution
+   Dashboard's follows its header, and the strip stands over the help's hairline as the header does:
+   21px, the header's 1.5em bottom margin at its 14px (assets/css/institution.css in the plugin),
+   in place of the card base's 1.25em, 17.5px. The help is the section the shared rules above dress,
+   a hairline over 20px of padding, and it needs nothing of its own. Where no help is drawn the
+   first module follows the strip, 21px under it as it follows the header on the Institution
+   Dashboard; a plugin rolled back to 1.123.37 has a group's 2.5em after the strip, which is the
+   larger margin and wins. */
 .wpc-sponsor-page .wpcpm-sponsor__glance {
 	border-top: 1px solid var( --wpc-line-soft );
+	margin-bottom: 21px;
 	margin-top: 0;
 	padding-top: 20px;
 }
@@ -2126,13 +2177,13 @@
 	}
 }
 
-/* The Resources section follows the last group (plugin 1.118.0), and its line stands as far under
-   the last card as a group's line does: the groups' own 2.5em. On the Administrator Dashboard the
-   first section after the groups, Tools from our sponsors or, when that section has nothing to
-   show, the Resources, takes the same room (plugin 1.119.0), whether it follows the last group
+/* On the Administrator Dashboard the first section after the groups, Tools from our sponsors or,
+   when that section has nothing to show, the Resources, stands as far under the last card as a
+   group's line does, the groups' own 2.5em (plugin 1.119.0), whether it follows the last group
    itself or the hidden heading that names the sections after the groups for a screen reader: that
-   heading is out of the flow and holds no room, but it stands between the two for `+`. */
-.wpc-sponsor-page .wpcpm-sponsor__group + .wpcpm-handbook__resources,
+   heading is out of the flow and holds no room, but it stands between the two for `+`. The Sponsor
+   Dashboard's Resources section stood here too, after its last group (plugin 1.118.0 to 1.123.37);
+   it sits under the strip now, and the rule that gave it this room went with the move. */
 .wpc-administrator-page .wpcpm-administrator__group + .wpcpm-student__section,
 .wpc-administrator-page .wpcpm-administrator__group + .screen-reader-text + .wpcpm-student__section {
 	margin-top: 2.5em;
@@ -5304,7 +5355,11 @@
    last. The Sponsor Dashboard's section (plugin 1.118.0) puts the program contact
    in a third column of its own, `wpcpm-resources--split-3` beside the two-column
    modifier, so the same rules draw both of its dividers and stack all three, and
-   only the number of tracks is the modifier's own.
+   only the number of tracks is the modifier's own. Since Institutions release 3 (theme 1.32.5) the
+   Sponsor Dashboard's help is the Institution Dashboard's, in halves, with the person under the
+   buttons, which the plugin's own sheet dresses (`.wpcpm-resources__contact`, institution.css, loaded
+   on the sponsor page as a dependency of this sheet); the thirds' rules stay for a plugin rolled back
+   to 1.123.37.
 
    `minmax( 0, 1fr )` on every track for the reason the page grid uses it: a track
    sized from its content refuses to shrink below it, and one long update title
