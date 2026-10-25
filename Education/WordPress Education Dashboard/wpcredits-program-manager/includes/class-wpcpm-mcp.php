@@ -393,23 +393,28 @@ class WPCPM_MCP {
 	}
 
 	/**
-	 * The sign-in fence, on `wp_authenticate_application_password_errors`: a Claude password signs in to
-	 * nothing but a REST request.
+	 * The sign-in fence, on `wp_authenticate_application_password_errors`: a Claude password signs in only
+	 * on a genuine REST request, judged by the request's address, not by the `REST_REQUEST` constant.
 	 *
 	 * Core checks an application password in a REST or an XML-RPC request, and in any other request that a
 	 * plugin opens to application passwords through `application_password_is_api_request`: Jetpack opens its
 	 * VideoPress AJAX actions in wp-admin that way, so an Administrator's password, a Claude one among them,
 	 * would sign in there too. Core fires this action once the password has matched, in every one of those
-	 * requests; an error added to `$error` fails the sign-in. A REST request (`REST_REQUEST`, which core
-	 * defines before it serves one) is the other fence's, which holds a Claude password to the MCP address;
-	 * every other sign-in with a Claude password fails here, whatever the switch says, so a plugin that opens
-	 * one more door to application passwords does not open it to Claude. A request that only became a REST
-	 * request after its sign-in was checked is refused too: the safe side of the doubt. Core alone never
-	 * does that: it checks no application password before it defines `REST_REQUEST`, and the REST server
-	 * works the account out again once it has. Its cost is a plugin that opens application passwords to a
-	 * REST request before core knows it is one (by matching `/wp-json/` in the address, say): core then
-	 * keeps this refusal and answers the MCP address 401, so Claude cannot connect on such a site until
-	 * that plugin stops. Jetpack's door does not, as `is_admin()` is false in a REST request.
+	 * requests; an error added to `$error` fails the sign-in. A real REST request is the other fence's,
+	 * which holds a Claude password to the MCP address; every other sign-in with a Claude password fails
+	 * here, whatever the switch says, so a plugin that opens one more door to application passwords does not
+	 * open it to Claude.
+	 *
+	 * Whether the request is a REST request is read from its address (`is_rest_request()`), not from the
+	 * `REST_REQUEST` constant. The constant says nothing sure on every host: this program's own live host
+	 * (WordPress.com Atomic) defines it true in requests it does not serve through the REST server, an
+	 * admin-ajax request among them, where the REST fence then never runs. So the constant would let a
+	 * Claude password sign in at exactly the door this fence is for. The address is the fact that holds:
+	 * only a request to the REST route itself is handed to the REST fence; everything else is refused here,
+	 * and a request whose address cannot be read as REST, or that holds a dot segment that could resolve
+	 * the prefix away, is refused too, which is the safe side of the doubt. A Claude client reaches the MCP
+	 * server at its `/wp-json/` address, not through `?rest_route=`, so the site needs pretty permalinks
+	 * for Claude access.
 	 *
 	 * It writes no row, because core fires the action while it is still working out who is signing in,
 	 * before there is a current user, and the row writer reads the current user.
@@ -422,13 +427,70 @@ class WPCPM_MCP {
 	public static function fence_sign_in( $error, $user, $item, $password ) {
 		unset( $user, $password );
 
-		if ( ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ! is_wp_error( $error ) || ! is_array( $item ) ) {
+		if ( self::is_rest_request() || ! is_wp_error( $error ) || ! is_array( $item ) ) {
 			return;
 		}
 
 		if ( self::is_claude_password( isset( $item['name'] ) ? $item['name'] : '' ) ) {
 			$error->add( 'wpcpm_mcp_fenced', self::fenced_message() );
 		}
+	}
+
+	/**
+	 * Whether the current request is a REST request, read from its address rather than the `REST_REQUEST`
+	 * constant (which a host may define in requests it does not serve as REST; see `fence_sign_in()`).
+	 *
+	 * True only when the address's path is the REST route or under it: the REST prefix (`rest_get_url_prefix()`,
+	 * `wp-json` by default), after the site's home path for a WordPress in a subdirectory. The path is read
+	 * from `REQUEST_URI`, so a query added to another endpoint's address (`admin-ajax.php?rest_route=...`)
+	 * does not count, since core does not serve that as REST either; the `?rest_route=` form on its own entry
+	 * is left out on purpose, so a Claude client connects at the `/wp-json/` address. A path that cannot be
+	 * read is not a REST request.
+	 *
+	 * @return bool
+	 */
+	private static function is_rest_request() {
+		if ( empty( $_SERVER['REQUEST_URI'] ) || ! is_string( $_SERVER['REQUEST_URI'] ) ) {
+			return false;
+		}
+
+		$path = (string) wp_parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- A path compared to a fixed prefix, never stored or echoed.
+
+		if ( '' === $path ) {
+			return false;
+		}
+
+		$path = '/' . ltrim( $path, '/' );
+
+		// A dot segment can resolve the REST prefix away: a host may route the normalized path (an
+		// admin-ajax endpoint, say) while `REQUEST_URI` keeps the raw `/wp-json/../...`, which would read
+		// as REST here and let the fence step aside at exactly the door it is for. A REST address holds no
+		// such segment, so any path with one is not a REST request. The check reads the once-decoded path,
+		// so an encoded segment (`%2e%2e`) a host decodes before it routes is caught too; decoding only to
+		// refuse can never let more through. Matching the prefix below stays on the raw path, so an encoded
+		// character cannot be read into the prefix.
+		$segments = explode( '/', rawurldecode( $path ) );
+
+		if ( in_array( '..', $segments, true ) || in_array( '.', $segments, true ) ) {
+			return false;
+		}
+
+		$home = function_exists( 'home_url' ) ? '/' . trim( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ), '/' ) : '/';
+
+		// For a WordPress in a subdirectory the REST prefix sits after the home path; a request that is not
+		// under that path is not this site's REST route.
+		if ( '/' !== $home ) {
+			if ( $path !== $home && 0 !== strpos( $path, $home . '/' ) ) {
+				return false;
+			}
+
+			$path = substr( $path, strlen( $home ) );
+			$path = '' === $path ? '/' : $path;
+		}
+
+		$prefix = '/' . trim( function_exists( 'rest_get_url_prefix' ) ? (string) rest_get_url_prefix() : 'wp-json', '/' );
+
+		return $path === $prefix || 0 === strpos( $path, $prefix . '/' );
 	}
 
 	/**

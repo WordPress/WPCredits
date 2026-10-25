@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.32
+Stable tag: 1.123.33
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -283,6 +283,10 @@ No. The page renders against the logged-in user. Only accounts with `wpcpm_manag
 
 No. Uninstall removes settings, sync state, access-level meta, the last sign-in and last visit the site records for every account, and the custom roles, and moves affected accounts to Subscriber. Sponsor offers, their code pools and the pools' locks, the claims meta on every account, the yearly reports written for sponsors, and the online events sponsors plan with the program, with who joined each and the events' locks, are deleted with them. Accounts are never deleted.
 
+= Does Claude access need pretty permalinks? =
+
+Yes. A password named for Claude access reaches the site only at the REST address under /wp-json/, so the site must use pretty permalinks. On a site without them, where the REST API is reached through ?rest_route= instead, Claude cannot connect.
+
 == Screenshots ==
 
 1. The Overview, with what waits for a decision, the syncs, the tools and the way to Settings.
@@ -291,6 +295,10 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.33 =
+
+* Claude access: a password named for this access is held to the MCP address by the request's web address, not by a platform flag. On some hosts (this program's included) that flag is set on requests the host does not actually serve as a REST request, which let such a password sign in at an admin-ajax door another plugin had opened to application passwords; it no longer can. A Claude client reaches the server at its /wp-json/ address.
 
 = 1.123.32 =
 

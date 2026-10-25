@@ -127,6 +127,9 @@ function wp_unslash( $v ) { return $v; }
 function absint( $n ) { return abs( (int) $n ); }
 function wp_date( $f, $t = null ) { return '2026-10-24 10:00'; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
+function home_url( $path = '' ) { return ( isset( $GLOBALS['home_base'] ) ? $GLOBALS['home_base'] : 'https://example.test' ) . $path; }
+function rest_get_url_prefix() { return isset( $GLOBALS['rest_prefix'] ) ? $GLOBALS['rest_prefix'] : 'wp-json'; }
+function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
 require_once __DIR__ . '/stubs/caps.php';
 
 // The clock: an event is kept with the time and the recurrence it was scheduled with, and only one per
@@ -221,12 +224,14 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-abilities.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mcp.php';
 
-/* ---- The child that is a REST request ------------------------------------------ */
+/* ---- The child that defines the REST_REQUEST constant -------------------------- */
 
-// A constant once defined cannot be taken away, so the sign-in of a REST request runs here, in a process of
-// its own that defines REST_REQUEST as core does when it serves one.
-if ( isset( $argv[1] ) && 'child-rest' === $argv[1] ) {
+// A constant once defined cannot be taken away, so the case that needs REST_REQUEST set true runs in a
+// process of its own. The fence keys off the request URL, not this constant: on an admin-ajax URL a Claude
+// password is refused even with the constant set, which is what the live Atomic platform does.
+if ( isset( $argv[1] ) && 'child-rest-constant' === $argv[1] ) {
 	define( 'REST_REQUEST', true );
+	$_SERVER['REQUEST_URI'] = '/wp-admin/admin-ajax.php';
 
 	$claude = new WP_Error();
 	WPCPM_MCP::fence_sign_in( $claude, new stdClass(), array( 'uuid' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'name' => 'Claude - laptop' ), 'abcd efgh' );
@@ -1099,24 +1104,59 @@ $GLOBALS['app_uuid'] = null;
 arrive( 38, true, null );
 ck( 'with no application password in the request the fence does nothing, however many times it is asked', array( fence( '/wp/v2/users' ), fence( '/wp/v2/users' ) ), array( null, null ) );
 
-echo "\n=== The sign-in fence: no sign-in with a Claude password outside a REST request (Review Focus 2) ===\n";
+echo "\n=== The sign-in fence: a Claude password signs in only on a genuine REST request by URL (Review Focus 2) ===\n";
 
 $item_claude = array( 'uuid' => $UUID, 'name' => 'Claude - laptop', 'password' => '$P$hash' );
 $item_other  = array( 'uuid' => $UUID, 'name' => 'Backup script', 'password' => '$P$hash' );
 
-// Neither a REST nor an XML-RPC request: a request a plugin opened to application passwords, as Jetpack
-// opens its VideoPress AJAX actions in wp-admin (`application_password_is_api_request`).
-$error = new WP_Error();
-WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_claude, 'abcd efgh' );
-ck( 'in a request that is neither REST nor XML-RPC, an AJAX one a plugin opened to application passwords, a Claude password\'s sign-in gets the error wpcpm_mcp_fenced', array( $error->get_error_codes(), defined( 'REST_REQUEST' ), defined( 'XMLRPC_REQUEST' ) ), array( array( 'wpcpm_mcp_fenced' ), false, false ) );
-$error = new WP_Error();
-WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_other, 'abcd efgh' );
-ck( 'and another password\'s gets none', $error->has_errors(), false );
+// The fence reads the request URL, not the REST_REQUEST constant: the platform sets that constant true in
+// requests it does not serve through the REST server (an admin-ajax door a plugin opened to application
+// passwords), where the REST fence never runs. REST_REQUEST is not defined in this process.
+$sign_in = static function ( $uri, $item, array $get = array() ) {
+	$_SERVER['REQUEST_URI'] = $uri;
+	$_GET                   = $get;
+	$error                  = new WP_Error();
+	WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item, 'abcd efgh' );
+	$_GET = array();
+	return $error->get_error_codes();
+};
 
-exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-rest 2>&1', $rest_out, $rest_status );
-ck( 'in a REST request a Claude password\'s sign-in gets no error: which route it may use is the REST fence\'s', array( $rest_status, json_decode( implode( '', $rest_out ), true ) ), array( 0, array( 'codes' => array() ) ) );
+ck( 'on the MCP address a Claude password signs in (the door and the REST fence take it from there), with no REST_REQUEST constant set', array( $sign_in( '/wp-json/mcp/wpcredits', $item_claude ), defined( 'REST_REQUEST' ) ), array( array(), false ) );
+ck( 'on another REST route a Claude password signs in too, so the REST fence can refuse and log it', $sign_in( '/wp-json/wp/v2/users', $item_claude ), array() );
+ck( 'on the REST index a Claude password signs in', $sign_in( '/wp-json/', $item_claude ), array() );
+ck( 'on an admin-ajax URL a Claude password is refused: the VideoPress door a plugin opened to application passwords', $sign_in( '/wp-admin/admin-ajax.php', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'and another password on that door is untouched', $sign_in( '/wp-admin/admin-ajax.php', $item_other ), array() );
+ck( 'an admin-ajax URL with a rest_route query is still refused: a query does not make it a REST request', $sign_in( '/wp-admin/admin-ajax.php?rest_route=/wp/v2/users', $item_claude, array( 'rest_route' => '/wp/v2/users' ) ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'the rest_route form on the site root is refused too: a Claude client uses the /wp-json/ address', $sign_in( '/index.php?rest_route=/wp/v2/users', $item_claude, array( 'rest_route' => '/wp/v2/users' ) ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'the xmlrpc endpoint is refused', $sign_in( '/xmlrpc.php', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'a path that only resembles the REST prefix is not it', $sign_in( '/wp-json-not/thing', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'no request URL at all is refused, failing closed', $sign_in( '', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+// A dot-segment that resolves away the REST prefix: a host may route the normalized path (admin-ajax)
+// while REQUEST_URI keeps the raw form, so a path holding ".." is not read as REST, failing closed.
+ck( 'a path that climbs out of the REST prefix with .. is refused', $sign_in( '/wp-json/../wp-admin/admin-ajax.php', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'and a .. climb with a query is refused', $sign_in( '/wp-json/../wp-admin/admin-ajax.php?action=x', $item_claude, array( 'action' => 'x' ) ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'a percent-encoded .. climb is refused too, since a host may decode it before routing', $sign_in( '/wp-json/%2e%2e/wp-admin/admin-ajax.php', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'and an encoded single-dot segment is refused', $sign_in( '/wp-json/%2e/mcp/wpcredits', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+// A custom REST prefix (the rest_url_prefix filter) is honored.
+$GLOBALS['rest_prefix'] = 'api';
+ck( 'with a custom REST prefix the MCP address under it signs in', $sign_in( '/api/mcp/wpcredits', $item_claude ), array() );
+ck( 'and the old default prefix is then not REST', $sign_in( '/wp-json/mcp/wpcredits', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+unset( $GLOBALS['rest_prefix'] );
+
+exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-rest-constant 2>&1', $rest_out, $rest_status );
+ck( 'even with the REST_REQUEST constant set true, a Claude password on an admin-ajax URL is refused: the fence trusts the URL, not the constant (the live platform set the constant there)', array( $rest_status, json_decode( implode( '', $rest_out ), true ) ), array( 0, array( 'codes' => array( 'wpcpm_mcp_fenced' ) ) ) );
+
+// A WordPress in a subdirectory: home path /blog, REST at /blog/wp-json/. The prefix is read after the
+// home path, and a request not under it is not this site's REST route.
+$GLOBALS['home_base'] = 'https://example.test/blog';
+ck( 'subdirectory install: the MCP address under the home path signs in', $sign_in( '/blog/wp-json/mcp/wpcredits', $item_claude ), array() );
+ck( 'subdirectory install: the REST index under the home path signs in', $sign_in( '/blog/wp-json/', $item_claude ), array() );
+ck( 'subdirectory install: an admin-ajax URL under the home path is refused', $sign_in( '/blog/wp-admin/admin-ajax.php', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+ck( 'subdirectory install: the REST prefix outside the home path is not this site\'s, so it is refused', $sign_in( '/wp-json/mcp/wpcredits', $item_claude ), array( 'wpcpm_mcp_fenced' ) );
+unset( $GLOBALS['home_base'] );
 
 define( 'XMLRPC_REQUEST', true );
+$_SERVER['REQUEST_URI'] = '/xmlrpc.php'; // Not a REST address, so the fence acts; the constant is not read.
 
 $error = new WP_Error();
 WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_claude, 'abcd efgh' );
@@ -1155,7 +1195,8 @@ $error = new WP_Error( 'incorrect_password', 'Already failing.' );
 WPCPM_MCP::fence_sign_in( $error, new stdClass(), $item_claude, '' );
 ck( 'an error already there keeps its place and the fence adds its own', $error->get_error_codes(), array( 'incorrect_password', 'wpcpm_mcp_fenced' ) );
 
-// Review Focus 2: the switch makes no difference to the fence.
+// Review Focus 2: the switch makes no difference to the fence. A non-REST address, so the fence acts.
+$_SERVER['REQUEST_URI'] = '/wp-admin/admin-ajax.php';
 foreach ( array( true, false ) as $on ) {
 	WPCPM_Settings::patch( array( 'mcp_enabled' => $on ) );
 
