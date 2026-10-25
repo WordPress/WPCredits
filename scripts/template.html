@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script src="assets/partner-map.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap');
@@ -179,56 +180,7 @@ const INST_MARKERS = /*INST_MARKERS*/;
 })();
 
 function initInstMap() {
-  const map = L.map('instMap', {
-    scrollWheelZoom: false,
-    zoomControl: true
-  }).setView([30, 10], 2);
-  // OpenStreetMap's standard tiles, which need no API key. CARTO's light_all
-  // basemap used to serve anonymous tiles and now stamps "API KEY REQUIRED"
-  // across every one of them — while still answering 200 with a valid PNG, so
-  // nothing here failed loudly. Two details this URL must keep: no {s}, since
-  // OSM serves from a single host now, and no {r}, since OSM has no @2x tiles
-  // and a retina suffix would 404 on exactly the screens that asked for it.
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-  }).addTo(map);
-
-  const wpIcon = L.divIcon({
-    className: 'wp-marker',
-    html: '<div style="background:#3858E9;width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;font-family:dashicons,sans-serif"></div>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16]
-  });
-
-  const wpIconMulti = function(count) {
-    return L.divIcon({
-      className: 'wp-marker',
-      html: '<div style="background:#3858E9;width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px">' + count + '</div>',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -18]
-    });
-  };
-
-  // Cluster nearby pins: partner cities are often only a few km apart (San José
-  // and Cartago, or the ten Spanish cities), so at world zoom they would sit on
-  // top of each other and hide one another. Clustering keeps every institution
-  // reachable and shows partner density.
-  const cluster = L.markerClusterGroup({ maxClusterRadius: 45, showCoverageOnHover: false });
-  INST_MARKERS.forEach(m => {
-    const icon = m.institutions.length > 1 ? wpIconMulti(m.institutions.length) : wpIcon;
-    const list = m.institutions.map(inst => {
-      const label = inst.url
-        ? '<a href="' + inst.url + '" target="_blank" rel="noopener noreferrer">' + inst.name + '</a>'
-        : inst.name;
-      return '<li>' + label + '</li>';
-    }).join('');
-    const popup = '<h4>' + m.city + ', ' + m.country + '</h4><ul>' + list + '</ul>';
-    cluster.addLayer(L.marker([m.lat, m.lng], { icon: icon }).bindPopup(popup, { maxWidth: 280 }));
-  });
-  map.addLayer(cluster);
+  const map = WPCreditsPartnerMap.init('instMap', INST_MARKERS, { fitToMarkers: false });
 
   // Invalidate size when tab becomes visible
   const observer = new MutationObserver(() => {
