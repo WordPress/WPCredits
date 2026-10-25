@@ -1094,8 +1094,8 @@ echo "\n=== A closing note the cleaner would take words from is refused, and kep
 // it, words and all. The note goes on the row and on its audit entry, the record somebody reads a
 // year later, so such a note is refused before either is written, in the words of the button that
 // was pressed, and the box gets back what was typed: for that request, for that manager, once.
-$GLOBALS['users'][3] = new WP_User( 3, 'Third Manager', 'maciej+third@a8c.com', array( 'administrator' ) );
-$GLOBALS['users'][4] = new WP_User( 4, 'Fourth Manager', 'maciej+fourth@a8c.com', array( 'administrator' ) );
+$GLOBALS['users'][3] = new WP_User( 3, 'Third Manager', 'administrator+third@example.test', array( 'administrator' ) );
+$GLOBALS['users'][4] = new WP_User( 4, 'Fourth Manager', 'administrator+fourth@example.test', array( 'administrator' ) );
 $GLOBALS['manage'][] = 3;
 $GLOBALS['manage'][] = 4;
 $lossy_close         = "Assigned Dana: kids <12 free, adults >18 pay.\r\nThe sync will carry it.";

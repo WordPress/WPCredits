@@ -10,7 +10,7 @@
 
 **Spec:** `docs/specs/2026-10-24-institutions-features-design.md`, section 3 (release 1), with sections 1, 2 and 8. Approved by the product owner on 24 October 2026.
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-29`, branch `release/1.123.29-institutions-release-1`, from `main` at the commit that adds this plan (1.123.28 is live).
+**Repository:** ~/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-29`, branch `release/1.123.29-institutions-release-1`, from `main` at the commit that adds this plan (1.123.28 is live).
 
 ## Global Constraints
 
@@ -25,7 +25,7 @@
 - **phpcs:** no new errors or warnings (60 warnings and no errors today).
 - **No Airtable column is added or written** by anything in this plan. Approval's Airtable create cells stay exactly as they are today.
 - **Tests first,** in the repository's style, each shown failing before its fix.
-- **Before each report,** run all of these and quote their last lines, with `PATH="/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/phpcs-1g:$PATH"`:
+- **Before each report,** run all of these and quote their last lines, with `PATH="<scratchpad>/phpcs-1g:$PATH"`:
   - the battery (every `bin/test-*.php`);
   - `php bin/check-references.php`;
   - `php bin/check-spelling.php`;

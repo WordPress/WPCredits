@@ -693,7 +693,7 @@ ck( 'ten minutes, the time a refusal takes to land on its page many times over',
 // address or a note among it: the next keep(), for any form, clears every typing older than
 // KEPT_FOR, and leaves a fresh one, the person's other channels and anyone else's typing.
 $GLOBALS['flash'] = array();
-WPCPM_Typed_Text::keep( 'test:abandoned', array( 'email' => 'maciej@a8c.com' ), array( 'email' => 120 ) );
+WPCPM_Typed_Text::keep( 'test:abandoned', array( 'email' => 'administrator@example.test' ), array( 'email' => 120 ) );
 WPCPM_Typed_Text::keep( 'test:waiting', array( 'note' => 'Still on its way' ), array( 'note' => 120 ) );
 $GLOBALS['flash'][5]['typed:test:abandoned']['at'] = time() - WPCPM_Typed_Text::KEPT_FOR - 1;
 $GLOBALS['flash'][5]['typed:test:waiting']['at']   = time() - WPCPM_Typed_Text::KEPT_FOR + 5;
@@ -701,7 +701,7 @@ $GLOBALS['flash'][5]['typed:test:odd']             = 'not a kept typing';
 $GLOBALS['flash'][5]['sponsor_dashboard']          = 'offer-saved';
 $GLOBALS['flash'][6]['typed:test:abandoned']       = array(
 	'at'    => time() - WPCPM_Typed_Text::KEPT_FOR - 1,
-	'typed' => array( 'email' => 'maciej+other@a8c.com' ),
+	'typed' => array( 'email' => 'administrator+other@example.test' ),
 );
 WPCPM_Typed_Text::keep( 'test:next', array( 'title' => 'Next' ), array( 'title' => 120 ) );
 ck( 'the next keep() clears a typing older than KEPT_FOR, and a value on a typing\'s channel that is not one, whatever form they were kept for', array( isset( $GLOBALS['flash'][5]['typed:test:abandoned'] ), isset( $GLOBALS['flash'][5]['typed:test:odd'] ) ), array( false, false ) );

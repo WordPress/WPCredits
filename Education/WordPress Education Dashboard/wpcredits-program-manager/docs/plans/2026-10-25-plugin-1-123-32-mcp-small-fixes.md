@@ -10,7 +10,7 @@
 
 **Spec:** the triage of 25 October 2026 (the 1.123.30 ledger's deferred minors, `.superpowers/session-backups/2026-10-25/release-plugin-1.123.30/sdd-ledger.md`), approved by the site's owner on 25 October 2026 ("Yes: fix all 10 and run both checks (the live one is read-only), as 1.123.32"). The design is `docs/specs/2026-10-24-abilities-mcp-design.md`; its rulings in that folder's `rulings.md` stand.
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-32`, branch `release/1.123.32-mcp-small-fixes`, from `main` at `dead9811` (1.123.30, live). 1.123.31 is Institutions release 2's; whichever lands second merges `main` in first.
+**Repository:** ~/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-32`, branch `release/1.123.32-mcp-small-fixes`, from `main` at `dead9811` (1.123.30, live). 1.123.31 is Institutions release 2's; whichever lands second merges `main` in first.
 
 ## Global Constraints
 

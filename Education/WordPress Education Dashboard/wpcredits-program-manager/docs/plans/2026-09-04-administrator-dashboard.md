@@ -21,7 +21,7 @@
 - No em dashes or en dashes anywhere; comments explain why and name the decision behind a rule; text domain `wpcredits-program-manager`; full product names ("Administrator Dashboard", "Institution Dashboard", "Student Report Card", "Mentor Report Card", "the semester report", "the Collaboration Agreement"); constant prefixes `OPT_` / `META_` / `ACTION_` / `ARG_`; Yoda conditions, tabs, WordPress coding standard.
 - Every behaviour has an assertion in a `bin/test-*.php` suite using `ck( $label, $actual, $expected )` with strict equality; suites are plain PHP run from the plugin root.
 - The plugin directory is a git repository; work on branch `administrator-dashboard` off `main`; every task commits with a subject starting `Task N:` and the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. The theme directory `~/GitHub/wpcredits-theme` is not a git repository; its task ends with the checks, not a commit.
-- Every test send address is `maciej@a8c.com`.
+- Every test send address is `administrator@example.test`.
 
 ## File Structure
 
@@ -843,7 +843,7 @@ $C = 'recINSTC000000003';
 
 $GLOBALS['manage']  = true;
 $GLOBALS['uid']     = 3;
-$GLOBALS['users']   = array( 3 => new WP_User( 3, 'Manager Three', 'maciej@a8c.com' ), 21 => new WP_User( 21, 'Rep One', 'maciej@a8c.com' ) );
+$GLOBALS['users']   = array( 3 => new WP_User( 3, 'Manager Three', 'administrator@example.test' ), 21 => new WP_User( 21, 'Rep One', 'administrator@example.test' ) );
 $GLOBALS['posts']   = array();
 $GLOBALS['pmeta']   = array();
 $GLOBALS['asked']   = array();
@@ -896,14 +896,14 @@ $GLOBALS['facts'] = array(
 	802 => array( 'id' => 802, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $B, 'institution_name' => 'Universidad Beta', 'note' => '', 'at' => time() - DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
 	803 => array( 'id' => 803, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'done', 'institution' => $A, 'institution_name' => 'Uniwersytet Alpha', 'note' => 'Handled.', 'at' => time() - 30 * DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
 );
-$GLOBALS['locked'] = array( new WP_User( 21, 'Rep One', 'maciej@a8c.com' ) );
+$GLOBALS['locked'] = array( new WP_User( 21, 'Rep One', 'administrator@example.test' ) );
 $GLOBALS['sync'] = array(
 	'students'     => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => '', 'elapsed' => 0 ),
 	'mentors'      => array( 'running' => true, 'phase' => 'reports', 'label' => 'Reading reports', 'error' => '', 'elapsed' => 40 ),
 	'institutions' => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => 'HTTP 429 from Airtable <b>x</b>', 'elapsed' => 0 ),
 );
 $GLOBALS['probe']         = array( 'status' => 403, 'time' => 1756700000, 'blocked' => true, 'error' => '', 'control_status' => 200, 'encrypted' => true );
-$GLOBALS['mail_log']      = array( array( 'time' => 1756990000, 'to' => 'm***@a8c.com', 'context' => 'report-drafted', 'sent' => true ) );
+$GLOBALS['mail_log']      = array( array( 'time' => 1756990000, 'to' => 'a***@example.test', 'context' => 'report-drafted', 'sent' => true ) );
 $GLOBALS['invite_run']    = array( 'total' => 5, 'started' => 1756990000, 'finished' => 0 );
 $GLOBALS['invite_queued'] = 2;
 
@@ -2814,7 +2814,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ### Task 5: The theme, 1.17.0
 
-**Files (all under `/Users/maciejpilarski/GitHub/wpcredits-theme`):**
+**Files (all under `~/GitHub/wpcredits-theme`):**
 - Create: `templates/page-administrator-dashboard.html`
 - Modify: `inc/template-tags.php` (add `wpcredits_is_administrator_page()` after `wpcredits_is_institution_page()`, and `wpcredits_is_dashboard_page()`), `functions.php:268-287` (`wpcredits_body_class()`), `inc/dashboard.php:47-60` (the dependency list), `assets/css/dashboard.css` (after the `.wpc-institution-page` group overrides near line 950), `readme.txt`, `style.css:7`
 - Check: `php bin/check-selectors.php` from the theme root (the plugin path defaults to `../wpcredits-program-manager`)

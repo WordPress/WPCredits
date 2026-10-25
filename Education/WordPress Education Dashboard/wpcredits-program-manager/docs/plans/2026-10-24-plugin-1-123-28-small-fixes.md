@@ -10,7 +10,7 @@
 
 **Spec:** the ledger of 1.123.27 (`.superpowers/session-backups/2026-10-24/plugin-1-123-27-sdd/progress.md`, its deferred minors); the site's owner said go on 24 October 2026 ("Do those").
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-28`, branch `release/1.123.28-small-fixes`, from `main` at `c3c35a33` (1.123.27, live).
+**Repository:** ~/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-28`, branch `release/1.123.28-small-fixes`, from `main` at `c3c35a33` (1.123.27, live).
 
 ## Global Constraints
 
@@ -22,7 +22,7 @@
 - Tests first in the repository's style (`bin/test-*.php`), red before green.
 - Every user-facing sentence below is copied verbatim.
 - No subagents, no network, no ssh, no docker, no stash, no push. One commit per fix, a subject line plus one plain paragraph, ending with the repository's Co-Authored-By trailer, via `git commit -F`.
-- Before reporting, the battery (every `bin/test-*.php`), `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/test-fixtures.php`, `bash bin/check-standards.sh` and `php bin/check-dead-annotations.php`, with `PATH="/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/phpcs-1g:$PATH"`.
+- Before reporting, the battery (every `bin/test-*.php`), `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/test-fixtures.php`, `bash bin/check-standards.sh` and `php bin/check-dead-annotations.php`, with `PATH="<scratchpad>/phpcs-1g:$PATH"`.
 
 ## Review Focus
 

@@ -380,7 +380,7 @@ function stored_answers() {
 		'Company Name'                      => 'TEST Sponsor',
 		'Website'                           => 'https://test-sponsor.example',
 		'Contact Person Full Name'          => 'Rep One',
-		'Contact Email'                     => 'maciej@a8c.com',
+		'Contact Email'                     => 'administrator@example.test',
 		'Sponsorship options'               => 'Sponsor mentors + tools/services',
 		"Anything else you'd like to share." => 'We make widgets.',
 	);
@@ -464,7 +464,7 @@ ck( 'a nameless application', array( approve( $id )->get_error_code(), get_optio
 
 echo "\n=== Never adopts a stranger's account ===\n";
 reset_world();
-$GLOBALS['users'][50] = new WP_User( 50, 'maciej@a8c.com', 'existing' );
+$GLOBALS['users'][50] = new WP_User( 50, 'administrator@example.test', 'existing' );
 $id      = seed_application();
 $refused = approve( $id );
 ck( 'the contact address already belongs to somebody else\'s account, refused before a record is minted', array( $refused->get_error_code(), $GLOBALS['journal'] ), array( 'wpcpm_sapp_conflict', array() ) );
@@ -506,7 +506,7 @@ ck( 'a press mints a spo key, stamps it and inserts the Approved row with the ap
 	'Sponsor mentors + tools/services',
 	'We make widgets.',
 	'Rep One',
-	'maciej@a8c.com',
+	'administrator@example.test',
 	true,
 	true,
 	gmdate( 'Y-m-d' ),

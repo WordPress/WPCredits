@@ -8,9 +8,9 @@
 
 **Tech Stack:** WordPress 7.1 block API (block.json, render.php), hand-written editor scripts against the `wp.*` globals, PHP 8.4, the theme's PHP test suites.
 
-**Spec:** /Users/maciejpilarski/GitHub/wpcredits-program-manager/docs/specs/2026-10-22-theme-editable-hub-and-levels-design.md (D5, D6, D7 for the Partners template). The 1.32.0 plan beside this one holds Tasks 1 to 3 and the hub part of Task 5, all live since 23 October 2026; its Task 4 and the Partners part of its Task 5 are Tasks 2 and 4 here.
+**Spec:** ~/GitHub/wpcredits-program-manager/docs/specs/2026-10-22-theme-editable-hub-and-levels-design.md (D5, D6, D7 for the Partners template). The 1.32.0 plan beside this one holds Tasks 1 to 3 and the hub part of Task 5, all live since 23 October 2026; its Task 4 and the Partners part of its Task 5 are Tasks 2 and 4 here.
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-theme, worktree `.worktrees/theme-1-32-1`, branch `release/1.32.1-partners-levels`, from main `9dc9e99` (1.32.0, live).
+**Repository:** ~/GitHub/wpcredits-theme, worktree `.worktrees/theme-1-32-1`, branch `release/1.32.1-partners-levels`, from main `9dc9e99` (1.32.0, live).
 
 ## Scope and rulings (the site's owner, 23 October 2026: "Yes, start 1.32.1", after the scope below was listed)
 
@@ -28,8 +28,8 @@
 - Every visible word is editable where it is shown (RichText inline, `allowedFormats` as the hub's blocks use them); lists and the table head's short amounts in the block's sidebar.
 - The plugin's `wpcpm_partner_levels` contract is unchanged (`name`, `amount`, `lead`, `items`, optional `tag`), and every value handed to it is plain text: tags stripped, entities decoded (`html_entity_decode( wp_strip_all_tags( $v ), ENT_QUOTES | ENT_HTML5, 'UTF-8' )`), since the plugin escapes what it prints. (Ruled during execution, from the whole-branch review: the formula is for the rich fields `name`, `amount`, `lead` and `tag`; items are plain text, so for them only entities are decoded and white space collapsed, and "Up to <5 students" reaches the form whole.)
 - No em or en dashes; US English; roles, never people's names, in code, comments, tests, fixtures and commit messages.
-- Tests in the repository's style (`bin/test-*.php`), red before green; every `bin/test-*.php` and `php bin/check-selectors.php /Users/maciejpilarski/GitHub/wpcredits-program-manager` green; phpcs with `phpcs.xml.dist`, no new errors or warnings.
-- WordPress core sources for reading (never editing) are in `/Users/maciejpilarski/Projects/wpcredits-docker/site/` (7.1.x, with the Gutenberg plugin).
+- Tests in the repository's style (`bin/test-*.php`), red before green; every `bin/test-*.php` and `php bin/check-selectors.php ~/GitHub/wpcredits-program-manager` green; phpcs with `phpcs.xml.dist`, no new errors or warnings.
+- WordPress core sources for reading (never editing) are in `~/Projects/wpcredits-docker/site/` (7.1.x, with the Gutenberg plugin).
 - Do not touch the version, the readme's changelog or the `.pot`: the coordinator does those.
 - No subagents, no network, no ssh, no docker, no stash, no push. Commits: subject plus one plain paragraph, ending the repository's Co-Authored-By trailer, via `git commit -F`.
 

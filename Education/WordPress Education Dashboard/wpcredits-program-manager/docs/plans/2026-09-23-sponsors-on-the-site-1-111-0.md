@@ -8,7 +8,7 @@
 
 **Tech Stack:** PHP 7.4 compatible WordPress plugin, WordPress coding standards, standalone suites under `bin/test-*.php` (no shared bootstrap: each suite stubs WordPress over `$GLOBALS` arrays and prints `ok`/`FAIL` per check).
 
-**Spec:** `docs/specs/2026-09-23-sponsors-on-the-site-design.md` (read it first; this plan argues from it). The module it changes: `docs/specs/2026-09-04-sponsors-module-design.md`. The inventory the plan was written from (every line number below comes from it, read at `main` = `778d4e3`): `.superpowers/sdd/2026-09-23-sponsors-on-the-site-1-111-0/inventory.md` once the workspace copies it there; until then `/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/plan-1-111-0/inventory.md`.
+**Spec:** `docs/specs/2026-09-23-sponsors-on-the-site-design.md` (read it first; this plan argues from it). The module it changes: `docs/specs/2026-09-04-sponsors-module-design.md`. The inventory the plan was written from (every line number below comes from it, read at `main` = `778d4e3`): `.superpowers/sdd/2026-09-23-sponsors-on-the-site-1-111-0/inventory.md` once the workspace copies it there; until then `<scratchpad>/plan-1-111-0/inventory.md`.
 
 ## Global Constraints
 
@@ -16,7 +16,7 @@
 - **This release is about the record and nothing else.** Nothing about how sponsors are recognized, ranked or rewarded appears anywhere in it: not in code, comments, strings, docs, tests or commit messages.
 - **The literal `wpcpm_sponsor` never appears in a statement that also holds `===`** in any file matching `includes/modules/class-wpcpm-sponsor*.php` (`bin/test-sponsor-policy.php` L244 to L248 fails the suite). Compare through constants (`self::POST_TYPE`, `self::META_KEY`), never through the literal.
 - Every behavior lands with a check that fails on the code before the change (prove it, quote it in the report) and passes after. The battery stays silent: `for f in bin/test-*.php; do php "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` prints nothing. `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/check-dead-annotations.php`, `php bin/check-temp-litter.php` clean; `bash bin/check-standards.sh` exits 0.
-- `bin/` and `docs/` are public: nothing personal, no real Airtable record id (`bin/test-fixtures.php` L562 to L608 refuses any `rec` + 14 that reads as Airtable's; use `recSEED0000000001`-style ids or `spo` keys with a run of four identical characters), no address outside `maciej@a8c.com`, its plus-addressed forms and `.example` domains.
+- `bin/` and `docs/` are public: nothing personal, no real Airtable record id (`bin/test-fixtures.php` L562 to L608 refuses any `rec` + 14 that reads as Airtable's; use `recSEED0000000001`-style ids or `spo` keys with a run of four identical characters), no address outside `administrator@example.test`, its plus-addressed forms and `.example` domains.
 - Nothing touches the live site, no ssh, no network, no subagents from inside a task. Version numbers move in Task 10 only.
 - Every commit message starts with "Sponsors on the site:" and names the task.
 

@@ -1056,9 +1056,9 @@ $defaults = WPCPM_Settings::defaults();
 ck( 'the three report settings and their defaults', array( $defaults['report_autodraft'], $defaults['report_autodraft_grace_days'], $defaults['report_notify'] ), array( true, 45, '' ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
-$saved = WPCPM_Settings::save( array( 'report_autodraft_grace_days' => '2', 'report_notify' => "one@example.org, junk\nmaciej@a8c.com" ) );
+$saved = WPCPM_Settings::save( array( 'report_autodraft_grace_days' => '2', 'report_notify' => "one@example.org, junk\nadministrator@example.test" ) );
 ck( 'the grace has a floor of a week', $saved['report_autodraft_grace_days'], 7 );
-ck( 'the addresses are cleaned like the agreement ones', $saved['report_notify'], 'one@example.org,maciej@a8c.com' );
+ck( 'the addresses are cleaned like the agreement ones', $saved['report_notify'], 'one@example.org,administrator@example.test' );
 ck( 'a save that does not carry the switch leaves it on', $saved['report_autodraft'], true );
 $saved = WPCPM_Settings::save( array( 'report_autodraft' => '', 'report_autodraft_grace_days' => '900' ) );
 ck( 'the switch carried empty is off', $saved['report_autodraft'], false );
@@ -1072,14 +1072,14 @@ ck( 'a sponsor that stops being Approved keeps its accounts unless told otherwis
 ck( 'interest mail falls back to every manager', WPCPM_Settings::defaults()['sponsor_notify'], '' );
 ck( 'a logo may be a megabyte', WPCPM_Settings::defaults()['logo_max_kb'], 1024 );
 
-$saved = WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'anything', 'logo_max_kb' => '999999', 'sponsor_notify' => ' maciej@a8c.com ' ) );
+$saved = WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'anything', 'logo_max_kb' => '999999', 'sponsor_notify' => ' administrator@example.test ' ) );
 ck( 'an unknown on-inactive answer reads as keep', $saved['sponsor_on_inactive'], 'keep' );
 ck( 'and revoke is the one other answer', WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'revoke' ) )['sponsor_on_inactive'], 'revoke' );
 ck( 'the logo ceiling is clamped', $saved['logo_max_kb'], 8192 );
-ck( 'the notify list is trimmed', $saved['sponsor_notify'], 'maciej@a8c.com' );
+ck( 'the notify list is trimmed', $saved['sponsor_notify'], 'administrator@example.test' );
 ck( 'and cleaned like its siblings: split, lowered, the non-addresses dropped, duplicates gone',
-	WPCPM_Settings::save( array( 'sponsor_notify' => 'Maciej@a8c.com, not-an-address maciej@a8c.com' ) )['sponsor_notify'],
-	'maciej@a8c.com' );
+	WPCPM_Settings::save( array( 'sponsor_notify' => 'Administrator@example.test, not-an-address administrator@example.test' ) )['sponsor_notify'],
+	'administrator@example.test' );
 
 // 1.111.0: the sponsor record lives on the site and no sync reads a sponsor table any more, so the
 // settings screen neither asks for the program team's table nor promises what a sync will do. The

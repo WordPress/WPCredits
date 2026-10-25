@@ -6,16 +6,16 @@
 
 **Architecture:** No new modules. Eight tasks, each owning a set of files nobody else touches, each fix landing with a check that fails on the unfixed code and passes after. Task 8 rewrites the seed fixture so the public mirror stops publishing real record IDs and addresses; Task 9 is the release itself.
 
-**Tech Stack:** PHP 7.4 compatible WordPress plugin; standalone suites under `bin/test-*.php` that stub WordPress at their top; `bash bin/check-standards.sh`, `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/check-dead-annotations.php`; the block theme at `/Users/maciejpilarski/GitHub/wpcredits-theme` (Task 7 only).
+**Tech Stack:** PHP 7.4 compatible WordPress plugin; standalone suites under `bin/test-*.php` that stub WordPress at their top; `bash bin/check-standards.sh`, `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/check-dead-annotations.php`; the block theme at `~/GitHub/wpcredits-theme` (Task 7 only).
 
-**Spec:** the judged findings, `/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/deepcheck/deep-check-judged.json`, rendered per task as `.../deepcheck/task-N-findings.md` (each carries the claim, the concrete scenario, the proof, the refuter's evidence and the reviewer's proposed fix). The reviewers' full narratives sit beside them (`anonymous.md`, `sponsors.md`, `offers.md`, `agreement.md`, `admin.md`, `frontend.md`, `suites.md`) and their probes under `probes-*`; an implementer may re-run a probe to see a failure before fixing it. Where the plan's ruling and the reviewer's fix differ, the ruling wins.
+**Spec:** the judged findings, `<scratchpad>/deepcheck/deep-check-judged.json`, rendered per task as `.../deepcheck/task-N-findings.md` (each carries the claim, the concrete scenario, the proof, the refuter's evidence and the reviewer's proposed fix). The reviewers' full narratives sit beside them (`anonymous.md`, `sponsors.md`, `offers.md`, `agreement.md`, `admin.md`, `frontend.md`, `suites.md`) and their probes under `probes-*`; an implementer may re-run a probe to see a failure before fixing it. Where the plan's ruling and the reviewer's fix differ, the ruling wins.
 
 ## Global Constraints
 
 - WordPress coding standards throughout: tabs, Yoda conditions, spaces inside parentheses, `array()` not `[]`; PHP 7.4 compatible; every string a person reads in US English; no em dash or en dash anywhere in code, comments, docs or commit messages (a plain hyphen instead); full product names ("Student Report Card", "Mentor Report Card", "Institution Dashboard", "Sponsor Dashboard", "Administrator Dashboard", "Collaboration Agreement"); the Required mark is `<span class="wpcpm-field__required">Required</span>`.
 - Every code fix lands with a check in the suite the finding names (or a new one where the finding says "none"), and the implementer proves the check fails on the unfixed code first: apply the check, run it against the code before the fix (a temporary revert or a scratch copy), see it fail, then fix and see it pass. The task report names the failing output.
 - The battery stays silent: `for f in bin/test-*.php; do php "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` prints nothing. `php bin/check-references.php`, `php bin/check-spelling.php` and `php bin/check-dead-annotations.php` report clean. `bash bin/check-standards.sh` prints zero lines containing ` ERROR ` (its exit status changes in Task 8: until then exit 2 means warnings only).
-- `bin/` and `docs/` never ship in the zip but ARE published on the public GitHub mirror. Nothing personal, no real Airtable record ID (`rec` followed by fourteen mixed characters that is not an obvious placeholder), no address outside `maciej@a8c.com`, its plus-addressed forms and reserved `.example` domains may be added to them.
+- `bin/` and `docs/` never ship in the zip but ARE published on the public GitHub mirror. Nothing personal, no real Airtable record ID (`rec` followed by fourteen mixed characters that is not an obvious placeholder), no address outside `administrator@example.test`, its plus-addressed forms and reserved `.example` domains may be added to them.
 - Version numbers move in Task 9 only (plugin 1.99.0) and in Task 7 for the theme (1.24.3). Nothing touches the live site; no ssh; no network; no subagents.
 - Comments explain why and name the bug or the decision behind a rule; a docblock that describes behavior the code does not have is a defect.
 - Every commit message starts with "Deep check fixes:" and names the finding ids it closes.
@@ -24,7 +24,7 @@
 
 ### Task 1: Sponsor members: capabilities that survive a detach, the routing clause, the history meta, dead code
 
-**Findings:** FSPON-1 (high), FSPON-3, FSPON-6, FSUIT-7. Brief: `/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/deepcheck/task-1-findings.md`
+**Findings:** FSPON-1 (high), FSPON-3, FSPON-6, FSUIT-7. Brief: `<scratchpad>/deepcheck/task-1-findings.md`
 
 **Files:**
 - Modify: `includes/modules/class-wpcpm-sponsor-members.php` (`detach()` at about line 290 to 335; a new one-time repair)
@@ -178,7 +178,7 @@
 
 **Files:**
 - Modify: `assets/js/forms.js` (`releaseOnRestore()` at about line 175), `assets/js/modules.js` (`arrange()` at about line 86 and the non-ok branch at about line 147), `assets/css/administrator.css` (about lines 34 and 159)
-- Modify in the theme repo `/Users/maciejpilarski/GitHub/wpcredits-theme`: `assets/css/dashboard.css` (the table rules at about line 1327 and the per-dashboard sheets), `style.css` and `readme.txt` (version 1.24.3 and a changelog entry), plus the token restatement of Task 3's code button reset
+- Modify in the theme repo `~/GitHub/wpcredits-theme`: `assets/css/dashboard.css` (the table rules at about line 1327 and the per-dashboard sheets), `style.css` and `readme.txt` (version 1.24.3 and a changelog entry), plus the token restatement of Task 3's code button reset
 - Test: `bin/test-submit-guard.php` (FFRNT-1 mutation check); the theme's `php bin/check-selectors.php`
 
 **Rulings:**
@@ -213,7 +213,7 @@
 
 **Steps:**
 - [ ] Step 1: Write and run the anonymizer; the two greps print nothing; run the battery; fix the checks that break; quote the counts (IDs, addresses, names replaced).
-- [ ] Step 2: `bin/build` and `bin/check-standards.sh` changes; run `bash bin/build` once (the zip lands at `/Users/maciejpilarski/GitHub/wpcredits-program-manager.zip`; the version inside is still 1.98.1 at this point, which is expected) and `bash bin/check-standards.sh; echo $?` prints 0.
+- [ ] Step 2: `bin/build` and `bin/check-standards.sh` changes; run `bash bin/build` once (the zip lands at `~/GitHub/wpcredits-program-manager.zip`; the version inside is still 1.98.1 at this point, which is expected) and `bash bin/check-standards.sh; echo $?` prints 0.
 - [ ] Step 3: `check-spelling.php` scope; commit: `Deep check fixes: FSUIT-5 FSUIT-10 to FSUIT-13 - a synthetic seed fixture and suites with no real record, a build that fails loudly, standards exit 0 when clean, block.json spelled`.
 
 ---

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.38
+Stable tag: 1.123.39
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.39 =
+
+* For developers: the test suites, their fixtures and the design notes name roles, not people. The fixtures' maintainer is "Program Administrator" at administrator@example.test, the fixtures walk no longer keeps a work domain's addresses as they are, and the plans and specs say "the designer", "an Administrator" and the new-institution automation (by its ID) where they named people, with home paths written from `~/`. Nothing the site does changes.
 
 = 1.123.38 =
 

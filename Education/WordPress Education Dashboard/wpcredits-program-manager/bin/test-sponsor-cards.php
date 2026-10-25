@@ -112,7 +112,7 @@ class WP_Error {
  * The constructor's argument order (id, roles, name, email) is the Sponsors screen suite's own
  * (bin/test-sponsors-screen.php), kept unchanged here because the fixture below already
  * constructs every account in that order: `new WP_User( 1, array( 'administrator' ), 'Manager',
- * 'maciej@a8c.com' )` reads correctly against it with nothing to adjust.
+ * 'administrator@example.test' )` reads correctly against it with nothing to adjust.
  */
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array();
@@ -491,9 +491,9 @@ if ( file_exists( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-plan
 // 1.111.0: the manager is a site user id now, not a Team Members record, so the assignment
 // below is the numeric form of the same "user 1 is the manager" the comment always meant.
 $A = 'recSPONSOR0000001'; $M1 = 'recMENTOR00000001'; $M2 = 'recMENTOR00000002'; $M3 = 'recMENTOR00000003'; $M4 = 'recMENTOR00000004';
-WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.test/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'One year free', 'instructions' => 'Use the code.', 'more_info' => '', 'support' => array( 'Sponsor tools or services' ), 'interests' => '2026-09-01 by Rep One: Sponsor tools or services', 'manager' => '1', 'mentors' => array( $M1, $M2, $M4 ) ) ), time() );
+WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.test/', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'product_type' => 'Hosting', 'offer' => 'One year free', 'instructions' => 'Use the code.', 'more_info' => '', 'support' => array( 'Sponsor tools or services' ), 'interests' => '2026-09-01 by Rep One: Sponsor tools or services', 'manager' => '1', 'mentors' => array( $M1, $M2, $M4 ) ) ), time() );
 $GLOBALS['settings'] = array();
-$GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ), 42 => new WP_User( 42, array( 'wpcpm_mentor' ), 'Ines', 'maciej@a8c.com' ) );
+$GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Manager', 'administrator@example.test' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'administrator@example.test' ), 42 => new WP_User( 42, array( 'wpcpm_mentor' ), 'Ines', 'administrator@example.test' ) );
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['sponsorship'] = array(
@@ -644,12 +644,12 @@ echo "\n=== Profile: saving ===\n";
 // to Airtable - every assertion below reads WPCPM_Sponsors_Index::row() back, not a PATCH.
 // A type of product posted beside the form, as the card drew it until 1.123.22 or by hand, is not read:
 // the stored one stays, whatever is posted, a blank among it.
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_anything' => 'First words.' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'administrator@example.test', 'wpcpm_product_type' => 'Plugin', 'wpcpm_anything' => 'First words.' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a member saves, and lands on the profile card', $r, array( 'profile-saved', 'profile', $A ) );
 ck( 'a changed field is written to the store', WPCPM_Sponsors_Index::row( $A )['anything'], 'First words.' );
 ck( 'and audited by name, never by value', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['fields'], end( $GLOBALS['audit'] )['ground'] ), array( 'profile_saved', array( 'anything' ), 'member' ) );
 ck( 'the type of product posted beside it is not read, and the stored one stays', WPCPM_Sponsors_Index::row( $A )['product_type'], 'Hosting' );
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'administrator@example.test', 'wpcpm_product_type' => 'Plugin' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'nothing changed is said, a type of product other than the stored one posted with it', array( $r[0], WPCPM_Sponsors_Index::row( $A )['product_type'] ), array( 'profile-unchanged', 'Hosting' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_product_type' => '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'and a blank one posted alone clears nothing', array( $r[0], WPCPM_Sponsors_Index::row( $A )['product_type'] ), array( 'profile-unchanged', 'Hosting' ) );
@@ -664,13 +664,13 @@ ck( 'one rejected field rejects the whole save', array( $r[0], WPCPM_Sponsors_In
 // Its sentence names the two boxes a value can be refused in, now that the type of product is not
 // one of the card's (1.123.22).
 ck( 'and says to check the website and the contact email', WPCPM_Sponsor_Profile::messages()['profile-rejected'], array( 'error', 'One of the values could not be accepted, so nothing was saved: check the website and the contact email.' ) );
-$GLOBALS['uid'] = 9; $GLOBALS['users'][9] = new WP_User( 9, array( 'subscriber' ), 'Stranger', 'maciej@a8c.com' );
+$GLOBALS['uid'] = 9; $GLOBALS['users'][9] = new WP_User( 9, array( 'subscriber' ), 'Stranger', 'administrator@example.test' );
 $before_website = WPCPM_Sponsors_Index::row( $A )['website'];
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://hijacked.test/' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a stranger is refused with the one message, metered, and nothing written', array( $r[0], $GLOBALS['buckets']['sponsor-refused:9'], WPCPM_Sponsors_Index::row( $A )['website'] ), array( 'refused', 1, $before_website ) );
 $GLOBALS['uid'] = 5;
 $html = card( 'WPCPM_Sponsor_Profile', $A, $context );
-ck( 'the card is the canonical disclosure with its four fields prefilled', substr_count( $html, 'name="wpcpm_' ) >= 5 && false !== strpos( $html, 'id="wpcpm-sponsor-profile"' ) && false !== strpos( $html, 'wpcpm-group__disclosure' ) && false !== strpos( $html, 'value="maciej@a8c.com"' ), true );
+ck( 'the card is the canonical disclosure with its four fields prefilled', substr_count( $html, 'name="wpcpm_' ) >= 5 && false !== strpos( $html, 'id="wpcpm-sponsor-profile"' ) && false !== strpos( $html, 'wpcpm-group__disclosure' ) && false !== strpos( $html, 'value="administrator@example.test"' ), true );
 ck( 'and no type of product: no box, no label, no choice, though the record holds one', array( strpos( $html, 'wpcpm_product_type' ), strpos( $html, 'Type of product' ), strpos( $html, '<select' ), strpos( $html, 'Hosting' ), WPCPM_Sponsors_Index::row( $A )['product_type'] ), array( false, false, false, false, 'Hosting' ) );
 ck( 'closed until a flash names it', strpos( $html, '<details' ) !== false && strpos( $html, ' open>' ) === false, true );
 $profile_opened = card( 'WPCPM_Sponsor_Profile', $A, array_merge( $context, array( 'open' => 'profile' ) ) );
@@ -1119,7 +1119,7 @@ echo "\n=== A member whose sponsor left the index cannot be written back to ===\
 // member (the stamp is well-formed and the ground is ungated), but WPCPM_Sponsors_Index::row()
 // answers null. A different account from every other check in this file, so its own ceiling
 // is untouched by anything above or below.
-$GLOBALS['users'][6] = new WP_User( 6, array( 'wpcpm_sponsor' ), 'Departed Rep', 'maciej@a8c.com' );
+$GLOBALS['users'][6] = new WP_User( 6, array( 'wpcpm_sponsor' ), 'Departed Rep', 'administrator@example.test' );
 $GLOBALS['umeta'][6] = array( WPCPM_Sponsor_Members::META_RECORD_ID => 'recSPONSOR0000009', WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['uid']      = 6;
 $r = post( array( 'wpcpm_sponsor' => 'recSPONSOR0000009', 'wpcpm_website' => 'https://hijacked.test/' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
@@ -2432,14 +2432,14 @@ WPCPM_Sponsors_Index::patch( $A, array( 'website' => 'https://plugins.mango-exam
 // An address is drawn as it is stored, its break and all: the email box drops the break, as it did
 // before, while a space there would be an address that is not one, which the browser refuses, and
 // with it the whole save until the person found and took the space out.
-WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => "maciej@\na8c.com" ) );
+WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => "administrator@\nexample.test" ) );
 $GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
 $b_html  = card( 'WPCPM_Sponsor_Profile', $A, $context );
 $b_shown = cards_profile_form( $b_html );
 $b_value = preg_match( '/name="wpcpm_contact_email" value="([^"]*)"/', $b_html, $b_m ) ? html_entity_decode( $b_m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
 $r       = post( cards_profile_post( $A, $b_shown ), $p_save );
-ck( 'an address stored with a line break inside is drawn as stored, never with a space, so the email box shows an address and the save goes through', array( $b_value, $b_shown['contact_email'], is_email( $b_shown['contact_email'] ), $r[0] ), array( "maciej@\na8c.com", 'maciej@a8c.com', true, 'profile-saved' ) );
-WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => 'maciej@a8c.com' ) );
+ck( 'an address stored with a line break inside is drawn as stored, never with a space, so the email box shows an address and the save goes through', array( $b_value, $b_shown['contact_email'], is_email( $b_shown['contact_email'] ), $r[0] ), array( "administrator@\nexample.test", 'administrator@example.test', true, 'profile-saved' ) );
+WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => 'administrator@example.test' ) );
 
 echo "\n=== The same boxes as the Sponsors screen's Edit form ===\n";
 // The Website, the Contact person and the Contact email are the Sponsors screen's boxes too, and a
@@ -2464,11 +2464,11 @@ ck( 'the profile card draws the Website, the Contact person and the Contact emai
 ck( 'and posted back untouched, it writes nothing: no audit line, every stored byte kept',
 	array( $r[0], WPCPM_Sponsors_Index::row( $A ) === $b_row, $GLOBALS['audit'], array( WPCPM_Sponsors_Index::row( $A )['website'], WPCPM_Sponsors_Index::row( $A )['contact_person'], WPCPM_Sponsors_Index::row( $A )['contact_email'] ) ),
 	array( 'profile-unchanged', true, array(), array_values( $same_row ) ) );
-$r = post( cards_profile_post( $A, $b_shown, array( 'wpcpm_website' => 'https://example.com/?a=1&b=2', 'wpcpm_contact_email' => 'maciej+ab@a8c.com' ) ), $p_save );
+$r = post( cards_profile_post( $A, $b_shown, array( 'wpcpm_website' => 'https://example.com/?a=1&b=2', 'wpcpm_contact_email' => 'administrator+ab@example.test' ) ), $p_save );
 ck( 'while the link and the address edited are edits as before: both saved, the audit line naming the two',
 	array( $r[0], WPCPM_Sponsors_Index::row( $A )['website'], WPCPM_Sponsors_Index::row( $A )['contact_email'], WPCPM_Sponsors_Index::row( $A )['contact_person'], end( $GLOBALS['audit'] )['data']['fields'] ?? null ),
-	array( 'profile-saved', 'https://example.com/?a=1&b=2', 'maciej+ab@a8c.com', $same_row['contact_person'], array( 'website', 'contact_email' ) ) );
-WPCPM_Sponsors_Index::patch( $A, array( 'website' => 'https://plugins.mango-example.test/', 'contact_person' => 'Test Sponsor Contact', 'contact_email' => 'maciej@a8c.com' ) );
+	array( 'profile-saved', 'https://example.com/?a=1&b=2', 'administrator+ab@example.test', $same_row['contact_person'], array( 'website', 'contact_email' ) ) );
+WPCPM_Sponsors_Index::patch( $A, array( 'website' => 'https://plugins.mango-example.test/', 'contact_person' => 'Test Sponsor Contact', 'contact_email' => 'administrator@example.test' ) );
 // An address reaches the unedited test as `sanitize_email()` hands it back, which holds no space, so
 // a stored address with its breaks read as spaces can never be it: the fold is asked of a one-line
 // text and a link, and of nothing else. An address is read with each entity read alone, the rule of

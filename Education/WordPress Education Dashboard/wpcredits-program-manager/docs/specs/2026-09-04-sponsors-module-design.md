@@ -123,7 +123,7 @@ User meta: `META_RECORD_ID = 'wpcpm_sponsor_record_id'`, `META_ACTIVE`, `META_RE
 
 ### 5.3 Provisioning, one at a time
 
-On the wp-admin Sponsors screen, every Approved sponsor row has *Create account* (`ACTION_PROVISION = 'wpcpm_sponsor_provision'`, manager, nonce keyed to the record). The handler creates a `wpcpm_sponsor` account from `Contact Email` (or attaches the existing account at that address under the rules of 5.1), stamps it, writes `Dashboard account` in Airtable (section 12), queues the welcome through the existing invitation queue (`wpcpm_invite_queue`, the set-password mail every provisioned audience gets), and logs it. The same screen lists each sponsor's accounts with *Attach account* (by email) and *Remove* (`ACTION_MEMBERS`, manager). Only `maciej@a8c.com` is used for any test send.
+On the wp-admin Sponsors screen, every Approved sponsor row has *Create account* (`ACTION_PROVISION = 'wpcpm_sponsor_provision'`, manager, nonce keyed to the record). The handler creates a `wpcpm_sponsor` account from `Contact Email` (or attaches the existing account at that address under the rules of 5.1), stamps it, writes `Dashboard account` in Airtable (section 12), queues the welcome through the existing invitation queue (`wpcpm_invite_queue`, the set-password mail every provisioned audience gets), and logs it. The same screen lists each sponsor's accounts with *Attach account* (by email) and *Remove* (`ACTION_MEMBERS`, manager). Only `administrator@example.test` is used for any test send.
 
 ### 5.4 The Sponsor Dashboard
 
@@ -380,7 +380,7 @@ The future mentor scoreboard ranks mentors by activity and by student-rated qual
 
 ## 15. Phases, versions and what each demonstrates
 
-| Phase | Version | Demonstrates, with a clearly labelled TEST sponsor record and `maciej@a8c.com` as the contact |
+| Phase | Version | Demonstrates, with a clearly labelled TEST sponsor record and `administrator@example.test` as the contact |
 | --- | --- | --- |
 | S1 | 1.93.0, theme 1.18.0 | the sync indexes 30 sponsors and the team; a manager creates the TEST account and the welcome lands; the dashboard shows logo, name, contact, the assigned manager, the profile form; a saved profile change appears in Airtable with an audit row; an interest mails the manager and appends a line in Airtable; the sponsored-mentors card lists the linked mentor with a student count and no student name; a TEST institution representative visiting the page sees nothing |
 | S2 | 1.94.0, theme 1.19.0 | the seeded primary offer edited and switched live writes three Airtable fields; twenty pasted codes; a TEST student claims from the Student Report Card and sees the code; a second claim returns the same code; a graduate sees no claim form; the sponsor's Usage card shows 1 claimed, 19 available and no name; a manager's view of the student's card shows "1 tool claimed"; the threshold set to 19 mails the sponsor and the manager once |

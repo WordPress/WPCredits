@@ -1052,7 +1052,7 @@ $C = 'recINSTC000000003';
 
 $GLOBALS['manage']  = array( 3 );
 $GLOBALS['uid']     = 3;
-$GLOBALS['users']   = array( 3 => new WP_User( 3, 'Manager Three', 'maciej@a8c.com' ), 21 => new WP_User( 21, 'Rep One', 'maciej@a8c.com' ) );
+$GLOBALS['users']   = array( 3 => new WP_User( 3, 'Manager Three', 'administrator@example.test' ), 21 => new WP_User( 21, 'Rep One', 'administrator@example.test' ) );
 $GLOBALS['posts']   = array();
 $GLOBALS['pmeta']   = array();
 $GLOBALS['asked']   = array();
@@ -1149,7 +1149,7 @@ $GLOBALS['agr_facts']   = array(
 	880 => array( 'post_id' => 880, 'state' => 'revoked', 'kind' => 'legacy', 'sponsor' => 'recSPN00000000002', 'sponsor_name' => 'Old Sponsor', 'uploaded_by' => '', 'uploaded_at' => '2026-05-01', 'original_name' => '', 'flags' => array( 'javascript', '/OpenAction' ), 'size' => 0, 'members' => 2 ),
 );
 $GLOBALS['sponsor_apps'] = array(
-	array( 'id' => 950, 'reference' => 'SAPP-2026-0950', 'company' => 'Gadgetry Inc', 'website' => 'https://gadgetry.example', 'person' => 'Sam Sponsor', 'email' => 'maciej@a8c.com', 'at' => time() - 7200, 'state' => 'new', 'state_label' => 'new', 'signals' => array( 'in-base' ), 'held' => false, 'duplicate' => false, 'in_base' => true ),
+	array( 'id' => 950, 'reference' => 'SAPP-2026-0950', 'company' => 'Gadgetry Inc', 'website' => 'https://gadgetry.example', 'person' => 'Sam Sponsor', 'email' => 'administrator@example.test', 'at' => time() - 7200, 'state' => 'new', 'state_label' => 'new', 'signals' => array( 'in-base' ), 'held' => false, 'duplicate' => false, 'in_base' => true ),
 );
 // get_post() must answer for every id in $GLOBALS['sponsor_apps'] above: render_sponsor_applications()
 // looks the post up to fold render_details() under "Read the application" (S6).
@@ -1159,7 +1159,7 @@ $GLOBALS['facts'] = array(
 	802 => array( 'id' => 802, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $B, 'institution_name' => 'Universidad Beta', 'note' => '', 'at' => time() - DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
 	803 => array( 'id' => 803, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'done', 'institution' => $A, 'institution_name' => 'Uniwersytet Alpha', 'note' => 'Handled.', 'at' => time() - 30 * DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
 );
-$GLOBALS['locked'] = array( new WP_User( 21, 'Rep One', 'maciej@a8c.com' ) );
+$GLOBALS['locked'] = array( new WP_User( 21, 'Rep One', 'administrator@example.test' ) );
 $GLOBALS['sync'] = array(
 	'students'     => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => '', 'elapsed' => 0 ),
 	'mentors'      => array( 'running' => true, 'phase' => 'reports', 'label' => 'Reading reports', 'error' => '', 'elapsed' => 40 ),
@@ -3472,7 +3472,7 @@ ck( 'the card lists the application with its facts, the mark of a sponsor the si
 	has( $sa, '>Gadgetry Inc</a> <span class="wpcpm-administrator__kind">SAPP-2026-0950</span>' ),
 	has( $sa, 'page=wpcpm-sponsors&wpcpm_sapp_id=950' ),
 	has( $sa, 'https://gadgetry.example' ),
-	has( $sa, 'Contact: Sam Sponsor, maciej@a8c.com' ),
+	has( $sa, 'Contact: Sam Sponsor, administrator@example.test' ),
 	has( $sa, 'already holds a sponsor with this name or website' ),
 	has( $sa, 'data-post="950" data-return="dashboard"' ),
 ), array( true, true, true, true, true, true, true, true ) );
@@ -3884,7 +3884,7 @@ $GLOBALS['manage']                     = array( 3 );
 $GLOBALS['uid']                        = 3;
 $GLOBALS['opts']['time_format']        = 'g:i a';
 $GLOBALS['umeta'][3]['wpcpm_timezone'] = 'Asia/Tokyo';
-$GLOBALS['users'][22]                  = new WP_User( 22, 'Zed <b>Joiner</b>', 'maciej@a8c.com' );
+$GLOBALS['users'][22]                  = new WP_User( 22, 'Zed <b>Joiner</b>', 'administrator@example.test' );
 $se_long                               = str_repeat( 'Every <session> & "detail" of the day. ', 10 );
 seed_post( 1401, 'wpcpm_sponsor_event', 'Q&A "live" <b>' );
 seed_post( 1402, 'wpcpm_sponsor_event', 'Short webinar' );

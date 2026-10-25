@@ -10,7 +10,7 @@
 
 **Spec:** the review of the Institutions module of 22 October 2026, section B ("Copy and legacy cleanup (one release)"): `.superpowers/session-backups/2026-10-22/institutions-audit/findings.md` in this repository (local, not mirrored). Section A shipped in 1.123.26; sections C, D and E are not this release. The site's owner said go on 24 October 2026, and decided the form's address on 22 October 2026: the institution application form moves from /apply/ to /institution-application/, /apply/ redirects to it, and its title says it is for institutions ("Bring WordPress Credits to your institution") with one intro line.
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-27`, branch `release/1.123.27-institutions-cleanup`, from `main` at `a06d23eb` (plugin 1.123.26, live) with this plan committed on top. Every anchor below is that tree's text; line numbers are a guide, the quoted text is the anchor.
+**Repository:** ~/GitHub/wpcredits-program-manager, worktree `.worktrees/plugin-1-123-27`, branch `release/1.123.27-institutions-cleanup`, from `main` at `a06d23eb` (plugin 1.123.26, live) with this plan committed on top. Every anchor below is that tree's text; line numbers are a guide, the quoted text is the anchor.
 
 **How to read the wording.** Every user-facing sentence this plan gives is copied verbatim. A sentence or a choice marked **[R]** is this plan's proposal: the controller rules on it (or asks the owner) before the task starts, and the implementer copies whatever the ruling says. Anything unmarked is the owner's words, the finding's, or a fact of the code.
 
@@ -61,7 +61,7 @@ Every sentence or choice marked [R] in this plan is accepted as written, with th
 - Tests first in the repository's style (`bin/test-*.php`); record each task's red and green.
 - Update the guides that describe changed behavior (`docs/sections/`), then `php bin/build-docs.php`.
 - Comments state the code's fact and name no plan, task, review or finding.
-- Before reporting, run from the worktree and quote the last lines: `TMPDIR=$(mktemp -d) php bin/check-temp-litter.php`; `php bin/check-references.php`; `php bin/check-spelling.php`; `php bin/test-fixtures.php`; `bash bin/check-standards.sh` and `php bin/check-dead-annotations.php`, all with `PATH="/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/phpcs-1g:$PATH"`.
+- Before reporting, run from the worktree and quote the last lines: `TMPDIR=$(mktemp -d) php bin/check-temp-litter.php`; `php bin/check-references.php`; `php bin/check-spelling.php`; `php bin/test-fixtures.php`; `bash bin/check-standards.sh` and `php bin/check-dead-annotations.php`, all with `PATH="<scratchpad>/phpcs-1g:$PATH"`.
 - Do not dispatch subagents, reviewers included. No `ssh`, `docker`, `gh`, `git push`, network calls, deploys or installs. Never print secrets. Never `git stash`.
 - Commits: one per task, each a subject line plus one plain paragraph, ending with the repository's Co-Authored-By trailer, written with `git commit -F <file>`.
 

@@ -427,7 +427,7 @@ $GLOBALS['index'] = array(
 				// The WordPress.org username and the account email the roster's avatar is
 				// drawn from - the mentor page's own test address, so it is recognizable as
 				// a fixture rather than a real person's.
-				'username' => 'adaexample', 'email' => 'maciej@a8c.com',
+				'username' => 'adaexample', 'email' => 'administrator@example.test',
 				'tutor' => 'Tutor Example', 'field_of_study' => 'Technology & Engineering',
 				'user_id' => 21,
 				// The Students table carries this column; the index drops it and the roster
@@ -449,7 +449,7 @@ $GLOBALS['index'] = array(
 			// leak a Gravatar, which is exactly what this row is here to catch. Interested keeps
 			// her out of the signed-up count the same way Fi is, so the cohort's (5) and the
 			// strip's two numbers do not move.
-			'recSTU00000000013' => row( 'recSTU00000000013', 'Lu Example', 'Interested', '2026-02-16', array( 'email' => 'maciej@a8c.com' ) ),
+			'recSTU00000000013' => row( 'recSTU00000000013', 'Lu Example', 'Interested', '2026-02-16', array( 'email' => 'administrator@example.test' ) ),
 			// 2025-H2, the semester the strip compares 2026-H1 against.
 			'recSTU00000000009' => row( 'recSTU00000000009', 'Gus Example', 'Graduate', '2025-09-01' ),
 			'recSTU00000000010' => row( 'recSTU00000000010', 'Hal Example', 'In Sensei', '2025-09-01' ),

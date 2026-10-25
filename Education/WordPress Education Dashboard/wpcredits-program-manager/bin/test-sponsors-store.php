@@ -908,7 +908,7 @@ ck( 'and renames the title with the name',
 // patch() used to call wp_update_post() on every save, whether or not the
 // name changed, an unconditional write for a field most saves never touch.
 $GLOBALS['post_updates'] = array();
-WPCPM_Sponsors_Index::patch( $KEY_PATCH, array( 'name' => 'Patchable Co Ltd', 'contact_email' => 'maciej+another@a8c.com' ) );
+WPCPM_Sponsors_Index::patch( $KEY_PATCH, array( 'name' => 'Patchable Co Ltd', 'contact_email' => 'administrator+another@example.test' ) );
 
 ck( "patch() leaves the post's title alone when the name did not change",
 	array( count( $GLOBALS['post_updates'] ), $GLOBALS['posts'][ $patch_post_id ]->post_title ),
@@ -1072,7 +1072,7 @@ ck( 'the request cache is dropped by every writer', array( $before_count, $after
 echo "\n=== manager_of() ===\n";
 reset_store();
 
-$GLOBALS['users'][7] = new WP_User( 7, 'Maciej (Matt) Pilarski', 'maciej@a8c.com' );
+$GLOBALS['users'][7] = new WP_User( 7, 'Program Administrator', 'administrator@example.test' );
 WPCPM_Manager_Booking::set( 7, 'https://calendly.example/seven' );
 // User 7 is a program manager, as every manager the Edit form offers is: the contact is answered
 // only while the account still holds the program's capability.
@@ -1094,8 +1094,8 @@ ck( 'manager_of() resolves a user id to the name, the address and the booking li
 	),
 	array(
 		array(
-			'name'     => 'Maciej (Matt) Pilarski',
-			'email'    => 'maciej@a8c.com',
+			'name'     => 'Program Administrator',
+			'email'    => 'administrator@example.test',
 			'calendly' => 'https://calendly.example/seven',
 		),
 		null,
@@ -1107,7 +1107,7 @@ ck( 'manager_of() resolves a user id to the name, the address and the booking li
 // and the Edit form reads that id itself to mark them "(not an Administrator now)", but nothing
 // that asks for the contact is answered with them - neither the mails a contact gets (a student's
 // name and address in a claim problem, an event's call link) nor the contact block a member reads.
-$GLOBALS['users'][12] = new WP_User( 12, 'Former Manager', 'maciej@a8c.com' );
+$GLOBALS['users'][12] = new WP_User( 12, 'Former Manager', 'administrator@example.test' );
 WPCPM_Manager_Booking::set( 12, 'https://calendly.example/twelve' );
 
 $KEY_DEMOTED = 'recSEED0000001104';
@@ -1131,7 +1131,7 @@ ck( 'manager_of() answers a contact only while the account holds the program cap
 	array(
 		array(
 			'name'     => 'Former Manager',
-			'email'    => 'maciej@a8c.com',
+			'email'    => 'administrator@example.test',
 			'calendly' => 'https://calendly.example/twelve',
 		),
 		null,
@@ -1150,7 +1150,7 @@ ck( 'manager_label() names a program manager, marks one who is not one now and a
 			WPCPM_Sponsors_Index::manager_label( WPCPM_Sponsors_Index::row( $KEY_NOMANAGER ) ),
 		)
 		: 'no manager_label()',
-	array( 'Maciej (Matt) Pilarski', 'Former Manager (not an Administrator now)', '99 (not an Administrator now)', '' )
+	array( 'Program Administrator', 'Former Manager (not an Administrator now)', '99 (not an Administrator now)', '' )
 );
 
 // The sections below were written with nobody holding the capability; the migration's own reset
@@ -1508,7 +1508,7 @@ $old_index = array(
 			'coupon_link'       => 'https://mango.example/checkout?coupon=STUDENTS',
 			'anything'          => 'We run a student program already.',
 			'contact_person'    => 'Rep One',
-			'contact_email'     => 'maciej+mango@a8c.com',
+			'contact_email'     => 'administrator+mango@example.test',
 			'manager'           => 'recTEAM0000000001',
 			'mentors'           => array( 'recSEED0000000901' ),
 			'logo'              => array(
@@ -1554,7 +1554,7 @@ $old_team = array(
 	'rows' => array(
 		'recTEAM0000000001' => array(
 			'name'     => 'Manager Seven',
-			'email'    => 'maciej@a8c.com',
+			'email'    => 'administrator@example.test',
 			'calendly' => 'https://calendly.example/seven',
 		),
 		'recTEAM0000000002' => array(
@@ -1564,12 +1564,12 @@ $old_team = array(
 		),
 		'recTEAM0000000003' => array(
 			'name'     => 'Manager Eight',
-			'email'    => 'maciej+eight@a8c.com',
+			'email'    => 'administrator+eight@example.test',
 			'calendly' => 'https://calendly.example/eight-from-the-team',
 		),
 		'recTEAM0000000004' => array(
 			'name'     => 'Student Nine',
-			'email'    => 'maciej+nine@a8c.com',
+			'email'    => 'administrator+nine@example.test',
 			'calendly' => 'https://calendly.example/nine',
 		),
 	),
@@ -1594,9 +1594,9 @@ function seed_old_site() {
 	}
 
 	$GLOBALS['users']  = array(
-		7 => new WP_User( 7, 'Manager Seven', 'maciej@a8c.com' ),
-		8 => new WP_User( 8, 'Manager Eight', 'maciej+eight@a8c.com' ),
-		9 => new WP_User( 9, 'Student Nine', 'maciej+nine@a8c.com' ),
+		7 => new WP_User( 7, 'Manager Seven', 'administrator@example.test' ),
+		8 => new WP_User( 8, 'Manager Eight', 'administrator+eight@example.test' ),
+		9 => new WP_User( 9, 'Student Nine', 'administrator+nine@example.test' ),
 	);
 	$GLOBALS['manage'] = array( 7, 8 );
 
@@ -1654,7 +1654,7 @@ ck( 'an old index of three rows becomes three private posts under the same keys,
 			'product_type'       => 'Hosting',
 			'anything'           => 'We run a student program already.',
 			'contact_person'     => 'Rep One',
-			'contact_email'      => 'maciej+mango@a8c.com',
+			'contact_email'      => 'administrator+mango@example.test',
 			'manager'            => '7',
 			'mentors'            => array( 'recSEED0000000901' ),
 			'consent'            => true,

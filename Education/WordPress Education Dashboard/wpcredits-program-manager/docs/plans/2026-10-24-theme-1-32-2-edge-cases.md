@@ -10,7 +10,7 @@
 
 **Spec:** the ledger of 1.32.1 (`wpcredits-program-manager/.superpowers/session-backups/2026-10-23/theme-1-32-1-sdd/progress.md`, its parked final-review items); the site's owner said go on 24 October 2026 ("Do those").
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-theme, worktree `.worktrees/theme-1-32-2`, branch `release/1.32.2-edge-cases`, from `main` at `f12b985` (1.32.1, live).
+**Repository:** ~/GitHub/wpcredits-theme, worktree `.worktrees/theme-1-32-2`, branch `release/1.32.2-edge-cases`, from `main` at `f12b985` (1.32.1, live).
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 - Never use em or en dashes anywhere. US English. Roles, never people's names.
 - No build step: editor scripts are ES5 against `window.wp.*`, with hand-maintained `index.asset.php` (update dependencies if a new `wp.*` package is used).
 - The migrations already ran on live (options `wpcredits_migrated_1_32_0` and `wpcredits_migrated_1_32_1` exist there): nothing here may make either run again where its option exists, or change a byte of what either writes for live's templates.
-- Tests first in the repository's style, red before green; every `bin/test-*.php` and `php bin/check-selectors.php /Users/maciejpilarski/GitHub/wpcredits-program-manager` green; phpcs with `phpcs.xml.dist`, no new errors or warnings.
+- Tests first in the repository's style, red before green; every `bin/test-*.php` and `php bin/check-selectors.php ~/GitHub/wpcredits-program-manager` green; phpcs with `phpcs.xml.dist`, no new errors or warnings.
 - No subagents, no network, no ssh, no docker, no stash, no push. One commit per fix, a subject line plus one plain paragraph, ending with the repository's Co-Authored-By trailer, via `git commit -F`.
 
 ## Review Focus
@@ -43,7 +43,7 @@
   - **A hidden 1.31 cards block.** When the 1.31 Custom HTML block holding the cards, or the table, carries `metadata` (for example `blockVisibility: false`), the block that replaces it carries the same `metadata`, so a hidden part stays hidden; one without `metadata` is replaced exactly as today (live's templates migrate byte for byte as before).
 - [ ] Step 2: run red.
 - [ ] Step 3: implement.
-- [ ] Step 4: green; every suite, `php bin/check-selectors.php /Users/maciejpilarski/GitHub/wpcredits-program-manager`, phpcs; quote the last lines.
+- [ ] Step 4: green; every suite, `php bin/check-selectors.php ~/GitHub/wpcredits-program-manager`, phpcs; quote the last lines.
 - [ ] Step 5: commits, one per guard.
 
 ### Task 2 (coordinator): version, trial, deploy

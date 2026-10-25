@@ -203,7 +203,7 @@ add_sponsor( $acme, 'Acme Tools', 'Approved', array(
 	'tier'           => 'partner',
 	'website'        => 'https://acme.example/?ref=wpcredits&x=1',
 	'contact_person' => 'Should Never Appear',
-	'contact_email'  => 'maciej+partners@a8c.com',
+	'contact_email'  => 'administrator+partners@example.test',
 	'notes'          => 'Manager-only notes',
 ) );
 WPCPM_Sponsors_Index::write_logo_record( $acme, array( 'colour' => 21, 'white' => 0, 'source' => 'site', 'airtable_id' => '' ) );
@@ -325,7 +325,7 @@ ck( 'with it on, the lead and one item a partner that qualifies: the logo and th
 	. '<li class="wpcpm-student__partner"><a class="wpcpm-student__partner-link" href="https://aardvark.example" rel="sponsored noopener"><span class="wpcpm-student__partner-name">Aardvark &amp; Sons</span></a></li>'
 	. '</ul></div>' );
 ck( 'nothing of a sponsor but its name, website and logo: no contact, no address, no note, no key',
-	array( substr_count( $line, 'Should Never Appear' ), substr_count( $line, 'a8c.com' ), substr_count( $line, 'Manager-only' ), substr_count( $line, 'spoCCCC' ) ),
+	array( substr_count( $line, 'Should Never Appear' ), substr_count( $line, 'example.test' ), substr_count( $line, 'Manager-only' ), substr_count( $line, 'spoCCCC' ) ),
 	array( 0, 0, 0, 0 ) );
 
 // A test sponsor is never listed publicly (1.123.18), and the line is on a student's own card: a

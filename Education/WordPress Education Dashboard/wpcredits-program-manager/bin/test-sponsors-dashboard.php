@@ -507,13 +507,13 @@ function ck( $label, $actual, $expected ) {
 // 1.111.0: the manager is a site user id now, not a Team Members record - user 1 below, the
 // numeric form of what "manager 1" always meant.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
-WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'website' => 'plugins.mango-example.test', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'manager' => '1' ), $B => array( 'name' => 'Wexample', 'status' => 'Approved' ) ), time() );
+WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'website' => 'plugins.mango-example.test', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'manager' => '1' ), $B => array( 'name' => 'Wexample', 'status' => 'Approved' ) ), time() );
 WPCPM_Sponsors_Index::write_logo_record( $A, array( 'colour' => 501, 'source' => 'airtable', 'airtable_id' => 'attA' ) );
 // 1.111.0: the manager is a site user now (manager_of() resolves through get_userdata()), so
 // user 1 carries the name and address the held Team Members option used to, and the booking link
 // is the field on that user's own profile, set through the real WPCPM_Manager_Booking.
-$GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Maciej (Matt) Pilarski', 'maciej@a8c.com' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One' ), 9 => new WP_User( 9, array( 'subscriber' ), 'Stranger' ) );
-WPCPM_Manager_Booking::set( 1, 'https://calendly.example/matt' );
+$GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Program Administrator', 'administrator@example.test' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One' ), 9 => new WP_User( 9, array( 'subscriber' ), 'Stranger' ) );
+WPCPM_Manager_Booking::set( 1, 'https://calendly.example/administrator' );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['settings'] = array( 'sponsor_home' => true );
@@ -718,12 +718,12 @@ ck( 'the name trimmed, the website completed, and the contact person named in th
 $identity = substr( $out, (int) strpos( $out, '<header class="wpcpm-sponsor__identity">' ) );
 $identity = substr( $identity, 0, (int) strpos( $identity, '</header>' ) );
 ck( 'the type of product the row holds is printed nowhere: not under the name, not on the profile card', array( WPCPM_Sponsors_Index::row( $A )['product_type'], strpos( $identity, 'Hosting' ), substr_count( $identity, 'wpcpm-sponsor__fact' ), strpos( $out, 'Hosting' ), strpos( $out, 'Type of product' ) ), array( 'Hosting', false, 1, false, false ) );
-ck( 'the program contact block names the manager, the address and the booking link', false !== strpos( $out, 'Maciej (Matt) Pilarski' ) && false !== strpos( $out, 'mailto:maciej@a8c.com' ) && false !== strpos( $out, 'href="https://calendly.example/matt"' ), true );
+ck( 'the program contact block names the manager, the address and the booking link', false !== strpos( $out, 'Program Administrator' ) && false !== strpos( $out, 'mailto:administrator@example.test' ) && false !== strpos( $out, 'href="https://calendly.example/administrator"' ), true );
 // The same manager once the account is no program manager: still on A's row, and nobody's contact.
 $GLOBALS['manage'] = array();
 $demoted           = $D::render();
 $GLOBALS['manage'] = array( 1 );
-ck( 'a manager who lost the program capability is named nowhere on the member\'s page: no contact block, no empty heading, no name, no booking link', array( strpos( $demoted, 'wpcpm-resources__contact' ), strpos( $demoted, 'Your contact at the program' ), strpos( $demoted, 'Maciej (Matt) Pilarski' ), strpos( $demoted, 'calendly.example/matt' ) ), array( false, false, false, false ) );
+ck( 'a manager who lost the program capability is named nowhere on the member\'s page: no contact block, no empty heading, no name, no booking link', array( strpos( $demoted, 'wpcpm-resources__contact' ), strpos( $demoted, 'Your contact at the program' ), strpos( $demoted, 'Program Administrator' ), strpos( $demoted, 'calendly.example/administrator' ) ), array( false, false, false, false ) );
 ck( 'no switcher for a member', strpos( $out, 'wpcpm-dashboard__switcher' ), false );
 ck( 'nor the script that narrows one', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), false );
 ck( 'no heading unless the block asks for one', strpos( $out, 'wpcpm-dashboard__title' ), false );

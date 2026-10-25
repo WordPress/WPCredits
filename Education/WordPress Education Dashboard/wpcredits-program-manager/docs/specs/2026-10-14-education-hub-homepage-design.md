@@ -1,12 +1,12 @@
 # The Education Hub homepage: design
 
-Design note, 14 October 2026; amended the same day with the owner's answers to its first questions (section 2, decisions 6 to 9) and the defaults taken for the rest (decisions 10 to 13). Status: for the owner's review; nothing is built. Ships as two releases: **plugin 1.122.24** (the live outcome figures) first, then **theme 1.24.15** (the page template, its patterns, two blocks and the figure block's extension). Content source: Alana's draft "WordPress Education Hub v1" (`WordPress-Education-Hub-v1.html`), in the version the owner handed over on 14 October 2026 at 19:28, read whole.
+Design note, 14 October 2026; amended the same day with the owner's answers to its first questions (section 2, decisions 6 to 9) and the defaults taken for the rest (decisions 10 to 13). Status: for the owner's review; nothing is built. Ships as two releases: **plugin 1.122.24** (the live outcome figures) first, then **theme 1.24.15** (the page template, its patterns, two blocks and the figure block's extension). Content source: the designer's draft "WordPress Education Hub v1" (`WordPress-Education-Hub-v1.html`), in the version the owner handed over on 14 October 2026 at 19:28, read whole.
 
-That version differs from the earlier one of the same day, on the homepage, in four places, all followed here: WordPress Student Clubs is gone (six programs, not seven); Campus Connect's "You get" is only "Certificate of participation"; the Attendee step no longer unlocks a student club invite; and a field-of-study table, moved from her Hire view and reworded to the student, sits under the program index (section 6.6). Her hero, doors, filters, pathway texts, partner levels and closing band are unchanged.
+That version differs from the earlier one of the same day, on the homepage, in four places, all followed here: WordPress Student Clubs is gone (six programs, not seven); Campus Connect's "You get" is only "Certificate of participation"; the Attendee step no longer unlocks a student club invite; and a field-of-study table, moved from the designer's Hire view and reworded to the student, sits under the program index (section 6.6). The designer's hero, doors, filters, pathway texts, partner levels and closing band are unchanged.
 
 ## 1. Purpose
 
-Give wordpresseducation.org an alternative homepage built from Alana's hub: one page that tells students, institutions and companies where they fit, lists every education program, shows the pathway from a first workshop to a first job (and an institution's partner levels), and opens with three outcome figures the site computes itself instead of numbers typed into a draft. It is built inside the WPCredits theme, in the site's own WordPress.org look, and shown on a private preview page; the live homepage does not change until the owner switches it.
+Give wordpresseducation.org an alternative homepage built from the designer's hub: one page that tells students, institutions and companies where they fit, lists every education program, shows the pathway from a first workshop to a first job (and an institution's partner levels), and opens with three outcome figures the site computes itself instead of numbers typed into a draft. It is built inside the WPCredits theme, in the site's own WordPress.org look, and shown on a private preview page; the live homepage does not change until the owner switches it.
 
 ### Success criteria
 
@@ -22,7 +22,7 @@ Give wordpresseducation.org an alternative homepage built from Alana's hub: one 
 ## 2. The owner's decisions (14 October 2026)
 
 1. **Placement:** in the WPCredits theme, as its own selectable page template, "Education Hub home" (`templates/page-education-hub.html`, registered in `theme.json` `customTemplates`), plus patterns, shown on a private preview page. The live homepage stays as it is until the owner switches it.
-2. **Scope:** Alana's whole hub on the homepage: the hero, the three audience doors, the filterable program index, the pathway with the seven student steps and the four institution partner levels (both public: "show both"), and the closing band. Her Hire, Partner and Sponsor views are out (separate pages later); the homepage links to existing destinations instead. The placeholder callout in her Sponsor view appears nowhere.
+2. **Scope:** the designer's whole hub on the homepage: the hero, the three audience doors, the filterable program index, the pathway with the seven student steps and the four institution partner levels (both public: "show both"), and the closing band. The designer's Hire, Partner and Sponsor views are out (separate pages later); the homepage links to existing destinations instead. The placeholder callout in the designer's Sponsor view appears nowhere.
 3. **Look:** the site's WordPress.org brand through the theme's `theme.json` tokens, type scale and existing component styles, not the draft's EB Garamond, Inter and IBM Plex Mono or its palette.
 4. **Interactive parts:** patterns of core blocks for the static sections, plus two small server-rendered theme blocks (a program index with filter chips; a pathway with the student and institution switch, the rising steps and the step detail) whose markup shows everything without JavaScript, and a small view script for filtering and selecting.
 5. **Figures live from the site's own data,** with the public dashboard's definitions, stored with their date and sample sizes, shown with "as of" and the source, falling back to the last good figure or nothing.
@@ -31,23 +31,23 @@ The owner's answers to this note's questions (14 October 2026):
 
 6. **Graduation label:** "of WordPress Credits students graduate rather than drop out".
 7. **Refresh weekly,** on Mondays right after the public dashboard's weekly build, so the homepage and the dashboard show the same numbers (section 8.3); the hide-after limit and the retries fit a weekly read.
-8. **Companies door:** Alana's wording stays, "Browse graduates open to work".
+8. **Companies door:** the designer's wording stays, "Browse graduates open to work".
 9. **Benefits:** every benefit the student steps, the partner levels and the program cards state as a fact that no public page confirms today reads "planned" (section 6.11 lists each one checked, where, and its state).
 
 Defaults taken for the remaining questions, which the owner can change at review:
 
 10. **Hide-after limit:** the figures stop showing after four Mondays in a row without a good read (section 8.5).
 11. **The Sponsor button** goes to `/sponsor-application/`, the site's only public sponsor page.
-12. **No mentor line,** as Alana's draft has none. The current homepage has a "Become a mentor" button, so the owner can ask for one.
-13. **The preview page is Private;** Alana and the program team see the page through screenshots taken by the coordinating session at desktop width and at 375px.
+12. **No mentor line,** as the designer's draft has none. The current homepage has a "Become a mentor" button, so the owner can ask for one.
+13. **The preview page is Private;** the designer and the program team see the page through screenshots taken by the coordinating session at desktop width and at 375px.
 
 ## 3. Out of scope
 
-- Alana's Hire, Partner and Sponsor views and everything in them, her top navigation and brand bar, the "v1 draft" badge, her footer, her dark color scheme (the theme has none) and the hash routing between her views. The site's own header and the WordPress.org global header and footer stay.
+- The designer's Hire, Partner and Sponsor views and everything in them, their top navigation and brand bar, the "v1 draft" badge, their footer, their dark color scheme (the theme has none) and the hash routing between their views. The site's own header and the WordPress.org global header and footer stay.
 - Any content about sponsorship levels, amounts or benefits.
 - Switching the live homepage. Section 6.4 describes the switch; doing it is the owner's act, later.
 - Editing the program, step and level texts in the editor: they live in the theme's code as translatable strings (section 7.4). The texts held by core blocks are editable.
-- WordPress Student Clubs: Alana removed it in the 14 October version, so it is not on the page.
+- WordPress Student Clubs: the designer removed it in the 14 October version, so it is not on the page.
 - The WPCredits-Tracker plugin and the public dashboard: unchanged. The post-graduation activity measure (WordPress/WPCredits#137) is not part of this.
 - Per-institution, per-track or trend figures, and any chart.
 
@@ -60,7 +60,7 @@ Read on 14 October 2026.
 - **`bin/check-selectors.php`** checks that every `.wpcpm-*` class the theme dresses is printed somewhere, that every `--wpc-*` token read is declared (theme root and `assets/css/*.css`), that shared table selectors carry a dashboard body class, and that no theme file holds an em or en dash.
 - **The live site:** `show_on_front` is `page`, `page_on_front` 11 ("Homepage", no page template), and the front page is drawn by the saved `front-page` template, post 544 (modified 28 August 2026). `DISABLE_WP_CRON` is true, and the host's runner fires WordPress's scheduled events (every `wpcpm_*` event was due in the future, none overdue). The institution application is page 751, `/apply/`, read by `WPCPM_Institution_Application::page_url()`; the sponsorship application is page 925, `/sponsor-application/`, read by `WPCPM_Sponsor_Application::page_url()`; no other public sponsors page exists (`/sponsors/` answers 404). The site's date format is `F j, Y`, its time zone Europe/Warsaw, its language en_US.
 - **Airtable:** the plugin's base, `appIzQKfwTn5dyPVp`, is its code default and the live setting (compared on the live site without printing the setting). The Feedback table `tblx3TH6fp4edQJDm` is the plugin's `feedback_table` in that same base: the plugin already reads and writes it (`WPCPM_Student_Feedback`, the students sync's course lookup, the semester report), so the site's token reaches it. The Students Reports table `tbljYkkVGbeoaWEtY` is the plugin's `reports_table`, read every three hours by the mentors and students syncs. The public dashboard reads the same base and the same two tables.
-- **Where the public figures come from:** the public impact dashboard at wordpress.github.io/WPCredits is built by WordPress/WPCredits' own `scripts/build_dashboard.py` and `scripts/template.html`, run by the workflow "Update Dashboard Data" (`.github/workflows/update-dashboard.yml` on `trunk`, `cron: '0 6 * * 1'`, every Monday at 06:00 UTC, plus manual runs). Read with `gh` on 14 October 2026: the seven scheduled runs from 31 August to 12 October started between 06:04 and 06:09 UTC and finished between 06:09 and 06:19 UTC; the bot's "Update dashboard data" commits landed at 06:18 UTC on 5 and 12 October. Manual runs rebuilt it on other days too (7, 16, 17 and 29 September). WPCredits-Tracker (`includes/class-wpct-sync.php` and `assets/js/dashboard.js`) is that build's PHP port. For the three figures here the two agree line for line, apart from rounding at an exact half (section 8.1). The dashboard built on 12 October 2026 shows 361 graduates and 52 dropouts (87%), 88% of 315 answers would recommend, and 79% of 310 plan to keep contributing. Alana's draft has older figures, 90, 85 and 76.
+- **Where the public figures come from:** the public impact dashboard at wordpress.github.io/WPCredits is built by WordPress/WPCredits' own `scripts/build_dashboard.py` and `scripts/template.html`, run by the workflow "Update Dashboard Data" (`.github/workflows/update-dashboard.yml` on `trunk`, `cron: '0 6 * * 1'`, every Monday at 06:00 UTC, plus manual runs). Read with `gh` on 14 October 2026: the seven scheduled runs from 31 August to 12 October started between 06:04 and 06:09 UTC and finished between 06:09 and 06:19 UTC; the bot's "Update dashboard data" commits landed at 06:18 UTC on 5 and 12 October. Manual runs rebuilt it on other days too (7, 16, 17 and 29 September). WPCredits-Tracker (`includes/class-wpct-sync.php` and `assets/js/dashboard.js`) is that build's PHP port. For the three figures here the two agree line for line, apart from rounding at an exact half (section 8.1). The dashboard built on 12 October 2026 shows 361 graduates and 52 dropouts (87%), 88% of 315 answers would recommend, and 79% of 310 plan to keep contributing. The designer's draft has older figures, 90, 85 and 76.
 - **The local copies** refuse every request to Airtable by design, so the figures can only be computed there from fixtures (section 10).
 
 ## 5. Architecture
@@ -90,7 +90,7 @@ A new class, `WPCPM_Outcome_Figures` (`includes/class-wpcpm-outcome-figures.php`
 
 1. **Plugin 1.122.24:** the class, the `by_id` argument, the syncs row, the CLI command, the weekly event, its tests, the readme changelog, the Administrators' guide's syncs paragraph (one sentence; guide page republished), the translation template. After the deploy, on the owner's yes: one `--dry-run` on the live site for the parity check (section 10.2), then one `--refresh`, so the figures exist before the theme reads them. Nothing public changes in this release.
 2. **Theme 1.24.15:** the template, `inc/hub.php`, `inc/hub-content.php`, the five patterns, the two blocks, `hub.css`, the figure block's extension, the selector check's addition, the translation template, the version in every spot and the changelog.
-3. **The preview page**, on the owner's yes after the theme deploy: an Administrator creates a page titled "Education Hub (preview)", status **Private**, template "Education Hub home". Private, not password-protected: the template prints no post content, so a password would guard nothing, while a private page is refused to everyone without the right to read private pages before any template runs. Administrators and Editors can open it; Alana and the program team see it through screenshots the coordinating session takes at desktop width and at 375px (decision 13).
+3. **The preview page**, on the owner's yes after the theme deploy: an Administrator creates a page titled "Education Hub (preview)", status **Private**, template "Education Hub home". Private, not password-protected: the template prints no post content, so a password would guard nothing, while a private page is refused to everyone without the right to read private pages before any template runs. Administrators and Editors can open it; the designer and the program team see it through screenshots the coordinating session takes at desktop width and at 375px (decision 13).
 4. Each release goes through the release script (check, build, scan, mirror, deploy), its mirror push included, on the owner's yes for that release; the live version is read first.
 
 A theme rollback removes the template, and the private page falls back to the plain page template: harmless. A plugin rollback leaves the theme with no figures to read, and the hero shows none.
@@ -103,7 +103,7 @@ Every section is `alignwide` (1240px inside the theme's 40px root padding) and n
 
 ### 6.2 Hero (`wpcredits/hub-hero`)
 
-Two columns, 58% and 42% (Alana's 1.25 to 0.9), stacking below 900px.
+Two columns, 58% and 42% (the designer's 1.25 to 0.9), stacking below 900px.
 
 - Eyebrow (`wpc-pill`): "Education programs from the WordPress project"
 - Heading 1 (`wpc-hero__title`, display size, 34px below 900px): "Start learning with WordPress." then, in `<em>` (brand blue, not italic), "Every step counts. Keep climbing." Two strings.
@@ -136,7 +136,7 @@ The switch, when the owner decides: publish the preview page (with the title the
 
 A group with the anchor `programs`. Core blocks: eyebrow "All programs"; Heading 2 "Every education program, in one list"; lede "Programs are free unless noted. You don't need to take them in order, but each one is designed to lead into the next." Then the `wpcredits/program-index` block (section 7.2), then the field-of-study part (section 6.6).
 
-The six programs, in Alana's order:
+The six programs, in the designer's order:
 
 | Program | Audiences (filters) | Status | Step line | What it is | Time | You get | Links |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -149,11 +149,11 @@ The six programs, in Alana's order:
 
 Chips: "All", "For students", "For faculty", "Career and credentials". Counts: all 6, students 3, faculty 2, career 3.
 
-Alana wrote each "You get" as one phrase; the card lists its items one to a line, as the step details do, so a "(planned)" mark (section 6.11) belongs to one item and never to the line.
+The designer wrote each "You get" as one phrase; the card lists its items one to a line, as the step details do, so a "(planned)" mark (section 6.11) belongs to one item and never to the line.
 
 ### 6.6 Field of study, inside Programs
 
-New in the 14 October draft, moved from her Hire view and written to the student. Core blocks after the index, 56px below it: eyebrow "Matched to your field of study"; Heading 3 (anchor `wpc-hub-fit`, the theme's 20px) "Find where you fit in WordPress Credits"; lede "You work in the area of WordPress that fits your degree, so a design student shows design work and a CS student shows reviewed code."; a core Table block (class `wpc-hub-fields`, header section on, no fixed layout):
+New in the 14 October draft, moved from the designer's Hire view and written to the student. Core blocks after the index, 56px below it: eyebrow "Matched to your field of study"; Heading 3 (anchor `wpc-hub-fit`, the theme's 20px) "Find where you fit in WordPress Credits"; lede "You work in the area of WordPress that fits your degree, so a design student shows design work and a CS student shows reviewed code."; a core Table block (class `wpc-hub-fields`, header section on, no fixed layout):
 
 | Field of study | Where you'll work | What you'll have to show |
 | --- | --- | --- |
@@ -196,7 +196,7 @@ A group with the anchor `pathway`: eyebrow paragraph "The pathway", then the `wp
 
 Each detail carries "Step 3 of 7" (or "Level 2 of 4") and a line naming what follows, "Leads to step 4: Graduate" (or "Leads to level 3: Established"); the last says "Leads to work" for students and "The top level" for institutions.
 
-Alana wrote "Unlocks" and "Gets" as one sentence each; the detail prints them as a list, one item to a line, in her words with the first letter capitalized, so a "(planned)" mark sits on the one item it belongs to (section 6.11). "Earned by", "Reached by" and "Academic recognition" stay sentences: they say what a step asks or what a school may grant, not what the program gives, so they carry no mark.
+The designer wrote "Unlocks" and "Gets" as one sentence each; the detail prints them as a list, one item to a line, in the designer's words with the first letter capitalized, so a "(planned)" mark sits on the one item it belongs to (section 6.11). "Earned by", "Reached by" and "Academic recognition" stay sentences: they say what a step asks or what a school may grant, not what the program gives, so they carry no mark.
 
 ### 6.8 Closing band (`wpcredits/hub-cta`)
 
@@ -230,9 +230,9 @@ The site's own addresses are read when a pattern or block renders. If a page is 
 
 - "WP Credits" becomes "WordPress Credits" (the door's pilot, the Partner level's group, the source line) and "institution dashboard" becomes "Institution Dashboard": full product names.
 - The graduation label "of students who start WordPress Credits graduate" becomes "of WordPress Credits students graduate rather than drop out", because the figure counts graduates among students who graduated or dropped out, never among everyone who started (529 of the 942 who have joined are still in the program, by the dashboard of 12 October 2026). The owner chose this label (decision 6).
-- Alana's source line "refreshed weekly" becomes the date of the figures: the site reads them weekly too, on the dashboard's Monday (decision 7), and the date says which Monday.
+- The designer's source line "refreshed weekly" becomes the date of the figures: the site reads them weekly too, on the dashboard's Monday (decision 7), and the date says which Monday.
 - The "Unlocks", "Gets" and "You get" sentences become lists of their items, and the items no public page confirms carry "(planned)" (decision 9, section 6.11).
-- Step 7's link "Where this leads: Hire from WordPress" pointed at her Hire view, which is out; it now says "Where this leads: WordPress Jobs" and goes to jobs.wordpress.net, where step 7's Open to Work listing lives.
+- Step 7's link "Where this leads: Hire from WordPress" pointed at the designer's Hire view, which is out; it now says "Where this leads: WordPress Jobs" and goes to jobs.wordpress.net, where step 7's Open to Work listing lives.
 - The ladder switch's group label "Choose a ladder" becomes "Choose a pathway", the section's own name.
 
 ### 6.11 Benefits marked planned
@@ -523,12 +523,12 @@ On the owner's yes after the plugin deploy, on a Monday after the dashboard's 06
 
 ## 11. For the owner's review
 
-The first draft's eight questions are settled. Four are the owner's answers (section 2, decisions 6 to 9: the graduation label, the weekly read on the dashboard's Monday, the companies door kept as Alana wrote it, and "(planned)" on every benefit no public page confirms). Four are defaults taken by the coordinating session, which the owner can change at review:
+The first draft's eight questions are settled. Four are the owner's answers (section 2, decisions 6 to 9: the graduation label, the weekly read on the dashboard's Monday, the companies door kept as the designer wrote it, and "(planned)" on every benefit no public page confirms). Four are defaults taken by the coordinating session, which the owner can change at review:
 
 1. **Hide-after limit (decision 10):** the figures stop showing after four Mondays in a row without a good read, 29 days (section 8.5).
 2. **The Sponsor button (decision 11)** goes to `/sponsor-application/`, the site's only public sponsor page.
-3. **No mentor line (decision 12),** as Alana's draft has none. The current homepage has a "Become a mentor" button (and "Open your Mentor Report Card"); mentors still reach their card from the header's sign-in. The owner can ask for a line in the closing band.
-4. **The preview (decision 13):** a Private page; Alana and the program team see it through screenshots the coordinating session takes at desktop width and at 375px.
+3. **No mentor line (decision 12),** as the designer's draft has none. The current homepage has a "Become a mentor" button (and "Open your Mentor Report Card"); mentors still reach their card from the header's sign-in. The owner can ask for a line in the closing band.
+4. **The preview (decision 13):** a Private page; the designer and the program team see it through screenshots the coordinating session takes at desktop width and at 375px.
 
 The benefit list of section 6.11 is the other thing to read at review: each "planned" mark comes off in a theme release once a public page confirms the item, or once the owner confirms it is offered and a page says so.
 
@@ -543,7 +543,7 @@ The benefit list of section 6.11 is the other thing to read at review: each "pla
 
 The private preview was shared with the team on 15 Oct 2026. What changed from it, each on the owner's word:
 
-- **The Builder step** unlocks "Showcase eligibility" and "A profile badge", both still marked planned (section 6.11). The free .blog or .art domain with a year of hosting and the full theme and plugin library came off: Alana asked that the step "should just be: showcase eligibility, badge on .org profile", and Isotta noted that the domain and hosting are a WordPress.com perk while the page names no host.
-- **The steps plainly open their details** (the owner: "is it clear to click on the columns to see more", Alana: "more front and center"). The hint of section 6.7 left the lede for a prompt of its own between the lede and the staircase, on both ladders: "Select a step to see what it unlocks." and "Select a level to see what it brings.". Every step and level ends with a cue, "See what it unlocks" or "See what it brings", and "Shown below" on the one pressed, hidden from screen readers, which hear the step as before. A step lifts under the keyboard's focus as under the pointer, and from 900px the detail shown points up at its step.
-- **The WordPress Credits courses** (Isotta, in #wpcredits-admins: list the courses so schools and students can pick one; Alana: on wordpresseducation.org and on wordpress.org/education both). Under the six cards of the index, "Which WordPress Credits course?": a card for each of Intro to Contribution, Foundations, the Developer track and the Designer track, with its hours or who it is for, its name linked to its Learn WordPress page, and one line on what it asks, four across from 900px and two from 640px, 56px under the cards as the field-of-study table is under it. The hours are Intro to Contribution's page's (50) and, for Foundations, the owner's (150 or more); the two tracks' pages give none. Inside the card, the first build of the guide made its row 794px tall and left two neighbors about 430px empty, so the owner chose the band. The card's links are now "Compare the four courses" (to the band), the program page and the impact dashboard (section 6.5), and Step 4's link reads "See the courses" and leads to the band (section 6.7). The filter chips leave the band alone: an institution picks the course.
-- **Not changed:** the Attendee step's club invite stays out (Alana removed Student Clubs on 14 Oct); the name of the template, "Education Hub home", stays until the name the team calls the hub ("the Directory" in Alana's document) is settled.
+- **The Builder step** unlocks "Showcase eligibility" and "A profile badge", both still marked planned (section 6.11). The free .blog or .art domain with a year of hosting and the full theme and plugin library came off: the designer asked that the step "should just be: showcase eligibility, badge on .org profile", and an Administrator noted that the domain and hosting are a WordPress.com perk while the page names no host.
+- **The steps plainly open their details** (the owner: "is it clear to click on the columns to see more", the designer: "more front and center"). The hint of section 6.7 left the lede for a prompt of its own between the lede and the staircase, on both ladders: "Select a step to see what it unlocks." and "Select a level to see what it brings.". Every step and level ends with a cue, "See what it unlocks" or "See what it brings", and "Shown below" on the one pressed, hidden from screen readers, which hear the step as before. A step lifts under the keyboard's focus as under the pointer, and from 900px the detail shown points up at its step.
+- **The WordPress Credits courses** (an Administrator, in #wpcredits-admins: list the courses so schools and students can pick one; the designer: on wordpresseducation.org and on wordpress.org/education both). Under the six cards of the index, "Which WordPress Credits course?": a card for each of Intro to Contribution, Foundations, the Developer track and the Designer track, with its hours or who it is for, its name linked to its Learn WordPress page, and one line on what it asks, four across from 900px and two from 640px, 56px under the cards as the field-of-study table is under it. The hours are Intro to Contribution's page's (50) and, for Foundations, the owner's (150 or more); the two tracks' pages give none. Inside the card, the first build of the guide made its row 794px tall and left two neighbors about 430px empty, so the owner chose the band. The card's links are now "Compare the four courses" (to the band), the program page and the impact dashboard (section 6.5), and Step 4's link reads "See the courses" and leads to the band (section 6.7). The filter chips leave the band alone: an institution picks the course.
+- **Not changed:** the Attendee step's club invite stays out (the designer removed Student Clubs on 14 Oct); the name of the template, "Education Hub home", stays until the name the team calls the hub ("the Directory" in the designer's document) is settled.

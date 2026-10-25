@@ -400,21 +400,21 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-usage.php';
 // 1.111.0: the manager is a site user id now, not a Team Members record.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => '1', 'mentors' => array() ),
-	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
+	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => '1', 'mentors' => array() ),
+	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'administrator@example.test', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
 ), time() );
 $GLOBALS['settings'] = array( 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
 $GLOBALS['users'] = array(
-	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ),
-	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ),
-	6  => new WP_User( 6, array( 'wpcpm_sponsor' ), 'Rep Two', 'maciej@a8c.com' ),
-	20 => new WP_User( 20, array( 'wpcpm_student' ), 'Student Current', 'maciej@a8c.com' ),
-	21 => new WP_User( 21, array( 'wpcpm_student' ), 'Student Graduate', 'maciej@a8c.com' ),
-	22 => new WP_User( 22, array( 'wpcpm_student' ), 'Student Paused', 'maciej@a8c.com' ),
-	23 => new WP_User( 23, array( 'wpcpm_student' ), 'Student Second', 'maciej@a8c.com' ),
-	24 => new WP_User( 24, array( 'wpcpm_student' ), 'Student Third', 'maciej@a8c.com' ),
-	30 => new WP_User( 30, array( 'wpcpm_mentor' ), 'Mentor One', 'maciej@a8c.com' ),
-	31 => new WP_User( 31, array( 'wpcpm_student' ), 'Student Unsynced', 'maciej@a8c.com' ),
+	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'administrator@example.test' ),
+	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'administrator@example.test' ),
+	6  => new WP_User( 6, array( 'wpcpm_sponsor' ), 'Rep Two', 'administrator@example.test' ),
+	20 => new WP_User( 20, array( 'wpcpm_student' ), 'Student Current', 'administrator@example.test' ),
+	21 => new WP_User( 21, array( 'wpcpm_student' ), 'Student Graduate', 'administrator@example.test' ),
+	22 => new WP_User( 22, array( 'wpcpm_student' ), 'Student Paused', 'administrator@example.test' ),
+	23 => new WP_User( 23, array( 'wpcpm_student' ), 'Student Second', 'administrator@example.test' ),
+	24 => new WP_User( 24, array( 'wpcpm_student' ), 'Student Third', 'administrator@example.test' ),
+	30 => new WP_User( 30, array( 'wpcpm_mentor' ), 'Mentor One', 'administrator@example.test' ),
+	31 => new WP_User( 31, array( 'wpcpm_student' ), 'Student Unsynced', 'administrator@example.test' ),
 );
 $GLOBALS['manage'] = array( 1 );
 // The administrator holds `unfiltered_html`; a sponsor member does not, so kses meets what the member saves.
@@ -482,7 +482,7 @@ ck( 'with nothing added yet, its pool is empty', WPCPM_Sponsor_Codes::counts( $b
 // detection.
 update_post_meta( $b1, WPCPM_Sponsor_Offers::META_KIND, WPCPM_Sponsor_Offers::KIND_SHARED );
 $D = 'recSPONSOR0000004';
-WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $D => array( 'name' => 'Drive Sheet', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Four', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A sheet of codes', 'instructions' => '', 'more_info' => '', 'coupon_link' => 'https://drive.google.com/open?id=x', 'manager' => '', 'mentors' => array() ) ) ), time() );
+WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $D => array( 'name' => 'Drive Sheet', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Four', 'contact_email' => 'administrator@example.test', 'product_type' => 'Plugin', 'offer' => 'A sheet of codes', 'instructions' => '', 'more_info' => '', 'coupon_link' => 'https://drive.google.com/open?id=x', 'manager' => '', 'mentors' => array() ) ) ), time() );
 $d_seed = WPCPM_Sponsor_Offers::seed( $D );
 ck( 'a coupon sheet shared as a Drive link is the sheet too, so it seeds a pool and no shared code', array( WPCPM_Sponsor_Offers::read( $d_seed )['kind'], WPCPM_Sponsor_Codes::shared( $d_seed ) ), array( 'codes', '' ) );
 ck( 'an unknown sponsor cannot be seeded', WPCPM_Sponsor_Offers::seed( 'recNOTINDEXED0001' )->get_error_code(), 'wpcpm_offer_sponsor' );
@@ -925,7 +925,7 @@ foreach ( array( $dorm_live2, $cap_b2 ) as $extra_live ) {
 
 echo "\n=== A minted key is accepted everywhere a record id was ===\n";
 $SPO = 'spoAAAA0000000001';
-WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $SPO => array( 'name' => 'Minted Sponsor', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Five', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A minted offer', 'instructions' => '', 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ) ) ), time() );
+WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $SPO => array( 'name' => 'Minted Sponsor', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Five', 'contact_email' => 'administrator@example.test', 'product_type' => 'Plugin', 'offer' => 'A minted offer', 'instructions' => '', 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ) ) ), time() );
 $spo_seed = WPCPM_Sponsor_Offers::seed( $SPO );
 ck( 'offers_of() lists a spo sponsor', array_keys( WPCPM_Sponsor_Offers::offers_of( $SPO ) ), array( $spo_seed ) );
 
@@ -977,7 +977,7 @@ $GLOBALS['sent']  = array();
 $GLOBALS['audit'] = array();
 $report = WPCPM_Sponsor_Claims::report_problem( $a1, $GLOBALS['users'][22] );
 ck( 'a claimant reports a problem: the manager is mailed the name, the offer and the last four characters, never the code', array( $report['mailed'], $GLOBALS['sent'][0][2], false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Student Paused' ), false !== strpos( $GLOBALS['sent'][0][3]['body'], 'RE-1' ), strpos( $GLOBALS['sent'][0][3]['body'], 'MORE-1' ) ), array( 1, 'claim-problem', true, true, false ) );
-ck( 'with a Reply-To at the claimant', $GLOBALS['sent'][0][3]['headers'], array( 'Reply-To: maciej@a8c.com' ) );
+ck( 'with a Reply-To at the claimant', $GLOBALS['sent'][0][3]['headers'], array( 'Reply-To: administrator@example.test' ) );
 ck( 'and the way to the Sponsors screen at its Offers and codes tab, where the offers and their claimants are', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'are on the Sponsors screen: https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=offers' . "\n" ), true );
 ck( 'and it is logged on the sponsor with the claimant as the subject', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['subject'], end( $GLOBALS['audit'] )['ground'] ), array( 'claim_problem', '22', 'system' ) );
 ck( 'somebody without a claim cannot report one', err_of( WPCPM_Sponsor_Claims::report_problem( $a1, $GLOBALS['users'][21] ) ), 'wpcpm_problem_refused' );
@@ -1041,7 +1041,7 @@ ck( 'and no address', preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}/
 
 echo "\n=== The claimants, for a manager ===\n";
 $who = WPCPM_Sponsor_Claims::claimants( $a1 );
-ck( 'the list names the people whose claims stand, oldest first, with the last four characters', array( count( $who ), $who[0]['name'], $who[0]['email'], $who[0]['last4'], $who[0]['index'] ), array( 5, 'Student Current', 'maciej@a8c.com', '0001', 0 ) );
+ck( 'the list names the people whose claims stand, oldest first, with the last four characters', array( count( $who ), $who[0]['name'], $who[0]['email'], $who[0]['last4'], $who[0]['index'] ), array( 5, 'Student Current', 'administrator@example.test', '0001', 0 ) );
 ck( 'a voided claim is not in it', in_array( 20, array_map( static function ( $c ) { return $c['index']; }, $who ), true ), false );
 
 echo "\n=== The pool's lock guards every rewrite ===\n";
@@ -1553,7 +1553,7 @@ echo "\n--- A row imported from the program records keeps its stored form ---\n"
 // below; the rows give the sponsor's name, which is the offer's title.
 $E = 'recSPONSOR0000005'; $F = 'recSPONSOR0000006'; $G = 'recSPONSOR0000007';
 $legacy = static function ( $offer, $instructions ) { return array( 'offer' => $offer, 'instructions' => $instructions, 'more_info' => '', 'coupon_link' => '' ); };
-$row = static function ( $name, $offer, $instructions ) { return array( 'name' => $name, 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => $offer, 'instructions' => $instructions, 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ); };
+$row = static function ( $name, $offer, $instructions ) { return array( 'name' => $name, 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep', 'contact_email' => 'administrator@example.test', 'product_type' => 'Plugin', 'offer' => $offer, 'instructions' => $instructions, 'more_info' => '', 'coupon_link' => '', 'manager' => '', 'mentors' => array() ); };
 $whole_text  = str_repeat( '&amp;', 200 ) . str_repeat( 'x', 300 );
 $whole_instr = str_repeat( '&quot;', 800 ) . str_repeat( 'x', 3200 );
 WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array(

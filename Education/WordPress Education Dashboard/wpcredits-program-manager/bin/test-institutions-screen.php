@@ -4759,7 +4759,7 @@ foreach ( array( 74, 75 ) as $reader ) {
 $fits = mb_substr( str_repeat( 'Ages 8 < 12 & "up": ', 120 ), 0, WPCPM_Institutions::MAX_NOTE );
 ck( 'the reason below fits its box as typed, and the cleaner stores it longer', array( WPCPM_Typed_Text::typed_length( $fits ), mb_strlen( sanitize_textarea_field( $fits ) ) > WPCPM_Institutions::MAX_NOTE, WPCPM_Typed_Text::cleaner_loses( $fits, 'lines' ) ), array( WPCPM_Institutions::MAX_NOTE, true, false ) );
 
-seed_application( 541, 'Reason Example', WPCPM_Institution_Application::STATE_NEW, $now - $day, array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'maciej+reason@a8c.com' ) ) );
+seed_application( 541, 'Reason Example', WPCPM_Institution_Application::STATE_NEW, $now - $day, array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'administrator+reason@example.test' ) ) );
 $GLOBALS['mail'] = array();
 $_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 541, 'wpcpm_reason' => $fits );
 $went            = outcome( array( $module, 'handle_reject' ) );
@@ -4808,7 +4808,7 @@ ck( 'and its sentence names the question box', WPCPM_Institutions::queue_message
 // characters as it was typed with, and a reference typed out after a "<", which the cleaner writes
 // in core's longer form (`&#9;` as `&#009;`), is counted as it was typed too.
 $length_press = static function ( $id, $field, $typed, $handler ) use ( $module ) {
-	seed_application( $id, 'Length Example', WPCPM_Institution_Application::STATE_NEW, time() - DAY_IN_SECONDS, array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'maciej+length@a8c.com' ) ) );
+	seed_application( $id, 'Length Example', WPCPM_Institution_Application::STATE_NEW, time() - DAY_IN_SECONDS, array( WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'administrator+length@example.test' ) ) );
 	$GLOBALS['mail'] = array();
 	$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => $id, $field => $typed );
 	$went            = outcome( array( $module, $handler ) );

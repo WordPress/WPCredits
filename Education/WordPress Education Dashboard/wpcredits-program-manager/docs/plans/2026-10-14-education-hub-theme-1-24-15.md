@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The WPCredits theme gains a page template, "Education Hub home", that draws the alternative homepage built from Alana's hub: a hero with the program's three outcome figures, three doors for students, institutions and companies, every education program in one filterable list with a field-of-study table, the pathway with the students' seven steps and the institutions' four partner levels, and a closing band, in the site's WordPress.org look, complete without JavaScript, and shown on a private preview page while the live homepage stays exactly as it is. The installable zip leaves `bin/` out.
+**Goal:** The WPCredits theme gains a page template, "Education Hub home", that draws the alternative homepage built from the designer's hub: a hero with the program's three outcome figures, three doors for students, institutions and companies, every education program in one filterable list with a field-of-study table, the pathway with the students' seven steps and the institutions' four partner levels, and a closing band, in the site's WordPress.org look, complete without JavaScript, and shown on a private preview page while the live homepage stays exactly as it is. The installable zip leaves `bin/` out.
 
 **Architecture:** A template (`templates/page-education-hub.html`, registered in theme.json) holding the front page's chrome and five patterns of core blocks (`patterns/hub-*.php`); two server-rendered theme blocks, `wpcredits/program-index` and `wpcredits/pathway` (`blocks/program-index`, `blocks/pathway`), whose `render.php` prints everything and whose small `view.js` only adds the chips, the switch and the steps' selection; their texts and links in `inc/hub-content.php`; the stylesheet, the front-page rule and the field table's scroll box in `inc/hub.php`; `assets/css/hub.css`; and the program figure block (`blocks/program-stat`) extended with the three outcome figures and their source line, read from plugin 1.122.24 through `wpcredits_outcome_figures()` in `inc/template-tags.php`.
 
 **Tech Stack:** a block theme with no build step, for WordPress 6.6 to 7.1 and PHP 7.4 and 8.x: PHP patterns with translatable strings, `block.json` blocks with `render.php`, hand-written `view.js` and `index.js` with hand-kept `*.asset.php`; `WP_HTML_Tag_Processor` for the table filter; theme.json tokens through style.css's `--wpc-*` aliases; `bin/check-selectors.php`; `bin/make-pot.sh` (WP-CLI); new suites `bin/test-hub.php` (plain PHP on the stand-ins of `bin/stubs/hub-wp.php`) and `bin/test-hub-js.php` (node, on the stand-in DOM of `bin/js/hub-dom.js`).
 
-**Spec:** `docs/specs/2026-10-14-education-hub-homepage-design.md` in the plugin's repository, the owner's approval of 14 October 2026; this plan carries out its sections 6, 7, 8.6, the theme's rows of 9, and 10.3 as far as a suite can, the rest of 10.3 being the checks on the local copy after the tasks. Content source: Alana's draft as the owner handed it over on 14 October 2026 (`.superpowers/session-backups/2026-10-14/WordPress-Education-Hub-v1-update.html` in the plugin's repository). The plugin's plan, `docs/plans/2026-10-14-outcome-figures-1-122-24.md`, ships the figures this theme reads: `WPCPM_Outcome_Figures::published()`.
+**Spec:** `docs/specs/2026-10-14-education-hub-homepage-design.md` in the plugin's repository, the owner's approval of 14 October 2026; this plan carries out its sections 6, 7, 8.6, the theme's rows of 9, and 10.3 as far as a suite can, the rest of 10.3 being the checks on the local copy after the tasks. Content source: the designer's draft as the owner handed it over on 14 October 2026 (`.superpowers/session-backups/2026-10-14/WordPress-Education-Hub-v1-update.html` in the plugin's repository). The plugin's plan, `docs/plans/2026-10-14-outcome-figures-1-122-24.md`, ships the figures this theme reads: `WPCPM_Outcome_Figures::published()`.
 
 **Base:** wpcredits-theme main at 28235ce, 1.24.14, the version live on 14 October 2026. Every anchor below is that commit's text.
 
@@ -49,7 +49,7 @@
 - Motion (spec 7.1): "Nothing animates by default; the one hover lift on a step is declared inside `prefers-reduced-motion: no-preference` only, and the theme's global reduce rule stands. In-page links jump; no smooth scrolling is added."
 - Links (spec 6.9): "The site's own addresses are read when a pattern or block renders. If a page is not published (or the plugin is off), its links point to the WordPress Credits handbook, https://make.wordpress.org/community/handbook/education/credits/" and "Every link opens in the same tab; the arrows are decorative (`aria-hidden`)."
 - Figures (spec 8.6): "The four count stats (`mentors`, `students`, `institutions`, `sponsors`) keep their markup and behavior byte for byte" and "`fallback` is ignored for outcome figures: they are never typed in."; spec 5.2: guarded "on the class and the method, so a theme on a plugin without them shows no figure."
-- Out of scope (spec 3): Alana's Hire, Partner and Sponsor views, her navigation, brand bar, "v1 draft" badge, footer, dark scheme and hash routing; any content about sponsorship levels, amounts or benefits; switching the live homepage; WordPress Student Clubs.
+- Out of scope (spec 3): the designer's Hire, Partner and Sponsor views, their navigation, brand bar, "v1 draft" badge, footer, dark scheme and hash routing; any content about sponsorship levels, amounts or benefits; switching the live homepage; WordPress Student Clubs.
 - US English; plain hyphens only, never an em or en dash, in any file (`bin/check-selectors.php` refuses one); full product names (WordPress Credits, Institution Dashboard, Student Report Card, Mentor Report Card); "Administrators". `phpcs` stays at 0 errors and 6 warnings, the 6 of main.
 - Never touch the live site, the Studio or Docker copies while building; a mutation or a trial is made in a scratch copy, never in the worktree. Never `git stash`.
 
@@ -1032,7 +1032,7 @@ $programs = wpcredits_hub_programs();
 $steps    = wpcredits_hub_steps();
 $levels   = wpcredits_hub_levels();
 
-ck( 'six programs in Alana\'s order, each with the anchor its card is linked by',
+ck( 'six programs in the designer\'s order, each with the anchor its card is linked by',
 	array_column( $programs, 'name', 'slug' ),
 	array(
 		'campus-connect'                  => 'Campus Connect',

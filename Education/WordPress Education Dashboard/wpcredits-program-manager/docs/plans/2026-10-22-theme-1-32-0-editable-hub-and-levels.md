@@ -8,9 +8,9 @@
 
 **Tech Stack:** WordPress 7.1 block API (block.json, render.php), hand-written editor scripts against `wp.blocks`, `wp.blockEditor`, `wp.element`, `wp.components`, `wp.i18n` (no build step, hand-maintained `index.asset.php`), PHP 8.4, the theme's PHP test suites.
 
-**Spec:** /Users/maciejpilarski/GitHub/wpcredits-program-manager/docs/specs/2026-10-22-theme-editable-hub-and-levels-design.md
+**Spec:** ~/GitHub/wpcredits-program-manager/docs/specs/2026-10-22-theme-editable-hub-and-levels-design.md
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-theme, worktree `.worktrees/theme-1-32-0`, branch `release/1.32.0-editable-hub`, from the theme 1.31.12 branch `release/1.31.12-no-value-labels` at `a9a829e` (main f564423 plus the phone tables fix; 1.31.12 ships first).
+**Repository:** ~/GitHub/wpcredits-theme, worktree `.worktrees/theme-1-32-0`, branch `release/1.32.0-editable-hub`, from the theme 1.31.12 branch `release/1.31.12-no-value-labels` at `a9a829e` (main f564423 plus the phone tables fix; 1.31.12 ships first).
 
 ## Scope of 1.32.0 (the site's owner, 22 October 2026: "Editable Education Hub ASAP")
 
@@ -24,7 +24,7 @@
 - Every visible word is editable in the editor where it is shown (RichText inline); lists, audiences, status, slugs and addresses in the block's sidebar (InspectorControls) where inline editing is not practical.
 - Default content comes from today's PHP lists (`wpcredits_hub_programs()`, the fields list in `patterns/hub-programs.php`, `wpcredits_partner_levels()`), translated in the theme's text domain when a pattern inserts it.
 - No em or en dashes; US English; roles, never people's names, in code, comments, tests and commit messages ("an Administrator", "the site's owner").
-- Tests in the repository's style (`bin/test-*.php`), red before green; `php bin/check-selectors.php /Users/maciejpilarski/GitHub/wpcredits-program-manager` and every `bin/test-*.php` green; phpcs with the theme's `phpcs.xml.dist` (`~/.composer/vendor/bin/phpcs`), no new errors or warnings.
+- Tests in the repository's style (`bin/test-*.php`), red before green; `php bin/check-selectors.php ~/GitHub/wpcredits-program-manager` and every `bin/test-*.php` green; phpcs with the theme's `phpcs.xml.dist` (`~/.composer/vendor/bin/phpcs`), no new errors or warnings.
 - Do not touch the version, the readme's changelog or the `.pot`: the coordinator does those.
 - No subagents, no network, no ssh, no docker, no stash, no push. Commits: subject plus one plain paragraph, ending the repository's Co-Authored-By trailer, via `git commit -F`.
 

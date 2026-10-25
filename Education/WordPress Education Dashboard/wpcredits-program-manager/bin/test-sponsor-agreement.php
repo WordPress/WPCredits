@@ -96,7 +96,7 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 
 class WP_User {
 	public $ID = 0, $roles = array(), $display_name = '', $user_email = '', $user_login = '';
-	public function __construct( $id = 0, array $roles = array(), $name = 'Someone', $email = 'maciej@a8c.com' ) {
+	public function __construct( $id = 0, array $roles = array(), $name = 'Someone', $email = 'administrator@example.test' ) {
 		$this->ID = (int) $id; $this->roles = $roles; $this->display_name = $name; $this->user_email = $email; $this->user_login = strtolower( str_replace( ' ', '', $name ) );
 	}
 	public function exists() { return $this->ID > 0; }
@@ -308,7 +308,7 @@ class WPCPM_Mail {
 class WPCPM_Sponsor_Interests {
 	const MAIL_CONTEXT = 'sponsor-interest';
 	public static function mail_manager( $record, $build, $context = self::MAIL_CONTEXT ) {
-		return WPCPM_Mail::send_to( 'maciej@a8c.com', $context, $build ) ? 1 : 0;
+		return WPCPM_Mail::send_to( 'administrator@example.test', $context, $build ) ? 1 : 0;
 	}
 }
 class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { return 0; } }
@@ -542,9 +542,9 @@ $S = 'recSPN00000000001';
 $T = 'recSPN00000000002';
 seed_index( $S, 'TEST Sponsor' );
 seed_index( $T, 'Other Sponsor' );
-$GLOBALS['users'][1]  = new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' );
-$GLOBALS['users'][20] = new WP_User( 20, array( 'wpcpm_sponsor' ), 'Member One', 'maciej@a8c.com' );
-$GLOBALS['users'][21] = new WP_User( 21, array( 'wpcpm_sponsor' ), 'Member Two', 'maciej@a8c.com' );
+$GLOBALS['users'][1]  = new WP_User( 1, array( 'administrator' ), 'Manager', 'administrator@example.test' );
+$GLOBALS['users'][20] = new WP_User( 20, array( 'wpcpm_sponsor' ), 'Member One', 'administrator@example.test' );
+$GLOBALS['users'][21] = new WP_User( 21, array( 'wpcpm_sponsor' ), 'Member Two', 'administrator@example.test' );
 $GLOBALS['umeta'][20] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $S, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['umeta'][21] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $S, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 
@@ -634,7 +634,7 @@ ck( 'the uploader\'s filename is kept for display only', (string) get_post_meta(
 ck( 'the nonce was keyed to the record', end( $GLOBALS['nonce'] ), 'wpcpm_sponsor_agr_upload_' . $S );
 ck( 'an upload records Awaiting review in the row at once', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Awaiting review' );
 ck( 'the summary is submitted and names the document', array( WPCPM_Sponsor_Agreement::summary( $S )['state'], WPCPM_Sponsor_Agreement::summary( $S )['pending_id'] ), array( 'submitted', $first ) );
-ck( 'the assigned manager is told once and the sponsor\'s accounts are not mailed', mail_log(), array( 'sponsor-agreement-received to maciej@a8c.com' ) );
+ck( 'the assigned manager is told once and the sponsor\'s accounts are not mailed', mail_log(), array( 'sponsor-agreement-received to administrator@example.test' ) );
 // The document is decided on the Administrator Dashboard, the one place that accepts or returns it,
 // and read first on the Sponsors screen, whose address the mail ends on: the queue tab, at the card
 // that lists the signed agreements.
@@ -678,7 +678,7 @@ echo "\n=== A withdrawal writes what the site holds (FAGRM-1) ===\n";
 // nothing to repair it once the replacement above it was taken back too.
 $Y = 'recSPN00000000007';
 seed_index( $Y, 'Returned Sponsor' );
-$GLOBALS['users'][23] = new WP_User( 23, array( 'wpcpm_sponsor' ), 'Member Four', 'maciej@a8c.com' );
+$GLOBALS['users'][23] = new WP_User( 23, array( 'wpcpm_sponsor' ), 'Member Four', 'administrator@example.test' );
 $GLOBALS['umeta'][23] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $Y, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['uid']       = 23;
 $_POST                = array( 'wpcpm_sponsor' => $Y, 'wpcpm_sponsor_agr_signed' => '1' );
@@ -703,7 +703,7 @@ ck( 'so the index block and the card agree', WPCPM_Sponsor_Agreement::summary( $
 // write here could only record the same value or a worse one.
 $Z = 'recSPN00000000008';
 seed_index( $Z, 'Accepted Sponsor' );
-$GLOBALS['users'][24] = new WP_User( 24, array( 'wpcpm_sponsor' ), 'Member Five', 'maciej@a8c.com' );
+$GLOBALS['users'][24] = new WP_User( 24, array( 'wpcpm_sponsor' ), 'Member Five', 'administrator@example.test' );
 $GLOBALS['umeta'][24] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $Z, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['uid']       = 24;
 $_POST                = array( 'wpcpm_sponsor' => $Z, 'wpcpm_sponsor_agr_signed' => '1' );
@@ -830,7 +830,7 @@ ck( 'the document is accepted, with who and when', array(
 ), array( 'accepted', 1, wp_date( 'Y-m-d' ) ) );
 ck( 'accept records Accepted with today\'s date', array( WPCPM_Sponsors_Index::row( $S )['agreement']['status'], WPCPM_Sponsors_Index::row( $S )['agreement']['accepted_on'] ), array( 'Accepted', wp_date( 'Y-m-d' ) ) );
 ck( 'the summary is accepted and names the document', array( WPCPM_Sponsor_Agreement::summary( $S )['state'], WPCPM_Sponsor_Agreement::summary( $S )['agreement_id'] ), array( 'accepted', $live ) );
-ck( 'both accounts are told', mail_log(), array( 'sponsor-agreement-accepted to maciej@a8c.com', 'sponsor-agreement-accepted to maciej@a8c.com' ) );
+ck( 'both accounts are told', mail_log(), array( 'sponsor-agreement-accepted to administrator@example.test', 'sponsor-agreement-accepted to administrator@example.test' ) );
 ck( 'the nonce was keyed to the document', end( $GLOBALS['nonce'] ), 'wpcpm_sponsor_agr_accept_' . $live );
 ck( 'a second press finds nothing waiting', ran( 'handle_accept' ) && 'agreement-gone' === end( $GLOBALS['flash'] )[1], true );
 
@@ -873,7 +873,7 @@ ck( 'a note of twenty characters or more returns it', array( end( $GLOBALS['flas
 ck( 'Return checks the nonce keyed to the document', $GLOBALS['nonce'], array( 'wpcpm_sponsor_agr_return_' . $sent ) );
 ck( 'the note is kept on the document with its line breaks', false !== strpos( (string) get_post_meta( $sent, WPCPM_Sponsor_Agreement::META_NOTE, true ), "\n" ), true );
 ck( 'the accepted copy that stands keeps the record saying Accepted', WPCPM_Sponsors_Index::row( $S )['agreement']['status'], 'Accepted' );
-ck( 'and both accounts get the note', mail_log(), array( 'sponsor-agreement-returned to maciej@a8c.com', 'sponsor-agreement-returned to maciej@a8c.com' ) );
+ck( 'and both accounts get the note', mail_log(), array( 'sponsor-agreement-returned to administrator@example.test', 'sponsor-agreement-returned to administrator@example.test' ) );
 
 seed_index( $T, 'Other Sponsor' );
 $GLOBALS['umeta'][21] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $T, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
@@ -1208,7 +1208,7 @@ echo "\n=== Notes keep their backslashes ===\n";
 // unslashed: it keeps a backslash only when it is written as a slashed copy.
 $V                    = 'recSPN00000000003';
 $typed_note           = 'Page 4 is in C:\drafts\scans, two \\\\ in a row, and the "signed" copy is missing.';
-$GLOBALS['users'][22] = new WP_User( 22, array( 'wpcpm_sponsor' ), 'Member Three', 'maciej@a8c.com' );
+$GLOBALS['users'][22] = new WP_User( 22, array( 'wpcpm_sponsor' ), 'Member Three', 'administrator@example.test' );
 $GLOBALS['umeta'][22] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $V, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 seed_index( $V, 'Third Sponsor' );
 
@@ -1259,7 +1259,7 @@ function agr_upload( $record, $member ) {
 }
 /** A sponsor of its own in the index, with one member, so each case below starts with nothing in review. */
 function agr_sponsor( $record, $member, $name ) {
-	$GLOBALS['users'][ $member ] = new WP_User( $member, array( 'wpcpm_sponsor' ), 'Member ' . $member, 'maciej@a8c.com' );
+	$GLOBALS['users'][ $member ] = new WP_User( $member, array( 'wpcpm_sponsor' ), 'Member ' . $member, 'administrator@example.test' );
 	$GLOBALS['umeta'][ $member ] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $record, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 	seed_index( $record, $name );
 }
@@ -1375,7 +1375,7 @@ function agr_note_box( $post_id ) {
 	$shown = (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) );
 	return array( 'shown' => html_entity_decode( $shown, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'open' => false !== strpos( $html, '<details class="wpcpm-sponsor-agreement__return" open>' ) );
 }
-$GLOBALS['users'][2] = new WP_User( 2, array( 'administrator' ), 'Manager Two', 'maciej+two@a8c.com' );
+$GLOBALS['users'][2] = new WP_User( 2, array( 'administrator' ), 'Manager Two', 'administrator+two@example.test' );
 $GLOBALS['manage']   = array( 1, 2 );
 $K = 'recSPN00000000013';
 agr_sponsor( $K, 29, 'Sponsor Thirteen' );

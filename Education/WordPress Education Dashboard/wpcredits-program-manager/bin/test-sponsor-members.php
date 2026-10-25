@@ -97,7 +97,7 @@ function get_users( array $args ) {
  * @param string   $name  Display name.
  */
 function person( $id, array $roles, $name ) {
-	$GLOBALS['users'][ (int) $id ] = array( 'display_name' => $name, 'user_email' => 'maciej@a8c.com' );
+	$GLOBALS['users'][ (int) $id ] = array( 'display_name' => $name, 'user_email' => 'administrator@example.test' );
 	$caps                          = array();
 
 	foreach ( $roles as $role ) {

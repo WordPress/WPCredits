@@ -377,7 +377,7 @@ WPCPM_Sponsors_Index::insert(
 			'mentors'        => array(),
 			'created'        => '2026-01-05',
 			'contact_person' => 'Should Never Appear',
-			'contact_email'  => 'maciej+apple@a8c.com',
+			'contact_email'  => 'administrator+apple@example.test',
 			'notes'          => 'Manager-only notes',
 		)
 	)

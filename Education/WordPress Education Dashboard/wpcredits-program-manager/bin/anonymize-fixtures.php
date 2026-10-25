@@ -102,12 +102,11 @@ if ( false !== $wpcpm_hash_at ) {
  *
  * The reserved names RFC 2606 sets aside for documentation (`.example`, `.test`, `.invalid`
  * and the four example.* domains) are what the suites already use for everything invented;
- * `a8c.com` is the program's own address, which the plan allows anywhere; `li.org` is GNU
- * gettext's own Language-Team placeholder, which bin/make-pot.sh writes into the POT header
- * and no tool would recognize under another name. Every other domain found after an `@` is
- * retired.
+ * `li.org` is GNU gettext's own Language-Team placeholder, which bin/make-pot.sh writes into the
+ * POT header and no tool would recognize under another name. Every other domain found after an
+ * `@` is retired, the program's own work domain among them since 25 October 2026.
  */
-const WPCPM_KEEP_DOMAINS = '/(^|\.)(example|test|invalid)$|^example\.(com|org|net|edu)$|^a8c\.com$|^li\.org$/';
+const WPCPM_KEEP_DOMAINS = '/(^|\.)(example|test|invalid)$|^example\.(com|org|net|edu)$|^li\.org$/';
 
 /**
  * The shortest name or website the sweep will replace through the suites.

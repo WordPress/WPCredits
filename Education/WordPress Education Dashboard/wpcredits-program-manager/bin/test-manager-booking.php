@@ -186,10 +186,10 @@ function save_as( $actor, $profile, $link, $nonce = '' ) {
 }
 
 // Seven is a program manager; eight a student; nine may edit other users; ten may not.
-$GLOBALS['users'][7]  = new WP_User( 7, 'Manager Seven', 'maciej@a8c.com' );
-$GLOBALS['users'][8]  = new WP_User( 8, 'Student Eight', 'maciej+student@a8c.com' );
-$GLOBALS['users'][9]  = new WP_User( 9, 'Editor Nine', 'maciej+editor@a8c.com' );
-$GLOBALS['users'][10] = new WP_User( 10, 'Stranger Ten', 'maciej+stranger@a8c.com' );
+$GLOBALS['users'][7]  = new WP_User( 7, 'Manager Seven', 'administrator@example.test' );
+$GLOBALS['users'][8]  = new WP_User( 8, 'Student Eight', 'administrator+student@example.test' );
+$GLOBALS['users'][9]  = new WP_User( 9, 'Editor Nine', 'administrator+editor@example.test' );
+$GLOBALS['users'][10] = new WP_User( 10, 'Stranger Ten', 'administrator+stranger@example.test' );
 
 echo "=== The link ===\n";
 

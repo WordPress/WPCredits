@@ -2199,7 +2199,7 @@ ck( 'an institution still to sign is pointed at the same page as the place to up
 // institution user - a bare WP_User carrying only the role - and mailed to the address the
 // design spec pins for every test send (design spec of 4 September 2026, section 5.3).
 $sponsor_email = array(
-	'to'      => 'maciej@a8c.com',
+	'to'      => 'administrator@example.test',
 	'subject' => 'x',
 	'message' => "Username: rep\r\nhttps://example.test/wp-login.php?action=rp&key=k",
 	'headers' => '',

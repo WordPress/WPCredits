@@ -3189,7 +3189,7 @@ echo "\n=== The retry finishes an Airtable write the base refused, on the next s
 // person noticed. Everything below is about the sync run after.
 reset_world();
 $GLOBALS['clock']    = 1756700000;
-$GLOBALS['users'][9] = new WP_User( 9, 'A Manager', 'maciej@a8c.com' );
+$GLOBALS['users'][9] = new WP_User( 9, 'A Manager', 'administrator@example.test' );
 $cols                = WPCPM_Institutions_Sync::fields();
 $retry_day           = gmdate( 'Y-m-d', 1756700000 );
 

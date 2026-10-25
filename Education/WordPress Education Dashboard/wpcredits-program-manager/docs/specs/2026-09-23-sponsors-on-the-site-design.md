@@ -1,6 +1,6 @@
 # Sponsors on the site: design
 
-**Date:** 23 September 2026. **Product owner:** Maciej Pilarski. **Ships as:** plugin 1.111.0, no theme change.
+**Date:** 23 September 2026. **Product owner:** the program's product owner. **Ships as:** plugin 1.111.0, no theme change.
 
 The Sponsors module (spec `2026-09-04-sponsors-module-design.md`, six phases, 1.93.0 to 1.98.1) keeps a sponsor's offers, codes, claims, posts, agreement, logo, member accounts and expressions of interest on the site, and reads the sponsor's identity from the Airtable Sponsors table every three hours while writing six things back to it. This document moves the identity onto the site too, so that a sponsor is one record in one place, and nothing about a sponsor is read from or written to Airtable any more.
 

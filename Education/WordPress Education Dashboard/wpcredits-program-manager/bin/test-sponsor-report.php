@@ -1198,7 +1198,7 @@ sponsor_post( $F, '2025-12-15 09:00:00', 'pending', true );
 
 // The sponsors, in the store.
 $sponsors = array(
-	$A  => array( 'name' => 'Mango Example', 'status' => 'Approved', 'tier' => 'backer', 'tier_until' => '2026-09-30', 'funded_line' => "Stipends for two of the program's mentors", 'mentors' => array( 'recSEED0000000301', 'recSEED0000000302' ), 'contact_person' => 'Rep One Example', 'contact_email' => 'maciej@a8c.com' ),
+	$A  => array( 'name' => 'Mango Example', 'status' => 'Approved', 'tier' => 'backer', 'tier_until' => '2026-09-30', 'funded_line' => "Stipends for two of the program's mentors", 'mentors' => array( 'recSEED0000000301', 'recSEED0000000302' ), 'contact_person' => 'Rep One Example', 'contact_email' => 'administrator@example.test' ),
 	$B  => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'tier' => 'supporter', 'tier_until' => '2026-08-31', 'funded_line' => 'Hosting for the students' ),
 	$M  => array( 'name' => 'Mentor Only Example', 'status' => 'Approved', 'tier' => 'mentor', 'tier_until' => '2026-06-30' ),
 	$F  => array( 'name' => 'Future Example', 'status' => 'Approved', 'tier' => 'backer', 'tier_until' => '2026-12-31', 'mentors' => array( 'recSEED0000000303', 'recSEED0000000304' ) ),

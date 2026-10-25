@@ -471,8 +471,8 @@ function reset_world() {
 	// with the trailing space the base keeps, one whose website carries www and a path.
 	WPCPM_Sponsors_Index::write(
 		array(
-			'recSPN00000000001' => array( 'name' => 'Widgetry Ltd ', 'website' => 'https://www.widgetry.example/about', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
-			'recSPN00000000002' => array( 'name' => 'Old Sponsor', 'website' => 'old-sponsor.example', 'status' => 'Paused', 'contact_email' => 'maciej@a8c.com' ),
+			'recSPN00000000001' => array( 'name' => 'Widgetry Ltd ', 'website' => 'https://www.widgetry.example/about', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
+			'recSPN00000000002' => array( 'name' => 'Old Sponsor', 'website' => 'old-sponsor.example', 'status' => 'Paused', 'contact_email' => 'administrator@example.test' ),
 		),
 		1757000000
 	);
@@ -492,7 +492,7 @@ function answers( array $overrides = array() ) {
 		'Company Name'                      => 'Gadgetry Inc',
 		'Website'                           => 'gadgetry.example',
 		'Contact Person Full Name'          => 'Sam Sponsor',
-		'Contact Email'                     => 'maciej@a8c.com',
+		'Contact Email'                     => 'administrator@example.test',
 		"Anything else you'd like to share." => 'We make gadgets and would like to help.',
 		'Privacy Policy Compliance'         => '1',
 	);
@@ -1135,7 +1135,7 @@ $consent = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_CONSENT, tru
 // The address agreed to, WordPress.org's, with no post and no modified time: the site's own page,
 // set in this world as page 43, is not what the applicant read (1.123.24).
 ck( 'the consent evidence names the policy agreed to, no page of this site, the sentence, the truncated address and the browser', array( $consent['url'], $consent['policy'], $consent['modified'], $consent['sentence'], $consent['ip'], $consent['agent'] ), array( 'https://wordpress.org/about/privacy/', 0, '', 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.', '203.0.113.0', 'Mozilla/5.0 (test)' ) );
-ck( 'the address is stored only as a hash, for duplicate flagging', get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EMAIL, true ), wp_hash( 'maciej@a8c.com' ) );
+ck( 'the address is stored only as a hash, for duplicate flagging', get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EMAIL, true ), wp_hash( 'administrator@example.test' ) );
 $events = get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'one event row was written, saying what happened and by whom', array( count( $events ), $events[0]['event'], $events[0]['actor'] ), array( 1, 'submitted', 0 ) );
 // The reference is SAPP-<year>-<the post's own ID> (reference(), L2364-2369): 1.111.0 seeds the
@@ -1155,7 +1155,7 @@ ck( 'and is gone on the next page load, which shows the plain form again', array
 
 echo "\n-- the two mails ------------------------------------------------------\n";
 
-ck( 'one message to the applicant, through the single exit, with its own context', array( count( $GLOBALS['mail'] ), $GLOBALS['mail'][0]['to'], $GLOBALS['mail'][0]['context'] ), array( 1, 'maciej@a8c.com', 'sponsor-applied' ) );
+ck( 'one message to the applicant, through the single exit, with its own context', array( count( $GLOBALS['mail'] ), $GLOBALS['mail'][0]['to'], $GLOBALS['mail'][0]['context'] ), array( 1, 'administrator@example.test', 'sponsor-applied' ) );
 ck( 'the subject carries the site and the reference', $GLOBALS['mail'][0]['subject'], '[WordPress Education] We have your application: ' . $expected_reference );
 ck( 'the body says what happens next and names the compliance check, and carries no link to confirm anything', array( false !== strpos( $GLOBALS['mail'][0]['body'], 'What happens next' ), false !== strpos( $GLOBALS['mail'][0]['body'], 'licensing and trademark' ), strpos( $GLOBALS['mail'][0]['body'], 'admin-post.php' ) ), array( true, true, false ) );
 ck( 'one message to the managers, through the sponsors module\'s own setting', array( count( $GLOBALS['managermail'] ), $GLOBALS['managermail'][0]['context'], $GLOBALS['managermail'][0]['setting'] ), array( 1, 'sponsor-application', 'sponsor_notify' ) );
@@ -1223,7 +1223,7 @@ ck( 'a token minted for the institution form is a forgery here', WPCPM_Sponsor_A
 reset_world();
 $harvested = dwell_token( 60 );
 $first     = submit( answers(), array( 'token' => $harvested ) );
-$second    = submit( answers( array( 'Company Name' => 'Second Co', 'Contact Email' => 'maciej@a8c.com' ) ), array( 'token' => $harvested ) );
+$second    = submit( answers( array( 'Company Name' => 'Second Co', 'Contact Email' => 'administrator@example.test' ) ), array( 'token' => $harvested ) );
 $rows      = stored();
 ck( 'a harvested token gets one application through and the replay is held as spam', array( get_post_meta( $rows[0]->ID, WPCPM_Sponsor_Application::META_STATE, true ), get_post_meta( $rows[1]->ID, WPCPM_Sponsor_Application::META_STATE, true ), in_array( 'dwell', get_post_meta( $rows[1]->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ) ), array( 'new', 'spam', true ) );
 ck( 'the sender of the replay is told nothing about it, and only the first was mailed about', array( $first['outcome'], $second['outcome'], count( $GLOBALS['mail'] ) ), array( 'sent', 'sent', 1 ) );
@@ -1255,7 +1255,7 @@ $resend = submit( answers(), array( 'token' => $fresh ) );
 $row    = only_row();
 ck( 'the re-send at age zero is held, not filed as spam', array( $resend['outcome'], get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_STATE, true ), get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ) ), array( 'sent', 'held', array( 'dwell-fast' ) ) );
 ck( 'so it reaches the queue as one pending row', array( count( stored() ), WPCPM_Sponsor_Application::pending_count() ), array( 1, 1 ) );
-ck( 'and gets the held-row mails: the applicant is acknowledged, the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( 1, 'maciej@a8c.com', 0 ) );
+ck( 'and gets the held-row mails: the applicant is acknowledged, the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( 1, 'administrator@example.test', 0 ) );
 ck( 'the queue has a sentence for why it is held', false !== strpos( WPCPM_Sponsor_Application::signal_labels()['dwell-fast'], 'again' ), true );
 
 // The other half of what the spam path skipped: requiredness and the file check are asked on a
@@ -1299,7 +1299,7 @@ $genuine      = submit( answers( array( 'Company Name' => 'Real Company' ) ), ar
 $rows         = stored();
 $last         = end( $rows );
 ck( 'the form is still open to the next source afterwards, and its application is kept and held', array( $genuine['outcome'], count( $rows ), get_post_meta( $last->ID, WPCPM_Sponsor_Application::META_STATE, true ), in_array( 'site-ceiling', get_post_meta( $last->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ) ), array( 'sent', 41, 'held', true ) );
-ck( 'the applicant is written to all the same, and only the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( $mails_so_far + 1, 'maciej@a8c.com', 40 ) );
+ck( 'the applicant is written to all the same, and only the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( $mails_so_far + 1, 'administrator@example.test', 40 ) );
 
 // FANON-3: the degrade used to be claimed after the files were accepted, so every held row
 // past the day's forty still re-encoded two images and wrote two attachments with their
@@ -1795,7 +1795,7 @@ function seed_application( array $overrides = array(), $logo = false ) {
 
 /** Become the manager, with an address the question can be replied to. */
 function as_manager() {
-	$GLOBALS['users'] = array( 3 => new WP_User( 3, 'Manager Three', 'maciej@a8c.com' ) );
+	$GLOBALS['users'] = array( 3 => new WP_User( 3, 'Manager Three', 'administrator@example.test' ) );
 	$GLOBALS['uid']   = 3;
 	$GLOBALS['caps']  = true;
 }
@@ -1855,7 +1855,7 @@ $id = seed_application();
 $GLOBALS['mail'] = array();
 ck( 'a question shorter than ten characters is refused and nothing moves', array( flashed( decide( 'handle_info', $id, array( 'wpcpm_question' => 'Why?' ) ) ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), count( $GLOBALS['mail'] ) ), array( 'sapp-question', 'new', 0 ) );
 $asked = decide( 'handle_info', $id, array( 'wpcpm_question' => "Which of your plans would students get?\n\nAnd for how long?" ) );
-ck( 'a question is mailed to the applicant with the manager\'s address to reply to', array( flashed( $asked ), count( $GLOBALS['mail'] ), mail_said( 0, 'to' ), mail_said( 0, 'context' ), $GLOBALS['mail'][0]['headers'] ), array( 'sapp-info', 1, 'maciej@a8c.com', 'sponsor-information', array( 'Reply-To: maciej@a8c.com' ) ) );
+ck( 'a question is mailed to the applicant with the manager\'s address to reply to', array( flashed( $asked ), count( $GLOBALS['mail'] ), mail_said( 0, 'to' ), mail_said( 0, 'context' ), $GLOBALS['mail'][0]['headers'] ), array( 'sapp-info', 1, 'administrator@example.test', 'sponsor-information', array( 'Reply-To: administrator@example.test' ) ) );
 ck( 'the subject carries the site and the reference, the body the question with its paragraphs and how to answer', array( mail_said( 0, 'subject' ), false !== strpos( mail_said( 0, 'body' ), "Which of your plans would students get?\n\nAnd for how long?" ), false !== strpos( mail_said( 0, 'body' ), 'Reply to this message' ) ), array( sprintf( '[WordPress Education] A question about your application (SAPP-2026-%04d)', $id ), true, true ) );
 $events = get_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT );
 ck( 'the state moves to info and the history keeps the question, with the manager as the actor', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ), end( $events )['event'], end( $events )['actor'], false !== strpos( end( $events )['note'], 'Which of your plans' ) ), array( 'info', 'information requested', 3, true ) );
@@ -1962,7 +1962,7 @@ function app_question_box( $id, $return = WPCPM_Return::DASHBOARD ) {
 }
 reset_world();
 as_manager();
-$GLOBALS['users'][4]    = new WP_User( 4, 'Manager Four', 'maciej+four@a8c.com' );
+$GLOBALS['users'][4]    = new WP_User( 4, 'Manager Four', 'administrator+four@example.test' );
 $GLOBALS['kept_typing'] = array();
 $k_id     = seed_application();
 $k_other  = seed_application( array( 'Company Name' => 'Other Co' ) );
@@ -2034,7 +2034,7 @@ function app_reason_box( $id, $return = WPCPM_Return::DASHBOARD ) {
 }
 reset_world();
 as_manager();
-$GLOBALS['users'][4]    = new WP_User( 4, 'Manager Four', 'maciej+four@a8c.com' );
+$GLOBALS['users'][4]    = new WP_User( 4, 'Manager Four', 'administrator+four@example.test' );
 $GLOBALS['kept_typing'] = array();
 $j_id     = seed_application();
 $j_other  = seed_application( array( 'Company Name' => 'Other Co' ) );
@@ -2264,7 +2264,7 @@ ck( 'an open application offers four decisions, each keyed to itself', array( su
 ck( 'every form names the application, is guarded against a second press, and stays on the screen', array( substr_count( $forms, 'name="wpcpm_sapp" value="' . $id . '"' ), substr_count( $forms, 'data-wpcpm-once' ), strpos( $forms, 'wpcpm_return' ) ), array( 4, 4, false ) );
 ck( 'the Reject box\'s label names the program\'s Administrators, and the sentence that refuses a reason names the box by the same first words', array( false !== strpos( $forms, '>Why, for the next Administrator who reads this. It is never sent to the applicant.<' ), strpos( $forms, 'next manager' ), false !== strpos( WPCPM_Sponsor_Application::manager_messages()['sapp-reason-loss'][1], '"Why, for the next Administrator who reads this"' ) ), array( true, false, true ) );
 ck( 'the question is required and says so in the label\'s voice; the reason is not', array( 1 === preg_match( '/name="wpcpm_question"[^>]*required/', $forms ), false !== strpos( $forms, 'wpcpm-field__required' ), preg_match( '/name="wpcpm_reason"[^>]*required/', $forms ) ), array( true, true, 0 ) );
-ck( 'Approve, Reject, Reject as spam carry a confirm naming the company and the address', array( substr_count( $forms, 'data-wpcpm-confirm="' ), false !== strpos( $forms, 'Gadgetry Inc' ), false !== strpos( $forms, 'maciej@a8c.com' ) ), array( 3, true, true ) );
+ck( 'Approve, Reject, Reject as spam carry a confirm naming the company and the address', array( substr_count( $forms, 'data-wpcpm-confirm="' ), false !== strpos( $forms, 'Gadgetry Inc' ), false !== strpos( $forms, 'administrator@example.test' ) ), array( 3, true, true ) );
 ob_start();
 WPCPM_Sponsor_Application::render_actions( $post, 'new', WPCPM_Return::DASHBOARD );
 $dashboard_forms = (string) ob_get_clean();
@@ -2334,9 +2334,9 @@ as_manager();
 $GLOBALS['settings']['sponsor_tiers_live'] = true;
 $tier_rows = array(
 	'Backer Co' => seed_application( array( 'Company Name' => 'Backer Co', 'Tier considered' => 'backer' ) ),
-	'Unsure Co' => seed_application( array( 'Company Name' => 'Unsure Co', 'Contact Email' => 'maciej+unsure@a8c.com', 'Tier considered' => 'unsure' ) ),
-	'Silent Co' => seed_application( array( 'Company Name' => 'Silent Co', 'Contact Email' => 'maciej+silent@a8c.com' ) ),
-	'Odd Co'    => seed_application( array( 'Company Name' => 'Odd Co', 'Contact Email' => 'maciej+odd@a8c.com' ) ),
+	'Unsure Co' => seed_application( array( 'Company Name' => 'Unsure Co', 'Contact Email' => 'administrator+unsure@example.test', 'Tier considered' => 'unsure' ) ),
+	'Silent Co' => seed_application( array( 'Company Name' => 'Silent Co', 'Contact Email' => 'administrator+silent@example.test' ) ),
+	'Odd Co'    => seed_application( array( 'Company Name' => 'Odd Co', 'Contact Email' => 'administrator+odd@example.test' ) ),
 );
 // A key the question does not offer, as a row written by hand would hold it.
 update_post_meta( $tier_rows['Odd Co'], WPCPM_Sponsor_Application::META_FIELDS, array_merge( (array) get_post_meta( $tier_rows['Odd Co'], WPCPM_Sponsor_Application::META_FIELDS, true ), array( 'Tier considered' => 'gold' ) ) );
@@ -2393,9 +2393,9 @@ reset_world();
 as_manager();
 $older_rows = array(
 	'Older Co' => seed_application( array( 'Company Name' => 'Older Co' ) ),
-	'Newer Co' => seed_application( array( 'Company Name' => 'Newer Co', 'Contact Email' => 'maciej+newer@a8c.com' ) ),
-	'Blank Co' => seed_application( array( 'Company Name' => 'Blank Co', 'Contact Email' => 'maciej+blank@a8c.com' ) ),
-	'Typed Co' => seed_application( array( 'Company Name' => 'Typed Co', 'Contact Email' => 'maciej+typed@a8c.com' ) ),
+	'Newer Co' => seed_application( array( 'Company Name' => 'Newer Co', 'Contact Email' => 'administrator+newer@example.test' ) ),
+	'Blank Co' => seed_application( array( 'Company Name' => 'Blank Co', 'Contact Email' => 'administrator+blank@example.test' ) ),
+	'Typed Co' => seed_application( array( 'Company Name' => 'Typed Co', 'Contact Email' => 'administrator+typed@example.test' ) ),
 );
 // What the form stored before 1.123.12, written by hand as that form wrote it.
 $older_answers = array(
@@ -2467,7 +2467,7 @@ function seed_stored( $name, $state, $at ) {
 	$id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Application::POST_TYPE, 'post_status' => 'private', 'post_title' => $name ) );
 	$GLOBALS['posts'][ $id ]->post_date = gmdate( 'Y-m-d H:i:s', (int) $at );
 	update_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, $state );
-	update_post_meta( $id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $name, 'Contact Email' => 'maciej@a8c.com' ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $name, 'Contact Email' => 'administrator@example.test' ) );
 
 	return $id;
 }

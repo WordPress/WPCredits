@@ -39,10 +39,9 @@
  * it, and a string that was judged real once cannot be un-judged without the original. That is
  * the trade, and it is the right way round: the list exists to keep values out of the mirror.
  *
- * "Maciej (Matt) Pilarski" is deliberately absent, and this is where that is recorded: it is the
- * maintainer's own name, like maciej@a8c.com, which the plan allows anywhere under bin/. The
- * suites carry it because the program contact block prints a real program manager. It is nobody
- * else's name to publish, so it stays.
+ * Since 25 October 2026 the suites carry no maintainer's name or address either (the owner's
+ * ask): the program contact block prints "Program Administrator" at administrator@example.test,
+ * as every other invented person in the suites is at a reserved domain.
  *
  * @package WPCreditsProgramManager
  */

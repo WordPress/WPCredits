@@ -18,7 +18,7 @@
 - Dashboards look alike: a shared block copies the reference dashboard's values value for value; a block class name belongs to one dashboard's markup only; every class the theme dresses is printed by the plugin (`check-selectors.php`).
 - Declarations alphabetical inside a rule; comments explain why; tabs; Yoda conditions.
 - Versions: plugin **1.94.7** (`wpcredits-program-manager.php` header and `WPCPM_VERSION`, `readme.txt` Stable tag and a `= 1.94.7 =` entry), theme **1.21.0** (`style.css`, `readme.txt`). Separate git repositories, each committed on its own.
-- Every test send or test account uses `maciej@a8c.com`. Nothing destructive against wordpresseducation.org. Deploy, mirror and live verification are the controller's, after the final review and the merge.
+- Every test send or test account uses `administrator@example.test`. Nothing destructive against wordpresseducation.org. Deploy, mirror and live verification are the controller's, after the final review and the merge.
 
 ---
 
@@ -189,7 +189,7 @@ Read the plugin's `assets/css/administrator.css` `.wpcpm-administrator__item` ru
 
 - [ ] **Step 1: Failing test**
 
-In `bin/test-institution-roster-view.php`, find the fixture row that renders a current student (a row with a `user_id`) and give it `'username' => 'zhaslankyzy'` (or the key the roster rows use for the WordPress.org username: read `render_student()`'s `$row` and the `cells()` helper; line ~991 reads `$get( 'username' )`) and `'email' => 'maciej@a8c.com'`. Add:
+In `bin/test-institution-roster-view.php`, find the fixture row that renders a current student (a row with a `user_id`) and give it `'username' => 'zhaslankyzy'` (or the key the roster rows use for the WordPress.org username: read `render_student()`'s `$row` and the `cells()` helper; line ~991 reads `$get( 'username' )`) and `'email' => 'administrator@example.test'`. Add:
 
 ```php
 ck( 'a student row carries the same 44px avatar as the mentor page, before the name', preg_match( '#<summary class="wpcpm-mentee__summary"><img class="wpcpm-avatar" src="[^"]*zhaslankyzy[^"]*" srcset="[^"]*" width="44" height="44" alt="[^"]*" title="[^"]*" loading="lazy" decoding="async" /><div class="wpcpm-mentee__identity">#', $html ) === 1, true );
@@ -337,7 +337,7 @@ git add -A && git commit -m "Institution Dashboard: the colleague-invite flow is
 - [ ] **Step 1:** plugin 1.94.7 and theme 1.21.0 in every spot; `= 1.94.7 =` and `= 1.21.0 =` entries describing Tasks 1 to 6 for a reader (US English, plain hyphens, full product names).
 - [ ] **Step 2:** `php bin/build-docs.php` if any `docs/sections/` file changed in Task 6.
 - [ ] **Step 3:** the battery (`for f in bin/test-*.php; do r=$(php "$f" 2>&1 | tail -1); case "$r" in *PASS*|*"NORMAL OUTCOME"*) ;; *) echo "$f: $r";; esac; done` prints nothing), `bash bin/check-standards.sh 2>&1 | grep -E "FOUND [1-9]|British|Em or en"` (nothing), `bash bin/check-standards.sh --dead | tail -1` (0 dead), `php bin/check-references.php | tail -1`, theme `php bin/check-selectors.php | tail -3`, `grep -rnE "font(-size)?:[^;]*\b(8|9|10|11)px" assets/css/ style.css` in the theme (nothing).
-- [ ] **Step 4:** `bash bin/build` (version inside 1.94.7); theme zip from `/Users/maciejpilarski/GitHub`: `rm -f wpcredits-theme.zip && zip -rq wpcredits-theme.zip wpcredits-theme -x "wpcredits-theme/.git/*" "*/.DS_Store" "wpcredits-theme/node_modules/*" "*.map" "wpcredits-theme/.superpowers/*"` and `unzip -p wpcredits-theme.zip wpcredits-theme/style.css | grep "^Version:"` (1.21.0).
+- [ ] **Step 4:** `bash bin/build` (version inside 1.94.7); theme zip from `~/GitHub`: `rm -f wpcredits-theme.zip && zip -rq wpcredits-theme.zip wpcredits-theme -x "wpcredits-theme/.git/*" "*/.DS_Store" "wpcredits-theme/node_modules/*" "*.map" "wpcredits-theme/.superpowers/*"` and `unzip -p wpcredits-theme.zip wpcredits-theme/style.css | grep "^Version:"` (1.21.0).
 - [ ] **Step 5:** commit both repositories. Deploy, live measurement (the header band meets the first section; the ordering note sits above the list; the past-students box edges equal the cards' edges with 20px below; admin cells centered; 12px under request textareas; institution rows one line with a 44px avatar; every button 14px on the Sponsor Dashboard; the invite form on Krakow's card as a manager and absent for a stranger), mirror, vault and memory are the controller's.
 
 ---

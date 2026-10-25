@@ -20,7 +20,7 @@
 - **The battery stays silent after every task:** `for f in bin/test-*.php; do php "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` prints nothing (a worktree may print only `FAIL bin/test-tooling.php`, which names the directory; the clone the zip is built in passes it). `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/check-dead-annotations.php` and `php bin/check-temp-litter.php` report clean; `bash bin/check-standards.sh` prints no errors and adds no warning to its baseline (read the baseline count before Task 1 and hold it).
 - **The seeds are untouched** (`includes/tracks/seeds/*.json` byte-identical; `bin/test-track-definitions.php` proves it) and stay what a fresh site seeds from; `wp wpcredits seed-tracks` stays.
 - **Nothing in Airtable, nothing on the live site, no ssh, no network.** The trial runs on the local Studio copy at `~/Studio/wpcredits-t5` (http://localhost:8883), never the live site. No installs; no subagents from an implementer.
-- `bin/` and `docs/` are public on the mirror: no real record id, no address beyond `maciej@a8c.com` and `.example`, no name.
+- `bin/` and `docs/` are public on the mirror: no real record id, no address beyond `administrator@example.test` and `.example`, no name.
 - Version numbers move in the last task only: plugin 1.116.0 (the numbers 1.111.0 to 1.115.0 belong to the private sponsors line still on its branch; `version_compare()` orders 1.116.0 after 1.110.4 and the launch-day merge takes the number after). No theme release.
 - Every commit message starts with "Track Builder T5:" and names the task, and ends with the `Co-Authored-By:` trailer of whoever made it, after a blank line.
 

@@ -1741,7 +1741,7 @@ if ( ! function_exists( 'add_query_arg' ) ) {
  * carries a WordPress.org username, so the portrait is the profile's and no Gravatar is asked for.
  */
 class WPCPM_Test_Card_Student extends WP_User {
-	public $user_email = 'maciej@a8c.com';
+	public $user_email = 'administrator@example.test';
 }
 
 $program_table = static function ( array $program ) use ( $sid ) {

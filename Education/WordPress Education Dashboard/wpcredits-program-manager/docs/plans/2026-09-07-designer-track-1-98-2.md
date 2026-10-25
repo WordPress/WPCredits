@@ -6,7 +6,7 @@
 
 **Architecture:** The track is derived from the Airtable status like the Developer Track (one map entry per track in `WPCPM_Program`); the report form gains a `design` field set and two controls (`select`, `image`), the image control reusing `WPCPM_Image_Upload` and the sponsor logo's Airtable attachment write; the two daily syncs adopt the three-hour recurrence the students sync already registers.
 
-**Tech Stack:** PHP 7.4 compatible WordPress plugin; standalone suites under `bin/test-*.php`; the block theme at `/Users/maciejpilarski/GitHub/wpcredits-theme` (Task 3).
+**Tech Stack:** PHP 7.4 compatible WordPress plugin; standalone suites under `bin/test-*.php`; the block theme at `~/GitHub/wpcredits-theme` (Task 3).
 
 **Spec:** `docs/specs/2026-09-07-designer-track-design.md` (this plan argues from it; read it first). The Developer Track's precedent: `docs/specs/2026-08-26-developer-track-program-design.md`.
 
@@ -15,7 +15,7 @@
 - WordPress coding standards throughout (tabs, Yoda conditions, spaces inside parentheses, `array()`), PHP 7.4 compatible, every string a person reads in US English, no em dash or en dash anywhere (a plain hyphen), full product names ("Student Report Card", "Mentor Report Card", "Administrator Dashboard"), the Required mark is `<span class="wpcpm-field__required">Required</span>`, comments explain why and name the decision behind a rule, docblocks true.
 - Airtable field names are keys and are copied exactly from the spec's table, including the typographic apostrophe in `Site’s` and the capitalization of each name.
 - Every behavior lands with a check that fails on the code before the change (prove it, quote it in the report) and passes after. The battery stays silent (`for f in bin/test-*.php; do php "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` prints nothing); `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/check-dead-annotations.php` clean; `bash bin/check-standards.sh` with zero lines containing ` ERROR ` (exit 2 means warnings only).
-- `bin/` and `docs/` are public on the mirror: nothing personal, no real Airtable record ID, no address outside `maciej@a8c.com`, its plus-addressed forms and `.example` domains.
+- `bin/` and `docs/` are public on the mirror: nothing personal, no real Airtable record ID, no address outside `administrator@example.test`, its plus-addressed forms and `.example` domains.
 - Version numbers move in Task 3 only (plugin 1.98.2; theme 1.24.2). Nothing touches the live site; no ssh; no network; no subagents.
 - Every commit message starts with "Designer Track:" and names the task.
 
@@ -70,7 +70,7 @@
 
 **Files:**
 - Modify: `assets/css/dashboard.css` or the sheet that styles the track chip in the plugin (the `design` chip); `docs/sections/` (the students guide section on the report form gains a paragraph on the Designer Track; `docs/sections/34-admin-operations.md` gains a paragraph "Syncs every three hours (1.98.2)"), then `php bin/build-docs.php`; `wpcredits-program-manager.php` (header `Version` and `WPCPM_VERSION` 1.98.2), `readme.txt` (Stable tag and a `= 1.98.2 =` entry above the newest); `languages/wpcredits-program-manager.pot` regenerated with `sh bin/make-pot.sh` (WP-CLI is installed and the script prefers it)
-- Modify in the theme repo `/Users/maciejpilarski/GitHub/wpcredits-theme`: the chip rule for `design` beside `dev`, the image control's dressing (`.wpcpm-report__image`, thumbnail border `--wpc-line-card`, the Replace and Remove row at the form's control size), `style.css` and `readme.txt` (1.24.2 and a changelog entry); `php bin/check-selectors.php` passes
+- Modify in the theme repo `~/GitHub/wpcredits-theme`: the chip rule for `design` beside `dev`, the image control's dressing (`.wpcpm-report__image`, thumbnail border `--wpc-line-card`, the Replace and Remove row at the form's control size), `style.css` and `readme.txt` (1.24.2 and a changelog entry); `php bin/check-selectors.php` passes
 - Test: the whole battery
 
 **Rulings:**

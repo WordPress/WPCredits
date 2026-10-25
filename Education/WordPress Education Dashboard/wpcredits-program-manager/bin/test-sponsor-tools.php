@@ -307,20 +307,20 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 // 1.111.0: the manager is a site user id now, not a Team Members record.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => '1', 'mentors' => array() ),
-	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
+	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => '1', 'mentors' => array() ),
+	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'administrator@example.test', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
 ), time() );
 $GLOBALS['settings'] = array( 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
 $GLOBALS['users'] = array(
-	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ),
-	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ),
-	6  => new WP_User( 6, array( 'wpcpm_sponsor' ), 'Rep Two', 'maciej@a8c.com' ),
-	20 => new WP_User( 20, array( 'wpcpm_student' ), 'Student Current', 'maciej@a8c.com' ),
-	21 => new WP_User( 21, array( 'wpcpm_student' ), 'Student Graduate', 'maciej@a8c.com' ),
-	22 => new WP_User( 22, array( 'wpcpm_student' ), 'Student Paused', 'maciej@a8c.com' ),
-	23 => new WP_User( 23, array( 'wpcpm_student' ), 'Student Second', 'maciej@a8c.com' ),
-	30 => new WP_User( 30, array( 'wpcpm_mentor' ), 'Mentor One', 'maciej@a8c.com' ),
-	31 => new WP_User( 31, array( 'wpcpm_student' ), 'Student Unsynced', 'maciej@a8c.com' ),
+	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'administrator@example.test' ),
+	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'administrator@example.test' ),
+	6  => new WP_User( 6, array( 'wpcpm_sponsor' ), 'Rep Two', 'administrator@example.test' ),
+	20 => new WP_User( 20, array( 'wpcpm_student' ), 'Student Current', 'administrator@example.test' ),
+	21 => new WP_User( 21, array( 'wpcpm_student' ), 'Student Graduate', 'administrator@example.test' ),
+	22 => new WP_User( 22, array( 'wpcpm_student' ), 'Student Paused', 'administrator@example.test' ),
+	23 => new WP_User( 23, array( 'wpcpm_student' ), 'Student Second', 'administrator@example.test' ),
+	30 => new WP_User( 30, array( 'wpcpm_mentor' ), 'Mentor One', 'administrator@example.test' ),
+	31 => new WP_User( 31, array( 'wpcpm_student' ), 'Student Unsynced', 'administrator@example.test' ),
 );
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
@@ -645,7 +645,7 @@ echo "\n=== A track's partners: their offers alone (1.114.0) ===\n";
 // is on. Student 24 is on the 50-hour track and holds B's shared link from before the track named
 // A; Cirrus Example (B) gets an offer open to mentors, so the mentors' list has a B offer to lose.
 $g1 = $mk( $B, 'Hosting for mentors', array( 'mentors' ), "G-1\nG-2", 'live' );
-$GLOBALS['users'][24]   = new WP_User( 24, array( 'wpcpm_student' ), 'Student Partnered', 'maciej@a8c.com' );
+$GLOBALS['users'][24]   = new WP_User( 24, array( 'wpcpm_student' ), 'Student Partnered', 'administrator@example.test' );
 $GLOBALS['program'][24] = array( 'program' => 'In Sensei 50h', 'is_past' => false );
 $GLOBALS['uid']         = 24;
 $claimed_b              = WPCPM_Sponsor_Claims::claim( $b1, $GLOBALS['users'][24] );
@@ -722,10 +722,10 @@ echo "\n=== A student waiting to graduate ===\n";
 // on their account (`WPCPM_Program::course_status()`). The partners of that course's track are the
 // ones the Student Report Card names (bin/test-student-modules.php), so they bind the Tools section
 // too; a pending student whose account keeps no course is on no track, and nothing binds them.
-$GLOBALS['users'][25]   = new WP_User( 25, array( 'wpcpm_student' ), 'Student Waiting', 'maciej@a8c.com' );
+$GLOBALS['users'][25]   = new WP_User( 25, array( 'wpcpm_student' ), 'Student Waiting', 'administrator@example.test' );
 $GLOBALS['program'][25] = array( 'program' => 'Pending graduation', 'is_past' => false );
 $GLOBALS['umeta'][25]   = array( 'wpcpm_student_course' => 'In Sensei 50h' );
-$GLOBALS['users'][26]   = new WP_User( 26, array( 'wpcpm_student' ), 'Student Waiting Unknown', 'maciej@a8c.com' );
+$GLOBALS['users'][26]   = new WP_User( 26, array( 'wpcpm_student' ), 'Student Waiting Unknown', 'administrator@example.test' );
 $GLOBALS['program'][26] = array( 'program' => 'Pending graduation', 'is_past' => false );
 
 $GLOBALS['track_partners']                 = array( '50h' => array( $A ) );

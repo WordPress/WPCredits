@@ -58,7 +58,7 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 
 class WP_User {
 	public $ID = 0, $roles = array(), $display_name = '', $user_email = '', $user_login = '';
-	public function __construct( $id = 0, array $roles = array(), $name = 'Someone', $email = 'maciej@a8c.com' ) {
+	public function __construct( $id = 0, array $roles = array(), $name = 'Someone', $email = 'administrator@example.test' ) {
 		$this->ID = (int) $id; $this->roles = $roles; $this->display_name = $name; $this->user_email = $email; $this->user_login = strtolower( str_replace( ' ', '', $name ) );
 	}
 	public function exists() { return $this->ID > 0; }

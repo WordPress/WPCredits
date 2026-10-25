@@ -1040,14 +1040,14 @@ function wpcpm_load_accounts_tables() {
 // 1.111.0: the manager is a site user id now, not a Team Members record.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002'; $C = 'recSPONSOR0000003';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'manager' => '1' ),
+	$A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'manager' => '1' ),
 	$B => array( 'name' => 'Wexample', 'status' => 'Approved', 'contact_email' => '' ),
-	$C => array( 'name' => 'Ember Example', 'status' => 'Paused', 'contact_email' => 'maciej@a8c.com' ),
+	$C => array( 'name' => 'Ember Example', 'status' => 'Paused', 'contact_email' => 'administrator@example.test' ),
 ), time() );
 $GLOBALS['settings'] = array( 'sponsor_on_inactive' => 'keep' );
 // A distinct address from every sponsor's contact_email: get_user_by( 'email', ... ) must not
 // resolve the acting manager when it looks up a sponsor's contact address.
-$GLOBALS['users']    = array( 1 => new WP_User( 1, array( 'administrator' ), 'Maciej (Matt) Pilarski', 'manager@example.test' ) );
+$GLOBALS['users']    = array( 1 => new WP_User( 1, array( 'administrator' ), 'Program Administrator', 'manager@example.test' ) );
 $GLOBALS['manage']   = array( 1 );
 $GLOBALS['uid']      = 1;
 $GLOBALS['nonce_ok'] = true;
@@ -1303,7 +1303,7 @@ $r = post( array( 'wpcpm_sponsor' => $A ), array( $module, 'handle_provision' ) 
 ck( 'an Approved sponsor with a contact address gets an account', $r[0] === 'redirect' ? $r[2] : $r, 'provisioned' );
 ck( 'the nonce is keyed to the record', end( $GLOBALS['nonce_checked'] ), 'wpcpm_sponsor_provision_' . $A );
 $new = end( $GLOBALS['users'] );
-ck( 'with the sponsor role, the contact\'s name and address', array( $new->roles, $new->display_name, $new->user_email ), array( array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ) );
+ck( 'with the sponsor role, the contact\'s name and address', array( $new->roles, $new->display_name, $new->user_email ), array( array( 'wpcpm_sponsor' ), 'Rep One', 'administrator@example.test' ) );
 ck( 'stamped for the sponsor, provisioned', array( WPCPM_Sponsor_Members::sponsor_of( $new ), get_user_meta( $new->ID, WPCPM_Sponsor_Members::META_MEMBERSHIP, true )['how'] ), array( $A, 'provisioned' ) );
 ck( 'the welcome is queued, never sent here', array( $GLOBALS['queued'], isset( $GLOBALS['mailed'] ) ? $GLOBALS['mailed'] : array() ), array( array( $new->ID ), array() ) );
 
@@ -1315,7 +1315,7 @@ ck( 'the row\'s account flag is true at once', WPCPM_Sponsors_Index::row( $A )['
 ck( 'and it is logged', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['sponsor'], end( $GLOBALS['audit'] )['ground'] ), array( 'provisioned', $A, 'manager' ) );
 $r = post( array( 'wpcpm_sponsor' => $A ), array( $module, 'handle_provision' ) );
 ck( 'pressing again makes and attaches nothing new and says the sponsor already has an account', array( $r[2], count( $GLOBALS['inserted'] ), count( WPCPM_Sponsor_Members::members_of( $A ) ) ), array( 'provision-already', 1, 1 ) );
-$GLOBALS['users'][7] = new WP_User( 7, array( 'wpcpm_mentor' ), 'Ines', 'maciej@a8c.com' );
+$GLOBALS['users'][7] = new WP_User( 7, array( 'wpcpm_mentor' ), 'Ines', 'administrator@example.test' );
 // The created account moves to another address, so the contact address now names the mentor
 // alone: the stub's get_user_by( 'email' ) must not have two candidates.
 $new->user_email = 'former@example.test';
@@ -1335,14 +1335,14 @@ $GLOBALS['nonce_ok'] = false;
 $r = post( array( 'wpcpm_sponsor' => $A ), array( $module, 'handle_provision' ) );
 ck( 'a bad nonce dies', $r[0], 'die' );
 $GLOBALS['nonce_ok'] = true;
-$GLOBALS['uid'] = 9; $GLOBALS['users'][9] = new WP_User( 9, array( 'subscriber' ), 'Stranger', 'maciej@a8c.com' );
+$GLOBALS['uid'] = 9; $GLOBALS['users'][9] = new WP_User( 9, array( 'subscriber' ), 'Stranger', 'administrator@example.test' );
 $r = post( array( 'wpcpm_sponsor' => $A ), array( $module, 'handle_provision' ) );
 ck( 'a non-manager dies with 403', $r[0] === 'die' && false !== strpos( $r[1], '403' ), true );
 $GLOBALS['uid'] = 1;
 
 echo "\n=== Members ===\n";
 $GLOBALS['users'][7]->roles = array( 'wpcpm_mentor' );
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'maciej@a8c.com' ), array( $module, 'handle_members' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'administrator@example.test' ), array( $module, 'handle_members' ) );
 ck( 'attach by address finds the account', $r[2], 'attached' );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'nobody@example.test' ), array( $module, 'handle_members' ) );
 ck( 'an address with no account is not created here: provisioning does that', $r[2], 'attach-no-account' );
@@ -1359,17 +1359,17 @@ echo "\n=== Provisioning refuses a student's address, and a detach refuses anoth
 // flipped back before the screen renders below, so nothing else in this file sees a fourth
 // qualifying sponsor or an extra Create account button.
 WPCPM_Sponsors_Index::patch( $C, array( 'status' => WPCPM_Sponsors_Index::STATUS_APPROVED ) );
-// maciej@a8c.com currently names both Ines (id 7) and the Stranger (id 9); both moved
+// administrator@example.test currently names both Ines (id 7) and the Stranger (id 9); both moved
 // aside so the student account below is the one and only match, the same technique the
 // provisioning tests above already use to steer get_user_by( 'email', ... ).
 $GLOBALS['users'][7]->user_email = 'moved-aside-1@example.test';
 $GLOBALS['users'][9]->user_email = 'moved-aside-2@example.test';
-$GLOBALS['users'][11]                                    = new WP_User( 11, array( 'wpcpm_student' ), 'A Student', 'maciej@a8c.com' );
+$GLOBALS['users'][11]                                    = new WP_User( 11, array( 'wpcpm_student' ), 'A Student', 'administrator@example.test' );
 $GLOBALS['umeta'][11]['wpcpm_student_record_id'] = 'recSTUDENT0000001';
 $r = post( array( 'wpcpm_sponsor' => $C ), array( $module, 'handle_provision' ) );
 ck( 'provisioning a sponsor whose contact belongs to a student account is refused', $r[2], 'provision-refused' );
-$GLOBALS['users'][7]->user_email = 'maciej@a8c.com';
-$GLOBALS['users'][9]->user_email = 'maciej@a8c.com';
+$GLOBALS['users'][7]->user_email = 'administrator@example.test';
+$GLOBALS['users'][9]->user_email = 'administrator@example.test';
 WPCPM_Sponsors_Index::patch( $C, array( 'status' => 'Paused' ) );
 
 echo "\n=== A stored contact address that holds an entity ===\n";
@@ -1428,9 +1428,9 @@ ck( 'a stored address whose entity is for a character sanitize_email() drops, "s
 	array( isset( $dropped_row[0] ) ? $dropped_row[0]['reason'] : null, $r[2], count( $GLOBALS['inserted'] ) - $inserted_then, WPCPM_Sponsor_Members::sponsor_of( 15 ), WPCPM_Sponsors_Index::row( $C )['contact_email'] ),
 	array( 'no-email', 'provision-no-email', 0, '', $dropped_mail ) );
 unset( $GLOBALS['users'][15] );
-WPCPM_Sponsors_Index::patch( $C, array( 'status' => 'Paused', 'contact_email' => 'maciej@a8c.com' ) );
+WPCPM_Sponsors_Index::patch( $C, array( 'status' => 'Paused', 'contact_email' => 'administrator@example.test' ) );
 
-$GLOBALS['users'][12] = new WP_User( 12, array( 'subscriber' ), 'Another Rep', 'maciej@a8c.com' );
+$GLOBALS['users'][12] = new WP_User( 12, array( 'subscriber' ), 'Another Rep', 'administrator@example.test' );
 WPCPM_Sponsor_Members::attach( 12, $A, WPCPM_Sponsor_Members::HOW_MANAGER, 1 );
 $r = post( array( 'wpcpm_sponsor' => $B, 'wpcpm_op' => 'detach', 'wpcpm_user' => 12 ), array( $module, 'handle_members' ) );
 ck( 'a detach naming a member of a different sponsor is refused', $r[2], 'detach-refused' );
@@ -1523,7 +1523,7 @@ ck( 'the Sponsors tab draws the Sponsors card and nothing of a sync: no sync car
 	strpos( $tabs['sponsors'], 'Cancel sync' ),
 	strpos( $tabs['sponsors'], 'Last sync error' ),
 ), array( array( 'Sponsors' ), false, false, false, false ) );
-ck( 'and the index card, which lists every sponsor with its status and manager', false !== strpos( $tabs['sponsors'], 'Mango Example' ) && false !== strpos( $tabs['sponsors'], 'Paused' ) && false !== strpos( $tabs['sponsors'], 'Maciej (Matt) Pilarski' ), true );
+ck( 'and the index card, which lists every sponsor with its status and manager', false !== strpos( $tabs['sponsors'], 'Mango Example' ) && false !== strpos( $tabs['sponsors'], 'Paused' ) && false !== strpos( $tabs['sponsors'], 'Program Administrator' ), true );
 // No sponsor here has a tier, so each reads as a Friend; Ember Example's logo is on the site
 // (written above), and the other two have none.
 ck( 'its table is headed Sponsor, Status, Tier, Product, Program contact, Accounts and Logo, then the column of links, and each row says its sponsor\'s tier and whether its logo is on the site', array(
@@ -1729,7 +1729,7 @@ echo "\n=== The Offers card and its handlers ===\n";
 // condition (an account, no offer) is met by someone. Without it, accounts_by_sponsor() holds
 // nothing for any sponsor at this point in the run (A's own account was detached above and never
 // reattached), and the Seed checks below would have no button to read.
-WPCPM_Sponsors_Index::patch( $B, array( 'contact_email' => 'maciej@a8c.com' ) );
+WPCPM_Sponsors_Index::patch( $B, array( 'contact_email' => 'administrator@example.test' ) );
 $rep_b                      = 60;
 $GLOBALS['users'][ $rep_b ] = new WP_User( $rep_b, array( 'subscriber' ), 'Rep B', 'repb@example.test' );
 WPCPM_Sponsor_Members::attach( $rep_b, $B, WPCPM_Sponsor_Members::HOW_MANAGER, 1 );
@@ -1998,12 +1998,12 @@ $offer_id = (int) key( WPCPM_Sponsor_Offers::offers_of( $A ) );
 WPCPM_Sponsor_Offers::add_codes( $offer_id, "S-1\nS-2" );
 WPCPM_Sponsor_Offers::set_state( $offer_id, 'live' );
 $GLOBALS['program'] = array();
-$claimant = ( new WP_User( 77, array( 'wpcpm_student' ), 'Student Seven', 'maciej@a8c.com' ) );
+$claimant = ( new WP_User( 77, array( 'wpcpm_student' ), 'Student Seven', 'administrator@example.test' ) );
 $GLOBALS['users'][77] = $claimant;
 WPCPM_Sponsor_Codes::take( $offer_id, 77 );
 update_user_meta( 77, WPCPM_Sponsor_Claims::META_CLAIMS, array( $offer_id => array( 'i' => 0, 'at' => time() ) ) );
 $screen = render_tab( 'offers' );
-ck( 'a claimant is listed to the manager with name, address, the last four characters and a Void button', array( false !== strpos( $screen, 'Student Seven' ), false !== strpos( $screen, 'maciej@a8c.com' ), false !== strpos( $screen, '>S-1<' ) || false !== strpos( $screen, 'S-1' ), false !== strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_CLAIM_VOID . '_' . $offer_id . '_77' ) ), array( true, true, true, true ) );
+ck( 'a claimant is listed to the manager with name, address, the last four characters and a Void button', array( false !== strpos( $screen, 'Student Seven' ), false !== strpos( $screen, 'administrator@example.test' ), false !== strpos( $screen, '>S-1<' ) || false !== strpos( $screen, 'S-1' ), false !== strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_CLAIM_VOID . '_' . $offer_id . '_77' ) ), array( true, true, true, true ) );
 $void_form = form_fields_of( $screen, WPCPM_Sponsors::ACTION_CLAIM_VOID );
 ck( 'Void carries the once attribute too, saying it is voiding, keeps its confirm, and names the tab its press comes back to', array(
 	post_forms( $screen, true ),
@@ -2300,7 +2300,7 @@ class WPCPM_Sponsor_Agreement {
 // $A/$B/$C: nothing after this point reads their rows, and every check below keys off $T alone.
 $T = 'recSPONSORTEST001';
 WPCPM_Sponsors_Index::write( array(
-	$T => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+	$T => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
 ), time() );
 
 $GLOBALS['queue'] = array( 900 );
@@ -2508,8 +2508,8 @@ ck( 'the documents out of force are read as the Administrator Dashboard\'s card 
 // The documents out of force are read once for the whole tab, however many sponsors stand there.
 $T2 = 'recSPONSORTEST004';
 WPCPM_Sponsors_Index::write( array(
-	$T  => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
-	$T2 => array( 'name' => 'Second TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+	$T  => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
+	$T2 => array( 'name' => 'Second TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
 ), time() );
 $GLOBALS['pmeta'][903]       = array( '_wpcpm_sagr_state' => 'revoked' );
 $GLOBALS['agr_posts'][ $T2 ] = array( new WP_Post( array( 'ID' => 903, 'post_type' => 'wpcpm_sponsor_agr' ) ) );
@@ -2522,7 +2522,7 @@ ck( 'two sponsors out of force are two blocks, each linked to its own document t
 	isset( $GLOBALS['stand_in_reads']['out of force'] ) ? (int) $GLOBALS['stand_in_reads']['out of force'] : 0,
 ), array( 2, true, 1 ) );
 WPCPM_Sponsors_Index::write( array(
-	$T => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+	$T => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
 ), time() );
 unset( $GLOBALS['agr_posts'][ $T2 ], $GLOBALS['summaries'][ $T2 ] );
 $GLOBALS['revoked_ids'] = array( 902 );
@@ -2543,18 +2543,18 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-approval.php';
 // Uninstall (above) wiped the index; the TEST sponsor was written fresh for the agreement
 // section, with no website. One more row with a website, for the in-base match.
 WPCPM_Sponsors_Index::write( array(
-	$T                  => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
-	'recSPONSORTEST002' => array( 'name' => 'Widgetry Ltd ', 'website' => 'https://www.widgetry.example/', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+	$T                  => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
+	'recSPONSORTEST002' => array( 'name' => 'Widgetry Ltd ', 'website' => 'https://www.widgetry.example/', 'status' => 'Approved', 'contact_email' => 'administrator@example.test' ),
 ), time() );
 
 /** An application row, stored the way the form stored one before 1.123.12, with an answer to the support question it no longer asks. */
 function seed_sponsor_application( $name, $state, array $signals = array(), array $logos = array() ) {
 	$id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Application::POST_TYPE, 'post_status' => 'private', 'post_title' => $name, 'post_author' => 0 ) );
-	update_post_meta( $id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $name, 'Website' => 'https://widgetry.example', 'Contact Person Full Name' => 'Sam Sponsor', 'Contact Email' => 'maciej@a8c.com', 'Sponsorship options' => 'Sponsor mentors + tools/services', "Anything else you'd like to share." => 'We make gadgets.' ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $name, 'Website' => 'https://widgetry.example', 'Contact Person Full Name' => 'Sam Sponsor', 'Contact Email' => 'administrator@example.test', 'Sponsorship options' => 'Sponsor mentors + tools/services', "Anything else you'd like to share." => 'We make gadgets.' ) );
 	update_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, $state );
 	update_post_meta( $id, WPCPM_Sponsor_Application::META_REFERENCE, sprintf( 'SAPP-2026-%04d', $id ) );
 	update_post_meta( $id, WPCPM_Sponsor_Application::META_SIGNALS, $signals );
-	update_post_meta( $id, WPCPM_Sponsor_Application::META_EMAIL, md5( 'maciej@a8c.com' ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_EMAIL, md5( 'administrator@example.test' ) );
 	// 'at' is 2026-09-01 12:00 UTC, which gmdate() (this file's wp_date() stub) reads as the date
 	// the check below asserts ('Agreed 2026-09-01').
 	update_post_meta( $id, WPCPM_Sponsor_Application::META_CONSENT, array( 'sentence' => 'I confirm the privacy policy.', 'url' => 'https://example.test/privacy/', 'policy' => 43, 'modified' => '2026-08-20 11:30:00', 'at' => 1788264000, 'ip' => '203.0.113.0', 'agent' => 'Mozilla/5.0 (test)' ) );
@@ -2676,12 +2676,12 @@ ck( 'an open application the dashboard\'s card lists is decided there: no decisi
 	false !== strpos( $opened, '<h3>Where it is decided</h3><p>Applications are decided on the Administrator Dashboard. This one is listed in its Sponsor applications card, with every decision its state allows.</p><p><a href="https://example.test/administrator-dashboard/#wpcpm-sponsor-application-' . $open_id . '">Open on the Administrator Dashboard</a></p>' ),
 	substr_count( $opened, 'Open on the Administrator Dashboard' ),
 ), array( 0, false, false, true, 1 ) );
-ck( 'and the answers never print the applicant\'s address unescaped or a nonce for another row', array( false !== strpos( $opened, 'maciej@a8c.com' ), strpos( $opened, 'nonce-wpcpm_sapp_approve_' . $held_id ) ), array( true, false ) );
+ck( 'and the answers never print the applicant\'s address unescaped or a nonce for another row', array( false !== strpos( $opened, 'administrator@example.test' ), strpos( $opened, 'nonce-wpcpm_sapp_approve_' . $held_id ) ), array( true, false ) );
 
 echo "\n=== The queue marks a contact address that already belongs to an account ===\n";
 // A dedicated user and a dedicated application, at an address none of the fixture's other
 // accounts holds, so the mark below is read off this one application rather than off whatever
-// this file's own account churn happened to leave sitting at maciej@a8c.com.
+// this file's own account churn happened to leave sitting at administrator@example.test.
 $GLOBALS['users'][95] = new WP_User( 95, array( 'wpcpm_mentor' ), 'Existing Owner', 'existing-owner@example.test' );
 $conflict_id = seed_sponsor_application( 'Conflict Co', 'new' );
 update_post_meta( $conflict_id, WPCPM_Sponsor_Application::META_FIELDS, array_merge( get_post_meta( $conflict_id, WPCPM_Sponsor_Application::META_FIELDS, true ), array( 'Contact Email' => 'existing-owner@example.test' ) ) );
@@ -2967,8 +2967,8 @@ $event_row                        = static function ( $id, $title, $sponsor_name
 };
 $event_said = 'Planned 3 days ago, for December 1, 2026 10:00 am to 11:30 am, 90 minutes, in your time zone (UTC).';
 // Two planners with an account, and a third, 6102, whose account is gone; taken out again below.
-$GLOBALS['users'][6101]    = new WP_User( 6101, array(), 'Rep One', 'maciej+planner-one@a8c.com' );
-$GLOBALS['users'][6103]    = new WP_User( 6103, array(), '<b>Ann</b>', 'maciej+planner-two@a8c.com' );
+$GLOBALS['users'][6101]    = new WP_User( 6101, array(), 'Rep One', 'administrator+planner-one@example.test' );
+$GLOBALS['users'][6103]    = new WP_User( 6103, array(), '<b>Ann</b>', 'administrator+planner-two@example.test' );
 $GLOBALS['waiting_events'] = array(
 	$event_row( 701, 'Office hours', 'TEST Sponsor', 6101 ),
 	$event_row( 702, 'Q&A <b>live</b>', '<b>Co</b>', 6102 ),
@@ -3224,7 +3224,7 @@ $GLOBALS['sponsorship'] = array(
 	'recSEED0000000012' => array( 'name' => 'Adam Mentor', 'profile' => '', 'status' => 'Active', 'user_id' => 0, 'sponsored' => false, 'wants' => false, 'expertise' => array() ),
 	'recSEED0000000013' => array( 'name' => 'Bea Mentor', 'profile' => '', 'status' => 'Paused', 'user_id' => 0, 'sponsored' => false, 'wants' => false, 'expertise' => array() ),
 );
-$GLOBALS['users'][2]                        = new WP_User( 2, array( 'administrator' ), 'Second Manager', 'maciej+manager@a8c.com' );
+$GLOBALS['users'][2]                        = new WP_User( 2, array( 'administrator' ), 'Second Manager', 'administrator+manager@example.test' );
 $GLOBALS['manage']                          = array( 1, 2 );
 $GLOBALS['uid']                             = 1;
 $GLOBALS['nonce_ok']                        = true;
@@ -3239,7 +3239,7 @@ $r            = post(
 		'wpcpm_name'           => '  Quill Example  ',
 		'wpcpm_website'        => 'quill.example',
 		'wpcpm_contact_person' => 'Rep Quill',
-		'wpcpm_contact_email'  => 'maciej+quill@a8c.com',
+		'wpcpm_contact_email'  => 'administrator+quill@example.test',
 		'wpcpm_option'         => 'Sponsor mentors + tools/services',
 		// The empty value first, as the form posts it: it says the boxes were drawn.
 		'wpcpm_support'        => array( '', 'Sponsor tools or services', 'Something the form never offered' ),
@@ -3273,7 +3273,7 @@ ck( 'with every field it was given, cleaned, and the site\'s own facts: created 
 	'support'           => array( 'Sponsor tools or services' ),
 	'product_type'      => 'Plugin',
 	'contact_person'    => 'Rep Quill',
-	'contact_email'     => 'maciej+quill@a8c.com',
+	'contact_email'     => 'administrator+quill@example.test',
 	'manager'           => '2',
 	'mentors'           => array(),
 	'consent'           => false,
@@ -3332,11 +3332,11 @@ ck( 'with the name, the website, the status, the contacts, the sponsorship shape
 	false !== strpos( $edit_card, '<option value="In review" selected>In review</option>' ),
 	5 === substr_count( substr( $edit_card, (int) strpos( $edit_card, 'name="wpcpm_status"' ), (int) strpos( substr( $edit_card, (int) strpos( $edit_card, 'name="wpcpm_status"' ) ), '</select>' ) ), '<option ' ),
 	false !== strpos( $edit_card, 'name="wpcpm_contact_person" value="Rep Quill"' ),
-	false !== strpos( $edit_card, 'type="email"' ) && false !== strpos( $edit_card, 'name="wpcpm_contact_email" value="maciej+quill@a8c.com"' ),
+	false !== strpos( $edit_card, 'type="email"' ) && false !== strpos( $edit_card, 'name="wpcpm_contact_email" value="administrator+quill@example.test"' ),
 	false !== strpos( $edit_card, '<option value="Sponsor mentors + tools/services" selected>' ),
 	6 === substr_count( $edit_card, 'type="checkbox" name="wpcpm_support[]"' ) && false !== strpos( $edit_card, 'value="Sponsor tools or services" checked' ),
 	false !== strpos( $edit_card, '<option value="Plugin" selected>Plugin</option>' ),
-	false !== strpos( $edit_card, '<option value="">Nobody yet</option>' ) && false !== strpos( $edit_card, '<option value="2" selected>Second Manager</option>' ) && false !== strpos( $edit_card, '<option value="1">Maciej (Matt) Pilarski</option>' ),
+	false !== strpos( $edit_card, '<option value="">Nobody yet</option>' ) && false !== strpos( $edit_card, '<option value="2" selected>Second Manager</option>' ) && false !== strpos( $edit_card, '<option value="1">Program Administrator</option>' ),
 	false !== strpos( $edit_card, "Write again in October.</textarea>" ),
 ), array_fill( 0, 11, true ) );
 ck( 'the sponsored mentors are checkboxes from the mentors index, the Active ones first, each "Name (status)"', array(
@@ -3387,7 +3387,7 @@ ck( 'Edit changes the fields it is given and audits their names', array(
 ), array(
 	array( 'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors&tab=sponsors&edit=' . $Q, 'sponsor-saved' ),
 	'wpcpm_sponsor_edit_' . $Q,
-	array( 'Quill Example', 'https://quill.example/tools', array( 'recSEED0000000012' ), 'Write again in November.', 'Rep Quill', 'maciej+quill@a8c.com', array( 'Sponsor tools or services' ), '2' ),
+	array( 'Quill Example', 'https://quill.example/tools', array( 'recSEED0000000012' ), 'Write again in November.', 'Rep Quill', 'administrator+quill@example.test', array( 'Sponsor tools or services' ), '2' ),
 	1,
 	array( 'sponsor_edited', $Q, 'manager', 'index', array( 'fields' => array( 'website', 'mentors', 'notes' ) ) ),
 	true,
@@ -5059,7 +5059,7 @@ $landings['Mark final'] = $r;
 $GLOBALS['pmeta'][ $sr_a26_id ][ WPCPM_Sponsor_Report::META_FINAL ]['at'] = gmmktime( 9, 30, 0, 10, 14, 2026 );
 $editor = editor_of( render_tab( 'reports', array( 'wpcpm_sreport' => $sr_a26_id ) ) );
 ck( 'a final report\'s editor: who marked it final and when, the narratives read-only with nothing to save, Reopen in place of Mark final, no Regenerate, and the PDF still to attach', array(
-	false !== strpos( $editor, '<p class="wpcpm-sreport__facts">The twelve months from October 1, 2025 to September 30, 2026. Final: marked final on October 14, 2026 at 9:30 am by Maciej (Matt) Pilarski.</p>' ),
+	false !== strpos( $editor, '<p class="wpcpm-sreport__facts">The twelve months from October 1, 2025 to September 30, 2026. Final: marked final on October 14, 2026 at 9:30 am by Program Administrator.</p>' ),
 	substr_count( $editor, 'readonly="readonly"' ),
 	false !== strpos( $editor, '<textarea id="wpcpm-sreport-text-cost_line" rows="8" class="large-text" readonly="readonly">Two mentors&#039; stipends.' ),
 	strpos( $editor, 'name="wpcpm_sreport_text_' ),
@@ -5471,7 +5471,7 @@ $GLOBALS['uid']      = 1;
 $GLOBALS['nonce_ok'] = true;
 $GLOBALS['queued']   = array();
 $minted              = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $minted, 'name' => 'Minted Example', 'status' => 'Approved', 'contact_person' => 'Rep Minted', 'contact_email' => 'maciej+minted@a8c.com' ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $minted, 'name' => 'Minted Example', 'status' => 'Approved', 'contact_person' => 'Rep Minted', 'contact_email' => 'administrator+minted@example.test' ) ) );
 $minted_view = render_tab( 'accounts', array( 'wpcpm_view' => 'no-account' ) );
 $minted_row  = '';
 foreach ( array_slice( preg_split( '/<tr[ >]/', between( $minted_view, '<tbody', '</tbody>' ) ), 1 ) as $row ) {
@@ -5547,7 +5547,7 @@ ck( 'ticked and pressed, Create account makes that sponsor its account, one crea
 	array( 'created' => 1, 'attached' => 0, 'unmarked' => 0 ),
 	1,
 	1,
-	array( array( 'wpcpm_sponsor' ), 'Rep Minted', 'maciej+minted@a8c.com' ),
+	array( array( 'wpcpm_sponsor' ), 'Rep Minted', 'administrator+minted@example.test' ),
 	array( $minted_account->ID ),
 	true,
 ) );
@@ -5577,7 +5577,7 @@ $GLOBALS['uid']      = 1;
 $GLOBALS['nonce_ok'] = true;
 $GLOBALS['queued']   = array();
 $unmarked_one        = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $unmarked_one, 'name' => 'Unmarked Example', 'status' => 'Approved', 'contact_person' => 'Rep Unmarked', 'contact_email' => 'maciej+unmarked@a8c.com' ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $unmarked_one, 'name' => 'Unmarked Example', 'status' => 'Approved', 'contact_person' => 'Rep Unmarked', 'contact_email' => 'administrator+unmarked@example.test' ) ) );
 $row_link        = array( 'action' => 'wpcpm_sponsor_provision', 'wpcpm_sponsor' => $unmarked_one, 'wpcpm_tab' => 'accounts', 'wpcpm_view' => 'no-account', '_wpnonce' => 'nonce' );
 $GLOBALS['get']  = $row_link;
 $_GET            = $row_link;
@@ -5613,7 +5613,7 @@ ck( 'a row\'s Create account whose sponsor\'s record cannot be marked makes the 
 	array( 'redirect', $home . '&tab=accounts&wpcpm_view=no-account', 'record-unmarked' ),
 	1,
 	1,
-	array( array( 'wpcpm_sponsor' ), 'Rep Unmarked', 'maciej+unmarked@a8c.com' ),
+	array( array( 'wpcpm_sponsor' ), 'Rep Unmarked', 'administrator+unmarked@example.test' ),
 	array( $unmarked_account->ID ),
 	array( 'provisioned', $unmarked_one ),
 	false,
@@ -5658,10 +5658,10 @@ ck( 'the sponsor\'s Edit form saved as drawn marks the record and says the spons
 // the request's copy of the index, so a sponsor taken after it is read afresh and found gone before
 // its account is made.
 $unmarked_made = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $unmarked_made, 'name' => 'Abbey Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Made', 'contact_email' => 'maciej+made@a8c.com' ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $unmarked_made, 'name' => 'Abbey Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Made', 'contact_email' => 'administrator+made@example.test' ) ) );
 $unmarked_attached = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $unmarked_attached, 'name' => 'Aaron Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Attached', 'contact_email' => 'maciej+attached@a8c.com' ) ) );
-$GLOBALS['users'][83] = new WP_User( 83, array( 'subscriber' ), 'Rep Attached', 'maciej+attached@a8c.com' );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $unmarked_attached, 'name' => 'Aaron Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Attached', 'contact_email' => 'administrator+attached@example.test' ) ) );
+$GLOBALS['users'][83] = new WP_User( 83, array( 'subscriber' ), 'Rep Attached', 'administrator+attached@example.test' );
 $ticked_press         = array(
 	'page'             => 'wpcpm-sponsors',
 	'tab'              => 'accounts',
@@ -5701,7 +5701,7 @@ ck( 'ticked and pressed, Create account on two sponsors, one of whose records le
 	array( 'redirect', $home . '&tab=accounts&wpcpm_view=no-account', 'provisioned' ),
 	array( 'status' => 'provisioned', 'created' => 1, 'attached' => 1, 'unmarked' => 1, 'left' => 0, 'limit' => WPCPM_Sponsors::PROVISION_LIMIT, 'unmarked_names' => array( 'Aaron Unmarked' ), 'unmarked_more' => 0 ),
 	1,
-	array( 'maciej+made@a8c.com' ),
+	array( 'administrator+made@example.test' ),
 	array( 83 ),
 	2,
 	array( true, false ),
@@ -5717,10 +5717,10 @@ ck( 'and the view says so after the counts: the sponsor whose record could not b
 // unmarked and named in the order the press took them, the view's order by name, which is neither the
 // order they were added in nor the order they were ticked.
 $both_bay = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $both_bay, 'name' => 'Bay Both Gone', 'status' => 'Approved', 'contact_person' => 'Rep Bay', 'contact_email' => 'maciej+bay@a8c.com' ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $both_bay, 'name' => 'Bay Both Gone', 'status' => 'Approved', 'contact_person' => 'Rep Bay', 'contact_email' => 'administrator+bay@example.test' ) ) );
 $both_ash = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $both_ash, 'name' => 'Ash Both Gone', 'status' => 'Approved', 'contact_person' => 'Rep Ash', 'contact_email' => 'maciej+ash@a8c.com' ) ) );
-$GLOBALS['users'][85] = new WP_User( 85, array( 'subscriber' ), 'Rep Bay', 'maciej+bay@a8c.com' );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $both_ash, 'name' => 'Ash Both Gone', 'status' => 'Approved', 'contact_person' => 'Rep Ash', 'contact_email' => 'administrator+ash@example.test' ) ) );
+$GLOBALS['users'][85] = new WP_User( 85, array( 'subscriber' ), 'Rep Bay', 'administrator+bay@example.test' );
 $both_press           = array_merge( $ticked_press, array( 'records' => array( $both_bay, $both_ash ) ) );
 $GLOBALS['get']       = $both_press;
 $_GET                 = $both_press;
@@ -5751,7 +5751,7 @@ ck( 'ticked and pressed, Create account on two sponsors whose records both leave
 	array( 'redirect', $home . '&tab=accounts&wpcpm_view=no-account', 'provisioned' ),
 	array( 'status' => 'provisioned', 'created' => 1, 'attached' => 1, 'unmarked' => 2, 'left' => 0, 'limit' => WPCPM_Sponsors::PROVISION_LIMIT, 'unmarked_names' => array( 'Ash Both Gone', 'Bay Both Gone' ), 'unmarked_more' => 0 ),
 	1,
-	array( 'maciej+ash@a8c.com' ),
+	array( 'administrator+ash@example.test' ),
 	array( 85 ),
 	2,
 	array( false, false ),
@@ -5767,7 +5767,7 @@ ck( 'and the view names both after the counts, in the order the press took them,
 $lost_keys = array();
 foreach ( array( 'A', 'B', 'C', 'D', 'E', 'F', 'G' ) as $letter ) {
 	$lost_keys[ $letter ] = WPCPM_Sponsors_Index::mint_key();
-	WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $lost_keys[ $letter ], 'name' => 'Lost Example ' . $letter, 'status' => 'Approved', 'contact_person' => 'Rep Lost ' . $letter, 'contact_email' => 'maciej+lost-' . strtolower( $letter ) . '@a8c.com' ) ) );
+	WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $lost_keys[ $letter ], 'name' => 'Lost Example ' . $letter, 'status' => 'Approved', 'contact_person' => 'Rep Lost ' . $letter, 'contact_email' => 'administrator+lost-' . strtolower( $letter ) . '@example.test' ) ) );
 }
 $lost_press     = array_merge( $ticked_press, array( 'records' => array_reverse( array_values( $lost_keys ) ) ) );
 $GLOBALS['get'] = $lost_press;
@@ -5806,13 +5806,13 @@ ck( 'a detail that counts such records and names none, as one flashed before the
 // way: the account it attaches acts for the sponsor and its welcome is queued, so the press says
 // that, and that the record could not be found, as a row's Create account does, not a refusal.
 $attach_unmarked = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $attach_unmarked, 'name' => 'Attach Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Attach', 'contact_email' => 'maciej+attach@a8c.com' ) ) );
-$GLOBALS['users'][84] = new WP_User( 84, array( 'subscriber' ), 'Rep Attach', 'maciej+attach@a8c.com' );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $attach_unmarked, 'name' => 'Attach Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Attach', 'contact_email' => 'administrator+attach@example.test' ) ) );
+$GLOBALS['users'][84] = new WP_User( 84, array( 'subscriber' ), 'Rep Attach', 'administrator+attach@example.test' );
 $GLOBALS['queued']    = array();
 WPCPM_Sponsors_Index::forget();
 WPCPM_Sponsors_Index::rows();
 sponsor_post_status( $attach_unmarked, 'trash' );
-$r_attach_unmarked = post( array( 'action' => WPCPM_Sponsors::ACTION_MEMBERS, 'wpcpm_op' => 'attach', 'wpcpm_sponsor' => $attach_unmarked, 'wpcpm_tab' => 'accounts', 'wpcpm_email' => 'maciej+attach@a8c.com' ), array( $module, 'handle_members' ) );
+$r_attach_unmarked = post( array( 'action' => WPCPM_Sponsors::ACTION_MEMBERS, 'wpcpm_op' => 'attach', 'wpcpm_sponsor' => $attach_unmarked, 'wpcpm_tab' => 'accounts', 'wpcpm_email' => 'administrator+attach@example.test' ), array( $module, 'handle_members' ) );
 sponsor_post_status( $attach_unmarked, 'private' );
 WPCPM_Sponsors_Index::forget();
 WPCPM_Flash::set( WPCPM_Sponsors::FLASH, isset( $r_attach_unmarked[2] ) ? (string) $r_attach_unmarked[2] : '' );
@@ -5836,8 +5836,8 @@ ck( 'Attach account whose sponsor\'s record leaves the store mid-press attaches 
 // clear of the record's flag answers, so the press says so, not a refusal; the clear cannot reach the
 // record, so the flag stays as the record held it.
 $remove_unmarked = WPCPM_Sponsors_Index::mint_key();
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $remove_unmarked, 'name' => 'Remove Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Remove', 'contact_email' => 'maciej+remove@a8c.com', 'dashboard_account' => true ) ) );
-$GLOBALS['users'][86] = new WP_User( 86, array( 'subscriber' ), 'Rep Remove', 'maciej+remove@a8c.com' );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $remove_unmarked, 'name' => 'Remove Unmarked', 'status' => 'Approved', 'contact_person' => 'Rep Remove', 'contact_email' => 'administrator+remove@example.test', 'dashboard_account' => true ) ) );
+$GLOBALS['users'][86] = new WP_User( 86, array( 'subscriber' ), 'Rep Remove', 'administrator+remove@example.test' );
 $remove_attached      = WPCPM_Sponsor_Members::attach( 86, $remove_unmarked, WPCPM_Sponsor_Members::HOW_MANAGER, 1 );
 WPCPM_Sponsors_Index::forget();
 WPCPM_Sponsors_Index::rows();
@@ -5907,7 +5907,7 @@ function typed_box( $form, $field ) {
 $GLOBALS['uid']      = 1;
 $GLOBALS['nonce_ok'] = true;
 $TT                  = 'spoTypedText00001';
-WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $TT, 'name' => 'Typed Example', 'status' => 'Approved', 'tier' => 'backer', 'tier_until' => '2099-09-30', 'contact_person' => 'Rep Typed', 'contact_email' => 'maciej+typed@a8c.com' ) ) );
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $TT, 'name' => 'Typed Example', 'status' => 'Approved', 'tier' => 'backer', 'tier_until' => '2099-09-30', 'contact_person' => 'Rep Typed', 'contact_email' => 'administrator+typed@example.test' ) ) );
 
 // A line of two hundred characters as typed, and notes of four thousand with line breaks posted as
 // CR LF: each "<" opens no tag, so the cleaner writes it `&lt;`, with the quote marks and the
@@ -6187,7 +6187,7 @@ $loss_row                = array(
 	'website'        => 'https://loss.example/',
 	'status'         => 'Approved',
 	'contact_person' => 'Rep Loss',
-	'contact_email'  => 'maciej+loss@a8c.com',
+	'contact_email'  => 'administrator+loss@example.test',
 	'support'        => array( WPCPM_Sponsor_Interests::CHOICES[0] ),
 	'tier'           => 'champion',
 	'tier_until'     => '2099-09-30',
@@ -6206,7 +6206,7 @@ $changes = array(
 	'wpcpm_website'         => 'https://loss.example/changed',
 	'wpcpm_status'          => 'Paused',
 	'wpcpm_contact_person'  => 'Rep Changed',
-	'wpcpm_contact_email'   => 'maciej+changed@a8c.com',
+	'wpcpm_contact_email'   => 'administrator+changed@example.test',
 	'wpcpm_option'          => WPCPM_Sponsor_Application::OPTION_CHOICES[0],
 	'wpcpm_support'         => array( '', WPCPM_Sponsor_Interests::CHOICES[1], WPCPM_Sponsor_Interests::CHOICES[2] ),
 	'wpcpm_product_type'    => WPCPM_Sponsor_Profile::CHOICES['Type of product'][0],
@@ -6387,7 +6387,7 @@ $add_changes    = array(
 	'wpcpm_website'        => 'https://added.example/',
 	'wpcpm_status'         => 'Paused',
 	'wpcpm_contact_person' => 'Rep Added',
-	'wpcpm_contact_email'  => 'maciej+added@a8c.com',
+	'wpcpm_contact_email'  => 'administrator+added@example.test',
 	'wpcpm_option'         => WPCPM_Sponsor_Application::OPTION_CHOICES[0],
 	'wpcpm_support'        => array( '', WPCPM_Sponsor_Interests::CHOICES[1] ),
 	'wpcpm_product_type'   => WPCPM_Sponsor_Profile::CHOICES['Type of product'][0],
@@ -6607,13 +6607,13 @@ ck( 'a Contact email stored with a numbered entity, "sam&#43;co@example.org", is
 	array( $drawn['wpcpm_contact_email'] ?? null, browser_takes_email( $drawn['wpcpm_contact_email'] ?? '' ), isset( $r[2] ) ? $r[2] : $r, ( (array) WPCPM_Sponsors_Index::row( $LT ) )['contact_email'], last_audit()['data'] ),
 	array( 'sam+co@example.org', true, 'sponsor-saved', 'sam&#43;co@example.org', array( 'fields' => array( 'notes' ) ) ) );
 WPCPM_Sponsors_Index::patch( $LT, array( 'contact_email' => $entities['contact_email'] ) );
-$r_mail = post( array_merge( edit_posts( $LT ), array( 'wpcpm_contact_email' => 'maciej+ab@a8c.com' ) ), array( $module, 'handle_edit' ) );
+$r_mail = post( array_merge( edit_posts( $LT ), array( 'wpcpm_contact_email' => 'administrator+ab@example.test' ) ), array( $module, 'handle_edit' ) );
 WPCPM_Sponsors_Index::forget();
 ck( 'that Contact email edited is an edit as before: a new address is saved, and the trail names the field', array(
 	isset( $r_mail[2] ) ? $r_mail[2] : $r_mail,
 	( (array) WPCPM_Sponsors_Index::row( $LT ) )['contact_email'],
 	last_audit()['data'],
-), array( 'sponsor-saved', 'maciej+ab@a8c.com', array( 'fields' => array( 'contact_email' ) ) ) );
+), array( 'sponsor-saved', 'administrator+ab@example.test', array( 'fields' => array( 'contact_email' ) ) ) );
 
 WPCPM_Sponsors_Index::patch( $LT, array( 'website' => "https://loss.example/a\nb" ) );
 $drawn = edit_posts( $LT );

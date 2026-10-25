@@ -199,7 +199,7 @@ All in `bin/test-semester-report.php`, extending the existing suite so the 225 a
 
 ## 13. Demonstrates, on the TEST institution
 
-With a fixture-seeded roster whose 2026-H1 rows are all finished: the job drafts 2026-H1 and mails `maciej@a8c.com` (the one address every test send uses); a manager opens the editor through the switcher, edits the overview, approves; the TEST representative's dashboard shows the approved report with View and Download PDF and nothing else; the manager reopens and the representative's card shows "being prepared" instead; Draft now for 2025-H2 is refused because a report exists, and for 2026-H2 it drafts one whose notice says the rows still in progress.
+With a fixture-seeded roster whose 2026-H1 rows are all finished: the job drafts 2026-H1 and mails `administrator@example.test` (the one address every test send uses); a manager opens the editor through the switcher, edits the overview, approves; the TEST representative's dashboard shows the approved report with View and Download PDF and nothing else; the manager reopens and the representative's card shows "being prepared" instead; Draft now for 2025-H2 is refused because a report exists, and for 2026-H2 it drafts one whose notice says the rows still in progress.
 
 ---
 

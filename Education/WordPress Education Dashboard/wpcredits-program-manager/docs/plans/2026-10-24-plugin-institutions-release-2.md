@@ -10,7 +10,7 @@
 
 **Spec:** `docs/specs/2026-10-24-institutions-release-2-design.md` (approved by the product owner on 24 October 2026), with release 1's `docs/specs/2026-10-24-institutions-features-design.md`. The two chosen mockups are in `.superpowers/session-backups/2026-10-24/institutions-release-2-mockups/`: `school-card-chosen-B.html` for the card, `administrator-decision-chosen-A.html` for the decision. They are private and never mirrored.
 
-**Repository:** /Users/maciejpilarski/GitHub/wpcredits-program-manager.
+**Repository:** ~/GitHub/wpcredits-program-manager.
 - **Worktree:** `.worktrees/plugin-institutions-release-2`, on branch `release/<version>-institutions-release-2`, from `main` at the commit that adds this plan.
 - **If Abilities and MCP, Phase A (1.123.30) is merged first,** start from main after it.
 - **The version** is the next free number when the build starts.
@@ -28,7 +28,7 @@
 - **No new Airtable column.** The only Airtable writes added are the PATCH of an institution's Name, Website, City, Country (a list of one Countries record ID), Contact Person and Contact Email, through `WPCPM_Airtable::update_records( $settings['institutions_table'], ... )`, with the column names `WPCPM_Institutions_Sync::fields()` gives.
 - **No tracked `.csv`, `.json`, `.jsonl` or `.html` file may hold an email address.** The public repository's privacy guard refuses one.
 - **Tests first,** in the repository's style, each shown failing before its fix.
-- **Before each report,** run all of these and quote their last lines, with `PATH="/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/phpcs-1g:$PATH"`:
+- **Before each report,** run all of these and quote their last lines, with `PATH="<scratchpad>/phpcs-1g:$PATH"`:
   - the battery (every `bin/test-*.php`);
   - `php bin/check-references.php`;
   - `php bin/check-spelling.php`;

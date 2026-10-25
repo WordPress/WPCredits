@@ -304,14 +304,14 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 // The fixture: one Approved sponsor, its member, a manager and two students.
 $G = 'recSPONSOR0000007'; $T = 'recTEAM0000000001';
 WPCPM_Sponsors_Index::write( array(
-	$G => array( 'name' => 'Gizmo', 'status' => 'Approved', 'website' => 'https://gizmo.example/', 'contact_person' => 'Rep', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A year of the plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => '', 'coupon_link' => '', 'manager' => $T, 'mentors' => array() ),
+	$G => array( 'name' => 'Gizmo', 'status' => 'Approved', 'website' => 'https://gizmo.example/', 'contact_person' => 'Rep', 'contact_email' => 'administrator@example.test', 'product_type' => 'Plugin', 'offer' => 'A year of the plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => '', 'coupon_link' => '', 'manager' => $T, 'mentors' => array() ),
 ), time() );
 $GLOBALS['settings'] = array( 'offer_low_stock' => 0, 'student_statuses' => array( 'In Sensei' ), 'past_statuses' => array( 'Graduate' ), 'tools_students' => true, 'tools_mentors' => false );
 $GLOBALS['users'] = array(
-	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ),
-	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ),
-	20 => new WP_User( 20, array( 'wpcpm_student' ), 'Student One', 'maciej@a8c.com' ),
-	23 => new WP_User( 23, array( 'wpcpm_student' ), 'Student Two', 'maciej@a8c.com' ),
+	1  => new WP_User( 1, array( 'administrator' ), 'Manager', 'administrator@example.test' ),
+	5  => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'administrator@example.test' ),
+	20 => new WP_User( 20, array( 'wpcpm_student' ), 'Student One', 'administrator@example.test' ),
+	23 => new WP_User( 23, array( 'wpcpm_student' ), 'Student Two', 'administrator@example.test' ),
 );
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $G, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
@@ -358,7 +358,7 @@ echo "\n=== Two presses of one person in overlapping requests (1.123.23) ===\n";
 // request then claims and writes it: the second, reaching the lock after the first let go, must
 // read the person's claims from the table there, not its own copy, or it takes a second code and
 // writes the person's record over with it, the first code lost to them and still claimed.
-$GLOBALS['users'][24]   = new WP_User( 24, array( 'wpcpm_student' ), 'Student Three', 'maciej@a8c.com' );
+$GLOBALS['users'][24]   = new WP_User( 24, array( 'wpcpm_student' ), 'Student Three', 'administrator@example.test' );
 $GLOBALS['program'][24] = array( 'program' => 'In Sensei', 'is_past' => false );
 $pp = WPCPM_Sponsor_Offers::create( $G, array( 'title' => 'Two presses', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 0, 'expires' => '' ) );
 WPCPM_Sponsor_Offers::add_codes( $pp, "PP-1\nPP-2" );
@@ -380,7 +380,7 @@ echo "\n=== A program contact who is no longer a program manager ===\n";
 // manager who leaves the team and keeps the account, as a mentor say, must stop receiving what a
 // contact is sent: this mail names the student and carries their address to reply to. It goes to
 // the program's own fallback instead, the one a sponsor with nobody assigned already has.
-$GLOBALS['users'][77] = new WP_User( 77, array( 'wpcpm_mentor' ), 'Former Manager', 'maciej+former@a8c.com' );
+$GLOBALS['users'][77] = new WP_User( 77, array( 'wpcpm_mentor' ), 'Former Manager', 'administrator+former@example.test' );
 WPCPM_Sponsors_Index::patch( $G, array( 'manager' => '77' ) );
 
 /** Report Student One's code once and say who was mailed: the kind of send, its recipient and context. */

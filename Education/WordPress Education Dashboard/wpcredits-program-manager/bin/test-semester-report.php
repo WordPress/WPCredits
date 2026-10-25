@@ -892,7 +892,7 @@ class WPCPM_Ceiling {
  */
 class WPCPM_Institutions {
 	public static function notify_managers( $context, $build, $setting_key = 'agreement_notify' ) {
-		$message = is_callable( $build ) ? call_user_func( $build, new WP_User( 99, 'Manager', 'maciej@a8c.com' ) ) : array();
+		$message = is_callable( $build ) ? call_user_func( $build, new WP_User( 99, 'Manager', 'administrator@example.test' ) ) : array();
 		$GLOBALS['mail'][] = array( 'to' => 'managers:' . $setting_key, 'context' => (string) $context, 'subject' => isset( $message['subject'] ) ? $message['subject'] : '', 'body' => isset( $message['body'] ) ? $message['body'] : '' );
 		return 1;
 	}
@@ -3053,7 +3053,7 @@ echo "\n=== Approve and reopen ===\n";
 WPCPM_Semester_Report::delete_all();
 $GLOBALS['transients'] = array();
 $GLOBALS['mail']       = array();
-$GLOBALS['members']    = array( $E => array( new WP_User( 21, 'Rep One', 'maciej@a8c.com' ), new WP_User( 22, 'Rep Two', 'maciej@a8c.com' ) ) );
+$GLOBALS['members']    = array( $E => array( new WP_User( 21, 'Rep One', 'administrator@example.test' ), new WP_User( 22, 'Rep Two', 'administrator@example.test' ) ) );
 // E's fixture snapshot names released students, so approval has to spend a consent read
 // and a Feedback read that fails is a refusal; an institution with nobody released would
 // pass without reading, which is the early return consent_check() makes on purpose.

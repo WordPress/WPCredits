@@ -11,8 +11,8 @@
 **Spec:** `docs/specs/2026-10-25-institutions-release-3-design.md` (approved by the product owner on 25 October 2026), with `docs/specs/2026-10-24-institutions-features-design.md` section 5. The chosen mockups are in `.superpowers/session-backups/2026-10-25/institutions-release-3-mockups/` (`glance-strip-chosen-A.html`, `page-order-chosen.html`), and today's screenshots in `.superpowers/session-backups/2026-10-25/institutions-release-3/`. They are private and never mirrored.
 
 **Repositories:**
-- Plugin: /Users/maciejpilarski/GitHub/wpcredits-program-manager. Worktree `.worktrees/plugin-institutions-release-3`, branch `release/<version>-institutions-release-3`, from `main` at the commit that adds this plan.
-- Theme: /Users/maciejpilarski/GitHub/wpcredits-theme. Worktree `.worktrees/theme-sponsor-modules`, branch `release/<version>-sponsor-modules`, from `main`.
+- Plugin: ~/GitHub/wpcredits-program-manager. Worktree `.worktrees/plugin-institutions-release-3`, branch `release/<version>-institutions-release-3`, from `main` at the commit that adds this plan.
+- Theme: ~/GitHub/wpcredits-theme. Worktree `.worktrees/theme-sponsor-modules`, branch `release/<version>-sponsor-modules`, from `main`.
 - The versions are the next free numbers when the build starts (1.123.38 and 1.32.5 today).
 
 ## Global Constraints
@@ -30,9 +30,9 @@
 - **One source per figure:** a tile counts through the same public reader its card uses. No second query, no copy of a test.
 - **No tracked `.csv`, `.json`, `.jsonl` or `.html` file may hold an email address.**
 - **Tests first,** in the repository's style, each shown failing before its fix.
-- **Before each report,** run all of these and quote their last lines, with `PATH="/private/tmp/claude-501/-Users-maciejpilarski-GitHub/25b9f120-1b7e-4cf2-9739-9a4891fc924e/scratchpad/phpcs-1g:$PATH"`:
+- **Before each report,** run all of these and quote their last lines, with `PATH="<scratchpad>/phpcs-1g:$PATH"`:
   - the plugin battery (every `bin/test-*.php`), `php bin/check-references.php`, `php bin/check-spelling.php`, `php bin/test-fixtures.php`, `bash bin/check-standards.sh`, `php bin/check-dead-annotations.php`;
-  - for the theme task: the theme battery and `php bin/check-selectors.php /Users/maciejpilarski/GitHub/wpcredits-program-manager/.worktrees/plugin-institutions-release-3`.
+  - for the theme task: the theme battery and `php bin/check-selectors.php ~/GitHub/wpcredits-program-manager/.worktrees/plugin-institutions-release-3`.
 - **Hands off:** no subagents, no network, no ssh, no docker, no stash, no push.
 - **Commits:** one or more per task, on the release branch only. Each is a subject line plus one plain paragraph, ends with the Co-Authored-By trailer naming your own model, and is made via `git commit -F`.
 - **Docs:** each plugin task updates the docs/sections paragraphs that describe what it changes (the Sponsor guide's `40-` to `43-`, the Administrator guide's paragraphs on the Sponsor Dashboard), rebuilds with `php bin/build-docs.php`, and commits the built files with their sources.

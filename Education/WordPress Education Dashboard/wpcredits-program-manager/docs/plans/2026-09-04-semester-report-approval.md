@@ -18,7 +18,7 @@
 - **Comments explain why** and name the bug or decision behind a rule; prefix conventions are `OPT_` (option name), `META_` (meta key), `ACTION_` (`admin_post_` action and nonce stem), `CRON_` (hook), `STATE_` / `LOG_` / `ORIGIN_` (server vocabularies); text domain `wpcredits-program-manager`.
 - **Every behaviour has an assertion** in a `bin/test-*.php` suite using the shared `ck( $label, $actual, $expected )` helper (strict `===`). Suites are plain PHP run from the plugin root, e.g. `php bin/test-semester-report.php`.
 - **The one refusal**: a report that is not this reader's reads exactly as one that does not exist (`unknown()` on print, `refused` on a handler).
-- **Every test send** uses `maciej@a8c.com` and no other address.
+- **Every test send** uses `administrator@example.test` and no other address.
 - **Manager-only writes**: every edit, draft, approve and reopen asks `ACT_EDIT_SEMESTER_REPORT`, whose only ground is `manager` after this plan.
 - The plugin directory `~/GitHub/wpcredits-program-manager` is **not a git repository**; "commit" in this plan means: keep the suites green, then at the end of the task run `bash bin/build` only if the task says so. The mirror push happens once, in Task 9.
 
@@ -907,7 +907,7 @@ class WPCPM_Ceiling {
  */
 class WPCPM_Institutions {
 	public static function notify_managers( $context, $build, $setting_key = 'agreement_notify' ) {
-		$message = is_callable( $build ) ? call_user_func( $build, new WP_User( 99, 'Manager', 'maciej@a8c.com' ) ) : array();
+		$message = is_callable( $build ) ? call_user_func( $build, new WP_User( 99, 'Manager', 'administrator@example.test' ) ) : array();
 		$GLOBALS['mail'][] = array( 'to' => 'managers:' . $setting_key, 'context' => (string) $context, 'subject' => isset( $message['subject'] ) ? $message['subject'] : '', 'body' => isset( $message['body'] ) ? $message['body'] : '' );
 		return 1;
 	}
@@ -1013,7 +1013,7 @@ echo "\n=== Approve and reopen ===\n";
 WPCPM_Semester_Report::delete_all();
 $GLOBALS['transients'] = array();
 $GLOBALS['mail']       = array();
-$GLOBALS['members']    = array( $E => array( new WP_User( 21, 'Rep One', 'maciej@a8c.com' ), new WP_User( 22, 'Rep Two', 'maciej@a8c.com' ) ) );
+$GLOBALS['members']    = array( $E => array( new WP_User( 21, 'Rep One', 'administrator@example.test' ), new WP_User( 22, 'Rep Two', 'administrator@example.test' ) ) );
 // E's fixture snapshot names released students, so approval has to spend a consent read
 // and a Feedback read that fails is a refusal; an institution with nobody released would
 // pass without reading, which is the early return consent_check() makes on purpose.
@@ -2177,9 +2177,9 @@ $defaults = WPCPM_Settings::defaults();
 ck( 'the three report settings and their defaults', array( $defaults['report_autodraft'], $defaults['report_autodraft_grace_days'], $defaults['report_notify'] ), array( true, 45, '' ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
-$saved = WPCPM_Settings::save( array( 'report_autodraft_grace_days' => '2', 'report_notify' => "one@example.org, junk\nmaciej@a8c.com" ) );
+$saved = WPCPM_Settings::save( array( 'report_autodraft_grace_days' => '2', 'report_notify' => "one@example.org, junk\nadministrator@example.test" ) );
 ck( 'the grace has a floor of a week', $saved['report_autodraft_grace_days'], 7 );
-ck( 'the addresses are cleaned like the agreement ones', $saved['report_notify'], 'one@example.org,maciej@a8c.com' );
+ck( 'the addresses are cleaned like the agreement ones', $saved['report_notify'], 'one@example.org,administrator@example.test' );
 ck( 'a save that does not carry the switch leaves it on', $saved['report_autodraft'], true );
 $saved = WPCPM_Settings::save( array( 'report_autodraft' => '', 'report_autodraft_grace_days' => '900' ) );
 ck( 'the switch carried empty is off', $saved['report_autodraft'], false );
