@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.5
+Version: 1.32.6
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -161,8 +161,19 @@ body .skip-link.screen-reader-text:focus {
 
    The header and footer reproduce the WordPress Education Initiatives theme
    exactly. Its measure and gutter - 1240px and 40px - are theme.json's wideSize
-   and root padding too, so the brand lines up with the content below it rather
-   than sitting 60px to its left.
+   and root padding too. The header's row keeps the gutter and not the measure
+   since 1.32.6 (the site's owner, 25 October 2026): it spans the window, as the
+   WordPress.org bar above it does, so the brand sits one gutter from the left
+   edge of the window and the menu one gutter from the right. The measure still
+   holds the page's content and the text of the notices.
+
+   The bar's spacing follows the window too, so its items stay on one line (the
+   site's owner, 25 October 2026: "never display items in two lines"): from
+   1440px up the gap between the brand and the menu is 40px, the side padding of
+   each link 12px and the gap inside the viewer chip 18px, and each shrinks in a
+   straight line to 24px, 8px and 10px at 1200px, where the signed-in bar starts.
+   That is 80px less for an Administrator's bar, the widest, which wrapped from
+   1200px to about 1235px with the fixed spacing.
 
    The rest are values only the chrome uses: the 76px bar, the #ededed rule that
    is a shade lighter than the page's, the #6e6e6e muted gray, and the 4px control
@@ -172,13 +183,9 @@ body .skip-link.screen-reader-text:focus {
 :root {
 	--wpc-chrome-maxw: 1240px;
 	--wpc-chrome-gutter: 40px;
-
-	/* The header's outer box. Its gutters have to sit *outside* the measure, or the
-	   brand and the navigation end up inset a further 40px from the content below
-	   them: `wideSize` is the width of the content box, not of a box with padding
-	   added. The reference theme has no such problem - there the page sections carry
-	   the same padding as the bar, so everything shares one indent. */
-	--wpc-chrome-shell: calc( var( --wpc-chrome-maxw ) + 2 * var( --wpc-chrome-gutter ) );
+	--wpc-chrome-space: clamp( 24px, calc( 6.667vw - 56px ), 40px );
+	--wpc-chrome-item-pad: clamp( 8px, calc( 1.667vw - 12px ), 12px );
+	--wpc-chrome-chip-gap: clamp( 10px, calc( 3.333vw - 30px ), 18px );
 
 	--wpc-chrome-rule: #ededed;
 	--wpc-chrome-muted: #6e6e6e;
@@ -284,12 +291,22 @@ body .skip-link.screen-reader-text:focus {
    always was, and the row gap, which only shows between wrapped rows, changes nothing. A chip
    with no link to a report card is the exception, and is dealt with just before the spacing of
    a wrapped bar, further down, beside the phone's two rows. On screens below 1200px a signed-in
-   reader whose page runs JavaScript has the one row of the menu layout instead, further down. */
+   reader whose page runs JavaScript has the one row of the menu layout instead, further down.
+
+   The row is the window's width, the brand one gutter from its left edge and the menu one gutter
+   from its right (theme 1.32.6, the site's owner, 25 October 2026). It was held to the measure
+   plus both gutters, 1320px, and centered, so on a screen wider than that the brand sat further in
+   than the WordPress.org bar above it, which spans the window. Below 1320px the cap changed
+   nothing, so everything that starts lower is as it was: the menu layout (from 1199px down), the
+   phone's two rows, the stacked bar, the lone link home, and the panels they place, which hang from
+   the header, always the window's width, and not from the row. Above 1320px the row has the room
+   the cap took: a bar that needed more than the 1240px inside the gutters was stacked at every
+   width from there up, and is one row from the width it needs. `margin: 0` is where `margin: 0
+   auto` centered it: it still keeps the block gap off the row. */
 .wpc-header__inner {
-	column-gap: 40px;
+	column-gap: var( --wpc-chrome-space );
 	flex-wrap: wrap;
-	margin: 0 auto;
-	max-width: var( --wpc-chrome-shell );
+	margin: 0;
 	min-height: var( --wpc-header-height );
 	padding: 0 var( --wpc-chrome-gutter );
 	row-gap: 4px;
@@ -352,6 +369,15 @@ body .skip-link.screen-reader-text:focus {
 	justify-content: flex-end;
 }
 
+/* The 6px between the group's items is said again at two classes: WordPress's
+   `:root :where(.is-layout-flex) { gap: 20px }` is one class too, and some pages,
+   the Partners page among them, print it after this sheet, where the items stood
+   20px apart. The column gap alone, so a wrapped bar's row gaps keep their own
+   rules. */
+.wpc-header .wpc-nav__center {
+	column-gap: 6px;
+}
+
 .wpc-nav {
 	font-size: 15px;
 }
@@ -373,7 +399,7 @@ body .skip-link.screen-reader-text:focus {
 	font: inherit;
 	font-size: 15px;
 	gap: 5px;
-	padding: 8px 12px;
+	padding: 8px var( --wpc-chrome-item-pad );
 	text-decoration: none;
 }
 
@@ -391,14 +417,15 @@ body .skip-link.screen-reader-text:focus {
 	font-weight: 500;
 }
 
-/* "Become a partner", the menu's last item while the partnership levels are public (inc/partners.php):
-   an outline button in the brand blue, so it stands apart from the links before it and from the
-   filled Log in beside it. In the phone menu it is a row like the others, whose rules are deeper. */
+/* "Partner as an institution", the menu's last item (inc/partners.php): an outline button in the brand
+   blue, so it stands apart from the links before it, "Partners" among them while the partnership levels
+   are public, and from the filled Log in beside it. In the phone menu it is a row like the others, whose
+   rules are deeper. */
 .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 	border: 1px solid var( --wpc-brand );
 	color: var( --wpc-brand );
 	font-weight: 600;
-	padding: 7px 12px;
+	padding: 7px var( --wpc-chrome-item-pad );
 }
 
 .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:hover,
@@ -510,7 +537,7 @@ body .skip-link.screen-reader-text:focus {
 	display: flex;
 	flex: none;
 	font-size: 15px;
-	gap: 18px;
+	gap: var( --wpc-chrome-chip-gap );
 }
 
 .wpc-header .wpc-viewer a {
@@ -526,7 +553,7 @@ body .skip-link.screen-reader-text:focus {
 
 .wpc-viewer__link {
 	border-radius: var( --wpc-chrome-radius );
-	padding: 8px 12px;
+	padding: 8px var( --wpc-chrome-item-pad );
 }
 
 .wpc-header .wpc-viewer__link:hover,
@@ -545,7 +572,7 @@ body .skip-link.screen-reader-text:focus {
 	color: inherit;
 	cursor: pointer;
 	font: inherit;
-	padding: 8px 12px;
+	padding: 8px var( --wpc-chrome-item-pad );
 	white-space: nowrap;
 }
 
@@ -1440,8 +1467,8 @@ p.is-style-pill {
 
 /* The plugin prints these on `wp_body_open`, so they land above the sticky header and
    scroll away with the page - which is right for a notice: it is read once, where the
-   header has to stay reachable. Measured to the chrome's own shell, so the text lines up
-   with the brand directly above it rather than starting at the window edge. */
+   header has to stay reachable. Held to the measure and centered, so the text does not
+   start at the window edge; the header's row is no longer held to it (1.32.6). */
 .wpcpm-notices__item {
 	background: var( --wpc-amber-tint );
 	border-bottom: 1px solid var( --wpc-amber-border );
@@ -1453,7 +1480,7 @@ p.is-style-pill {
 	padding: 12px 0;
 }
 
-/* The band spans the window; its text is held to the measure the header uses. */
+/* The band spans the window; its text is held to the measure. */
 .wpcpm-notices__item > * {
 	margin-left: auto;
 	margin-right: auto;
@@ -1723,13 +1750,14 @@ p.is-style-pill {
 		--wpc-landing-offset: calc( var( --wpc-header-live, 180px ) + 28px );
 	}
 
-	/* On a phone the name is 30px from 375px wide and smaller under that, 8% of the window down to 24px,
-	   so the signed-in bar's one row holds it on one line beside the 34px picture and the 44px Menu
-	   button, 102px with their gaps, inside the 20px gutters: "Education Hub" measured 101.8px at 15px,
-	   so about 204px at 30px, and about 174px at 320px wide. Two classes, to outrank theme.json's Site
-	   Title style. */
+	/* On a phone the name is sized to the window, so it stays on one line beside what shares its row
+	   (theme 1.32.6): "Education Directory" measured 255.7px at 30px, and the signed-out bar's menu
+	   button and Log in take 169.8px with the gutters and gaps, the signed-in bar's picture and Menu
+	   button 142px. At 11.7% of the window less 22px the name leaves about 18px to spare on the
+	   signed-out bar at any width, for a system font that runs wider than this Mac's: 21.9px at 375px, 16px
+	   at the least from about 325px down, theme.json's 30px from about 444px up. Two classes, to outrank theme.json's Site Title style. */
 	.wpc-header .wpc-brand__name {
-		font-size: clamp( 24px, 8vw, 30px );
+		font-size: clamp( 16px, calc( 11.7vw - 22px ), 30px );
 	}
 
 	/* The header becomes two rows on a phone. A signed-in reader whose page runs JavaScript has the
@@ -2084,7 +2112,7 @@ p.is-style-pill {
 		color: var( --wpc-brand );
 	}
 
-	/* "Become a partner" is a row like the others here: the rule above replaces only the bottom border,
+	/* "Partner as an institution" is a row like the others here: the rule above replaces only the bottom border,
 	   so the wide row's outline button would keep its other three, with the text against the left one. */
 	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 		border-left: 0;
@@ -2105,8 +2133,9 @@ p.is-style-pill {
 		font-weight: 500;
 	}
 
-	/* "Become a partner" on the Partners page (inc/partners.php marks it current there): the blue is the
-	   cue, and it keeps the weight 600 its own rule gives it, which the rule above would take down to 500. */
+	/* "Partner as an institution" on the institution form's page (inc/partners.php marks it current there):
+	   the blue is the cue, and it keeps the weight 600 its own rule gives it, which the rule above would
+	   take down to 500. */
 	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > [aria-current="page"] {
 		font-weight: 600;
 	}
@@ -2119,28 +2148,32 @@ p.is-style-pill {
 	}
 }
 
-/* Signed out, a phone shows the brand and the Log in button on one row where the navigation's one
-   link leads to the home page: that link is left out, since the site title leads there already
-   (`wpc-nav--home` marks it). The rules of the row are scoped to a bar that holds the mark with
-   `:has()`, so any other lone link, which stays shown, keeps the two rows: a link with a long label
-   beside the brand on one row would squeeze the title to a letter a line. A browser without `:has()`
-   drops the scoped rules, but the rule that leaves the link out has no `:has()`: the home link is
-   still hidden there, and Log in drops to a second row through the 640px block's rule above that
-   gives the brand the whole first row (`.wpc-brand { flex: 1 1 100% }`). The bar's and the brand's 12px
-   gaps are restated with `body:not( .wpc-signed-in )` in front, so the block gap WordPress prints for
-   the groups cannot win in either print order. */
+/* Signed out, a phone shows the brand, the menu button and the Log in button on one row (theme
+   1.32.6, the site's owner: "never display items in two lines"), the name sized to leave them room
+   (the 640px block's `.wpc-header .wpc-brand__name`). Where the navigation's one link leads to the home
+   page it is left out, since the site title leads there already (`wpc-nav--home` marks it), and the
+   row is the brand and Log in. The rules of the row are scoped with `:has()` to a bar whose lone link
+   is not shown inline, so a lone link with a label of its own, which stays shown, keeps the two rows:
+   a long label beside the brand on one row would squeeze the title to a letter a line. A browser
+   without `:has()` drops the scoped rules, but the rule that leaves the home link out has no `:has()`:
+   the link is still hidden there, and the buttons drop to a second row through the 640px block's
+   rule above that gives the brand the whole first row (`.wpc-brand { flex: 1 1 100% }`). The bar's
+   and the brand's 12px gaps are restated with `body:not( .wpc-signed-in )` in front, so the block gap
+   WordPress prints for the groups cannot win in either print order, and the brand may shrink, its
+   name then breaking between words, should a longer site name not fit. */
 @media ( max-width: 640px ) {
-	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) {
+	body:not( .wpc-signed-in ) .wpc-header__inner:not( :has( .wpc-nav--lone:not( .wpc-nav--home ) ) ) {
 		column-gap: 12px;
 		flex-wrap: nowrap;
 	}
 
-	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) .wpc-brand {
+	body:not( .wpc-signed-in ) .wpc-header__inner:not( :has( .wpc-nav--lone:not( .wpc-nav--home ) ) ) .wpc-brand {
 		flex: 1 1 auto;
 		gap: 12px;
+		min-width: 0;
 	}
 
-	body:not( .wpc-signed-in ) .wpc-header__inner:has( .wpc-nav--home ) .wpc-nav__center {
+	body:not( .wpc-signed-in ) .wpc-header__inner:not( :has( .wpc-nav--lone:not( .wpc-nav--home ) ) ) .wpc-nav__center {
 		flex: none;
 	}
 

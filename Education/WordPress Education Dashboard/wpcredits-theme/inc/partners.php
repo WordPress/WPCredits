@@ -1,7 +1,7 @@
 <?php
 /**
- * The Partners page: its stylesheets, and the menu's "Become a partner" item while the partnership
- * levels are public.
+ * The Partners page: its stylesheets, and the header menu's two items for it, the "Partners" link
+ * while the partnership levels are public and the "Partner as an institution" button.
  *
  * The page is the plugin's public sponsors page, at `/partners/` (plugin 1.123.18). WordPress draws a
  * page by its slug's template before `page.html`, so `templates/page-partners.html` draws it: the
@@ -9,9 +9,11 @@
  * five patterns around the page's own content, which is the plugin's listing of the partners. The
  * plugin keeps the page a draft until the levels go public, and refuses it to visitors until then.
  *
- * The menu's "Become a partner" item leads to this page, whose own "Become a partner" section has
- * the button on to the sponsorship application (a program Administrator asked for it and the site's
- * owner agreed, 22 October 2026; until then it led to the application itself).
+ * The menu's "Partners" link leads to this page, whose own "Become a partner" section has the button
+ * on to the sponsorship application (a program Administrator asked for it and the site's owner agreed,
+ * 22 October 2026). The menu's button, "Partner as an institution", leads to the institution
+ * application form (the site's owner, 25 October 2026); until then the menu's one item, "Become a
+ * partner", led to this page, and before that to the sponsorship application.
  *
  * The levels are written once, in the Partners template, and edited in the Site Editor (theme 1.32.1,
  * the design's D5 and D6): the Partner levels block holds a Partner level block for each level and
@@ -31,6 +33,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** The Partners page's slug, the template's name after `page-`. */
 const WPCREDITS_PARTNERS_SLUG = 'partners';
+
+/**
+ * The type the menu's "Partners" link is hooked under. It is not a block: core writes the block the
+ * `hooked_block_{type}` filter answers, a navigation link, and looks for the type hooked, this one, in
+ * a menu's `ignoredHookedBlocks`. Two hooked blocks of one type reach `hooked_block_core/navigation-link`
+ * with the same arguments and cannot be told apart, and one type for both would leave a menu saved while
+ * the levels were not public ignoring the Partners link for good, since it lists the button's type, the
+ * only one then offered, as ignored. A menu saved in the Site Editor holds this name in that list, so it
+ * stays as it is.
+ */
+const WPCREDITS_PARTNERS_LINK_HOOK = 'wpcredits-theme/partners-link';
 
 /**
  * Register the Partners page's stylesheet, after the hub's, whose type, heads, cards and buttons it
@@ -84,11 +97,16 @@ function wpcredits_partners_live() {
 }
 
 /**
- * The header menu's last item, "Become a partner", while the levels are public: a navigation link
- * hooked into the menu as its last child (the site's owner, 21 October 2026). It leads to the
- * Partners page (22 October 2026), where the "Become a partner" section has the button on to the
- * sponsorship application. While the levels are not public there is no item, so nothing points at
- * what visitors cannot see yet.
+ * The header menu's last two items: the "Partners" link while the levels are public, then the button,
+ * "Partner as an institution", hooked into the menu as its last children (the site's owner, 21 and 25
+ * October 2026). The link leads to the Partners page, so while the levels are not public there is no
+ * link, and nothing points at what visitors cannot see yet. The button leads to the institution
+ * application form, which does not depend on the levels, so it is always there.
+ *
+ * The button is hooked as a navigation link, the type it has been since 1.31.9, and the link under a type
+ * of its own (`WPCREDITS_PARTNERS_LINK_HOOK`): see the constant. A menu saved in the Site Editor lists
+ * the types it was offered as ignored, so the one saved before the levels were public is still offered
+ * the link once they are, and a menu saved with both holds both as links of its own, as saved.
  *
  * @param string[] $hooked   The block types hooked at this position.
  * @param string   $position Where: before, after, first_child or last_child.
@@ -96,7 +114,11 @@ function wpcredits_partners_live() {
  * @return string[]
  */
 function wpcredits_partners_menu_item( $hooked, $position, $anchor ) {
-	if ( 'last_child' === $position && 'core/navigation' === $anchor && wpcredits_partners_live() ) {
+	if ( 'last_child' === $position && 'core/navigation' === $anchor ) {
+		if ( wpcredits_partners_live() ) {
+			$hooked[] = WPCREDITS_PARTNERS_LINK_HOOK;
+		}
+
 		$hooked[] = 'core/navigation-link';
 	}
 
@@ -105,44 +127,32 @@ function wpcredits_partners_menu_item( $hooked, $position, $anchor ) {
 add_filter( 'hooked_block_types', 'wpcredits_partners_menu_item', 10, 3 );
 
 /**
- * The hooked item's label, address and class.
+ * A hooked menu link's attributes: its label and address, and the class that dresses it.
  *
- * The address is the Partners page. While the plugin has no published Partners page the item falls
- * back to the sponsorship application, and when it has neither, to the WordPress Credits handbook,
- * as every link to one of the site's own pages does (`wpcredits_hub_url()`).
+ * The navigation block marks a link current by a page's ID, not by its address: it matches a post type
+ * archive's link by address, but a custom link to a page is never marked. So on the page a link leads to
+ * it is written as a link to that page, with the page's ID, and the block marks it as it does a page
+ * link, adding `current-menu-item` and `aria-current="page"`. The wide bar shows the Partners link in
+ * the brand blue then, as it does any link to the page being viewed, and the button as it always looks,
+ * its own rules winning over the header's current-item rules; the signed-in phone panel (below 1200px)
+ * colors either row in the brand blue, the button's at its own weight (style.css). On every other page
+ * a link stays the custom link it was.
  *
- * The navigation block marks a link current by a page's ID, not by its address: it matches a post
- * type archive's link by address, but a custom link to a page is never marked. So on the page the
- * item leads to it is written as a link to that page, with the page's ID, and the block marks it as
- * it does a page link, adding `current-menu-item` and `aria-current="page"`. The signed-in phone
- * panel (below 1200px) colors the marked row in the brand blue, at the item's own weight (style.css);
- * everywhere else the item looks the same, its own rules winning over the header's current-item
- * rules. On every other page it stays the custom link it was.
- *
- * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
- * @param string     $type     The hooked block's type.
- * @param string     $position Where it is hooked.
- * @param array      $anchor   The anchor block, parsed.
- * @return array|null
+ * @param string $label The link's text, translated.
+ * @param string $url   Where it leads.
+ * @param string $class The class it wears, or '' for none.
+ * @return array The block's attributes.
  */
-function wpcredits_partners_menu_item_block( $block, $type, $position, $anchor ) {
-	if ( null === $block || 'last_child' !== $position || ! isset( $anchor['blockName'] ) || 'core/navigation' !== $anchor['blockName'] ) {
-		return $block;
-	}
-
-	$url = wpcredits_hub_url( 'partners' );
-
-	// The handbook is what `wpcredits_hub_url()` answers for a page it cannot place.
-	if ( WPCREDITS_HUB_HANDBOOK === $url ) {
-		$url = wpcredits_hub_url( 'sponsor_application' );
-	}
-
+function wpcredits_partners_menu_attrs( $label, $url, $class = '' ) {
 	$attrs = array(
-		'label'     => __( 'Become a partner', 'wpcredits-theme' ),
-		'url'       => $url,
-		'kind'      => 'custom',
-		'className' => 'wpc-nav__partner',
+		'label' => $label,
+		'url'   => $url,
+		'kind'  => 'custom',
 	);
+
+	if ( '' !== $class ) {
+		$attrs['className'] = $class;
+	}
 
 	$viewed = is_singular( 'page' ) ? get_queried_object_id() : 0;
 
@@ -152,11 +162,78 @@ function wpcredits_partners_menu_item_block( $block, $type, $position, $anchor )
 		$attrs['id']   = $viewed;
 	}
 
-	$block['attrs'] = $attrs;
+	return $attrs;
+}
+
+/**
+ * Whether a hooked block sits last in a navigation, where the menu's two items go.
+ *
+ * @param string $position Where it is hooked.
+ * @param array  $anchor   The anchor block, parsed.
+ * @return bool
+ */
+function wpcredits_partners_menu_position( $position, $anchor ) {
+	return 'last_child' === $position && isset( $anchor['blockName'] ) && 'core/navigation' === $anchor['blockName'];
+}
+
+/**
+ * The hooked button's label, address and class: "Partner as an institution", the Education Hub's own
+ * words for it, leading to the institution application form.
+ *
+ * While the plugin has no published form the button falls back to the WordPress Credits handbook, as
+ * every link to one of the site's own pages does (`wpcredits_hub_url()`).
+ *
+ * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
+ * @param string     $type     The hooked block's type.
+ * @param string     $position Where it is hooked.
+ * @param array      $anchor   The anchor block, parsed.
+ * @return array|null
+ */
+function wpcredits_partners_menu_item_block( $block, $type, $position, $anchor ) {
+	if ( null === $block || ! wpcredits_partners_menu_position( $position, $anchor ) ) {
+		return $block;
+	}
+
+	$block['attrs'] = wpcredits_partners_menu_attrs(
+		__( 'Partner as an institution', 'wpcredits-theme' ),
+		wpcredits_hub_url( 'institution_application' ),
+		'wpc-nav__partner'
+	);
 
 	return $block;
 }
 add_filter( 'hooked_block_core/navigation-link', 'wpcredits_partners_menu_item_block', 10, 4 );
+
+/**
+ * The hooked Partners link: a plain link to the Partners page, written as the navigation link it is
+ * although it is hooked under a type of its own (`WPCREDITS_PARTNERS_LINK_HOOK`).
+ *
+ * The link is hooked only while the partnership levels are public, so with the plugin off there is none.
+ * Should the levels be public while the Partners page is not published, which the plugin's own launch
+ * does not leave, it falls back to the WordPress Credits handbook, as every link to one of the site's own
+ * pages does.
+ *
+ * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
+ * @param string     $type     The hooked block's type.
+ * @param string     $position Where it is hooked.
+ * @param array      $anchor   The anchor block, parsed.
+ * @return array|null
+ */
+function wpcredits_partners_link_block( $block, $type, $position, $anchor ) {
+	if ( null === $block || ! wpcredits_partners_menu_position( $position, $anchor ) ) {
+		return $block;
+	}
+
+	$block['blockName'] = 'core/navigation-link';
+	$block['attrs']     = wpcredits_partners_menu_attrs(
+		/* translators: The header menu's link to the page about partnering with the program, a plural noun. */
+		__( 'Partners', 'wpcredits-theme' ),
+		wpcredits_hub_url( 'partners' )
+	);
+
+	return $block;
+}
+add_filter( 'hooked_block_' . WPCREDITS_PARTNERS_LINK_HOOK, 'wpcredits_partners_link_block', 10, 4 );
 
 /**
  * The five partnership levels the theme ships, in a program lead's words (21 October 2026), the lowest

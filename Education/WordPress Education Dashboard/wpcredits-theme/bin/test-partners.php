@@ -108,6 +108,11 @@ class WPCPM_Sponsor_Application {
 	public static function page_url() { return self::$url; }
 }
 
+class WPCPM_Institution_Application {
+	public static $url = 'https://site.example/apply/';
+	public static function page_url() { return self::$url; }
+}
+
 class WPCPM_Sponsors_Page {
 	public static $url = 'https://site.example/partners/';
 	public static function page_url() { return self::$url; }
@@ -314,22 +319,9 @@ ck( 'the Partners page loads the hub\'s stylesheet and its own, after the hub\'s
 	array( $GLOBALS['styles']['wpcredits-partners'][1], $on_partners, $on_other ),
 	array( array( 'wpcredits-hub' ), array( 'wpcredits-hub', 'wpcredits-partners' ), array() ) );
 
-echo "\n=== The menu's item ===\n";
+echo "\n=== The menu's two items ===\n";
 
 $anchor = array( 'blockName' => 'core/navigation', 'attrs' => array() );
-
-/**
- * The hooked item for a request, as the navigation block asks for it.
- *
- * @return array The item's attributes.
- */
-function menu_item_attrs() {
-	global $anchor;
-
-	$item = wpcredits_partners_menu_item_block( array( 'blockName' => 'core/navigation-link', 'attrs' => array() ), 'core/navigation-link', 'last_child', $anchor );
-
-	return $item['attrs'];
-}
 
 /**
  * Whether core's Navigation Link block marks an item current, the test of
@@ -349,87 +341,210 @@ function core_marks_current( array $attrs, $viewed, array $object ) {
 	return ! empty( $attrs['id'] ) && $viewed === (int) $attrs['id'] && ! empty( $object[ $kind ] );
 }
 
+/**
+ * The hooked block types for a position, as core's `insert_hooked_blocks()` (wp-includes/blocks.php,
+ * WordPress 7.1) asks for them: the `hooked_block_types` filter over an empty list, since the theme
+ * registers no block that hooks itself.
+ *
+ * @param string $position Where: before, after, first_child or last_child.
+ * @param string $anchor   The anchor block's type.
+ * @return string[]
+ */
+function hooked_types( $position = 'last_child', $anchor = 'core/navigation' ) {
+	return apply_filters( 'hooked_block_types', array(), $position, $anchor, null );
+}
+
+/**
+ * The markup core's `insert_hooked_blocks()` writes for a position of an anchor, step for step as
+ * 7.1 has it: each type the filter answers becomes a parsed block of that type with no attributes,
+ * the `hooked_block` and `hooked_block_{type}` filters get it with the position and the anchor, a
+ * null answer drops it, and one whose original type the anchor's metadata ignores is not written (a
+ * menu saved in the Site Editor lists the types it was offered as ignored). The block the last
+ * filter answers is serialized as it is, so it may be of another type than the one hooked.
+ *
+ * @param string[] $ignored The anchor's `ignoredHookedBlocks`.
+ * @return array[] Each block written: its type and its attributes.
+ */
+function menu_items( array $ignored = array() ) {
+	$anchor = array( 'blockName' => 'core/navigation', 'attrs' => $ignored ? array( 'metadata' => array( 'ignoredHookedBlocks' => $ignored ) ) : array() );
+	$markup = '';
+
+	foreach ( hooked_types() as $type ) {
+		$block = array( 'blockName' => $type, 'attrs' => array(), 'innerBlocks' => array(), 'innerHTML' => '', 'innerContent' => array() );
+		$block = apply_filters( 'hooked_block', $block, $type, 'last_child', $anchor, null );
+		$block = apply_filters( "hooked_block_{$type}", $block, $type, 'last_child', $anchor, null );
+
+		if ( null !== $block && ! in_array( $type, $ignored, true ) ) {
+			$markup .= serialize_block( $block );
+		}
+	}
+
+	return array_map(
+		static function ( $block ) {
+			return array( $block['blockName'], $block['attrs'] );
+		},
+		parse_blocks( $markup )
+	);
+}
+
+$institution = array( 'label' => 'Partner as an institution', 'url' => 'https://site.example/apply/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' );
+$partners    = array( 'label' => 'Partners', 'url' => 'https://site.example/partners/', 'kind' => 'custom' );
+
 WPCPM_Sponsor_Tiers::$live = false;
-$off = wpcredits_partners_menu_item( array(), 'last_child', 'core/navigation' );
+$off_types = hooked_types();
+$off       = menu_items();
 
 WPCPM_Sponsor_Tiers::$live = true;
-$on        = wpcredits_partners_menu_item( array(), 'last_child', 'core/navigation' );
-$elsewhere = array( wpcredits_partners_menu_item( array(), 'after', 'core/navigation' ), wpcredits_partners_menu_item( array(), 'last_child', 'core/group' ) );
-$item      = menu_item_attrs();
-$left      = wpcredits_partners_menu_item_block( null, 'core/navigation-link', 'last_child', $anchor );
-$other     = wpcredits_partners_menu_item_block( array( 'blockName' => 'core/navigation-link', 'attrs' => array( 'label' => 'Kept' ) ), 'core/navigation-link', 'first_child', $anchor );
+$on_types  = hooked_types();
+$on        = menu_items();
+$elsewhere = array( hooked_types( 'after', 'core/navigation' ), hooked_types( 'last_child', 'core/group' ), hooked_types( 'first_child', 'core/navigation' ) );
 
-ck( 'while the levels are not public the menu gains nothing; once they are, its last item is a link, "Become a partner", to the Partners page, and nowhere else is anything hooked',
-	array( $off, $on, $elsewhere, $item, $left, $other['attrs'] ),
+ck( 'the menu\'s last item is the button "Partner as an institution", to the institution application form, whether or not the partnership levels are public; while they are, a plain link, "Partners", to the Partners page comes before it; both are written as core\'s navigation link, and nowhere else is anything hooked',
+	array( $off_types, $off, $on_types, $on, $elsewhere ),
 	array(
-		array(),
 		array( 'core/navigation-link' ),
-		array( array(), array() ),
-		array( 'label' => 'Become a partner', 'url' => 'https://site.example/partners/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' ),
-		null,
-		array( 'label' => 'Kept' ),
+		array( array( 'core/navigation-link', $institution ) ),
+		array( 'wpcredits-theme/partners-link', 'core/navigation-link' ),
+		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $institution ) ),
+		array( array(), array(), array() ),
 	) );
 
-// The Partners page, then the application, then the handbook: each falls back to the next.
-WPCPM_Sponsors_Page::$url = '';
-$without_page = menu_item_attrs()['url'];
+// Two hooked blocks of one type cannot be told apart in `hooked_block_core/navigation-link`: both reach it
+// with the same arguments. So the Partners link is hooked under a type of its own, which core accepts (it
+// looks for the type hooked, not the one the filter answers, in `ignoredHookedBlocks`), and its filter
+// answers a navigation link.
+$hooks_of = static function ( $hook ) {
+	return array_map(
+		static function ( $hooked ) {
+			return array( $hooked[0], $hooked[1], $hooked[2] );
+		},
+		isset( $GLOBALS['hooks'][ $hook ] ) ? $GLOBALS['hooks'][ $hook ] : array()
+	);
+};
 
-WPCPM_Sponsor_Application::$url = '';
-$without_either = menu_item_attrs()['url'];
+ck( 'the three filters are hooked as core needs them, each at priority 10 with the arguments it takes: the types (the list, the position and the anchor\'s type), and the block of each of the two types (the block, the type, the position and the anchor)',
+	array(
+		$hooks_of( 'hooked_block_types' ),
+		$hooks_of( 'hooked_block_core/navigation-link' ),
+		$hooks_of( 'hooked_block_wpcredits-theme/partners-link' ),
+	),
+	array(
+		array( array( 'wpcredits_partners_menu_item', 10, 3 ) ),
+		array( array( 'wpcredits_partners_menu_item_block', 10, 4 ) ),
+		array( array( 'wpcredits_partners_link_block', 10, 4 ) ),
+	) );
+
+$left  = theme_call( 'wpcredits_partners_menu_item_block', null, 'core/navigation-link', 'last_child', $anchor );
+$other = theme_call( 'wpcredits_partners_menu_item_block', array( 'blockName' => 'core/navigation-link', 'attrs' => array( 'label' => 'Kept' ) ), 'core/navigation-link', 'first_child', $anchor );
+$kept  = theme_call( 'wpcredits_partners_link_block', array( 'blockName' => 'wpcredits-theme/partners-link', 'attrs' => array( 'label' => 'Kept' ) ), 'wpcredits-theme/partners-link', 'after', $anchor );
+$gone  = theme_call( 'wpcredits_partners_link_block', null, 'wpcredits-theme/partners-link', 'last_child', $anchor );
+
+ck( 'a block another filter removed stays removed, and a block hooked anywhere but last in the navigation is left as it is, by either filter',
+	array( $left, $other['attrs'] ?? null, $kept['attrs'] ?? null, $gone ),
+	array( null, array( 'label' => 'Kept' ), array( 'label' => 'Kept' ), null ) );
+
+// The button's page, then the handbook; the Partners link's: the handbook, as every link to one of the site's
+// own pages falls back (`wpcredits_hub_url()`).
+$items = static function () {
+	return array_column( menu_items(), 1 );
+};
+
+WPCPM_Institution_Application::$url = '';
+$without_form = array_column( $items(), 'url' );
+
+WPCPM_Sponsors_Page::$url = '';
+$without_either = array_column( $items(), 'url' );
+
+WPCPM_Institution_Application::$url = 'https://site.example/apply/';
+$without_page = array_column( $items(), 'url' );
 
 WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
-$without_application = menu_item_attrs()['url'];
 
-WPCPM_Sponsor_Application::$url = 'https://site.example/sponsor-application/';
-
-ck( 'the item leads to the Partners page; while the plugin has no published Partners page, to the sponsorship application; with neither, to the WordPress Credits handbook',
-	array( $item['url'], $without_page, $without_either, $without_application ),
+ck( 'the button leads to the institution application form, and the Partners link to the Partners page; a page the plugin has not published falls back to the WordPress Credits handbook, as every link to one of the site\'s own pages does, and one fallback does not move the other',
+	array( array_column( $items(), 'url' ), $without_form, $without_either, $without_page ),
 	array(
-		'https://site.example/partners/',
-		'https://site.example/sponsor-application/',
-		WPCREDITS_HUB_HANDBOOK,
-		'https://site.example/partners/',
+		array( 'https://site.example/partners/', 'https://site.example/apply/' ),
+		array( 'https://site.example/partners/', WPCREDITS_HUB_HANDBOOK ),
+		array( WPCREDITS_HUB_HANDBOOK, WPCREDITS_HUB_HANDBOOK ),
+		array( WPCREDITS_HUB_HANDBOOK, 'https://site.example/apply/' ),
 	) );
 
-// The navigation block marks a link current by a page's ID, not by an address, so the item says which page it is
+// The navigation block marks a link current by a page's ID, not by an address, so an item says which page it is
 // on the page it leads to, and nowhere else.
-$GLOBALS['permalinks'] = array( 41 => 'https://site.example/partners/', 42 => 'https://site.example/about/' );
+$GLOBALS['permalinks'] = array(
+	41 => 'https://site.example/partners/',
+	42 => 'https://site.example/about/',
+	43 => 'https://site.example/apply/',
+);
 
-$GLOBALS['request'] = array( 'singular' => 'page', 'id' => 41, 'templates' => array() );
-$on_partners        = menu_item_attrs();
+/**
+ * The two hooked items for a request, as the navigation block asks for them.
+ *
+ * @param array $request The request: `singular`, `id` and `templates`.
+ * @return array[] The Partners link's attributes, then the button's.
+ */
+function menu_items_on( array $request ) {
+	$GLOBALS['request'] = $request;
 
-$GLOBALS['request']['id'] = 42;
-$on_other_page            = menu_item_attrs();
+	return array_column( menu_items(), 1 );
+}
 
-$GLOBALS['request'] = array( 'singular' => 'post', 'id' => 41, 'templates' => array() );
-$on_a_post          = menu_item_attrs();
+$page = static function ( $id ) {
+	return array( 'singular' => 'page', 'id' => $id, 'templates' => array() );
+};
 
-$GLOBALS['request'] = array( 'singular' => '', 'id' => 0, 'templates' => array() );
-$on_archive         = menu_item_attrs();
+$on_partners     = menu_items_on( $page( 41 ) );
+$on_other_page   = menu_items_on( $page( 42 ) );
+$on_apply        = menu_items_on( $page( 43 ) );
+$on_a_post       = menu_items_on( array( 'singular' => 'post', 'id' => 41, 'templates' => array() ) );
+$on_archive      = menu_items_on( array( 'singular' => '', 'id' => 0, 'templates' => array() ) );
 
-$GLOBALS['request'] = array( 'singular' => 'page', 'id' => 41, 'templates' => array() );
 WPCPM_Sponsors_Page::$url = '';
-$partners_unpublished     = menu_item_attrs();
+$partners_unpublished     = menu_items_on( $page( 41 ) );
 WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
 
-ck( 'on the Partners page the item carries the page\'s ID, as a link to a page does, so the navigation block marks it current; on another page, a post or an archive, it is the custom link it was',
+ck( 'on the Partners page the Partners link carries the page\'s ID, as a link to a page does, so the navigation block marks it current, and the button stays the custom link it was; on the form\'s page it is the button that carries the ID; on another page, a post or an archive, both are custom links',
 	array(
-		array( $on_partners['kind'], $on_partners['type'] ?? null, $on_partners['id'] ?? null, $on_partners['url'], $on_partners['label'], $on_partners['className'] ),
-		array_map( 'array_keys', array( $on_other_page, $on_a_post, $on_archive, $partners_unpublished ) ),
+		array_map( static function ( $item ) { return array( $item['kind'] ?? null, $item['type'] ?? null, $item['id'] ?? null ); }, $on_partners ),
+		array_map( static function ( $item ) { return array( $item['kind'] ?? null, $item['type'] ?? null, $item['id'] ?? null ); }, $on_apply ),
+		array_map( static function ( $item ) { return array_keys( $item ); }, array_merge( $on_other_page, $on_a_post, $on_archive, $partners_unpublished ) ),
 	),
 	array(
-		array( 'post-type', 'page', 41, 'https://site.example/partners/', 'Become a partner', 'wpc-nav__partner' ),
-		array_fill( 0, 4, array( 'label', 'url', 'kind', 'className' ) ),
+		array( array( 'post-type', 'page', 41 ), array( 'custom', null, null ) ),
+		array( array( 'custom', null, null ), array( 'post-type', 'page', 43 ) ),
+		array_merge( ...array_fill( 0, 4, array( array( 'label', 'url', 'kind' ), array( 'label', 'url', 'kind', 'className' ) ) ) ),
 	) );
 
-ck( 'core marks the item current on the Partners page and on no other page, as it does a link to that page; the custom link it was before is never marked',
+ck( 'the marked items keep their label, address and class, and the button its class on the form\'s page too, so its look and its place in the menu do not depend on the page',
+	array( $on_partners[0]['label'] ?? null, $on_partners[0]['url'] ?? null, $on_apply[1]['label'] ?? null, $on_apply[1]['url'] ?? null, $on_apply[1]['className'] ?? null, $on_partners[1]['className'] ?? null ),
+	array( 'Partners', 'https://site.example/partners/', 'Partner as an institution', 'https://site.example/apply/', 'wpc-nav__partner', 'wpc-nav__partner' ) );
+
+ck( 'core marks the Partners link current on the Partners page and the button on the form\'s page, each on no other page, as it does a link to that page; the custom link either was before is never marked',
 	array(
-		core_marks_current( $on_partners, 41, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_other_page, 42, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_partners, 42, array( 'post_type' => 'page' ) ),
-		core_marks_current( $item, 41, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_partners[0] ?? array(), 41, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_partners[1] ?? array(), 41, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_apply[1] ?? array(), 43, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_apply[0] ?? array(), 43, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_apply[1] ?? array(), 41, array( 'post_type' => 'page' ) ),
+		core_marks_current( $on_other_page[0] ?? array(), 41, array( 'post_type' => 'page' ) ),
 	),
-	array( true, false, false, false ) );
+	array( true, false, true, false, false, false ) );
+
+// A menu saved in the Site Editor holds the items it was shown as links of its own, and lists the types it was
+// offered as ignored. Each item has a type of its own, so the Partners link is still hooked into a menu saved
+// before the levels were public, and neither is hooked twice into one saved with both.
+$GLOBALS['request'] = array( 'singular' => '', 'id' => 0, 'templates' => array() );
+WPCPM_Sponsor_Tiers::$live = false;
+$saved_while_off = menu_items( hooked_types() );
+$later_on        = null;
+
+WPCPM_Sponsor_Tiers::$live = true;
+$later_on        = menu_items( array( 'core/navigation-link' ) );
+$saved_with_both = menu_items( array( 'wpcredits-theme/partners-link', 'core/navigation-link' ) );
+
+ck( 'a menu saved while the levels were not public lists only the button as ignored, so the Partners link is hooked into it once they are; a menu saved with both is hooked into by neither, so nothing of the menu as the owner saved it is added twice or overwritten',
+	array( $saved_while_off, $later_on, $saved_with_both ),
+	array( array(), array( array( 'core/navigation-link', $partners ) ), array() ) );
 
 $GLOBALS['request'] = array( 'singular' => '', 'id' => 0, 'templates' => array() );
 WPCPM_Sponsor_Tiers::$live = false;

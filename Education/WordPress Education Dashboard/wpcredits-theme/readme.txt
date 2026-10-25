@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.5
+Stable tag: 1.32.6
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -20,19 +20,23 @@ compact, triaged, printable list.
 = The chrome =
 
 The header and footer reproduce the WordPress Education Initiatives theme: a 76px
-sticky white bar on a 1240px measure with 40px gutters, the site title alone, with
+sticky white bar with 40px gutters, the site title alone, with
 the word "Education" picked out in blue and whatever follows it muted, a navigation
 at the right edge whose dropdowns are 240px panels
 with 8px corners and a soft shadow, and a four-column footer over a credit bar that
 signs off "Code is poetry."
 
-That measure is theme.json's `wideSize` and root padding too, so the brand lines up
-with the content beneath it. Inside the dashboard the patterns are wp-admin native
+The reference's 1240px measure is theme.json's `wideSize` and root padding, and holds
+the content beneath the bar. Inside the dashboard the patterns are wp-admin native
 instead - 13px body text, sentence case, 2px radii on controls, flat notices, no
 shadows.
 
-Four details are the theme's rather than the reference's, and are deliberate:
+Five details are the theme's rather than the reference's, and are deliberate:
 
+* The bar spans the window, the title one gutter from its left edge and the menu one
+  gutter from its right, as the WordPress.org bar above it does; the reference holds it
+  to the 1240px measure. Its spacing, and on a phone the title's size, follow the
+  window's width, so the bar's items stay on one line at every width.
 * The navigation marks the current menu item in brand blue. The reference's nav is
   hard-coded anchors with no such state; a real menu on a multi-page site needs one.
 * The reference's blue "Join the Initiative" button is the account chip here - a
@@ -187,6 +191,14 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.6 =
+
+* The header spans the browser window: the site's name sits 40px from the window's left edge and the menu 40px from its right (20px on a phone), as the WordPress.org bar above it does. It was held to 1320px and centered, so on a wider screen the name sat further in than that bar's.
+* The header's items stay on one line at every width (the site's owner, 25 October 2026). From 1440px down to 1200px the space between the name and the menu, the side padding of each link and the gap between the account links shrink with the window, so an Administrator's bar, which wrapped from 1200px to about 1235px, no longer does. On a phone the site's name is sized to the window, and a signed-out phone shows the name, the menu button and Log in on one row, where the buttons had a row of their own.
+* The menu: "Partners", a link to the Partners page, while the partnership levels are public, then the outline button "Partner as an institution", which now leads to the institution application and is always shown. "Become a partner" has left the menu; the Partners page keeps its own.
+* The items of the header's group, the menu, Need help? and the account links, stand 6px apart on every page: on the Partners page WordPress's own 20px gap won.
+* For developers: the hooked "Partners" link has a hook type of its own, `wpcredits-theme/partners-link`, so a menu saved in the Site Editor can leave it out without leaving out the button; a saved menu records that name among its ignored hooked blocks, so it is never to be renamed. `--wpc-chrome-shell` is gone, and `--wpc-chrome-space`, `--wpc-chrome-item-pad` and `--wpc-chrome-chip-gap` carry the bar's spacing. `bin/test-header.php` and `bin/test-partners.php` check both.
 
 = 1.32.5 =
 

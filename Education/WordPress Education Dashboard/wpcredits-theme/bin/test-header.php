@@ -246,9 +246,9 @@ foreach ( sheet_rules() as $rule ) {
 	}
 }
 
-ck( 'the site\'s name is 30px on a 1.2 line, twice the 15px it showed until 1.24.25: theme.json\'s Site Title style says so, which WordPress prints after the sheet at one class; so no one-class rule of the sheet sizes the name, where it could never show, and the phone\'s size, 30px from 375px wide and 8% of the window down to 24px under that, is said at two classes',
+ck( 'the site\'s name is 30px on a 1.2 line, twice the 15px it showed until 1.24.25: theme.json\'s Site Title style says so, which WordPress prints after the sheet at one class; so no one-class rule of the sheet sizes the name, where it could never show, and the phone\'s size, which follows the window so the name stays on one line (theme 1.32.6), is said at two classes',
 	array( $site_title, $name_sized, rules_of( '.wpc-header .wpc-brand__name', '@media ( max-width: 640px )' ) ),
-	array( array( 'fontSize' => '30px', 'fontWeight' => '600', 'lineHeight' => '1.2' ), array(), array( array( 'font-size: clamp( 24px, 8vw, 30px );' ) ) ) );
+	array( array( 'fontSize' => '30px', 'fontWeight' => '600', 'lineHeight' => '1.2' ), array(), array( array( 'font-size: clamp( 16px, calc( 11.7vw - 22px ), 30px );' ) ) ) );
 
 $justified = static function ( $lines ) {
 	return array_values( array_filter( $lines, static function ( $line ) { return 0 === strpos( $line, 'justify-content:' ); } ) );
@@ -264,8 +264,8 @@ ck( 'the group of the navigation, the help button and the viewer chip ends at th
 	array( 'right', array( 'justify-content: flex-end;' ), array( array( 'justify-content: flex-start;' ) ), array() ) );
 
 ck( 'the bar\'s one-class rules are still one class: the base rule, once, outside any query, with the wrap and the 4px row gap it was designed with, so a later edit does not turn it into a two-class rule that would outrank the phone block\'s',
-	array( count( rules_of( '.wpc-header__inner' ) ), array_intersect( array( 'flex-wrap: wrap;', 'row-gap: 4px;', 'column-gap: 40px;' ), rules_of( '.wpc-header__inner' )[0] ?? array() ) ),
-	array( 1, array( 'flex-wrap: wrap;', 'row-gap: 4px;', 'column-gap: 40px;' ) ) );
+	array( count( rules_of( '.wpc-header__inner' ) ), array_intersect( array( 'flex-wrap: wrap;', 'row-gap: 4px;', 'column-gap: var( --wpc-chrome-space );' ), rules_of( '.wpc-header__inner' )[0] ?? array() ) ),
+	array( 1, array( 'flex-wrap: wrap;', 'row-gap: 4px;', 'column-gap: var( --wpc-chrome-space );' ) ) );
 
 ck( 'the 960px block still narrows the column gap with its one-class `.wpc-header__inner` rule',
 	rules_of( '.wpc-header__inner', '@media ( max-width: 960px )' ),
@@ -276,6 +276,142 @@ $phone = rules_of( '.wpc-header__inner', '@media ( max-width: 640px )' );
 ck( 'the 640px block still carries its one-class `.wpc-header__inner` rule, with the height and the padding it sets for the phone\'s two rows',
 	array( count( $phone ), array_values( array_intersect( array( 'min-height: 0;', 'padding-bottom: 10px;', 'padding-top: 10px;' ), $phone[0] ?? array() ) ) ),
 	array( 1, array( 'min-height: 0;', 'padding-bottom: 10px;', 'padding-top: 10px;' ) ) );
+
+echo "\n=== One line at every width (theme 1.32.6) ===\n";
+
+/**
+ * The px value of a `clamp( MIN, calc( Avw - Bpx ), MAX )` or `clamp( MIN, calc( Avw + Bpx ), MAX )`
+ * at a window of `$w` pixels, or null for any other shape.
+ *
+ * @param string $value A declared value.
+ * @param int    $w     The window's width in px.
+ * @return float|null
+ */
+function clamp_at( $value, $w ) {
+	if ( ! preg_match( '/^clamp\( (\d+)px, calc\( ([\d.]+)vw ([-+]) (\d+)px \), (\d+)px \)$/', $value, $m ) ) {
+		return null;
+	}
+
+	$preferred = $m[2] * $w / 100 + ( '-' === $m[3] ? -1 : 1 ) * $m[4];
+
+	return round( max( (float) $m[1], min( (float) $m[5], $preferred ) ), 1 );
+}
+
+$root_tokens = array();
+
+foreach ( rules_of( ':root' ) as $root_rule ) {
+	foreach ( $root_rule as $line ) {
+		if ( preg_match( '/^(--wpc-chrome-(?:space|item-pad|chip-gap)): (.+);$/', $line, $m ) ) {
+			$root_tokens[ $m[1] ] = $m[2];
+		}
+	}
+}
+
+ck( 'the wide bar\'s spacing follows the window, so its items stay on one line from 1200px, where the signed-in bar starts, up: three tokens, each at its old size from 1440px up and shrinking in a straight line to its least at 1200px, the gap between the brand and the menu 40px to 24px, the side padding of each link 12px to 8px, the gap inside the viewer chip 18px to 10px; at 1200px that is 80px less for an Administrator\'s bar, which wrapped from 1200px to about 1235px with the fixed spacing',
+	array(
+		$root_tokens,
+		array_map( static function ( $v ) { return array( clamp_at( $v, 1200 ), clamp_at( $v, 1320 ), clamp_at( $v, 1440 ), clamp_at( $v, 1920 ) ); }, $root_tokens ),
+	),
+	array(
+		array(
+			'--wpc-chrome-space'    => 'clamp( 24px, calc( 6.667vw - 56px ), 40px )',
+			'--wpc-chrome-item-pad' => 'clamp( 8px, calc( 1.667vw - 12px ), 12px )',
+			'--wpc-chrome-chip-gap' => 'clamp( 10px, calc( 3.333vw - 30px ), 18px )',
+		),
+		array(
+			'--wpc-chrome-space'    => array( 24.0, 32.0, 40.0, 40.0 ),
+			'--wpc-chrome-item-pad' => array( 8.0, 10.0, 12.0, 12.0 ),
+			'--wpc-chrome-chip-gap' => array( 10.0, 14.0, 18.0, 18.0 ),
+		),
+	) );
+
+ck( 'the wide bar reads the tokens: the gap between the brand and the menu, the side padding of the menu\'s links and submenu toggles, of the outline button (7px above and below, for its 1px border), of Need help? and of the chip\'s links, and the gap inside the chip; each the rule\'s only spacing that changed',
+	array(
+		array_values( preg_grep( '/^padding:/', rules_of( '.wpc-header .wpc-nav .wp-block-navigation-item__content, .wpc-header .wpc-nav .wp-block-navigation-submenu__toggle' )[0] ?? array() ) ),
+		array_values( preg_grep( '/^padding:/', rules_of( '.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content' )[0] ?? array() ) ),
+		array_values( preg_grep( '/^padding:/', rules_of( '.wpc-header .wpc-ask' )[0] ?? array() ) ),
+		array_values( preg_grep( '/^padding:/', rules_of( '.wpc-viewer__link' )[0] ?? array() ) ),
+		array_values( preg_grep( '/^gap:/', rules_of( '.wpc-viewer' )[0] ?? array() ) ),
+	),
+	array(
+		array( 'padding: 8px var( --wpc-chrome-item-pad );' ),
+		array( 'padding: 7px var( --wpc-chrome-item-pad );' ),
+		array( 'padding: 8px var( --wpc-chrome-item-pad );' ),
+		array( 'padding: 8px var( --wpc-chrome-item-pad );' ),
+		array( 'gap: var( --wpc-chrome-chip-gap );' ),
+	) );
+
+ck( 'the items of the group, the navigation, Need help? and the viewer chip, stand 6px apart on every page: the one-class `.wpc-nav__center { gap: 6px }` ties with WordPress\'s `:root :where(.is-layout-flex) { gap: 20px }`, which some pages (the Partners page among them) print after the sheet, so the 6px is said again at two classes, as the column gap alone, leaving the row gaps of a wrapped bar to their own rules',
+	array( rules_of( '.wpc-header .wpc-nav__center' ), array_values( preg_grep( '/gap/', rules_of( '.wpc-nav__center' )[0] ?? array() ) ) ),
+	array( array( array( 'column-gap: 6px;' ) ), array( 'gap: 6px;' ) ) );
+
+// Measured on the Docker copy on 25 October 2026 (headless Chrome, theme 1.32.6): "Education Directory" is
+// 255.7px wide at 30px, so 8.523px per px of its size; on a signed-out phone the rest of the row is 169.8px
+// (20px gutters, the 12px gap, the 44px menu button, the group's 6px gap, the 67.8px Log in), and on a
+// signed-in one 142px (the gutters, 46px kept for the picture, the 12px gap, the 44px Menu button).
+$phone_name = rules_of( '.wpc-header .wpc-brand__name', '@media ( max-width: 640px )' )[0][0] ?? '';
+$phone_name = preg_replace( '/^font-size: (.+);$/', '$1', $phone_name );
+$fits       = array();
+
+foreach ( array( 320, 360, 375, 390, 414, 430, 480, 640 ) as $phone_w ) {
+	$name_w = 8.523 * clamp_at( $phone_name, $phone_w );
+
+	$fits[ $phone_w ] = array( $name_w + 169.8 + 12 <= $phone_w, $name_w + 142 + 12 <= $phone_w );
+}
+
+ck( 'on a phone the site\'s name is sized to the window, so it fits on one line beside the signed-out bar\'s menu button and Log in and beside the signed-in bar\'s picture and Menu button, at every common phone width from 320px to 640px: 16px at the least, from about 325px down, and 30px, theme.json\'s size, from about 444px up; with at least 12px to spare on either bar, about 18px from 325px up, for a system font wider than the one measured',
+	array( $fits, clamp_at( $phone_name, 325 ), clamp_at( $phone_name, 375 ), clamp_at( $phone_name, 445 ) ),
+	array( array_fill_keys( array( 320, 360, 375, 390, 414, 430, 480, 640 ), array( true, true ) ), 16.0, 21.9, 30.0 ) );
+
+echo "\n=== The row spans the window (theme 1.32.6) ===\n";
+
+ck( 'the header row spans the browser width: its one base rule has no `max-width` and no centering margin (`margin: 0` keeps the block gap off it), is as wide as the bar (`width: 100%`), and holds the brand and the menu off the window\'s edges by the page gutter (`padding: 0 var( --wpc-chrome-gutter )`); the wrap, the row gap and the 76px height are what they were, and the gap between the brand and the menu follows the window (below)',
+	rules_of( '.wpc-header__inner' ),
+	array( array( 'column-gap: var( --wpc-chrome-space );', 'flex-wrap: wrap;', 'margin: 0;', 'min-height: var( --wpc-header-height );', 'padding: 0 var( --wpc-chrome-gutter );', 'row-gap: 4px;', 'width: 100%;' ) ) );
+
+$capped = array();
+
+foreach ( sheet_rules() as $rule ) {
+	if ( ! preg_grep( '/^max-width:/', $rule['declarations'] ) ) {
+		continue;
+	}
+
+	foreach ( explode( ',', $rule['selector'] ) as $capped_selector ) {
+		if ( preg_match( '/\.wpc-header(__inner)?(\.[\w-]+)*$/', trim( $capped_selector ) ) ) {
+			$capped[] = trim( $rule['at'] . ' ' . $rule['selector'] );
+		}
+	}
+}
+
+ck( 'nothing caps the header\'s width at the shell the row had until 1.32.6: no rule whose selector ends at the header or at its row declares a `max-width` (a cap inside the bar, a dropdown\'s say, is not this check\'s), and the shell token (the measure plus both gutters) is gone from the sheet, so a rule that assumed the cap would name a token that is not there',
+	array( $capped, false !== strpos( theme_file( 'style.css' ), 'chrome-shell' ) ),
+	array( array(), false ) );
+
+$gutters = array();
+
+foreach ( sheet_rules() as $rule ) {
+	if ( ':root' === $rule['selector'] ) {
+		foreach ( preg_grep( '/^--wpc-chrome-gutter:/', $rule['declarations'] ) as $declaration ) {
+			$gutters[] = array( $rule['at'], $declaration );
+		}
+	}
+}
+
+ck( 'the gutter the row reads is the page\'s: 40px, and 20px from 640px down, each said once, so the brand sits 40px (20px on a phone) from the window\'s left edge and the menu the same from its right',
+	$gutters,
+	array( array( '', '--wpc-chrome-gutter: 40px;' ), array( '@media ( max-width: 640px )', '--wpc-chrome-gutter: 20px;' ) ) );
+
+$positioned = array();
+
+foreach ( sheet_rules() as $rule ) {
+	if ( preg_match( '/wpc-header__inner\s*$/', $rule['selector'] ) && preg_grep( '/^(position|transform):/', $rule['declarations'] ) ) {
+		$positioned[] = trim( $rule['at'] . ' ' . $rule['selector'] );
+	}
+}
+
+ck( 'the header, not its row, is the box the open panel hangs from and the picture is placed against, so the row\'s width reaches neither: `.wpc-header` is positioned in the phone\'s query (the panel as wide as the header, at its foot) and the menu layout positions and transforms the header; no rule positions the row',
+	array( rules_of( '.wpc-header', '@media ( max-width: 640px )' ), rules_of( '.wpc-js .wpc-header--menu', '@media screen and ( max-width: 1199px )' ), $positioned ),
+	array( array( array( 'position: relative;' ) ), array( array( 'position: relative;', 'transform: translateX( 0 );' ) ), array() ) );
 
 echo "\n=== The markup the menu needs ===\n";
 
@@ -911,11 +1047,22 @@ ck( 'every entry is a 44px row (15px type on a 20px line with 12px above and bel
 	),
 	array() );
 
-ck( 'on the Partners page the menu\'s "Become a partner" row is marked current (inc/partners.php), and in the panel it keeps the weight 600 its own rule gives it, which the rule for the page being viewed would take down to 500: one rule in the screen query, deeper than that rule',
+ck( 'on the institution form\'s page the menu\'s "Partner as an institution" row is marked current (inc/partners.php), and in the panel it keeps the weight 600 its own rule gives it, which the rule for the page being viewed would take down to 500: one rule in the screen query, deeper than that rule',
 	array( rules_of( $m . ' .wpc-nav .wpc-nav__partner > [aria-current="page"]', $menu_at ), rules_of( '.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content', '' ) ),
-	array( array( array( 'font-weight: 600;' ) ), array( array( 'border: 1px solid var( --wpc-brand );', 'color: var( --wpc-brand );', 'font-weight: 600;', 'padding: 7px 12px;' ) ) ) );
+	array( array( array( 'font-weight: 600;' ) ), array( array( 'border: 1px solid var( --wpc-brand );', 'color: var( --wpc-brand );', 'font-weight: 600;', 'padding: 7px var( --wpc-chrome-item-pad );' ) ) ) );
 
-ck( 'in the panel "Become a partner" is a row like the others: the wide row\'s outline button would keep its top, left and right borders, with the text against the left one, since the row rule replaces only the bottom border; one rule in the screen query takes the three off and leaves the row\'s hairline under it',
+$current_rule = '.wpc-header .wpc-nav .current-menu-item > .wp-block-navigation-item__content, .wpc-header .wpc-nav [aria-current="page"]';
+$button_rule  = '.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content';
+
+ck( 'on the wide row a link to the page being viewed is the brand blue at weight 500, the "Partners" link on the Partners page among them, and the outline button keeps its weight 600 on its own page, the form\'s: its rule is as deep as the deepest selector of the current-item rule and comes after it, so the tie goes the button\'s way',
+	array(
+		rules_of( $current_rule ),
+		max( array_map( $specificity, $selectors_of( $current_rule ) ) ) <= $specificity( $button_rule ),
+		$index_of_rule( $button_rule, '' ) > $index_of_rule( $current_rule, '' ),
+	),
+	array( array( array( 'color: var( --wpc-brand );', 'font-weight: 500;' ) ), true, true ) );
+
+ck( 'in the panel "Partner as an institution" is a row like the others: the wide row\'s outline button would keep its top, left and right borders, with the text against the left one, since the row rule replaces only the bottom border; one rule in the screen query takes the three off and leaves the row\'s hairline under it',
 	array( rules_of( $m . ' .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content', $menu_at ) ),
 	array( array( array( 'border-left: 0;', 'border-right: 0;', 'border-top: 0;' ) ) ) );
 
@@ -923,7 +1070,7 @@ ck( 'in forced colors, where the page being viewed loses its color, the menu und
 	$unpinned( array( $m . ' .wpc-nav__center [aria-current="page"]' => array( 'text-decoration: underline;' ) ), $forced_at ),
 	array() );
 
-$signed_out_scope = ':has( .wpc-nav--home )';
+$signed_out_scope = ':not( :has( .wpc-nav--lone:not( .wpc-nav--home ) ) )';
 $signed_out_inner = 'body:not( .wpc-signed-in ) .wpc-header__inner' . $signed_out_scope;
 $signed_out_hider = 'body:not( .wpc-signed-in ) .wpc-header .wpc-nav--home';
 $signed_out_loose = array();
@@ -947,12 +1094,12 @@ foreach ( sheet_rules() as $rule ) {
 	}
 }
 
-ck( 'signed out, a phone is one row only where its lone navigation link, the home page, is left out: the bar does not wrap and gaps by 12px, the brand takes the room and gaps by 12px, the group is as wide as the button, and the navigation of one link home is not displayed; each rule once, in the 640px query, and every rule of that block that names `wpc-signed-in`, but the one that leaves the link out, is scoped to a bar holding `.wpc-nav--home` with `:has()`, so any other lone link keeps the two rows (a rule naming `wpc-signed-in` elsewhere in the sheet is not this block\'s to judge)',
+ck( 'signed out, a phone is one row (theme 1.32.6): the brand, then the menu button and Log in, or Log in alone where the navigation\'s lone link, the home page, is left out; the bar does not wrap and gaps by 12px, the brand takes the room, may shrink and gaps by 12px, the group is as wide as its buttons, and the navigation of one link home is not displayed; each rule once, in the 640px query, and every rule of that block that names `wpc-signed-in`, but the one that leaves the link out, is scoped with `:has()` to a bar whose lone link is not shown inline, so a lone link with a label of its own keeps the two rows (a rule naming `wpc-signed-in` elsewhere in the sheet is not this block\'s to judge)',
 	array(
 		$unpinned(
 			array(
 				$signed_out_inner                        => array( 'column-gap: 12px;', 'flex-wrap: nowrap;' ),
-				$signed_out_inner . ' .wpc-brand'        => array( 'flex: 1 1 auto;', 'gap: 12px;' ),
+				$signed_out_inner . ' .wpc-brand'        => array( 'flex: 1 1 auto;', 'gap: 12px;', 'min-width: 0;' ),
 				$signed_out_inner . ' .wpc-nav__center'  => array( 'flex: none;' ),
 				$signed_out_hider                        => array( 'display: none;' ),
 			),

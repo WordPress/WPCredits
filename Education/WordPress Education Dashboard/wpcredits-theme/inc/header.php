@@ -31,8 +31,9 @@ add_action( 'wp_head', 'wpcredits_js_mark', 1 );
  * Mark a navigation that holds a single item, so it is not hidden behind a toggle.
  *
  * Below 960px the header collapses its menu into a hamburger, which is the right thing for a
- * menu. This site's menu currently holds one entry, and a mentor testing on a phone reported the
- * obvious: tapping a hamburger to reveal one link looks broken. It is not worth a toggle, an
+ * menu. This site's menu once held one entry (since 1.32.6 the theme's own items make it two or
+ * more), and a mentor testing on a phone reported the obvious: tapping a hamburger to reveal one
+ * link looks broken. It is not worth a toggle, an
  * overlay and two taps to reach something that fits beside the logo.
  *
  * So the count is taken here, where the rendered list actually is, and the stylesheet shows a lone
