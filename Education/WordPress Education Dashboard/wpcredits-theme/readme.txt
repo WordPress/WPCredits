@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.7
+Stable tag: 1.32.8
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -147,7 +147,12 @@ changes.
    to resolving the mentor itself, which is wrong for an administrator who also mentors
    - see Known limitations.
 3. Build the header menu in the Site Editor. Top-level items with children get the
-   reference's dropdown panels; items without stay plain links.
+   reference's dropdown panels; items without stay plain links. The theme itself adds,
+   at the menu's end, Partners (while the partnership levels are public) and, for
+   visitors who are not signed in, Become a sponsor and Partner as an institution. The
+   two buttons never show in the Site Editor, which is used signed in, so adding one by
+   hand doubles it for visitors; the Partners link does show there while the levels are
+   public, and a menu saved with it keeps it as an item of its own.
 4. Set a static front page under Settings → Reading if you want the landing page.
 
 The footer's three link columns are List blocks, not menus, so a site with one
@@ -191,6 +196,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.8 =
+
+* On the Sponsor Dashboard, a tier's name in At a glance fits its tile. Where the tiles are narrowest, about 152px in a 601px window, a long name such as Champion or Supporter ran past the tile's padding at 28px; it is now drawn at about 22px there, on one line, and at 28px from tiles about 180px wide. Numbers keep their 28px, and the Administrator Dashboard's strip is unchanged. Needs plugin 1.123.40, which marks the name as a word.
+* The phone menu for visitors who are not signed in (960px and down): its rows stand 8px apart, where they stood 2px apart, so Become a sponsor and Partner as an institution no longer nearly touch. The signed-in Menu panel is unchanged.
+* The readme's setup step 3 says what the theme adds to the menu itself, and that the Partners link shows in the Site Editor while the two visitor buttons do not; comments in `inc/partners.php` and `inc/header.php` describe 1.32.7's menu.
 
 = 1.32.7 =
 

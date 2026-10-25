@@ -1570,6 +1570,47 @@ ck( 'live\'s 1.31 cards, read and written as the levels block, draw byte for byt
 $GLOBALS['block_templates'] = array();
 theme_call( 'wpcredits_partner_levels_reset' );
 
+echo "\n=== What the menu's comments and the readme say (theme 1.32.8) ===\n";
+
+$partners_php = theme_file( 'inc/partners.php' );
+$file_header  = substr( $partners_php, 0, (int) strpos( $partners_php, '@package' ) );
+$attrs_head   = substr( $partners_php, 0, (int) strpos( $partners_php, 'function wpcredits_partners_menu_attrs(' ) );
+$attrs_doc    = substr( $attrs_head, (int) strrpos( $attrs_head, '/**' ) );
+$readme       = theme_file( 'readme.txt' );
+
+if ( preg_match( '/^3\. Build the header menu in the Site Editor\..*?(?=^4\. )/ms', $readme, $found ) ) {
+	$step_3 = preg_replace( '/\s+/', ' ', $found[0] );
+} else {
+	$step_3 = '';
+}
+
+ck( 'inc/partners.php no longer speaks of the menu\'s two items: the menu has the Partners link and, for a visitor, two buttons',
+	false === stripos( $partners_php, 'two items' ), true );
+
+ck( 'the file header names the three items the theme hooks, the link while the levels are public and the two buttons for a visitor who is not signed in',
+	array(
+		false !== strpos( $file_header, 'the "Partners" link' ),
+		false !== strpos( $file_header, '"Become a sponsor"' ),
+		false !== strpos( $file_header, '"Partner as an institution"' ),
+		false !== strpos( $file_header, 'not signed in' ),
+	),
+	array( true, true, true, true ) );
+
+ck( 'the attrs docblock does not say the signed-in phone panel colors either row, a button or the link: since 1.32.7 a signed-in reader has no button unless a menu saved in the Site Editor holds one, and the sentence names that case',
+	array( false !== strpos( $attrs_doc, 'colors either row' ), false !== strpos( $attrs_doc, 'a menu saved in the Site Editor holds one' ) ),
+	array( false, true ) );
+
+ck( 'setup step 3 of the readme says the theme adds Partners (while the levels are public) and, for visitors who are not signed in, Become a sponsor and Partner as an institution at the menu\'s end, that the two buttons never show in the Site Editor, which is used signed in, so adding one by hand doubles it for visitors, and that the Partners link does show there while the levels are public',
+	array(
+		false !== strpos( $step_3, 'The theme itself adds, at the menu\'s end, Partners (while the partnership levels are public)' ),
+		false !== strpos( $step_3, 'Become a sponsor and Partner as an institution' ),
+		false !== strpos( $step_3, 'who are not signed in' ),
+		false !== strpos( $step_3, 'The two buttons never show in the Site Editor, which is used signed in' ),
+		false !== strpos( $step_3, 'adding one by hand doubles it for visitors' ),
+		false !== strpos( $step_3, 'the Partners link does show there while the levels are public' ),
+	),
+	array( true, true, true, true, true, true ) );
+
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 
 exit( $fail ? 1 : 0 );

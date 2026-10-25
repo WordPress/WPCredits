@@ -1607,13 +1607,31 @@
 
 /* A hair of tracking off the number. The longest word the tiles hold, a tier's name on the Sponsor
    Dashboard, ran 0.75px into its tile's line where the tile is narrowest, 152px wide in a 601px
-   window; with it the word clears the line by 1.5px, though it still reaches into the tile's
-   padding where a tile is narrow. The Administrator Dashboard's numbers take the same value, so the
-   two strips stay one. */
+   window; with it the word clears the line by 1.5px, and the two rules after this one keep it
+   inside the tile's padding where a tile is narrow. The Administrator Dashboard's numbers take the
+   same value, so the two strips stay one. */
 .wpc-administrator-page .wpcpm-attention__n,
 .wpc-sponsor-page .wpcpm-attention__n {
 	font: 700 28px/32px var( --wpc-font );
 	letter-spacing: -0.01em;
+}
+
+/* A tier's name is the one figure that is a word (the plugin gives it `wpcpm-attention__n--word`),
+   and a word is wider than a number: at 28px "Champion" runs 132px and "Supporter" 130px, in a tile
+   whose figure has about 114px between the link's padding where the tiles are narrowest, 152px
+   wide in a 601px window, so they ran up to 14.5px past it. The tile is an inline-size container so
+   the word can take its size from the tile's width: 20 percent of it less 8px, about 22px in a
+   152px tile (the container's width is the tile's less its borders) and the numbers' 28px from
+   about a 180px tile on. The strip's tracks are
+   `minmax( 150px, 1fr )`, so a tile's width never depends on its content and containing it moves
+   nothing. Numbers keep their 28px, and the Administrator Dashboard's strip is as it was. The word's
+   rule ties with the figure's above at two classes and wins by coming after it. */
+.wpc-sponsor-page .wpcpm-attention__tile {
+	container-type: inline-size;
+}
+
+.wpc-sponsor-page .wpcpm-attention__n--word {
+	font-size: min( 28px, calc( 20cqi - 8px ) );
 }
 
 .wpc-administrator-page .wpcpm-attention__l,

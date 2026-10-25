@@ -27,6 +27,10 @@
  * card's CSV form, which now follows the box and not the table, keeps its 16px above it.
  * The render itself is measured in a browser at 320, 375, 390 and 1280px.
  *
+ * The same file pins the Sponsor Dashboard's At a glance strip (theme 1.32.8): the tier tile's figure
+ * is a word, and a word at the numbers' 28px ran up to 14.5px past its tile's content where the tile is
+ * narrowest, so the tile is an inline-size container and the word takes its size from the tile's width.
+ *
  * Run from the theme root:  php bin/test-dashboard-table.php
  *
  * @package WPCredits_Theme
@@ -357,6 +361,56 @@ foreach ( sheet_rules( 'assets/css/dashboard.css' ) as $rule ) {
 	}
 }
 ck( 'no rule draws a label before a value of the label-and-value tables', $before, array() );
+
+echo "\n=== The Sponsor Dashboard's strip: a tier's name fits its tile (theme 1.32.8) ===\n";
+
+$sheet    = sheet_rules( 'assets/css/dashboard.css' );
+$position = static function ( $selector, $declaration = null ) use ( $sheet ) {
+	foreach ( $sheet as $at => $rule ) {
+		if ( '' === $rule['at'] && $rule['selector'] === $selector && ( null === $declaration || in_array( $declaration, $rule['declarations'], true ) ) ) {
+			return $at;
+		}
+	}
+
+	return -1;
+};
+
+$figure = '.wpc-administrator-page .wpcpm-attention__n, .wpc-sponsor-page .wpcpm-attention__n';
+$tile   = '.wpc-sponsor-page .wpcpm-attention__tile';
+$word   = '.wpc-sponsor-page .wpcpm-attention__n--word';
+
+ck( 'numbers keep 28px on a 32px line with the hair of tracking, in the one rule both strips share',
+	dashboard_rules_of( $figure ),
+	array( array( 'font: 700 28px/32px var( --wpc-font );', 'letter-spacing: -0.01em;' ) ) );
+
+$shared_tile = '.wpc-administrator-page .wpcpm-attention__tile, .wpc-sponsor-page .wpcpm-attention__tile';
+
+ck( 'the Sponsor Dashboard\'s tile is an inline-size container, so a figure can size itself by the tile\'s width: the rule both strips share still draws the tile as it did, and a rule for the Sponsor Dashboard\'s tile alone follows with that one declaration',
+	array( dashboard_rules_of( $shared_tile ), dashboard_rules_of( $tile ) ),
+	array(
+		array( array( 'background: var( --wpc-surface );', 'border: 1px solid var( --wpc-line-card );', 'border-radius: var( --wpc-radius-card );' ) ),
+		array( array( 'container-type: inline-size;' ) ),
+	) );
+
+ck( 'the word\'s figure takes the least of 28px and a size that follows the tile: 20 percent of the tile\'s width less 8px, about 22px in the 151.7px tile of a 601px window and 28px from about a 180px tile; said once, nothing else',
+	dashboard_rules_of( $word ),
+	array( array( 'font-size: min( 28px, calc( 20cqi - 8px ) );' ) ) );
+
+ck( 'the container rule and the word\'s rule come after the figure\'s rule, in that order: the word\'s rule ties with the figure\'s at two classes and wins by coming after it',
+	$position( $figure ) > -1 && $position( $figure ) < $position( $tile, 'container-type: inline-size;' ) && $position( $tile, 'container-type: inline-size;' ) < $position( $word ),
+	true );
+
+$administrator = array();
+
+foreach ( $sheet as $rule ) {
+	if ( false !== strpos( $rule['selector'], '.wpc-administrator-page' ) && ( false !== strpos( $rule['selector'], '--word' ) || preg_grep( '/^container-type:/', $rule['declarations'] ) ) ) {
+		$administrator[] = $rule['selector'];
+	}
+}
+
+ck( 'the Administrator Dashboard\'s strip is untouched: no rule under its body class makes a tile a container or sizes a word',
+	$administrator,
+	array() );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

@@ -1182,6 +1182,18 @@ ck( 'the menu script is enqueued for a signed-in reader alone: deferred, no depe
 
 ck( 'the handbook launcher\'s comment names the class the header\'s menu script reads', false !== strpos( theme_file( 'blocks/handbook-launcher/render.php' ), 'wpcpm-hb-open' ), true );
 
+echo "\n=== The open overlay's rows (theme 1.32.8) ===\n";
+
+$overlay_rows = '.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container';
+
+ck( 'the open phone overlay\'s rows stand 8px apart, every row: measured at 375px and 900px they stood 2px apart, so the two outline buttons at the end of a visitor\'s menu nearly touched; one rule, in the 960px block, saying that and nothing else',
+	array( rules_of( $overlay_rows, '@media ( max-width: 960px )' ), rules_anywhere( $overlay_rows ) ),
+	array( array( array( 'gap: 8px;' ) ), 1 ) );
+
+ck( 'the lone-item comment of inc/header.php does not say the theme\'s own items make the menu two or more: a signed-in reader gets none of the buttons and, with the levels off, no Partners link, so the menu can still hold one item and the comment says so',
+	array( false !== strpos( theme_file( 'inc/header.php' ), 'the theme\'s own items make it two' ), false !== strpos( theme_file( 'inc/header.php' ), 'can still hold one item' ) ),
+	array( false, true ) );
+
 $GLOBALS['logged_in'] = false;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );

@@ -1,7 +1,8 @@
 <?php
 /**
- * The Partners page: its stylesheets, and the header menu's two items for it, the "Partners" link
- * while the partnership levels are public and the "Partner as an institution" button.
+ * The Partners page: its stylesheets, and the header menu's items for it: the "Partners" link while
+ * the partnership levels are public and, for a visitor who is not signed in, the "Become a sponsor"
+ * and "Partner as an institution" buttons.
  *
  * The page is the plugin's public sponsors page, at `/partners/` (plugin 1.123.18). WordPress draws a
  * page by its slug's template before `page.html`, so `templates/page-partners.html` draws it: the
@@ -11,9 +12,10 @@
  *
  * The menu's "Partners" link leads to this page, whose own "Become a partner" section has the button
  * on to the sponsorship application (a program Administrator asked for it and the site's owner agreed,
- * 22 October 2026). The menu's button, "Partner as an institution", leads to the institution
- * application form (the site's owner, 25 October 2026); until then the menu's one item, "Become a
- * partner", led to this page, and before that to the sponsorship application.
+ * 22 October 2026). The menu's buttons lead to the sponsorship application, "Become a sponsor" (theme
+ * 1.32.7), and to the institution application form, "Partner as an institution" (the site's owner,
+ * 25 October 2026); until then the menu's one item, "Become a partner", led to this page, and before
+ * that to the sponsorship application.
  *
  * The levels are written once, in the Partners template, and edited in the Site Editor (theme 1.32.1,
  * the design's D5 and D6): the Partner levels block holds a Partner level block for each level and
@@ -149,9 +151,10 @@ add_filter( 'hooked_block_types', 'wpcredits_partners_menu_item', 10, 3 );
  * it is written as a link to that page, with the page's ID, and the block marks it as it does a page
  * link, adding `current-menu-item` and `aria-current="page"`. The wide bar shows the Partners link in
  * the brand blue then, as it does any link to the page being viewed, and the button as it always looks,
- * its own rules winning over the header's current-item rules; the signed-in phone panel (below 1200px)
- * colors either row in the brand blue, the button's at its own weight (style.css). On every other page
- * a link stays the custom link it was.
+ * its own rules winning over the header's current-item rules. A signed-in reader has no button unless
+ * a menu saved in the Site Editor holds one (theme 1.32.7); then the phone panel (below 1200px) colors
+ * that button's row in the brand blue too, at the button's own weight (style.css), as it colors the
+ * Partners link's. On every other page a link stays the custom link it was.
  *
  * @param string $label The link's text, translated.
  * @param string $url   Where it leads.
