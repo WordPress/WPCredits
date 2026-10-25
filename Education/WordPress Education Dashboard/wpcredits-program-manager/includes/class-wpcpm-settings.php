@@ -219,6 +219,19 @@ class WPCPM_Settings {
 			// left to choose for themselves. An empty list requires it of nobody.
 			'two_factor_roles'              => array( 'administrator', 'wpcpm_institution' ),
 
+			// Claude access through the MCP Adapter plugin (design of 24 October 2026, decision 5): a few
+			// read-only answers from the site's own records, for the Administrators on the list. Off, and
+			// nobody on the list, until an Administrator decides otherwise: on means an account can ask
+			// the site questions from outside it, which is not a thing to inherit from an update.
+			// `mcp_users` holds account IDs, lowest first (`user_ids()`); the two ceilings are per
+			// account, across every answer; `mcp_log_days` is how long a log row of an answer or a
+			// refusal is kept.
+			'mcp_enabled'                   => false,
+			'mcp_users'                     => array(),
+			'mcp_calls_per_hour'            => 120,
+			'mcp_calls_per_day'             => 600,
+			'mcp_log_days'                  => 90,
+
 			// Tool - Mentor Status Checker. Prefixed so the tool's settings stay
 			// visibly separate from the modules' in one shared option.
 			'checker_source_status'         => 'Vetted - positive',
@@ -325,6 +338,11 @@ class WPCPM_Settings {
 			),
 			'security'                   => array(
 				'two_factor_roles',
+				'mcp_enabled',
+				'mcp_users',
+				'mcp_calls_per_hour',
+				'mcp_calls_per_day',
+				'mcp_log_days',
 			),
 			'advanced'                   => array(
 				'institution_new_stage',
@@ -592,6 +610,16 @@ class WPCPM_Settings {
 			}
 		}
 
+		// The accounts that may connect to the MCP address, as whole numbers, lowest first: the Security
+		// tab posts the boxes ticked, behind an empty value that makes unticking every one still a post,
+		// so the order the page drew them in is of no weight and there is no stored order to keep. An ID
+		// saved for an account that no longer exists or no longer holds the capability does no harm, since
+		// the MCP address asks for the capability on every request, and the next Save of the tab drops it,
+		// since the tab no longer draws it.
+		if ( isset( $input['mcp_users'] ) ) {
+			$clean['mcp_users'] = self::user_ids( wp_unslash( $input['mcp_users'] ) );
+		}
+
 		// This rule and ten settings further down (the other three leaving rules and seven switches)
 		// are written from whatever input a write reads them from, absent included: a radio always
 		// posts one of its answers, and a box left unticked posts nothing. So each is written only
@@ -730,7 +758,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mcp_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
@@ -803,6 +831,12 @@ class WPCPM_Settings {
 			'report_autodraft_grace_days'   => array( 7, 365 ),
 			// Two weeks' floor keeps a typo from lapsing tonight everybody selected this month.
 			'mentor_lapse_days'             => array( 14, 365 ),
+			// Claude access. One is the least a ceiling can be and still answer: a zero would refuse every
+			// question and read as a broken site. A week is the least the log is kept, so a typo cannot
+			// empty today's record tonight.
+			'mcp_calls_per_hour'            => array( 1, 1000 ),
+			'mcp_calls_per_day'             => array( 1, 10000 ),
+			'mcp_log_days'                  => array( 7, 365 ),
 		);
 
 		foreach ( $limits as $key => $range ) {
@@ -1212,6 +1246,39 @@ class WPCPM_Settings {
 		}
 
 		return array_values( array_unique( $list ) );
+	}
+
+	/**
+	 * A list of accounts as `save()` keeps it: whole numbers above zero, each once, lowest first.
+	 *
+	 * An account is its ID, so an entry is kept only when it is a whole number above zero spelled as a
+	 * number or as its digits, and anything else is dropped rather than read as something near it: a
+	 * fraction, a word, a truth, a list inside the list, a number too long to be an account. Not an
+	 * array, and the empty string and nothing with it, is no list.
+	 *
+	 * @param mixed $raw The list, already unslashed.
+	 * @return int[]
+	 */
+	public static function user_ids( $raw ) {
+		$raw = is_array( $raw ) ? $raw : array( $raw );
+		$ids = array();
+
+		foreach ( $raw as $entry ) {
+			if ( ! is_int( $entry ) && ! is_string( $entry ) ) {
+				continue;
+			}
+
+			$id = filter_var( $entry, FILTER_VALIDATE_INT, array( 'options' => array( 'min_range' => 1 ) ) );
+
+			if ( false !== $id ) {
+				$ids[] = $id;
+			}
+		}
+
+		$ids = array_values( array_unique( $ids ) );
+		sort( $ids );
+
+		return $ids;
 	}
 
 	/**

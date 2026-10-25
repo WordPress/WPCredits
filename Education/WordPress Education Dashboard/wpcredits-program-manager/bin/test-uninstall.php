@@ -921,9 +921,9 @@ $program_event = a_post( 'wpcpm_sponsor_event', 'private', array( '_wpcpm_sevent
 $GLOBALS['opts']['wpcpm_sevent_lock_spoAAAA0000000001'] = time() - HOUR_IN_SECONDS;
 $GLOBALS['opts']['wpcpm_sevent_lock_program']           = time() - HOUR_IN_SECONDS;
 
-// The cron schedule: the twelve hooks the file clears itself, every hook the modules and the tools
-// clear, and one of core's.
-$file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick', 'wpcpm_outcome_figures_weekly', 'wpcpm_outcome_figures_retry' );
+// The cron schedule: the thirteen hooks the file clears itself, the Claude access log's daily sweep
+// among them (1.123.30), every hook the modules and the tools clear, and one of core's.
+$file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_students_daily', 'wpcpm_students_sync_tick', 'wpcpm_send_call_reminders', 'wpcpm_drain_invite_queue', 'wpcpm_institutions_sync_daily', 'wpcpm_institutions_sync_tick', 'wpcpm_handbook_sync_daily', 'wpcpm_handbook_sync_tick', 'wpcpm_outcome_figures_weekly', 'wpcpm_outcome_figures_retry', 'wpcpm_mcp_log_sweep' );
 // The old sponsors sync's two hooks stay on the list: a site that upgrades holds them until the
 // move onto the site completes, and the Sponsors module's uninstall clears them through the names
 // the migration keeps (1.111.0).
@@ -1095,7 +1095,7 @@ ck( 'a sponsor account gives back the posting capabilities its membership grante
 
 echo "\n=== The cron hooks ===\n";
 
-ck( 'the twelve hooks the file clears itself are cleared, the outcome figures\' weekly event and its retry among them', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
+ck( 'the thirteen hooks the file clears itself are cleared, the outcome figures\' weekly event and its retry and the Claude access log\'s daily sweep among them', array_values( array_intersect( $file_hooks, scheduled() ) ), array() );
 ck( 'and so is every hook the modules and the tools clear', array_values( array_intersect( $other_hooks, scheduled() ) ), array() );
 ck( 'and so are the two single events scheduled with an ID, whatever it is', array_values( array_intersect( $single_hooks, scheduled() ) ), array() );
 ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) );
@@ -1226,6 +1226,7 @@ $names = array(
 	'WPCPM_Institutions_Sync::CRON_DAILY'           => 'wpcpm_institutions_sync_daily',
 	'WPCPM_Institutions_Sync::CRON_TICK'            => 'wpcpm_institutions_sync_tick',
 	'WPCPM_Ceiling::CRON_SWEEP'                     => 'wpcpm_ceiling_sweep',
+	'WPCPM_MCP::CRON_SWEEP'                         => 'wpcpm_mcp_log_sweep',
 	'WPCPM_Institutions::CRON_PURGE'                => 'wpcpm_purge_applications',
 	'WPCPM_Institution_Agreement::CRON_DISCARD'     => 'wpcpm_agreement_discard',
 	'WPCPM_Institution_Agreement::CRON_REMINDERS'   => 'wpcpm_agreement_reminders',

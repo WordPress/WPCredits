@@ -360,7 +360,7 @@ Approved**, **Interest mail**, **Offers** and **Tiers**.
 
 ### The Security tab
 
-One section, **Two-factor authentication**.
+Two sections, **Two-factor authentication** and **Claude access (MCP)**.
 
 #### Two-factor authentication
 
@@ -376,6 +376,81 @@ One section, **Two-factor authentication**.
 - **Where it stands** - while the Two Factor plugin is active, for each ticked role, how many
   accounts are covered and how many use an authenticator app, counted when the tab is opened. An
   account that is covered but has no app is using emailed codes.
+
+#### Claude access (MCP)
+
+Lets the Administrators ticked here ask Claude questions that the site answers from its own
+records, read-only, through the MCP Adapter plugin. The section is saved with the tab's one
+**Save settings**, along with the roles above it.
+
+- **Turn it on** - **Let Claude read the program's figures**. Off by default. Under the box, one
+  sentence says whether the MCP Adapter plugin is active: when it is not, nothing can connect
+  whatever the box says; when it is active but older than 0.7.1, the version Claude access was
+  written against, the sentence names the adapter's version and says Claude access needs 0.7.1 or
+  later, so nothing can connect; when it is active at 0.7.1 or later, the sentence names the
+  adapter's version and the address Claude connects at, the site's /wp-json/mcp/wpcredits. Every
+  field of the section is written on every Save, so change this switch one way at a time: a tab
+  opened before a change made from the command line, and saved afterward, writes the old value back.
+- **Who may connect** - a box for each account that holds the program's management capability,
+  named "display name (login)", ticked for the accounts that may connect. Nobody by default. An
+  account that is no longer drawn, because it was deleted or is no longer an Administrator, is
+  taken off the list at the next Save; unticking every box empties the list. Under the boxes: each
+  person creates their own application password on their profile, with a name that begins with
+  Claude, for example "Claude - laptop". Its fold: a password with any other name does not open this
+  address, and a password named this way opens nothing else.
+- **What the address checks** - every request to the address is checked before anything answers, in
+  this order, and the first thing that fails is the answer. No account: refused with 401, and nothing
+  is logged, so a stranger cannot fill the log. The switch off: the address answers 404 and the check
+  asks again all the same. A sign-in that is not an application password named Claude, such as a
+  browser session or a password with any other name: refused with 403. An account that does not hold
+  the program's management capability, or is not ticked under **Who may connect**: refused with 403.
+  Each refusal of a signed-in account is a row in the log, one for each request however many times
+  WordPress asks about it, and 60 an hour at most for each account; a question refused for being
+  over the hour's or the day's limit counts in the same 60. The other half is the fence: a password named Claude opens this address and nothing else. Used on any
+  other REST route, on the batch route or on XML-RPC, it is refused (403 on REST, a failed sign-in
+  on XML-RPC) whether the switch is on or off, and on a REST route that shows in the log as
+  "Refused: another address". A password counts as named Claude when its name begins with Claude, in
+  any case and with spaces before it: "Claude - laptop" does and "Claudette" does not.
+  Before deactivating this plugin or installing a version below 1.123.30, revoke every application password whose name begins with Claude, or check that there is none: without the plugin, such a password opens every address its account can use.
+- **Limits** - two numbers, each counted per person across every answer: **Answers an hour, per
+  person**, 120 by default and from 1 to 1,000, and **Answers a day, per person**, 600 by default
+  and from 1 to 10,000. A number outside its range is saved as the nearest end of it.
+- **Keep the log for** - a number of days, 90 by default and from 7 to 365, outside which it is
+  saved as the nearest end. Every answer and every refusal of a signed-in account is logged and kept
+  for this many days.
+- **Latest calls** - under the rows, a heading and a table of the newest 100 calls in the log, which
+  the tab only reads and the Save does not touch. A row has **When** (in the site's date and time
+  formats), **Who** (the account's display name, or "A removed account" when it has been deleted),
+  **Password** (the name of the application password the call was signed with, never the password),
+  **Asked**, **Outcome**, **Rows** (how many of the program's records the answer named) and **Time
+  taken** in milliseconds. **Asked** is the question's name, for example "Program counts"; "Refused
+  at the door" for a call that was turned away before any question was named, such as a browser
+  session or a password not named Claude; and "Refused: another address" for a Claude password used
+  anywhere but the MCP address. **Outcome** is answered, failed, or refused with its ground, for
+  example "refused: hour_limit". Nothing asked yet shows "Nothing has been asked yet." instead of the
+  table. The table scrolls inside its own box, which a keyboard reaches. Under it: "See more with
+  wp wpcredits mcp_log." That command lists up to 1,000 calls, newest first, as a table, JSON or CSV
+  (`--limit` from 1 to 1,000, 100 by default; `--format`), with the columns when, account (the login),
+  password, ability, outcome, reason, rows and ms; JSON and CSV also give input (what was asked, as
+  JSON) and records (the IDs of the records that went out) after reason. A daily job deletes the
+  calls older than **Keep the log for**, in batches of 500, the oldest first, up to 10,000 rows a run and the rest the next
+  day, never fewer than 7 days whatever the setting holds, and no other row of the audit trail; it
+  runs whether the switch is on or off.
+- **What Claude can ask** - four questions, answered from the records the site already keeps and
+  never from Airtable or WordPress.org, each saying when its records were last read, and none
+  naming a person. **Program counts** gives the figures the Administrator Dashboard counts for the
+  current semester: students per track, mentors, institutions per stage, sponsors per tier, mentor
+  applications and the outcome figures. **What waits for an Administrator** lists the tiles of the
+  dashboard's attention strip, with how many wait and where to open each, and when each sync last
+  ran and runs next and whether the Syncs and health card counts it among those that need a look.
+  **Mentor engagement** says how many active mentors signed in, were seen, acted
+  or stayed idle, as the Engagement tab counts them, as of a day. **One institution** is found by
+  its record ID or by part of its name, five at most at a time, and gives its pipeline stage, country
+  and city, its Collaboration Agreement's status and dates, how many accounts act for it and its
+  students per group, for one semester or for all, and when the institutions and, separately, the
+  roster behind the students were last read. An institution's contact, the person who
+  accepted its agreement and its members are never named, and every name and label in an answer is
+  cut to one line of at most 120 characters.
 
 ### The Mail tab
 

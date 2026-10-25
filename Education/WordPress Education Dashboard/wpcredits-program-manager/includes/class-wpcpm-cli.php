@@ -563,6 +563,85 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * List the latest calls Claude access has logged, newest first.
+	 *
+	 * Reads only. The rows are the Latest calls table's on Settings > Security, which shows the newest
+	 * hundred; this lists up to a thousand. Every call to an ability is a row, answered, refused or failed: the
+	 * account that asked, the name of the application password it used, the ability (empty for a call the
+	 * door turned away before any ability was named), the outcome and, for a refusal or a failure, the
+	 * reason, how many rows of the program's records went out, and the milliseconds the answer took. The
+	 * times are the site's own, in its date and time formats. JSON and CSV also say what was asked (input,
+	 * as JSON) and which records went out (records, their IDs), after the reason; the table does not, to
+	 * stay narrow. A row older than the Keep the log for setting is deleted by the daily sweep.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--limit=<n>]
+	 * : How many calls at most, from 1 to 1000; a number outside that is held to the nearest end of it. Default: 100.
+	 *
+	 * [--format=<format>]
+	 * : table, json or csv. Default: table. JSON and CSV add two columns after reason: input (what was asked, as JSON) and records (the IDs of the records that went out).
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits mcp_log
+	 *     wp wpcredits mcp_log --limit=500 --format=csv
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function mcp_log( $args, $assoc_args ) {
+		unset( $args );
+
+		$format = isset( $assoc_args['format'] ) ? (string) $assoc_args['format'] : 'table';
+		$limit  = 100;
+
+		if ( ! in_array( $format, array( 'table', 'json', 'csv' ), true ) ) {
+			WP_CLI::error( 'Use --format=table, json or csv.' );
+		}
+
+		if ( isset( $assoc_args['limit'] ) ) {
+			$given = $assoc_args['limit'];
+
+			if ( ! ( is_int( $given ) || is_string( $given ) ) || 1 !== preg_match( '/^-?\d+$/', (string) $given ) ) {
+				WP_CLI::error( 'Use --limit=<a whole number from 1 to 1000>.' );
+			}
+
+			$limit = max( 1, min( 1000, (int) $given ) );
+		}
+
+		// The table is eight columns wide. JSON and CSV are read by a program or a spreadsheet, which has room
+		// for the two that say what was asked and what went out, right after the reason.
+		$detail = 'table' !== $format;
+		$fields = $detail
+			? array( 'when', 'account', 'password', 'ability', 'outcome', 'reason', 'input', 'records', 'rows', 'ms' )
+			: array( 'when', 'account', 'password', 'ability', 'outcome', 'reason', 'rows', 'ms' );
+		$rows   = array();
+
+		foreach ( WPCPM_Institution_Audit::mcp_entries( $limit ) as $entry ) {
+			$data = isset( $entry['data'] ) && is_array( $entry['data'] ) ? $entry['data'] : array();
+			$user = get_userdata( (int) $entry['actor'] );
+
+			$row = array(
+				'when'     => WPCPM_Dates::moment( $entry['time'] ),
+				'account'  => $user ? (string) $user->user_login : 'A removed account',
+				'password' => isset( $data['password'] ) ? (string) $data['password'] : '',
+				'ability'  => isset( $data['ability'] ) ? (string) $data['ability'] : '',
+				'outcome'  => isset( $data['outcome'] ) ? (string) $data['outcome'] : '',
+				'reason'   => isset( $data['reason'] ) ? (string) $data['reason'] : '',
+				'input'    => array_key_exists( 'input', $data ) ? (string) wp_json_encode( $data['input'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) : '',
+				'records'  => isset( $data['records'] ) && is_array( $data['records'] ) ? implode( ', ', array_map( 'strval', $data['records'] ) ) : '',
+				'rows'     => isset( $data['rows'] ) ? (int) $data['rows'] : 0,
+				'ms'       => isset( $data['ms'] ) ? (int) $data['ms'] : 0,
+			);
+
+			$rows[] = array_intersect_key( $row, array_flip( $fields ) );
+		}
+
+		WP_CLI\Utils\format_items( $format, $rows, $fields );
+	}
+
+	/**
 	 * Print the Mentors row an application would write, or check that the base takes a whole row.
 	 *
 	 * With a reference, prints each cell the application would write to the Mentors table, as the

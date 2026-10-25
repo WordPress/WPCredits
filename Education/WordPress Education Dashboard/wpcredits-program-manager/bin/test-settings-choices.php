@@ -306,6 +306,13 @@ class WPCPM_Two_Factor {
 	}
 }
 
+/** Claude access's log, as the Security tab reads it: this suite draws the tab with nothing asked yet. */
+class WPCPM_Institution_Audit {
+	public static function mcp_entries( $limit = 100 ) {
+		return array();
+	}
+}
+
 /** The compile a save runs when a status list changed, counted. */
 class WPCPM_Track_Store {
 	public static $compiled = 0;

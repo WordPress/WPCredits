@@ -2193,6 +2193,23 @@ ck( 'beside an audience\'s sync that needs a look the figures are one more in th
 		array( 1, 'Automatic sync is off; 1 sync reports an error' ),
 		array( 0, $every ),
 	) );
+// That row's rule is a predicate of its own (1.123.30), for a reader that says it per sync: true for the reads
+// the card counts above, held, failed and stopped, and false for the others.
+$figures_needs = static function ( $result, $days = null ) use ( $figures_look ) {
+	$figures_look( $result, true, $days );
+	return WPCPM_Administrators_Cards::figures_need_look();
+};
+ck( 'figures_need_look() is the row\'s own rule: a held read, a failed one and a stopped one need a look; a waiting one, a stored one and none at all do not',
+	array(
+		$figures_needs( 'held' ),
+		$figures_needs( 'failed', 7 ),
+		$figures_needs( 'stored', 30 ),
+		$figures_needs( null, 45 ),
+		$figures_needs( 'stored', 28.9 ),
+		$figures_needs( 'waiting', 7 ),
+		$figures_needs( null ),
+	),
+	array( true, true, true, true, false, false, false ) );
 // The Administrator Dashboard's strip counts the weekly read as the card does, from the one row: on
 // a quiet day a held, failed or stopped read draws the Syncs tile with the card's own number, the
 // switch on or off, and the strip is no longer the sentence that says nothing is waiting; a read
@@ -2826,6 +2843,54 @@ ck( 'while it is off, the runs are a manager\'s own and only an error needs a lo
 	array( 2, 'Automatic sync is off; 2 syncs report an error' ),
 ) );
 ck( 'with no sync to speak of, the row says nothing and counts none, the switch on or off', array( syncs_row_of( array(), true ), syncs_row_of( array(), false ) ), array( array( 0, null ), array( 0, null ) ) );
+// The per-sync rule the row applies, as a predicate of its own (1.123.30): a sync needs a look when its last
+// run left an error, or, while Automatic sync is on, no run of it finished within the window. Claude access
+// answers the same question per sync, and a sync's answer there and the row's count here cannot differ.
+$sync_of = static function ( array $run, $running = false ) {
+	return array( 'label' => 'Sync', 'progress' => array( 'running' => $running, 'phase' => $running ? 'reading' : 'done', 'label' => '', 'error' => $run['error'], 'elapsed' => 0 ), 'last' => $run['last'], 'next' => 0, 'screen' => 'https://example.test/wp-admin/admin.php?page=wpcpm-students' );
+};
+$needs = static function ( array $run, $auto, $running = false ) use ( $sync_of ) {
+	return WPCPM_Administrators_Cards::sync_needs_look( $sync_of( $run, $running ), $auto );
+};
+ck( 'the predicate: a sync that never ran needs a look while Automatic sync is on, and none while it is off', array( $needs( $never, true ), $needs( $never, false ) ), array( true, false ) );
+ck( 'a sync that finished a run within the six hours needs none, on or off', array( $needs( $ran( 5 ), true ), $needs( $ran( 5 ), false ), $needs( $ran( 0.1 ), true ) ), array( false, false, false ) );
+ck( 'the window is six hours: a run just inside it needs none and one just past it needs a look, while Automatic sync is on', array(
+	$needs( array( 'last' => time() - WPCPM_Administrators_Cards::SYNC_WINDOW + 30, 'error' => '' ), true ),
+	$needs( array( 'last' => time() - WPCPM_Administrators_Cards::SYNC_WINDOW - 30, 'error' => '' ), true ),
+	WPCPM_Administrators_Cards::SYNC_WINDOW,
+), array( false, true, 6 * HOUR_IN_SECONDS ) );
+ck( 'a run past the window needs a look only while Automatic sync is on: off, the old run is the program\'s choice', array( $needs( $ran( 7 ), true ), $needs( $ran( 7 ), false ), $needs( $ran( 24 * 30 ), true ), $needs( $ran( 24 * 30 ), false ) ), array( true, false, true, false ) );
+ck( 'an error needs a look whenever it was left, Automatic sync on or off, and a fresh run does not clear it', array( $needs( $ran( 1, 'HTTP 429 from Airtable' ), true ), $needs( $ran( 1, 'HTTP 429 from Airtable' ), false ), $needs( array( 'last' => 0, 'error' => 'HTTP 500' ), false ) ), array( true, true, true ) );
+ck( 'an error of white space alone is no error', array( $needs( $ran( 1, "  \n" ), true ), $needs( $ran( 1, "  \n" ), false ) ), array( false, false ) );
+ck( 'a sync running now is judged as any other, by its last finished run and its last error: a run that finished 5 hours ago needs none, one 7 hours ago needs a look while Automatic sync is on, and none while it is off', array(
+	$needs( $ran( 5 ), true, true ),
+	$needs( $ran( 7 ), true, true ),
+	$needs( $ran( 7 ), false, true ),
+	$needs( $never, true, true ),
+	$needs( $never, false, true ),
+), array( false, true, false, true, false ) );
+ck( 'a sync that holds no progress, or no last run, is read as one that never ran with no error', array(
+	WPCPM_Administrators_Cards::sync_needs_look( array(), true ),
+	WPCPM_Administrators_Cards::sync_needs_look( array(), false ),
+	WPCPM_Administrators_Cards::sync_needs_look( array( 'last' => time() - 60, 'progress' => 'x' ), true ),
+), array( true, false, false ) );
+ck( 'the answer is a bool', array( is_bool( $needs( $never, true ) ), is_bool( $needs( $ran( 1, 'x' ), false ) ) ), array( true, true ) );
+
+// The row counts exactly the syncs the predicate says need a look (the outcome figures' own read aside, which has
+// a rule of its own): the badge of every fixture above is the number of its syncs for which the predicate is true.
+foreach ( array(
+	'on, all fresh'          => array( array( $ran( 5 ), $ran( 5 ), $ran( 5 ) ), true ),
+	'on, one old'            => array( array( $ran( 5 ), $ran( 7 ), $ran( 5 ) ), true ),
+	'on, one in error'       => array( array( $ran( 5 ), $ran( 5 ), $ran( 1, 'HTTP 429 from Airtable' ) ), true ),
+	'on, never, old, error'  => array( array( $never, $ran( 7 ), $ran( 7, 'HTTP 429 from Airtable' ) ), true ),
+	'off, old and never'     => array( array( $ran( 24 * 30 ), $never, $ran( 5 ) ), false ),
+	'off, one in error'      => array( array( $ran( 24 * 30 ), $ran( 5, 'HTTP 429 from Airtable' ), $ran( 5 ) ), false ),
+	'off, two in error'      => array( array( $ran( 1, 'HTTP 500' ), $ran( 9, 'HTTP 429 from Airtable' ), $ran( 7 ) ), false ),
+) as $label => $case ) {
+	$counted = count( array_filter( $case[0], static function ( $run ) use ( $needs, $case ) { return $needs( $run, $case[1] ); } ) );
+	ck( "the row's badge ($label) is the number of syncs the predicate says need a look", syncs_row_of( $case[0], $case[1] )[0], $counted );
+}
+
 // Automatic sync is read once for the page, by health(), and is what the row says it is.
 $GLOBALS['settings_read'] = array();
 $auto_page                = WPCPM_Administrators_Dashboard::render( array() );

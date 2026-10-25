@@ -3246,12 +3246,14 @@ final class WPCPM_Administrators_Cards {
 	 * why it needs a look: a held read as held for a look, never as an error. Beside another sync that
 	 * needs a look it is one more in the count the row says.
 	 *
+	 * The rule for an audience's sync is `sync_needs_look()`, which Claude access (1.123.30) asks for each
+	 * sync too.
+	 *
 	 * @param array $syncs `health()`'s `syncs`, each with `last` and `progress`.
 	 * @param bool  $auto  Whether Automatic sync is on.
 	 * @return array{count: int, state: string} The badge's number and the row's phrase.
 	 */
 	private static function syncs_row( array $syncs, $auto ) {
-		$since   = time() - self::SYNC_WINDOW;
 		$look    = 0;
 		$figures = '';
 
@@ -3262,10 +3264,7 @@ final class WPCPM_Administrators_Cards {
 				continue;
 			}
 
-			$last  = isset( $sync['last'] ) ? (int) $sync['last'] : 0;
-			$error = isset( $sync['progress']['error'] ) ? trim( (string) $sync['progress']['error'] ) : '';
-
-			if ( '' !== $error || ( $auto && $last < $since ) ) {
+			if ( self::sync_needs_look( is_array( $sync ) ? $sync : array(), (bool) $auto ) ) {
 				++$look;
 			}
 		}
@@ -3306,6 +3305,42 @@ final class WPCPM_Administrators_Cards {
 			'count' => $count,
 			'state' => $state,
 		);
+	}
+
+	/**
+	 * Whether one audience's sync needs a look: its last run left an error, or, while Automatic sync is on,
+	 * no run of it finished within `SYNC_WINDOW`, a sync that never ran included.
+	 *
+	 * The rule of the Syncs and health card, for the card's count (`syncs_row()`) and for any other reader
+	 * of `health()`'s syncs, such as the answer of Claude access to what waits for an Administrator, so a
+	 * sync is counted as one that needs a look in exactly the same case wherever it is asked. While
+	 * Automatic sync is off, the runs are an Administrator's own and an old one is the program's choice,
+	 * so only an error needs a look. A sync that is running now is judged by its last finished run and its
+	 * last error, as any other. It does not apply to the outcome figures' weekly read, whose rule is
+	 * `figures_need_look()`.
+	 *
+	 * @param array $sync `health()`'s entry for one sync: `last` (the Unix time of its last finished run,
+	 *                    0 for never) and `progress`, whose `error` is the words of its last error.
+	 * @param bool  $auto Whether Automatic sync is on.
+	 * @return bool
+	 */
+	public static function sync_needs_look( array $sync, bool $auto ): bool {
+		$last  = isset( $sync['last'] ) ? (int) $sync['last'] : 0;
+		$error = isset( $sync['progress']['error'] ) ? trim( (string) $sync['progress']['error'] ) : '';
+
+		return '' !== $error || ( $auto && $last < time() - self::SYNC_WINDOW );
+	}
+
+	/**
+	 * Whether the outcome figures' weekly read needs a look: `figures_look()` has a reason to give.
+	 *
+	 * The rule of that one row, the switch on or off, for the count of the Syncs and health card and for
+	 * any other reader that says it per sync.
+	 *
+	 * @return bool
+	 */
+	public static function figures_need_look(): bool {
+		return '' !== self::figures_look();
 	}
 
 	/**

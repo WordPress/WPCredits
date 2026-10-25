@@ -47,6 +47,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-return.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-module-order.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-flash.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ceiling.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-abilities.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ability-answers.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mcp.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-refusal-meter.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
@@ -342,6 +345,8 @@ wp_clear_scheduled_hook( WPCPM_Mentor_Calls::CRON_REMINDERS );
 wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY );
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_TICK );
+// The Claude access log's daily sweep (1.123.30), which `WPCPM_MCP::deactivate()` clears too.
+wp_clear_scheduled_hook( WPCPM_MCP::CRON_SWEEP );
 // Named as literals because the classes that owned them are gone. A site upgrading from the
 // version that kept a local copy still has both schedules and the table, and a scheduled hook
 // whose callback no longer exists fails silently for ever.

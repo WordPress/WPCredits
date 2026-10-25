@@ -244,3 +244,22 @@ The schemas (every output schema names every key it can hold, `additionalPropert
   - the refusals of the spec's section 9 step 6, run by the product owner with `curl` and the same header; the ceilings set to 2 and put back; the log's rows on the Security tab; Two Factor lets the Claude password through and the fence holds;
   - the product owner revokes "Claude - trial"; restore the snapshot and reinstall 1.123.29.
 - [ ] **Deploy and mirror** only on the product owner's yes. MCP Adapter goes on live only on the product owner's separate yes (spec section 11, decision 6), after the deploy and with the switch off, in the spec's section 10 order. The release republishes the Administrator guide (page 560).
+
+## Closing note: how the code departs from this plan
+
+Built subagent-driven on 24 and 25 October 2026, each task reviewed on its own and the branch reviewed whole; every departure below was ruled during the run and is the code's, not this plan's.
+
+- **Task 2 wrote the four labels and descriptions** (Task 3's texts) and the execute callbacks; Task 3 added the schemas, which live in `WPCPM_Ability_Answers::input_schema()` and `output_schema()`.
+- **One password lookup,** `WPCPM_Abilities::password()`; `WPCPM_MCP::current_password()` returns it.
+- **The ceiling messages use `_n()`**: "The limit of 1 answer a day is reached." in the singular.
+- **The door logs every refusal of a signed-in account** and nothing for a request with no account or for the allowed case; a door or fence row is written by `WPCPM_Abilities::refusal()`, on the same row builder as a call's, and one refused request writes one row (core's Allow header asks the door again for each method, and those asks write nothing).
+- **Every refusal shares one cap** of 60 rows an hour per account: the door's, the fence's and the two ceilings'.
+- **The XML-RPC fence adds its error and writes no row,** because core runs that check before there is a current user.
+- **The transport permission callback is `WPCPM_MCP::permit()`, a strict bool** over `door()`, not `door()` itself, so the plugin does not depend on how an adapter treats a `WP_Error`.
+- **The fence replaces an earlier `rest_pre_dispatch` result on a fenced route** (an earlier `WP_Error` excepted), and `create_server()` runs in a `try`/`catch` and writes one `error_log()` line naming only the error's code or the exception's class.
+- **The sweep deletes in batches of 500, up to 20 a run,** and never keeps fewer than 7 days whatever is stored.
+- **Two help lines follow the settings suite's house rule:** "Who may connect" puts its second sentence in the row's fold, and the adapter line is one sentence, "MCP Adapter %1$s is active, and Claude connects at %2$s.", or, below 0.7.1, "MCP Adapter %1$s is active, but Claude access needs 0.7.1 or later, so nothing can connect."
+- **`wpcpm/mentor-engagement-summary` counts today as of now,** not as of a future 23:59:59; a tile with no address and no published Administrator Dashboard gets an empty `open`.
+- **Each sync in `wpcpm/waiting-for-decision` carries `needs_look`,** from the Administrator Dashboard's own rules (`sync_needs_look()`, and `figures_need_look()` for the weekly outcome figures), so the answer's count equals the card's badge.
+- **`wpcpm/institution-summary` adds `institutions_read_at`** beside the roster's `read_at`; `wp wpcredits mcp_log` adds `input` and `records` to its json and csv formats.
+- **The rollback revokes the Claude passwords first:** without the plugin, a password named Claude opens every address its account can use.

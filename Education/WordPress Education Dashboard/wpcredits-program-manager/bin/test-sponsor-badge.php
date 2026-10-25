@@ -301,6 +301,10 @@ class WPCPM_Outcome_Figures {
 	public static function deactivate() {
 	}
 }
+class WPCPM_MCP {
+	public static function deactivate() {
+	}
+}
 
 /** Refuses a key's (limit + 1)th claim, as bin/test-sponsors-feed.php's does, and records each claim asked for. */
 class WPCPM_Ceiling {

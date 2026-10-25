@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.29
+Stable tag: 1.123.30
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,13 @@ No. Uninstall removes settings, sync state, access-level meta, the last sign-in 
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.30 =
+
+* Claude access (MCP), off until an Administrator turns it on: the Administrators ticked on Settings > Security can ask Claude for the program's figures, and the site answers from its own records, read-only, through four abilities: Program counts, What waits for an Administrator, Mentor engagement and One institution. No answer names a person. The abilities are offered only through the plugin's own MCP server at /wp-json/mcp/wpcredits, on the MCP Adapter plugin 0.7.1 or later, whose default server is turned off; none of them is public.
+* Who may connect: an Administrator on the list, signed in with an application password whose name begins with Claude. Such a password opens that address and nothing else, over the REST API and XML-RPC alike, whether the switch is on or off; the address refuses every other way of signing in.
+* Each person may ask 120 answers an hour and 600 a day by default. Every answer, and every refusal of a signed-in account (at most 60 an hour), is logged without its content or an IP address; Settings > Security lists the latest 100, `wp wpcredits mcp_log` lists more, and a daily job deletes them after the number of days the tab sets (90 by default, never fewer than 7).
+* Before deactivating the plugin or installing an older version, revoke every application password whose name begins with Claude: without the plugin, such a password opens every address its account can use.
 
 = 1.123.29 =
 

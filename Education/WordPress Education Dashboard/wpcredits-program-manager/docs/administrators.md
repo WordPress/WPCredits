@@ -880,7 +880,7 @@ Approved**, **Interest mail**, **Offers** and **Tiers**.
 
 ### The Security tab
 
-One section, **Two-factor authentication**.
+Two sections, **Two-factor authentication** and **Claude access (MCP)**.
 
 #### Two-factor authentication
 
@@ -896,6 +896,81 @@ One section, **Two-factor authentication**.
 - **Where it stands** - while the Two Factor plugin is active, for each ticked role, how many
   accounts are covered and how many use an authenticator app, counted when the tab is opened. An
   account that is covered but has no app is using emailed codes.
+
+#### Claude access (MCP)
+
+Lets the Administrators ticked here ask Claude questions that the site answers from its own
+records, read-only, through the MCP Adapter plugin. The section is saved with the tab's one
+**Save settings**, along with the roles above it.
+
+- **Turn it on** - **Let Claude read the program's figures**. Off by default. Under the box, one
+  sentence says whether the MCP Adapter plugin is active: when it is not, nothing can connect
+  whatever the box says; when it is active but older than 0.7.1, the version Claude access was
+  written against, the sentence names the adapter's version and says Claude access needs 0.7.1 or
+  later, so nothing can connect; when it is active at 0.7.1 or later, the sentence names the
+  adapter's version and the address Claude connects at, the site's /wp-json/mcp/wpcredits. Every
+  field of the section is written on every Save, so change this switch one way at a time: a tab
+  opened before a change made from the command line, and saved afterward, writes the old value back.
+- **Who may connect** - a box for each account that holds the program's management capability,
+  named "display name (login)", ticked for the accounts that may connect. Nobody by default. An
+  account that is no longer drawn, because it was deleted or is no longer an Administrator, is
+  taken off the list at the next Save; unticking every box empties the list. Under the boxes: each
+  person creates their own application password on their profile, with a name that begins with
+  Claude, for example "Claude - laptop". Its fold: a password with any other name does not open this
+  address, and a password named this way opens nothing else.
+- **What the address checks** - every request to the address is checked before anything answers, in
+  this order, and the first thing that fails is the answer. No account: refused with 401, and nothing
+  is logged, so a stranger cannot fill the log. The switch off: the address answers 404 and the check
+  asks again all the same. A sign-in that is not an application password named Claude, such as a
+  browser session or a password with any other name: refused with 403. An account that does not hold
+  the program's management capability, or is not ticked under **Who may connect**: refused with 403.
+  Each refusal of a signed-in account is a row in the log, one for each request however many times
+  WordPress asks about it, and 60 an hour at most for each account; a question refused for being
+  over the hour's or the day's limit counts in the same 60. The other half is the fence: a password named Claude opens this address and nothing else. Used on any
+  other REST route, on the batch route or on XML-RPC, it is refused (403 on REST, a failed sign-in
+  on XML-RPC) whether the switch is on or off, and on a REST route that shows in the log as
+  "Refused: another address". A password counts as named Claude when its name begins with Claude, in
+  any case and with spaces before it: "Claude - laptop" does and "Claudette" does not.
+  Before deactivating this plugin or installing a version below 1.123.30, revoke every application password whose name begins with Claude, or check that there is none: without the plugin, such a password opens every address its account can use.
+- **Limits** - two numbers, each counted per person across every answer: **Answers an hour, per
+  person**, 120 by default and from 1 to 1,000, and **Answers a day, per person**, 600 by default
+  and from 1 to 10,000. A number outside its range is saved as the nearest end of it.
+- **Keep the log for** - a number of days, 90 by default and from 7 to 365, outside which it is
+  saved as the nearest end. Every answer and every refusal of a signed-in account is logged and kept
+  for this many days.
+- **Latest calls** - under the rows, a heading and a table of the newest 100 calls in the log, which
+  the tab only reads and the Save does not touch. A row has **When** (in the site's date and time
+  formats), **Who** (the account's display name, or "A removed account" when it has been deleted),
+  **Password** (the name of the application password the call was signed with, never the password),
+  **Asked**, **Outcome**, **Rows** (how many of the program's records the answer named) and **Time
+  taken** in milliseconds. **Asked** is the question's name, for example "Program counts"; "Refused
+  at the door" for a call that was turned away before any question was named, such as a browser
+  session or a password not named Claude; and "Refused: another address" for a Claude password used
+  anywhere but the MCP address. **Outcome** is answered, failed, or refused with its ground, for
+  example "refused: hour_limit". Nothing asked yet shows "Nothing has been asked yet." instead of the
+  table. The table scrolls inside its own box, which a keyboard reaches. Under it: "See more with
+  wp wpcredits mcp_log." That command lists up to 1,000 calls, newest first, as a table, JSON or CSV
+  (`--limit` from 1 to 1,000, 100 by default; `--format`), with the columns when, account (the login),
+  password, ability, outcome, reason, rows and ms; JSON and CSV also give input (what was asked, as
+  JSON) and records (the IDs of the records that went out) after reason. A daily job deletes the
+  calls older than **Keep the log for**, in batches of 500, the oldest first, up to 10,000 rows a run and the rest the next
+  day, never fewer than 7 days whatever the setting holds, and no other row of the audit trail; it
+  runs whether the switch is on or off.
+- **What Claude can ask** - four questions, answered from the records the site already keeps and
+  never from Airtable or WordPress.org, each saying when its records were last read, and none
+  naming a person. **Program counts** gives the figures the Administrator Dashboard counts for the
+  current semester: students per track, mentors, institutions per stage, sponsors per tier, mentor
+  applications and the outcome figures. **What waits for an Administrator** lists the tiles of the
+  dashboard's attention strip, with how many wait and where to open each, and when each sync last
+  ran and runs next and whether the Syncs and health card counts it among those that need a look.
+  **Mentor engagement** says how many active mentors signed in, were seen, acted
+  or stayed idle, as the Engagement tab counts them, as of a day. **One institution** is found by
+  its record ID or by part of its name, five at most at a time, and gives its pipeline stage, country
+  and city, its Collaboration Agreement's status and dates, how many accounts act for it and its
+  students per group, for one semester or for all, and when the institutions and, separately, the
+  roster behind the students were last read. An institution's contact, the person who
+  accepted its agreement and its members are never named, and every name and label in an answer is
+  cut to one line of at most 120 characters.
 
 ### The Mail tab
 
@@ -2212,6 +2287,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | Option | Constant |
 | --- | --- |
 | `_jetpack_dont_email_post_to_subs` | `WPCPM_Sponsor_Posts::META_NO_SUBSCRIBER_MAIL` (post meta: Jetpack Subscriptions' own mark, `1` on every sponsor post, so it is never emailed to the site's subscribers) |
+| `_wpcpm_log_mcp` | `WPCPM_Institution_Audit::META_MCP` (post meta: marks a row of the audit trail as one call to a Claude access ability, answered, refused or failed, so no institution's, sponsor's or program's history lists it; it holds `mcp`, and the call's facts are in the row's data: the ability, the outcome and the reason, the input with every string cleaned, how many rows went out and their record ids (25 at most), the time taken in milliseconds, and the name and id of the application password that signed the call, never the answer and never the password; a refusal by the address's door or its password fence is a row of the same shape with no ability, no input and no rows, and a refusal by the fence also holds the route that was asked for, at most 60 rows an hour for each account (a call refused for being over the hour's or the day's limit counts in the same 60); the newest 100 are listed on Settings > Security under **Latest calls**, and `wp wpcredits mcp_log` lists up to 1,000; they are kept for the days of the **Keep the log for** setting, 90 by default, and the daily sweep, `wpcpm_mcp_log_sweep`, calls `WPCPM_Institution_Audit::delete_mcp_before()`, which deletes the older ones, oldest first, in batches of 500, and no row under another key) |
 | `_wpcpm_log_program` | `WPCPM_Institution_Audit::META_PROGRAM` (post meta: marks a row of the audit trail as the program's own, the plan, change or cancel of an event of the program's own, so no institution's or sponsor's history lists it; no screen lists these rows yet, so they are read from the trail itself, the `wpcpm_audit_entry` posts holding this key) |
 | `_wpcpm_offer_approved` | `WPCPM_Sponsor_Offers::META_APPROVED` (post meta: `1` when an offer's words have an Administrator's OK, `0` when they wait for it; an offer from before 1.123.18 has none and reads as approved while students can see it) |
 | `_wpcpm_offer_codes_held` | `WPCPM_Sponsor_Offers::META_CODES_HELD` (post meta: how many codes a member added to an approved offer wait for review, the mark the review queue finds the offer by; the codes themselves are in the pool's option, `wpcpm_codes_<offer>`, under `held`) |
@@ -2221,6 +2297,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `_wpcpm_offer_returned` | `WPCPM_Sponsor_Offers::META_RETURNED` (post meta: when an Administrator returned it) |
 | `_wpcpm_offer_submitted` | `WPCPM_Sponsor_Offers::META_SUBMITTED` (post meta: who sent an offer or a change for review, and when) |
 | `_wpcpm_spost_dormant` | `WPCPM_Sponsor_Posts::META_DORMANT` (post meta: the day the daily run put a published sponsor post back to pending) |
+| `mcp_call` | `WPCPM_Institution_Audit::KIND_MCP_CALL` (audit kind: one call to a Claude access ability, answered, refused or failed, or one refusal by the MCP address's door or password fence; every row under `_wpcpm_log_mcp` has this kind) |
 | `offer_approved` | `WPCPM_Sponsor_Offer_Review::LOG_APPROVED` (audit kind: an Administrator approved a sponsor's offer or a change to it) |
 | `offer_returned` | `WPCPM_Sponsor_Offer_Review::LOG_RETURNED` (audit kind: an Administrator returned a sponsor's offer or a change to it with a note) |
 | `sponsor_event_approved` | `WPCPM_Sponsor_Event::LOG_APPROVED` (audit kind: an Administrator approved a sponsor's event) |
@@ -2260,6 +2337,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_institutions_report` | `WPCPM_Institutions_Sync::OPT_REPORT` |
 | `wpcpm_institutions_state` | `WPCPM_Institutions_Sync::OPT_STATE` |
 | `wpcpm_mapp_lock_` | `WPCPM_Mentor_Application::LOCK_PREFIX` (the per-application activation locks) |
+| `wpcpm_mcp_log_sweep` | `WPCPM_MCP::CRON_SWEEP` (cron hook: the daily sweep of the Claude access log, which deletes the calls older than the **Keep the log for** setting, never fewer than 7 days, in batches of 500, oldest first, up to 20 batches (10,000 rows) a run and the rest the next day, whether the switch is on or off; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
 | `wpcpm_mentor_application_counts` | `WPCPM_Mentor_Application::OPT_KEPT` |
 | `wpcpm_mentor_application_log` | `WPCPM_Mentor_Application::OPT_LOG` |
 | `wpcpm_mentor_application_page_id` | `WPCPM_Mentor_Application_Form::OPT_PAGE` |

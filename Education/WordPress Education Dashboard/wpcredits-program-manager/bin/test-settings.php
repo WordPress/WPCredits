@@ -31,7 +31,7 @@ class WP_Error {
 	public function get_error_message() { return ''; }
 }
 class WP_User {
-	public $ID = 0, $roles = array(), $display_name = '';
+	public $ID = 0, $roles = array(), $display_name = '', $user_login = '';
 	public function __construct( $id = 0 ) { $this->ID = $id; }
 	public function exists() { return $this->ID > 0; }
 }
@@ -150,6 +150,15 @@ function wp_safe_redirect( $to ) { $GLOBALS['redirected_to'] = $to; throw new Ex
 function add_query_arg( $k, $v, $u ) { return $u . ( false === strpos( $u, '?' ) ? '?' : '&' ) . $k . '=' . $v; }
 function wp_die( $m = '' ) { throw new Exception( 'wp_die: ' . $m ); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+// The accounts holding the program's capability, as the Security tab's "Who may connect" lists them,
+// and the REST address Claude connects at once the MCP Adapter plugin is active.
+$GLOBALS['users'] = array();
+function get_users( $args = array() ) { return array_values( $GLOBALS['users'] ); }
+function get_userdata( $id ) { return isset( $GLOBALS['users'][ (int) $id ] ) ? $GLOBALS['users'][ (int) $id ] : false; }
+// The site's clock for the Latest calls' times: UTC, in the formats WordPress itself starts with.
+function wp_date( $format, $time = null ) { return gmdate( $format, $time ); }
+$GLOBALS['rest_root'] = 'https://example.test/wp-json/';
+function rest_url( $path = '' ) { return $GLOBALS['rest_root'] . ltrim( (string) $path, '/' ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function get_bloginfo( $k = 'name' ) { return 'Test'; }
 function wp_specialchars_decode( $s, $q = null ) { return (string) $s; }
@@ -251,6 +260,25 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
 // The enrollment ceilings the Institutions tab states: the real ones.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
+// The Security tab's Latest calls: the date class, the abilities' labels (the real ones, since the table
+// prints them) and a stand-in of the audit log that answers what a check sets. The real log's shape is
+// pinned by bin/test-audit.php; the stand-in's rows carry the keys `entry_from()` gives.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-abilities.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ability-answers.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mcp.php';
+require_once __DIR__ . '/stubs/scroll-regions.php';
+
+class WPCPM_Institution_Audit {
+	public static $entries = array();
+	public static $asked   = array();
+
+	public static function mcp_entries( $limit = 100 ) {
+		self::$asked[] = $limit;
+
+		return $limit > 0 ? array_slice( self::$entries, 0, $limit ) : self::$entries;
+	}
+}
 
 /**
  * The dashboards whose pages the landing-page rows link to, each at its published address, or at ''
@@ -480,6 +508,11 @@ $probe = array(
 	'institution_new_stage'         => 'Probe stage',
 	'institution_active_stages'     => array( 'Probe stage', 'Probe confirmed' ),
 	'two_factor_roles'              => array( 'administrator', 'wpcpm_mentor' ),
+	// Claude access (MCP), 1.123.30: the switch is probed with the other switches below.
+	'mcp_users'                     => array( 3, 7, 12 ),
+	'mcp_calls_per_hour'            => '300',
+	'mcp_calls_per_day'             => '900',
+	'mcp_log_days'                  => '30',
 	'institution_on_inactive'       => 'keep',
 	'application_spam_days'         => '45',
 	'application_rejected_days'     => '400',
@@ -1693,7 +1726,7 @@ $by_design = array(
 	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
-	'security'                   => array( 'two_factor_roles' ),
+	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_log_days' ),
 	'advanced'                   => array( 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
 	'tool:mentor-status-checker' => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'checker_' ); } ) ),
 	'tool:duplicate-finder'      => array( 'duplicate_delete_enabled' ),
@@ -2725,6 +2758,7 @@ $design_sections = array(
 	),
 	'security'     => array(
 		'Two-factor authentication' => 'two-factor-authentication',
+		'Claude access (MCP)'       => 'claude-access-mcp',
 	),
 	'mail'         => array(
 		'Invitations' => 'invitations-waiting-to-be-sent',
@@ -2802,8 +2836,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 25 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 25, 0, 25 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 26 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 26, 0, 26 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -4430,6 +4464,456 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( WPCPM_Settings::defa
 ck( 'a Students row address from the settings, each part encoded', WPCPM_Settings::airtable_record_url( 'students_table', 'recABCDEFGHIJKLMN' ), 'https://airtable.com/appTEST/tbl%20STU/recABCDEFGHIJKLMN' );
 ck( 'a table the settings do not name gives no address', WPCPM_Settings::airtable_record_url( 'reports_table', 'recABCDEFGHIJKLMN' ), '' );
 ck( 'and so does an empty record', WPCPM_Settings::airtable_record_url( 'students_table', '' ), '' );
+
+echo "\n=== Claude access (MCP) ===\n";
+
+// Five settings behind one switch (design of 24 October 2026, decision 5): the switch, the accounts
+// that may connect, two ceilings per account, and how long the log of answers is kept. They are the
+// Security tab's, and the later parts of the release read them with `WPCPM_Settings::get_value()`.
+$mcp_keys = array( 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_log_days' );
+$fresh    = WPCPM_Settings::defaults();
+
+ck( 'Claude access is off by default, with nobody on the list, 120 answers an hour and 600 a day per person, and the log kept 90 days',
+    array_map( static function ( $key ) use ( $fresh ) { return array_key_exists( $key, $fresh ) ? $fresh[ $key ] : 'no such setting'; }, $mcp_keys ),
+    array( false, array(), 120, 600, 90 ) );
+
+ck( 'all five are the Security tab\'s, after the roles that must use a second factor, and no other scope\'s',
+    array( WPCPM_Settings::scope_keys( 'security' ), array_values( array_intersect( $mcp_keys, array_merge( ...array_values( array_diff_key( WPCPM_Settings::scopes(), array( 'security' => 1 ) ) ) ) ) ) ),
+    array( array_merge( array( 'two_factor_roles' ), $mcp_keys ), array() ) );
+
+// The list as a form posts it, or a command line hands it over: the accounts as whole numbers, lowest
+// first, each once. An ID is a positive whole number, so anything else a request could carry is no
+// account and goes, and nothing that is not an array of them is a list.
+$ids = static function ( $raw ) {
+	return method_exists( 'WPCPM_Settings', 'user_ids' ) ? WPCPM_Settings::user_ids( $raw ) : 'WPCPM_Settings::user_ids() is not there';
+};
+
+ck( 'user_ids() keeps the positive whole numbers as numbers, lowest first, and drops zero, a negative, a word and the empty value the form always posts',
+    array( $ids( array( '3', 3, 0, -2, 'x', 12, '7' ) ), $ids( array( '', '12', '4' ) ) ),
+    array( array( 3, 7, 12 ), array( 4, 12 ) ) );
+ck( 'each ID once, however it is spelled, and nothing that is not a whole number or its digits: a fraction, a list, a truth, a null, a number too long to be an account',
+    $ids( array( 12, 3, '3', ' 4 ', array( 4 ), true, 1.5, null, '9999999999999999999999', '07' ) ),
+    array( 3, 4, 12 ) );
+ck( 'and no list, the empty string or nothing, is the empty list',
+    array( $ids( '' ), $ids( null ), $ids( array() ) ),
+    array( array(), array(), array() ) );
+
+// A patch writes what it holds and leaves the rest as stored.
+store_settings( array_merge( $fresh, array( 'mcp_users' => array( 5, 9 ), 'mcp_calls_per_hour' => 50 ) ) );
+$patched = WPCPM_Settings::patch( array( 'mcp_enabled' => true ) );
+
+ck( 'a patch of the switch stores it on and leaves the list and the ceilings as stored',
+    array( $patched['mcp_enabled'] ?? null, $patched['mcp_users'] ?? null, $patched['mcp_calls_per_hour'] ?? null ),
+    array( true, array( 5, 9 ), 50 ) );
+
+WPCPM_Settings::patch( array( 'mcp_log_days' => 30 ) );
+
+ck( 'a patch without the switch leaves it as stored, and a patch of it off switches it off and leaves the list',
+    array( WPCPM_Settings::get_value( 'mcp_enabled' ), WPCPM_Settings::patch( array( 'mcp_enabled' => false ) )['mcp_enabled'] ?? null, WPCPM_Settings::get_value( 'mcp_users' ), WPCPM_Settings::get_value( 'mcp_log_days' ) ),
+    array( true, false, array( 5, 9 ), 30 ) );
+
+ck( 'a patch of the list stores it as user_ids() reads it, and an empty list empties it',
+    array( WPCPM_Settings::patch( array( 'mcp_users' => array( '12', 3, 'x', 3 ) ) )['mcp_users'] ?? null, WPCPM_Settings::patch( array( 'mcp_users' => array() ) )['mcp_users'] ?? null ),
+    array( array( 3, 12 ), array() ) );
+
+// The Security tab's Save, through the real handler. The switch is a box: unticked, it posts nothing,
+// and the scope's save reads that as off. The list always posts an empty value first, so unticking
+// every account posts a list of nothing and empties it, where a form that never drew the list posts
+// no key at all and leaves it as stored.
+store_settings( array_merge( $fresh, array( 'mcp_enabled' => true, 'mcp_users' => array( 5, 9 ) ) ) );
+press_tab( 'security', array( 'mcp_users' => array( '', '12', '4' ) ) );
+$unticked = array( WPCPM_Settings::get_value( 'mcp_enabled' ), WPCPM_Settings::get_value( 'mcp_users' ) );
+
+press_tab( 'security', array( 'mcp_enabled' => '1', 'mcp_users' => array( '' ) ) );
+$none_ticked = array( WPCPM_Settings::get_value( 'mcp_enabled' ), WPCPM_Settings::get_value( 'mcp_users' ) );
+
+store_settings( array_merge( $fresh, array( 'mcp_users' => array( 5, 9 ) ) ) );
+press_tab( 'security', array( 'mcp_enabled' => '1' ) );
+$no_list = array( WPCPM_Settings::get_value( 'mcp_enabled' ), WPCPM_Settings::get_value( 'mcp_users' ) );
+
+ck( 'a Security save that posts no switch stores it off and the list as ticked, one with every account unticked empties the list, and one that posts no list leaves it as stored',
+    array( $unticked, $none_ticked, $no_list ),
+    array( array( false, array( 4, 12 ) ), array( true, array() ), array( true, array( 5, 9 ) ) ) );
+
+$other_kept = array();
+
+foreach ( array_diff( array_keys( WPCPM_Settings::scopes() ), array( 'security' ) ) as $scope ) {
+	store_settings( array_merge( $fresh, array( 'mcp_enabled' => true, 'mcp_users' => array( 5, 9 ), 'mcp_calls_per_hour' => 50 ) ) );
+	press_tab( $scope, array( 'mcp_users' => array( '' ), 'mcp_calls_per_hour' => '900' ) );
+
+	$other_kept[ $scope ] = array( WPCPM_Settings::get_value( 'mcp_enabled' ), WPCPM_Settings::get_value( 'mcp_users' ), WPCPM_Settings::get_value( 'mcp_calls_per_hour' ) );
+}
+
+ck( 'and no other tab\'s or tool\'s Save touches the switch, the list or a ceiling, though its request carries them',
+    $other_kept,
+    array_fill_keys( array_diff( array_keys( WPCPM_Settings::scopes() ), array( 'security' ) ), array( true, array( 5, 9 ), 50 ) ) );
+
+// Each number is held to its range at both ends: a ceiling of nothing would refuse every answer and
+// read as a broken site, and a week is the least a log is kept, so a typo cannot empty today's record
+// tonight.
+$mcp_ranges = array(
+	'mcp_calls_per_hour' => array( 0 => 1, 1 => 1, 1000 => 1000, 5000 => 1000 ),
+	'mcp_calls_per_day'  => array( 0 => 1, 1 => 1, 10000 => 10000, 99999 => 10000 ),
+	'mcp_log_days'       => array( 3 => 7, 7 => 7, 365 => 365, 999 => 365 ),
+);
+
+foreach ( $mcp_ranges as $key => $answers ) {
+	$stored = array();
+
+	foreach ( $answers as $posted => $unused ) {
+		store_settings( $fresh );
+		$stored[ $posted ] = WPCPM_Settings::save( array( $key => (string) $posted ), 'security' )[ $key ] ?? null;
+	}
+
+	ck( sprintf( '%s is held to its range: %s', $key, implode( ', ', array_map( static function ( $posted, $kept ) { return $posted . ' is kept as ' . $kept; }, array_keys( $answers ), $answers ) ) ),
+	    $stored, $answers );
+}
+
+// The Security tab draws the section after the two-factor one. The accounts are the ones holding the
+// program's capability, a name and a login each; an ID saved for an account that is no longer listed
+// is not drawn, so the next Save takes it off the list.
+$GLOBALS['pages'] = array();
+
+$account = static function ( $id, $name, $login ) {
+	$user               = new WP_User( $id );
+	$user->display_name = $name;
+	$user->user_login   = $login;
+
+	return $user;
+};
+
+$GLOBALS['users'] = array(
+	3  => $account( 3, 'First Administrator', 'admin-one' ),
+	7  => $account( 7, 'Second <i>Administrator</i>', 'admin-two' ),
+	12 => $account( 12, '', 'admin-three' ),
+);
+
+WPCPM_Two_Factor::$available = true;
+WPCPM_Two_Factor::$roles     = array();
+
+store_settings( array_merge( $fresh, array( 'mcp_users' => array( 7, 40 ) ) ) );
+$claude_tab = draw_settings( 'security' );
+
+$claude_sections = sections_of( $claude_tab );
+
+ck( 'the Security tab draws the Claude access (MCP) section after the two-factor one, introduced by one sentence',
+    array( array_column( $claude_sections, 'heading' ), $claude_sections[1]['intro'] ?? null ),
+    array( array( 'Two-factor authentication', 'Claude access (MCP)' ), 'Lets the Administrators ticked below ask Claude questions that the site answers from its own records, read-only, through the MCP Adapter plugin.' ) );
+
+ck( 'with four rows after the roles\': Turn it on, Who may connect, Limits and Keep the log for',
+    array_column( rows_of( $claude_tab ), 'label' ),
+    array( 'Roles that must use it', 'Turn it on', 'Who may connect', 'Limits', 'Keep the log for' ) );
+
+// Turn it on: the box, and under it what the site knows of the adapter.
+preg_match( '#<label><input type="checkbox" name="mcp_enabled" value="1"( checked=\'checked\')?> ([^<]*)</label>#', $claude_tab, $switch_box );
+store_settings( array_merge( $fresh, array( 'mcp_enabled' => true ) ) );
+preg_match( '#<label><input type="checkbox" name="mcp_enabled" value="1"( checked=\'checked\')?> ([^<]*)</label>#', draw_settings( 'security' ), $switch_on );
+
+ck( 'Turn it on is one box, "Let Claude read the program\'s figures", unticked while the switch is off and ticked while it is on',
+    array( isset( $switch_box[2] ) ? html_entity_decode( $switch_box[2], ENT_QUOTES ) : null, ! empty( $switch_box[1] ), ! empty( $switch_on[1] ) ),
+    array( 'Let Claude read the program\'s figures', false, true ) );
+ck( 'and says under it, while the MCP Adapter plugin is not active, that nothing can connect whatever the box says, in one sentence and no fold',
+    help_of( $claude_tab, 'Turn it on' ),
+    array( array( 'The MCP Adapter plugin is not active, so nothing can connect whatever this says.' ), array() ) );
+
+// Who may connect: an empty value first, so that unticking every account is still a post, then a box
+// for each account holding the capability, by its name and its login.
+store_settings( array_merge( $fresh, array( 'mcp_users' => array( 7, 40 ) ) ) );
+$claude_tab = draw_settings( 'security' );
+$who_row    = '';
+
+foreach ( rows_of( $claude_tab ) as $row ) {
+	if ( 'Who may connect' === $row['label'] ) {
+		$who_row = $row['cell'];
+	}
+}
+
+preg_match_all( '#<label><input type="checkbox" name="mcp_users\[\]" value="(\d+)"( checked=\'checked\')?> ([^<]*)</label>#', $who_row, $who_boxes, PREG_SET_ORDER );
+$hidden_empty = strpos( $who_row, '<input type="hidden" name="mcp_users[]" value="" />' );
+$first_box    = strpos( $who_row, '<input type="checkbox" name="mcp_users[]"' );
+
+ck( 'Who may connect posts an empty value ahead of its boxes, then has a box for each account that holds the capability, "name (login)", ticked while the account is on the list',
+    array( false !== $hidden_empty && false !== $first_box && $hidden_empty < $first_box, substr_count( $who_row, 'name="mcp_users[]" value=""' ),
+           array_map( static function ( $box ) { return array( (int) $box[1], ! empty( $box[2] ), html_entity_decode( $box[3], ENT_QUOTES ) ); }, $who_boxes ) ),
+    array( true, 1, array(
+        array( 3, false, 'First Administrator (admin-one)' ),
+        array( 7, true, 'Second <i>Administrator</i> (admin-two)' ),
+        array( 12, false, 'admin-three (admin-three)' ),
+    ) ) );
+ck( 'a name is escaped where it is drawn, and an ID saved for an account that is not listed is not drawn',
+    array( false !== strpos( $who_row, 'Second &lt;i&gt;Administrator&lt;/i&gt; (admin-two)' ), false === strpos( $who_row, 'value="40"' ) ),
+    array( true, true ) );
+ck( 'and says under the boxes how each person makes the password, in one sentence, and in the fold what a password named otherwise and a password named so can do',
+    help_of( $claude_tab, 'Who may connect' ),
+    array(
+        array( 'Each person creates their own application password on their profile, with a name that begins with Claude, for example "Claude - laptop".' ),
+        array( 'A password with any other name does not open this address, and a password named this way opens nothing else.' ),
+    ) );
+
+// Limits and Keep the log for: numbers, each held to its range in the field as well.
+$number_fields = array();
+
+foreach ( $mcp_keys as $key ) {
+	if ( 'mcp_enabled' !== $key && 'mcp_users' !== $key ) {
+		$number_fields[ $key ] = preg_match( '#<input type="number" id="wpcpm-' . $key . '" name="' . $key . '" value="(\d+)" min="(\d+)" max="(\d+)"#', $claude_tab, $field ) ? array_map( 'intval', array_slice( $field, 1 ) ) : null;
+	}
+}
+
+ck( 'the ceilings and the log\'s days are number fields holding the stored value and the range the save holds them to',
+    $number_fields,
+    array( 'mcp_calls_per_hour' => array( 120, 1, 1000 ), 'mcp_calls_per_day' => array( 600, 1, 10000 ), 'mcp_log_days' => array( 90, 7, 365 ) ) );
+
+preg_match_all( '#<label for="wpcpm-(mcp_calls_per_hour|mcp_calls_per_day)">([^<]*)</label>#', $claude_tab, $limit_labels, PREG_SET_ORDER );
+
+ck( 'Limits labels them "Answers an hour, per person" and "Answers a day, per person", and Keep the log for follows its field with "days" and says in one sentence what the log holds',
+    array( array_column( $limit_labels, 2, 1 ), 1 === preg_match( '#<input type="number"[^>]*name="mcp_log_days"[^>]*/> days#', $claude_tab ), help_of( $claude_tab, 'Keep the log for' ) ),
+    array( array( 'mcp_calls_per_hour' => 'Answers an hour, per person', 'mcp_calls_per_day' => 'Answers a day, per person' ), true, array( array( 'Every answer and every refusal of a signed-in account is logged and kept for this many days.' ), array() ) ) );
+
+// A Save of the form as it is drawn writes the same settings back: nothing in it is lost, the ticked
+// accounts that are listed stay, and the one that is not listed goes.
+store_settings( array_merge( $fresh, array( 'mcp_enabled' => true, 'mcp_users' => array( 7, 40 ), 'mcp_calls_per_hour' => 77, 'mcp_calls_per_day' => 555, 'mcp_log_days' => 45 ) ) );
+press_tab( 'security', array( 'mcp_enabled' => '1', 'mcp_users' => array( '', '7' ), 'mcp_calls_per_hour' => '77', 'mcp_calls_per_day' => '555', 'mcp_log_days' => '45' ) );
+
+ck( 'the Save of the tab as drawn keeps the switch, the numbers and the listed account, and the account that was not listed is off the list',
+    array_map( 'WPCPM_Settings::get_value', $mcp_keys ),
+    array( true, array( 7 ), 77, 555, 45 ) );
+
+// Latest calls: the section ends with the log's newest hundred rows, in a table, or a sentence when nothing
+// has been asked, and then the command that lists more. The log is read, never written, by the screen.
+$GLOBALS['users'][3]->display_name  = 'First Administrator';
+$GLOBALS['users'][7]->display_name  = 'Second <i>Administrator</i>';
+$GLOBALS['users'][12]->display_name = '';
+
+/** A row of the audit log as `mcp_entries()` shapes it, the call's facts under `data`. */
+function call_entry( $id, $time, $actor, array $data ) {
+	return array(
+		'id'          => $id,
+		'kind'        => 'mcp_call',
+		'institution' => '',
+		'sponsor'     => '',
+		'subject'     => '',
+		'actor'       => $actor,
+		'ground'      => 'manager',
+		'evidence'    => 'index',
+		'message'     => '',
+		'data'        => array_merge( array( 'ability' => '', 'outcome' => 'answered', 'reason' => '', 'input' => array(), 'rows' => 0, 'records' => array(), 'ms' => 0, 'password' => '', 'password_id' => '' ), $data ),
+		'time'        => $time,
+	);
+}
+
+/**
+ * The Latest calls the Security tab drew: the heading, whether the table sits in a scrolling region named
+ * by it, the column titles, each row's cells as text and as markup, the sentence when there is no table,
+ * and the paragraphs after the table.
+ *
+ * @param string $html The Security tab.
+ * @return array
+ */
+function latest_calls_of( $html ) {
+	if ( ! preg_match( '#<h3 id="([^"]*)">Latest calls</h3>(.*?)(<p class="submit">|</form>)#s', $html, $part ) ) {
+		return array();
+	}
+
+	preg_match( '#<table class="widefat striped">(.*?)</table>#s', $part[2], $table );
+	preg_match_all( '#<th scope="col">([^<]*)</th>#', isset( $table[1] ) ? $table[1] : '', $heads );
+	preg_match_all( '#<tr>((?:<td>.*?</td>)+)</tr>#s', isset( $table[1] ) ? $table[1] : '', $trs );
+
+	$rows = array();
+	$raw  = array();
+
+	foreach ( $trs[1] as $tr ) {
+		preg_match_all( '#<td>(.*?)</td>#s', $tr, $cells );
+		$raw[]  = $cells[1];
+		$rows[] = array_map( static function ( $cell ) { return html_entity_decode( $cell, ENT_QUOTES ); }, $cells[1] );
+	}
+
+	$after = isset( $table[0] ) ? substr( $part[2], strpos( $part[2], '</table>' ) + 8 ) : $part[2];
+
+	return array(
+		'id'      => $part[1],
+		'heads'   => array_map( static function ( $head ) { return html_entity_decode( $head, ENT_QUOTES ); }, $heads[1] ),
+		'rows'    => $rows,
+		'raw'     => $raw,
+		'notes'   => array_map( static function ( $note ) { return html_entity_decode( strip_tags( $note[2] ), ENT_QUOTES ); }, notes_of( $after ) ),
+		'has_box' => false !== strpos( $part[2], '<div class="wpcpm-settings__scroll" tabindex="0" role="region" aria-labelledby="' . $part[1] . '">' ),
+		'table'   => isset( $table[0] ),
+	);
+}
+
+WPCPM_Institution_Audit::$entries = array();
+WPCPM_Institution_Audit::$asked   = array();
+store_settings( $fresh );
+$quiet_tab = draw_settings( 'security' );
+$quiet     = latest_calls_of( $quiet_tab );
+
+ck( 'the Security tab ends Claude access with Latest calls, after the last row and inside the form, before Save, and asks the log for 100',
+    array( in_order( offsets_of( $quiet_tab, array( 'name="mcp_log_days"', '>Latest calls</h3>', '<p class="submit">', '</form>' ) ) ), WPCPM_Institution_Audit::$asked ),
+    array( true, array( 100 ) ) );
+ck( 'Latest calls is a heading under the section\'s, not a section of its own, and the tab still has its two sections',
+    array( array_column( sections_of( $quiet_tab ), 'heading' ), substr_count( $quiet_tab, '<h3 ' ) ),
+    array( array( 'Two-factor authentication', 'Claude access (MCP)' ), 1 ) );
+ck( 'with nothing asked yet it says so in place of the table, then where to see more',
+    array( $quiet['table'] ?? null, $quiet['notes'] ?? null ),
+    array( false, array( 'Nothing has been asked yet.', 'See more with wp wpcredits mcp_log.' ) ) );
+
+$old_calls = array(
+	call_entry( 905, 1792272800, 3, array( 'ability' => 'wpcpm/program-counts', 'outcome' => 'answered', 'rows' => 0, 'ms' => 1234, 'password' => 'Claude - laptop' ) ),
+	call_entry( 904, 1792186400, 7, array( 'ability' => 'wpcpm/institution-summary', 'outcome' => 'answered', 'rows' => 3, 'ms' => 42, 'password' => 'claude' ) ),
+	call_entry( 903, 1792100800, 12, array( 'ability' => 'wpcpm/waiting-for-decision', 'outcome' => 'refused', 'reason' => 'hour_limit', 'ms' => 2, 'password' => 'Claude - desk' ) ),
+	call_entry( 902, 1792100700, 3, array( 'ability' => '', 'outcome' => 'refused', 'reason' => 'wrong_password' ) ),
+	call_entry( 901, 1792100600, 3, array( 'ability' => '', 'outcome' => 'refused', 'reason' => 'fenced', 'ms' => 1, 'password' => 'Claude - laptop', 'route' => '/wp/v2/users' ) ),
+	call_entry( 900, 1792100500, 3, array( 'ability' => 'wpcpm/mentor-engagement-summary', 'outcome' => 'failed', 'reason' => 'error', 'ms' => 90, 'password' => 'Claude - laptop' ) ),
+	call_entry( 899, 1792100400, 99, array( 'ability' => 'wpcpm/gone-<b>ability', 'outcome' => 'answered', 'ms' => 5, 'password' => '<script>alert(1)</script>' ) ),
+);
+
+WPCPM_Institution_Audit::$entries = $old_calls;
+store_settings( array_merge( $fresh, array( 'mcp_enabled' => true, 'mcp_users' => array( 7 ), 'mcp_log_days' => 45 ) ) );
+$calls_tab = draw_settings( 'security' );
+$calls     = latest_calls_of( $calls_tab );
+
+ck( 'with calls logged it draws a table with the columns When, Who, Password, Asked, Outcome, Rows and Time taken',
+    array( $calls['table'] ?? null, $calls['heads'] ?? null ),
+    array( true, array( 'When', 'Who', 'Password', 'Asked', 'Outcome', 'Rows', 'Time taken' ) ) );
+ck( 'one row for each call, newest first as the log gives them: the time in the site\'s format, the account by its display name (its login when the name is empty), the password\'s name, what was asked by the ability\'s label, the outcome, the rows and the time taken',
+    array_slice( $calls['rows'] ?? array(), 0, 3 ),
+    array(
+        array( 'October 17, 2026 9:33 pm', 'First Administrator', 'Claude - laptop', 'Program counts', 'answered', '0', '1234 ms' ),
+        array( 'October 16, 2026 9:33 pm', 'Second <i>Administrator</i>', 'claude', 'One institution', 'answered', '3', '42 ms' ),
+        array( 'October 15, 2026 9:46 pm', 'admin-three', 'Claude - desk', 'What waits for an Administrator', 'refused: hour_limit', '0', '2 ms' ),
+    ) );
+ck( 'a refusal at the door prints "Refused at the door", a refusal by the password fence "Refused: another address", a failure just failed, and a call whose ability is no longer defined prints its stored name',
+    array_map( static function ( $row ) { return array( $row[3], $row[4] ); }, array_slice( $calls['rows'] ?? array(), 3 ) ),
+    array(
+        array( 'Refused at the door', 'refused: wrong_password' ),
+        array( 'Refused: another address', 'refused: fenced' ),
+        array( 'Mentor engagement', 'failed' ),
+        array( 'wpcpm/gone-<b>ability', 'answered' ),
+    ) );
+ck( 'an account that is gone is "A removed account", and a call with no password prints an empty cell',
+    array( $calls['rows'][6][1] ?? null, $calls['rows'][3][2] ?? null ),
+    array( 'A removed account', '' ) );
+ck( 'every cell is escaped: a name, a password\'s name and an ability\'s stored name with markup in them arrive as text',
+    array(
+        false !== strpos( $calls['raw'][1][1] ?? '', 'Second &lt;i&gt;Administrator&lt;/i&gt;' ),
+        false !== strpos( $calls['raw'][6][2] ?? '', '&lt;script&gt;alert(1)&lt;/script&gt;' ),
+        false !== strpos( $calls['raw'][6][3] ?? '', 'wpcpm/gone-&lt;b&gt;ability' ),
+        1 === preg_match( '#<script|<b>|<i>#', implode( '', array_merge( ...( $calls['raw'] ?? array() ) ) ) ),
+    ),
+    array( true, true, true, false ) );
+ck( 'the table sits alone in a scrolling box that is a tab stop and a region named by the heading, and no other table of the tab sits outside a box but the form tables',
+    array( $calls['has_box'] ?? null, scroll_boxes( $calls_tab, 'wpcpm-settings__scroll' )['boxes'], scroll_boxes( $calls_tab, 'wpcpm-settings__scroll' )['loose'] ),
+    array( true, array( array( 'box' => 'div.wpcpm-settings__scroll', 'tabindex' => '0', 'role' => 'region', 'alone' => true, 'name' => 'Latest calls' ) ), array( 'form-table', 'form-table' ) ) );
+ck( 'and the sentence that says where to see more follows the table',
+    $calls['notes'] ?? null,
+    array( 'See more with wp wpcredits mcp_log.' ) );
+ck( 'the heading\'s id is its own on the tab',
+    array( $calls['id'] ?? null, substr_count( $calls_tab, 'id="wpcpm-mcp-log"' ) ),
+    array( 'wpcpm-mcp-log', 1 ) );
+
+// The log is capped at the newest hundred by the asking, and the screen prints what it is given.
+WPCPM_Institution_Audit::$entries = array();
+
+for ( $n = 0; $n < 130; $n++ ) {
+	WPCPM_Institution_Audit::$entries[] = call_entry( 2000 - $n, 1792272800 - $n, 3, array( 'ability' => 'wpcpm/program-counts', 'password' => 'Claude - laptop' ) );
+}
+
+WPCPM_Institution_Audit::$asked = array();
+$many = latest_calls_of( draw_settings( 'security' ) );
+
+ck( 'with more than a hundred calls logged the screen asks for 100 and prints 100 rows',
+    array( WPCPM_Institution_Audit::$asked, count( $many['rows'] ?? array() ) ),
+    array( array( 100 ), 100 ) );
+
+// The stylesheet: the box scrolls inside itself, never the page, and is no taller than a screen, so Save
+// stays within reach; and it is a tab stop with the focus ring wp-admin gives a focused link.
+$admin_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' );
+$box_rules = scroll_css_decls( $admin_css, '.wpcpm-settings__scroll' );
+
+ck( 'admin.css lets the Latest calls box scroll in both directions and holds it to a screen\'s height',
+    array( $box_rules['overflow'] ?? null, isset( $box_rules['max-height'] ) ),
+    array( 'auto', true ) );
+ck( 'and gives the box a focus ring when a keyboard reaches it',
+    isset( scroll_css_decls( $admin_css, '.wpcpm-settings__scroll:focus-visible' )['box-shadow'] ),
+    true );
+
+// Reading the log changes nothing: the settings are as the tab was drawn with.
+ck( 'drawing the tab with calls in the log leaves the Claude access settings as stored',
+    array_map( 'WPCPM_Settings::get_value', $mcp_keys ),
+    array( true, array( 7 ), 120, 600, 45 ) );
+
+// The adapter's version decides what the box says, and a constant stays defined once it is, so each version
+// that is not the suite's own is drawn by a copy of this suite run to this point (bin/test-abilities.php
+// does the same for the registration). The copy draws the Security tab on the live site's address, with the
+// adapter at the version it is given, and prints what is under Turn it on as its last line.
+if ( isset( $argv[1], $argv[2] ) && 'child-adapter' === $argv[1] ) {
+	define( 'WP_MCP_VERSION', $argv[2] );
+	store_settings( $fresh );
+	$GLOBALS['rest_root'] = 'https://wordpresseducation.org/wp-json/';
+
+	echo "\n" . json_encode( help_of( draw_settings( 'security' ), 'Turn it on' ) ) . "\n";
+	exit( 0 );
+}
+
+/** What is under Turn it on while the adapter is at a version, as a copy of this suite draws it on the live address. */
+function adapter_line_at( $version ) {
+	$out = array();
+	exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-adapter ' . escapeshellarg( $version ) . ' 2>&1', $out, $status );
+
+	$last = (array) json_decode( (string) end( $out ), true );
+
+	return array( 'status' => $status, 'help' => $last );
+}
+
+ck( 'the floor the Security tab names is the floor the abilities hold', WPCPM_Abilities::ADAPTER_MIN, '0.7.1' );
+
+foreach ( array( '0.7.0', '0.6.9', '0.7.0-rc.1' ) as $older ) {
+	$line = adapter_line_at( $older );
+	$text = isset( $line['help'][0][0] ) ? $line['help'][0][0] : '';
+
+	ck( "while the adapter is active at $older, which is older than Claude access works with, Turn it on says so in one sentence and no fold, and that nothing can connect",
+	    array( $line['status'], $line['help'] ),
+	    array( 0, array( array( "MCP Adapter $older is active, but Claude access needs 0.7.1 or later, so nothing can connect." ), array() ) ) );
+	ck( "and that line, at $older, is one sentence in one paragraph of at most 160 characters, like every row's help",
+	    array( sentences_in( $text ), strlen( $text ) <= 160, count( isset( $line['help'][0] ) ? $line['help'][0] : array() ) ),
+	    array( 1, true, 1 ) );
+}
+
+foreach ( array( '0.7.1', '0.7.2', '0.8.0', '0.10.0' ) as $newer ) {
+	$line = adapter_line_at( $newer );
+
+	ck( "while the adapter is active at $newer, which Claude access works with, Turn it on says the version and where Claude connects",
+	    array( $line['status'], $line['help'] ),
+	    array( 0, array( array( "MCP Adapter $newer is active, and Claude connects at https://wordpresseducation.org/wp-json/mcp/wpcredits." ), array() ) ) );
+}
+
+// The address printed is built from the server's own route, not typed a second time.
+$screen_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php' );
+ck( 'the address the tab prints is built from WPCPM_MCP::ROUTE_NAMESPACE and WPCPM_MCP::ROUTE, and the literal is nowhere in the screen',
+    array( false !== strpos( $screen_source, "rest_url( WPCPM_MCP::ROUTE_NAMESPACE . '/' . WPCPM_MCP::ROUTE )" ), false !== strpos( $screen_source, "'mcp/wpcredits'" ) ),
+    array( true, false ) );
+ck( 'and WPCPM_MCP\'s two parts make the address the guide gives', '/wp-json/' . WPCPM_MCP::ROUTE_NAMESPACE . '/' . WPCPM_MCP::ROUTE, '/wp-json/mcp/wpcredits' );
+
+// With the plugin active the box says where Claude connects. A constant stays defined, so this is the
+// last thing the suite draws.
+define( 'WP_MCP_VERSION', '0.7.1' );
+store_settings( $fresh );
+
+ck( 'while the MCP Adapter plugin is active, Turn it on says which version and where Claude connects',
+    help_of( draw_settings( 'security' ), 'Turn it on' )[0],
+    array( 'MCP Adapter 0.7.1 is active, and Claude connects at https://example.test/wp-json/mcp/wpcredits.' ) );
+
+// The house rule on the draw the live site makes, where the adapter is active: one sentence of help
+// under the box, in one paragraph, at most 160 characters, and no fold, with a realistic address
+// (the site's own, which is longer than the suite's) and a version of the adapter's shape.
+$GLOBALS['rest_root'] = 'https://wordpresseducation.org/wp-json/';
+$live_row             = help_of( draw_settings( 'security' ), 'Turn it on' );
+$live_line            = isset( $live_row[0][0] ) ? $live_row[0][0] : '';
+
+ck( 'and with the site\'s own address that help is one sentence in one paragraph of at most 160 characters, with no fold, as every row\'s help outside a fold is',
+    array( $live_line, sentences_in( $live_line ), strlen( $live_line ) <= 160, count( $live_row[0] ), $live_row[1] ),
+    array( 'MCP Adapter 0.7.1 is active, and Claude connects at https://wordpresseducation.org/wp-json/mcp/wpcredits.', 1, true, 1, array() ) );
+
+$GLOBALS['rest_root'] = 'https://example.test/wp-json/';
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

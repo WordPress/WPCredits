@@ -50,6 +50,9 @@ class WPCPM_Settings_Screen {
 	 */
 	const GUIDE_PAGE_PATH = 'program-manager-guide';
 
+	/** How many of Claude access's latest calls the Security tab lists; `wp wpcredits mcp_log` lists more. */
+	const MCP_LOG_ROWS = 100;
+
 	/**
 	 * The four tools that keep settings of their own, in the order the Connection tab's first line
 	 * names them (`render_tools_lede()`): each keeps them in the Settings section of its own screen.
@@ -550,7 +553,7 @@ class WPCPM_Settings_Screen {
 			'people'       => 'render_tab_people',
 			'institutions' => 'render_institution_settings',
 			'sponsors'     => 'render_sponsor_settings',
-			'security'     => 'render_two_factor_settings',
+			'security'     => 'render_tab_security',
 			'advanced'     => 'render_tab_advanced',
 		);
 	}
@@ -1569,7 +1572,19 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The Security tab: which roles must present a second factor, and how far along each one is.
+	 * The Security tab: its two sections, one form and one Save, so the second factor's roles and
+	 * Claude's access are saved together as the one scope they are (`WPCPM_Settings::scopes()`).
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_tab_security( array $settings ) {
+		$this->render_two_factor_settings( $settings );
+		$this->render_mcp_settings( $settings );
+	}
+
+	/**
+	 * The Security tab's first section: which roles must present a second factor, and how far along
+	 * each one is.
 	 *
 	 * Rendered even when the Two Factor plugin is not installed, because a policy that silently
 	 * does nothing is worse than one that says why: the row then names the plugin before its boxes.
@@ -1673,6 +1688,264 @@ class WPCPM_Settings_Screen {
 		}
 
 		$this->close_section();
+	}
+
+	/**
+	 * The Security tab's second section: whether Claude may ask the site questions through the MCP
+	 * Adapter plugin, which Administrators may, how many questions each may ask, and how long the log of
+	 * them is kept (design of 24 October 2026, decision 5).
+	 *
+	 * The tab saves every field of it, so the switch is changed one way at a time: a tab opened before a
+	 * change made another way and saved afterward writes the old value back. The list posts an empty
+	 * value ahead of its boxes, as the roles above do, so that unticking every account empties the list
+	 * instead of looking like a form that never drew it, which would leave the old list in place, the one
+	 * shape a list of who may connect must not have.
+	 *
+	 * The log's latest rows are drawn after this section's rows, inside the same form
+	 * (`render_mcp_log()`).
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_mcp_settings( array $settings ) {
+		$this->open_section(
+			__( 'Claude access (MCP)', 'wpcredits-program-manager' ),
+			__( 'Lets the Administrators ticked below ask Claude questions that the site answers from its own records, read-only, through the MCP Adapter plugin.', 'wpcredits-program-manager' ),
+			'claude-access-mcp'
+		);
+
+		// The box, and under it what the site knows of the adapter, which is where nothing connects
+		// whatever the box says: the adapter is another plugin, installed by somebody else's yes, and an
+		// adapter older than the floor the door was written against registers nothing here.
+		$turn_on = __( 'Turn it on', 'wpcredits-program-manager' );
+
+		if ( ! defined( 'WP_MCP_VERSION' ) ) {
+			$adapter_line = __( 'The MCP Adapter plugin is not active, so nothing can connect whatever this says.', 'wpcredits-program-manager' );
+		} elseif ( ! WPCPM_Abilities::adapter_ready() ) {
+			$adapter_line = sprintf(
+				/* translators: %1$s: the MCP Adapter plugin's version. */
+				__( 'MCP Adapter %1$s is active, but Claude access needs 0.7.1 or later, so nothing can connect.', 'wpcredits-program-manager' ),
+				(string) constant( 'WP_MCP_VERSION' )
+			);
+		} else {
+			$adapter_line = sprintf(
+				/* translators: 1: the MCP Adapter plugin's version, 2: the address Claude connects at. */
+				__( 'MCP Adapter %1$s is active, and Claude connects at %2$s.', 'wpcredits-program-manager' ),
+				(string) constant( 'WP_MCP_VERSION' ),
+				rest_url( WPCPM_MCP::ROUTE_NAMESPACE . '/' . WPCPM_MCP::ROUTE )
+			);
+		}
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mcp_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $turn_on ),
+			checked( ! empty( $settings['mcp_enabled'] ), true, false ),
+			esc_html__( 'Let Claude read the program\'s figures', 'wpcredits-program-manager' ),
+			esc_html( $adapter_line )
+		);
+		WPCPM_Settings_Rows::close_row( $turn_on );
+
+		// A box for each account that holds the program's capability, by its ID. An ID saved for an
+		// account that is not drawn here, one deleted or no longer an Administrator, is not carried:
+		// the next Save takes it off the list, which is the safe way for a list of who may connect to
+		// lose an entry.
+		$who     = __( 'Who may connect', 'wpcredits-program-manager' );
+		$on_list = WPCPM_Settings::user_ids( isset( $settings['mcp_users'] ) ? $settings['mcp_users'] : array() );
+
+		echo '<tr><th scope="row">' . esc_html( $who ) . '</th><td><fieldset><legend class="screen-reader-text">' . esc_html( $who ) . '</legend>';
+		echo '<input type="hidden" name="mcp_users[]" value="" />';
+
+		foreach ( self::accounts_that_manage() as $user ) {
+			$login = (string) $user->user_login;
+			$name  = trim( (string) $user->display_name );
+
+			printf(
+				'<label><input type="checkbox" name="mcp_users[]" value="%1$d"%2$s> %3$s</label><br>',
+				(int) $user->ID,
+				checked( in_array( (int) $user->ID, $on_list, true ), true, false ),
+				esc_html(
+					sprintf(
+						/* translators: 1: an account's display name, 2: its login. */
+						__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+						'' !== $name ? $name : $login,
+						$login
+					)
+				)
+			);
+		}
+
+		echo '</fieldset>';
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Each person creates their own application password on their profile, with a name that begins with Claude, for example "Claude - laptop".', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $who, __( 'A password with any other name does not open this address, and a password named this way opens nothing else.', 'wpcredits-program-manager' ) );
+
+		// Two ceilings in one row, since they are one limit asked two ways.
+		$limits = __( 'Limits', 'wpcredits-program-manager' );
+
+		echo '<tr><th scope="row">' . esc_html( $limits ) . '</th><td>';
+
+		foreach ( array(
+			'mcp_calls_per_hour' => array( __( 'Answers an hour, per person', 'wpcredits-program-manager' ), 1, 1000 ),
+			'mcp_calls_per_day'  => array( __( 'Answers a day, per person', 'wpcredits-program-manager' ), 1, 10000 ),
+		) as $setting => $field ) {
+			printf(
+				'<p><label for="wpcpm-%1$s">%2$s</label> <input type="number" id="wpcpm-%1$s" name="%1$s" value="%3$d" min="%4$d" max="%5$d" step="1" class="small-text" /></p>',
+				esc_attr( $setting ),
+				esc_html( $field[0] ),
+				(int) $settings[ $setting ],
+				(int) $field[1],
+				(int) $field[2]
+			);
+		}
+
+		WPCPM_Settings_Rows::close_row( $limits );
+
+		$keep = __( 'Keep the log for', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row"><label for="wpcpm-mcp_log_days">%1$s</label></th><td><input type="number" id="wpcpm-mcp_log_days" name="mcp_log_days" value="%2$d" min="7" max="365" step="1" class="small-text" /> %3$s<p class="description">%4$s</p>',
+			esc_html( $keep ),
+			(int) $settings['mcp_log_days'],
+			esc_html__( 'days', 'wpcredits-program-manager' ),
+			esc_html__( 'Every answer and every refusal of a signed-in account is logged and kept for this many days.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $keep );
+
+		$this->close_section();
+		$this->render_mcp_log();
+	}
+
+	/**
+	 * The Security tab's Latest calls: the newest rows of Claude access's log, ending the section.
+	 *
+	 * A heading under the section's, not a section of its own: it saves nothing, and the tab's two
+	 * sections stay two. The table is read-only and is drawn inside the tab's form, ahead of Save, so it
+	 * sits in a box no taller than a screen that scrolls inside itself, sideways as well on a narrow one,
+	 * and Save stays within reach. The box is a tab stop and a region named by the heading, as the
+	 * Administrator Dashboard's and the Emails tool's tables are.
+	 *
+	 * Every cell is plain text and escaped: the password's name was typed by a person. All cells are
+	 * data cells, since the first of a row is a time, not a name for the row.
+	 */
+	private function render_mcp_log() {
+		$calls = WPCPM_Institution_Audit::mcp_entries( self::MCP_LOG_ROWS );
+		$title = 'wpcpm-mcp-log';
+
+		printf( '<h3 id="%1$s">%2$s</h3>', esc_attr( $title ), esc_html__( 'Latest calls', 'wpcredits-program-manager' ) );
+
+		if ( empty( $calls ) ) {
+			echo '<p>' . esc_html__( 'Nothing has been asked yet.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			$labels = array();
+
+			foreach ( WPCPM_Abilities::definitions() as $name => $definition ) {
+				$labels[ $name ] = (string) $definition['label'];
+			}
+
+			printf( '<div class="wpcpm-settings__scroll" tabindex="0" role="region" aria-labelledby="%s"><table class="widefat striped"><thead><tr>', esc_attr( $title ) );
+
+			foreach ( array(
+				__( 'When', 'wpcredits-program-manager' ),
+				__( 'Who', 'wpcredits-program-manager' ),
+				__( 'Password', 'wpcredits-program-manager' ),
+				__( 'Asked', 'wpcredits-program-manager' ),
+				__( 'Outcome', 'wpcredits-program-manager' ),
+				__( 'Rows', 'wpcredits-program-manager' ),
+				__( 'Time taken', 'wpcredits-program-manager' ),
+			) as $column ) {
+				printf( '<th scope="col">%s</th>', esc_html( $column ) );
+			}
+
+			echo '</tr></thead><tbody>';
+
+			foreach ( $calls as $call ) {
+				$data    = isset( $call['data'] ) && is_array( $call['data'] ) ? $call['data'] : array();
+				$user    = get_userdata( (int) $call['actor'] );
+				$name    = $user ? trim( (string) $user->display_name ) : '';
+				$outcome = isset( $data['outcome'] ) ? (string) $data['outcome'] : '';
+				$reason  = isset( $data['reason'] ) ? (string) $data['reason'] : '';
+
+				printf(
+					'<tr><td>%1$s</td><td>%2$s</td><td>%3$s</td><td>%4$s</td><td>%5$s</td><td>%6$s</td><td>%7$s</td></tr>',
+					esc_html( WPCPM_Dates::moment( $call['time'] ) ),
+					esc_html( $user ? ( '' !== $name ? $name : (string) $user->user_login ) : __( 'A removed account', 'wpcredits-program-manager' ) ),
+					esc_html( isset( $data['password'] ) ? (string) $data['password'] : '' ),
+					esc_html( self::mcp_asked( $data, $labels ) ),
+					// A refusal says on which ground; an answer and a failure are one word.
+					esc_html( 'refused' === $outcome && '' !== $reason ? $outcome . ': ' . $reason : $outcome ),
+					esc_html( number_format_i18n( isset( $data['rows'] ) ? (int) $data['rows'] : 0 ) ),
+					esc_html(
+						sprintf(
+							/* translators: %s: a number of milliseconds. */
+							__( '%s ms', 'wpcredits-program-manager' ),
+							number_format_i18n( isset( $data['ms'] ) ? (int) $data['ms'] : 0 )
+						)
+					)
+				);
+			}
+
+			echo '</tbody></table></div>';
+		}
+
+		printf( '<p class="description">%s</p>', esc_html__( 'See more with wp wpcredits mcp_log.', 'wpcredits-program-manager' ) );
+	}
+
+	/**
+	 * What a logged call asked, in the words of the Latest calls' Asked column.
+	 *
+	 * The ability's label when the ability is still defined; else "Refused: another address" for a call the
+	 * password fence turned away; else "Refused at the door" for any other call with no ability, which is a
+	 * refusal before an ability was named; else the stored name itself, for an ability a later version of the
+	 * plugin no longer defines.
+	 *
+	 * @param array    $data   The call's facts.
+	 * @param string[] $labels Ability name => label.
+	 * @return string Plain text, not escaped.
+	 */
+	private static function mcp_asked( array $data, array $labels ) {
+		$ability = isset( $data['ability'] ) ? (string) $data['ability'] : '';
+
+		if ( isset( $labels[ $ability ] ) ) {
+			return $labels[ $ability ];
+		}
+
+		if ( isset( $data['reason'] ) && 'fenced' === $data['reason'] ) {
+			return __( 'Refused: another address', 'wpcredits-program-manager' );
+		}
+
+		return '' === $ability ? __( 'Refused at the door', 'wpcredits-program-manager' ) : $ability;
+	}
+
+	/**
+	 * The accounts the Security tab offers to let connect: every one that holds the management
+	 * capability, by display name.
+	 *
+	 * The query narrows by capability, and `user_can()` then decides per account, as
+	 * `WPCPM_Institutions::managers()` does, so a capability another plugin took from a role or gave to
+	 * one account is answered by the same test the screens use. Not that method: it leaves out an account
+	 * with no address, and the list of who may connect is not a list of who can be written to.
+	 *
+	 * @return WP_User[]
+	 */
+	private static function accounts_that_manage() {
+		$users    = get_users(
+			array(
+				'capability' => WPCPM_Roles::CAP_MANAGE,
+				'orderby'    => 'display_name',
+				'order'      => 'ASC',
+				'number'     => -1,
+			)
+		);
+		$accounts = array();
+
+		foreach ( (array) $users as $user ) {
+			if ( $user instanceof WP_User && user_can( $user, WPCPM_Roles::CAP_MANAGE ) ) {
+				$accounts[] = $user;
+			}
+		}
+
+		return $accounts;
 	}
 
 	/**

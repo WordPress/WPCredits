@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.123.29
+ * Version:           1.123.30
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.123.29' );
+define( 'WPCPM_VERSION', '1.123.30' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -41,6 +41,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-abilities.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ability-answers.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mcp.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-refusal-meter.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-notices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
@@ -257,6 +260,12 @@ function wpcpm_bootstrap() {
 	// The outcome figures' weekly read (1.122.24), booted here rather than by a module: the figures
 	// belong to the program, and the homepage reads them whichever modules a site runs.
 	WPCPM_Outcome_Figures::init();
+	// The category and the four abilities Claude can ask (1.123.30), registered only while the Claude
+	// access switch is on, WordPress has the Abilities API and the MCP Adapter plugin is active.
+	WPCPM_Abilities::init();
+	// The log of those calls and its daily sweep (1.123.30), whatever the switch says: a log that outlives
+	// the switch is still pruned.
+	WPCPM_MCP::init();
 	// The Track Builder's tracks reach the program map through its filters (1.100.0), hooked
 	// before any module asks the map anything.
 	WPCPM_Track_Store::init();
@@ -307,6 +316,7 @@ function wpcpm_deactivate() {
 	WPCPM_Mail_Log::deactivate();
 	WPCPM_Mail::deactivate();
 	WPCPM_Outcome_Figures::deactivate();
+	WPCPM_MCP::deactivate();
 
 	// The sponsor badge's rule, added by this request's init, leaves the rules before they are
 	// written: flushed with it, the stored rules would keep it once the plugin is gone, its query

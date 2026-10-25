@@ -4,7 +4,8 @@
  * `wp wpcredits check_mentors`; `wp wpcredits outcome_figures` (1.122.24), its read stood in; and
  * `wp wpcredits mentor_engagement` (1.122.26), its report read from the engagement reader's test input; and
  * `wp wpcredits mentor_airtable_row` (1.122.33), the Mentors row an application would write and the check row,
- * both read from a stand-in of the row class.
+ * both read from a stand-in of the row class; and `wp wpcredits mcp_log` (1.123.30), the latest calls of Claude
+ * access read from a stand-in of the audit log, dated by the real date class.
  *
  * WP_CLI is stood in for so that what the command prints and how it exits can be read, and the
  * track store so that a seed can be made to fail. `WP_CLI::error()` exits the process; here it
@@ -48,8 +49,30 @@ require __DIR__ . '/stubs/wp-cli-utils.php';
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 
-function wp_json_encode( $d ) { return json_encode( $d ); }
+function wp_json_encode( $d, $flags = 0 ) { return json_encode( $d, $flags ); }
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
+
+// The site's clock and formats, for the real date class: UTC, WordPress's own default formats.
+function get_option( $key, $fallback = false ) { return 'date_format' === $key ? 'F j, Y' : ( 'time_format' === $key ? 'g:i a' : $fallback ); }
+function wp_date( $format, $time = null ) { return gmdate( $format, $time ); }
+
+/** An account, as `get_userdata()` gives one: the fields the command reads. */
+class WP_User {
+	public $ID = 0, $user_login = '', $display_name = '';
+	public function __construct( $id, $login, $name ) { $this->ID = $id; $this->user_login = $login; $this->display_name = $name; }
+}
+$GLOBALS['users'] = array(); // User ID => WP_User.
+function get_userdata( $id ) { return isset( $GLOBALS['users'][ (int) $id ] ) ? $GLOBALS['users'][ (int) $id ] : false; }
+
+/**
+ * The audit log's calls, for `wp wpcredits mcp_log`: `mcp_entries()` answers what a check sets, newest first
+ * as the real one lists them, cut to the limit it is asked for, and keeps every limit it was asked.
+ */
+class WPCPM_Institution_Audit {
+	public static $entries = array();
+	public static $asked   = array();
+	public static function mcp_entries( $limit = 100 ) { self::$asked[] = $limit; return $limit > 0 ? array_slice( self::$entries, 0, $limit ) : self::$entries; }
+}
 
 /**
  * The store, answering whatever a check seeds: a post id, false for a track already held, or a
@@ -162,6 +185,7 @@ class WPCPM_Mentor_Airtable_Row {
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-engagement.php';
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
 
@@ -886,6 +910,140 @@ ck( 'an address given as a bare flag is no address', cli_lines( 'mentor_airtable
 restore_error_handler();
 
 ck( 'and the section raised no PHP warning, notice or deprecation', $row_warnings, array() );
+
+echo "\n=== wp wpcredits mcp_log ===\n";
+
+$GLOBALS['users'] = array(
+	3 => new WP_User( 3, 'admin-one', 'First Administrator' ),
+	7 => new WP_User( 7, 'admin-two', 'Second Administrator' ),
+);
+
+/** A log row as `WPCPM_Institution_Audit::mcp_entries()` shapes it, the call's facts under `data`. */
+function mcp_row( $id, $time, $actor, array $data ) {
+	return array(
+		'id'          => $id,
+		'kind'        => 'mcp_call',
+		'institution' => '',
+		'sponsor'     => '',
+		'subject'     => '',
+		'actor'       => $actor,
+		'ground'      => 'manager',
+		'evidence'    => 'index',
+		'message'     => '',
+		'data'        => $data,
+		'time'        => $time,
+	);
+}
+
+// Newest first, as the log lists them: an answer, an hour ceiling's refusal, a password the door turned away
+// (no ability), and a call of an account that has since been deleted.
+WPCPM_Institution_Audit::$entries = array(
+	mcp_row( 504, 1792272800, 3, array( 'ability' => 'wpcpm/program-counts', 'outcome' => 'answered', 'reason' => '', 'input' => array(), 'rows' => 0, 'records' => array(), 'ms' => 1234, 'password' => 'Claude - laptop', 'password_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' ) ),
+	mcp_row( 503, 1792186400, 7, array( 'ability' => 'wpcpm/institution-summary', 'outcome' => 'refused', 'reason' => 'hour_limit', 'input' => array( 'institution' => 'Example' ), 'rows' => 0, 'records' => array(), 'ms' => 2, 'password' => 'claude', 'password_id' => 'bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee' ) ),
+	mcp_row( 502, 1792100500, 3, array( 'ability' => '', 'outcome' => 'refused', 'reason' => 'wrong_password', 'input' => array(), 'rows' => 0, 'records' => array(), 'ms' => 0, 'password' => '', 'password_id' => '' ) ),
+	mcp_row( 501, 1792100000, 99, array( 'ability' => 'wpcpm/institution-summary', 'outcome' => 'answered', 'reason' => '', 'input' => array( 'institution' => 'Example' ), 'rows' => 2, 'records' => array( 'recINST0000000001', 'recINST0000000002' ), 'ms' => 87, 'password' => 'Claude - desk', 'password_id' => 'cccccccc-bbbb-cccc-dddd-eeeeeeeeeeee' ) ),
+);
+
+$mcp_fields = array( 'when', 'account', 'password', 'ability', 'outcome', 'reason', 'rows', 'ms' );
+$mcp_items  = array(
+	array( 'when' => 'October 17, 2026 9:33 pm', 'account' => 'admin-one', 'password' => 'Claude - laptop', 'ability' => 'wpcpm/program-counts', 'outcome' => 'answered', 'reason' => '', 'rows' => 0, 'ms' => 1234 ),
+	array( 'when' => 'October 16, 2026 9:33 pm', 'account' => 'admin-two', 'password' => 'claude', 'ability' => 'wpcpm/institution-summary', 'outcome' => 'refused', 'reason' => 'hour_limit', 'rows' => 0, 'ms' => 2 ),
+	array( 'when' => 'October 15, 2026 9:41 pm', 'account' => 'admin-one', 'password' => '', 'ability' => '', 'outcome' => 'refused', 'reason' => 'wrong_password', 'rows' => 0, 'ms' => 0 ),
+	array( 'when' => 'October 15, 2026 9:33 pm', 'account' => 'A removed account', 'password' => 'Claude - desk', 'ability' => 'wpcpm/institution-summary', 'outcome' => 'answered', 'reason' => '', 'rows' => 2, 'ms' => 87 ),
+);
+
+// JSON and CSV show what was asked and what went out: `input` (the row's input, JSON-encoded) and
+// `records` (its record IDs, joined with ", ") beside `reason`. The table keeps its eight columns.
+$mcp_detail_fields = array( 'when', 'account', 'password', 'ability', 'outcome', 'reason', 'input', 'records', 'rows', 'ms' );
+$mcp_detail_asked  = array( '[]', '{"institution":"Example"}', '[]', '{"institution":"Example"}' );
+$mcp_detail_sent   = array( '', '', '', 'recINST0000000001, recINST0000000002' );
+$mcp_detail_items  = array();
+foreach ( $mcp_items as $at => $item ) {
+	$mcp_detail_items[] = array_merge( array_slice( $item, 0, 6 ), array( 'input' => $mcp_detail_asked[ $at ], 'records' => $mcp_detail_sent[ $at ] ), array_slice( $item, 6 ) );
+}
+
+/** The command's lines for the options given, and the limits it asked the log for. */
+function mcp_log_run( array $assoc = array() ) {
+	WP_CLI::$lines                 = array();
+	WPCPM_Institution_Audit::$asked = array();
+
+	try {
+		( new WPCPM_CLI() )->mcp_log( array(), $assoc );
+	} catch ( ExitSignal $e ) {
+		unset( $e );
+	}
+
+	return array( WP_CLI::$lines, WPCPM_Institution_Audit::$asked );
+}
+
+$mcp_warnings = array();
+
+set_error_handler( static function ( $number, $message ) use ( &$mcp_warnings ) { $mcp_warnings[] = $message; return true; } );
+
+ck( 'mcp_log prints the calls newest first as a table of when, account, password, ability, outcome, reason, rows and ms, the time in the site\'s format, the account by its login ("A removed account" for one that is gone), a door refusal with no ability and no password, and asks the log for 100',
+	mcp_log_run(),
+	array( array( 'items: table ' . json_encode( array( 'fields' => $mcp_fields, 'items' => $mcp_items ) ) ), array( 100 ) ) );
+ck( '--format=json and --format=csv are passed to WP-CLI\'s formatter with two more columns after reason: input, the row\'s input JSON-encoded, and records, its record IDs joined with a comma and a space',
+	array( mcp_log_run( array( 'format' => 'json' ) )[0], mcp_log_run( array( 'format' => 'csv' ) )[0] ),
+	array( array( 'items: json ' . json_encode( array( 'fields' => $mcp_detail_fields, 'items' => $mcp_detail_items ) ) ), array( 'items: csv ' . json_encode( array( 'fields' => $mcp_detail_fields, 'items' => $mcp_detail_items ) ) ) ) );
+ck( 'and --format=table is given the eight columns it always had, nothing of the two',
+	mcp_log_run( array( 'format' => 'table' ) )[0],
+	array( 'items: table ' . json_encode( array( 'fields' => $mcp_fields, 'items' => $mcp_items ) ) ) );
+
+$count_of = static function ( array $assoc ) {
+	$run = mcp_log_run( $assoc );
+
+	return array( $run[1], 0 === strpos( (string) end( $run[0] ), 'error: ' ) ? 'error' : count( json_decode( substr( $run[0][0], strlen( 'items: table ' ) ), true )['items'] ) );
+};
+
+ck( '--limit is what the log is asked for, and the rows printed are as many as the log gives', array( $count_of( array( 'limit' => '2' ) ), $count_of( array( 'limit' => 3 ) ) ), array( array( array( 2 ), 2 ), array( array( 3 ), 3 ) ) );
+ck( '--limit is held to 1 to 1000: 0 and a negative number are 1, 1000 stays and 5000 is 1000',
+	array( mcp_log_run( array( 'limit' => '0' ) )[1], mcp_log_run( array( 'limit' => '-7' ) )[1], mcp_log_run( array( 'limit' => '1000' ) )[1], mcp_log_run( array( 'limit' => '5000' ) )[1], mcp_log_run( array( 'limit' => '1' ) )[1] ),
+	array( array( 1 ), array( 1 ), array( 1000 ), array( 1000 ), array( 1 ) ) );
+ck( 'a --limit that is not a whole number is refused before the log is asked',
+	array( mcp_log_run( array( 'limit' => 'many' ) ), mcp_log_run( array( 'limit' => '2.5' ) )[1], mcp_log_run( array( 'limit' => true ) )[1] ),
+	array( array( array( 'error: Use --limit=<a whole number from 1 to 1000>.' ), array() ), array(), array() ) );
+ck( 'a --format that is not table, json or csv is refused before the log is asked',
+	mcp_log_run( array( 'format' => 'xml' ) ),
+	array( array( 'error: Use --format=table, json or csv.' ), array() ) );
+
+WPCPM_Institution_Audit::$entries = array();
+ck( 'with nothing logged it prints no rows, with the same columns', array( mcp_log_run()[0], mcp_log_run( array( 'format' => 'json' ) )[0] ), array( array( 'items: table ' . json_encode( array( 'fields' => $mcp_fields, 'items' => array() ) ) ), array( 'items: json ' . json_encode( array( 'fields' => $mcp_detail_fields, 'items' => array() ) ) ) ) );
+
+// What was asked is JSON as it reads, not as it is escaped for a browser: a name keeps its letters and a
+// slash its look; a cleaned input of several keys, and a list of records of any length.
+WPCPM_Institution_Audit::$entries = array(
+	mcp_row( 710, 1792272800, 3, array( 'ability' => 'wpcpm/institution-summary', 'outcome' => 'answered', 'reason' => '', 'input' => array( 'institution' => "Krak\u{f3}w / Uni", 'cohort' => '2026-H2' ), 'rows' => 3, 'records' => array( 'recINST0000000001', 'recINST0000000002', 'recINST0000000003' ), 'ms' => 5, 'password' => 'Claude - laptop', 'password_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' ) ),
+);
+$detail = mcp_log_run( array( 'format' => 'json' ) )[0];
+$detail = json_decode( substr( $detail[0], strlen( 'items: json ' ) ), true );
+ck( 'the input keeps its letters and slashes, and several keys stay one JSON object; the records are joined, all of them',
+	array( $detail['items'][0]['input'], $detail['items'][0]['records'] ),
+	array( '{"institution":"Krak' . "\u{f3}" . 'w / Uni","cohort":"2026-H2"}', 'recINST0000000001, recINST0000000002, recINST0000000003' ) );
+
+// A row that lacks a fact (a row from a later version of the plugin, or an older one) prints blanks and zeros
+// rather than a notice.
+WPCPM_Institution_Audit::$entries = array( mcp_row( 700, 1792272800, 3, array() ) );
+ck( 'a row without its facts prints empty cells and zeros', mcp_log_run()[0], array( 'items: table ' . json_encode( array( 'fields' => $mcp_fields, 'items' => array( array( 'when' => 'October 17, 2026 9:33 pm', 'account' => 'admin-one', 'password' => '', 'ability' => '', 'outcome' => '', 'reason' => '', 'rows' => 0, 'ms' => 0 ) ) ) ) ) );
+ck( 'and in JSON and CSV too: an empty input and no records, not a notice', mcp_log_run( array( 'format' => 'csv' ) )[0], array( 'items: csv ' . json_encode( array( 'fields' => $mcp_detail_fields, 'items' => array( array( 'when' => 'October 17, 2026 9:33 pm', 'account' => 'admin-one', 'password' => '', 'ability' => '', 'outcome' => '', 'reason' => '', 'input' => '', 'records' => '', 'rows' => 0, 'ms' => 0 ) ) ) ) ) );
+// A row from a version that kept its input or its records as something else prints what it can.
+WPCPM_Institution_Audit::$entries = array( mcp_row( 701, 1792272800, 3, array( 'input' => 'text', 'records' => 'recINST0000000001' ) ) );
+$odd = json_decode( substr( mcp_log_run( array( 'format' => 'json' ) )[0][0], strlen( 'items: json ' ) ), true )['items'][0];
+ck( 'an input that is not a list is encoded as it is, and records that are not a list are none', array( $odd['input'], $odd['records'] ), array( '"text"', '' ) );
+
+// The command's help, which `wp help wpcredits mcp_log` prints: every call is a row, answered, refused or
+// failed, since a build that throws is logged as failed.
+$cli_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cli.php' );
+$mcp_help   = substr( $cli_source, (int) strpos( $cli_source, 'List the latest calls Claude access has logged' ) );
+$mcp_help   = substr( $mcp_help, 0, (int) strpos( $mcp_help, 'public function mcp_log' ) );
+
+ck( 'mcp_log\'s help says every call is a row, answered, refused or failed',
+	array( false !== strpos( $mcp_help, 'answered, refused or failed' ), false !== strpos( $mcp_help, 'answered or refused' ) ),
+	array( true, false ) );
+
+restore_error_handler();
+
+ck( 'and the section raised no PHP warning, notice or deprecation', $mcp_warnings, array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

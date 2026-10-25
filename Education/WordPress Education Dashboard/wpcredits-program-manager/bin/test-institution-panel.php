@@ -2452,8 +2452,10 @@ foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_P
 }
 
 ksort( $printed );
-ck( 'the boxes the stylesheets let scroll sideways are the four that hold the wide tables: the Administrator Dashboard\'s, the Student Duplicate Finder\'s, the Emails tool\'s and the Sponsor Dashboard\'s Usage card\'s', $sideways, array( '.wpcpm-administrator__scroll', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll', '.wpcpm-usage__scroll' ) );
-ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-administrators-cards.php: .wpcpm-administrator__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1, 'class-wpcpm-sponsor-usage.php: .wpcpm-usage__scroll' => 1 ), array() ) );
+// The Settings screen's Security tab joined them in 1.123.30: the Latest calls table, in the box that
+// admin.css lets scroll (the stylesheets are read in file order, and admin.css comes first).
+ck( 'the boxes the stylesheets let scroll sideways are the five that hold the wide tables: the Settings screen\'s Latest calls, the Administrator Dashboard\'s, the Student Duplicate Finder\'s, the Emails tool\'s and the Sponsor Dashboard\'s Usage card\'s', $sideways, array( '.wpcpm-settings__scroll', '.wpcpm-administrator__scroll', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll', '.wpcpm-usage__scroll' ) );
+ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-administrators-cards.php: .wpcpm-administrator__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1, 'class-wpcpm-settings-screen.php: .wpcpm-settings__scroll' => 1, 'class-wpcpm-sponsor-usage.php: .wpcpm-usage__scroll' => 1 ), array() ) );
 
 // The two rules the weld hid, each on its own. The file input's room is not scoped to the
 // steps list, because the same form is drawn on five surfaces and only one of them is a step;

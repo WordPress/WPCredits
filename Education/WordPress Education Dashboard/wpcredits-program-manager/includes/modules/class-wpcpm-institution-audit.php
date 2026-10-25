@@ -14,9 +14,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ground it was allowed on.
  *
  * The Sponsors module writes its rows about a sponsor here too, under a key of its own
- * (`META_SPONSOR`), and the rows about the program's own work, an event the program plans
- * itself, under a third (`META_PROGRAM`): each module's readers ask for their own key, so one
- * log holds the three and none of them lists another's rows.
+ * (`META_SPONSOR`), the rows about the program's own work, an event the program plans
+ * itself, under a third (`META_PROGRAM`), and the Claude access rows, one per call to an ability
+ * of the program's own, under a fourth (`META_MCP`): each module's readers ask for their own key,
+ * so one log holds the four and none of them lists another's rows.
  *
  * A private post type in the shape of `WPCPM_Mentor_Notes`: applied changes only, one row
  * per save, no count cap, no IP addresses. Membership events (`member_added`,
@@ -58,6 +59,15 @@ class WPCPM_Institution_Audit {
 	 */
 	const META_PROGRAM = '_wpcpm_log_program';
 
+	/**
+	 * The mark of a row about one call to an ability (Claude access, 1.123.30), answered or refused:
+	 * it holds `mcp`, and none of the other three keys is on such a row, so no institution reader, no
+	 * sponsor reader and no program reader lists it, and only `mcp_entries()` does. The facts of the
+	 * call are in `META_DATA`. The rows are about no record of the program: they say who asked the
+	 * site what, and when.
+	 */
+	const META_MCP = '_wpcpm_log_mcp';
+
 	/** Post meta: whom or what the row is about - a user ID or a record ID, as a string. */
 	const META_SUBJECT = '_wpcpm_log_subject';
 
@@ -75,6 +85,9 @@ class WPCPM_Institution_Audit {
 
 	const KIND_MEMBER_ADDED   = 'member_added';
 	const KIND_MEMBER_REMOVED = 'member_removed';
+
+	/** The kind of every row under `META_MCP`: one call to an ability, answered or refused. */
+	const KIND_MCP_CALL = 'mcp_call';
 
 	const GROUND_MANAGER = 'manager';
 	const GROUND_MEMBER  = 'member';
@@ -220,7 +233,26 @@ class WPCPM_Institution_Audit {
 	}
 
 	/**
-	 * The one writer behind `record()`, `record_sponsor()` and `record_program()`.
+	 * Write one row about a call to an ability (Claude access).
+	 *
+	 * The same row as `record()` writes, keyed by `META_MCP` instead, so the institution readers and
+	 * the sponsor readers never list it, and `mcp_entries()` lists nothing else. The kind is always
+	 * `mcp_call`, whatever the entry says, since a row under this key is nothing but a call, and an
+	 * `institution` or a `sponsor` in the entry is not written. The ground and the evidence are
+	 * checked as for every row. The facts of the call are `data`: an ability name, an outcome, the
+	 * input and the record ids that went out, never the answer itself and never prose.
+	 *
+	 * @param array $entry As for `record()`, with no institution and no kind.
+	 * @return int|WP_Error The post ID, or why not.
+	 */
+	public static function record_mcp( array $entry ) {
+		$entry['kind'] = self::KIND_MCP_CALL;
+
+		return self::write( $entry, self::META_MCP, 'mcp' );
+	}
+
+	/**
+	 * The one writer behind `record()`, `record_sponsor()`, `record_program()` and `record_mcp()`.
 	 *
 	 * Refuses rather than guesses: a row with an unknown ground would be the one row the policy
 	 * did not stand behind. The actor goes on the post as its author for the admin's sake, but
@@ -231,8 +263,9 @@ class WPCPM_Institution_Audit {
 	 * is handed, and a message or data built around a typed note or a name is unslashed.
 	 *
 	 * @param array  $entry    The entry, its record already validated by the caller.
-	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR` or `META_PROGRAM`.
-	 * @param string $record   The record ID the row is about, or `program` for the program's own.
+	 * @param string $meta_key `META_INSTITUTION`, `META_SPONSOR`, `META_PROGRAM` or `META_MCP`.
+	 * @param string $record   The record ID the row is about, `program` for the program's own, or
+	 *                         `mcp` for a call to an ability.
 	 * @return int|WP_Error
 	 */
 	private static function write( array $entry, $meta_key, $record ) {
@@ -325,11 +358,92 @@ class WPCPM_Institution_Audit {
 	 * @return array[]
 	 */
 	public static function sponsor_entries( $kind = '', $limit = 50 ) {
+		return self::entries_with_key( self::META_SPONSOR, $kind, $limit );
+	}
+
+	/**
+	 * The rows about calls to an ability across every account, newest first: the Security tab's latest
+	 * calls and the command that lists more.
+	 *
+	 * @param int $limit How many at most; 0 or less for all of them.
+	 * @return array[] As `entries_for()` returns them.
+	 */
+	public static function mcp_entries( $limit = 100 ) {
+		return self::entries_with_key( self::META_MCP, '', $limit );
+	}
+
+	/**
+	 * Delete the rows about calls that are older than a time, and no other row.
+	 *
+	 * The oldest first, at most `$limit` of them, so a run that has a great many to delete deletes them
+	 * over a few runs and none of them is long. A row is old when its GMT date is before the time, so
+	 * a row written at that very second stays. The query asks for the fourth key, so a row under another
+	 * key, however old, is never in it.
+	 *
+	 * @param int $before Unix time: rows written before it are deleted.
+	 * @param int $limit  How many at most; none for zero or less.
+	 * @return int How many were deleted.
+	 */
+	public static function delete_mcp_before( $before, $limit = 500 ) {
+		$before = (int) $before;
+		$limit  = (int) $limit;
+
+		if ( $before < 1 || $limit < 1 ) {
+			return 0;
+		}
+
+		$ids = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'any',
+				'numberposts'      => $limit,
+				'fields'           => 'ids',
+				'orderby'          => array(
+					'date' => 'ASC',
+					'ID'   => 'ASC',
+				),
+				'suppress_filters' => false,
+				'date_query'       => array(
+					array(
+						'column'    => 'post_date_gmt',
+						'before'    => gmdate( 'Y-m-d H:i:s', $before ),
+						'inclusive' => false,
+					),
+				),
+				'meta_query'       => array(
+					array(
+						'key'     => self::META_MCP,
+						'compare' => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		$deleted = 0;
+
+		foreach ( $ids as $id ) {
+			if ( wp_delete_post( (int) $id, true ) ) {
+				++$deleted;
+			}
+		}
+
+		return $deleted;
+	}
+
+	/**
+	 * The rows that carry a key, whatever it holds, across every record, newest first.
+	 *
+	 * @param string $meta_key `META_SPONSOR` or `META_MCP`.
+	 * @param string $kind     One kind, or '' for every kind.
+	 * @param int    $limit    How many at most; 0 or less for all of them.
+	 * @return array[]
+	 */
+	private static function entries_with_key( $meta_key, $kind, $limit ) {
 		$kind  = sanitize_key( (string) $kind );
 		$limit = (int) $limit;
 		$query = array(
 			array(
-				'key'     => self::META_SPONSOR,
+				'key'     => $meta_key,
 				'compare' => 'EXISTS',
 			),
 		);
