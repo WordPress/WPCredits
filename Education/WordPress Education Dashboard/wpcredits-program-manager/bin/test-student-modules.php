@@ -242,6 +242,65 @@ ck( 'down swaps with the next', WPCPM_Students_Dashboard::moved( $default, 'cour
 ck( 'up swaps with the one before', WPCPM_Students_Dashboard::moved( $default, 'course', 'up' ), array( 'course', 'updates', 'forms', 'calls', 'tools' ) );
 ck( 'a key the order does not hold moves nothing', WPCPM_Students_Dashboard::moved( $default, 'bogus', 'up' ), $default );
 
+echo "\n=== One move among the sections the page draws ===\n";
+// A page leaves out a module whose cards print nothing, and its arrows are the drawn page's. The saved
+// order still holds the module, so a move through the whole order could swap with a section the page
+// does not draw and change nothing the reader can see.
+$sponsor_order = array( 'offer', 'sponsorship', 'mentors', 'company' );
+$shown         = array( 'offer', 'mentors', 'company' );
+ck( 'up goes past a section the page does not draw: Mentors swaps with What you offer, and the hidden section keeps its place', WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'up', $shown ), array( 'mentors', 'sponsorship', 'offer', 'company' ) );
+ck( 'down goes past it the same way', WPCPM_Module_Order::moved_among( $sponsor_order, 'offer', 'down', $shown ), array( 'mentors', 'sponsorship', 'offer', 'company' ) );
+ck( 'the first section drawn cannot go up', WPCPM_Module_Order::moved_among( $sponsor_order, 'offer', 'up', $shown ), $sponsor_order );
+ck( 'the last section drawn cannot go down', WPCPM_Module_Order::moved_among( $sponsor_order, 'company', 'down', $shown ), $sponsor_order );
+ck( 'a section the page does not draw is not moved', array( WPCPM_Module_Order::moved_among( $sponsor_order, 'sponsorship', 'up', $shown ), WPCPM_Module_Order::moved_among( $sponsor_order, 'sponsorship', 'down', $shown ) ), array( $sponsor_order, $sponsor_order ) );
+ck( 'a key the order does not hold moves nothing', WPCPM_Module_Order::moved_among( $sponsor_order, 'bogus', 'up', $shown ), $sponsor_order );
+ck( 'a neighbor that is drawn is the next place, as it always was', WPCPM_Module_Order::moved_among( $sponsor_order, 'company', 'up', $shown ), array( 'offer', 'sponsorship', 'company', 'mentors' ) );
+ck( 'nothing drawn is said (a form from a page an older version drew): exactly the answer moved() gives, up and down', array(
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'up', array() ),
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'offer', 'down', array() ),
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'offer', 'up', array() ),
+), array(
+	WPCPM_Module_Order::moved( $sponsor_order, 'mentors', 'up' ),
+	WPCPM_Module_Order::moved( $sponsor_order, 'offer', 'down' ),
+	WPCPM_Module_Order::moved( $sponsor_order, 'offer', 'up' ),
+) );
+ck( 'drawn keys the order lacks are ignored, so a list of them alone says nothing either', array(
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'up', array( 'offer', 'bogus', 'mentors', 'company', 'other' ) ),
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'up', array( 'bogus', 'other' ) ),
+), array( array( 'mentors', 'sponsorship', 'offer', 'company' ), WPCPM_Module_Order::moved( $sponsor_order, 'mentors', 'up' ) ) );
+ck( 'the drawn list is a set: its own order and repeats change nothing', WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'up', array( 'company', 'mentors', 'offer', 'mentors' ) ), array( 'mentors', 'sponsorship', 'offer', 'company' ) );
+$every_key_once = true;
+foreach ( array( 'offer', 'sponsorship', 'mentors', 'company', 'bogus' ) as $moved_key ) {
+	foreach ( array( 'up', 'down', 'sideways' ) as $moved_direction ) {
+		foreach ( array( array(), $shown, array( 'sponsorship' ), array( 'bogus' ), $sponsor_order ) as $moved_drawn ) {
+			$sorted = WPCPM_Module_Order::moved_among( $sponsor_order, $moved_key, $moved_direction, $moved_drawn );
+			$every_key_once = $every_key_once && count( $sorted ) === count( $sponsor_order ) && array() === array_diff( $sponsor_order, $sorted );
+		}
+	}
+}
+ck( 'whatever is asked, the result holds every key of the order once', $every_key_once, true );
+ck( 'a direction that is neither up nor down moves nothing, whether the page said what it drew or not', array(
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'sideways', $shown ),
+	WPCPM_Module_Order::moved_among( $sponsor_order, 'mentors', 'sideways', array() ),
+	WPCPM_Module_Order::moved_among( array( 'a', 'b', 'c' ), 'a', 'sideways', array() ),
+), array( $sponsor_order, $sponsor_order, array( 'a', 'b', 'c' ) ) );
+ck( 'the order given as an array with gaps in its keys is read by position', WPCPM_Module_Order::moved_among( array( 3 => 'offer', 7 => 'sponsorship', 9 => 'mentors' ), 'mentors', 'up', array( 'offer', 'mentors' ) ), array( 'mentors', 'sponsorship', 'offer' ) );
+
+$_POST = array( WPCPM_Module_Order::FIELD_DRAWN => 'offer,mentors,company' );
+ck( 'the posted list is the keys, in the order posted', WPCPM_Module_Order::posted_drawn( array( 'sponsorship', 'offer', 'mentors', 'company' ) ), array( 'offer', 'mentors', 'company' ) );
+$_POST = array( WPCPM_Module_Order::FIELD_DRAWN => 'offer,bogus,mentors,,company, ' );
+ck( 'a key this page does not know, an empty piece and white space are dropped', WPCPM_Module_Order::posted_drawn( array( 'sponsorship', 'offer', 'mentors', 'company' ) ), array( 'offer', 'mentors', 'company' ) );
+$_POST = array( WPCPM_Module_Order::FIELD_DRAWN => 'mentors,offer,mentors,offer' );
+ck( 'a repeated key counts once, where it was first posted', WPCPM_Module_Order::posted_drawn( array( 'offer', 'mentors' ) ), array( 'mentors', 'offer' ) );
+$_POST = array( WPCPM_Module_Order::FIELD_DRAWN => '' );
+ck( 'an empty field says nothing was drawn', WPCPM_Module_Order::posted_drawn( array( 'offer', 'mentors' ) ), array() );
+$_POST = array();
+ck( 'so does no field at all', WPCPM_Module_Order::posted_drawn( array( 'offer', 'mentors' ) ), array() );
+$_POST = array( WPCPM_Module_Order::FIELD_DRAWN => array( 'offer', 'mentors' ) );
+ck( 'and so does a field that is not a string', WPCPM_Module_Order::posted_drawn( array( 'offer', 'mentors' ) ), array() );
+$_POST = array();
+ck( 'the field is named wpcpm_drawn', WPCPM_Module_Order::FIELD_DRAWN, 'wpcpm_drawn' );
+
 echo "\n=== The handler ===\n";
 $GLOBALS['users'][31] = new WP_User( 31, 'Another Student', array( 'wpcpm_student' ) );
 $GLOBALS['umeta'][31] = array( 'wpcpm_student_record' => 'recSTU2' );
@@ -273,6 +332,22 @@ ck( 'an unknown module: nothing saved, back to the page without an anchor', arra
 $_POST = array( 'wpcpm_module' => 'forms', 'wpcpm_direction' => 'sideways', 'wpcpm_student' => '31' );
 ran( 'handle_move' );
 ck( 'an unknown direction saves nothing', $GLOBALS['umeta'][31]['wpcpm_student_modules'], $saved );
+
+// A student whose program has not synced has neither the course nor the forms module on the page.
+// The saved order still holds both, so a move through the whole order would swap with one of them
+// and the page would look the same. The form says which modules the page drew.
+$GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
+$_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31', 'wpcpm_drawn' => 'updates,calls,tools' );
+ran( 'handle_move' );
+ck( 'a move passes the modules the page does not draw: My mentor call goes above Program updates and resources, and the two hidden ones keep their places', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'calls', 'course', 'forms', 'updates', 'tools' ) );
+$GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
+$_POST = array( 'wpcpm_module' => 'updates', 'wpcpm_direction' => 'down', 'wpcpm_student' => '31', 'wpcpm_drawn' => 'updates,calls,tools', 'wpcpm_async' => '1' );
+ck( 'and the script gets that order back', ran( 'handle_move' ), 'json|{"order":["calls","course","forms","updates","tools"]}' );
+$GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
+$_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
+ran( 'handle_move' );
+ck( 'a form that says nothing of what was drawn (a page an older version drew, left open in a tab) is moved through the whole order, as before', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'updates', 'course', 'calls', 'forms', 'tools' ) );
+$GLOBALS['umeta'][31]['wpcpm_student_modules'] = $saved;
 $_POST = array();
 
 echo "\n=== The page ===\n";
@@ -298,6 +373,7 @@ ck( 'the top module cannot go up and the bottom one cannot go down; nothing else
 	substr_count( $html, ' disabled>' ),
 ), array( true, true, 2 ) );
 ck( 'the student whose page it is travels with every mover', substr_count( $html, 'name="wpcpm_student" value="30"' ), 5 );
+ck( 'and the modules the page draws, in the order it draws them, so a move can pass one it does not', substr_count( $html, '<input type="hidden" name="wpcpm_drawn" value="course,forms,updates,calls,tools">' ), 5 );
 $updates = substr( $html, strpos( $html, 'id="wpcpm-module-updates">' ) );
 $updates = substr( $updates, 0, strpos( $updates, '<div class="wpcpm-module ' ) );
 ck( 'the updates module holds the resources and nothing else', array( substr_count( $updates, '<!-- resources -->' ), substr_count( $updates, '<!-- tools' ), substr_count( $html, '<!-- tools -->' ) ), array( 1, 0, 0 ) );
@@ -327,6 +403,7 @@ ck( 'the first module on the page cannot go up and the last cannot go down, what
 	substr_count( $html, ' disabled>' ),
 	substr_count( $html, 'class="wpcpm-module__mover"' ),
 ), array( true, true, 2, 3 ) );
+ck( 'and every mover names the three it draws, not the five the order holds', substr_count( $html, '<input type="hidden" name="wpcpm_drawn" value="updates,calls,tools">' ), 3 );
 $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
 
 echo "\n=== The page loads the script that asks the report form's Remove ===\n";
@@ -636,11 +713,63 @@ ck( 'the handler verifies the nonce before it reads anything', strpos( $source, 
  * region kept the confirmation it had already spoken, for a move nothing had saved.
  */
 ck( 'every mover on the page carries the sentence the script speaks when a save is refused', array( substr_count( $html, 'data-wpcpm-refused="The move was not kept."' ), substr_count( $html, 'class="wpcpm-module__mover"' ) ), array( 3, 3 ) );
-ck( 'arrange() leaves the page alone when the answer is the order already on screen, and puts focus back when it is not', array(
-	false !== strpos( $script, "if ( keys( list ).join( ',' ) === order.join( ',' ) ) {" ),
-	false !== strpos( $script, 'var focused = document.activeElement;' ),
-	false !== strpos( $script, 'restore( focused );' ),
-), array( true, true, true ) );
+
+echo "\n=== What the script does with the answer, run by node ===\n";
+// The answer to a press carries the whole saved order, and a page leaves out a module whose cards
+// print nothing. Compared as it stood, the page's keys never matched the answer's while a module was
+// left out, so every press re-inserted every module and threw the keyboard to the top of the page
+// (FFRNT-2 again). Run on a stand-in for the page, as bin/test-dashboard-switcher.php runs its
+// harness: the harness prints each scenario, and the lines are this suite's own.
+$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+
+if ( '' === $node ) {
+	echo "skip the script was not run: node is not on the path\n";
+} else {
+	$process = proc_open(
+		escapeshellarg( $node ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'bin/js/modules-arrange.js' ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'assets/js/modules.js' ) . ' 2>&1',
+		array( 1 => array( 'pipe', 'w' ) ),
+		$pipes
+	);
+
+	$out = explode( "\n", rtrim( (string) stream_get_contents( $pipes[1] ) ) );
+
+	fclose( $pipes[1] );
+
+	$status = proc_close( $process );
+
+	// As bin/test-dashboard-switcher.php reads its harness: each scenario line is counted here, the
+	// summary is checked against the lines shown, and anything else is shown as it came.
+	$ran     = 0;
+	$differ  = 0;
+	$summary = null;
+
+	foreach ( $out as $line ) {
+		if ( 0 === strpos( $line, 'ok   ' ) ) {
+			++$ran;
+			++$n;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, 'FAIL ' ) ) {
+			++$ran;
+			++$n;
+			++$differ;
+			++$fail;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, '       ' ) ) {
+			echo $line . "\n";
+		} elseif ( '' !== trim( $line ) ) {
+			if ( preg_match( '/^(\d+) scenarios, (\d+) differ$/', trim( $line ), $counts ) ) {
+				$summary = array( (int) $counts[1], (int) $counts[2] );
+			}
+
+			echo '     ' . $line . "\n";
+		}
+	}
+
+	ck( 'the script ran scenarios', $ran > 0, true );
+	ck( 'and its own summary counts the scenarios and the failures shown above', $summary, array( $ran, $differ ) );
+	ck( 'and node ended with a status of 0, or of 1 when a scenario differed', $status, $differ ? 1 : 0 );
+}
+
 ck( 'a refused save puts the modules back and replaces what the live region said', array(
 	1 === preg_match( '/var kept\s+= keys\( modules\(\) \);/', $script ),
 	false !== strpos( $script, 'arrange( kept, button );' ),

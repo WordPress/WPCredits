@@ -38,7 +38,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * made before a term ends leaves that term running to its own last day, so a start before the
  * renewed term's first day as the row records it, the day after the end of the term before
  * (`term_from()`), is counted in the term before, and an event of the renewed term is never moved
- * back into it.
+ * back into it. The note a plan was returned with is read the same way (`returned_note()`): only an
+ * event of the running term can be the sponsor's latest, so a plan returned in the term before a
+ * renewal shows its note to nobody in the term after it.
  *
  * **Planned, approved, canceled.** An event waits for a program manager before anybody but the
  * sponsor sees it, because it carries the program's name. A manager approves it while its sponsor
@@ -1582,16 +1584,38 @@ final class WPCPM_Sponsor_Event {
 	/**
 	 * The note a program manager returned the sponsor's latest event with, or '' when its latest
 	 * event was not returned: the planner shows it above its form, so the sponsor plans again knowing
-	 * why. The latest is the event planned last, whatever its day, so a new plan puts the note away;
-	 * a cancel carries no note of its own, so an event the sponsor canceled puts it away too.
+	 * why, and the Sponsor Dashboard's At a glance strip draws its Event returned tile on it. The
+	 * latest is the event planned last, whatever its day, so a new plan puts the note away; a cancel
+	 * carries no note of its own, so an event the sponsor canceled puts it away too.
+	 *
+	 * The latest is taken among the events of the running term, attributed as the allowance
+	 * attributes them: a start before the term's first day as the row records it (`term_from()`) is
+	 * the term before's (`starts_before()`), so a plan returned in one term is no news in the next,
+	 * and a renewed sponsor is not shown last year's note as a fresh return. With no first day
+	 * recorded, which is a sponsor that has not renewed, a sponsor with no term and a row the store
+	 * does not hold, every event is the running term's, and the latest of all is read. The term is
+	 * the one the row records, running or lapsed, so the answer does not depend on today.
 	 *
 	 * @param string $record Sponsor key.
 	 * @return string
 	 */
 	public static function returned_note( $record ) {
+		$record = trim( (string) $record );
+		$events = self::events_of( $record );
+
+		if ( array() === $events ) {
+			return '';
+		}
+
+		$row    = WPCPM_Sponsors_Index::row( $record );
+		$from   = self::term_from( is_array( $row ) ? $row : array() );
 		$latest = null;
 
-		foreach ( self::events_of( trim( (string) $record ) ) as $event ) {
+		foreach ( $events as $event ) {
+			if ( self::starts_before( $from, self::start_of( $event ) ) ) {
+				continue;
+			}
+
 			if ( null === $latest || (int) $event->ID > (int) $latest->ID ) {
 				$latest = $event;
 			}
@@ -3036,11 +3060,27 @@ final class WPCPM_Sponsor_Event {
 		$end  = self::end_before( $row );
 		$from = '' === $end ? '' : self::day_after( $end );
 
-		if ( '' !== $from && $start > 0 && strcmp( self::day_of( $start ), $from ) < 0 ) {
+		if ( self::starts_before( $from, $start ) ) {
 			return WPCPM_Sponsor_Report::period( $end );
 		}
 
 		return WPCPM_Sponsor_Report::period( $until );
+	}
+
+	/**
+	 * Whether a start falls in the term before the running one: on a day before the running term's
+	 * first day as the row records it. The comparison the allowance and the returned note share,
+	 * asked by `counted_term()` for the start the allowance weighs and by `returned_note()` for each
+	 * event of a sponsor, so the two cannot come to disagree about which term an event belongs to
+	 * (`change_floor()` keeps its own, which also takes a start of 0). False with no first day,
+	 * where nothing records a term before, and for a start of 0, which names no day.
+	 *
+	 * @param string $from  The running term's first day, `Y-m-d` (`term_from()`), or '' for none.
+	 * @param int    $start The start, a UTC timestamp, or 0 for none.
+	 * @return bool
+	 */
+	private static function starts_before( $from, $start ) {
+		return '' !== $from && $start > 0 && strcmp( self::day_of( $start ), $from ) < 0;
 	}
 
 	/**

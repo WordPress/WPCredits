@@ -1466,6 +1466,10 @@ ck( 'each module has an eyebrow title and a lead under it', array(
 	false !== strpos( $html, '>Representatives and agreement</h2>' ),
 ), array( 2, 2, true, false, true ) );
 ck( 'the roster no longer names itself: the module does', substr_count( $html, 'wpcpm-roster__title' ), 0 );
+ck( 'every mover also names the modules the page draws, in the order it draws them, so a move can pass one it does not draw', array(
+	substr_count( $html, 'class="wpcpm-module__mover"' ),
+	substr_count( $html, '<input type="hidden" name="wpcpm_drawn" value="students,people">' ),
+), array( 2, 2 ) );
 ck( 'a manager gets one mover per module, naming the institution, with the edges disabled', array(
 	substr_count( $html, 'class="wpcpm-module__mover"' ),
 	substr_count( $html, 'name="wpcpm_institution" value="' . $krakow . '"' ),
@@ -1498,6 +1502,22 @@ ck( 'a manager moves a module for the institution and lands back on its page at 
 ck( 'the order is the institution\'s own', isset( $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] ) ? $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] : null, array( 'students', 'people', 'report' ) );
 $_POST = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up', 'wpcpm_async' => '1' );
 ck( 'the script gets the kept order back as JSON', ran_move(), 'json: {"order":["people","students","report"]}' );
+// This world draws no semester report, yet the saved order holds it between the other two. The arrows are
+// the drawn page's, so People up has to pass it: through the saved order it swapped with the report and
+// the page looked the same.
+$kept_order = $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ];
+$GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] = array( 'students', 'report', 'people' );
+$_POST = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up', 'wpcpm_drawn' => 'students,people' );
+ran_move();
+ck( 'a move passes a module the page does not draw: Representatives and agreement goes above Students, and the hidden report keeps its place', $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ], array( 'people', 'report', 'students' ) );
+$GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] = array( 'students', 'report', 'people' );
+$_POST = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'students', 'wpcpm_direction' => 'down', 'wpcpm_drawn' => 'students,people', 'wpcpm_async' => '1' );
+ck( 'and the script gets that order back', ran_move(), 'json: {"order":["people","report","students"]}' );
+$GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] = array( 'students', 'report', 'people' );
+$_POST = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up' );
+ran_move();
+ck( 'a form that says nothing of what was drawn (a page an older version drew) is moved through the whole saved order, as before', $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ], array( 'students', 'people', 'report' ) );
+$GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] = $kept_order;
 $_POST = array( 'wpcpm_institution' => 'not-a-record', 'wpcpm_module' => 'people', 'wpcpm_direction' => 'down' );
 ck( 'a manager naming an institution that is not a record, and belonging to none, is refused', ran_move(), 'die: 403' );
 
@@ -1542,9 +1562,10 @@ echo "\n=== One module, byte for byte ===\n";
  * @param int    $index    Its place among the modules drawn.
  * @param int    $count    How many are drawn.
  * @param bool   $can_move Whether the reader may arrange the page.
+ * @param array  $drawn    The keys of the modules the page draws.
  * @return string
  */
-function module_markup( $key, $body, $index, $count, $can_move ) {
+function module_markup( $key, $body, $index, $count, $can_move, array $drawn = array( 'students', 'report', 'people' ) ) {
 	global $krakow;
 	$method = new ReflectionMethod( 'WPCPM_Institutions_Dashboard', 'render_module' );
 
@@ -1554,7 +1575,7 @@ function module_markup( $key, $body, $index, $count, $can_move ) {
 	}
 
 	ob_start();
-	$method->invoke( null, $key, $body, $index, $count, $krakow, $can_move );
+	$method->invoke( null, $key, $body, $index, $count, $krakow, $can_move, $drawn );
 	return (string) ob_get_clean();
 }
 /**
@@ -1570,15 +1591,16 @@ function module_markup( $key, $body, $index, $count, $can_move ) {
  * @param bool   $arrows   Whether the arrows are drawn.
  * @param bool   $up_off   Whether Move up is disabled.
  * @param bool   $down_off Whether Move down is disabled.
+ * @param string $drawn    The keys of the modules the page draws, as the arrows post them.
  * @return string
  */
-function module_expected( $key, $title, $lead, $arrows, $up_off, $down_off ) {
+function module_expected( $key, $title, $lead, $arrows, $up_off, $down_off, $drawn = 'students,report,people' ) {
 	global $krakow;
 	$out = '<div class="wpcpm-module wpcpm-module--' . $key . '" id="wpcpm-module-' . $key . '">';
 	if ( $arrows ) {
 		$out .= '<form class="wpcpm-module__mover" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-refused="The move was not kept.">'
 			. '<input type="hidden" name="action" value="wpcpm_institution_module_move"><input type="hidden" name="_wpnonce" value="nonce">'
-			. '<input type="hidden" name="wpcpm_module" value="' . $key . '"><input type="hidden" name="wpcpm_institution" value="' . $krakow . '">'
+			. '<input type="hidden" name="wpcpm_module" value="' . $key . '"><input type="hidden" name="wpcpm_institution" value="' . $krakow . '"><input type="hidden" name="wpcpm_drawn" value="' . $drawn . '">'
 			. '<button type="submit" class="wpcpm-module__move wpcpm-module__move--up" name="wpcpm_direction" value="up" aria-label="Move ' . $title . ' up" title="Move ' . $title . ' up" data-wpcpm-moved="' . $title . ' moved up."' . ( $up_off ? ' disabled' : '' ) . '><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6.5 14.5 12 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
 			. '<button type="submit" class="wpcpm-module__move wpcpm-module__move--down" name="wpcpm_direction" value="down" aria-label="Move ' . $title . ' down" title="Move ' . $title . ' down" data-wpcpm-moved="' . $title . ' moved down."' . ( $down_off ? ' disabled' : '' ) . '><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6.5 9.5 12 15l5.5-5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
 			. '</form>';
@@ -1595,9 +1617,9 @@ $people_lead   = 'Who at your institution can see this page, invitations to coll
 ck( 'the first module, with the arrows, prints the markup it always has', module_markup( 'students', '<p>BODY</p>', 0, 3, true ), module_expected( 'students', 'Students', $students_lead, true, true, false ) );
 ck( 'a module in the middle has both arrows', module_markup( 'report', '<p>BODY</p>', 1, 3, true ), module_expected( 'report', 'Semester report', $report_lead, true, false, false ) );
 ck( 'the last module has Move down disabled', module_markup( 'people', '<p>BODY</p>', 2, 3, true ), module_expected( 'people', 'Representatives and agreement', $people_lead, true, false, true ) );
-ck( 'a module that is alone has both disabled', module_markup( 'people', '<p>BODY</p>', 0, 1, true ), module_expected( 'people', 'Representatives and agreement', $people_lead, true, true, true ) );
+ck( 'a module that is alone has both disabled', module_markup( 'people', '<p>BODY</p>', 0, 1, true, array( 'people' ) ), module_expected( 'people', 'Representatives and agreement', $people_lead, true, true, true, 'people' ) );
 ck( 'a reader who may not arrange the page gets the title, the lead and the cards, no arrows', module_markup( 'students', '<p>BODY</p>', 0, 3, false ), module_expected( 'students', 'Students', $students_lead, false, false, false ) );
-ck( 'a key the page does not know is titled by the key, with no lead', module_markup( 'bogus', '<p>BODY</p>', 0, 1, true ), module_expected( 'bogus', 'bogus', '', true, true, true ) );
+ck( 'a key the page does not know is titled by the key, with no lead', module_markup( 'bogus', '<p>BODY</p>', 0, 1, true, array( 'bogus' ) ), module_expected( 'bogus', 'bogus', '', true, true, true, 'bogus' ) );
 
 echo "\n=== The printer both dashboards draw a module with (Institutions release 3) ===\n";
 // The Sponsor Dashboard's four sections are drawn by the printer this dashboard's three modules are,
@@ -1628,7 +1650,7 @@ $institution_args = static function ( $key, $title, $lead, $index, $count, $can_
 		'index'       => $index,
 		'count'       => $count,
 		'action'      => 'wpcpm_institution_module_move',
-		'fields'      => array( 'wpcpm_institution' => $krakow ),
+		'fields'      => array( 'wpcpm_institution' => $krakow, 'wpcpm_drawn' => 'students,report,people' ),
 		'can_move'    => $can_move,
 		'title_class' => 'wpcpm-institution__module-title',
 		'lead_class'  => 'wpcpm-institution__module-lead',

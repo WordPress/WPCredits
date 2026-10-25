@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.39\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.40\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-25T17:28:41+00:00\n"
+"POT-Creation-Date: 2026-10-25T18:54:57+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -819,8 +819,8 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-templates.php:1070
 #: includes/modules/class-wpcpm-institution-student-view.php:704
 #: includes/modules/class-wpcpm-students-dashboard.php:120
-#: includes/modules/class-wpcpm-students-dashboard.php:1272
-#: includes/modules/class-wpcpm-students-dashboard.php:1308
+#: includes/modules/class-wpcpm-students-dashboard.php:1297
+#: includes/modules/class-wpcpm-students-dashboard.php:1333
 #: blocks/student-dashboard/editor.js:48
 msgid "Student Report Card"
 msgstr ""
@@ -837,7 +837,7 @@ msgstr ""
 #: includes/class-wpcpm-dashboards.php:88
 #: includes/mail/class-wpcpm-mail-templates.php:1072
 #: includes/modules/class-wpcpm-institutions-dashboard.php:127
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1390
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1397
 #: blocks/institution-dashboard/editor.js:48
 msgid "Institution Dashboard"
 msgstr ""
@@ -1148,30 +1148,30 @@ msgstr ""
 msgid "This password opens only the WPCredits MCP address."
 msgstr ""
 
-#: includes/class-wpcpm-module-order.php:172
+#: includes/class-wpcpm-module-order.php:263
 msgid "The move was not kept."
 msgstr ""
 
 #. translators: %s: name of a module on a dashboard.
-#: includes/class-wpcpm-module-order.php:198
+#: includes/class-wpcpm-module-order.php:289
 #, php-format
 msgid "Move %s up"
 msgstr ""
 
 #. translators: %s: name of a module on a dashboard.
-#: includes/class-wpcpm-module-order.php:200
+#: includes/class-wpcpm-module-order.php:291
 #, php-format
 msgid "Move %s down"
 msgstr ""
 
 #. translators: %s: name of a module on a dashboard.
-#: includes/class-wpcpm-module-order.php:205
+#: includes/class-wpcpm-module-order.php:296
 #, php-format
 msgid "%s moved up."
 msgstr ""
 
 #. translators: %s: name of a module on a dashboard.
-#: includes/class-wpcpm-module-order.php:207
+#: includes/class-wpcpm-module-order.php:298
 #, php-format
 msgid "%s moved down."
 msgstr ""
@@ -1180,7 +1180,7 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-templates.php:1070
 #: includes/modules/class-wpcpm-administrators-cards.php:1985
 #: includes/modules/class-wpcpm-institution-roster-view.php:146
-#: includes/modules/class-wpcpm-institutions-dashboard.php:544
+#: includes/modules/class-wpcpm-institutions-dashboard.php:546
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:94
 #: includes/modules/class-wpcpm-mentors-table.php:96
 #: includes/modules/class-wpcpm-sponsor-report-files.php:714
@@ -1198,7 +1198,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:2815
 #: includes/modules/class-wpcpm-mentors.php:98
 #: includes/modules/class-wpcpm-sponsor-offers.php:2741
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:661
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:669
 msgid "Mentors"
 msgstr ""
 
@@ -2591,7 +2591,7 @@ msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1496
 #: includes/modules/class-wpcpm-sponsor-tools.php:411
-#: includes/modules/class-wpcpm-students-dashboard.php:412
+#: includes/modules/class-wpcpm-students-dashboard.php:414
 msgid "Tools from our sponsors"
 msgstr ""
 
@@ -3197,7 +3197,7 @@ msgid "Mentor calls"
 msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:66
-#: includes/modules/class-wpcpm-sponsor-event.php:353
+#: includes/modules/class-wpcpm-sponsor-event.php:355
 msgid "Sponsor events"
 msgstr ""
 
@@ -3776,8 +3776,8 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-log.php:512
 #: includes/modules/class-wpcpm-mentor-application-form.php:380
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1184
-#: includes/modules/class-wpcpm-students-dashboard.php:741
-#: includes/modules/class-wpcpm-students-dashboard.php:1018
+#: includes/modules/class-wpcpm-students-dashboard.php:766
+#: includes/modules/class-wpcpm-students-dashboard.php:1043
 #: includes/tools/class-wpcpm-emails.php:365
 #: includes/tools/class-wpcpm-emails.php:1061
 msgid "Email"
@@ -4451,7 +4451,7 @@ msgstr ""
 #. translators: %s: number of minutes.
 #: includes/mail/templates/events.php:87
 #: includes/modules/class-wpcpm-mentor-availability.php:1032
-#: includes/modules/class-wpcpm-sponsor-event.php:1489
+#: includes/modules/class-wpcpm-sponsor-event.php:1491
 #, php-format
 msgid "%s minute"
 msgid_plural "%s minutes"
@@ -4472,7 +4472,7 @@ msgstr ""
 
 #. translators: %s: how many people have joined the event so far.
 #: includes/mail/templates/events.php:106
-#: includes/modules/class-wpcpm-sponsor-event.php:2593
+#: includes/modules/class-wpcpm-sponsor-event.php:2617
 #, php-format
 msgid "%s person"
 msgid_plural "%s people"
@@ -4544,7 +4544,7 @@ msgstr ""
 
 #. translators: %s: the event's call link.
 #: includes/mail/templates/events.php:195
-#: includes/modules/class-wpcpm-sponsor-event.php:1922
+#: includes/modules/class-wpcpm-sponsor-event.php:1946
 #, php-format
 msgid "Join the call: %s"
 msgstr ""
@@ -4572,16 +4572,16 @@ msgid "The calendar file attached adds it to your calendar."
 msgstr ""
 
 #: includes/mail/templates/events.php:204
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:1636
-#: includes/modules/class-wpcpm-sponsor-event.php:2556
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:1637
+#: includes/modules/class-wpcpm-sponsor-event.php:2580
 msgid "The calendar file attached replaces the one you had."
 msgstr ""
 
 #: includes/mail/templates/events.php:205
 #: includes/modules/class-wpcpm-sponsor-event-list.php:752
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:1635
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:1636
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:1446
-#: includes/modules/class-wpcpm-sponsor-event.php:2557
+#: includes/modules/class-wpcpm-sponsor-event.php:2581
 msgid "The calendar file attached takes it off your calendar."
 msgstr ""
 
@@ -7926,7 +7926,7 @@ msgid "The agreement template needs attention; an Administrator has been told. N
 msgstr ""
 
 #: includes/modules/class-wpcpm-call-calendar.php:128
-#: includes/modules/class-wpcpm-students-dashboard.php:411
+#: includes/modules/class-wpcpm-students-dashboard.php:413
 msgid "My mentor call"
 msgstr ""
 
@@ -8184,7 +8184,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1451
 #: includes/modules/class-wpcpm-group-sessions.php:1956
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:617
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:618
 #: includes/modules/class-wpcpm-sponsor-report-files.php:708
 msgid "Date"
 msgstr ""
@@ -8219,7 +8219,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1514
 #: includes/modules/class-wpcpm-group-sessions.php:1965
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:631
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:632
 msgid "Start time"
 msgstr ""
 
@@ -8232,13 +8232,13 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1527
 #: includes/modules/class-wpcpm-group-sessions.php:1980
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:645
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:646
 msgid "Length in minutes"
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1536
 #: includes/modules/class-wpcpm-group-sessions.php:1991
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:655
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:656
 msgid "Places"
 msgstr ""
 
@@ -8547,7 +8547,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-application.php:578
 #: includes/modules/class-wpcpm-sponsor-profile.php:102
 #: includes/modules/class-wpcpm-sponsors.php:3876
-#: includes/modules/class-wpcpm-students-dashboard.php:1043
+#: includes/modules/class-wpcpm-students-dashboard.php:1068
 msgid "Website"
 msgstr ""
 
@@ -9093,7 +9093,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-details-card.php:457
 #: includes/modules/class-wpcpm-semester-report-screen.php:1213
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:534
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:535
 #: includes/modules/class-wpcpm-sponsor-mentors.php:441
 #: includes/modules/class-wpcpm-sponsor-tier-card.php:668
 #: includes/modules/class-wpcpm-sponsor-tools.php:653
@@ -9229,8 +9229,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-roster-view.php:262
 #: includes/modules/class-wpcpm-institution-student-view.php:490
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1178
-#: includes/modules/class-wpcpm-students-dashboard.php:734
-#: includes/modules/class-wpcpm-students-dashboard.php:1035
+#: includes/modules/class-wpcpm-students-dashboard.php:759
+#: includes/modules/class-wpcpm-students-dashboard.php:1060
 #: includes/tools/class-wpcpm-mentor-checker.php:951
 msgid "WordPress.org"
 msgstr ""
@@ -9246,7 +9246,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-form.php:196
 #: includes/modules/class-wpcpm-institution-student-view.php:482
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1164
-#: includes/modules/class-wpcpm-students-dashboard.php:722
+#: includes/modules/class-wpcpm-students-dashboard.php:747
 msgid "Field of study"
 msgstr ""
 
@@ -9255,7 +9255,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-roster-view.php:266
 #: includes/modules/class-wpcpm-institution-student-view.php:486
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1168
-#: includes/modules/class-wpcpm-students-dashboard.php:726
+#: includes/modules/class-wpcpm-students-dashboard.php:751
 msgid "Tutor"
 msgstr ""
 
@@ -11408,7 +11408,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-view.php:601
 #: includes/modules/class-wpcpm-mentor-engagement.php:468
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1599
-#: includes/modules/class-wpcpm-students-dashboard.php:1104
+#: includes/modules/class-wpcpm-students-dashboard.php:1129
 msgid "Not set"
 msgstr ""
 
@@ -11511,27 +11511,27 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-view.php:344
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1381
 #: includes/modules/class-wpcpm-sponsor-mentors.php:390
-#: includes/modules/class-wpcpm-students-dashboard.php:675
-#: includes/modules/class-wpcpm-students-dashboard.php:981
+#: includes/modules/class-wpcpm-students-dashboard.php:700
+#: includes/modules/class-wpcpm-students-dashboard.php:1006
 #, php-format
 msgid "Profile photo of %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:471
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1159
-#: includes/modules/class-wpcpm-students-dashboard.php:717
+#: includes/modules/class-wpcpm-students-dashboard.php:742
 msgid "Internship duration"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:501
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1202
-#: includes/modules/class-wpcpm-students-dashboard.php:762
+#: includes/modules/class-wpcpm-students-dashboard.php:787
 msgid "Contribution teams"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:508
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1212
-#: includes/modules/class-wpcpm-students-dashboard.php:768
+#: includes/modules/class-wpcpm-students-dashboard.php:793
 msgid "Personal website"
 msgstr ""
 
@@ -11706,109 +11706,109 @@ msgstr ""
 msgid "Please log in to see your institution on this site."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:545
+#: includes/modules/class-wpcpm-institutions-dashboard.php:547
 #: includes/modules/class-wpcpm-semester-report-screen.php:274
 #: includes/modules/class-wpcpm-semester-report.php:306
 msgid "Semester report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:546
+#: includes/modules/class-wpcpm-institutions-dashboard.php:548
 msgid "Representatives and agreement"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:561
+#: includes/modules/class-wpcpm-institutions-dashboard.php:563
 msgid "Your students on the program, by cohort and by where they are, with the export and the enrollment form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:562
+#: includes/modules/class-wpcpm-institutions-dashboard.php:564
 msgid "The report the program prepares for your institution each semester, to read and download as a PDF once an Administrator has approved it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:563
+#: includes/modules/class-wpcpm-institutions-dashboard.php:565
 msgid "Who at your institution can see this page, invitations to colleagues, and the Collaboration Agreement."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:604
+#: includes/modules/class-wpcpm-institutions-dashboard.php:606
 msgid "Only a representative of the institution, or an Administrator on their behalf, can arrange an Institution Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1040
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1406
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1047
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1425
 msgid "Your contact at the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1061
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1427
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1068
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1446
 msgid "Book a call"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1071
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1078
 msgid "They look after institutions in your country. Write to them about anything the guide does not answer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1098
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1105
 msgid "Unnamed institution"
 msgstr ""
 
 #. translators: %s: the Airtable Current Stage, e.g. "Confirmed".
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1162
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1169
 #, php-format
 msgid "Stage: %s"
 msgstr ""
 
 #. translators: %s: the institution's named contact person.
 #. translators: %s: the sponsor's named contact person.
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1175
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1022
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1182
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1030
 #, php-format
 msgid "Contact: %s"
 msgstr ""
 
 #. translators: %s: the agreement state in words, e.g. "not started".
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1232
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1239
 #, php-format
 msgid "This institution's agreement is not settled: %s. Members see only the Collaboration Agreement card."
 msgstr ""
 
 #. translators: %s: the Airtable Agreement Status, e.g. "Awaiting review".
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1247
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1254
 #, php-format
 msgid "Airtable records the Agreement Status as %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1270
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1277
 msgid "the template has been generated and no signed copy uploaded"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1273
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1280
 msgid "a signed copy is waiting for review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1276
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1283
 msgid "the last copy was returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1279
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1286
 msgid "revoked"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1282
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1289
 msgid "accepted on this site, which Airtable has not confirmed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1285
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1292
 msgid "on file according to this site, which Airtable has not confirmed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1288
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1295
 msgid "not started"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1312
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1319
 msgid "Viewing as institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1313
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1320
 #: includes/modules/class-wpcpm-institutions.php:4412
 #: includes/modules/class-wpcpm-institutions.php:4413
 #: includes/modules/class-wpcpm-institutions.php:5595
@@ -11816,7 +11816,7 @@ msgstr ""
 msgid "Find an institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1314
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1321
 #: includes/modules/class-wpcpm-institutions.php:4414
 #: includes/modules/class-wpcpm-institutions.php:5596
 #: includes/modules/class-wpcpm-semester-report-screen.php:715
@@ -15475,7 +15475,7 @@ msgid "%1$s of %2$s students match"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:433
-#: includes/modules/class-wpcpm-students-dashboard.php:647
+#: includes/modules/class-wpcpm-students-dashboard.php:672
 msgid "No students match that search."
 msgstr ""
 
@@ -15553,7 +15553,7 @@ msgstr[1] ""
 #. translators: %s: human-readable time difference, e.g. "2 hours".
 #. translators: %s: human-readable time difference.
 #: includes/modules/class-wpcpm-mentors-dashboard.php:651
-#: includes/modules/class-wpcpm-students-dashboard.php:326
+#: includes/modules/class-wpcpm-students-dashboard.php:328
 #, php-format
 msgid "Last updated %s ago."
 msgstr ""
@@ -15599,13 +15599,13 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1172
-#: includes/modules/class-wpcpm-students-dashboard.php:730
+#: includes/modules/class-wpcpm-students-dashboard.php:755
 msgid "Educational institution"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1194
-#: includes/modules/class-wpcpm-students-dashboard.php:756
-#: includes/modules/class-wpcpm-students-dashboard.php:1027
+#: includes/modules/class-wpcpm-students-dashboard.php:781
+#: includes/modules/class-wpcpm-students-dashboard.php:1052
 msgid "Slack"
 msgstr ""
 
@@ -15622,7 +15622,7 @@ msgid "None"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1275
-#: includes/modules/class-wpcpm-students-dashboard.php:932
+#: includes/modules/class-wpcpm-students-dashboard.php:957
 msgid "Report form"
 msgstr ""
 
@@ -16701,7 +16701,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-agreement.php:293
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:230
-#: includes/modules/class-wpcpm-sponsor-event.php:3686
+#: includes/modules/class-wpcpm-sponsor-event.php:3726
 #: includes/modules/class-wpcpm-sponsor-logo.php:90
 #: includes/modules/class-wpcpm-sponsor-mentors.php:51
 #: includes/modules/class-wpcpm-sponsor-policy.php:185
@@ -17486,7 +17486,7 @@ msgid "That event filled up before you could join it."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-list.php:108
-#: includes/modules/class-wpcpm-sponsor-event.php:3690
+#: includes/modules/class-wpcpm-sponsor-event.php:3730
 msgid "That event has taken place."
 msgstr ""
 
@@ -17495,7 +17495,7 @@ msgid "That event is no longer open to join."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-list.php:110
-#: includes/modules/class-wpcpm-sponsor-event.php:3700
+#: includes/modules/class-wpcpm-sponsor-event.php:3740
 msgid "These events are for the program's students, mentors, Administrators and institutions."
 msgstr ""
 
@@ -17508,12 +17508,12 @@ msgid "Another change to that event was going through. Try again in a moment."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-list.php:113
-#: includes/modules/class-wpcpm-sponsor-event.php:3702
+#: includes/modules/class-wpcpm-sponsor-event.php:3742
 msgid "You are on that event already."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-list.php:114
-#: includes/modules/class-wpcpm-sponsor-event.php:3704
+#: includes/modules/class-wpcpm-sponsor-event.php:3744
 msgid "You are not on that event."
 msgstr ""
 
@@ -17632,7 +17632,7 @@ msgid "Your event is canceled."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:207
-#: includes/modules/class-wpcpm-sponsor-event.php:3685
+#: includes/modules/class-wpcpm-sponsor-event.php:3725
 msgid "Some of the event's details are missing or not valid."
 msgstr ""
 
@@ -17641,46 +17641,46 @@ msgid "Your sponsorship does not include a co-hosted event right now."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:209
-#: includes/modules/class-wpcpm-sponsor-event.php:3664
+#: includes/modules/class-wpcpm-sponsor-event.php:3704
 msgid "Your next event can be planned once this one has taken place."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:210
-#: includes/modules/class-wpcpm-sponsor-event.php:3668
+#: includes/modules/class-wpcpm-sponsor-event.php:3708
 msgid "Your event for this term is planned already."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:211
-#: includes/modules/class-wpcpm-sponsor-event.php:3675
+#: includes/modules/class-wpcpm-sponsor-event.php:3715
 msgid "Your events for this term are planned already."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:212
-#: includes/modules/class-wpcpm-sponsor-event.php:3682
+#: includes/modules/class-wpcpm-sponsor-event.php:3722
 msgid "Your event for this term has taken place already."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:213
-#: includes/modules/class-wpcpm-sponsor-event.php:3682
+#: includes/modules/class-wpcpm-sponsor-event.php:3722
 msgid "Your events for this term have taken place already."
 msgstr ""
 
 #. translators: 1: the last day of the sponsor's term, in the site's date format, 2: the site's time zone, e.g. Europe / Warsaw.
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:215
-#: includes/modules/class-wpcpm-sponsor-event.php:3655
+#: includes/modules/class-wpcpm-sponsor-event.php:3695
 #, php-format
 msgid "Choose a start on or before %1$s, the last day of your sponsorship term on the site's clock (%2$s)."
 msgstr ""
 
 #. translators: 1: the first day of the sponsor's current term, in the site's date format, 2: the site's time zone, e.g. Europe / Warsaw.
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:217
-#: includes/modules/class-wpcpm-sponsor-event.php:3657
+#: includes/modules/class-wpcpm-sponsor-event.php:3697
 #, php-format
 msgid "Choose a start on or after %1$s, the first day of your current sponsorship term on the site's clock (%2$s)."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:218
-#: includes/modules/class-wpcpm-sponsor-event.php:3683
+#: includes/modules/class-wpcpm-sponsor-event.php:3723
 msgid "That day and time have passed. Choose a time still to come."
 msgstr ""
 
@@ -17697,7 +17697,7 @@ msgid "That event has taken place, so it can no longer be changed or canceled."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:222
-#: includes/modules/class-wpcpm-sponsor-event.php:3691
+#: includes/modules/class-wpcpm-sponsor-event.php:3731
 msgid "More people have joined than that many places would hold."
 msgstr ""
 
@@ -17711,7 +17711,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:225
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:227
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:665
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:666
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:203
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:205
 #: includes/modules/class-wpcpm-sponsor-offers.php:1752
@@ -17720,7 +17720,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:226
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:228
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:676
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:677
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:204
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:206
 msgid "Description"
@@ -17782,12 +17782,12 @@ msgstr ""
 msgid "Cancel the event"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:503
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:504
 msgid "Plan your co-hosted event"
 msgstr ""
 
 #. translators: %s: how many co-hosted events the sponsor's term allows.
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:511
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:512
 #, php-format
 msgid "Your term allows %s event."
 msgid_plural "Your term allows %s events."
@@ -17795,61 +17795,61 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the note an Administrator returned the sponsor's last plan with.
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:525
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:526
 #, php-format
 msgid "Your last plan was returned: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:552
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:553
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:721
 msgid "Plan the event"
 msgstr ""
 
 #. translators: %s: the time zone's name, e.g. America / New York.
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:637
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:638
 #, php-format
 msgid "In your time zone, %s. Everyone who joins sees it in theirs."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:660
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:661
 msgid "Leave it blank for no limit."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:682
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:683
 msgid "Shown on the Partners page once the event is approved. Put the call link in its own box."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:687
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:688
 msgid "Call link"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:691
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:692
 msgid "Only the people who join, and the program, see this link."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:707
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:708
 msgid "Past events"
 msgstr ""
 
 #. translators: %s: the day the event took place.
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:717
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:718
 #, php-format
 msgid "%s. Nobody joined."
 msgstr ""
 
 #. translators: 1: the day the event took place, 2: how many people joined it.
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:721
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:722
 #, php-format
 msgid "%1$s. %2$s person joined."
 msgid_plural "%1$s. %2$s people joined."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:1014
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:1015
 msgid "Everyone who joined is being told."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event-planner.php:1014
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:1015
 msgid "Everyone who joined has been told."
 msgstr ""
 
@@ -18066,85 +18066,85 @@ msgid_plural "The %s people who joined are being told."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:354
+#: includes/modules/class-wpcpm-sponsor-event.php:356
 msgid "Sponsor event"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:438
+#: includes/modules/class-wpcpm-sponsor-event.php:440
 msgid "Choose the day your event takes place."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:442
+#: includes/modules/class-wpcpm-sponsor-event.php:444
 msgid "Choose the time your event starts."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:452
+#: includes/modules/class-wpcpm-sponsor-event.php:454
 msgid "That time does not exist on that day in your time zone, because the clocks change that night. Choose another time."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:1377
-#: includes/modules/class-wpcpm-sponsor-event.php:1748
+#: includes/modules/class-wpcpm-sponsor-event.php:1379
+#: includes/modules/class-wpcpm-sponsor-event.php:1772
 msgid "the WordPress Credits Program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:1474
+#: includes/modules/class-wpcpm-sponsor-event.php:1476
 msgid "no limit"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:2596
+#: includes/modules/class-wpcpm-sponsor-event.php:2620
 msgid "nobody yet"
 msgstr ""
 
 #. translators: %s: the day the sponsor event takes place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3284
+#: includes/modules/class-wpcpm-sponsor-event.php:3324
 #, php-format
 msgid "An Administrator approved the sponsor event on %s."
 msgstr ""
 
 #. translators: %s: the day the sponsor event was to take place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3288
+#: includes/modules/class-wpcpm-sponsor-event.php:3328
 #, php-format
 msgid "An Administrator returned the sponsor event on %s with a note."
 msgstr ""
 
 #. translators: %s: the day the program's own event takes place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3293
+#: includes/modules/class-wpcpm-sponsor-event.php:3333
 #, php-format
 msgid "The program event was changed; it takes place on %s."
 msgstr ""
 
 #. translators: %s: the day the sponsor event takes place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3295
+#: includes/modules/class-wpcpm-sponsor-event.php:3335
 #, php-format
 msgid "The sponsor event was changed; it takes place on %s."
 msgstr ""
 
 #. translators: %s: the day the program's own event was to take place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3300
+#: includes/modules/class-wpcpm-sponsor-event.php:3340
 #, php-format
 msgid "The program event on %s was canceled."
 msgstr ""
 
 #. translators: %s: the day the sponsor event was to take place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3302
+#: includes/modules/class-wpcpm-sponsor-event.php:3342
 #, php-format
 msgid "The sponsor event on %s was canceled."
 msgstr ""
 
 #. translators: %s: the day the program's own event takes place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3307
+#: includes/modules/class-wpcpm-sponsor-event.php:3347
 #, php-format
 msgid "A program event was planned for %s."
 msgstr ""
 
 #. translators: %s: the day the sponsor event takes place, in the site's date format.
-#: includes/modules/class-wpcpm-sponsor-event.php:3309
+#: includes/modules/class-wpcpm-sponsor-event.php:3349
 #, php-format
 msgid "A sponsor event was planned for %s."
 msgstr ""
 
 #. translators: 1: the shortest an event may run, in minutes, 2: the longest.
-#: includes/modules/class-wpcpm-sponsor-event.php:3485
+#: includes/modules/class-wpcpm-sponsor-event.php:3525
 #, php-format
 msgid "The length has to be between %1$d and %2$d minute."
 msgid_plural "The length has to be between %1$d and %2$d minutes."
@@ -18152,102 +18152,102 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: the most places an event may have.
-#: includes/modules/class-wpcpm-sponsor-event.php:3494
+#: includes/modules/class-wpcpm-sponsor-event.php:3534
 #, php-format
 msgid "Leave the places blank for no limit, or give from 1 to %d place."
 msgid_plural "Leave the places blank for no limit, or give from 1 to %d places."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3500
+#: includes/modules/class-wpcpm-sponsor-event.php:3540
 msgid "Give your event a title."
 msgstr ""
 
 #. translators: %d: the longest title, in characters.
-#: includes/modules/class-wpcpm-sponsor-event.php:3504
+#: includes/modules/class-wpcpm-sponsor-event.php:3544
 #, php-format
 msgid "Keep the title to %d character."
 msgid_plural "Keep the title to %d characters."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3510
+#: includes/modules/class-wpcpm-sponsor-event.php:3550
 msgid "Say what your event is about."
 msgstr ""
 
 #. translators: %d: the longest description, in characters.
-#: includes/modules/class-wpcpm-sponsor-event.php:3514
+#: includes/modules/class-wpcpm-sponsor-event.php:3554
 #, php-format
 msgid "Keep the description to %d character."
 msgid_plural "Keep the description to %d characters."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3520
+#: includes/modules/class-wpcpm-sponsor-event.php:3560
 msgid "Add the link people use to join the call."
 msgstr ""
 
 #. translators: %d: the longest call link, in characters.
-#: includes/modules/class-wpcpm-sponsor-event.php:3524
+#: includes/modules/class-wpcpm-sponsor-event.php:3564
 #, php-format
 msgid "Keep the call link to %d character."
 msgid_plural "Keep the call link to %d characters."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3528
+#: includes/modules/class-wpcpm-sponsor-event.php:3568
 msgid "The call link has to be a web address that starts with https:// or http://."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3679
+#: includes/modules/class-wpcpm-sponsor-event.php:3719
 msgid "Sponsor events are not open yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3680
+#: includes/modules/class-wpcpm-sponsor-event.php:3720
 msgid "Your sponsorship does not include a co-hosted event."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3684
+#: includes/modules/class-wpcpm-sponsor-event.php:3724
 msgid "Another change to these events was going through. Try again in a moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3687
+#: includes/modules/class-wpcpm-sponsor-event.php:3727
 msgid "That event could not be found."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3688
+#: includes/modules/class-wpcpm-sponsor-event.php:3728
 msgid "That event is not waiting for approval."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3689
+#: includes/modules/class-wpcpm-sponsor-event.php:3729
 msgid "That event was canceled."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3692
+#: includes/modules/class-wpcpm-sponsor-event.php:3732
 msgid "Write a note to go with the event you return."
 msgstr ""
 
 #. translators: %d: the longest note a return keeps, in characters.
-#: includes/modules/class-wpcpm-sponsor-event.php:3695
+#: includes/modules/class-wpcpm-sponsor-event.php:3735
 #, php-format
 msgid "Keep the note to %d character."
 msgid_plural "Keep the note to %d characters."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3698
+#: includes/modules/class-wpcpm-sponsor-event.php:3738
 msgid "The event could not be saved. Try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3699
+#: includes/modules/class-wpcpm-sponsor-event.php:3739
 msgid "That event is not open to join."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3701
+#: includes/modules/class-wpcpm-sponsor-event.php:3741
 msgid "Your company's own event is on your Sponsor Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-event.php:3703
+#: includes/modules/class-wpcpm-sponsor-event.php:3743
 msgid "That event is full."
 msgstr ""
 
@@ -20167,7 +20167,7 @@ msgid "The program this year"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-report.php:478
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:659
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:667
 msgid "Your sponsorship"
 msgstr ""
 
@@ -20673,187 +20673,187 @@ msgstr ""
 msgid "Sign in"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:629
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:637
 msgid "Your tier, your events, your reports and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:630
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:638
 msgid "Your tier, your events and your reports."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:634
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:642
 msgid "Your tier, your events and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:635
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:643
 msgid "Your tier and your events."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:640
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:648
 msgid "Your tier, your reports and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:641
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:649
 msgid "Your tier and your reports."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:645
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:653
 msgid "Your tier and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:646
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:654
 msgid "Your tier and what it includes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:660
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:668
 msgid "What you offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:662
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:670
 msgid "Your company"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:688
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:696
 msgid "What your company gives the program's students and mentors, and what it wrote for them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:689
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:697
 msgid "What your company gives the program's students and mentors."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:690
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:698
 msgid "The mentors your company sponsors, and the ones looking for a sponsor."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:691
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:699
 msgid "Your company's details and logo, the people who can sign in for it, and the Collaboration Agreement."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:737
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:745
 msgid "Only someone who acts for the company, or an Administrator on their behalf, can arrange a Sponsor Dashboard."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:894
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:902
 msgid "Viewing as sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:895
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:903
 msgid "Find a sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:896
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:904
 msgid "No sponsors match that search."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:982
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:990
 msgid "Unnamed sponsor"
 msgstr ""
 
 #. translators: %s: the sponsor's status in the program.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1035
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1043
 #, php-format
 msgid "Status: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1143
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1153
 msgid "At a glance"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1239
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1256
 msgid "Offer returned with a note"
 msgid_plural "Offers returned with a note"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1243
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1260
 msgid "Offer running low on codes"
 msgid_plural "Offers running low on codes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1247
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1264
 msgid "Offer not switched on yet"
 msgid_plural "Offers not switched on yet"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1256
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1273
 msgid "Post returned with a note"
 msgid_plural "Posts returned with a note"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1266
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1283
 msgid "Event returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1273
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1290
 msgid "Collaboration Agreement returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1275
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1292
 msgid "Collaboration Agreement revoked"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1283
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1300
 msgid "Company profile detail missing"
 msgid_plural "Company profile details missing"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1293
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1310
 msgid "Nothing waits for you"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1332
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1351
 msgid "no term"
 msgstr ""
 
 #. translators: %s: the last day of the term that ended.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1339
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1358
 #, php-format
 msgid "term ended %s"
 msgstr ""
 
 #. translators: %s: the last day of the term, which is today.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1344
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1363
 #, php-format
 msgid "to %s, ending today"
 msgstr ""
 
 #. translators: 1: the last day of the term, 2: how many days are left in it.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1349
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1368
 #, php-format
 msgid "to %1$s, %2$s day"
 msgid_plural "to %1$s, %2$s days"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1437
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1456
 msgid "They look after your company's sponsorship. Write to them about anything the guide does not answer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1462
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1481
 msgid "People"
 msgstr ""
 
 #. translators: %s: how many accounts act for the sponsor.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1466
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1485
 #, php-format
 msgid "%s account"
 msgid_plural "%s accounts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1473
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1492
 msgid "No account acts for this sponsor yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1488
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1507
 msgid "Attach or remove accounts on the Sponsors screen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1491
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1510
 msgid "To add a colleague, write to your contact at the program."
 msgstr ""
 
@@ -22275,64 +22275,64 @@ msgstr ""
 msgid "Please log in to see your program details."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:408
+#: includes/modules/class-wpcpm-students-dashboard.php:410
 msgid "Program updates and resources"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:409
-#: includes/modules/class-wpcpm-students-dashboard.php:862
+#: includes/modules/class-wpcpm-students-dashboard.php:411
+#: includes/modules/class-wpcpm-students-dashboard.php:887
 msgid "My course"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:410
+#: includes/modules/class-wpcpm-students-dashboard.php:412
 msgid "Report form and feedback forms"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:469
+#: includes/modules/class-wpcpm-students-dashboard.php:486
 msgid "Only a student, or an Administrator on their behalf, can arrange a Student Report Card."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:645
+#: includes/modules/class-wpcpm-students-dashboard.php:670
 msgid "Viewing as student"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:646
+#: includes/modules/class-wpcpm-students-dashboard.php:671
 msgid "Find a student"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:776
+#: includes/modules/class-wpcpm-students-dashboard.php:801
 msgid "My profile"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:784
+#: includes/modules/class-wpcpm-students-dashboard.php:809
 msgid "Your program details have not been read from Airtable yet. They appear here after the next sync."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:883
+#: includes/modules/class-wpcpm-students-dashboard.php:908
 msgid "My hours"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:891
+#: includes/modules/class-wpcpm-students-dashboard.php:916
 msgid "Partners of your track"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:917
+#: includes/modules/class-wpcpm-students-dashboard.php:942
 msgid "Open your course"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:953
+#: includes/modules/class-wpcpm-students-dashboard.php:978
 msgid "My mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:960
+#: includes/modules/class-wpcpm-students-dashboard.php:985
 msgid "No mentor is assigned to you yet. An Administrator will introduce you to one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:1002
+#: includes/modules/class-wpcpm-students-dashboard.php:1027
 msgid "Teams"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:1051
+#: includes/modules/class-wpcpm-students-dashboard.php:1076
 msgid "GitHub"
 msgstr ""
 

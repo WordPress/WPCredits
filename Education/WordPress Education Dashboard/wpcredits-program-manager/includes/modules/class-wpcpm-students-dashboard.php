@@ -293,8 +293,9 @@ class WPCPM_Students_Dashboard {
 		// when something above it had been dropped, and the last one's Move down stayed enabled
 		// when something below it had - a student whose program has not synced yet has neither
 		// course nor forms, and most students' Tools module prints nothing while the offers pool
-		// is empty (deep check FADMN-5). The saved order is untouched, and so is the handler:
-		// what changes is which arrows the page offers.
+		// is empty (deep check FADMN-5). The saved order is untouched, and the handler moves
+		// among the modules the page drew (`moved_among()`): what changes is which arrows the page
+		// offers, and the arrows say which modules those are.
 		$rendered = array();
 		$names    = array();
 
@@ -311,9 +312,10 @@ class WPCPM_Students_Dashboard {
 
 		$index = 0;
 		$count = count( $rendered );
+		$drawn = array_keys( $rendered );
 
 		foreach ( $rendered as $key => $body ) {
-			self::render_module( $key, $body, $index, $count, $student, $can_move, $names[ $key ] );
+			self::render_module( $key, $body, $index, $count, $student, $can_move, $names[ $key ], $drawn );
 			++$index;
 		}
 
@@ -441,6 +443,21 @@ class WPCPM_Students_Dashboard {
 	}
 
 	/**
+	 * One module moved one place among the modules the page draws: it swaps with the nearest one
+	 * the page draws in that direction, and the modules left out keep their places. With no list
+	 * of what was drawn the answer is `moved()`'s.
+	 *
+	 * @param string[] $order     The order to move within.
+	 * @param string   $key       Module key.
+	 * @param string   $direction `up` or `down`.
+	 * @param string[] $drawn     The keys of the modules the page drew.
+	 * @return string[]
+	 */
+	public static function moved_among( array $order, $key, $direction, array $drawn ) {
+		return WPCPM_Module_Order::moved_among( $order, $key, $direction, $drawn );
+	}
+
+	/**
 	 * Somebody pressed one of the arrows: save the student's new order. The script that moved
 	 * the module in place asks for the order back as JSON; without it, the form comes back to
 	 * the module that moved, on the same student's page.
@@ -474,7 +491,7 @@ class WPCPM_Students_Dashboard {
 		$known     = array_key_exists( $key, self::modules() );
 
 		if ( $known && in_array( $direction, array( 'up', 'down' ), true ) ) {
-			update_user_meta( $student->ID, self::META_MODULES, self::moved( self::module_order( $student->ID ), $key, $direction ) );
+			update_user_meta( $student->ID, self::META_MODULES, self::moved_among( self::module_order( $student->ID ), $key, $direction, WPCPM_Module_Order::posted_drawn( array_keys( self::modules() ) ) ) );
 		}
 
 		if ( '1' === WPCPM_Request::posted_key( self::FIELD_ASYNC ) ) {
@@ -500,22 +517,25 @@ class WPCPM_Students_Dashboard {
 	 * One module: its wrapper, the mover when the reader may arrange the page, and the body
 	 * `render()` has already built. A module whose body came out empty - a student whose
 	 * program has not synced yet has no course to open - never reaches here, so nothing empty
-	 * is offered to move; the index and the count are the drawn page's, for the same reason.
+	 * is offered to move; the index, the count and the list of keys are the drawn page's, for the
+	 * same reason.
 	 *
-	 * @param string  $key      Module key.
-	 * @param string  $body     What the module's sections printed.
-	 * @param int     $index    Its place among the modules the page draws, from 0.
-	 * @param int     $count    How many modules the page draws.
-	 * @param WP_User $student  The student whose page this is.
-	 * @param bool    $can_move Whether the reader may arrange this page.
-	 * @param string  $name     What the module drew, when that is not the name `modules()` gives
-	 *                          it; empty for that name.
+	 * @param string   $key      Module key.
+	 * @param string   $body     What the module's sections printed.
+	 * @param int      $index    Its place among the modules the page draws, from 0.
+	 * @param int      $count    How many modules the page draws.
+	 * @param WP_User  $student  The student whose page this is.
+	 * @param bool     $can_move Whether the reader may arrange this page.
+	 * @param string   $name     What the module drew, when that is not the name `modules()` gives
+	 *                           it; empty for that name.
+	 * @param string[] $drawn    The keys of the modules the page draws, which the arrows post so a
+	 *                           move can pass a module the page leaves out.
 	 */
-	private static function render_module( $key, $body, $index, $count, WP_User $student, $can_move, $name = '' ) {
+	private static function render_module( $key, $body, $index, $count, WP_User $student, $can_move, $name, array $drawn ) {
 		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
 
 		if ( $can_move ) {
-			self::render_mover( $key, (int) $index, (int) $count, $student, $name );
+			self::render_mover( $key, (int) $index, (int) $count, $student, $name, $drawn );
 		}
 
 		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the section renderers, each of which escapes what it prints.
@@ -594,14 +614,16 @@ class WPCPM_Students_Dashboard {
 	 * travels with the form, so a manager's move lands on the right student and a student's
 	 * move is checked against themselves.
 	 *
-	 * @param string  $key     Module key.
-	 * @param int     $index   Its place in the order, from 0.
-	 * @param int     $count   How many modules the page has.
-	 * @param WP_User $student The student whose page this is.
-	 * @param string  $name    The name of the section the module drew; empty for the name
-	 *                         `modules()` gives it.
+	 * @param string   $key     Module key.
+	 * @param int      $index   Its place in the order, from 0.
+	 * @param int      $count   How many modules the page has.
+	 * @param WP_User  $student The student whose page this is.
+	 * @param string   $name    The name of the section the module drew; empty for the name
+	 *                          `modules()` gives it.
+	 * @param string[] $drawn   The keys of the modules the page draws, which the arrows post so a
+	 *                          move can pass a module the page leaves out.
 	 */
-	private static function render_mover( $key, $index, $count, WP_User $student, $name = '' ) {
+	private static function render_mover( $key, $index, $count, WP_User $student, $name, array $drawn ) {
 		$labels = self::modules();
 
 		// The section the module drew names it: the arrows' labels, their tooltips and what the
@@ -616,7 +638,10 @@ class WPCPM_Students_Dashboard {
 			$key,
 			$index,
 			$count,
-			array( self::FIELD_STUDENT => (int) $student->ID ),
+			array(
+				self::FIELD_STUDENT             => (int) $student->ID,
+				WPCPM_Module_Order::FIELD_DRAWN => implode( ',', $drawn ),
+			),
 			$name
 		);
 	}

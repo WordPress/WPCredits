@@ -570,6 +570,11 @@ final class WPCPM_Sponsors_Dashboard {
 		$index = 0;
 		$count = count( $rendered );
 
+		// Every arrow also posts which sections the page drew. The saved order holds the ones left
+		// out as well, and a move through it could swap with one of them and change nothing the
+		// company can see; the handler moves among the drawn ones.
+		$drawn = implode( ',', array_keys( $rendered ) );
+
 		foreach ( $rendered as $key => $body ) {
 			WPCPM_Module_Order::render_module(
 				array(
@@ -580,7 +585,10 @@ final class WPCPM_Sponsors_Dashboard {
 					'index'       => $index,
 					'count'       => $count,
 					'action'      => self::ACTION_MOVE,
-					'fields'      => array( self::FIELD_SPONSOR => $record ),
+					'fields'      => array(
+						self::FIELD_SPONSOR             => $record,
+						WPCPM_Module_Order::FIELD_DRAWN => $drawn,
+					),
 					'can_move'    => $can_move,
 					'title_class' => 'wpcpm-sponsor__module-title',
 					'lead_class'  => 'wpcpm-sponsor__module-lead',
@@ -742,7 +750,7 @@ final class WPCPM_Sponsors_Dashboard {
 		$known     = array_key_exists( $key, self::modules() );
 
 		if ( $known && in_array( $direction, array( 'up', 'down' ), true ) ) {
-			update_option( self::OPT_MODULES_PREFIX . $record, WPCPM_Module_Order::moved( self::module_order( $record ), $key, $direction ), false );
+			update_option( self::OPT_MODULES_PREFIX . $record, WPCPM_Module_Order::moved_among( self::module_order( $record ), $key, $direction, WPCPM_Module_Order::posted_drawn( array_keys( self::modules() ) ) ), false );
 		}
 
 		if ( '1' === WPCPM_Request::posted_key( WPCPM_Module_Order::FIELD_ASYNC ) ) {
@@ -1124,7 +1132,9 @@ final class WPCPM_Sponsors_Dashboard {
 	 * waiting mark, a rule of the Administrator Dashboard's sheet, and the label says what waits, so
 	 * the mark is never the only word for it. The one tile with no card to open, "Nothing waits for
 	 * you", is a muted box of the same shape with no link around it: a link to nothing would be a
-	 * dead end for a keyboard.
+	 * dead end for a keyboard. The tier tile alone holds a word where the others hold a number, so
+	 * its figure carries `wpcpm-attention__n--word` beside the class every figure has, for the
+	 * theme to size it by (1.123.40).
 	 *
 	 * Nothing for a sponsor the store holds no row for, a member's stamp that outlived its sponsor:
 	 * the page is drawn on the empty row, whose floor (no tier, no mentor, a profile with every
@@ -1145,11 +1155,15 @@ final class WPCPM_Sponsors_Dashboard {
 
 		foreach ( self::glance_tiles( $record, $row ) as $tile ) {
 			$class = 'wpcpm-attention__tile' . ( $tile['zero'] ? ' wpcpm-attention__tile--zero' : '' ) . ( $tile['waiting'] ? ' wpcpm-attention__tile--waiting' : '' );
+			// The figure of a tile that holds a word, not a number, carries a class of its own for the
+			// theme to size it by.
+			$figure = 'wpcpm-attention__n' . ( $tile['word'] ? ' wpcpm-attention__n--word' : '' );
 
 			if ( '' === $tile['card'] ) {
 				printf(
-					'<li class="%1$s"><span class="wpcpm-attention__link"><span class="wpcpm-attention__n">%2$s</span><span class="wpcpm-attention__l">%3$s</span></span></li>',
+					'<li class="%1$s"><span class="wpcpm-attention__link"><span class="%2$s">%3$s</span><span class="wpcpm-attention__l">%4$s</span></span></li>',
 					esc_attr( $class ),
+					esc_attr( $figure ),
 					esc_html( $tile['value'] ),
 					esc_html( $tile['label'] )
 				);
@@ -1158,9 +1172,10 @@ final class WPCPM_Sponsors_Dashboard {
 			}
 
 			printf(
-				'<li class="%1$s"><a class="wpcpm-attention__link" href="#wpcpm-sponsor-%2$s"><span class="wpcpm-attention__n">%3$s</span><span class="wpcpm-attention__l">%4$s</span></a></li>',
+				'<li class="%1$s"><a class="wpcpm-attention__link" href="#wpcpm-sponsor-%2$s"><span class="%3$s">%4$s</span><span class="wpcpm-attention__l">%5$s</span></a></li>',
 				esc_attr( $class ),
 				esc_attr( $tile['card'] ),
+				esc_attr( $figure ),
 				esc_html( $tile['value'] ),
 				esc_html( $tile['label'] )
 			);
@@ -1207,8 +1222,9 @@ final class WPCPM_Sponsors_Dashboard {
 	 * @param string $record Sponsor key.
 	 * @param array  $row    The sponsor's row.
 	 * @return array[] Each `card` (its anchor's key, or '' for the one tile with no card), `value`
-	 *                 (the number line, as printed), `label`, `zero` (whether the tile is muted) and
-	 *                 `waiting` (whether it carries the waiting mark).
+	 *                 (the number line, as printed), `label`, `zero` (whether the tile is muted),
+	 *                 `waiting` (whether it carries the waiting mark) and `word` (whether the number
+	 *                 line is a word, not a number: the tier's name, on the tier tile alone).
 	 */
 	private static function glance_tiles( $record, array $row ) {
 		$tiles = array();
@@ -1228,6 +1244,7 @@ final class WPCPM_Sponsors_Dashboard {
 				'label'   => self::glance_term( $left, (string) $row['tier_until'] ),
 				'zero'    => false,
 				'waiting' => null !== $left && $left <= WPCPM_Sponsor_Tiers::NOTICE_DAYS,
+				'word'    => true,
 			);
 		}
 
@@ -1293,6 +1310,7 @@ final class WPCPM_Sponsors_Dashboard {
 				'label'   => __( 'Nothing waits for you', 'wpcredits-program-manager' ),
 				'zero'    => true,
 				'waiting' => false,
+				'word'    => false,
 			);
 		}
 
@@ -1315,6 +1333,7 @@ final class WPCPM_Sponsors_Dashboard {
 			'label'   => $label,
 			'zero'    => false,
 			'waiting' => true,
+			'word'    => false,
 		);
 	}
 

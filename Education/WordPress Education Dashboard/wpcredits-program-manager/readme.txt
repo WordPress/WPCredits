@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.39
+Stable tag: 1.123.40
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.40 =
+
+* The Move up and Move down arrows on the Student Report Card, the Institution Dashboard and the Sponsor Dashboard move a section past the one you see. A page leaves out a section with nothing to show, and with JavaScript off a move could trade places with that hidden section, so nothing on the page changed. Each arrow now sends the sections the page drew, and the hidden ones keep their places in the saved order. A page opened before the update still moves as it did. With JavaScript on, a move the site keeps no longer redraws every section.
+* On the Sponsor Dashboard, the note a plan was returned with, above the event planner, and the Event returned tile in At a glance belong to the running term: once a sponsor's term is renewed, a plan dated in the term before is not shown there again. The mail that carried the note is unchanged. The Sponsor guide and the Administrator guide say so.
+* At a glance: the tier tile's name carries the class `wpcpm-attention__n--word`, so the theme can size a word to its tile (theme 1.32.8).
+* For developers: `WPCPM_Module_Order::moved_among()`, `WPCPM_Module_Order::posted_drawn()` and the field `wpcpm_drawn`; `WPCPM_Sponsor_Event::starts_before()`, the one comparison the event allowance and the returned note share; `bin/js/modules-arrange.js` runs `assets/js/modules.js` under node from `bin/test-student-modules.php`.
 
 = 1.123.39 =
 

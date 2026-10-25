@@ -445,8 +445,9 @@ class WPCPM_Institutions_Dashboard {
 			// is not settled yet is refused the roster and the semester report and reads this
 			// page as the representatives module alone - which offered a Move up, because the
 			// default order puts it third (deep check FADMN-5, whose Student Report Card half
-			// shipped with it; this is the twin). The saved order is untouched, and so is the
-			// handler: what changes is which arrows the page offers.
+			// shipped with it; this is the twin). The saved order is untouched, and the handler
+			// moves among the modules the page drew (`moved_among()`): what changes is which
+			// arrows the page offers, and the arrows say which modules those are.
 			$rendered = array();
 
 			foreach ( $order as $key ) {
@@ -461,9 +462,10 @@ class WPCPM_Institutions_Dashboard {
 
 			$index = 0;
 			$count = count( $rendered );
+			$drawn = array_keys( $rendered );
 
 			foreach ( $rendered as $key => $body ) {
-				self::render_module( $key, $body, $index, $count, $record, $can_move );
+				self::render_module( $key, $body, $index, $count, $record, $can_move, $drawn );
 				++$index;
 			}
 
@@ -609,7 +611,7 @@ class WPCPM_Institutions_Dashboard {
 		$known     = array_key_exists( $key, self::modules() );
 
 		if ( $known && in_array( $direction, array( 'up', 'down' ), true ) ) {
-			update_option( self::OPT_MODULES_PREFIX . $record, WPCPM_Module_Order::moved( self::module_order( $record ), $key, $direction ), false );
+			update_option( self::OPT_MODULES_PREFIX . $record, WPCPM_Module_Order::moved_among( self::module_order( $record ), $key, $direction, WPCPM_Module_Order::posted_drawn( array_keys( self::modules() ) ) ), false );
 		}
 
 		if ( '1' === WPCPM_Request::posted_key( WPCPM_Module_Order::FIELD_ASYNC ) ) {
@@ -635,17 +637,19 @@ class WPCPM_Institutions_Dashboard {
 	 * One module: its wrapper, the arrows when the reader may arrange the page, its title and
 	 * lead, and the body `render()` has already built. A module whose cards all declined to
 	 * print - a representative whose agreement is not settled is refused every action but the
-	 * agreement itself - never reaches here, so nothing empty is offered to move; the index
-	 * and the count are the drawn page's, for the same reason.
+	 * agreement itself - never reaches here, so nothing empty is offered to move; the index,
+	 * the count and the list of keys are the drawn page's, for the same reason.
 	 *
-	 * @param string $key      Module key.
-	 * @param string $body     What the module's cards printed.
-	 * @param int    $index    Its place among the modules the page draws, from 0.
-	 * @param int    $count    How many modules the page draws.
-	 * @param string $record   Airtable record ID.
-	 * @param bool   $can_move Whether the reader may arrange this page.
+	 * @param string   $key      Module key.
+	 * @param string   $body     What the module's cards printed.
+	 * @param int      $index    Its place among the modules the page draws, from 0.
+	 * @param int      $count    How many modules the page draws.
+	 * @param string   $record   Airtable record ID.
+	 * @param bool     $can_move Whether the reader may arrange this page.
+	 * @param string[] $drawn    The keys of the modules the page draws, which the arrows post so a
+	 *                           move can pass a module the page leaves out.
 	 */
-	private static function render_module( $key, $body, $index, $count, $record, $can_move ) {
+	private static function render_module( $key, $body, $index, $count, $record, $can_move, array $drawn ) {
 		$labels = self::modules();
 		$leads  = self::leads();
 
@@ -660,7 +664,10 @@ class WPCPM_Institutions_Dashboard {
 				'index'       => $index,
 				'count'       => $count,
 				'action'      => self::ACTION_MOVE,
-				'fields'      => array( self::FIELD_INSTITUTION => $record ),
+				'fields'      => array(
+					self::FIELD_INSTITUTION         => $record,
+					WPCPM_Module_Order::FIELD_DRAWN => implode( ',', $drawn ),
+				),
 				'can_move'    => $can_move,
 				'title_class' => 'wpcpm-institution__module-title',
 				'lead_class'  => 'wpcpm-institution__module-lead',

@@ -103,6 +103,8 @@
 			var list = modules();
 			var focused = document.activeElement;
 			var byKey = {};
+			var shown;
+			var drawn;
 			var parent;
 			var marker;
 
@@ -111,8 +113,16 @@
 			}
 
 			// The arrows were put right by the press that led here, so there is nothing left to
-			// do and nothing to gain by doing it.
-			if ( keys( list ).join( ',' ) === order.join( ',' ) ) {
+			// do and nothing to gain by doing it. The order the server keeps holds every module,
+			// and a page leaves out a module whose cards print nothing, so the two are compared
+			// by the modules the page draws: compared whole they never matched while one was left
+			// out, and every press re-inserted every module.
+			shown = keys( list );
+			drawn = order.filter( function ( key ) {
+				return -1 !== shown.indexOf( key );
+			} );
+
+			if ( shown.join( ',' ) === drawn.join( ',' ) ) {
 				return;
 			}
 
@@ -129,14 +139,12 @@
 			marker = document.createComment( 'wpcpm-modules' );
 			parent.insertBefore( marker, list[ 0 ] );
 
-			keys( list ).forEach( function ( key, i ) {
+			shown.forEach( function ( key, i ) {
 				byKey[ key ] = list[ i ];
 			} );
 
-			order.forEach( function ( key ) {
-				if ( byKey[ key ] ) {
-					parent.insertBefore( byKey[ key ], marker );
-				}
+			drawn.forEach( function ( key ) {
+				parent.insertBefore( byKey[ key ], marker );
 			} );
 
 			parent.removeChild( marker );

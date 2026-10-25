@@ -44,7 +44,10 @@
  *   drawn only when its count is above zero and its card is drawn, asked the card's own way (the
  *   event only where the Events card can show the note, inside the planner's plan form, which is
  *   where the planner's allowance is empty: not for a term used, an event open or a tier with no
- *   planner);
+ *   planner; and the note is the running term's, so a plan returned in the term before a renewal
+ *   draws no tile, while the same plan with no end recorded for a term before does, 1.123.40);
+ *   the tier tile's figure, a word where the others are numbers, carries
+ *   `wpcpm-attention__n--word` beside `wpcpm-attention__n`, and no other tile's does (1.123.40);
  *   when nothing waits, the tier tile included, a muted "Nothing waits for you" with the number 0
  *   and no link follows, or stands alone with the switch off. A strip of one tile is a strip; a
  *   sponsor the store holds no row for gets none. The figures that were tiles (the next event, the
@@ -1319,7 +1322,9 @@ function glance_of( $html ) {
  * @return string
  */
 function glance_tile( $card, $value, $label, $zero = false, $waiting = false ) {
-	return '<li class="wpcpm-attention__tile' . ( $zero ? ' wpcpm-attention__tile--zero' : '' ) . ( $waiting ? ' wpcpm-attention__tile--waiting' : '' ) . '"><a class="wpcpm-attention__link" href="#wpcpm-sponsor-' . $card . '"><span class="wpcpm-attention__n">' . $value . '</span><span class="wpcpm-attention__l">' . $label . '</span></a></li>';
+	// The tier tile's figure is a word, not a number (1.123.40), and says so in a class the theme sizes it by.
+	$figure = 'wpcpm-attention__n' . ( 'sponsorship' === $card ? ' wpcpm-attention__n--word' : '' );
+	return '<li class="wpcpm-attention__tile' . ( $zero ? ' wpcpm-attention__tile--zero' : '' ) . ( $waiting ? ' wpcpm-attention__tile--waiting' : '' ) . '"><a class="wpcpm-attention__link" href="#wpcpm-sponsor-' . $card . '"><span class="' . $figure . '">' . $value . '</span><span class="wpcpm-attention__l">' . $label . '</span></a></li>';
 }
 /**
  * The tile for a sponsor with nothing waiting: muted, the number 0, and no link, since no card holds
@@ -1717,6 +1722,45 @@ ck( 'the latest event returned with a note: one "Event returned" tile, marked as
 	tiles_without_card( $event_page ),
 	false !== strpos( $events_card, 'Your last plan was returned: Please add an agenda.' ),
 ), array( 'Please add an agenda.', glance_strip( array( glance_tile( 'sponsorship', 'Champion', 'to January 14, 2027, 100 days' ), glance_tile( 'events', '1', 'Event returned', false, true ) ) ), array(), true ) );
+// The note belongs to the running term (1.123.40). The plan returned above is dated November 2, in the
+// term that began on October 1, the day after the last day of the final report (`WPCPM_Sponsor_Event::term_from()`).
+// Dated September 25 instead it is the term before's, and a renewal has left it behind: neither the
+// Events card nor the strip says it came back, and the running term's own events, a canceled one with
+// no note among them, are the latest there is. With no end recorded for a term before, nothing says
+// a renewal happened, and the same plan is the sponsor's latest as it always was: its note and its tile.
+$returned_start = $GLOBALS['pmeta'][ $returned_event ][ WPCPM_Sponsor_Event::META_START ];
+$returned_end   = $GLOBALS['pmeta'][ $returned_event ][ WPCPM_Sponsor_Event::META_END ];
+$GLOBALS['pmeta'][ $returned_event ][ WPCPM_Sponsor_Event::META_START ] = (int) strtotime( '2026-09-25 15:00:00 UTC' );
+$GLOBALS['pmeta'][ $returned_event ][ WPCPM_Sponsor_Event::META_END ]   = (int) strtotime( '2026-09-25 16:00:00 UTC' );
+$renewed_page = $D::render();
+$renewed_card = substr( $renewed_page, (int) strpos( $renewed_page, '<details id="wpcpm-sponsor-events"' ) );
+$renewed_card = substr( $renewed_card, 0, (int) strpos( $renewed_card, '</section>' ) );
+$kept_ends    = array();
+foreach ( array( $final_report, $glance_final ) as $end_id ) {
+	$kept_ends[ $end_id ] = $GLOBALS['pmeta'][ $end_id ][ WPCPM_Sponsor_Report::META_UNTIL ];
+	$GLOBALS['pmeta'][ $end_id ][ WPCPM_Sponsor_Report::META_UNTIL ] = '';
+}
+$first_term_page = $D::render();
+$first_term_card = substr( $first_term_page, (int) strpos( $first_term_page, '<details id="wpcpm-sponsor-events"' ) );
+$first_term_card = substr( $first_term_card, 0, (int) strpos( $first_term_card, '</section>' ) );
+foreach ( $kept_ends as $end_id => $end_day ) { $GLOBALS['pmeta'][ $end_id ][ WPCPM_Sponsor_Report::META_UNTIL ] = $end_day; }
+ck( 'renewed, a plan returned in the term before is no news of the term that runs: no note, no line above the plan form and no Event returned tile, though the plan form is drawn', array(
+	WPCPM_Sponsor_Event::term_from( WPCPM_Sponsors_Index::row( $A ) ),
+	WPCPM_Sponsor_Event::returned_note( $A ),
+	false !== strpos( $renewed_card, 'Plan your co-hosted event' ),
+	false !== strpos( $renewed_card, 'Your last plan was returned' ),
+	glance_of( $renewed_page ),
+	tiles_without_card( $renewed_page ),
+), array( '2026-10-01', '', true, false, glance_strip( array( glance_tile( 'sponsorship', 'Champion', 'to January 14, 2027, 100 days' ), glance_none() ) ), array() ) );
+ck( 'and the same plan with no end recorded for a term before is the sponsor\'s latest event as it always was: its note above the plan form, and the tile', array(
+	false !== strpos( $first_term_card, 'Your last plan was returned: Please add an agenda.' ),
+	glance_of( $first_term_page ),
+	tiles_without_card( $first_term_page ),
+), array( true, glance_strip( array( glance_tile( 'sponsorship', 'Champion', 'to January 14, 2027, 100 days' ), glance_tile( 'events', '1', 'Event returned', false, true ) ) ), array() ) );
+$GLOBALS['pmeta'][ $returned_event ][ WPCPM_Sponsor_Event::META_START ] = $returned_start;
+$GLOBALS['pmeta'][ $returned_event ][ WPCPM_Sponsor_Event::META_END ]   = $returned_end;
+ck( 'put back in its own term, the plan is the running term\'s latest again: its note shows', WPCPM_Sponsor_Event::returned_note( $A ), 'Please add an agenda.' );
+
 // A Backer's tier has no events, so with nothing coming the card is not drawn and the tile is not, though
 // the note is still there to read.
 WPCPM_Sponsors_Index::patch( $A, array( 'tier' => 'backer' ) );
@@ -1818,6 +1862,24 @@ $eight_strip  = glance_strip( array(
 	glance_tile( 'profile', '1', 'Company profile detail missing', false, true ),
 ) );
 ck( 'all eight tiles at once, in the approved order, each waiting, each landing on a card the page draws, and no "Nothing waits for you"', array( glance_of( $eight ), tiles_without_card( $eight ), false !== strpos( $eight, '</header>' . $eight_strip ) ), array( $eight_strip, array(), true ) );
+// The tier tile's figure is a word, not a number, and says so in a class of its own (1.123.40), which the
+// theme sizes it by: the figure of the tier's tile carries both classes, and no other tile's carries the
+// new one, the numbers' tiles and the muted "Nothing waits for you" among them. Read off the page itself
+// here, and not through the helper the other checks write the tiles with.
+$figures = array();
+if ( preg_match_all( '#<li class="[^"]*"><(?:a|span) class="wpcpm-attention__link"(?: href="\#wpcpm-sponsor-([a-z]+)")?><span class="([^"]*)">#', $eight, $found, PREG_SET_ORDER ) ) {
+	foreach ( $found as $one ) { $figures[ $one[1] ] = $one[2]; }
+}
+ck( 'the tier tile\'s figure has both classes, and no other tile\'s figure has the word class: the eight tiles at once', $figures, array(
+	'sponsorship' => 'wpcpm-attention__n wpcpm-attention__n--word',
+	'offers'      => 'wpcpm-attention__n',
+	'posts'       => 'wpcpm-attention__n',
+	'events'      => 'wpcpm-attention__n',
+	'agreement'   => 'wpcpm-attention__n',
+	'profile'     => 'wpcpm-attention__n',
+) );
+ck( 'nor has the muted tile\'s: the strip with nothing waiting', array( substr_count( glance_of( $tier_page ), 'wpcpm-attention__n--word' ), substr_count( glance_of( $tier_page ), 'wpcpm-attention__n"' ), substr_count( $eight, 'wpcpm-attention__n--word' ), substr_count( $eight, 'wpcpm-attention__n"' ) ), array( 1, 1, 1, 7 ) );
+
 // What waits is the sponsor's, not the viewer's: a program manager reading the page through the switcher
 // sees the same strip.
 $GLOBALS['uid'] = 1;
@@ -2067,6 +2129,10 @@ ck( 'and one mover for each, naming the module, posting to the page\'s action un
 	false !== strpos( $page4, 'aria-label="Move Your company up"' ),
 	false !== strpos( $page4, 'data-wpcpm-moved="Your sponsorship moved down."' ),
 ), array( 4, 4, 4, 4, true, true, true, true, true ) );
+ck( 'every mover also names the sections the page draws, in the order it draws them, so a move can pass one it does not draw', array(
+	count( movers_of( $page4 ) ),
+	count( array_filter( movers_of( $page4 ), static function ( $mover ) { return false !== strpos( $mover, '<input type="hidden" name="wpcpm_drawn" value="sponsorship,offer,mentors,company">' ); } ) ),
+), array( 4, 4 ) );
 ck( 'the first drawn has Move up disabled, the last Move down, and the two between neither', array( $mod_buttons( $page4, 'sponsorship' ), $mod_buttons( $page4, 'offer' ), $mod_buttons( $page4, 'mentors' ), $mod_buttons( $page4, 'company' ) ), array( array( true, false ), array( false, false ), array( false, false ), array( false, true ) ) );
 ck( 'the shared script is registered from assets/js/modules.js and enqueued for the company\'s member', array( in_array( 'wpcpm-modules', $GLOBALS['scripts'], true ), isset( $GLOBALS['script_src']['wpcpm-modules'] ) ? $GLOBALS['script_src']['wpcpm-modules'] : '' ), array( true, WPCPM_PLUGIN_URL . 'assets/js/modules.js' ) );
 
@@ -2082,6 +2148,7 @@ unset( $GLOBALS['settings']['sponsor_tiers_live'] );
 $GLOBALS['opts'][ $order_key ] = array( 'company', 'mentors', 'offer', 'sponsorship' );
 $page_off                      = $D::render();
 ck( 'with the tiers off the sponsorship module is not drawn, so it has no wrapper, no title, no lead and no arrows', array( modules_printed( $page_off ), strpos( $page_off, 'Move Your sponsorship' ), strpos( $page_off, '>Your sponsorship</h2>' ), substr_count( $page_off, 'class="wpcpm-module__mover"' ) ), array( array( 'company', 'mentors', 'offer' ), false, false, 3 ) );
+ck( 'and the movers name the three drawn, not the four the saved order holds', array( count( movers_of( $page_off ) ), count( array_filter( movers_of( $page_off ), static function ( $mover ) { return false !== strpos( $mover, '<input type="hidden" name="wpcpm_drawn" value="company,mentors,offer">' ); } ) ) ), array( 3, 3 ) );
 ck( 'and the outer arrows count the modules drawn: the last drawn is What you offer, whose Move down is disabled although the saved order goes on to another module', array( $mod_buttons( $page_off, 'company' ), $mod_buttons( $page_off, 'mentors' ), $mod_buttons( $page_off, 'offer' ) ), array( array( true, false ), array( false, false ), array( false, true ) ) );
 unset( $GLOBALS['opts'][ $order_key ] );
 $page_off = $D::render();
@@ -2144,6 +2211,21 @@ $before          = $GLOBALS['opts'][ $order_key ];
 ck( 'a module this version does not know moves nothing and the page has no anchor to land on', array( ran_move(), $GLOBALS['opts'][ $order_key ] ), array( 'redirect: ' . $move_page, $before ) );
 $GLOBALS['post'] = array( 'wpcpm_sponsor' => $A, 'wpcpm_module' => 'company', 'wpcpm_direction' => 'sideways' );
 ck( 'and so does a direction that is neither up nor down', array( ran_move(), $GLOBALS['opts'][ $order_key ] ), array( 'redirect: ' . $move_page . '#wpcpm-module-company', $before ) );
+
+// A company whose launch switch is off is not drawn the sponsorship section, though the saved order holds it.
+// The arrows are the drawn page's, so a move has to pass the section that is not drawn: Mentors up from
+// the saved order swapped with it and the page looked the same.
+$GLOBALS['opts'][ $order_key ] = array( 'offer', 'sponsorship', 'mentors', 'company' );
+$GLOBALS['post']               = array( 'wpcpm_sponsor' => $A, 'wpcpm_module' => 'mentors', 'wpcpm_direction' => 'up', 'wpcpm_drawn' => 'offer,mentors,company' );
+ck( 'a move passes a section the page does not draw: Mentors goes above What you offer, and the hidden section keeps its place', array( ran_move(), $GLOBALS['opts'][ $order_key ] ), array( 'redirect: ' . $move_page . '#wpcpm-module-mentors', array( 'mentors', 'sponsorship', 'offer', 'company' ) ) );
+$GLOBALS['opts'][ $order_key ] = array( 'offer', 'sponsorship', 'mentors', 'company' );
+$GLOBALS['post']               = array( 'wpcpm_sponsor' => $A, 'wpcpm_module' => 'offer', 'wpcpm_direction' => 'down', 'wpcpm_drawn' => 'offer,mentors,company', 'wpcpm_async' => '1' );
+ck( 'and the script gets that order back', ran_move(), 'json: {"order":["mentors","sponsorship","offer","company"]}' );
+$GLOBALS['opts'][ $order_key ] = array( 'offer', 'sponsorship', 'mentors', 'company' );
+$GLOBALS['post']               = array( 'wpcpm_sponsor' => $A, 'wpcpm_module' => 'mentors', 'wpcpm_direction' => 'up' );
+ran_move();
+ck( 'a form that says nothing of what was drawn (a page an older version drew) is moved through the whole saved order, as before', $GLOBALS['opts'][ $order_key ], array( 'offer', 'mentors', 'sponsorship', 'company' ) );
+$GLOBALS['opts'][ $order_key ] = $before;
 
 $GLOBALS['uid']  = 1;
 $GLOBALS['post'] = array( 'wpcpm_sponsor' => $B, 'wpcpm_module' => 'offer', 'wpcpm_direction' => 'down' );

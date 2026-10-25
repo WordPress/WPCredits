@@ -44,6 +44,13 @@
  *   `before_term` for an event of the renewed term moved back before its first day, in words that
  *   name that day and the site's clock, and nothing moves; an event of the term before moves inside
  *   it or on into the renewed term.
+ * - The returned note belongs to the running term (1.123.40): `returned_note()` takes the sponsor's
+ *   latest event among the events of the running term, attributed as the allowance attributes them
+ *   (a start before `term_from()` is the term before's). Renewed, a plan returned in the term
+ *   before shows no note, and one returned in the renewed term shows its own, after an approved
+ *   event of the term before; a later plan of the running term puts it away; with a plan returned
+ *   in each term, the running term's is the one that shows. A sponsor that has not renewed, one
+ *   with no term and a row the store lacks read every event as the running term's, as before.
  * - Extra events for one term: `extra_events()` answers the number the row's allowance holds while it
  *   names the last day asked about, and none for another day or for anything that is no allowance. A
  *   term counts its approved events against the tier's one and that many more, one event at a time
@@ -56,7 +63,8 @@
  *   move it, each raising the calendar version and writing one audit row of its kind with the
  *   ground it acted on, a member's and a manager's cancel both; a change keeps the new start on or
  *   before the term's last day, the lapsed term's included; a return's note is kept to 2,000
- *   characters, and `returned_note()` answers it while the returned event is the sponsor's latest;
+ *   characters, and `returned_note()` answers it while the returned event is the latest of the
+ *   sponsor's events in the running term (below);
  *   an event whose end has passed takes no move; a title and a description the Change form posted
  *   back as drawn, named `unedited`, are the event's own, so a change handed them in other words
  *   changes nothing; a canceled event or a returned one frees the
@@ -2756,6 +2764,70 @@ ck(
 	},
 	array( '', '', '2027-02-01', '2027-02-01', '2027-02-01', '', '', '', '2027-03-01', '2028-01-01' )
 );
+
+/* ---- the returned note belongs to the running term ---------------------------------- */
+
+echo "\n=== The returned note belongs to the running term ===\n";
+
+// A plan returned in one term must not come back as a fresh return in the next: `returned_note()`
+// takes the sponsor's latest event among the events of the running term, attributed as the allowance
+// attributes them (a start before `term_from()` is the term before's). Each sponsor here is a row of
+// its own, its events seeded in the order they were planned.
+const NOTED   = 'spoAAAA0000000021'; // Partner, the term runs to 31 January 2027, a plan returned in it, then renewed early.
+const NOTE_NO = 'spoAAAA0000000022'; // Partner, the term runs to 30 June 2027, no renewal recorded, a plan returned long ago.
+const NOTE_TW = 'spoAAAA0000000023'; // Partner, renewed early, a plan returned in each term.
+
+/** A returned plan as the store leaves it: canceled, and the decision holding the note it was returned with. */
+function seed_returned( $record, $start, $title, $note ) {
+	$id = seed_event( $record, 'cancelled', $start, 60, $title );
+	update_post_meta( $id, '_wpcpm_sevent_decision', array( 'at' => $GLOBALS['now'], 'by' => MANAGER, 'note' => $note ) );
+	return $id;
+}
+
+$GLOBALS['index'][ NOTED ]   = array( 'record_id' => NOTED, 'name' => 'Noted Example', 'status' => 'Approved', 'tier' => 'partner', 'tier_until' => '2027-01-31' );
+$GLOBALS['index'][ NOTE_NO ] = array( 'record_id' => NOTE_NO, 'name' => 'Note No Example', 'status' => 'Approved', 'tier' => 'partner', 'tier_until' => '2027-06-30' );
+$GLOBALS['index'][ NOTE_TW ] = array( 'record_id' => NOTE_TW, 'name' => 'Note Two Example', 'status' => 'Approved', 'tier' => 'partner', 'tier_until' => '2027-01-31' );
+
+seed_returned( NOTED, utc( '2026-12-01 10:00' ), 'Returned in the first term', 'Please add the agenda.' );
+seed_returned( NOTE_NO, utc( '2025-03-01 10:00' ), 'Returned long ago', 'Please name the speaker.' );
+$noted_first = seed_returned( NOTE_TW, utc( '2027-03-10 15:00' ), 'Returned for the renewed term', 'Please add a date for the recording.' );
+
+ck( 'before the renewal the term that runs is the one the plan was returned in: its note is the sponsor\'s', static function () { return WPCPM_Sponsor_Event::returned_note( NOTED ); }, 'Please add the agenda.' );
+ck( 'a sponsor with no renewal recorded is as it was: its latest event\'s note, however long ago the plan was dated', static function () { return WPCPM_Sponsor_Event::returned_note( NOTE_NO ); }, 'Please name the speaker.' );
+
+// The Sponsors screen's Edit save moves the last day on and keeps the term it moved off as owed its report.
+$GLOBALS['index'][ NOTED ] = array_merge(
+	$GLOBALS['index'][ NOTED ],
+	array(
+		'tier_until'  => '2028-01-31',
+		'report_owed' => attempt( static function () { return WPCPM_Sponsor_Report::owed_after_save( NOTED, $GLOBALS['index'][ NOTED ], array_merge( $GLOBALS['index'][ NOTED ], array( 'tier_until' => '2028-01-31' ) ) ); } ),
+	)
+);
+
+ck( 'renewed, the plan returned in the term before is no news of the term that runs: no note, whatever its place among the events', static function () { return array( WPCPM_Sponsor_Event::term_from( $GLOBALS['index'][ NOTED ] ), WPCPM_Sponsor_Event::returned_note( NOTED ) ); }, array( '2027-02-01', '' ) );
+
+seed_event( NOTED, 'approved', utc( '2026-12-20 10:00' ), 60, 'Held in the first term' );
+seed_returned( NOTED, utc( '2027-03-10 15:00' ), 'Returned in the renewed term', 'Please name the speaker.' );
+
+ck( 'a plan returned in the running term shows its note, after an approved event of the term before', static function () { return WPCPM_Sponsor_Event::returned_note( NOTED ); }, 'Please name the speaker.' );
+
+seed_event( NOTED, 'approved', utc( '2027-03-20 10:00' ), 60, 'Planned after the return' );
+
+ck( 'and a later plan of the running term puts it away, as it always did', static function () { return WPCPM_Sponsor_Event::returned_note( NOTED ); }, '' );
+
+// Renewed early, a plan returned for each term, the one for the term before planned last: the note is
+// the running term's own, the latest event among its events, and not the term before's.
+$GLOBALS['index'][ NOTE_TW ] = array_merge(
+	$GLOBALS['index'][ NOTE_TW ],
+	array(
+		'tier_until'  => '2028-01-31',
+		'report_owed' => attempt( static function () { return WPCPM_Sponsor_Report::owed_after_save( NOTE_TW, $GLOBALS['index'][ NOTE_TW ], array_merge( $GLOBALS['index'][ NOTE_TW ], array( 'tier_until' => '2028-01-31' ) ) ); } ),
+	)
+);
+seed_returned( NOTE_TW, utc( '2027-01-25 10:00' ), 'Returned for the term that still runs', 'Please add the agenda.' );
+
+ck( 'with a plan returned in each term, the latest of the running term\'s events is the one whose note shows, not the later plan of the term before', static function () { return WPCPM_Sponsor_Event::returned_note( NOTE_TW ); }, 'Please add a date for the recording.' );
+ck( 'a sponsor the store holds no row for, with a returned plan, is read as one with no term: its latest event\'s note', static function () { seed_returned( 'spoAAAA0000000098', utc( '2026-12-01 10:00' ), 'Returned, sponsor gone', 'Please add the agenda.' ); return WPCPM_Sponsor_Event::returned_note( 'spoAAAA0000000098' ); }, 'Please add the agenda.' );
 
 /* ---- extra events for one term ------------------------------------------------------ */
 

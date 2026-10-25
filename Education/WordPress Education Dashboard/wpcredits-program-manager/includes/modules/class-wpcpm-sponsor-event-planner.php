@@ -487,11 +487,12 @@ final class WPCPM_Sponsor_Event_Planner {
 
 	/**
 	 * The form that plans an event, under what the term allows while the program has granted it more
-	 * events than the tier's one, and under the note the last plan was returned with, if it was. A
-	 * term granted none says nothing of how many it holds, as the planner never has. Its boxes are
-	 * empty but for the suggested length, or hold what the person typed when a refusal of their plan
-	 * brought the page back (`kept_rows()`: the rows `typed()` reads, and the title and the
-	 * description exactly as typed while that typing waits, empty after). It sits in no fold.
+	 * events than the tier's one, and under the note the last plan of the running term was returned
+	 * with, if it was (`WPCPM_Sponsor_Event::returned_note()`). A term granted none says nothing of
+	 * how many it holds, as the planner never has. Its boxes are empty but for the suggested length,
+	 * or hold what the person typed when a refusal of their plan brought the page back
+	 * (`kept_rows()`: the rows `typed()` reads, and the title and the description exactly as typed
+	 * while that typing waits, empty after). It sits in no fold.
 	 *
 	 * @param string       $record Sponsor key.
 	 * @param DateTimeZone $zone   The viewer's clock.

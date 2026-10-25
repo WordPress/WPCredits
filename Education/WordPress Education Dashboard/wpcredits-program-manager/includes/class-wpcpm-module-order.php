@@ -7,9 +7,10 @@
  * Sponsor Dashboard, whose order belongs to the company (Institutions release 3). Each page owns
  * its module keys and labels, where the order is kept and who may move a module; this class owns
  * what is the same on all of them - repairing a saved order against the modules the version
- * knows, moving one module a place, the two arrows with the fields the handlers read and
- * `assets/js/modules.js` posts, and, for the two dashboards that draw their modules alike, the
- * module itself: its wrapper, its arrows, its title and its lead.
+ * knows, moving one module a place (among all of them, or among the ones the page draws), the two
+ * arrows with the fields the handlers read and `assets/js/modules.js` posts, and, for the two
+ * dashboards that draw their modules alike, the module itself: its wrapper, its arrows, its title
+ * and its lead.
  *
  * @package WPCredits_Program_Manager
  */
@@ -28,6 +29,9 @@ class WPCPM_Module_Order {
 	const FIELD_MODULE    = 'wpcpm_module';
 	const FIELD_DIRECTION = 'wpcpm_direction';
 	const FIELD_ASYNC     = 'wpcpm_async';
+
+	/** The modules the page drew, comma-separated, which each page puts in the fields its arrows post. */
+	const FIELD_DRAWN = 'wpcpm_drawn';
 
 	/**
 	 * A saved order, repaired: unknown keys are dropped, a module the saved order does not know
@@ -86,6 +90,91 @@ class WPCPM_Module_Order {
 	}
 
 	/**
+	 * One module moved one place among the modules the page draws.
+	 *
+	 * A page leaves out a module whose cards print nothing, and its arrows count the modules it
+	 * draws. The saved order still holds the module that is left out, so `moved()` could swap
+	 * with it: the move was saved and the page looked the same. Here the module swaps with the
+	 * nearest module the page draws in that direction, both found by their places in the saved
+	 * order, so every module the page does not draw keeps its place and the order the reader sees
+	 * is the one that moved.
+	 *
+	 * With no drawn list that holds a key of the order - a form from a page an older version drew
+	 * and a tab left open, or no field at all - nothing says what the page drew, and the answer
+	 * is `moved()`'s. A drawn key the order lacks is ignored, a key that is not drawn is not
+	 * moved, and a direction that is neither `up` nor `down` moves nothing.
+	 *
+	 * @param string[] $order     The saved order to move within.
+	 * @param string   $key       Module key.
+	 * @param string   $direction `up` or `down`.
+	 * @param string[] $drawn     The keys of the modules the page drew.
+	 * @return string[] Every key of the order, once.
+	 */
+	public static function moved_among( array $order, $key, $direction, array $drawn ) {
+		$order = array_values( $order );
+		$from  = array_search( $key, $order, true );
+		$shown = array();
+
+		// Only two directions are moves. `moved()` reads anything but `up` as down, so the check
+		// stands in front of the answer it gives when nothing was said of what the page drew.
+		if ( ! in_array( $direction, array( 'up', 'down' ), true ) ) {
+			return $order;
+		}
+
+		foreach ( $order as $held ) {
+			if ( in_array( $held, $drawn, true ) ) {
+				$shown[] = $held;
+			}
+		}
+
+		if ( ! $shown ) {
+			return self::moved( $order, $key, $direction );
+		}
+
+		if ( false === $from || ! in_array( $key, $shown, true ) ) {
+			return $order;
+		}
+
+		$step = 'up' === $direction ? -1 : 1;
+		$to   = $from + $step;
+
+		while ( isset( $order[ $to ] ) && ! in_array( $order[ $to ], $shown, true ) ) {
+			$to += $step;
+		}
+
+		if ( ! isset( $order[ $to ] ) ) {
+			return $order;
+		}
+
+		$order[ $from ] = $order[ $to ];
+		$order[ $to ]   = $key;
+
+		return $order;
+	}
+
+	/**
+	 * The modules the page that was pressed drew, as its form posted them: the keys this version
+	 * knows, in the order posted, each once. Empty when the field is absent, empty or not a
+	 * string, which is what `moved_among()` reads as "nothing was said".
+	 *
+	 * @param string[] $known The module keys this version has.
+	 * @return string[]
+	 */
+	public static function posted_drawn( array $known ) {
+		$drawn = array();
+
+		foreach ( explode( ',', (string) WPCPM_Request::posted_text( self::FIELD_DRAWN ) ) as $key ) {
+			$key = trim( $key );
+
+			if ( in_array( $key, $known, true ) && ! in_array( $key, $drawn, true ) ) {
+				$drawn[] = $key;
+			}
+		}
+
+		return $drawn;
+	}
+
+	/**
 	 * One module as the Institution Dashboard and the Sponsor Dashboard draw it: the wrapper that
 	 * `assets/js/modules.js` finds by its class and its id, the arrows when the reader may arrange
 	 * the page, the title in the eyebrow voice, the lead under it, then the cards.
@@ -107,7 +196,8 @@ class WPCPM_Module_Order {
 	 *     @type int    $index       Its place among the modules the page draws, from 0.
 	 *     @type int    $count       How many modules the page draws.
 	 *     @type string $action      The admin-post action the arrows post to; also the nonce's.
-	 *     @type array  $fields      The hidden fields the arrows post besides the module: whose page it is.
+	 *     @type array  $fields      The hidden fields the arrows post besides the module: whose page it is
+	 *                               and, under `FIELD_DRAWN`, the keys of the modules the page draws.
 	 *     @type bool   $can_move    Whether the reader may arrange the page.
 	 *     @type string $title_class The title's class after the shared one.
 	 *     @type string $lead_class  The lead's class after the shared one.
@@ -159,7 +249,8 @@ class WPCPM_Module_Order {
 	 * @param string $key    Module key.
 	 * @param int    $index  Its place in the order, from 0.
 	 * @param int    $count  How many modules the page has.
-	 * @param array  $hidden Extra hidden fields, name to value: whose page it is.
+	 * @param array  $hidden Extra hidden fields, name to value: whose page it is, and the modules
+	 *                       the page drew (`FIELD_DRAWN`).
 	 * @param string $label  The module's name, for the arrows' spoken labels.
 	 */
 	public static function render_mover( $action, $key, $index, $count, array $hidden, $label ) {
