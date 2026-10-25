@@ -344,8 +344,8 @@ Approved**, **Interest mail**, **Offers** and **Tiers**.
   badge a sponsor puts on its own site, the Handbook listing tab on the Sponsors screen, the
   application form's *Which level are you considering?* question, the partnership tiles a track's
   students see on their Student Report Card and the offers its partners keep for them, the At a
-  glance tiles for the tier, the next event and the reports, the *Sponsorship*, *Badge*, *Reports*
-  and *Events* cards, the badge in the Sponsor Dashboard's header, the reports a sponsor's members
+  glance tiles for the tier and for a returned event, the *Sponsorship*, *Badge*, *Reports* and
+  *Events* cards, the badge in the Sponsor Dashboard's header, the reports a sponsor's members
   open on the *Reports* card and the event planner on the *Events* card, the Administrator
   Dashboard's *Events* card and its tile, which the Overview lists too, the *Events* card on the
   Sponsors screen's Waiting for review tab and the events in its menu bubble, and the *Events from

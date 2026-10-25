@@ -47,6 +47,13 @@
  * - The events from the program's sponsors (1.117.0): the list is drawn for a contact of the
  *   institution on its own page, after the modules and outside their order, and never for a program
  *   manager looking through the switcher, nor for a locked account, which sees no module either.
+ * - **A module is drawn by the printer the Sponsor Dashboard's sections are drawn by too** (Institutions
+ *   release 3), `WPCPM_Module_Order::render_module()`, and what this page prints is byte for byte what
+ *   it printed before the printer was shared: the markup is written out a second time in this suite,
+ *   for the first module, a middle one, the last, one alone, a reader who may not arrange the page and
+ *   a key the page does not know, and the printer is asked for the same markup with this page's
+ *   arguments. With the Sponsor Dashboard's arguments it takes the action, the hidden fields and the
+ *   two classes from them.
  *
  * Run from the plugin root:  php bin/test-institutions-dashboard.php
  */
@@ -1524,6 +1531,144 @@ ck( 'and none of them changed the order of a page that is not theirs', $GLOBALS[
 
 $_POST = array();
 $GLOBALS['uid'] = 0;
+
+echo "\n=== One module, byte for byte ===\n";
+/**
+ * What `render_module()` prints for one module, called through reflection: it is private, and its
+ * markup is what `assets/js/modules.js`, the stylesheets and the theme's rules read.
+ *
+ * @param string $key      Module key.
+ * @param string $body     The cards' markup.
+ * @param int    $index    Its place among the modules drawn.
+ * @param int    $count    How many are drawn.
+ * @param bool   $can_move Whether the reader may arrange the page.
+ * @return string
+ */
+function module_markup( $key, $body, $index, $count, $can_move ) {
+	global $krakow;
+	$method = new ReflectionMethod( 'WPCPM_Institutions_Dashboard', 'render_module' );
+
+	// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
+	ob_start();
+	$method->invoke( null, $key, $body, $index, $count, $krakow, $can_move );
+	return (string) ob_get_clean();
+}
+/**
+ * The markup a module has always been drawn in, written out here a second time and not asked of the
+ * code: the wrapper, the two arrows when the reader may arrange the page, the eyebrow title and the
+ * lead under it, then the cards. Both dashboards draw their modules through one printer
+ * (`WPCPM_Module_Order::render_module()`), and this is the Institution Dashboard's output it has to
+ * keep, class for class.
+ *
+ * @param string $key      Module key.
+ * @param string $title    The title and the arrows' name.
+ * @param string $lead     The lead, or '' for none.
+ * @param bool   $arrows   Whether the arrows are drawn.
+ * @param bool   $up_off   Whether Move up is disabled.
+ * @param bool   $down_off Whether Move down is disabled.
+ * @return string
+ */
+function module_expected( $key, $title, $lead, $arrows, $up_off, $down_off ) {
+	global $krakow;
+	$out = '<div class="wpcpm-module wpcpm-module--' . $key . '" id="wpcpm-module-' . $key . '">';
+	if ( $arrows ) {
+		$out .= '<form class="wpcpm-module__mover" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-refused="The move was not kept.">'
+			. '<input type="hidden" name="action" value="wpcpm_institution_module_move"><input type="hidden" name="_wpnonce" value="nonce">'
+			. '<input type="hidden" name="wpcpm_module" value="' . $key . '"><input type="hidden" name="wpcpm_institution" value="' . $krakow . '">'
+			. '<button type="submit" class="wpcpm-module__move wpcpm-module__move--up" name="wpcpm_direction" value="up" aria-label="Move ' . $title . ' up" title="Move ' . $title . ' up" data-wpcpm-moved="' . $title . ' moved up."' . ( $up_off ? ' disabled' : '' ) . '><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6.5 14.5 12 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+			. '<button type="submit" class="wpcpm-module__move wpcpm-module__move--down" name="wpcpm_direction" value="down" aria-label="Move ' . $title . ' down" title="Move ' . $title . ' down" data-wpcpm-moved="' . $title . ' moved down."' . ( $down_off ? ' disabled' : '' ) . '><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6.5 9.5 12 15l5.5-5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+			. '</form>';
+	}
+	$out .= '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">' . $title . '</h2>';
+	if ( '' !== $lead ) {
+		$out .= '<p class="wpcpm-student__note wpcpm-institution__module-lead">' . $lead . '</p>';
+	}
+	return $out . '<p>BODY</p></div>';
+}
+$students_lead = 'Your students on the program, by cohort and by where they are, with the export and the enrollment form.';
+$report_lead   = 'The report the program prepares for your institution each semester, to read and download as a PDF once an Administrator has approved it.';
+$people_lead   = 'Who at your institution can see this page, invitations to colleagues, and the Collaboration Agreement.';
+ck( 'the first module, with the arrows, prints the markup it always has', module_markup( 'students', '<p>BODY</p>', 0, 3, true ), module_expected( 'students', 'Students', $students_lead, true, true, false ) );
+ck( 'a module in the middle has both arrows', module_markup( 'report', '<p>BODY</p>', 1, 3, true ), module_expected( 'report', 'Semester report', $report_lead, true, false, false ) );
+ck( 'the last module has Move down disabled', module_markup( 'people', '<p>BODY</p>', 2, 3, true ), module_expected( 'people', 'Representatives and agreement', $people_lead, true, false, true ) );
+ck( 'a module that is alone has both disabled', module_markup( 'people', '<p>BODY</p>', 0, 1, true ), module_expected( 'people', 'Representatives and agreement', $people_lead, true, true, true ) );
+ck( 'a reader who may not arrange the page gets the title, the lead and the cards, no arrows', module_markup( 'students', '<p>BODY</p>', 0, 3, false ), module_expected( 'students', 'Students', $students_lead, false, false, false ) );
+ck( 'a key the page does not know is titled by the key, with no lead', module_markup( 'bogus', '<p>BODY</p>', 0, 1, true ), module_expected( 'bogus', 'bogus', '', true, true, true ) );
+
+echo "\n=== The printer both dashboards draw a module with (Institutions release 3) ===\n";
+// The Sponsor Dashboard's four sections are drawn by the printer this dashboard's three modules are,
+// `WPCPM_Module_Order::render_module()`; the two pages differ in the arguments only: the action and the
+// hidden fields the arrows post, and the two classes after the shared ones.
+ck( 'the printer is on the shared class', method_exists( 'WPCPM_Module_Order', 'render_module' ), true );
+/**
+ * What the shared printer prints for one module.
+ *
+ * @param array $args The printer's arguments.
+ * @return string
+ */
+function shared_module( array $args ) {
+	if ( ! method_exists( 'WPCPM_Module_Order', 'render_module' ) ) {
+		return '(no printer)';
+	}
+	ob_start();
+	WPCPM_Module_Order::render_module( $args );
+	return (string) ob_get_clean();
+}
+$institution_args = static function ( $key, $title, $lead, $index, $count, $can_move ) {
+	global $krakow;
+	return array(
+		'key'         => $key,
+		'title'       => $title,
+		'lead'        => $lead,
+		'body'        => '<p>BODY</p>',
+		'index'       => $index,
+		'count'       => $count,
+		'action'      => 'wpcpm_institution_module_move',
+		'fields'      => array( 'wpcpm_institution' => $krakow ),
+		'can_move'    => $can_move,
+		'title_class' => 'wpcpm-institution__module-title',
+		'lead_class'  => 'wpcpm-institution__module-lead',
+	);
+};
+ck( 'given this dashboard\'s arguments it prints the markup this dashboard has always printed: the first module, the last, one alone, and one the reader may not arrange', array(
+	shared_module( $institution_args( 'students', 'Students', $students_lead, 0, 3, true ) ),
+	shared_module( $institution_args( 'people', 'Representatives and agreement', $people_lead, 2, 3, true ) ),
+	shared_module( $institution_args( 'people', 'Representatives and agreement', $people_lead, 0, 1, true ) ),
+	shared_module( $institution_args( 'students', 'Students', $students_lead, 0, 3, false ) ),
+), array(
+	module_expected( 'students', 'Students', $students_lead, true, true, false ),
+	module_expected( 'people', 'Representatives and agreement', $people_lead, true, false, true ),
+	module_expected( 'people', 'Representatives and agreement', $people_lead, true, true, true ),
+	module_expected( 'students', 'Students', $students_lead, false, false, false ),
+) );
+$sponsor_module = shared_module( array(
+	'key'         => 'offer',
+	'title'       => 'What you offer',
+	'lead'        => 'What your company gives.',
+	'body'        => '<section>CARDS</section>',
+	'index'       => 1,
+	'count'       => 3,
+	'action'      => 'wpcpm_sponsor_module_move',
+	'fields'      => array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_extra' => 'x' ),
+	'can_move'    => true,
+	'title_class' => 'wpcpm-sponsor__module-title',
+	'lead_class'  => 'wpcpm-sponsor__module-lead',
+) );
+ck( 'the action, the hidden fields and the two classes come from the arguments, the body is printed as it is given and the wrapper is the same', array(
+	0 === strpos( $sponsor_module, '<div class="wpcpm-module wpcpm-module--offer" id="wpcpm-module-offer"><form class="wpcpm-module__mover"' ),
+	false !== strpos( $sponsor_module, '<input type="hidden" name="action" value="wpcpm_sponsor_module_move">' ),
+	false !== strpos( $sponsor_module, '<input type="hidden" name="wpcpm_module" value="offer"><input type="hidden" name="wpcpm_sponsor" value="recSPONSOR0000001"><input type="hidden" name="wpcpm_extra" value="x">' ),
+	false !== strpos( $sponsor_module, 'aria-label="Move What you offer up"' ) && false !== strpos( $sponsor_module, 'aria-label="Move What you offer down"' ),
+	false !== strpos( $sponsor_module, '</form><h2 class="wpcpm-student__heading wpcpm-sponsor__module-title">What you offer</h2><p class="wpcpm-student__note wpcpm-sponsor__module-lead">What your company gives.</p><section>CARDS</section></div>' ),
+	false === strpos( $sponsor_module, 'wpcpm-institution__module' ),
+), array( true, true, true, true, true, true ) );
+ck( 'a middle module has neither arrow disabled', substr_count( $sponsor_module, ' disabled' ), 0 );
+$bare = shared_module( array( 'key' => 'mentors', 'title' => 'Q & A', 'lead' => '', 'body' => '<p>BODY</p>', 'index' => 0, 'count' => 1, 'action' => 'a', 'fields' => array(), 'can_move' => false, 'title_class' => 'x', 'lead_class' => 'y' ) );
+ck( 'with no lead no sentence is printed, with no right to move no arrows, and a title is escaped', $bare, '<div class="wpcpm-module wpcpm-module--mentors" id="wpcpm-module-mentors"><h2 class="wpcpm-student__heading x">Q &amp; A</h2><p>BODY</p></div>' );
 
 echo "\n=== The events from the program's sponsors (1.117.0) ===\n";
 

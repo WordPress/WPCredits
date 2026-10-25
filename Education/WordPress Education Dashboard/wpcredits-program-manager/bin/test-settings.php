@@ -4379,14 +4379,14 @@ ck( 'the switch is a box labeled as the launch it is, off by default, and the ol
 // tiers and their amounts, and turns on every surface the tiers have. The one sentence says what it does to the page; the fold
 // names each other surface, the Tier box among them, whose tiers no sponsor sees until then. The
 // Sponsor Dashboard's cards are named by the titles they carry since 27 September 2026, Sponsorship
-// and Badge without "Your", and the At a glance tiles the switch gates beside them: the tier's, the
-// next event's and the reports'.
+// and Badge without "Your", and the At a glance tiles the switch gates beside them: the tier's and
+// the returned event's (Institutions release 3; the next event's and the reports' left the strip).
 ck( 'and says in one sentence what turning it on and off does to the Partners page, its fold naming every other surface the switch gates, the Tier box among them',
     help_of( $tiers_tab, 'Sponsor tiers' ),
     array(
         array( 'Turning this on is the launch: it publishes the Partners page, and turning it off returns the page to draft.' ),
         array(
-            'It also turns on the Sponsors block and its strip on the landing page, the badge a sponsor puts on its own site, the application form\'s tier question, the Handbook listing tab on the Sponsors screen, the partnership tiles a track\'s students see and the offers its partners keep for them, the description for the partner page, the caps a tier puts on posts, and the dormant state; on the Sponsor Dashboard, the At a glance tiles for the tier, the next event and the reports, the Sponsorship card, the Badge card and the badge in the Sponsor Dashboard\'s header, the Reports card and the reports a sponsor\'s members open there, and the Events card with its planner; and the events lists on the Student Report Card, the Mentor Report Card and the Institution Dashboard, with the Administrator Dashboard\'s Events card and the Overview\'s count of the events waiting, the Events card on the Sponsors screen\'s Waiting for review tab and the events in its menu bubble, and the reminders the day before each approved event.',
+            'It also turns on the Sponsors block and its strip on the landing page, the badge a sponsor puts on its own site, the application form\'s tier question, the Handbook listing tab on the Sponsors screen, the partnership tiles a track\'s students see and the offers its partners keep for them, the description for the partner page, the caps a tier puts on posts, and the dormant state; on the Sponsor Dashboard, the At a glance tiles for the tier and for a returned event, the Sponsorship card, the Badge card and the badge in the Sponsor Dashboard\'s header, the Reports card and the reports a sponsor\'s members open there, and the Events card with its planner; and the events lists on the Student Report Card, the Mentor Report Card and the Institution Dashboard, with the Administrator Dashboard\'s Events card and the Overview\'s count of the events waiting, the Events card on the Sponsors screen\'s Waiting for review tab and the events in its menu bubble, and the reminders the day before each approved event.',
             'Off until the program announces the tiers: while it is off, Administrators set tiers, terms and funded lines in the Tier box on the Sponsors screen, and no sponsor sees them.',
         ),
     ) );

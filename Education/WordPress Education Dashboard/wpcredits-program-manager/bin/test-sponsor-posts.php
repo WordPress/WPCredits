@@ -1454,6 +1454,47 @@ ck( 'the three surfaces and the three redirects ask the one predicate, and nothi
 unset( $GLOBALS['index'][ $tl_test ], $GLOBALS['index'][ $tl_other ], $GLOBALS['posts'][ $tl_post ], $GLOBALS['posts'][ $tl_real ] );
 $GLOBALS['uid'] = 20;
 
+echo "\n=== What waits on a sponsor: the posts returned with a note (Institutions release 3) ===\n";
+// The Sponsor Dashboard's strip counts the posts its Posts card shows as returned with a note, through
+// returned_count(), which asks state_of() of the posts the card lists: a draft that holds a return note.
+// A draft with none, a post waiting for review or held back by the daily run, and a published one are
+// not, whatever note an earlier return left on them; a post in the trash is none the card lists; and
+// one sponsor's returned posts are none of another's.
+$RW  = 'recWAIT0000000001';
+$RW2 = 'recWAIT0000000002';
+$RW3 = 'recWAIT0000000003';
+foreach ( array( $RW, $RW2, $RW3 ) as $rw_key ) {
+	$GLOBALS['index'][ $rw_key ] = array( 'record_id' => $rw_key, 'name' => 'TEST Waiting Sponsor', 'website' => '', 'status' => 'Approved' );
+}
+/** One post of a sponsor's, in a status, with the return note an earlier return left on it, if any. */
+function rw_post( $record, $status, $title, $note = '', $dormant = false ) {
+	$id = wp_insert_post( array( 'post_type' => 'post', 'post_status' => $status, 'post_author' => 20, 'post_title' => $title ) );
+	$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $record;
+	if ( '' !== $note ) {
+		$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsor_Posts::META_RETURN_NOTE ] = $note;
+	}
+	if ( $dormant ) {
+		$GLOBALS['pmeta'][ $id ][ WPCPM_Sponsor_Posts::META_DORMANT ] = '2026-09-01';
+	}
+	return $id;
+}
+ck( 'a sponsor with no post has none returned', array( WPCPM_Sponsor_Posts::returned_count( $RW ), WPCPM_Sponsor_Posts::returned_count( 'not a key' ), WPCPM_Sponsor_Posts::returned_count( '' ) ), array( 0, 0, 0 ) );
+$rw_returned_a = rw_post( $RW, 'draft', 'Returned once', 'Please add a screenshot.' );
+ck( 'a draft with a return note is one', array( WPCPM_Sponsor_Posts::state_of( get_post( $rw_returned_a ) ), WPCPM_Sponsor_Posts::returned_count( $RW ) ), array( 'returned', 1 ) );
+$rw_returned_b = rw_post( $RW, 'draft', 'Returned twice', 'Shorter title, please.' );
+rw_post( $RW, 'draft', 'A draft with no note' );
+rw_post( $RW, 'pending', 'Waiting for review' );
+rw_post( $RW, 'pending', 'Waiting again, after a return', 'An earlier note.' );
+rw_post( $RW, 'pending', 'Held back by the daily run', '', true );
+rw_post( $RW, 'publish', 'Published after a return', 'An older note.' );
+rw_post( $RW, 'trash', 'Thrown away', 'A note on a post in the trash.' );
+rw_post( $RW2, 'draft', 'Another company\'s returned post', 'Not this sponsor\'s.' );
+ck( 'and only those: a draft without a note, a post waiting for review, one held back and a published one are not, nor is one in the trash', array( WPCPM_Sponsor_Posts::returned_count( $RW ), WPCPM_Sponsor_Posts::returned_count( $RW2 ), WPCPM_Sponsor_Posts::returned_count( $RW3 ) ), array( 2, 1, 0 ) );
+ck( 'the Posts card shows as returned the posts the count names, and no others', array( substr_count( card( $RW, 1 ), 'wpcpm-posts__item--returned' ), substr_count( card( $RW2, 1 ), 'wpcpm-posts__item--returned' ), substr_count( card( $RW3, 1 ), 'wpcpm-posts__item--returned' ) ), array( WPCPM_Sponsor_Posts::returned_count( $RW ), WPCPM_Sponsor_Posts::returned_count( $RW2 ), WPCPM_Sponsor_Posts::returned_count( $RW3 ) ) );
+$GLOBALS['pmeta'][ $rw_returned_a ][ WPCPM_Sponsor_Posts::META_RETURN_NOTE ] = '';
+ck( 'a return note taken off (a publish clears it) leaves the post a draft, no longer counted', array( WPCPM_Sponsor_Posts::state_of( get_post( $rw_returned_a ) ), WPCPM_Sponsor_Posts::returned_count( $RW ) ), array( 'draft', 1 ) );
+$GLOBALS['uid'] = 20;
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );

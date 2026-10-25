@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.37
+Stable tag: 1.123.38
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.38 =
+
+* The Sponsor Dashboard takes the Institution Dashboard's shape. Under the company's name, At a glance shows the tier and the days left in its term first, then a tile for each thing waiting on the company's people: an offer returned with a note, an offer running low on codes, an offer not switched on yet, a post returned with a note, an event returned, the Collaboration Agreement returned or revoked, and company profile details missing. The tier tile is marked in the term's last 30 days and once it has ended, and "Nothing waits for you" shows when nothing does. The figures the strip used to show (the offers live, the mentors sponsored, the next event, the reports) stay beside their cards' titles.
+* The program's updates, Slack, the Sponsor guide, Need help? and the company's contact at the program now come right under At a glance, as on the Institution Dashboard, with the contact under the buttons. The header names the contact without the address.
+* The four sections (Your sponsorship, What you offer, Mentors, Your company) have Move up and Move down arrows; the order is the company's, kept for everyone who signs in for it, and an Administrator can arrange it for them. The Institution Dashboard's modules and the Sponsor Dashboard's are drawn by the same code.
+* An offer's "Running low" line no longer shows beside an offer whose last day has passed.
 
 = 1.123.37 =
 

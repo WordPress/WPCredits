@@ -1158,6 +1158,26 @@ class WPCPM_Sponsor_Posts {
 	}
 
 	/**
+	 * How many of a sponsor's posts the Posts card shows as returned with a note: the drafts that hold
+	 * a return note (`state_of()`), among the posts the card lists (`posts_of()` as the card asks it),
+	 * so the Sponsor Dashboard's At a glance strip and the card agree however many posts there are.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return int
+	 */
+	public static function returned_count( $record ) {
+		$count = 0;
+
+		foreach ( self::posts_of( $record ) as $post ) {
+			if ( 'returned' === self::state_of( $post ) ) {
+				++$count;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
 	 * A post's state in the sponsor's words: draft, returned (a draft with a note), pending,
 	 * dormant (a pending post the daily run put back), published.
 	 *

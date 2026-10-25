@@ -138,8 +138,9 @@ final class WPCPM_Sponsor_Report_Card {
 
 	/**
 	 * The sponsor's final reports, the newest term first, in the order the store keeps them. The
-	 * card's list and its row, and the At a glance tile that opens the card, all read this one list,
-	 * so the tile counts exactly the reports the card lists.
+	 * card's list and its row, and the Your sponsorship group's line, which names the Reports card
+	 * only while there is a final report, all read this one list, so they agree on what the card
+	 * lists.
 	 *
 	 * @param string $record Sponsor key.
 	 * @return WP_Post[]

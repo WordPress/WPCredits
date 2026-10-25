@@ -74,11 +74,11 @@
  *   action after the fold, a link to the card that names for a screen reader what it does: Plan an
  *   event while the planner would take a plan, Edit, and Upload while the agreement's
  *   state asks for a file. A card a flash opened prints its action too, which the stylesheets hide
- *   while the card is open. The Reports card's finals() is public, the one list its row and the At
- *   a glance tile read, and so is the tier card's draws_events(), the Events card's own test for
- *   whether it is drawn, which the tile asks too. "Profile complete" counts the four details and
- *   leaves the optional "Anything else" out; an event the program has not approved yet waits for
- *   the program on the Events row, rather than counting who joined.
+ *   while the card is open. The Reports card's finals() is public, the one list its row and the
+ *   Your sponsorship group's line read, and so is the tier card's draws_events(), the Events
+ *   card's own test for whether it is drawn, which that line asks too. "Profile complete" counts
+ *   the four details and leaves the optional "Anything else" out; an event the program has not
+ *   approved yet waits for the program on the Events row, rather than counting who joined.
  * - Every handler claims through WPCPM_Sponsor_Roster::claim() before it reads or writes
  *   anything else, asserted by counting the calls in the source.
  * - WPCPM_Sponsors_Dashboard is a stub here, called by array callable exactly as the
@@ -699,6 +699,18 @@ ck( 'filled() counts the three details that hold something, a value of spaces as
 	call_user_func( $filled, array() ),
 	WPCPM_Sponsor_Profile::details(),
 ), array( 3, 1, 0, array( 'website', 'contact_person', 'contact_email' ) ) );
+// missing() is what the strip counts (Institutions release 3): how many of the three details hold
+// nothing, which is filled() turned round and never below zero.
+ck( 'missing() counts the details that hold nothing: three of an empty row, one of a row with two filled, none of a complete one', array(
+	WPCPM_Sponsor_Profile::missing( array() ),
+	WPCPM_Sponsor_Profile::missing( array( 'website' => 'https://plugins.mango-example.test', 'contact_person' => 'Rep One', 'contact_email' => '  ', 'anything' => 'Not one of the three.' ) ),
+	WPCPM_Sponsor_Profile::missing( WPCPM_Sponsors_Index::row( $A ) ),
+), array( 3, 1, 0 ) );
+ck( 'and it is the card\'s own figure turned round: filled and missing make the three, for every row', array(
+	WPCPM_Sponsor_Profile::filled( array() ) + WPCPM_Sponsor_Profile::missing( array() ),
+	WPCPM_Sponsor_Profile::filled( WPCPM_Sponsors_Index::row( $A ) ) + WPCPM_Sponsor_Profile::missing( WPCPM_Sponsors_Index::row( $A ) ),
+	WPCPM_Sponsor_Profile::filled( array( 'website' => 'x' ) ) + WPCPM_Sponsor_Profile::missing( array( 'website' => 'x' ) ),
+), array( 3, 3, 3 ) );
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => '' ) );
 $partial = card( 'WPCPM_Sponsor_Profile', $A, $context );
 // The three details filled again, nothing else to share and no type of product: the optional
@@ -1458,9 +1470,9 @@ ck( 'a sponsor whose tier no longer has events keeps the card while an event of 
 	strpos( $lapsed_none, 'id="wpcpm-sponsor-events"' ),
 ), array( true, false, false, false, true, true, false, false ) );
 
-// Whether the Events card is drawn is the card's own public test, draws_events(), which the At a
-// glance tile asks too, so a tile never points at a card the page did not draw: asked in four states
-// and read against the card itself.
+// Whether the Events card is drawn is the card's own public test, draws_events(), which the Your
+// sponsorship group's line asks too, so the line never names a card the page did not draw: asked in four
+// states and read against the card itself.
 $draws = static function () use ( $A, $T, $context ) {
 	$row  = WPCPM_Sponsors_Index::row( $A );
 	$tier = WPCPM_Sponsor_Tiers::effective( $row, WPCPM_Sponsor_Tiers::today() );
@@ -1478,7 +1490,7 @@ $draws_lapsed_none  = $draws();
 $sevent_draws       = seed_sevent( $A, 'approved', strtotime( '2026-11-04 15:00:00 UTC' ), 60, 'Mango drawn or not', array( 42 ) );
 $draws_lapsed_event = $draws();
 $GLOBALS['pmeta'][ $sevent_draws ]['_wpcpm_sevent_state'] = 'cancelled';
-ck( 'the Events card is drawn exactly when its own public test says so, the one the At a glance tile asks: not for a Backer, for a Champion holding the planner, not for a lapsed Champion with nothing to come, and for one whose event is still to come', array( $draws_backer, $draws_champion, $draws_lapsed_none, $draws_lapsed_event ), array( array( false, false ), array( true, true ), array( false, false ), array( true, true ) ) );
+ck( 'the Events card is drawn exactly when its own public test says so, the one the Your sponsorship group\'s line asks: not for a Backer, for a Champion holding the planner, not for a lapsed Champion with nothing to come, and for one whose event is still to come', array( $draws_backer, $draws_champion, $draws_lapsed_none, $draws_lapsed_event ), array( array( false, false ), array( true, true ), array( false, false ), array( true, true ) ) );
 
 // A Champion set to Paused holds no planner, though its tier still lists events: its card reads its
 // approved event as no longer offered, with Cancel alone, and neither the tier's events nor the
@@ -1829,6 +1841,16 @@ ck( 'each state\'s row, with the day where there is one and Upload where the sta
 	),
 	true,
 ) );
+// What the strip counts (Institutions release 3): waiting_state() answers `returned` or `revoked` in the
+// states that ask the company for a file, through the card's own asks_for_file(), and nothing in the
+// others, so a tile and the Upload after the card's fold are drawn in the same states.
+$agr_waiting = array();
+foreach ( array( 'none', 'submitted', 'returned', 'revoked', 'accepted', 'on_file' ) as $agr_state ) {
+	$GLOBALS['summary']        = array_merge( $GLOBALS['summary'], array( 'state' => $agr_state ) );
+	$agr_waiting[ $agr_state ] = WPCPM_Sponsor_Agreement_Card::waiting_state( $A );
+}
+ck( 'waiting_state() says returned for an agreement sent back, revoked for one out of force, and nothing for none on file, one in review, an accepted one and one the program holds', $agr_waiting, array( 'none' => '', 'submitted' => '', 'returned' => 'returned', 'revoked' => 'revoked', 'accepted' => '', 'on_file' => '' ) );
+ck( 'and it is waiting in exactly the states whose row offers Upload', array_keys( array_filter( $agr_waiting ) ), array_keys( array_filter( $agr_rows, static function ( $row ) { return null !== $row[1]; } ) ) );
 $agr_before         = $GLOBALS['summary'];
 $GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'returned', 'accepted_at' => '' ) );
 ob_start();
@@ -1959,7 +1981,7 @@ ck( 'and the other sponsor\'s card, drawn before A had any final report and afte
 	false !== strpos( $other, 'Other Example, October 2025 to September 2026' ),
 	strpos( $other, 'Mango' ),
 ), array( 1, true, true, false ) );
-// One of a thing is one, and the row, the list and the At a glance tile read one list: the card's
+// One of a thing is one, and the row, the list and the Your sponsorship group's line read one list: the card's
 // own finals(), the final reports alone, the newest term first.
 ck( 'one yearly report is one, and finals() is the card\'s list: the final reports alone, newest term first', array(
 	row_state( $other, 'reports' ),

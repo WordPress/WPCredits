@@ -76,6 +76,23 @@ final class WPCPM_Sponsor_Agreement_Card {
 	}
 
 	/**
+	 * Whether the Collaboration Agreement waits on the company, and how, for the Sponsor Dashboard's
+	 * At a glance strip: `returned` or `revoked` while the card asks the company for a file
+	 * (`asks_for_file()`, the states whose row offers Upload), and '' for none on file, one in review,
+	 * an accepted one and one the program holds. The strip counts through this, so a tile is drawn in
+	 * exactly the states the card's Upload is, from the same summary the card reads.
+	 *
+	 * @param string $record Sponsor key.
+	 * @return string `returned`, `revoked` or ''.
+	 */
+	public static function waiting_state( $record ) {
+		$summary = WPCPM_Sponsor_Agreement::summary( $record );
+		$state   = isset( $summary['state'] ) ? (string) $summary['state'] : WPCPM_Sponsor_Agreement::SUMMARY_NONE;
+
+		return self::asks_for_file( $state ) ? $state : '';
+	}
+
+	/**
 	 * One branch per summary state, in the sponsor's words.
 	 *
 	 * @param string $record  Sponsor key.

@@ -121,6 +121,13 @@
 	opacity: 1;
 }
 
+/* A tile that waits on the people it is shown to, on the Sponsor Dashboard's At a glance strip: a
+   leading edge in the dashboards' attention red. Never the only sign of it: the label says what
+   waits. A logical property, so the edge leads in a right-to-left language too. */
+.wpcpm-attention__tile--waiting {
+	border-inline-start: 4px solid #b32d2e;
+}
+
 .wpcpm-attention__link {
 	color: inherit;
 	display: block;

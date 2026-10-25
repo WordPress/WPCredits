@@ -300,8 +300,10 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // (1.122.32), which a request that dies sending leaves behind, one row per account; the lock an
 // application holds while it is made a mentor (1.122.33), one row per application, the same way; and
 // the locks a school's details request is raised, decided and withdrawn under (Institutions release 2),
-// one row per request and one per school.
-foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX ) as $wpcpm_prefix ) {
+// one row per request and one per school. And the order a company keeps its Sponsor Dashboard's four
+// sections in, one option per sponsor (Institutions release 3), beside the order each institution keeps
+// its Institution Dashboard's three in.
+foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}

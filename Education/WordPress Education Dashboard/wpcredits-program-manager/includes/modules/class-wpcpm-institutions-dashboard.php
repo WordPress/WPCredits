@@ -649,20 +649,23 @@ class WPCPM_Institutions_Dashboard {
 		$labels = self::modules();
 		$leads  = self::leads();
 
-		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
-
-		if ( $can_move ) {
-			WPCPM_Module_Order::render_mover( self::ACTION_MOVE, $key, (int) $index, (int) $count, array( self::FIELD_INSTITUTION => $record ), isset( $labels[ $key ] ) ? $labels[ $key ] : $key );
-		}
-
-		printf( '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">%s</h2>', esc_html( isset( $labels[ $key ] ) ? $labels[ $key ] : $key ) );
-
-		if ( ! empty( $leads[ $key ] ) ) {
-			printf( '<p class="wpcpm-student__note wpcpm-institution__module-lead">%s</p>', esc_html( $leads[ $key ] ) );
-		}
-
-		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the cards, each of which escapes what it prints.
-		echo '</div>';
+		// Drawn by the printer the Sponsor Dashboard's sections are drawn by too: the markup is one
+		// markup, and this page's part is the module's words, whose page it is and its own two classes.
+		WPCPM_Module_Order::render_module(
+			array(
+				'key'         => $key,
+				'title'       => isset( $labels[ $key ] ) ? $labels[ $key ] : $key,
+				'lead'        => isset( $leads[ $key ] ) ? $leads[ $key ] : '',
+				'body'        => $body,
+				'index'       => $index,
+				'count'       => $count,
+				'action'      => self::ACTION_MOVE,
+				'fields'      => array( self::FIELD_INSTITUTION => $record ),
+				'can_move'    => $can_move,
+				'title_class' => 'wpcpm-institution__module-title',
+				'lead_class'  => 'wpcpm-institution__module-lead',
+			)
+		);
 	}
 
 	/**

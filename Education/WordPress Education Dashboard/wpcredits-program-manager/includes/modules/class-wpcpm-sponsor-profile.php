@@ -177,6 +177,18 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
+	 * How many of the three details (`details()`) a row holds nothing in: `filled()` turned round, the
+	 * figure the Sponsor Dashboard's At a glance strip counts for a company profile that is not
+	 * complete, never below zero.
+	 *
+	 * @param array $row A sponsor's row.
+	 * @return int
+	 */
+	public static function missing( array $row ) {
+		return max( 0, count( self::details() ) - self::filled( $row ) );
+	}
+
+	/**
 	 * Whether the sponsor has any offer yet, wherever its text now lives.
 	 *
 	 * Guarded by class_exists(): the Offers module is a later phase's file and this card is

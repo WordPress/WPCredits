@@ -720,10 +720,10 @@ foreach ( $named_options as $name ) {
 
 $GLOBALS['opts']['wpcpm_tracks'] = array( array( 'key' => 'growth' ), array( 'key' => 'listed' ) );
 
-// What the prefix loop sweeps: two institutions' module orders, a form neither a post nor the
-// index knows of, written by a compile that never finished, and two accounts' invitation locks,
-// left by requests that died while they were sending (1.122.32).
-$swept_options = array( 'wpcpm_institution_modules_recSEED0000000001', 'wpcpm_institution_modules_recSEED0000000002', 'wpcpm_track_fields_orphan', 'wpcpm_invite_lock_7', 'wpcpm_invite_lock_8' );
+// What the prefix loop sweeps: two institutions' module orders and two sponsors' (Institutions release
+// 3), a form neither a post nor the index knows of, written by a compile that never finished, and two
+// accounts' invitation locks, left by requests that died while they were sending (1.122.32).
+$swept_options = array( 'wpcpm_institution_modules_recSEED0000000001', 'wpcpm_institution_modules_recSEED0000000002', 'wpcpm_sponsor_modules_recSEED0000000003', 'wpcpm_sponsor_modules_spoSEED0000000004', 'wpcpm_track_fields_orphan', 'wpcpm_invite_lock_7', 'wpcpm_invite_lock_8' );
 
 foreach ( $swept_options as $name ) {
 	$GLOBALS['opts'][ $name ] = array( 'seeded' => true );
@@ -1075,13 +1075,14 @@ ck( 'the rewrite rules are flushed once, so the badge\'s rule leaves the stored 
 echo "\n=== The options ===\n";
 
 ck( 'every option the file names goes, the Track Builder\'s included', array_values( array_intersect( $named_options, array_keys( $GLOBALS['opts'] ) ) ), array() );
-ck( 'the sweep takes every institution\'s module order, every Track Builder form, one nothing else knew of included, and every invitation lock', array_values( array_intersect( $swept_options, array_keys( $GLOBALS['opts'] ) ) ), array() );
+ck( 'the sweep takes every institution\'s module order and every sponsor\'s, every Track Builder form, one nothing else knew of included, and every invitation lock', array_values( array_intersect( $swept_options, array_keys( $GLOBALS['opts'] ) ) ), array() );
 
 // The sweeps as the statements they sent: one a prefix, each escaped for LIKE, so that an
 // underscore in a prefix is an underscore and not any character. The two before the last are the
 // rows of the Learn copies (SURFACES-7), and the last the invitation locks.
 $sweep = array(
 	"SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_institution\\_modules\\_%'",
+	"SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_sponsor\\_modules\\_%'",
 	"SELECT option_name FROM wp_options WHERE option_name LIKE 'wpcpm\\_track\\_fields\\_%'",
 	"SELECT option_name FROM wp_options WHERE option_name LIKE '\\_transient\\_wpcpm\\_learn\\_%'",
 	"SELECT option_name FROM wp_options WHERE option_name LIKE '\\_transient\\_timeout\\_wpcpm\\_learn\\_%'",
@@ -1176,6 +1177,7 @@ $names = array(
 	'WPCPM_Track_Store::OPT_UPGRADE_LOCK'           => 'wpcpm_tracks_upgrade_lock',
 	'WPCPM_Track_Store::META_DEFINITION'            => '_wpcpm_track_definition',
 	'WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_institution_modules_',
+	'WPCPM_Sponsors_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_sponsor_modules_',
 	'WPCPM_Mail::QUEUE_OPTION'                      => 'wpcpm_invite_queue',
 	'WPCPM_Mail::RUN_OPTION'                        => 'wpcpm_invite_run',
 	'WPCPM_Mail::INVITE_LOCK'                       => 'wpcpm_invite_lock_',

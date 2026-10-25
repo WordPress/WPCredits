@@ -1073,7 +1073,7 @@ $html    = card( 'WPCPM_Sponsor_Offers', $A, $context );
 ck( 'the card is the canonical section around a disclosure, with the count of offers', array( false !== strpos( $html, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-offers" class="wpcpm-group wpcpm-group__disclosure"' ), false !== strpos( $html, '<span class="wpcpm-group__count">3</span>' ) ), array( true, true ) );
 // What the company offers is live state, so the card is open whatever a flash says (the design the
 // owner approved on 27 September 2026). Its row says how many offers are live today and how many
-// claims stand this month, the readers the At a glance tile reads. New offer follows its fold, a link
+// claims stand this month, which the At a glance strip no longer shows. New offer follows its fold, a link
 // to the card, whose body opens on the form for a new offer: the stylesheets hide it while the card is
 // open, as they hide every card's action then, so it shows once the sponsor folds the card. A claim
 // from an earlier month counts in all, on the Usage card's row, and not this month: one of the five
@@ -2436,6 +2436,140 @@ foreach ( array( $fp, $fp_new ) as $fp_id ) {
 	WPCPM_Sponsor_Codes::delete( $fp_id );
 	wp_delete_post( $fp_id, true );
 }
+$GLOBALS['uid'] = 5;
+
+echo "\n=== What waits on a sponsor's people: the readers the At a glance strip counts through (Institutions release 3) ===\n";
+// The Sponsor Dashboard's strip shows one tile for each kind of thing waiting on a company's people,
+// and each tile counts through the reader its card draws from, so a tile and its card never
+// disagree. The three offer kinds are exclusive, in this order: an offer an Administrator returned
+// with a note, as the card shows it; one running low on codes, live today; one not switched on yet.
+// A new offer an Administrator returned sits in the draft state and counts once, as returned; a live
+// offer past its last day that the card lists under ended and expired draws no warning and counts
+// nothing; a stamp a return left on an offer that was then switched on is no note the card shows.
+$GLOBALS['uid'] = 1; $GLOBALS['audit'] = array(); $GLOBALS['sent'] = array();
+$WK = 'recSPONSOR0000098';
+WPCPM_Sponsors_Index::insert( array( 'record_id' => $WK, 'name' => 'Waiting Example', 'status' => 'Approved' ) );
+$wk_fields = array( 'title' => 'Waiting pool', 'kind' => 'codes', 'text' => 'A seat in the course.', 'instructions' => 'Use the code at checkout.', 'url' => '', 'audience' => array(), 'low' => 3, 'expires' => '' );
+/** A pool of the sponsor's (this section's, or the one named last) with its codes in, taken to a state: approved, as the program's own staff make one. */
+function wk_pool( $title, $codes, $state = 'live', array $more = array(), $approved = true, $record = '' ) {
+	global $WK, $wk_fields;
+	$id = WPCPM_Sponsor_Offers::create( '' !== $record ? $record : $WK, array_merge( $wk_fields, array( 'title' => $title ), $more ), false, $approved );
+	if ( $codes > 0 ) {
+		WPCPM_Sponsor_Codes::add( $id, implode( "\n", array_map( static function ( $n ) use ( $title ) { return sanitize_title( $title ) . '-' . $n; }, range( 1, $codes ) ) ) );
+	}
+	if ( in_array( $state, array( 'live', 'paused', 'ended' ), true ) ) {
+		WPCPM_Sponsor_Offers::set_state( $id, 'live' );
+	}
+	if ( in_array( $state, array( 'paused', 'ended' ), true ) ) {
+		WPCPM_Sponsor_Offers::set_state( $id, $state );
+	}
+	return $id;
+}
+/** The words of a change a member holds beside a live offer. */
+$wk_change = array( 'title' => 'Waiting pool', 'text' => 'Two seats in the course.', 'instructions' => 'Use the code at checkout.', 'url' => '' );
+$wk = array();
+// Returned: a new offer a member sent for review and an Administrator sent back (a draft with a note) ...
+$wk['new'] = wk_pool( 'Returned new', 1, 'draft', array(), false );
+WPCPM_Sponsor_Offers::submit( $wk['new'], 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wk['new'], 'Say what the code unlocks.' );
+// ... a change to a live offer, sent back (a pool with plenty of codes, and one under its low mark) ...
+$wk['change'] = wk_pool( 'Returned change', 5 );
+WPCPM_Sponsor_Offers::propose( $wk['change'], $wk_change, 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wk['change'], 'Not those words.' );
+$wk['change_low'] = wk_pool( 'Returned change, low', 1 );
+WPCPM_Sponsor_Offers::propose( $wk['change_low'], $wk_change, 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wk['change_low'], 'Not those words either.' );
+// ... and codes a member added to a live offer that the return took out, with no change held.
+$wk['codes_out'] = wk_pool( 'Returned codes', 5 );
+WPCPM_Sponsor_Offers::add_codes( $wk['codes_out'], "HELD-1\nHELD-2", 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wk['codes_out'], 'Single codes only.' );
+// A returned new offer that the program's staff then switched on keeps the stamp of the return, and the card shows no note.
+$wk['switched'] = wk_pool( 'Returned, then switched on', 5, 'draft', array(), false );
+WPCPM_Sponsor_Offers::submit( $wk['switched'], 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wk['switched'], 'Add more codes.' );
+WPCPM_Sponsor_Offers::set_state( $wk['switched'], 'live' );
+// Running low: live today with fewer than its low mark (3) left; at the mark it is not low.
+$wk['low']     = wk_pool( 'Low', 2 );
+$wk['at_mark'] = wk_pool( 'At the mark', 3 );
+// Live but past its last day (the site's today is 5 September 2026): listed under ended and expired.
+$wk['expired'] = wk_pool( 'Expired and low', 1, 'live', array( 'expires' => '2026-09-01' ) );
+// Not switched on yet, and the ones that count nothing: waiting for review, paused and ended below the mark, a shared offer, which has no pool.
+$wk['draft']   = wk_pool( 'Not switched on', 0, 'draft' );
+$wk['review']  = wk_pool( 'Waiting for review', 1, 'draft', array(), false );
+WPCPM_Sponsor_Offers::submit( $wk['review'], 5 );
+$wk['paused']  = wk_pool( 'Paused and low', 1, 'paused' );
+$wk['ended']   = wk_pool( 'Ended and low', 1, 'ended' );
+$wk['shared']  = WPCPM_Sponsor_Offers::create( $WK, array_merge( $wk_fields, array( 'title' => 'Shared link', 'kind' => 'shared', 'low' => 3 ) ), false, true );
+WPCPM_Sponsor_Codes::set_shared( $wk['shared'], 'https://shop.example.test/checkout?c=SHARED' );
+WPCPM_Sponsor_Offers::set_state( $wk['shared'], 'live' );
+$wk_states = array_map( static function ( $id ) { return WPCPM_Sponsor_Offers::read( $id )['state']; }, $wk );
+ck( 'the fixtures stand where the checks below need them: the returned ones in draft or live with a stamp, the stamp left on the switched-on one, the review, the paused and the ended', array( $wk_states, WPCPM_Sponsor_Offers::read( $wk['switched'] )['returned'] > 0, WPCPM_Sponsor_Offers::read( $wk['new'] )['returned'] > 0, WPCPM_Sponsor_Offers::read( $wk['codes_out'] )['codes_returned'] ), array( array( 'new' => 'draft', 'change' => 'live', 'change_low' => 'live', 'codes_out' => 'live', 'switched' => 'live', 'low' => 'live', 'at_mark' => 'live', 'expired' => 'live', 'draft' => 'draft', 'review' => 'review', 'paused' => 'paused', 'ended' => 'ended', 'shared' => 'live' ), true, true, 2 ) );
+
+ck( 'waiting_counts() counts each offer once, under the first kind it matches: returned (a new offer sent back, a change sent back live or low, codes taken out), then low, then not switched on', WPCPM_Sponsor_Offers::waiting_counts( $WK ), array( 'returned' => 4, 'low' => 1, 'draft' => 1 ) );
+ck( 'a new offer an Administrator returned sits in the draft state and counts as returned, never also as not switched on yet', array( WPCPM_Sponsor_Offers::read( $wk['new'] )['state'], WPCPM_Sponsor_Offers::is_returned( WPCPM_Sponsor_Offers::read( $wk['new'] ) ) ), array( 'draft', true ) );
+ck( 'a live offer with a returned change counts as returned, under its low mark or not, and never also as low', array( WPCPM_Sponsor_Offers::is_returned( WPCPM_Sponsor_Offers::read( $wk['change'] ) ), WPCPM_Sponsor_Offers::is_returned( WPCPM_Sponsor_Offers::read( $wk['change_low'] ) ), WPCPM_Sponsor_Offers::is_low( WPCPM_Sponsor_Offers::read( $wk['change_low'] ), WPCPM_Sponsor_Codes::counts( $wk['change_low'] ) ) ), array( true, true, true ) );
+ck( 'codes a return took out of a live offer count as returned, as the card says so beside the note', array( WPCPM_Sponsor_Offers::is_returned( WPCPM_Sponsor_Offers::read( $wk['codes_out'] ) ), WPCPM_Sponsor_Offers::read( $wk['codes_out'] )['proposed'] ), array( true, array() ) );
+ck( 'a stamp a return left on an offer that was then switched on is no returned offer: the card shows no note, so nothing counts it', array( WPCPM_Sponsor_Offers::is_returned( WPCPM_Sponsor_Offers::read( $wk['switched'] ) ), WPCPM_Sponsor_Offers::is_returned( WPCPM_Sponsor_Offers::read( $wk['at_mark'] ) ) ), array( false, false ) );
+
+$wk_low = static function ( $label, $today = '' ) use ( $wk ) { return WPCPM_Sponsor_Offers::is_low( WPCPM_Sponsor_Offers::read( $wk[ $label ] ), WPCPM_Sponsor_Codes::counts( $wk[ $label ] ), $today ); };
+ck( 'is_low(): live today and fewer codes available than its mark; at the mark it is not; a paused, an ended, a draft and a waiting offer are not, however few codes they hold', array( $wk_low( 'low' ), $wk_low( 'at_mark' ), $wk_low( 'paused' ), $wk_low( 'ended' ), $wk_low( 'draft' ), $wk_low( 'review' ) ), array( true, false, false, false, false, false ) );
+ck( 'and a live offer past its last day is not low, the last day itself inclusive: on 31 August and on its last day, 1 September, it is; on the 2nd it is not', array( $wk_low( 'expired', '2026-08-31' ), $wk_low( 'expired', '2026-09-01' ), $wk_low( 'expired', '2026-09-02' ), $wk_low( 'expired' ) ), array( true, true, false, false ) );
+ck( 'is_low() speaks of a pool: a live shared offer with a low mark answers false, though no codes are available in it', array( $wk_states['shared'], WPCPM_Sponsor_Codes::counts( $wk['shared'] )['available'], WPCPM_Sponsor_Offers::read( $wk['shared'] )['low'], $wk_low( 'shared' ) ), array( 'live', 0, 3, false ) );
+ck( 'waiting_counts() takes the day too: an offer whose last day has not passed is live, and low', array( WPCPM_Sponsor_Offers::waiting_counts( $WK, '2026-08-31' ), WPCPM_Sponsor_Offers::waiting_counts( $WK, '2026-09-02' ) ), array( array( 'returned' => 4, 'low' => 2, 'draft' => 1 ), array( 'returned' => 4, 'low' => 1, 'draft' => 1 ) ) );
+ck( 'a shared offer has no pool to run low: it counts nothing, though no codes are available in it', array( $wk_states['shared'], WPCPM_Sponsor_Codes::counts( $wk['shared'] )['available'], WPCPM_Sponsor_Offers::waiting_counts( $WK )['low'] ), array( 'live', 0, 1 ) );
+ck( 'a sponsor with no offer, and a key that is none, wait for nothing', array( WPCPM_Sponsor_Offers::waiting_counts( 'recSPONSOR0000097' ), WPCPM_Sponsor_Offers::waiting_counts( 'not a key' ) ), array( array( 'returned' => 0, 'low' => 0, 'draft' => 0 ), array( 'returned' => 0, 'low' => 0, 'draft' => 0 ) ) );
+
+// The tiles count the offers the card lists under its active offers: a paused one, whose returned
+// note the company can still answer, waits; an offer that ended, or is past its last day, is listed
+// under ended and expired and waits for nothing, however its note stands, since nothing the company
+// presses puts the note of a codes-only return away once the offer is over and the tile would never
+// clear. One sponsor for each, so each count answers for its offer alone (the site's today is
+// 5 September 2026).
+$wp_none = array( 'returned' => 0, 'low' => 0, 'draft' => 0 );
+$wp_key  = array( 'paused' => 'recSPONSOR0000096', 'ended' => 'recSPONSOR0000095', 'expired' => 'recSPONSOR0000094', 'old_draft' => 'recSPONSOR0000093' );
+foreach ( $wp_key as $label => $record ) {
+	WPCPM_Sponsors_Index::insert( array( 'record_id' => $record, 'name' => 'Over Example ' . $label, 'status' => 'Approved' ) );
+}
+$wp = array();
+// A live pool with a held change an Administrator returned, then paused ...
+$wp['paused'] = wk_pool( 'Paused with a returned change', 5, 'live', array(), true, $wp_key['paused'] );
+WPCPM_Sponsor_Offers::propose( $wp['paused'], $wk_change, 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wp['paused'], 'Not those words.' );
+WPCPM_Sponsor_Offers::set_state( $wp['paused'], 'paused' );
+// ... the same, ended ...
+$wp['ended'] = wk_pool( 'Ended with a returned change', 5, 'live', array(), true, $wp_key['ended'] );
+WPCPM_Sponsor_Offers::propose( $wp['ended'], $wk_change, 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wp['ended'], 'Not those words.' );
+WPCPM_Sponsor_Offers::set_state( $wp['ended'], 'ended' );
+// ... a live pool past its last day whose added codes a return took out, with no change held ...
+$wp['expired'] = wk_pool( 'Expired with returned codes', 5, 'live', array( 'expires' => '2026-09-01' ), true, $wp_key['expired'] );
+WPCPM_Sponsor_Offers::add_codes( $wp['expired'], "OVER-HELD-1\nOVER-HELD-2", 5 );
+WPCPM_Sponsor_Offers::return_with_note( $wp['expired'], 'Single codes only.' );
+// ... and a draft past its last day, which was never switched on.
+$wp['old_draft'] = wk_pool( 'Draft past its last day', 0, 'draft', array( 'expires' => '2026-09-01' ), true, $wp_key['old_draft'] );
+$wp_offer  = static function ( $label ) use ( $wp ) { return WPCPM_Sponsor_Offers::read( $wp[ $label ] ); };
+$wp_counts = static function ( $label, $today = '' ) use ( $wp_key ) { return WPCPM_Sponsor_Offers::waiting_counts( $wp_key[ $label ], $today ); };
+ck( 'the fixtures stand where the checks below need them: paused, ended, live past its last day and draft past its last day, three of them with a return the readers still see', array( $wp_offer( 'paused' )['state'], $wp_offer( 'ended' )['state'], $wp_offer( 'expired' )['state'], $wp_offer( 'old_draft' )['state'], WPCPM_Sponsor_Offers::is_past( $wp_offer( 'paused' ) ), WPCPM_Sponsor_Offers::is_past( $wp_offer( 'ended' ) ), WPCPM_Sponsor_Offers::is_past( $wp_offer( 'expired' ) ), WPCPM_Sponsor_Offers::is_past( $wp_offer( 'old_draft' ) ), WPCPM_Sponsor_Offers::is_returned( $wp_offer( 'paused' ) ), WPCPM_Sponsor_Offers::is_returned( $wp_offer( 'ended' ) ), WPCPM_Sponsor_Offers::is_returned( $wp_offer( 'expired' ) ), $wp_offer( 'expired' )['codes_returned'] ), array( 'paused', 'ended', 'live', 'draft', false, true, true, true, true, true, true, 2 ) );
+ck( 'a paused offer with a returned change counts as returned: the card lists it with its active offers and the company can still answer the note', $wp_counts( 'paused' ), array( 'returned' => 1, 'low' => 0, 'draft' => 0 ) );
+ck( 'an ended offer with a returned change counts nothing: the card lists it under ended and expired', $wp_counts( 'ended' ), $wp_none );
+ck( 'an offer past its last day with a codes-only return counts nothing, and counts as returned through its last day: on 1 September it does, on the 2nd it does not', array( $wp_counts( 'expired' ), $wp_counts( 'expired', '2026-09-01' ), $wp_counts( 'expired', '2026-09-02' ) ), array( $wp_none, array( 'returned' => 1, 'low' => 0, 'draft' => 0 ), $wp_none ) );
+ck( 'a draft past its last day is no draft not switched on yet, as the card lists it under ended and expired; through its last day it is', array( $wp_counts( 'old_draft' ), $wp_counts( 'old_draft', '2026-09-01' ), $wp_counts( 'old_draft', '2026-09-02' ) ), array( $wp_none, array( 'returned' => 0, 'low' => 0, 'draft' => 1 ), $wp_none ) );
+
+// The card and the readers agree, offer by offer: the Running low line is drawn exactly when is_low()
+// says so, and a returned note exactly when is_returned() does (the changes block and the state block).
+$wk_html   = card( 'WPCPM_Sponsor_Offers', $WK, array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] ) );
+$wk_drawn  = array( 'warning' => array(), 'returned' => array(), 'low' => array(), 'is_returned' => array() );
+foreach ( $wk as $label => $id ) {
+	$block = hc_block( $wk_html, $id );
+	$offer = WPCPM_Sponsor_Offers::read( $id );
+	if ( false !== strpos( $block, 'wpcpm-offer__warning' ) ) { $wk_drawn['warning'][] = $label; }
+	if ( 1 === preg_match( '/Returned by the program with a note|An Administrator returned (?:your changes|the codes you added) with a note/', $block ) ) { $wk_drawn['returned'][] = $label; }
+	if ( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] && WPCPM_Sponsor_Offers::is_low( $offer, WPCPM_Sponsor_Codes::counts( $id ) ) ) { $wk_drawn['low'][] = $label; }
+	if ( WPCPM_Sponsor_Offers::is_returned( $offer, WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? WPCPM_Sponsor_Codes::held_count( $id ) : 0 ) ) { $wk_drawn['is_returned'][] = $label; }
+}
+ck( 'the card draws Running low on exactly the offers is_low() names: the one live and under its mark, the live one past its last day not among them', array( $wk_drawn['warning'], $wk_drawn['low'] ), array( array( 'change_low', 'low' ), array( 'change_low', 'low' ) ) );
+ck( 'and a returned note on exactly the offers is_returned() names: the new offer sent back, the two changes, the codes taken out, and not the one switched on after its return', array( $wk_drawn['returned'], $wk_drawn['is_returned'] ), array( array( 'new', 'change', 'change_low', 'codes_out' ), array( 'new', 'change', 'change_low', 'codes_out' ) ) );
+ck( 'the line itself is the card\'s own words, with the offer\'s mark in them', false !== strpos( hc_block( $wk_html, $wk['low'] ), '<span class="wpcpm-offer__warning">Running low: fewer than 3 codes left. Add more, or pause the offer.</span>' ), true );
 $GLOBALS['uid'] = 5;
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );

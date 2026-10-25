@@ -674,14 +674,18 @@ ck( 'and one whose cards print something is its wrapper, its heading in the eyeb
 		'<div class="c&quot; d c&quot; d--a&quot; onclick=&quot;b"><h2 class="wpcpm-student__heading e&quot;">T</h2><p class="wpcpm-student__note f&quot;">L</p>x</div>',
 	)
 );
-ck( 'both dashboards print every group through the shell, the Administrator Dashboard asking for its own classes, and neither prints a group by hand',
+// The Sponsor Dashboard's four sections stopped being groups when they became movable modules
+// (Institutions release 3): it draws them through the printer both dashboards draw a module with, and
+// the Administrator Dashboard is the shell's one caller left, asking for its own classes.
+ck( 'the Administrator Dashboard prints every group through the shell, asking for its own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as modules',
 	array(
 		substr_count( $sponsors_page, 'WPCPM_Dashboard_Card::group(' ),
+		substr_count( $sponsors_page, "WPCPM_Module_Order::render_module(\n" ),
 		substr_count( $admin_page, 'WPCPM_Dashboard_Card::group( array_merge( self::GROUP, $group ) );' ),
 		substr_count( $sponsors_page . $admin_page, '__group--%' ) + substr_count( $sponsors_page . $admin_page, '__group-lead">%' ),
 		strpos( $admin_page, 'function render_group(' ),
 	),
-	array( 1, 1, 0, false )
+	array( 0, 1, 1, 0, false )
 );
 
 echo "\n=== Wiring and house rules ===\n";

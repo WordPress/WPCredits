@@ -199,6 +199,17 @@ order belongs to the student: they arrange their own card, and it stays as they 
 open a student's card through the switcher you see their order and can arrange it for them with the
 same arrows. Nobody else sees the arrows.
 
+### Arranging an institution's or a sponsor's page
+
+The Institution Dashboard is three sections and the Sponsor Dashboard four, **Your sponsorship**, **What you
+offer**, **Mentors** and **Your company**, each with the same two small arrows at its top right, named after
+the section, for example "Move Your sponsorship up". The order belongs to the institution or the company and
+is the same for everyone who signs in for it. When you open a page through the switcher you see that
+institution's or company's order and can arrange it for them with the same arrows, and your move is theirs
+from then on. A section with nothing to show is left out and has no arrows, so the Sponsor Dashboard has no
+**Your sponsorship** section while "Sponsor tiers" is off. Only the people the page belongs to and
+Administrators are shown the arrows.
+
 ### Group sessions, from a student's card or a mentor's
 
 On a student's card, opened through the switcher, the group sessions they are on are listed under

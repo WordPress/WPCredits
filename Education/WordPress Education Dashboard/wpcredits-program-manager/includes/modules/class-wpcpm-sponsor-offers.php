@@ -1333,6 +1333,51 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
+	 * What waits on a sponsor's people among its offers, for the Sponsor Dashboard's At a glance strip:
+	 * the offers an Administrator returned with a note, the pools running low on codes, and the drafts
+	 * not switched on yet. The three are exclusive, in that order, and an offer counts once, under the
+	 * first it matches: a new offer an Administrator returned sits in the draft state and counts as
+	 * returned, never also as not switched on yet, and a live pool with a change sent back counts as
+	 * returned and not as low. Each kind counts through the reader its card draws from (`is_returned()`,
+	 * `is_low()` and the draft state), so a tile never disagrees with the card it opens.
+	 *
+	 * Only the offers the card lists under its active offers count. A paused offer is one of them and
+	 * waits when it was returned. An offer that ended, and one past its last day, are listed under ended
+	 * and expired (`is_past()`) and wait for nothing, a returned note included: nothing the company
+	 * presses puts away the note of a codes-only return once its offer is over, so a tile for it would
+	 * never clear. The card keeps printing that note as history.
+	 *
+	 * @param string $record Sponsor key.
+	 * @param string $today  `Y-m-d`, for the suites; the site's today by default.
+	 * @return array{returned: int, low: int, draft: int}
+	 */
+	public static function waiting_counts( $record, $today = '' ) {
+		$counts = array(
+			'returned' => 0,
+			'low'      => 0,
+			'draft'    => 0,
+		);
+
+		foreach ( self::offers_of( $record ) as $offer ) {
+			if ( self::is_past( $offer, $today ) ) {
+				continue;
+			}
+
+			$pool = self::KIND_CODES === $offer['kind'];
+
+			if ( self::is_returned( $offer, $pool ? WPCPM_Sponsor_Codes::held_count( $offer['id'] ) : 0 ) ) {
+				++$counts['returned'];
+			} elseif ( $pool && self::is_low( $offer, WPCPM_Sponsor_Codes::counts( $offer['id'] ), $today ) ) {
+				++$counts['low'];
+			} elseif ( self::STATE_DRAFT === $offer['state'] ) {
+				++$counts['draft'];
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
 	 * Move an offer to a state. No tier caps live offers since 1.123.18, so nothing counts how many
 	 * of a sponsor's offers are live before or after a switch.
 	 *
@@ -1607,6 +1652,53 @@ final class WPCPM_Sponsor_Offers {
 		$today = '' !== (string) $today ? (string) $today : wp_date( 'Y-m-d' );
 
 		return strcmp( (string) $offer['expires'], $today ) >= 0;
+	}
+
+	/**
+	 * Whether a pool is running low: it is a pool of codes, its offer is live today (`is_live()`, so an
+	 * offer past its last day, which the card lists under ended and expired and shows to nobody, is not)
+	 * and fewer codes are available than its mark. The Offers card draws its "Running low" line on this
+	 * test, and the Sponsor Dashboard's At a glance strip counts through it, so a tile and its card
+	 * never disagree. A shared offer holds no codes to run out of, whatever mark it carries, so it is
+	 * never low: no caller has to remember to ask of the codes kind alone.
+	 *
+	 * @param array  $offer  An offer.
+	 * @param array  $counts Its pool's counts (`WPCPM_Sponsor_Codes::counts()`), of which `available` is read.
+	 * @param string $today  `Y-m-d`; '' for the site's today.
+	 * @return bool
+	 */
+	public static function is_low( array $offer, array $counts, $today = '' ) {
+		return self::KIND_CODES === $offer['kind'] && self::is_live( $offer, $today ) && $counts['available'] < (int) $offer['low'];
+	}
+
+	/**
+	 * Whether the Offers card shows an offer as returned with a note: the one test behind both of its
+	 * places for it, and the one the Sponsor Dashboard's At a glance strip counts through. The state
+	 * block of a draft says so for a new offer an Administrator sent back, which holds no change. The
+	 * changes block, under the details of any offer, says so for a change sent back, for the codes a
+	 * return took out and, for an offer students can see, for codes held for review beside the note;
+	 * it is drawn only while one of those is left to show. A return's stamp (`returned`) alone is
+	 * therefore not enough: a new offer an Administrator sent back and the program's staff then
+	 * switched on keeps its stamp and its note on the post, and the card shows neither.
+	 *
+	 * @param array $offer An offer.
+	 * @param int   $held  How many codes the pool holds for review (`WPCPM_Sponsor_Codes::held_count()`),
+	 *                     as the card hands it to the changes block; only an offer students can see
+	 *                     counts them, as that block does.
+	 * @return bool
+	 */
+	public static function is_returned( array $offer, $held = 0 ) {
+		if ( (int) $offer['returned'] < 1 ) {
+			return false;
+		}
+
+		$held = in_array( $offer['state'], self::visible_states(), true ) ? (int) $held : 0;
+
+		if ( ! empty( $offer['proposed'] ) || $held > 0 || (int) $offer['codes_returned'] > 0 ) {
+			return true;
+		}
+
+		return self::STATE_DRAFT === $offer['state'];
 	}
 
 	/**
@@ -2346,8 +2438,9 @@ final class WPCPM_Sponsor_Offers {
 	 * Open whatever a flash says, since what the company offers is its live state (the design the
 	 * owner approved on 27 September 2026), so the context every card is handed asks nothing of it.
 	 * The row says how many offers are live today and how many claims stand this month, the two
-	 * figures the At a glance tile reads from the same readers, and, while any offer or change of the
-	 * sponsor's waits for an Administrator's review (1.123.18), how many between them. New offer follows the fold, a link to
+	 * figures that stood on the At a glance strip's offers tile until Institutions release 3 and now
+	 * show here alone, and, while any offer or change of the sponsor's waits for an Administrator's
+	 * review (1.123.18), how many between them. New offer follows the fold, a link to
 	 * the card, whose body opens on the form for a new offer under its own New offer heading: drawn
 	 * open, the card has it hidden by the stylesheets, which show a card's action only while the card
 	 * is folded, so it shows once the sponsor folds the card.
@@ -2472,7 +2565,8 @@ final class WPCPM_Sponsor_Offers {
 	 *
 	 * The pill says the offer's state, but for an offer switched on and past its last day: that one is
 	 * over, listed with the ended offers and counted live nowhere (`is_live()`), so its pill says
-	 * Expired rather than Live.
+	 * Expired rather than Live, and it draws no Running low line, which is for a pool live today
+	 * (`is_low()`).
 	 *
 	 * The details are the offer as students see it; the edit form draws a change held for review in
 	 * place of those words, and between the two a note says the change waits, or was returned with the
@@ -2512,7 +2606,7 @@ final class WPCPM_Sponsor_Offers {
 				)
 			);
 
-			if ( self::STATE_LIVE === $offer['state'] && $counts['available'] < (int) $offer['low'] ) {
+			if ( self::is_low( $offer, $counts ) ) {
 				/* translators: %d: the threshold. */
 				printf( '<span class="wpcpm-offer__warning">%s</span>', esc_html( sprintf( __( 'Running low: fewer than %d codes left. Add more, or pause the offer.', 'wpcredits-program-manager' ), (int) $offer['low'] ) ) );
 			}
@@ -2730,7 +2824,7 @@ final class WPCPM_Sponsor_Offers {
 
 		echo '<div class="wpcpm-offer__changes">';
 
-		if ( $offer['returned'] > 0 ) {
+		if ( self::is_returned( $offer, $held ) ) {
 			printf(
 				'<p class="wpcpm-student__note">%s</p>',
 				empty( $offer['proposed'] )
@@ -2811,7 +2905,7 @@ final class WPCPM_Sponsor_Offers {
 					: __( 'Dormant: held back by the program. You can end it.', 'wpcredits-program-manager' );
 				break;
 			default:
-				if ( $offer['returned'] > 0 && empty( $offer['proposed'] ) ) {
+				if ( self::is_returned( $offer ) && empty( $offer['proposed'] ) ) {
 					$sentence = __( 'Returned by the program with a note: change the offer, then send it for review again.', 'wpcredits-program-manager' );
 					$note     = (string) $offer['note'];
 				} elseif ( $staff || $offer['approved'] ) {

@@ -2,12 +2,14 @@
 /**
  * The movable modules a dashboard is made of: the saved order, one move, and the two arrows.
  *
- * Two pages share this (1.96.4): the Student Report Card, whose order belongs to the student
- * (1.95.12), and the Institution Dashboard, whose order belongs to the institution. Each page
- * owns its module keys and labels, where the order is kept and who may move a module; this class
- * owns what is the same on both - repairing a saved order against the modules the version knows,
- * moving one module a place, and the two arrows with the fields the handlers read and
- * `assets/js/modules.js` posts.
+ * Three pages share this: the Student Report Card, whose order belongs to the student
+ * (1.95.12), the Institution Dashboard, whose order belongs to the institution (1.96.4), and the
+ * Sponsor Dashboard, whose order belongs to the company (Institutions release 3). Each page owns
+ * its module keys and labels, where the order is kept and who may move a module; this class owns
+ * what is the same on all of them - repairing a saved order against the modules the version
+ * knows, moving one module a place, the two arrows with the fields the handlers read and
+ * `assets/js/modules.js` posts, and, for the two dashboards that draw their modules alike, the
+ * module itself: its wrapper, its arrows, its title and its lead.
  *
  * @package WPCredits_Program_Manager
  */
@@ -81,6 +83,68 @@ class WPCPM_Module_Order {
 		$order[ $to ]   = $key;
 
 		return $order;
+	}
+
+	/**
+	 * One module as the Institution Dashboard and the Sponsor Dashboard draw it: the wrapper that
+	 * `assets/js/modules.js` finds by its class and its id, the arrows when the reader may arrange
+	 * the page, the title in the eyebrow voice, the lead under it, then the cards.
+	 *
+	 * The two pages differ in the arguments alone - the action and the fields the arrows post, and
+	 * the two classes that follow the shared ones on the title and the lead - so the markup the
+	 * stylesheets and the theme dress is one markup. It was the Institution Dashboard's own until
+	 * the Sponsor Dashboard's sections became modules; the Institution Dashboard's output is
+	 * unchanged, and its suite pins it. The Student Report Card draws its modules in a shape of its
+	 * own and does not come through here.
+	 *
+	 * @param array $args {
+	 *     The module.
+	 *
+	 *     @type string $key         Module key; the wrapper's id is `wpcpm-module-` and the key.
+	 *     @type string $title       The title, as text; also the arrows' name.
+	 *     @type string $lead        The sentence under the title, as text, or '' for none.
+	 *     @type string $body        What the module's cards printed, already escaped.
+	 *     @type int    $index       Its place among the modules the page draws, from 0.
+	 *     @type int    $count       How many modules the page draws.
+	 *     @type string $action      The admin-post action the arrows post to; also the nonce's.
+	 *     @type array  $fields      The hidden fields the arrows post besides the module: whose page it is.
+	 *     @type bool   $can_move    Whether the reader may arrange the page.
+	 *     @type string $title_class The title's class after the shared one.
+	 *     @type string $lead_class  The lead's class after the shared one.
+	 * }
+	 */
+	public static function render_module( array $args ) {
+		$args = array_merge(
+			array(
+				'key'         => '',
+				'title'       => '',
+				'lead'        => '',
+				'body'        => '',
+				'index'       => 0,
+				'count'       => 0,
+				'action'      => '',
+				'fields'      => array(),
+				'can_move'    => false,
+				'title_class' => '',
+				'lead_class'  => '',
+			),
+			$args
+		);
+
+		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( (string) $args['key'] ) );
+
+		if ( $args['can_move'] ) {
+			self::render_mover( (string) $args['action'], (string) $args['key'], (int) $args['index'], (int) $args['count'], (array) $args['fields'], (string) $args['title'] );
+		}
+
+		printf( '<h2 class="wpcpm-student__heading %1$s">%2$s</h2>', esc_attr( (string) $args['title_class'] ), esc_html( (string) $args['title'] ) );
+
+		if ( ! empty( $args['lead'] ) ) {
+			printf( '<p class="wpcpm-student__note %1$s">%2$s</p>', esc_attr( (string) $args['lead_class'] ), esc_html( (string) $args['lead'] ) );
+		}
+
+		echo $args['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the cards, each of which escapes what it prints.
+		echo '</div>';
 	}
 
 	/**

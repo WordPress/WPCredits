@@ -69,6 +69,8 @@ Two phases. Phase A answers with counts and names no person. Phase B names peopl
 
 ### 4.2 Phase B: people, read-only
 
+The product owner's decision of 25 October 2026 (section 11, item 2): Phase B answers give people's record IDs, never their names. The table below is the design as first written; Phase B's own plan rewrites each Output to carry record IDs where it now names a person.
+
 | Ability | Input | Output | Never returned | Personal data |
 | --- | --- | --- | --- | --- |
 | `wpcpm/find-student` "A student's tracks" | an email address, a WordPress.org username or profile address, or three or more characters of a name; optional institution | up to 10 people; per person the name, the WordPress.org username, whether a site account exists, and every Students row the person holds, one per track (the product owner's rule of 18 October 2026: many tracks per person, list them all): the status (track or state), institution, cohort, start and end, mentor's name, contribution team, hours, how many reports, the course kept while waiting to graduate; the roster's read time | the email address (an input may hold one, no answer echoes it), the accessibility answer, notes, survey answers, every other Airtable column | yes: a student's name, progress, institution and mentor |
@@ -93,11 +95,11 @@ Anything that writes (a note, a decision, an email, a sync run, a setting); an e
 
 ## 5. Personal data
 
-- **What leaves the site.** Every answer travels to Anthropic as part of the conversation and stays in the session's transcript on the Mac. A Phase A answer names no person. A Phase B answer names students, mentors and applicants with their progress, which is personal data about people who gave it to the program, not to an AI service.
+- **What leaves the site.** Every answer travels to Anthropic as part of the conversation and stays in the session's transcript on the Mac. A Phase A answer names no person. A Phase B answer points to students, mentors and applicants by record ID, with their progress, and names none of them (the product owner, 25 October 2026); an Administrator looks the name up on the site.
 - **What keeps it small.** The fixed fields of section 4, the row caps, no addresses, no free text, the 40-an-hour ceiling on people lookups, and the log of who looked up whom.
 - **Where an answer must not go.** Into memory files, the vault, a GitHub issue or comment, a document under `docs/`, a Slack message, or anything mirrored, unless the product owner says so for that one message.
-- **The Docker copy holds live's people.** Its database is a copy of the live site, so a Phase B trial on the copy sends real people's data exactly as live would. Phase A is safe to try there. Phase B waits for the product owner's decision, which may be to try it only on the copy's test records or on a copy with the names replaced.
-- **The terms.** Whether people's data may go to Claude at all, under which account and its data settings, and whether the site's privacy notice must say so, are the product owner's to settle (section 11).
+- **The Docker copy holds live's people.** Its database is a copy of the live site, so a Phase B trial on the copy sends real people's data exactly as live would. Phase A is safe to try there. Phase B is tried on a copy with every name replaced first (the product owner, 25 October 2026).
+- **The terms.** Settled 25 October 2026 (section 11): people's data goes to Claude without names, as record IDs.
 
 ## 6. Text people typed
 
@@ -174,9 +176,9 @@ The copy is closed to the outside, so the site cannot call out; Claude Code reac
 ## 11. The product owner's decisions
 
 1. **Go, and how far.** Settled 24 October 2026: Phase A first; Phase B decided after it has run for a few weeks (section 1, item 7).
-2. **People's data to Claude.** Whether answers naming students, mentors and applicants may go to Anthropic at all; under which Claude account and data settings; and whether the site's privacy notice must say so. Phase B is built only after a yes here.
-3. **Who gets access.** Which Administrators go on the allowed list after the product owner, and when. Phase A starts with the product owner alone.
-4. **The trial's data.** Phase B on the Docker copy with live's people, or only on its test records, or on a copy with the names replaced first.
+2. **People's data to Claude.** Settled 25 October 2026: yes, without names. A Phase B answer about people gives their record IDs, never a name, so Claude can count and point to a person and an Administrator looks the name up on the site. The exclusions of section 5 stand as written.
+3. **Who gets access.** Settled 25 October 2026: every Administrator. Each makes their own password (section 7) and is added to the allowed list; Phase A started with the product owner alone.
+4. **The trial's data.** Settled 25 October 2026: Phase B is tried on a copy with every name replaced first, so its answers have real shapes and no real names; the script that replaces them is part of Phase B's plan.
 5. **The list of abilities.** Settled 24 October 2026: the seven of section 4, as written.
 6. **The adapter on live.** Installing MCP Adapter 0.7.1, a plugin from outside the program, on wordpresseducation.org, and who answers for its updates.
 7. **Where the credential lives on the Mac.** The Keychain with a shell export, or a Claude Code settings file.

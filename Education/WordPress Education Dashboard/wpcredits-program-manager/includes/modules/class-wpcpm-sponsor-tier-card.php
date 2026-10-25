@@ -39,9 +39,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * event with its day and how many joined, or that it waits for the program while the program has
  * not approved it, or that none is planned. Events offers Plan an event after its fold while it is
  * folded and the planner would take a plan; Sponsorship offers nothing there, since its one press,
- * Talk, is inside it. The term, the event's day and whether the Events card is drawn at all are
- * read here for the row and for the At a glance tile that opens the card (`term_days_left()`,
- * `event_day()`, `draws_events()`), so the two never say different things.
+ * Talk, is inside it. The term and the event's day are read here for the row (`term_days_left()`,
+ * `event_day()`), and the At a glance strip's tier tile, which opens the Sponsorship card, reads the
+ * same term, so the two never say different things; whether the Events card is drawn at all is one
+ * public test, `draws_events()`, which the Your sponsorship group's line asks too.
  *
  * Nothing is drawn and the button does not act while the launch switch is off: until the program
  * announces the tiers, nothing a sponsor sees names one. The button files an expression of
@@ -124,21 +125,20 @@ final class WPCPM_Sponsor_Tier_Card {
 
 	/**
 	 * Whether the Events card is drawn for a sponsor: while it holds the planner, or while an event of
-	 * its own is still to take place. The one test for it: the At a glance tile that opens the card
-	 * asks it here, and `render()` asks the same rule of the same facts (`drawn()`, `events_facts()`),
-	 * read once there since the card reads them again, so the tile never points at a card the page
-	 * did not draw. A caller that has read the sponsor's events still to take place already, as the
-	 * tile has for its figure, hands them in, and they are not read again.
+	 * its own is still to take place. The one test for it: the Your sponsorship group's line asks it
+	 * here, and `render()` asks the same rule of the same facts (`drawn()`, `events_facts()`), so the
+	 * line never names a card the page did not draw. It does not read the launch switch: `render()`
+	 * draws nothing while the switch is off, before it asks, so a caller asks it only with the switch
+	 * on. The At a glance strip's Event returned tile asks the planner's allowance instead, since the
+	 * card prints a returned event's note only inside the planner's plan form.
 	 *
-	 * @param string         $record   Sponsor key.
-	 * @param array          $row      The sponsor's row.
-	 * @param string         $tier     The effective tier.
-	 * @param WP_Post[]|null $upcoming The sponsor's events still to take place, the soonest first, as
-	 *                                 `WPCPM_Sponsor_Event::upcoming_of()` answers; null to read them.
+	 * @param string $record Sponsor key.
+	 * @param array  $row    The sponsor's row.
+	 * @param string $tier   The effective tier.
 	 * @return bool
 	 */
-	public static function draws_events( $record, array $row, $tier, $upcoming = null ) {
-		return self::drawn( self::events_facts( $record, $row, $tier, $upcoming ) );
+	public static function draws_events( $record, array $row, $tier ) {
+		return self::drawn( self::events_facts( $record, $row, $tier ) );
 	}
 
 	/**
@@ -157,24 +157,19 @@ final class WPCPM_Sponsor_Tier_Card {
 	 * (`WPCPM_Sponsor_Event_Planner::allowance()`), which says both whether the sponsor holds the
 	 * planner today, as the planner reads it (`holds()`), and whether the planner would take a plan,
 	 * when Plan an event follows the fold; and the sponsor's events still to take place, planned or
-	 * approved, the soonest first, read here unless the caller read them already. On a checkout
-	 * without the planner or the event store the card lists the tier's events as it did before there
-	 * was a planner to ask, offers no plan, and has no event to read.
+	 * approved, the soonest first. On a checkout without the planner or the event store the card lists
+	 * the tier's events as it did before there was a planner to ask, offers no plan, and has no event
+	 * to read.
 	 *
-	 * @param string         $record   Sponsor key.
-	 * @param array          $row      The sponsor's row.
-	 * @param string         $tier     The effective tier.
-	 * @param WP_Post[]|null $upcoming The sponsor's events still to take place, as the caller read
-	 *                                 them; null to read them here.
+	 * @param string $record Sponsor key.
+	 * @param array  $row    The sponsor's row.
+	 * @param string $tier   The effective tier.
 	 * @return array `offered` and `plans`, bools, and `upcoming`, the events still to take place.
 	 */
-	private static function events_facts( $record, array $row, $tier, $upcoming = null ) {
+	private static function events_facts( $record, array $row, $tier ) {
 		$planner   = class_exists( 'WPCPM_Sponsor_Event_Planner' ) && class_exists( 'WPCPM_Sponsor_Event' );
 		$allowance = $planner ? WPCPM_Sponsor_Event_Planner::allowance( $record, $row, $tier ) : null;
-
-		if ( ! is_array( $upcoming ) ) {
-			$upcoming = class_exists( 'WPCPM_Sponsor_Event' ) ? WPCPM_Sponsor_Event::upcoming_of( $record ) : array();
-		}
+		$upcoming  = class_exists( 'WPCPM_Sponsor_Event' ) ? WPCPM_Sponsor_Event::upcoming_of( $record ) : array();
 
 		return array(
 			'offered'  => $planner ? WPCPM_Sponsor_Event_Planner::holds( $allowance ) : WPCPM_Sponsor_Tiers::includes( $tier, 'events' ),
@@ -200,21 +195,18 @@ final class WPCPM_Sponsor_Tier_Card {
 
 	/**
 	 * The day an event starts on, on the viewer's clock, the one the planner draws every day and time
-	 * on, so the Events card's row, the At a glance tile and the planner under them name the same day:
-	 * in the site's date format, as the row writes it, or in a shorter format the caller names, as
-	 * the tile writes it. On the site's clock where the viewer's cannot be read.
+	 * on, so the Events card's row and the planner under it name the same day: in the site's date
+	 * format. On the site's clock where the viewer's cannot be read.
 	 *
 	 * @param array        $facts  The event's facts, `WPCPM_Sponsor_Event::facts()`.
 	 * @param WP_User|null $viewer Who is looking; the signed-in account when none is given.
-	 * @param string       $format A date format for `wp_date()`; '' for the site's.
 	 * @return string
 	 */
-	public static function event_day( array $facts, $viewer = null, $format = '' ) {
+	public static function event_day( array $facts, $viewer = null ) {
 		$person = $viewer instanceof WP_User ? $viewer : wp_get_current_user();
 		$zone   = class_exists( 'WPCPM_Mentor_Availability' ) ? WPCPM_Mentor_Availability::viewer_timezone( (int) $person->ID ) : wp_timezone();
-		$format = '' !== (string) $format ? (string) $format : (string) get_option( 'date_format', 'F j, Y' );
 
-		return (string) wp_date( $format, (int) $facts['start'], $zone );
+		return (string) wp_date( (string) get_option( 'date_format', 'F j, Y' ), (int) $facts['start'], $zone );
 	}
 
 	/**
