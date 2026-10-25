@@ -274,6 +274,18 @@ def build_inst_markers(institutions_records, countries_lookup):
     return list(by_city.values())
 
 
+def render_map_page(template_text, markers):
+    """Fill the map-only page (scripts/map_template.html) with the partner markers.
+
+    map.html is the partner map alone, made to be embedded in other pages (the
+    WordPress Credits page on wordpress.org frames it). The markers land inside a
+    <script>, and json.dumps leaves "</" as it is, so a name containing
+    "</script>" would end the script early; "<\\/" reads the same to JavaScript.
+    """
+    markers_json = json.dumps(markers, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
+    return template_text.replace("/*INST_MARKERS*/", markers_json)
+
+
 def get_airtable_pat():
     """Get Airtable PAT from environment variable."""
     pat = os.environ.get("AIRTABLE_PAT")
@@ -1413,6 +1425,12 @@ def main():
         f.write(output_content)
 
     print(f"Dashboard written to {output_path}", file=sys.stderr)
+
+    # The same markers as the dashboard's map, on a page of their own for embedding.
+    map_output_path = script_dir.parent / "map.html"
+    map_template = (script_dir / "map_template.html").read_text()
+    map_output_path.write_text(render_map_page(map_template, inst_markers))
+    print(f"Partner map written to {map_output_path}", file=sys.stderr)
     return 0
 
 

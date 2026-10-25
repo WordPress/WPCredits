@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WordPress Credits partner institutions</title>
+<!-- The partner map alone, for embedding: the WordPress Credits page on wordpress.org
+     frames this page. Built every Monday by scripts/build_dashboard.py from the same
+     markers as the dashboard's map; the map itself is assets/partner-map.js. -->
+<meta name="robots" content="noindex">
+<!-- Each CDN file carries the hash cdnjs publishes for it, so a changed file is refused
+     rather than run inside a page framed on wordpress.org. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" integrity="sha512-mQ77VzAakzdpWdgfL/lM1ksNy89uFgibRQANsNneSTMD/bj0Y/8+94XMwYhnbzx8eki2hrbPpDm0vD0CiT2lcg==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" integrity="sha512-6ZCLMiYwTeli2rVh3XAPxy3YoR5fVxGdH/pz+KMCzRY2M65Emgkw00Yqmhh8qLGeYQ3LbVZGdmOX9KUjSKr0TA==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" integrity="sha512-TiMWaqipFi2Vqt4ugRzsF8oRoGFlFFuqIi30FFxEPNw58Ov9mOy6LgC05ysfkxwLE0xVeZtmr92wVg9siAFRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/partner-map.js"></script>
+<style>
+html,body{margin:0;height:100%}
+#map{width:100%;height:100vh}
+.leaflet-container{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.leaflet-popup-content{font-size:13px;line-height:1.6}
+.leaflet-popup-content h4{margin:0 0 6px;font-size:14px;color:#3858E9;border-bottom:1px solid #EBE5DA;padding-bottom:4px}
+.leaflet-popup-content ul{margin:0;padding:0 0 0 16px}
+.leaflet-popup-content li{margin:2px 0;color:#23201A}
+.leaflet-popup-content a{color:#3858E9;text-decoration:none}
+.leaflet-popup-content a:hover{text-decoration:underline}
+.marker-cluster{background:rgba(56,88,233,.22)}
+.marker-cluster div{background:#3858E9;color:#fff;font-weight:700}
+</style>
+</head>
+<body>
+<div id="map" role="region" aria-label="Map of WordPress Credits partner institutions"></div>
+<script>
+const INST_MARKERS = /*INST_MARKERS*/;
+WPCreditsPartnerMap.init('map', INST_MARKERS, { fitToMarkers: true });
+</script>
+</body>
+</html>

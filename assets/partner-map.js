@@ -86,7 +86,9 @@
     map.addLayer(cluster);
 
     if (fitToMarkers && markers.length) {
-      map.fitBounds(cluster.getBounds(), { padding: [24, 24], maxZoom: 4 });
+      // 12px keeps the outermost pins clear of the frame while letting a 358px-wide
+      // phone embed open one zoom level closer than 24px would.
+      map.fitBounds(cluster.getBounds(), { padding: [12, 12], maxZoom: 4 });
     } else {
       map.setView([30, 10], 2);
     }

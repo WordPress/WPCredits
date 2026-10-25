@@ -47,5 +47,32 @@ class PartnerMapTest(unittest.TestCase):
         self.assertEqual(pins[0]["institutions"][0]["url"], "https://ump.ac.id")
 
 
+class MapPageTest(unittest.TestCase):
+    def test_render_map_page_injects_markers(self):
+        out = build_dashboard.render_map_page("const INST_MARKERS = /*INST_MARKERS*/;", [{"city": "Pisa"}])
+        self.assertIn('const INST_MARKERS = [{"city":"Pisa"}];', out)
+        self.assertNotIn("/*INST_MARKERS*/", out)
+
+    def test_render_map_page_cannot_close_the_script(self):
+        out = build_dashboard.render_map_page("/*INST_MARKERS*/", [{"city": "</script><b>x"}])
+        self.assertNotIn("</script>", out)
+        self.assertIn("<\\/script>", out)
+
+    def test_map_template_has_the_placeholder_and_shared_script(self):
+        text = (SCRIPTS / "map_template.html").read_text()
+        self.assertIn("/*INST_MARKERS*/", text)
+        self.assertIn('src="assets/partner-map.js"', text)
+        self.assertIn('content="noindex"', text)
+
+    def test_map_template_pins_every_cdn_file(self):
+        # map.html is framed on wordpress.org: each file from the CDN carries its hash.
+        text = (SCRIPTS / "map_template.html").read_text()
+        cdn_tags = [t for t in text.split("<") if "cdnjs.cloudflare.com" in t]
+        self.assertEqual(len(cdn_tags), 5)
+        for tag in cdn_tags:
+            self.assertIn('integrity="sha512-', tag)
+            self.assertIn('crossorigin="anonymous"', tag)
+
+
 if __name__ == "__main__":
     unittest.main()
