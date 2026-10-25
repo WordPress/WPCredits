@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.123.33
+ * Version:           1.123.35
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.123.33' );
+define( 'WPCPM_VERSION', '1.123.35' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -275,6 +275,11 @@ function wpcpm_bootstrap() {
 	WPCPM_Dashboards::init();
 	new WPCPM_Admin();
 }
+// The MCP fences go on as the plugin loads, not at `plugins_loaded`: this program's live host resolves an
+// admin-ajax request's user from its application password before `plugins_loaded` fires, so a fence added
+// there would be too late for that request (WPCPM_MCP::guard()).
+WPCPM_MCP::guard();
+
 add_action( 'plugins_loaded', 'wpcpm_bootstrap' );
 
 /**

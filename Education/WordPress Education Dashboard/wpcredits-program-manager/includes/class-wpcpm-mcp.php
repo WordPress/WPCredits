@@ -80,12 +80,31 @@ class WPCPM_MCP {
 	const KEEP_FLOOR = 7;
 
 	/**
-	 * Hooks: the server, the fence, the sweep on its event and the event on the clock.
+	 * The two fences, registered the moment the plugin file loads rather than at `plugins_loaded`.
+	 *
+	 * The main file calls this as it is included, not from `wpcpm_bootstrap()`. The sign-in fence must be on
+	 * its hook before the current user is first worked out, and on this program's live host (WordPress.com
+	 * Atomic) an admin-ajax request resolves the user from its application password in the window after the
+	 * plugin file has loaded but before `plugins_loaded` fires: a fence added at `plugins_loaded` is not yet
+	 * on the hook, the request signs in unfenced, and the REST fence does not run either because the request
+	 * is not a REST dispatch (diagnosed on live, 25 October 2026). Registering at load time puts the fence on
+	 * the hook before any `plugins_loaded` callback, this host's early resolution included.
+	 *
+	 * The REST fence runs before the other filters of `rest_pre_dispatch` (priority 1, ahead of the privacy
+	 * guard's and core's), so no route is dispatched until the fence has had its say. Both methods are static
+	 * and read nothing at registration, so calling this at load time is safe.
+	 */
+	public static function guard() {
+		add_filter( 'rest_pre_dispatch', array( __CLASS__, 'fence_rest' ), 1, 3 );
+		add_action( 'wp_authenticate_application_password_errors', array( __CLASS__, 'fence_sign_in' ), 10, 4 );
+	}
+
+	/**
+	 * Hooks: the server, the sweep on its event and the event on the clock. The two fences are `guard()`'s,
+	 * added earlier, at load time.
 	 *
 	 * The adapter's default server is answered false whatever the switch says, and at the last priority
-	 * there is, so no ordinary filter that other code adds can turn it back on. The REST fence runs before
-	 * the other filters of `rest_pre_dispatch` (priority 1, ahead of the privacy guard's and core's), so no
-	 * route is dispatched until the fence has had its say.
+	 * there is, so no ordinary filter that other code adds can turn it back on.
 	 *
 	 * The event is put on the clock at `init`, as the email log's cleanup is, so a site that updates the
 	 * plugin without deactivating it has the job on its next request, and one that reactivates it has it
@@ -94,8 +113,6 @@ class WPCPM_MCP {
 	public static function init() {
 		add_filter( 'mcp_adapter_create_default_server', array( __CLASS__, 'default_server' ), PHP_INT_MAX );
 		add_action( 'mcp_adapter_init', array( __CLASS__, 'create_server' ) );
-		add_filter( 'rest_pre_dispatch', array( __CLASS__, 'fence_rest' ), 1, 3 );
-		add_action( 'wp_authenticate_application_password_errors', array( __CLASS__, 'fence_sign_in' ), 10, 4 );
 
 		add_action( self::CRON_SWEEP, array( __CLASS__, 'sweep' ) );
 		add_action( 'init', array( __CLASS__, 'schedule' ) );

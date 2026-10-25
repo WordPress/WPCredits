@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.33\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.35\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-25T09:34:51+00:00\n"
+"POT-Creation-Date: 2026-10-25T10:15:42+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -37,12 +37,12 @@ msgstr ""
 #: includes/class-wpcpm-abilities.php:124
 #: includes/class-wpcpm-admin.php:45
 #: includes/class-wpcpm-admin.php:46
-#: includes/class-wpcpm-mcp.php:145
+#: includes/class-wpcpm-mcp.php:162
 msgid "WPCredits Program"
 msgstr ""
 
 #: includes/class-wpcpm-abilities.php:125
-#: includes/class-wpcpm-mcp.php:146
+#: includes/class-wpcpm-mcp.php:163
 msgid "Read-only answers from the WPCredits Program Manager's own records."
 msgstr ""
 
@@ -1135,15 +1135,15 @@ msgstr[1] ""
 msgid "Anybody already invited is skipped, so this is safe to run twice. Messages go out %d at a time in the background."
 msgstr ""
 
-#: includes/class-wpcpm-mcp.php:215
+#: includes/class-wpcpm-mcp.php:232
 msgid "Sign in to use this address."
 msgstr ""
 
-#: includes/class-wpcpm-mcp.php:272
+#: includes/class-wpcpm-mcp.php:289
 msgid "This sign-in cannot use this address."
 msgstr ""
 
-#: includes/class-wpcpm-mcp.php:502
+#: includes/class-wpcpm-mcp.php:519
 msgid "This password opens only the WPCredits MCP address."
 msgstr ""
 

@@ -466,6 +466,12 @@ ck( 'the plugin loads the class, calls init() inside wpcpm_bootstrap() and deact
 ck( 'and the boot comes after the abilities\' own',
 	in_order_of( $main, array( 'WPCPM_Abilities::init();', 'WPCPM_MCP::init();' ) ),
 	true );
+ck( 'the main file calls WPCPM_MCP::guard() at the top level (as it loads), after the class is required and before plugins_loaded is hooked, so the fences are on before any early user resolution',
+	array(
+		1 === preg_match( '/^WPCPM_MCP::guard\(\);$/m', $main ),
+		in_order_of( $main, array( "require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mcp.php';", "\nWPCPM_MCP::guard();", "add_action( 'plugins_loaded', 'wpcpm_bootstrap' );" ) ),
+	),
+	array( true, true ) );
 ck( 'a call in a function after the bootstrap\'s or the deactivation\'s is not the boot or the deactivation',
 	array(
 		(bool) preg_match( $booted, "function wpcpm_bootstrap() {\n\tWPCPM_Overview::init();\n}\n\nfunction wpcpm_later() {\n\tWPCPM_MCP::init();\n}\n" ),
@@ -582,7 +588,24 @@ ck( 'the server\'s id', WPCPM_MCP::SERVER_ID, 'wpcredits' );
 ck( 'the namespace of its route', WPCPM_MCP::ROUTE_NAMESPACE, 'mcp' );
 ck( 'and the route, so the address is /wp-json/mcp/wpcredits', WPCPM_MCP::ROUTE, 'wpcredits' );
 
-echo "\n=== init() hooks the server, the door and the fence ===\n";
+echo "\n=== guard() hooks the two fences, at include time; init() hooks the server and the sweep ===\n";
+
+// The fences go on at include time (guard()), not at plugins_loaded (init()), because this program's live
+// host resolves an admin-ajax request's user from its application password after the plugin file is loaded
+// but before plugins_loaded fires, so a fence added at plugins_loaded is not yet on the hook (diagnosed on
+// live 25 Oct 2026). guard() is what the main file calls as it loads.
+$GLOBALS['actions'] = array();
+$GLOBALS['hooked']  = array();
+$GLOBALS['filters'] = array();
+WPCPM_MCP::guard();
+
+$fence = isset( $GLOBALS['filters']['rest_pre_dispatch'] ) ? $GLOBALS['filters']['rest_pre_dispatch'] : array();
+ck( 'guard() puts the REST fence on rest_pre_dispatch, alone, first of all (priority 1) and taking the result, the server and the request', $fence, array( array( 'callback' => array( 'WPCPM_MCP', 'fence_rest' ), 'priority' => 1, 'args' => 3 ) ) );
+ck( 'guard() puts the sign-in fence on the action that checks an application password, taking its four arguments', array(
+	isset( $GLOBALS['actions']['wp_authenticate_application_password_errors'] ) ? $GLOBALS['actions']['wp_authenticate_application_password_errors'] : null,
+	isset( $GLOBALS['hooked']['wp_authenticate_application_password_errors'][0] ) ? $GLOBALS['hooked']['wp_authenticate_application_password_errors'][0]['args'] : null,
+), array( array( array( 'WPCPM_MCP', 'fence_sign_in' ) ), 4 ) );
+ck( 'guard() does not touch the adapter, the sweep or the clock', array( isset( $GLOBALS['actions']['mcp_adapter_init'] ), isset( $GLOBALS['actions'][ WPCPM_MCP::CRON_SWEEP ] ), isset( $GLOBALS['actions']['init'] ) ), array( false, false, false ) );
 
 $GLOBALS['actions'] = array();
 $GLOBALS['hooked']  = array();
@@ -591,16 +614,8 @@ WPCPM_MCP::init();
 
 ck( 'the server is created when the adapter says it starts', isset( $GLOBALS['actions']['mcp_adapter_init'] ) ? $GLOBALS['actions']['mcp_adapter_init'] : null, array( array( 'WPCPM_MCP', 'create_server' ) ) );
 ck( 'taking the adapter', isset( $GLOBALS['hooked']['mcp_adapter_init'][0] ) ? $GLOBALS['hooked']['mcp_adapter_init'][0]['args'] : null, 1 );
-
-$fence = isset( $GLOBALS['filters']['rest_pre_dispatch'] ) ? $GLOBALS['filters']['rest_pre_dispatch'] : array();
-ck( 'the REST fence is on rest_pre_dispatch, alone, first of all (priority 1) and taking the result, the server and the request', $fence, array( array( 'callback' => array( 'WPCPM_MCP', 'fence_rest' ), 'priority' => 1, 'args' => 3 ) ) );
-
-ck( 'the sign-in fence is on the action that checks an application password, taking its four arguments', array(
-	isset( $GLOBALS['actions']['wp_authenticate_application_password_errors'] ) ? $GLOBALS['actions']['wp_authenticate_application_password_errors'] : null,
-	isset( $GLOBALS['hooked']['wp_authenticate_application_password_errors'][0] ) ? $GLOBALS['hooked']['wp_authenticate_application_password_errors'][0]['args'] : null,
-), array( array( array( 'WPCPM_MCP', 'fence_sign_in' ) ), 4 ) );
-
-ck( 'the sweep\'s own hooks are still there', array( isset( $GLOBALS['actions'][ WPCPM_MCP::CRON_SWEEP ] ), in_array( array( 'WPCPM_MCP', 'schedule' ), $GLOBALS['actions']['init'], true ) ), array( true, true ) );
+ck( 'init() does not add the fences a second time: they are guard()\'s', array( isset( $GLOBALS['filters']['rest_pre_dispatch'] ), isset( $GLOBALS['actions']['wp_authenticate_application_password_errors'] ) ), array( false, false ) );
+ck( 'the sweep\'s own hooks are still init()\'s', array( isset( $GLOBALS['actions'][ WPCPM_MCP::CRON_SWEEP ] ), in_array( array( 'WPCPM_MCP', 'schedule' ), $GLOBALS['actions']['init'], true ) ), array( true, true ) );
 
 echo "\n=== The adapter's default server is off, whatever the switch says ===\n";
 

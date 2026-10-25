@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.33
+Stable tag: 1.123.35
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.35 =
+
+* Claude access: the password fence now goes on as the plugin loads, not a step later. On some hosts (this program's own included) a background request can sign in with an application password before that later step runs, which left the fence briefly absent and let a password named for this access through on such a request; it no longer can.
 
 = 1.123.33 =
 
