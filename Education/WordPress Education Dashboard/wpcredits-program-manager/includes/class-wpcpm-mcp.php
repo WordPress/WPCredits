@@ -96,6 +96,7 @@ class WPCPM_MCP {
 	 */
 	public static function guard() {
 		add_filter( 'rest_pre_dispatch', array( __CLASS__, 'fence_rest' ), 1, 3 );
+		add_filter( 'determine_current_user', array( __CLASS__, 'fence_user' ), PHP_INT_MAX );
 		add_action( 'wp_authenticate_application_password_errors', array( __CLASS__, 'fence_sign_in' ), 10, 4 );
 	}
 
@@ -410,28 +411,17 @@ class WPCPM_MCP {
 	}
 
 	/**
-	 * The sign-in fence, on `wp_authenticate_application_password_errors`: a Claude password signs in only
-	 * on a genuine REST request, judged by the request's address, not by the `REST_REQUEST` constant.
+	 * The sign-in fence, on `wp_authenticate_application_password_errors`: a Claude password does not sign in
+	 * to XML-RPC.
 	 *
-	 * Core checks an application password in a REST or an XML-RPC request, and in any other request that a
-	 * plugin opens to application passwords through `application_password_is_api_request`: Jetpack opens its
-	 * VideoPress AJAX actions in wp-admin that way, so an Administrator's password, a Claude one among them,
-	 * would sign in there too. Core fires this action once the password has matched, in every one of those
-	 * requests; an error added to `$error` fails the sign-in. A real REST request is the other fence's,
-	 * which holds a Claude password to the MCP address; every other sign-in with a Claude password fails
-	 * here, whatever the switch says, so a plugin that opens one more door to application passwords does not
-	 * open it to Claude.
-	 *
-	 * Whether the request is a REST request is read from its address (`is_rest_request()`), not from the
-	 * `REST_REQUEST` constant. The constant says nothing sure on every host: this program's own live host
-	 * (WordPress.com Atomic) defines it true in requests it does not serve through the REST server, an
-	 * admin-ajax request among them, where the REST fence then never runs. So the constant would let a
-	 * Claude password sign in at exactly the door this fence is for. The address is the fact that holds:
-	 * only a request to the REST route itself is handed to the REST fence; everything else is refused here,
-	 * and a request whose address cannot be read as REST, or that holds a dot segment that could resolve
-	 * the prefix away, is refused too, which is the safe side of the doubt. A Claude client reaches the MCP
-	 * server at its `/wp-json/` address, not through `?rest_route=`, so the site needs pretty permalinks
-	 * for Claude access.
+	 * This acts only in an XML-RPC request (`XMLRPC_REQUEST`), where the sign-in resolves on the
+	 * `authenticate` filter and an error added here is a clean XML-RPC fault. The other non-REST paths an
+	 * application password can take, an admin-ajax door a plugin opens to it among them, resolve the user on
+	 * `determine_current_user` instead; there `fence_user()` drops a Claude-password user after the sign-in
+	 * rather than failing it. Failing the sign-in on that path is what sent this program's live host
+	 * (WordPress.com Atomic) into a loop that exhausted the request's memory (1.123.35), because something in
+	 * the platform's admin-ajax stack re-resolves the user when the application-password sign-in fails. REST
+	 * is the REST fence's. So this fence stays out of both, and acts only for XML-RPC.
 	 *
 	 * It writes no row, because core fires the action while it is still working out who is signing in,
 	 * before there is a current user, and the row writer reads the current user.
@@ -444,13 +434,56 @@ class WPCPM_MCP {
 	public static function fence_sign_in( $error, $user, $item, $password ) {
 		unset( $user, $password );
 
-		if ( self::is_rest_request() || ! is_wp_error( $error ) || ! is_array( $item ) ) {
+		if ( ! ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) || ! is_wp_error( $error ) || ! is_array( $item ) ) {
 			return;
 		}
 
 		if ( self::is_claude_password( isset( $item['name'] ) ? $item['name'] : '' ) ) {
 			$error->add( 'wpcpm_mcp_fenced', self::fenced_message() );
 		}
+	}
+
+	/**
+	 * The user fence, on `determine_current_user` at the last priority: a Claude password authenticates
+	 * nobody outside a genuine REST request.
+	 *
+	 * Core and the platform resolve the current user on this filter. A Claude password is meant for the MCP
+	 * address alone, so on any request that is not a REST request (`is_rest_request()` reads the address, as
+	 * the REST fence does), an account that this request authenticated with a Claude password is dropped to
+	 * nobody. The request then goes on as if it were signed out: the handler it reaches, a VideoPress upload
+	 * action a plugin opened to application passwords among them, sees no user and refuses as it would an
+	 * anonymous request. A genuine REST request keeps its user, so the MCP address works and the REST fence
+	 * can refuse and log a Claude password on any other route.
+	 *
+	 * This never fails the sign-in; it lets the sign-in stand and drops the user after. Failing it instead,
+	 * as an earlier fence did, sent the live host's admin-ajax stack into a memory-exhausting loop. And it
+	 * reads only the user it is handed and that account's own password item, never the current user, so it
+	 * does not re-enter the resolution it runs inside.
+	 *
+	 * @param int|false|mixed $user The user id resolved so far, or 0/false for nobody.
+	 * @return int|false|mixed The same, or 0 when a Claude password authenticated a non-REST request.
+	 */
+	public static function fence_user( $user ) {
+		$id = (int) $user;
+
+		if ( $id < 1 || self::is_rest_request() ) {
+			return $user;
+		}
+
+		if ( ! function_exists( 'rest_get_authenticated_app_password' ) || ! class_exists( 'WP_Application_Passwords' ) ) {
+			return $user;
+		}
+
+		$uuid = rest_get_authenticated_app_password();
+
+		if ( ! is_string( $uuid ) || '' === $uuid ) {
+			return $user;
+		}
+
+		$item = WP_Application_Passwords::get_user_application_password( $id, $uuid );
+		$name = is_array( $item ) && isset( $item['name'] ) ? $item['name'] : '';
+
+		return self::is_claude_password( $name ) ? 0 : $user;
 	}
 
 	/**

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.36
+Stable tag: 1.123.37
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.37 =
+
+* Claude access: outside the plugin's own address, a password named for this access now authenticates nobody rather than being turned away mid sign-in. On one host the turning-away could make a background request fail heavily; letting the sign-in stand and then treating the request as signed out refuses it cleanly, with no change to what the password can reach.
 
 = 1.123.36 =
 
