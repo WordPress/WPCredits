@@ -6,7 +6,7 @@ Five guides, one per audience:
 | --- | --- | --- |
 | [Student guide](students.md) | The Student Report Card and booking a call. | `/student-guide/`, Student level |
 | [Mentor guide](mentors.md) | The Mentor Report Card, availability, **and the whole student guide**. | `/mentor-guide/`, Mentor level |
-| [Administrator guide](administrators.md) | wp-admin, settings, access levels, the sync, **and the mentor and student guides**. | `/program-manager-guide/`, Administrators only |
+| [Administrator guide](administrators.md) | wp-admin, settings, access levels, the sync, **and the mentor and student guides**. | `/administrator-guide/`, Administrators only |
 | [Sponsor guide](sponsors.md) | The Sponsor Dashboard, offers and codes, what a company can see, and posts. | The handbook's `sponsor-guide/` page |
 | [Institution guide](institutions.md) | The Institution Dashboard: students, enrollment, the semester report, the institution's details and the Collaboration Agreement. | `/institution-guide/`, Institution level and Administrators, made at launch |
 

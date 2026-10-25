@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.40
+Stable tag: 1.123.41
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.41 =
+
+* The student import refuses a row whose address is at example.test, the domain of the sample list's example student, and tells the school it is the sample row to replace or delete; the file's other rows import as usual. An unchanged sample can no longer create a student (the site's owner, 25 October 2026).
+* The Administrator guide moves from /program-manager-guide/ to /administrator-guide/, its title's own words (the site's owner, 25 October 2026). The page keeps its ID, title, content, access level and modified date: once, on the first request after the update, only its address changes, written straight to the page so no save runs. The old address answers with a permanent redirect, its query kept, so every link already sent still lands on the guide. The settings screen's section intros link the new address.
+* The institution form's old address, /apply/, keeps a query of "0" on its redirect, as the guide's does.
+* For developers: `WPCPM_Settings_Screen::GUIDE_PAGE_PATH` is `administrator-guide`, `GUIDE_OLD_PATH` the old one, and the option `wpcpm_guide_page_moved` records the move (deleted on uninstall); the import's problem code `email_sample`; `bin/test-guide-address.php`.
 
 = 1.123.40 =
 

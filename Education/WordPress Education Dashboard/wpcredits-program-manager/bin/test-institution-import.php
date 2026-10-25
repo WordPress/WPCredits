@@ -22,6 +22,10 @@
  *   the welcome automation. No real name starts with those.
  * - Mandatory fields refuse the row; optional fields are dropped and named. A mistyped field of
  *   study costs a school one column, not one student.
+ * - **An address at example.test, or under it, refuses the row as `email_sample`.** The sample list
+ *   a school downloads is one example student at that domain, and a school that sends the file back
+ *   unchanged must create nobody. The suite reads the sample's own body with the import's reader to
+ *   hold the two together, and a student of the school's in the same file is created as usual.
  * - **Both halves of an in-file duplicate are blocked.** Creating one of the two would be this
  *   plugin deciding which of a school's lines was the real one.
  * - The ceilings refuse before the work: bytes before parsing, rows during it.
@@ -455,7 +459,7 @@ $latin1 = WPCPM_Institution_Import::parse( "Name,Email\nFid\xE9litas,a@example.t
 ck( 'a Latin-1 export is refused', $latin1['problem'], 'not_utf8' );
 ck( 'and nothing was read out of it', $latin1['rows'], array() );
 
-$utf8 = WPCPM_Institution_Import::parse( "Name,Email\nFidélitas Ana,ana@example.test\n" );
+$utf8 = WPCPM_Institution_Import::parse( "Name,Email\nFidélitas Ana,ana@institution.example\n" );
 ck( 'the same file re-exported is accepted', $utf8['ok'], true );
 ck( 'with the accent intact', $utf8['rows'][0]['name'], 'Fidélitas Ana' );
 
@@ -482,37 +486,58 @@ echo "\n=== Cleaning: mandatory refuses the row, optional is dropped and named =
 // A formula to Excel, Numbers and Sheets alike. Every program manager exports this list, and
 // the name lands in the subject line of the welcome automation.
 foreach ( array( '=HYPERLINK("http://x")', '+1+1', '-2', '@SUM(A1)' ) as $attack ) {
-	$row = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => $attack, 'email' => 'a@example.test' ) );
+	$row = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => $attack, 'email' => 'a@institution.example' ) );
 	ck( sprintf( 'a name beginning "%s" refuses the row', substr( $attack, 0, 1 ) ), $row['verdict'], 'invalid' );
 	ck( 'naming the reason', in_array( 'name_formula', $row['problems'], true ), true );
 }
 
-$piped = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => "Anna|Kowalska", 'email' => 'a@example.test' ) );
+$piped = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => "Anna|Kowalska", 'email' => 'a@institution.example' ) );
 ck( 'a pipe in a name refuses the row', $piped['problems'], array( 'name_control' ) );
 
 // The check has to run before sanitize_text_field(), which removes the very characters it looks
 // for. A tab inside a name is a row that was torn out of another table.
-$tabbed_name = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => "Anna\tKowalska", 'email' => 'a@example.test' ) );
+$tabbed_name = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => "Anna\tKowalska", 'email' => 'a@institution.example' ) );
 ck( 'and so does a tab, which the sanitiser would have removed first', $tabbed_name['problems'], array( 'name_control' ) );
 
-$short = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => 'A', 'email' => 'a@example.test' ) );
+$short = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => 'A', 'email' => 'a@institution.example' ) );
 ck( 'a one-character name refuses the row', $short['problems'], array( 'name_length' ) );
 
-$long = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => str_repeat( 'a', 201 ), 'email' => 'a@example.test' ) );
+$long = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => str_repeat( 'a', 201 ), 'email' => 'a@institution.example' ) );
 ck( 'and so does a name over two hundred characters', $long['problems'], array( 'name_length' ) );
 
-$spaced = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => "  Anna   Kowalska  ", 'email' => 'a@example.test' ) );
+$spaced = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => "  Anna   Kowalska  ", 'email' => 'a@institution.example' ) );
 ck( 'a name pasted out of a PDF has its spacing collapsed', $spaced['name'], 'Anna Kowalska' );
 
 $bad_email = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'anna@' ) );
 ck( 'an address that is not one refuses the row', $bad_email['problems'], array( 'email_invalid' ) );
 
-$no_name = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => '', 'email' => 'a@example.test' ) );
+// **The sample list's example row (1.123.41).** The sample is Ana at example.test, so an address there is the
+// example and not a student: an unchanged sample must not be able to create anybody. It is refused as a
+// required field is, naming its own reason, with `email` and `email_key` left empty as a failed address leaves
+// them. The domain is compared in lower case after the cell is trimmed, and a subdomain of it is the same
+// example; a domain that merely ends in the same letters is somebody else's.
+foreach ( array( 'ana@example.test', 'Ana@EXAMPLE.TEST', ' ana@example.test ', 'ana@school.example.test' ) as $sample_address ) {
+	$sample_row = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => 'Ana Example', 'email' => $sample_address ) );
+
+	ck( sprintf( 'the address "%s" is the sample list\'s and refuses the row', trim( $sample_address ) ), array( $sample_row['verdict'], $sample_row['problems'] ), array( 'invalid', array( 'email_sample' ) ) );
+	ck( 'leaving the email and the key it is compared on empty', array( $sample_row['email'], $sample_row['email_key'] ), array( '', '' ) );
+}
+
+foreach ( array( 'ana@example.com', 'ana@institution.example', 'ana@myexample.test', 'ana@example.test.example' ) as $own_address ) {
+	$own_row = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => 'Ana Example', 'email' => $own_address ) );
+
+	ck( sprintf( 'the address "%s" is not the sample list\'s and the row is ok', $own_address ), array( $own_row['verdict'], $own_row['problems'] ), array( 'ok', array() ) );
+}
+
+$sample_nameless = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => '', 'email' => 'ana@example.test' ) );
+ck( 'a row that is wrong in two ways is told both', $sample_nameless['problems'], array( 'name_missing', 'email_sample' ) );
+
+$no_name = WPCPM_Institution_Import::clean_row( array( 'line' => 2, 'name' => '', 'email' => 'a@institution.example' ) );
 ck( 'a missing name refuses the row', $no_name['problems'], array( 'name_missing' ) );
 
 // Optional from here down: the school loses a column, never the student.
 $bad_study = WPCPM_Institution_Import::clean_row(
-	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@example.test', 'field_of_study' => 'Rocket Surgery' )
+	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@institution.example', 'field_of_study' => 'Rocket Surgery' )
 );
 ck( 'an unknown field of study does not refuse the row', $bad_study['verdict'], 'ok' );
 // create_records() sends no typecast, so a value spelled any other way is a 422 for the record.
@@ -520,19 +545,19 @@ ck( 'the field is dropped rather than sent', $bad_study['field_of_study'], '' );
 ck( 'and the school is told which column went', $bad_study['warnings'], array( 'field_of_study_unknown' ) );
 
 $bad_profile = WPCPM_Institution_Import::clean_row(
-	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@example.test', 'profile' => 'not a profile at all' )
+	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@institution.example', 'profile' => 'not a profile at all' )
 );
 ck( 'an unreadable profile does not refuse the row', $bad_profile['verdict'], 'ok' );
 ck( 'but is named, or a column of them would go unnoticed', $bad_profile['warnings'], array( 'profile_unreadable' ) );
 
 $bad_tutor = WPCPM_Institution_Import::clean_row(
-	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@example.test', 'tutor' => '=cmd()' )
+	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@institution.example', 'tutor' => '=cmd()' )
 );
 ck( 'a formula in the tutor column is dropped, not refused', $bad_tutor['verdict'], 'ok' );
 ck( 'and named', $bad_tutor['warnings'], array( 'tutor_rejected' ) );
 
 $long_tutor = WPCPM_Institution_Import::clean_row(
-	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@example.test', 'tutor' => str_repeat( 'a', 121 ) )
+	array( 'line' => 2, 'name' => 'Anna Kowalska', 'email' => 'a@institution.example', 'tutor' => str_repeat( 'a', 121 ) )
 );
 ck( 'a paragraph in the tutor column is dropped too', $long_tutor['tutor'], '' );
 ck( 'and named', $long_tutor['warnings'], array( 'tutor_too_long' ) );
@@ -945,11 +970,13 @@ ck( 'no method of the check log is left', array_values( array_filter( array( 'lo
 } ) ), array() );
 ck( 'and no constant of it', array( defined( 'WPCPM_Institution_Import::OPT_LOG' ), defined( 'WPCPM_Institution_Import::LOG_MAX' ) ), array( false, false ) );
 
-echo "\n=== The sample list is a file the import reads whole ===\n";
+echo "\n=== The sample list is a file the import reads whole, and refuses its own example ===\n";
 
 // Institutions release 2: the import form offers "Download a sample list". The list is made by the export
 // class on request and is never a file in the repository (the public mirror refuses an address in a tracked
-// .csv), so the only way to know it keeps importing is to give its body to the import's own reader.
+// .csv), so the only way to know how the import treats it is to give its body to the import's own reader.
+// Since 1.123.41 the example student is at example.test, which the import refuses as the sample's, so a
+// school that sends the file back unchanged creates nobody.
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-export.php';
 
 $sample = WPCPM_Institution_Export::sample_csv();
@@ -963,12 +990,23 @@ $sample_read = WPCPM_Institution_Import::parse( $sample );
 ck( 'the import\'s reader takes it', array( $sample_read['ok'], count( $sample_read['rows'] ), $sample_read['unknown'] ), array( true, 1, array() ) );
 
 $sample_rows = WPCPM_Institution_Import::clean_rows( $sample_read['rows'] );
-ck( 'and cleaning gives one row, and its verdict is ok', verdicts( $sample_rows ), array( 'ok' ) );
-ck( 'with nothing dropped and nothing wrong', array( $sample_rows[0]['problems'], $sample_rows[0]['warnings'] ), array( array(), array() ) );
-ck( 'every column arrived as the example says', array(
-	$sample_rows[0]['name'], $sample_rows[0]['email'], $sample_rows[0]['field_of_study'], $sample_rows[0]['tutor'],
-), array( 'Ana Example', 'ana@example.test', 'Technology & Engineering', 'Tutor Example' ) );
+ck( 'and cleaning gives one row, and its verdict is invalid', verdicts( $sample_rows ), array( 'invalid' ) );
+ck( 'refused for the example address and for nothing else', array( $sample_rows[0]['problems'], $sample_rows[0]['warnings'] ), array( array( 'email_sample' ), array() ) );
+ck( 'with no address kept to create from', array( $sample_rows[0]['email'], $sample_rows[0]['email_key'] ), array( '', '' ) );
+ck( 'the other columns arrived as the example says', array(
+	$sample_rows[0]['name'], $sample_rows[0]['field_of_study'], $sample_rows[0]['tutor'],
+), array( 'Ana Example', 'Technology & Engineering', 'Tutor Example' ) );
 ck( 'the field of study is one of the nine the import accepts', in_array( $sample_rows[0]['field_of_study'], WPCPM_Institution_Student_Form::choices( 'field_of_study' ), true ), true );
+
+// What a school does with it: replace the example with a student of theirs. The rest of the file is read as it
+// always was, and the other rows import as usual beside the refused one.
+$replaced      = str_replace( 'ana@example.test', 'ana@institution.example', $sample );
+$replaced_rows = WPCPM_Institution_Import::clean_rows( WPCPM_Institution_Import::parse( $replaced )['rows'] );
+ck( 'the same file with the example replaced by a student of the school\'s imports whole', array( verdicts( $replaced_rows ), $replaced_rows[0]['problems'], $replaced_rows[0]['warnings'], $replaced_rows[0]['email'] ), array( array( 'ok' ), array(), array(), 'ana@institution.example' ) );
+
+$beside      = $sample . "Bo Example,bo@institution.example,Technology & Engineering,Tutor Example\r\n";
+$beside_rows = WPCPM_Institution_Import::clean_rows( WPCPM_Institution_Import::parse( $beside )['rows'] );
+ck( 'and a student added under the unchanged example is created while the example is not', verdicts( $beside_rows ), array( 'invalid', 'ok' ) );
 
 ck( 'it is valid UTF-8, which the import refuses to repair when it is not', mb_check_encoding( $sample, 'UTF-8' ), true );
 

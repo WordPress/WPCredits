@@ -57,8 +57,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * repository, whose public mirror refuses an email address in a tracked .csv. It holds nothing of
  * any institution, so it asks no question about one beyond the import's own: the account must be
  * allowed `ACT_ADD_STUDENT` on the institution its page resolves to, and the site must take imports
- * at all. `bin/test-institution-import.php` reads its body with the import's own reader, so the
- * sample always imports.
+ * at all. `bin/test-institution-import.php` reads its body with the import's own reader, which refuses
+ * the example row as `email_sample` (an address at example.test is the sample's, since 1.123.41), so a
+ * school that sends the sample back unchanged creates nobody, and the same file with that row replaced
+ * by a student of the school's imports whole.
  */
 class WPCPM_Institution_Export {
 
@@ -472,11 +474,16 @@ class WPCPM_Institution_Export {
 	 * student at example.test with a field of study from the nine the import accepts. The mark and the
 	 * line ends are `csv()`'s, so the sample is a file Excel opens the way the exports are.
 	 *
+	 * **The example's address is the one the import refuses.** An address at example.test is read as the
+	 * sample's own row (`WPCPM_Institution_Import::SAMPLE_DOMAIN`), so the row says to replace it with a
+	 * student of the school's and an unchanged sample cannot create anybody. Moving the example to another
+	 * domain means moving that constant with it.
+	 *
 	 * **Written out rather than passed through `csv()`.** `fputcsv()` quotes every cell that holds a
 	 * space, and the point of this file is to show a school the format as the import reads it, which a
 	 * text editor should be able to do without quotation marks to explain. No cell holds a comma, a
 	 * quotation mark or a line break, which `bin/test-institution-import.php` proves by giving the body
-	 * to the import's own reader and expecting one row with the verdict ok.
+	 * to the import's own reader and expecting one row, refused for its address and for nothing else.
 	 *
 	 * @return string The file, ready to send.
 	 */

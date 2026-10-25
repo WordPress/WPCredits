@@ -317,7 +317,8 @@ final class WPCPM_Institution_Import_Form {
 		);
 
 		// The format, shown rather than only described: a list the export class makes on request, with the
-		// four headers and one example student, which the import's own reader takes whole. The nonced link is
+		// four headers and one example student, which the import's own reader reads and refuses as the sample's
+		// until the school replaces it with a student of their own (`email_sample`). The nonced link is
 		// the export class's (`sample_url()`), keyed to this institution, so this file decides nothing about
 		// the download beyond where its link goes. Guarded, as the student card guards its controls, so a site
 		// that has not loaded the class draws the form without the link.
@@ -773,6 +774,7 @@ final class WPCPM_Institution_Import_Form {
 			'name_length'   => __( 'The name is too short or too long.', 'wpcredits-program-manager' ),
 			'email_missing' => __( 'No email address.', 'wpcredits-program-manager' ),
 			'email_invalid' => __( 'That is not an email address.', 'wpcredits-program-manager' ),
+			'email_sample'  => __( 'This is the sample list\'s example student. Replace it with one of your students, or delete the row.', 'wpcredits-program-manager' ),
 		);
 
 		$said = array();

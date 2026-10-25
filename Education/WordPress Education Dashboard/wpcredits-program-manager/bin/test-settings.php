@@ -2645,7 +2645,7 @@ echo "\n=== Each section's intro links its part of the site's own program manage
 
 // The sections of each tab, as the design lists them. Each opens with one sentence and a link to its
 // part of the program manager guide as this site publishes it: the page at the path
-// `program-manager-guide`, which holds the guide bin/build-docs.php builds, opened at the id the
+// `administrator-guide`, which holds the guide bin/build-docs.php builds, opened at the id the
 // build gives the section's heading in guide 31. Not the handbook page the Resources section links,
 // which has none of these parts.
 
@@ -2658,7 +2658,7 @@ echo "\n=== Each section's intro links its part of the site's own program manage
 function guide_page( $status ) {
 	$page              = new WP_Post();
 	$page->ID          = 560;
-	$page->post_name   = 'program-manager-guide';
+	$page->post_name   = 'administrator-guide';
 	$page->post_status = $status;
 
 	return $page;
@@ -2723,8 +2723,8 @@ ck( 'the built guide is its parts, heading for heading, in the build\'s order, s
     array( $lined_up, count( $part_31 ) > 20, in_array( 'airtable', $part_31, true ), 1 === substr_count( $built_guide, ' id="need-help"' ), in_array( 'need-help', $part_31, true ) ),
     array( true, true, true, true, false ) );
 
-$GLOBALS['pages'] = array( 'program-manager-guide' => guide_page( 'publish' ) );
-$guide_home       = 'https://example.test/program-manager-guide/';
+$GLOBALS['pages'] = array( 'administrator-guide' => guide_page( 'publish' ) );
+$guide_home       = 'https://example.test/administrator-guide/';
 
 // Each tab's sections, as the design lists them, each with the id of its own heading in guide 31: a
 // heading the guide shares with another tab's section is named apart there, so the part a link opens
@@ -2824,7 +2824,7 @@ ck( 'the Resources section still links the program\'s handbook page, whatever th
 $unlinked = array();
 
 foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'private', 'a trashed page' => 'trash' ) as $case => $status ) {
-	$GLOBALS['pages'] = null === $status ? array() : array( 'program-manager-guide' => guide_page( $status ) );
+	$GLOBALS['pages'] = null === $status ? array() : array( 'administrator-guide' => guide_page( $status ) );
 	$intros           = array();
 
 	foreach ( array_keys( $design_sections ) as $slug ) {
@@ -2841,7 +2841,7 @@ ck( 'with no published page at that path, whether there is none, a draft, a priv
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
-$GLOBALS['pages'] = array( 'program-manager-guide' => guide_page( 'publish' ) );
+$GLOBALS['pages'] = array( 'administrator-guide' => guide_page( 'publish' ) );
 $heard            = array();
 
 $GLOBALS['filters']['wpcpm_settings_guide_url'] = function ( $url, $page = null ) use ( &$heard ) {
@@ -3459,7 +3459,7 @@ foreach ( $fold_names as $state => $names ) {
 	}
 }
 
-$GLOBALS['pages'] = array( 'program-manager-guide' => guide_page( 'publish' ) );
+$GLOBALS['pages'] = array( 'administrator-guide' => guide_page( 'publish' ) );
 
 foreach ( array_keys( $design_sections ) as $slug ) {
 	$hidden = array_column( sections_of( draw_settings( $slug ) ), 'hidden' );

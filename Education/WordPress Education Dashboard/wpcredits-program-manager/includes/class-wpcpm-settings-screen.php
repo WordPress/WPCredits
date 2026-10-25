@@ -44,11 +44,30 @@ class WPCPM_Settings_Screen {
 	const REFRESH_ACTION = 'wpcpm_refresh_lists';
 
 	/**
-	 * The path of the page the site publishes the program manager guide at, whose content is the
+	 * The path of the page the site publishes the Administrator guide at, whose content is the
 	 * guide bin/build-docs.php builds: the page each section of the settings screen links its part
 	 * of (`settings_guide()`).
+	 *
+	 * Renamed once, from `GUIDE_OLD_PATH`, on the owner's decision of 25 October 2026, so the
+	 * address says what the page's title says. The release script writes the page by its ID, so only
+	 * the slug moves. A rename breaks every link anybody has been sent, which is why the old address
+	 * still answers, through `redirect_old_guide_address()`, and why `maybe_move_guide_page()` moves
+	 * the page an existing site already has rather than leaving it where the plugin no longer looks.
 	 */
-	const GUIDE_PAGE_PATH = 'program-manager-guide';
+	const GUIDE_PAGE_PATH = 'administrator-guide';
+
+	/** The guide's path before 1.123.41, which `redirect_old_guide_address()` still answers. */
+	const GUIDE_OLD_PATH = 'program-manager-guide';
+
+	/**
+	 * Option: which revision of the one-time move of the guide's page `maybe_move_guide_page()` has applied.
+	 *
+	 * A number, as the application form's page keeps its own, so a later move runs once as well.
+	 */
+	const OPT_GUIDE_MOVED = 'wpcpm_guide_page_moved';
+
+	/** The current revision of the move. */
+	const GUIDE_MOVE_VERSION = 1;
 
 	/** How many of Claude access's latest calls the Security tab lists; `wp wpcredits mcp_log` lists more. */
 	const MCP_LOG_ROWS = 100;
@@ -80,11 +99,167 @@ class WPCPM_Settings_Screen {
 	const UNRENDERED_SWITCHES = array();
 
 	/**
-	 * Hooks: the save every settings form posts, and the button that reads the Airtable lists again.
+	 * Hooks: the save every settings form posts, the button that reads the Airtable lists again, and
+	 * the guide's move to its new address with the old address's redirect.
+	 *
+	 * The screen is built on every request (`WPCPM_Admin`), not only in wp-admin, which the last two
+	 * need: the move runs on whichever request comes first after the update, and the redirect answers
+	 * a visitor.
 	 */
 	public function __construct() {
 		add_action( 'admin_init', array( $this, 'handle_settings_save' ) );
 		add_action( 'admin_post_' . self::REFRESH_ACTION, array( $this, 'handle_refresh_lists' ) );
+		// After the post types are registered, and once only, as the application form's page moves.
+		add_action( 'init', array( __CLASS__, 'maybe_move_guide_page' ), 20 );
+		// At 9, before core's `redirect_canonical()` and `wp_old_slug_redirect()`, both at 10.
+		add_action( 'template_redirect', array( __CLASS__, 'redirect_old_guide_address' ), 9 );
+	}
+
+	/**
+	 * Move the guide's page, if the site has one, to the new address, once.
+	 *
+	 * The release script writes the guide by the page's ID, and the plugin stores none, so the page is
+	 * found by the old path. Only the slug moves, while it is still the old one, and it is written alone,
+	 * straight to the posts table: the title, the content, the status and the modified date are left as
+	 * they are, and no save hook runs (see the write, below).
+	 *
+	 * The slug is left as well when another page, post or attachment already holds the new one: core
+	 * would give this page `administrator-guide-2`, or, for a post, hide it behind the page, since page
+	 * addresses are matched first. The page then stays at the old address, a real page, so
+	 * `redirect_old_guide_address()` has no 404 to answer there. A page that is only a child of another
+	 * page, an attachment, or a slug an Administrator changed is not at the old path and is not touched.
+	 *
+	 * The flag is written before the work, whatever the outcome, as the application form's move writes
+	 * its own: a move that failed halfway must not be tried again on every request, and a slug put back
+	 * by hand afterwards is the Administrator's.
+	 */
+	public static function maybe_move_guide_page() {
+		if ( (int) get_option( self::OPT_GUIDE_MOVED ) >= self::GUIDE_MOVE_VERSION ) {
+			return;
+		}
+
+		update_option( self::OPT_GUIDE_MOVED, self::GUIDE_MOVE_VERSION, false );
+
+		$page = get_page_by_path( self::GUIDE_OLD_PATH );
+
+		if ( ! $page instanceof WP_Post || 'page' !== $page->post_type || self::GUIDE_OLD_PATH !== $page->post_name ) {
+			return;
+		}
+
+		if ( get_page_by_path( self::GUIDE_PAGE_PATH, OBJECT, array( 'page', 'post', 'attachment' ) ) ) {
+			return;
+		}
+
+		// The slug is written straight to the posts table, and nothing else is, rather than through
+		// `wp_update_post()`, which would run the guide through everything a save runs. `save_post` would
+		// fire for it on whichever request comes first after the update, and a handler that reads the
+		// request would take that request's form for the guide's: an Administrator saving another post
+		// posts the access level's box, and `WPCPM_Content_Access` would write that post's level onto the
+		// guide, which could turn it public. The stored content would go through kses again on a request
+		// without `unfiltered_html`, a visitor's or WP-CLI's, which rewrites the markup the release script
+		// compares with its build, and the modified date would move. The WHERE names the old slug as well
+		// as the ID, so a request that passed the checks above after another had already renamed the page
+		// changes no row, and the cache is cleared only when a row changed.
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- The slug alone, with no save hook, no kses and no modified date; the cache is cleared below.
+		$changed = $wpdb->update(
+			$wpdb->posts,
+			array( 'post_name' => self::GUIDE_PAGE_PATH ),
+			array(
+				'ID'        => $page->ID,
+				'post_name' => self::GUIDE_OLD_PATH,
+			)
+		);
+
+		if ( $changed ) {
+			clean_post_cache( $page->ID );
+		}
+	}
+
+	/**
+	 * Send a visitor who asks for /program-manager-guide/, the guide's address before 1.123.41, to the guide.
+	 *
+	 * WordPress keeps no old slug for a page: `wp_check_for_changed_slugs()` records one only for a post
+	 * type that is not hierarchical, and `wp_old_slug_redirect()` reads only the `name` query variable. So
+	 * every bookmark, and every link in a mail or a post that named the address, would land on a 404 without
+	 * this.
+	 *
+	 * It answers only a 404, so a page really published at the old address wins (the move leaves the slug
+	 * where another page holds the new one), and only when the path WordPress matched is exactly the old
+	 * path, in any case (page addresses are matched without regard to case), and the request names it as a
+	 * page or a post (`pagename`, or `name` where a missing page falls through to the post rule under
+	 * /%postname%/ links). The path is asked as well because by `template_redirect` WP_Query has cut a
+	 * missing page's path to its last part and copied it into `name`, and a post type's address sets `name`
+	 * too, so the query variables alone would also answer /about/program-manager-guide/ and
+	 * /<type>/program-manager-guide/. The request's query string goes with the visitor.
+	 *
+	 * A 301, because the owner decided the address and search engines should learn it. At 9, before core's
+	 * `redirect_canonical()`, whose guess at a post whose slug starts with the old path could otherwise
+	 * send the visitor somewhere else, and before `wp_old_slug_redirect()`. With no published guide at the
+	 * new path there is nowhere to send anybody, and the 404 stands.
+	 */
+	public static function redirect_old_guide_address() {
+		global $wp;
+
+		if ( ! is_404() ) {
+			return;
+		}
+
+		$path = isset( $wp->request ) ? (string) $wp->request : '';
+
+		if ( ! self::is_old_guide_path( $path ) ) {
+			return;
+		}
+
+		if ( ! self::is_old_guide_path( get_query_var( 'pagename' ) ) && ! self::is_old_guide_path( get_query_var( 'name' ) ) ) {
+			return;
+		}
+
+		$page = self::guide_page();
+
+		if ( null === $page || 'publish' !== $page->post_status ) {
+			return;
+		}
+
+		$url = (string) get_permalink( $page );
+
+		if ( '' === $url ) {
+			return;
+		}
+
+		// Not `empty()`, which is true for "0": a query string of 0 is one, and goes with the visitor.
+		if ( isset( $_SERVER['QUERY_STRING'] ) && '' !== wp_unslash( $_SERVER['QUERY_STRING'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the empty string here; esc_url_raw() cleans it below.
+			$url = esc_url_raw( $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . wp_unslash( $_SERVER['QUERY_STRING'] ) );
+		}
+
+		wp_safe_redirect( $url, 301 );
+
+		exit;
+	}
+
+	/**
+	 * Whether a path or a query variable is the guide's old path, whatever case the visitor typed it in.
+	 *
+	 * Only the case is ignored: a deeper path, a longer slug or anything that is not a string is still
+	 * not it.
+	 *
+	 * @param mixed $value A request path or a query variable.
+	 * @return bool
+	 */
+	private static function is_old_guide_path( $value ) {
+		return is_string( $value ) && self::GUIDE_OLD_PATH === strtolower( $value );
+	}
+
+	/**
+	 * The page at `GUIDE_PAGE_PATH`, in any status, or null when there is none.
+	 *
+	 * @return WP_Post|null
+	 */
+	private static function guide_page() {
+		$page = get_page_by_path( self::GUIDE_PAGE_PATH );
+
+		return $page instanceof WP_Post ? $page : null;
 	}
 
 	/**
@@ -667,10 +842,10 @@ class WPCPM_Settings_Screen {
 
 	/**
 	 * A section's heading and its intro: one sentence, then a link to the section's part of the
-	 * program manager guide, where what the sentence leaves out is written down, or the sentence
-	 * alone when the site publishes no guide to link (`settings_guide()`). The link says Program
-	 * manager guide, and to a screen reader which section it opens the guide at, and that it opens a
-	 * new tab.
+	 * Administrator guide, where what the sentence leaves out is written down, or the sentence
+	 * alone when the site publishes no guide to link (`settings_guide()`). The link says
+	 * Administrator guide, and to a screen reader which section it opens the guide at, and that it
+	 * opens a new tab.
 	 *
 	 * @param string $title  The heading.
 	 * @param string $intro  One sentence saying what the section is for.
@@ -699,9 +874,10 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The program manager guide as this site publishes it: the page at `GUIDE_PAGE_PATH`, which holds
+	 * The Administrator guide as this site publishes it: the page at `GUIDE_PAGE_PATH`, which holds
 	 * the guide bin/build-docs.php builds, with an ID on every heading, so each section's intro opens
-	 * the guide at its own part.
+	 * the guide at its own part. Until `maybe_move_guide_page()` has run on a site that had the guide at
+	 * the old path, the page is not found there and the intros say their sentence alone.
 	 *
 	 * Not the address the Resources section links the program manager guide at
 	 * (`WPCPM_Handbook_Assistant::guides()`): that is the program's handbook page, which has none of
@@ -714,8 +890,7 @@ class WPCPM_Settings_Screen {
 	 *                    guide to link, and each intro says its sentence alone.
 	 */
 	private static function settings_guide() {
-		$page = get_page_by_path( self::GUIDE_PAGE_PATH );
-		$page = $page instanceof WP_Post ? $page : null;
+		$page = self::guide_page();
 		$url  = null !== $page && 'publish' === $page->post_status ? (string) get_permalink( $page ) : '';
 
 		/**
@@ -726,7 +901,7 @@ class WPCPM_Settings_Screen {
 		 * fragment on it is dropped for the section's own.
 		 *
 		 * @param string       $url  The address of the page published at the path
-		 *                           `program-manager-guide`, or '' when there is none, which leaves
+		 *                           `administrator-guide`, or '' when there is none, which leaves
 		 *                           the intros without a link.
 		 * @param WP_Post|null $page The page at that path, published or not, or null.
 		 */

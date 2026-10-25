@@ -62,6 +62,18 @@ final class WPCPM_Institution_Import {
 	const MAX_TUTOR = 120;
 
 	/**
+	 * The domain the sample list's example student lives at.
+	 *
+	 * `WPCPM_Institution_Export::sample_csv()` writes its one row at this domain, a name reserved for
+	 * tests that no mailbox can ever belong to. Spelled out here rather than read from that class,
+	 * which would make this file load the export for the sake of one string; the import suite
+	 * reads the sample's body with this reader and fails the day the two stop agreeing.
+	 *
+	 * @var string
+	 */
+	const SAMPLE_DOMAIN = 'example.test';
+
+	/**
 	 * A row that can be created.
 	 *
 	 * @var string
@@ -996,6 +1008,13 @@ final class WPCPM_Institution_Import {
 			$row['problems'][] = 'email_missing';
 		} elseif ( ! is_email( $email ) ) {
 			$row['problems'][] = 'email_invalid';
+		} elseif ( self::is_sample_address( $email ) ) {
+			// **The sample list's example student is not a student.** The list a school downloads
+			// holds one row at this domain, and a school that sends it back unchanged would otherwise
+			// create the example student, with the welcome automation writing to an address nobody reads.
+			// Refused as a failed address is, with `email` left empty and a reason of its own, so
+			// the row says it is the example and the rows beside it import as usual.
+			$row['problems'][] = 'email_sample';
 		} else {
 			$row['email'] = $email;
 			// Everything downstream compares on this and never on the printed address: Airtable
@@ -1653,6 +1672,28 @@ final class WPCPM_Institution_Import {
 		$value = preg_replace( '/\s+/u', ' ', $value );
 
 		return trim( (string) $value );
+	}
+
+	/**
+	 * Whether an address is the sample list's example, or a subdomain of it.
+	 *
+	 * Compared in lower case, so `Ana@EXAMPLE.TEST` is the example whatever the spreadsheet did to
+	 * the case. A domain that only ends in the same letters, `myexample.test`, is somebody else's, and
+	 * so is one that continues past it, `example.test.org`; the dot in front is what tells them apart.
+	 *
+	 * @param string $email An address `is_email()` has accepted.
+	 * @return bool
+	 */
+	private static function is_sample_address( $email ) {
+		$at = strrpos( $email, '@' );
+
+		if ( false === $at ) {
+			return false;
+		}
+
+		$domain = strtolower( substr( $email, $at + 1 ) );
+
+		return self::SAMPLE_DOMAIN === $domain || '.' . self::SAMPLE_DOMAIN === substr( $domain, -strlen( '.' . self::SAMPLE_DOMAIN ) );
 	}
 
 	/**

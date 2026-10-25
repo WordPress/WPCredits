@@ -717,6 +717,30 @@ ck( 'carrying the class the open state hangs off', false !== strpos( $closed, 'w
 ck( 'and it is folded when there is nothing to answer', false !== strpos( $closed, 'wpcpm-import__disclosure" open' ), false );
 ck( 'its summary is the shared one, not a fifth kind of heading', false !== strpos( $closed, 'class="wpcpm-group__summary"' ), true );
 
+echo "\n=== The sample list's example row is refused in words ===\n";
+
+// 1.123.41: the sample list's one student is at example.test, and the import refuses that address so an
+// unchanged sample creates nobody. The school is told why in the sentence on the row, and the row beside it,
+// a student of theirs, is ready to create as it always was.
+fresh_world();
+post_check( batch_fields( array( 'paste' => "name,email,field_of_study,tutor\nAna Example,ana@example.test,Technology & Engineering,Tutor Example\nBartek Zielinski,bartek@institution-3.example,,\n" ) ) );
+$sample_preview = html_entity_decode( draw_section( $HERE ), ENT_QUOTES );
+ck( 'the example row is told it is the sample list\'s, and what to do', false !== strpos( $sample_preview, '<span class="wpcpm-import__verdict">This is the sample list\'s example student. Replace it with one of your students, or delete the row.</span>' ), true );
+ck( 'and the sentence is drawn once, for that row only', substr_count( $sample_preview, 'This is the sample list\'s example student.' ), 1 );
+ck( 'the student beside it is ready to create', false !== strpos( $sample_preview, '<span class="wpcpm-import__verdict">Ready to create.</span>' ), true );
+ck( 'one of the two rows can be created', false !== strpos( $sample_preview, '1 of 2 rows can be created.' ), true );
+ck( 'and the sentence is not the one for an address that is not one', false !== strpos( $sample_preview, 'That is not an email address.' ), false );
+
+// The unchanged sample on its own, as a school meets it when they download the file and send it straight back:
+// the one row is told what it is, nothing can be created, and so the page offers no create control.
+fresh_world();
+post_check( batch_fields( array( 'paste' => "name,email,field_of_study,tutor\nAna Example,ana@example.test,Technology & Engineering,Tutor Example\n" ) ) );
+$sample_alone = html_entity_decode( draw_section( $HERE ), ENT_QUOTES );
+ck( 'the unchanged sample on its own is read, and none of its rows can be created', false !== strpos( $sample_alone, '0 of 1 rows can be created.' ), true );
+ck( 'its row is the sample list\'s, with what to do', false !== strpos( $sample_alone, '<span class="wpcpm-import__verdict">This is the sample list\'s example student. Replace it with one of your students, or delete the row.</span>' ), true );
+ck( 'and no create control is printed, so it creates nobody', array( false !== strpos( $sample_alone, 'Create these student records' ), false !== strpos( $sample_alone, 'wpcpm_import_confirm' ) ), array( false, false ) );
+ck( 'while the list can still be thrown away', false !== strpos( $sample_alone, 'Throw this list away' ), true );
+
 echo "\n=== Required fields say so ===\n";
 
 // The form itself is drawn into $closed above: nothing is staged and fresh_world() left no

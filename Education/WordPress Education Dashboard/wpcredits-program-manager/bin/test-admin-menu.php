@@ -604,7 +604,8 @@ ck( 'and no guide section, nor the readme before its changelog, calls the progra
 
 // And never program managers: the owner's rule of 10 October 2026 holds in the guides and in what
 // the readme says before its changelog as it does in the plugin's strings. The guide's address,
-// /program-manager-guide/, is a path and not these words, and the plugin's name keeps its own.
+// /administrator-guide/ (and /program-manager-guide/ before it), is a path and not these words, and the
+// plugin's name keeps its own.
 $old_title_in = array();
 
 foreach ( $texts as $file => $text ) {

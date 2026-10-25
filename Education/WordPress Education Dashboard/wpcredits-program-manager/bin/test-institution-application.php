@@ -2501,6 +2501,8 @@ ck( 'and so does one it read as a post', old_address( 'apply', array( 'name' => 
 // A visitor mid-redirect at deploy time carries the outcome or the stash id.
 ck( 'the query string goes with the visitor', old_address( 'apply', array( 'name' => 'apply' ), true, 'wpcpm_app_said=closed' ), array( 'https://example.test/institution-application/?wpcpm_app_said=closed', 301 ) );
 ck( 'every part of it', old_address( 'apply', array( 'name' => 'apply' ), true, 'wpcpm_app=AbCd0123&utm_source=slides' ), array( 'https://example.test/institution-application/?wpcpm_app=AbCd0123&utm_source=slides', 301 ) );
+// `empty( '0' )` is true, which dropped a query string of 0 on the way.
+ck( 'a query string of 0 goes with the visitor too', old_address( 'apply', array( 'name' => 'apply' ), true, '0' ), array( 'https://example.test/institution-application/?0', 301 ) );
 // A real page published at /apply/ later is not a 404, so it wins.
 ck( 'a page that is there is not a 404, and is left alone', old_address( 'apply', array( 'pagename' => 'apply' ), false ), null );
 ck( 'any other path is left alone', old_address( 'about', array( 'pagename' => 'about' ) ), null );

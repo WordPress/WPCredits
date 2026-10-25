@@ -530,7 +530,9 @@ update can post a form that names no tab; it saves nothing, and the notice asks 
 page and save again.
 
 Each section of a tab opens with one sentence and a link to its part of this guide, on a site that
-publishes the guide at /program-manager-guide/. Each setting has one sentence of help under it, and
+publishes the guide at /administrator-guide/. Since 1.123.41 that is the guide's address, moved once
+from /program-manager-guide/ on the first request after the update, and /program-manager-guide/, its
+address before, takes a visitor there. Each setting has one sentence of help under it, and
 the rest of what there is to know in a **Details** fold under that, closed until you open it.
 
 A setting that holds something Airtable or the site can list is chosen rather than typed: the base,
@@ -741,10 +743,13 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   the program and the term and then adds one student or sends a CSV. Off by default. Beside the file
   box, a link **Download a sample list** sends a file, `students-sample.csv`, with the four headers
   the import reads (`name`, `email`, `field_of_study`, `tutor`) and one example student, so a school
-  that has never seen the format is shown one. The site makes the file when the link is followed, to
-  an account that may enroll students, and holds no copy of it. Its fold: the
-  list is read and checked against the program records, and the school sees what was understood
-  before anything is created; while this is off, the section does not appear at all. Each
+  that has never seen the format is shown one. Since 1.123.41 the import refuses an address at
+  example.test, the example's domain, as the sample list's own row ("This is the sample list's
+  example student. Replace it with one of your students, or delete the row."), so a sample sent
+  back unchanged creates nobody; the other rows of a file are checked as usual. The site makes the file
+  when the link is followed, to an account that may enroll students, and holds no copy of it. Its
+  fold: the list is read and checked against the program records, and the school sees what was
+  understood before anything is created; while this is off, the section does not appear at all. Each
   institution is held to five checks an hour and 600 students a day, and the files are read and
   never stored.
 - **Create accounts automatically** - **Let the sync create the first account for a Confirmed
@@ -2277,6 +2282,11 @@ The institution application form's page is at /institution-application/ since 1.
 "Bring WordPress Credits to your institution", moved once from /apply/ on the first request after
 the update (its slug, title and content each only while still the plugin's own), and /apply/
 takes a visitor there.
+The Administrator guide's page is at /administrator-guide/ since 1.123.41, moved once from
+/program-manager-guide/ on the first request after the update (its slug alone, and only while it is
+still the old one and no other page, post or attachment holds the new one: the title, the content,
+the status and the modified date are not touched, and no save runs), and /program-manager-guide/ takes a visitor there. The release
+script writes the page by its ID, so a release does not care which address it has.
 
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 
@@ -2467,6 +2477,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_claims` | `WPCPM_Sponsor_Claims::META_CLAIMS` |
 | `wpcpm_codes_` | `WPCPM_Sponsor_Codes::OPT_PREFIX` |
 | `wpcpm_countries` | `WPCPM_Countries::OPT_NAME` |
+| `wpcpm_guide_page_moved` | `WPCPM_Settings_Screen::OPT_GUIDE_MOVED` (the one-time move of the Administrator guide's page to its new address, 1.123.41) |
 | `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |

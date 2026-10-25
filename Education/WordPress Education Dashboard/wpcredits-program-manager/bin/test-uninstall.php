@@ -677,6 +677,7 @@ $named_options = array(
 	'wpcpm_settings',                      // WPCPM_Settings::OPT_NAME.
 	'wpcpm_settings_version',              // WPCPM_Settings::OPT_VERSION.
 	'wpcpm_privacy_version',               // WPCPM_Privacy_Guard::OPT_VERSION.
+	'wpcpm_guide_page_moved',              // WPCPM_Settings_Screen::OPT_GUIDE_MOVED, the one-time move of the Administrator guide's page (1.123.41).
 	'wpcpm_sign_ins_version',              // WPCPM_Sign_Ins::OPT_VERSION.
 	'wpcpm_sign_ins_since',                // WPCPM_Sign_Ins::OPT_SINCE.
 	'wpcpm_airtable_backoff',              // WPCPM_Airtable::BACKOFF_OPTION.
@@ -1156,6 +1157,7 @@ $names = array(
 	'WPCPM_Settings::OPT_NAME'                      => 'wpcpm_settings',
 	'WPCPM_Settings::OPT_VERSION'                   => 'wpcpm_settings_version',
 	'WPCPM_Privacy_Guard::OPT_VERSION'              => 'wpcpm_privacy_version',
+	'WPCPM_Settings_Screen::OPT_GUIDE_MOVED'        => 'wpcpm_guide_page_moved',
 	'WPCPM_Sign_Ins::OPT_VERSION'                   => 'wpcpm_sign_ins_version',
 	'WPCPM_Sign_Ins::OPT_SINCE'                     => 'wpcpm_sign_ins_since',
 	'WPCPM_Airtable::BACKOFF_OPTION'                => 'wpcpm_airtable_backoff',

@@ -153,6 +153,11 @@ The institution application form's page is at /institution-application/ since 1.
 "Bring WordPress Credits to your institution", moved once from /apply/ on the first request after
 the update (its slug, title and content each only while still the plugin's own), and /apply/
 takes a visitor there.
+The Administrator guide's page is at /administrator-guide/ since 1.123.41, moved once from
+/program-manager-guide/ on the first request after the update (its slug alone, and only while it is
+still the old one and no other page, post or attachment holds the new one: the title, the content,
+the status and the modified date are not touched, and no save runs), and /program-manager-guide/ takes a visitor there. The release
+script writes the page by its ID, so a release does not care which address it has.
 
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 
@@ -343,6 +348,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_claims` | `WPCPM_Sponsor_Claims::META_CLAIMS` |
 | `wpcpm_codes_` | `WPCPM_Sponsor_Codes::OPT_PREFIX` |
 | `wpcpm_countries` | `WPCPM_Countries::OPT_NAME` |
+| `wpcpm_guide_page_moved` | `WPCPM_Settings_Screen::OPT_GUIDE_MOVED` (the one-time move of the Administrator guide's page to its new address, 1.123.41) |
 | `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |

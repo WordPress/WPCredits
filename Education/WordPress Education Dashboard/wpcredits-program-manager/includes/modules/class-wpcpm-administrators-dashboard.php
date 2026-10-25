@@ -294,9 +294,9 @@ final class WPCPM_Administrators_Dashboard {
 		}
 
 		// One sentence under the title says what the page is (the design the owner approved on 28
-		// September 2026); what it is for, at length, is in the program manager guide, which
+		// September 2026); what it is for, at length, is in the Administrator guide, which
 		// bin/build-docs.php builds from docs/sections/ and which is published as the site's own
-		// /program-manager-guide/ page. The resources' WordPress Credits handbook button opens the
+		// /administrator-guide/ page. The resources' WordPress Credits handbook button opens the
 		// handbook on make.wordpress.org, not that page. The page's own line takes the class the
 		// Mentor Report Card's and the Institution Dashboard's headers give theirs, which the
 		// sheets already dress.

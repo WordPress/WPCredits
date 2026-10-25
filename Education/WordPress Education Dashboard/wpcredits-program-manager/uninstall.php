@@ -31,6 +31,8 @@ global $wpdb;
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roles.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
+// Named below for the flag of the Administrator guide's one-time move (1.123.41), whose constant it owns.
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-screen.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-choices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-rows.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';
@@ -240,6 +242,8 @@ WPCPM_Roles::unregister();
 
 delete_option( WPCPM_Settings::OPT_NAME );
 delete_option( WPCPM_Settings::OPT_VERSION );
+// The one-time move of the Administrator guide's page to its new address has run (1.123.41).
+delete_option( WPCPM_Settings_Screen::OPT_GUIDE_MOVED );
 // The one-time flip of the plugin's private records to `private` status has run; the rows it
 // flipped go with their modules above.
 delete_option( WPCPM_Privacy_Guard::OPT_VERSION );

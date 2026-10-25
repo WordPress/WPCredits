@@ -591,7 +591,8 @@ class WPCPM_Institution_Application {
 			return;
 		}
 
-		if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
+		// Not `empty()`, which is true for "0": a query string of 0 is one, and goes with the visitor.
+		if ( isset( $_SERVER['QUERY_STRING'] ) && '' !== wp_unslash( $_SERVER['QUERY_STRING'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the empty string here; esc_url_raw() cleans it below.
 			$url = esc_url_raw( $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . wp_unslash( $_SERVER['QUERY_STRING'] ) );
 		}
 
