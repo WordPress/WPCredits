@@ -526,6 +526,23 @@ function picker( $html ) {
 }
 
 /**
+ * The status picker's options: value, whether it is selected, and what it says.
+ *
+ * @param string $html Markup.
+ * @return array[]
+ */
+function status_picker( $html ) {
+	preg_match_all( '/<option value="([^"]*)"( selected="selected")?>([^<]*)<\/option>/', between( $html, '<select name="wpcpm_status"', '</select>' ), $found, PREG_SET_ORDER );
+
+	return array_map(
+		function ( $one ) {
+			return array( $one[1], '' !== $one[2], $one[3] );
+		},
+		$found
+	);
+}
+
+/**
  * The queries a drawn list made, by what each was for.
  *
  * @param string $kind `page` (the rows drawn), `every` (the read of every account), `count` (a view's
@@ -1069,13 +1086,53 @@ ck( 'the picker offers every school with its count, read from every Student acco
 
 $tablenav = between( $south, '<div class="tablenav top">', '<br class="clear" />' );
 
-ck( 'the picker sits in the table\'s own navigation, inside the list\'s form, beside a Filter button that is no bulk action',
-	array( has( $tablenav, '<select name="wpcpm_institution" id="wpcpm-institution">' ), has( $tablenav, 'name="filter_action"' ), has( between( $south, '<form method="get"', '</form>' ), '<select name="wpcpm_institution"' ) ),
-	array( true, true, true ) );
+ck( 'the status picker offers every status with its count, read from every Student account, the one in force selected',
+	status_picker( $south ),
+	array(
+		array( '', false, 'All statuses' ),
+		array( 'Contributor Track', false, 'Contributor Track (1)' ),
+		array( 'Developer Track', false, 'Developer Track (5)' ),
+	) );
 
-ck( 'the picker is drawn once, above the table, so the form sends one school and no id twice',
-	array( substr_count( $south, 'name="wpcpm_institution"' ), substr_count( $south, 'id="wpcpm-institution"' ) ),
-	array( 1, 1 ) );
+ck( 'the status summary section is drawn with chips linking to each status',
+	array(
+		has( $south, '<div class="wpcpm-students-summary">' ),
+		has( $south, 'Students by status:' ),
+		has( $south, 'Contributor Track' ),
+		has( $south, 'Developer Track' ),
+	),
+	array( true, true, true, true ) );
+
+$dev_track = html_of( draw( screen( array( 'wpcpm_status' => 'Developer Track' ) ) ) );
+
+ck( 'filtering by status narrows the list to students with that status',
+	row_ids( $dev_track ),
+	array( 11, 13, 14, 15, 16 ) );
+
+$sur_dev = html_of( draw( screen( array( 'wpcpm_institution' => 'Academia Sur', 'wpcpm_status' => 'Developer Track' ) ) ) );
+
+ck( 'combining institution and status narrows the list to the intersection',
+	row_ids( $sur_dev ),
+	array( 15 ) );
+
+ck( 'the pickers sit in the table\'s own navigation, inside the list\'s form, beside a Filter button that is no bulk action',
+	array(
+		has( $tablenav, '<select name="wpcpm_institution" id="wpcpm-institution">' ),
+		has( $tablenav, '<select name="wpcpm_status" id="wpcpm-status">' ),
+		has( $tablenav, 'name="filter_action"' ),
+		has( between( $south, '<form method="get"', '</form>' ), '<select name="wpcpm_institution"' ),
+		has( between( $south, '<form method="get"', '</form>' ), '<select name="wpcpm_status"' ),
+	),
+	array( true, true, true, true, true ) );
+
+ck( 'each picker is drawn once, above the table, so the form sends one school, one status and no id twice',
+	array(
+		substr_count( $south, 'name="wpcpm_institution"' ),
+		substr_count( $south, 'id="wpcpm-institution"' ),
+		substr_count( $south, 'name="wpcpm_status"' ),
+		substr_count( $south, 'id="wpcpm-status"' ),
+	),
+	array( 1, 1, 1, 1 ) );
 
 preg_match( '/<a href="([^"]*)">Show all students<\/a>/', $tablenav, $back );
 

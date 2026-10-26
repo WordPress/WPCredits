@@ -267,6 +267,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 					'wpcpm_view'        => WPCPM_Request::key( 'wpcpm_view' ),
 					's'                 => WPCPM_Request::text( 's' ),
 					'wpcpm_institution' => self::institution_filter(),
+					'wpcpm_status'      => self::status_filter(),
 					'orderby'           => WPCPM_Request::key( 'orderby' ),
 					'order'             => WPCPM_Request::key( 'order' ),
 					'paged'             => WPCPM_Request::id( 'paged' ),
@@ -494,5 +495,14 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	 */
 	public static function institution_filter() {
 		return WPCPM_Request::text( 'wpcpm_institution' );
+	}
+
+	/**
+	 * Which student status the screen is narrowed to, if any.
+	 *
+	 * @return string Status name, or an empty string for all of them.
+	 */
+	public static function status_filter() {
+		return WPCPM_Request::text( 'wpcpm_status' );
 	}
 }

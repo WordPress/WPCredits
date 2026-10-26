@@ -26,13 +26,16 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	/** The query argument naming the institution the list is narrowed to, which the invitations card reads too. */
 	const INSTITUTION_ARG = 'wpcpm_institution';
 
+	/** The query argument naming the status the list is narrowed to. */
+	const STATUS_ARG = 'wpcpm_status';
+
 	/** What the Institution column sorts by. No query can, so the table orders the IDs itself. */
 	const ORDERBY_INSTITUTION = 'institution';
 
 	/**
-	 * Every Student account's name and institution, read once: user ID => name and institution.
+	 * Every Student account's name, institution and status, read once: user ID => name, institution and status.
 	 *
-	 * @var array<int, array{name: string, institution: string}>|null
+	 * @var array<int, array{name: string, institution: string, status: string}>|null
 	 */
 	private $roster;
 
@@ -141,9 +144,15 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	private function scope( array $args ) {
 		$scope       = null;
 		$institution = WPCPM_Students::institution_filter();
+		$status      = WPCPM_Students::status_filter();
 
 		if ( '' !== $institution ) {
 			$scope = $this->ids_at( $institution );
+		}
+
+		if ( '' !== $status ) {
+			$by_status = $this->ids_on_status( $status );
+			$scope     = null === $scope ? $by_status : array_values( array_intersect( $scope, $by_status ) );
 		}
 
 		if ( ! empty( $args['search'] ) ) {
@@ -169,6 +178,26 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 
 		foreach ( $this->roster() as $id => $row ) {
 			if ( $row['institution'] === $institution ) {
+				$ids[] = $id;
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * The accounts with one status: the status the program row holds, trimmed, equal to the one
+	 * asked for.
+	 *
+	 * @param string $status The status name.
+	 * @return int[]
+	 */
+	private function ids_on_status( $status ) {
+		$status = trim( (string) $status );
+		$ids    = array();
+
+		foreach ( $this->roster() as $id => $row ) {
+			if ( $row['status'] === $status ) {
 				$ids[] = $id;
 			}
 		}
@@ -331,16 +360,15 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * Every Student account's name and institution, read once for the table.
+	 * Every Student account's name, institution and status, read once for the table.
 	 *
 	 * **The one read of every Student account's program row a screen load makes**, as the list has
-	 * made since 1.117.1: the institution picker counts from it, and the filter, the search and the
-	 * Institution sort take the institution from it, because the institution has no meta key a query
-	 * could use. WordPress primes every account's meta in the same read, so the program rows cost no
-	 * query each. A meta key of the institution's own, written by the sync, would let a query do all
-	 * three.
+	 * made since 1.117.1: the institution and status pickers count from it, and the filter, the search
+	 * and the Institution sort take the values from it, because neither institution nor status has a
+	 * meta key a query could use. WordPress primes every account's meta in the same read, so the
+	 * program rows cost no query each.
 	 *
-	 * @return array<int, array{name: string, institution: string}>
+	 * @return array<int, array{name: string, institution: string, status: string}>
 	 */
 	private function roster() {
 		if ( null !== $this->roster ) {
@@ -370,6 +398,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 			$this->roster[ $id ] = array(
 				'name'        => isset( $user->display_name ) ? (string) $user->display_name : '',
 				'institution' => isset( $program['institution'] ) ? trim( (string) $program['institution'] ) : '',
+				'status'      => isset( $program['program'] ) ? trim( (string) $program['program'] ) : '',
 			);
 		}
 
@@ -398,7 +427,63 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * Above the table, the institution picker: every school with its count, the one in force chosen,
+	 * Every status with Student accounts, and how many each has, by status name.
+	 *
+	 * @return array<string, int> Status => accounts.
+	 */
+	private function status_counts() {
+		$counts = array();
+
+		foreach ( $this->roster() as $row ) {
+			if ( '' === $row['status'] ) {
+				continue;
+			}
+
+			$counts[ $row['status'] ] = isset( $counts[ $row['status'] ] ) ? $counts[ $row['status'] ] + 1 : 1;
+		}
+
+		ksort( $counts );
+
+		return $counts;
+	}
+
+	/**
+	 * What the table prints above its views: a summary section of student counts by status, with
+	 * links to quickly filter each group.
+	 */
+	protected function list_intro() {
+		$statuses = $this->status_counts();
+
+		if ( empty( $statuses ) ) {
+			return;
+		}
+
+		$current = WPCPM_Students::status_filter();
+
+		echo '<div class="wpcpm-students-summary">';
+		echo '<p class="description"><strong>' . esc_html__( 'Students by status:', 'wpcredits-program-manager' ) . '</strong></p>';
+		echo '<ul class="wpcpm-waiting">';
+
+		foreach ( $statuses as $status_name => $count ) {
+			$label   = class_exists( 'WPCPM_Program' ) ? WPCPM_Program::status_words( $status_name ) : $status_name;
+			$url     = $this->page_url( array( self::STATUS_ARG => rawurlencode( $status_name ) ) ) . '#' . self::LIST_ANCHOR;
+			$is_curr = $current === $status_name;
+
+			printf(
+				'<li><a href="%1$s"%2$s><span class="count">%3$s</span> <span class="wpcpm-waiting__label">%4$s</span></a></li>',
+				esc_url( $url ),
+				$is_curr ? ' class="current" style="font-weight:600;border-color:#2271b1;"' : '',
+				esc_html( number_format_i18n( $count ) ),
+				esc_html( $label )
+			);
+		}
+
+		echo '</ul>';
+		echo '</div>';
+	}
+
+	/**
+	 * Above the table, the institution and status pickers: each with its counts, the one in force chosen,
 	 * and a Filter button, which core never reads as a bulk action.
 	 *
 	 * In the list's own form, which goes to the screen by GET, so a narrowed list is an address
@@ -413,34 +498,58 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 		}
 
 		$institutions = $this->institution_counts();
+		$statuses     = $this->status_counts();
 
-		if ( empty( $institutions ) ) {
+		if ( empty( $institutions ) && empty( $statuses ) ) {
 			return;
 		}
 
-		$current = WPCPM_Students::institution_filter();
+		$current_institution = WPCPM_Students::institution_filter();
+		$current_status      = WPCPM_Students::status_filter();
 
 		echo '<div class="alignleft actions">';
-		printf( '<label for="wpcpm-institution" class="screen-reader-text">%s</label>', esc_html__( 'Filter by institution', 'wpcredits-program-manager' ) );
-		printf( '<select name="%s" id="wpcpm-institution">', esc_attr( self::INSTITUTION_ARG ) );
-		printf( '<option value="">%s</option>', esc_html__( 'All institutions', 'wpcredits-program-manager' ) );
 
-		foreach ( $institutions as $name => $count ) {
-			printf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $name ),
-				selected( (string) $name, $current, false ),
-				esc_html( sprintf( '%1$s (%2$s)', $name, number_format_i18n( $count ) ) )
-			);
+		if ( ! empty( $institutions ) ) {
+			printf( '<label for="wpcpm-institution" class="screen-reader-text">%s</label>', esc_html__( 'Filter by institution', 'wpcredits-program-manager' ) );
+			printf( '<select name="%s" id="wpcpm-institution">', esc_attr( self::INSTITUTION_ARG ) );
+			printf( '<option value="">%s</option>', esc_html__( 'All institutions', 'wpcredits-program-manager' ) );
+
+			foreach ( $institutions as $name => $count ) {
+				printf(
+					'<option value="%1$s"%2$s>%3$s</option>',
+					esc_attr( $name ),
+					selected( (string) $name, $current_institution, false ),
+					esc_html( sprintf( '%1$s (%2$s)', $name, number_format_i18n( $count ) ) )
+				);
+			}
+
+			echo '</select>';
 		}
 
-		echo '</select>';
+		if ( ! empty( $statuses ) ) {
+			printf( '<label for="wpcpm-status" class="screen-reader-text">%s</label>', esc_html__( 'Filter by status', 'wpcredits-program-manager' ) );
+			printf( '<select name="%s" id="wpcpm-status">', esc_attr( self::STATUS_ARG ) );
+			printf( '<option value="">%s</option>', esc_html__( 'All statuses', 'wpcredits-program-manager' ) );
+
+			foreach ( $statuses as $status_name => $count ) {
+				$label = class_exists( 'WPCPM_Program' ) ? WPCPM_Program::status_words( $status_name ) : $status_name;
+				printf(
+					'<option value="%1$s"%2$s>%3$s</option>',
+					esc_attr( $status_name ),
+					selected( (string) $status_name, $current_status, false ),
+					esc_html( sprintf( '%1$s (%2$s)', $label, number_format_i18n( $count ) ) )
+				);
+			}
+
+			echo '</select>';
+		}
+
 		submit_button( __( 'Filter', 'wpcredits-program-manager' ), '', 'filter_action', false, array( 'id' => 'wpcpm-institution-submit' ) );
 
-		if ( '' !== $current ) {
+		if ( '' !== $current_institution || '' !== $current_status ) {
 			printf(
 				' <a href="%1$s">%2$s</a>',
-				esc_url( $this->page_url( array( self::INSTITUTION_ARG => false ) ) . '#' . self::LIST_ANCHOR ),
+				esc_url( $this->page_url( array( self::INSTITUTION_ARG => false, self::STATUS_ARG => false ) ) . '#' . self::LIST_ANCHOR ),
 				esc_html__( 'Show all students', 'wpcredits-program-manager' )
 			);
 		}
@@ -449,19 +558,30 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * The Accounts tab, keeping the institution in force, so a view keeps the list narrowed.
+	 * The Accounts tab, keeping the institution and status in force, so a view keeps the list narrowed.
 	 *
-	 * Encoded here, because `add_query_arg()` sets a value as it is given, and a school's name can
-	 * hold an ampersand.
+	 * Encoded here, because `add_query_arg()` sets a value as it is given, and a school or status name can
+	 * hold an ampersand or spaces.
 	 *
 	 * @param array $args Query arguments; false removes one.
 	 * @return string
 	 */
 	protected function page_url( array $args = array() ) {
 		$institution = WPCPM_Students::institution_filter();
+		$status      = WPCPM_Students::status_filter();
+
+		$current = array();
 
 		if ( '' !== $institution ) {
-			$args = array_merge( array( self::INSTITUTION_ARG => rawurlencode( $institution ) ), $args );
+			$current[ self::INSTITUTION_ARG ] = rawurlencode( $institution );
+		}
+
+		if ( '' !== $status ) {
+			$current[ self::STATUS_ARG ] = rawurlencode( $status );
+		}
+
+		if ( ! empty( $current ) ) {
+			$args = array_merge( $current, $args );
 		}
 
 		return parent::page_url( $args );
@@ -469,11 +589,11 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 
 	/**
 	 * The sentence in the empty row: how accounts arrive while there are none, by the sync on the
-	 * screen's other tab, and that the list found nobody when a search, a view or an institution
-	 * narrowed it.
+	 * screen's other tab, and that the list found nobody when a search, a view, an institution or
+	 * a status narrowed it.
 	 */
 	public function no_items() {
-		if ( '' === $this->search_clause() && 'all' === $this->current_view() && '' === WPCPM_Students::institution_filter() ) {
+		if ( '' === $this->search_clause() && 'all' === $this->current_view() && '' === WPCPM_Students::institution_filter() && '' === WPCPM_Students::status_filter() ) {
 			esc_html_e( 'No student accounts yet. Run a sync on the Sync tab to create them.', 'wpcredits-program-manager' );
 
 			return;
