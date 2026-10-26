@@ -112,11 +112,21 @@ function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $dis
 function remove_accents( $text, $locale = '' ) { return (string) $text; }
 
 class WP_User {
-	public $ID, $display_name;
-	public function __construct( $id, $name ) { $this->ID = $id; $this->display_name = $name; }
+	public $ID, $display_name, $user_login, $roles;
+	public function __construct( $id, $name, $login = '', $roles = array() ) {
+		$this->ID           = $id;
+		$this->display_name = $name;
+		$this->user_login   = $login ?: strtolower( explode( ' ', $name )[0] );
+		$this->roles        = $roles;
+	}
 }
 class WPCPM_Roles {
-	const CAP_MANAGE = 'wpcpm_manage_program';
+	const CAP_MANAGE       = 'wpcpm_manage_program';
+	const ROLE_STUDENT     = 'wpcpm_student';
+	const ROLE_MENTOR      = 'wpcpm_mentor';
+	const ROLE_INSTITUTION = 'wpcpm_institution';
+	const ROLE_SPONSOR     = 'wpcpm_sponsor';
+	const ROLE_ADMIN       = 'administrator';
 }
 
 require __DIR__ . '/stubs/class-wp-list-table.php';
@@ -225,7 +235,7 @@ $form  = preg_match( '#<form method="get" class="wpcpm-emails__filters">(.*?)</f
 $words = words_of( $html );
 
 ck( 'the Log is the tab shown, between Templates and Signature and footer and its own link', array( 1 === preg_match( '#<a href="https://example.test/wp-admin/admin.php\?page=wpcpm-tool-emails&tab=log" class="nav-tab nav-tab-active" aria-current="page">Log</a>#', $html ), 1 === preg_match( '#>Templates</a><a [^>]*>Signature and footer</a><a [^>]*>Log</a></nav>#', $html ) ), array( true, true ) );
-ck( 'the row shows its time in the site\'s zone, its address, its person linked, its area and its email', array( false !== strpos( $html, '10 Oct 2026, 01:30' ), false !== strpos( $html, 'ada@example.test' ), false !== strpos( $html, '<a href="https://example.test/wp-admin/user-edit.php?user_id=7">Ada Lin</a>' ), false !== strpos( $html, 'Mentor calls' ), false !== strpos( $html, 'Call booked' ) ), array( true, true, true, true, true ) );
+ck( 'the row shows its time in the site\'s zone, its address, its person linked to their accounts screen where Resend invite lives, its area and its email', array( false !== strpos( $html, '10 Oct 2026, 01:30' ), false !== strpos( $html, 'ada@example.test' ), false !== strpos( $html, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=accounts&s=ada#wpcpm-accounts-list">Ada Lin</a>' ), false !== strpos( $html, 'Mentor calls' ), false !== strpos( $html, 'Call booked' ) ), array( true, true, true, true, true ) );
 ck( 'the count is shown', false !== strpos( $html, '1 email matches.' ), true );
 ck( 'the screen says, under the table, what Handed to the mail server means', strpos( $html, 'means the site passed the email on, not that it reached the inbox' ) > strpos( $html, '</table>' ), true );
 ck( 'the filters are a GET form of their own, closed before the table, naming the screen and the Log tab', array( '' !== $form, strpos( $html, '</form>' ) < strpos( $html, '<table' ), false !== strpos( $form, '<input type="hidden" name="page" value="wpcpm-tool-emails" />' ), false !== strpos( $form, '<input type="hidden" name="tab" value="log" />' ) ), array( true, true, true, true ) );
@@ -345,8 +355,19 @@ WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-09 12:00:00', 'to_email' => 'b
 WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-08 12:00:00', 'to_email' => 'ada@example.test', 'user_id' => 7, 'to_name' => 'Ada Lin', 'recipient_type' => 'student', 'module' => 'calls', 'template' => 'call-booked', 'subject' => 'Call booked again', 'status' => 'sent' ) );
 $GLOBALS['users'][8] = new WP_User( 8, 'Ben Ode' );
 $GLOBALS['cached']   = array();
-screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'module' => 'calls' ) );
+$calls_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'module' => 'calls' ) );
 ck( 'the table primes the users its page names in one call: each id once, the rows that name nobody left out', $GLOBALS['cached'], array( array( 7, 8 ) ) );
+ck( 'a mentor\'s row links to their Accounts tab on the Mentors screen', false !== strpos( $calls_html, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=accounts&s=ben#wpcpm-accounts-list">Ben Ode</a>' ), true );
+
+// An account with no program audience falls back to user-edit.php, and one with no user account stays plain text.
+$GLOBALS['users'][9] = new WP_User( 9, 'Dan Subscriber', 'dan' );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-09 11:00:00', 'to_email' => 'dan@example.test', 'user_id' => 9, 'to_name' => 'Dan Subscriber', 'recipient_type' => 'other', 'module' => 'wordpress', 'template' => 'other', 'subject' => 'Password reset', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-09 10:00:00', 'to_email' => 'guest@example.test', 'user_id' => null, 'to_name' => 'Guest Person', 'recipient_type' => 'applicant', 'module' => 'other', 'template' => 'other', 'subject' => 'Application received', 'status' => 'sent' ) );
+$misc_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 's' => 'Dan' ) );
+ck( 'an account with no program audience falls back to user-edit.php', false !== strpos( $misc_html, '<a href="https://example.test/wp-admin/user-edit.php?user_id=9">Dan Subscriber</a>' ), true );
+$guest_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 's' => 'Guest' ) );
+ck( 'a recipient with no account attached stays plain text', array( false !== strpos( $guest_html, 'Guest Person' ), false !== strpos( $guest_html, '>Guest Person</a>' ) ), array( true, false ) );
+
 $GLOBALS['cached'] = array();
 screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'module' => 'sponsors', 's' => 'nobody' ) );
 ck( 'and a page that names nobody asks for none', $GLOBALS['cached'], array() );

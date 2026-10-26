@@ -104,8 +104,9 @@ class WPCPM_Mail_Log_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The address, and the person's name at the time of sending, linked to the account while it
-	 * exists.
+	 * The address, and the person's name at the time of sending, linked to the account's row on its
+	 * audience's screen where Resend invite lives, while the account exists, or to the user editor
+	 * when it belongs to no program audience.
 	 *
 	 * @param array $row The row.
 	 */
@@ -113,11 +114,85 @@ class WPCPM_Mail_Log_Table extends WP_List_Table {
 		echo esc_html( $row['to_email'] );
 
 		if ( '' !== (string) $row['to_name'] ) {
-			$link = ! empty( $row['user_id'] ) && get_user_by( 'id', (int) $row['user_id'] ) ? get_edit_user_link( (int) $row['user_id'] ) : '';
+			$link = $this->account_link( $row );
 
 			echo '<br />';
 			echo $link ? '<a href="' . esc_url( $link ) . '">' . esc_html( $row['to_name'] ) . '</a>' : esc_html( $row['to_name'] );
 		}
+	}
+
+	/**
+	 * The link to the person's row on their accounts screen, where Resend invite lives, or to the
+	 * user editor when the account belongs to no program audience, and empty while no account is
+	 * attached.
+	 *
+	 * @param array $row The row.
+	 * @return string
+	 */
+	protected function account_link( array $row ) {
+		if ( empty( $row['user_id'] ) ) {
+			return '';
+		}
+
+		$user = get_user_by( 'id', (int) $row['user_id'] );
+
+		if ( ! $user ) {
+			return '';
+		}
+
+		$audience = '';
+		$type     = isset( $row['recipient_type'] ) ? $row['recipient_type'] : '';
+
+		switch ( $type ) {
+			case WPCPM_Mail_Catalog::TYPE_STUDENT:
+				$audience = 'students';
+				break;
+			case WPCPM_Mail_Catalog::TYPE_MENTOR:
+				$audience = 'mentors';
+				break;
+			case WPCPM_Mail_Catalog::TYPE_INSTITUTION:
+				$audience = 'institutions';
+				break;
+			case WPCPM_Mail_Catalog::TYPE_SPONSOR:
+				$audience = 'sponsors';
+				break;
+			case WPCPM_Mail_Catalog::TYPE_ADMIN:
+				$audience = 'administrators';
+				break;
+		}
+
+		if ( '' === $audience && isset( $user->roles ) ) {
+			$roles = (array) $user->roles;
+
+			if ( in_array( WPCPM_Roles::ROLE_STUDENT, $roles, true ) ) {
+				$audience = 'students';
+			} elseif ( in_array( WPCPM_Roles::ROLE_MENTOR, $roles, true ) ) {
+				$audience = 'mentors';
+			} elseif ( in_array( WPCPM_Roles::ROLE_INSTITUTION, $roles, true ) ) {
+				$audience = 'institutions';
+			} elseif ( in_array( WPCPM_Roles::ROLE_SPONSOR, $roles, true ) ) {
+				$audience = 'sponsors';
+			} elseif ( in_array( WPCPM_Roles::ROLE_ADMIN, $roles, true ) ) {
+				$audience = 'administrators';
+			}
+		}
+
+		if ( '' === $audience ) {
+			return (string) get_edit_user_link( (int) $user->ID );
+		}
+
+		$search = ! empty( $user->user_login ) ? $user->user_login : ( ! empty( $user->display_name ) ? $user->display_name : '' );
+
+		$args = array(
+			'page' => 'wpcpm-' . $audience,
+			'tab'  => 'accounts',
+		);
+
+		if ( '' !== $search ) {
+			$args['s'] = $search;
+		}
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) ) . '#wpcpm-accounts-list';
 	}
 
 	/**
