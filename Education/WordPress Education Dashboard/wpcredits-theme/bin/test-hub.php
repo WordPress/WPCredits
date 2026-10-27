@@ -511,9 +511,9 @@ preg_match_all( '#<!-- wp:(?:pattern \{"slug":"([a-z/-]+)"\}|(wpcredits/[a-z-]+)
 
 $patterns = array_map( static function ( $child ) { return '' !== $child[1] ? $child[1] : ( isset( $child[3] ) ? $child[3] : $child[2] ); }, $children );
 
-ck( 'and between them a main of the front page\'s kind, marked as the hub, holding the hero, the sign-in block, then the doors, programs, pathway, the sponsor strip and band, in the page\'s order and no post content',
+ck( 'and between them a main of the front page\'s kind, marked as the hub, holding the hero, the doors, programs, pathway, the sponsor strip and band, then the sign-in block last, above the footer (the product owner, 27 October 2026), in the page\'s order and no post content',
 	array( $hub[4], $hub[5] === '<main class="wp-block-group wpc-main wpc-hub"><!-- wp:pattern {"slug":"wpcredits/hub-hero"} /-->', $patterns, false !== strpos( theme_file( 'templates/page-education-hub.html' ), 'post-content' ) ),
-	array( '<!-- wp:group {"tagName":"main","className":"wpc-main wpc-hub","layout":{"type":"constrained"}} -->', true, array( 'wpcredits/hub-hero', 'wpcredits/sign-in', 'wpcredits/hub-doors', 'wpcredits/hub-programs', 'wpcredits/hub-pathway', 'wpcpm/sponsors', 'wpcredits/hub-cta' ), false ) );
+	array( '<!-- wp:group {"tagName":"main","className":"wpc-main wpc-hub","layout":{"type":"constrained"}} -->', true, array( 'wpcredits/hub-hero', 'wpcredits/hub-doors', 'wpcredits/hub-programs', 'wpcredits/hub-pathway', 'wpcpm/sponsors', 'wpcredits/hub-cta', 'wpcredits/sign-in' ), false ) );
 
 $strip_block = '<!-- wp:wpcpm/sponsors {"variant":"strip","align":"wide"} /-->';
 
@@ -3492,16 +3492,16 @@ ck( 'without JavaScript the page holds every part: the three figures and their s
 	array( count( $page->query( '//div[contains(@class,"wpc-figure")]' ) ), count( $page->query( '//p[contains(@class,"wpc-figure-source")]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-sign-in__card")]' ) ), count( $page->query( '//div[contains(concat(" ", @class, " ")," wpc-hub-doors ")]//div[contains(concat(" ", @class, " ")," wpc-hub-door ")]' ) ), count( $page->query( '//article[@class="wpc-hub-program"]' ) ), count( $page->query( '//ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flow__row"]' ) ), count( $page->query( '//section[@class="wpc-hub-ladder"]' ) ), count( $page->query( '//article[@class="wpc-hub-detail"]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-cta__card")]' ) ) ),
 	array( 3, 1, 4, 3, 6, 7, 2, 11, 2 ) );
 
-ck( 'the sections in the page\'s order: the hero, the sign-in section right under it, the doors, the programs, the pathway and the band',
+ck( 'the sections in the page\'s order: the hero, the doors, the programs, the pathway, the band and the sign-in section last',
 	array_map( static function ( $class ) { return implode( ' ', array_intersect( array( 'wpc-hub-hero', 'wpc-hub-sign-in', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-cta' ), explode( ' ', $class ) ) ); }, found( $page, '/html/body/*', 'class' ) ),
-	array( 'wpc-hub-hero', 'wpc-hub-sign-in', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-anchored', 'wpc-hub-cta' ) );
+	array( 'wpc-hub-hero', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-anchored', 'wpc-hub-cta', 'wpc-hub-sign-in' ) );
 
 ck( 'and nothing on it is hidden but the controls the scripts show: the chips, the switch and each ladder\'s hint',
 	found( $page, '//*[@hidden]', 'class' ), array( 'wpc-hub-chips', 'wpc-hub-switch', 'wpc-hub-ladder__hint', 'wpc-hub-ladder__hint' ) );
 
-ck( 'the headings in order: the one h1, a heading for every section, the sign-in section\'s second, the doors\' for screen readers',
+ck( 'the headings in order: the one h1, a heading for every section, the doors\' for screen readers second, the sign-in section\'s last',
 	found( $page, '//h1 | //h2' ),
-	array( 'Start learning with WordPress. Every step counts. Keep climbing.', 'Sign in to your page', 'Who this is for', 'Every education program, in one list', 'Seven steps from first workshop to first job', 'Four partner levels, measured on student outcomes', 'Looking for WordPress talent?', 'Help more students reach the next step' ) );
+	array( 'Start learning with WordPress. Every step counts. Keep climbing.', 'Who this is for', 'Every education program, in one list', 'Seven steps from first workshop to first job', 'Four partner levels, measured on student outcomes', 'Looking for WordPress talent?', 'Help more students reach the next step', 'Sign in to your page' ) );
 
 /**
  * Every link on the page, in order: its words, then where it goes.
@@ -3529,10 +3529,6 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Find where to start > #programs',
 			'Explore the pathway > #pathway',
 			'WordPress Credits impact dashboard > https://wordpress.github.io/WPCredits/',
-			'Sign in → > ' . $sign_login( $sign_pages['students'] ),
-			'Sign in → > ' . $sign_login( $sign_pages['mentors'] ),
-			'Sign in → > ' . $sign_login( $sign_pages['institutions'] ),
-			'Sign in → > ' . $sign_login( $sign_pages['sponsors'] ),
 			'Browse programs → > #programs',
 			'Partner as an institution → > ' . $apply,
 			'Hire from WordPress → > https://jobs.wordpress.net/',
@@ -3575,6 +3571,10 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Hire from WordPress > https://jobs.wordpress.net/',
 			'Sponsor > ' . $sponsor,
 			'Partner as an institution > ' . $apply,
+			'Sign in → > ' . $sign_login( $sign_pages['students'] ),
+			'Sign in → > ' . $sign_login( $sign_pages['mentors'] ),
+			'Sign in → > ' . $sign_login( $sign_pages['institutions'] ),
+			'Sign in → > ' . $sign_login( $sign_pages['sponsors'] ),
 		),
 		0,
 	) );
@@ -4227,9 +4227,9 @@ ck( 'full product names: no "WP Credits", and the Institution Dashboard by its n
 	array( substr_count( $words, 'WP Credits' ), substr_count( strtolower( $words ), 'institution dashboard' ), substr_count( $words, 'Institution Dashboard' ), substr_count( $words, 'Student Report Card' ), substr_count( $words, 'Mentor Report Card' ), substr_count( $words, 'Sponsor Dashboard' ) ),
 	array( 0, 2, 2, 1, 1, 1 ) );
 
-ck( 'nothing says what sponsorship costs or what a sponsor receives: the sign-in card\'s eyebrow and the name of its page, the band\'s eyebrow and its button are the only words of sponsors, and no sum is on the page (the one there was, a program\'s planned award, is not written into its card)',
+ck( 'nothing says what sponsorship costs or what a sponsor receives: the band\'s eyebrow and its button, then the sign-in card\'s eyebrow and the name of its page, are the only words of sponsors, and no sum is on the page (the one there was, a program\'s planned award, is not written into its card)',
 	array( found( $page, '//body//*[not(*)][contains(translate(., "S", "s"), "sponsor")]' ), preg_match_all( '/\$\s?\d[\d,]*/', $words, $sums ), $sums[0] ),
-	array( array( 'Sponsors', 'Sponsor Dashboard', 'Sponsors and schools', 'Sponsor' ), 0, array() ) );
+	array( array( 'Sponsors and schools', 'Sponsor', 'Sponsors', 'Sponsor Dashboard' ), 0, array() ) );
 
 echo "\n=== The page's look ===\n";
 

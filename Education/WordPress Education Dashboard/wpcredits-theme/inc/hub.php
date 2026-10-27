@@ -5,8 +5,9 @@
  *
  * The hub is a page template of its own, "Education Hub home" (`templates/page-education-hub.html`,
  * registered in theme.json), made of five patterns and three blocks. It prints no post content: the
- * page it is assigned to is only its address. The live homepage is not changed by any of this; it is
- * shown on a private preview page until the site owner switches the homepage to it.
+ * page it is assigned to is only its address. Since 27 October 2026 the site's homepage (page 1488) is
+ * drawn by it, the product owner having switched the homepage to it from the private preview page it
+ * was first shown on.
  *
  * @package WPCredits_Theme
  */

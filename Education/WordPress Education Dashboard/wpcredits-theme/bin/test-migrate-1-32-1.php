@@ -12,6 +12,7 @@
  * template as 1.32.0 migrated it on live, which is bin/fixtures/saved-education-hub.html run through the
  * 1.32.0 migration with the index unmarked (the 1.32.0 release wrote no mark). Rendered on the
  * WordPress of bin/stubs/hub-wp.php, with the posts, options and users of bin/stubs/migrate-wp.php.
+ * The test removes the clause the theme dropped on 27 October 2026 (`$partners`); the stale save keeps it.
  *
  * The copy of the template as it was is checked against the history live's 1.32.0 run met: a visitor's
  * request (kses on, no one signed in) and a newest revision that is the template without its svg.
@@ -125,7 +126,8 @@ function query_for( $slug ) {
 	);
 }
 
-$partners   = (string) file_get_contents( __DIR__ . '/fixtures/saved-partners.html' );
+$saved      = (string) file_get_contents( __DIR__ . '/fixtures/saved-partners.html' );
+$partners   = str_replace( ', with the exclusive role in that program', '', $saved );
 $cards_span = html_block_with( $partners, 'wpc-partners-levels__grid' );
 $table_span = html_block_with( $partners, 'wpc-partners-glance__table' );
 $defaults   = wpcredits_partner_levels_defaults();
@@ -138,7 +140,7 @@ ck( 'the fixture is live\'s saved Partners template: four Custom HTML blocks, th
 		null !== $cards_span && null !== $table_span && $cards_span[0] < $table_span[0],
 		substr_count( $partners, 'wp:wpcredits/partner-' ),
 		wpcredits_partner_levels_from_html( $cards_span[2] . $table_span[2] ) === $defaults,
-		strlen( $partners ),
+		strlen( $saved ),
 	),
 	array( 4, true, 0, true, 25467 ) );
 
@@ -1112,7 +1114,7 @@ echo "\n=== A save from an editor tab opened before the update ===\n";
 $stale_save = str_replace(
 	array( '<h2 class="wp-block-heading wpc-partners-pilot__title">2027 is a pilot year</h2>', '<li>Named in launch communications</li>' ),
 	array( '<h2 class="wp-block-heading wpc-partners-pilot__title">2027 is our pilot year</h2>', '<li>Named in every launch communication</li>' ),
-	$partners
+	$saved
 );
 $stale_run = wpcredits_migrate_1_32_1_content( $stale_save, 'page-partners' );
 

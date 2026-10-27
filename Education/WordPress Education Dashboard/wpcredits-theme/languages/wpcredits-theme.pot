@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.32.8\n"
+"Project-Id-Version: WPCredits 1.32.9\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-25T18:56:14+00:00\n"
+"POT-Creation-Date: 2026-10-27T22:48:45+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -409,7 +409,7 @@ msgid "Pill"
 msgstr ""
 
 #. translators: The label of the button that opens the site menu on narrow screens.
-#: inc/header.php:132
+#: inc/header.php:146
 msgid "Menu"
 msgstr ""
 
@@ -926,7 +926,7 @@ msgid "An auto-generated impact report each semester"
 msgstr ""
 
 #: inc/hub-content.php:449
-#: inc/partners.php:216
+#: inc/partners.php:263
 #: patterns/hub-cta.php:62
 #: patterns/hub-doors.php:34
 msgid "Partner as an institution"
@@ -1352,180 +1352,180 @@ msgid "The theme's update to 1.32.1 could not finish updating the saved Partners
 msgstr ""
 
 #. translators: The header menu's link to the page about partnering with the program, a plural noun.
-#: inc/partners.php:248
+#: inc/partners.php:295
 msgid "Partners"
 msgstr ""
 
-#: inc/partners.php:276
+#: inc/partners.php:323
 msgid "Become a sponsor"
 msgstr ""
 
-#: inc/partners.php:302
+#: inc/partners.php:349
 msgid "Friend"
 msgstr ""
 
-#: inc/partners.php:303
+#: inc/partners.php:350
 msgid "In-kind, through Five for the Future"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, short: given in kind, not paid.
-#: inc/partners.php:305
+#: inc/partners.php:352
 msgid "In-kind"
 msgstr ""
 
-#: inc/partners.php:306
+#: inc/partners.php:353
 msgid "For companies sponsoring mentors through Five for the Future."
 msgstr ""
 
-#: inc/partners.php:308
+#: inc/partners.php:355
 msgid "Company name on the partner page"
 msgstr ""
 
-#: inc/partners.php:309
+#: inc/partners.php:356
 msgid "Mention in the mentor feature"
 msgstr ""
 
-#: inc/partners.php:310
+#: inc/partners.php:357
 msgid "Acknowledgement in the annual partner thank you post"
 msgstr ""
 
-#: inc/partners.php:314
+#: inc/partners.php:361
 msgid "Supporter"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year.
-#: inc/partners.php:316
+#: inc/partners.php:363
 msgid "$5,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: inc/partners.php:318
+#: inc/partners.php:365
 msgid "$5,000"
 msgstr ""
 
-#: inc/partners.php:319
+#: inc/partners.php:366
 msgid "Everything in Friend, plus:"
 msgstr ""
 
-#: inc/partners.php:321
+#: inc/partners.php:368
 msgid "Logo and description on the partner page"
 msgstr ""
 
-#: inc/partners.php:322
+#: inc/partners.php:369
 msgid "A badge for your own site"
 msgstr ""
 
-#: inc/partners.php:323
+#: inc/partners.php:370
 msgid "The annual program report"
 msgstr ""
 
-#: inc/partners.php:327
+#: inc/partners.php:374
 msgid "Backer"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year.
-#: inc/partners.php:329
+#: inc/partners.php:376
 msgid "$10,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: inc/partners.php:331
+#: inc/partners.php:378
 msgid "$10,000"
 msgstr ""
 
-#: inc/partners.php:332
+#: inc/partners.php:379
 msgid "Everything in Supporter, plus:"
 msgstr ""
 
-#: inc/partners.php:334
+#: inc/partners.php:381
 msgid "Named for the part of the program you fund in program communications"
 msgstr ""
 
-#: inc/partners.php:335
+#: inc/partners.php:382
 msgid "A report covering that cost line"
 msgstr ""
 
-#: inc/partners.php:336
+#: inc/partners.php:383
 msgid "One self-written educational post about the sponsored product"
 msgstr ""
 
-#: inc/partners.php:340
+#: inc/partners.php:387
 msgid "Champion"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year.
-#: inc/partners.php:342
+#: inc/partners.php:389
 msgid "$15,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars.
-#: inc/partners.php:344
+#: inc/partners.php:391
 msgid "$15,000"
 msgstr ""
 
-#: inc/partners.php:345
+#: inc/partners.php:392
 msgid "Everything in Backer, plus:"
 msgstr ""
 
-#: inc/partners.php:347
+#: inc/partners.php:394
 msgid "A second self-written post with factual, value-neutral information about additional products"
 msgstr ""
 
-#: inc/partners.php:348
+#: inc/partners.php:395
 msgid "An invitation to the annual education partners session"
 msgstr ""
 
-#: inc/partners.php:349
+#: inc/partners.php:396
 msgid "A webinar or event co-hosted with the education program"
 msgstr ""
 
-#: inc/partners.php:353
+#: inc/partners.php:400
 msgctxt "the highest partnership level, a noun: a company that funds a named program"
 msgid "Partner"
 msgstr ""
 
 #. translators: A partnership level's amount, in US dollars a year, the least it starts from.
-#: inc/partners.php:355
+#: inc/partners.php:402
 msgid "From $30,000 a year"
 msgstr ""
 
 #. translators: A partnership level's amount in the comparison table's head, in US dollars, the least it starts from.
-#: inc/partners.php:357
+#: inc/partners.php:404
 msgid "From $30,000"
 msgstr ""
 
-#: inc/partners.php:358
+#: inc/partners.php:405
 msgid "Funds a named program"
 msgstr ""
 
-#: inc/partners.php:359
+#: inc/partners.php:406
 msgid "Everything in Champion, plus a complete program funded end to end, the kind we have not been able to build yet because we have always had to work within the budget available. Students translating WordPress into languages with thin coverage, students working on accessibility, students building sites for nonprofit organizations that could not otherwise commission them."
 msgstr ""
 
-#: inc/partners.php:361
-msgid "Named as program partner on the program you fund, with the exclusive role in that program"
+#: inc/partners.php:408
+msgid "Named as program partner on the program you fund"
 msgstr ""
 
-#: inc/partners.php:362
+#: inc/partners.php:409
 msgid "Named in launch communications"
 msgstr ""
 
-#: inc/partners.php:363
+#: inc/partners.php:410
 msgid "A report specific to that program"
 msgstr ""
 
-#: inc/partners.php:988
+#: inc/partners.php:1035
 #: blocks/partner-glance/index.js:166
 msgid "Recognition"
 msgstr ""
 
-#: inc/partners.php:989
+#: inc/partners.php:1036
 #: blocks/partner-glance/index.js:167
 msgctxt "a partnership level has this recognition"
 msgid "Yes"
 msgstr ""
 
-#: inc/partners.php:990
+#: inc/partners.php:1037
 #: blocks/partner-glance/index.js:168
 msgctxt "a partnership level does not have this recognition"
 msgid "No"
@@ -1917,12 +1917,12 @@ msgstr ""
 
 #: patterns/partners-commons.php
 msgctxt "Pattern title"
-msgid "Partners page, products, student work and the founding partners"
+msgid "Partners page, products, student work and the founding members"
 msgstr ""
 
 #: patterns/partners-commons.php
 msgctxt "Pattern description"
-msgid "How donated products are offered and how student work is used, then the program's founding partners."
+msgid "How donated products are offered and how student work is used, then the program's founding members."
 msgstr ""
 
 #: patterns/partners-commons.php:19
@@ -1942,7 +1942,7 @@ msgid "Student work always serves the public commons or a nonprofit beneficiary,
 msgstr ""
 
 #: patterns/partners-commons.php:46
-msgid "Founding partners"
+msgid "Founding members"
 msgstr ""
 
 #: patterns/partners-commons.php:50

@@ -19,14 +19,17 @@
  * One navigation item, or a submenu opened on click, as WordPress 7.1 prints it.
  *
  * @param array $item The item: `array( label, address )`, or `array( label, address, children )` for a
- *                    submenu, whose children are items in the same shape.
+ *                    submenu, whose children are items in the same shape; a link with a class of its
+ *                    own, as the theme's hooked buttons have, is `array( label, address, array(), class )`.
  * @return string
  */
 function wpcredits_test_navigation_item( array $item ) {
 	$label = '<span class="wp-block-navigation-item__label">' . esc_html( $item[0] ) . '</span>';
 
 	if ( empty( $item[2] ) ) {
-		return '<li class="wp-block-navigation-item wp-block-navigation-link"><a class="wp-block-navigation-item__content"  href="' . esc_url( $item[1] ) . '">' . $label . '</a></li>';
+		$class = empty( $item[3] ) ? '' : ' ' . $item[3];
+
+		return '<li class="wp-block-navigation-item' . $class . ' wp-block-navigation-link"><a class="wp-block-navigation-item__content"  href="' . esc_url( $item[1] ) . '">' . $label . '</a></li>';
 	}
 
 	$children = '';

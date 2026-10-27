@@ -1,9 +1,9 @@
 <?php
 /**
- * Title: Partners page, products, student work and the founding partners
+ * Title: Partners page, products, student work and the founding members
  * Slug: wpcredits/partners-commons
  * Categories: wpcredits
- * Description: How donated products are offered and how student work is used, then the program's founding partners.
+ * Description: How donated products are offered and how student work is used, then the program's founding members.
  * Keywords: partners, sponsors, products, commons
  * Viewport Width: 1400
  *
@@ -43,7 +43,7 @@
 <div class="wp-block-group alignwide wpc-partners-founding" style="padding-top:48px;padding-bottom:48px"><!-- wp:group {"className":"is-style-card wpc-partners-founding__card","layout":{"type":"default"}} -->
 <div class="wp-block-group is-style-card wpc-partners-founding__card"><!-- wp:group {"className":"wpc-hub-head","layout":{"type":"default"}} -->
 <div class="wp-block-group wpc-hub-head"><!-- wp:paragraph {"className":"is-style-eyebrow"} -->
-<p class="is-style-eyebrow"><?php esc_html_e( 'Founding partners', 'wpcredits-theme' ); ?></p>
+<p class="is-style-eyebrow"><?php esc_html_e( 'Founding members', 'wpcredits-theme' ); ?></p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading -->

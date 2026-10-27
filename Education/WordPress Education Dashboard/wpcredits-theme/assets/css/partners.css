@@ -293,7 +293,7 @@
 }
 
 /* ==========================================================================
-   Products and student work, the founding partners, the listing, the close
+   Products and student work, the founding members, the listing, the close
    ========================================================================== */
 
 .wp-block-columns.wpc-partners-commons__cols {
@@ -304,7 +304,7 @@
 	margin-bottom: 0;
 }
 
-/* The founding partners' card: the hub's card, its head inside. */
+/* The founding members' card: the hub's card, its head inside. */
 .wpc-partners-founding__card .wpc-hub-head {
 	margin-bottom: 0;
 }

@@ -173,10 +173,10 @@
    The hero
    ========================================================================== */
 
-/* The hero group sits 24px under the header and ends 48px under the figures row. With the sign-in
+/* The hero group sits 24px under the header and ends 48px under the figures row. With the doors
    section's own 48px, and no block gap between (the rule at the top of this sheet), the row's bottom
-   hairline is 96px above the sign-in section's eyebrow, as every object on the page is 96px from the
-   next section's content. Two classes deep, the hub's habit, so no layout style outranks it in either
+   hairline is 96px above the doors' cards, as every object on the page is 96px from the next
+   section's content. Two classes deep, the hub's habit, so no layout style outranks it in either
    print order. */
 .wp-block-group.wpc-hub-hero {
 	padding-bottom: 48px;

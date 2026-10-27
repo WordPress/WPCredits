@@ -32,16 +32,23 @@ add_action( 'wp_head', 'wpcredits_js_mark', 1 );
  *
  * Below 960px the header collapses its menu into a hamburger, which is the right thing for a
  * menu. This site's menu once held one entry (since 1.32.6 the theme adds its own items at the menu's
- * end, which makes it two or more for a visitor, but a signed-in reader gets none of the buttons and,
- * with the partnership levels off, no Partners link, so the menu can still hold one item), and a
- * mentor testing on a phone reported the obvious: tapping a hamburger to reveal one link looks broken.
- * It is not worth a toggle, an overlay and two taps to reach something that fits beside the logo.
+ * end, which makes it two or more for a visitor, but a signed-in reader's buttons are not counted, as
+ * below, and with the partnership levels off there is no Partners link, so the menu can still hold one
+ * item), and a mentor testing on a phone reported the obvious: tapping a hamburger to reveal one link
+ * looks broken. It is not worth a toggle, an overlay and two taps to reach something that fits beside
+ * the logo.
  *
  * So the count is taken here, where the rendered list actually is, and the stylesheet shows a lone
  * item inline instead. Counted from the markup rather than from `$block['innerBlocks']` because a
  * navigation that stores its items in a `wp_navigation` post resolves them at render time and has
  * no inner blocks to count. The moment a second item is added the class stops being applied and
  * the hamburger comes back on its own, with nothing to remember.
+ *
+ * A signed-in reader's two buttons, "Become a sponsor" and "Partner as an institution", end the list
+ * too (inc/partners.php, theme 1.32.9), but they wear `wpc-nav__panel-only` and show in the open Menu
+ * panel alone, never inline and never behind the navigation's own hamburger, so they are not counted:
+ * a signed-in reader whose menu holds one link besides them sees that link inline on a phone without
+ * JavaScript, where there is no Menu panel, as before.
  *
  * A lone item that leads to the home page is marked `wpc-nav--home` as well: on a signed-out phone
  * the site title already leads there, so the stylesheet leaves that one link out, and only
@@ -59,6 +66,11 @@ function wpcredits_lone_nav_item( $content ) {
 	$count = new WP_HTML_Tag_Processor( $content );
 
 	while ( $count->next_tag( array( 'class_name' => 'wp-block-navigation-item' ) ) ) {
+		// A signed-in reader's buttons show in the open Menu panel alone, so they are no item here.
+		if ( $count->has_class( 'wpc-nav__panel-only' ) ) {
+			continue;
+		}
+
 		++$items;
 
 		// Two is enough to know it is a real menu; there is no need to walk a long one.
@@ -95,8 +107,10 @@ add_filter( 'render_block_core/navigation', 'wpcredits_lone_nav_item' );
  *
  * An entry is a navigation item (a submenu's items and the submenu itself each count), the Need
  * help? button, a Student Report Card or Mentor Report Card link, or Log out; the navigation
- * block's own open and close buttons are not entries. Needs `WP_HTML_Tag_Processor`, which the
- * header filter checks first.
+ * block's own open and close buttons are not entries. A signed-in reader's two buttons, Become a
+ * sponsor and Partner as an institution, are navigation items the panel lists as rows (theme
+ * 1.32.9), so they count here, where the lone-item count leaves them out. Needs
+ * `WP_HTML_Tag_Processor`, which the header filter checks first.
  *
  * @param string $html The header's rendered HTML.
  * @return int

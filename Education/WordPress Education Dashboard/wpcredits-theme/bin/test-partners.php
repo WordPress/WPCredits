@@ -36,6 +36,16 @@ if ( ! function_exists( 'get_post' ) ) {
 	function get_post( $post = null ) { return isset( $GLOBALS['synced'][ (int) $post ] ) ? $GLOBALS['synced'][ (int) $post ] : null; }
 }
 
+// Core's wp_is_serving_rest_request() (WordPress 6.5): true while `$GLOBALS['rest_request']` says a check stands
+// in for a request to the REST API, as the Site Editor's are. Defined here, not in the stub, so a world of its own
+// that loads the stub alone (rest_constant_world(), below) is a WordPress without it.
+if ( ! function_exists( 'wp_is_serving_rest_request' ) ) {
+	function wp_is_serving_rest_request() { return ! empty( $GLOBALS['rest_request'] ); }
+}
+
+$GLOBALS['rest_request'] = false;
+
+require_once WPCREDITS_THEME_DIR . 'inc/template-tags.php';
 require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 
 $fail  = 0;
@@ -123,6 +133,41 @@ class WPCPM_Sponsor_Tiers {
 	public static function live() { return self::$live; }
 }
 
+/**
+ * The plugin's mentors dashboard, which is how the theme tells the plugin is active (`wpcredits_plugin_active()`),
+ * and the two dashboards whose membership tests say who acts for a sponsor or an institution now, as the
+ * plugin answers them: `$GLOBALS['members']` lists what the current reader acts for (`sponsor`,
+ * `institution`), and `$GLOBALS['asked']` records each question with the user it was asked about. The
+ * plugin's roles answer `$GLOBALS['viewer_roles']`, so a check can tell the theme asks membership, never the role.
+ */
+class WPCPM_Mentors_Dashboard {}
+
+class WPCPM_Sponsors_Dashboard {
+	public static function is_member( $user = null ) {
+		$GLOBALS['asked'][] = array( 'sponsor', $user );
+
+		return in_array( 'sponsor', $GLOBALS['members'], true );
+	}
+}
+
+class WPCPM_Institutions_Dashboard {
+	public static function is_member( $user = null ) {
+		$GLOBALS['asked'][] = array( 'institution', $user );
+
+		return in_array( 'institution', $GLOBALS['members'], true );
+	}
+}
+
+class WPCPM_Roles {
+	const ROLE_INSTITUTION = 'wpcpm_institution';
+	const ROLE_SPONSOR     = 'wpcpm_sponsor';
+	public static function user_has_role( $user, $role ) { return in_array( $role, $GLOBALS['viewer_roles'], true ); }
+}
+
+$GLOBALS['members']      = array();
+$GLOBALS['asked']        = array();
+$GLOBALS['viewer_roles'] = array();
+
 $template = (string) file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-partners.html' );
 
 /**
@@ -160,7 +205,7 @@ echo "=== The template ===\n";
 
 preg_match_all( '#<!-- wp:(pattern \{"slug":"wpcredits/([a-z-]+)"\}|post-content|template-part \{"slug":"([a-z-]+)")#', $template, $parts, PREG_SET_ORDER );
 
-ck( 'the page is drawn by its slug\'s template, the hub\'s: the WordPress.org bar, the header, then a hub main of five patterns with the page\'s own content, the listing, between the founding partners and the close, then the footer',
+ck( 'the page is drawn by its slug\'s template, the hub\'s: the WordPress.org bar, the header, then a hub main of five patterns with the page\'s own content, the listing, between the founding members and the close, then the footer',
 	array_map( static function ( $part ) { return isset( $part[3] ) && '' !== $part[3] ? 'part:' . $part[3] : ( isset( $part[2] ) && '' !== $part[2] ? $part[2] : 'post-content' ); }, $parts ),
 	array( 'part:wporg-header', 'part:header', 'partners-hero', 'partners-funds', 'partners-levels', 'partners-commons', 'post-content', 'partners-apply', 'part:wporg-footer' ) );
 
@@ -216,6 +261,19 @@ ck( 'the five levels, each its name, its amount, the line that leads its list an
 		array( 3, 3, 3, 3, 3 ),
 		array( 'Funds a named program' ),
 	) );
+
+$shipped_partner = (array) ( ( (array) theme_call( 'wpcredits_partner_levels_defaults' ) )[4]['items'] ?? array() );
+$commons_source  = theme_file( 'patterns/partners-commons.php' );
+
+ck( 'the copy the theme ships follows the Administrators\' edit of live\'s copy (27 October 2026): the founding section\'s eyebrow is "Founding members", in the pattern and on the page, and the pattern never says "Founding partners"; the Partner level\'s first item is "Named as program partner on the program you fund", in the levels the theme ships and on the page, without the exclusive role',
+	array(
+		found( $px, '//div[contains(@class,"wpc-partners-founding")]//p[@class="is-style-eyebrow"]' ),
+		false !== strpos( $commons_source, "esc_html_e( 'Founding members', 'wpcredits-theme' )" ),
+		false !== stripos( $commons_source, 'Founding partners' ),
+		$shipped_partner[0] ?? null,
+		found( $px, '//li[contains(@class,"wpc-partners-level--program")]/ul[@class="wpc-partners-level__items"]/li[1]' ),
+	),
+	array( array( 'Founding members' ), true, false, 'Named as program partner on the program you fund', array( 'Named as program partner on the program you fund' ) ) );
 
 $columns = array();
 
@@ -391,6 +449,10 @@ $institution = array( 'label' => 'Partner as an institution', 'url' => 'https://
 $sponsor     = array( 'label' => 'Become a sponsor', 'url' => 'https://site.example/sponsor-application/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' );
 $partners    = array( 'label' => 'Partners', 'url' => 'https://site.example/partners/', 'kind' => 'custom' );
 
+// A signed-in reader's buttons, the same but for the class that keeps them to the open Menu panel (theme 1.32.9).
+$institution_in = array_merge( $institution, array( 'className' => 'wpc-nav__partner wpc-nav__panel-only' ) );
+$sponsor_in     = array_merge( $sponsor, array( 'className' => 'wpc-nav__partner wpc-nav__panel-only' ) );
+
 $GLOBALS['logged_in']      = false;
 WPCPM_Sponsor_Tiers::$live = false;
 $off_types                 = hooked_types();
@@ -411,19 +473,209 @@ $in_off                    = menu_items();
 $GLOBALS['logged_in']      = false;
 WPCPM_Sponsor_Tiers::$live = true;
 
-ck( 'signed out, the menu ends with two outline buttons, "Become a sponsor", to the sponsor application, then "Partner as an institution", to the institution application (theme 1.32.7, the site\'s owner, 25 October 2026), whether or not the partnership levels are public; while they are, a plain link, "Partners", to the Partners page comes before them; signed in, the buttons are not there, as a reader with an account is no longer the one they ask, and the Partners link is; all are written as core\'s navigation link, and nowhere else is anything hooked',
+ck( 'signed out, the menu ends with two outline buttons, "Become a sponsor", to the sponsor application, then "Partner as an institution", to the institution application (theme 1.32.7, the site\'s owner, 25 October 2026), whether or not the partnership levels are public; while they are, a plain link, "Partners", to the Partners page comes before them; signed in, on the front end, the same items in the same order, the two buttons wearing `wpc-nav__panel-only` as well, so style.css shows them as rows of the open Menu panel below 1200px and nowhere else (theme 1.32.9, the product owner, 27 October 2026); all are written as core\'s navigation link, and nowhere else is anything hooked',
 	array( $off_types, $off, $on_types, $on, $in_on_types, $in_on, $in_off_types, $in_off, $elsewhere ),
 	array(
 		array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
 		array( array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
 		array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
 		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
-		array( 'wpcredits-theme/partners-link' ),
-		array( array( 'core/navigation-link', $partners ) ),
-		array(),
-		array(),
+		array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
+		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ),
+		array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
+		array( array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ),
 		array( array(), array(), array() ),
 	) );
+
+/**
+ * The hooked types and the items written at the menu's end for one kind of request, the globals put back.
+ *
+ * @param string $kind      `front` for a page of the site, `rest` for a request to the REST API (how the
+ *                          Site Editor reads and saves a menu), `admin` for one to wp-admin (where the Site
+ *                          Editor's screen asks the REST API for the menu inside its own request).
+ * @param bool   $logged_in Whether the reader is signed in.
+ * @param bool   $live      Whether the partnership levels are public.
+ * @return array The types, then the items as menu_items() writes them.
+ */
+function hooked_for( $kind, $logged_in, $live ) {
+	$was = array( $GLOBALS['logged_in'], $GLOBALS['rest_request'], $GLOBALS['is_admin'], WPCPM_Sponsor_Tiers::$live );
+
+	$GLOBALS['logged_in']      = $logged_in;
+	$GLOBALS['rest_request']   = 'rest' === $kind;
+	$GLOBALS['is_admin']       = 'admin' === $kind;
+	WPCPM_Sponsor_Tiers::$live = $live;
+
+	$found = array( hooked_types(), menu_items() );
+
+	list( $GLOBALS['logged_in'], $GLOBALS['rest_request'], $GLOBALS['is_admin'], WPCPM_Sponsor_Tiers::$live ) = $was;
+
+	return $found;
+}
+
+$all_three = array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' );
+
+ck( 'signed in, a request to the REST API, which is how the Site Editor reads and saves the menu, and a request to wp-admin, where the Site Editor\'s screen asks for the menu inside its own request, are offered the Partners link alone while the levels are public and nothing while they are not, as in 1.32.8, so the Site Editor never shows the buttons and a menu saved there never holds them; signed out, either request gets the three items the front end gets, the buttons without `wpc-nav__panel-only`, as in 1.32.8',
+	array(
+		hooked_for( 'rest', true, true ),
+		hooked_for( 'rest', true, false ),
+		hooked_for( 'admin', true, true ),
+		hooked_for( 'admin', true, false ),
+		hooked_for( 'rest', false, true ),
+		hooked_for( 'admin', false, true ),
+		hooked_for( 'front', true, true ),
+	),
+	array(
+		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ) ),
+		array( array(), array() ),
+		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ) ),
+		array( array(), array() ),
+		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ) ),
+		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ) ),
+		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ) ),
+	) );
+
+/**
+ * What a signed-in reader is hooked at the menu's end in a world of its own: a fresh PHP run with the stub
+ * and inc/partners.php alone, so WordPress has no `wp_is_serving_rest_request()` (it came in 6.5) and the
+ * levels are not public (the plugin is not there), with `REST_REQUEST` defined as given, or not at all.
+ *
+ * @param bool|null $constant The constant's value, or null to leave it undefined.
+ * @return array|null Whether the function was there, then the types; null when the run did not print them.
+ */
+function rest_constant_world( $constant ) {
+	$code = 'require ' . var_export( __DIR__ . '/stubs/hub-wp.php', true ) . '; require ' . var_export( WPCREDITS_THEME_DIR . 'inc/template-tags.php', true ) . '; $GLOBALS[\'logged_in\'] = true;';
+
+	if ( null !== $constant ) {
+		$code .= ' define( \'REST_REQUEST\', ' . var_export( $constant, true ) . ' );';
+	}
+
+	$code .= ' require ' . var_export( WPCREDITS_THEME_DIR . 'inc/partners.php', true ) . ';';
+	$code .= ' echo json_encode( array( function_exists( \'wp_is_serving_rest_request\' ), apply_filters( \'hooked_block_types\', array(), \'last_child\', \'core/navigation\', null ) ) );';
+
+	return json_decode( (string) shell_exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( $code ) . ' 2>&1' ), true );
+}
+
+ck( 'where WordPress has no `wp_is_serving_rest_request()`, a request is one to the REST API when `REST_REQUEST` is defined and true: then a signed-in reader is hooked nothing (the levels being off), and with the constant false or undefined the two buttons',
+	array( rest_constant_world( true ), rest_constant_world( false ), rest_constant_world( null ) ),
+	array(
+		array( false, array() ),
+		array( false, array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ) ),
+		array( false, array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ) ),
+	) );
+
+/**
+ * What a reader is hooked at the menu's end while the levels are public, by what they act for and the
+ * roles they hold: the types, the items written, and the membership questions asked, each kind once with
+ * the user it was asked about (null, the current user); the globals are put back.
+ *
+ * @param string[] $members   What the reader acts for now: `sponsor`, `institution`.
+ * @param string[] $roles     The plugin's roles the account holds.
+ * @param bool     $logged_in Whether the reader is signed in.
+ * @param string   $kind      The request, as hooked_for() takes it.
+ * @return array
+ */
+function hooked_for_member( array $members, array $roles = array(), $logged_in = true, $kind = 'front' ) {
+	$was = array( $GLOBALS['members'], $GLOBALS['viewer_roles'], $GLOBALS['asked'] );
+
+	$GLOBALS['members']      = $members;
+	$GLOBALS['viewer_roles'] = $roles;
+	$GLOBALS['asked']        = array();
+
+	$found   = hooked_for( $kind, $logged_in, true );
+	$found[] = array_values( array_unique( array_map( 'json_encode', $GLOBALS['asked'] ) ) );
+
+	list( $GLOBALS['members'], $GLOBALS['viewer_roles'], $GLOBALS['asked'] ) = $was;
+
+	return $found;
+}
+
+$asked_both = array( '["sponsor",null]', '["institution",null]' );
+
+ck( 'a signed-in reader is not offered the button for what they already act for (the product owner, 28 October 2026), as the plugin\'s membership tests answer it for the current user: one who acts for a sponsor gets Partners and "Partner as an institution", one who acts for an institution Partners and "Become a sponsor", one who acts for both Partners alone; one who holds the sponsor or the institution role but acts for neither, and one who acts for nothing, get both buttons; a visitor gets all three as before and is never asked; a REST request asks nothing and is offered the Partners link alone, as before',
+	array(
+		hooked_for_member( array( 'sponsor' ) ),
+		hooked_for_member( array( 'institution' ) ),
+		hooked_for_member( array( 'sponsor', 'institution' ) ),
+		hooked_for_member( array(), array( 'wpcpm_sponsor', 'wpcpm_institution' ) ),
+		hooked_for_member( array() ),
+		hooked_for_member( array( 'sponsor', 'institution' ), array( 'wpcpm_sponsor' ), false ),
+		hooked_for_member( array( 'sponsor', 'institution' ), array(), true, 'rest' ),
+	),
+	array(
+		array( array( 'wpcredits-theme/partners-link', 'core/navigation-link' ), array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $institution_in ) ), $asked_both ),
+		array( array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link' ), array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ) ), $asked_both ),
+		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ), $asked_both ),
+		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ), $asked_both ),
+		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ), $asked_both ),
+		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ), array() ),
+		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ), array() ),
+	) );
+
+// Another plugin's navigation link hooked at the same anchor is hooked as `core/navigation-link` too, and reaches
+// `hooked_block_core/navigation-link` as the institution button would: for a reader who is not offered the
+// button it stays the other plugin's link, and nothing else is taken out of the list.
+$elsewhere_types = static function ( $hooked, $position, $anchor ) {
+	if ( 'last_child' === $position && 'core/navigation' === $anchor ) {
+		$hooked[] = 'core/navigation-link';
+	}
+
+	return $hooked;
+};
+$elsewhere_block = static function ( $block ) {
+	if ( is_array( $block ) ) {
+		$block['attrs'] = array( 'label' => 'Elsewhere', 'url' => 'https://site.example/elsewhere/', 'kind' => 'custom' );
+	}
+
+	return $block;
+};
+$elsewhere       = array( 'label' => 'Elsewhere', 'url' => 'https://site.example/elsewhere/', 'kind' => 'custom' );
+
+add_filter( 'hooked_block_types', $elsewhere_types, 5, 3 );
+add_filter( 'hooked_block_core/navigation-link', $elsewhere_block, 5, 4 );
+$elsewhere_institution = hooked_for_member( array( 'institution' ) );
+$elsewhere_both        = hooked_for_member( array( 'sponsor', 'institution' ) );
+remove_filter( 'hooked_block_types', $elsewhere_types, 5 );
+remove_filter( 'hooked_block_core/navigation-link', $elsewhere_block, 5 );
+
+ck( 'for a reader who acts for an institution, another plugin\'s navigation link at the menu\'s end stays in the list and stays that plugin\'s link, not turned into "Partner as an institution"; for one who acts for both it is all that is hooked beside Partners',
+	array( array_slice( $elsewhere_institution, 0, 2 ), array_slice( $elsewhere_both, 0, 2 ), isset( $GLOBALS['hooks']['hooked_block_types'] ) ? count( $GLOBALS['hooks']['hooked_block_types'] ) : 0 ),
+	array(
+		array( array( 'core/navigation-link', 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link' ), array( array( 'core/navigation-link', $elsewhere ), array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ) ) ),
+		array( array( 'core/navigation-link', 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $elsewhere ), array( 'core/navigation-link', $partners ) ) ),
+		1,
+	) );
+
+/**
+ * What a signed-in reader is hooked at the menu's end in a world of its own, a fresh PHP run with the stub,
+ * inc/template-tags.php and inc/partners.php, the plugin's classes as given and nothing else of it (so the
+ * levels are not public): each class, and whether it has an `is_member()` that says yes.
+ *
+ * @param array $classes Class name => true for an `is_member()` that answers true, false for none.
+ * @return array|null The types; null when the run did not print them.
+ */
+function member_world( array $classes ) {
+	$code = 'require ' . var_export( __DIR__ . '/stubs/hub-wp.php', true ) . '; require ' . var_export( WPCREDITS_THEME_DIR . 'inc/template-tags.php', true ) . '; $GLOBALS[\'logged_in\'] = true;';
+
+	foreach ( $classes as $class => $member ) {
+		$code .= ' class ' . $class . ' { ' . ( $member ? 'public static function is_member( $user = null ) { return true; }' : '' ) . ' }';
+	}
+
+	$code .= ' require ' . var_export( WPCREDITS_THEME_DIR . 'inc/partners.php', true ) . ';';
+	$code .= ' echo json_encode( apply_filters( \'hooked_block_types\', array(), \'last_child\', \'core/navigation\', null ) );';
+
+	return json_decode( (string) shell_exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( $code ) . ' 2>&1' ), true );
+}
+
+$both_buttons = array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' );
+
+ck( 'with no plugin, with a plugin whose dashboards have no `is_member()`, and with dashboards that would say yes but no plugin active (no Mentor Report Card), a signed-in reader keeps both buttons; with the plugin and both tests saying yes, neither, so the world is the one the checks above stand in for',
+	array(
+		member_world( array() ),
+		member_world( array( 'WPCPM_Mentors_Dashboard' => false, 'WPCPM_Sponsors_Dashboard' => false, 'WPCPM_Institutions_Dashboard' => false ) ),
+		member_world( array( 'WPCPM_Sponsors_Dashboard' => true, 'WPCPM_Institutions_Dashboard' => true ) ),
+		member_world( array( 'WPCPM_Mentors_Dashboard' => false, 'WPCPM_Sponsors_Dashboard' => true, 'WPCPM_Institutions_Dashboard' => true ) ),
+	),
+	array( $both_buttons, $both_buttons, $both_buttons, array() ) );
 
 // Hooked blocks of one type cannot be told apart in `hooked_block_core/navigation-link`: each reaches it with
 // the same arguments. So the Partners link and the sponsor button are hooked under types of their own, which
@@ -566,31 +818,46 @@ ck( 'core marks the Partners link current on the Partners page and each button o
 	),
 	array( true, false, false, true, false, true, false, false, false ) );
 
+$GLOBALS['logged_in'] = true;
+$in_on_apply          = menu_items_on( $page( 43 ) );
+$in_on_sponsor_form   = menu_items_on( $page( 44 ) );
+$GLOBALS['logged_in'] = false;
+
+ck( 'signed in, each button carries its own form\'s page ID there, as a visitor\'s does, and keeps both its classes, so the Menu panel draws its row in the brand blue at the button\'s weight on that page',
+	array( $marks( $in_on_apply[2] ?? array() ), $in_on_apply[2]['className'] ?? null, $marks( $in_on_sponsor_form[1] ?? array() ), $in_on_sponsor_form[1]['className'] ?? null ),
+	array( array( 'post-type', 'page', 43 ), 'wpc-nav__partner wpc-nav__panel-only', array( 'post-type', 'page', 44 ), 'wpc-nav__partner wpc-nav__panel-only' ) );
+
 // A menu saved in the Site Editor holds the items it was shown as links of its own, and lists the types it was
-// offered as ignored. The Site Editor is used signed in, where the buttons are never offered, so a menu saved
-// there never ignores them and visitors keep both; each item has a type of its own, so the Partners link is
-// still hooked into a menu saved before the levels were public, and nothing is hooked twice into one saved with
-// all three (as a menu saved under 1.32.6, which offered the institution button signed in too, may hold it).
+// offered as ignored. The Site Editor is used signed in and reads and saves the menu over the REST API, where the
+// buttons are never offered, so a menu saved there never ignores them and every reader keeps both; each item has
+// a type of its own, so the Partners link is still hooked into a menu saved before the levels were public, and
+// nothing is hooked twice into one saved with all three (as a menu saved under 1.32.6, which offered the
+// institution button signed in too, may hold it).
 $GLOBALS['request']        = array( 'singular' => '', 'id' => 0, 'templates' => array() );
 $GLOBALS['logged_in']      = true;
+$GLOBALS['rest_request']   = true;
 WPCPM_Sponsor_Tiers::$live = true;
 $offered_signed_in         = hooked_types();
 WPCPM_Sponsor_Tiers::$live = false;
 $offered_while_off         = hooked_types();
+$GLOBALS['rest_request']   = false;
+
+WPCPM_Sponsor_Tiers::$live = true;
+$signed_in_after_save      = menu_items( $offered_signed_in );
 
 $GLOBALS['logged_in']      = false;
-WPCPM_Sponsor_Tiers::$live = true;
 $visitor_after_save        = menu_items( $offered_signed_in );
 $visitor_after_off_save    = menu_items( $offered_while_off );
 $saved_under_1_32_6        = menu_items( array( 'wpcredits-theme/partners-link', 'core/navigation-link' ) );
 $saved_with_all            = menu_items( array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' ) );
 
-ck( 'a menu saved in the Site Editor, signed in, lists at most the Partners link as ignored, so visitors keep both buttons; one saved while the levels were not public lists nothing, so the Partners link is hooked into it once they are; one saved under 1.32.6 with the Partners link and the institution button gets the sponsor button alone, and one that ignores all three gets nothing, so nothing of a menu as the owner saved it is added twice or overwritten',
-	array( $offered_signed_in, $offered_while_off, $visitor_after_save, $visitor_after_off_save, $saved_under_1_32_6, $saved_with_all ),
+ck( 'a menu saved in the Site Editor, signed in over the REST API, lists at most the Partners link as ignored, so visitors keep both buttons and a signed-in reader keeps both for the Menu panel; one saved while the levels were not public lists nothing, so the Partners link is hooked into it once they are; one saved under 1.32.6 with the Partners link and the institution button gets the sponsor button alone, and one that ignores all three gets nothing, so nothing of a menu as the owner saved it is added twice or overwritten',
+	array( $offered_signed_in, $offered_while_off, $visitor_after_save, $signed_in_after_save, $visitor_after_off_save, $saved_under_1_32_6, $saved_with_all ),
 	array(
 		array( 'wpcredits-theme/partners-link' ),
 		array(),
 		array( array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
+		array( array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ),
 		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
 		array( array( 'core/navigation-link', $sponsor ) ),
 		array(),
@@ -797,7 +1064,8 @@ ck( 'each sits in its own section, after the section\'s head: the levels in #lev
 
 // The proof the page looks as it did. Live's saved copy (bin/fixtures/saved-partners.html) was saved from
 // 1.31.11, whose cards and table 1.32.0 kept: its Custom HTML blocks hold them as 1.31.11 drew them.
-$fixture = theme_file( 'bin/fixtures/saved-partners.html' );
+// The test removes from it the clause the theme dropped on 27 October 2026, so it reads as today's levels.
+$fixture = str_replace( ', with the exclusive role in that program', '', theme_file( 'bin/fixtures/saved-partners.html' ) );
 
 /**
  * The cards' list in some markup, from its opening tag to the closing tag at the start of a line.
@@ -1570,12 +1838,14 @@ ck( 'live\'s 1.31 cards, read and written as the levels block, draw byte for byt
 $GLOBALS['block_templates'] = array();
 theme_call( 'wpcredits_partner_levels_reset' );
 
-echo "\n=== What the menu's comments and the readme say (theme 1.32.8) ===\n";
+echo "\n=== What the menu's comments and the readme say (theme 1.32.9) ===\n";
 
 $partners_php = theme_file( 'inc/partners.php' );
 $file_header  = substr( $partners_php, 0, (int) strpos( $partners_php, '@package' ) );
 $attrs_head   = substr( $partners_php, 0, (int) strpos( $partners_php, 'function wpcredits_partners_menu_attrs(' ) );
 $attrs_doc    = substr( $attrs_head, (int) strrpos( $attrs_head, '/**' ) );
+$item_head    = substr( $partners_php, 0, (int) strpos( $partners_php, 'function wpcredits_partners_menu_item(' ) );
+$item_doc     = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $item_head, (int) strrpos( $item_head, '/**' ) ) );
 $readme       = theme_file( 'readme.txt' );
 
 if ( preg_match( '/^3\. Build the header menu in the Site Editor\..*?(?=^4\. )/ms', $readme, $found ) ) {
@@ -1587,29 +1857,59 @@ if ( preg_match( '/^3\. Build the header menu in the Site Editor\..*?(?=^4\. )/m
 ck( 'inc/partners.php no longer speaks of the menu\'s two items: the menu has the Partners link and, for a visitor, two buttons',
 	false === stripos( $partners_php, 'two items' ), true );
 
-ck( 'the file header names the three items the theme hooks, the link while the levels are public and the two buttons for a visitor who is not signed in',
+ck( 'the file header names the three items the theme hooks, the link while the levels are public and the two buttons, for a visitor who is not signed in and, for a signed-in reader, in the Menu panel below 1200px',
 	array(
 		false !== strpos( $file_header, 'the "Partners" link' ),
 		false !== strpos( $file_header, '"Become a sponsor"' ),
 		false !== strpos( $file_header, '"Partner as an institution"' ),
 		false !== strpos( $file_header, 'not signed in' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'in the Menu panel below 1200px' ),
 	),
-	array( true, true, true, true ) );
+	array( true, true, true, true, true ) );
 
-ck( 'the attrs docblock does not say the signed-in phone panel colors either row, a button or the link: since 1.32.7 a signed-in reader has no button unless a menu saved in the Site Editor holds one, and the sentence names that case',
-	array( false !== strpos( $attrs_doc, 'colors either row' ), false !== strpos( $attrs_doc, 'a menu saved in the Site Editor holds one' ) ),
-	array( false, true ) );
+ck( 'the hook\'s docblock says why a signed-in reader gets the buttons in the Menu panel alone: they ask someone with no account yet, so the wide signed-in bar keeps its one line without them, and below 1200px the panel has room (the product owner, 27 October 2026), by the class `wpc-nav__panel-only`; and why never during a REST request or a wp-admin request: the Site Editor is used signed in and reads the menu over REST, so a menu saved there never holds them; it no longer says a signed-in reader\'s bar has neither, and the paragraph of the two choices names one role, the product owner, for both; and it says why a reader is not offered the button for what they already act for (the product owner, 28 October 2026), asked of the plugin\'s membership tests and never the role, and that a visitor is never a member',
+	array(
+		false !== strpos( $item_doc, 'has neither' ),
+		false !== strpos( $item_doc, 'no account yet' ),
+		false !== strpos( $item_doc, 'one line' ),
+		false !== strpos( $item_doc, 'below 1200px' ),
+		false !== strpos( $item_doc, 'the product owner, 27 October 2026' ),
+		false !== strpos( $item_doc, '`wpc-nav__panel-only`' ),
+		false !== strpos( $item_doc, 'reads the menu over REST' ),
+		false !== strpos( $item_doc, 'wp-admin' ),
+		false !== strpos( $item_doc, 'never holds them' ),
+		false !== strpos( $item_doc, 'the site\'s owner\'s choice' ),
+		false !== strpos( $item_doc, '(theme 1.32.7, the product owner\'s choice of 25 October 2026)' ),
+		false !== strpos( $item_doc, 'the product owner, 28 October 2026' ),
+		false !== strpos( $item_doc, '`is_member()`' ),
+		false !== strpos( $item_doc, 'never the role' ),
+		false !== strpos( $item_doc, 'A visitor is never a member' ),
+	),
+	array( false, true, true, true, true, true, true, true, true, false, true, true, true, true, true ) );
 
-ck( 'setup step 3 of the readme says the theme adds Partners (while the levels are public) and, for visitors who are not signed in, Become a sponsor and Partner as an institution at the menu\'s end, that the two buttons never show in the Site Editor, which is used signed in, so adding one by hand doubles it for visitors, and that the Partners link does show there while the levels are public',
+ck( 'the attrs docblock no longer says a signed-in reader has no button unless a menu saved in the Site Editor holds one: since 1.32.9 a signed-in reader\'s buttons are rows of the Menu panel, which colors a button\'s row on its own form\'s page in the brand blue, and the docblock says so',
+	array( false !== strpos( $attrs_doc, 'colors either row' ), false !== strpos( $attrs_doc, 'has no button unless' ), false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $attrs_doc ), 'rows of the Menu panel' ) ),
+	array( false, false, true ) );
+
+ck( 'setup step 3 of the readme says the theme adds Partners (while the levels are public), then Become a sponsor and Partner as an institution at the menu\'s end, in the bar for visitors who are not signed in and as rows of the Menu panel below 1200px for signed-in readers, without the button for what the reader already acts for, that the two buttons never show in the Site Editor, which is used signed in, so adding one by hand doubles it for visitors and in a signed-in reader\'s Menu panel, and that the Partners link does show there while the levels are public',
 	array(
 		false !== strpos( $step_3, 'The theme itself adds, at the menu\'s end, Partners (while the partnership levels are public)' ),
 		false !== strpos( $step_3, 'Become a sponsor and Partner as an institution' ),
-		false !== strpos( $step_3, 'who are not signed in' ),
+		false !== strpos( $step_3, 'in the bar for visitors who are not signed in' ),
+		false !== strpos( $step_3, 'for signed-in readers as rows of the Menu panel below 1200px only' ),
+		false !== strpos( $step_3, 'without the button for a sponsor or an institution the reader already acts for' ),
 		false !== strpos( $step_3, 'The two buttons never show in the Site Editor, which is used signed in' ),
-		false !== strpos( $step_3, 'adding one by hand doubles it for visitors' ),
+		false !== strpos( $step_3, 'adding one by hand doubles it, for visitors and in a signed-in reader\'s Menu panel' ),
 		false !== strpos( $step_3, 'the Partners link does show there while the levels are public' ),
 	),
-	array( true, true, true, true, true, true ) );
+	array( true, true, true, true, true, true, true, true ) );
+
+$changelog_1_32_9 = preg_match( '/^= 1\.32\.9 =\s*(.*?)^= 1\.32\.8 =/ms', $readme, $found_log ) ? $found_log[1] : '';
+$panel_bullet     = preg_match( '/^\* A signed-in reader\'s Menu panel.*$/m', $changelog_1_32_9, $found_bullet ) ? $found_bullet[0] : '';
+
+ck( 'the 1.32.9 changelog\'s Menu panel bullet says a reader who acts for a sponsor or an institution is not offered its own button, as the product owner asked on 28 October 2026',
+	array( false !== strpos( $panel_bullet, 'acts for a sponsor is not offered Become a sponsor' ), false !== strpos( $panel_bullet, 'acts for an institution is not offered Partner as an institution' ), false !== strpos( $panel_bullet, 'the product owner, 28 October 2026' ) ),
+	array( true, true, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

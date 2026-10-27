@@ -87,18 +87,19 @@ require_once WPCREDITS_THEME_DIR . 'inc/icons.php';
 require_once WPCREDITS_THEME_DIR . 'inc/header.php';
 
 /**
- * Every style rule of style.css in the order the sheet has them, each with the at-rules it sits in,
- * comments left out. A rule is a prelude and a body with no braces inside; an at-rule that holds rules
- * (`@media`, `@supports`) is entered, whatever its depth, and one that holds declarations
- * (`@font-face`) is read as a rule of its own.
+ * Every style rule of style.css, or of another sheet of the theme, in the order the sheet has them, each
+ * with the at-rules it sits in, comments left out. A rule is a prelude and a body with no braces inside;
+ * an at-rule that holds rules (`@media`, `@supports`) is entered, whatever its depth, and one that holds
+ * declarations (`@font-face`) is read as a rule of its own.
  *
+ * @param string $path The sheet, below the theme root; style.css unless given.
  * @return array[] Each as `array( 'at' => at-rules joined by " > " or '', 'selector' => the selector
  *                 list, whitespace run together, 'declarations' => the declarations, one per entry,
  *                 whitespace run together, 'block' => the number of the innermost at-rule block the
  *                 rule sits in, counted from 1 in the order the sheet opens them, or 0 outside any )`.
  */
-function sheet_rules() {
-	$css    = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'style.css' ) );
+function sheet_rules( $path = 'style.css' ) {
+	$css    = preg_replace( '#/\*.*?\*/#s', '', theme_file( $path ) );
 	$rules  = array();
 	$stack  = array();
 	$blocks = array();
@@ -583,6 +584,25 @@ ck( 'with no navigation, Need help? and Log out are two entries and get the butt
 	array( $entries_of( $menu( $help_and_log_out ) ), $buttons_in( $menu( $help_and_log_out ) ), $entries_of( $menu( $report_card_and_log_out ) ), $buttons_in( $menu( $report_card_and_log_out ) ) ),
 	array( array( 'Need help?', 'Log out' ), 1, array( 'Student Report Card', 'Log out' ), 1 ) );
 
+// The menu's two buttons as inc/partners.php hooks them at the navigation's end (theme 1.32.9): a signed-in
+// reader's wear `wpc-nav__panel-only` besides `wpc-nav__partner`, so they show in the open Menu panel alone; a
+// visitor's wear `wpc-nav__partner`.
+$panel_buttons   = array(
+	array( 'Become a sponsor', 'https://site.example/sponsor-application/', array(), 'wpc-nav__partner wpc-nav__panel-only' ),
+	array( 'Partner as an institution', 'https://site.example/apply/', array(), 'wpc-nav__partner wpc-nav__panel-only' ),
+);
+$visitor_buttons = array(
+	array( 'Become a sponsor', 'https://site.example/sponsor-application/', array(), 'wpc-nav__partner' ),
+	array( 'Partner as an institution', 'https://site.example/apply/', array(), 'wpc-nav__partner' ),
+);
+
+$buttons_and_log_out = wpcredits_test_header( array_merge( $no_extras, array( 'nav' => $panel_buttons ) ) );
+$about_and_buttons   = wpcredits_test_header( array( 'nav' => array_merge( array( array( 'About', 'https://site.example/about/' ) ), $panel_buttons ) ) );
+
+ck( 'a signed-in reader\'s two buttons are entries of the panel, which lists them as rows: with Log out alone beside them the header gets the button, and in a full header they come right after the navigation\'s links, before Need help?',
+	array( $buttons_in( $menu( $buttons_and_log_out ) ), $entries_of( $menu( $buttons_and_log_out ) ), $entries_of( $menu( $about_and_buttons ) ) ),
+	array( 1, array( 'Become a sponsor', 'Partner as an institution', 'Log out' ), array( 'About', 'Become a sponsor', 'Partner as an institution', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ) ) );
+
 $GLOBALS['logged_in'] = false;
 $signed_out_kept      = $menu( $admin ) === $admin;
 $GLOBALS['logged_in'] = true;
@@ -630,6 +650,42 @@ ck( 'a navigation of one item is marked lone, and home too when its item leads t
 		$lone_and_home( $three_with_submenu ),
 	),
 	array( array( true, true ), array( true, true ), array( true, false ), array( false, false ) ) );
+
+ck( 'a signed-in reader\'s two buttons, which show in the open Menu panel alone, are not counted as the navigation\'s items: one link and the two is still lone, and home when the link leads home, so a signed-in phone without JavaScript, which has no panel, shows that link inline as in 1.32.8; the two alone are no lone item; a visitor\'s two buttons, which show, are counted, so one link and those is a menu',
+	array(
+		$lone_and_home( array_merge( array( array( 'Homepage', 'https://site.example/' ) ), $panel_buttons ) ),
+		$lone_and_home( array_merge( array( array( 'About', 'https://site.example/about/' ) ), $panel_buttons ) ),
+		$lone_and_home( $panel_buttons ),
+		$lone_and_home( array_merge( array( array( 'About', 'https://site.example/about/' ) ), $visitor_buttons ) ),
+	),
+	array( array( true, true ), array( true, false ), array( false, false ), array( false, false ) ) );
+
+// A reader who acts for a sponsor or an institution is not offered its own button (inc/partners.php, the product
+// owner, 28 October 2026): live's signed-in menu, Partners and the buttons, then holds one button, or none.
+$partners_link      = array( 'Partners', 'https://site.example/partners/' );
+$sponsor_member     = wpcredits_test_header( array( 'nav' => array( $partners_link, $panel_buttons[1] ) ) );
+$institution_member = wpcredits_test_header( array( 'nav' => array( $partners_link, $panel_buttons[0] ) ) );
+$member_of_both     = wpcredits_test_header( array( 'nav' => array( $partners_link ) ) );
+
+ck( 'a reader who acts for a sponsor has Partners and "Partner as an institution" in the panel, one who acts for an institution Partners and "Become a sponsor", and each navigation is still lone, so without JavaScript the Partners link shows inline; one who acts for both has Partners alone in the panel, lone too, as in 1.32.8; each header gets the Menu button',
+	array(
+		$entries_of( $menu( $sponsor_member ) ),
+		$entries_of( $menu( $institution_member ) ),
+		$entries_of( $menu( $member_of_both ) ),
+		$lone_and_home( array( $partners_link, $panel_buttons[1] ) ),
+		$lone_and_home( array( $partners_link, $panel_buttons[0] ) ),
+		$lone_and_home( array( $partners_link ) ),
+		array( $buttons_in( $menu( $sponsor_member ) ), $buttons_in( $menu( $institution_member ) ), $buttons_in( $menu( $member_of_both ) ) ),
+	),
+	array(
+		array( 'Partners', 'Partner as an institution', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ),
+		array( 'Partners', 'Become a sponsor', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ),
+		array( 'Partners', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ),
+		array( true, false ),
+		array( true, false ),
+		array( true, false ),
+		array( 1, 1, 1 ),
+	) );
 
 /**
  * The PHP files of the theme, below bin/, that hold a text, as paths below the theme's root. Folders
@@ -1066,6 +1122,127 @@ ck( 'in the panel an outline button is a row like the others: the wide row\'s ou
 	array( rules_of( $m . ' .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content', $menu_at ) ),
 	array( array( array( 'border-left: 0;', 'border-right: 0;', 'border-top: 0;' ) ) ) );
 
+// The wide row's outline button turns tinted under the pointer and in focus (five deep), and the panel's row
+// states (five deep too, later) set only the color, so a button row kept the tint and, in a focus the mouse
+// gave, the dark blue. The panel's own button states are six deep: no tint, the ink the rows rest in, then the
+// brand blue the other rows take under the pointer, in keyboard focus and on the page being viewed.
+$button_content    = $m . ' .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content';
+$button_rest_state = $button_content . ':hover, ' . $button_content . ':focus';
+$button_blue_state = $button_content . ':hover, ' . $button_content . ':focus-visible, ' . $m . ' .wpc-nav .wpc-nav__partner > [aria-current="page"]:focus';
+$wide_button_state = '.wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:hover, .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:focus';
+$row_state_rule    = $index_of_rule( $row_states, $menu_at );
+
+ck( 'in the panel a button row hovers and takes the focus as the other rows do: one rule in the screen query, six deep against the wide row\'s five-deep tinted states, takes the tint away and keeps the ink under the pointer and in a focus the mouse gave; one after it gives the brand blue under the pointer, in keyboard focus and, in any focus, on the button\'s own form\'s page, as the other rows have it; both come after the panel\'s row states, and neither touches the outline, so the focus ring is the one every row has',
+	array(
+		rules_of( $button_rest_state, $menu_at ),
+		rules_of( $button_blue_state, $menu_at ),
+		rules_of( $wide_button_state ),
+		min( array_map( $specificity, array_merge( $selectors_of( $button_rest_state ), $selectors_of( $button_blue_state ) ) ) ) > max( array_map( $specificity, $selectors_of( $wide_button_state ) ) ),
+		$row_state_rule > -1 && $index_of_rule( $button_rest_state, $menu_at ) > $row_state_rule && $index_of_rule( $button_blue_state, $menu_at ) > $index_of_rule( $button_rest_state, $menu_at ),
+	),
+	array(
+		array( array( 'background: none;', 'color: var( --wpc-ink );' ) ),
+		array( array( 'color: var( --wpc-brand );' ) ),
+		array( array( 'background: var( --wpc-brand-tint );', 'color: var( --wpc-brand-dark );' ) ),
+		true,
+		true,
+	) );
+
+// A signed-in reader's two buttons (inc/partners.php, theme 1.32.9) wear `wpc-nav__panel-only` besides
+// `wpc-nav__partner`: they are rows of the open Menu panel below 1200px and are shown nowhere else.
+$panel_only_hider = '.wp-block-navigation .wp-block-navigation__container > .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only';
+$panel_only_shown = $m . ' .wpc-nav .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only';
+$panel_only_rules = array();
+
+foreach ( sheet_rules() as $rule ) {
+	if ( false !== strpos( $rule['selector'], 'wpc-nav__panel-only' ) ) {
+		$panel_only_rules[] = array( $rule['at'], $rule['selector'], $rule['declarations'] );
+	}
+}
+
+// Core's rules that display a navigation item (wp-includes/blocks/navigation/style.css, WordPress 7.1): the
+// base one, and the open overlay's, written here without its `:where( :not( .disable-default-overlay ) )`,
+// which weighs nothing.
+$core_item_shown = array(
+	'.wp-block-navigation .wp-block-navigation-item',
+	'.wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation-item',
+);
+
+/**
+ * The last compound selector of a selector, the part after its last combinator outside parentheses and
+ * brackets, with what the parentheses hold left out, so `li:not( .x )` is `li:not()`.
+ *
+ * @param string $selector One selector.
+ * @return string
+ */
+$last_compound = static function ( $selector ) {
+	$depth = 0;
+	$last  = '';
+
+	foreach ( str_split( trim( $selector ) ) as $char ) {
+		if ( '(' === $char || '[' === $char ) {
+			++$depth;
+		} elseif ( ')' === $char || ']' === $char ) {
+			--$depth;
+		}
+
+		if ( 0 === $depth && ( ctype_space( $char ) || in_array( $char, array( '>', '~', '+' ), true ) ) ) {
+			$last = '';
+			continue;
+		}
+
+		$last .= $char;
+	}
+
+	return preg_replace( '/\([^()]*\)/', '()', $last );
+};
+
+// The deepest selector, in style.css and in the Partners page's and the Education Hub's sheets, that displays
+// what a navigation item is or may be matched as: a selector whose last compound names the item's classes
+// (`wp-block-navigation-item`, `wp-block-navigation-link`, `wpc-nav__partner`), or is `li` or `*`; the menu
+// layout's own among them, but for the two that name the class.
+$deepest_item_shown = 0;
+$item_shown_sheets  = array( 'style.css', 'assets/css/partners.css', 'assets/css/hub.css' );
+
+foreach ( $item_shown_sheets as $sheet ) {
+	foreach ( sheet_rules( $sheet ) as $rule ) {
+		if ( ! preg_grep( '/^display: (?!none;)/', $rule['declarations'] ) ) {
+			continue;
+		}
+
+		foreach ( $selectors_of( $rule['selector'] ) as $selector ) {
+			$compound = $last_compound( $selector );
+
+			if ( false === strpos( $selector, 'wpc-nav__panel-only' ) && preg_match( '/\.(?:wp-block-navigation-item|wp-block-navigation-link|wpc-nav__partner)(?![\w-])|^(?:li(?![\w-])|\*)/', $compound ) ) {
+				$deepest_item_shown = max( $deepest_item_shown, $specificity( $selector ) );
+			}
+		}
+	}
+}
+
+ck( 'a signed-in reader\'s two buttons are rows of the open Menu panel alone: one rule outside every query hides `wpc-nav__panel-only`, so the wide bar from 1200px, a page without JavaScript and print never show them, five classes deep, deeper than core\'s base and open-overlay rules that display a navigation item (two and four) and than every rule of style.css, assets/css/partners.css and assets/css/hub.css that displays a selector ending in a navigation item\'s class (`wp-block-navigation-item`, `wp-block-navigation-link`, `wpc-nav__partner`), `li` or `*`, the menu layout\'s among them, in either print order; one rule in the screen query, under `.wpc-js .wpc-header--menu`, shows them, deeper still; no other rule names the class, and neither names `wpc-nav__partner`, so a button a menu saved in the Site Editor holds is drawn as in 1.32.8',
+	array(
+		$panel_only_rules,
+		array_map( $specificity, $core_item_shown ),
+		$specificity( $panel_only_hider ) > max( max( array_map( $specificity, $core_item_shown ) ), $deepest_item_shown ),
+		$specificity( $panel_only_shown ) > $specificity( $panel_only_hider ),
+	),
+	array(
+		array(
+			array( '', $panel_only_hider, array( 'display: none;' ) ),
+			array( $menu_at, $panel_only_shown, array( 'display: block;' ) ),
+		),
+		array( 2, 4 ),
+		true,
+		true,
+	) );
+
+$css_said = preg_replace( '/\s+/', ' ', theme_file( 'style.css' ) );
+
+ck( 'the sheet\'s comments no longer say the menu hooks the buttons for visitors alone, or that the signed-in panel has them only where a menu saved in the Site Editor holds one: since 1.32.9 a signed-in reader\'s own buttons are rows of the panel; nor that the panel\'s rules for a button row are deeper than the wide row\'s, which they tie, winning by order',
+	array( false !== strpos( $css_said, 'for visitors alone' ), false !== strpos( $css_said, 'which has them only where a menu saved in the Site Editor holds one' ), false !== strpos( $css_said, 'whose rules are deeper' ), false !== strpos( $css_said, 'wins by coming later' ) ),
+	array( false, false, false, true ) );
+
 ck( 'in forced colors, where the page being viewed loses its color, the menu underlines it: one rule in the forced-colors twin of the screen query',
 	$unpinned( array( $m . ' .wpc-nav__center [aria-current="page"]' => array( 'text-decoration: underline;' ) ), $forced_at ),
 	array() );
@@ -1190,9 +1367,13 @@ ck( 'the open phone overlay\'s rows stand 8px apart, every row: measured at 375p
 	array( rules_of( $overlay_rows, '@media ( max-width: 960px )' ), rules_anywhere( $overlay_rows ) ),
 	array( array( array( 'gap: 8px;' ) ), 1 ) );
 
-ck( 'the lone-item comment of inc/header.php does not say the theme\'s own items make the menu two or more: a signed-in reader gets none of the buttons and, with the levels off, no Partners link, so the menu can still hold one item and the comment says so',
-	array( false !== strpos( theme_file( 'inc/header.php' ), 'the theme\'s own items make it two' ), false !== strpos( theme_file( 'inc/header.php' ), 'can still hold one item' ) ),
-	array( false, true ) );
+$header_php = theme_file( 'inc/header.php' );
+$lone_head  = substr( $header_php, 0, (int) strpos( $header_php, 'function wpcredits_lone_nav_item(' ) );
+$lone_doc   = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $lone_head, (int) strrpos( $lone_head, '/**' ) ) );
+
+ck( 'the lone-item comment of inc/header.php does not say the theme\'s own items make the menu two or more, nor that a signed-in reader gets none of the buttons: since 1.32.9 a signed-in reader\'s buttons are in the navigation but show in the open Menu panel alone, so they are not counted (`wpc-nav__panel-only`), and with the levels off the menu can still hold one item; the comment says so',
+	array( false !== strpos( $header_php, 'the theme\'s own items make it two' ), false !== strpos( $lone_doc, 'gets none of the buttons' ), false !== strpos( $lone_doc, 'can still hold one item' ), false !== strpos( $lone_doc, '`wpc-nav__panel-only`' ) ),
+	array( false, false, true, true ) );
 
 $GLOBALS['logged_in'] = false;
 

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.8
+Stable tag: 1.32.9
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -46,9 +46,12 @@ Five details are the theme's rather than the reference's, and are deliberate:
 * The sign-in button stays in the bar below 960px rather than folding into the menu
   panel, because it is the way in to everything else on the site.
 * Below 1200px a signed-in reader's header is one row: the brand, the account
-  picture and a Menu button whose panel lists the navigation, Need help?, the Student
-  Report Card and the Mentor Report Card the reader can open, and Log out, in the
-  order of the wide row. Without JavaScript the header keeps its wrapped row of links.
+  picture and a Menu button whose panel lists the navigation, Become a sponsor and
+  Partner as an institution (each left out for a reader who already acts for a
+  sponsor or an institution), Need help?, the Student Report Card and the Mentor
+  Report Card the reader can open, and Log out. The buttons are the panel's alone:
+  the wide row from 1200px leaves them out, so it stays on one line. Without
+  JavaScript the header keeps its wrapped row of links, without the buttons.
 
 = What the theme does and does not do =
 
@@ -110,12 +113,12 @@ CSS, stop reaching it. Styling still applies, because that comes from the styles
 = The Education Hub homepage =
 
 A page template, "Education Hub home", draws an alternative homepage built from the
-program team's hub: a hero with the program's three outcome figures, a sign-in section
-with a card each for students, mentors, institutions and sponsors, three doors for
+program team's hub: a hero with the program's three outcome figures, three doors for
 students, institutions and companies, every education program as a card with filter
 chips, a flow from each field of study through the teams it joins to what a student
 will have to show, the pathway from a first workshop to a first job beside
-an institution's four partner levels, and a closing band. It prints no post content,
+an institution's four partner levels, and a closing band, then a sign-in section with a
+card each for students, mentors, institutions and sponsors. It prints no post content,
 so the page it is set on is only its address. Without JavaScript every part of it is
 shown and no control is; with it the chips, the switch and the steps show one part at
 a time. The figures come from WPCredits Program Manager 1.122.24 or later, and with an
@@ -148,11 +151,14 @@ changes.
    - see Known limitations.
 3. Build the header menu in the Site Editor. Top-level items with children get the
    reference's dropdown panels; items without stay plain links. The theme itself adds,
-   at the menu's end, Partners (while the partnership levels are public) and, for
-   visitors who are not signed in, Become a sponsor and Partner as an institution. The
-   two buttons never show in the Site Editor, which is used signed in, so adding one by
-   hand doubles it for visitors; the Partners link does show there while the levels are
-   public, and a menu saved with it keeps it as an item of its own.
+   at the menu's end, Partners (while the partnership levels are public), then Become a
+   sponsor and Partner as an institution: in the bar for visitors who are not signed
+   in, and for signed-in readers as rows of the Menu panel below 1200px only, without
+   the button for a sponsor or an institution the reader already acts for. The two
+   buttons never show in the Site Editor, which is used signed in, so adding one by
+   hand doubles it, for visitors and in a signed-in reader's Menu panel; the Partners
+   link does show there while the levels are public, and a menu saved with it keeps it
+   as an item of its own.
 4. Set a static front page under Settings → Reading if you want the landing page.
 
 The footer's three link columns are List blocks, not menus, so a site with one
@@ -196,6 +202,13 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.9 =
+
+* A signed-in reader's Menu panel, below 1200px, holds "Become a sponsor" and "Partner as an institution" as rows right after Partners (the product owner, 27 October 2026); they hover and take focus as the panel's other rows do. A reader who acts for a sponsor is not offered Become a sponsor, and one who acts for an institution is not offered Partner as an institution (the product owner, 28 October 2026), as the plugin's own membership tests answer it; with an older plugin, or none, both are there. The signed-in bar from 1200px, a signed-in reader without JavaScript and every visitor see the menu as before. The Site Editor, which reads and saves the menu over the REST API, is still never offered the two buttons, so a menu saved there never holds them.
+* The homepage's sign-in section ("Already in a program?") closes the page, above the footer, where it stood under the hero (the product owner, 27 October 2026); the sections keep their 96px apart and the last one its 48px above the footer. A homepage template saved in the Site Editor keeps the order it was saved with.
+* The Partners page as the theme ships it: the founding section's eyebrow reads "Founding members", and the Partner level's first line no longer promises the exclusive role in its program, as the Administrators' copy of the page already reads.
+* For developers: a signed-in reader's hooked buttons wear `wpc-nav__panel-only`, shown only by the open panel's rules; the navigation's lone-link count skips them, so a signed-in menu of Partners alone keeps its inline link without JavaScript.
 
 = 1.32.8 =
 

@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.8
+Version: 1.32.9
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -417,11 +417,15 @@ body .skip-link.screen-reader-text:focus {
 	font-weight: 500;
 }
 
-/* "Become a sponsor" and "Partner as an institution", the menu's last items for a visitor who is not
-   signed in (inc/partners.php): outline buttons in the brand blue, so they stand apart from the links
+/* "Become a sponsor" and "Partner as an institution", the menu's last items (inc/partners.php): for a
+   visitor who is not signed in, outline buttons in the brand blue, so they stand apart from the links
    before them, "Partners" among them while the partnership levels are public, and from the filled Log in
-   beside them. In the signed-in phone menu, which has them only where a menu saved in the Site Editor
-   holds one as a link of its own, a button is a row like the others, whose rules are deeper. */
+   beside them. In a signed-in reader's Menu panel below 1200px a button is a row like the others: the
+   panel's row rule ties with this one at the same weight and wins by coming later in the sheet, its rule
+   for a button row's borders is a class deeper, and its states for a button row, six deep against the
+   five of the states below, take their tint and dark blue away. A signed-in reader's own two buttons
+   are shown there alone (`wpc-nav__panel-only`, below), and a button a menu saved in the Site Editor
+   holds as a link of its own is shown in the wide bar too, as it always was. */
 .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 	border: 1px solid var( --wpc-brand );
 	color: var( --wpc-brand );
@@ -433,6 +437,19 @@ body .skip-link.screen-reader-text:focus {
 .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:focus {
 	background: var( --wpc-brand-tint );
 	color: var( --wpc-brand-dark );
+}
+
+/* A signed-in reader's two buttons are rows of the open Menu panel below 1200px and are shown nowhere
+   else (inc/partners.php, the product owner, 27 October 2026): the wide bar from 1200px keeps its items
+   on one line without them, and without JavaScript, where there is no panel, the bar is as it was. They
+   wear `wpc-nav__panel-only`, which this rule hides outside every query, so it holds at every width,
+   without JavaScript and in print, and the menu layout shows them again (`.wpc-js .wpc-header--menu`,
+   six classes deep). Five classes deep, it outranks core's rules that display a navigation item, the
+   base one (two) and the open overlay's (four), and the menu layout's own (four), in either print order.
+   It names the class alone, never `wpc-nav__partner`, so a button a menu saved in the Site Editor holds
+   keeps its place in the bar. */
+.wp-block-navigation .wp-block-navigation__container > .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only {
+	display: none;
 }
 
 /* The caret, dimmed and flipped when its panel is open. */
@@ -2117,12 +2134,40 @@ p.is-style-pill {
 	}
 
 	/* An outline button is a row like the others here: the rule above replaces only the bottom border, so the
-	   wide row's outline button would keep its other three, with the text against the left one. The menu
-	   hooks the buttons for visitors alone since 1.32.7, so this dresses one a saved menu holds. */
+	   wide row's outline button would keep its other three, with the text against the left one. It dresses
+	   a signed-in reader's two buttons (theme 1.32.9) and a button a menu saved in the Site Editor holds
+	   alike. */
 	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 		border-left: 0;
 		border-right: 0;
 		border-top: 0;
+	}
+
+	/* A button row hovers and takes the focus as the other rows do. The wide row's states above tint the
+	   button and turn it dark blue under the pointer and in focus, five deep, and the panel's row states,
+	   five deep too, set only the color, so a button row kept the tint, and the dark blue in a focus the
+	   mouse gave, where the other rows stay ink. These two are six deep: the first takes the tint away and
+	   keeps the ink the rows rest in, the second gives the brand blue the other rows take under the
+	   pointer, in keyboard focus and, on the page being viewed, in any focus. Neither touches the outline,
+	   so keyboard focus draws the ring every row has. */
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:hover,
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:focus {
+		background: none;
+		color: var( --wpc-ink );
+	}
+
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:hover,
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content:focus-visible,
+	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > [aria-current="page"]:focus {
+		color: var( --wpc-brand );
+	}
+
+	/* A signed-in reader's two buttons, Become a sponsor and Partner as an institution, are rows here, after
+	   the navigation's links, and nowhere else: the rule outside every query that hides
+	   `wpc-nav__panel-only` is five classes deep, so this one is six. The closed panel hides them with the
+	   rest of its rows. */
+	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only {
+		display: block;
 	}
 
 	/* Log out is the last row, so it has no hairline, and it stays muted. */
