@@ -111,6 +111,19 @@ class WPCPM_Mentors_Sync {
 	const LOCK_TIMEOUT = 120;
 
 	/**
+	 * The most mentors whose accounts already existed that one run sends the welcome to (1.123.42).
+	 *
+	 * A returning mentor, or a student or an institution member made a mentor, is queued the site's
+	 * mentor invitation when the run makes the account an active mentor. A handful in one run is
+	 * people joining; more than this is a base that was changed or a status set on many rows at
+	 * once, and many welcomes sent to accounts nobody expected would be sent for nothing. Over the
+	 * limit none is queued: each is held (`WPCPM_Mentor_Provision::USER_INVITE_HELD`, `bulk`) and the
+	 * run's first notice names them, so an Administrator sends the welcome from the rows that should
+	 * have it.
+	 */
+	const RELINK_INVITE_MAX = 5;
+
+	/**
 	 * The phases of a run, in order.
 	 *
 	 * `weight` is that phase's share of the progress bar. `steps` is a rough
@@ -389,6 +402,9 @@ class WPCPM_Mentors_Sync {
 				'steps'       => array(),
 				'mentors'     => array(),
 				'sponsorship' => array(),
+				// The accounts that already existed and that this run made active mentors, whose welcome
+				// is queued when the pass over the Mentors table ends (`queue_relinked()`).
+				'relink_ids'  => array(),
 				'reports'     => array(),
 				// All three are email-keyed maps filled by the same pass over the Students
 				// table. They auto-vivify, so leaving two of them out worked - but the
@@ -1239,6 +1255,9 @@ class WPCPM_Mentors_Sync {
 				false
 			);
 
+			// The whole table is read, so the run knows how many welcomes it would send.
+			self::queue_relinked( $state );
+
 			$state['phase']  = 'revoke';
 			$state['offset'] = null;
 		}
@@ -1250,14 +1269,159 @@ class WPCPM_Mentors_Sync {
 	 * Create or link the WordPress account for one mentor.
 	 *
 	 * The account half is the shared provisioning step's (1.122.33), which the activation of a mentor
-	 * application uses too, so there is one way to make a mentor.
+	 * application uses too, so there is one way to make a mentor. That step queues the invitation of an
+	 * account it creates and none for one it links (1.123.42): what it says of a linked account is read
+	 * here, for the run to queue its welcome (`collect_relinked()`).
 	 *
 	 * @param array $mentor Mentor data from Airtable.
 	 * @param array $state  Sync state, by reference.
 	 * @return int User ID, or 0 when the mentor could not be provisioned.
 	 */
 	private static function provision_mentor( array $mentor, array &$state ) {
-		return WPCPM_Mentor_Provision::provision( $mentor, $state );
+		// The state is the step's report, and keeps nobody's list of the accounts it linked: only this
+		// mentor's is read below.
+		unset( $state['linked_accounts'] );
+
+		$user_id = WPCPM_Mentor_Provision::provision( $mentor, $state );
+
+		if ( ! empty( $state['linked_accounts'] ) && is_array( $state['linked_accounts'] ) ) {
+			self::collect_relinked( $state['linked_accounts'], $state );
+		}
+
+		unset( $state['linked_accounts'] );
+
+		return $user_id;
+	}
+
+	/**
+	 * Note which of the accounts the step linked are to be sent the welcome (1.123.42).
+	 *
+	 * A mentor whose account the sync creates is queued the invitation, which carries the mentor
+	 * welcome, with invitation emails on. One whose account already existed was not: it was linked and
+	 * given the role, and the Airtable automation that welcomed mentors was the only welcome. So an
+	 * account that was not an active mentor before the link (it lacked the Mentor role, or held it
+	 * with its active flag at 0) is a candidate, once each time it becomes one, never when a run reads
+	 * a mentor who is active on the site already: that includes one a site application made a
+	 * mentor, whose invitation the activation queued. The created account's rules apply: nothing
+	 * with invitation emails off, and never to an Administrator. A match by username alone may be
+	 * somebody else, so, as the activation does, its invitation is held and the run says how to send
+	 * it; an invitation held already is named and left alone, since the drain would pass it over
+	 * unheard. The candidates wait in the state, which is stored between the requests of a run, and are
+	 * queued when the pass ends (`queue_relinked()`).
+	 *
+	 * @param array[] $linked What the step said of each account it linked: `user_id`,
+	 *                        `was_active_mentor` and `how`.
+	 * @param array   $state  Sync state, by reference.
+	 */
+	private static function collect_relinked( array $linked, array &$state ) {
+		if ( ! WPCPM_Settings::get_value( 'send_welcome_email' ) ) {
+			return;
+		}
+
+		foreach ( $linked as $entry ) {
+			$user_id = isset( $entry['user_id'] ) ? (int) $entry['user_id'] : 0;
+
+			if ( $user_id <= 0 || ! empty( $entry['was_active_mentor'] ) ) {
+				continue;
+			}
+
+			$account = get_userdata( $user_id );
+
+			if ( ! $account instanceof WP_User || in_array( WPCPM_Roles::ROLE_ADMIN, (array) $account->roles, true ) ) {
+				continue;
+			}
+
+			// The drain passes a held invitation over without a word, so it would be counted as sent
+			// and never go: named instead, and left as it is, whatever held it.
+			if ( WPCPM_Mail::is_held( $user_id ) ) {
+				$state['notices'][] = sprintf(
+					/* translators: %s: WordPress username. */
+					__( 'No invitation was sent to %s: its invitation is held. Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab sends it.', 'wpcredits-program-manager' ),
+					$account->user_login
+				);
+
+				continue;
+			}
+
+			if ( isset( $entry['how'] ) && 'login' === $entry['how'] ) {
+				update_user_meta( $user_id, WPCPM_Mentor_Provision::USER_INVITE_HELD, 'login' );
+				$state['notices'][] = __( 'No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
+
+				continue;
+			}
+
+			if ( ! isset( $state['relink_ids'] ) || ! is_array( $state['relink_ids'] ) ) {
+				$state['relink_ids'] = array();
+			}
+
+			if ( ! in_array( $user_id, $state['relink_ids'], true ) ) {
+				$state['relink_ids'][] = $user_id;
+			}
+		}
+	}
+
+	/**
+	 * Queue the welcome of the accounts the run made active mentors, once its pass ends (1.123.42).
+	 *
+	 * Called when the last page of the Mentors table is read, so the run knows how many there are: all
+	 * of them are queued, or, when there are more than `RELINK_INVITE_MAX`, none: each is held (`bulk`)
+	 * and one notice, the first of the run, names them. Nothing is queued or held when invitation
+	 * emails are off by now. The candidates leave the state either way, so a later request cannot
+	 * queue them again.
+	 *
+	 * @param array $state Sync state, by reference.
+	 */
+	private static function queue_relinked( array &$state ) {
+		$ids = isset( $state['relink_ids'] ) && is_array( $state['relink_ids'] ) ? array_values( array_unique( array_map( 'intval', $state['relink_ids'] ) ) ) : array();
+
+		unset( $state['relink_ids'] );
+
+		// Read again: the candidates were noted while the setting was on, and a run lasts minutes. With
+		// it off by now, nothing is queued and nothing is held.
+		if ( empty( $ids ) || ! WPCPM_Settings::get_value( 'send_welcome_email' ) ) {
+			return;
+		}
+
+		if ( count( $ids ) > self::RELINK_INVITE_MAX ) {
+			$names = array();
+
+			// Held, not dropped: the report of the next run replaces this one, so an account left with
+			// no trace would never be welcomed once the Airtable automation is off. The Mentors
+			// screen's Accounts tab lists a held account until its own row sends the invitation.
+			foreach ( $ids as $user_id ) {
+				update_user_meta( $user_id, WPCPM_Mentor_Provision::USER_INVITE_HELD, 'bulk' );
+
+				$account = get_userdata( $user_id );
+				$names[] = $account instanceof WP_User ? $account->user_login : (string) $user_id;
+			}
+
+			// First among the notices, since the report keeps the first hundred and this is the one
+			// that says who is waiting.
+			array_unshift(
+				$state['notices'],
+				sprintf(
+					/* translators: 1: how many mentors whose accounts already existed became active in one run, 2: their WordPress usernames, separated by commas. */
+					_n(
+						'%1$s mentor whose account already existed became active in one run, so none was sent the welcome: %2$s. Its invitation waits in the Mentors screen\'s Accounts tab, where Send invite or Resend invite on its row sends it.',
+						'%1$s mentors whose accounts already existed became active in one run, so none was sent the welcome: %2$s. Their invitations wait in the Mentors screen\'s Accounts tab, where Send invite or Resend invite on each row sends it.',
+						count( $ids ),
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( count( $ids ) ),
+					implode( ', ', $names )
+				)
+			);
+
+			return;
+		}
+
+		foreach ( $ids as $user_id ) {
+			WPCPM_Mail::queue_invite( $user_id );
+		}
+
+		$counted = isset( $state['stats']['relinked_invited'] ) ? (int) $state['stats']['relinked_invited'] : 0;
+
+		$state['stats']['relinked_invited'] = $counted + count( $ids );
 	}
 
 	/**
@@ -1689,6 +1853,7 @@ class WPCPM_Mentors_Sync {
 			'linked'                => 0,
 			'updated'               => 0,
 			'invited'               => 0,
+			'relinked_invited'      => 0,
 			'revoked'               => 0,
 			'skipped'               => 0,
 			'conflicts'             => 0,

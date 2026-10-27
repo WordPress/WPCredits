@@ -436,8 +436,9 @@ order:
    check that the edit in place is the one they just saved, not an older one. **Contact address in
    emails** is set as well, since the welcome asks mentors to reply and a reply reaches that
    address. From the deploy on, every invitation the mentor's template sends carries the welcome: an
-   activation's, one sent from the Mentors screen, and one the mentors sync queues while
-   **Invitation emails** is on.
+   activation's, one sent from the Mentors screen, and one the mentors sync queues, for a mentor
+   whose account it creates and for one whose account already existed that it makes an active
+   mentor, while **Invitation emails** is on.
 2. The person running the launch reads the Airtable base's automations, which the site cannot see,
    so that none fires on the check row of the next step.
 3. They run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>`, by
@@ -647,14 +648,23 @@ answer that removes comes first, and it is the default for both.
 #### Accounts
 
 - **Invitation emails** - **Email each new mentor and student a password-reset link as their
-  account is created**. Off by default, and worth leaving off unless you mean to email everybody: a
+  account is created, and each mentor whose account already existed when the sync makes them an
+  active mentor**. Off by default, and worth leaving off unless you mean to email everybody: a
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
   and you can also invite people one at a time from the Mentors and Students screens, or tick
-  several in the Students or Mentors screen's list and invite them together. A mentor made from an
-  application is sent theirs whatever this says, since it carries the welcome, except an
-  Administrator, and a mentor whose account is not yet confirmed as the person's (see *Applications
-  to mentor*).
+  several in the Students or Mentors screen's list and invite them together. A mentor whose account
+  already existed (a returning mentor, or a student or an institution member made a mentor) gets
+  the same email, once each time they become active: a mentor who stays active is not sent it
+  again by a later run, nor one an application already made a mentor, and never an Administrator.
+  A mentor matched to an account by username alone waits until it is sent from the account's row on
+  the Mentors screen's **Accounts** tab, since that account may be somebody else's: the run says
+  so. When one run would make more than five such mentors active at once, none is sent, since that
+  is a base that was changed: each account is held on the same tab, the run's first notice names
+  them, and **Send invite** on a row sends the welcome to the ones that should have it. A mentor
+  made from an application is sent theirs whatever this says, since it carries the welcome, except
+  an Administrator, and a mentor whose account is not yet confirmed as the person's (see
+  *Applications to mentor*).
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. Its
   fold: the student rows carry what people are shown on their cards, and the students run is the
@@ -2186,6 +2196,22 @@ Active row, that ends the wait, and the account is treated as any other mentor's
 or whose row was written or found, after the run began; the next run reads the row and decides. The
 Mentors screen's **Sync** tab says how many wait.
 
+Since 1.123.42 the mentors sync also sends the welcome to a mentor whose account already existed. It
+used to queue the invitation, which carries the welcome, only for an account it created, so a
+returning mentor, or a student or an institution member made a mentor, was linked and given the role
+and never received it. With **Invitation emails** on, a run now queues it for each account it makes
+an active mentor that was not one before: the account had no Mentor role, or held it with its
+active flag off. A mentor who is active already, whether the sync or an application made them one,
+is not sent it again by a later run, so each is welcomed once each time they become active. An
+Administrator's account is never sent it, and an account matched by username alone is held, with
+the run's notice saying to send it from the account's row on the Mentors screen's **Accounts** tab
+once it is confirmed. An account whose invitation is held already is named in a notice and left as
+it is. A run that would welcome more than five accounts at once, a base changed in bulk, sends
+none: it holds each one's invitation on the same tab, as it does a match by username, and names
+them all in the first notice of its report, so **Send invite** on a row sends the welcome to the
+ones that should have it. The **Last sync report** counts those it queued under **Invitations sent
+to existing accounts**.
+
 Two commands go with the Mentors row an activation writes. `wp wpcredits mentor_airtable_row
 <reference>` prints the row an application would write, each cell as its column takes it and what
 would be left out, and writes nothing; it reads Airtable and prints the applicant's answers, so it is
@@ -2380,7 +2406,7 @@ The Tools section is drawn on a person's own Student Report Card (setting *Tools
 
 **The deep check fixes (1.99.0).** A line-by-line review of 1.98.1 on 7 September 2026 raised fifty findings, and all fifty are closed here. One was serious: a person removed from a sponsor kept the right to write posts and upload files, so they could still sign in to wp-admin, save drafts and put files in the Media Library. Removing somebody now takes those rights away for good, and the first admin page after the update repairs, once and silently, the accounts an earlier removal left holding them. Eight more were worth naming. A pasted list of offer codes was read line by line with a sentence written for every bad line, so a very long list of repeats could exhaust the site's memory; a paste is now measured and refused before it is read. A sponsor withdrawing its Collaboration Agreement wrote `Not started` over the `Returned` an Administrator had just set; a withdrawal now writes the status that is true at that moment and never an older one over a newer one. Three agreement transitions stored an empty Airtable status in an institution's option, and an empty status reads as an open gate, so the next generate could write over what the base already held; the option never stores an empty status now. The last five were gaps in the checks rather than in the plugin: nothing pinned the sponsor application post type's exposure flags, the PDF scan's stream and byte budgets were asserted as a pair of numbers rather than exercised, three of the five places the content gate is enforced had no assertion at all, and the largest suite printed no summary line, so the documented runner could not tell a pass from a failure. Each of the four has a check of its own now. The fifth was the seed fixture, which published three named people together with the program's private judgment of them: the fixture and every suite under `bin/` are synthetic, with no real record ID, name or address left anywhere on the public mirror. Two smaller changes belong here too: a held application row is purged on the rejected window on both the sponsor and the institution form, so nothing waits for ever; and `bin/check-standards.sh` exits 0 when it is clean, so a build script can read its status.
 
-**The sponsor tiers (1.112.0).** A sponsor's tier says what its sponsorship includes, on a ladder of five, lowest first, as the program's partner page lists the levels: since 1.123.18 the page is the source of truth, and the *Sponsorship* card lists its lines for each level, under the page's lead from Supporter up, "Everything in" the level below "plus:", which the card prints as a line of its own over the checklist rather than as one of its items. A Friend, a company sponsoring the program's mentors through Five for the Future, has its company name on the partner page, a mention in the mentor feature and an acknowledgment in the annual partner thank you post; every sponsor with no tier set is one, and so is every sponsor whose term has ended. A Supporter adds its logo and description on the partner page, a badge for its own site and the annual program report. A Backer adds being named for the part of the program it funds in program communications, a report covering that cost line and one self-written educational post about the sponsored product. A Champion adds a second self-written post with factual, value-neutral information about additional products, an invitation to the annual education partners session and a webinar or event co-hosted with the education program. A Partner adds a complete program funded end to end: it is named as program partner on the program it funds, with the exclusive role in that program, named in launch communications and given a report specific to that program, and on the site it is co-branded on the track it sponsors and on its students' Student Report Cards. Products are not a level benefit: partners at any level may offer free access to their products for students, so no tier caps live offers. The ladder is one table, `WPCPM_Sponsor_Tiers`, which every gate asks, and it holds no amounts, because the site never handles money. What a tier includes is the program's promise, listed for the sponsor on its card; on the site, a tier decides the cap on posts, none for a Friend or a Supporter, one for a Backer and two for a Champion or a Partner, and what the sponsor's cards show.
+**The sponsor tiers (1.112.0).** A sponsor's tier says what its sponsorship includes, on a ladder of five, lowest first, as the program's partner page lists the levels: since 1.123.18 the page is the source of truth, and the *Sponsorship* card lists its lines for each level, under the page's lead from Supporter up, "Everything in" the level below "plus:", which the card prints as a line of its own over the checklist rather than as one of its items. A Friend, a company sponsoring the program's mentors through Five for the Future, has its company name on the partner page, a mention in the mentor feature and an acknowledgment in the annual partner thank you post; every sponsor with no tier set is one, and so is every sponsor whose term has ended. A Supporter adds its logo and description on the partner page, a badge for its own site and the annual program report. A Backer adds being named for the part of the program it funds in program communications, a report covering that cost line and one self-written educational post about the sponsored product. A Champion adds a second self-written post with factual, value-neutral information about additional products, an invitation to the annual education partners session and a webinar or event co-hosted with the education program. A Partner adds a complete program funded end to end: it is named as program partner on the program it funds and in launch communications, given a report specific to that program, and on the site it is co-branded on the track it sponsors and on its students' Student Report Cards. Products are not a level benefit: partners at any level may offer free access to their products for students, so no tier caps live offers. The ladder is one table, `WPCPM_Sponsor_Tiers`, which every gate asks, and it holds no amounts, because the site never handles money. What a tier includes is the program's promise, listed for the sponsor on its card; on the site, a tier decides the cap on posts, none for a Friend or a Supporter, one for a Backer and two for a Champion or a Partner, and what the sponsor's cards show.
 
 An Administrator sets a sponsor's tier in the Tier box that follows *Assigned Administrator* on a sponsor's Edit form, the view of one sponsor on the Sponsors screen's **Sponsors** tab (Add a sponsor has no Tier box, so a new sponsor starts as a Friend): *Tier*; *Term ends*, the last day of the term, where empty means no term and the tier stands until an Administrator changes it; *Extra events this term*, for a Champion or a Partner, how many co-hosted events the sponsor may hold in that term beyond the one its tier includes, from 0 to 11; and *What the sponsorship funds*, one line the sponsor sees from Backer up, on its *Sponsorship* card and in its report; the Partners page and the *Listing for the handbook* never print it, since the partner page lists every partner in the same format. A Friend has no term, so a day left in the box is cleared on save. The extra events are kept in the row as `event_allowance`, with the last day of the term the save leaves, and count for that term alone wherever they are read: the Events card's list, the planner's form and its one-per-term rule; without a term nothing is kept there, since a sponsor with no term waits only for its last event to take place. A renewal that moves the day and leaves the number as it was drawn leaves it with the term it was granted for, which keeps it for the days it still runs, and starts the renewed term with none: the box then holds 0 and says what the term before was granted, for example "2 more events were granted for the term to January 31, 2027.", or "for the term that ended on" once that day has passed, until a number is set for the new term, which takes its place, since the row holds one number at a time. Once the Term ends day itself has passed, no event can use its number anymore, so the box holds 0 and says what that term was granted, and a renewal of a term that has ended, saved with the number typed in, grants it to the renewed term in one save. Once the application form asks which tier a company is considering, the box shows the answer as "Requested on the application". The last day of a term is still the tier; from the day after, the sponsor reads as a Friend wherever a tier is asked, until an Administrator moves the day forward (renewal is moving the day) or empties it. The Tier column of the **Sponsors** tab's table shows a tier with the last day of its open term, and a lapsed one as a Friend with the tier that ended and the day it ended.
 

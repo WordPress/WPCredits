@@ -1033,7 +1033,7 @@ ck( 'the mentor\'s invitation holds the seven public links of its welcome and no
 ) );
 ck( 'and says once, in brackets, where the private links go', substr_count( $shipped['body'], '[Each course\'s invitation link and the mentor resource folder\'s link are added here in Tools > Emails before this email is sent to mentors.]' ), 1 );
 ck( 'and its placeholders are the invitation\'s own: the welcome adds none', $found, array( 'dashboard_link', 'login_url', 'set_password_link', 'username' ) );
-ck( 'and its trigger names the three ways a mentor is sent it', $shipped['trigger'], 'When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account with invitation emails on.' );
+ck( 'and its trigger names the four ways a mentor is sent it', $shipped['trigger'], 'When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account, or makes an existing account an active mentor, with invitation emails on.' );
 ck( 'and the other invitations hold no welcome and no link of the welcome\'s',
 	array_map(
 		static function ( $id ) {

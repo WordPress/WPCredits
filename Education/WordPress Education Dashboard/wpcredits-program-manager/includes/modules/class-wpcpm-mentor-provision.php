@@ -16,7 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the sync and the activation of a mentor application make a mentor one way. A mentor is an account
  * named after their WordPress.org username, with the Mentor role, the three mentor meta, and the
  * invitation queued under the invitation setting; an account that exists is found and linked, never
- * duplicated, and never given the role by taking another from it.
+ * duplicated, and never given the role by taking another from it. Only a created account has its
+ * invitation queued here: for one that is linked the step reports what it was (`linked_accounts`,
+ * 1.123.42) and queues nothing, since the sync and the activation each decide about the welcome.
  *
  * What an application needs beside the sync's rule:
  *
@@ -49,13 +51,16 @@ class WPCPM_Mentor_Provision {
 	const USER_ACTIVATED_AT = 'wpcpm_mentor_activated_at';
 
 	/**
-	 * User meta: why an activation held the account's invitation, `login` (linked by its WordPress.org
-	 * username alone, ruling R5) or `record` (another account also answered for the applicant, ruling
-	 * P9b). The invitation carries the welcome's private links, so it waits for an Administrator to
-	 * confirm the account is the person's: the bulk invite and the invitation queue pass over an
-	 * account that holds it (`WPCPM_Mail::never_invited()`, `queue_invites()`, `drain_queue()`), and
-	 * the invitation sent from the account's own row deletes it. An activation that sends the
-	 * invitation deletes it too.
+	 * User meta: why the account's invitation is held, `login` (linked by its WordPress.org username
+	 * alone, ruling R5, by an activation or by the mentors sync), `record` (another account also
+	 * answered for the applicant, ruling P9b) or `bulk` (a run of the mentors sync made more than
+	 * `WPCPM_Mentors_Sync::RELINK_INVITE_MAX` existing accounts active mentors at once, 1.123.42).
+	 * Nothing reads which: it is held while the key is there. The invitation carries the welcome's
+	 * private links, so it waits for an Administrator: to confirm the account is the person's, for
+	 * the first two, and to decide that the welcome should go, for the third. The bulk invite and the
+	 * invitation queue pass over an account that holds it (`WPCPM_Mail::never_invited()`,
+	 * `queue_invites()`, `drain_queue()`), and the invitation sent from the account's own row deletes
+	 * it. An activation that sends the invitation deletes it too.
 	 */
 	const USER_INVITE_HELD = 'wpcpm_mentor_invite_held';
 
@@ -70,7 +75,10 @@ class WPCPM_Mentor_Provision {
 	 *                           yet), `name`, `profile` and `email`.
 	 * @param array      $report The report, by reference. It gains `notices` (strings) and `stats` (the
 	 *                           keys of `WPCPM_Mentors_Sync::empty_stats()`) where it lacks them, and
-	 *                           both are added to as the sync's state was.
+	 *                           both are added to as the sync's state was. An account that is linked is
+	 *                           added to `linked_accounts` (1.123.42): its `user_id`, whether it
+	 *                           `was_active_mentor` before the link (it held the Mentor role with its
+	 *                           active flag at 1) and `how` it was found.
 	 * @param array|null $found  What `find_account()` answered for this mentor, or null when the caller
 	 *                           looked for nothing: when it holds an account (`user`), that account is
 	 *                           linked as given and how it was found (`how`) is kept for the notice a
@@ -234,6 +242,10 @@ class WPCPM_Mentor_Provision {
 	/**
 	 * Attach mentor data to an account that already exists.
 	 *
+	 * What the account was before the link is added to the report's `linked_accounts` (1.123.42), for a
+	 * caller that decides about the welcome: this step queues no invitation for an account it links,
+	 * since the mentors sync and the activation of an application each decide that by their own rules.
+	 *
 	 * @param WP_User $user   Existing user.
 	 * @param array   $mentor Mentor data.
 	 * @param string  $how    How the user was matched: record, email, login or profile.
@@ -241,6 +253,17 @@ class WPCPM_Mentor_Provision {
 	 */
 	private static function link_existing_user( WP_User $user, array $mentor, $how, array &$report ) {
 		$was_linked = '' !== (string) get_user_meta( $user->ID, WPCPM_Mentors_Sync::META_RECORD_ID, true );
+		$is_admin   = in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true );
+		$is_mentor  = in_array( WPCPM_Roles::ROLE_MENTOR, (array) $user->roles, true );
+
+		// Read before the flag and the role are written below: a mentor is active on the site when the
+		// account holds the role and its flag is at 1, which is what a former mentor, or an account that
+		// was a student or an institution member, is not.
+		$report['linked_accounts'][] = array(
+			'user_id'           => (int) $user->ID,
+			'was_active_mentor' => $is_mentor && 1 === (int) get_user_meta( $user->ID, WPCPM_Mentors_Sync::META_ACTIVE, true ),
+			'how'               => (string) $how,
+		);
 
 		if ( '' !== $mentor['record_id'] ) {
 			update_user_meta( $user->ID, WPCPM_Mentors_Sync::META_RECORD_ID, $mentor['record_id'] );
@@ -251,9 +274,6 @@ class WPCPM_Mentor_Provision {
 		// Slashed, because user meta unslashes what it is handed and the base's cell is not.
 		update_user_meta( $user->ID, WPCPM_Mentors_Sync::META_PROFILE, wp_slash( $mentor['profile'] ) );
 		update_user_meta( $user->ID, WPCPM_Mentors_Sync::META_ACTIVE, 1 );
-
-		$is_admin  = in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true );
-		$is_mentor = in_array( WPCPM_Roles::ROLE_MENTOR, (array) $user->roles, true );
 
 		if ( ! $is_mentor && ! $is_admin ) {
 			// add_role() rather than set_role(): the account may legitimately be an

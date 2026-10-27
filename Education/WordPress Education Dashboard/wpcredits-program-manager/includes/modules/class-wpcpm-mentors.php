@@ -767,20 +767,21 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		$stats = isset( $report['stats'] ) && is_array( $report['stats'] ) ? $report['stats'] : array();
 
 		$labels = array(
-			'described'     => __( 'Field descriptions read from Airtable', 'wpcredits-program-manager' ),
-			'mentors_seen'  => __( 'Active mentors in Airtable', 'wpcredits-program-manager' ),
-			'created'       => __( 'Accounts created', 'wpcredits-program-manager' ),
-			'linked'        => __( 'Existing accounts linked', 'wpcredits-program-manager' ),
-			'updated'       => __( 'Accounts refreshed', 'wpcredits-program-manager' ),
-			'invited'       => __( 'Invitations sent', 'wpcredits-program-manager' ),
-			'revoked'       => __( 'Mentor role revoked (no longer active)', 'wpcredits-program-manager' ),
-			'students_seen' => __( 'Current student reports read', 'wpcredits-program-manager' ),
-			'past_seen'     => __( 'Past student reports read', 'wpcredits-program-manager' ),
-			'assigned'      => __( 'Student assignments written', 'wpcredits-program-manager' ),
-			'unassigned'    => __( 'Students with no mentor in Airtable', 'wpcredits-program-manager' ),
-			'orphaned'      => __( 'Students assigned to a non-active mentor', 'wpcredits-program-manager' ),
-			'skipped'       => __( 'Mentors skipped (missing data)', 'wpcredits-program-manager' ),
-			'conflicts'     => __( 'Account conflicts', 'wpcredits-program-manager' ),
+			'described'        => __( 'Field descriptions read from Airtable', 'wpcredits-program-manager' ),
+			'mentors_seen'     => __( 'Active mentors in Airtable', 'wpcredits-program-manager' ),
+			'created'          => __( 'Accounts created', 'wpcredits-program-manager' ),
+			'linked'           => __( 'Existing accounts linked', 'wpcredits-program-manager' ),
+			'updated'          => __( 'Accounts refreshed', 'wpcredits-program-manager' ),
+			'invited'          => __( 'Invitations sent', 'wpcredits-program-manager' ),
+			'relinked_invited' => __( 'Invitations sent to existing accounts', 'wpcredits-program-manager' ),
+			'revoked'          => __( 'Mentor role revoked (no longer active)', 'wpcredits-program-manager' ),
+			'students_seen'    => __( 'Current student reports read', 'wpcredits-program-manager' ),
+			'past_seen'        => __( 'Past student reports read', 'wpcredits-program-manager' ),
+			'assigned'         => __( 'Student assignments written', 'wpcredits-program-manager' ),
+			'unassigned'       => __( 'Students with no mentor in Airtable', 'wpcredits-program-manager' ),
+			'orphaned'         => __( 'Students assigned to a non-active mentor', 'wpcredits-program-manager' ),
+			'skipped'          => __( 'Mentors skipped (missing data)', 'wpcredits-program-manager' ),
+			'conflicts'        => __( 'Account conflicts', 'wpcredits-program-manager' ),
 		);
 
 		echo '<div class="wpcpm-card">';

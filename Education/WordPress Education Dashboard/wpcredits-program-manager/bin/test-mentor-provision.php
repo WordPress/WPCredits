@@ -23,6 +23,9 @@
  *   which.
  * - **The row flag** an activation leaves on an account is cleared when the sync links the account
  *   to a row.
+ * - **What the report says of a linked account** (1.123.42): who it is, whether it was an active
+ *   mentor before the link, and how it was found, so the sync can decide about the welcome (see
+ *   bin/test-mentors-sync-welcome.php); the step queues nothing for it.
  * - **One way to make a mentor**: the sync keeps no account code of its own.
  *
  * Runs on the shared stand-in (bin/stubs/mentor-applications.php) with the real WPCPM_Roles,
@@ -207,6 +210,64 @@ $report = array();
 ck( 'an answer that found nobody is no account the caller found: the lookup is made, and the account is the one the address finds',
 	array( WPCPM_Mentor_Provision::provision( mentor( 'recNEWMENTOR00001' ), $report, array( 'user' => null, 'how' => '' ) ), count( $GLOBALS['users'] ) ),
 	array( 53, 1 ) );
+
+echo "\n=== What the report says of an account that was linked (1.123.42) ===\n";
+// The step reports what each account it linked was before the link and how it was found, and sends
+// nothing itself: the mentors sync decides about the welcome, and the activation queues its own.
+fresh( array( 'send_welcome_email' => true ) );
+account( 60, 'ada-active', 'ada@example.test', array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_record_id' => 'recACTIVEMENTOR01', 'wpcpm_mentor_active' => 1 ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recACTIVEMENTOR01' ), $report );
+ck( 'an account that held the Mentor role with its active flag at 1 is reported as an active mentor, found by its record',
+	$report['linked_accounts'], array( array( 'user_id' => 60, 'was_active_mentor' => true, 'how' => 'record' ) ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 61, 'ada-former', 'ada@example.test', array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_record_id' => 'recFORMERMENTOR01', 'wpcpm_mentor_active' => 0 ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recFORMERMENTOR01' ), $report );
+ck( 'a former mentor, the role kept and the flag at 0, is not an active mentor, and is one once linked',
+	array( $report['linked_accounts'], meta( 61, 'wpcpm_mentor_active' ) ), array( array( array( 'user_id' => 61, 'was_active_mentor' => false, 'how' => 'record' ) ), 1 ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 62, 'ada-student', 'ada@example.test', array( 'wpcpm_student' ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recSTUDENTMENTOR1' ), $report );
+ck( 'an account with no Mentor role is not an active mentor, found by its address, and has the role once linked',
+	array( $report['linked_accounts'], roles( 62 ) ), array( array( array( 'user_id' => 62, 'was_active_mentor' => false, 'how' => 'email' ) ), array( 'wpcpm_student', 'wpcpm_mentor' ) ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 63, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recLOGINMENTOR001' ), $report );
+ck( 'a match by username alone is reported as one', $report['linked_accounts'], array( array( 'user_id' => 63, 'was_active_mentor' => false, 'how' => 'login' ) ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 64, 'ada-flag-only', 'ada@example.test', array( 'wpcpm_student' ), array( 'wpcpm_mentor_active' => 1 ) );
+account( 65, 'zoe-role-example', 'zoe@example.test', array( 'wpcpm_mentor' ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recFLAGONLY000001' ), $report );
+$both = array_merge( mentor( 'recROLEONLY000001' ), array( 'email' => 'zoe@example.test', 'profile' => 'https://profiles.wordpress.org/zoe-role-example/' ) );
+WPCPM_Mentor_Provision::provision( $both, $report );
+ck( 'the flag at 1 without the role, and the role without the flag, are each not an active mentor',
+	array_column( $report['linked_accounts'], 'was_active_mentor', 'user_id' ), array( 64 => false, 65 => false ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 66, 'ada-example', 'ada@example.test', array( 'wpcpm_student' ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recQUEUENOTHING01' ), $report );
+ck( 'linking an account queues nothing, whatever the invitation setting says: the mentors sync decides, and the activation queues its own',
+	array( $GLOBALS['queued'], $report['stats']['invited'] ), array( array(), 0 ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 67, 'ada-example', 'ada@example.test', array( 'wpcpm_student' ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recFOUNDBYCALLER1' ), $report, array( 'user' => get_userdata( 67 ), 'how' => 'profile' ) );
+ck( 'an account the caller found is reported as found, with how the caller said', $report['linked_accounts'], array( array( 'user_id' => 67, 'was_active_mentor' => false, 'how' => 'profile' ) ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+$report = array();
+WPCPM_Mentor_Provision::provision( mentor( 'recNEWMENTOR00002' ), $report );
+ck( 'an account the step creates is no linked account', array_key_exists( 'linked_accounts', $report ) ? $report['linked_accounts'] : array(), array() );
 
 echo "\n=== What is refused ===\n";
 fresh();

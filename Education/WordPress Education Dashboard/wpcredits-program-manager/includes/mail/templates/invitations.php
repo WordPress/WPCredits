@@ -198,7 +198,7 @@ return array(
 		'placeholders' => $wpcpm_placeholders( WPCPM_Mail_Catalog::TYPE_STUDENT ),
 	),
 	'invite-mentor'              => array(
-		'trigger'      => __( 'When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account with invitation emails on.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account, or makes an existing account an active mentor, with invitation emails on.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: %s: site name. */
 			__( '[%s] Your mentor account is ready', 'wpcredits-program-manager' ),

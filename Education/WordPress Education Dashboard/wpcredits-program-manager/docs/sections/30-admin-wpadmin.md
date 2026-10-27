@@ -348,8 +348,9 @@ order:
    check that the edit in place is the one they just saved, not an older one. **Contact address in
    emails** is set as well, since the welcome asks mentors to reply and a reply reaches that
    address. From the deploy on, every invitation the mentor's template sends carries the welcome: an
-   activation's, one sent from the Mentors screen, and one the mentors sync queues while
-   **Invitation emails** is on.
+   activation's, one sent from the Mentors screen, and one the mentors sync queues, for a mentor
+   whose account it creates and for one whose account already existed that it makes an active
+   mentor, while **Invitation emails** is on.
 2. The person running the launch reads the Airtable base's automations, which the site cannot see,
    so that none fires on the check row of the next step.
 3. They run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>`, by

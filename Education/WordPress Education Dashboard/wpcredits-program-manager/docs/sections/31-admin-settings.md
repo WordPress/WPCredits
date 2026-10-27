@@ -126,14 +126,23 @@ answer that removes comes first, and it is the default for both.
 #### Accounts
 
 - **Invitation emails** - **Email each new mentor and student a password-reset link as their
-  account is created**. Off by default, and worth leaving off unless you mean to email everybody: a
+  account is created, and each mentor whose account already existed when the sync makes them an
+  active mentor**. Off by default, and worth leaving off unless you mean to email everybody: a
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
   and you can also invite people one at a time from the Mentors and Students screens, or tick
-  several in the Students or Mentors screen's list and invite them together. A mentor made from an
-  application is sent theirs whatever this says, since it carries the welcome, except an
-  Administrator, and a mentor whose account is not yet confirmed as the person's (see *Applications
-  to mentor*).
+  several in the Students or Mentors screen's list and invite them together. A mentor whose account
+  already existed (a returning mentor, or a student or an institution member made a mentor) gets
+  the same email, once each time they become active: a mentor who stays active is not sent it
+  again by a later run, nor one an application already made a mentor, and never an Administrator.
+  A mentor matched to an account by username alone waits until it is sent from the account's row on
+  the Mentors screen's **Accounts** tab, since that account may be somebody else's: the run says
+  so. When one run would make more than five such mentors active at once, none is sent, since that
+  is a base that was changed: each account is held on the same tab, the run's first notice names
+  them, and **Send invite** on a row sends the welcome to the ones that should have it. A mentor
+  made from an application is sent theirs whatever this says, since it carries the welcome, except
+  an Administrator, and a mentor whose account is not yet confirmed as the person's (see
+  *Applications to mentor*).
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. Its
   fold: the student rows carry what people are shown on their cards, and the students run is the

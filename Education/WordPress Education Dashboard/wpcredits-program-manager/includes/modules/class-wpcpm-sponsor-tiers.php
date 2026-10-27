@@ -414,7 +414,7 @@ final class WPCPM_Sponsor_Tiers {
 				self::event_label( self::EVENT_CO_HOSTED ),
 			),
 			self::PARTNER   => array(
-				__( 'Named as program partner on the program you fund, with the exclusive role in that program', 'wpcredits-program-manager' ),
+				__( 'Named as program partner on the program you fund', 'wpcredits-program-manager' ),
 				self::event_label( self::EVENT_LAUNCH ),
 				__( 'A report specific to that program', 'wpcredits-program-manager' ),
 			),
@@ -455,7 +455,7 @@ final class WPCPM_Sponsor_Tiers {
 			self::MENTOR    => __( 'Supporter adds your logo and description on the partner page, a badge for your own site and the annual program report.', 'wpcredits-program-manager' ),
 			self::SUPPORTER => __( 'Backer names your company for the part of the program you fund in program communications and adds a report covering that cost line and one self-written educational post about the sponsored product.', 'wpcredits-program-manager' ),
 			self::BACKER    => __( 'Champion adds a second self-written post with factual, value-neutral information about additional products, an invitation to the annual education partners session and a webinar or event co-hosted with the education program.', 'wpcredits-program-manager' ),
-			self::CHAMPION  => __( 'Partner adds a complete program funded end to end, with your company named as its program partner and in launch communications, the exclusive role in that program and a report specific to that program.', 'wpcredits-program-manager' ),
+			self::CHAMPION  => __( 'Partner adds a complete program funded end to end, with your company named as its program partner and in launch communications, and a report specific to that program.', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $lines[ $tier ] ) ? $lines[ $tier ] : '';

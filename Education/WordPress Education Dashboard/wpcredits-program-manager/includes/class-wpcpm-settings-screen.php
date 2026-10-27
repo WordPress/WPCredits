@@ -1201,13 +1201,14 @@ class WPCPM_Settings_Screen {
 			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="send_welcome_email" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
 			esc_html( $invitations ),
 			checked( ! empty( $settings['send_welcome_email'] ), true, false ),
-			esc_html__( 'Email each new mentor and student a password-reset link as their account is created', 'wpcredits-program-manager' ),
+			esc_html__( 'Email each new mentor and student a password-reset link as their account is created, and each mentor whose account already existed when the sync makes them an active mentor', 'wpcredits-program-manager' ),
 			esc_html__( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row(
 			$invitations,
 			array(
 				__( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.', 'wpcredits-program-manager' ),
+				__( 'A mentor whose account already existed gets the same email, once each time they become active. An Administrator is never sent it, and an account matched by username alone waits until it is sent from its row. A run that would send it to more than five such mentors at once sends none, and those accounts wait in the Accounts tab too.', 'wpcredits-program-manager' ),
 				__( 'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.', 'wpcredits-program-manager' ),
 			)
 		);

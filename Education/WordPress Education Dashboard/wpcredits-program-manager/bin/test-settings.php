@@ -3505,6 +3505,7 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
             array( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.' ),
             array(
                 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.',
+                'A mentor whose account already existed gets the same email, once each time they become active. An Administrator is never sent it, and an account matched by username alone waits until it is sent from its row. A run that would send it to more than five such mentors at once sends none, and those accounts wait in the Accounts tab too.',
                 'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.',
             ),
         ),

@@ -436,7 +436,7 @@ ck( 'describe(): the partner page\'s bullets for each level, and above Friend th
 	$T::PARTNER   => array(
 		'lead'  => 'Everything in Champion, plus:',
 		'items' => array(
-			'Named as program partner on the program you fund, with the exclusive role in that program',
+			'Named as program partner on the program you fund',
 			'Named in launch communications',
 			'A report specific to that program',
 		),
@@ -473,7 +473,7 @@ ck( 'next_line(): one sentence naming what the next level adds, from the same li
 		'Supporter adds your logo and description on the partner page, a badge for your own site and the annual program report.',
 		'Backer names your company for the part of the program you fund in program communications and adds a report covering that cost line and one self-written educational post about the sponsored product.',
 		'Champion adds a second self-written post with factual, value-neutral information about additional products, an invitation to the annual education partners session and a webinar or event co-hosted with the education program.',
-		'Partner adds a complete program funded end to end, with your company named as its program partner and in launch communications, the exclusive role in that program and a report specific to that program.',
+		'Partner adds a complete program funded end to end, with your company named as its program partner and in launch communications, and a report specific to that program.',
 		'',
 		'',
 	)

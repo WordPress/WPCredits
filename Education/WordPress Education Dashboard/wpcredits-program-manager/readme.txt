@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.41
+Stable tag: 1.123.42
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.42 =
+
+* A mentor whose account already existed on the site, a returning mentor or someone who was a student or an institution member here, is sent the mentor invitation, which carries the mentor welcome, when the mentors sync makes their account an active mentor, as a mentor whose account the sync creates already is (the site's owner, 27 October 2026). Once each time they become active: a mentor who stays active is never sent it again by a later run, and the activation of a mentor application, which sends its own, is unchanged. It follows the "Invitation emails" setting and is never sent to an Administrator; an account matched by its username alone waits until it is sent from its row in the Mentors screen's Accounts tab.
+* A brake: when more than 5 mentors whose accounts already existed become active in one run, none is sent the welcome, each is held where the Mentors screen's Accounts tab lists it, and the run's report names them, so Send invite or Resend invite on each row sends it.
+* The Last sync report counts "Invitations sent to existing accounts".
+* The Partner level's lines, on a sponsor's level card and in the Champion level's upsell line, no longer promise "the exclusive role in that program", as the Partners page no longer does (27 October 2026); the Administrator guide says the same.
 
 = 1.123.41 =
 

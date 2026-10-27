@@ -1329,7 +1329,7 @@ ck( 'a Partner reads the partner page\'s lead above its three lines for the leve
 	strpos( $html, ' adds ' ),
 	strpos( $html, 'wpcpm_tier_talk' ),
 	strpos( $html, 'talk about the next tier' ),
-), array( true, '<li>Named as program partner on the program you fund, with the exclusive role in that program</li><li>Named in launch communications</li><li>A report specific to that program</li>', false, false, false ) );
+), array( true, '<li>Named as program partner on the program you fund</li><li>Named in launch communications</li><li>A report specific to that program</li>', false, false, false ) );
 ck( 'a tier with no term recorded: the row names the tier alone, as the tier line does', row_state( $html, 'sponsorship' ), 'Partner' );
 
 // The Events card (1.117.0): the events the tier includes, the sentence that says what the planner
