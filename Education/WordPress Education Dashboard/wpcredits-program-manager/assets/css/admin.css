@@ -325,7 +325,8 @@ p.wpcpm-settings__intro {
    then its name, as the Administrator Dashboard's strip reads a tile, in a row that wraps onto more
    lines as the screen narrows. Each link is one chip, so a count and its name read as one line and
    the whole chip is the link. A queue the list cannot link yet keeps its count and name, without the
-   chip. */
+   chip. The Students screen's summary of students by status draws the same chips, and marks the
+   one in force with `.current` (and `aria-current="true"` for a screen reader). */
 .wpcpm-waiting {
 	display: flex;
 	flex-wrap: wrap;
@@ -351,6 +352,11 @@ p.wpcpm-settings__intro {
 
 .wpcpm-waiting a:hover {
 	border-color: #2271b1;
+}
+
+.wpcpm-waiting a.current {
+	border-color: #2271b1;
+	font-weight: 600;
 }
 
 .wpcpm-waiting .count {

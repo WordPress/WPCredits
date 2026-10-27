@@ -104,8 +104,10 @@ class WPCPM_Mail_Log_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The address, and the person's name at the time of sending, linked to the account while it
-	 * exists.
+	 * The address, and the person's name at the time of sending, linked to the person's row on the
+	 * Accounts tab of the screen for the role the account holds now, where the person's actions are
+	 * (Send invite and Resend invite on every screen but the Administrators', whose accounts are never
+	 * invited), while the account exists, or to the user editor when the account holds no program role.
 	 *
 	 * @param array $row The row.
 	 */
@@ -113,11 +115,85 @@ class WPCPM_Mail_Log_Table extends WP_List_Table {
 		echo esc_html( $row['to_email'] );
 
 		if ( '' !== (string) $row['to_name'] ) {
-			$link = ! empty( $row['user_id'] ) && get_user_by( 'id', (int) $row['user_id'] ) ? get_edit_user_link( (int) $row['user_id'] ) : '';
+			$link = $this->account_link( $row );
 
 			echo '<br />';
 			echo $link ? '<a href="' . esc_url( $link ) . '">' . esc_html( $row['to_name'] ) . '</a>' : esc_html( $row['to_name'] );
 		}
+	}
+
+	/**
+	 * The link behind the person's name: empty while no account is attached or the account is gone,
+	 * the person's row on the Accounts tab of their audience's screen where the account holds a
+	 * program role, and the user editor where it holds none.
+	 *
+	 * **The screen is the role the account holds now, not the type the row was recorded under.** A
+	 * row keeps the type the recipient had when the email went out (`WPCPM_Mail_Capture::type_of()`
+	 * wrote it), so a student who has since become a mentor, and holds the student role no longer,
+	 * has rows recorded as Student; the Students screen's Accounts tab no longer lists that person,
+	 * so a link there would land on an empty search. The link asks the same method for the type again,
+	 * with the recorded one as the audience to keep: it answers the recorded type while the account
+	 * still holds that role, else the first role it holds (Student, Mentor, Institution, Sponsor,
+	 * then Administrator, which the method also answers for an account that holds only the program's
+	 * capability), else Other, which has no screen and falls back to the user editor.
+	 *
+	 * **The Administrators screen is for the Administrator role alone.** Its Accounts tab lists the
+	 * accounts that hold the role, and shows whether each holds the program's capability, so an
+	 * account that holds the capability and not the role is not on it: that account goes to its user
+	 * editor, where its roles and capabilities are.
+	 *
+	 * **The search is the account's current email address.** An address belongs to one account, so
+	 * the person is on the first page of the result, which a username does not promise: the Accounts
+	 * tab matches a term anywhere in the username, the email or the name (the Students tab also in the
+	 * institution, the Institutions and Sponsors tabs also in the name of the organization), so a
+	 * username of a few letters can be held, or contained, by more accounts than a page lists. An
+	 * address is matched as a term too, so an account whose address contains this one, such as the
+	 * same name with a letter in front, is listed with it, but that is a rare extra row, far from
+	 * filling a page. It is the address the account holds now and not the one the row was sent to,
+	 * which the person may have changed since. It is encoded whole (`rawurlencode()`), because
+	 * `add_query_arg()` sets a value as it is given and an address can hold a plus, which would be
+	 * read as a space.
+	 *
+	 * The anchor is the accounts table's `LIST_ANCHOR`, written out here because this screen does
+	 * not load that table (`wpcpm_load_accounts_tables()` is the Students, Mentors, Institutions,
+	 * Sponsors and Administrators screens', and loading six classes for an anchor would cost the Log
+	 * a require it never otherwise makes); bin/test-emails-screen.php holds the two equal.
+	 *
+	 * @param array $row The row.
+	 * @return string
+	 */
+	protected function account_link( array $row ) {
+		if ( empty( $row['user_id'] ) ) {
+			return '';
+		}
+
+		$user = get_user_by( 'id', (int) $row['user_id'] );
+
+		if ( ! $user ) {
+			return '';
+		}
+
+		$screens = array(
+			WPCPM_Mail_Catalog::TYPE_STUDENT     => 'wpcpm-students',
+			WPCPM_Mail_Catalog::TYPE_MENTOR      => 'wpcpm-mentors',
+			WPCPM_Mail_Catalog::TYPE_INSTITUTION => 'wpcpm-institutions',
+			WPCPM_Mail_Catalog::TYPE_SPONSOR     => 'wpcpm-sponsors',
+			WPCPM_Mail_Catalog::TYPE_ADMIN       => 'wpcpm-administrators',
+		);
+
+		$type = WPCPM_Mail_Capture::type_of( $user, isset( $row['recipient_type'] ) ? (string) $row['recipient_type'] : '' );
+
+		if ( ! isset( $screens[ $type ] ) || ( WPCPM_Mail_Catalog::TYPE_ADMIN === $type && ! in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true ) ) ) {
+			return (string) get_edit_user_link( (int) $user->ID );
+		}
+
+		$args = array(
+			'page' => $screens[ $type ],
+			'tab'  => 'accounts',
+			's'    => rawurlencode( (string) $user->user_email ),
+		);
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) ) . '#wpcpm-accounts-list';
 	}
 
 	/**

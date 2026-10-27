@@ -1260,6 +1260,35 @@ class WPCPM_Mail {
 	}
 
 	/**
+	 * Narrow a list of users to one student status.
+	 *
+	 * The status is inside the `wpcpm_program` user meta too, the row's `program` value, and is read
+	 * as the Students list reads it (`WPCPM_Students_Sync::status_of()`), so the invitations card and
+	 * the list under it agree on who holds a status.
+	 *
+	 * @param int[]  $user_ids Users to narrow.
+	 * @param string $status   The status as the list asks for it; an empty string means no narrowing.
+	 * @return int[]
+	 */
+	public static function only_status( array $user_ids, $status ) {
+		$status = trim( (string) $status );
+
+		if ( '' === $status ) {
+			return $user_ids;
+		}
+
+		$out = array();
+
+		foreach ( $user_ids as $id ) {
+			if ( WPCPM_Students_Sync::status_of( WPCPM_Students_Sync::get_program( (int) $id ) ) === $status ) {
+				$out[] = (int) $id;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * The bulk-invite card: what would be sent, what is being sent, what was sent.
 	 *
 	 * One renderer for every audience's screen, because a students-shaped copy and a mentors-shaped

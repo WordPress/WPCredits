@@ -16,8 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * page with their own program details and the mentor assigned to them.
  *
  * Its screen is the accounts screen every audience's module shares (`WPCPM_Accounts_Screen`).
- * What is the students' own is here: the words, the table, the school the list and its
- * invitations card are narrowed to, and the Sync tab.
+ * What is the students' own is here: the words, the table, the school and the status the list and
+ * its invitations card are narrowed to, and the Sync tab.
  */
 class WPCPM_Students extends WPCPM_Sync_Module {
 
@@ -214,9 +214,9 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Queue an invitation for everybody who has never had one, at the institution the list was
-	 * narrowed to if it was, then back to the list at that institution on the Accounts tab, as every
-	 * other press on the tab comes back to the list as it stood.
+	 * Queue an invitation for everybody who has never had one, at the institution and with the status
+	 * the list was narrowed to if it was, then back to the list so narrowed on the Accounts tab, as
+	 * every other press on the tab comes back to the list as it stood.
 	 *
 	 * Queued rather than sent here: `send_invite()` sends immediately, which is right for one row
 	 * and would time out somewhere in the middle of two hundred. The queue is drained by cron a
@@ -229,12 +229,24 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	public function handle_bulk_invite() {
 		$this->verify( self::ACTION_BULK );
 
-		// From the posted field, not the URL: `admin-post.php` never sees the list's query string,
-		// so reading the filter from there would send to every student while the screen that
-		// offered the button was showing one institution.
+		// From the posted fields, not the URL: `admin-post.php` never sees the list's query string,
+		// so reading the filters from there would send to every student while the screen that
+		// offered the button was showing one institution, or one status.
 		$institution = WPCPM_Request::posted_text( 'wpcpm_institution' );
-		$pending     = WPCPM_Mail::only_institution( self::never_invited(), $institution );
-		$back        = '' === $institution ? $this->accounts_url() : add_query_arg( 'wpcpm_institution', rawurlencode( $institution ), $this->accounts_url() );
+		$status      = WPCPM_Request::posted_text( 'wpcpm_student_status' );
+		$pending     = WPCPM_Mail::only_status( WPCPM_Mail::only_institution( self::never_invited(), $institution ), $status );
+		$back        = $this->accounts_url();
+		$narrowed    = array_filter(
+			array(
+				'wpcpm_institution'    => $institution,
+				'wpcpm_student_status' => $status,
+			)
+		);
+
+		if ( ! empty( $narrowed ) ) {
+			// Each value encoded, because `add_query_arg()` sets a value as it is given.
+			$back = add_query_arg( array_map( 'rawurlencode', $narrowed ), $back );
+		}
 
 		if ( empty( $pending ) ) {
 			$this->leave( $back, 'invites-none' );
@@ -246,8 +258,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Where the list stands, as the request says: its view, search, institution, sort and page, each
-	 * encoded, the empty ones left out.
+	 * Where the list stands, as the request says: its view, search, institution, status, sort and page,
+	 * each encoded, the empty ones left out.
 	 *
 	 * What a press in the list comes back to (`list_url()`), and what each row's invitation link
 	 * carries, so the invitation comes back to the same place. Rebuilt from what the list reads rather
@@ -264,12 +276,13 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			},
 			array_filter(
 				array(
-					'wpcpm_view'        => WPCPM_Request::key( 'wpcpm_view' ),
-					's'                 => WPCPM_Request::text( 's' ),
-					'wpcpm_institution' => self::institution_filter(),
-					'orderby'           => WPCPM_Request::key( 'orderby' ),
-					'order'             => WPCPM_Request::key( 'order' ),
-					'paged'             => WPCPM_Request::id( 'paged' ),
+					'wpcpm_view'           => WPCPM_Request::key( 'wpcpm_view' ),
+					's'                    => WPCPM_Request::text( 's' ),
+					'wpcpm_institution'    => self::institution_filter(),
+					'wpcpm_student_status' => self::status_filter(),
+					'orderby'              => WPCPM_Request::key( 'orderby' ),
+					'order'                => WPCPM_Request::key( 'order' ),
+					'paged'                => WPCPM_Request::id( 'paged' ),
 				)
 			)
 		);
@@ -303,42 +316,96 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 	/**
 	 * The invitations card, on the Accounts tab: everybody never invited, narrowed to the
-	 * institution the list is showing, and how many of them there are left out because an activation
-	 * held their invitation (1.122.33), a student who also mentors, which only their own row sends.
+	 * institution and the status the list is showing, and how many of them there are left out because
+	 * an activation held their invitation (1.122.33), a student who also mentors, which only their own
+	 * row sends.
 	 *
-	 * Its button posts the institution and the tab, so the press queues whom the card counted and
-	 * comes back to the list at that institution. Its Stop and Dismiss are the mail layer's own
-	 * forms, which name no tab: they come back to the address they were pressed on, this tab, and
-	 * Stop's outcome waits on the flash channel this screen reads, which the card names in its form.
+	 * Its button posts the institution, the status and the tab, so the press queues whom the card
+	 * counted and comes back to the list so narrowed. The status is said in the words the list shows
+	 * for it (`WPCPM_Program::status_words()`) and posted as it is stored. Its Stop and Dismiss are
+	 * the mail layer's own forms, which name no tab: they come back to the address they were pressed
+	 * on, this tab, with the filters in it, and Stop's outcome waits on the flash channel this screen
+	 * reads, which the card names in its form.
 	 */
 	private function render_invitations() {
-		// **The card obeys the filter the list is showing.** Offering "invite 241 students" under a
-		// list narrowed to one institution is how somebody emails two hundred people by accident.
+		// **The card obeys the filters the list is showing.** Offering "invite 241 students" under a
+		// list narrowed to one institution, or to one status, is how somebody emails two hundred people
+		// by accident.
 		$filter  = self::institution_filter();
-		$pending = WPCPM_Mail::only_institution( self::never_invited(), $filter );
+		$status  = self::status_filter();
+		$words   = self::card_words( $filter, $status );
+		$pending = WPCPM_Mail::only_status( WPCPM_Mail::only_institution( self::never_invited(), $filter ), $status );
+		$held    = WPCPM_Mail::only_status( WPCPM_Mail::only_institution( self::held_back(), $filter ), $status );
 
 		WPCPM_Mail::render_invite_card(
 			array(
 				'action'      => self::ACTION_BULK,
 				'pending'     => $pending,
-				'held'        => count( WPCPM_Mail::only_institution( self::held_back(), $filter ) ),
-				'noun'        => '' === $filter
-					? __( 'students', 'wpcredits-program-manager' )
-					/* translators: %s: institution name. */
-					: sprintf( __( 'students at %s', 'wpcredits-program-manager' ), $filter ),
+				'held'        => count( $held ),
+				'noun'        => $words['noun'],
 				// The button's own words, so its noun and verb agree with the count, one or more.
-				'button'      => '' === $filter
-					/* translators: %s: how many students. */
-					? _n_noop( 'Invite %s student who has never been invited', 'Invite %s students who have never been invited', 'wpcredits-program-manager' )
-					/* translators: 1: how many students, 2: institution name. */
-					: _n_noop( 'Invite %1$s student at %2$s who has never been invited', 'Invite %1$s students at %2$s who have never been invited', 'wpcredits-program-manager' ),
-				'button_args' => '' === $filter ? array() : array( $filter ),
+				'button'      => $words['button'],
+				'button_args' => $words['args'],
 				'hidden'      => array(
-					'wpcpm_institution' => $filter,
-					self::TAB_FIELD     => self::TAB_ACCOUNTS,
+					'wpcpm_institution'    => $filter,
+					'wpcpm_student_status' => $status,
+					self::TAB_FIELD        => self::TAB_ACCOUNTS,
 				),
 				'flash'       => $this->flash_key(),
 			)
+		);
+	}
+
+	/**
+	 * The words the invitations card says its people in, for the filters the list is narrowed by: the
+	 * plural noun the card's sentences take, the button's words as `_n_noop()` holds them, and the
+	 * values the button takes after the count.
+	 *
+	 * Four forms, written out whole rather than joined, so a translation can order the words as its
+	 * language does.
+	 *
+	 * @param string $institution The institution the list is narrowed to, or ''.
+	 * @param string $status      The status it is narrowed to, as stored, or ''.
+	 * @return array{noun: string, button: array, args: string[]}
+	 */
+	private static function card_words( $institution, $status ) {
+		$words = '' === $status ? '' : WPCPM_Program::status_words( $status );
+
+		if ( '' === $institution && '' === $status ) {
+			return array(
+				'noun'   => __( 'students', 'wpcredits-program-manager' ),
+				/* translators: %s: how many students. */
+				'button' => _n_noop( 'Invite %s student who has never been invited', 'Invite %s students who have never been invited', 'wpcredits-program-manager' ),
+				'args'   => array(),
+			);
+		}
+
+		if ( '' === $status ) {
+			return array(
+				/* translators: %s: institution name. */
+				'noun'   => sprintf( __( 'students at %s', 'wpcredits-program-manager' ), $institution ),
+				/* translators: 1: how many students, 2: institution name. */
+				'button' => _n_noop( 'Invite %1$s student at %2$s who has never been invited', 'Invite %1$s students at %2$s who have never been invited', 'wpcredits-program-manager' ),
+				'args'   => array( $institution ),
+			);
+		}
+
+		if ( '' === $institution ) {
+			return array(
+				/* translators: %s: a student status, such as Paused. */
+				'noun'   => sprintf( __( 'students with the status %s', 'wpcredits-program-manager' ), $words ),
+				/* translators: 1: how many students, 2: a student status, such as Paused. */
+				'button' => _n_noop( 'Invite %1$s student with the status %2$s who has never been invited', 'Invite %1$s students with the status %2$s who have never been invited', 'wpcredits-program-manager' ),
+				'args'   => array( $words ),
+			);
+		}
+
+		return array(
+			/* translators: 1: institution name, 2: a student status, such as Paused. */
+			'noun'   => sprintf( __( 'students at %1$s with the status %2$s', 'wpcredits-program-manager' ), $institution, $words ),
+			/* translators: 1: how many students, 2: institution name, 3: a student status, such as Paused. */
+			'button' => _n_noop( 'Invite %1$s student at %2$s with the status %3$s who has never been invited', 'Invite %1$s students at %2$s with the status %3$s who have never been invited', 'wpcredits-program-manager' ),
+			'args'   => array( $institution, $words ),
 		);
 	}
 
@@ -494,5 +561,20 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	 */
 	public static function institution_filter() {
 		return WPCPM_Request::text( 'wpcpm_institution' );
+	}
+
+	/**
+	 * Which student status the screen is narrowed to, if any.
+	 *
+	 * **The argument is `wpcpm_student_status`, not `wpcpm_status`**: the mail layer's Stop and
+	 * Dismiss come back to the address they were pressed on with `wpcpm_status` removed, as an old
+	 * outcome argument, so a list narrowed by that name would lose its status on the return. The
+	 * name is the one `WPCPM_Students_Table::STATUS_ARG` holds.
+	 *
+	 * @return string Status name, as stored, with a run of white space collapsed as the roster
+	 *                reads it (`WPCPM_Students_Sync::status_of()`), or an empty string for all of them.
+	 */
+	public static function status_filter() {
+		return WPCPM_Request::text( 'wpcpm_student_status' );
 	}
 }

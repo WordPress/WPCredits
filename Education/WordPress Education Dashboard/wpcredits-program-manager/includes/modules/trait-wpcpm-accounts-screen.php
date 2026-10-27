@@ -112,8 +112,8 @@ trait WPCPM_Accounts_Screen {
 	 * audience's table reads it too.
 	 *
 	 * The reading every list shares. A module whose list reads more or less writes its own, which
-	 * replaces this one: the Students module, whose list is narrowed by its institution too, and the
-	 * Administrators module, whose list has one view and so no view to keep.
+	 * replaces this one: the Students module, whose list is narrowed by its institution and its status
+	 * too, and the Administrators module, whose list has one view and so no view to keep.
 	 *
 	 * @return array<string, string>
 	 */

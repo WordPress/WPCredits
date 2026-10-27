@@ -2656,6 +2656,27 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
+	 * A student's status, as the Students screen's filter and the invitations card compare it: the
+	 * program row's `program` value, trimmed, every run of spaces, tabs and line breaks inside it
+	 * collapsed to one space, the way `sanitize_text_field()` reads the status a filter asks for.
+	 *
+	 * The one reading the list's roster and `WPCPM_Mail::only_status()` both take a status by, so the
+	 * picker's option, the summary's chip, the list and the card agree on who holds a status, and a
+	 * status with a double space in it can be chosen: the value in the address has been collapsed on
+	 * its way in, and a value compared as stored would never equal it.
+	 *
+	 * @param array $program A student's program row (`get_program()`).
+	 * @return string The status, or '' where the row holds none.
+	 */
+	public static function status_of( array $program ) {
+		if ( ! isset( $program['program'] ) || ! is_scalar( $program['program'] ) ) {
+			return '';
+		}
+
+		return trim( (string) preg_replace( '/[\r\n\t ]+/', ' ', (string) $program['program'] ) );
+	}
+
+	/**
 	 * Fields the mentor's copy of a student can supply when this student's own row lacks them.
 	 *
 	 * **Two syncs write two caches of the same student, and they are not run together.** The

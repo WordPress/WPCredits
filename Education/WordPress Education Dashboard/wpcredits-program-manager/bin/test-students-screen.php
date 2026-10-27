@@ -103,8 +103,11 @@ function selected( $selected, $current = true, $display = true ) {
  */
 class WPCPM_Settings {
 	public static $connected = true;
+	/** The settings a check sets, by key: `student_statuses` and `past_statuses`, which order the status picker and the summary. */
+	public static $values = array();
 	public static function is_connected() { return self::$connected; }
 	public static function get() { return array(); }
+	public static function get_value( $key, $fallback = null ) { return array_key_exists( $key, self::$values ) ? self::$values[ $key ] : $fallback; }
 }
 
 /** The mentors module's clock for a run's elapsed time, which the sync card prints. */
@@ -133,6 +136,8 @@ class WPCPM_Student_Feedback {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The words a status is read by (`status_words()`), which the Status column, the picker and the summary print.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
@@ -526,6 +531,40 @@ function picker( $html ) {
 }
 
 /**
+ * The status picker's options: value, whether it is selected, and what it says.
+ *
+ * @param string $html Markup.
+ * @return array[]
+ */
+function status_picker( $html ) {
+	preg_match_all( '/<option value="([^"]*)"( selected="selected")?>([^<]*)<\/option>/', between( $html, '<select name="wpcpm_student_status"', '</select>' ), $found, PREG_SET_ORDER );
+
+	return array_map(
+		function ( $one ) {
+			return array( $one[1], '' !== $one[2], $one[3] );
+		},
+		$found
+	);
+}
+
+/**
+ * The status summary's chips: what each says, its count, and the markup of its link.
+ *
+ * @param string $html Markup.
+ * @return array[] Each as the words, the count and the link's opening tag.
+ */
+function status_chips( $html ) {
+	preg_match_all( '/<li>(<a href="[^"]*"[^>]*>)<span class="count">([^<]*)<\/span> <span class="wpcpm-waiting__label">([^<]*)<\/span><\/a><\/li>/', between( $html, '<div class="wpcpm-students-summary">', '</div>' ), $found, PREG_SET_ORDER );
+
+	return array_map(
+		function ( $one ) {
+			return array( $one[3], $one[2], $one[1] );
+		},
+		$found
+	);
+}
+
+/**
  * The queries a drawn list made, by what each was for.
  *
  * @param string $kind `page` (the rows drawn), `every` (the read of every account), `count` (a view's
@@ -853,7 +892,7 @@ ck( 'and one page of it lists every one of the school\'s 501 students, and not t
 	array( count( $every ), in_array( 601, $every, true ), in_array( 700, $every, true ) ),
 	array( 501, true, false ) );
 
-echo "\n=== The table: a checkbox, then Student, Username, Program, Institution and Mentor ===\n";
+echo "\n=== The table: a checkbox, then Student, Username, Status, Institution and Mentor ===\n";
 
 three_students();
 $html = html_of( draw( screen() ) );
@@ -861,9 +900,9 @@ $html = html_of( draw( screen() ) );
 preg_match_all( "/<t[hd] [^>]*id='([a-z_]+)'/", between( $html, '<thead>', '</thead>' ), $header_ids );
 
 ck( 'the headers are the checkbox, then the five columns in order', $header_ids[1], array( 'cb', 'name', 'login', 'program', 'institution', 'mentor' ) );
-ck( 'each says what it holds',
-	array( has( $html, '<span>Student</span>' ), has( $html, '<span>Username</span>' ), has( $html, '>Program</th>' ), has( $html, '<span>Institution</span>' ), has( $html, '>Mentor</th>' ) ),
-	array( true, true, true, true, true ) );
+ck( 'each says what it holds, and the third says Status, the screen\'s one word for the program row\'s value, where the Institution Dashboard says Program',
+	array( has( $html, '<span>Student</span>' ), has( $html, '<span>Username</span>' ), has( $html, '>Status</th>' ), has( $html, '>Program</th>' ), has( $html, '<span>Institution</span>' ), has( $html, '>Mentor</th>' ) ),
+	array( true, true, true, false, true, true ) );
 ck( 'a row per student, by name: Ada, Bruno, Cleo', row_ids( $html ), array( 11, 12, 13 ) );
 
 $ada  = row_for( $html, 11 );
@@ -1069,13 +1108,62 @@ ck( 'the picker offers every school with its count, read from every Student acco
 
 $tablenav = between( $south, '<div class="tablenav top">', '<br class="clear" />' );
 
-ck( 'the picker sits in the table\'s own navigation, inside the list\'s form, beside a Filter button that is no bulk action',
-	array( has( $tablenav, '<select name="wpcpm_institution" id="wpcpm-institution">' ), has( $tablenav, 'name="filter_action"' ), has( between( $south, '<form method="get"', '</form>' ), '<select name="wpcpm_institution"' ) ),
-	array( true, true, true ) );
+ck( 'the status picker offers every status with its count within the school chosen, read from every Student account: Academia Sur holds one student on each',
+	status_picker( $south ),
+	array(
+		array( '', false, 'All statuses' ),
+		array( 'Contributor Track', false, 'Contributor Track (1)' ),
+		array( 'Developer Track', false, 'Developer Track (1)' ),
+	) );
+$all_statuses = html_of( draw( screen() ) );
 
-ck( 'the picker is drawn once, above the table, so the form sends one school and no id twice',
-	array( substr_count( $south, 'name="wpcpm_institution"' ), substr_count( $south, 'id="wpcpm-institution"' ) ),
-	array( 1, 1 ) );
+ck( 'and with no school chosen it counts every Student account: one on Contributor Track, five on Developer Track',
+	status_picker( $all_statuses ),
+	array(
+		array( '', false, 'All statuses' ),
+		array( 'Contributor Track', false, 'Contributor Track (1)' ),
+		array( 'Developer Track', false, 'Developer Track (5)' ),
+	) );
+
+ck( 'the status summary section is drawn with chips linking to each status',
+	array(
+		has( $south, '<div class="wpcpm-students-summary">' ),
+		has( $south, 'Students by status:' ),
+		has( $south, 'Contributor Track' ),
+		has( $south, 'Developer Track' ),
+	),
+	array( true, true, true, true ) );
+
+$dev_track = html_of( draw( screen( array( 'wpcpm_student_status' => 'Developer Track' ) ) ) );
+
+ck( 'filtering by status narrows the list to students with that status',
+	row_ids( $dev_track ),
+	array( 11, 13, 14, 15, 16 ) );
+
+$sur_dev = html_of( draw( screen( array( 'wpcpm_institution' => 'Academia Sur', 'wpcpm_student_status' => 'Developer Track' ) ) ) );
+
+ck( 'combining institution and status narrows the list to the intersection',
+	row_ids( $sur_dev ),
+	array( 15 ) );
+
+ck( 'the pickers sit in the table\'s own navigation, inside the list\'s form, beside a Filter button that is no bulk action',
+	array(
+		has( $tablenav, '<select name="wpcpm_institution" id="wpcpm-institution">' ),
+		has( $tablenav, '<select name="wpcpm_student_status" id="wpcpm-student-status">' ),
+		has( $tablenav, 'name="filter_action"' ),
+		has( between( $south, '<form method="get"', '</form>' ), '<select name="wpcpm_institution"' ),
+		has( between( $south, '<form method="get"', '</form>' ), '<select name="wpcpm_student_status"' ),
+	),
+	array( true, true, true, true, true ) );
+
+ck( 'each picker is drawn once, above the table, so the form sends one school, one status and no id twice',
+	array(
+		substr_count( $south, 'name="wpcpm_institution"' ),
+		substr_count( $south, 'id="wpcpm-institution"' ),
+		substr_count( $south, 'name="wpcpm_student_status"' ),
+		substr_count( $south, 'id="wpcpm-student-status"' ),
+	),
+	array( 1, 1, 1, 1 ) );
 
 preg_match( '/<a href="([^"]*)">Show all students<\/a>/', $tablenav, $back );
 
@@ -1129,6 +1217,422 @@ $amp = html_of( draw( screen( array( 'wpcpm_institution' => 'Instituto Este & Oe
 ck( 'a school with an ampersand is found, and its whole name survives in the view links, encoded',
 	array( row_ids( $amp ), arg( link_of( view_link( $amp, 'invited' ) )[1], 'wpcpm_institution' ) ),
 	array( array( 13 ), 'Instituto Este & Oeste' ) );
+
+echo "\n=== Status: the column, the picker and the summary say one thing, in the program's order ===\n";
+
+/**
+ * Nine students on eight statuses and none: two on In Sensei, one each on the program's other current
+ * statuses (Developer Track, Paused) and past ones (Graduate, Dropped out), two on values that
+ * neither of the Settings lists names (Zeta Cohort, Alpha Cohort), and one with no status at all.
+ */
+function statused_students() {
+	reset_site();
+
+	$student = array( WPCPM_Roles::ROLE_STUDENT );
+
+	person( 31, 'Ana Zed', 'azed', $student, 'Escuela Norte', 'Zeta Cohort' );
+	person( 32, 'Bea Yu', 'byu', $student, 'Academia Sur', 'Graduate' );
+	person( 33, 'Cai Xu', 'cxu', $student, 'Escuela Norte', 'Paused' );
+	person( 34, 'Dev Wu', 'dwu', $student, 'Academia Sur', 'In Sensei' );
+	person( 35, 'Eni Vo', 'evo', $student, 'Escuela Norte', 'Alpha Cohort' );
+	person( 36, 'Fio Ut', 'fut', $student, 'Academia Sur', 'Developer Track' );
+	person( 37, 'Gil Su', 'gsu', $student, 'Escuela Norte', 'Dropped out' );
+	person( 38, 'Hoa Ro', 'hro', $student, 'Academia Sur', '' );
+	person( 39, 'Ivo Qi', 'iqi', $student, 'Escuela Norte', 'In Sensei' );
+}
+
+// The program's order is the Settings': the current statuses as listed there (not A to Z: Paused after
+// Developer Track), then the past ones as listed (Graduate before Dropped out), Paused named in both
+// lists once. And two values are given words that differ from the stored ones, as a compiled track's
+// name does for In Sensei and as a status with a plain word does for Graduate.
+WPCPM_Settings::$values = array(
+	'student_statuses' => array( 'In Sensei', 'Developer Track', 'Paused', 'Never Held' ),
+	'past_statuses'    => array( 'Graduate', 'Dropped out', 'Paused' ),
+);
+add_filter(
+	'wpcpm_program_labels',
+	function ( $labels ) {
+		return array_merge(
+			$labels,
+			array(
+				'In Sensei'   => 'WordPress Credits Program 150h',
+				'Zeta Cohort' => 'Aardvark Cohort',
+			)
+		);
+	}
+);
+
+statused_students();
+
+$statused = html_of( draw( screen() ) );
+$wanted   = array(
+	array( 'In Sensei', 'WordPress Credits Program 150h', 2 ),
+	array( 'Developer Track', 'Developer Track', 1 ),
+	array( 'Paused', 'Paused', 1 ),
+	array( 'Graduate', 'Graduated', 1 ),
+	array( 'Dropped out', 'Dropped out', 1 ),
+	array( 'Zeta Cohort', 'Aardvark Cohort', 1 ),
+	array( 'Alpha Cohort', 'Alpha Cohort', 1 ),
+);
+
+ck( 'the picker lists the Settings\' current statuses, then its past ones, then any other value A to Z by the words shown, each in the words the Status column prints and once',
+	status_picker( $statused ),
+	array_merge(
+		array( array( '', false, 'All statuses' ) ),
+		array_map(
+			function ( $one ) {
+				return array( $one[0], false, $one[1] . ' (' . $one[2] . ')' );
+			},
+			$wanted
+		)
+	) );
+ck( 'the summary\'s chips come in that order, each with its count and the same words',
+	array_map(
+		function ( $chip ) {
+			return array( $chip[0], $chip[1] );
+		},
+		status_chips( $statused )
+	),
+	array_map(
+		function ( $one ) {
+			return array( $one[1], (string) $one[2] );
+		},
+		$wanted
+	) );
+ck( 'a student with no status is counted under none: eight of the nine are counted, and nothing is offered for the ninth',
+	array(
+		array_sum( array_map( function ( $one ) { return (int) preg_replace( '/^.*\((\d+)\)$/', '$1', $one[2] ); }, array_slice( status_picker( $statused ), 1 ) ) ),
+		count( array_filter( status_picker( $statused ), function ( $one ) { return '' === $one[0]; } ) ),
+		count( status_chips( $statused ) ),
+	),
+	array( 8, 1, 7 ) );
+
+$status_cell = function ( $id ) use ( $statused ) {
+	return cell( row_for( $statused, $id ), 'program' );
+};
+
+ck( 'a row prints its status in the words the picker\'s option for it carries: a track\'s name, a plain word, the value itself, or a hyphen for none',
+	array( $status_cell( 34 ), $status_cell( 32 ), $status_cell( 31 ), $status_cell( 36 ), $status_cell( 38 ) ),
+	array( 'WordPress Credits Program 150h', 'Graduated', 'Aardvark Cohort', 'Developer Track', '-' ) );
+ck( 'and the column is still keyed program, which the screen options store, and prints Status',
+	array( has( between( $statused, '<thead>', '</thead>' ), "id='program'" ), has( between( $statused, '<thead>', '</thead>' ), '>Status</th>' ) ),
+	array( true, true ) );
+ck( 'the chips are links to the status asked for, by its stored value, encoded whole',
+	array_map(
+		function ( $chip ) {
+			preg_match( '/href="([^"]*)"/', $chip[2], $href );
+
+			return arg( link_of( preg_replace( '/#.*$/', '', html_entity_decode( $href[1], ENT_QUOTES, 'UTF-8' ) ) )[1], 'wpcpm_student_status' );
+		},
+		array_slice( status_chips( $statused ), 0, 2 )
+	),
+	array( 'In Sensei', 'Developer Track' ) );
+
+$in_force = html_of( draw( screen( array( 'wpcpm_student_status' => 'Paused' ) ) ) );
+$chips    = status_chips( $in_force );
+
+ck( 'the list narrows to the status, by its stored value', row_ids( $in_force ), array( 33 ) );
+ck( 'the chip in force says so to a screen reader: class current and aria-current true, with no style attribute of its own',
+	array_map(
+		function ( $chip ) {
+			return array( $chip[0], has( $chip[2], ' class="current"' ), has( $chip[2], ' aria-current="true"' ), has( $chip[2], 'style=' ) );
+		},
+		array_slice( $chips, 1, 3 )
+	),
+	array(
+		array( 'Developer Track', false, false, false ),
+		array( 'Paused', true, true, false ),
+		array( 'Graduated', false, false, false ),
+	) );
+ck( 'exactly one chip is in force, and none is when no status is chosen',
+	array(
+		count( array_filter( $chips, function ( $chip ) { return has( $chip[2], 'aria-current' ); } ) ),
+		count( array_filter( status_chips( $statused ), function ( $chip ) { return has( $chip[2], 'aria-current' ) || has( $chip[2], 'class=' ) || has( $chip[2], 'style=' ); } ) ),
+	),
+	array( 1, 0 ) );
+ck( 'and the picker holds the status in force chosen',
+	array_values( array_filter( status_picker( $in_force ), function ( $one ) { return $one[1]; } ) ),
+	array( array( 'Paused', true, 'Paused (1)' ) ) );
+
+$stylesheet = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' );
+$rule_of    = function ( $selector ) use ( $stylesheet ) {
+	return preg_match( '/(?:^|\})\s*' . preg_quote( $selector, '/' ) . '\s*\{([^}]*)\}/', (string) preg_replace( '#/\*.*?\*/#s', '', $stylesheet ), $found ) ? trim( preg_replace( '/\s+/', ' ', $found[1] ) ) : null;
+};
+
+ck( 'admin.css dresses the chip in force: weight 600 and the hover\'s border color, as the inline style it replaces had them',
+	array( $rule_of( '.wpcpm-waiting a.current' ), preg_match( '/border-color:\s*([^;]+);/', (string) $rule_of( '.wpcpm-waiting a:hover' ), $hover ) ? $hover[1] : null ),
+	array( 'border-color: #2271b1; font-weight: 600;', '#2271b1' ) );
+ck( 'the table prints no inline style of its own', has( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-table.php' ), 'style=' ), false );
+
+// The Institution Dashboard's roster and its export keep Program for this value, which schools read:
+// bin/test-institution-roster-view.php and bin/test-institution-export.php pin their column's name.
+ck( 'the Institution Dashboard\'s roster view and its export still say Program for the status column',
+	array(
+		1 === preg_match( "/'students\\|Status'\\s*=>\\s*__\\(\\s*'Program'/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ) ),
+		1 === preg_match( "/'students\\|Status'\\s*=>\\s*__\\(\\s*'Program'/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-export.php' ) ),
+	),
+	array( true, true ) );
+
+// The argument is the Students screen's own name, not `wpcpm_status`, which the mail layer's Stop and
+// Dismiss strip from the address they come back to as an old outcome argument, and which the Track
+// Builder's form posts for a track's status: a chip or a Filter would lose the status on that return.
+request( array( 'wpcpm_student_status' => 'Paused', 'wpcpm_status' => 'Graduate' ) );
+ck( 'the query argument is wpcpm_student_status, and the module reads it by that name, not by wpcpm_status',
+	array( WPCPM_Students_Table::STATUS_ARG, WPCPM_Students::status_filter() ),
+	array( 'wpcpm_student_status', 'Paused' ) );
+
+/**
+ * What the picker and the summary say for some statuses: the rows as raw value, words and count, the
+ * one in force selected in the picker and marked in the summary.
+ *
+ * @param array[] $rows    Raw status, words, count.
+ * @param string  $current The raw status in force, or ''.
+ * @return array The picker's options and the summary's chips, as status_picker() and status_chips() read them.
+ */
+function status_expected( array $rows, $current = '' ) {
+	$options = array( array( '', false, 'All statuses' ) );
+	$chips   = array();
+
+	foreach ( $rows as $one ) {
+		$options[] = array( $one[0], $current === $one[0], $one[1] . ' (' . $one[2] . ')' );
+		$chips[]   = array( $one[1], (string) $one[2], $current === $one[0] );
+	}
+
+	return array( $options, $chips );
+}
+
+/**
+ * The summary's chips as a check reads them: the words, the count and whether the chip is the one in force.
+ *
+ * @param string $html Markup.
+ * @return array[]
+ */
+function status_chips_in_force( $html ) {
+	return array_map(
+		function ( $chip ) {
+			return array( $chip[0], $chip[1], has( $chip[2], ' aria-current="true"' ) );
+		},
+		status_chips( $html )
+	);
+}
+
+// **Each picker counts within the other filter in force**, so a count is what choosing the option next
+// to it would list: the status picker and the summary within the institution chosen, the institution
+// picker within the status chosen. The option in force is offered even at 0, so it stays selectable
+// and selected, and the list says nobody is there.
+statused_students();
+
+$at_sur   = html_of( draw( screen( array( 'wpcpm_institution' => 'Academia Sur' ) ) ) );
+$at_norte = html_of( draw( screen( array( 'wpcpm_institution' => 'Escuela Norte' ) ) ) );
+
+ck( 'at Academia Sur, the status picker and the summary count the school\'s four students alone: three statuses, and the student with none counted under none',
+	array( status_picker( $at_sur ), status_chips_in_force( $at_sur ) ),
+	status_expected(
+		array(
+			array( 'In Sensei', 'WordPress Credits Program 150h', 1 ),
+			array( 'Developer Track', 'Developer Track', 1 ),
+			array( 'Graduate', 'Graduated', 1 ),
+		)
+	) );
+ck( 'at Escuela Norte, the same in the program\'s order: the current statuses, the past one, then the others A to Z by the words shown',
+	array( status_picker( $at_norte ), status_chips_in_force( $at_norte ) ),
+	status_expected(
+		array(
+			array( 'In Sensei', 'WordPress Credits Program 150h', 1 ),
+			array( 'Paused', 'Paused', 1 ),
+			array( 'Dropped out', 'Dropped out', 1 ),
+			array( 'Zeta Cohort', 'Aardvark Cohort', 1 ),
+			array( 'Alpha Cohort', 'Alpha Cohort', 1 ),
+		)
+	) );
+
+$paused   = html_of( draw( screen( array( 'wpcpm_student_status' => 'Paused' ) ) ) );
+$in_sense = html_of( draw( screen( array( 'wpcpm_student_status' => 'In Sensei' ) ) ) );
+
+ck( 'with a status chosen, the institution picker counts within it: Paused is at one school, In Sensei at two, and the school nobody with that status is at is not offered',
+	array( picker( $paused ), picker( $in_sense ) ),
+	array(
+		array( array( '', false, 'All institutions' ), array( 'Escuela Norte', false, 'Escuela Norte (1)' ) ),
+		array( array( '', false, 'All institutions' ), array( 'Academia Sur', false, 'Academia Sur (1)' ), array( 'Escuela Norte', false, 'Escuela Norte (1)' ) ),
+	) );
+
+$none_there = html_of( draw( screen( array( 'wpcpm_institution' => 'Academia Sur', 'wpcpm_student_status' => 'Paused' ) ) ) );
+
+ck( 'a status nobody at the school holds is offered at 0 and stays selected, in its place in the order, in the picker and the summary, and the list is empty',
+	array( status_picker( $none_there ), status_chips_in_force( $none_there ), row_ids( $none_there ) ),
+	array_merge(
+		status_expected(
+			array(
+				array( 'In Sensei', 'WordPress Credits Program 150h', 1 ),
+				array( 'Developer Track', 'Developer Track', 1 ),
+				array( 'Paused', 'Paused', 0 ),
+				array( 'Graduate', 'Graduated', 1 ),
+			),
+			'Paused'
+		),
+		array( 2 => array() )
+	) );
+ck( 'and the school nobody with the status is at is offered at 0 and selected, beside the school that has one',
+	picker( $none_there ),
+	array( array( '', false, 'All institutions' ), array( 'Academia Sur', true, 'Academia Sur (0)' ), array( 'Escuela Norte', false, 'Escuela Norte (1)' ) ) );
+ck( 'the views count within both filters, so an empty list shows empty views',
+	view_counts( $none_there ),
+	array( 'all' => '0', 'invited' => '0', 'never-invited' => '0' ) );
+
+// A chip keeps the view in force, as Filter does by its hidden field, and the school chosen, and keeps
+// no page: the list starts again from its first.
+$view_chips = status_chips( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited', 'wpcpm_institution' => 'Escuela Norte', 'paged' => '2' ) ) ) ) );
+$plain_chips = status_chips( $at_norte );
+$chip_query  = function ( $chip ) {
+	preg_match( '/href="([^"]*)"/', $chip[2], $href );
+
+	return link_of( preg_replace( '/#.*$/', '', html_entity_decode( $href[1], ENT_QUOTES, 'UTF-8' ) ) )[1];
+};
+
+ck( 'a chip keeps the view in force and the school chosen, and none of the page; on the All view it names no view',
+	array(
+		arg( $chip_query( $view_chips[0] ), 'wpcpm_view' ),
+		arg( $chip_query( $view_chips[0] ), 'wpcpm_institution' ),
+		arg( $chip_query( $view_chips[0] ), 'paged' ),
+		arg( $chip_query( $view_chips[0] ), 'wpcpm_student_status' ),
+		arg( $chip_query( $plain_chips[0] ), 'wpcpm_view' ),
+	),
+	array( 'never-invited', 'Escuela Norte', 'absent', 'In Sensei', 'absent' ) );
+
+// A status can hold an ampersand, a plus and a quote, as an institution's name can hold an ampersand:
+// the chip's link carries it whole, the picker's option and the label are escaped, and the list narrows to it.
+reset_site();
+person( 51, 'Quin Amp', 'qamp', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte', 'Q&A "Club" + Lab' );
+person( 52, 'Rae Plain', 'rplain', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte', 'Developer Track' );
+$odd_status = 'Q&A "Club" + Lab';
+$odd        = html_of( draw( screen( array( 'wpcpm_student_status' => $odd_status ) ) ) );
+$odd_all    = html_of( draw( screen() ) );
+$odd_chip   = status_chips( $odd_all );
+
+ck( 'a status with an ampersand, a plus and a quotation mark narrows the list to its student, and its option is selected, escaped, by the whole value',
+	array( row_ids( $odd ), array_values( array_filter( status_picker( $odd ), function ( $one ) { return $one[1]; } ) ) ),
+	array( array( 51 ), array( array( 'Q&amp;A &quot;Club&quot; + Lab', true, 'Q&amp;A &quot;Club&quot; + Lab (1)' ) ) ) );
+ck( 'its chip says it escaped and links to it with the value encoded whole, so the plus is not a space and the ampersand does not end the value',
+	array( $odd_chip[1][0], arg( $chip_query( $odd_chip[1] ), 'wpcpm_student_status' ), has( $odd_chip[1][2], 'Q%26A%20%22Club%22%20%2B%20Lab' ) ),
+	array( 'Q&amp;A &quot;Club&quot; + Lab', $odd_status, true ) );
+
+// The roster collapses a run of whitespace as sanitize_text_field() does the filter it is compared with,
+// so a status with a double space in it can be filtered; the institution is read as it was.
+person( 53, 'Sol Space', 'sspace', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte', "Paused  Again\t" );
+$spaced = html_of( draw( screen( array( 'wpcpm_student_status' => 'Paused Again' ) ) ) );
+
+ck( 'a status with a double space in it, as the picker offers it with the run collapsed, finds its student, and its row says the same words',
+	array( row_ids( $spaced ), has( implode( '|', array_column( status_picker( $spaced ), 0 ) ), '|Paused Again' ), cell( row_for( $spaced, 53 ), 'program' ) ),
+	array( array( 53 ), true, 'Paused Again' ) );
+
+// **The Invitations card follows the status as it follows the institution.** Offering "invite 241
+// students" under a list narrowed to a status is the same accident the institution guard exists for.
+// Two never invited on In Sensei, one at Academia Sur, one invited long ago, and one held for an
+// Administrator to confirm (who is not counted, and is said to be left out).
+statused_students();
+person( 40, 'Jin Pa', 'jpa', array( WPCPM_Roles::ROLE_STUDENT ), 'Academia Sur', 'In Sensei', 'Mentor Uno', 1700000000 );
+person( 41, 'Kai Held', 'kheld', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ), 'Academia Sur', 'In Sensei' );
+$GLOBALS['umeta'][41][ WPCPM_Mentor_Provision::USER_INVITE_HELD ] = 'login';
+$words = 'WordPress Credits Program 150h';
+
+manager( 940 );
+$by_status_page = html_of( page_for( screen( array( 'wpcpm_student_status' => 'In Sensei' ) ) ) );
+$by_status_card = forms_by_action( $by_status_page );
+$by_status_btn  = isset( $by_status_card[ WPCPM_Students::ACTION_BULK ] ) ? $by_status_card[ WPCPM_Students::ACTION_BULK ] : '';
+manager( 941 );
+$both_page = html_of( page_for( screen( array( 'wpcpm_institution' => 'Academia Sur', 'wpcpm_student_status' => 'In Sensei' ) ) ) );
+$both_card = forms_by_action( $both_page );
+$both_btn  = isset( $both_card[ WPCPM_Students::ACTION_BULK ] ) ? $both_card[ WPCPM_Students::ACTION_BULK ] : '';
+
+ck( 'on a list narrowed to a status, the card offers the never invited with that status alone, in the words the list shows, and posts the stored status',
+	array(
+		has( $by_status_btn, '>Invite 2 students with the status ' . $words . ' who have never been invited</button>' ),
+		has( $by_status_page, 'data-wpcpm-confirm="Send an invitation to 2 of the students with the status ' . $words . '? They cannot be recalled once sent."' ),
+		has( $by_status_page, '1 of the students with the status ' . $words . ' is left out: their invitation is held' ),
+		arg( hidden_fields_of( $by_status_btn ), 'wpcpm_student_status' ),
+		arg( hidden_fields_of( $by_status_btn ), 'wpcpm_institution' ),
+	),
+	array( true, true, true, 'In Sensei', '' ) );
+ck( 'with a school too, it offers the never invited with that status at that school, in the singular, and posts both',
+	array(
+		has( $both_btn, '>Invite 1 student at Academia Sur with the status ' . $words . ' who has never been invited</button>' ),
+		has( $both_page, 'data-wpcpm-confirm="Send an invitation to 1 of the students at Academia Sur with the status ' . $words . '? It cannot be recalled once sent."' ),
+		has( $both_page, '1 of the students at Academia Sur with the status ' . $words . ' is left out: their invitation is held' ),
+		arg( hidden_fields_of( $both_btn ), 'wpcpm_student_status' ),
+		arg( hidden_fields_of( $both_btn ), 'wpcpm_institution' ),
+	),
+	array( true, true, true, 'In Sensei', 'Academia Sur' ) );
+
+$never_rows = row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited', 'wpcpm_institution' => 'Academia Sur', 'wpcpm_student_status' => 'In Sensei' ) ) ) ) );
+
+ck( 'the count the card shows, with the one it leaves out, is the Never invited view\'s rows under the same filters',
+	array( $never_rows, 1 + 1 ),
+	array( array( 34, 41 ), count( $never_rows ) ) );
+
+// The press: the card's posted fields, as a browser posts them, queue the never invited with the status
+// (and the school) alone, and come back to the list narrowed to both.
+manager( 942 );
+$pressed = press_form( $by_status_btn, array( new WPCPM_Students(), 'handle_bulk_invite' ) );
+$landed  = link_of( $pressed['redirect'] );
+
+ck( 'pressed on a status, it queues the two never invited on it, not every student never invited, and comes back to the list narrowed to the status',
+	array( WPCPM_Mail::queue(), arg( $landed[1], 'wpcpm_student_status' ), arg( $landed[1], 'wpcpm_institution' ), arg( $landed[1], 'tab' ) ),
+	array( array( 34, 39 ), 'In Sensei', 'absent', 'accounts' ) );
+
+manager( 943 );
+$pressed = press_form( $both_btn, array( new WPCPM_Students(), 'handle_bulk_invite' ) );
+$landed  = link_of( $pressed['redirect'] );
+
+ck( 'pressed on a status at a school, it queues the one, and comes back to the list narrowed to both',
+	array( WPCPM_Mail::queue(), arg( $landed[1], 'wpcpm_student_status' ), arg( $landed[1], 'wpcpm_institution' ) ),
+	array( array( 34 ), 'In Sensei', 'Academia Sur' ) );
+
+manager( 944 );
+$none_left = press_form( str_replace( 'value="In Sensei"', 'value="Developer Track"', str_replace( 'value="Academia Sur"', 'value="Escuela Norte"', $both_btn ) ), array( new WPCPM_Students(), 'handle_bulk_invite' ) );
+
+ck( 'a status nobody at the school was never invited on queues no one, and says so on the list it comes back to',
+	array( WPCPM_Mail::queue(), arg( link_of( $none_left['redirect'] )[1], 'wpcpm_student_status' ), WPCPM_Flash::take( 'students_admin' ) ),
+	array( array(), 'Developer Track', 'invites-none' ) );
+
+// The card's Stop and Dismiss are the mail layer's own forms, which come back to the address they were
+// pressed on: the status stays in it (the mail layer strips only the old `wpcpm_status`).
+manager( 945 );
+update_option( WPCPM_Mail::QUEUE_OPTION, array( 34, 39 ) );
+update_option(
+	WPCPM_Mail::RUN_OPTION,
+	array(
+		'total'    => 2,
+		'started'  => time(),
+		'finished' => 0,
+	)
+);
+$narrowed_query = array( WPCPM_Students_Table::INSTITUTION_ARG => 'Academia Sur', WPCPM_Students_Table::STATUS_ARG => 'In Sensei' );
+$sending_forms  = forms_by_action( html_of( page_for( screen( $narrowed_query ) ) ) );
+$GLOBALS['uid'] = 946;
+$stopped_back   = link_of( press_form( isset( $sending_forms[ WPCPM_Mail::ACTION_STOP ] ) ? $sending_forms[ WPCPM_Mail::ACTION_STOP ] : '', array( 'WPCPM_Mail', 'handle_stop' ) )['redirect'] );
+
+manager( 947 );
+update_option(
+	WPCPM_Mail::RUN_OPTION,
+	array(
+		'total'    => 2,
+		'started'  => time(),
+		'finished' => time(),
+	)
+);
+$finished_forms = forms_by_action( html_of( page_for( screen( $narrowed_query ) ) ) );
+$dismissed_back = link_of( press_form( isset( $finished_forms[ WPCPM_Mail::ACTION_DISMISS ] ) ? $finished_forms[ WPCPM_Mail::ACTION_DISMISS ] : '', array( 'WPCPM_Mail', 'handle_dismiss' ) )['redirect'] );
+
+ck( 'Stop and Dismiss come back to the list as it was drawn, the status and the school still in the address',
+	array(
+		array( arg( $stopped_back[1], 'wpcpm_student_status' ), arg( $stopped_back[1], 'wpcpm_institution' ) ),
+		array( arg( $dismissed_back[1], 'wpcpm_student_status' ), arg( $dismissed_back[1], 'wpcpm_institution' ) ),
+	),
+	array( array( 'In Sensei', 'Academia Sur' ), array( 'In Sensei', 'Academia Sur' ) ) );
+
+// Back to how the suite left the site: no Settings lists, no program names.
+WPCPM_Settings::$values            = array();
+$GLOBALS['hooks']['wpcpm_program_labels'] = array();
 
 echo "\n=== The search: the name, the username, the email and the institution ===\n";
 
@@ -1244,7 +1748,7 @@ $sort_of = function ( $column ) use ( $plain ) {
 	return preg_match( "/<th scope=\"col\" id='" . $column . "'[^>]*><a href=\"([^\"]*)\"/", $plain, $found ) ? arg( link_of( $found[1] )[1], 'orderby' ) : 'not sortable';
 };
 
-ck( 'Student sorts by name, Username by username and Institution by school; Program and Mentor do not sort',
+ck( 'Student sorts by name, Username by username and Institution by school; Status and Mentor do not sort',
 	array_map( $sort_of, array( 'name', 'login', 'institution', 'program', 'mentor' ) ),
 	array( 'display_name', 'login', 'institution', 'not sortable', 'not sortable' ) );
 ck( 'Username sorts Z to A as asked', row_ids( html_of( draw( screen( array( 'orderby' => 'login', 'order' => 'desc' ) ) ) ) ), array( 16, 15, 14, 13, 12, 11 ) );

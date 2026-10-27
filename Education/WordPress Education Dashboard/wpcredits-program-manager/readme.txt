@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.42
+Stable tag: 1.123.43
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.43 =
+
+* The Email Log links a recipient's name to their row on the Accounts tab of the screen for the role their account holds now (Students, Mentors, Institutions, Sponsors or Administrators), found by the account's email address, where Send invite and Resend invite are; an account with no program role links to its user editor, and a row with no account stays plain text. Contributed on the public repository.
+* The Students screen's Accounts tab filters by status, beside the institution picker, and shows above the list how many students hold each status, each count a link to the list narrowed to it. Contributed on the public repository.
+* The column that shows a student's status is called Status, and the column, the status picker and the summary show the same words for it, in the program's order of statuses (Currently mentoring, then Past students); each picker and the summary count within the other filter chosen.
+* The Invitations card on the Students screen counts and invites within the status chosen as well as the institution, so a narrowed list never offers to invite more students than it shows.
 
 = 1.123.42 =
 

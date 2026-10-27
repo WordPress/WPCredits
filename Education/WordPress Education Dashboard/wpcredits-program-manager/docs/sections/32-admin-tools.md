@@ -244,8 +244,13 @@ reset, for example) and the Two Factor plugin's sign-in codes. Use it to answer 
 email?".
 
 Each row is one recipient of one email: when it was sent, in the site's time zone; the address as
-plain text, and under it the person's name when the address belonged to an account at the time,
-which is a link to the account for as long as the account exists; the recipient type (Student,
+plain text, and under it the person's name when the address belonged to an account at the time. The
+name links, for as long as the account exists, to the person's row on the **Accounts** tab of the
+screen for the role the account holds now (**Students**, **Mentors**, **Institutions**,
+**Sponsors** or **Administrators**), where the person's actions are (**Send invite** and **Resend
+invite** on every screen but **Administrators**, whose accounts are never invited), found by the
+account's email address as it is now; an account with no program role links to its user editor, and
+a row with no account is plain text. Then the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
 area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
 events, Mentor applications, WordPress, Two Factor or Other); which email it was; its subject; and

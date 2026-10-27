@@ -112,11 +112,25 @@ function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $dis
 function remove_accents( $text, $locale = '' ) { return (string) $text; }
 
 class WP_User {
-	public $ID, $display_name;
-	public function __construct( $id, $name ) { $this->ID = $id; $this->display_name = $name; }
+	public $ID, $display_name, $user_login, $user_email, $roles, $caps;
+	public function __construct( $id, $name, $login = '', $roles = array(), $caps = array(), $email = '' ) {
+		$this->ID           = $id;
+		$this->display_name = $name;
+		$this->user_login   = $login ?: strtolower( explode( ' ', $name )[0] );
+		$this->user_email   = $email ?: $this->user_login . '@example.test';
+		$this->roles        = $roles;
+		$this->caps         = $caps;
+	}
 }
+// Core's, as far as `WPCPM_Mail_Capture::type_of()` asks it: whether the account was given the capability.
+function user_can( $user, $cap, ...$args ) { return in_array( $cap, (array) $user->caps, true ); }
 class WPCPM_Roles {
-	const CAP_MANAGE = 'wpcpm_manage_program';
+	const CAP_MANAGE       = 'wpcpm_manage_program';
+	const ROLE_STUDENT     = 'wpcpm_student';
+	const ROLE_MENTOR      = 'wpcpm_mentor';
+	const ROLE_INSTITUTION = 'wpcpm_institution';
+	const ROLE_SPONSOR     = 'wpcpm_sponsor';
+	const ROLE_ADMIN       = 'administrator';
 }
 
 require __DIR__ . '/stubs/class-wp-list-table.php';
@@ -129,6 +143,7 @@ require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
+require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-log.php';
 require WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
@@ -160,6 +175,14 @@ function screen( array $query ) {
 	( new WPCPM_Emails() )->render_admin_page();
 
 	return (string) ob_get_clean();
+}
+
+/**
+ * The link the Log gives a person: their row on one screen's Accounts tab, found by the account's email,
+ * encoded whole, since an address can hold a plus and add_query_arg() sets a value as it is given.
+ */
+function accounts_link( $screen, $email, $name ) {
+	return '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-' . $screen . '&tab=accounts&s=' . rawurlencode( $email ) . '#wpcpm-accounts-list">' . $name . '</a>';
 }
 
 /** The words some markup says, as a person reads them. */
@@ -218,14 +241,14 @@ ck( 'and a When that was chosen is never overridden by dates', array( WPCPM_Emai
 
 // The screen. The cleanup ran a moment ago, so the screen does not run it over the rows above.
 $GLOBALS['opts'][ WPCPM_Mail_Log::OPT_PURGED ] = time();
-$GLOBALS['users'][7]                           = new WP_User( 7, 'Ada Lin' );
+$GLOBALS['users'][7]                           = new WP_User( 7, 'Ada Lin', '', array( WPCPM_Roles::ROLE_STUDENT ) );
 
 $html  = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'when' => 'range', 'from' => '2026-10-10', 'to' => '2026-10-10' ) );
 $form  = preg_match( '#<form method="get" class="wpcpm-emails__filters">(.*?)</form>#s', $html, $found ) ? $found[1] : '';
 $words = words_of( $html );
 
 ck( 'the Log is the tab shown, between Templates and Signature and footer and its own link', array( 1 === preg_match( '#<a href="https://example.test/wp-admin/admin.php\?page=wpcpm-tool-emails&tab=log" class="nav-tab nav-tab-active" aria-current="page">Log</a>#', $html ), 1 === preg_match( '#>Templates</a><a [^>]*>Signature and footer</a><a [^>]*>Log</a></nav>#', $html ) ), array( true, true ) );
-ck( 'the row shows its time in the site\'s zone, its address, its person linked, its area and its email', array( false !== strpos( $html, '10 Oct 2026, 01:30' ), false !== strpos( $html, 'ada@example.test' ), false !== strpos( $html, '<a href="https://example.test/wp-admin/user-edit.php?user_id=7">Ada Lin</a>' ), false !== strpos( $html, 'Mentor calls' ), false !== strpos( $html, 'Call booked' ) ), array( true, true, true, true, true ) );
+ck( 'the row shows its time in the site\'s zone, its address, its person linked to their accounts screen where Resend invite lives, its area and its email', array( false !== strpos( $html, '10 Oct 2026, 01:30' ), false !== strpos( $html, 'ada@example.test' ), false !== strpos( $html, accounts_link( 'students', 'ada@example.test', 'Ada Lin' ) ), false !== strpos( $html, 'Mentor calls' ), false !== strpos( $html, 'Call booked' ) ), array( true, true, true, true, true ) );
 ck( 'the count is shown', false !== strpos( $html, '1 email matches.' ), true );
 ck( 'the screen says, under the table, what Handed to the mail server means', strpos( $html, 'means the site passed the email on, not that it reached the inbox' ) > strpos( $html, '</table>' ), true );
 ck( 'the filters are a GET form of their own, closed before the table, naming the screen and the Log tab', array( '' !== $form, strpos( $html, '</form>' ) < strpos( $html, '<table' ), false !== strpos( $form, '<input type="hidden" name="page" value="wpcpm-tool-emails" />' ), false !== strpos( $form, '<input type="hidden" name="tab" value="log" />' ) ), array( true, true, true, true ) );
@@ -343,10 +366,76 @@ ck( 'and with no dates and no When the list is any time, Any time chosen', array
 // The accounts a page names are primed in one call, not fetched one by one for each row.
 WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-09 12:00:00', 'to_email' => 'ben@example.test', 'user_id' => 8, 'to_name' => 'Ben Ode', 'recipient_type' => 'mentor', 'module' => 'calls', 'template' => 'call-booked', 'subject' => 'Call booked', 'status' => 'sent' ) );
 WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-08 12:00:00', 'to_email' => 'ada@example.test', 'user_id' => 7, 'to_name' => 'Ada Lin', 'recipient_type' => 'student', 'module' => 'calls', 'template' => 'call-booked', 'subject' => 'Call booked again', 'status' => 'sent' ) );
-$GLOBALS['users'][8] = new WP_User( 8, 'Ben Ode' );
+$GLOBALS['users'][8] = new WP_User( 8, 'Ben Ode', '', array( WPCPM_Roles::ROLE_MENTOR ) );
 $GLOBALS['cached']   = array();
-screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'module' => 'calls' ) );
+$calls_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'module' => 'calls' ) );
 ck( 'the table primes the users its page names in one call: each id once, the rows that name nobody left out', $GLOBALS['cached'], array( array( 7, 8 ) ) );
+ck( 'a mentor\'s row links to their Accounts tab on the Mentors screen', false !== strpos( $calls_html, accounts_link( 'mentors', 'ben@example.test', 'Ben Ode' ) ), true );
+
+// An account with no program audience falls back to user-edit.php, and one with no user account stays plain text.
+$GLOBALS['users'][9] = new WP_User( 9, 'Dan Subscriber', 'dan' );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-09 11:00:00', 'to_email' => 'dan@example.test', 'user_id' => 9, 'to_name' => 'Dan Subscriber', 'recipient_type' => 'other', 'module' => 'wordpress', 'template' => 'other', 'subject' => 'Password reset', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-09 10:00:00', 'to_email' => 'guest@example.test', 'user_id' => null, 'to_name' => 'Guest Person', 'recipient_type' => 'applicant', 'module' => 'other', 'template' => 'other', 'subject' => 'Application received', 'status' => 'sent' ) );
+$misc_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 's' => 'Dan' ) );
+ck( 'an account with no program audience falls back to user-edit.php', false !== strpos( $misc_html, '<a href="https://example.test/wp-admin/user-edit.php?user_id=9">Dan Subscriber</a>' ), true );
+$guest_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 's' => 'Guest' ) );
+ck( 'a recipient with no account attached stays plain text', array( false !== strpos( $guest_html, 'Guest Person' ), false !== strpos( $guest_html, '>Guest Person</a>' ) ), array( true, false ) );
+
+// The link follows the role the account holds now (Review Focus 1), not the type the row was recorded
+// under: a student who is a mentor now, and no student any more, is on the Mentors screen's Accounts tab.
+// The Administrators screen lists the Administrator role alone, so an account that holds only the program's
+// capability is sent to its user editor, where its roles are. The search is the account's current email,
+// which belongs to one account, so the person is on the first page: not the address the row was sent to,
+// which the account may have changed since, and not a username that many accounts contain.
+$GLOBALS['users'][10] = new WP_User( 10, 'Eli Park', 'epark', array( WPCPM_Roles::ROLE_MENTOR ), array(), 'eli.park@new.example.test' );
+$GLOBALS['users'][11] = new WP_User( 11, 'Fay Boss', 'fboss', array(), array( WPCPM_Roles::CAP_MANAGE ) );
+$GLOBALS['users'][12] = new WP_User( 12, 'Gus Trust', 'gtrust', array( WPCPM_Roles::ROLE_ADMIN ) );
+$GLOBALS['users'][13] = new WP_User( 13, 'Hal Both', 'hboth', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ), array(), 'hal+lms@example.test' );
+$GLOBALS['users'][14] = new WP_User( 14, 'Ivy Hands', 'ihands', array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_ADMIN ), array( WPCPM_Roles::CAP_MANAGE ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-07 12:00:00', 'to_email' => 'eli@example.test', 'user_id' => 10, 'to_name' => 'Eli Park', 'recipient_type' => 'student', 'module' => 'students', 'template' => 'other', 'subject' => 'Welcome Eli', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-07 11:00:00', 'to_email' => 'fay@example.test', 'user_id' => 11, 'to_name' => 'Fay Boss', 'recipient_type' => 'other', 'module' => 'other', 'template' => 'other', 'subject' => 'Welcome Fay', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-07 10:00:00', 'to_email' => 'gus@example.test', 'user_id' => 12, 'to_name' => 'Gus Trust', 'recipient_type' => 'administrator', 'module' => 'other', 'template' => 'other', 'subject' => 'Welcome Gus', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-07 09:00:00', 'to_email' => 'hal@example.test', 'user_id' => 13, 'to_name' => 'Hal Both', 'recipient_type' => 'mentor', 'module' => 'other', 'template' => 'other', 'subject' => 'Welcome Hal', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-07 08:00:00', 'to_email' => 'ghost@example.test', 'user_id' => 99, 'to_name' => 'Ghost Gone', 'recipient_type' => 'student', 'module' => 'other', 'template' => 'other', 'subject' => 'Welcome Ghost', 'status' => 'sent' ) );
+WPCPM_Mail_Log::add( array( 'sent_at' => '2026-10-07 07:00:00', 'to_email' => 'ivy@example.test', 'user_id' => 14, 'to_name' => 'Ivy Hands', 'recipient_type' => 'administrator', 'module' => 'other', 'template' => 'other', 'subject' => 'Welcome Ivy', 'status' => 'sent' ) );
+$welcome_html = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 's' => 'Welcome' ) );
+ck( 'a row recorded as student whose account now holds the mentor role and not the student role links to the Mentors screen\'s Accounts tab',
+	false !== strpos( $welcome_html, accounts_link( 'mentors', 'eli.park@new.example.test', 'Eli Park' ) ), true );
+ck( 'the search is the account\'s current email, not the address the row was sent to',
+	array( false !== strpos( $welcome_html, 'eli@example.test' ), false !== strpos( $welcome_html, 's=eli%40example.test' ), false !== strpos( $welcome_html, 's=epark' ) ),
+	array( true, false, false ) );
+ck( 'an account that holds only the program\'s capability links to its user editor, since the Administrators Accounts tab lists the Administrator role alone',
+	array( false !== strpos( $welcome_html, '<a href="https://example.test/wp-admin/user-edit.php?user_id=11">Fay Boss</a>' ), false !== strpos( $welcome_html, 'tab=accounts&s=fboss' ), false !== strpos( $welcome_html, 's=fboss' ) ),
+	array( true, false, false ) );
+ck( 'a row recorded as an Administrator, to an account that holds the Administrator role, links to the Administrators screen\'s Accounts tab',
+	false !== strpos( $welcome_html, accounts_link( 'administrators', 'gtrust@example.test', 'Gus Trust' ) ), true );
+ck( 'an account that holds two program roles keeps the recorded type while it still holds that role, and an address with a plus is encoded whole, so the plus is not read as a space',
+	array( false !== strpos( $welcome_html, accounts_link( 'mentors', 'hal+lms@example.test', 'Hal Both' ) ), false !== strpos( $welcome_html, 's=hal%2Blms%40example.test#' ) ),
+	array( true, true ) );
+ck( 'an account that holds the Administrator role and the mentor role, recorded as an Administrator, keeps the Administrators screen',
+	false !== strpos( $welcome_html, accounts_link( 'administrators', 'ihands@example.test', 'Ivy Hands' ) ), true );
+ck( 'a row whose account is gone stays plain text', array( false !== strpos( $welcome_html, 'Ghost Gone' ), false !== strpos( $welcome_html, '>Ghost Gone</a>' ) ), array( true, false ) );
+
+// Every link to an Accounts tab ends at the list, by the anchor the accounts table names. The Emails screen
+// does not load that table (it would cost a require the screen never otherwise makes), so the Log keeps the
+// anchor as a literal, and this holds the literal and the table's constant equal.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php';
+preg_match_all( '#<a href="([^"]*page=wpcpm-(?:students|mentors|institutions|sponsors|administrators)[^"]*)"#', $calls_html . $welcome_html, $accounts_links );
+ck( 'every link to an Accounts tab ends with the accounts table\'s list anchor',
+	array( count( $accounts_links[1] ) > 4, array_values( array_unique( array_map( function ( $href ) { return substr( $href, (int) strrpos( $href, '#' ) ); }, $accounts_links[1] ) ) ) ),
+	array( true, array( '#' . WPCPM_Accounts_Table::LIST_ANCHOR ) ) );
+ck( 'and the anchor the Log writes is that constant\'s value', WPCPM_Accounts_Table::LIST_ANCHOR, 'wpcpm-accounts-list' );
+$log_table_code = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-log-table.php' );
+ck( 'the Log asks the capture for the type the account holds now, and keeps no list of the program\'s roles of its own: the Administrator role is the one it names, for the Administrators screen',
+	array(
+		false !== strpos( $log_table_code, 'WPCPM_Mail_Capture::type_of(' ),
+		0 === preg_match( '/ROLE_(STUDENT|MENTOR|INSTITUTION|SPONSOR)/', $log_table_code ),
+		substr_count( $log_table_code, 'WPCPM_Roles::' ),
+		false !== strpos( $log_table_code, '$user->user_email' ),
+		false === strpos( $log_table_code, 'user_login' ),
+	),
+	array( true, true, 1, true, true ) );
+
 $GLOBALS['cached'] = array();
 screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log', 'module' => 'sponsors', 's' => 'nobody' ) );
 ck( 'and a page that names nobody asks for none', $GLOBALS['cached'], array() );
