@@ -4,7 +4,7 @@ Tags: campus connect, wordpress, education, events, statistics
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,21 @@ event countries that could not be matched to one of the five reporting regions.
 Until the first successful sync the blocks render bundled seed data.
 
 == Changelog ==
+
+= 1.1.1 =
+
+Refusals from the totals route are no longer cached.
+
+The host's edge cache keys on the URL and ignores the `X-WPCCT-Token` header.
+1.1.0 marked only the 200 as `no-store`, so the 401 a signed-out request got
+was cached for five minutes and served to the next request, token or not. The
+first live run met exactly that.
+
+* Fixed: every answer under `wpcct/v1`, the 401 and the 503 included, is
+  `Cache-Control: no-store, private`, set as the response leaves the REST
+  server, which is the only place the permission check's refusal passes.
+* Unchanged: a 200 was never cached; checked on the live site with the same URL
+  fetched with the token and then without it.
 
 = 1.1.0 =
 

@@ -49,6 +49,28 @@ class WPCCT_Rest {
 
 	private function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register' ) );
+		add_filter( 'rest_post_dispatch', array( $this, 'no_store' ), 10, 3 );
+	}
+
+	/**
+	 * Mark every answer from this namespace no-store, refusals included.
+	 *
+	 * The host's edge cache keys on the URL and ignores X-WPCCT-Token, so a
+	 * cacheable 401 sent to a signed-out request was served for five minutes to
+	 * the request that carried the token (found on the first live run, 1.1.0).
+	 * Setting it here rather than in the callback is what reaches the 401: the
+	 * permission check's error never gets to the callback.
+	 *
+	 * @param WP_HTTP_Response $response Response.
+	 * @param WP_REST_Server   $server   Server.
+	 * @param WP_REST_Request  $request  Request.
+	 * @return WP_HTTP_Response
+	 */
+	public function no_store( $response, $server, $request ) {
+		if ( 0 === strpos( (string) $request->get_route(), '/' . self::NAMESPACE_V1 . '/' ) ) {
+			$response->header( 'Cache-Control', 'no-store, private' );
+		}
+		return $response;
 	}
 
 	/**
@@ -104,10 +126,7 @@ class WPCCT_Rest {
 			);
 		}
 
-		$response = new WP_REST_Response( $payload, 200 );
-		$response->header( 'Cache-Control', 'no-store, private' );
-
-		return $response;
+		return new WP_REST_Response( $payload, 200 );
 	}
 
 	/**

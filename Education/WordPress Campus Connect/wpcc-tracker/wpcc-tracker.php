@@ -3,7 +3,7 @@
  * Plugin Name:       WPCC-Tracker
  * Plugin URI:        https://nisabareportingp2.wpcomstaging.com/
  * Description:       WordPress Campus Connect programme data - events, regions, pipeline, attendance and a world map - rendered as native blocks. Synced daily from Airtable.
- * Version:           1.1.0
+ * Version:           1.1.1
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Maciej (Matt) Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPCCT_VERSION', '1.1.0' );
+define( 'WPCCT_VERSION', '1.1.1' );
 define( 'WPCCT_FILE', __FILE__ );
 define( 'WPCCT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCCT_URL', plugin_dir_url( __FILE__ ) );
