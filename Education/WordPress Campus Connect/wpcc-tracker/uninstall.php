@@ -25,6 +25,7 @@ $wpcct_options = array(
 	'wpcct_last_error',    // Message from the last failed sync.
 	'wpcct_sync_progress', // Live/last progress record.
 	'wpcct_sync_lock',     // Short-lived concurrency lock.
+	'wpcct_api_token_hash', // sha256 of the totals route token.
 );
 
 foreach ( $wpcct_options as $wpcct_option ) {

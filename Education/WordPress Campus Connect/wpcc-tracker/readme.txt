@@ -4,7 +4,7 @@ Tags: campus connect, wordpress, education, events, statistics
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,28 @@ event countries that could not be matched to one of the five reporting regions.
 Until the first successful sync the blocks render bundled seed data.
 
 == Changelog ==
+
+= 1.1.0 =
+
+A read-only REST route for the headline totals, so the job that copies them
+onto the dotorg P2 page no longer needs an SSH key and can run off the owner's
+Mac.
+
+* Added: `GET /wp-json/wpcct/v1/totals`. It returns the same keys the SSH
+  reading printed (completed, completed_this_year, scheduled, planning,
+  attendees, institutions, countries, year, as_of, source_synced,
+  unmapped_statuses), so nothing downstream changes. A site with no synced
+  figures answers 503 rather than a row of zeros.
+* Access: a signed-in user who can read the site, or the token in an
+  `X-WPCCT-Token` header. Application passwords are not available on this host,
+  so the route carries its own credential. Only the token's sha256 is stored,
+  it opens this route and no other, and it never goes in a URL.
+* Added: `wp wpcct api-token create|revoke|status`. `create` prints the token
+  once.
+* The response is `Cache-Control: no-store, private`: the planning figure counts
+  applications Central does not publish.
+* Uninstall now removes the token hash too.
+* Added: tests for the payload and the token check. Suite 162 to 177.
 
 = 1.0.5 =
 

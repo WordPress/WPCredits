@@ -293,5 +293,6 @@ require __DIR__ . '/test-october-export.php';
 /* Rendering, loaded last: it stubs WordPress functions, and nothing above
    should be able to see those stubs. */
 require __DIR__ . '/test-provenance.php';
+require __DIR__ . '/test-rest.php';
 
 t_report();
