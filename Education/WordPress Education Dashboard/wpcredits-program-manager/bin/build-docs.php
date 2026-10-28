@@ -63,6 +63,13 @@ $ids = array(
 	'track-builder-history'                  => 1192,
 	'admin-header-notices'                   => 555,
 	'admin-access-level'                     => 554,
+	'sponsor-dashboard-top'                  => 1781,
+	'sponsor-dashboard-cards'                => 1782,
+	'sponsor-sponsorship-card'               => 1783,
+	'sponsor-offers-card'                    => 1784,
+	'sponsor-usage-card'                     => 1785,
+	'sponsor-company-card'                   => 1786,
+	'sponsor-events-card'                    => 1787,
 );
 
 // Each guide: its title, its lead-in, and the sections it is made of. Order matters - this
@@ -120,9 +127,9 @@ $guides = array(
 	),
 	'sponsors'       => array(
 		'title' => 'Sponsor guide',
-		'lede'  => 'Your Sponsor Dashboard, your offers and codes, what your company can see, and how posts are approved.',
-		'intro' => "Thank you for sponsoring the WordPress Credits Program. This guide covers the page your company has on the Education Directory, how offers and codes reach students and mentors, what the program shows you and what it keeps to itself, and how a post you write is reviewed.",
-		'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' ),
+		'lede'  => 'Your Sponsor Dashboard, your sponsorship and its events, your offers and codes, your posts, your mentors, your company and its agreement, and what your company can see.',
+		'intro' => "Thank you for sponsoring the WordPress Credits Program. This guide covers the Sponsor Dashboard, the page your company has on the Education Directory: your sponsorship and the events you co-host, your offers and the codes students and mentors claim, the posts you write and how they are approved, the mentors you sponsor, your company's details and your Collaboration Agreement, and what the program shows you and what it keeps to itself.\n\nIt is written for the people who act for a sponsor. The program's Administrators have a guide of their own.",
+		'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-sponsorship', '42-sponsor-offers', '43-sponsor-posts', '44-sponsor-mentors', '45-sponsor-company', '46-sponsor-visibility' ),
 	),
 );
 

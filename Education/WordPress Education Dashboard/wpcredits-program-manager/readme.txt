@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.44
+Stable tag: 1.123.45
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.45 =
+
+* The Sponsor guide is rewritten in the Institution guide's shape: short parts in the order the Sponsor Dashboard shows them, lists for its states, its steps and what each tier includes, and seven screenshots of the dashboard taken with an invented sponsor. What it said is kept, and the details it had wrong now follow the plugin, among them that the Collaboration Agreement has no text to download and why an offer the program returned reads "Not switched on yet".
+* For developers: the Sponsor guide is built from `docs/sections/40-sponsor-dashboard.md` to `46-sponsor-visibility.md` (`41-sponsor-sponsorship.md`, `44-sponsor-mentors.md` and `45-sponsor-company.md` are new, the offers part is now 42 and the visibility part 46), its screenshots are `docs/images/sponsor-*.png`, and `bin/test-handbook.php` checks that every part it lists exists, that the built guide is what a fresh build makes, and that it holds no email address.
 
 = 1.123.44 =
 

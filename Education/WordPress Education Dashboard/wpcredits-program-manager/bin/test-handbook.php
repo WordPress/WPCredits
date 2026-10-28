@@ -1228,7 +1228,57 @@ foreach ( array( 'students', 'mentors', 'administrators' ) as $built_guide ) {
 ck( 'and no built guide still says the students\' channel', $built_with_it, array( false, false, false ) );
 
 $build_src = file_get_contents( __DIR__ . '/build-docs.php' );
-ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sections and the sign-in section', array( false !== strpos( $build_src, "'sponsors'       => array(" ), false !== strpos( $build_src, "'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' )" ), file_exists( __DIR__ . '/../docs/build/sponsors.html' ), file_exists( __DIR__ . '/../docs/sections/42-sponsor-visibility.md' ) ), array( true, true, true, true ) );
+// The Sponsor guide's parts, in the Sponsor Dashboard's order (1.123.45): each one named in the build has
+// to be a section on disk, or the build stops with "Missing section".
+$sponsor_parts   = array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-sponsorship', '42-sponsor-offers', '43-sponsor-posts', '44-sponsor-mentors', '45-sponsor-company', '46-sponsor-visibility' );
+$sponsor_missing = array();
+foreach ( $sponsor_parts as $sponsor_part ) {
+    if ( ! file_exists( __DIR__ . '/../docs/sections/' . $sponsor_part . '.md' ) ) {
+        $sponsor_missing[] = $sponsor_part;
+    }
+}
+ck( 'the docs build composes a fourth guide, sponsors, from the seven sponsor sections, in the Sponsor Dashboard\'s order, and the sign-in section, every one of them on disk', array( false !== strpos( $build_src, "'sponsors'       => array(" ), false !== strpos( $build_src, "'parts' => array( '" . implode( "', '", $sponsor_parts ) . "' )" ), file_exists( __DIR__ . '/../docs/build/sponsors.html' ), $sponsor_missing ), array( true, true, true, array() ) );
+
+// The Sponsor guide's two outputs are held to the Institution guide's rules (1.123.45): headed with its
+// title and its lede, the same as a fresh build of the sections as they are now, and holding no email
+// address. A fresh build, not a look for each section's text, because the build rewrites a section's
+// image tokens: the build script and the sections are copied to a folder of their own and run there,
+// which writes nothing in this checkout.
+$sponsor_md   = file_exists( __DIR__ . '/../docs/sponsors.md' ) ? (string) file_get_contents( __DIR__ . '/../docs/sponsors.md' ) : '';
+$sponsor_html = file_exists( __DIR__ . '/../docs/build/sponsors.html' ) ? (string) file_get_contents( __DIR__ . '/../docs/build/sponsors.html' ) : '';
+$fresh_root   = rtrim( sys_get_temp_dir(), '/' ) . '/wpcpm-sponsor-guide-' . getmypid();
+$fresh_md     = '';
+$fresh_html   = '';
+
+if ( @mkdir( $fresh_root . '/bin', 0700, true ) && @mkdir( $fresh_root . '/docs/sections', 0700, true ) && @mkdir( $fresh_root . '/docs/build', 0700, true ) ) {
+    copy( __DIR__ . '/build-docs.php', $fresh_root . '/bin/build-docs.php' );
+    foreach ( (array) glob( __DIR__ . '/../docs/sections/*.md' ) as $fresh_section ) {
+        copy( $fresh_section, $fresh_root . '/docs/sections/' . basename( $fresh_section ) );
+    }
+    exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( $fresh_root . '/bin/build-docs.php' ) . ' 2>&1', $fresh_out, $fresh_status );
+    $fresh_md   = is_file( $fresh_root . '/docs/sponsors.md' ) ? (string) file_get_contents( $fresh_root . '/docs/sponsors.md' ) : '';
+    $fresh_html = is_file( $fresh_root . '/docs/build/sponsors.html' ) ? (string) file_get_contents( $fresh_root . '/docs/build/sponsors.html' ) : '';
+}
+
+foreach ( array_merge( (array) glob( $fresh_root . '/docs/sections/*' ), (array) glob( $fresh_root . '/docs/build/*' ), (array) glob( $fresh_root . '/docs/*.md' ), (array) glob( $fresh_root . '/bin/*' ) ) as $fresh_file ) {
+    @unlink( $fresh_file );
+}
+foreach ( array( '/docs/sections', '/docs/build', '/docs', '/bin', '' ) as $fresh_dir ) {
+    @rmdir( $fresh_root . $fresh_dir );
+}
+
+ck( 'the build writes both outputs of the Sponsor guide, headed with its title and its lede',
+    array(
+        0 === strpos( $sponsor_md, "# Sponsor guide\n\n*Your Sponsor Dashboard, your sponsorship and its events, your offers and codes, your posts, your mentors, your company and its agreement, and what your company can see.*\n\n" ),
+        '' !== $sponsor_html && 0 === strpos( $sponsor_html, '<!-- wp:paragraph -->' ),
+    ),
+    array( true, true ) );
+ck( 'and both are what a fresh build of the sections makes now, so a section edited without a rebuild fails here',
+    array( '' !== $fresh_md, $sponsor_md === $fresh_md, '' !== $fresh_html, $sponsor_html === $fresh_html, is_dir( $fresh_root ) ),
+    array( true, true, true, true, false ) );
+ck( 'neither output of the Sponsor guide holds an email address',
+    array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $sponsor_md ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $sponsor_html ) ),
+    array( 0, 0 ) );
 
 // The fifth guide (Institutions release 2): the Institution Dashboard's, for the people of a school. It sits
 // right after the Administrator guide, is composed of the sign-in section and three of its own, and is
