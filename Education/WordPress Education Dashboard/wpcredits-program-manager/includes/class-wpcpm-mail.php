@@ -1317,12 +1317,20 @@ class WPCPM_Mail {
 	 *                           an activation held their invitation (`held_back()`), which the card
 	 *                           says, in place of saying every one has been invited when nobody else
 	 *                           is left.
+	 *     @type string $none    Optional: what the card says, already translated, when the list it is
+	 *                           narrowed to holds nobody at all, invited or not, in place of saying
+	 *                           every one has been invited, which is untrue of a list with no one on
+	 *                           it. The screen passes it only then, having counted the people the
+	 *                           filters leave (`everyone()`) and not only the never invited; a screen
+	 *                           that passes none says what the card always has. An account held back
+	 *                           is said first, since it is a person the list holds.
 	 * }
 	 */
 	public static function render_invite_card( array $args ) {
 		$pending = isset( $args['pending'] ) ? (array) $args['pending'] : array();
 		$noun    = isset( $args['noun'] ) ? (string) $args['noun'] : __( 'people', 'wpcredits-program-manager' );
 		$held    = isset( $args['held'] ) ? max( 0, (int) $args['held'] ) : 0;
+		$none    = isset( $args['none'] ) ? (string) $args['none'] : '';
 		$run     = self::run();
 		$waiting = self::queued();
 		$post    = esc_url( admin_url( 'admin-post.php' ) );
@@ -1437,16 +1445,22 @@ class WPCPM_Mail {
 		) : '';
 
 		if ( empty( $pending ) ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html(
-					'' !== $held_line ? $held_line : sprintf(
-						/* translators: %s: the people, e.g. "students". */
-						__( 'Every one of the %s has been invited. To send somebody a fresh link, use Resend invite on their row.', 'wpcredits-program-manager' ),
-						$noun
-					)
-				)
-			);
+			// Nobody left to invite is one of three things: an account held back, which is said first;
+			// a list that holds nobody at all, which the screen has worded for the filters it is
+			// narrowed by and which must not be called invited; or everybody the list holds, invited.
+			if ( '' !== $held_line ) {
+				$said = $held_line;
+			} elseif ( '' !== $none ) {
+				$said = $none;
+			} else {
+				$said = sprintf(
+					/* translators: %s: the people, e.g. "students". */
+					__( 'Every one of the %s has been invited. To send somebody a fresh link, use Resend invite on their row.', 'wpcredits-program-manager' ),
+					$noun
+				);
+			}
+
+			printf( '<p class="description">%s</p>', esc_html( $said ) );
 			echo '</div>';
 
 			return;
@@ -1535,6 +1549,44 @@ class WPCPM_Mail {
 	 */
 	public static function never_invited( $role, $meta ) {
 		return self::unstamped( $role, $meta, false );
+	}
+
+	/**
+	 * Everybody holding a role, invited or never: the accounts `never_invited()` is some of.
+	 *
+	 * What a screen counts to tell a list that holds nobody from one whose people were all invited,
+	 * which the invitations card words differently. Each ID through `WPCPM_Roles::id_of()`, for the
+	 * reason `unstamped()` gives. **The accounts' meta is read in one query here**, since the card
+	 * then narrows these by institution or status, each a read of an account's program row: asked
+	 * for IDs alone, `get_users()` primes nothing, and every account would cost a query of its own on
+	 * a screen whose list is all invited, the state the program settles into.
+	 *
+	 * @param string $role Role slug.
+	 * @return int[] User IDs.
+	 */
+	public static function everyone( $role ) {
+		$ids = array_values(
+			array_filter(
+				array_map(
+					array( 'WPCPM_Roles', 'id_of' ),
+					get_users(
+						array(
+							'role'        => $role,
+							'fields'      => 'ID',
+							'number'      => -1,
+							'orderby'     => 'ID',
+							'count_total' => false,
+						)
+					)
+				)
+			)
+		);
+
+		if ( $ids && function_exists( 'update_meta_cache' ) ) {
+			update_meta_cache( 'user', $ids );
+		}
+
+		return $ids;
 	}
 
 	/**

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.43
+Stable tag: 1.123.44
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.44 =
+
+* The Sponsor Dashboard's guide button opens this site's own Sponsor guide, a page at /sponsor-guide/ that sponsors and Administrators read and that each release republishes from the plugin's built guide, as the Institution guide is; until that page is published it keeps the handbook's sponsor guide.
+* On the Students screen, the Invitations card says when no student holds the status or belongs to the institution chosen, where it said that every one of them had been invited.
 
 = 1.123.43 =
 

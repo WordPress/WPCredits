@@ -1630,6 +1630,107 @@ ck( 'Stop and Dismiss come back to the list as it was drawn, the status and the 
 	),
 	array( array( 'In Sensei', 'Academia Sur' ), array( 'In Sensei', 'Academia Sur' ) ) );
 
+echo "\n=== The Invitations card, with nobody left to invite ===\n";
+
+// Nobody left to invite is two different facts, and the card says them differently. Every student the
+// list is narrowed to was invited, which it has always said ("Every one of the students with the status
+// Paused has been invited"); or the filters leave no student at all, a status nobody holds, a school
+// with no student of that status, a school nobody belongs to, which is not a fact about invitations, and
+// "every one of the students with the status X has been invited" is untrue of a status nobody holds. The
+// card counts the students the filters leave, invited or not, not only the never invited, and says so
+// plainly in each of the four shapes the filters make, worded whole for the translators.
+$card_of = static function ( $html ) {
+	return trim( preg_replace( '/\s+/', ' ', preg_replace( '/<[^>]+>/', ' ', between( $html, '<div class="wpcpm-card wpcpm-invites">', '</div>' ) ) ) );
+};
+$every_tail = ' To send somebody a fresh link, use Resend invite on their row.';
+
+// Ola at Escuela Norte on Paused and Pia at Academia Sur on Developer Track, both invited long ago, and
+// Quin, never invited, at a school and on a status of his own.
+reset_site();
+person( 61, 'Ola Invited', 'oinv', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte', 'Paused', 'Mentor Uno', 1700000000 );
+person( 62, 'Pia Invited', 'pinv', array( WPCPM_Roles::ROLE_STUDENT ), 'Academia Sur', 'Developer Track', 'Mentor Uno', 1700000000 );
+person( 63, 'Quin Never', 'qnev', array( WPCPM_Roles::ROLE_STUDENT ), 'Instituto Este', 'Graduate', 'Mentor Uno' );
+
+$invited_cards = array();
+foreach (
+	array(
+		'every student'         => array(),
+		'a school'              => array( 'wpcpm_institution' => 'Escuela Norte' ),
+		'a status'              => array( 'wpcpm_student_status' => 'Paused' ),
+		'a school and a status' => array( 'wpcpm_institution' => 'Escuela Norte', 'wpcpm_student_status' => 'Paused' ),
+	) as $shape => $query
+) {
+	manager( 960 );
+	$invited_cards[ $shape ] = $card_of( html_of( page_for( screen( $query ) ) ) );
+}
+
+ck( 'where the students the filters leave were all invited, the card still says every one was, in the shape of the filters it is narrowed by',
+	array( $invited_cards['a school'], $invited_cards['a status'], $invited_cards['a school and a status'] ),
+	array(
+		'Invitations Every one of the students at Escuela Norte has been invited.' . $every_tail,
+		'Invitations Every one of the students with the status Paused has been invited.' . $every_tail,
+		'Invitations Every one of the students at Escuela Norte with the status Paused has been invited.' . $every_tail,
+	) );
+ck( 'and on the whole list, where Quin is still to be invited, it offers the button and says nothing of nobody',
+	array( has( $invited_cards['every student'], 'There are no students' ), has( $invited_cards['every student'], 'Every one of' ) ),
+	array( false, false ) );
+
+$nobody_cards = array();
+foreach (
+	array(
+		'a status nobody holds'                     => array( 'wpcpm_student_status' => 'Never Held' ),
+		'a status nobody holds, in the list\'s words' => array( 'wpcpm_student_status' => 'In Sensei' ),
+		'a school and a status with no student in common' => array( 'wpcpm_institution' => 'Academia Sur', 'wpcpm_student_status' => 'Paused' ),
+		'a school nobody belongs to'                => array( 'wpcpm_institution' => 'Escuela Oeste' ),
+		'a school nobody belongs to, and a status'  => array( 'wpcpm_institution' => 'Escuela Oeste', 'wpcpm_student_status' => 'Paused' ),
+	) as $case => $query
+) {
+	manager( 961 );
+	$nobody_page          = html_of( page_for( screen( $query ) ) );
+	$nobody_cards[ $case ] = array( $card_of( $nobody_page ), isset( forms_by_action( $nobody_page )[ WPCPM_Students::ACTION_BULK ] ) );
+}
+
+ck( 'where the filters leave no student at all, the card says plainly that none holds the status, or belongs to the school, or both, and offers no button',
+	$nobody_cards,
+	array(
+		'a status nobody holds'                           => array( 'Invitations There are no students with the status Never Held.', false ),
+		'a status nobody holds, in the list\'s words'     => array( 'Invitations There are no students with the status WordPress Credits Program 150h.', false ),
+		'a school and a status with no student in common' => array( 'Invitations There are no students at Academia Sur with the status Paused.', false ),
+		'a school nobody belongs to'                      => array( 'Invitations There are no students at Escuela Oeste.', false ),
+		'a school nobody belongs to, and a status'        => array( 'Invitations There are no students at Escuela Oeste with the status Paused.', false ),
+	) );
+
+// A site with no student at all, the fourth shape: the filters are none, and the list is empty.
+reset_site();
+manager( 962 );
+ck( 'on a site with no student and nothing narrowing the list, the card says there are none, and not that every one was invited',
+	$card_of( html_of( page_for( screen() ) ) ),
+	'Invitations There are no students.' );
+
+// The same sentence of the card when it is drawn by another screen: a card that is not told the list is
+// empty says what it always has, and one told so says it in place of that, though an account held back
+// by an activation is a person the list holds, and the held line is said first.
+$card = static function ( array $more ) {
+	ob_start();
+	WPCPM_Mail::render_invite_card( array_merge( array( 'action' => 'wpcpm_mentors_bulk_invite', 'pending' => array(), 'noun' => 'mentors' ), $more ) );
+
+	return trim( preg_replace( '/\s+/', ' ', preg_replace( '/<[^>]+>/', ' ', (string) ob_get_clean() ) ) );
+};
+
+ck( 'the shared card says every one was invited unless the screen tells it the list is empty, then it says what the screen words; and an account held back is said first of all',
+	array(
+		$card( array() ),
+		$card( array( 'none' => 'There are no mentors.' ) ),
+		$card( array( 'none' => '' ) ),
+		$card( array( 'held' => 1, 'none' => 'There are no mentors.' ) ),
+	),
+	array(
+		'Invitations Every one of the mentors has been invited.' . $every_tail,
+		'Invitations There are no mentors.',
+		'Invitations Every one of the mentors has been invited.' . $every_tail,
+		'Invitations 1 of the mentors is left out: their invitation is held until an Administrator confirms the account is theirs, then sends it from its row.',
+	) );
+
 // Back to how the suite left the site: no Settings lists, no program names.
 WPCPM_Settings::$values            = array();
 $GLOBALS['hooks']['wpcpm_program_labels'] = array();

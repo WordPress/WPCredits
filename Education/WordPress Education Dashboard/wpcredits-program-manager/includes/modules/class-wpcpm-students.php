@@ -322,10 +322,18 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	 *
 	 * Its button posts the institution, the status and the tab, so the press queues whom the card
 	 * counted and comes back to the list so narrowed. The status is said in the words the list shows
-	 * for it (`WPCPM_Program::status_words()`) and posted as it is stored. Its Stop and Dismiss are
-	 * the mail layer's own forms, which name no tab: they come back to the address they were pressed
-	 * on, this tab, with the filters in it, and Stop's outcome waits on the flash channel this screen
-	 * reads, which the card names in its form.
+	 * for it (`WPCPM_Program::status_words()`) and posted as it is stored.
+	 *
+	 * **Where the filters leave no student at all** (a status nobody holds, a school nobody belongs
+	 * to, a status nobody at the school holds) the card says so, in the words for the filters it is
+	 * narrowed by (`card_words()`), and does not say every one has been invited, which is untrue of a
+	 * status nobody holds. The students the filters leave are counted from everybody holding the role
+	 * (`everyone()`), invited or not, and only when nobody is left to invite, so the card pays for
+	 * that read only then.
+	 *
+	 * Its Stop and Dismiss are the mail layer's own forms, which name no tab: they come back to the
+	 * address they were pressed on, this tab, with the filters in it, and Stop's outcome waits on the
+	 * flash channel this screen reads, which the card names in its form.
 	 */
 	private function render_invitations() {
 		// **The card obeys the filters the list is showing.** Offering "invite 241 students" under a
@@ -337,11 +345,17 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		$pending = WPCPM_Mail::only_status( WPCPM_Mail::only_institution( self::never_invited(), $filter ), $status );
 		$held    = WPCPM_Mail::only_status( WPCPM_Mail::only_institution( self::held_back(), $filter ), $status );
 
+		// Nobody to invite and nobody held back: either every student the filters leave was invited, or
+		// the filters leave none. The students are counted from everybody holding the role, so the
+		// first is told from the second; the card is handed the second's words only then.
+		$nobody = empty( $pending ) && empty( $held ) && array() === WPCPM_Mail::only_status( WPCPM_Mail::only_institution( self::everyone(), $filter ), $status );
+
 		WPCPM_Mail::render_invite_card(
 			array(
 				'action'      => self::ACTION_BULK,
 				'pending'     => $pending,
 				'held'        => count( $held ),
+				'none'        => $nobody ? $words['none'] : '',
 				'noun'        => $words['noun'],
 				// The button's own words, so its noun and verb agree with the count, one or more.
 				'button'      => $words['button'],
@@ -358,15 +372,17 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 	/**
 	 * The words the invitations card says its people in, for the filters the list is narrowed by: the
-	 * plural noun the card's sentences take, the button's words as `_n_noop()` holds them, and the
-	 * values the button takes after the count.
+	 * plural noun the card's sentences take, the sentence it says when the filters leave no student at
+	 * all, the button's words as `_n_noop()` holds them, and the values the button takes after the
+	 * count.
 	 *
 	 * Four forms, written out whole rather than joined, so a translation can order the words as its
-	 * language does.
+	 * language does. The sentence for no student is one of them too, in the noun's own order: no
+	 * students, no students at a school, none with a status, none at a school with a status.
 	 *
 	 * @param string $institution The institution the list is narrowed to, or ''.
 	 * @param string $status      The status it is narrowed to, as stored, or ''.
-	 * @return array{noun: string, button: array, args: string[]}
+	 * @return array{noun: string, none: string, button: array, args: string[]}
 	 */
 	private static function card_words( $institution, $status ) {
 		$words = '' === $status ? '' : WPCPM_Program::status_words( $status );
@@ -374,6 +390,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		if ( '' === $institution && '' === $status ) {
 			return array(
 				'noun'   => __( 'students', 'wpcredits-program-manager' ),
+				'none'   => __( 'There are no students.', 'wpcredits-program-manager' ),
 				/* translators: %s: how many students. */
 				'button' => _n_noop( 'Invite %s student who has never been invited', 'Invite %s students who have never been invited', 'wpcredits-program-manager' ),
 				'args'   => array(),
@@ -384,6 +401,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			return array(
 				/* translators: %s: institution name. */
 				'noun'   => sprintf( __( 'students at %s', 'wpcredits-program-manager' ), $institution ),
+				/* translators: %s: institution name. */
+				'none'   => sprintf( __( 'There are no students at %s.', 'wpcredits-program-manager' ), $institution ),
 				/* translators: 1: how many students, 2: institution name. */
 				'button' => _n_noop( 'Invite %1$s student at %2$s who has never been invited', 'Invite %1$s students at %2$s who have never been invited', 'wpcredits-program-manager' ),
 				'args'   => array( $institution ),
@@ -394,6 +413,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			return array(
 				/* translators: %s: a student status, such as Paused. */
 				'noun'   => sprintf( __( 'students with the status %s', 'wpcredits-program-manager' ), $words ),
+				/* translators: %s: a student status, such as Paused. */
+				'none'   => sprintf( __( 'There are no students with the status %s.', 'wpcredits-program-manager' ), $words ),
 				/* translators: 1: how many students, 2: a student status, such as Paused. */
 				'button' => _n_noop( 'Invite %1$s student with the status %2$s who has never been invited', 'Invite %1$s students with the status %2$s who have never been invited', 'wpcredits-program-manager' ),
 				'args'   => array( $words ),
@@ -403,10 +424,30 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		return array(
 			/* translators: 1: institution name, 2: a student status, such as Paused. */
 			'noun'   => sprintf( __( 'students at %1$s with the status %2$s', 'wpcredits-program-manager' ), $institution, $words ),
+			/* translators: 1: institution name, 2: a student status, such as Paused. */
+			'none'   => sprintf( __( 'There are no students at %1$s with the status %2$s.', 'wpcredits-program-manager' ), $institution, $words ),
 			/* translators: 1: how many students, 2: institution name, 3: a student status, such as Paused. */
 			'button' => _n_noop( 'Invite %1$s student at %2$s with the status %3$s who has never been invited', 'Invite %1$s students at %2$s with the status %3$s who have never been invited', 'wpcredits-program-manager' ),
 			'args'   => array( $institution, $words ),
 		);
+	}
+
+	/**
+	 * Every Student account, invited or never, by the Student accounts table's own role
+	 * (`table_class()`), which the invitations card narrows to the list's filters and counts, to tell
+	 * a list that holds nobody from one whose people were all invited.
+	 *
+	 * The table's classes are loaded first, as `never_invited()` loads them, for the card's button
+	 * posts to admin-post.php, where nothing else does.
+	 *
+	 * @return int[]
+	 */
+	private static function everyone() {
+		wpcpm_load_accounts_tables();
+
+		$table_class = static::table_class();
+
+		return WPCPM_Mail::everyone( $table_class::role() );
 	}
 
 	/**

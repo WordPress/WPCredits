@@ -35,9 +35,13 @@ $GLOBALS['manage'] = array();
 $GLOBALS['uid']    = 0;
 $GLOBALS['status'] = array();
 // Pages by path, and the address each one is published at: what get_page_by_path() and get_permalink()
-// answer from, so a check can publish, unpublish or move the Institution guide's page.
+// answer from, so a check can publish, unpublish or move the Institution guide's page and the Sponsor
+// guide's.
 $GLOBALS['pages']      = array();
 $GLOBALS['permalinks'] = array();
+// Callbacks a check taps onto a filter by its name, run in order by apply_filters() below, so a check
+// can see what a filter on the guides is handed. Nothing is tapped unless a check taps it.
+$GLOBALS['tapped']     = array();
 
 class WP_Error {
 	private $code, $message, $data;
@@ -83,7 +87,7 @@ function wp_parse_url( $u, $c = -1 ) {
 }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
-function apply_filters( $t, $v ) { return $v; }
+function apply_filters( $t, $v ) { foreach ( $GLOBALS['tapped'][ $t ] ?? array() as $tap ) { $v = $tap( $v ); } return $v; }
 function add_action() {} function add_filter() {} function add_shortcode() {}
 function register_post_type() {} function register_block_type() {}
 function wp_register_style() {} function wp_enqueue_style() {}
@@ -1395,6 +1399,201 @@ ck( 'the Institution Dashboard\'s Resources section links the published page wit
 unset( $GLOBALS['pages']['institution-guide'] );
 $gone = WPCPM_Handbook_Assistant::guides();
 ck( 'with the page gone the entry goes back to the handbook\'s page', $gone['institution']['url'], $handbook_page );
+$GLOBALS['permalinks'] = array();
+
+// The Sponsor guide is a page on this site as well (1.123.44, WordPress/WPCredits#270): the Sponsor
+// Dashboard's guide button links the published page at the path the constant names, and the handbook's
+// sponsor guide for as long as there is none, exactly as the Institution Dashboard's button does with
+// its own path and its own handbook page. One lookup serves both entries, so the checks below pin each
+// entry against the other: a page at one path never moves the other entry's address.
+$sponsor_const = defined( 'WPCPM_Handbook_Assistant::SPONSOR_GUIDE_PATH' ) ? constant( 'WPCPM_Handbook_Assistant::SPONSOR_GUIDE_PATH' ) : null;
+ck( 'the Sponsor guide is looked up at the path sponsor-guide', $sponsor_const, 'sponsor-guide' );
+ck( 'and the Institution guide still at institution-guide, a path of its own', defined( 'WPCPM_Handbook_Assistant::INSTITUTION_GUIDE_PATH' ) ? constant( 'WPCPM_Handbook_Assistant::INSTITUTION_GUIDE_PATH' ) : null, 'institution-guide' );
+
+$sponsor_handbook     = 'https://make.wordpress.org/community/handbook/education/credits/sponsor-guide/';
+$institution_handbook = 'https://make.wordpress.org/community/handbook/education/credits/institutions/';
+$sponsor_address      = 'https://example.test/sponsor-guide/';
+$institution_address  = 'https://example.test/institution-guide/';
+
+// Puts a guide's page in the state a check needs: no page at the path (null), or a page there with the
+// status and the address given. The ID is the path's own, so the two pages are never confused.
+$set_guide_page = static function ( $path, $id, $status, $address ) {
+	unset( $GLOBALS['pages'][ $path ] );
+	unset( $GLOBALS['permalinks'][ $id ] );
+
+	if ( null === $status ) {
+		return;
+	}
+
+	$page              = new WP_Post();
+	$page->ID          = $id;
+	$page->post_type   = 'page';
+	$page->post_status = $status;
+
+	$GLOBALS['pages'][ $path ]  = $page;
+	$GLOBALS['permalinks'][ $id ] = $address;
+};
+
+// The untouched baseline, with neither page: what the other three entries are, and what the two entries
+// are before the release's pages exist, which is what installing the release has to leave a sponsor.
+$set_guide_page( 'institution-guide', 4321, null, '' );
+$set_guide_page( 'sponsor-guide', 4322, null, '' );
+$baseline = WPCPM_Handbook_Assistant::guides();
+
+ck( 'with no page at sponsor-guide the sponsor entry keeps the handbook\'s Sponsor guide, and the institution entry its handbook page',
+    array( $baseline['sponsor']['url'], $baseline['institution']['url'] ), array( $sponsor_handbook, $institution_handbook ) );
+
+$kept_by_status = array();
+foreach ( array( 'draft', 'pending', 'private', 'future', 'auto-draft', 'inherit', 'trash' ) as $not_published ) {
+	$set_guide_page( 'sponsor-guide', 4322, $not_published, $sponsor_address );
+	$kept_by_status[ $not_published ] = WPCPM_Handbook_Assistant::guides()['sponsor']['url'];
+}
+ck( 'a page there that is not published, whatever else its status (a draft, one waiting for review, a private one, a scheduled one, the status an attachment inherits, a trashed one still found by its path), is not the guide: the handbook\'s Sponsor guide stays',
+    $kept_by_status,
+    array( 'draft' => $sponsor_handbook, 'pending' => $sponsor_handbook, 'private' => $sponsor_handbook, 'future' => $sponsor_handbook, 'auto-draft' => $sponsor_handbook, 'inherit' => $sponsor_handbook, 'trash' => $sponsor_handbook ) );
+
+$set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
+$with_sponsor_page = WPCPM_Handbook_Assistant::guides();
+ck( 'the published page at sponsor-guide is the guide the sponsor entry links', $with_sponsor_page['sponsor']['url'], $sponsor_address );
+ck( 'and the entry keeps its label, its channel and the name of its channel',
+    array( $with_sponsor_page['sponsor']['label'], $with_sponsor_page['sponsor']['slack'], $with_sponsor_page['sponsor']['chat'] ),
+    array( 'Sponsor guide', 'https://wordpress.slack.com/archives/C0959D2M3T8', 'Ask in the WordPress Credits Slack channel' ) );
+
+// The address is whatever WordPress says the page is at, with plain permalinks, a prefix in front of the
+// slug or another host, and never one the plugin builds from the path.
+$followed = array();
+foreach ( array( 'https://example.test/?page_id=4322', 'https://example.test/education/guides/sponsor-guide/', 'http://localhost:8900/sponsor-guide/' ) as $moved_to ) {
+	$set_guide_page( 'sponsor-guide', 4322, 'publish', $moved_to );
+	$followed[ $moved_to ] = WPCPM_Handbook_Assistant::guides()['sponsor']['url'];
+}
+ck( 'the published page\'s address is the permalink WordPress gives it, wherever permalinks point',
+    $followed,
+    array(
+		'https://example.test/?page_id=4322'                         => 'https://example.test/?page_id=4322',
+		'https://example.test/education/guides/sponsor-guide/'      => 'https://example.test/education/guides/sponsor-guide/',
+		'http://localhost:8900/sponsor-guide/'                      => 'http://localhost:8900/sponsor-guide/',
+	) );
+
+// A published page whose permalink WordPress cannot give (an empty string, or false) is no address
+// to send a sponsor to: the handbook's page, as for the institution entry.
+$no_permalink = array();
+foreach ( array( 'empty' => '', 'false' => false ) as $kind => $nothing ) {
+	$set_guide_page( 'sponsor-guide', 4322, 'publish', $nothing );
+	$set_guide_page( 'institution-guide', 4321, 'publish', $nothing );
+	$got                   = WPCPM_Handbook_Assistant::guides();
+	$no_permalink[ $kind ] = array( $got['sponsor']['url'], $got['institution']['url'] );
+}
+ck( 'a published page that has no permalink leaves both entries on the handbook, so neither button ever leads nowhere',
+    $no_permalink, array( 'empty' => array( $sponsor_handbook, $institution_handbook ), 'false' => array( $sponsor_handbook, $institution_handbook ) ) );
+
+// Each entry looks at its own path and nothing else: every state of the Institution guide's page against
+// every state of the Sponsor guide's, the two addresses told apart.
+$page_states = array( 'absent' => null, 'a draft' => 'draft', 'published' => 'publish' );
+foreach ( $page_states as $institution_state => $institution_status ) {
+	foreach ( $page_states as $sponsor_state => $sponsor_status ) {
+		$set_guide_page( 'institution-guide', 4321, $institution_status, $institution_address );
+		$set_guide_page( 'sponsor-guide', 4322, $sponsor_status, $sponsor_address );
+		$both = WPCPM_Handbook_Assistant::guides();
+
+		ck( 'the Institution guide\'s page ' . $institution_state . ' and the Sponsor guide\'s ' . $sponsor_state . ': each button opens its own page, or its own handbook page',
+		    array( $both['institution']['url'], $both['sponsor']['url'] ),
+		    array(
+				'publish' === $institution_status ? $institution_address : $institution_handbook,
+				'publish' === $sponsor_status ? $sponsor_address : $sponsor_handbook,
+			) );
+	}
+}
+
+// Both pages published, and the three entries that are not pages of this site have not moved.
+$set_guide_page( 'institution-guide', 4321, 'publish', $institution_address );
+$set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
+$both_published = WPCPM_Handbook_Assistant::guides();
+$moved_entries  = array();
+foreach ( array( 'student', 'mentor', 'administrator' ) as $audience ) {
+	if ( $both_published[ $audience ] !== $baseline[ $audience ] ) {
+		$moved_entries[] = $audience;
+	}
+}
+ck( 'and with both pages published the student, mentor and Administrator entries are what they were', $moved_entries, array() );
+ck( 'nor do the two entries lose a key: label, address, channel and its name, five audiences in the same order',
+    array( array_keys( $both_published ), array_keys( $both_published['sponsor'] ), array_keys( $both_published['institution'] ) ),
+    array( array( 'student', 'mentor', 'institution', 'administrator', 'sponsor' ), array( 'label', 'url', 'slack', 'chat' ), array( 'label', 'url', 'slack', 'chat' ) ) );
+
+// A filter on the guides is handed the final addresses of both entries, the pages' when they are published
+// and the handbook's when they are not, and what it returns is what the dashboards link.
+$seen = array();
+$GLOBALS['tapped']['wpcpm_handbook_guides'][] = static function ( $guides ) use ( &$seen ) {
+	$seen = $guides;
+	return $guides;
+};
+
+WPCPM_Handbook_Assistant::guides();
+ck( 'a filter on wpcpm_handbook_guides sees both pages\' addresses while both are published',
+    array( $seen['institution']['url'] ?? null, $seen['sponsor']['url'] ?? null ), array( $institution_address, $sponsor_address ) );
+
+$set_guide_page( 'institution-guide', 4321, null, '' );
+$set_guide_page( 'sponsor-guide', 4322, null, '' );
+$seen = array();
+WPCPM_Handbook_Assistant::guides();
+ck( 'and the handbook\'s addresses while neither is',
+    array( $seen['institution']['url'] ?? null, $seen['sponsor']['url'] ?? null ), array( $institution_handbook, $sponsor_handbook ) );
+
+$GLOBALS['tapped']['wpcpm_handbook_guides'][] = static function ( $guides ) {
+	$guides['sponsor']['url'] = 'https://example.test/somewhere-else/';
+	return $guides;
+};
+$filtered = WPCPM_Handbook_Assistant::guides();
+ck( 'and the address a filter sets is the one the entry has, the other entry untouched',
+    array( $filtered['sponsor']['url'], $filtered['institution']['url'] ), array( 'https://example.test/somewhere-else/', $institution_handbook ) );
+$GLOBALS['tapped'] = array();
+
+// What the dashboards draw: the Sponsor Dashboard's Resources section links the sponsor page and not the
+// Institution guide's, and the Institution Dashboard's the other way about.
+$set_guide_page( 'institution-guide', 4321, 'publish', $institution_address );
+$set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
+$sponsor_section      = WPCPM_Handbook_Assistant::render_resources( 'sponsor' );
+$institution_section  = WPCPM_Handbook_Assistant::render_resources( 'institution' );
+ck( 'the Sponsor Dashboard\'s Resources section links the published page with the entry\'s label, and neither the handbook\'s page nor the Institution guide',
+    array( false !== strpos( $sponsor_section, 'href="' . $sponsor_address . '"' ), false !== strpos( $sponsor_section, '>Sponsor guide</a>' ), false !== strpos( $sponsor_section, $sponsor_handbook ), false !== strpos( $sponsor_section, $institution_address ) ),
+    array( true, true, false, false ) );
+ck( 'and the Institution Dashboard\'s links its own page, not the sponsor page',
+    array( false !== strpos( $institution_section, 'href="' . $institution_address . '"' ), false !== strpos( $institution_section, $sponsor_address ) ),
+    array( true, false ) );
+
+$set_guide_page( 'institution-guide', 4321, null, '' );
+$set_guide_page( 'sponsor-guide', 4322, null, '' );
+$handbook_sponsor_section = WPCPM_Handbook_Assistant::render_resources( 'sponsor' );
+ck( 'with the page gone the Sponsor Dashboard links the handbook\'s Sponsor guide again',
+    array( false !== strpos( $handbook_sponsor_section, 'href="' . $sponsor_handbook . '"' ), false !== strpos( $handbook_sponsor_section, $sponsor_address ) ), array( true, false ) );
+
+// The docs README says where the Sponsor guide is read, as it says it for the Institution guide.
+$readme_sponsor_row = '';
+foreach ( explode( "\n", $docs_readme ) as $readme_line ) {
+	if ( 0 === strpos( $readme_line, '| [Sponsor guide](sponsors.md)' ) ) {
+		$readme_sponsor_row = $readme_line;
+	}
+}
+$readme_institution_row = '';
+foreach ( explode( "\n", $docs_readme ) as $readme_line ) {
+	if ( 0 === strpos( $readme_line, '| [Institution guide](institutions.md)' ) ) {
+		$readme_institution_row = $readme_line;
+	}
+}
+ck( 'the docs README says the Sponsor guide is this site\'s page at /sponsor-guide/, for Sponsor level and Administrators, republished by each release, and no longer the handbook\'s',
+    array(
+		false !== strpos( $readme_sponsor_row, '| `/sponsor-guide/`, Sponsor level and Administrators, republished by each release |' ),
+		false !== strpos( $readme_sponsor_row, 'handbook' ),
+	),
+    array( true, false ) );
+ck( 'and says the same of the Institution guide, this site\'s page at /institution-guide/ for Institution level and Administrators, republished by each release, not made once at launch',
+    array(
+		false !== strpos( $readme_institution_row, '| `/institution-guide/`, Institution level and Administrators, republished by each release |' ),
+		false !== strpos( $readme_institution_row, 'made at launch' ),
+		false !== strpos( $readme_institution_row, 'the Collaboration Agreement.' ),
+	),
+    array( true, false, true ) );
+
+$GLOBALS['pages']      = array();
 $GLOBALS['permalinks'] = array();
 
 // The audience-specific block is what the Institution Dashboard puts its contact in, and it

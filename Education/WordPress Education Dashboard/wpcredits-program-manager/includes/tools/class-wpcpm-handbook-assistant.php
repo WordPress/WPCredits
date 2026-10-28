@@ -44,6 +44,13 @@ class WPCPM_Handbook_Assistant {
 	const INSTITUTION_GUIDE_PATH = 'institution-guide';
 
 	/**
+	 * Where this site publishes the Sponsor guide: the page at this path, which each release republishes
+	 * from the plugin's built guide (1.123.44). `guides()` links it from the Sponsor Dashboard while it
+	 * is published, and the handbook's sponsor guide until then, as it does for the Institution guide.
+	 */
+	const SPONSOR_GUIDE_PATH = 'sponsor-guide';
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -368,9 +375,10 @@ class WPCPM_Handbook_Assistant {
 	 * The handbook guide belonging to each dashboard.
 	 *
 	 * Fixed pages rather than anything derived: these are the documents each audience is told to
-	 * read, and they are the same for everybody on it. The one exception is the institutions' guide,
-	 * which this site publishes itself once the release has made its page, so the address of that
-	 * entry is looked up (`institution_guide_url()`) and the others are written out.
+	 * read, and they are the same for everybody on it. The exceptions are the institutions' guide and
+	 * the sponsors', which this site publishes itself once the release has made their pages, so the
+	 * addresses of those two entries are looked up (`published_guide_url()`) and the others are
+	 * written out.
 	 *
 	 * @return array<string, array> Audience => `label` and `url`.
 	 */
@@ -402,7 +410,7 @@ class WPCPM_Handbook_Assistant {
 				// program, not about a student's work or a mentor's.
 				'institution'   => array(
 					'label' => __( 'Institution guide', 'wpcredits-program-manager' ),
-					'url'   => self::institution_guide_url(),
+					'url'   => self::published_guide_url( self::INSTITUTION_GUIDE_PATH, 'https://make.wordpress.org/community/handbook/education/credits/institutions/' ),
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
@@ -414,11 +422,12 @@ class WPCPM_Handbook_Assistant {
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
-				// The sponsors' own guide, on the handbook beside the other three (S6); the
-				// program's channel is where a sponsor's question belongs.
+				// This site's own Sponsor guide once its page is published, and the sponsors' guide of the
+				// handbook (S6), beside the other three, until then; the program's channel is where a
+				// sponsor's question belongs.
 				'sponsor'       => array(
 					'label' => __( 'Sponsor guide', 'wpcredits-program-manager' ),
-					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/sponsor-guide/',
+					'url'   => self::published_guide_url( self::SPONSOR_GUIDE_PATH, 'https://make.wordpress.org/community/handbook/education/credits/sponsor-guide/' ),
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
@@ -427,20 +436,22 @@ class WPCPM_Handbook_Assistant {
 	}
 
 	/**
-	 * The address the Institution Dashboard's guide button opens.
+	 * The address a dashboard's guide button opens, when this site publishes that guide itself.
 	 *
-	 * The page this site publishes at `INSTITUTION_GUIDE_PATH` while there is one, found the way
-	 * WordPress finds a page by its path and counted only while it is published: a draft is not the guide
-	 * a school is sent to, and neither is a page that is gone, which WordPress no longer finds by its
-	 * path at all. Otherwise the handbook's institutions page, the address this entry has always had, so
-	 * the button never leads nowhere, and installing the release changes nothing a school sees until the
-	 * page is made. The same lookup the Settings screen makes for the Administrator guide.
+	 * The page this site publishes at `$path` while there is one, found the way WordPress finds a page
+	 * by its path and counted only while it is published: a draft is not the guide a school or a company
+	 * is sent to, and neither is a page that is gone, which WordPress no longer finds by its path at
+	 * all. Otherwise `$handbook`, the address the entry has always had, so the button never leads
+	 * nowhere, and installing a release changes nothing a reader sees until the page is made. The same
+	 * lookup the Settings screen makes for the Administrator guide. Each guide asks with its own path
+	 * and its own handbook page, so the page of one is never the address of the other.
 	 *
+	 * @param string $path     The path of the page, such as `INSTITUTION_GUIDE_PATH`.
+	 * @param string $handbook The handbook page the button opens while there is no published page.
 	 * @return string
 	 */
-	private static function institution_guide_url() {
-		$handbook = 'https://make.wordpress.org/community/handbook/education/credits/institutions/';
-		$page     = get_page_by_path( self::INSTITUTION_GUIDE_PATH );
+	private static function published_guide_url( string $path, string $handbook ): string {
+		$page = get_page_by_path( $path );
 
 		if ( ! $page instanceof WP_Post || 'publish' !== $page->post_status ) {
 			return $handbook;

@@ -907,6 +907,35 @@ $pages_section = substr( $operations, (int) strpos( $operations, '### Pages the 
 ck( 'the sentence about the Institution Dashboard\'s guide button sits with the pages the plugin owns, not in the paragraph labeled 1.98.0',
 	array( false !== strpos( $paragraph_of( $operations, $sentence_at ), '(1.98.0)' ), false !== strpos( $pages_section, "The Institution Dashboard's guide button follows" ) ),
 	array( false, true ) );
+// The Sponsor Dashboard's button follows a page of this site the same way (1.123.44), and the
+// Administrators who maintain the site are told so beside the Institution Dashboard's sentence, in the
+// same words with the sponsors' own path and handbook page, and that a release republishes the page.
+$sponsor_sentence = "The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists.";
+$sponsor_at       = (int) strpos( $operations, $sponsor_sentence );
+$built_admin_md   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/administrators.md' );
+$built_admin_html = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/build/administrators.html' );
+
+ck( 'the Administrator guide says where the Sponsor Dashboard\'s guide button goes: a published page at sponsor-guide, and the handbook until that page exists',
+    array(
+		false !== strpos( $operations, $sponsor_sentence ),
+		false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php' ), "const SPONSOR_GUIDE_PATH = 'sponsor-guide';" ),
+	),
+    array( true, true ) );
+ck( 'and says that each release republishes both pages, the Institution guide\'s as well as the Sponsor guide\'s, from the built guides, so a change made to either by hand lasts until the next release',
+    array(
+		false !== strpos( $operations, 'Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.' ),
+		false !== strpos( $operations, 'Each release republishes that page from the built Sponsor guide' ),
+		$sponsor_at < (int) strpos( $operations, 'Each release republishes both pages' ),
+	),
+    array( true, false, true ) );
+ck( 'the sentence sits with the pages the plugin owns, not in the paragraph labeled 1.98.0, and beside the Institution Dashboard\'s',
+	array( false !== strpos( $paragraph_of( $operations, $sponsor_at ), '(1.98.0)' ), false !== strpos( $pages_section, $sponsor_sentence ), false !== strpos( $paragraph_of( $operations, $sponsor_at ), "The Institution Dashboard's guide button follows" ) ),
+	array( false, true, true ) );
+ck( 'and the paragraph labeled 1.98.0 no longer leaves a reader thinking the button still opens the handbook',
+	false !== strpos( $operations, "published on the handbook beside the other three, where the Sponsor Dashboard's guide button pointed at it (since 1.123.44 the button follows this site's own page, as the Pages the plugin owns part above says)" ), true );
+ck( 'the built Administrator guide, in Markdown and as block markup, carries the sentence as it is now',
+	array( false !== strpos( $built_admin_md, $sponsor_sentence ), false !== strpos( $built_admin_html, 'The Sponsor Dashboard\'s guide button follows a published page at <code>sponsor-guide</code> on this site' ) ),
+	array( true, true ) );
 ck( 'and the sentence on a withdrawn request ends before the next begins', array( false !== strpos( $operations, 'when an Administrator took it back) Each decision' ), false !== strpos( $operations, 'when an Administrator took it back). Each decision' ) ), array( false, true ) );
 
 echo "\n=== The plugin's description, its readme and its blocks use the same words ===\n";
