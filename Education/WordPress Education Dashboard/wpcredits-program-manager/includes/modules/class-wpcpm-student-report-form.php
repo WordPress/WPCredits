@@ -1065,6 +1065,17 @@ class WPCPM_Student_Report_Form {
 			return;
 		}
 
+		// A question the program fills in, such as the certificate code an Airtable automation
+		// writes: the same row, on the card of somebody who may edit it, with its help under it and
+		// no control, so the form posts nothing for it and `handle_save()` skips it besides. Drawn
+		// as a box, it was sent back with every save, empty on a page drawn before the code
+		// arrived, and so wiped it (the test of 28 October 2026). The definition allows the flag on
+		// the controls this row can show alone (`WPCPM_Track_Definition::READ_ONLY_TYPES`).
+		if ( ! empty( $spec['read_only'] ) && ! in_array( $type, array( 'team', 'image' ), true ) ) {
+			self::render_read_only( $id, $spec, $value, $type, true );
+			return;
+		}
+
 		// A `<div>` for the two controls that hold a block of their own - the checkbox list and
 		// the screenshot - and a `<p>` for the rest. **A `<p>` cannot contain a `<fieldset>`**:
 		// the parser closes the paragraph the moment one opens, so the list and the hint after it
@@ -1323,19 +1334,30 @@ class WPCPM_Student_Report_Form {
 	 * "something is wrong here" while lowering the contrast of what it holds. The row is the
 	 * shape the profile table already has (phase two of the type review, 1.94.6).
 	 *
-	 * @param string $id    Control id, kept as the row's id so links to a field still land.
-	 * @param array  $spec  Field spec.
-	 * @param mixed  $value Stored value.
-	 * @param string $type  Field type.
+	 * **The same row draws a question the program fills in** (`read_only`, 1.123.46) on the card
+	 * of somebody who may edit it, with two differences, both for the student it is addressed to.
+	 * The help is printed under it, since it is still a question on their own form and its help is
+	 * what tells them what to do with the value. And an empty value is left out rather than said:
+	 * "Not filled in" would read as something they had left undone, when the value is the program's
+	 * to give and simply has not arrived. The hint carries no id, because there is no control for it
+	 * to describe.
+	 *
+	 * @param string $id     Control id, kept as the row's id so links to a field still land.
+	 * @param array  $spec   Field spec.
+	 * @param mixed  $value  Stored value.
+	 * @param string $type   Field type.
+	 * @param bool   $filled Whether this is a question the program fills in, drawn on an editable card.
 	 */
-	private static function render_read_only( $id, array $spec, $value, $type ) {
+	private static function render_read_only( $id, array $spec, $value, $type, $filled = false ) {
 		$text = is_scalar( $value ) ? trim( (string) $value ) : '';
 
 		if ( 'checkbox' === $type ) {
 			$text = self::is_ticked( $value ) ? __( 'Yes', 'wpcredits-program-manager' ) : __( 'No', 'wpcredits-program-manager' );
 		}
 
-		if ( '' === $text ) {
+		if ( '' === $text && $filled ) {
+			$html = '';
+		} elseif ( '' === $text ) {
 			$html = '<span class="wpcpm-field__value wpcpm-field__value--empty">' . esc_html__( 'Not filled in', 'wpcredits-program-manager' ) . '</span>';
 		} elseif ( 'url' === $type ) {
 			// Airtable's url columns hold schemeless addresses ("example.org/me"), and `esc_url()`
@@ -1350,12 +1372,17 @@ class WPCPM_Student_Report_Form {
 			$html = '<span class="wpcpm-field__value">' . nl2br( esc_html( $text ) ) . '</span>';
 		}
 
+		if ( $filled && ! empty( $spec['help'] ) ) {
+			$html .= '<span class="wpcpm-field__hint">' . esc_html( $spec['help'] ) . '</span>';
+		}
+
 		printf(
-			'<p class="wpcpm-field wpcpm-field--read wpcpm-field--%1$s" id="%2$s"><span class="wpcpm-field__label">%3$s</span>%4$s</p>',
+			'<p class="wpcpm-field wpcpm-field--read%5$s wpcpm-field--%1$s" id="%2$s"><span class="wpcpm-field__label">%3$s</span>%4$s</p>',
 			esc_attr( $type ),
 			esc_attr( $id ),
 			esc_html( $spec['label'] ),
-			$html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from escaped parts.
+			$html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from escaped parts.
+			$filled ? ' wpcpm-field--by-program' : ''
 		);
 	}
 
@@ -1503,6 +1530,17 @@ class WPCPM_Student_Report_Form {
 
 		foreach ( $fields as $name => $spec ) {
 			$key = self::key( $name );
+
+			// A question the program fills in is never written from here, whoever saves and
+			// whatever the request holds: skipped before the posted value is looked at, so a page
+			// drawn before the value arrived, one drawn from the five-minute cache, a typed or a
+			// cleared value and a hand-made request naming the column alone all leave its cell as
+			// the program wrote it (the certificate code test of 28 October 2026, cases a to g).
+			// The card draws it with no control, so a browser posts nothing for it anyway; this is
+			// what a request that did not come from the card cannot get round.
+			if ( ! empty( $spec['read_only'] ) ) {
+				continue;
+			}
 
 			// A screenshot never arrives here: it is a file, and `store_images()` below writes
 			// its cell. Skipped rather than cleaned, because a posted string named after a file

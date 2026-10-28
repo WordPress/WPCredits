@@ -701,8 +701,22 @@ class WPCPM_Mail {
 		}
 		return $never;
 	}
+	/** Everybody holding the role, invited or not: what the screen asks when nobody is left to invite. */
+	public static function everyone( $role ) {
+		$GLOBALS['everyone_asked'][] = $role;
+		$everyone                    = array();
+		foreach ( $GLOBALS['users'] as $id => $user ) {
+			if ( in_array( $role, $user->roles, true ) ) {
+				$everyone[] = (int) $id;
+			}
+		}
+		return $everyone;
+	}
 	public static function render_invite_card( array $args ) {
 		echo '<div class="wpcpm-card wpcpm-invites"><h2>Invitations</h2>';
+		if ( empty( $args['pending'] ) && ! empty( $args['none'] ) ) {
+			printf( '<p class="description">%s</p>', esc_html( $args['none'] ) );
+		}
 		if ( ! empty( $args['pending'] ) ) {
 			echo '<form method="post" action="https://example.test/wp-admin/admin-post.php">';
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
@@ -1827,6 +1841,29 @@ ck( 'and it reads the index and the accounts, and nothing of the queue or the ag
 	'waiting documents' => false,
 	'out of force'      => false,
 ) );
+
+// With nobody left to invite, the screen counts everybody holding the Sponsor role, invited or not,
+// and hands the card its sentence only when that is nobody: a role no account holds is not a list
+// whose accounts were all invited. While Rep B is left to invite, the role is not counted at all. The
+// stand-in card prints the sentence it is handed.
+$no_account_sentence       = 'No sponsor has an account on the site yet.';
+$rep_b_account             = $GLOBALS['users'][ $rep_b ];
+$GLOBALS['everyone_asked'] = array();
+$with_rep_b                = render_tab( 'accounts' );
+$asked_with_rep_b          = $GLOBALS['everyone_asked'];
+unset( $GLOBALS['users'][ $rep_b ] );
+$nobody_tab                 = render_tab( 'accounts' );
+$GLOBALS['users'][ $rep_b ] = $rep_b_account;
+$GLOBALS['umeta'][ $rep_b ][ WPCPM_Mail::STAMPS[ WPCPM_Roles::ROLE_SPONSOR ] ] = 1780000000;
+$invited_tab                = render_tab( 'accounts' );
+unset( $GLOBALS['umeta'][ $rep_b ][ WPCPM_Mail::STAMPS[ WPCPM_Roles::ROLE_SPONSOR ] ] );
+
+ck( 'while Rep B is left to invite, the card does not count the accounts holding the role',
+	array( $asked_with_rep_b, false !== strpos( $with_rep_b, $no_account_sentence ) ),
+	array( array(), false ) );
+ck( 'with nobody left to invite, the card says no sponsor has an account where the role is held by nobody, and says nothing of it where Rep B holds it and was invited, the role asked for each time',
+	array( false !== strpos( $nobody_tab, '<p class="description">' . $no_account_sentence . '</p>' ), false !== strpos( $invited_tab, $no_account_sentence ), $GLOBALS['everyone_asked'] ),
+	array( true, false, array( WPCPM_Roles::ROLE_SPONSOR, WPCPM_Roles::ROLE_SPONSOR ) ) );
 
 echo "\n=== One sponsor's accounts, a view of the Accounts tab ===\n";
 // Wexample (B) is Approved and has Rep B, attached above; Mango Example (A) is Approved with no

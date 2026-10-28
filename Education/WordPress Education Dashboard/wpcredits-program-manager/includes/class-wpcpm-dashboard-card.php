@@ -63,9 +63,11 @@ final class WPCPM_Dashboard_Card {
 	/**
 	 * The opener, for a page that draws its cards in this shell: a browser that follows a link to a
 	 * closed card leaves it closed, and the opener opens the card a tile, a row's action, a link in a
-	 * mail or a decision's way back lands on, on either page. Registered once, in the footer and
-	 * depending on nothing, unless something registered the handle first, whose registration is the
-	 * one enqueued.
+	 * mail or a decision's way back lands on, on either page. The Institution Dashboard asks for it
+	 * too: its folded parts are drawn by their own cards, in the same shape (a section whose first
+	 * child is the disclosure), and a link to one, `#wpcpm-import` for Enroll students, opens it.
+	 * Registered once, in the footer and depending on nothing, unless something registered the handle
+	 * first, whose registration is the one enqueued.
 	 */
 	public static function enqueue_opener() {
 		if ( ! wp_script_is( self::OPENER, 'registered' ) ) {

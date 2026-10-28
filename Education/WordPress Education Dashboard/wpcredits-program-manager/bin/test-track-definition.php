@@ -464,6 +464,67 @@ ck( 'narrative() reads a definition\'s text, and none from a definition without 
 	},
 	array( $narrated['partners_narrative'], '', '', '' ) );
 
+echo "\n=== A question filled in by the program: read_only (1.123.46) ===\n";
+
+// The certificate code question of three live tracks, as they ask it: a line of text an Airtable
+// automation fills in, which the student copies into the course's last quiz. A save from the card
+// sent it with whatever the page held, an empty box included, and so wiped it (the test of 28
+// October 2026). The flag is what tells the card the column is the program's to write.
+$code = array( 'label' => 'When visible, copy and paste this number in the course Final Lesson Quiz', 'type' => 'text', 'group' => 'wrapup', 'help' => 'Please, do not modify this field by yourself.', 'airtable_type' => 'singleLineText' );
+
+ck( 'read_only is a property a question may have, and a flag: true or absent',
+	array( in_array( 'read_only', WPCPM_Track_Definition::QUESTION_PROPERTIES, true ), in_array( 'read_only', WPCPM_Track_Definition::FLAGS, true ) ),
+	array( true, true ) );
+ck( 'the certificate code question, read_only, passes', refused( only( array( 'Certificate code (Foundations Track)' => $code + array( 'read_only' => true ) ) ), $context ), array() );
+
+/** What validate() says of the code question holding this read_only value, after normalize(), as the store asks. */
+function read_only_refusals( $flag ) {
+	global $code, $context;
+
+	$definition              = valid();
+	$definition['questions'] = array( 'Certificate code (Foundations Track)' => $code + array( 'read_only' => $flag ) );
+
+	return codes( WPCPM_Track_Definition::validate( WPCPM_Track_Definition::normalize( $definition ), $context ) );
+}
+
+ck( 'true or false is accepted, and nothing else: not a word, a number, a list or an empty string',
+	array( read_only_refusals( true ), read_only_refusals( false ), read_only_refusals( 'yes' ), read_only_refusals( 1 ), read_only_refusals( array( true ) ), read_only_refusals( '' ) ),
+	array( array(), array(), array( 'flag_shape' ), array( 'flag_shape' ), array( 'flag_shape' ), array( 'flag_shape' ) ) );
+
+$unticked              = valid();
+$unticked['questions'] = array( 'Certificate code (Foundations Track)' => $code + array( 'read_only' => false ) );
+ck( 'and false is dropped like every other flag, so the question is stored as it was before the flag existed',
+	WPCPM_Track_Definition::normalize( $unticked )['questions']['Certificate code (Foundations Track)'], $code );
+
+ck( 'the eight controls the card can draw as a row of label and value may be filled in by the program',
+	function () { return WPCPM_Track_Definition::READ_ONLY_TYPES; },
+	array( 'text', 'textarea', 'richtext', 'url', 'email', 'number', 'checkbox', 'select' ) );
+ck( 'and each of them passes, read_only',
+	array_values( array_unique( array_map(
+		function ( $spec ) use ( $context ) {
+			return implode( ',', refused( only( array( 'Program value' => $spec + array( 'read_only' => true ) ) ), $context ) );
+		},
+		array( $code, $note, array( 'type' => 'richtext' ) + $note, array( 'label' => 'Link', 'type' => 'url', 'group' => 'project' ), array( 'label' => 'Address', 'type' => 'email', 'group' => 'project', 'hide_from_institution' => true ), $grade, array( 'label' => 'Done', 'type' => 'checkbox', 'group' => 'project' ), $pick )
+	) ) ),
+	array( '' ) );
+ck( 'while a screenshot, the contribution team and the Hours box, each a control of its own on the card, are refused it',
+	array(
+		refused( only( array( 'Screenshot' => array( 'label' => 'A screenshot', 'type' => 'image', 'group' => 'project', 'read_only' => true ) ) ), $context ),
+		refused( only( array( 'Main Contribution Team' => $team + array( 'read_only' => true ) ) ), $context ),
+		refused( only( array( 'Hours' => array( 'label' => 'Hours contributed', 'type' => 'number', 'step' => '1', 'min' => 0, 'max' => 10000, 'group' => 'hours', 'read_only' => true ) ) ), $context ),
+	),
+	array( array( 'read_only_control' ), array( 'read_only_control' ), array( 'read_only_control' ) ) );
+
+$flagged                                                    = valid();
+$flagged['questions']['Certificate code (Foundations Track)'] = $code + array( 'read_only' => true );
+ck( 'the flag survives storage, and compiling keeps it for the form, the authoring type alone taken off',
+	array(
+		WPCPM_Track_Definition::decode( WPCPM_Track_Definition::encode( $flagged ) ) === $flagged,
+		WPCPM_Track_Definition::normalize( WPCPM_Track_Definition::decode( WPCPM_Track_Definition::encode( $flagged ) ) ) === WPCPM_Track_Definition::normalize( $flagged ),
+		WPCPM_Track_Definition::compile_fields( $flagged )['Certificate code (Foundations Track)'],
+	),
+	array( true, true, array_diff_key( $code, array( 'airtable_type' => 1 ) ) + array( 'read_only' => true ) ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

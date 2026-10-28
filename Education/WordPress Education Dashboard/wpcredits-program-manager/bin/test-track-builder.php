@@ -2831,6 +2831,26 @@ ck( 'the mirror case: a stored text area raced by a typed number draws its store
     ),
     array( true, 0, true ) );
 
+// The setting filled in by the program (1.123.46) is dropped by posted_question() for a control
+// that cannot carry it, as mono is, so a stored question raced by a typed screenshot came back
+// unticked, and a second save would have cleared it without a word.
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Certificate code'] = array( 'type' => 'text', 'label' => 'When visible, copy and paste this number in the course Final Lesson Quiz', 'group' => 'wrapup', 'read_only' => true );
+WPCPM_Track_Store::$tracks[13]['published']['questions']['Certificate code']  = WPCPM_Track_Store::$tracks[13]['definition']['questions']['Certificate code'];
+
+$raced_read_only = question_screen(
+	WPCPM_Track_Builder::question_form( 13, 'Certificate code' ),
+	array( 'status' => 'error', 'message' => 'This question has been published, so its control and its choices are fixed.', 'question_values' => array( 'column' => 'Certificate code', 'type' => 'image', 'label' => 'When visible, copy and paste this number in the course Final Lesson Quiz', 'group' => 'wrapup' ) )
+);
+
+unset( WPCPM_Track_Store::$tracks[13]['definition']['questions']['Certificate code'], WPCPM_Track_Store::$tracks[13]['published']['questions']['Certificate code'] );
+
+ck( 'and a stored question filled in by the program, raced by a typed screenshot, draws its stored tick, with the stored control posted back',
+    array(
+        false !== strpos( $raced_read_only, 'type="checkbox" id="wpcpm_read_only" name="wpcpm_read_only" value="1" checked="checked"' ),
+        false !== strpos( $raced_read_only, 'name="wpcpm_type" value="text"' ),
+    ),
+    array( true, true ) );
+
 $forked_locked = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' ) );
 WPCPM_Track_Store::$tracks[13]['state']     = 'draft';
 WPCPM_Track_Store::$tracks[13]['published'] = null;
@@ -5209,6 +5229,108 @@ foreach ( $octet_links as $octet => $link ) {
 WPCPM_Track_Store::$course_rule = false;
 WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
 WPCPM_Track_Store::$errors = array();
+WPCPM_Track_Store::$saved  = array();
+$GLOBALS['nonce']          = '';
+$_POST                     = array();
+
+echo "\n=== A question filled in by the program: the setting, saved and drawn (1.123.46) ===\n";
+
+// The certificate code question of three live tracks is written by an Airtable automation, and the
+// Student Report Card sent it back with every save, an empty box included (the test of 28 October
+// 2026). The setting is a checkbox on the question's page, like the other flags: ticked, the
+// question carries `read_only`, and the card draws it as a row with nothing posted.
+$program_words = 'Filled in by the program: students see it but cannot change it';
+$code_words    = 'When visible, copy and paste this number in the course Final Lesson Quiz';
+$code_help     = 'Please, do not modify this field by yourself.';
+$code_post     = array( 'track' => 13, 'wpcpm_question' => 'Certificate code', 'wpcpm_column' => 'Certificate code', 'wpcpm_type' => 'text', 'wpcpm_label' => $code_words, 'wpcpm_group' => 'wrapup', 'wpcpm_help' => $code_help );
+
+ck( 'the setting has its words, the ones the question\'s page and History name it by',
+    WPCPM_Track_Editor_Screen::property_labels()['read_only'] ?? null, $program_words );
+
+$_POST   = $code_post + array( 'wpcpm_read_only' => '1' );
+$ticked  = WPCPM_Track_Editor::posted_question( array() );
+$_POST   = $code_post;
+$plain   = WPCPM_Track_Editor::posted_question( array() );
+$dropped = array();
+
+foreach ( array( 'image', 'team' ) as $control ) {
+	$_POST     = array( 'wpcpm_type' => $control, 'wpcpm_label' => 'Words', 'wpcpm_group' => 'project', 'wpcpm_read_only' => '1' );
+	$dropped[] = array_key_exists( 'read_only', WPCPM_Track_Editor::posted_question( array() ) );
+}
+
+$_POST = array();
+
+ck( 'ticked, the posted question carries read_only; unticked, it carries nothing, as before',
+    array( $ticked['read_only'] ?? 'absent', array_key_exists( 'read_only', $plain ), array_diff_key( $ticked, array( 'read_only' => true ) ) === $plain ),
+    array( true, false, true ) );
+ck( 'a screenshot or the contribution team never carries it, whatever was posted: each is a control of its own on the card',
+    $dropped, array( false, false ) );
+ck( 'and the ticked question is one the real validator accepts',
+    array_column( WPCPM_Track_Definition::validate( array( 'schema_version' => 1, 'status' => 'Marketing Track', 'key' => 'marketing', 'label' => 'Marketing Track', 'hue' => 'blue', 'questions' => array( 'Certificate code' => $ticked ) ) ), 'code' ),
+    array() );
+
+WPCPM_Track_Store::$tracks                                                    = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Certificate code'] = array( 'type' => 'text', 'label' => $code_words, 'group' => 'wrapup', 'help' => $code_help, 'airtable_type' => 'singleLineText' );
+WPCPM_Track_Store::$saved                                                     = array();
+$GLOBALS['nonce']                                                             = WPCPM_Track_Editor::ACTION_SAVE;
+
+$before_tick = question_screen( WPCPM_Track_Builder::question_form( 13, 'Certificate code' ) );
+$tick        = press_editor( 'handle_save', $code_post + array( 'wpcpm_read_only' => '1' ) );
+$tick_saved  = WPCPM_Track_Store::$saved[13]['questions']['Certificate code'] ?? array();
+$after_tick  = question_screen( WPCPM_Track_Builder::question_form( 13, 'Certificate code' ) );
+$untick      = press_editor( 'handle_save', $code_post );
+$untick_save = WPCPM_Track_Store::$saved[13]['questions']['Certificate code'] ?? array();
+$after_untick = question_screen( WPCPM_Track_Builder::question_form( 13, 'Certificate code' ) );
+
+ck( 'the setting round-trips: drawn unticked, saved ticked, drawn ticked, saved unticked, drawn unticked',
+    array(
+        false !== strpos( $before_tick, '<tr><th scope="row">' . $program_words . '</th><td><label for="wpcpm_read_only"><input type="checkbox" id="wpcpm_read_only" name="wpcpm_read_only" value="1" /> ' . $program_words . '</label></td></tr>' ),
+        array( $tick[2]['status'] ?? '', $tick_saved ),
+        false !== strpos( $after_tick, 'id="wpcpm_read_only" name="wpcpm_read_only" value="1" checked="checked" />' ),
+        array( $untick[2]['status'] ?? '', array_key_exists( 'read_only', $untick_save ) ),
+        false !== strpos( $after_untick, 'id="wpcpm_read_only" name="wpcpm_read_only" value="1" />' ),
+    ),
+    array(
+        true,
+        array( 'success', array( 'type' => 'text', 'label' => $code_words, 'group' => 'wrapup', 'help' => $code_help, 'read_only' => true, 'airtable_type' => 'singleLineText' ) ),
+        true,
+        array( 'success', false ),
+        true,
+    ) );
+
+$refused_tick = question_screen(
+	WPCPM_Track_Builder::question_form( 13, 'Certificate code' ),
+	array( 'status' => 'error', 'message' => 'Refused.', 'question_values' => array( 'column' => 'Certificate code', 'type' => 'text', 'label' => $code_words, 'group' => 'wrapup', 'read_only' => true ) )
+);
+
+ck( 'a refused save draws the setting as it was typed', false !== strpos( $refused_tick, 'id="wpcpm_read_only" name="wpcpm_read_only" value="1" checked="checked" />' ), true );
+
+// After the release an Administrator ticks it on the code question of three published tracks and
+// publishes each again: the setting changes no column and no control, so it is no fork.
+WPCPM_Track_Store::$tracks[13]['state']     = 'published';
+WPCPM_Track_Store::$tracks[13]['published'] = array( 'questions' => array( 'Hours' => array(), 'Slack name' => array(), 'Certificate code' => array() ) );
+WPCPM_Track_Store::$saved                   = array();
+$locked_tick                                = press_editor( 'handle_save', $code_post + array( 'wpcpm_read_only' => '1' ) );
+
+ck( 'a published question may still be ticked: the setting changes no column and no control',
+    array( $locked_tick[2]['status'] ?? '', WPCPM_Track_Store::$saved[13]['questions']['Certificate code']['read_only'] ?? 'not saved' ),
+    array( 'success', true ) );
+
+WPCPM_Track_Store::$tracks                                                     = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['A screenshot']      = array( 'type' => 'image', 'label' => 'A screenshot', 'group' => 'project' );
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Main Contribution Team'] = array( 'type' => 'team', 'label' => 'Your team', 'group' => 'project' );
+
+ck( 'the setting is not offered on the Hours question, a screenshot or the contribution team, while every other control has it',
+    array(
+        substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'Hours' ) ), 'id="wpcpm_read_only"' ),
+        substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'A screenshot' ) ), 'id="wpcpm_read_only"' ),
+        substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'Main Contribution Team' ) ), 'id="wpcpm_read_only"' ),
+        substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) ), 'id="wpcpm_read_only"' ),
+        substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'Your blog' ) ), 'id="wpcpm_read_only"' ),
+    ),
+    array( 0, 0, 0, 1, 1 ) );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
 WPCPM_Track_Store::$saved  = array();
 $GLOBALS['nonce']          = '';
 $_POST                     = array();

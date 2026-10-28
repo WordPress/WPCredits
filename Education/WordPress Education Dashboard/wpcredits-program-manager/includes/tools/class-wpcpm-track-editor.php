@@ -410,6 +410,14 @@ final class WPCPM_Track_Editor {
 			}
 		}
 
+		// Filled in by the program (1.123.46), read like `mono`: for the controls that can carry it
+		// and dropped for the others, so a question changed to a screenshot or the team list does
+		// not keep a flag its new control cannot have. The Hours question is the definition's to
+		// refuse, since the column, not the control, decides that one.
+		if ( in_array( $type, WPCPM_Track_Definition::READ_ONLY_TYPES, true ) && '1' === WPCPM_Request::posted_key( 'wpcpm_read_only' ) ) {
+			$question['read_only'] = true;
+		}
+
 		if ( 'number' === $type ) {
 			foreach ( array( 'min', 'max', 'step' ) as $bound ) {
 				$value = WPCPM_Request::posted_text( 'wpcpm_' . $bound );

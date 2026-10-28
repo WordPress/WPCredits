@@ -329,6 +329,13 @@ class WPCPM_Institutions_Dashboard {
 
 		wp_enqueue_script( 'wpcpm-forms' );
 
+		// A part of this page that folds, Enroll students at `#wpcpm-import` among them, is a
+		// `<details>` inside a section whose id is its anchor, and a browser that follows a link to
+		// a closed one leaves it closed, the sample list's link hidden inside it. The dashboards'
+		// opener, the one the Sponsor Dashboard and the Administrator Dashboard load, opens the part
+		// a link lands on.
+		WPCPM_Dashboard_Card::enqueue_opener();
+
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
 				__( 'Please log in to see your institution on this site.', 'wpcredits-program-manager' ),

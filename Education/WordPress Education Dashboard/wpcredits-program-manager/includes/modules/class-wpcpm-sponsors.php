@@ -3099,13 +3099,23 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * its form, so "Sending stopped." prints here. Its button counts accounts, not people, in words
 	 * of its own. An account that also mentors and whose invitation an activation held (1.122.33) is
 	 * left out of the button, and the card says how many, since only the account's own row sends it.
+	 *
+	 * Where no account holds the Sponsor role the card says so, and does not say every account has been
+	 * invited, which is untrue of a site with none. The accounts are counted from everybody holding the
+	 * role (`everyone()`), invited or not, and only when nobody is left to invite and nobody is held
+	 * back, so the card pays for that read only then.
 	 */
 	private function render_invitations() {
+		$pending = self::never_invited();
+		$held    = self::held_back();
+		$nobody  = empty( $pending ) && empty( $held ) && array() === self::everyone();
+
 		WPCPM_Mail::render_invite_card(
 			array(
 				'action'  => self::ACTION_BULK,
-				'pending' => self::never_invited(),
-				'held'    => count( self::held_back() ),
+				'pending' => $pending,
+				'held'    => count( $held ),
+				'none'    => $nobody ? __( 'No sponsor has an account on the site yet.', 'wpcredits-program-manager' ) : '',
 				'noun'    => __( 'sponsor accounts', 'wpcredits-program-manager' ),
 				/* translators: %s: how many accounts. */
 				'button'  => _n_noop( 'Invite %s sponsor account that has never been invited', 'Invite %s sponsor accounts that have never been invited', 'wpcredits-program-manager' ),

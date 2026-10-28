@@ -1303,8 +1303,16 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 		public static function held_back( $role, $meta ) {
 			return array();
 		}
+		/** Everybody holding the role, invited or not: what the screen asks when nobody is left to invite. */
+		public static function everyone( $role ) {
+			$GLOBALS['everyone_asked'][] = $role;
+			return $GLOBALS['everyone'] ?? array();
+		}
 		public static function render_invite_card( array $args ) {
 			echo '<div class="wpcpm-card wpcpm-invites"><h2>Invitations</h2>';
+			if ( empty( $args['pending'] ) && ! empty( $args['none'] ) ) {
+				printf( '<p class="description">%s</p>', esc_html( $args['none'] ) );
+			}
 			if ( ! empty( $args['pending'] ) ) {
 				echo '<form method="post" action="https://example.test/wp-admin/admin-post.php">';
 				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
@@ -2680,6 +2688,7 @@ $GLOBALS['uid']                 = 63;
 $GLOBALS['locked']              = array( new WP_User( 50, 'Rep One', 'rep.one@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ) );
 $GLOBALS['never_invited']       = array( 51, 52 );
 $GLOBALS['never_invited_asked'] = array();
+$GLOBALS['everyone_asked']      = array();
 WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'invited' );
 $accounts_tab              = render_tab( 'accounts' );
 $GLOBALS['uid']            = 1;
@@ -2706,6 +2715,23 @@ ck( 'the tab reads top to bottom: the press\'s notice above the bar, as on every
 ck( 'the invitations card is the module\'s: its button posts the module\'s own action and names the Accounts tab, and it counts the accounts the mail layer finds never invited, by the institution account\'s role and stamp',
 	array( form_fields( $accounts_tab, 'wpcpm_institutions_bulk_invite' ), false !== strpos( $accounts_tab, '<button type="submit">Invite 2 institution accounts that have never been invited</button>' ), $GLOBALS['never_invited_asked'] ),
 	array( array( 'action' => 'wpcpm_institutions_bulk_invite', 'wpcpm_tab' => 'accounts' ), true, array( array( WPCPM_Roles::ROLE_INSTITUTION, 'wpcpm_inst_invited' ) ) ) );
+ck( 'while some are left to invite, the card does not count the accounts holding the role',
+	$GLOBALS['everyone_asked'],
+	array() );
+
+// With nobody left to invite, the screen counts everybody holding the institution account's role,
+// invited or not, and hands the card its sentence only when that is nobody: a role no account holds
+// is not a list whose accounts were all invited. The stand-in card prints the sentence it is handed.
+$no_account_sentence = 'No institution has an account on the site yet.';
+$GLOBALS['everyone'] = array();
+$nobody_tab          = render_tab( 'accounts' );
+$GLOBALS['everyone'] = array( 51, 52 );
+$invited_tab         = render_tab( 'accounts' );
+$GLOBALS['everyone'] = array();
+
+ck( 'with nobody left to invite, the card says no institution has an account where the role is held by nobody, and says nothing of it where accounts exist, the role asked for each time',
+	array( false !== strpos( $nobody_tab, '<p class="description">' . $no_account_sentence . '</p>' ), false !== strpos( $invited_tab, $no_account_sentence ), $GLOBALS['everyone_asked'] ),
+	array( true, false, array( WPCPM_Roles::ROLE_INSTITUTION, WPCPM_Roles::ROLE_INSTITUTION ) ) );
 ck( 'the list counts the institution accounts and, on the link to its No account view, the 42 Confirmed institutions without one, each asked about once',
 	array( false !== strpos( $accounts_tab, 'No account <span class="count">(42)</span>' ), count( $GLOBALS['blocks_read'] ), count( array_unique( $GLOBALS['blocks_read'] ) ) ),
 	array( true, count( $confirmed ), count( $confirmed ) ) );

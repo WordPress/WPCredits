@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.45
+Stable tag: 1.123.46
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.46 =
+
+* Track Builder: a question can be marked "Filled in by the program: students see it but cannot change it". The Student Report Card shows its value as text the student can copy, and no save, a student's or an Administrator's, writes it, so a certificate code the program writes can no longer be typed over, cleared, or wiped by a save from a page opened before the code arrived. A wrong code is corrected in the program's records.
+* On the Mentors, Institutions and Sponsors screens, the Invitations card says when nobody holds the role yet, where it said that every one of them had been invited.
+* The Institution Dashboard opens the folded part a link lands on, as the Sponsor and Administrator Dashboards do, so its address followed by `#wpcpm-import` opens Enroll students and its "Download a sample list".
+* For developers: the question property `read_only` (refused on a screenshot, the contribution team and the Hours question; skipped first in `WPCPM_Student_Report_Form::handle_save()`; on the Track Builder's decision 29 list); `everyone()` moved into the accounts screens' trait; the Institution Dashboard enqueues `WPCPM_Dashboard_Card::OPENER`; `bin/js/dashboard-open.js` runs the opener under node from `bin/test-dashboard-card.php`.
 
 = 1.123.45 =
 

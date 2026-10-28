@@ -47,6 +47,12 @@
  * - The events from the program's sponsors (1.117.0): the list is drawn for a contact of the
  *   institution on its own page, after the modules and outside their order, and never for a program
  *   manager looking through the switcher, nor for a locked account, which sees no module either.
+ * - **A link to a folded part opens it** (1.123.46). The page loads the dashboards' opener, the one the
+ *   Sponsor Dashboard and the Administrator Dashboard load, enqueued through the shell they share, for the
+ *   locked account and the program manager alike: a part such as Enroll students is a `<details>` folded by
+ *   default inside a section whose id is its anchor, and a browser that follows `#wpcpm-import` scrolls to the
+ *   closed part and leaves it closed, so the sample list's link inside it was not found. What the opener does
+ *   with that anchor is pinned in bin/test-dashboard-card.php.
  * - **A module is drawn by the printer the Sponsor Dashboard's sections are drawn by too** (Institutions
  *   release 3), `WPCPM_Module_Order::render_module()`, and what this page prints is byte for byte what
  *   it printed before the printer was shared: the markup is written out a second time in this suite,
@@ -263,6 +269,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 // The real helper and not a stand-in: it is where the empty-page wording lives now, and a
 // copy of the sentence here would let the page ship one wording while the suite pinned
@@ -827,6 +834,7 @@ ck( 'no agreement card at the foot', false !== strpos( $out, 'data-card="agreeme
 ck( 'no banner: that is the manager\'s, not theirs', false !== strpos( $out, 'wpcpm-institution__banner' ), false );
 ck( 'and no switcher', false !== strpos( $out, 'wpcpm-institution-switcher' ), false );
 ck( 'nor the script that narrows one', in_array( 'wpcpm-switcher', $GLOBALS['scripts'], true ), false );
+ck( 'and the dashboards\' opener is loaded all the same, since the panel is a disclosure a link can land on', in_array( 'wpcpm-dashboard-open', $GLOBALS['scripts'], true ), true );
 ck( 'the account-security prompt is chrome and still runs', false !== strpos( $out, '<!-- 2fa -->' ), true );
 
 // The same account, appending the manager's switcher argument by hand.
@@ -871,6 +879,12 @@ $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 // Every form on the page carries data-wpcpm-once; the page has to load the script that reads it,
 // or two presses of Upload file two agreements.
 ck( 'the dashboard arms the double-submit guard its forms carry', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ), true );
+// A link to #wpcpm-import (the Enroll students part, folded by default) scrolls to the closed part and
+// leaves it closed unless the opener the other two dashboards load is on the page.
+ck( 'and loads the dashboards\' opener, once, so a link to a folded part such as #wpcpm-import opens it', array(
+	in_array( 'wpcpm-dashboard-open', $GLOBALS['scripts'], true ),
+	count( array_keys( $GLOBALS['scripts'], 'wpcpm-dashboard-open', true ) ),
+), array( true, 1 ) );
 
 ck( 'a manager sees the banner', false !== strpos( $out, 'wpcpm-institution__banner' ), true );
 ck( 'and the read line once, as the member does', substr_count( $out, 'Read from the program records on' ), 1 );

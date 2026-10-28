@@ -1049,6 +1049,46 @@ ck( 'with only held ones left, the card offers no button and says they are left 
 	),
 	array( false, true, false ) );
 
+// Nobody left to invite is two different facts here too, and the card says them differently: every
+// mentor on the site was invited, or no account holds the Mentor role at all, which is not a fact
+// about invitations, and "Every one of the mentors has been invited." is untrue of a list with no
+// mentor on it. The card counts the accounts holding the role, invited or not, and says plainly that
+// there is none, as the Students screen does for its own filters. A student and an administrator are
+// accounts, and not mentors.
+$card_text = static function ( $html ) {
+	return trim( preg_replace( '/\s+/', ' ', preg_replace( '/<[^>]+>/', ' ', between( $html, '<div class="wpcpm-card wpcpm-invites">', '</div>' ) ) ) );
+};
+$every_one = 'Invitations Every one of the mentors has been invited. To send somebody a fresh link, use Resend invite on their row.';
+
+reset_site();
+mentor( 20, 'Sam Student', 'sstudent', array( WPCPM_Roles::ROLE_STUDENT ) );
+mentor( 21, 'Ola Admin', 'oadmin', array( 'administrator' ) );
+manager( 905 );
+$nobody_page = html_of( page_for( screen() ) );
+ck( 'on a site with no Mentor account, though a student and an administrator are accounts, the card says no mentor has one and offers no button, and does not say every one was invited',
+	array( $card_text( $nobody_page ), isset( forms_by_action( $nobody_page )[ WPCPM_Mentors::ACTION_BULK ] ) ),
+	array( 'Invitations No mentor has an account on the site yet.', false ) );
+
+reset_site();
+mentor( 11, 'Ada Kowalski', 'akowalski', array( WPCPM_Roles::ROLE_MENTOR ), 4, 2, 1, 1700000000 );
+mentor( 15, 'Aria Stone', 'astone', array( WPCPM_Roles::ROLE_MENTOR ), 0, 3, 1, 1700000000 );
+manager( 906 );
+$invited_page = html_of( page_for( screen() ) );
+ck( 'where every mentor was invited, the card still says every one was, and not that none has an account',
+	array( $card_text( $invited_page ), isset( forms_by_action( $invited_page )[ WPCPM_Mentors::ACTION_BULK ] ) ),
+	array( $every_one, false ) );
+
+three_mentors();
+manager( 907 );
+$never_page = html_of( page_for( screen() ) );
+ck( 'and where mentors were never invited, it offers the button as before, and says neither',
+	array(
+		has( isset( forms_by_action( $never_page )[ WPCPM_Mentors::ACTION_BULK ] ) ? forms_by_action( $never_page )[ WPCPM_Mentors::ACTION_BULK ] : '', '>Invite 2 mentors who have never been invited</button>' ),
+		has( $never_page, 'No mentor has an account' ),
+		has( $never_page, 'Every one of the mentors has been invited.' ),
+	),
+	array( true, false, false ) );
+
 echo "\n=== The search: the name, the username and the email ===\n";
 
 three_mentors();

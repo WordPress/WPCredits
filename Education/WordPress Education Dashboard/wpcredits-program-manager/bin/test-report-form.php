@@ -1773,6 +1773,32 @@ ck( 'and with no course known it says Pending graduation alone, with no link',
 
 unset( $GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_COURSE ] );
 
+echo "\n=== The preview draws a question filled in by the program without a box (1.123.46) ===\n";
+
+// The Track Builder's preview runs the student's own loop with empty answers, so a question flagged
+// `read_only` comes out as it does on a card that has no value for it yet: the words and the help,
+// and nothing to type into. bin/test-report-images.php saves one through the real handler.
+$program_code = 'Certificate code (Foundations Track)';
+$program_key  = WPCPM_Student_Report_Form::key( $program_code );
+
+ob_start();
+WPCPM_Student_Report_Form::render_preview(
+	array(
+		'Closing post URL' => array( 'label' => 'Your closing post', 'type' => 'url', 'group' => 'wrapup' ),
+		$program_code      => array( 'label' => 'When visible, copy and paste this number in the course Final Lesson Quiz', 'type' => 'text', 'group' => 'wrapup', 'help' => 'Please, do not modify this field by yourself.', 'read_only' => true ),
+	)
+);
+$program_preview = ob_get_clean();
+
+ck( 'the preview draws the question\'s words and its help as a row, with no control and no name to post',
+	array(
+		false !== strpos( $program_preview, '<p class="wpcpm-field wpcpm-field--read wpcpm-field--by-program wpcpm-field--text" id="wpcpm-report-' . $program_key . '"><span class="wpcpm-field__label">When visible, copy and paste this number in the course Final Lesson Quiz</span><span class="wpcpm-field__hint">Please, do not modify this field by yourself.</span></p>' ),
+		substr_count( $program_preview, 'report[' . $program_key . ']' ),
+		1 === preg_match( '/<(input|textarea|select)[^>]*id="wpcpm-report-' . $program_key . '"/', $program_preview ),
+	),
+	array( true, 0, false ) );
+ck( 'beside a question that is still a box', false !== strpos( $program_preview, 'name="report[' . WPCPM_Student_Report_Form::key( 'Closing post URL' ) . ']"' ), true );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 

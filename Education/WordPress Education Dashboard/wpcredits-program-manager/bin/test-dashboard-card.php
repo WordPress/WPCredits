@@ -44,7 +44,8 @@
  *   and its title by a literal: the shell defaults both to '', and a card that could ask for an
  *   empty key would print an anchor that names no card.
  * - **The opener**, assets/js/dashboard-open.js, opens the disclosure a fragment names, the one a
- *   section it names opens with (an Administrator Dashboard card's anchor is on its section), and
+ *   section it names opens with (an Administrator Dashboard card's anchor is on its section, and so
+ *   is an Institution Dashboard part's, `#wpcpm-import` for Enroll students), and
  *   the ones around the element it names, when the page loads, whenever the fragment changes, and
  *   when a link to one of the page's anchors is pressed, since a link to the fragment already in
  *   the address fires no hashchange; it leaves the scrolling to the browser. After a press that
@@ -56,10 +57,15 @@
  *   tab order, since -1 would take a title that has one out of it. A press that opens the link
  *   somewhere other than this page (a new tab or window, a download) is left to the browser: no
  *   card opens here and no focus moves. Read from the source, as bin/test-sponsor-badge.php reads
- *   copy.js: the suites run no browser.
- * - **Both pages enqueue the opener through the shell**: `enqueue_opener()` registers it once, in
- *   the footer and depending on nothing, keeps a registration something else made first, and
- *   enqueues it; neither dashboard registers the script itself.
+ *   copy.js, and run by node on a stand-in for each of the three pages it is loaded on
+ *   (bin/js/dashboard-open.js): a link to `#wpcpm-import` opens the Enroll students part of the
+ *   Institution Dashboard, a fragment naming nothing on the page changes nothing, and the Sponsor
+ *   Dashboard and the Administrator Dashboard open their cards as they did. The suites run no browser.
+ * - **All three dashboards enqueue the opener through the shell**: `enqueue_opener()` registers it
+ *   once, in the footer and depending on nothing, keeps a registration something else made first, and
+ *   enqueues it; none of the three registers the script itself. The Institution Dashboard's folded
+ *   parts are drawn by their own cards, not by the shell, in the same shape (a section whose first
+ *   child is the disclosure), which is all the opener reads.
  * - **One group of cards, one shape for both pages**: `group()` prints a group's wrapper, its
  *   heading and its one sentence over its cards, in the Sponsor Dashboard's classes unless a page
  *   asks for its own, every value escaped, and nothing at all for a group whose cards print nothing
@@ -596,8 +602,76 @@ ck( 'and nothing else: it neither scrolls nor stops the browser from doing so, c
 	array( '' !== $opener, strpos( $opener, 'scrollIntoView' ), strpos( $opener, 'scrollTo' ), strpos( $opener, 'preventDefault' ), strpos( $opener, 'jQuery' ), strpos( $opener, '.open = false' ) ),
 	array( true, false, false, false, false, false )
 );
+// The opener is on three pages now, and its header, the first thing a reader of the script reads,
+// says which: a header that names two would send the next reader looking for a shell the third page
+// does not use.
+$opener_header = trim( (string) preg_replace( '/\s*\n \*\s?/', ' ', (string) substr( $opener, 0, (int) strpos( $opener, '( function ()' ) ) ) );
+ck( 'the opener\'s header names the three dashboards, says the Institution Dashboard\'s folded parts are drawn by their own cards and that Enroll students is anchored on its section, and no longer speaks of two pages',
+	array(
+		0 === strpos( $opener_header, '/** Opens the card a link lands on, on the Sponsor Dashboard, the Administrator Dashboard and the Institution Dashboard. ' ),
+		false !== strpos( $opener_header, 'each drawn by its own card' ),
+		false !== strpos( $opener_header, "an Institution Dashboard part's, `#wpcpm-import` for Enroll students, are their section's" ),
+		false === strpos( $opener_header, 'two pages' ),
+	),
+	array( true, true, true, true )
+);
 
-echo "\n=== Both pages enqueue the opener through the shell ===\n";
+echo "\n=== The opener, run by node on each page it is loaded on ===\n";
+// The checks above read the script; this runs it, on a stand-in for the page (bin/js/dashboard-open.js,
+// built the way bin/js/modules-arrange.js is): the Institution Dashboard's Enroll students part opens
+// for a link to #wpcpm-import and a fragment naming nothing changes nothing, and the other two pages
+// open their cards as before. The harness prints each scenario, and the lines are this suite's own.
+$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+
+if ( '' === $node ) {
+	echo "skip the script was not run: node is not on the path\n";
+} else {
+	$process = proc_open(
+		escapeshellarg( $node ) . ' ' . escapeshellarg( __DIR__ . '/js/dashboard-open.js' ) . ' ' . escapeshellarg( $opener_file ) . ' 2>&1',
+		array( 1 => array( 'pipe', 'w' ) ),
+		$pipes
+	);
+
+	$out = explode( "\n", rtrim( (string) stream_get_contents( $pipes[1] ) ) );
+
+	fclose( $pipes[1] );
+
+	$status = proc_close( $process );
+
+	// Each scenario line is counted here, the summary is checked against the lines shown, and anything
+	// else is shown as it came.
+	$ran     = 0;
+	$differ  = 0;
+	$summary = null;
+
+	foreach ( $out as $line ) {
+		if ( 0 === strpos( $line, 'ok   ' ) ) {
+			++$ran;
+			++$checks;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, 'FAIL ' ) ) {
+			++$ran;
+			++$checks;
+			++$differ;
+			++$fail;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, '       ' ) ) {
+			echo $line . "\n";
+		} elseif ( '' !== trim( $line ) ) {
+			if ( preg_match( '/^(\d+) scenarios, (\d+) differ$/', trim( $line ), $counts ) ) {
+				$summary = array( (int) $counts[1], (int) $counts[2] );
+			}
+
+			echo '     ' . $line . "\n";
+		}
+	}
+
+	ck( 'the script ran scenarios', $ran > 0, true );
+	ck( 'and its own summary counts the scenarios and the failures shown above', $summary, array( $ran, $differ ) );
+	ck( 'and node ended with a status of 0, or of 1 when a scenario differed', $status, $differ ? 1 : 0 );
+}
+
+echo "\n=== All three dashboards enqueue the opener through the shell ===\n";
 $opener_enqueued = static function () {
 	$GLOBALS['scripts']              = array();
 	$GLOBALS['script_registrations'] = array();
@@ -624,11 +698,13 @@ ck( 'and an opener something else registered first is enqueued as it is, and not
 ) );
 $sponsors_page = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-dashboard.php' );
 $admin_page    = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-dashboard.php' );
-ck( 'both dashboards ask the shell for the opener, once, and neither registers the script itself', array(
+$institution_page = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institutions-dashboard.php' );
+ck( 'all three dashboards ask the shell for the opener, once, and none registers the script itself', array(
 	substr_count( $sponsors_page, 'WPCPM_Dashboard_Card::enqueue_opener();' ),
 	substr_count( $admin_page, 'WPCPM_Dashboard_Card::enqueue_opener();' ),
-	substr_count( $sponsors_page . $admin_page, "'wpcpm-dashboard-open'" ),
-), array( 1, 1, 0 ) );
+	substr_count( $institution_page, 'WPCPM_Dashboard_Card::enqueue_opener();' ),
+	substr_count( $sponsors_page . $admin_page . $institution_page, "'wpcpm-dashboard-open'" ),
+), array( 1, 1, 1, 0 ) );
 
 echo "\n=== One group of cards, one shape for both pages ===\n";
 /**

@@ -83,6 +83,7 @@ class WPCPM_Track_Editor_Screen {
 			'stack'                 => __( 'Shares one column of its row', 'wpcredits-program-manager' ),
 			'required'              => __( 'Marked required', 'wpcredits-program-manager' ),
 			'hide_from_institution' => __( 'Kept off everything an institution reads', 'wpcredits-program-manager' ),
+			'read_only'             => __( 'Filled in by the program: students see it but cannot change it', 'wpcredits-program-manager' ),
 			'min'                   => __( 'Lowest value', 'wpcredits-program-manager' ),
 			'max'                   => __( 'Highest value', 'wpcredits-program-manager' ),
 			'step'                  => __( 'Step', 'wpcredits-program-manager' ),
@@ -121,11 +122,13 @@ class WPCPM_Track_Editor_Screen {
 	 * The column and the control at the top with the fork and sharing notices beside them, then
 	 * the properties that apply to the control: every question has its words, group, help, lead,
 	 * subgroup, note, row, stack, required, hide from institution and why; a number also its
-	 * bounds, text its length limit, a text area mono, a select its choices. Which control's boxes
-	 * are drawn follows what was last typed when a refusal brought the page back, so changing the
-	 * control to one that needs more is a two-step: choose it, save, fill in what the refusal
-	 * names, save. A published question's column and control are drawn as text with the same
-	 * values posted hidden, so the lock is visible before a save would refuse it (decision 23).
+	 * bounds, text its length limit, a text area mono, a select its choices; and every control but
+	 * a screenshot and the team list, the Hours question aside, whether the program fills it in
+	 * (`read_only`, 1.123.46). Which control's boxes are drawn follows what was last typed when a
+	 * refusal brought the page back, so changing the control to one that needs more is a two-step:
+	 * choose it, save, fill in what the refusal names, save. A published question's column and
+	 * control are drawn as text with the same values posted hidden, so the lock is visible before a
+	 * save would refuse it (decision 23).
 	 *
 	 * @param array $args `form` from `WPCPM_Track_Builder::question_form()`, the screen's `url`,
 	 *                    and the `flash` the last press left, whose `question_values` are what was
@@ -144,12 +147,15 @@ class WPCPM_Track_Editor_Screen {
 
 		// A locked question raced by a typed control that differs from the stored one could not
 		// have carried that control's own properties: its boxes belonged to another control, so
-		// they read blank unless corrected here. These six read the stored question instead, while
-		// every other property still keeps what was typed (decision 29).
+		// they read blank unless corrected here. These seven read the stored question instead, while
+		// every other property still keeps what was typed (decision 29). `read_only` is among them
+		// (1.123.46): `posted_question()` drops it for a screenshot or the team list as it drops
+		// mono for anything but a text area, so a typed one of those would draw it unticked and the
+		// next save would clear it.
 		$stored_type = isset( $question['type'] ) ? (string) $question['type'] : '';
 
 		if ( $locked && array() !== $typed && isset( $typed['type'] ) && (string) $typed['type'] !== $stored_type ) {
-			foreach ( array( 'min', 'max', 'step', 'maxlength', 'mono', 'options' ) as $own ) {
+			foreach ( array( 'min', 'max', 'step', 'maxlength', 'mono', 'options', 'read_only' ) as $own ) {
 				unset( $typed[ $own ] );
 
 				if ( array_key_exists( $own, $question ) ) {
@@ -252,6 +258,13 @@ class WPCPM_Track_Editor_Screen {
 		self::render_flag_row( 'stack', $labels['stack'], ! empty( $value( 'stack' ) ) );
 		self::render_flag_row( 'required', $labels['required'], ! empty( $value( 'required' ) ) );
 		self::render_flag_row( 'hide_from_institution', $labels['hide_from_institution'], ! empty( $value( 'hide_from_institution' ) ) || 'email' === $type );
+
+		// Offered where the definition allows it (1.123.46): not on a screenshot or the team list,
+		// and not on the Hours question, whose column decides that, read as the group select reads
+		// it, so a rename to or from Hours that a save refused comes back offering the right rows.
+		if ( in_array( $type, WPCPM_Track_Definition::READ_ONLY_TYPES, true ) && WPCPM_Track_Definition::HOURS_COLUMN !== ( $locked ? $column : (string) $value( 'column', $column ) ) ) {
+			self::render_flag_row( 'read_only', $labels['read_only'], ! empty( $value( 'read_only' ) ) );
+		}
 
 		if ( 'number' === $type ) {
 			self::render_text_row( 'min', $labels['min'], (string) $value( 'min' ) );

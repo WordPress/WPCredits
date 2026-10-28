@@ -1,19 +1,24 @@
 /**
- * Opens the card a link lands on, on the Sponsor Dashboard and the Administrator Dashboard.
+ * Opens the card a link lands on, on the Sponsor Dashboard, the Administrator Dashboard and the
+ * Institution Dashboard.
  *
- * Every card on the two pages folds in a `<details>` drawn by one shell (`WPCPM_Dashboard_Card`),
- * and a browser that follows a link to a closed one scrolls to its title and leaves it closed: a
- * link meant to show a card (an At a glance tile, a row's action, a link in a mail, a decision's
- * way back) would land on a folded row. A Sponsor Dashboard card's anchor, `#wpcpm-sponsor-<card>`,
- * is its disclosure's id; an Administrator Dashboard card's, `#wpcpm-<card>`, is its section's, and
- * the section opens with the disclosure. So when the page has been parsed, and whenever the
- * fragment changes, the disclosure the fragment names is opened, and so is the one a section it
- * names opens with, and every disclosure around the element it names, since a target inside a
- * closed one is hidden. A link to the fragment already in the address changes nothing the browser
- * reports, so a click on a link to one of the page's anchors opens that card too. The browser does
- * the scrolling, as it does for any fragment. On the Sponsor Dashboard a handler's flash also opens
- * its card from the server; a decision made on the Administrator Dashboard comes back with its
- * card's anchor in the address, which this opens once the page is parsed.
+ * Every card on the Sponsor and Administrator Dashboards folds in a `<details>` drawn by one shell
+ * (`WPCPM_Dashboard_Card`), and the Institution Dashboard's folded parts (Enroll students and the
+ * Semester report among them) fold in a `<details>` of the same shape, each drawn by its own card.
+ * A browser that follows a link to a closed one scrolls to its title and leaves it closed: a link
+ * meant to show a card or a part (an At a glance tile, a row's action, a link in a mail, a
+ * decision's way back, a link to the form that holds the sample list) would land on a folded row.
+ * A Sponsor Dashboard card's anchor, `#wpcpm-sponsor-<card>`, is its disclosure's id; an
+ * Administrator Dashboard card's, `#wpcpm-<card>`, and an Institution Dashboard part's,
+ * `#wpcpm-import` for Enroll students, are their section's, and the section opens with the
+ * disclosure. So when the page has been parsed, and whenever the fragment changes, the disclosure
+ * the fragment names is opened, and so is the one a section it names opens with, and every
+ * disclosure around the element it names, since a target inside a closed one is hidden. A link to
+ * the fragment already in the address changes nothing the browser reports, so a click on a link to
+ * one of the page's anchors opens that card too. The browser does the scrolling, as it does for
+ * any fragment. On the Sponsor Dashboard a handler's flash also opens its card from the server; a
+ * decision made on the Administrator Dashboard comes back with its card's anchor in the address,
+ * which this opens once the page is parsed.
  *
  * A row's action is hidden while its card is open (one rule in the stylesheets), so the press that
  * opens the card hides the link that was pressed, and a browser drops the focus of what it hides to
@@ -66,8 +71,8 @@
 
 		target = document.getElementById( id );
 
-		// An Administrator Dashboard card's anchor is on its section, and the section's first child is
-		// the card's disclosure.
+		// An Administrator Dashboard card's anchor is on its section, and so is an Institution
+		// Dashboard part's; the section's first child is the disclosure.
 		if ( target && ! isDetails( target ) && isDetails( target.firstElementChild ) ) {
 			disclosure = target.firstElementChild;
 			disclosure.open = true;

@@ -917,6 +917,283 @@ update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, WPCPM_Program::STATUS_
 
 ck( 'and a paused student is drawn it too, whatever their account remembers', asks( body(), $dev_only[0] ), false );
 
+echo "\n=== A question filled in by the program is never written by the card (1.123.46) ===\n";
+
+// The certificate code of three live tracks is a line of text an Airtable automation fills in, and
+// the card drew it as a box like any other. A save posts every box on the form, so a page drawn
+// before the code arrived, or inside the five-minute cache after it did, sent the code cell empty
+// and wiped it; a typed or cleared box was saved as it was; and a hand-made request could set it
+// to anything (the test of 28 October 2026, cases a to g). A question flagged `read_only` is drawn
+// as a row the student reads and copies, with no control and so nothing posted, and the save skips
+// it before it looks at what was posted. Asked here, through the real save, of a form shaped like
+// those tracks', compiled from a definition the way a publish compiles one.
+
+/**
+ * What a browser sends when the report form in this markup is submitted.
+ *
+ * Every named control that is not disabled, in document order: a box's value, a text area's text,
+ * a select's chosen option, a checkbox or radio only when ticked, and no file input or button.
+ * Built into a query string and parsed the way PHP parses a post, so a name sent twice keeps the
+ * last value and `report[key][]` arrives as a list, as on the live site.
+ *
+ * @param string $html The rendered card.
+ * @return array What `$_POST` would hold.
+ */
+function submitted( $html ) {
+	$doc = new DOMDocument();
+
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?>' . $html );
+	libxml_clear_errors();
+
+	$xpath = new DOMXPath( $doc );
+	$form  = $xpath->query( '//form[contains(concat(" ", normalize-space(@class), " "), " wpcpm-report ")]' )->item( 0 );
+	$pairs = array();
+
+	if ( ! $form instanceof DOMElement ) {
+		return array();
+	}
+
+	foreach ( $xpath->query( './/input|.//textarea|.//select', $form ) as $control ) {
+		$name = $control->getAttribute( 'name' );
+
+		if ( '' === $name || $control->hasAttribute( 'disabled' ) ) {
+			continue;
+		}
+
+		$tag = strtolower( $control->nodeName );
+
+		if ( 'input' === $tag ) {
+			$type = strtolower( '' !== $control->getAttribute( 'type' ) ? $control->getAttribute( 'type' ) : 'text' );
+
+			if ( in_array( $type, array( 'file', 'submit', 'button', 'reset', 'image' ), true ) || ( in_array( $type, array( 'checkbox', 'radio' ), true ) && ! $control->hasAttribute( 'checked' ) ) ) {
+				continue;
+			}
+
+			$value = $control->getAttribute( 'value' );
+		} elseif ( 'textarea' === $tag ) {
+			$value = $control->textContent;
+		} else {
+			$value = '';
+
+			foreach ( $xpath->query( './/option', $control ) as $index => $option ) {
+				if ( 0 === $index || $option->hasAttribute( 'selected' ) ) {
+					$value = $option->getAttribute( 'value' );
+				}
+			}
+		}
+
+		$pairs[] = rawurlencode( $name ) . '=' . rawurlencode( $value );
+	}
+
+	parse_str( implode( '&', $pairs ), $post );
+
+	return $post;
+}
+
+/**
+ * What the record holds after the save's PATCH: the cells it named merged over what was there, an
+ * empty value clearing its cell, as Airtable merges a PATCH.
+ *
+ * @param array $before The record's cells before the save.
+ * @return array
+ */
+function record_after( array $before ) {
+	foreach ( patched_cells() as $column => $value ) {
+		if ( null === $value || '' === $value || array() === $value ) {
+			unset( $before[ $column ] );
+		} else {
+			$before[ $column ] = $value;
+		}
+	}
+
+	return $before;
+}
+
+$CODE      = 'Certificate code (Foundations Track)';
+$CODE_KEY  = key_of( $CODE );
+$CLOSING   = 'Closing post URL';
+$code_spec = array( 'label' => 'When visible, copy and paste this number in the course Final Lesson Quiz', 'type' => 'text', 'group' => 'wrapup', 'help' => 'Please, do not modify this field by yourself.', 'airtable_type' => 'singleLineText' );
+
+/**
+ * Plant the 150-hour track's compiled form as a Foundations-shaped track of six questions, the code
+ * question flagged or not, the way publishing writes a form: normalized, then compiled.
+ *
+ * @param bool $flagged Whether the code question carries `read_only`.
+ */
+function plant_code_track( $flagged ) {
+	global $CODE, $CLOSING, $code_spec;
+
+	$definition = WPCPM_Track_Definition::normalize(
+		array(
+			'schema_version' => 1,
+			'status'         => WPCPM_Program::STATUS_150H,
+			'key'            => '150h',
+			'label'          => 'Foundations Track',
+			'hue'            => 'blue',
+			'questions'      => array(
+				'Hours'                        => array( 'label' => 'Hours contributed', 'type' => 'number', 'step' => '1', 'min' => 0, 'max' => 10000, 'group' => 'hours', 'airtable_type' => 'number' ),
+				'Slack Name'                   => array( 'label' => 'Your Slack name', 'type' => 'text', 'group' => 'onboarding', 'maxlength' => 100, 'airtable_type' => 'singleLineText' ),
+				'WordPress Profile'            => array( 'label' => 'Your WordPress.org profile', 'type' => 'url', 'group' => 'onboarding', 'airtable_type' => 'url' ),
+				'Contribution Project Summary' => array( 'label' => 'What you worked on', 'type' => 'textarea', 'group' => 'project', 'airtable_type' => 'multilineText' ),
+				'Personal Website URL'         => array( 'label' => 'Your website', 'type' => 'url', 'group' => 'wrapup', 'airtable_type' => 'url' ),
+				$CLOSING                       => array( 'label' => 'Your closing post', 'type' => 'url', 'group' => 'wrapup', 'airtable_type' => 'url' ),
+				$CODE                          => $code_spec + array( 'read_only' => (bool) $flagged ),
+			),
+		)
+	);
+
+	$GLOBALS['opts'][ WPCPM_Tracks::OPT_FIELDS_PREFIX . '150h' ] = WPCPM_Track_Definition::compile_fields( $definition );
+	WPCPM_Tracks::flush();
+}
+
+$GLOBALS['uid']     = $SID;
+$GLOBALS['manage']  = array();
+$GLOBALS['patched'] = array();
+update_user_meta( $SID, WPCPM_Students_Sync::META_PROGRAM, array( 'record_id' => $REC, 'program' => WPCPM_Program::STATUS_150H ) );
+update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, '' );
+post_images( array() );
+
+$answers = array( 'Slack Name' => 'student-one', 'WordPress Profile' => 'https://profiles.wordpress.org/student-one/', 'Contribution Project Summary' => 'Triaged tickets.', 'Personal Website URL' => 'https://example.org/', $CLOSING => 'https://example.org/closing/' );
+
+echo "\n--- the control: the same form, the code question not flagged ---\n";
+
+// What the test of 28 October 2026 found, reproduced through the real save, so the checks below
+// are seen to fail for the reason the fix removes and not for one of the harness's own.
+plant_code_track( false );
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers );
+$stale_unflagged = body();
+$GLOBALS['patched'] = array();
+$_POST              = submitted( $stale_unflagged );
+$_POST['student']   = $SID;
+
+ck( 'unflagged, the code is a box like any other, and a page drawn before the code arrived sends its cell empty, so the save wipes the code',
+    array( false !== strpos( $stale_unflagged, 'name="report[' . $CODE_KEY . ']"' ), ran( 'handle_save' ), array_key_exists( $CODE, patched_cells() ) ? patched_cells()[ $CODE ] : 'not sent', record_after( $answers + array( $CODE => '7421' ) ) ),
+    array( true, 'report-saved', '', $answers ) );
+
+echo "\n--- the card ---\n";
+
+plant_code_track( true );
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers );
+$stale = body();
+
+// The row is the plugin's read-only drawing, a reader's label and value, with the help under it.
+ck( 'a page drawn before the code arrived shows the question\'s words and its help, and no box at all: no control carries its id or its name',
+    array(
+        false !== strpos( $stale, '<p class="wpcpm-field wpcpm-field--read wpcpm-field--by-program wpcpm-field--text" id="wpcpm-report-' . $CODE_KEY . '"><span class="wpcpm-field__label">When visible, copy and paste this number in the course Final Lesson Quiz</span><span class="wpcpm-field__hint">Please, do not modify this field by yourself.</span></p>' ),
+        substr_count( $stale, 'report[' . $CODE_KEY . ']' ),
+        1 === preg_match( '/<(input|textarea|select)[^>]*id="wpcpm-report-' . $CODE_KEY . '"/', $stale ),
+        array_key_exists( $CODE_KEY, isset( submitted( $stale )['report'] ) ? submitted( $stale )['report'] : array() ),
+    ),
+    array( true, 0, false, false ) );
+ck( 'and nothing standing in for an answer: no "Not filled in", which would read as something the student left undone',
+    false !== strpos( $stale, 'Not filled in' ), false );
+ck( 'while every other question is the box it was, still posted',
+    array_keys( submitted( $stale )['report'] ),
+    array( key_of( 'Slack Name' ), key_of( 'WordPress Profile' ), key_of( 'Contribution Project Summary' ), key_of( 'Personal Website URL' ), key_of( $CLOSING ) ) );
+
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers + array( $CODE => '7421' ) );
+$arrived = body();
+
+ck( 'once the code is on record it is shown as text the student can select and copy, between the words and the help',
+    false !== strpos( $arrived, '<span class="wpcpm-field__label">When visible, copy and paste this number in the course Final Lesson Quiz</span><span class="wpcpm-field__value">7421</span><span class="wpcpm-field__hint">Please, do not modify this field by yourself.</span></p>' ), true );
+ck( 'and still with nothing that posts it', substr_count( $arrived, 'report[' . $CODE_KEY . ']' ), 0 );
+
+echo "\n--- the save: the cases of 28 October 2026 ---\n";
+
+/**
+ * Save a page as a browser would, with these changes to what it posts, and report the flash, the
+ * cells the PATCH named, and the record after it.
+ *
+ * @param string $html    The page as it was drawn.
+ * @param array  $changes Form key => what the student sent instead; null removes the key.
+ * @param array  $before  What the record held when the save arrived.
+ * @return array
+ */
+function save_page( $html, array $changes, array $before ) {
+	global $SID;
+
+	$GLOBALS['patched'] = array();
+	$_POST              = submitted( $html );
+	$_POST['student']   = $SID;
+
+	foreach ( $changes as $key => $value ) {
+		if ( null === $value ) {
+			unset( $_POST['report'][ $key ] );
+		} else {
+			$_POST['report'][ $key ] = $value;
+		}
+	}
+
+	$flash = ran( 'handle_save' );
+
+	return array( $flash, array_keys( patched_cells() ), array() === $GLOBALS['patched'] ? $before : record_after( $before ) );
+}
+
+$every   = array( 'Slack Name', 'WordPress Profile', 'Contribution Project Summary', 'Personal Website URL', $CLOSING );
+$on_base = $answers + array( $CODE => '7421' );
+
+ck( 'c: the stale page, the code arrived since and the student changed another answer: the other answers are saved and the code is not sent, so it stays',
+    save_page( $stale, array( key_of( $CLOSING ) => 'https://example.org/closing-2/' ), $on_base ),
+    array( 'report-saved', $every, array_merge( $on_base, array( $CLOSING => 'https://example.org/closing-2/' ) ) ) );
+ck( 'c2: a fresh page drawn from the cache before it knew the code is the same page, and the same save',
+    save_page( body(), array(), $on_base )[1], $every );
+
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers );
+ck( 'a: a code typed into a hand-made copy of the form is not saved, and every other answer is',
+    save_page( $stale, array( $CODE_KEY => '1234-typed' ), $on_base ),
+    array( 'report-saved', $every, $on_base ) );
+ck( 'b: a cleared code is not saved either: the empty string never reaches the cell',
+    save_page( $arrived, array( $CODE_KEY => '' ), $on_base ),
+    array( 'report-saved', $every, $on_base ) );
+
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers + array( $CODE => '1111' ) );
+$old_page = body();
+ck( 'd: a page holding an old code, saved after the code changed, leaves the new one: the old one is not posted, and posted by hand it is not sent',
+    array( save_page( $old_page, array(), $answers + array( $CODE => '2222' ) ), save_page( $old_page, array( $CODE_KEY => '1111' ), $answers + array( $CODE => '2222' ) ) ),
+    array( array( 'report-saved', $every, $answers + array( $CODE => '2222' ) ), array( 'report-saved', $every, $answers + array( $CODE => '2222' ) ) ) );
+
+$GLOBALS['patched'] = array();
+$_POST              = array( 'student' => $SID, 'report' => array( $CODE_KEY => 'anything-at-all' ) );
+ck( 'g: a hand-made request naming the code alone is ignored: nothing to save, and no request to Airtable at all',
+    array( ran( 'handle_save' ), $GLOBALS['patched'] ), array( 'report-nothing', array() ) );
+
+echo "\n--- an Administrator on the student's card, and a reader ---\n";
+
+// An Administrator may fill in a student's report from the student's own card (`user_can_edit()`):
+// the same page, the same save, and so the same five-minute cache and the same stale tab. The flag
+// holds for them too; the program's own writer of the code is the Airtable automation.
+$GLOBALS['uid']    = 99;
+$GLOBALS['manage'] = array( 99 );
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers );
+$on_behalf = body();
+
+ck( 'an Administrator on the student\'s card is drawn the same row, with nothing that posts it, and a code they send is not saved',
+    array( substr_count( $on_behalf, 'report[' . $CODE_KEY . ']' ), false !== strpos( $on_behalf, 'wpcpm-field--by-program' ), save_page( $on_behalf, array( $CODE_KEY => '9999' ), $on_base )[1] ),
+    array( 0, true, $every ) );
+
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers + array( $CODE => '7421' ) );
+$reading = body( true, 'manager' );
+set_transient( 'wpcpm_report_' . md5( $REC ), $answers );
+$reading_empty = body( true, 'manager' );
+
+ck( 'a reader of the card, an Administrator from a mentor\'s page or the student\'s mentor, reads it as every other answer, as before',
+    array(
+        false !== strpos( $reading, '<p class="wpcpm-field wpcpm-field--read wpcpm-field--text" id="wpcpm-report-' . $CODE_KEY . '"><span class="wpcpm-field__label">When visible, copy and paste this number in the course Final Lesson Quiz</span><span class="wpcpm-field__value">7421</span></p>' ),
+        false !== strpos( $reading_empty, 'id="wpcpm-report-' . $CODE_KEY . '"><span class="wpcpm-field__label">When visible, copy and paste this number in the course Final Lesson Quiz</span><span class="wpcpm-field__value wpcpm-field__value--empty">Not filled in</span></p>' ),
+    ),
+    array( true, true ) );
+
+$GLOBALS['uid']    = $SID;
+$GLOBALS['manage'] = array();
+
+// The four original tracks' forms back, for whatever follows.
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
+update_user_meta( $SID, WPCPM_Students_Sync::META_PROGRAM, array( 'record_id' => $REC, 'program' => 'Paused' ) );
+update_user_meta( $SID, WPCPM_Students_Sync::META_COURSE, WPCPM_Program::STATUS_DEV );
+set_transient( 'wpcpm_report_' . md5( $REC ), array() );
+$_POST = array();
+
 echo "\n=== The decisions are written down where they were made ===\n";
 
 $source = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php' );

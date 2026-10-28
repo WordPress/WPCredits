@@ -433,24 +433,6 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Every Student account, invited or never, by the Student accounts table's own role
-	 * (`table_class()`), which the invitations card narrows to the list's filters and counts, to tell
-	 * a list that holds nobody from one whose people were all invited.
-	 *
-	 * The table's classes are loaded first, as `never_invited()` loads them, for the card's button
-	 * posts to admin-post.php, where nothing else does.
-	 *
-	 * @return int[]
-	 */
-	private static function everyone() {
-		wpcpm_load_accounts_tables();
-
-		$table_class = static::table_class();
-
-		return WPCPM_Mail::everyone( $table_class::role() );
-	}
-
-	/**
 	 * The Airtable sync card, on the Sync tab: the live progress and Cancel sync while a run is on,
 	 * and otherwise when the last run finished and the button that starts one. Both forms name the
 	 * tab, so the press comes back to it.

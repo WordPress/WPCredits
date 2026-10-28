@@ -613,13 +613,23 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	 * layer's own forms, which name no tab: they come back to the address they were pressed on, this
 	 * tab, and Stop's outcome waits on the flash channel this screen reads, which the card names in
 	 * its form, so "Sending stopped." prints here.
+	 *
+	 * Where no account holds the Mentor role the card says so, and does not say every mentor has been
+	 * invited, which is untrue of a site with none. The accounts are counted from everybody holding the
+	 * role (`everyone()`), invited or not, and only when nobody is left to invite and nobody is held
+	 * back, so the card pays for that read only then.
 	 */
 	private function render_invitations() {
+		$pending = self::never_invited();
+		$held    = self::held_back();
+		$nobody  = empty( $pending ) && empty( $held ) && array() === self::everyone();
+
 		WPCPM_Mail::render_invite_card(
 			array(
 				'action'  => self::ACTION_BULK,
-				'pending' => self::never_invited(),
-				'held'    => count( self::held_back() ),
+				'pending' => $pending,
+				'held'    => count( $held ),
+				'none'    => $nobody ? __( 'No mentor has an account on the site yet.', 'wpcredits-program-manager' ) : '',
 				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
 				/* translators: %s: how many mentors. */
 				'button'  => _n_noop( 'Invite %s mentor who has never been invited', 'Invite %s mentors who have never been invited', 'wpcredits-program-manager' ),

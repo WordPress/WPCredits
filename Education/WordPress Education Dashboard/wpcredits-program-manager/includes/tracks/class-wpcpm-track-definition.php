@@ -74,13 +74,25 @@ final class WPCPM_Track_Definition {
 	const MAX_NARRATIVE = 5000;
 
 	/** Every property a question may have. */
-	const QUESTION_PROPERTIES = array( 'type', 'label', 'group', 'help', 'lead', 'subgroup', 'note', 'row', 'stack', 'required', 'min', 'max', 'step', 'maxlength', 'mono', 'options', 'hide_from_institution', 'airtable_type', 'learn_lesson_id', 'why' );
+	const QUESTION_PROPERTIES = array( 'type', 'label', 'group', 'help', 'lead', 'subgroup', 'note', 'row', 'stack', 'required', 'min', 'max', 'step', 'maxlength', 'mono', 'options', 'hide_from_institution', 'read_only', 'airtable_type', 'learn_lesson_id', 'why' );
 
 	/** The properties the form never sees; compiling strips them. */
 	const AUTHORING = array( 'airtable_type', 'learn_lesson_id', 'why' );
 
 	/** Properties that are `true` or absent. */
-	const FLAGS = array( 'stack', 'required', 'mono', 'hide_from_institution' );
+	const FLAGS = array( 'stack', 'required', 'mono', 'hide_from_institution', 'read_only' );
+
+	/**
+	 * The controls a question filled in by the program (`read_only`) may have.
+	 *
+	 * The Student Report Card draws such a question as the label-and-value row a reader of the card
+	 * sees, so a student reads the value and copies it, and the form holds nothing that posts it
+	 * (1.123.46, after the certificate code test of 28 October 2026). These eight are the controls
+	 * that row can show. The team list and the screenshot have renderers of their own, which the row
+	 * cannot stand in for, and the Hours question is the hours box; each of the three is a control of
+	 * its own on the card, so none of them can be one.
+	 */
+	const READ_ONLY_TYPES = array( 'text', 'textarea', 'richtext', 'url', 'email', 'number', 'checkbox', 'select' );
 
 	/** Properties holding words, other than the label. */
 	const TEXTS = array( 'help', 'lead', 'subgroup', 'note', 'why' );
@@ -684,6 +696,12 @@ final class WPCPM_Track_Definition {
 
 		if ( 'team' === $type && self::TEAM_COLUMN !== $column ) {
 			$errors[] = self::error( 'team_column', $column, sprintf( /* translators: %s: the contribution team column's name. */ __( 'The contribution team question writes %s and no other column.', 'wpcredits-program-manager' ), self::TEAM_COLUMN ) );
+		}
+
+		// One of `validate()`'s rules, unlike the hours rule (`check_hours()`): no published track
+		// held the flag before it existed, so refusing it here leaves no track out of a compile.
+		if ( ! empty( $spec['read_only'] ) && ( ! in_array( $type, self::READ_ONLY_TYPES, true ) || self::HOURS_COLUMN === $column ) ) {
+			$errors[] = self::error( 'read_only_control', $column, __( 'A screenshot, the contribution team and the Hours box cannot be filled in by the program: each is a control of its own on the Student Report Card.', 'wpcredits-program-manager' ) );
 		}
 
 		return $errors;

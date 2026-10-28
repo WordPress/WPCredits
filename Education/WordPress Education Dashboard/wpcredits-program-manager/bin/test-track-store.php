@@ -508,6 +508,29 @@ ck( 'a definition without partners compiles to none', WPCPM_Tracks::rows()['Alph
 // one more clash for every check that compiles everything after it.
 WPCPM_Track_Store::unpublish( $partner_id );
 
+echo "\n=== A question filled in by the program round-trips through the store and compile (1.123.46) ===\n";
+
+// The certificate code question, flagged so the Student Report Card shows it and never writes it.
+// The flag has to reach the form option the card reads, which is the one place it does anything.
+$coded                                       = track( 'Coded Track', 'coded' );
+$coded['questions']['Certificate code (Coded)'] = array( 'label' => 'When visible, copy and paste this number in the course Final Lesson Quiz', 'type' => 'text', 'group' => 'wrapup', 'help' => 'Please, do not modify this field by yourself.', 'read_only' => true, 'airtable_type' => 'singleLineText' );
+$coded_id                                    = WPCPM_Track_Store::create( track( 'Coded Track', 'coded' ) );
+$coded_save                                  = WPCPM_Track_Store::save( $coded_id, $coded );
+$coded_publish                               = WPCPM_Track_Store::publish( $coded_id );
+
+ck( 'saved, published and compiled, the flag is kept in the draft, in the published copy and in the form the card reads, and nothing else changes',
+    array(
+        $coded_save,
+        is_wp_error( $coded_publish ),
+        WPCPM_Track_Store::get( $coded_id ) === WPCPM_Track_Definition::normalize( $coded ),
+        WPCPM_Track_Store::published( $coded_id ) === WPCPM_Track_Store::get( $coded_id ),
+        get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'coded' )['Certificate code (Coded)']['read_only'] ?? 'absent',
+        get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'coded' ) === WPCPM_Track_Definition::compile_fields( $coded ),
+    ),
+    array( $coded_id, false, true, true, true, true ) );
+
+WPCPM_Track_Store::unpublish( $coded_id );
+
 echo "\n=== What publish() refuses ===\n";
 
 /**

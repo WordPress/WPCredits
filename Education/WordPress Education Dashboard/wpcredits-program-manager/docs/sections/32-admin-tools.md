@@ -657,12 +657,25 @@ to that control.
 | Row, and Shares one column of its row | Questions with the same row name sit side by side |
 | Marked required | Draws the word *Required* beside the label; nothing is enforced |
 | Kept off everything an institution reads | The answer is left off the Student Report Card an institution sees |
+| Filled in by the program: students see it but cannot change it | For a value the program writes, not the student: the card shows it as text with no box, and a save never sends it. Not offered on the Hours question, a screenshot or the contribution team |
 | Lowest value, Highest value, Step | A number's limits; the step also sets how many decimal places a new column keeps |
 | Length limit | A single-line box's limit; a text area has its own |
 | Monospace, for code | A text area drawn in a monospace face |
 | Choices, one a line | The choices of a select; a column that already exists must offer every one of them |
 | Learn lesson | The lesson this question reports on: the course's lessons by module, *None* first, or a number box when Learn cannot be read |
 | Developer note | Why a column name looks like a slip; no student sees it |
+
+**The certificate code question uses Filled in by the program.** On the tracks that give a
+certificate code, an Airtable automation writes the code into the student's record, and the student
+copies it into the course's final lesson quiz. With the setting ticked, the Student Report Card shows
+the question's words, then the code as text the student can select and copy, then the help; before
+the code arrives, the words and the help alone. Nothing on the card can change it: a save leaves the
+cell as the automation wrote it, so a page opened before the code arrived can no longer empty it, and
+a typed or cleared code is never sent. That holds for an Administrator filling in a report on a
+student's behalf too, so a wrong code is corrected in Airtable. The card reads the record through a
+cache of up to five minutes, so a code written a moment ago can take that long to show. The setting
+changes no column, so it can be ticked on a question that has been published; students see the change
+once the track is published again.
 
 **Save the question** returns to the track. A refusal redraws the question with what was typed, and
 the reason.

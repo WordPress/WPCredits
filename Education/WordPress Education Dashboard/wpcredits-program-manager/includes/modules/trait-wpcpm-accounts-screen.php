@@ -421,6 +421,26 @@ trait WPCPM_Accounts_Screen {
 	}
 
 	/**
+	 * Every account of the audience, invited or never, by its accounts table's own role, as
+	 * `never_invited()` reads it: what the invitations card counts, when nobody is left to invite and
+	 * nobody is held back, to tell a list that holds nobody from one whose people were all invited
+	 * (`WPCPM_Mail::everyone()`). The Students screen narrows what this answers to the filters its
+	 * list is showing; the Mentors, Institutions and Sponsors screens read it whole.
+	 *
+	 * The table's classes are loaded first, as `never_invited()` loads them, for the card's button
+	 * posts to admin-post.php, where nothing else does.
+	 *
+	 * @return int[]
+	 */
+	private static function everyone() {
+		wpcpm_load_accounts_tables();
+
+		$table_class = static::table_class();
+
+		return WPCPM_Mail::everyone( $table_class::role() );
+	}
+
+	/**
 	 * The screen's Accounts tab.
 	 *
 	 * @return string

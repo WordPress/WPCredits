@@ -2573,6 +2573,51 @@ ck( 'with only the held one left, the card offers no button and says it is left 
 	),
 	array( false, true, false ) );
 
+// Nobody left to invite is two different facts, and the card says them differently: every institution
+// account was invited, or no account holds the Institution role at all, which is not a fact about
+// invitations, and "Every one of the institution accounts has been invited." is untrue of a list with
+// no account on it. The card counts the accounts holding the role, invited or not, and says plainly
+// that there is none, as the Students screen does for its own filters. The student and the
+// administrator the site holds are accounts, and not institutions'.
+$card_text = static function ( $html ) {
+	return trim( preg_replace( '/\s+/', ' ', preg_replace( '/<[^>]+>/', ' ', between( $html, '<div class="wpcpm-card wpcpm-invites">', '</div>' ) ) ) );
+};
+
+the_site();
+manager( 903 );
+foreach ( array( 21, 22, 23, 24, 25, 26 ) as $gone ) {
+	unset( $GLOBALS['users'][ $gone ], $GLOBALS['umeta'][ $gone ] );
+}
+$GLOBALS['locked'] = array();
+$nobody_page       = html_of( page_for( screen() ) );
+
+ck( 'on a site with no institution account, though a student and an administrator are accounts, the card says no institution has one and offers no button, and does not say every one was invited',
+	array( $card_text( $nobody_page ), isset( forms_by_action( $nobody_page )['wpcpm_institutions_bulk_invite'] ) ),
+	array( 'Invitations No institution has an account on the site yet.', false ) );
+
+the_site();
+manager( 904 );
+foreach ( array( 22, 24, 26 ) as $invited ) {
+	$GLOBALS['umeta'][ $invited ]['wpcpm_inst_invited'] = 1780000000;
+}
+$invited_page = html_of( page_for( screen() ) );
+
+ck( 'where every institution account was invited, the card still says every one was, and not that none has an account',
+	array( $card_text( $invited_page ), isset( forms_by_action( $invited_page )['wpcpm_institutions_bulk_invite'] ) ),
+	array( 'Invitations Every one of the institution accounts has been invited. To send somebody a fresh link, use Resend invite on their row.', false ) );
+
+the_site();
+manager( 905 );
+$never_page = html_of( page_for( screen() ) );
+
+ck( 'and where accounts were never invited, it offers the button as before, and says neither',
+	array(
+		has( isset( forms_by_action( $never_page )['wpcpm_institutions_bulk_invite'] ) ? forms_by_action( $never_page )['wpcpm_institutions_bulk_invite'] : '', '>Invite 3 institution accounts that have never been invited</button>' ),
+		has( $never_page, 'No institution has an account' ),
+		has( $never_page, 'Every one of the institution accounts has been invited.' ),
+	),
+	array( true, false, false ) );
+
 echo "\n=== The screen's names, and the Accounts tab top to bottom ===\n";
 
 $names = run(
