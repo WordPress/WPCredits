@@ -867,6 +867,162 @@ $GLOBALS['request']        = array( 'singular' => '', 'id' => 0, 'templates' => 
 $GLOBALS['logged_in']      = false;
 WPCPM_Sponsor_Tiers::$live = false;
 
+echo "\n=== A navigation of only the buttons a signed-in reader is offered (theme 1.32.10) ===\n";
+
+// The header's own filters run over the navigation, so the new one is judged with the lone count that follows it.
+require_once __DIR__ . '/stubs/header-markup.php';
+require_once WPCREDITS_THEME_DIR . 'inc/header.php';
+
+/**
+ * The header's navigation as a reader's page draws it, through the filters of `render_block_core/navigation`:
+ * the items a saved menu holds, then the ones the theme hooks at its end for this reader (menu_items()), in the
+ * markup of bin/stubs/header-markup.php. A navigation with no items is not drawn at all, as core draws one.
+ *
+ * @param bool          $logged_in Whether the reader is signed in.
+ * @param bool          $live      Whether the partnership levels are public.
+ * @param string[]      $members   What the reader acts for: `sponsor`, `institution`.
+ * @param array[]       $saved     The items the saved menu holds, as wpcredits_test_navigation() takes them.
+ * @param string[]      $ignored   The types the saved menu lists as ignored.
+ * @param callable|null $adjust    Changes the markup before the filters see it.
+ * @return string The navigation's markup after the filters; '' for none.
+ */
+function rendered_navigation( $logged_in, $live, array $members, array $saved = array(), array $ignored = array(), $adjust = null ) {
+	$was = array( $GLOBALS['logged_in'], WPCPM_Sponsor_Tiers::$live, $GLOBALS['members'] );
+
+	$GLOBALS['logged_in']      = $logged_in;
+	WPCPM_Sponsor_Tiers::$live = $live;
+	$GLOBALS['members']        = $members;
+
+	$items = $saved;
+
+	foreach ( menu_items( $ignored ) as $item ) {
+		$items[] = array( $item[1]['label'], $item[1]['url'], array(), isset( $item[1]['className'] ) ? $item[1]['className'] : '' );
+	}
+
+	$markup = wpcredits_test_navigation( $items );
+	$html   = apply_filters( 'render_block_core/navigation', $adjust ? $adjust( $markup ) : $markup );
+
+	list( $GLOBALS['logged_in'], WPCPM_Sponsor_Tiers::$live, $GLOBALS['members'] ) = $was;
+
+	return $html;
+}
+
+/** Whether a navigation is drawn, and the labels of its items in order. */
+$shown = static function ( $html ) {
+	return array( false !== strpos( $html, '<nav' ), '' === $html ? array() : found( dom_of( $html ), '//span[contains(@class,"wp-block-navigation-item__label")]' ) );
+};
+
+$about   = array( 'About', 'https://site.example/about/' );
+$nothing = array( false, array() );
+
+ck( 'signed in, a navigation that would show nothing but the buttons gets neither them nor an empty navigation landmark: an empty saved menu with the levels off, a menu whose Partners link was deleted in the Site Editor while the levels are public, and a reader who acts for a sponsor or for an institution with the levels off (one button left); one who acts for both has nothing hooked, so no navigation either',
+	array(
+		$shown( rendered_navigation( true, false, array() ) ),
+		$shown( rendered_navigation( true, true, array(), array(), array( 'wpcredits-theme/partners-link' ) ) ),
+		$shown( rendered_navigation( true, false, array( 'sponsor' ) ) ),
+		$shown( rendered_navigation( true, false, array( 'institution' ) ) ),
+		$shown( rendered_navigation( true, false, array( 'sponsor', 'institution' ) ) ),
+		$shown( rendered_navigation( true, true, array( 'sponsor' ), array(), array( 'wpcredits-theme/partners-link' ) ) ),
+	),
+	array( $nothing, $nothing, $nothing, $nothing, $nothing, $nothing ) );
+
+ck( 'signed in, a navigation with anything else that shows keeps the buttons as 1.32.9 has them: live\'s state (Partners, then the buttons), Partners with the one button a member is offered, a saved link with the levels off or with the Partners link ignored, and a saved menu with a submenu',
+	array(
+		$shown( rendered_navigation( true, true, array() ) ),
+		$shown( rendered_navigation( true, true, array( 'sponsor' ) ) ),
+		$shown( rendered_navigation( true, true, array( 'sponsor', 'institution' ) ) ),
+		$shown( rendered_navigation( true, false, array(), array( $about ) ) ),
+		$shown( rendered_navigation( true, true, array(), array( $about ), array( 'wpcredits-theme/partners-link' ) ) ),
+		$shown( rendered_navigation( true, false, array( 'institution' ), array( $about ) ) ),
+		$shown( rendered_navigation( true, false, array(), wpcredits_test_three_with_submenu() ) ),
+	),
+	array(
+		array( true, array( 'Partners', 'Become a sponsor', 'Partner as an institution' ) ),
+		array( true, array( 'Partners', 'Partner as an institution' ) ),
+		array( true, array( 'Partners' ) ),
+		array( true, array( 'About', 'Become a sponsor', 'Partner as an institution' ) ),
+		array( true, array( 'About', 'Become a sponsor', 'Partner as an institution' ) ),
+		array( true, array( 'About', 'Become a sponsor' ) ),
+		array( true, array( 'Homepage', 'About the program', 'Programs', 'WordPress Credits', 'Campus Connect', 'Become a sponsor', 'Partner as an institution' ) ),
+	) );
+
+ck( 'a visitor\'s navigation is as it was: the buttons wear no `wpc-nav__panel-only`, so they show, and a navigation of them alone, with the levels off, is drawn',
+	array(
+		$shown( rendered_navigation( false, true, array() ) ),
+		$shown( rendered_navigation( false, false, array() ) ),
+		$shown( rendered_navigation( false, false, array(), array( $about ) ) ),
+	),
+	array(
+		array( true, array( 'Partners', 'Become a sponsor', 'Partner as an institution' ) ),
+		array( true, array( 'Become a sponsor', 'Partner as an institution' ) ),
+		array( true, array( 'About', 'Become a sponsor', 'Partner as an institution' ) ),
+	) );
+
+// What style.css hides is a navigation link wearing the class, so an item of another kind wearing it shows: the
+// Home Link block's item, here, with a signed-in reader's buttons after it.
+$home_classed = array( 'Homepage', 'https://site.example/', array(), 'wpc-nav__panel-only' );
+$as_home_link = static function ( $markup ) {
+	return preg_replace( '/wpc-nav__panel-only wp-block-navigation-link/', 'wpc-nav__panel-only wp-block-home-link', $markup, 1 );
+};
+
+ck( 'an item of another kind that wears `wpc-nav__panel-only`, the Home Link\'s, shows (style.css hides a navigation link wearing it, and no other item), so the navigation is not empty and keeps the buttons',
+	$shown( rendered_navigation( true, false, array(), array( $home_classed ), array(), $as_home_link ) ),
+	array( true, array( 'Homepage', 'Become a sponsor', 'Partner as an institution' ) ) );
+
+// Fail safe: a navigation is left out only when its list is empty once the buttons are taken out of it. Blocks core
+// does not wrap in an item (the Search block's form, the Spacer's div) are not items, yet an editor put them there,
+// so they keep the whole navigation, buttons included, as 1.32.9 draws it (theme 1.32.10, fix round 1).
+$search_block = '<form role="search" method="get" action="https://site.example/" class="wp-block-search__button-outside wp-block-search"><label class="wp-block-search__label screen-reader-text" for="wp-block-search__input-1">Search</label><div class="wp-block-search__inside-wrapper"><input class="wp-block-search__input" id="wp-block-search__input-1" placeholder="" value="" type="search" name="s" required /><button aria-label="Search" class="wp-block-search__button wp-element-button" type="submit">Search</button></div></form>';
+$spacer_block = '<div style="height:24px" aria-hidden="true" class="wp-block-spacer"></div>';
+$with_block   = static function ( $block ) {
+	return static function ( $markup ) use ( $block ) {
+		return str_replace( '</ul>', $block . '</ul>', $markup );
+	};
+};
+$unwrapped    = static function ( $block ) use ( $shown, $with_block ) {
+	$html = rendered_navigation( true, false, array(), array(), array(), $with_block( $block ) );
+
+	return array( $shown( $html ), false !== strpos( $html, $block ) );
+};
+$buttons_only = array( true, array( 'Become a sponsor', 'Partner as an institution' ) );
+
+ck( 'the buttons and a block core does not wrap in an item keep the whole navigation as it is drawn, buttons included: a Search block, a Spacer block',
+	array( $unwrapped( $search_block ), $unwrapped( $spacer_block ) ),
+	array( array( $buttons_only, true ), array( $buttons_only, true ) ) );
+
+$spaced = static function ( $markup ) {
+	return str_replace( array( '</li><li', '</li></ul>', '<ul class="wp-block-navigation__container' ), array( "</li>\n\t\t<li", "</li>\n\t</ul>", "<ul\n\tclass=\"wp-block-navigation__container" ), $markup );
+};
+$unreadable = static function ( $markup ) {
+	return str_replace( 'wp-block-navigation__container', 'wp-block-navigation__list', $markup );
+};
+
+ck( 'the buttons alone are still left out when whitespace sits between them and around them, as core prints a list; markup whose list this cannot find is left as it is, buttons included',
+	array(
+		$shown( rendered_navigation( true, false, array(), array(), array(), $spaced ) ),
+		$shown( rendered_navigation( true, false, array(), array(), array(), $unreadable ) ),
+	),
+	array( $nothing, $buttons_only ) );
+
+$lone_of = static function ( $html ) {
+	return false !== strpos( $html, 'wpc-nav--lone' );
+};
+
+ck( 'the lone count that follows still marks the navigation of one link and the buttons, which are skipped, and has no navigation of buttons alone to see; with the levels off and no link there is no navigation, so no Menu panel row and no hamburger of its own without JavaScript',
+	array(
+		$lone_of( rendered_navigation( true, false, array(), array( array( 'Homepage', 'https://site.example/' ) ) ) ),
+		$lone_of( rendered_navigation( true, true, array() ) ),
+		rendered_navigation( true, false, array() ),
+	),
+	array( true, true, '' ) );
+
+$navigation_hooks = $hooks_of( 'render_block_core/navigation' );
+usort( $navigation_hooks, static function ( $a, $b ) { return $a[1] - $b[1]; } );
+
+ck( 'the filter that leaves out a navigation of only those buttons is hooked on `render_block_core/navigation` taking the content, one step ahead of the lone count (priority 9, the count\'s 10), so the count never sees such a navigation',
+	$navigation_hooks,
+	array( array( 'wpcredits_partners_drop_empty_navigation', 9, 1 ), array( 'wpcredits_lone_nav_item', 10, 1 ) ) );
+
 echo "\n=== The levels ===\n";
 
 $defaults = (array) theme_call( 'wpcredits_partner_levels_defaults' );
@@ -1910,6 +2066,38 @@ $panel_bullet     = preg_match( '/^\* A signed-in reader\'s Menu panel.*$/m', $c
 ck( 'the 1.32.9 changelog\'s Menu panel bullet says a reader who acts for a sponsor or an institution is not offered its own button, as the product owner asked on 28 October 2026',
 	array( false !== strpos( $panel_bullet, 'acts for a sponsor is not offered Become a sponsor' ), false !== strpos( $panel_bullet, 'acts for an institution is not offered Partner as an institution' ), false !== strpos( $panel_bullet, 'the product owner, 28 October 2026' ) ),
 	array( true, true, true ) );
+
+$drop_head = substr( $partners_php, 0, (int) strpos( $partners_php, 'function wpcredits_partners_drop_empty_navigation(' ) );
+$drop_doc  = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $drop_head, (int) strrpos( $drop_head, '/**' ) ) );
+
+ck( 'inc/partners.php names one role for the person who decided: no "the site\'s owner" is left, and the four places that said it (the file header\'s two, the hook\'s docblock and the sponsor button\'s) say "the product owner" (theme 1.32.10)',
+	array(
+		substr_count( $partners_php, 'the site\'s owner' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'and the product owner agreed,' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), '"Partner as an institution" (the product owner,' ),
+		false !== strpos( $item_doc, '(the product owner, 21 and 25 October 2026)' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $partners_php ), 'the product owner\'s words, an outline button' ),
+	),
+	array( 0, true, true, true, true ) );
+
+ck( 'the docblock of the filter that leaves out a navigation of only the buttons says what it does and on what it decides: the rendered navigation, never the levels switch or the Partners link alone; the buttons are the navigation links wearing `wpc-nav__panel-only`, which style.css hides, taken out of the markup, and the navigation goes only when its list (`wp-block-navigation__container`) is then empty, anything else, a Search or Spacer block included, keeping it as it is; it runs before that count; and the hook\'s docblock points to it',
+	array(
+		false !== strpos( $drop_doc, 'the rendered navigation' ),
+		false !== strpos( $drop_doc, 'the levels switch' ),
+		false !== strpos( $drop_doc, 'the Partners link' ),
+		false !== strpos( $drop_doc, 'wp-block-navigation-link' ),
+		false !== strpos( $drop_doc, '`wpc-nav__panel-only`' ),
+		false !== strpos( $drop_doc, 'before that count' ),
+		false !== strpos( $item_doc, '`wpcredits_partners_drop_empty_navigation()`' ),
+		false !== strpos( $drop_doc, '`wp-block-navigation__container`' ),
+		false !== strpos( $drop_doc, 'a Search or Spacer block' ),
+		false !== strpos( $drop_doc, 'the navigation stays' ),
+	),
+	array( true, true, true, true, true, true, true, true, true, true ) );
+
+ck( 'the class docblock does not say "the two buttons": a reader who acts for a sponsor or an institution is offered one',
+	array( false !== strpos( $partners_php, 'The class the two buttons wear' ), false !== strpos( $partners_php, 'The class the buttons wear' ) ),
+	array( false, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

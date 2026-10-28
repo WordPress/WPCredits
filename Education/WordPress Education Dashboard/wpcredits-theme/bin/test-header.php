@@ -660,6 +660,31 @@ ck( 'a signed-in reader\'s two buttons, which show in the open Menu panel alone,
 	),
 	array( array( true, true ), array( true, false ), array( false, false ), array( false, false ) ) );
 
+// style.css hides an item that is a navigation link wearing `wpc-nav__panel-only` and no other (its rule names
+// `wp-block-navigation-link` as well), so the lone count skips the same: an item of another kind wearing the class,
+// the Home Link's, shows and is counted (theme 1.32.10; the 1.32.9 review's Minor 6).
+$classed_home = static function ( array $items ) {
+	$home = array( 'Homepage', 'https://site.example/', array(), 'wpc-nav__panel-only' );
+
+	return preg_replace( '/wpc-nav__panel-only wp-block-navigation-link/', 'wpc-nav__panel-only wp-block-home-link', wpcredits_test_navigation( array_merge( array( $home ), $items ) ), 1 );
+};
+$lone_of      = static function ( $html ) use ( $page_of, $has ) {
+	$nav = $page_of( wpcredits_lone_nav_item( $html ) );
+
+	return array(
+		(bool) $nav->query( '//nav[' . $has( 'wpc-nav--lone' ) . ']' )->length,
+		(bool) $nav->query( '//nav[' . $has( 'wpc-nav--home' ) . ']' )->length,
+	);
+};
+
+ck( 'the lone count skips an item that is a navigation link wearing `wpc-nav__panel-only` and nothing else: the Home Link wearing the class shows, so it is counted, and with one link beside it is a menu, alone it is the lone item (and home), and beside a signed-in reader\'s two buttons, which are skipped, it is still the lone item',
+	array(
+		$lone_of( $classed_home( array( array( 'About', 'https://site.example/about/' ) ) ) ),
+		$lone_of( $classed_home( array() ) ),
+		$lone_of( $classed_home( $panel_buttons ) ),
+	),
+	array( array( false, false ), array( true, true ), array( true, true ) ) );
+
 // A reader who acts for a sponsor or an institution is not offered its own button (inc/partners.php, the product
 // owner, 28 October 2026): live's signed-in menu, Partners and the buttons, then holds one button, or none.
 $partners_link      = array( 'Partners', 'https://site.example/partners/' );
@@ -1374,6 +1399,24 @@ $lone_doc   = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $lone_head, (int) st
 ck( 'the lone-item comment of inc/header.php does not say the theme\'s own items make the menu two or more, nor that a signed-in reader gets none of the buttons: since 1.32.9 a signed-in reader\'s buttons are in the navigation but show in the open Menu panel alone, so they are not counted (`wpc-nav__panel-only`), and with the levels off the menu can still hold one item; the comment says so',
 	array( false !== strpos( $header_php, 'the theme\'s own items make it two' ), false !== strpos( $lone_doc, 'gets none of the buttons' ), false !== strpos( $lone_doc, 'can still hold one item' ), false !== strpos( $lone_doc, '`wpc-nav__panel-only`' ) ),
 	array( false, false, true, true ) );
+
+$entries_head = substr( $header_php, 0, (int) strpos( $header_php, 'function wpcredits_header_menu_entries(' ) );
+$entries_doc  = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $entries_head, (int) strrpos( $entries_head, '/**' ) ) );
+$sheet        = preg_replace( '/\s+/', ' ', theme_file( 'style.css' ) );
+$two_buttons  = '/signed-in reader\'s (?:own )?two buttons/';
+
+ck( 'the comments of inc/header.php and style.css speak of the buttons a signed-in reader is offered, never of "two buttons", since a reader who acts for a sponsor or an institution is offered one (theme 1.32.10): the lone count\'s and the entry count\'s docblocks say so, the lone count\'s says that a navigation of only those buttons is not rendered at all (inc/partners.php) and that only a navigation link wearing the class is skipped, as style.css hides only that; the sheet names the buttons a reader is offered in the four comments that said two',
+	array(
+		preg_match_all( $two_buttons, $header_php ),
+		preg_match_all( $two_buttons, $sheet ),
+		false !== stripos( $lone_doc, 'the buttons a signed-in reader is offered' ),
+		false !== stripos( $entries_doc, 'the buttons a signed-in reader is offered' ),
+		false !== strpos( $lone_doc, 'acts for a sponsor or an institution is offered one' ),
+		false !== strpos( $lone_doc, 'is not rendered at all' ),
+		false !== stripos( $lone_doc, 'only a navigation link' ),
+		substr_count( strtolower( $sheet ), 'the buttons a signed-in reader is offered' ) >= 4,
+	),
+	array( 0, 0, true, true, true, true, true, true ) );
 
 $GLOBALS['logged_in'] = false;
 

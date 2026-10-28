@@ -44,11 +44,14 @@ add_action( 'wp_head', 'wpcredits_js_mark', 1 );
  * no inner blocks to count. The moment a second item is added the class stops being applied and
  * the hamburger comes back on its own, with nothing to remember.
  *
- * A signed-in reader's two buttons, "Become a sponsor" and "Partner as an institution", end the list
- * too (inc/partners.php, theme 1.32.9), but they wear `wpc-nav__panel-only` and show in the open Menu
- * panel alone, never inline and never behind the navigation's own hamburger, so they are not counted:
- * a signed-in reader whose menu holds one link besides them sees that link inline on a phone without
- * JavaScript, where there is no Menu panel, as before.
+ * The buttons a signed-in reader is offered, "Become a sponsor" and "Partner as an institution" (a reader
+ * who acts for a sponsor or an institution is offered one), end the list too (inc/partners.php, theme
+ * 1.32.9), but they wear `wpc-nav__panel-only` and show in the open Menu panel alone, never inline and
+ * never behind the navigation's own hamburger, so they are not counted: a signed-in reader whose menu
+ * holds one link besides them sees that link inline on a phone without JavaScript, where there is no Menu
+ * panel, as before. Only a navigation link wearing the class is skipped, as style.css hides only that: an
+ * item of another kind that wears it shows, so it is counted. A navigation that holds nothing else is not
+ * rendered at all (inc/partners.php), so it never gets here.
  *
  * A lone item that leads to the home page is marked `wpc-nav--home` as well: on a signed-out phone
  * the site title already leads there, so the stylesheet leaves that one link out, and only
@@ -66,8 +69,9 @@ function wpcredits_lone_nav_item( $content ) {
 	$count = new WP_HTML_Tag_Processor( $content );
 
 	while ( $count->next_tag( array( 'class_name' => 'wp-block-navigation-item' ) ) ) {
-		// A signed-in reader's buttons show in the open Menu panel alone, so they are no item here.
-		if ( $count->has_class( 'wpc-nav__panel-only' ) ) {
+		// A signed-in reader's buttons show in the open Menu panel alone, so they are no item here. The
+		// class hides a navigation link; an item of another kind wearing it shows, so it counts.
+		if ( $count->has_class( 'wpc-nav__panel-only' ) && $count->has_class( 'wp-block-navigation-link' ) ) {
 			continue;
 		}
 
@@ -107,10 +111,10 @@ add_filter( 'render_block_core/navigation', 'wpcredits_lone_nav_item' );
  *
  * An entry is a navigation item (a submenu's items and the submenu itself each count), the Need
  * help? button, a Student Report Card or Mentor Report Card link, or Log out; the navigation
- * block's own open and close buttons are not entries. A signed-in reader's two buttons, Become a
- * sponsor and Partner as an institution, are navigation items the panel lists as rows (theme
- * 1.32.9), so they count here, where the lone-item count leaves them out. Needs
- * `WP_HTML_Tag_Processor`, which the header filter checks first.
+ * block's own open and close buttons are not entries. The buttons a signed-in reader is offered, Become
+ * a sponsor and Partner as an institution, are navigation items the panel lists as rows (theme 1.32.9),
+ * so they count here, where the lone-item count leaves them out. Needs `WP_HTML_Tag_Processor`, which
+ * the header filter checks first.
  *
  * @param string $html The header's rendered HTML.
  * @return int

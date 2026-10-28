@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.9
+Stable tag: 1.32.10
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -202,6 +202,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.10 =
+
+* A signed-in reader's navigation is left out when it would hold nothing but the Menu panel's "Become a sponsor" and "Partner as an institution" rows, for example an empty saved menu with the sponsor levels switched off or the Partners link deleted in the Site Editor, where it drew an empty landmark and, without JavaScript, a menu button that did nothing; a navigation holding anything else, a link, a submenu or a Search block, is kept exactly as before.
+* For developers: `wpcredits_partners_drop_empty_navigation()` runs on `render_block_core/navigation` at priority 9, before the lone-link count, which now skips an item only when it is both panel-only and a `wp-block-navigation-link`; comments say the buttons a signed-in reader is offered (one, for a reader who acts for a sponsor or an institution) and name the product owner by role.
 
 = 1.32.9 =
 

@@ -12,9 +12,9 @@
  * plugin keeps the page a draft until the levels go public, and refuses it to visitors until then.
  *
  * The menu's "Partners" link leads to this page, whose own "Become a partner" section has the button
- * on to the sponsorship application (a program Administrator asked for it and the site's owner agreed,
+ * on to the sponsorship application (a program Administrator asked for it and the product owner agreed,
  * 22 October 2026). The menu's buttons lead to the sponsorship application, "Become a sponsor" (theme
- * 1.32.7), and to the institution application form, "Partner as an institution" (the site's owner,
+ * 1.32.7), and to the institution application form, "Partner as an institution" (the product owner,
  * 25 October 2026); until then the menu's one item, "Become a partner", led to this page, and before
  * that to the sponsorship application.
  *
@@ -107,7 +107,7 @@ function wpcredits_partners_live() {
 }
 
 /**
- * The header menu's last items, hooked into the menu as its last children (the site's owner, 21 and 25
+ * The header menu's last items, hooked into the menu as its last children (the product owner, 21 and 25
  * October 2026): the "Partners" link while the levels are public, then two buttons, "Become a sponsor" and
  * "Partner as an institution". The link leads to the Partners page, so while the levels are not public
  * there is no link, and nothing points at what visitors cannot see yet. The buttons lead to the sponsor
@@ -127,6 +127,10 @@ function wpcredits_partners_live() {
  * REST, from its screen in wp-admin, so it is never offered the buttons and a menu saved there never holds
  * them: a menu that held them would draw them as items of its own, without the class, for every reader at
  * every width.
+ *
+ * A signed-in reader whose navigation would show nothing else, an empty saved menu with the levels off or
+ * a saved one whose Partners link was deleted in the Site Editor, gets no navigation rather than one of the
+ * buttons alone (`wpcredits_partners_drop_empty_navigation()`).
  *
  * A signed-in reader is not offered the button for what they already act for (the product owner, 28
  * October 2026: "Hide the button for a reader's own role"): one who acts for a sponsor gets no "Become a
@@ -235,8 +239,8 @@ function wpcredits_partners_front_end() {
 }
 
 /**
- * The class the two buttons wear: `wpc-nav__partner`, which draws them as outline buttons in the bar and
- * as rows in the Menu panel, and for a signed-in reader `wpc-nav__panel-only` as well, which keeps them to
+ * The class the buttons wear: `wpc-nav__partner`, which draws them as outline buttons in the bar and as
+ * rows in the Menu panel, and for a signed-in reader `wpc-nav__panel-only` as well, which keeps them to
  * the open Menu panel below 1200px (style.css; see `wpcredits_partners_menu_item()`). A button a menu saved
  * in the Site Editor holds as an item of its own keeps the class it was saved with, which is never the
  * second, as the Site Editor is never offered a signed-in reader's buttons.
@@ -246,6 +250,62 @@ function wpcredits_partners_front_end() {
 function wpcredits_partners_button_class() {
 	return is_user_logged_in() ? 'wpc-nav__partner wpc-nav__panel-only' : 'wpc-nav__partner';
 }
+
+/**
+ * Leave a navigation out when nothing in it would show but the buttons a signed-in reader is offered.
+ *
+ * Those buttons wear `wpc-nav__panel-only`, so they show as rows of the open Menu panel and nowhere else.
+ * A navigation with no item to show but them, an empty saved menu with the levels off, or a saved one
+ * whose hooked Partners link was deleted in the Site Editor, would be drawn as an empty landmark: it still
+ * takes its gap in the bar from 961px, and below 960px its hamburger opens nothing without JavaScript. So
+ * it is not drawn, as core draws no navigation that has no items, and the Menu panel lists the reader's
+ * other entries alone.
+ *
+ * It is decided here, from the rendered navigation, which is what the reader would be shown, never from
+ * the levels switch or the Partners link alone: with the switch off a saved link keeps the navigation, and
+ * with it on the Partners link may be gone. A button is a navigation link wearing the class
+ * (`wp-block-navigation-link`), the item style.css hides. Each is taken out of the markup, and the
+ * navigation goes only when the list that holds its blocks (`wp-block-navigation__container`) is then
+ * empty. Anything else in that list keeps the navigation exactly as 1.32.9 draws it, buttons included: a
+ * link, a submenu, an item of another kind that wears the class, and a block core does not wrap in an item
+ * (a Search or Spacer block) that an editor put there. Where in doubt the navigation stays, so nothing an
+ * editor put there is deleted, and markup whose list this cannot find is left as it is. A visitor's buttons
+ * wear no class and show, so a visitor's navigation is never left out.
+ *
+ * It runs at priority 9, before that count, which then has no navigation of buttons alone to count.
+ *
+ * @param string $content Rendered block HTML.
+ * @return string
+ */
+function wpcredits_partners_drop_empty_navigation( $content ) {
+	if ( false === strpos( (string) $content, 'wpc-nav__panel-only' ) ) {
+		return $content;
+	}
+
+	$buttons = 0;
+	$rest    = preg_replace_callback(
+		'#<li\b([^>]*)>(?:(?!</?li\b).)*</li>#s',
+		static function ( $found ) use ( &$buttons ) {
+			$classes = preg_match( '/\sclass="([^"]*)"/', $found[1], $class ) ? preg_split( '/\s+/', trim( $class[1] ), -1, PREG_SPLIT_NO_EMPTY ) : array();
+
+			if ( ! in_array( 'wpc-nav__panel-only', $classes, true ) || ! in_array( 'wp-block-navigation-link', $classes, true ) ) {
+				return $found[0];
+			}
+
+			++$buttons;
+
+			return '';
+		},
+		(string) $content
+	);
+
+	if ( ! $buttons || null === $rest || ! preg_match( '#<ul\b[^>]*\sclass="[^"]*(?<![\w-])wp-block-navigation__container(?![\w-])[^"]*"[^>]*>(.*?)</ul>#s', $rest, $list ) || '' !== trim( $list[1] ) ) {
+		return $content;
+	}
+
+	return '';
+}
+add_filter( 'render_block_core/navigation', 'wpcredits_partners_drop_empty_navigation', 9 );
 
 /**
  * A hooked menu link's attributes: its label and address, and the class that dresses it.
@@ -363,7 +423,7 @@ function wpcredits_partners_link_block( $block, $type, $position, $anchor ) {
 add_filter( 'hooked_block_' . WPCREDITS_PARTNERS_LINK_HOOK, 'wpcredits_partners_link_block', 10, 4 );
 
 /**
- * The hooked sponsor button: "Become a sponsor", the site's owner's words, an outline button like the
+ * The hooked sponsor button: "Become a sponsor", the product owner's words, an outline button like the
  * institution one beside it, leading to the sponsor application form, written as a navigation link
  * although it is hooked under a type of its own (`WPCREDITS_SPONSOR_LINK_HOOK`), and wearing the
  * institution button's class (`wpcredits_partners_button_class()`). While the plugin has no published
