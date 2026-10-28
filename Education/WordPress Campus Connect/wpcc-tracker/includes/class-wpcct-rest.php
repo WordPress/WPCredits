@@ -53,13 +53,15 @@ class WPCCT_Rest {
 	}
 
 	/**
-	 * Mark every answer from this namespace no-store, refusals included.
+	 * Keep every answer from this namespace out of every cache, refusals included.
 	 *
-	 * The host's edge cache keys on the URL and ignores X-WPCCT-Token, so a
-	 * cacheable 401 sent to a signed-out request was served for five minutes to
-	 * the request that carried the token (found on the first live run, 1.1.0).
-	 * Setting it here rather than in the callback is what reaches the 401: the
-	 * permission check's error never gets to the callback.
+	 * Both caches on this host key on the URL and ignore X-WPCCT-Token, so a
+	 * signed-out 401 got cached and was handed to the next request that carried
+	 * the token. The edge cache honours no-store (1.1.1). Batcache, the page cache
+	 * in advanced-cache.php, ignores it and stores any signed-out GET, so it has
+	 * to be cancelled outright (1.1.2). Doing both here rather than in the
+	 * callback is what reaches the 401: the permission check's error never gets
+	 * to the callback.
 	 *
 	 * @param WP_HTTP_Response $response Response.
 	 * @param WP_REST_Server   $server   Server.
@@ -69,6 +71,9 @@ class WPCCT_Rest {
 	public function no_store( $response, $server, $request ) {
 		if ( 0 === strpos( (string) $request->get_route(), '/' . self::NAMESPACE_V1 . '/' ) ) {
 			$response->header( 'Cache-Control', 'no-store, private' );
+			if ( function_exists( 'batcache_cancel' ) ) {
+				batcache_cancel();
+			}
 		}
 		return $response;
 	}

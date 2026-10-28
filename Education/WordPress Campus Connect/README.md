@@ -12,7 +12,7 @@ Two components replace that, and they are built to work together:
 | Folder | What it is | Version |
 | --- | --- | --- |
 | [`wordcamp-airtable-connector/`](wordcamp-airtable-connector/) | Reads WordCamp Central and writes Airtable. Also syncs WordCamps, Meetups, sessions, speakers and sponsors, which predate the Campus Connect work. | 1.1.12 |
-| [`wpcc-tracker/`](wpcc-tracker/) | Reads Airtable and renders the figures as native blocks: scale, regions, a world map, a timeline, the application pipeline and an event list. | 1.1.1 |
+| [`wpcc-tracker/`](wpcc-tracker/) | Reads Airtable and renders the figures as native blocks: scale, regions, a world map, a timeline, the application pipeline and an event list. | 1.1.2 |
 
 The tracker never talks to Central and holds no credential for it. It reads Airtable and nothing
 else.

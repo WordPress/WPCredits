@@ -4,7 +4,7 @@ Tags: campus connect, wordpress, education, events, statistics
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,18 @@ event countries that could not be matched to one of the five reporting regions.
 Until the first successful sync the blocks render bundled seed data.
 
 == Changelog ==
+
+= 1.1.2 =
+
+The totals route is kept out of Batcache too.
+
+1.1.1 fixed the edge cache, which honours `no-store`. Batcache, the page cache
+in `advanced-cache.php`, does not: it stores any signed-out GET keyed on the URL
+alone, so a signed-out 401 was still handed to the next request carrying the
+token. Only a URL nobody had asked for before got a 200.
+
+* Fixed: every answer under `wpcct/v1` calls `batcache_cancel()` where the host
+  has it, beside the `no-store` header.
 
 = 1.1.1 =
 
