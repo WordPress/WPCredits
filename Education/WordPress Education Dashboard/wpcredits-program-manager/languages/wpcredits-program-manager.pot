@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.46\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.47\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-28T12:52:21+00:00\n"
+"POT-Creation-Date: 2026-10-28T23:20:59+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -1577,7 +1577,7 @@ msgid "Getting started"
 msgstr ""
 
 #: includes/class-wpcpm-program.php:98
-#: includes/modules/class-wpcpm-semester-report-screen.php:1507
+#: includes/modules/class-wpcpm-semester-report-screen.php:1542
 msgid "Not continuing"
 msgstr ""
 
@@ -1586,7 +1586,7 @@ msgid "Did not complete"
 msgstr ""
 
 #: includes/class-wpcpm-program.php:100
-#: includes/modules/class-wpcpm-semester-report-screen.php:1503
+#: includes/modules/class-wpcpm-semester-report-screen.php:1538
 msgid "Graduated"
 msgstr ""
 
@@ -1647,7 +1647,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:5825
 #: includes/modules/class-wpcpm-institutions.php:5953
 #: includes/modules/class-wpcpm-institutions.php:6033
-#: includes/modules/class-wpcpm-semester-report-screen.php:713
+#: includes/modules/class-wpcpm-semester-report-screen.php:747
 #: includes/modules/class-wpcpm-students-table.php:109
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Institution"
@@ -3215,7 +3215,7 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-catalog.php:70
 #: includes/mail/class-wpcpm-mail-catalog.php:87
-#: includes/modules/class-wpcpm-semester-report-screen.php:1508
+#: includes/modules/class-wpcpm-semester-report-screen.php:1543
 msgid "Other"
 msgstr ""
 
@@ -6132,7 +6132,7 @@ msgstr ""
 
 #. translators: %s: a number of students.
 #: includes/mail/templates/reports.php:76
-#: includes/modules/class-wpcpm-semester-report-screen.php:2395
+#: includes/modules/class-wpcpm-semester-report-screen.php:2430
 #, php-format
 msgid "%s student in this semester was"
 msgid_plural "%s students in this semester were"
@@ -7293,7 +7293,7 @@ msgid "approved on %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2519
-#: includes/modules/class-wpcpm-semester-report-screen.php:534
+#: includes/modules/class-wpcpm-semester-report-screen.php:563
 msgid "View"
 msgstr ""
 
@@ -7338,7 +7338,7 @@ msgid "Declined"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2638
-#: includes/modules/class-wpcpm-semester-report-screen.php:524
+#: includes/modules/class-wpcpm-semester-report-screen.php:553
 #: includes/modules/class-wpcpm-semester-report.php:530
 msgid "Approved"
 msgstr ""
@@ -7383,7 +7383,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:2720
 #: includes/modules/class-wpcpm-institution-details-card.php:457
 #: includes/modules/class-wpcpm-institution-request.php:1821
-#: includes/modules/class-wpcpm-semester-report-screen.php:903
+#: includes/modules/class-wpcpm-semester-report-screen.php:938
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:445
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:750
 #: includes/modules/class-wpcpm-sponsor-offers.php:2942
@@ -7735,7 +7735,7 @@ msgstr ""
 #. translators: 1: date and time, 2: the person who saved it.
 #. translators: 1: a date and time, 2: who saved or published the track.
 #: includes/modules/class-wpcpm-administrators-cards.php:3685
-#: includes/modules/class-wpcpm-semester-report-screen.php:1251
+#: includes/modules/class-wpcpm-semester-report-screen.php:1286
 #: includes/tools/class-wpcpm-track-builder-screen.php:1238
 #, php-format
 msgid "%1$s by %2$s"
@@ -8547,7 +8547,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-details.php:124
 #: includes/modules/class-wpcpm-institution-export.php:182
 #: includes/modules/class-wpcpm-institution-roster-view.php:264
-#: includes/modules/class-wpcpm-semester-report-screen.php:1612
+#: includes/modules/class-wpcpm-semester-report-screen.php:1647
 #: includes/modules/class-wpcpm-sponsor-application.php:578
 #: includes/modules/class-wpcpm-sponsor-profile.php:102
 #: includes/modules/class-wpcpm-sponsors.php:3886
@@ -9096,7 +9096,7 @@ msgid "(an Administrator checks first)"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-details-card.php:457
-#: includes/modules/class-wpcpm-semester-report-screen.php:1213
+#: includes/modules/class-wpcpm-semester-report-screen.php:1248
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:535
 #: includes/modules/class-wpcpm-sponsor-mentors.php:441
 #: includes/modules/class-wpcpm-sponsor-tier-card.php:668
@@ -9784,7 +9784,7 @@ msgid "This site is not taking imports right now."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-import-form.php:1432
-#: includes/modules/class-wpcpm-semester-report-screen.php:3794
+#: includes/modules/class-wpcpm-semester-report-screen.php:3829
 msgid "That is not something you can do here."
 msgstr ""
 
@@ -11820,14 +11820,14 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:4422
 #: includes/modules/class-wpcpm-institutions.php:4423
 #: includes/modules/class-wpcpm-institutions.php:5605
-#: includes/modules/class-wpcpm-semester-report-screen.php:714
+#: includes/modules/class-wpcpm-semester-report-screen.php:748
 msgid "Find an institution"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-dashboard.php:1328
 #: includes/modules/class-wpcpm-institutions.php:4424
 #: includes/modules/class-wpcpm-institutions.php:5606
-#: includes/modules/class-wpcpm-semester-report-screen.php:715
+#: includes/modules/class-wpcpm-semester-report-screen.php:749
 msgid "No institutions match that search."
 msgstr ""
 
@@ -15121,7 +15121,7 @@ msgstr ""
 #. translators: %s: number of students attending.
 #. translators: %s: a number of students.
 #: includes/modules/class-wpcpm-mentor-calls.php:1944
-#: includes/modules/class-wpcpm-semester-report-screen.php:1679
+#: includes/modules/class-wpcpm-semester-report-screen.php:1714
 #, php-format
 msgid "%s student"
 msgid_plural "%s students"
@@ -16078,253 +16078,253 @@ msgstr ""
 msgid "Not written yet"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:458
-#: includes/modules/class-wpcpm-semester-report-screen.php:604
-#: includes/modules/class-wpcpm-semester-report-screen.php:700
+#: includes/modules/class-wpcpm-semester-report-screen.php:487
+#: includes/modules/class-wpcpm-semester-report-screen.php:638
+#: includes/modules/class-wpcpm-semester-report-screen.php:734
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:992
 msgid "Reading the program records"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:468
+#: includes/modules/class-wpcpm-semester-report-screen.php:497
 msgid "Write the first draft"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:503
+#: includes/modules/class-wpcpm-semester-report-screen.php:532
 msgid "No semester report has been published for your institution yet."
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-semester-report-screen.php:527
+#: includes/modules/class-wpcpm-semester-report-screen.php:556
 #, php-format
 msgid "Approved on %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:537
-#: includes/modules/class-wpcpm-semester-report-screen.php:579
+#: includes/modules/class-wpcpm-semester-report-screen.php:566
+#: includes/modules/class-wpcpm-semester-report-screen.php:613
 msgid "Download PDF"
 msgstr ""
 
 #. translators: %s: a semester, e.g. "January to June 2026".
-#: includes/modules/class-wpcpm-semester-report-screen.php:550
+#: includes/modules/class-wpcpm-semester-report-screen.php:579
 #, php-format
 msgid "Your semester report for %s is being prepared by the program team."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:570
-#: includes/modules/class-wpcpm-semester-report-screen.php:754
+#: includes/modules/class-wpcpm-semester-report-screen.php:604
+#: includes/modules/class-wpcpm-semester-report-screen.php:789
 msgid "Back to the other semesters"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:617
-#: includes/modules/class-wpcpm-semester-report-screen.php:728
+#: includes/modules/class-wpcpm-semester-report-screen.php:651
+#: includes/modules/class-wpcpm-semester-report-screen.php:762
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:399
 msgid "Draft now"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:675
+#: includes/modules/class-wpcpm-semester-report-screen.php:709
 msgid "No institution has students on its roster yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:769
+#: includes/modules/class-wpcpm-semester-report-screen.php:804
 msgid "The words below are the ones you last sent, which were not saved because a colleague had saved this report in the meantime. Read what they wrote, above, then save again to keep yours."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:779
+#: includes/modules/class-wpcpm-semester-report-screen.php:814
 msgid "This report is approved and the institution can read it. Reopen it to change anything."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:780
+#: includes/modules/class-wpcpm-semester-report-screen.php:815
 msgid "You can read this report here. Changing it is something an Administrator does."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:788
+#: includes/modules/class-wpcpm-semester-report-screen.php:823
 msgid "The report as it prints"
 msgstr ""
 
 #. translators: %s: date and time.
-#: includes/modules/class-wpcpm-semester-report-screen.php:820
+#: includes/modules/class-wpcpm-semester-report-screen.php:855
 #, php-format
 msgid "Read from the program records on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:831
+#: includes/modules/class-wpcpm-semester-report-screen.php:866
 msgid "Drafted automatically when the semester ended."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:832
+#: includes/modules/class-wpcpm-semester-report-screen.php:867
 msgid "Drafted by an Administrator."
 msgstr ""
 
 #. translators: 1: date and time, 2: an Administrator's name.
-#: includes/modules/class-wpcpm-semester-report-screen.php:847
+#: includes/modules/class-wpcpm-semester-report-screen.php:882
 #, php-format
 msgid "Approved on %1$s by %2$s."
 msgstr ""
 
 #. translators: %s: date and time.
-#: includes/modules/class-wpcpm-semester-report-screen.php:853
+#: includes/modules/class-wpcpm-semester-report-screen.php:888
 #, php-format
 msgid "Approved on %s."
 msgstr ""
 
 #. translators: %s: date and time.
-#: includes/modules/class-wpcpm-semester-report-screen.php:868
+#: includes/modules/class-wpcpm-semester-report-screen.php:903
 #, php-format
 msgid "Last edited on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:924
+#: includes/modules/class-wpcpm-semester-report-screen.php:959
 msgid "Save the report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:950
+#: includes/modules/class-wpcpm-semester-report-screen.php:985
 msgid "This section is read from the program records. What you write below is printed underneath it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:957
+#: includes/modules/class-wpcpm-semester-report-screen.php:992
 msgid "What you want to say here"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:967
+#: includes/modules/class-wpcpm-semester-report-screen.php:1002
 msgid "Leave this section out of the report"
 msgstr ""
 
 #. translators: %s: a number of entries.
-#: includes/modules/class-wpcpm-semester-report-screen.php:980
+#: includes/modules/class-wpcpm-semester-report-screen.php:1015
 #, php-format
 msgid "%s entry is generated here."
 msgid_plural "%s entries are generated here."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1009
+#: includes/modules/class-wpcpm-semester-report-screen.php:1044
 msgid "The quotes your students released"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1017
+#: includes/modules/class-wpcpm-semester-report-screen.php:1052
 msgid "The students' answers could not be read just now, so nothing is shown here. Nothing has been changed. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1028
+#: includes/modules/class-wpcpm-semester-report-screen.php:1063
 msgid "No student has released a quote for this semester. Nothing they wrote is shown here until they do."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1072
+#: includes/modules/class-wpcpm-semester-report-screen.php:1107
 msgid "Print this quote in the report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1080
+#: includes/modules/class-wpcpm-semester-report-screen.php:1115
 msgid "Print their name with it, as they agreed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1087
+#: includes/modules/class-wpcpm-semester-report-screen.php:1122
 msgid "English translation, if the quote is in another language"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1091
+#: includes/modules/class-wpcpm-semester-report-screen.php:1126
 msgid "The original is always printed first. Translate it yourself; nothing here is machine translated."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1116
+#: includes/modules/class-wpcpm-semester-report-screen.php:1151
 msgid "Print this report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1131
+#: includes/modules/class-wpcpm-semester-report-screen.php:1166
 msgid "Checking with the program records"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1132
+#: includes/modules/class-wpcpm-semester-report-screen.php:1167
 msgid "Check the students' answers again"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1140
+#: includes/modules/class-wpcpm-semester-report-screen.php:1175
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:966
 msgid "Reopening"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1141
+#: includes/modules/class-wpcpm-semester-report-screen.php:1176
 msgid "Reopen for editing"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1148
+#: includes/modules/class-wpcpm-semester-report-screen.php:1183
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:599
 msgid "Approving"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1149
+#: includes/modules/class-wpcpm-semester-report-screen.php:1184
 msgid "Approve this report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1161
+#: includes/modules/class-wpcpm-semester-report-screen.php:1196
 msgid "Students who have not answered yet can be sent a request to answer. An Administrator sends it, and nobody is asked twice in thirty days; once they have answered, check the students' answers again to bring the new ones in."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1214
+#: includes/modules/class-wpcpm-semester-report-screen.php:1249
 msgid "Ask the students"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1238
+#: includes/modules/class-wpcpm-semester-report-screen.php:1273
 msgid "Earlier versions of this report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1253
+#: includes/modules/class-wpcpm-semester-report-screen.php:1288
 msgid "somebody who has left"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1261
+#: includes/modules/class-wpcpm-semester-report-screen.php:1296
 msgid "Putting it back"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1268
+#: includes/modules/class-wpcpm-semester-report-screen.php:1303
 msgid "Put this version back"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1359
+#: includes/modules/class-wpcpm-semester-report-screen.php:1394
 msgid "The students' answers could not be read just now, and this report is not shown without them. Nothing has been changed. Try again shortly."
 msgstr ""
 
 #. translators: %s: a number of quotes.
-#: includes/modules/class-wpcpm-semester-report-screen.php:1375
+#: includes/modules/class-wpcpm-semester-report-screen.php:1410
 #, php-format
 msgid "%s quote has been withdrawn by its author since this draft was generated, and is not shown."
 msgid_plural "%s quotes have been withdrawn by their authors since this draft was generated, and are not shown."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1501
+#: includes/modules/class-wpcpm-semester-report-screen.php:1536
 msgid "Students on the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1502
+#: includes/modules/class-wpcpm-semester-report-screen.php:1537
 msgid "Taking part now"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1504
+#: includes/modules/class-wpcpm-semester-report-screen.php:1539
 msgid "Waiting to graduate"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1505
+#: includes/modules/class-wpcpm-semester-report-screen.php:1540
 msgid "Withdrew"
 msgstr ""
 
 #. translators: %s: a semester, e.g. "July to December 2025".
-#: includes/modules/class-wpcpm-semester-report-screen.php:1539
+#: includes/modules/class-wpcpm-semester-report-screen.php:1574
 #, php-format
 msgid "There are no records here for %s, so there is nothing to compare this term against."
 msgstr ""
 
 #. translators: 1: a semester, 2: students who signed up then, 3: students who graduated then.
-#: includes/modules/class-wpcpm-semester-report-screen.php:1544
+#: includes/modules/class-wpcpm-semester-report-screen.php:1579
 #, php-format
 msgid "In %1$s, %2$s students took part and %3$s graduated."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1733
+#: includes/modules/class-wpcpm-semester-report-screen.php:1768
 msgid "English:"
 msgstr ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-semester-report-screen.php:1799
+#: includes/modules/class-wpcpm-semester-report-screen.php:1834
 #, php-format
 msgid "%s has not answered yet"
 msgid_plural "%s have not answered yet"
@@ -16332,7 +16332,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-semester-report-screen.php:1807
+#: includes/modules/class-wpcpm-semester-report-screen.php:1842
 #, php-format
 msgid "%s asked not to be listed"
 msgid_plural "%s asked not to be listed"
@@ -16340,17 +16340,17 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a list of reasons, e.g. "2 have not answered yet, 1 asked not to be listed".
-#: includes/modules/class-wpcpm-semester-report-screen.php:1815
+#: includes/modules/class-wpcpm-semester-report-screen.php:1850
 #, php-format
 msgid "Students not listed above: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:1816
+#: includes/modules/class-wpcpm-semester-report-screen.php:1851
 msgid ", "
 msgstr ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-semester-report-screen.php:1827
+#: includes/modules/class-wpcpm-semester-report-screen.php:1862
 #, php-format
 msgid "The program records of %s student could not be matched to a single row, so no project links are shown for them."
 msgid_plural "The program records of %s students could not be matched to a single row, so no project links are shown for them."
@@ -16358,35 +16358,35 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-semester-report-screen.php:1865
+#: includes/modules/class-wpcpm-semester-report-screen.php:1900
 #, php-format
 msgid "These numbers were read from the program records on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3218
+#: includes/modules/class-wpcpm-semester-report-screen.php:3253
 msgid "That report is not on this site."
 msgstr ""
 
 #. translators: 1: messages sent now, 2: messages still to go.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3688
+#: includes/modules/class-wpcpm-semester-report-screen.php:3723
 #, php-format
 msgid "%1$s students have been asked. %2$s more are queued and will be written to shortly."
 msgstr ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3696
+#: includes/modules/class-wpcpm-semester-report-screen.php:3731
 #, php-format
 msgid "%s student has been asked."
 msgid_plural "%s students have been asked."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3705
+#: includes/modules/class-wpcpm-semester-report-screen.php:3740
 msgid "Approved. No institution account to notify; send the PDF by hand."
 msgstr ""
 
 #. translators: %s: a number of accounts.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3710
+#: includes/modules/class-wpcpm-semester-report-screen.php:3745
 #, php-format
 msgid "Approved. The institution can now read and download it; %s of its accounts was told."
 msgid_plural "Approved. The institution can now read and download it; %s of its accounts were told."
@@ -16394,116 +16394,116 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the reason, from the program records.
-#: includes/modules/class-wpcpm-semester-report-screen.php:3721
+#: includes/modules/class-wpcpm-semester-report-screen.php:3756
 #, php-format
 msgid "That did not work: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3749
+#: includes/modules/class-wpcpm-semester-report-screen.php:3784
 msgid "The program records are busy at the moment. Try again in a minute."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3765
+#: includes/modules/class-wpcpm-semester-report-screen.php:3800
 msgid "The first draft is ready. Nothing in it has been sent anywhere."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3766
+#: includes/modules/class-wpcpm-semester-report-screen.php:3801
 msgid "The report could not be written, because the program records could not be read. Nothing was saved. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3767
+#: includes/modules/class-wpcpm-semester-report-screen.php:3802
 msgid "There is already a report for that semester."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3768
+#: includes/modules/class-wpcpm-semester-report-screen.php:3803
 msgid "That report is being written right now. Give it a moment and look again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3769
+#: includes/modules/class-wpcpm-semester-report-screen.php:3804
 msgid "Saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3773
+#: includes/modules/class-wpcpm-semester-report-screen.php:3808
 msgid "Someone at your institution saved this report after you opened it. Nothing you sent was lost: your words are in the boxes below, above the version that was saved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3774
+#: includes/modules/class-wpcpm-semester-report-screen.php:3809
 msgid "The draft is ready for review. Nothing in it has been sent anywhere, and the institution cannot see it until it is approved."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3775
+#: includes/modules/class-wpcpm-semester-report-screen.php:3810
 msgid "There is already a report for that semester. It is open below."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3776
+#: includes/modules/class-wpcpm-semester-report-screen.php:3811
 msgid "That institution has no students in that semester, so there is nothing to report on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3777
+#: includes/modules/class-wpcpm-semester-report-screen.php:3812
 msgid "That is enough drafts for one day. Try again tomorrow."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3778
+#: includes/modules/class-wpcpm-semester-report-screen.php:3813
 msgid "That report is approved. Reopen it before changing anything."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3779
+#: includes/modules/class-wpcpm-semester-report-screen.php:3814
 msgid "Approved. The institution can now read and download it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3780
+#: includes/modules/class-wpcpm-semester-report-screen.php:3815
 msgid "The report was not approved, because the students' answers could not be read just now. Nothing changed. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3781
+#: includes/modules/class-wpcpm-semester-report-screen.php:3816
 msgid "That report is a draft already, so there was nothing to reopen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3782
+#: includes/modules/class-wpcpm-semester-report-screen.php:3817
 msgid "This report is a draft again. The institution no longer sees it until it is approved once more."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3783
+#: includes/modules/class-wpcpm-semester-report-screen.php:3818
 msgid "That version is back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3784
+#: includes/modules/class-wpcpm-semester-report-screen.php:3819
 msgid "That version could not be put back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3785
+#: includes/modules/class-wpcpm-semester-report-screen.php:3820
 msgid "The students' answers have been read again, and the report shows what they say now."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3786
+#: includes/modules/class-wpcpm-semester-report-screen.php:3821
 msgid "The students' answers could not be read just now. The report is unchanged. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3787
+#: includes/modules/class-wpcpm-semester-report-screen.php:3822
 msgid "The students have been asked."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3788
+#: includes/modules/class-wpcpm-semester-report-screen.php:3823
 msgid "There is nobody to ask: everybody in this semester who has written something has either answered or been asked in the last thirty days."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3791
+#: includes/modules/class-wpcpm-semester-report-screen.php:3826
 msgid "Only an Administrator can send that request. The students who have not answered are counted below; ask an Administrator to write to them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3792
+#: includes/modules/class-wpcpm-semester-report-screen.php:3827
 msgid "Nobody was written to, because the program records could not be read and there is no way to tell who has already answered. Try again shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3793
+#: includes/modules/class-wpcpm-semester-report-screen.php:3828
 msgid "Choose the semester the report is about."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3795
+#: includes/modules/class-wpcpm-semester-report-screen.php:3830
 msgid "Semester reports are not available on this site yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-semester-report-screen.php:3796
+#: includes/modules/class-wpcpm-semester-report-screen.php:3831
 msgid "Something about that report could not be read."
 msgstr ""
 

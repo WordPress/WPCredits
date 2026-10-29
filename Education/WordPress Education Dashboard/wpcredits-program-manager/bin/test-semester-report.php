@@ -3825,6 +3825,175 @@ $GLOBALS['uid']    = 3;
 $_POST             = array();
 $_GET              = array();
 
+echo "\n=== An administrator's Open and Back links keep the institution they are viewing ===\n";
+
+// The presses above come back to the institution an administrator was viewing; so do the two
+// links the card draws for them. `resolve_institution()` reads the switcher on the manager's
+// branch alone, so an Open or a Back to the other semesters without it lands an administrator on
+// the first institution with a member: the report they opened is not the one they get. A member's
+// links are what they always were, byte for byte, since their own membership places them.
+
+/**
+ * The address of every anchor in some markup whose text is `$text`, as a browser reads it.
+ *
+ * @param string $html Markup.
+ * @param string $text The anchor's visible text.
+ * @return string[]
+ */
+function hrefs_of( $html, $text ) {
+	$found = array();
+
+	if ( preg_match_all( '/<a\b[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/is', (string) $html, $anchors, PREG_SET_ORDER ) ) {
+		foreach ( $anchors as $anchor ) {
+			if ( $text === trim( strip_tags( $anchor[2] ) ) ) {
+				$found[] = html_entity_decode( $anchor[1], ENT_QUOTES );
+			}
+		}
+	}
+
+	return $found;
+}
+
+/** Whether an address ends at the report card, where a link to this screen must land. */
+function ends_at_the_card( $url ) {
+	return '#wpcpm-report' === substr( (string) $url, -strlen( '#wpcpm-report' ) );
+}
+
+$saved_inst_rows = isset( $GLOBALS['inst_rows'] ) ? $GLOBALS['inst_rows'] : array();
+$saved_index     = $GLOBALS['index'];
+
+// The mail a draft sends the Administrators: the job drafts one report for one institution, and the
+// link in the mail opens it as that institution. The address is built from the institution's own
+// ID, so it names the switcher once; a second copy would be two schools in one address.
+$V = 'recVIEW0000000001';
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['transients'] = array();
+$GLOBALS['mail']       = array();
+$GLOBALS['inst_rows']  = array( $V => array( 'record_id' => $V, 'name' => 'View University', 'stage' => 'Confirmed' ) );
+$GLOBALS['index']      = array( $V => array( 'read' => 1756000000, 'rows' => $finished ) );
+$GLOBALS['manage']     = true;
+$GLOBALS['acting']     = '';
+$GLOBALS['uid']        = 3;
+
+ck( 'the job drafts the one semester that is due', WPCPM_Semester_Report_Screen::autodraft_tick(), 1 );
+
+$drafted = array_values( array_filter( $GLOBALS['mail'], static function ( $m ) { return 'report-drafted' === $m['context']; } ) );
+
+ck( 'and tells the Administrators once', count( $drafted ), 1 );
+ck( 'the drafted mail\'s review link names the institution it was drafted for', isset( $drafted[0] ) && has( $drafted[0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $V ), true );
+ck( 'once, not twice', isset( $drafted[0] ) ? substr_count( $drafted[0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' ) : -1, 1 );
+
+// B with two semesters on its card: one approved, one still a draft.
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['transients']  = array();
+$GLOBALS['flash']       = array();
+$GLOBALS['mail']        = array();
+$GLOBALS['members']     = array();
+$GLOBALS['inst_rows']   = $saved_inst_rows;
+$GLOBALS['index']       = $saved_index;
+$GLOBALS['index'][ $B ] = array(
+	'read' => 1756000000,
+	'rows' => array_merge( $finished, array(
+		array( 'record_id' => 'recS0000000000007', 'email' => 'g@example.test', 'status' => 'Graduate', 'start' => '2025-09-10', 'end' => '2025-12-20' ),
+	) ),
+);
+$v_approved = WPCPM_Semester_Report::generate( $B, $COHORT );
+$v_draft    = WPCPM_Semester_Report::generate( $B, $PREV );
+WPCPM_Semester_Report::approve( get_post( $v_approved ), 3 );
+
+ck( 'B has an approved report and a draft', array( WPCPM_Semester_Report::state( get_post( $v_approved ) ), WPCPM_Semester_Report::state( get_post( $v_draft ) ) ), array( WPCPM_Semester_Report::STATE_APPROVED, WPCPM_Semester_Report::STATE_DRAFT ) );
+
+// An administrator viewing B, who is not B's member: the list.
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$GLOBALS['uid']    = 3;
+
+$opens = hrefs_of( screen_html( $B, '' ), 'Open' );
+sort( $opens );
+
+ck( 'the list draws one Open link for each semester that has a report', count( $opens ), 2 );
+
+foreach ( array( $PREV, $COHORT ) as $n => $cohort ) {
+	$open = isset( $opens[ $n ] ) ? $opens[ $n ] : '';
+
+	ck( 'Open ' . $cohort . ': names the semester', has( $open, 'wpcpm_report=' . $cohort ), true );
+	ck( 'Open ' . $cohort . ': names the institution being viewed', views( $open, $B ), true );
+	ck( 'Open ' . $cohort . ': ends at the report card', ends_at_the_card( $open ), true );
+	ck( 'Open ' . $cohort . ': is that address and nothing else', $open, report_address( $cohort, $B ) );
+}
+
+// The editor, of the approved report and of the draft.
+foreach ( array( 'an approved report' => $COHORT, 'a draft' => $PREV ) as $what => $cohort ) {
+	$backs = hrefs_of( screen_html( $B, $cohort ), 'Back to the other semesters' );
+	$back  = isset( $backs[0] ) ? $backs[0] : '';
+
+	ck( 'the editor of ' . $what . ' draws one Back to the other semesters', count( $backs ), 1 );
+	ck( 'the editor of ' . $what . ': Back names the institution being viewed', views( $back, $B ), true );
+	ck( 'the editor of ' . $what . ': Back names no semester, so it is the list', has( $back, 'wpcpm_report=' ), false );
+	ck( 'the editor of ' . $what . ': Back ends at the report card', ends_at_the_card( $back ), true );
+	ck( 'the editor of ' . $what . ': Back is that address and nothing else', $back, report_address( '', $B ) );
+}
+
+// A member of B: their own membership places them, so their links carry no switcher, and are the
+// addresses they were before.
+$GLOBALS['manage'] = false;
+$GLOBALS['acting'] = $B;
+$GLOBALS['uid']    = 21;
+
+$views = hrefs_of( screen_html( $B, '' ), 'View' );
+$back  = hrefs_of( screen_html( $B, $COHORT ), 'Back to the other semesters' );
+
+ck( 'a member\'s list draws one View link, for the approved semester', $views, array( report_address( $COHORT ) ) );
+ck( 'the View link names no switcher', isset( $views[0] ) && has( $views[0], WPCPM_Institution_Roster::ARG_VIEW ), false );
+ck( 'a member\'s reading view draws one Back to the other semesters, the address it always was', $back, array( report_address() ) );
+ck( 'the reading view\'s Back names no switcher', isset( $back[0] ) && has( $back[0], WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+// Somebody the policy lets in as a manager who does not hold the capability: the capability
+// decides whether the switcher travels, and the ground does not. (The policy stand-in reads any
+// non-empty `manage` as a manager's ground; the capability stand-in reads the list.)
+$GLOBALS['manage'] = array( 99 );
+$GLOBALS['acting'] = '';
+$GLOBALS['uid']    = 7;
+
+ck( 'the reader is not a manager', current_user_can( WPCPM_Roles::CAP_MANAGE ), false );
+
+$opens = hrefs_of( screen_html( $B, '' ), 'Open' );
+sort( $opens );
+$back  = hrefs_of( screen_html( $B, $PREV ), 'Back to the other semesters' );
+
+ck( 'without the capability, the Open links name no switcher', $opens, array( report_address( $PREV ), report_address( $COHORT ) ) );
+ck( 'and the Back link is the address it always was', $back, array( report_address() ) );
+
+// The mail the institution's accounts get when a report is approved: it goes to members, who need no
+// switcher, so it names none.
+$GLOBALS['manage']  = true;
+$GLOBALS['acting']  = '';
+$GLOBALS['uid']     = 3;
+$GLOBALS['members'] = array( $B => array( new WP_User( 21, 'Rep One', 'administrator@example.test' ), new WP_User( 22, 'Rep Two', 'administrator@example.test' ) ) );
+
+ck( 'approving the draft approves it', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $v_draft ) ), 'approved' );
+
+$approved_mails = array_values( array_filter( $GLOBALS['mail'], static function ( $m ) { return 'report-approved' === $m['context']; } ) );
+
+ck( 'both of the institution\'s accounts are told', count( $approved_mails ), 2 );
+ck( 'the approved mail links to the semester\'s report', isset( $approved_mails[0] ) && has( $approved_mails[0]['body'], 'wpcpm_report=' . $PREV ), true );
+ck( 'and names no switcher', isset( $approved_mails[0] ) && has( $approved_mails[0]['body'], WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['transients'] = array();
+$GLOBALS['flash']      = array();
+$GLOBALS['mail']       = array();
+$GLOBALS['members']    = array();
+$GLOBALS['inst_rows']  = $saved_inst_rows;
+$GLOBALS['index']      = $saved_index;
+$GLOBALS['manage']     = true;
+$GLOBALS['acting']     = '';
+$GLOBALS['uid']        = 3;
+$_POST                 = array();
+$_GET                  = array();
+
 echo "\n=== House rules ===\n";
 
 $dashes = array();

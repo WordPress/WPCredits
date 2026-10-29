@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.46
+Stable tag: 1.123.47
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.47 =
+
+* An Administrator reading an institution's semester report through the Institution Dashboard's "Viewing as institution" switcher stays on that institution: Open on the semester list and Back to the other semesters keep it, where they opened the first institution with an account on the site. An institution's own links and the emails are as they were.
+* For developers: `WPCPM_Semester_Report_Screen::keep_view()` adds `wpcpm_institution_view` to the screen's Open and Back links for a viewer who holds `CAP_MANAGE`, the rule `post_url()` writes for its forms; `report_url()` stays the bare address, which the emails are built from.
 
 = 1.123.46 =
 

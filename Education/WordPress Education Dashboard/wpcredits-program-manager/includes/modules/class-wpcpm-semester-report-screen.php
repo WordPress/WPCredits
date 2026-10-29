@@ -282,7 +282,7 @@ final class WPCPM_Semester_Report_Screen {
 			if ( $manager ) {
 				self::render_editor( $report, $record );
 			} else {
-				self::render_reading( $report );
+				self::render_reading( $report, $record );
 			}
 		} elseif ( $manager ) {
 			self::render_index( $record, $cohort, true );
@@ -379,7 +379,7 @@ final class WPCPM_Semester_Report_Screen {
 			printf( '<span class="wpcpm-report-card__cohort-name">%s</span>', esc_html( WPCPM_Cohort::label( $cohort ) ) );
 
 			if ( $post instanceof WP_Post ) {
-				$url = self::report_url( $cohort );
+				$url = self::keep_view( self::report_url( $cohort ), $record );
 
 				printf(
 					'<span class="wpcpm-report-card__state">%s</span>',
@@ -427,6 +427,35 @@ final class WPCPM_Semester_Report_Screen {
 		$record = trim( (string) $record );
 
 		if ( '' !== $record && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record, $url );
+		}
+
+		return $url;
+	}
+
+	/**
+	 * A link to the Institution Dashboard that keeps the institution the page is showing.
+	 *
+	 * For an administrator it names that institution, because a link they follow reaches
+	 * `resolve_institution()`, which reads the switcher on that branch alone: without it the page
+	 * shows the first institution with a member, so Open on one school's semester, or Back to the
+	 * other semesters from it, lands on another school's card. A member's link is the address it
+	 * always was, since their own membership already places them. This is the rule `post_url()`
+	 * writes for the forms, written once more for the links that are not forms, with one check
+	 * more: the record must read as a record ID, so nothing else is ever written into an address.
+	 *
+	 * `report_url()` stays the bare address and does not call this: the mails are built from it,
+	 * the mail to an institution's accounts goes to members, who need no switcher, and the mail to
+	 * the Administrators adds the institution it was drafted for itself (`drafted_message()`).
+	 *
+	 * @param string $url    The address, or '' when the dashboard page is not published.
+	 * @param string $record Institutions record ID the page is showing.
+	 * @return string
+	 */
+	private static function keep_view( $url, $record ) {
+		$record = trim( (string) $record );
+
+		if ( '' !== $url && WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record, $url );
 		}
 
@@ -558,15 +587,20 @@ final class WPCPM_Semester_Report_Screen {
 	/**
 	 * One approved report, for the institution to read: the header, the PDF button, the document.
 	 *
-	 * @param WP_Post $post The report.
+	 * The manager's ground is tried first, so a reader who holds `CAP_MANAGE` is drawn the editor
+	 * and never this view; the back link goes through `keep_view()` all the same, so that the
+	 * three links on this card keep the institution by one rule rather than two.
+	 *
+	 * @param WP_Post $post   The report.
+	 * @param string  $record Institutions record ID the page is showing.
 	 */
-	private static function render_reading( WP_Post $post ) {
+	private static function render_reading( WP_Post $post, $record ) {
 		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
 
 		if ( '' !== $page ) {
 			printf(
 				'<p class="wpcpm-report-card__back"><a href="%1$s">%2$s</a></p>',
-				esc_url( remove_query_arg( self::ARG, $page ) . '#wpcpm-report' ),
+				esc_url( self::keep_view( remove_query_arg( self::ARG, $page ) . '#wpcpm-report', $record ) ),
 				esc_html__( 'Back to the other semesters', 'wpcredits-program-manager' )
 			);
 		}
@@ -736,7 +770,8 @@ final class WPCPM_Semester_Report_Screen {
 	 * The manager flag the other cards take is not among the arguments: every form here names
 	 * a report and each handler resolves the institution from that report's own meta, and the
 	 * forms put the institution the page is showing on their action address only for the way
-	 * back from a press that finds the report gone (see `post_url()`).
+	 * back from a press that finds the report gone (see `post_url()`). The institution also goes to
+	 * the Back to the other semesters link, which keeps it for an administrator (see `keep_view()`).
 	 *
 	 * @param WP_Post $post   The report.
 	 * @param string  $record Institutions record ID.
@@ -750,7 +785,7 @@ final class WPCPM_Semester_Report_Screen {
 		if ( '' !== $page ) {
 			printf(
 				'<p class="wpcpm-report-card__back"><a href="%1$s">%2$s</a></p>',
-				esc_url( remove_query_arg( self::ARG, $page ) . '#wpcpm-report' ),
+				esc_url( self::keep_view( remove_query_arg( self::ARG, $page ) . '#wpcpm-report', $record ) ),
 				esc_html__( 'Back to the other semesters', 'wpcredits-program-manager' )
 			);
 		}
