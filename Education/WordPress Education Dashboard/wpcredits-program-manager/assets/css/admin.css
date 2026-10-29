@@ -860,6 +860,13 @@ p.wpcpm-settings__intro {
 	margin: 0 0 4px;
 }
 
+/* The Mentors queue's Find by reference field: one line above the views, 12px under the description
+   above it (core's p.description ends 5px above, and the larger of the two margins is the gap, so the
+   top margin is what sets it) and 12px over the answer or the views' bar under it. */
+.wpcpm-mapp-find {
+	margin: 12px 0;
+}
+
 /* Held, a possible duplicate, a contact address that already has an account and a half-done
    approval all reuse the pipeline's own mark exactly (`.wpcpm-inst-mark` above): the same amber
    flag, because none of the four is an error on this site, only something for a manager to look

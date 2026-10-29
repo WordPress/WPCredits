@@ -173,6 +173,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 // The students sync keeps the three-hour recurrence every sync's schedule is placed on.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
+// The record ID pattern, which `WPCPM_Mentors_Sync::is_record_id()` delegates to: a search that is a Mentors record ID finds its mentor.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php';
@@ -1123,6 +1125,71 @@ ck( 'the views count the whole list, not the search, as WordPress\'s own views d
 $nobody = html_of( draw( screen( array( 's' => 'zzz' ) ) ) );
 
 ck( 'a search nobody matches says so, rather than that no accounts exist', array( row_ids( $nobody ), has( $nobody, 'No mentor accounts found.' ) ), array( array(), true ) );
+
+echo "\n=== The search: a Mentors record ID finds the account that holds it ===\n";
+
+// A record ID is rec and fourteen letters or digits, and its case counts. Ada, Bruno and Cleo hold one each
+// (the Mentor role is what lists them); a student and an administrator hold one too, and neither is on the list.
+// The list narrows to IDs of its own reading when a record ID is searched, so the query stand-in models `include` here.
+$GLOBALS['query_include'] = true;
+five_mentors();
+$ADA   = 'recMENTOR00000011';
+$BRUNO = 'recMENTOR00000012';
+$CLEO  = 'recMENTOR00000013';
+foreach ( array( 11 => $ADA, 12 => $BRUNO, 13 => $CLEO, 20 => 'recMENTOR00000020', 21 => 'recMENTOR00000021' ) as $holder => $record ) {
+	$GLOBALS['umeta'][ $holder ][ WPCPM_Mentors_Sync::META_RECORD_ID ] = $record;
+}
+// Beth's name quotes Bruno's record ID, so a search of the name finds her and the record ID finds both.
+$GLOBALS['users'][14]->display_name = 'Quoting ' . $BRUNO;
+
+$ids_for = function ( $term, array $more = array() ) {
+	return row_ids( html_of( draw( screen( array_merge( array( 's' => $term ), $more ) ) ) ) );
+};
+
+// What a search finds, pinned before the record ID joined it: the name, the username and the email as they were,
+// and a record ID nobody holds as nothing, by the same query WordPress was always asked.
+ck( 'a name, a username and an email address find what they found, with the same query as before',
+	array( $ids_for( 'KOWAL' ), $ids_for( 'bdiaz' ), $ids_for( 'cahn@example' ), $ids_for( 'quoting' ) ),
+	array( array( 11 ), array( 12 ), array( 13 ), array( 14 ) ) );
+$unheld = html_of( draw( screen( array( 's' => 'recMENTOR00000099' ) ) ) );
+ck( 'a record ID that nobody holds finds nobody, and says so, rather than listing every account',
+	array( row_ids( $unheld ), has( $unheld, 'No mentor accounts found.' ) ),
+	array( array(), true ) );
+// The last query for a page of accounts is the list's own; a record ID is looked up first, by a query of its own.
+$unheld_pages = queries( 'page' );
+$unheld_page  = end( $unheld_pages );
+ck( 'and WordPress was asked for the list as it asks for any words: the search, over the three columns, with no IDs of its own',
+	array( arg( $unheld_page, 'search' ), arg( $unheld_page, 'search_columns' ), arg( $unheld_page, 'include' ) ),
+	array( '*recMENTOR00000099*', array( 'user_login', 'user_email', 'display_name' ), 'absent' ) );
+ck( 'a part of a record ID, one too long and the same in another case are words like any other: Beth\'s name quotes Bruno\'s ID, so a part of it and its lower case find Beth, as a search of the names always did, and never Bruno',
+	array( $ids_for( 'recMENTOR0000001' ), $ids_for( 'recMENTOR000000111' ), $ids_for( strtolower( $BRUNO ) ) ),
+	array( array( 14 ), array(), array( 14 ) ) );
+
+// What the record ID adds.
+ck( 'a Mentors record ID finds the Mentor account that holds it, with or without white space around it',
+	array( $ids_for( $ADA ), $ids_for( $CLEO ), $ids_for( '  ' . $CLEO . '  ' ) ),
+	array( array( 11 ), array( 13 ), array( 13 ) ) );
+ck( 'and keeps what a search of the words finds: Bruno\'s ID is held by Bruno and quoted in Beth\'s name, and both are listed',
+	$ids_for( $BRUNO ),
+	array( 12, 14 ) );
+ck( 'the account of a student or an Administrator that holds a Mentors record ID is not a Mentor account, so it is not listed',
+	array( $ids_for( 'recMENTOR00000020' ), $ids_for( 'recMENTOR00000021' ) ),
+	array( array(), array() ) );
+ck( 'a view still applies: Cleo is in No students and Ada is not, and Ada is in Invited',
+	array( $ids_for( $CLEO, array( 'wpcpm_view' => 'no-students' ) ), $ids_for( $ADA, array( 'wpcpm_view' => 'no-students' ) ), $ids_for( $ADA, array( 'wpcpm_view' => 'invited' ) ), $ids_for( $ADA, array( 'wpcpm_view' => 'never-invited' ) ) ),
+	array( array( 13 ), array(), array( 11 ), array() ) );
+ck( 'and so does a sort, the Students and Status sorts included, which order the whole list themselves',
+	array( $ids_for( $BRUNO, array( 'orderby' => 'students', 'order' => 'desc' ) ), $ids_for( $BRUNO, array( 'orderby' => 'status', 'order' => 'asc' ) ), $ids_for( $BRUNO, array( 'orderby' => 'name', 'order' => 'desc' ) ), $ids_for( $CLEO, array( 'orderby' => 'students', 'wpcpm_view' => 'no-students' ) ) ),
+	array( array( 12, 14 ), array( 12, 14 ), array( 14, 12 ), array( 13 ) ) );
+ck( 'the views still count the whole list, not the search',
+	view_counts( html_of( draw( screen( array( 's' => $ADA ) ) ) ) ),
+	array(
+		'all'           => '5',
+		'invited'       => '2',
+		'never-invited' => '3',
+		'no-students'   => '2',
+	) );
+$GLOBALS['query_include'] = false;
 
 echo "\n=== The sorts: Mentor, Username, Students and Status, and not Past ===\n";
 
@@ -2605,6 +2672,28 @@ ck( 'an email is searched but never printed, and a name, a username or an email 
 		engagement_ids( html_of( page_for( screen( array( 'tab' => 'engagement', 's' => 'E301@example' ) ) ) ) ),
 	),
 	array( true, array( 302 ), array( 303 ), array( 301 ) ) );
+// A Mentors record ID finds the mentor that holds it (the accounts the tab lists here are the report's own, stood in above;
+// the account that holds the ID is looked up on the site, once for the whole search).
+$e_id = array( 301 => 'recMENTOR00000301', 302 => 'recMENTOR00000302' );
+foreach ( $e_id as $holder => $record ) {
+	$GLOBALS['users'][ $holder ]                                       = new WP_User( $holder, 'Held ' . $holder, array( 'wpcpm_mentor' ), 'held' . $holder );
+	$GLOBALS['umeta'][ $holder ][ WPCPM_Mentors_Sync::META_RECORD_ID ] = $record;
+}
+$e_for = function ( $term, array $more = array() ) {
+	return engagement_ids( html_of( page_for( screen( array_merge( array( 'tab' => 'engagement', 's' => $term ), $more ) ) ) ) );
+};
+ck( 'a Mentors record ID finds the mentor that holds it, with or without white space around it, and only that mentor',
+	array( $e_for( $e_id[301] ), $e_for( $e_id[302] ), $e_for( '  ' . $e_id[302] . ' ' ) ),
+	array( array( 301 ), array( 302 ), array( 302 ) ) );
+ck( 'a record ID that nobody holds, one in another case and a part of one find nobody, and say so',
+	array( $e_for( 'recMENTOR00000999' ), $e_for( strtolower( $e_id[301] ) ), $e_for( substr( $e_id[301], 0, 12 ) ), has( html_of( page_for( screen( array( 'tab' => 'engagement', 's' => 'recMENTOR00000999' ) ) ) ), 'No mentors match.' ) ),
+	array( array(), array(), array(), true ) );
+ck( 'the view and the sort still apply to what a record ID finds, and the views still count every row',
+	array( $e_for( $e_id[301], array( 'engagement_view' => 'students' ) ), $e_for( $e_id[301], array( 'engagement_view' => 'quiet' ) ), $e_for( $e_id[302], array( 'orderby' => 'mentor', 'order' => 'desc' ) ), view_counts( html_of( page_for( screen( array( 'tab' => 'engagement', 's' => $e_id[301] ) ) ) ) )['all'] ),
+	array( array( 301 ), array(), array( 302 ), '3' ) );
+ck( 'a name, a username and an email address find what they found, with record IDs on the site',
+	array( $e_for( 'BO QUIET' ), $e_for( 'login303' ), $e_for( 'E301@example' ) ),
+	array( array( 302 ), array( 303 ), array( 301 ) ) );
 ck( 'a view that holds nobody says so, with every other view still counted over every row',
 	array( engagement_ids( html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'quiet' ) ) ) ) ), has( html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'quiet' ) ) ) ), 'No mentors match.' ), view_counts( html_of( page_for( screen( array( 'tab' => 'engagement', 'engagement_view' => 'quiet' ) ) ) ) )['all'] ),
 	array( array(), true, '3' ) );

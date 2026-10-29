@@ -144,6 +144,7 @@ echo "\n=== The months and today ===\n";
 fresh();
 $empty = WPCPM_Mentor_Application_Feed::build( $GLOBALS['now'] );
 ck( 'with no application the months are an empty object, and today is two zeros', array( wp_json_encode( $empty['months'] ), $empty['today'] ), array( '{}', array( 'open' => 0, 'selected' => 0 ) ) );
+ck( 'and today() alone says the same, two zeros', WPCPM_Mentor_Application_Feed::today(), array( 'open' => 0, 'selected' => 0 ) );
 
 fresh();
 // November: one received and declined in December. December: one received, selected in January
@@ -167,6 +168,10 @@ ck(
 	)
 );
 ck( 'today: one open, the held one, and one selected and waiting for the course', $built['today'], array( 'open' => 1, 'selected' => 1 ) );
+ck( 'today() gives those two numbers on their own, the open count first, and build() takes its today from it, so the answer is the same', array( WPCPM_Mentor_Application_Feed::today(), WPCPM_Mentor_Application_Feed::today() === $built['today'], array_keys( $built ) ), array( array( 'open' => 1, 'selected' => 1 ), true, array( 'months', 'today', 'generated' ) ) );
+$today_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-feed.php' );
+preg_match( '/public static function today\(\) \{\n(.*?)\n\t\}\n/s', $today_source, $today_body );
+ck( 'and today() counts the posts by their state and walks no history: it names neither the months nor an application\'s events', array( isset( $today_body[1] ), false !== strpos( isset( $today_body[1] ) ? $today_body[1] : '', 'waiting_count()' ), false !== strpos( isset( $today_body[1] ) ? $today_body[1] : '', 'months' ), false !== strpos( isset( $today_body[1] ) ? $today_body[1] : '', 'events' ), false !== strpos( isset( $today_body[1] ) ? $today_body[1] : '', 'kept_counts' ), false !== strpos( isset( $today_body[1] ) ? $today_body[1] : '', 'month_counts_of' ) ), array( true, true, false, false, false, false ) );
 ck( 'and when it was built', $built['generated'], '2027-03-16T12:00:00+00:00' );
 
 $declined = WPCPM_Mentor_Application::applications( array( 'declined' ) );

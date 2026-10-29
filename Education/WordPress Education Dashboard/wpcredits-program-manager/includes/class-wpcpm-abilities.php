@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the MCP Adapter plugin's server, can list and call. This class is everything the abilities share and
  * none of what they say: the category they sit in, their registration, who may call them, and
  * `answer()`, the one wrapper each of them answers through, which counts the call against the account's
- * two ceilings, times the answer, keeps a failure's words to the site, and writes the log row.
+ * ceilings, times the answer, keeps a failure's words to the site, and writes the log row.
  *
  * Three things must hold for any of it to exist: the switch on Settings > Security is on, WordPress
  * has the Abilities API (6.9 and later; the plugin's floor is 6.5, so every call is guarded with
@@ -52,7 +52,7 @@ class WPCPM_Abilities {
 	 */
 	const ADAPTER_MIN = '0.7.1';
 
-	/** The most refusals of one account that the log keeps in an hour: the door's, the fence's and the two ceilings' together. */
+	/** The most refusals of one account that the log keeps in an hour: the door's, the fence's and the three ceilings' together. */
 	const REFUSAL_PER_HOUR = 60;
 
 	/**
@@ -64,7 +64,24 @@ class WPCPM_Abilities {
 		'wpcpm/waiting-for-decision',
 		'wpcpm/mentor-engagement-summary',
 		'wpcpm/institution-summary',
+		'wpcpm/find-student',
+		'wpcpm/mentor-students',
+		'wpcpm/mentor-applications',
 	);
+
+	/**
+	 * The abilities that look people up: the last three of `NAMES`. They answer by record id and never by
+	 * name, and they share a third ceiling, `mcp_people_per_hour`, claimed in `answer()` after the answers'
+	 * hour and day.
+	 */
+	const PEOPLE = array(
+		'wpcpm/find-student',
+		'wpcpm/mentor-students',
+		'wpcpm/mentor-applications',
+	);
+
+	/** The most people one lookup of people names, with `more` set when there were more. */
+	const PEOPLE_MAX = 10;
 
 	/**
 	 * Hooks.
@@ -147,8 +164,13 @@ class WPCPM_Abilities {
 	 * labels in an answer were typed by people, or copied from the program's records, and the session that
 	 * reads them must take them as data (design spec, section 6). Each ability's `execute_callback` is the
 	 * same call, `answer()`, around the `WPCPM_Ability_Answers` method that builds that ability's answer, and
-	 * its schemas are that class's too: an `input_schema` for the two abilities that take input, and for all
-	 * four an `output_schema` that names every key the answer can hold and carries the same sentence.
+	 * its schemas are that class's too: an `input_schema` for an ability that takes input, and for every one
+	 * an `output_schema` that names every key the answer can hold and carries the same sentence.
+	 *
+	 * The abilities come in the order of `NAMES`. A name that has no words here, or whose builder
+	 * `WPCPM_Ability_Answers` does not have, is left out, so that an ability is registered only once all of
+	 * it exists; all seven have both, and the suite checks that `definitions()` holds every name of `NAMES`
+	 * in its order, so a name can never be left out unseen.
 	 *
 	 * @return array[] Name => the arguments.
 	 */
@@ -176,11 +198,31 @@ class WPCPM_Abilities {
 				__( 'One institution\'s pipeline stage, Collaboration Agreement, member count and students per group, found by its record id or part of its name, for one semester or all.', 'wpcredits-program-manager' ),
 				'institutions',
 			),
+			'wpcpm/find-student'              => array(
+				__( 'A student\'s tracks', 'wpcredits-program-manager' ),
+				__( 'Every track a student holds, found by an email address, a WordPress.org username or profile address, a Students record id or part of a name: each track\'s record id, status, institution, cohort, dates, hours, reports and whether a mentor is assigned, with the mentor\'s record id. People are given by record id, never by name: look the name up on the site.', 'wpcredits-program-manager' ),
+				'students',
+			),
+			'wpcpm/mentor-students'           => array(
+				__( 'A mentor\'s students', 'wpcredits-program-manager' ),
+				__( 'A mentor\'s students as the Mentor Report Card lists them, by record id, with each one\'s status, hours and start, and the mentor\'s own record id, whether active, the dates of the last sign-in and the last visit and the Engagement view. People are given by record id, never by name: look the name up on the site.', 'wpcredits-program-manager' ),
+				'mentor',
+			),
+			'wpcpm/mentor-applications'       => array(
+				__( 'Mentor applications', 'wpcredits-program-manager' ),
+				__( 'Mentor applications in one state, newest first, by reference: the day received, days in the state, country, languages, hours a week, contribution areas, the teacher answer and whether the address is confirmed, with the totals per state. Applicants are given by reference, never by name: look the name up on the site.', 'wpcredits-program-manager' ),
+				'applications',
+			),
 		);
 
 		$definitions = array();
 
-		foreach ( $words as $name => $row ) {
+		foreach ( self::NAMES as $name ) {
+			if ( ! isset( $words[ $name ] ) || ! method_exists( 'WPCPM_Ability_Answers', $words[ $name ][2] ) ) {
+				continue;
+			}
+
+			$row    = $words[ $name ];
 			$method = $row[2];
 
 			$definitions[ $name ] = array(
@@ -251,11 +293,14 @@ class WPCPM_Abilities {
 	 * Answer one call: count it, build the answer, log the row.
 	 *
 	 * The hour is claimed first and then the day, and the hour is given back when the day refuses, so a
-	 * call the day turned away does not also use up a place of the hour. A call over a ceiling gets an
-	 * error that says which ceiling and when it opens again, is logged as refused (under the same cap of
-	 * refusal rows an hour as the door's and the fence's, so a client that keeps asking over its ceiling
-	 * cannot fill the log), and never reaches the build. A call is counted whether or not the build then
-	 * succeeds, so an ability that fails every time still cannot be asked without end.
+	 * call the day turned away does not also use up a place of the hour. An ability that looks people up
+	 * (`PEOPLE`) claims a third, an hour of lookups of people, after the day; when that refuses, the hour and
+	 * the day are given back, so a lookup turned away at the third uses up nothing and the other abilities
+	 * go on answering. A call over a ceiling gets an error that says which ceiling and when it opens again,
+	 * is logged as refused (under the same cap of refusal rows an hour as the door's and the fence's, so a
+	 * client that keeps asking over its ceiling cannot fill the log), and never reaches the build. A call is
+	 * counted whether or not the build then succeeds, so an ability that fails every time still cannot be
+	 * asked without end.
 	 *
 	 * The build is `array( 'answer' => array, 'records' => string[] )`: the answer, and the record ids of
 	 * the rows it was made of. Anything else, or any exception or error the build throws, is a failure,
@@ -334,6 +379,32 @@ class WPCPM_Abilities {
 			);
 		}
 
+		if ( in_array( $ability, self::PEOPLE, true ) ) {
+			$people     = WPCPM_Ceiling::key( 'mcp-people', $user );
+			$per_people = (int) WPCPM_Settings::get_value( 'mcp_people_per_hour' );
+
+			if ( ! WPCPM_Ceiling::claim( $people, $per_people, HOUR_IN_SECONDS ) ) {
+				WPCPM_Ceiling::release( $hour, HOUR_IN_SECONDS );
+				WPCPM_Ceiling::release( $day, DAY_IN_SECONDS );
+
+				$reopens = gmdate( 'c', ( (int) floor( time() / HOUR_IN_SECONDS ) + 1 ) * HOUR_IN_SECONDS );
+
+				if ( self::refusal_room( $user ) ) {
+					self::log( $ability, $input, 'refused', 'people_limit', $begin );
+				}
+
+				return new WP_Error(
+					'wpcpm_mcp_limit',
+					sprintf(
+						/* translators: 1: the most lookups of people an hour, 2: when the hour's count starts again, as an ISO 8601 time in UTC. */
+						_n( 'The limit of %1$d lookup of people an hour is reached. It opens again at %2$s.', 'The limit of %1$d lookups of people an hour is reached. It opens again at %2$s.', $per_people, 'wpcredits-program-manager' ),
+						$per_people,
+						$reopens
+					)
+				);
+			}
+		}
+
 		$why = 'not_an_answer';
 
 		try {
@@ -371,7 +442,7 @@ class WPCPM_Abilities {
 	 * here, so a refusal is one row of one shape beside a call's: no ability, no input, no rows, no time
 	 * taken, the reason, the name and id of the application password, and, for the fence only, the route.
 	 * The route is the part of the address the holder of the password chose, so it goes through `text()`
-	 * like every typed string. The two ceilings' refusals (`answer()`) are rows of their own, with the
+	 * like every typed string. The ceilings' refusals (`answer()`) are rows of their own, with the
 	 * ability, but share this cap.
 	 *
 	 * Two limits keep a stranger from filling the log. A request with no account is not a refusal of
@@ -401,7 +472,7 @@ class WPCPM_Abilities {
 	/**
 	 * Whether the log has room for one more refusal of an account this hour, and takes the place.
 	 *
-	 * The one cap every refusal row answers to: the door's, the fence's and the two ceilings', all under
+	 * The one cap every refusal row answers to: the door's, the fence's and the three ceilings', all under
 	 * the key `mcp-refusals` of the account, `REFUSAL_PER_HOUR` an hour. A refusal over the cap writes no
 	 * row, and is refused all the same.
 	 *

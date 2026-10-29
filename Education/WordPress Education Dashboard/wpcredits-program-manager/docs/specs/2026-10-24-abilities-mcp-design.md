@@ -182,6 +182,8 @@ The copy is closed to the outside, so the site cannot call out; Claude Code reac
 5. **The list of abilities.** Settled 24 October 2026: the seven of section 4, as written.
 6. **The adapter on live.** Installing MCP Adapter 0.7.1, a plugin from outside the program, on wordpresseducation.org, and who answers for its updates.
 7. **Where the credential lives on the Mac.** The Keychain with a shell export, or a Claude Code settings file.
+8. **A student's latest report month in `wpcpm/mentor-students`.** Settled 29 October 2026: dropped. The site keeps no date for a report (a report is read live from the program's base when it is opened), so the key could only ever be empty; each student is given with the status, the hours the Mentor Report Card prints and the start.
+9. **The name search of `wpcpm/find-student`.** Settled 29 October 2026: accepted for now. Part of a name can confirm a guess that someone is a student, and the lookups-of-people limit (40 an hour by default) bounds how often; allowing name searches only with an institution, or giving them a lower limit of their own, stays open for later.
 
 ## 12. The author's calls (for the product owner to check)
 

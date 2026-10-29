@@ -1914,6 +1914,34 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
+	 * The username a person typed to look someone up by, or an empty string when what they typed is not one.
+	 *
+	 * `wporg_username()` reads a profile reference that is known to be one and drops what a username cannot
+	 * hold, so a name typed in its place comes back as somebody else's login: a name whose first letter is
+	 * accented comes back as the login without that letter. A lookup tries what was typed as a username only
+	 * when it is one whole: a username, an @handle, or a WordPress.org profile address (with or without its
+	 * host) that has the username as a whole segment. A name with a letter a username cannot hold, or an
+	 * address whose username segment holds one, is none.
+	 *
+	 * @param mixed $raw What was typed.
+	 * @return string The lowercased username, or an empty string.
+	 */
+	public static function typed_username( $raw ) {
+		$typed = is_scalar( $raw ) ? trim( (string) $raw ) : '';
+		$login = self::wporg_username( $typed );
+
+		if ( '' === $login ) {
+			return '';
+		}
+
+		if ( strtolower( ltrim( $typed, '@' ) ) === $login ) {
+			return $login;
+		}
+
+		return 1 === preg_match( '#(?:^|/)@?' . preg_quote( $login, '#' ) . '(?:[/?\#]|$)#i', $typed ) ? $login : '';
+	}
+
+	/**
 	 * Send one mentor their login invitation.
 	 *
 	 * An account that does not exist or does not hold the Mentor role is refused here. Then the

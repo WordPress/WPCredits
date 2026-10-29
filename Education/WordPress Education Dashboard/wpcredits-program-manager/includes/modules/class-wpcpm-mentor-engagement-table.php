@@ -153,10 +153,11 @@ class WPCPM_Mentor_Engagement_Table extends WP_List_Table {
 	public function prepare_items() {
 		$view   = $this->current_view();
 		$search = WPCPM_Request::text( 's' );
+		$holder = WPCPM_Mentor_Engagement::holder_of( $search );
 		$rows   = array();
 
 		foreach ( (array) $this->report['rows'] as $row ) {
-			if ( WPCPM_Mentor_Engagement::in_view( $row, $view ) && WPCPM_Mentor_Engagement::matches( $row, $search ) ) {
+			if ( WPCPM_Mentor_Engagement::in_view( $row, $view ) && WPCPM_Mentor_Engagement::matches( $row, $search, $holder ) ) {
 				$rows[] = $row;
 			}
 		}

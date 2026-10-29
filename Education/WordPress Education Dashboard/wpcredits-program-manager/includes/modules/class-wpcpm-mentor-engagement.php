@@ -371,13 +371,20 @@ final class WPCPM_Mentor_Engagement {
 	}
 
 	/**
-	 * Whether a row matches a search: its name, username or email, in any case.
+	 * Whether a row matches a search: its name, username or email, in any case, or, when the search is
+	 * a Mentors record ID, the account that holds it.
+	 *
+	 * The record ID is what `wpcpm/mentor-students` gives for a mentor in place of a name, so an
+	 * Administrator can put the name to it on the tab. The account that holds it is looked up once for
+	 * the whole search (`holder_of()`), not once for each row, and handed in.
 	 *
 	 * @param array  $row    A row.
-	 * @param string $search The words searched.
+	 * @param string $search The words searched, or a Mentors record ID.
+	 * @param int    $holder The ID of the account that holds the Mentors record ID the search is, from
+	 *                       `holder_of()`; 0 for none.
 	 * @return bool
 	 */
-	public static function matches( array $row, $search ) {
+	public static function matches( array $row, $search, $holder = 0 ) {
 		$search = trim( (string) $search );
 
 		if ( '' === $search ) {
@@ -390,7 +397,31 @@ final class WPCPM_Mentor_Engagement {
 			}
 		}
 
-		return false;
+		return (int) $holder > 0 && (int) $holder === (int) $row['id'];
+	}
+
+	/**
+	 * The account that holds the Mentors record ID a search is, or 0 when the search is no record ID or
+	 * no account holds it.
+	 *
+	 * The lookup the mentors sync and the activation of an application take
+	 * (`WPCPM_Mentor_Provision::find_by_record_id()`), made only for a search that is a record ID. The
+	 * database compares meta under its own collation, which does not tell recABC from recabc; Airtable
+	 * record IDs do, so the account found is checked again here.
+	 *
+	 * @param string $search What was searched for.
+	 * @return int The account's ID, or 0.
+	 */
+	public static function holder_of( $search ) {
+		$search = trim( (string) $search );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $search ) ) {
+			return 0;
+		}
+
+		$holder = WPCPM_Roles::id_of( WPCPM_Mentor_Provision::find_by_record_id( $search ) );
+
+		return $holder > 0 && trim( (string) get_user_meta( $holder, WPCPM_Mentors_Sync::META_RECORD_ID, true ) ) === $search ? $holder : 0;
 	}
 
 	/**

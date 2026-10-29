@@ -119,12 +119,14 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 	 * list is.
 	 *
 	 * The role, the view and the search are the base's, and WordPress answers them as they come:
-	 * the search covers the name, the username and the email, all this list searches.
+	 * the search covers the name, the username and the email, and, when it is a Mentors record ID, the
+	 * account that holds it (`with_record_holder()`).
 	 *
 	 * @param array $args `WP_User_Query` arguments.
 	 * @return array{items: WP_User[], total: int}
 	 */
 	protected function query( array $args ) {
+		$args         = $this->with_record_holder( $args );
 		$only_without = isset( $args['meta_query'][ self::NO_STUDENTS_MARK ] );
 
 		if ( $only_without ) {
@@ -147,6 +149,47 @@ class WPCPM_Mentors_Table extends WPCPM_Accounts_Table {
 			'items' => (array) $query->get_results(),
 			'total' => (int) $query->get_total(),
 		);
+	}
+
+	/**
+	 * The arguments of a search that is a Mentors record ID, widened to the account that holds it.
+	 *
+	 * `wpcpm/mentor-students` gives a mentor as a Mentors record ID in place of a name, and the account
+	 * that holds it is no column WordPress searches. So the list narrows to the accounts the words find
+	 * (a name that quotes the ID is found as it always was) and the account the ID is linked to
+	 * (`WPCPM_Mentor_Engagement::holder_of()`, which the Engagement tab asks too), and the role, the view
+	 * and the sort apply to them as they do to any search. A search that is not a record ID, or a record
+	 * ID that no account holds, is left exactly as it came.
+	 *
+	 * @param array $args `WP_User_Query` arguments.
+	 * @return array The same, with the search turned into the IDs it and the record ID find.
+	 */
+	private function with_record_holder( array $args ) {
+		$holder = isset( $args['search'] ) ? WPCPM_Mentor_Engagement::holder_of( trim( (string) $args['search'], '*' ) ) : 0;
+
+		if ( $holder <= 0 ) {
+			return $args;
+		}
+
+		$found = new WP_User_Query(
+			array(
+				'role'           => static::role(),
+				'search'         => $args['search'],
+				'search_columns' => isset( $args['search_columns'] ) ? $args['search_columns'] : array(),
+				'fields'         => 'ID',
+				'number'         => -1,
+				'count_total'    => false,
+			)
+		);
+
+		// Each ID through `id_of()`, because the program's own site answers a request for IDs with rows.
+		$ids = array_map( array( 'WPCPM_Roles', 'id_of' ), (array) $found->get_results() );
+
+		unset( $args['search'], $args['search_columns'] );
+
+		$args['include'] = array_values( array_unique( array_filter( array_merge( $ids, array( $holder ) ) ) ) );
+
+		return $args;
 	}
 
 	/**

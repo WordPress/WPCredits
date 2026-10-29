@@ -86,6 +86,12 @@ final class WPCPM_Mentor_Application_Queue {
 	/** The query argument the tab's views travel in. */
 	const VIEW_ARG = 'mapp_view';
 
+	/** The query argument the Find by reference field is sent in. */
+	const FIND_ARG = 'mapp_ref';
+
+	/** The ID of the region that answers the field, which the field's form lands on. */
+	const FOUND_ANCHOR = 'wpcpm-mapp-found';
+
 	/**
 	 * Most rows a view draws, and Recently decided under it: the first in the list's own order, the
 	 * oldest first in the views of applications still open, whose turn it is, and in Activated and
@@ -202,6 +208,54 @@ final class WPCPM_Mentor_Application_Queue {
 		$url = admin_url( 'admin.php?page=wpcpm-mentors&tab=queue' );
 
 		return 'waiting' === $view ? $url : add_query_arg( self::VIEW_ARG, $view, $url );
+	}
+
+	/**
+	 * The states the Find by reference field draws an application from: every state the tab lists an
+	 * application under, in any view, Activated and Recently decided included, and none but a state the
+	 * application class knows, so a row with no state, or one the tab does not know, is never found.
+	 * Not an application filed as spam: the field says nothing of it, so the sentence it gets is the one
+	 * a reference nobody has gets, and its row stays where Recently decided lists it.
+	 *
+	 * @return string[]
+	 */
+	private static function findable_states() {
+		return array_values( array_diff( WPCPM_Mentor_Application::states(), array( WPCPM_Mentor_Application::STATE_SPAM ) ) );
+	}
+
+	/**
+	 * The application a reference names, when it is in a state the field draws (`findable_states()`).
+	 *
+	 * @param string $reference A reference such as `MAPP-2026-0007`.
+	 * @return WP_Post|null
+	 */
+	private static function found( $reference ) {
+		$post = WPCPM_Mentor_Application::by_reference( $reference );
+
+		return $post instanceof WP_Post && in_array( WPCPM_Mentor_Application::state_of( $post ), self::findable_states(), true ) ? $post : null;
+	}
+
+	/**
+	 * The rows of a list without the one the Find by reference field drew above the views, so the page
+	 * holds its ID once.
+	 *
+	 * @param WP_Post[]    $rows  A list's rows.
+	 * @param WP_Post|null $found The application the field drew, or null.
+	 * @return WP_Post[]
+	 */
+	private static function without( array $rows, $found ) {
+		if ( ! $found instanceof WP_Post ) {
+			return $rows;
+		}
+
+		return array_values(
+			array_filter(
+				$rows,
+				static function ( $post ) use ( $found ) {
+					return (int) $post->ID !== (int) $found->ID;
+				}
+			)
+		);
 	}
 
 	/*
@@ -856,6 +910,8 @@ final class WPCPM_Mentor_Application_Queue {
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Mentor applications', 'wpcredits-program-manager' ), esc_html( number_format_i18n( WPCPM_Mentor_Application::waiting_count() ) ) );
 		echo '<p class="description">' . esc_html__( 'People who applied to mentor through the form on the site, oldest first. Select sends the mentors\' course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address. The course is completed, or the daily check finding the course on the profile, makes a selected applicant a mentor once Make mentors from applications is on.', 'wpcredits-program-manager' ) . '</p>';
 
+		$found = self::render_find( $view );
+
 		echo '<ul class="subsubsub">';
 
 		$links = array();
@@ -876,7 +932,7 @@ final class WPCPM_Mentor_Application_Queue {
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'Nothing here. New applications appear in Waiting.', 'wpcredits-program-manager' ) . '</p>';
-			self::render_decided( $view );
+			self::render_decided( $view, $found );
 			echo '</div>';
 
 			return;
@@ -908,28 +964,92 @@ final class WPCPM_Mentor_Application_Queue {
 			);
 		}
 
-		echo '<ol class="wpcpm-queue">';
+		// The row the field found is drawn once, above the views, where the page lands on it, and the list is
+		// drawn only when a row remains.
+		$listed = self::without( $rows, $found );
 
-		foreach ( $rows as $post ) {
-			self::render_row( $post, $view );
+		if ( array() !== $listed ) {
+			echo '<ol class="wpcpm-queue">';
+
+			foreach ( $listed as $post ) {
+				self::render_row( $post, $view );
+			}
+
+			echo '</ol>';
 		}
 
-		echo '</ol>';
-
-		self::render_decided( $view );
+		self::render_decided( $view, $found );
 
 		echo '</div>';
+	}
+
+	/**
+	 * The Find by reference field and, under it, what it found.
+	 *
+	 * A GET form that changes nothing, so it carries no nonce: the reference typed in it is cleaned
+	 * and looked up (`WPCPM_Mentor_Application::by_reference()`), and the application is drawn here
+	 * whole, with its decisions, whatever its age or the view it is listed under, when the tab lists it
+	 * in any view (`findable_states()`: every state but spam); the form lands on this region, which
+	 * holds the row and its anchor, and the lists below skip the row so the page holds its ID once.
+	 * Otherwise one neutral sentence says no application was found for the reference, the same for a
+	 * reference nobody has and for one filed as spam, and nothing of an application is drawn. Only
+	 * `render()`'s capability check lets it be drawn at all.
+	 *
+	 * @param string $view The view the tab is drawn in, which the form keeps and a decision comes back to.
+	 * @return WP_Post|null The application drawn, or null.
+	 */
+	private static function render_find( $view ) {
+		$reference = trim( WPCPM_Request::text( self::FIND_ARG ) );
+
+		printf( '<form method="get" action="#%s" class="wpcpm-mapp-find">', esc_attr( self::FOUND_ANCHOR ) );
+		echo '<input type="hidden" name="page" value="wpcpm-mentors" /><input type="hidden" name="tab" value="queue" />';
+
+		// The Waiting view is the default, as `view_url()` has it, and needs no field.
+		if ( 'waiting' !== $view ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::VIEW_ARG ), esc_attr( $view ) );
+		}
+
+		printf(
+			'<label for="wpcpm-mapp-ref">%1$s</label> <input type="search" id="wpcpm-mapp-ref" name="%2$s" value="%3$s" /> <button type="submit" class="button">%4$s</button>',
+			esc_html__( 'Find by reference', 'wpcredits-program-manager' ),
+			esc_attr( self::FIND_ARG ),
+			esc_attr( $reference ),
+			esc_html__( 'Find', 'wpcredits-program-manager' )
+		);
+		echo '</form>';
+
+		if ( '' === $reference ) {
+			return null;
+		}
+
+		$post = self::found( $reference );
+
+		printf( '<div id="%s">', esc_attr( self::FOUND_ANCHOR ) );
+
+		if ( $post instanceof WP_Post ) {
+			echo '<ol class="wpcpm-queue">';
+			self::render_row( $post, $view );
+			echo '</ol>';
+		} else {
+			printf( '<p class="description">%s</p>', esc_html__( 'No application was found for that reference.', 'wpcredits-program-manager' ) );
+		}
+
+		echo '</div>';
+
+		return $post;
 	}
 
 	/**
 	 * Recently decided: the rows filed as spam or declined, newest decision first, the fifty newest,
 	 * each whole with the decision its state allows. Read in one query, ordered by the decision time the
 	 * row carries and bounded at one row past the fifty drawn, so the list can say when it was cut, as
-	 * the sponsor screen's does. Retention takes them away in time.
+	 * the sponsor screen's does. Retention takes them away in time. The row the Find by reference field drew
+	 * above the views is skipped here, so the page holds its ID once.
 	 *
-	 * @param string $view The view the tab is drawn in, which a press here comes back to.
+	 * @param string       $view  The view the tab is drawn in, which a press here comes back to.
+	 * @param WP_Post|null $found The application the field drew, or null.
 	 */
-	private static function render_decided( $view ) {
+	private static function render_decided( $view, $found = null ) {
 		$rows = WPCPM_Mentor_Application::decided_posts( self::QUEUE_MAX + 1 );
 		$more = count( $rows ) > self::QUEUE_MAX;
 		$rows = array_slice( $rows, 0, self::QUEUE_MAX );
@@ -956,13 +1076,19 @@ final class WPCPM_Mentor_Application_Queue {
 					: __( 'The applications filed as spam and the declined ones, newest first, until they are deleted. Put back in the queue returns one filed as spam to Waiting, and sends the acknowledgement to one that never had it; Select is offered on a declined one, for an applicant who appeals.', 'wpcredits-program-manager' )
 			)
 		);
-		echo '<ol class="wpcpm-queue">';
+		$listed = self::without( $rows, $found );
 
-		foreach ( $rows as $post ) {
-			self::render_row( $post, $view );
+		if ( array() !== $listed ) {
+			echo '<ol class="wpcpm-queue">';
+
+			foreach ( $listed as $post ) {
+				self::render_row( $post, $view );
+			}
+
+			echo '</ol>';
 		}
 
-		echo '</ol></section>';
+		echo '</section>';
 	}
 
 	/**

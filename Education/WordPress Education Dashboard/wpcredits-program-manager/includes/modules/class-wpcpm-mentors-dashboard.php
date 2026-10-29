@@ -1011,6 +1011,37 @@ class WPCPM_Mentors_Dashboard {
 	}
 
 	/**
+	 * The account a mentor is asked for by, in the three forms `wp wpcredits mentor` takes.
+	 *
+	 * A WordPress login first; then, when it is an email address, the account with that address; then a
+	 * WordPress.org profile address or handle, read as the username in it, which is the account's login, but
+	 * only when what was typed is a username or a profile address whole (`WPCPM_Mentors_Sync::typed_username()`):
+	 * a name with a letter a username cannot hold is not tried as the username without it. The
+	 * one lookup of the command and of the abilities, so what the command prints for a mentor and what Claude
+	 * is told cannot be about two accounts. It finds any account, not only a mentor's: whether the account is
+	 * a mentor's is for the caller to ask (`is_mentor()`, or the Engagement tab's list of mentors).
+	 *
+	 * @param mixed $needle A login, an email address, or a WordPress.org profile address or handle.
+	 * @return WP_User|null The account, or null when none matches (or the needle is no text).
+	 */
+	public static function find_mentor( $needle ) {
+		$needle = is_scalar( $needle ) ? (string) $needle : '';
+
+		$user = get_user_by( 'login', $needle );
+
+		if ( ! $user && is_email( $needle ) ) {
+			$user = get_user_by( 'email', $needle );
+		}
+
+		if ( ! $user ) {
+			$login = WPCPM_Mentors_Sync::typed_username( $needle );
+			$user  = $login ? get_user_by( 'login', $login ) : false;
+		}
+
+		return $user instanceof WP_User ? $user : null;
+	}
+
+	/**
 	 * The students assigned to a mentor.
 	 *
 	 * @param int $user_id Mentor user ID.
@@ -1309,14 +1340,36 @@ class WPCPM_Mentors_Dashboard {
 	 * @return string Plain text, or '' when nothing is recorded.
 	 */
 	private static function logged_hours( array $mentee, $student, $status ) {
+		$hours = self::logged_count( $mentee, $student );
+
+		return WPCPM_Program::hours_text( $hours, $status );
+	}
+
+	/**
+	 * The count of hours the card shows for a student on a mentor's list, as the base sends it.
+	 *
+	 * `logged_hours()`'s choice, moved out so that the abilities give the number the card prints and
+	 * not the list's own copy of it: the account's copy first, the list's second, compared against ''
+	 * so that a "0" there wins. The program row is read for this one cell and nothing else of it
+	 * leaves: what comes back is the number, as text, or '' when neither copy holds one.
+	 *
+	 * @param array             $mentee  The student's row on this mentor's list.
+	 * @param WP_User|null|bool $student The account behind that row's record when the caller has found it
+	 *                                   already (null for none); false to find it from the row's record ID.
+	 * @return string The count, or ''.
+	 */
+	public static function logged_count( array $mentee, $student = false ) {
+		if ( false === $student ) {
+			$record  = isset( $mentee['record_id'] ) && is_scalar( $mentee['record_id'] ) ? trim( (string) $mentee['record_id'] ) : '';
+			$student = '' !== $record ? WPCPM_Students_Sync::user_for_record( $record ) : null;
+		}
+
 		$program = $student instanceof WP_User ? get_user_meta( $student->ID, WPCPM_Students_Sync::META_PROGRAM, true ) : array();
 		$read    = static function ( $block, $key ) {
 			return ( is_array( $block ) && isset( $block[ $key ] ) && is_scalar( $block[ $key ] ) ) ? trim( (string) $block[ $key ] ) : '';
 		};
 
-		$hours = '' !== $read( $program, 'hours' ) ? $read( $program, 'hours' ) : $read( $mentee, 'hours' );
-
-		return WPCPM_Program::hours_text( $hours, $status );
+		return '' !== $read( $program, 'hours' ) ? $read( $program, 'hours' ) : $read( $mentee, 'hours' );
 	}
 
 	/**

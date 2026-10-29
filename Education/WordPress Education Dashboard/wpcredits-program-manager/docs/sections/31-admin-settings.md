@@ -428,16 +428,24 @@ records, read-only, through the MCP Adapter plugin. The section is saved with th
   the program's management capability, or is not ticked under **Who may connect**: refused with 403.
   Each refusal of a signed-in account is a row in the log, one for each request however many times
   WordPress asks about it, and 60 an hour at most for each account; a question refused for being
-  over the hour's or the day's limit counts in the same 60. The other half is the fence: a password named Claude opens this address and nothing else. Used on any
+  over the hour's, the day's or the lookups' limit counts in the same 60. The other half is the fence: a password named Claude opens this address and nothing else. Used on any
   other REST route or on the batch route it is refused with 403, and anywhere else a sign-in with it
   fails: on XML-RPC, and on any request a plugin opens to application passwords, such as the
   VideoPress requests Jetpack opens in wp-admin. That holds whether the switch is on or off, and on
   a REST route the refusal shows in the log as "Refused: another address". A password counts as named Claude when its name begins with Claude, in
   any case and with spaces before it: "Claude - laptop" does and "Claudette" does not.
   Before deactivating this plugin or installing a version below 1.123.30, revoke every application password whose name begins with Claude, or check that there is none: without the plugin, such a password opens every address its account can use.
-- **Limits** - two numbers, each counted per person across every answer: **Answers an hour, per
-  person**, 120 by default and from 1 to 1,000, and **Answers a day, per person**, 600 by default
-  and from 1 to 10,000. A number outside its range is saved as the nearest end of it.
+- **Limits** - three numbers, each counted per person. **Answers an hour, per person** is 120 by
+  default and from 1 to 1,000, and **Answers a day, per person** is 600 by default and from 1 to
+  10,000; both count across every answer. **Lookups of people an hour, per person** is 40 by
+  default and from 1 to 200, with a line under its field saying so, and counts only the questions that
+  look people up (A student's tracks, A mentor's students and Mentor applications), on top of the
+  other two: a lookup of people also takes a place of the hour's answers and of the day's. When it is the
+  lookups' limit that is reached, the question is refused with a message that names the limit, for
+  example "The limit of 40 lookups of people an hour is reached.", and the time the hour starts
+  again, and the refusal is logged as "refused: people_limit". That question takes no place of any
+  of the three, and every other question goes on answering. A number outside its range is saved as
+  the nearest end of it.
 - **Keep the log for** - a number of days, 90 by default and from 7 to 365, outside which it is
   saved as the nearest end. Every answer and every refusal of a signed-in account is logged and kept
   for this many days.
@@ -462,22 +470,83 @@ records, read-only, through the MCP Adapter plugin. The section is saved with th
   calls older than **Keep the log for**, in batches of 500, the oldest first, up to 10,000 rows a run and the rest the next
   day, never fewer than 7 days whatever the setting holds, and no other row of the audit trail; it
   runs whether the switch is on or off.
-- **What Claude can ask** - four questions, answered from the records the site already keeps and
-  never from Airtable or WordPress.org, each saying when its sources were last read (for What waits
-  for an Administrator, when each sync last ran; for Mentor engagement, the moment it counts as of),
-  and none naming a person. **Program counts** gives the figures the Administrator Dashboard counts for the
-  current semester: students per track, mentors, institutions per stage, sponsors per tier, mentor
-  applications and the outcome figures. **What waits for an Administrator** lists the tiles of the
-  dashboard's attention strip, with how many wait and where to open each, and when each sync last
-  ran and runs next and whether the Syncs and health card counts it among those that need a look.
-  **Mentor engagement** says how many active mentors signed in, were seen, acted
+- **What Claude can ask** - seven questions, answered from the records the site already keeps and
+  never from Airtable or WordPress.org. Four give figures and name no person, and each says when its
+  sources were last read (for What waits for an Administrator, when each sync last ran; for Mentor
+  engagement, the moment it counts as of). **Program counts** gives the figures the Administrator
+  Dashboard counts for the current semester: students per track, mentors, institutions per stage,
+  sponsors per tier, mentor applications and the outcome figures. **What waits for an Administrator**
+  lists the tiles of the dashboard's attention strip, with how many wait and where to open each, and
+  when each sync last ran and runs next and whether the Syncs and health card counts it among those
+  that need a look. **Mentor engagement** says how many active mentors signed in, were seen, acted
   or stayed idle, as the Engagement tab counts them, as of a day. **One institution** is found by
   its record ID or by part of its name, five at most at a time, and gives its pipeline stage, country
   and city, its Collaboration Agreement's status and dates, how many accounts act for it and its
   students per group, for one semester or for all, and when the institutions and, separately, the
   roster behind the students were last read. An institution's contact, the person who
   accepted its agreement and its members are never named, and every name and label in an answer is
-  cut to one line of at most 120 characters.
+  cut to one line of at most 120 characters. The other three look people up, in the next point.
+- **The three that look people up** - **A student's tracks**, **A mentor's students** and **Mentor
+  applications** are the **lookups of people** that the third limit above counts, and the only
+  questions that do. **A student's tracks** finds a student by an email address, a WordPress.org
+  username or profile address, a Students record ID or three characters or more of a name, for one
+  institution or for all, and lists ten people at most; for each person, whether they have an account
+  on this site and every track they hold, one for each Students row (a row marked Duplicated or SPAM
+  is never one), with the track's Students record ID, its status, institution, cohort, start and end
+  days, contribution team, hours, how many reports it has, whether a mentor is assigned and that
+  mentor's Mentors record ID, and the course the student took while they wait to graduate. A student
+  with no account on this site has no row on the **Student accounts** list, and an Administrator puts
+  the name to the ID on an institution's roster instead (see *Looking a person up*). **A mentor's
+  students** finds a mentor by a Mentors record ID, a WordPress username, an email address or a
+  WordPress.org profile address, and only a mentor: an account that is not on the Engagement tab is
+  nobody. In both questions, a username is read as one only when it is typed whole, so a name with a
+  letter a username cannot hold finds nobody by username; here a Mentors record ID is also matched
+  letter for letter in its case. It gives the mentor's Mentors record ID, whether the mentor is active, the days of
+  their last sign-in and last visit and the Engagement view they are filed under, and their students
+  as the Mentor Report Card lists them, the current ones before the past ones and 25 at most, each by
+  the Students record ID of the track and with the status, the hours the card prints and the start
+  day. **Mentor applications** lists the applications in one state, the
+  newest received first and 25 at most (`open`, the default, which is the queue on the Mentors
+  screen's **Waiting for review** tab: new, held, asked for more information or waiting for a second
+  opinion; `selected`, waiting for the course; or `lapsed`), each by its reference, with the day it
+  was received, its state, the days it has been in that state, the country, the languages, the hours a
+  week and the contribution areas the applicant chose, the teacher answer (yes or no), whether the
+  address is confirmed and the **possible duplicate** and **held** marks; with it, how many
+  applications are open, selected and lapsed. The country, the languages and the areas are given only
+  when they are on the application form's own lists: an answer edited by hand to anything else is
+  left out (the country comes back as none), and so are all of them while the site has not synced the
+  list of countries or of contribution teams. One filed as spam, declined or made a mentor is never
+  listed.
+- **People come back as record IDs, and never by name** - a student is the Students record ID of each
+  track they hold, a mentor is their Mentors record ID, and an applicant is their application's
+  reference, such as MAPP-2026-0007. No answer holds a name, a display name, a login, an email
+  address, a WordPress.org username or profile address, a Slack handle, a tutor's or a mentor's name,
+  a website, or any text a person wrote: not an applicant's free-text answer, not a note, not the
+  accessibility or survey answers, not what the form's checks noticed (but the possible duplicate
+  mark) and not the consent evidence. What you type to find someone, a name or an address, is kept in
+  the log beside the question, cleaned to one line of at most 120 characters, and is never repeated in
+  an answer. Claude cannot say whose a record ID is: an Administrator puts the name to it on the site.
+- **Looking a person up** - search the ID or the reference where the person is listed. A student's
+  Students record ID goes in **Search students** on the **Student accounts** list of the Students
+  screen, which finds the account of every track that holds it, so a student with an account is found
+  there. Any student, with an account or not, is found by the same ID in **Search** on the roster of
+  the institution that the track names in the answer, on the Institution Dashboard opened through the
+  switcher, in the cohort the track started in: an Administrator's search there reads the Students
+  record ID as well as the name, exactly as the ID is written, and the box's hint lists it. A track
+  that names no institution (its institution comes back null) is on no roster. Its student's account,
+  if there is one, is on the **Student accounts** list, and the row is listed by its name and status,
+  without its ID, under **Rows with no institution** on the **Sync and storage** tab of the
+  Institutions screen. A mentor's Mentors record ID goes in **Search mentors** on the **Mentor
+  accounts** list or on the **Engagement** tab of the Mentors screen; a mentor made by hand, whose
+  account holds no Mentors record ID, comes back with none and is found by username or email address.
+  An application's reference goes in **Find by reference**, above the views of the Mentors screen's
+  **Waiting for review** tab: it draws the application whole, with its decisions, whatever its age. The
+  reference is also printed over the applicant's answers in every view of that tab, but a view draws
+  50 applications at most: the oldest 50 in Waiting, Asked for more information, Second opinion,
+  Selected (course pending) and Lapsed; in Activated, those still waiting for their Airtable row
+  first, then the most recently made mentors; and, under every view, in Recently decided, the 50
+  most recently declined or filed as spam, newest first. **Find by reference** reaches the ones past
+  them. A reference is the one the applicant saw on the thank-you page.
 
 ### The Mail tab
 

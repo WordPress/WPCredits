@@ -224,12 +224,14 @@ class WPCPM_Settings {
 			// nobody on the list, until an Administrator decides otherwise: on means an account can ask
 			// the site questions from outside it, which is not a thing to inherit from an update.
 			// `mcp_users` holds account IDs, lowest first (`user_ids()`); the two ceilings are per
-			// account, across every answer; `mcp_log_days` is how long a log row of an answer or a
-			// refusal is kept.
+			// account, across every answer; `mcp_people_per_hour` is a third, per account too, over
+			// the answers that look people up (Phase B), counted on top of the first two;
+			// `mcp_log_days` is how long a log row of an answer or a refusal is kept.
 			'mcp_enabled'                   => false,
 			'mcp_users'                     => array(),
 			'mcp_calls_per_hour'            => 120,
 			'mcp_calls_per_day'             => 600,
+			'mcp_people_per_hour'           => 40,
 			'mcp_log_days'                  => 90,
 
 			// Tool - Mentor Status Checker. Prefixed so the tool's settings stay
@@ -342,6 +344,7 @@ class WPCPM_Settings {
 				'mcp_users',
 				'mcp_calls_per_hour',
 				'mcp_calls_per_day',
+				'mcp_people_per_hour',
 				'mcp_log_days',
 			),
 			'advanced'                   => array(
@@ -836,6 +839,9 @@ class WPCPM_Settings {
 			// empty today's record tonight.
 			'mcp_calls_per_hour'            => array( 1, 1000 ),
 			'mcp_calls_per_day'             => array( 1, 10000 ),
+			// Lookups of people: one is the least that still answers, as above, and 200 an hour the most
+			// the ceiling can be set to, since each lookup names up to ten people.
+			'mcp_people_per_hour'           => array( 1, 200 ),
 			'mcp_log_days'                  => array( 7, 365 ),
 		);
 

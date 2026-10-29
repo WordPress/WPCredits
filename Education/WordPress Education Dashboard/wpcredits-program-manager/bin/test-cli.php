@@ -5,7 +5,9 @@
  * `wp wpcredits mentor_engagement` (1.122.26), its report read from the engagement reader's test input; and
  * `wp wpcredits mentor_airtable_row` (1.122.33), the Mentors row an application would write and the check row,
  * both read from a stand-in of the row class; and `wp wpcredits mcp_log` (1.123.30), the latest calls of Claude
- * access read from a stand-in of the audit log, dated by the real date class.
+ * access read from a stand-in of the audit log, dated by the real date class; and `wp wpcredits mentor`, what a
+ * mentor's page will list, through the real lookup of a mentor and the real list of their students, which the
+ * abilities share (1.123.48): it prints what it always printed.
  *
  * WP_CLI is stood in for so that what the command prints and how it exits can be read, and the
  * track store so that a seed can be made to fail. `WP_CLI::error()` exits the process; here it
@@ -58,11 +60,30 @@ function wp_date( $format, $time = null ) { return gmdate( $format, $time ); }
 
 /** An account, as `get_userdata()` gives one: the fields the command reads. */
 class WP_User {
-	public $ID = 0, $user_login = '', $display_name = '';
+	public $ID = 0, $user_login = '', $display_name = '', $user_email = '';
 	public function __construct( $id, $login, $name ) { $this->ID = $id; $this->user_login = $login; $this->display_name = $name; }
 }
 $GLOBALS['users'] = array(); // User ID => WP_User.
 function get_userdata( $id ) { return isset( $GLOBALS['users'][ (int) $id ] ) ? $GLOBALS['users'][ (int) $id ] : false; }
+
+/**
+ * The accounts `wp wpcredits mentor` looks a mentor up among (`$GLOBALS['accounts']`), and the lists of
+ * students their accounts keep (`$GLOBALS['mentees']`, user ID => rows), through core's own functions as far
+ * as the lookup reaches: an account by its login or by its address, a list of students by its meta key.
+ */
+$GLOBALS['accounts'] = array();
+$GLOBALS['mentees']  = array();
+function is_email( $email ) { return false !== filter_var( (string) $email, FILTER_VALIDATE_EMAIL ); }
+function get_user_by( $field, $value ) {
+	foreach ( $GLOBALS['accounts'] as $user ) {
+		if ( 'login' === $field && $user->user_login === (string) $value ) { return $user; }
+		if ( 'email' === $field && '' !== $user->user_email && strtolower( $user->user_email ) === strtolower( (string) $value ) ) { return $user; }
+	}
+	return false;
+}
+function get_user_meta( $user_id, $key, $single = false ) {
+	return 'wpcpm_mentees' === $key && isset( $GLOBALS['mentees'][ (int) $user_id ] ) ? $GLOBALS['mentees'][ (int) $user_id ] : '';
+}
 
 /**
  * The audit log's calls, for `wp wpcredits mcp_log`: `mcp_entries()` answers what a check sets, newest first
@@ -187,6 +208,9 @@ class WPCPM_Mentor_Airtable_Row {
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-engagement.php';
+// The real lookup of a mentor and the real list of their students, which `wp wpcredits mentor` prints.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
 
 $fails = 0;
@@ -1044,6 +1068,57 @@ ck( 'mcp_log\'s help says every call is a row, answered, refused or failed',
 restore_error_handler();
 
 ck( 'and the section raised no PHP warning, notice or deprecation', $mcp_warnings, array() );
+
+echo "\n=== wp wpcredits mentor (what a mentor's page will list) ===\n";
+
+// Two mentors, one with two students (one with no end date and no tutor) and one with none, and a third
+// account that is no mentor's. The accounts are found by login, by address and by WordPress.org profile
+// address, as the command always found them.
+$mentor_columns = array( 'name', 'status', 'start', 'end', 'tutor', 'institution', 'wporg', 'slack', 'team' );
+$one            = new WP_User( 61, 'mentor-one-example', 'Mentor Display One' );
+$one->user_email = 'Mentor-One@example.test';
+$two            = new WP_User( 62, 'mentor-two-example', 'Mentor Display Two' );
+$two->user_email = 'mentor-two@example.test';
+$GLOBALS['accounts'] = array( 61 => $one, 62 => $two );
+$GLOBALS['mentees']  = array(
+	61 => array(
+		array( 'record_id' => 'recSTUD0000000001', 'name' => 'Pupil Name Alpha', 'status' => 'In Sensei', 'start' => '2026-02-01', 'end' => '2026-08-01', 'tutor' => 'Tutor Name Beta', 'institution' => 'University of Example', 'username' => 'pupil-alpha-example', 'slack' => 'pupil-alpha-slack', 'team' => 'Polyglots' ),
+		array( 'record_id' => 'recSTUD0000000002', 'name' => 'Pupil Name Beta', 'status' => 'Pending graduation' ),
+	),
+);
+
+$printed = array(
+	array( 'name' => 'Pupil Name Alpha', 'status' => 'In Sensei', 'start' => '2026-02-01', 'end' => '2026-08-01', 'tutor' => 'Tutor Name Beta', 'institution' => 'University of Example', 'wporg' => 'pupil-alpha-example', 'slack' => 'pupil-alpha-slack', 'team' => 'Polyglots' ),
+	array( 'name' => 'Pupil Name Beta', 'status' => 'Pending graduation', 'start' => '', 'end' => '', 'tutor' => '', 'institution' => '', 'wporg' => '', 'slack' => '', 'team' => '' ),
+);
+$expected = array(
+	'log: Mentor Display One (mentor-one-example) - 2 student(s)',
+	'items: table ' . json_encode( array( 'fields' => $mentor_columns, 'items' => $printed ) ),
+);
+
+ck( 'a login prints the mentor, how many students, and one table row each with the nine columns', cli_lines( 'mentor', array( 'mentor-one-example' ) ), $expected );
+ck( 'an email address finds the same account, in any case', cli_lines( 'mentor', array( 'MENTOR-ONE@example.test' ) ), $expected );
+ck( 'a WordPress.org profile address finds the account whose login is the username in it', cli_lines( 'mentor', array( 'https://profiles.wordpress.org/mentor-one-example/' ) ), $expected );
+ck( 'and so does an @-handle', cli_lines( 'mentor', array( '@Mentor-One-Example' ) ), $expected );
+ck( 'a mentor with no students is printed alone, with no table', cli_lines( 'mentor', array( 'mentor-two-example' ) ), array( 'log: Mentor Display Two (mentor-two-example) - 0 student(s)' ) );
+ck( 'an account nobody has is refused with the words the command always used, the way it was asked', cli_lines( 'mentor', array( 'nobody-example' ) ), array( 'error: No account found for "nobody-example".' ) );
+ck( 'and so is an address nobody has', cli_lines( 'mentor', array( 'nobody@example.test' ) ), array( 'error: No account found for "nobody@example.test".' ) );
+ck( 'and no argument at all', cli_lines( 'mentor', array() ), array( 'error: No account found for "".' ) );
+
+// A name with a letter a username cannot hold is not tried as the username without it (1.123.48).
+$three = new WP_User( 63, 'xample-example', 'Mentor Display Three' );
+$three->user_email = 'mentor-three@example.test';
+$GLOBALS['accounts'][63] = $three;
+ck( 'a name with an accented first letter is refused, as it was asked, and does not print the account named without the letter',
+	cli_lines( 'mentor', array( "\u{00C9}xample-example" ) ), array( "error: No account found for \"\u{00C9}xample-example\"." ) );
+ck( 'nor does a profile address whose username holds one',
+	cli_lines( 'mentor', array( "https://profiles.wordpress.org/\u{00C9}xample-example/" ) ), array( "error: No account found for \"https://profiles.wordpress.org/\u{00C9}xample-example/\"." ) );
+ck( 'while the account\'s own username, an @handle and a profile address find it, as ever',
+	array( cli_lines( 'mentor', array( 'xample-example' ) ), cli_lines( 'mentor', array( '@Xample-Example' ) ), cli_lines( 'mentor', array( 'https://profiles.wordpress.org/xample-example/' ) ) ),
+	array_fill( 0, 3, array( 'log: Mentor Display Three (xample-example) - 0 student(s)' ) ) );
+
+$GLOBALS['accounts'] = array();
+$GLOBALS['mentees']  = array();
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

@@ -1147,7 +1147,44 @@ ck( 'and a member searching by name still finds her', has( render( array( 'wpcpm
 // typing one found nobody and was told nothing. Each hint is written from the same list the search
 // reads, so the two cannot part again.
 ck( 'a member\'s search box lists what a member\'s search reads, with no email in it', has( render( array() ), 'placeholder="Name, WordPress.org username, tutor, field of study"' ), true );
-ck( 'and a manager\'s lists the address too, which theirs reads', has( $as_manager, 'placeholder="Name, email, WordPress.org username, tutor, field of study"' ), true );
+ck( 'and a manager\'s lists the address too, which theirs reads', has( $as_manager, 'placeholder="Name, email, WordPress.org username, tutor, field of study, Students record ID"' ), true );
+// An Administrator puts a name to the Students record ID Claude gave (1.123.48). A student with no
+// account has no row on the Student accounts list, so the roster of the institution is where the ID
+// is searched: exactly, as the base spells it, and for a manager only.
+$by_record = render( array( 'wpcpm_roster_search' => 'recSTU00000000003' ), $A, array( 'can_manage' => true ) );
+ck( 'a manager searching a Students record ID finds that row only', array(
+	has( $by_record, 'Cy Example' ),
+	has( $by_record, 'Ada Example' ),
+	group_count( $by_record, 'Current' ),
+	group_count( $by_record, 'Waiting for a mentor' ),
+), array( true, false, 0, 1 ) );
+ck( 'the ID is read exactly: a part of it finds nobody, and nor does another letter case', array(
+	group_count( render( array( 'wpcpm_roster_search' => 'recSTU0000000000' ), $A, array( 'can_manage' => true ) ), 'Waiting for a mentor' ),
+	group_count( render( array( 'wpcpm_roster_search' => 'recstu00000000003' ), $A, array( 'can_manage' => true ) ), 'Waiting for a mentor' ),
+), array( 0, 0 ) );
+ck( 'and the space around it is not part of it', has( render( array( 'wpcpm_roster_search' => '  recSTU00000000003 ' ), $A, array( 'can_manage' => true ) ), 'Cy Example' ), true );
+ck( 'the roster of the cohort the row is in finds it, and another cohort\'s does not', array(
+	has( render( array( 'wpcpm_cohort' => '2025-H2', 'wpcpm_roster_search' => 'recSTU00000000003' ), $A, array( 'can_manage' => true ) ), 'Cy Example' ),
+	has( render( array( 'wpcpm_cohort' => '2025-H2', 'wpcpm_roster_search' => 'recSTU00000000010' ), $A, array( 'can_manage' => true ) ), 'Hal Example' ),
+), array( false, true ) );
+ck( 'a record ID the roster holds as Duplicated or SPAM finds nobody, as the abilities list no such track', array(
+	has( render( array( 'wpcpm_roster_search' => 'recSTU00000000006' ), $A, array( 'can_manage' => true ) ), 'Spammy Example' ),
+	has( render( array( 'wpcpm_roster_search' => 'recSTU00000000007' ), $A, array( 'can_manage' => true ) ), 'Dup Example' ),
+), array( false, false ) );
+$member_by_record = render( array( 'wpcpm_roster_search' => 'recSTU00000000003' ) );
+ck( 'an institution\'s member searching the same ID finds nobody: it is not one of the fields theirs reads', array(
+	has( $member_by_record, 'Cy Example' ),
+	group_count( $member_by_record, 'Waiting for a mentor' ),
+), array( false, 0 ) );
+ck( 'the manager\'s box names it in its hint, and the member\'s does not', array(
+	has( $as_manager, 'placeholder="Name, email, WordPress.org username, tutor, field of study, Students record ID"' ),
+	has( render( array() ), 'Students record ID' ),
+), array( true, false ) );
+ck( 'a name search is as it was for both readers', array(
+	has( render( array( 'wpcpm_roster_search' => 'Cy Example' ), $A, array( 'can_manage' => true ) ), 'Cy Example' ),
+	has( render( array( 'wpcpm_roster_search' => 'Cy Example' ) ), 'Cy Example' ),
+	group_count( render( array( 'wpcpm_roster_search' => 'Example' ), $A, array( 'can_manage' => true ) ), 'Waiting for a mentor' ),
+), array( true, true, 1 ) );
 ck( 'the WordPress.org username and the field of study the hints name are read by the search', array(
 	group_count( render( array( 'wpcpm_roster_search' => 'adaexample' ) ), 'Current' ),
 	group_count( render( array( 'wpcpm_roster_search' => 'Engineering' ) ), 'Current' ),

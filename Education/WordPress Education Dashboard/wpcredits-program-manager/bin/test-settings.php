@@ -512,6 +512,7 @@ $probe = array(
 	'mcp_users'                     => array( 3, 7, 12 ),
 	'mcp_calls_per_hour'            => '300',
 	'mcp_calls_per_day'             => '900',
+	'mcp_people_per_hour'           => '25',
 	'mcp_log_days'                  => '30',
 	'institution_on_inactive'       => 'keep',
 	'application_spam_days'         => '45',
@@ -1726,7 +1727,7 @@ $by_design = array(
 	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
-	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_log_days' ),
+	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
 	'advanced'                   => array( 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
 	'tool:mentor-status-checker' => array_values( array_filter( array_keys( $defaults ), static function ( $key ) { return 0 === strpos( $key, 'checker_' ); } ) ),
 	'tool:duplicate-finder'      => array( 'duplicate_delete_enabled' ),
@@ -4468,17 +4469,18 @@ ck( 'and so does an empty record', WPCPM_Settings::airtable_record_url( 'student
 
 echo "\n=== Claude access (MCP) ===\n";
 
-// Five settings behind one switch (design of 24 October 2026, decision 5): the switch, the accounts
-// that may connect, two ceilings per account, and how long the log of answers is kept. They are the
+// Six settings behind one switch (design of 24 October 2026, decision 5, and the people ceiling of
+// Phase B): the switch, the accounts that may connect, three ceilings per account (answers an hour,
+// answers a day, lookups of people an hour), and how long the log of answers is kept. They are the
 // Security tab's, and the later parts of the release read them with `WPCPM_Settings::get_value()`.
-$mcp_keys = array( 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_log_days' );
+$mcp_keys = array( 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' );
 $fresh    = WPCPM_Settings::defaults();
 
-ck( 'Claude access is off by default, with nobody on the list, 120 answers an hour and 600 a day per person, and the log kept 90 days',
+ck( 'Claude access is off by default, with nobody on the list, 120 answers an hour and 600 a day per person, 40 lookups of people an hour per person, and the log kept 90 days',
     array_map( static function ( $key ) use ( $fresh ) { return array_key_exists( $key, $fresh ) ? $fresh[ $key ] : 'no such setting'; }, $mcp_keys ),
-    array( false, array(), 120, 600, 90 ) );
+    array( false, array(), 120, 600, 40, 90 ) );
 
-ck( 'all five are the Security tab\'s, after the roles that must use a second factor, and no other scope\'s',
+ck( 'all six are the Security tab\'s, after the roles that must use a second factor, and no other scope\'s',
     array( WPCPM_Settings::scope_keys( 'security' ), array_values( array_intersect( $mcp_keys, array_merge( ...array_values( array_diff_key( WPCPM_Settings::scopes(), array( 'security' => 1 ) ) ) ) ) ) ),
     array( array_merge( array( 'two_factor_roles' ), $mcp_keys ), array() ) );
 
@@ -4555,6 +4557,8 @@ ck( 'and no other tab\'s or tool\'s Save touches the switch, the list or a ceili
 $mcp_ranges = array(
 	'mcp_calls_per_hour' => array( 0 => 1, 1 => 1, 1000 => 1000, 5000 => 1000 ),
 	'mcp_calls_per_day'  => array( 0 => 1, 1 => 1, 10000 => 10000, 99999 => 10000 ),
+	// Lookups of people: one is the least that still answers, 200 the most an hour of them can be.
+	'mcp_people_per_hour' => array( 0 => 1, 1 => 1, 200 => 200, 500 => 200 ),
 	'mcp_log_days'       => array( 3 => 7, 7 => 7, 365 => 365, 999 => 365 ),
 );
 
@@ -4664,22 +4668,38 @@ foreach ( $mcp_keys as $key ) {
 
 ck( 'the ceilings and the log\'s days are number fields holding the stored value and the range the save holds them to',
     $number_fields,
-    array( 'mcp_calls_per_hour' => array( 120, 1, 1000 ), 'mcp_calls_per_day' => array( 600, 1, 10000 ), 'mcp_log_days' => array( 90, 7, 365 ) ) );
+    array( 'mcp_calls_per_hour' => array( 120, 1, 1000 ), 'mcp_calls_per_day' => array( 600, 1, 10000 ), 'mcp_people_per_hour' => array( 40, 1, 200 ), 'mcp_log_days' => array( 90, 7, 365 ) ) );
 
-preg_match_all( '#<label for="wpcpm-(mcp_calls_per_hour|mcp_calls_per_day)">([^<]*)</label>#', $claude_tab, $limit_labels, PREG_SET_ORDER );
+preg_match_all( '#<label for="wpcpm-(mcp_calls_per_hour|mcp_calls_per_day|mcp_people_per_hour)">([^<]*)</label>#', $claude_tab, $limit_labels, PREG_SET_ORDER );
 
-ck( 'Limits labels them "Answers an hour, per person" and "Answers a day, per person", and Keep the log for follows its field with "days" and says in one sentence what the log holds',
+$limits_cell = '';
+
+foreach ( rows_of( $claude_tab ) as $row ) {
+	if ( 'Limits' === $row['label'] ) {
+		$limits_cell = $row['cell'];
+	}
+}
+
+preg_match_all( '#<label for="wpcpm-(mcp_[a-z_]+)">#', $limits_cell, $in_limits );
+
+ck( 'Limits labels them "Answers an hour, per person", "Answers a day, per person" and "Lookups of people an hour, per person", and Keep the log for follows its field with "days" and says in one sentence what the log holds',
     array( array_column( $limit_labels, 2, 1 ), 1 === preg_match( '#<input type="number"[^>]*name="mcp_log_days"[^>]*/> days#', $claude_tab ), help_of( $claude_tab, 'Keep the log for' ) ),
-    array( array( 'mcp_calls_per_hour' => 'Answers an hour, per person', 'mcp_calls_per_day' => 'Answers a day, per person' ), true, array( array( 'Every answer and every refusal of a signed-in account is logged and kept for this many days.' ), array() ) ) );
+    array( array( 'mcp_calls_per_hour' => 'Answers an hour, per person', 'mcp_calls_per_day' => 'Answers a day, per person', 'mcp_people_per_hour' => 'Lookups of people an hour, per person' ), true, array( array( 'Every answer and every refusal of a signed-in account is logged and kept for this many days.' ), array() ) ) );
+ck( 'and all three numbers sit in the one Limits row, the lookups of people last, and Keep the log for has its own',
+    array( $in_limits[1], false === strpos( $limits_cell, 'mcp_log_days' ) ),
+    array( array( 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour' ), true ) );
+ck( 'the lookups of people limit says in one line, under its field, what it counts: only the questions about a student, a mentor or the mentor applications, on top of the other two',
+    array( help_of( $claude_tab, 'Limits' ), 1 === preg_match( '#name="mcp_people_per_hour"[^>]*/></p><p class="description">Counts only the questions about a student, a mentor or the mentor applications, on top of the two limits above\.</p>#', $limits_cell ) ),
+    array( array( array( 'Counts only the questions about a student, a mentor or the mentor applications, on top of the two limits above.' ), array() ), true ) );
 
 // A Save of the form as it is drawn writes the same settings back: nothing in it is lost, the ticked
 // accounts that are listed stay, and the one that is not listed goes.
-store_settings( array_merge( $fresh, array( 'mcp_enabled' => true, 'mcp_users' => array( 7, 40 ), 'mcp_calls_per_hour' => 77, 'mcp_calls_per_day' => 555, 'mcp_log_days' => 45 ) ) );
-press_tab( 'security', array( 'mcp_enabled' => '1', 'mcp_users' => array( '', '7' ), 'mcp_calls_per_hour' => '77', 'mcp_calls_per_day' => '555', 'mcp_log_days' => '45' ) );
+store_settings( array_merge( $fresh, array( 'mcp_enabled' => true, 'mcp_users' => array( 7, 40 ), 'mcp_calls_per_hour' => 77, 'mcp_calls_per_day' => 555, 'mcp_people_per_hour' => 33, 'mcp_log_days' => 45 ) ) );
+press_tab( 'security', array( 'mcp_enabled' => '1', 'mcp_users' => array( '', '7' ), 'mcp_calls_per_hour' => '77', 'mcp_calls_per_day' => '555', 'mcp_people_per_hour' => '33', 'mcp_log_days' => '45' ) );
 
 ck( 'the Save of the tab as drawn keeps the switch, the numbers and the listed account, and the account that was not listed is off the list',
     array_map( 'WPCPM_Settings::get_value', $mcp_keys ),
-    array( true, array( 7 ), 77, 555, 45 ) );
+    array( true, array( 7 ), 77, 555, 33, 45 ) );
 
 // Latest calls: the section ends with the log's newest hundred rows, in a table, or a sentence when nothing
 // has been asked, and then the command that lists more. The log is read, never written, by the screen.
@@ -4842,7 +4862,7 @@ ck( 'and gives the box a focus ring when a keyboard reaches it',
 // Reading the log changes nothing: the settings are as the tab was drawn with.
 ck( 'drawing the tab with calls in the log leaves the Claude access settings as stored',
     array_map( 'WPCPM_Settings::get_value', $mcp_keys ),
-    array( true, array( 7 ), 120, 600, 45 ) );
+    array( true, array( 7 ), 120, 600, 40, 45 ) );
 
 // The adapter's version decides what the box says, and a constant stays defined once it is, so each version
 // that is not the suite's own is drawn by a copy of this suite run to this point (bin/test-abilities.php

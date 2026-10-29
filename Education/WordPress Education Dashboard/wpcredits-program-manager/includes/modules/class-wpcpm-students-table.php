@@ -235,7 +235,8 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 
 	/**
 	 * The accounts a search finds: the ones WordPress finds by the username, the email or the name,
-	 * then the ones whose institution holds the term, without regard to case.
+	 * then the ones whose institution holds the term, without regard to case, and, when the term is a
+	 * record ID, the accounts it names (`accounts_of_record()`).
 	 *
 	 * @param array $args The query's arguments: the search and its columns.
 	 * @return int[]
@@ -262,7 +263,60 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 			}
 		}
 
+		if ( WPCPM_Mentors_Sync::is_record_id( $term ) ) {
+			$ids = array_merge( $ids, $this->accounts_of_record( trim( $term ) ) );
+		}
+
 		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	/**
+	 * The accounts a record ID names: the account of every track whose Students record ID it is, and
+	 * the account that follows it as its Students Reports record.
+	 *
+	 * `wpcpm/find-student` and `wpcpm/mentor-students` give a student as the Students record ID of a
+	 * track in place of a name, so an Administrator can put the name to it here. The tracks are the
+	 * roster index's, every institution's roster and the rows that name no institution, each keyed by
+	 * its Students record ID, with the account the students sync linked to it; a `Duplicated` or `SPAM`
+	 * row is no track (`WPCPM_Roster_Index::NEVER_SHOWN`), as the abilities count tracks. The followed
+	 * report is the one the students sync stamps on the account (`WPCPM_Students_Sync::user_for_record()`,
+	 * the lookup its own steps take). A record ID no track and no account holds names nobody.
+	 *
+	 * @param string $record A record ID, trimmed.
+	 * @return int[] The accounts' IDs, those of any role: the list's own role narrows them.
+	 */
+	private function accounts_of_record( $record ) {
+		$ids     = array();
+		$rosters = array();
+
+		foreach ( array_keys( (array) WPCPM_Roster_Index::counts()['institutions'] ) as $institution ) {
+			$rosters[] = WPCPM_Roster_Index::rows( (string) $institution );
+		}
+
+		$rosters[] = WPCPM_Roster_Index::unlinked();
+
+		foreach ( $rosters as $rows ) {
+			if ( ! isset( $rows[ $record ] ) || ! is_array( $rows[ $record ] ) ) {
+				continue;
+			}
+
+			$row    = $rows[ $record ];
+			$status = isset( $row['status'] ) && is_scalar( $row['status'] ) ? trim( (string) $row['status'] ) : '';
+
+			if ( ! in_array( $status, WPCPM_Roster_Index::NEVER_SHOWN, true ) && isset( $row['user_id'] ) ) {
+				$ids[] = (int) $row['user_id'];
+			}
+		}
+
+		$follower = WPCPM_Roles::id_of( WPCPM_Students_Sync::user_for_record( $record ) );
+
+		// The database compares meta under its own collation, which does not tell recABC from recabc;
+		// Airtable record IDs do, so the hit is checked again here.
+		if ( $follower > 0 && trim( (string) get_user_meta( $follower, WPCPM_Students_Sync::META_RECORD_ID, true ) ) === $record ) {
+			$ids[] = $follower;
+		}
+
+		return $ids;
 	}
 
 	/**

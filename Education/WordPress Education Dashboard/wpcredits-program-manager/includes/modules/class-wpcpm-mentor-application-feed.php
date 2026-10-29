@@ -123,11 +123,23 @@ final class WPCPM_Mentor_Application_Feed {
 
 		return array(
 			'months'    => empty( $months ) ? new stdClass() : $months,
-			'today'     => array(
-				'open'     => WPCPM_Mentor_Application::waiting_count(),
-				'selected' => WPCPM_Mentor_Application::count_in( array( WPCPM_Mentor_Application::STATE_SELECTED ) ),
-			),
+			'today'     => self::today(),
 			'generated' => gmdate( 'c', $now ),
+		);
+	}
+
+	/**
+	 * The two numbers of today: how many applications are open (the Waiting for review tab's count) and how
+	 * many are selected and waiting for the course. The `today` of `build()`, which calls this; a reader that
+	 * wants only these two (Claude access) asks here and so does not walk every application's history, as
+	 * the months of `build()` do.
+	 *
+	 * @return array{open: int, selected: int}
+	 */
+	public static function today() {
+		return array(
+			'open'     => WPCPM_Mentor_Application::waiting_count(),
+			'selected' => WPCPM_Mentor_Application::count_in( array( WPCPM_Mentor_Application::STATE_SELECTED ) ),
 		);
 	}
 

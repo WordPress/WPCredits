@@ -114,16 +114,8 @@ class WPCPM_CLI {
 	public function mentor( $args ) {
 		$needle = isset( $args[0] ) ? (string) $args[0] : '';
 
-		$user = get_user_by( 'login', $needle );
-
-		if ( ! $user && is_email( $needle ) ) {
-			$user = get_user_by( 'email', $needle );
-		}
-
-		if ( ! $user ) {
-			$login = WPCPM_Mentors_Sync::wporg_username( $needle );
-			$user  = $login ? get_user_by( 'login', $login ) : false;
-		}
+		// The lookup the abilities share: a login, then an address, then a WordPress.org profile address.
+		$user = WPCPM_Mentors_Dashboard::find_mentor( $needle );
 
 		if ( ! $user ) {
 			WP_CLI::error( sprintf( 'No account found for "%s".', $needle ) );

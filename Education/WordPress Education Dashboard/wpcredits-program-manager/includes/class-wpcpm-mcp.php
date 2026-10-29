@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **The server.** The MCP Adapter plugin carries the protocol; this class tells it what to serve. The
  * adapter's default server is turned off, because it lists every ability that any plugin on the site
  * marks public, and the plugin creates one of its own instead: id `wpcredits`, at `/wp-json/mcp/wpcredits`,
- * over HTTP, listing the plugin's four abilities and nothing else. With the switch off no server is
+ * over HTTP, listing the plugin's own abilities and nothing else. With the switch off no server is
  * created and the address answers 404 (design spec of 24 October 2026, decisions 3 to 5).
  *
  * **The door** is what the permission callback that the adapter calls with each request to that address
@@ -135,7 +135,7 @@ class WPCPM_MCP {
 	/**
 	 * Create the plugin's own MCP server, when the adapter starts (`mcp_adapter_init`).
 	 *
-	 * With the switch off nothing is created, so the address answers 404. The tools are the plugin's four
+	 * With the switch off nothing is created, so the address answers 404. The tools are the plugin's
 	 * abilities, named one by one, and no resource and no prompt: a server built this way serves exactly
 	 * what it is given, so no core ability and no ability of another plugin can appear on it, whatever
 	 * they declare. The transport and the error handler are the adapter's own, named as strings so this

@@ -25,6 +25,9 @@
  * count against that course's target; with no course known the row says Pending graduation alone.
  * The Program row drawn here is the real shared one, `WPCPM_Program::program_field()`.
  *
+ * **A mentor is found by one lookup** (1.123.48), the one `wp wpcredits mentor` and `wpcpm/mentor-students` share:
+ * a login, then an email address, then a WordPress.org profile address or handle read as the login in it.
+ *
  * Run from the plugin root:  php bin/test-mentors-dashboard.php
  */
 
@@ -94,7 +97,17 @@ function get_queried_object_id() { return 0; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
-function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
+// By ID as always; by login or address too, over the same accounts, as core finds an account by either.
+function get_user_by( $f, $v ) {
+	if ( 'login' === $f || 'email' === $f ) {
+		foreach ( $GLOBALS['users'] as $user ) {
+			if ( 'login' === $f && '' !== $user->user_login && $user->user_login === (string) $v ) { return $user; }
+			if ( 'email' === $f && '' !== $user->user_email && strtolower( $user->user_email ) === strtolower( (string) $v ) ) { return $user; }
+		}
+		return false;
+	}
+	return $GLOBALS['users'][ (int) $v ] ?? false;
+}
 function current_user_can( $c ) { return in_array( $GLOBALS['uid'], $GLOBALS['manage'], true ); }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
@@ -316,6 +329,36 @@ $GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ]['hours'] = '0';
 
 ck( 'and a count cleared to 0 there wins rather than falling through to the older one', hours_row( page_for( 30 ), 'Ada Example' ), '0 of 150' );
 
+echo "\n--- The count the card shows, read on its own (the abilities read it too) ---\n";
+
+// The reader is the card's own choice, moved out so that what the abilities give for a student's hours is
+// the number the card prints, and nothing else of the account's program row, where a person's fields are.
+$ada = $GLOBALS['umeta'][30][ WPCPM_Mentors_Sync::META_MENTEES ][0];
+ck( 'the account\'s count wins when the account holds one, even 0, over the list\'s 5', WPCPM_Mentors_Dashboard::logged_count( $ada ), '0' );
+ck( 'and the card prints that same count', hours_row( page_for( 30 ), 'Ada Example' ), '0 of 150' );
+$GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ]['hours'] = '';
+ck( 'an account\'s count that is empty falls through to the list\'s', WPCPM_Mentors_Dashboard::logged_count( $ada ), '5' );
+ck( 'and the card prints that one', hours_row( page_for( 30 ), 'Ada Example' ), '5 of 150' );
+$GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ]['hours'] = '12';
+ck( 'the account\'s fresher count', WPCPM_Mentors_Dashboard::logged_count( $ada ), '12' );
+ck( 'a student with no account has the list\'s count, and one nobody has logged for has none', array(
+	WPCPM_Mentors_Dashboard::logged_count( $GLOBALS['umeta'][30][ WPCPM_Mentors_Sync::META_MENTEES ][1] ),
+	WPCPM_Mentors_Dashboard::logged_count( $GLOBALS['umeta'][30][ WPCPM_Mentors_Sync::META_MENTEES ][3] ),
+	WPCPM_Mentors_Dashboard::logged_count( array() ),
+), array( '7.5', '', '' ) );
+ck( 'an account the caller has already resolved is not looked for again: none reads the list\'s count, the account given reads its own', array(
+	WPCPM_Mentors_Dashboard::logged_count( $ada, null ),
+	WPCPM_Mentors_Dashboard::logged_count( $ada, new WP_User( 41 ) ),
+), array( '5', '12' ) );
+$GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei', 'hours' => '12', 'name' => 'Ada Example', 'email' => 'ada@example.test', 'accessibility' => 'Needs example', 'tutor' => 'Tutor Example' );
+$count = WPCPM_Mentors_Dashboard::logged_count( $ada );
+ck( 'what comes back is the count and nothing of the program row it was read beside: a string of the number alone', array( $count, is_string( $count ), 1 === preg_match( '/^[0-9.]*$/', $count ) ), array( '12', true, true ) );
+$GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei', 'hours' => array( 'Ada Example' ) );
+ck( 'a count that is no scalar is none', WPCPM_Mentors_Dashboard::logged_count( $ada ), '5' );
+$GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei', 'hours' => '12' );
+ck( 'and a list row whose count is no scalar has none', WPCPM_Mentors_Dashboard::logged_count( array( 'record_id' => 'recREP00000000099', 'hours' => array( '12' ) ) ), '' );
+ck( 'the card, drawn after all of this, is the card as it was', array( hours_row( page_for( 30 ), 'Ada Example' ), hours_row( page_for( 30 ), 'Bo Example' ), hours_row( page_for( 30 ), 'Cy Example' ), hours_row( page_for( 30 ), 'Di Example' ) ), array( '12 of 150', '7.5 h', '0 of 150', 'Not set' ) );
+
 // **The target follows the status the card prints**, the mentor list's, which is what the Program
 // row above the Hours row names. In the hours between the two syncs the account's copy can name
 // another track, and a target taken from it would put "of 150" beside a track the card says has
@@ -500,6 +543,60 @@ ck(
 	),
 	array( true, true, true )
 );
+
+echo "\n=== Finding a mentor: a login, an address or a WordPress.org profile address ===\n";
+
+// The one lookup `wp wpcredits mentor` and the abilities share. The accounts are invented, on example.test.
+$GLOBALS['users'][81]             = new WP_User( 81, 'Display Eighty-One', array( 'wpcpm_mentor' ) );
+$GLOBALS['users'][81]->user_login = 'mentor-find-example';
+$GLOBALS['users'][81]->user_email = 'Mentor-Find@example.test';
+$GLOBALS['users'][82]             = new WP_User( 82, 'Display Eighty-Two', array( 'wpcpm_mentor' ) );
+$GLOBALS['users'][82]->user_login = 'mentor-other-example';
+$GLOBALS['users'][82]->user_email = 'mentor-other@example.test';
+$GLOBALS['users'][83]             = new WP_User( 83, 'Display Eighty-Three', array() );
+$GLOBALS['users'][83]->user_login = 'mentor-find@example.test';
+$GLOBALS['users'][83]->user_email = 'login-first@example.test';
+
+$found = static function ( $needle ) {
+	$user = WPCPM_Mentors_Dashboard::find_mentor( $needle );
+	return null === $user ? null : $user->ID;
+};
+
+ck( 'a login finds its account', $found( 'mentor-find-example' ), 81 );
+ck( 'an email address finds its account, in any case', array( $found( 'MENTOR-FIND@EXAMPLE.TEST' ), $found( 'MENTOR-OTHER@example.test' ) ), array( 81, 82 ) );
+ck( 'but a login is tried first, so an address that is also a login finds the login\'s account', $found( 'mentor-find@example.test' ), 83 );
+ck( 'a WordPress.org profile address finds the account whose login is the username in it', $found( 'https://profiles.wordpress.org/mentor-find-example/' ), 81 );
+ck( 'and so does a bare @handle, in any case', array( $found( '@Mentor-Other-Example' ), $found( 'profiles.wordpress.org/mentor-other-example/profile' ) ), array( 82, 82 ) );
+ck( 'a record ID is no login, address or username here: the lookup is the command\'s own', $found( 'recMENT0000000001' ), null );
+ck( 'nobody is null, not false, so a caller can type it', array( $found( 'nobody-example' ), $found( 'nobody@example.test' ), $found( 'https://profiles.wordpress.org/nobody-example/' ) ), array( null, null, null ) );
+ck( 'and so is nothing, or something that is no text', array( $found( '' ), $found( null ), $found( array( 'mentor-find-example' ) ) ), array( null, null, null ) );
+ck( 'an account\'s students are the list the mentors sync keeps, or none', array( count( WPCPM_Mentors_Dashboard::get_mentees( 81 ) ), WPCPM_Mentors_Dashboard::get_mentees( 82 ) ), array( 0, array() ) );
+
+// A name with a letter a WordPress.org username cannot hold is not a username with the letter dropped
+// (1.123.48): "Éxample-example" is not tried as "xample-example", the login of someone else. A username, an @handle and a
+// profile address whole are tried, as they always were.
+$GLOBALS['users'][84]             = new WP_User( 84, 'Display Eighty-Four', array( 'wpcpm_mentor' ) );
+$GLOBALS['users'][84]->user_login = 'xample-example';
+$GLOBALS['users'][84]->user_email = 'xample-mentor@example.test';
+
+ck( 'a name with an accented first letter does not find the account named without it', array( $found( "\u{00C9}xample-example" ), $found( "\u{00C9}XAMPLE-EXAMPLE" ), $found( ' ' . "\u{00C9}xample-example" . ' ' ) ), array( null, null, null ) );
+ck( 'nor does a profile address whose username holds one', array( $found( "https://profiles.wordpress.org/\u{00C9}xample-example/" ), $found( "profiles.wordpress.org/\u{00C9}xample-example/profile" ) ), array( null, null ) );
+ck( 'while the username itself, an @handle and a profile address with it whole find it, in any case', array( $found( 'xample-example' ), $found( '@Xample-Example' ), $found( 'https://profiles.wordpress.org/xample-example/' ), $found( 'profiles.wordpress.org/XAMPLE-EXAMPLE/profile' ) ), array( 84, 84, 84, 84 ) );
+ck( 'the username a lookup tries: whole, or a profile address\'s, and none for a name', array(
+	WPCPM_Mentors_Sync::typed_username( 'mentor-find-example' ),
+	WPCPM_Mentors_Sync::typed_username( '  @Mentor-Find-Example ' ),
+	WPCPM_Mentors_Sync::typed_username( 'https://profiles.wordpress.org/mentor-find-example/' ),
+	WPCPM_Mentors_Sync::typed_username( 'profiles.wordpress.org/mentor-find-example/profile?x=1#y' ),
+	WPCPM_Mentors_Sync::typed_username( 'mentor-find-example/profile' ),
+	WPCPM_Mentors_Sync::typed_username( "\u{00C9}xample-example/profile" ),
+	WPCPM_Mentors_Sync::typed_username( "\u{00C9}xample-example" ),
+	WPCPM_Mentors_Sync::typed_username( 'Ada Example' ),
+	WPCPM_Mentors_Sync::typed_username( 'https://profiles.wordpress.org/%C3%89xample-example/' ),
+	WPCPM_Mentors_Sync::typed_username( '' ),
+	WPCPM_Mentors_Sync::typed_username( null ),
+), array( 'mentor-find-example', 'mentor-find-example', 'mentor-find-example', 'mentor-find-example', 'mentor-find-example', '', '', '', '', '', '' ) );
+
+unset( $GLOBALS['users'][81], $GLOBALS['users'][82], $GLOBALS['users'][83], $GLOBALS['users'][84] );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

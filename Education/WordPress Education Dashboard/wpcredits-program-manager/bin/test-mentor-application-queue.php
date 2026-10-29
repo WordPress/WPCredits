@@ -1228,6 +1228,214 @@ $lapsed_view = view_part( tab( 'lapsed' ) );
 preg_match_all( '#<input type="hidden" name="action" value="(wpcpm_mapp_[a-z]+)" />#', $lapsed_view, $lapsed_forms );
 ck( 'Lapsed lists the lapsed row with Select offered again', array( substr_count( $lapsed_view, 'class="wpcpm-queue-item"' ), $lapsed_forms[1] ), array( 1, array( 'wpcpm_mapp_select' ) ) );
 
+echo "\n=== Find by reference ===\n";
+
+/**
+ * The tab, drawn for a reference typed in the Find by reference field, at a view.
+ *
+ * @param string $reference What was typed.
+ * @param string $view      The view.
+ * @return string
+ */
+function tab_for( $reference, $view = 'waiting' ) {
+	$_GET = array( 'mapp_ref' => $reference );
+
+	if ( 'waiting' !== $view ) {
+		$_GET[ WPCPM_Mentor_Application_Queue::VIEW_ARG ] = $view;
+	}
+
+	return run( array( 'WPCPM_Mentor_Application_Queue', 'render' ) )['html'];
+}
+
+/** What the lookup answered: the region the field's form lands on, from its opening to the views' bar. */
+function found_part( $html ) {
+	$at = strpos( $html, '<div id="wpcpm-mapp-found">' );
+
+	if ( false === $at ) {
+		return '';
+	}
+
+	$end = strpos( $html, '<ul class="subsubsub">', $at );
+
+	return false === $end ? substr( $html, $at ) : substr( $html, $at, $end - $at );
+}
+
+/** The Find by reference form of a drawn tab: from its opening to its end. */
+function find_form( $html ) {
+	$at = strpos( $html, '<form method="get"' );
+
+	return false === $at ? '' : substr( $html, $at, strpos( $html, '</form>', $at ) + 7 - $at );
+}
+
+/** The reference an application carries, as the row prints it. */
+function reference_for( $id ) {
+	return WPCPM_Mentor_Application::reference_of( get_post( $id ) );
+}
+
+reset_world();
+$GLOBALS['now'] = time();
+$queue          = array();
+
+for ( $n = 0; $n < 51; $n++ ) {
+	$queue[] = an_application();
+}
+
+$oldest      = $queue[0];
+$fifty_first = $queue[50];
+$plain       = tab();
+
+// What the tab drew before the field: the oldest fifty of the queue, and a note that it was cut.
+ck( 'the queue draws its oldest fifty, and says it showed fifty of 51',
+	array( row_ids( view_part( $plain ) ) === array_slice( $queue, 0, 50 ), false !== strpos( $plain, 'Showing the oldest 50 of 51.' ) ),
+	array( true, true ) );
+ck( 'with no reference typed, nothing is answered, and an empty reference answers nothing either',
+	array( found_part( $plain ), found_part( tab_for( '' ) ), found_part( tab_for( '   ' ) ), row_ids( view_part( tab_for( '' ) ) ) === array_slice( $queue, 0, 50 ) ),
+	array( '', '', '', true ) );
+
+$by_reference = tab_for( reference_for( $fifty_first ) );
+$answered     = found_part( $by_reference );
+
+ck( 'the 51st application, which the queue does not draw, is drawn by its reference, whole, with the decisions its state allows',
+	array( row_ids( $answered ), count_forms( $answered, 'wpcpm_mapp_select' ), count_forms( $answered, 'wpcpm_mapp_spam' ), false !== strpos( $answered, reference_for( $fifty_first ) ), false !== strpos( $answered, 'ada@example.test (confirmed)' ) ),
+	array( array( $fifty_first ), 1, 1, true, true ) );
+ck( 'and the queue under it is drawn as it was: its oldest fifty, and the note that it was cut',
+	array( row_ids( view_part( $by_reference ) ) === array_merge( array( $fifty_first ), array_slice( $queue, 0, 50 ) ), false !== strpos( $by_reference, 'Showing the oldest 50 of 51.' ) ),
+	array( true, true ) );
+ck( 'its row has the anchor the page lands on, and the field\'s form lands on the answer',
+	array( false !== strpos( $answered, '<li class="wpcpm-queue-item" id="wpcpm-mentor-application-' . $fifty_first . '">' ), false !== strpos( $by_reference, '<form method="get" action="#wpcpm-mapp-found" class="wpcpm-mapp-find">' ) ),
+	array( true, true ) );
+ck( 'one of the fifty the queue does draw is drawn by the answer and not again below it, so no anchor is on the page twice',
+	array( row_ids( found_part( tab_for( reference_for( $oldest ) ) ) ), array_count_values( row_ids( tab_for( reference_for( $oldest ) ) ) ) === array_fill_keys( array_slice( $queue, 0, 50 ), 1 ) ),
+	array( array( $oldest ), true ) );
+ck( 'white space around the reference is forgiven',
+	row_ids( found_part( tab_for( '  ' . reference_for( $fifty_first ) . "\t" ) ) ),
+	array( $fifty_first ) );
+
+// Every application the tab lists is found, whatever its age and the view it is listed under: the open ones, selected,
+// lapsed, declined (under Recently decided) and made a mentor (under Activated). One filed as spam is never found.
+$states = array();
+
+foreach ( array( 'new', 'held', 'info', 'second', 'selected', 'lapsed', 'spam', 'declined', 'active' ) as $state ) {
+	$states[ $state ] = an_application( $state );
+}
+
+ck( 'a new, held, asked, second-opinion, selected and lapsed application is found',
+	array_map(
+		function ( $state ) use ( $states ) {
+			return row_ids( found_part( tab_for( reference_for( $states[ $state ] ) ) ) ) === array( $states[ $state ] );
+		},
+		array( 'new', 'held', 'info', 'second', 'selected', 'lapsed' )
+	),
+	array( true, true, true, true, true, true ) );
+
+// Recently decided is listed under every view, the declined row among its newest fifty: pinned before the field found it.
+$decided_before = row_ids( decided_part( tab() ) );
+ck( 'Recently decided lists the declined row and the spam row, newest first, as it did',
+	array( in_array( $states['declined'], $decided_before, true ), in_array( $states['spam'], $decided_before, true ), count( $decided_before ) ),
+	array( true, true, 2 ) );
+
+$declined      = tab_for( reference_for( $states['declined'] ) );
+$declined_part = found_part( $declined );
+
+ck( 'a declined application is found: drawn whole, in the answer, with the decision its state allows, Select, and the Recently decided row is not drawn again',
+	array( row_ids( $declined_part ), count_forms( $declined_part, 'wpcpm_mapp_select' ), count_forms( $declined_part, 'wpcpm_mapp_spam' ), false !== strpos( $declined_part, 'Declined on ' ), array_count_values( row_ids( $declined ) )[ $states['declined'] ] ),
+	array( array( $states['declined'] ), 1, 0, true, 1 ) );
+ck( 'and the rest of Recently decided is as it was, the spam row still in it',
+	row_ids( decided_part( $declined ) ),
+	array_values( array_diff( $decided_before, array( $states['declined'] ) ) ) );
+
+// Made a mentor: the row sits under Activated, so the view is set to it, and it is drawn once, in the answer.
+WPCPM_Mentor_Activation::$activated = array( get_post( $states['active'] ) );
+$activated_view                     = tab_for( reference_for( $states['active'] ), 'active' );
+$activated_part                     = found_part( $activated_view );
+$activated_plain                    = tab( 'active' );
+WPCPM_Mentor_Activation::$activated = array();
+
+ck( 'an application made a mentor is found: drawn whole in the answer, and once on the page when Activated lists it too',
+	array( row_ids( $activated_part ), false !== strpos( $activated_part, 'wpcpm-mentor-application-' . $states['active'] ), array_count_values( row_ids( $activated_view ) )[ $states['active'] ], row_ids( view_part( $activated_plain ) ) ),
+	array( array( $states['active'] ), true, 1, array( $states['active'] ) ) );
+ck( 'and found from any other view, where Activated does not list it',
+	array( row_ids( found_part( tab_for( reference_for( $states['active'] ) ) ) ), row_ids( found_part( tab_for( reference_for( $states['active'] ), 'lapsed' ) ) ) ),
+	array( array( $states['active'] ), array( $states['active'] ) ) );
+
+$spam = tab_for( reference_for( $states['spam'] ) );
+
+ck( 'an application filed as spam is not drawn by its reference: the answer is one sentence, and nothing of the application is in it',
+	array( row_ids( found_part( $spam ) ), trim( strip_tags( found_part( $spam ) ) ), false !== strpos( found_part( $spam ), 'Ada Okonjo' ) ),
+	array( array(), 'No application was found for that reference.', false ) );
+ck( 'and the sentence is the one a reference nobody has gets, so the answer does not say that a spam row exists; its row is where it was, under Recently decided, once',
+	array( found_part( $spam ) === found_part( tab_for( 'MAPP-2026-9999' ) ), row_ids( decided_part( $spam ) ) === $decided_before, array_count_values( row_ids( $spam ) )[ $states['spam'] ] ),
+	array( true, true, 1 ) );
+
+// A row whose state is empty or is none of the nine is not found either.
+$odd_empty   = an_application();
+$odd_unknown = an_application();
+update_post_meta( $odd_empty, WPCPM_Mentor_Application::META_STATE, '' );
+update_post_meta( $odd_unknown, WPCPM_Mentor_Application::META_STATE, 'archived' );
+
+ck( 'an application with no state, or a state that is none of the nine, is not found',
+	array( row_ids( found_part( tab_for( reference_for( $odd_empty ) ) ) ), trim( strip_tags( found_part( tab_for( reference_for( $odd_empty ) ) ) ) ), row_ids( found_part( tab_for( reference_for( $odd_unknown ) ) ) ), trim( strip_tags( found_part( tab_for( reference_for( $odd_unknown ) ) ) ) ) ),
+	array( array(), 'No application was found for that reference.', array(), 'No application was found for that reference.' ) );
+
+$unknown = tab_for( 'MAPP-2026-9999' );
+
+ck( 'a reference nobody has says so in one sentence and draws no row in the answer, the queue under it unchanged',
+	array( row_ids( found_part( $unknown ) ), trim( strip_tags( found_part( $unknown ) ) ), row_ids( view_part( $unknown ) ) === row_ids( view_part( $plain ) ) ),
+	array( array(), 'No application was found for that reference.', true ) );
+
+$hostile = tab_for( 'MAPP" autofocus onfocus="x' );
+
+ck( 'what was typed cannot break out of the field, which keeps it, escaped, so it can be corrected, and the answer does not repeat it',
+	array( false === strpos( $hostile, 'autofocus onfocus="' ), false !== strpos( $hostile, 'value="MAPP&quot; autofocus onfocus=&quot;x"' ), trim( strip_tags( found_part( $hostile ) ) ) ),
+	array( true, true, 'No application was found for that reference.' ) );
+
+// The field: a GET form that changes nothing, which keeps the view in force.
+$field = tab_for( '' );
+ck( 'the field is a GET form to the tab, with its label, the search box and the button, no nonce, and no view named while the Waiting view is shown',
+	find_form( $field ),
+	'<form method="get" action="#wpcpm-mapp-found" class="wpcpm-mapp-find"><input type="hidden" name="page" value="wpcpm-mentors" /><input type="hidden" name="tab" value="queue" /><label for="wpcpm-mapp-ref">Find by reference</label> <input type="search" id="wpcpm-mapp-ref" name="mapp_ref" value="" /> <button type="submit" class="button">Find</button></form>' );
+$lapsed_field = tab_for( reference_for( $states['lapsed'] ), 'lapsed' );
+ck( 'in another view the form names it, so the view stays, and keeps what was typed',
+	find_form( $lapsed_field ),
+	'<form method="get" action="#wpcpm-mapp-found" class="wpcpm-mapp-find"><input type="hidden" name="page" value="wpcpm-mentors" /><input type="hidden" name="tab" value="queue" /><input type="hidden" name="mapp_view" value="lapsed" /><label for="wpcpm-mapp-ref">Find by reference</label> <input type="search" id="wpcpm-mapp-ref" name="mapp_ref" value="' . reference_for( $states['lapsed'] ) . '" /> <button type="submit" class="button">Find</button></form>' );
+ck( 'and the row found there comes back to that view when a decision is taken on it',
+	array( row_ids( found_part( $lapsed_field ) ), substr_count( found_part( $lapsed_field ), 'name="mapp_view" value="lapsed"' ), count_forms( found_part( $lapsed_field ), 'wpcpm_mapp_select' ) ),
+	array( array( $states['lapsed'] ), 1, 1 ) );
+
+// The field's spacing (1.123.48), as the browser measured it: the description above it ends 5px
+// above the form (core's p.description, bottom margin 5px), the views' bar is a float 8px below the
+// form's own margin, and the answer's sentence is in a block with no margin of its own under it. The form's
+// margins are the one rule that sets all three gaps: a top margin of 12px meets the description's 5px and
+// the larger wins (12px, at every width); a bottom margin of 12px is 12px above the sentence, whose own top
+// margin is the smaller, and 12px beside the float's 8px (a float's margin never collapses) for 20px.
+$stylesheet = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' );
+$rule       = 1 === preg_match( '/\n\.wpcpm-mapp-find\s*\{([^}]*)\}/', $stylesheet, $found_rule ) ? preg_split( '/\s*;\s*/', trim( $found_rule[1] ), -1, PREG_SPLIT_NO_EMPTY ) : array();
+ck( 'admin.css gives the Find by reference form 12px above and 12px below it, and sets nothing else on it: no float, padding or border to change the gaps under it',
+	$rule,
+	array( 'margin: 12px 0' ) );
+
+$GLOBALS['manage'] = array();
+ck( 'somebody without the capability is shown nothing, the field and the answer included',
+	array( tab(), tab_for( reference_for( $fifty_first ) ) ),
+	array( '', '' ) );
+
+// A list is drawn only when a row remains in it once the answer has the row it found.
+reset_world();
+$GLOBALS['now'] = time();
+$alone          = an_application( 'selected' );
+$alone_page     = tab_for( reference_for( $alone ), 'selected' );
+
+ck( 'a view whose one row is the application found draws it once, in the answer, and no empty list under the views',
+	array( row_ids( $alone_page ), substr_count( $alone_page, '<ol class="wpcpm-queue">' ), false === strpos( $alone_page, 'Nothing here.' ) ),
+	array( array( $alone ), 1, true ) );
+
+$only_declined = an_application( 'declined' );
+$decided_page  = tab_for( reference_for( $only_declined ) );
+
+ck( 'and so does Recently decided when the application found is the only one in it, the section and its note still there',
+	array( row_ids( $decided_page ), substr_count( $decided_page, '<ol class="wpcpm-queue">' ), false !== strpos( $decided_page, '<section class="wpcpm-mapp-decided">' ), false === strpos( $decided_page, 'No application has been filed as spam or declined.' ) ),
+	array( array( $only_declined ), 1, true, true ) );
+
 reset_world();
 ck( 'a view with nothing in it says so', false !== strpos( tab(), 'Nothing here. New applications appear in Waiting.' ), true );
 $GLOBALS['manage'] = array();

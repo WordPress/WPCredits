@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.47
+Stable tag: 1.123.48
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.48 =
+
+* Claude access, its second part: an Administrator on the allowed list can now ask Claude about a student's tracks, a mentor's students and the mentor applications waiting. People come back by record ID and applicants by reference, never by name, address or username, and an Administrator puts the name to one on the site.
+* The Student accounts list's search also takes a student's Students record ID, the Mentor accounts list and the Engagement tab take a mentor's Mentors record ID, and Waiting for review has Find by reference, which opens any application the tab lists, except one filed as spam, whatever its age. On the Institution Dashboard an Administrator's search of the roster takes a Students record ID too, exactly as written, so a student with no account on the site can be found by it.
+* Settings, Security: "Lookups of people an hour, per person" (40 by default) limits these three questions on their own, beside the hour's and the day's limits.
+* For developers: the abilities `wpcpm/find-student`, `wpcpm/mentor-students` and `wpcpm/mentor-applications` (`WPCPM_Ability_Answers::students()`, `mentor()`, `applications()`; `WPCPM_Abilities::PEOPLE`, `PEOPLE_MAX`; the setting `mcp_people_per_hour`); `WPCPM_Mentors_Dashboard::find_mentor()` (the `wp wpcredits mentor` lookup, which no longer tries a name with a letter a username cannot hold as the username without it: `WPCPM_Mentors_Sync::typed_username()`) and `logged_count()`; `WPCPM_Mentor_Engagement::holder_of()`; `WPCPM_Mentor_Application_Feed::today()`.
 
 = 1.123.47 =
 

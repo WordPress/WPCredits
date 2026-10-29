@@ -642,7 +642,7 @@ $EXPECTED = array(
 	array( 'WP\MCP\Transport\HttpTransport' ),
 	'WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler',
 	null,
-	array( 'wpcpm/program-counts', 'wpcpm/waiting-for-decision', 'wpcpm/mentor-engagement-summary', 'wpcpm/institution-summary' ),
+	array( 'wpcpm/program-counts', 'wpcpm/waiting-for-decision', 'wpcpm/mentor-engagement-summary', 'wpcpm/institution-summary', 'wpcpm/find-student', 'wpcpm/mentor-students', 'wpcpm/mentor-applications' ),
 	array(),
 	array(),
 	array( 'WPCPM_MCP', 'permit' ),
@@ -652,8 +652,8 @@ WPCPM_Settings::patch( array( 'mcp_enabled' => true ) );
 $adapter = new Stub_Adapter();
 WPCPM_MCP::create_server( $adapter );
 ck( 'with the switch on, create_server() is called once', count( $adapter->calls ), 1 );
-ck( 'with the id, route, name, description, version, the HTTP transport only, the error log handler, no observability, the four abilities as tools, no resources, no prompts and permit(), the strict-bool form of the door', isset( $adapter->calls[0] ) ? $adapter->calls[0] : null, $EXPECTED );
-ck( 'the tools are the plugin\'s four abilities and nothing else: the list is the abilities\' own', $adapter->calls[0][9], WPCPM_Abilities::NAMES );
+ck( 'with the id, route, name, description, version, the HTTP transport only, the error log handler, no observability, the plugin\'s abilities as tools (the four, then the three that look people up), no resources, no prompts and permit(), the strict-bool form of the door', isset( $adapter->calls[0] ) ? $adapter->calls[0] : null, $EXPECTED );
+ck( 'the tools are the plugin\'s abilities and nothing else: the list is the abilities\' own', $adapter->calls[0][9], WPCPM_Abilities::NAMES );
 ck( 'the permission callback the adapter is given can be called, and is not door(), which answers with an error that is truthy in PHP', array( is_callable( $adapter->calls[0][12] ), $adapter->calls[0][12] !== array( 'WPCPM_MCP', 'door' ) ), array( true, true ) );
 ck( 'the adapter\'s classes are named, not loaded: the transport and the error handler do not exist here', array( class_exists( 'WP\MCP\Transport\HttpTransport', false ), class_exists( 'WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler', false ) ), array( false, false ) );
 

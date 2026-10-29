@@ -1503,6 +1503,13 @@ class WPCPM_Institution_Roster_View {
 	 * more often than it is searched by mentor. Case-insensitive and byte-wise, so an
 	 * accented name matches when it is typed the way it is spelled and not otherwise.
 	 *
+	 * **The Students record ID is the one field read whole.** It is an identifier and not a
+	 * word: a part of it would match other rows, and Airtable tells `recABC` from `recabc`, so
+	 * it is compared exactly, as the base spells it. A manager is given it (1.123.48) because
+	 * it is the ID Claude gives for a student in place of a name, and a student with no account
+	 * has no row on the Student accounts list: this roster is where an Administrator puts the
+	 * name to the ID.
+	 *
 	 * @param array  $row    An index row, or one of the fifth list's people.
 	 * @param string $search The search term.
 	 * @return bool
@@ -1510,6 +1517,14 @@ class WPCPM_Institution_Roster_View {
 	private static function matches( array $row, $search ) {
 		foreach ( array_keys( self::search_fields( self::$manages ) ) as $field ) {
 			if ( ! isset( $row[ $field ] ) || ! is_scalar( $row[ $field ] ) ) {
+				continue;
+			}
+
+			if ( 'record_id' === $field ) {
+				if ( 0 === strcmp( trim( (string) $row[ $field ] ), trim( $search ) ) ) {
+					return true;
+				}
+
 				continue;
 			}
 
@@ -1527,7 +1542,9 @@ class WPCPM_Institution_Roster_View {
 	 *
 	 * The address is searchable by a manager only, for the reason `render_unlinked()` gives: a
 	 * search box that answers "does anyone here have this address" is a directory lookup, whatever
-	 * the list beside it prints, so an institution's member is not given it. One list for the
+	 * the list beside it prints, so an institution's member is not given it. The Students record ID
+	 * is a manager's for the same reason, and for the one it was added for (1.123.48): an
+	 * Administrator puts a name to the ID Claude gave for a student. One list for the
 	 * search (`matches()`) and for its hint (`search_hint()`): until 1.123.26 the hint was one
 	 * sentence for both readers and promised a member an email search their box never ran.
 	 *
@@ -1541,10 +1558,11 @@ class WPCPM_Institution_Roster_View {
 			'username'       => __( 'WordPress.org username', 'wpcredits-program-manager' ),
 			'tutor'          => __( 'tutor', 'wpcredits-program-manager' ),
 			'field_of_study' => __( 'field of study', 'wpcredits-program-manager' ),
+			'record_id'      => __( 'Students record ID', 'wpcredits-program-manager' ),
 		);
 
 		if ( ! $manages ) {
-			unset( $fields['email'] );
+			unset( $fields['email'], $fields['record_id'] );
 		}
 
 		return $fields;
@@ -1555,7 +1573,7 @@ class WPCPM_Institution_Roster_View {
 	 *
 	 * @param bool $manages Whether the reader can manage the program.
 	 * @return string "Name, WordPress.org username, tutor, field of study" for an institution's
-	 *                member, with "email" after the name for a manager.
+	 *                member, with "email" after the name and "Students record ID" last for a manager.
 	 */
 	private static function search_hint( $manages ) {
 		return implode( ', ', self::search_fields( (bool) $manages ) );

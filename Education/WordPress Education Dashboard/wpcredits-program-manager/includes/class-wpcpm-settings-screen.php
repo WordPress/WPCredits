@@ -1868,8 +1868,8 @@ class WPCPM_Settings_Screen {
 
 	/**
 	 * The Security tab's second section: whether Claude may ask the site questions through the MCP
-	 * Adapter plugin, which Administrators may, how many questions each may ask, and how long the log of
-	 * them is kept (design of 24 October 2026, decision 5).
+	 * Adapter plugin, which Administrators may, how many questions each may ask (and how many of them may
+	 * look people up), and how long the log of them is kept (design of 24 October 2026, decision 5).
 	 *
 	 * The tab saves every field of it, so the switch is changed one way at a time: a tab opened before a
 	 * change made another way and saved afterward writes the old value back. The list posts an empty
@@ -1958,14 +1958,16 @@ class WPCPM_Settings_Screen {
 		);
 		WPCPM_Settings_Rows::close_row( $who, __( 'A password with any other name does not open this address, and a password named this way opens nothing else.', 'wpcredits-program-manager' ) );
 
-		// Two ceilings in one row, since they are one limit asked two ways.
+		// Three ceilings in one row: the first two are one limit asked two ways, and the third, over the
+		// answers that look people up, is counted on top of them.
 		$limits = __( 'Limits', 'wpcredits-program-manager' );
 
 		echo '<tr><th scope="row">' . esc_html( $limits ) . '</th><td>';
 
 		foreach ( array(
-			'mcp_calls_per_hour' => array( __( 'Answers an hour, per person', 'wpcredits-program-manager' ), 1, 1000 ),
-			'mcp_calls_per_day'  => array( __( 'Answers a day, per person', 'wpcredits-program-manager' ), 1, 10000 ),
+			'mcp_calls_per_hour'  => array( __( 'Answers an hour, per person', 'wpcredits-program-manager' ), 1, 1000, '' ),
+			'mcp_calls_per_day'   => array( __( 'Answers a day, per person', 'wpcredits-program-manager' ), 1, 10000, '' ),
+			'mcp_people_per_hour' => array( __( 'Lookups of people an hour, per person', 'wpcredits-program-manager' ), 1, 200, __( 'Counts only the questions about a student, a mentor or the mentor applications, on top of the two limits above.', 'wpcredits-program-manager' ) ),
 		) as $setting => $field ) {
 			printf(
 				'<p><label for="wpcpm-%1$s">%2$s</label> <input type="number" id="wpcpm-%1$s" name="%1$s" value="%3$d" min="%4$d" max="%5$d" step="1" class="small-text" /></p>',
@@ -1975,6 +1977,10 @@ class WPCPM_Settings_Screen {
 				(int) $field[1],
 				(int) $field[2]
 			);
+
+			if ( '' !== $field[3] ) {
+				printf( '<p class="description">%s</p>', esc_html( $field[3] ) );
+			}
 		}
 
 		WPCPM_Settings_Rows::close_row( $limits );

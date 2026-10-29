@@ -115,9 +115,13 @@ class WPCPM_Mentors {
 	public static function format_duration( $seconds ) { return (int) $seconds . 's'; }
 }
 
-/** The statuses check the sync's start makes before it writes anything: every status is set here. */
+/**
+ * The statuses check the sync's start makes before it writes anything: every status is set here. And the
+ * record ID test the real class hands to the Airtable client, which a search that is a record ID asks.
+ */
 class WPCPM_Mentors_Sync {
 	public static function empty_statuses_error( $settings ) { return null; }
+	public static function is_record_id( $value ) { return WPCPM_Airtable::is_record_id( $value ); }
 }
 
 /** The student page's address, which the list prints once and links from every row as View page. */
@@ -136,6 +140,9 @@ class WPCPM_Student_Feedback {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The record ID pattern, and the roster index a Students record ID is looked up in.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 // The words a status is read by (`status_words()`), which the Status column, the picker and the summary print.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -1787,6 +1794,156 @@ ck( 'the views count the whole list, not the search, as WordPress\'s own views d
 $nobody = html_of( draw( screen( array( 's' => 'zzz' ) ) ) );
 
 ck( 'a search nobody matches says so, rather than that no accounts exist', array( row_ids( $nobody ), has( $nobody, 'No student accounts found.' ) ), array( array(), true ) );
+
+echo "\n=== The search: a Students record ID or a Students Reports record ID finds its account ===\n";
+
+/**
+ * A record ID: rec and fourteen letters or digits, a kind then the number, padded.
+ *
+ * @param string $kind The kind.
+ * @param int    $n    The number.
+ * @return string
+ */
+function record( $kind, $n ) {
+	return 'rec' . $kind . str_pad( (string) $n, 14 - strlen( $kind ), '0', STR_PAD_LEFT );
+}
+
+/**
+ * A roster row as the index keeps it, with the fields this list reads: the Students record ID, the status and the account.
+ *
+ * @param string $track  The Students record ID.
+ * @param int    $user   The account's ID, or 0 for none.
+ * @param string $status The status.
+ * @return array
+ */
+function track_row( $track, $user, $status = 'Developer Track' ) {
+	return array(
+		'record_id' => $track,
+		'status'    => $status,
+		'user_id'   => $user,
+	);
+}
+
+/**
+ * Put the rosters on the site as the students sync leaves them: the institutions with a roster, each roster's rows
+ * keyed by Students record ID, and the rows that name no institution.
+ *
+ * @param array $by_institution Institutions record ID => rows.
+ * @param array $unlinked       The rows that name no institution.
+ */
+function put_rosters( array $by_institution, array $unlinked ) {
+	$GLOBALS['opts']['wpcpm_roster_counts']   = array(
+		'v'              => 4,
+		'read'           => 1790000000,
+		'institutions'   => array_fill_keys( array_keys( $by_institution ), array() ),
+		'reconciliation' => array(),
+	);
+	$GLOBALS['opts']['wpcpm_roster_unlinked'] = array(
+		'v'    => 4,
+		'read' => 1790000000,
+		'rows' => $unlinked,
+	);
+
+	foreach ( $by_institution as $institution => $rows ) {
+		$GLOBALS['opts']['wpcpm_roster_' . $institution] = array(
+			'v'    => 4,
+			'read' => 1790000000,
+			'rows' => $rows,
+		);
+	}
+}
+
+six_students();
+
+// Ada holds two tracks, at two schools, and follows a report; Bruno one, and a duplicate row that is no track; Cleo follows
+// a report and holds no track; Dana's track names no school; Eve's only row is spam; a track with no account, a track
+// whose account is a mentor's, and Fred, who has nothing.
+$SCHOOL_A = record( 'SCHOOL', 1 );
+$SCHOOL_B = record( 'SCHOOL', 2 );
+put_rosters(
+	array(
+		$SCHOOL_A => array(
+			record( 'TRACK', 11 )  => track_row( record( 'TRACK', 11 ), 11 ),
+			record( 'TRACK', 12 )  => track_row( record( 'TRACK', 12 ), 12 ),
+			record( 'TRACK', 912 ) => track_row( record( 'TRACK', 912 ), 12, 'Duplicated' ),
+			record( 'TRACK', 15 )  => track_row( record( 'TRACK', 15 ), 15, 'SPAM' ),
+			record( 'TRACK', 99 )  => track_row( record( 'TRACK', 99 ), 0 ),
+			record( 'TRACK', 20 )  => track_row( record( 'TRACK', 20 ), 20 ),
+		),
+		$SCHOOL_B => array(
+			record( 'TRACK', 111 ) => track_row( record( 'TRACK', 111 ), 11, 'Contributor Track' ),
+		),
+	),
+	array(
+		record( 'TRACK', 14 ) => track_row( record( 'TRACK', 14 ), 14 ),
+	)
+);
+$GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_RECORD_ID ] = record( 'REPORT', 11 );
+$GLOBALS['umeta'][13][ WPCPM_Students_Sync::META_RECORD_ID ] = record( 'REPORT', 13 );
+$GLOBALS['umeta'][20][ WPCPM_Students_Sync::META_RECORD_ID ] = record( 'REPORT', 20 );
+
+$students_for = function ( $term, array $more = array() ) {
+	return row_ids( html_of( draw( screen( array_merge( array( 's' => $term ), $more ) ) ) ) );
+};
+
+// What a search finds today, pinned before the record ID joined it: with rosters on the site, the name, the username, the
+// email and the school find what they found, and a record ID that nothing holds finds nobody, rather than everybody.
+ck( 'a name, a username, an email address and a school find what they found, with the rosters there',
+	array( $students_for( 'NORTE' ), $students_for( 'bdiaz' ), $students_for( 'cahn@example' ), $students_for( 'Stone' ), $students_for( 'sur' ) ),
+	array( array( 11, 14 ), array( 12 ), array( 13 ), array( 15 ), array( 12, 15 ) ) );
+$unheld = html_of( draw( screen( array( 's' => record( 'TRACK', 777 ) ) ) ) );
+// The last query for a page of accounts is the list's own; a record ID is looked up first, by a query of its own.
+$unheld_pages = queries( 'page' );
+ck( 'a record ID nothing holds finds nobody and says so, and the list\'s own query is asked for the one ID nobody holds, which is how it lists none',
+	array( row_ids( $unheld ), has( $unheld, 'No student accounts found.' ), arg( end( $unheld_pages ), 'include' ) ),
+	array( array(), true, array( 0 ) ) );
+ck( 'a part of a record ID, and one with a character too many, find nobody',
+	array( $students_for( substr( record( 'TRACK', 11 ), 0, 12 ) ), $students_for( record( 'TRACK', 11 ) . '1' ) ),
+	array( array(), array() ) );
+
+// What the record IDs add.
+ck( 'a Students record ID finds the account of the track that holds it, and only that account',
+	array( $students_for( record( 'TRACK', 11 ) ), $students_for( record( 'TRACK', 12 ) ) ),
+	array( array( 11 ), array( 12 ) ) );
+ck( 'a student\'s second track, at another school, finds the same account, listed once',
+	$students_for( record( 'TRACK', 111 ) ),
+	array( 11 ) );
+ck( 'a track that names no school is found as well',
+	$students_for( record( 'TRACK', 14 ) ),
+	array( 14 ) );
+ck( 'with white space around it, as it comes out of a pasted cell',
+	$students_for( '  ' . record( 'TRACK', 12 ) . ' ' ),
+	array( 12 ) );
+ck( 'a record ID keeps its case: the track\'s and the followed report\'s, in lower case, are words that nothing holds',
+	array( $students_for( strtolower( record( 'TRACK', 11 ) ) ), $students_for( strtolower( record( 'REPORT', 11 ) ) ) ),
+	array( array(), array() ) );
+ck( 'a Duplicated row and a SPAM row are no track, as the abilities count tracks, and a track with no account, or the account of a mentor, lists no student',
+	array( $students_for( record( 'TRACK', 912 ) ), $students_for( record( 'TRACK', 15 ) ), $students_for( record( 'TRACK', 99 ) ), $students_for( record( 'TRACK', 20 ) ) ),
+	array( array(), array(), array(), array() ) );
+ck( 'the Students Reports record an account follows finds that account, with or without a track',
+	array( $students_for( record( 'REPORT', 11 ) ), $students_for( record( 'REPORT', 13 ) ) ),
+	array( array( 11 ), array( 13 ) ) );
+ck( 'and the one a mentor\'s account follows lists no student',
+	$students_for( record( 'REPORT', 20 ) ),
+	array() );
+ck( 'the school, the status and the sorts still apply to what a record ID finds',
+	array(
+		$students_for( record( 'TRACK', 11 ), array( 'wpcpm_institution' => 'Escuela Norte' ) ),
+		$students_for( record( 'TRACK', 11 ), array( 'wpcpm_institution' => 'Academia Sur' ) ),
+		$students_for( record( 'REPORT', 13 ), array( 'wpcpm_student_status' => 'Contributor Track' ) ),
+		$students_for( record( 'TRACK', 12 ), array( 'wpcpm_student_status' => 'Contributor Track' ) ),
+		$students_for( record( 'TRACK', 11 ), array( 'orderby' => 'institution' ) ),
+		$students_for( record( 'TRACK', 12 ), array( 'wpcpm_view' => 'never-invited' ) ),
+		$students_for( record( 'TRACK', 11 ), array( 'wpcpm_view' => 'never-invited' ) ),
+	),
+	array( array( 11 ), array(), array(), array( 12 ), array( 11 ), array( 12 ), array() ) );
+ck( 'the views still count the whole list, not the search',
+	view_counts( html_of( draw( screen( array( 's' => record( 'TRACK', 11 ) ) ) ) ) ),
+	array(
+		'all'           => '6',
+		'invited'       => '2',
+		'never-invited' => '4',
+	) );
 
 echo "\n=== The Institution sort: by school, then name, across the pages ===\n";
 

@@ -44,6 +44,7 @@ class WP_User {
 // `meta_value` is dropped (WP_Meta_Query::parse_query_vars), so the key alone decides and an
 // account holding the key with an empty value is listed.
 function get_users( $args ) {
+	$GLOBALS['asked_users'] = isset( $GLOBALS['asked_users'] ) ? $GLOBALS['asked_users'] + 1 : 1;
 	$out = array();
 	foreach ( $GLOBALS['users'] as $u ) {
 		$hit = isset( $args['role'] ) && in_array( $args['role'], $u->roles, true );
@@ -54,6 +55,10 @@ function get_users( $args ) {
 			}
 		}
 		if ( isset( $args['meta_key'] ) && '' === (string) ( isset( $args['meta_value'] ) ? $args['meta_value'] : '' ) && isset( $GLOBALS['umeta'][ $u->ID ] ) && array_key_exists( $args['meta_key'], $GLOBALS['umeta'][ $u->ID ] ) ) {
+			$hit = true;
+		}
+		// The key holding a value: compared as the database compares it, without regard to case, which a record ID's case is not.
+		if ( isset( $args['meta_key'] ) && '' !== (string) ( isset( $args['meta_value'] ) ? $args['meta_value'] : '' ) && isset( $GLOBALS['umeta'][ $u->ID ][ $args['meta_key'] ] ) && 0 === strcasecmp( (string) $GLOBALS['umeta'][ $u->ID ][ $args['meta_key'] ], (string) $args['meta_value'] ) ) {
 			$hit = true;
 		}
 		if ( $hit ) {
@@ -90,6 +95,10 @@ function number_format_i18n( $n ) { return number_format( (float) $n ); }
 function gmdate_utc( $t ) { return gmdate( 'Y-m-d H:i', $t ); }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The record ID pattern, which `WPCPM_Mentors_Sync::is_record_id()` delegates to, and the lookup of the account a Mentors
+// record ID is linked to, which a search that is a record ID takes.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
@@ -251,6 +260,43 @@ ck( 'by name, A to Z', $ids( WPCPM_Mentor_Engagement::sorted( $out['rows'], 'men
 ck( 'by last visit, oldest first, the never-visited by name', $ids( WPCPM_Mentor_Engagement::sorted( $out['rows'], 'last_visit', 'asc' ) ), array( 3, 4, 5, 6, 7, 2, 1 ) );
 ck( 'an unknown column is the default order', $ids( WPCPM_Mentor_Engagement::sorted( $out['rows'], 'email', 'asc' ) ), array( 1, 5, 2, 3, 4, 6, 7 ) );
 ck( 'a search reads the name, the username and the email, in any case', array( WPCPM_Mentor_Engagement::matches( $r1, 'MENTOR 1' ), WPCPM_Mentor_Engagement::matches( $r1, 'mentor1@' ), WPCPM_Mentor_Engagement::matches( $r1, 'zzz' ) ), array( true, true, false ) );
+
+echo "\n=== A Mentors record ID finds its mentor ===\n";
+
+// A record ID is rec and fourteen letters or digits, and its case counts. Two accounts hold one; a third holds none.
+$ID_ONE = 'recMENTOR00000001';
+$ID_TWO = 'recMENTOR00000002';
+$GLOBALS['users'] = array( 1 => new WP_User( 1, 'Ada', array( 'wpcpm_mentor' ) ), 2 => new WP_User( 2, 'Bo', array( 'wpcpm_mentor' ) ), 3 => new WP_User( 3, 'Cy', array( 'wpcpm_mentor' ) ) );
+$GLOBALS['umeta'] = array( 1 => array( 'wpcpm_mentor_record_id' => $ID_ONE ), 2 => array( 'wpcpm_mentor_record_id' => $ID_TWO ), 3 => array() );
+$who = function ( array $rows, $term, $holder = 0 ) {
+	return array_values( array_map( function ( $r ) { return $r['id']; }, array_filter( $rows, function ( $r ) use ( $term, $holder ) { return WPCPM_Mentor_Engagement::matches( $r, $term, $holder ); } ) ) );
+};
+
+// What a search finds today, pinned before the record ID joined it: it holds on the old code and on the new.
+ck( 'a name, a username and an email address find the rows they always found, in any case',
+	array( $who( $out['rows'], 'MENTOR 3' ), $who( $out['rows'], 'mentor4' ), $who( $out['rows'], 'MENTOR5@example' ), $who( $out['rows'], '   mentor1  ' ), $who( $out['rows'], 'zzz' ), $who( $out['rows'], '' ) ),
+	array( array( 3 ), array( 4 ), array( 5 ), array( 1 ), array(), array( 1, 2, 3, 4, 5, 6, 7 ) ) );
+ck( 'a term that looks like a record ID, with nobody found for it, finds nobody, rather than everybody',
+	array( $who( $out['rows'], $ID_ONE ), $who( $out['rows'], 'recMENTOR00000009' ), $who( $out['rows'], 'rec' ) ),
+	array( array(), array(), array() ) );
+
+// What the record ID adds: the account that holds it, which the tab looks up once for the whole search.
+ck( 'a search that is a Mentors record ID is held by the account the ID is linked to',
+	array( WPCPM_Mentor_Engagement::holder_of( $ID_ONE ), WPCPM_Mentor_Engagement::holder_of( $ID_TWO ), WPCPM_Mentor_Engagement::holder_of( "  " . $ID_TWO . " \t" ) ),
+	array( 1, 2, 2 ) );
+ck( 'a record ID that no account holds, and one in another case, which the database does not tell from the first, are held by nobody',
+	array( WPCPM_Mentor_Engagement::holder_of( 'recMENTOR00000009' ), WPCPM_Mentor_Engagement::holder_of( strtolower( $ID_ONE ) ), WPCPM_Mentor_Engagement::holder_of( substr( $ID_ONE, 0, 12 ) ) ),
+	array( 0, 0, 0 ) );
+$asked_before = $GLOBALS['asked_users'];
+ck( 'words, an address and nothing are held by nobody, and ask the site for nothing',
+	array( WPCPM_Mentor_Engagement::holder_of( 'MENTOR 3' ), WPCPM_Mentor_Engagement::holder_of( 'mentor1@example.test' ), WPCPM_Mentor_Engagement::holder_of( '' ), WPCPM_Mentor_Engagement::holder_of( null ), $GLOBALS['asked_users'] - $asked_before ),
+	array( 0, 0, 0, 0, 0 ) );
+ck( 'a row is found by the holder, and only the holder\'s row, with the words searched left as they were',
+	array( $who( $out['rows'], $ID_ONE, 1 ), $who( $out['rows'], $ID_TWO, 2 ), $who( $out['rows'], 'MENTOR 3', 0 ), $who( $out['rows'], 'MENTOR 3', 1 ) ),
+	array( array( 1 ), array( 2 ), array( 3 ), array( 1, 3 ) ) );
+ck( 'a holder with no row on the tab finds nobody, and no holder is none',
+	array( $who( $out['rows'], $ID_ONE, 99 ), $who( $out['rows'], $ID_ONE, -1 ), $who( $out['rows'], $ID_ONE, 0 ) ),
+	array( array(), array(), array() ) );
 
 echo "\n=== Words ===\n";
 
