@@ -3,7 +3,7 @@
  * Plugin Name:       Credits Program Mentors
  * Plugin URI:        https://wordpress.org/plugins/credits-program-mentors/
  * Description:        Displays content from the public "Sponsored mentors" Airtable base via a [credits_program_mentors] shortcode.
- * Version:           1.5.1
+ * Version:           1.5.2
  * Requires at least: 6.3
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'CREDPRME_VERSION', '1.5.1' );
+define( 'CREDPRME_VERSION', '1.5.2' );
 define( 'CREDPRME_PLUGIN_FILE', __FILE__ );
 define( 'CREDPRME_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CREDPRME_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

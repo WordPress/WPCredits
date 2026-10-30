@@ -4,7 +4,7 @@ Tags: mentors, airtable, directory, shortcode, block
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.1
+Stable tag: 1.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -44,11 +44,11 @@ multi-selects, linked records, and URL fields all render cleanly. The Base ID,
 Table ID, optional View, cache lifetime, and country map are all configurable
 from the **Credits Program Mentors** menu in the admin sidebar.
 
-The optional country map is a Leaflet map with a light CARTO basemap, matching
-the Education Programs Map plugin. Country names and marker positions come from
-public-domain Natural Earth data (https://www.naturalearthdata.com/) bundled
-with the plugin; only the basemap tiles are loaded at runtime (see External
-services).
+The optional country map is a Leaflet map with an OpenStreetMap basemap,
+matching the Education Programs Map plugin. Country names and marker positions
+come from public-domain Natural Earth data (https://www.naturalearthdata.com/)
+bundled with the plugin; only the basemap tiles are loaded at runtime (see
+External services).
 
 == External services ==
 
@@ -82,12 +82,12 @@ browser loads directly from Gravatar (operated by Automattic). Mentors without a
 Gravatar get a generated identicon.
 Gravatar: https://gravatar.com/ — Privacy: https://automattic.com/privacy/
 
-**4. CARTO basemap tiles (basemaps.cartocdn.com)**
+**4. OpenStreetMap basemap tiles (tile.openstreetmap.org)**
 When the optional country map is enabled, the visitor's browser loads map tiles
-from CARTO's light "Positron" basemap (built on OpenStreetMap data). This sends
-the visitor's IP address and the requested tile coordinates to CARTO as the map
+from OpenStreetMap's standard basemap. This sends the visitor's IP address and
+the requested tile coordinates to the OpenStreetMap Foundation as the map
 renders. The map can be turned off in the plugin settings.
-CARTO: https://carto.com/ — Terms: https://carto.com/legal/ — OpenStreetMap: https://www.openstreetmap.org/copyright
+OpenStreetMap: https://www.openstreetmap.org/ - Tile usage policy: https://operations.osmfoundation.org/policies/tiles/ - Privacy: https://wiki.osmfoundation.org/wiki/Privacy_Policy - Copyright: https://www.openstreetmap.org/copyright
 
 == Installation ==
 
@@ -137,8 +137,9 @@ Yes. Enable **Country map** in the plugin settings to show an interactive map
 above the list, with a marker per country sized by the number of mentors.
 Visitors can zoom and pan, and click a country's marker to filter the list to
 mentors from that country (click empty map to clear). It uses the same Leaflet
-map and CARTO basemap as the Education Programs Map plugin, for a consistent
-look. Override it per placement with the `map="yes|no"` shortcode attribute.
+map and OpenStreetMap basemap as the Education Programs Map plugin, for a
+consistent look. Override it per placement with the `map="yes|no"` shortcode
+attribute.
 
 = What shortcode attributes are available? =
 
@@ -158,6 +159,16 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 5. The optional country map highlighting mentor countries above the list.
 
 == Changelog ==
+
+= 1.5.2 =
+* The country map draws on OpenStreetMap's standard tiles instead of CARTO's
+  light "Positron" basemap. CARTO stopped serving anonymous tiles and now stamps
+  "API KEY REQUIRED" across every one of them while still answering with a valid
+  image, so the map kept drawing with the watermark over it and nothing reported
+  an error. The basemap looks different as a result: OpenStreetMap's standard
+  style carries more color than Positron's near-white one.
+* The external services list names the OpenStreetMap Foundation, not CARTO, as
+  the service a visitor's browser contacts while the map renders.
 
 = 1.5.1 =
 * Security: the Airtable Personal Access Token is no longer written back into the
@@ -236,6 +247,12 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
   preview) — both offering grid and table layouts.
 
 == Upgrade Notice ==
+
+= 1.5.2 =
+The country map's basemap is now OpenStreetMap's standard tiles. CARTO stopped
+serving anonymous tiles and stamped "API KEY REQUIRED" across every one, so the
+old basemap was unusable. Visitors' browsers now contact the OpenStreetMap
+Foundation rather than CARTO while the map renders (see External services).
 
 = 1.5.0 =
 The country map is now a Leaflet/CARTO map matching the Education Programs Map
