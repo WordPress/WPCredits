@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.48\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.49\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-29T12:56:34+00:00\n"
+"POT-Creation-Date: 2026-10-30T21:27:48+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -754,7 +754,7 @@ msgstr ""
 #: includes/class-wpcpm-admin.php:56
 #: includes/class-wpcpm-admin.php:57
 #: includes/class-wpcpm-overview.php:43
-#: includes/tools/class-wpcpm-handbook-assistant.php:629
+#: includes/tools/class-wpcpm-handbook-assistant.php:638
 msgid "Overview"
 msgstr ""
 
@@ -762,7 +762,7 @@ msgstr ""
 #: includes/class-wpcpm-admin.php:82
 #: includes/class-wpcpm-admin.php:125
 #: includes/class-wpcpm-overview.php:259
-#: includes/tools/class-wpcpm-handbook-assistant.php:630
+#: includes/tools/class-wpcpm-handbook-assistant.php:639
 msgid "Tools"
 msgstr ""
 
@@ -771,7 +771,7 @@ msgstr ""
 #: includes/class-wpcpm-overview.php:301
 #: includes/class-wpcpm-settings-screen.php:684
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:189
-#: includes/tools/class-wpcpm-handbook-assistant.php:628
+#: includes/tools/class-wpcpm-handbook-assistant.php:637
 #: includes/tools/class-wpcpm-tool.php:128
 msgid "Settings"
 msgstr ""
@@ -23942,7 +23942,7 @@ msgid "Ask a question and it will be looked up in the WordPress documentation."
 msgstr ""
 
 #: includes/tools/class-wpcpm-handbook-answer.php:292
-#: includes/tools/class-wpcpm-handbook-assistant.php:728
+#: includes/tools/class-wpcpm-handbook-assistant.php:737
 msgid "No AI provider is configured, so questions cannot be answered yet. An Administrator can add one in the Settings section of the Need help? screen, under WPCredits Program > Tools."
 msgstr ""
 
@@ -23995,151 +23995,151 @@ msgstr ""
 msgid "the assistant has reached its daily limit"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:103
+#: includes/tools/class-wpcpm-handbook-assistant.php:110
 msgid "Searching the WordPress documentation…"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:104
+#: includes/tools/class-wpcpm-handbook-assistant.php:111
 msgid "Still reading. A thorough answer can take half a minute."
 msgstr ""
 
 #. translators: %s: number of seconds elapsed.
-#: includes/tools/class-wpcpm-handbook-assistant.php:106
+#: includes/tools/class-wpcpm-handbook-assistant.php:113
 #, php-format
 msgid "%ss"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:107
+#: includes/tools/class-wpcpm-handbook-assistant.php:114
 msgid "That took too long and was given up on. Trying again, or asking something narrower, usually works."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:108
+#: includes/tools/class-wpcpm-handbook-assistant.php:115
 msgid "That did not work. Try again in a moment."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:109
-#: includes/tools/class-wpcpm-handbook-assistant.php:793
+#: includes/tools/class-wpcpm-handbook-assistant.php:116
+#: includes/tools/class-wpcpm-handbook-assistant.php:802
 #: includes/tools/class-wpcpm-handbook.php:551
 msgid "Pages it read"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:110
-#: includes/tools/class-wpcpm-handbook-assistant.php:781
+#: includes/tools/class-wpcpm-handbook-assistant.php:117
+#: includes/tools/class-wpcpm-handbook-assistant.php:790
 msgid "This answer does not cite any WordPress documentation, so it could not be checked against it. Treat it as unconfirmed."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:111
-#: includes/tools/class-wpcpm-handbook-assistant.php:129
+#: includes/tools/class-wpcpm-handbook-assistant.php:118
+#: includes/tools/class-wpcpm-handbook-assistant.php:136
 msgid "Type a question first."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:206
-#: includes/tools/class-wpcpm-handbook-assistant.php:251
-#: includes/tools/class-wpcpm-handbook-assistant.php:581
-#: includes/tools/class-wpcpm-handbook-assistant.php:664
-#: includes/tools/class-wpcpm-handbook-assistant.php:956
+#: includes/tools/class-wpcpm-handbook-assistant.php:213
+#: includes/tools/class-wpcpm-handbook-assistant.php:258
+#: includes/tools/class-wpcpm-handbook-assistant.php:590
+#: includes/tools/class-wpcpm-handbook-assistant.php:673
+#: includes/tools/class-wpcpm-handbook-assistant.php:965
 #: includes/tools/class-wpcpm-handbook.php:62
 #: includes/tools/class-wpcpm-handbook.php:203
 msgid "Need help?"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:207
+#: includes/tools/class-wpcpm-handbook-assistant.php:214
 msgid "Close"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:210
+#: includes/tools/class-wpcpm-handbook-assistant.php:217
 msgid "Your question"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:212
-#: includes/tools/class-wpcpm-handbook-assistant.php:672
+#: includes/tools/class-wpcpm-handbook-assistant.php:219
+#: includes/tools/class-wpcpm-handbook-assistant.php:681
 msgid "How does the WordPress Credits Program work?"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:213
-#: includes/tools/class-wpcpm-handbook-assistant.php:676
+#: includes/tools/class-wpcpm-handbook-assistant.php:220
+#: includes/tools/class-wpcpm-handbook-assistant.php:685
 #: includes/tools/class-wpcpm-handbook.php:519
 msgid "Ask"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:217
+#: includes/tools/class-wpcpm-handbook-assistant.php:224
 msgid "Ask about the program, or about WordPress itself."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:225
-#: includes/tools/class-wpcpm-handbook-assistant.php:826
+#: includes/tools/class-wpcpm-handbook-assistant.php:232
+#: includes/tools/class-wpcpm-handbook-assistant.php:835
 msgid "NOTE: Your question is sent to an external AI service, which searches the WordPress documentation to answer it. Do not type anything confidential."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:348
+#: includes/tools/class-wpcpm-handbook-assistant.php:355
 msgid "This is for people on the program. Please log in."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:352
+#: includes/tools/class-wpcpm-handbook-assistant.php:359
 msgid "Your account does not have access to this."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:395
+#: includes/tools/class-wpcpm-handbook-assistant.php:402
 msgid "Student guide"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:399
-#: includes/tools/class-wpcpm-handbook-assistant.php:415
-#: includes/tools/class-wpcpm-handbook-assistant.php:423
+#: includes/tools/class-wpcpm-handbook-assistant.php:406
+#: includes/tools/class-wpcpm-handbook-assistant.php:424
 #: includes/tools/class-wpcpm-handbook-assistant.php:432
+#: includes/tools/class-wpcpm-handbook-assistant.php:441
 msgid "Ask in the WordPress Credits Slack channel"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:402
+#: includes/tools/class-wpcpm-handbook-assistant.php:411
 msgid "Mentor guide"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:405
+#: includes/tools/class-wpcpm-handbook-assistant.php:414
 msgid "Ask in the mentors Slack channel"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:412
+#: includes/tools/class-wpcpm-handbook-assistant.php:421
 msgid "Institution guide"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:420
+#: includes/tools/class-wpcpm-handbook-assistant.php:429
 msgid "WordPress Credits handbook"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:429
+#: includes/tools/class-wpcpm-handbook-assistant.php:438
 msgid "Sponsor guide"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:528
+#: includes/tools/class-wpcpm-handbook-assistant.php:537
 msgid "Updates and resources"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:543
+#: includes/tools/class-wpcpm-handbook-assistant.php:552
 msgid "Resources"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:590
+#: includes/tools/class-wpcpm-handbook-assistant.php:599
 msgid "Ask anything about the program or WordPress itself, and get an answer."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:633
+#: includes/tools/class-wpcpm-handbook-assistant.php:642
 msgid "For administrators"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:733
+#: includes/tools/class-wpcpm-handbook-assistant.php:742
 msgid "Answers are looked up in the WordPress documentation - the Education Handbook, Learn WordPress, the developer handbooks and wordpress.org - and link back to the pages they came from."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:737
+#: includes/tools/class-wpcpm-handbook-assistant.php:746
 msgid "What does a mentor do in the first week?"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:738
+#: includes/tools/class-wpcpm-handbook-assistant.php:747
 #: includes/tools/class-wpcpm-handbook.php:517
 msgid "How does a student get their certificate?"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-assistant.php:739
+#: includes/tools/class-wpcpm-handbook-assistant.php:748
 msgid "What is needed to sign up an institution?"
 msgstr ""
 

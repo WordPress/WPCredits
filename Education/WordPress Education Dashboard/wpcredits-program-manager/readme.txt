@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.48
+Stable tag: 1.123.49
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.49 =
+
+* The Mentor guide button on the Mentor Report Card opens the Mentor guide on this site while its page is published, and the handbook's page until then, as the Institution and Sponsor guide buttons do.
+* The Mentor guide now holds the mentoring tips, the check-in templates and the mentor checklist that were on the handbook, updated to how the program runs on this site: a mentor reads a student's report on the Mentor Report Card, and the student fills it in on their Student Report Card.
 
 = 1.123.48 =
 

@@ -51,6 +51,13 @@ class WPCPM_Handbook_Assistant {
 	const SPONSOR_GUIDE_PATH = 'sponsor-guide';
 
 	/**
+	 * Where this site publishes the Mentor guide: the page at this path, which each release republishes
+	 * from the plugin's built guide. `guides()` links it from the Mentor Report Card while it is
+	 * published, and the handbook's Mentor guide until then, as it does for the Institution guide.
+	 */
+	const MENTOR_GUIDE_PATH = 'mentor-guide';
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -398,9 +405,11 @@ class WPCPM_Handbook_Assistant {
 					// Named for a screen reader, which gets no help at all from the icon.
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
+				// This site's own Mentor guide once its page is published, and the handbook's Mentor guide
+				// until then; the mentors have a channel of their own.
 				'mentor'        => array(
 					'label' => __( 'Mentor guide', 'wpcredits-program-manager' ),
-					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/mentor-guide/',
+					'url'   => self::published_guide_url( self::MENTOR_GUIDE_PATH, 'https://make.wordpress.org/community/handbook/education/credits/mentor-guide/' ),
 					'slack' => 'https://wordpress.slack.com/archives/C09KYQLS7F1',
 					'chat'  => __( 'Ask in the mentors Slack channel', 'wpcredits-program-manager' ),
 				),

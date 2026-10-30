@@ -2415,6 +2415,7 @@ script writes the page by its ID, so a release does not care which address it ha
 
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
+The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
 
 ### Uninstall
 
@@ -2838,7 +2839,7 @@ When the program switches the section on for mentors, offers a sponsor opened to
 
 ### Resources
 
-At the foot of the page: the mentors Slack channel, the Mentor guide in the handbook, and **Need
+At the foot of the page: the mentors Slack channel, the Mentor guide, and **Need
 help?** - a question box answered from the WordPress documentation. Beside them, **Program updates
 and announcements** carries anything recently posted for mentors.
 
@@ -2960,6 +2961,350 @@ the list. Their details and your notes are kept for reference; no new notes can 
 
 If a student you are mentoring is missing from the list entirely, the link between you is missing in
 the program records. That is one for the Administrators.
+
+## Mentoring tips
+
+Your role on the program matters: you are not just a guide but a catalyst for the next generation of
+WordPress contributors. Based on firsthand experience, here are some key insights and practical tips
+to help you make a lasting impact.
+
+### The power of consistent communication
+
+**The challenge:** students can feel isolated or lose momentum without regular check-ins.
+Asynchronous communication, like emails or messages, is essential, but it is often not enough to
+build rapport and address complex issues.
+
+**The tip: schedule a weekly call.** Make it a non-negotiable part of your routine. This dedicated
+time serves several purposes:
+
+- **It builds trust.** A regular voice or video call creates a stronger personal connection than
+  text alone.
+- **It solves blockers quickly.** It is the perfect forum for students to ask questions that are
+  difficult to put in writing, and you can use screen-sharing to troubleshoot problems in real time.
+- **It maintains momentum.** Knowing there is a weekly touchpoint keeps students accountable and
+  motivated to progress on their tasks.
+
+### Setting clear expectations from day one
+
+**The challenge:** ambiguity is the enemy of progress. Students may be new to open source workflows,
+project management tools, or the specific tasks they are assigned. Unclear instructions lead to
+confusion, delays and frustration.
+
+**The tip: over-explain and document.**
+
+- **Break it down.** Do not just assign a task; explain why it is important, what the final outcome
+  should look like, and where to find resources.
+- **Define "done".** Clearly outline the criteria for a task to be considered complete. Does it need
+  a code review? A pull request? A published post?
+- **Provide examples.** Share links to exemplary tickets, well-written commit messages or past
+  student work. A good example is worth a thousand words.
+
+### Unlocking potential by understanding aptitudes
+
+**The challenge:** students have diverse backgrounds, skills and learning paces. A one-size-fits-all
+approach can leave some bored and others overwhelmed.
+
+**The tip: be a detective and a coach.**
+
+- **Assess early.** In your first calls, ask about their previous experience with coding, design,
+  writing or project management. Give them small, varied tasks to see what they enjoy and excel at.
+- **Play to their strengths.** Once you identify a student's aptitude, such as front-end
+  development, documentation or QA testing, you can tailor tasks to fit their skills and interests,
+  which dramatically increases engagement and quality of work.
+- **Challenge them appropriately.** The goal is growth. Assign tasks that stretch their abilities
+  without breaking their confidence.
+
+### Mastering the art of time management
+
+**The challenge:** students juggle multiple commitments. It is easy for them to underestimate a
+task's complexity or procrastinate, risking project deadlines.
+
+**The tip: be a proactive timekeeper.**
+
+- **Estimate together.** When assigning a task, ask the student to estimate how long they think it
+  will take. Compare it with your own estimate and discuss any discrepancies. This teaches them
+  valuable project scoping skills.
+- **Set mini-deadlines.** Break larger tasks into smaller, manageable chunks with their own due
+  dates. This makes progress more measurable and prevents last-minute rushes.
+- **Check in between calls.** A simple mid-week message ("How is task X going? Any blockers?") shows
+  you are engaged and helps you identify time-related issues early.
+
+### Embrace the teacher mindset
+
+Ultimately, being a great mentor on the WordPress Credits Program means embracing the role of a
+teacher. It is about more than just providing answers; it is about fostering understanding,
+encouraging problem-solving, and nurturing a student's professional growth. Your patience, clarity
+and active investment in their journey will be the most significant factors in their success, and
+the success of the entire program.
+
+## Mentor check-in templates
+
+A starting point for your weekly calls. The weeks follow the WordPress Credits Course on Learn
+WordPress, so adjust them to your student: the time students have varies per institution, and the
+hours below apply only where their track asks for hours.
+
+### First check-in
+
+Your first check-in with your student is an opportunity to learn more about their interests and
+their goals, and to get a sense of how best to work together. In this initial chat, it can help to
+cover the following.
+
+**Can you tell me about yourself?**
+
+- Take this opportunity to learn a bit about your student's background, while also sharing your own.
+- How did you become a mentor?
+- What is your experience in the WordPress community?
+
+**What are your goals for participating in WordPress Credits?**
+
+Understanding your student's goals can help give you something to refer back to as they begin making
+decisions around their project.
+
+- Do they want to learn about open source more generally?
+- Is there a specific skill set they are seeking to build on?
+- What makes them excited about the program?
+
+**Do you have any experience with WordPress or open source communities?**
+
+Learning about the student's background with WordPress can help guide some initial conversations
+around navigating Learn WordPress, working through the WordPress user courses, and understanding any
+background information they have on WordPress tools and development.
+
+**Set expectations.**
+
+- The amount of time students have to complete the program varies per institution.
+- Work together with your student early on to figure out a sustainable pace that will allow them to
+  meet any key deadlines, while also creating enough momentum to build on their contributions.
+
+**Set regular meeting times.**
+
+- Weekly meetings are an important part of building trust between you and your student, in addition
+  to helping answer questions and keeping progress on track.
+- Set a time to meet weekly early on, so you can both make the most of the time you have available.
+
+**Day-one onboarding checklist.** Verify your student has a WordPress.org account, has joined the
+Make WordPress Slack workspace (#wpcredits), and can access the course on Learn WordPress.
+
+**Proactive unblocking.** Encourage your student not to stay blocked: reassure them that if they are
+stuck on any lesson or setup for more than 30 to 45 minutes, they should reach out in #wpcredits or
+message you on Slack.
+
+**Agree on week 1 next steps.** Before wrapping up, confirm your student knows their immediate
+priorities: beginning the introductory Learn WordPress modules, saying hello in #wpcredits, and
+knowing how to log their hours on their report form.
+
+At the end of the meeting, be sure to leave space for questions and follow-up, ideally on Slack,
+with any final tasks the student should focus on in their first week.
+
+### Week 2
+
+**Key progress indicators**
+
+- Your student should actively be working through the WordPress Credits Course on Learn WordPress.
+- Slack accounts should be set up and active.
+- Hours for week 1 should be up to date on their report form.
+
+**Helpful questions or topics for the second meeting**
+
+- How has your progress been in the WordPress Credits course?
+- Do you have any questions about what you have learned?
+- Were you able to sign up for Slack? Do you have any questions about how it works?
+- If they have not already, encourage them to introduce themselves in #wpcredits.
+- What are your goals for this week?
+
+If your student is finding it difficult to keep up with the course workload, suggest breaking
+lessons into smaller daily 30-minute blocks rather than cramming.
+
+### Week 3
+
+**Key progress indicators**
+
+- Students should be moving through or finishing the WordPress Credits Course on Learn WordPress.
+- Hours logged should be consistent with the student's steady progress through the program.
+
+**Helpful questions or topics for the third week**
+
+- How is the WordPress Credits course?
+- Do you have any questions about the lessons you have covered?
+- What WordPress user course or courses are you planning to complete?
+- Which Make WordPress teams (such as Documentation, Testing or Polyglots) are catching your
+  interest?
+- What are your goals for this week?
+
+It can be helpful to set a goal of setting up their personal website at this point, for this week or
+week 4. Reassure your student that this only needs to be a simple, free WordPress blog for
+publishing weekly updates.
+
+### Week 4
+
+**Key progress indicators**
+
+- Ideally, students should be completing or starting to complete the onboarding phase and moving
+  into their project-based work.
+- Students should have set up, or be starting to set up, their personal websites to begin publishing
+  weekly updates.
+- Encourage your student to treat this site as a living portfolio to showcase their skills,
+  problem-solving and contributions to future employers, clients or professors.
+
+**Helpful questions or topics for the fourth week**
+
+- What were some takeaways from the WordPress user courses?
+- Do you have any questions about where and how to use WordPress, or how it works?
+- Have you set up your personal website? If not, is there anything blocking you?
+- Which Make WordPress team or teams have you decided to contribute to, and have you joined their
+  team Slack channel?
+- Encourage your student to publish their first introductory post on their personal website and
+  share the link with you.
+- Continue to set goals for the week, checking in with them about moving into the project phase of
+  the program.
+
+### Weeks 5 to 12 (project phase)
+
+Depending on the student's program, the timeline for the project phase may need to be adjusted.
+Consider this in your first few planning meetings.
+
+**Key progress indicators**
+
+- Students should review and complete the contribution team information.
+- Over the following weeks, your student will decide which team or teams they want to contribute to
+  and understand pathways for how to do so.
+- As they begin to contribute, you should continue encouraging them to observe or participate in
+  ongoing team meetings, projects and other forms of engagement with the WordPress community.
+
+**Helpful questions or topics during the project phase**
+
+- How were you able to find information on contributing?
+- Are there any places where you feel blocked or unsure of next steps?
+- Have you reviewed the areas of immediate contribution? Do any of those items sound like an
+  interesting start?
+- This can also be a good moment to review the personal websites and presentations of previous
+  students.
+- What is one small, bite-sized task or ticket we can target this week to get your first
+  contribution landed?
+- Encourage a brief mid-week async check-in on Slack so your student never stays blocked between
+  weekly calls.
+
+### Final weeks
+
+At the end of the project phase, students need to complete their wrap-up tasks, which include:
+
+- Presenting their project work, providing an overview of their progress and key learnings.
+- Attending a WordPress event, online or in person.
+- Publishing a final summary post on their personal website highlighting all their contributions,
+  tickets or translations.
+
+**Helpful questions or topics for these final check-ins**
+
+- Do you have any questions about attending a Meetup?
+- When you are finished, do not forget to complete the final lesson in the course to receive your
+  certificate!
+
+### Questions and answers
+
+**What if my student cannot decide on a team to contribute to?**
+
+That is understandable. There are a lot of ways to contribute to WordPress and it can be hard to
+know where your skills best fit in the beginning. This can be a great opportunity to discuss your
+student's interests, experience level and what they would like to get from the program. Review the
+areas of immediate contribution together and identify one or two initial tasks they can handle.
+Sometimes, taking the first step is the hardest part.
+
+**There is no local community near my student. How can they attend an event?**
+
+Fortunately, there are plenty of online events that students can attend. To help find them,
+encourage your student to visit [events.wordpress.org](https://events.wordpress.org) and filter for
+the Online Event Format.
+
+## Mentor checklist
+
+The course your student will take is the
+[WordPress Credits Course](https://learn.wordpress.org/course/wordpress-credits/) on Learn WordPress.
+
+### Before the project starts
+
+This is the onboarding phase. Set up a call with the student to introduce yourselves and get
+started. You can schedule a group call as well if they understand the same language.
+
+#### Get the student set up
+
+- Confirm they have created their WordPress.org profile.
+- Confirm they have joined the global WordPress Slack, and their local or regional Slack if one
+  exists for their language or area.
+- Make sure they know the key channels: #wpcredits (general) and where to reach you.
+- Create a Slack group DM with your student for regular check-ins.
+- Confirm they can sign in to their Student Report Card, where their report form is. If they cannot,
+  that is one for the Administrators.
+
+#### Confirm foundational courses are completed
+
+- Open source basics and WordPress.
+- Differences between WordPress.com and WordPress.org.
+- How decisions are made in the WordPress project.
+- Beginner, Intermediate or Advanced WordPress user courses: one to three, depending on their
+  existing skill level.
+
+#### Help them choose a real contribution project
+
+- Walk them through the list of teams (Core, Polyglots, Support, Documentation, Test, Playground,
+  Community, Training, TV, Photos, Design, Themes, DEIB, Accessibility, Meta, Hosting) and point them
+  to each team's page on make.wordpress.org.
+- Double-check the project idea against what qualifies: it should tie to a team's real goals, produce
+  something useful to the wider community and involve collaboration, not be a personal blog or
+  portfolio or a disconnected one-off experiment.
+- If relevant, point them to *Tools from our sponsors* on their Student Report Card, for hosting and
+  plugin offers they can use on their personal website.
+
+#### Set expectations early
+
+- Explain the weekly meeting rhythm and the 24-hour async response expectation.
+- Review the Code of Conduct with them.
+- Make sure they understand that lessons unlock sequentially, and that they save their report form
+  after each one.
+
+### During the project
+
+This is the active contribution phase.
+
+#### Weekly rhythm
+
+- Hold a weekly meeting of about 30 minutes, on the same day and at the same time, or a group meeting
+  if several students share a language.
+- Cover progress since the last check-in, blockers and questions, goals for next week, feedback and
+  encouragement.
+- Respond to Slack messages and email within 24 hours on working days, even if just to confirm
+  receipt and give a timeframe.
+
+#### Tracking and verification
+
+- Read their report before each weekly meeting: open the student on your Mentor Report Card and press **Report form**.
+- Verify their website and posts are genuine updates and reflections on the contribution work, not
+  off-topic content.
+- Verify Slack participation and any event attendance links they have shared.
+- If something does not fit the course's purpose, ask them to revise it in their report form. You
+  cannot change it for them; *Their report form* says why.
+
+#### Reporting
+
+- Post a short biweekly update in #wpcredits-private summarizing each student's status.
+- Escalate immediately, without waiting for the biweekly cycle, if there is an urgent issue.
+
+#### Troubleshooting as it comes up
+
+- **Not engaging:** reach out proactively and simplify tasks. If there is no response after four or
+  more attempts over two or more weeks, tell the Administrators.
+- **Overwhelmed or behind:** help reprioritize, set mini-deadlines and celebrate small wins.
+- **Wants to change project scope:** understand why, connect them to the right team, check
+  feasibility, and have them keep, not discard, earlier work.
+- **Technical or workflow blockers:** point to Slack, forums or docs, give a quick demo and encourage
+  documenting the fix.
+
+#### Closing out
+
+- Confirm their final reflection post is published. It is the **Wrap-up** stage of their report form.
+- Mention the three feedback forms under their report form once. They are not marked, so do not chase
+  them; *Their feedback forms* says why.
+- Point them toward ongoing resources if they want to stay involved: Learn WordPress, Make WordPress,
+  WordPress.tv and WordPress Education.
 
 ## What your students see
 

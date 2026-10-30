@@ -1569,6 +1569,117 @@ ck( 'nor do the two entries lose a key: label, address, channel and its name, fi
     array( array_keys( $both_published ), array_keys( $both_published['sponsor'] ), array_keys( $both_published['institution'] ) ),
     array( array( 'student', 'mentor', 'institution', 'administrator', 'sponsor' ), array( 'label', 'url', 'slack', 'chat' ), array( 'label', 'url', 'slack', 'chat' ) ) );
 
+// The Mentor guide is a page on this site as well (1.123.49, WordPress/WPCredits#283): the Mentor Report
+// Card's guide button links the published page at the path the constant names, and the handbook's Mentor
+// guide for as long as there is none, by the same lookup as the two entries above.
+$mentor_const = defined( 'WPCPM_Handbook_Assistant::MENTOR_GUIDE_PATH' ) ? constant( 'WPCPM_Handbook_Assistant::MENTOR_GUIDE_PATH' ) : null;
+ck( 'the Mentor guide is looked up at the path mentor-guide', $mentor_const, 'mentor-guide' );
+
+$mentor_handbook = 'https://make.wordpress.org/community/handbook/education/credits/mentor-guide/';
+$mentor_address  = 'https://example.test/mentor-guide/';
+
+$set_guide_page( 'institution-guide', 4321, null, '' );
+$set_guide_page( 'sponsor-guide', 4322, null, '' );
+$set_guide_page( 'mentor-guide', 4323, null, '' );
+ck( 'with no page at mentor-guide the mentor entry keeps the handbook\'s Mentor guide', WPCPM_Handbook_Assistant::guides()['mentor']['url'], $mentor_handbook );
+
+$mentor_kept = array();
+foreach ( array( 'draft', 'pending', 'private', 'future', 'auto-draft', 'inherit', 'trash' ) as $not_published ) {
+	$set_guide_page( 'mentor-guide', 4323, $not_published, $mentor_address );
+	$mentor_kept[ $not_published ] = WPCPM_Handbook_Assistant::guides()['mentor']['url'];
+}
+ck( 'a page there that is not published, whatever else its status, leaves the entry on the handbook', array_values( array_unique( $mentor_kept ) ), array( $mentor_handbook ) );
+
+$set_guide_page( 'mentor-guide', 4323, 'publish', $mentor_address );
+$with_mentor_page = WPCPM_Handbook_Assistant::guides();
+ck( 'the published page at mentor-guide is the guide the mentor entry links', $with_mentor_page['mentor']['url'], $mentor_address );
+ck( 'and the entry keeps its label, its channel and the name of its channel',
+    array( $with_mentor_page['mentor']['label'], $with_mentor_page['mentor']['slack'], $with_mentor_page['mentor']['chat'] ),
+    array( 'Mentor guide', 'https://wordpress.slack.com/archives/C09KYQLS7F1', 'Ask in the mentors Slack channel' ) );
+
+$mentor_moved = array();
+foreach ( array( 'student', 'institution', 'administrator', 'sponsor' ) as $audience ) {
+	if ( $with_mentor_page[ $audience ] !== $baseline[ $audience ] ) {
+		$mentor_moved[] = $audience;
+	}
+}
+ck( 'and no other audience\'s entry moves with it', $mentor_moved, array() );
+
+$mentor_resources = WPCPM_Handbook_Assistant::render_resources( 'mentor' );
+ck( 'the Mentor Report Card\'s Resources section links the published page with the entry\'s label',
+    array( false !== strpos( $mentor_resources, 'href="https://example.test/mentor-guide/"' ), false !== strpos( $mentor_resources, '>Mentor guide</a>' ), false !== strpos( $mentor_resources, $mentor_handbook ) ),
+    array( true, true, false ) );
+
+$set_guide_page( 'mentor-guide', 4323, 'publish', '' );
+ck( 'a published page with no permalink leaves the entry on the handbook, so the button never leads nowhere', WPCPM_Handbook_Assistant::guides()['mentor']['url'], $mentor_handbook );
+
+$set_guide_page( 'mentor-guide', 4323, null, '' );
+ck( 'with the page gone the entry goes back to the handbook\'s page', WPCPM_Handbook_Assistant::guides()['mentor']['url'], $mentor_handbook );
+
+// The checks further down read both of the other pages as published.
+$set_guide_page( 'institution-guide', 4321, 'publish', $institution_address );
+$set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
+
+// What the handbook's Mentor guide and its two subpages told mentors is in the guide now (WordPress/
+// WPCredits#283), in both guides that carry the mentors' sections, after the page's own sections and
+// before what the students see, which runs straight on into the student guide.
+$mentor_new_parts = array( '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist' );
+$mentor_order     = array( '22-mentor-help', '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist', '26-mentor-student-view', '10-student-card' );
+$mentor_build     = (string) file_get_contents( __DIR__ . '/build-docs.php' );
+preg_match_all( "/'(\d\d-[a-z-]+)'/", $mentor_build, $mentor_listed );
+$mentor_runs = array();
+foreach ( array_keys( $mentor_listed[1], '22-mentor-help', true ) as $start ) {
+	$mentor_runs[] = array_slice( $mentor_listed[1], $start, count( $mentor_order ) );
+}
+ck( 'the Mentor guide and the Administrator guide both list the three sections, in that place', $mentor_runs, array( $mentor_order, $mentor_order ) );
+
+$mentor_new_text = '';
+foreach ( $mentor_new_parts as $part ) {
+	$mentor_new_text .= (string) @file_get_contents( __DIR__ . '/../docs/sections/' . $part . '.md' ) . "\n";
+}
+ck( 'the sections carry the handbook\'s headings',
+    array(
+		false !== strpos( $mentor_new_text, '## Mentoring tips' ),
+		false !== strpos( $mentor_new_text, '## Mentor check-in templates' ),
+		false !== strpos( $mentor_new_text, '### Weeks 5 to 12 (project phase)' ),
+		false !== strpos( $mentor_new_text, '## Mentor checklist' ),
+		false !== strpos( $mentor_new_text, '#### Tracking and verification' ),
+	),
+    array( true, true, true, true, true ) );
+ck( 'and none of what the site has replaced: no Airtable, no tracking link, no personal link, no "mentee"',
+    array(
+		stripos( $mentor_new_text, 'airtable' ),
+		stripos( $mentor_new_text, 'tracking link' ),
+		stripos( $mentor_new_text, 'tracking form' ),
+		stripos( $mentor_new_text, 'personal link' ),
+		stripos( $mentor_new_text, 'mentee' ),
+	),
+    array( false, false, false, false, false ) );
+ck( 'a report is read on the Mentor Report Card and revised by the student on their own',
+    array( false !== strpos( $mentor_new_text, 'open the student on your Mentor Report Card and press **Report form**' ), false !== strpos( $mentor_new_text, 'ask them to revise it in their report form' ) ),
+    array( true, true ) );
+ck( 'the feedback forms are mentioned once and never chased, as *Their feedback forms* says',
+    array( false !== strpos( $mentor_new_text, 'Mention the three feedback forms' ), false !== strpos( $mentor_new_text, 'do not chase' ), false !== strpos( (string) @file_get_contents( __DIR__ . '/../docs/sections/26-mentor-student-view.md' ), 'Please do not chase them.' ) ),
+    array( true, true, true ) );
+
+$mentor_card_guide = (string) file_get_contents( __DIR__ . '/../docs/sections/20-mentor-card.md' );
+ck( 'the Mentor Report Card\'s own section names the Mentor guide and no longer places it in the handbook',
+    array( false !== strpos( $mentor_card_guide, 'the mentors Slack channel, the Mentor guide, and **Need' ), false !== strpos( $mentor_card_guide, 'in the handbook' ) ),
+    array( true, false ) );
+
+$mentor_outputs = array(
+	(string) file_get_contents( __DIR__ . '/../docs/mentors.md' ),
+	(string) file_get_contents( __DIR__ . '/../docs/build/mentors.html' ),
+	(string) file_get_contents( __DIR__ . '/../docs/administrators.md' ),
+	(string) file_get_contents( __DIR__ . '/../docs/build/administrators.html' ),
+);
+ck( 'both guides are built with them, in both outputs',
+    array( false !== strpos( $mentor_outputs[0], '## Mentoring tips' ), false !== strpos( $mentor_outputs[1], 'Mentoring tips</h2>' ), false !== strpos( $mentor_outputs[2], '## Mentoring tips' ), false !== strpos( $mentor_outputs[3], 'Mentoring tips</h2>' ) ),
+    array( true, true, true, true ) );
+ck( 'the mirror\'s privacy guard refuses an email address in a tracked .html file: neither built guide holds one',
+    array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $mentor_outputs[1] ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $mentor_outputs[3] ) ),
+    array( 0, 0 ) );
+
 // A filter on the guides is handed the final addresses of both entries, the pages' when they are published
 // and the handbook's when they are not, and what it returns is what the dashboards link.
 $seen = array();
