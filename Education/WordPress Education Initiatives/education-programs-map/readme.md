@@ -5,7 +5,7 @@ Tags: map, education, meetup, wpcc, wpcredits
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.5.0
+Stable tag: 2.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,19 @@ Institutions whose Airtable record no longer matches the filter (e.g. it's no lo
 4. Add `[education_programs_map]` to any page to display the map.
 
 ## Changelog
+
+### 2.5.1
+
+- The Campus Connect requests to central.wordcamp.org now name the client
+  (`Education Programs Map/<version>; <site URL>`) instead of sending
+  WordPress's default `WordPress/<version>; <site URL>` agent. Central closes
+  the connection on the default one, and because it does so inside the TLS
+  session the failure arrives as `cURL error 56: OpenSSL SSL_read ...
+  unexpected eof` rather than an HTTP status, which makes it look like a
+  network fault rather than a refusal. The Central source could not sync at
+  all on some hosts because of it. The sibling plugin
+  wordcamp-airtable-connector has always named itself this way, which is why
+  its reads of the same route kept working.
 
 ### 2.5.0
 

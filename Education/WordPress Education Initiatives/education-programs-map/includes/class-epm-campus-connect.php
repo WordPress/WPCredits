@@ -357,8 +357,13 @@ class EPM_Campus_Connect {
 			$response = wp_remote_get(
 				$url,
 				array(
-					'timeout' => 25,
-					'headers' => array( 'Accept' => 'application/json' ),
+					'timeout'    => 25,
+					'headers'    => array( 'Accept' => 'application/json' ),
+					// Central closes the connection on WordPress's default
+					// "WordPress/<ver>; <url>" agent, which surfaces as a TLS
+					// read error rather than an HTTP status, so the client
+					// names itself the way wordcamp-airtable-connector does.
+					'user-agent' => 'Education Programs Map/' . EPM_VERSION . '; ' . home_url( '/' ),
 				)
 			);
 
