@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.50
+Stable tag: 1.123.51
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.51 =
+
+* The Student guide now says that what a student hands in depends on their track, in place of the 150-hour course's list, and that a mentor's support is the calls they book and help on Slack, with no weekly meeting promised.
+* The Mentor guide's check-in templates and checklist now say they follow the 150-hour course and send a mentor to the student's report form for what their track asks: the personal website and the wrap-up follow the track.
 
 = 1.123.50 =
 

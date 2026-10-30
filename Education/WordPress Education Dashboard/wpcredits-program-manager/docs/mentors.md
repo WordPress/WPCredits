@@ -364,9 +364,13 @@ the success of the entire program.
 
 ## Mentor check-in templates
 
-A starting point for your weekly calls. The weeks follow the WordPress Credits Course on Learn
-WordPress, so adjust them to your student: the time students have varies per institution, and the
-hours below apply only where their track asks for hours.
+A starting point for your weekly calls.
+The weeks follow the 150-hour WordPress Credits Course on Learn WordPress, so adjust them to your
+student. What they hand in depends on their track and the time they have varies per institution:
+open them on your Mentor Report Card and press **Report form** to see what their track asks for. On the
+50-hour tracks, for example, a student ends with one final project report rather than reflection
+posts, and on some tracks the personal website is optional. The hours below apply only where their
+track asks for hours.
 
 ### First check-in
 
@@ -456,9 +460,9 @@ lessons into smaller daily 30-minute blocks rather than cramming.
   interest?
 - What are your goals for this week?
 
-It can be helpful to set a goal of setting up their personal website at this point, for this week or
-week 4. Reassure your student that this only needs to be a simple, free WordPress blog for
-publishing weekly updates.
+Where their track asks for a personal website, it can be helpful to set a goal of setting it up at
+this point, for this week or week 4. Reassure your student that this only needs to be a simple, free
+WordPress blog for publishing their posts.
 
 ### Week 4
 
@@ -466,8 +470,8 @@ publishing weekly updates.
 
 - Ideally, students should be completing or starting to complete the onboarding phase and moving
   into their project-based work.
-- Students should have set up, or be starting to set up, their personal websites to begin publishing
-  weekly updates.
+- Where their track asks for one, students should have set up, or be starting to set up, their
+  personal websites to begin publishing their posts.
 - Encourage your student to treat this site as a living portfolio to showcase their skills,
   problem-solving and contributions to future employers, clients or professors.
 
@@ -511,12 +515,14 @@ Consider this in your first few planning meetings.
 
 ### Final weeks
 
-At the end of the project phase, students need to complete their wrap-up tasks, which include:
+At the end of the project phase, students complete the
+wrap-up tasks their track asks for, which can include:
 
 - Presenting their project work, providing an overview of their progress and key learnings.
 - Attending a WordPress event, online or in person.
 - Publishing a final summary post on their personal website highlighting all their contributions,
-  tickets or translations.
+  tickets or translations, or, on the 50-hour tracks, writing
+  the final project report.
 
 **Helpful questions or topics for these final check-ins**
 
@@ -542,8 +548,10 @@ the Online Event Format.
 
 ## Mentor checklist
 
-The course your student will take is the
+This checklist follows the 150-hour
 [WordPress Credits Course](https://learn.wordpress.org/course/wordpress-credits/) on Learn WordPress.
+Your student's record names their own course, and their
+report form shows what their track asks for, so adjust it to them.
 
 ### Before the project starts
 
@@ -625,7 +633,8 @@ This is the active contribution phase.
 
 #### Closing out
 
-- Confirm their final reflection post is published. It is the **Wrap-up** stage of their report form.
+- Confirm their closing work is in the **Wrap-up** stage of their report form:
+  the closing post or, on the 50-hour tracks, the final project report.
 - Mention the three feedback forms under their report form once. They are not marked, so do not chase
   them; *Their feedback forms* says why.
 - Point them toward ongoing resources if they want to stay involved: Learn WordPress, Make WordPress,
@@ -960,8 +969,9 @@ how to collaborate in a distributed team.
 
 ### What to expect
 
-- **Mentorship.** Your mentor guides you throughout the program. Mentors meet with you once per week
-  and provide asynchronous support, on Slack or other communication channels.
+- **Mentorship.** Your mentor guides you throughout the program, through
+  calls you book on your Student Report Card and asynchronous support, on Slack or other
+  communication channels.
 - **Time commitment.** The hours depend on your track and are flexible to meet each institution's
   needs. On the 150-hour course this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
   You can spread your hours flexibly, but you are expected to stay consistent. The program includes a
@@ -972,9 +982,11 @@ how to collaborate in a distributed team.
 - **Community involvement.** You join the [WordPress.org Slack](https://wordpress.slack.com/), attend
   team meetings when possible and interact with global contributors. This is a chance to build
   connections and learn how an open source community works.
-- **Deliverables.** Weekly updates on your project, usually published on your personal WordPress
-  site; a final presentation and wrap-up post about your journey and outcomes; and contribution
-  credits in the WordPress ecosystem.
+- **Deliverables.** What you hand in depends on your track, and your report form shows exactly what
+  yours asks for. Most tracks ask for reflection posts on your personal website and a closing post;
+  the 50-hour tracks ask instead for one final project report, and on some tracks
+  the website is optional. Whatever your track, your work earns contribution credits in the WordPress
+  ecosystem.
 
 ### What we mean by contributing to WordPress
 
@@ -1047,7 +1059,8 @@ By the end of the program, you will:
 
 ### Inside the course
 
-[Watch the video](https://video.wordpress.com/embed/2bRfan4J) for a look inside the course.
+[Watch the video](https://video.wordpress.com/embed/2bRfan4J) for a look inside the WordPress Credits
+Course.
 
 ### Remember
 

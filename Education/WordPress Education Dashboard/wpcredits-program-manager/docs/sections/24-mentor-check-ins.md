@@ -1,8 +1,12 @@
 ## Mentor check-in templates
 
-A starting point for your weekly calls. The weeks follow the WordPress Credits Course on Learn
-WordPress, so adjust them to your student: the time students have varies per institution, and the
-hours below apply only where their track asks for hours.
+A starting point for your weekly calls.
+The weeks follow the 150-hour WordPress Credits Course on Learn WordPress, so adjust them to your
+student. What they hand in depends on their track and the time they have varies per institution:
+open them on your Mentor Report Card and press **Report form** to see what their track asks for. On the
+50-hour tracks, for example, a student ends with one final project report rather than reflection
+posts, and on some tracks the personal website is optional. The hours below apply only where their
+track asks for hours.
 
 ### First check-in
 
@@ -92,9 +96,9 @@ lessons into smaller daily 30-minute blocks rather than cramming.
   interest?
 - What are your goals for this week?
 
-It can be helpful to set a goal of setting up their personal website at this point, for this week or
-week 4. Reassure your student that this only needs to be a simple, free WordPress blog for
-publishing weekly updates.
+Where their track asks for a personal website, it can be helpful to set a goal of setting it up at
+this point, for this week or week 4. Reassure your student that this only needs to be a simple, free
+WordPress blog for publishing their posts.
 
 ### Week 4
 
@@ -102,8 +106,8 @@ publishing weekly updates.
 
 - Ideally, students should be completing or starting to complete the onboarding phase and moving
   into their project-based work.
-- Students should have set up, or be starting to set up, their personal websites to begin publishing
-  weekly updates.
+- Where their track asks for one, students should have set up, or be starting to set up, their
+  personal websites to begin publishing their posts.
 - Encourage your student to treat this site as a living portfolio to showcase their skills,
   problem-solving and contributions to future employers, clients or professors.
 
@@ -147,12 +151,14 @@ Consider this in your first few planning meetings.
 
 ### Final weeks
 
-At the end of the project phase, students need to complete their wrap-up tasks, which include:
+At the end of the project phase, students complete the
+wrap-up tasks their track asks for, which can include:
 
 - Presenting their project work, providing an overview of their progress and key learnings.
 - Attending a WordPress event, online or in person.
 - Publishing a final summary post on their personal website highlighting all their contributions,
-  tickets or translations.
+  tickets or translations, or, on the 50-hour tracks, writing
+  the final project report.
 
 **Helpful questions or topics for these final check-ins**
 

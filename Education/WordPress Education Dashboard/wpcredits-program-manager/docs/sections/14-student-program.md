@@ -7,8 +7,9 @@ how to collaborate in a distributed team.
 
 ### What to expect
 
-- **Mentorship.** Your mentor guides you throughout the program. Mentors meet with you once per week
-  and provide asynchronous support, on Slack or other communication channels.
+- **Mentorship.** Your mentor guides you throughout the program, through
+  calls you book on your Student Report Card and asynchronous support, on Slack or other
+  communication channels.
 - **Time commitment.** The hours depend on your track and are flexible to meet each institution's
   needs. On the 150-hour course this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
   You can spread your hours flexibly, but you are expected to stay consistent. The program includes a
@@ -19,9 +20,11 @@ how to collaborate in a distributed team.
 - **Community involvement.** You join the [WordPress.org Slack](https://wordpress.slack.com/), attend
   team meetings when possible and interact with global contributors. This is a chance to build
   connections and learn how an open source community works.
-- **Deliverables.** Weekly updates on your project, usually published on your personal WordPress
-  site; a final presentation and wrap-up post about your journey and outcomes; and contribution
-  credits in the WordPress ecosystem.
+- **Deliverables.** What you hand in depends on your track, and your report form shows exactly what
+  yours asks for. Most tracks ask for reflection posts on your personal website and a closing post;
+  the 50-hour tracks ask instead for one final project report, and on some tracks
+  the website is optional. Whatever your track, your work earns contribution credits in the WordPress
+  ecosystem.
 
 ### What we mean by contributing to WordPress
 
@@ -94,7 +97,8 @@ By the end of the program, you will:
 
 ### Inside the course
 
-[Watch the video](https://video.wordpress.com/embed/2bRfan4J) for a look inside the course.
+[Watch the video](https://video.wordpress.com/embed/2bRfan4J) for a look inside the WordPress Credits
+Course.
 
 ### Remember
 

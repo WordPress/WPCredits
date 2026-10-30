@@ -1768,6 +1768,44 @@ ck( 'and the built Student guide holds no email address, for the same reason',
     array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_outputs[0] ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_outputs[1] ) ),
     array( 0, 0 ) );
 
+// A student's track decides what they hand in, not the 150-hour course the handbook's pages were written
+// for (1.123.51): no report form asks for weekly updates or a presentation, the 50-hour tracks end in one
+// final project report, and on some tracks the personal website is optional. So the guides send the reader
+// to the report form, and promise no weekly meeting: a student books their calls.
+$student_track_text = (string) file_get_contents( __DIR__ . '/../docs/sections/14-student-program.md' );
+ck( 'the Student guide says what is handed in depends on the track',
+    array(
+		false !== strpos( $student_track_text, 'What you hand in depends on your track' ),
+		false !== strpos( $student_track_text, 'one final project report' ),
+		false !== strpos( $student_track_text, 'the website is optional' ),
+	),
+    array( true, true, true ) );
+ck( 'and promises none of the 150-hour shape to everybody: no weekly updates, no final presentation, no weekly mentor meeting',
+    array( stripos( $student_track_text, 'weekly updates' ), stripos( $student_track_text, 'final presentation' ), stripos( $student_track_text, 'once per week' ) ),
+    array( false, false, false ) );
+ck( 'mentorship is the calls a student books, with no meeting promised',
+    array( false !== strpos( $student_track_text, 'calls you book on your Student Report Card' ) ),
+    array( true ) );
+$mentor_check_ins = (string) file_get_contents( __DIR__ . '/../docs/sections/24-mentor-check-ins.md' );
+$mentor_checklist = (string) file_get_contents( __DIR__ . '/../docs/sections/25-mentor-checklist.md' );
+ck( 'the check-in templates and the checklist say they follow the 150-hour course and point to the report form',
+    array(
+		false !== strpos( $mentor_check_ins, 'The weeks follow the 150-hour WordPress Credits Course' ),
+		false !== strpos( $mentor_check_ins, 'press **Report form**' ),
+		false !== strpos( $mentor_checklist, 'This checklist follows the 150-hour' ),
+		false !== strpos( $mentor_checklist, 'report form shows what their track asks for' ),
+	),
+    array( true, true, true, true ) );
+ck( 'the website is asked for by track, and the wrap-up names both endings',
+    array(
+		false !== strpos( $mentor_check_ins, 'Where their track asks for a personal website' ),
+		false !== strpos( $mentor_check_ins, 'wrap-up tasks their track asks for' ),
+		false !== strpos( $mentor_check_ins, 'the final project report' ),
+		false !== strpos( $mentor_checklist, 'the closing post or, on the 50-hour tracks, the final project report' ),
+		stripos( $mentor_check_ins, 'weekly updates' ),
+	),
+    array( true, true, true, true, false ) );
+
 // A filter on the guides is handed the final addresses of both entries, the pages' when they are published
 // and the handbook's when they are not, and what it returns is what the dashboards link.
 $seen = array();
