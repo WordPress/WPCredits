@@ -575,14 +575,34 @@ class EPM_Admin {
 		$next_auto_run = wp_next_scheduled( EPM_Airtable::CRON_HOOK );
 		?>
 		<h2><?php esc_html_e( 'Campus Connect Events', 'education-programs-map' ); ?></h2>
-		<p><?php esc_html_e( 'Pulls WordPress Campus Connect events from the Airtable table synced from central.wordcamp.org, and turns them into map markers tagged with the WPCC program. Events are grouped by city, so a city that has hosted several events becomes one marker listing them all. Coordinates come straight from Airtable, so nothing needs geocoding.', 'education-programs-map' ); ?></p>
-		<p><?php esc_html_e( 'This is the only connection that feeds WPCC. It reads a different Airtable base from the connections above, and only ever hides or updates the markers it imported itself.', 'education-programs-map' ); ?></p>
+		<p><?php esc_html_e( 'Pulls WordPress Campus Connect events in and turns them into map markers tagged with the WPCC program. Events are grouped by city, so a city that has hosted several events becomes one marker listing them all. Coordinates come with the events, so nothing needs geocoding.', 'education-programs-map' ); ?></p>
+		<p><?php esc_html_e( 'This is the only connection that feeds WPCC, and it only ever hides or updates the markers it imported itself.', 'education-programs-map' ); ?></p>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=epm-airtable' ) ); ?>">
 			<?php wp_nonce_field( 'epm_save_campus_connect_settings' ); ?>
 			<input type="hidden" name="epm_action" value="save_campus_connect_settings" />
 
 			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Source', 'education-programs-map' ); ?></th>
+					<td>
+						<p>
+							<label>
+								<input type="radio" name="source" value="<?php echo esc_attr( EPM_Campus_Connect::SOURCE_CENTRAL ); ?>" <?php checked( $settings['source'], EPM_Campus_Connect::SOURCE_CENTRAL ); ?> />
+								<?php esc_html_e( 'central.wordcamp.org directly. Needs no token and no base: the route is public. This is the original of what the Airtable table below is a copy of, so it is never behind it, and it carries every public Campus Connect event rather than whatever the last Airtable sync happened to bring over.', 'education-programs-map' ); ?>
+							</label>
+						</p>
+						<p>
+							<label>
+								<input type="radio" name="source" value="<?php echo esc_attr( EPM_Campus_Connect::SOURCE_AIRTABLE ); ?>" <?php checked( $settings['source'], EPM_Campus_Connect::SOURCE_AIRTABLE ); ?> />
+								<?php esc_html_e( 'The Airtable copy, using the settings below. Keep this if anything in that table is edited by hand.', 'education-programs-map' ); ?>
+							</label>
+						</p>
+						<p class="description">
+							<?php esc_html_e( 'Switching to Central rebuilds the markers from Central on the next sync. Events with no city are keyed by their event ID, so those markers are recreated once under their WordCamp ID and the old rows are hidden, not deleted. Every other marker keeps its row.', 'education-programs-map' ); ?>
+						</p>
+					</td>
+				</tr>
 				<tr>
 					<th scope="row"><label for="epm-cc-token"><?php esc_html_e( 'Personal Access Token', 'education-programs-map' ); ?></label></th>
 					<td>
@@ -917,8 +937,17 @@ class EPM_Admin {
 			$token = $current['token']; // Keep the existing token when the field is left blank.
 		}
 
+		// Default-deny on an unrecognised value: only the two known sources are
+		// accepted, and anything else keeps the stored one.
+		$source = isset( $_POST['source'] ) ? sanitize_text_field( wp_unslash( $_POST['source'] ) ) : '';
+
+		if ( ! in_array( $source, array( EPM_Campus_Connect::SOURCE_CENTRAL, EPM_Campus_Connect::SOURCE_AIRTABLE ), true ) ) {
+			$source = $current['source'];
+		}
+
 		EPM_Campus_Connect::save_settings(
 			array(
+				'source'         => $source,
 				'token'          => $token,
 				'base_id'        => isset( $_POST['base_id'] ) ? sanitize_text_field( wp_unslash( $_POST['base_id'] ) ) : '',
 				'table_name'     => isset( $_POST['table_name'] ) ? sanitize_text_field( wp_unslash( $_POST['table_name'] ) ) : '',

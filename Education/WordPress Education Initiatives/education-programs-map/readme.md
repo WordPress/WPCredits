@@ -5,7 +5,7 @@ Tags: map, education, meetup, wpcc, wpcredits
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.4.0
+Stable tag: 2.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,38 @@ Institutions whose Airtable record no longer matches the filter (e.g. it's no lo
 4. Add `[education_programs_map]` to any page to display the map.
 
 ## Changelog
+
+### 2.5.0
+
+- The Campus Connect Events connection can now read central.wordcamp.org
+  directly instead of the Airtable table synced from it. The route it reads,
+  `wp/v2/wordcamps`, is public: an anonymous request returns every public
+  Campus Connect event with its venue coordinates already filled in, so this
+  source needs no token and no base ID. It is the original of what the Airtable
+  table is a copy of, so it can never be behind it.
+- Pick the source on the Airtable Sync screen. It defaults to the Airtable copy,
+  so an upgrade does not repoint a live map on its own, and the Airtable path is
+  unchanged and stays as the fallback and as the only path that can see anything
+  hand-edited in that table.
+- Central is read anonymously on purpose, and the Campus Connect subset is
+  picked out by name, which is the rule the Airtable base used in a formula
+  field: `IF(FIND("campus connect", LOWER({Name})), ...)`. Default-deny, so an
+  event this does not recognise is left off the map rather than guessed onto it.
+- Coordinates are checked with `is_numeric()` rather than a truth test, because
+  0 is a real latitude: Kampala is at 0.3 and Quito at -0.2. A non-numeric value
+  is skipped rather than cast to 0.0, which would put a marker in the Gulf of
+  Guinea.
+- Central stores its dates as unix timestamps in fields named
+  `Start Date (YYYY-mm-dd)`, so they are converted to `Y-m-d`; a value that is
+  already a date is left alone, and an absent one stays empty rather than
+  becoming 1 January 1970.
+- One-off consequence of switching: events with no venue city are keyed by their
+  own event ID, which changes from an Airtable record ID to a WordCamp ID. Those
+  markers are recreated once under the new key and the old rows are hidden, not
+  deleted. Every marker that has a city keeps its row.
+- Added a test suite (`php tests/run-tests.php`), bare PHP with no WordPress, so
+  the translation from a Central payload to a map marker is checked from a clean
+  checkout.
 
 ### 2.4.0
 
