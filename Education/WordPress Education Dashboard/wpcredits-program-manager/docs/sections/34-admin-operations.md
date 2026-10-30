@@ -178,6 +178,7 @@ script writes the page by its ID, so a release does not care which address it ha
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
 The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
+The Student Report Card's guide button does the same with a published page at `student-guide` and the handbook's Student guide. The handbook keeps what is for people who are not on the program yet: which institutions take part, the interest forms and how to apply.
 
 ### Uninstall
 

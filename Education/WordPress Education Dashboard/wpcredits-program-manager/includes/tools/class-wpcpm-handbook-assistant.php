@@ -58,6 +58,13 @@ class WPCPM_Handbook_Assistant {
 	const MENTOR_GUIDE_PATH = 'mentor-guide';
 
 	/**
+	 * Where this site publishes the Student guide: the page at this path, which each release republishes
+	 * from the plugin's built guide. `guides()` links it from the Student Report Card while it is
+	 * published, and the handbook's Student guide until then, as it does for the Mentor guide.
+	 */
+	const STUDENT_GUIDE_PATH = 'student-guide';
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -398,9 +405,11 @@ class WPCPM_Handbook_Assistant {
 		return (array) apply_filters(
 			'wpcpm_handbook_guides',
 			array(
+				// This site's own Student guide once its page is published, and the handbook's Student
+				// guide until then.
 				'student'       => array(
 					'label' => __( 'Student guide', 'wpcredits-program-manager' ),
-					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/student-guide/',
+					'url'   => self::published_guide_url( self::STUDENT_GUIDE_PATH, 'https://make.wordpress.org/community/handbook/education/credits/student-guide/' ),
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					// Named for a screen reader, which gets no help at all from the icon.
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),

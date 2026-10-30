@@ -77,9 +77,9 @@ $ids = array(
 $guides = array(
 	'students'       => array(
 		'title' => 'Student guide',
-		'lede'  => 'Everything on your Student Report Card, and how to book a call with your mentor.',
+		'lede'  => 'Everything on your Student Report Card, how to book a call with your mentor, and what to expect from the program.',
 		'intro' => "Welcome to the Education Directory. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.\n\nThis guide is written for students. Your mentor and the Administrators have their own.",
-		'parts' => array( '00-signing-in', '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help' ),
+		'parts' => array( '00-signing-in', '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help', '14-student-program' ),
 	),
 	'mentors'        => array(
 		'title' => 'Mentor guide',
@@ -98,6 +98,7 @@ $guides = array(
 			'11-student-booking',
 			'13-student-feedback',
 			'12-student-help',
+			'14-student-program',
 		),
 	),
 	'administrators' => array(
@@ -123,6 +124,7 @@ $guides = array(
 			'11-student-booking',
 			'13-student-feedback',
 			'12-student-help',
+			'14-student-program',
 		),
 	),
 	'institutions'   => array(

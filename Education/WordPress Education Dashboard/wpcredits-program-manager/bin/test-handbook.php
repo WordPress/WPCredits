@@ -1219,7 +1219,7 @@ ck( 'the mentors\' own channel is another one, with its own name', array( $guide
 // The Student Report Card's guide says the same words, and so do the three guides built from it.
 $student_guide = (string) file_get_contents( __DIR__ . '/../docs/sections/10-student-card.md' );
 ck( 'the guide names the channel the card links: the WordPress Credits Slack channel',
-    array( false !== strpos( $student_guide, 'the WordPress Credits Slack channel, the Student guide in the handbook' ), false !== strpos( $student_guide, 'students Slack channel' ) ),
+    array( false !== strpos( $student_guide, 'the WordPress Credits Slack channel, the Student guide, and **Need' ), false !== strpos( $student_guide, 'students Slack channel' ) ),
     array( true, false ) );
 $built_with_it = array();
 foreach ( array( 'students', 'mentors', 'administrators' ) as $built_guide ) {
@@ -1616,6 +1616,52 @@ ck( 'a published page with no permalink leaves the entry on the handbook, so the
 $set_guide_page( 'mentor-guide', 4323, null, '' );
 ck( 'with the page gone the entry goes back to the handbook\'s page', WPCPM_Handbook_Assistant::guides()['mentor']['url'], $mentor_handbook );
 
+// The Student guide is a page on this site as well (1.123.50): the Student Report Card's guide button
+// links the published page at the path the constant names, and the handbook's Student guide for as long
+// as there is none, by the same lookup again. The page is at the Student level, which a student holds and
+// a program manager reads past, so whoever can open a student's card can open the guide.
+$student_const = defined( 'WPCPM_Handbook_Assistant::STUDENT_GUIDE_PATH' ) ? constant( 'WPCPM_Handbook_Assistant::STUDENT_GUIDE_PATH' ) : null;
+ck( 'the Student guide is looked up at the path student-guide', $student_const, 'student-guide' );
+
+$student_handbook = 'https://make.wordpress.org/community/handbook/education/credits/student-guide/';
+$student_address  = 'https://example.test/student-guide/';
+
+$set_guide_page( 'student-guide', 4324, null, '' );
+ck( 'with no page at student-guide the student entry keeps the handbook\'s Student guide', WPCPM_Handbook_Assistant::guides()['student']['url'], $student_handbook );
+
+$student_kept = array();
+foreach ( array( 'draft', 'pending', 'private', 'future', 'auto-draft', 'inherit', 'trash' ) as $not_published ) {
+	$set_guide_page( 'student-guide', 4324, $not_published, $student_address );
+	$student_kept[ $not_published ] = WPCPM_Handbook_Assistant::guides()['student']['url'];
+}
+ck( 'a page there that is not published, whatever else its status, leaves the entry on the handbook', array_values( array_unique( $student_kept ) ), array( $student_handbook ) );
+
+$set_guide_page( 'student-guide', 4324, 'publish', $student_address );
+$with_student_page = WPCPM_Handbook_Assistant::guides();
+ck( 'the published page at student-guide is the guide the student entry links', $with_student_page['student']['url'], $student_address );
+ck( 'and the entry keeps its label, its channel and the name of its channel',
+    array( $with_student_page['student']['label'], $with_student_page['student']['slack'], $with_student_page['student']['chat'] ),
+    array( 'Student guide', 'https://wordpress.slack.com/archives/C0959D2M3T8', 'Ask in the WordPress Credits Slack channel' ) );
+
+$student_moved = array();
+foreach ( array( 'mentor', 'institution', 'administrator', 'sponsor' ) as $audience ) {
+	if ( $with_student_page[ $audience ] !== $baseline[ $audience ] ) {
+		$student_moved[] = $audience;
+	}
+}
+ck( 'and no other audience\'s entry moves with it', $student_moved, array() );
+
+$student_resources = WPCPM_Handbook_Assistant::render_resources( 'student' );
+ck( 'the Student Report Card\'s Resources section links the published page with the entry\'s label',
+    array( false !== strpos( $student_resources, 'href="https://example.test/student-guide/"' ), false !== strpos( $student_resources, '>Student guide</a>' ), false !== strpos( $student_resources, $student_handbook ) ),
+    array( true, true, false ) );
+
+$set_guide_page( 'student-guide', 4324, 'publish', '' );
+ck( 'a published page with no permalink leaves the entry on the handbook, so the button never leads nowhere', WPCPM_Handbook_Assistant::guides()['student']['url'], $student_handbook );
+
+$set_guide_page( 'student-guide', 4324, null, '' );
+ck( 'with the page gone the entry goes back to the handbook\'s page', WPCPM_Handbook_Assistant::guides()['student']['url'], $student_handbook );
+
 // The checks further down read both of the other pages as published.
 $set_guide_page( 'institution-guide', 4321, 'publish', $institution_address );
 $set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
@@ -1678,6 +1724,48 @@ ck( 'both guides are built with them, in both outputs',
     array( true, true, true, true ) );
 ck( 'the mirror\'s privacy guard refuses an email address in a tracked .html file: neither built guide holds one',
     array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $mentor_outputs[1] ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $mentor_outputs[3] ) ),
+    array( 0, 0 ) );
+
+// What the handbook's introduction told a student on the program, and the site's guide did not, is in the
+// guide now (1.123.50), in the three guides that carry the students' sections, after the card's own. What
+// it told people not on the program yet stays on the public handbook, because this guide needs a sign-in.
+$student_runs = array();
+foreach ( array_keys( $mentor_listed[1], '12-student-help', true ) as $start ) {
+	$student_runs[] = array_slice( $mentor_listed[1], $start, 2 );
+}
+ck( 'the Student, Mentor and Administrator guides all list the new section after If something looks wrong',
+    $student_runs,
+    array( array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ) ) );
+
+$student_new_text = (string) @file_get_contents( __DIR__ . '/../docs/sections/14-student-program.md' );
+ck( 'the section carries the handbook\'s headings',
+    array(
+		false !== strpos( $student_new_text, '## What is WordPress Credits?' ),
+		false !== strpos( $student_new_text, '### What to expect' ),
+		false !== strpos( $student_new_text, '### What we mean by contributing to WordPress' ),
+		false !== strpos( $student_new_text, '### Immediate contribution opportunities' ),
+		false !== strpos( $student_new_text, '### Your responsibilities' ),
+		false !== strpos( $student_new_text, '### What you will gain' ),
+		false !== strpos( $student_new_text, '### Inside the course' ),
+		false !== strpos( $student_new_text, '### Remember' ),
+	),
+    array( true, true, true, true, true, true, true, true ) );
+ck( 'the hours are the track\'s, not one figure for everybody',
+    array( false !== strpos( $student_new_text, 'depend on your track' ), false !== strpos( $student_new_text, 'Over the course of 150 hours' ) ),
+    array( true, false ) );
+ck( 'and none of what is for people not on the program yet: no interest form, no application, no Airtable, no address',
+    array( stripos( $student_new_text, 'interest form' ), stripos( $student_new_text, 'application' ), stripos( $student_new_text, 'airtable' ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_new_text ) ),
+    array( false, false, false, 0 ) );
+
+$student_outputs = array(
+	(string) file_get_contents( __DIR__ . '/../docs/students.md' ),
+	(string) file_get_contents( __DIR__ . '/../docs/build/students.html' ),
+);
+ck( 'all three guides are built with it',
+    array( false !== strpos( $student_outputs[0], '## What is WordPress Credits?' ), false !== strpos( $student_outputs[1], 'What is WordPress Credits?</h2>' ), false !== strpos( $mentor_outputs[0], '## What is WordPress Credits?' ), false !== strpos( $mentor_outputs[2], '## What is WordPress Credits?' ) ),
+    array( true, true, true, true ) );
+ck( 'and the built Student guide holds no email address, for the same reason',
+    array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_outputs[0] ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_outputs[1] ) ),
     array( 0, 0 ) );
 
 // A filter on the guides is handed the final addresses of both entries, the pages' when they are published

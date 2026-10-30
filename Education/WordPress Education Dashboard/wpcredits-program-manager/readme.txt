@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.49
+Stable tag: 1.123.50
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.50 =
+
+* The Student guide button on the Student Report Card opens the Student guide on this site while its page is published, and the handbook's page until then, as the Mentor, Institution and Sponsor guide buttons do.
+* The Student guide now holds what the handbook's introduction told students on the program: what to expect, what contributing means, where to start, their responsibilities and what they will gain.
 
 = 1.123.49 =
 

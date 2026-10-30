@@ -580,7 +580,7 @@ class WPCPM_Students_Dashboard {
 				break;
 
 			case self::MODULE_UPDATES:
-				// Always rendered: the section holds the Student guide, which is a handbook link and
+				// Always rendered: the section holds the Student guide, which is a plain link and
 				// has nothing to do with whether an AI provider is configured. Whether the "Need help?"
 				// button appears beside it is decided inside, from the audience setting - asked of the
 				// audience rather than of the viewer, so a manager inspecting a student does not see it
