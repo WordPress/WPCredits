@@ -49,6 +49,14 @@ class WCAC_Settings {
 			'sync_meetups'         => 1,
 			'sync_children'        => 1,
 			'sync_campus_connect'  => 0,
+			/*
+			 * Whether the Campus Connect run also writes its rows to Airtable.
+			 * Separate from sync_campus_connect, which governs reading Central
+			 * and writing the snapshot the dashboard reads. Defaults on so an
+			 * upgrade changes nothing about what an install already does; turn
+			 * it off once nothing reads the Airtable copy.
+			 */
+			'write_campus_connect' => 1,
 			'campus_extra_status'  => '',
 			'lookback_hours'       => 25,
 			'time_budget'          => 20,
@@ -352,7 +360,7 @@ class WCAC_Settings {
 			}
 		}
 
-		foreach ( array( 'sync_wordcamps', 'sync_meetups', 'sync_children', 'sync_campus_connect' ) as $key ) {
+		foreach ( array( 'sync_wordcamps', 'sync_meetups', 'sync_children', 'sync_campus_connect', 'write_campus_connect' ) as $key ) {
 			$clean[ $key ] = empty( $input[ $key ] ) ? 0 : 1;
 		}
 

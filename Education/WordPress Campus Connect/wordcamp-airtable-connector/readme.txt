@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.13
+Stable tag: 1.1.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,39 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.14 =
+
+The Airtable write for Campus Connect is now a setting of its own, so the rows
+can stop being copied there without stopping anything else.
+
+1.1.13 moved the dashboards off the Airtable copy: they read the snapshot this
+plugin stores on the site. That left the Campus Connect Events table with no
+reader at all, and this plugin still writing 177 rows into it every day.
+
+The obvious way to stop that was to clear "Campus Connect events" on the
+WordCamp Sync screen, and it would have been wrong. That switch gates the whole
+job: the Central read, the snapshot, and the Airtable write together. Clearing
+it stops the write, and stops the snapshot with it, so every dashboard quietly
+freezes on its last reading with nothing reporting a fault. The plugin's own
+CLI says as much on its way past - "this command will not reach for Central".
+
+So the write has its own switch, under the existing one: clear it to keep
+reading Central and updating the snapshot while leaving Airtable alone. It
+defaults on, so upgrading changes nothing about what an install already does.
+
+Two guards move with it. The preflight gate exists to stop a blank or
+duplicated merge value creating duplicate rows in the destination; with no
+destination write there is nothing to protect, so it no longer holds the run
+back and no longer costs a snapshot. And a run that writes nowhere is reported
+as a clean run of 0 written rows rather than as a skip or a failure, because
+the report was read in full and the snapshot was written.
+
+`wp wcac status` gains a "campus airtable write" row.
+
+Suite 100 to 109 checks, the new ones covering the regression above: that
+`campus_connect_ready()` must never consult the write switch, and that the
+snapshot is written before the switch is read. Both are checked by mutation.
 
 = 1.1.13 =
 

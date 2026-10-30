@@ -656,5 +656,110 @@ t( '' !== WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 80, 92 ), wcac_snap( 1
 t( '' !== WCAC_Campus_Snapshot::refuse_reason( array(), array() ), 'a malformed snapshot is refused', $pass, $fail );
 t( '' !== WCAC_Campus_Snapshot::refuse_reason( array( 'rows' => 'nope', 'coords' => array() ), array() ), 'a snapshot whose rows are not a list is refused', $pass, $fail );
 
+// ------------------------------------------- the Airtable write switch (1.1.14)
+
+/* These run against the real WCAC_Settings, not the stub above, because the
+   whole point of the switch is what defaults() and all() do with it. The stub
+   is already defined by now, so the real class goes in its own namespace-free
+   include guarded on a constant the stub does not set. */
+
+$GLOBALS['wcac_options'] = array();
+
+if ( ! function_exists( 'get_option' ) ) {
+    function get_option( $name, $default = false ) { // phpcs:ignore
+        return array_key_exists( $name, $GLOBALS['wcac_options'] ) ? $GLOBALS['wcac_options'][ $name ] : $default;
+    }
+    function update_option( $name, $value, $autoload = null ) { // phpcs:ignore
+        $GLOBALS['wcac_options'][ $name ] = $value;
+        return true;
+    }
+    function wp_parse_args( $args, $defaults = array() ) { // phpcs:ignore
+        return array_merge( $defaults, is_array( $args ) ? $args : array() );
+    }
+    function wp_parse_url( $u, $c = -1 ) { return parse_url( $u, $c ); } // phpcs:ignore
+    function wp_salt( $scheme = 'auth' ) { return 'test-salt'; } // phpcs:ignore
+    function sanitize_user( $u, $strict = false ) { return preg_replace( '/[^A-Za-z0-9 _.\-@]/', '', (string) $u ); } // phpcs:ignore
+}
+
+/* The stub WCAC_Settings above only answers source_root(), so the real class
+   cannot be loaded under the same name. Read the defaults out of the file
+   instead and assert on the contract they encode. */
+$settings_src = file_get_contents( __DIR__ . '/../includes/class-wcac-settings.php' );
+
+t(
+    (bool) preg_match( "/'write_campus_connect'\s*=>\s*1,/", $settings_src ),
+    'the Airtable write defaults ON, so an upgrade changes nothing about what an install already does',
+    $pass,
+    $fail
+);
+
+t(
+    (bool) preg_match( "/'sync_campus_connect',\s*'write_campus_connect'/", $settings_src ),
+    'the write switch is sanitized as a checkbox alongside the other sync switches',
+    $pass,
+    $fail
+);
+
+/* The regression this release exists to prevent. campus_connect_ready() gates
+   the whole job -- the Central read AND the snapshot the dashboards now read --
+   so it must NOT learn about the write switch. Turning the write off has to
+   leave the job running, or the snapshot silently freezes and every reader goes
+   stale with nothing reporting a fault. */
+$ready_src = '';
+if ( preg_match( '/function campus_connect_ready\(\).*?\n\t\}/s', $settings_src, $m ) ) {
+    $ready_src = $m[0];
+}
+
+t( '' !== $ready_src, 'campus_connect_ready() is still there to inspect', $pass, $fail );
+t(
+    '' !== $ready_src && false === strpos( $ready_src, 'write_campus_connect' ),
+    'campus_connect_ready() does NOT consult the write switch, so switching the write off cannot stop the Central read or the snapshot',
+    $pass,
+    $fail
+);
+
+/* And the job itself: the snapshot must be written before the switch is
+   consulted, so turning the write off never costs a snapshot. */
+$sync_src = file_get_contents( __DIR__ . '/../includes/class-wcac-sync.php' );
+
+/* Scoped to campus_connect_run(): the file holds four upsert call sites, and
+   the WordCamps one sits hundreds of lines ABOVE this job, so an unscoped
+   search compares the switch against the wrong write and fails on correct
+   code. */
+$run_src = '';
+if ( preg_match( '/protected function campus_connect_run\(\).*?(?=\n\tprotected function |\n\tpublic function )/s', $sync_src, $m ) ) {
+    $run_src = $m[0];
+}
+
+t( '' !== $run_src, 'campus_connect_run() is there to inspect', $pass, $fail );
+
+$snap_at   = strpos( $run_src, '$this->write_campus_snapshot( $records );' );
+$skip_at   = strpos( $run_src, 'if ( ! $writing ) {' );
+$upsert_at = strpos( $run_src, '$sent = $this->airtable->upsert(' );
+
+t( false !== $snap_at && false !== $skip_at, 'the job writes a snapshot and has a write switch', $pass, $fail );
+t(
+    false !== $snap_at && false !== $skip_at && $snap_at < $skip_at,
+    'the snapshot is written BEFORE the write switch is consulted, so switching the write off never costs a snapshot',
+    $pass,
+    $fail
+);
+t(
+    false !== $skip_at && false !== $upsert_at && $skip_at < $upsert_at,
+    'the write switch is consulted BEFORE the Airtable upsert, so switching it off actually stops the write',
+    $pass,
+    $fail
+);
+
+/* The preflight gate protects the destination rows from a blank or duplicated
+   merge value. With no destination write it has nothing to protect, and leaving
+   it in the way would stop the snapshot for a reason that no longer applies. */
+t(
+    (bool) preg_match( '/if \( \$writing && \( empty\( \$state\[.cc_preflight_ok.\]/', $sync_src ),
+    'the preflight gate only applies when the run is actually writing to Airtable',
+    $pass,
+    $fail
+);
+
 printf( "\n%d passed, %d failed\n", $pass, $fail );
 exit( $fail > 0 ? 1 : 0 );

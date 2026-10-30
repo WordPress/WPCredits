@@ -11,8 +11,8 @@ Two components replace that, and they are built to work together:
 
 | Folder | What it is | Version |
 | --- | --- | --- |
-| [`wordcamp-airtable-connector/`](wordcamp-airtable-connector/) | Reads WordCamp Central and writes Airtable. Also syncs WordCamps, Meetups, sessions, speakers and sponsors, which predate the Campus Connect work. | 1.1.12 |
-| [`wpcc-tracker/`](wpcc-tracker/) | Reads Airtable and renders the figures as native blocks: scale, regions, a world map, a timeline, the application pipeline and an event list. | 1.1.2 |
+| [`wordcamp-airtable-connector/`](wordcamp-airtable-connector/) | Reads WordCamp Central and offers the Campus Connect rows to readers on the same site through a filter. Writing those rows to Airtable is now a setting of its own, separate from reading Central. Also syncs WordCamps, Meetups, sessions, speakers and sponsors, which predate the Campus Connect work. | 1.1.14 |
+| [`wpcc-tracker/`](wpcc-tracker/) | Renders the figures as native blocks: scale, regions, a world map, a timeline, the application pipeline and an event list. Reads the connector's snapshot by default; the Airtable source is still selectable on its settings screen. | 1.2.0 |
 
 The tracker never talks to Central and holds no credential for it. It reads Airtable and nothing
 else.

@@ -1483,6 +1483,10 @@ class WCAC_Sync {
 
 		$table = WCAC_Settings::table_for( 'campus_connect' );
 
+		// Read once here so the preflight gate and the write itself cannot
+		// disagree about it mid-run.
+		$writing = ! empty( WCAC_Settings::get( 'write_campus_connect' ) );
+
 		/*
 		 * Consume --accept-growth here, before any early return can strand it.
 		 * The flag waives three separate guards (volume, creates and the zero
@@ -1504,7 +1508,12 @@ class WCAC_Sync {
 		// A blank or duplicated merge value in the destination is invisible to
 		// the write path and unrecoverable once it has created duplicate rows,
 		// so the documented preflight is an enforced gate, not a checklist item.
-		if ( empty( $state['cc_preflight_ok'] ) || (string) $state['cc_preflight_table'] !== $table ) {
+		//
+		// It guards the write and nothing else: with the write switched off
+		// there is no destination row to duplicate, and holding the run back
+		// would stop the snapshot too -- the one thing this job still exists
+		// to produce.
+		if ( $writing && ( empty( $state['cc_preflight_ok'] ) || (string) $state['cc_preflight_table'] !== $table ) ) {
 			// Not tallied as an error. This fires on every cron tick and every
 			// press of "Sync changes now", so counting it climbed the cumulative
 			// Errors figure once per tick for what is a configuration gate, with
@@ -1718,6 +1727,28 @@ class WCAC_Sync {
 		 * depends on Airtable being reachable.
 		 */
 		$this->write_campus_snapshot( $records );
+
+		if ( ! $writing ) {
+			/*
+			 * Reported as a clean run that wrote 0 rows rather than as a skip:
+			 * the report was read in full, every guard above it passed, and the
+			 * snapshot -- the only thing still reading this job -- was written.
+			 * Calling cc_fail() or returning silently would both be wrong, the
+			 * first latching a block over a healthy run and the second leaving
+			 * cc_last_ok behind so the admin screen aged a working sync.
+			 */
+			$this->cc_ok( 0, count( $rows ) );
+
+			WCAC_Logger::log(
+				'info',
+				sprintf(
+					'Campus Connect: %d row(s) read and the snapshot updated. The Airtable write is switched off, so nothing was written there.',
+					count( $rows )
+				)
+			);
+
+			return;
+		}
 
 		$sent = $this->airtable->upsert(
 			$table,

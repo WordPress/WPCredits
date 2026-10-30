@@ -182,6 +182,7 @@ class WCAC_CLI {
 				array( 'key' => 'errors', 'value' => $state['errors'] ),
 				array( 'key' => 'last slice', 'value' => $this->stamp( $state['last_run'] ) ),
 				array( 'key' => 'campus connect', 'value' => $campus ),
+				array( 'key' => 'campus airtable write', 'value' => WCAC_Settings::get( 'write_campus_connect' ) ? 'on' : 'off (snapshot only)' ),
 				array( 'key' => 'central credential', 'value' => 'none' === $cred['source'] ? 'missing' : $cred['source'] ),
 				array( 'key' => 'credential fingerprint', 'value' => '' === $print ? '-' : $print ),
 				array( 'key' => 'campus blocked', 'value' => $this->block_text( $state, $blocked ) ),

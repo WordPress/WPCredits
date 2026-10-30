@@ -953,7 +953,9 @@ class WCAC_Admin {
 								<label><input type="checkbox" name="sync_wordcamps" value="1" <?php checked( $settings['sync_wordcamps'] ); ?> /> <?php esc_html_e( 'WordCamps', 'wordcamp-airtable-connector' ); ?></label><br />
 								<label><input type="checkbox" name="sync_meetups" value="1" <?php checked( $settings['sync_meetups'] ); ?> /> <?php esc_html_e( 'Meetups', 'wordcamp-airtable-connector' ); ?></label><br />
 								<label><input type="checkbox" name="sync_children" value="1" <?php checked( $settings['sync_children'] ); ?> /> <?php esc_html_e( 'Sessions, Speakers and Sponsors from each camp site', 'wordcamp-airtable-connector' ); ?></label><br />
-								<label><input type="checkbox" name="sync_campus_connect" value="1" <?php checked( $settings['sync_campus_connect'] ); ?> /> <?php esc_html_e( 'Campus Connect events (needs the Central credential below)', 'wordcamp-airtable-connector' ); ?></label>
+								<label><input type="checkbox" name="sync_campus_connect" value="1" <?php checked( $settings['sync_campus_connect'] ); ?> /> <?php esc_html_e( 'Campus Connect events (needs the Central credential below)', 'wordcamp-airtable-connector' ); ?></label><br />
+								<label style="margin-left:1.5em"><input type="checkbox" name="write_campus_connect" value="1" <?php checked( $settings['write_campus_connect'] ); ?> /> <?php esc_html_e( '...and write them to the Airtable table above', 'wordcamp-airtable-connector' ); ?></label>
+								<p class="description" style="margin-left:1.5em"><?php esc_html_e( 'Clear this to keep reading Central and updating the dashboard snapshot while leaving Airtable alone. The reporting plugins read the snapshot, not Airtable.', 'wordcamp-airtable-connector' ); ?></p>
 							</fieldset>
 						</td>
 					</tr>
