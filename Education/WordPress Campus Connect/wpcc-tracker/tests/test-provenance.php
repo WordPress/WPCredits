@@ -172,3 +172,32 @@ t_eq(
 	'WordCamp Central via Airtable · age of source data unknown',
 	'an unparseable source date reads as unknown, not as 1 January 1970'
 );
+
+/* The connector path: one hop, Central straight to this site, so the line must
+   not say "via Airtable" when Airtable is no longer in it. */
+$line = wpcct_prov( array( 'totals' => array( 'completed' => 1 ), 'source_synced' => $iso( 2 ), 'source_via' => 'connector' ) );
+t_ok( false !== strpos( $line, 'WordCamp Central' ), 'the connector path still names Central as the source' );
+t_ok( false === strpos( $line, 'Airtable' ), 'and does not claim the data came via Airtable' );
+t_ok( false !== strpos( $line, gmdate( 'j F Y', time() - ( 2 * DAY_IN_SECONDS ) ) ), 'and reports the date Central was read' );
+t_ok( false === strpos( $line, 'days old' ), 'a recent connector read is not flagged as old' );
+
+$line = wpcct_prov( array( 'totals' => array( 'completed' => 1 ), 'source_synced' => $iso( 30 ), 'source_via' => 'connector' ) );
+t_ok( false !== strpos( $line, '30 days old' ), 'a stale connector read is flagged with its age' );
+t_ok( false === strpos( $line, 'Airtable' ), 'and still does not mention Airtable' );
+
+/* An existing blob carries no source_via at all. It really did come through
+   Airtable, so the old wording is the correct one for it, and the line must
+   not change until the next sync replaces the blob. */
+$line = wpcct_prov( array( 'totals' => array( 'completed' => 1 ), 'source_synced' => $iso( 2 ) ) );
+t_ok( false !== strpos( $line, 'via Airtable' ), 'a blob predating the connector path keeps the Airtable wording' );
+
+$line = wpcct_prov( array( 'totals' => array( 'completed' => 1 ), 'source_via' => 'connector' ) );
+t_ok( false === strpos( $line, 'Airtable' ), 'a connector blob with no date at all still does not mention Airtable' );
+t_ok( false !== strpos( $line, 'unknown' ), 'and says the age is unknown' );
+
+/* Never refreshed, on the connector path: there is no createdTime fallback to
+   lean on, so a connector blob with no sync stamp is the unknown-age case
+   above rather than a "never refreshed" claim about rows nobody imported. */
+$line = wpcct_prov( array( 'totals' => array( 'completed' => 1 ), 'source_created' => $iso( 41 ), 'source_via' => 'connector' ) );
+t_ok( false === strpos( $line, 'Airtable' ), 'the created-only connector case does not mention Airtable either' );
+

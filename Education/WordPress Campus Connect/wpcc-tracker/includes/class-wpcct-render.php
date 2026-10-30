@@ -153,7 +153,24 @@ class WPCCT_Render {
 
 		$synced  = empty( $data['source_synced'] ) ? 0 : strtotime( (string) $data['source_synced'] );
 		$created = empty( $data['source_created'] ) ? 0 : strtotime( (string) $data['source_created'] );
-		$source  = $synced ? $synced : $created;
+
+		/* Two hops or one. A blob built from the connector's snapshot came
+		   straight from Central, so saying "via Airtable" would name a system
+		   that was not in the path. A blob with no stated source predates the
+		   snapshot and really did come through Airtable, so the old wording is
+		   the correct one for it and stays until the next sync replaces it. */
+		$connector = isset( $data['source_via'] ) && 'connector' === $data['source_via'];
+		$origin    = $connector
+			? __( 'WordCamp Central', 'wpcc-tracker' )
+			: __( 'WordCamp Central via Airtable', 'wpcc-tracker' );
+
+		/* createdTime is an Airtable artefact: it is that base's own record of
+		   when a row first appeared, and it is what distinguishes "imported by
+		   hand, never refreshed" from "never read at all". The snapshot has no
+		   equivalent and needs none, so on the connector path an absent sync
+		   stamp is simply an unknown age rather than a claim about an import
+		   that never happened. */
+		$source = $synced ? $synced : ( $connector ? 0 : $created );
 
 		if ( ! $source ) {
 			/* A blob built before this plugin recorded source dates, or one
@@ -161,7 +178,11 @@ class WPCCT_Render {
 			   answer and it corrects itself on the next sync; the one thing
 			   not to do is fall back to this plugin's own run date, which is
 			   what used to make a stale dashboard look fresh. */
-			return __( 'WordCamp Central via Airtable · age of source data unknown', 'wpcc-tracker' );
+			return sprintf(
+				/* translators: %s: name of the data source. */
+				__( '%s · age of source data unknown', 'wpcc-tracker' ),
+				$origin
+			);
 		}
 
 		$date = wp_date( get_option( 'date_format' ), $source );
@@ -173,8 +194,9 @@ class WPCCT_Render {
 			   hand. Always flagged, whatever the age: "never refreshed" is
 			   the point, not the number of days. */
 			return sprintf(
-				/* translators: 1: date the rows were first loaded. 2: whole days since. */
-				__( 'WordCamp Central via Airtable · loaded %1$s, never refreshed from Central (%2$d days old)', 'wpcc-tracker' ),
+				/* translators: 1: name of the data source. 2: date the rows were first loaded. 3: whole days since. */
+				__( '%1$s · loaded %2$s, never refreshed from Central (%3$d days old)', 'wpcc-tracker' ),
+				$origin,
 				$date,
 				$days
 			);
@@ -182,16 +204,18 @@ class WPCCT_Render {
 
 		if ( $days > 14 ) {
 			return sprintf(
-				/* translators: 1: date Central was last read. 2: whole days since. */
-				__( 'WordCamp Central via Airtable · data from Central %1$s (%2$d days old)', 'wpcc-tracker' ),
+				/* translators: 1: name of the data source. 2: date Central was last read. 3: whole days since. */
+				__( '%1$s · data from Central %2$s (%3$d days old)', 'wpcc-tracker' ),
+				$origin,
 				$date,
 				$days
 			);
 		}
 
 		return sprintf(
-			/* translators: %s: date Central was last read. */
-			__( 'WordCamp Central via Airtable · data from Central %s', 'wpcc-tracker' ),
+			/* translators: 1: name of the data source. 2: date Central was last read. */
+			__( '%1$s · data from Central %2$s', 'wpcc-tracker' ),
+			$origin,
 			$date
 		);
 	}

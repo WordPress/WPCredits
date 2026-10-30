@@ -21,6 +21,7 @@ function wp_strip_all_tags( $s, $break = false ) { return strip_tags( (string) $
 function sanitize_text_field( $s ) { return trim( preg_replace( '/[\r\n\t]+/', ' ', strip_tags( (string) $s ) ) ); }
 function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function esc_url_raw( $u ) { return (string) $u; }
+function wp_json_encode( $v, $flags = 0 ) { return json_encode( $v, $flags ); }
 function wp_http_validate_url( $u ) { return filter_var( $u, FILTER_VALIDATE_URL ) ? $u : false; }
 
 /**
@@ -271,6 +272,389 @@ t(
     $pass,
     $fail
 );
+
+
+/*
+ * campus_coords(): the public-route half of the Campus Connect snapshot.
+ *
+ * central.wordcamp.org/wp-json/wp/v2/wordcamps is unauthenticated and returns
+ * every public WordCamp, Campus Connect events among them, each carrying
+ * _venue_coordinates. The Airtable base reached the same subset through a
+ * formula field, IF(FIND("campus connect", LOWER({Name})), ...), so the name
+ * match here is a deliberate copy of that rule and not a new invention.
+ */
+$posts = array(
+    array(
+        'id'                 => 11067837,
+        'title'              => 'WordPress Campus Connect Jinja',
+        'URL'                => 'https://events.wordpress.org/campusconnect/2025/jinja/',
+        'link'               => 'https://central.wordcamp.org/wordcamps/jinja/',
+        '_venue_coordinates' => array( 'latitude' => 0.4478, 'longitude' => 33.2026 ),
+        'Organizer Name'     => 'Nobody At All',
+    ),
+);
+$coords = WCAC_Mapper::campus_coords( $posts );
+
+/* PHP canonicalises an integer-like string key to int, so the assertion that
+   matters is not the key's type but that a lookup by the ID exactly as the
+   Campus Connect report spells it -- a string -- resolves. That is the join
+   the tracker performs. */
+t( 1 === count( $coords ) && isset( $coords['11067837'] ), 'a Campus Connect post is found by its WordCamp ID as the report spells it', $pass, $fail );
+t( 0.4478 === $coords['11067837']['lat'], 'latitude is carried as a float', $pass, $fail );
+t( 33.2026 === $coords['11067837']['lng'], 'longitude is carried as a float', $pass, $fail );
+t( 'https://events.wordpress.org/campusconnect/2025/jinja/' === $coords['11067837']['site'], 'site comes from the URL field', $pass, $fail );
+t( array( 'lat', 'lng', 'site' ) === array_keys( $coords['11067837'] ), 'nothing but lat, lng and site is carried', $pass, $fail );
+t( false === strpos( wp_json_encode( $coords ), 'Nobody' ), 'organiser data never reaches the coordinate map', $pass, $fail );
+
+// Default-deny on the name: the WordCamps route is 94% regular WordCamps.
+$mixed = WCAC_Mapper::campus_coords(
+    array(
+        array( 'id' => 1, 'title' => 'WordCamp Europe 2026', '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ) ),
+        array( 'id' => 2, 'title' => 'WordPress Campus Connect Puttur', '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ) ),
+    )
+);
+t( 1 === count( $mixed ) && isset( $mixed['2'] ), 'a regular WordCamp is excluded; only Campus Connect is kept', $pass, $fail );
+
+t(
+    isset(
+        WCAC_Mapper::campus_coords(
+            array( array( 'id' => 3, 'title' => 'wordpress CAMPUS connect Somewhere', '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ) ) )
+        )['3']
+    ),
+    'the name match ignores case, as LOWER() did in the formula',
+    $pass,
+    $fail
+);
+
+t(
+    isset(
+        WCAC_Mapper::campus_coords(
+            array( array( 'id' => 4, 'title' => array( 'rendered' => 'Campus Connect St. Nobody&#039;s' ), '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ) ) )
+        )['4']
+    ),
+    'a rendered title object with an entity still matches',
+    $pass,
+    $fail
+);
+
+// Coordinates are the whole point of this fetch, so a post without usable
+// ones is dropped rather than carried as a marker at (0,0) off Ghana.
+t( array() === WCAC_Mapper::campus_coords( array( array( 'id' => 5, 'title' => 'Campus Connect Nowhere' ) ) ), 'a post with no coordinates at all is dropped', $pass, $fail );
+t(
+    array() === WCAC_Mapper::campus_coords(
+        array( array( 'id' => 6, 'title' => 'Campus Connect Nowhere', '_venue_coordinates' => array( 'latitude' => '', 'longitude' => '' ) ) )
+    ),
+    'blank coordinates are dropped',
+    $pass,
+    $fail
+);
+t(
+    array() === WCAC_Mapper::campus_coords(
+        array( array( 'id' => 7, 'title' => 'Campus Connect Nowhere', '_venue_coordinates' => array( 'latitude' => 'n/a', 'longitude' => 'n/a' ) ) )
+    ),
+    'non-numeric coordinates are dropped, never cast to 0.0',
+    $pass,
+    $fail
+);
+
+// 0 is a real latitude. Kampala sits at 0.3, Quito at -0.2, and a falsy check
+// would quietly drop the equator.
+$equator = WCAC_Mapper::campus_coords(
+    array( array( 'id' => 8, 'title' => 'Campus Connect Equator', '_venue_coordinates' => array( 'latitude' => 0, 'longitude' => 32.58 ) ) )
+);
+t( isset( $equator['8'] ) && 0.0 === $equator['8']['lat'], 'a latitude of exactly 0 is kept, not treated as missing', $pass, $fail );
+
+$fallback = WCAC_Mapper::campus_coords(
+    array(
+        array(
+            'id'                 => 9,
+            'title'              => 'Campus Connect No Site Yet',
+            'URL'                => '',
+            'link'               => 'https://central.wordcamp.org/wordcamps/nosite/',
+            '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ),
+        ),
+    )
+);
+t( 'https://central.wordcamp.org/wordcamps/nosite/' === $fallback['9']['site'], 'site falls back to the Central link when the event has no site of its own', $pass, $fail );
+
+t( array() === WCAC_Mapper::campus_coords( array() ), 'no posts yields no coordinates', $pass, $fail );
+t( array() === WCAC_Mapper::campus_coords( array( 'not an array' ) ), 'a malformed entry is skipped, not fatal', $pass, $fail );
+t(
+    array() === WCAC_Mapper::campus_coords(
+        array( array( 'id' => 0, 'title' => 'Campus Connect No ID', '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ) ) )
+    ),
+    'a post with no usable ID is dropped',
+    $pass,
+    $fail
+);
+
+
+// ------------------------------------------------- public coordinates fetch
+echo "\npublic WordCamps route:\n";
+
+if ( ! defined( 'WCAC_VERSION' ) ) {
+    define( 'WCAC_VERSION', 'test' );
+}
+if ( ! function_exists( 'untrailingslashit' ) ) {
+    function untrailingslashit( $s ) { return rtrim( (string) $s, '/\\' ); } // phpcs:ignore
+}
+if ( ! function_exists( 'home_url' ) ) {
+    function home_url( $path = '' ) { return 'https://example.test' . $path; } // phpcs:ignore
+}
+if ( ! function_exists( 'add_query_arg' ) ) {
+    function add_query_arg( $args, $url ) { // phpcs:ignore
+        return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args );
+    }
+}
+if ( ! class_exists( 'WCAC_Settings' ) ) {
+    class WCAC_Settings { // phpcs:ignore
+        public static function source_root() { return 'https://central.wordcamp.org'; }
+    }
+}
+
+$GLOBALS['wcac_http'] = array( 'queue' => array(), 'calls' => array() );
+
+if ( ! function_exists( 'wp_remote_get' ) ) {
+    function wp_remote_get( $url, $args = array() ) { // phpcs:ignore
+        $GLOBALS['wcac_http']['calls'][] = array( 'url' => $url, 'args' => $args );
+        if ( empty( $GLOBALS['wcac_http']['queue'] ) ) {
+            return new WP_Error( 'wcac_test_no_stub', 'no queued response for ' . $url );
+        }
+        return array_shift( $GLOBALS['wcac_http']['queue'] );
+    }
+    function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) && isset( $r['code'] ) ? (int) $r['code'] : 0; } // phpcs:ignore
+    function wp_remote_retrieve_body( $r ) { return is_array( $r ) && isset( $r['body'] ) ? (string) $r['body'] : ''; } // phpcs:ignore
+    function wp_remote_retrieve_header( $r, $h ) { // phpcs:ignore
+        $h = strtolower( $h );
+        return is_array( $r ) && isset( $r['headers'][ $h ] ) ? $r['headers'][ $h ] : '';
+    }
+}
+
+/**
+ * Queue one stub HTTP response.
+ *
+ * @param array $posts Post payloads for the body.
+ * @param int   $pages Value for the X-WP-TotalPages header.
+ * @param int   $code  HTTP status.
+ */
+function wcac_queue_page( array $posts, $pages = 1, $code = 200 ) {
+    $GLOBALS['wcac_http']['queue'][] = array(
+        'code'    => $code,
+        'body'    => wp_json_encode( $posts ),
+        'headers' => array( 'x-wp-totalpages' => (string) $pages ),
+    );
+}
+
+/** Reset the stub transport between cases. */
+function wcac_reset_http() {
+    $GLOBALS['wcac_http'] = array( 'queue' => array(), 'calls' => array() );
+}
+
+/**
+ * One Campus Connect post payload.
+ *
+ * @param int    $id   WordCamp ID.
+ * @param string $name Event title.
+ * @return array
+ */
+function wcac_cc_post( $id, $name = 'WordPress Campus Connect Somewhere' ) {
+    return array(
+        'id'                 => $id,
+        'title'              => array( 'rendered' => $name ),
+        'URL'                => 'https://events.wordpress.org/campusconnect/' . $id . '/',
+        'link'               => 'https://central.wordcamp.org/wordcamps/' . $id . '/',
+        '_venue_coordinates' => array( 'latitude' => 12.5, 'longitude' => 77.5 ),
+        'Organizer Name'     => 'Nobody At All',
+    );
+}
+
+$source = new WCAC_Source();
+
+wcac_reset_http();
+wcac_queue_page( array( wcac_cc_post( 101 ), wcac_cc_post( 102 ) ), 1 );
+$got = $source->campus_coords();
+t( is_array( $got ) && 2 === count( $got ), 'a single page of results is mapped', $pass, $fail );
+t( isset( $got['101'], $got['102'] ), 'and keyed by WordCamp ID', $pass, $fail );
+t( 1 === count( $GLOBALS['wcac_http']['calls'] ), 'one page means one request', $pass, $fail );
+
+/* The whole reason the map can leave Airtable: this route is public, so the
+   request must not depend on a credential. If an Authorization header ever
+   appears here, a 401 on the report would start taking the map down with it. */
+$sent = $GLOBALS['wcac_http']['calls'][0]['args'];
+$hdrs = isset( $sent['headers'] ) && is_array( $sent['headers'] ) ? array_change_key_case( $sent['headers'], CASE_LOWER ) : array();
+t( ! isset( $hdrs['authorization'] ), 'the coordinate request sends no Authorization header', $pass, $fail );
+t( false !== strpos( $GLOBALS['wcac_http']['calls'][0]['url'], '/wp-json/wp/v2/wordcamps' ), 'it asks the public wordcamps route', $pass, $fail );
+
+/* Today the search returns 99 of a 100-row page, one short of spilling over.
+   Following X-WP-TotalPages is therefore not a hypothetical: the next handful
+   of events will make this two pages. */
+wcac_reset_http();
+wcac_queue_page( array( wcac_cc_post( 201 ) ), 2 );
+wcac_queue_page( array( wcac_cc_post( 202 ) ), 2 );
+$got = $source->campus_coords();
+t( is_array( $got ) && 2 === count( $got ), 'a second page is followed and merged', $pass, $fail );
+t( 2 === count( $GLOBALS['wcac_http']['calls'] ), 'exactly two requests were made', $pass, $fail );
+t( isset( $got['202'] ), 'the second page contributes its events', $pass, $fail );
+
+wcac_reset_http();
+wcac_queue_page( array( wcac_cc_post( 301 ), array( 'id' => 302, 'title' => array( 'rendered' => 'WordCamp Europe 2027' ), '_venue_coordinates' => array( 'latitude' => 1.0, 'longitude' => 2.0 ) ) ), 1 );
+$got = $source->campus_coords();
+t( is_array( $got ) && 1 === count( $got ) && isset( $got['301'] ), 'a regular WordCamp in the search results is filtered out', $pass, $fail );
+
+wcac_reset_http();
+$e = $source->campus_coords();
+t( is_wp_error( $e ), 'a transport error is returned, not swallowed into an empty map', $pass, $fail );
+
+wcac_reset_http();
+$GLOBALS['wcac_http']['queue'][] = array( 'code' => 200, 'body' => wp_json_encode( array( 'code' => 'rest_no_route' ) ), 'headers' => array() );
+$e = $source->campus_coords();
+t( is_wp_error( $e ) && 'wcac_coords_shape' === $e->get_error_code(), 'a body that is not a list of posts is refused', $pass, $fail );
+
+wcac_reset_http();
+$GLOBALS['wcac_http']['queue'][] = array( 'code' => 500, 'body' => '', 'headers' => array() );
+$e = $source->campus_coords();
+t( is_wp_error( $e ), 'an HTTP failure is returned', $pass, $fail );
+
+/* A route that reports an absurd page count must not be followed forever. */
+wcac_reset_http();
+for ( $i = 0; $i < 40; $i++ ) {
+    wcac_queue_page( array( wcac_cc_post( 400 + $i ) ), 999 );
+}
+$got = $source->campus_coords();
+t( is_array( $got ) && count( $GLOBALS['wcac_http']['calls'] ) <= 20, 'runaway pagination is capped', $pass, $fail );
+
+
+// ------------------------------------------------------------------ snapshot
+echo "\nin-process snapshot:\n";
+
+/*
+ * The snapshot is what the tracker reads instead of Airtable. Its rows must
+ * arrive in the shape WPCCT_Normalize already consumes -- the Campus Connect
+ * report's own column names -- because that is the shape its fixtures are in
+ * and the shape the Airtable path hand-translated to. Building it from
+ * campus_event()'s mapped fields rather than from the raw report is
+ * deliberate: that is where status slugs become labels, entities are decoded
+ * and Anticipated Attendees is kept as free text.
+ */
+$report_row = array(
+    'ID'                              => '15821491',
+    'Status'                          => 'wcpt-closed',
+    'Name'                            => 'WordPress Campus Connect Example',
+    'Venue Name'                      => 'Example Institute &amp; College',
+    '_venue_city'                     => 'Kolkata',
+    '_venue_country_name'             => 'India',
+    'Start Date (YYYY-mm-dd)'         => '1747180800',
+    'Number of Anticipated Attendees' => '80-100',
+    'Actual Attendees'                => '93',
+    'URL'                             => 'https://events.wordpress.org/campusconnect/2026/example/',
+    'Organizer Name'                  => 'Nobody At All',
+);
+
+$mapped   = WCAC_Mapper::campus_event( $report_row, $allowed );
+$snapshot = WCAC_Mapper::campus_snapshot(
+    array( $mapped['fields'] ),
+    array( '15821491' => array( 'lat' => 22.57, 'lng' => 88.36, 'site' => 'https://events.wordpress.org/campusconnect/2026/example/' ) ),
+    '2026-10-30T09:00:00+00:00'
+);
+
+t( isset( $snapshot['rows'], $snapshot['coords'], $snapshot['read_at'] ), 'a snapshot carries rows, coords and read_at', $pass, $fail );
+t( '2026-10-30T09:00:00+00:00' === $snapshot['read_at'], 'read_at is carried verbatim', $pass, $fail );
+t( 1 === count( $snapshot['rows'] ), 'one mapped event makes one row', $pass, $fail );
+
+$row = $snapshot['rows'][0];
+
+/* Exactly the report's own column order, so the tracker's normaliser and its
+   frozen fixtures see the same shape from either source. */
+t(
+    array(
+        'Start Date (YYYY-mm-dd)',
+        'End Date (YYYY-mm-dd)',
+        'Status',
+        'Name',
+        'Institution Name',
+        'City',
+        'Country',
+        'Number of Anticipated Attendees',
+        'Actual Attendees',
+        'URL',
+        'ID',
+    ) === array_keys( $row ),
+    'a snapshot row carries the report column names, in the report order',
+    $pass,
+    $fail
+);
+
+t( 'Closed' === $row['Status'], 'the status slug has become the label the tracker buckets on', $pass, $fail );
+t( '15821491' === $row['ID'], 'ID is a string, as the report gives it', $pass, $fail );
+t( 'Example Institute & College' === $row['Institution Name'], 'the institution name is decoded, not entity-encoded', $pass, $fail );
+t( '80-100' === $row['Number of Anticipated Attendees'], 'anticipated attendees stays free text', $pass, $fail );
+t( '93' === $row['Actual Attendees'] || 93 === $row['Actual Attendees'], 'actual attendees is carried', $pass, $fail );
+t( '' === $row['End Date (YYYY-mm-dd)'], 'a key the report omitted is present and empty, never missing', $pass, $fail );
+
+/* Synced At is the connector's own stamp on the Airtable row. The snapshot
+   reports its age through read_at instead, so the column must not ride along
+   and be mistaken for report data. */
+t( ! array_key_exists( 'Synced At', $row ), "the connector's own Synced At stamp does not leak into a snapshot row", $pass, $fail );
+
+t( false === strpos( wp_json_encode( $snapshot ), 'Nobody' ), 'no organiser data reaches the snapshot', $pass, $fail );
+t( 0 === preg_match( '/organi/i', wp_json_encode( $snapshot ) ), 'no organiser key reaches the snapshot', $pass, $fail );
+t( isset( $snapshot['coords']['15821491']['lat'] ), 'coordinates are carried under the WordCamp ID', $pass, $fail );
+
+// A row that never got an ID cannot be joined or counted, so it is dropped.
+$dropped = WCAC_Mapper::campus_snapshot( array( array( 'Status' => 'Closed', 'Name' => 'No id' ) ), array(), '2026-10-30T09:00:00+00:00' );
+t( array() === $dropped['rows'], 'a mapped row with no WordCamp ID is dropped from the snapshot', $pass, $fail );
+
+t( array() === WCAC_Mapper::campus_snapshot( array(), array(), '' )['rows'], 'no events makes an empty row list, not a fatal', $pass, $fail );
+
+
+// --------------------------------------------------------- snapshot refusals
+echo "\nsnapshot refusals:\n";
+
+require __DIR__ . '/../includes/class-wcac-campus-snapshot.php';
+
+/**
+ * Build a snapshot of a given size for the guard tests.
+ *
+ * @param int $rows   Row count.
+ * @param int $coords Coordinate count.
+ * @return array
+ */
+function wcac_snap( $rows, $coords ) {
+    $r = array();
+    for ( $i = 0; $i < $rows; $i++ ) {
+        $r[] = array( 'ID' => (string) ( 1000 + $i ), 'Status' => 'Closed' );
+    }
+    $c = array();
+    for ( $i = 0; $i < $coords; $i++ ) {
+        $c[ (string) ( 1000 + $i ) ] = array( 'lat' => 1.0, 'lng' => 2.0, 'site' => '' );
+    }
+    return array( 'read_at' => '2026-10-30T09:00:00+00:00', 'rows' => $r, 'coords' => $c );
+}
+
+t( '' === WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 177, 92 ), array() ), 'a healthy first snapshot is accepted', $pass, $fail );
+t( '' === WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 177, 92 ), wcac_snap( 171, 90 ) ), 'normal growth is accepted', $pass, $fail );
+
+/* The report carries 177 rows. A handful means a broken query or a
+   maintenance page, and storing it would blank the dashboard. */
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 3, 92 ), array() ), 'a snapshot with almost no rows is refused', $pass, $fail );
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 0, 92 ), array() ), 'a snapshot with no rows is refused', $pass, $fail );
+
+/* Coordinates are the map. Empty means the name match or the search stopped
+   working, not that the programme lost its venues. */
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 177, 0 ), array() ), 'a snapshot with no coordinates is refused', $pass, $fail );
+
+/* A halving cannot be legitimate: public events do not get unpublished in
+   bulk. A smaller wobble can be, so it must not be refused -- refusing means
+   serving staler data, which is the worse failure. */
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 177, 40 ), wcac_snap( 177, 92 ) ), 'coordinates collapsing to under half the stored map is refused', $pass, $fail );
+t( '' === WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 177, 85 ), wcac_snap( 177, 92 ) ), 'a small coordinate dip is accepted rather than serving stale data', $pass, $fail );
+
+/* The same rule for rows, in case the connector's own volume latch is ever
+   waived with --accept-growth in the downward direction. */
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( wcac_snap( 80, 92 ), wcac_snap( 177, 92 ) ), 'rows collapsing to under half the stored count is refused', $pass, $fail );
+
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( array(), array() ), 'a malformed snapshot is refused', $pass, $fail );
+t( '' !== WCAC_Campus_Snapshot::refuse_reason( array( 'rows' => 'nope', 'coords' => array() ), array() ), 'a snapshot whose rows are not a list is refused', $pass, $fail );
 
 printf( "\n%d passed, %d failed\n", $pass, $fail );
 exit( $fail > 0 ? 1 : 0 );

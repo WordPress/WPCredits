@@ -346,6 +346,16 @@ class WCAC_CLI {
 	 *   confirmation on the terminal and cannot be answered by cron. Never put
 	 *   this in a crontab line.
 	 *
+	 * [--snapshot]
+	 * : Show the stored snapshot the dashboard reads: when Central was read,
+	 *   how many event rows and coordinates it holds, and any standing refusal.
+	 *   Reads nothing over the network and writes nothing.
+	 *
+	 * [--coords]
+	 * : Read coordinates from Central's public WordCamps route and report what
+	 *   came back. Sends no credential and writes nothing, so it is the way to
+	 *   tell a coordinate problem apart from a report-credential problem.
+	 *
 	 * [--from-file=<path>]
 	 * : Read the report from an exported Campus Connect Details file instead of
 	 *   from Central. For when the credential cannot reach the report route and
@@ -357,6 +367,8 @@ class WCAC_CLI {
 	 *
 	 * ## EXAMPLES
 	 *
+	 *     wp wcac campus-connect --snapshot
+	 *     wp wcac campus-connect --coords
 	 *     wp wcac campus-connect --statuses
 	 *     wp wcac campus-connect --preflight
 	 *     wp wcac campus-connect --dry-run
@@ -379,12 +391,14 @@ class WCAC_CLI {
 					'preflight' => ! empty( $assoc_args['preflight'] ),
 					'dry-run'   => ! empty( $assoc_args['dry-run'] ),
 					'run'       => ! empty( $assoc_args['run'] ),
+					'snapshot'  => ! empty( $assoc_args['snapshot'] ),
+					'coords'    => ! empty( $assoc_args['coords'] ),
 				)
 			)
 		);
 
 		if ( 1 !== count( $modes ) ) {
-			WP_CLI::error( 'Choose exactly one of --statuses, --preflight, --dry-run or --run. (--accept-growth and --clear-block are modifiers for --run.)' );
+			WP_CLI::error( 'Choose exactly one of --statuses, --preflight, --dry-run, --run, --snapshot or --coords. (--accept-growth and --clear-block are modifiers for --run.)' );
 		}
 
 		// A modifier silently ignored is worse than a refusal here: --clear-block
@@ -402,6 +416,12 @@ class WCAC_CLI {
 			// operator their export had been checked when it had not.
 			if ( 'preflight' === $modes[0] ) {
 				WP_CLI::error( '--from-file has no effect on --preflight, which reads Airtable and never the report. Run --preflight on its own.' );
+			}
+
+			// Same reasoning: neither mode reads the report, so accepting a
+			// file would report on something the file had no part in.
+			if ( 'snapshot' === $modes[0] || 'coords' === $modes[0] ) {
+				WP_CLI::error( sprintf( '--from-file has no effect on --%s, which does not read the report. Run it on its own.', $modes[0] ) );
 			}
 
 			// Parsed once here so a bad file fails on the terminal, before any
@@ -433,7 +453,13 @@ class WCAC_CLI {
 		 * Airtable and never the report, so requiring all three turned
 		 * "stop the cron reaching for Central" into "stop importing at all".
 		 */
-		$needs_central = '' === $from_file && 'preflight' !== $modes[0];
+		/*
+		 * --snapshot reads a stored option, and --coords reads a public route
+		 * anonymously. Neither needs a credential, and gating them on one
+		 * would make the two commands that diagnose a credential problem
+		 * unavailable exactly when it exists.
+		 */
+		$needs_central = '' === $from_file && ! in_array( $modes[0], array( 'preflight', 'snapshot', 'coords' ), true );
 		$this->require_campus_ready( $needs_central );
 
 		switch ( $modes[0] ) {
@@ -451,6 +477,14 @@ class WCAC_CLI {
 
 			case 'run':
 				$this->campus_run( ! empty( $assoc_args['accept-growth'] ), ! empty( $assoc_args['clear-block'] ) );
+				break;
+
+			case 'snapshot':
+				$this->campus_snapshot_show();
+				break;
+
+			case 'coords':
+				$this->campus_coords_show();
 				break;
 		}
 	}
@@ -683,6 +717,112 @@ class WCAC_CLI {
 	 *
 	 * @return array The report's data list.
 	 */
+	/**
+	 * Show the stored snapshot the dashboard reads in place of Airtable.
+	 *
+	 * @return void
+	 */
+	private function campus_snapshot_show() {
+		$snapshot = WCAC_Campus_Snapshot::get();
+		$state    = ( new WCAC_Sync() )->state();
+
+		if ( empty( $snapshot['rows'] ) ) {
+			WP_CLI::warning( 'No snapshot stored yet. It is written by a Campus Connect run: wp wcac campus-connect --run' );
+		} else {
+			$read_at = isset( $snapshot['read_at'] ) ? (string) $snapshot['read_at'] : '';
+			$age     = $read_at ? ( time() - (int) strtotime( $read_at ) ) : 0;
+
+			WP_CLI::log( sprintf( 'Central read:  %s%s', $read_at ? $read_at : 'unknown', $read_at ? sprintf( ' (%d day(s) ago)', (int) floor( $age / DAY_IN_SECONDS ) ) : '' ) );
+			WP_CLI::log( sprintf( 'Event rows:    %d', count( $snapshot['rows'] ) ) );
+			WP_CLI::log( sprintf( 'Coordinates:   %d', isset( $snapshot['coords'] ) && is_array( $snapshot['coords'] ) ? count( $snapshot['coords'] ) : 0 ) );
+
+			$statuses = array();
+
+			foreach ( $snapshot['rows'] as $row ) {
+				$label = isset( $row['Status'] ) && '' !== $row['Status'] ? (string) $row['Status'] : '(blank)';
+
+				$statuses[ $label ] = isset( $statuses[ $label ] ) ? $statuses[ $label ] + 1 : 1;
+			}
+
+			ksort( $statuses );
+
+			WP_CLI::log( '' );
+			WP_CLI::log( 'Statuses in the snapshot:' );
+
+			foreach ( $statuses as $label => $count ) {
+				WP_CLI::log( sprintf( '  %-46s %d', $label, $count ) );
+			}
+		}
+
+		if ( ! empty( $state['cc_snapshot_error'] ) ) {
+			WP_CLI::log( '' );
+			WP_CLI::warning( 'Last snapshot attempt was refused: ' . $state['cc_snapshot_error'] );
+		}
+
+		// Whether a reader on this site can actually see it. A snapshot nobody
+		// can reach is the failure mode worth naming out loud.
+		$offered = apply_filters( WCAC_Campus_Snapshot::FILTER, null );
+
+		WP_CLI::log( '' );
+		WP_CLI::log(
+			sprintf(
+				'Offered through the %s filter: %s',
+				WCAC_Campus_Snapshot::FILTER,
+				is_array( $offered ) && ! empty( $offered['rows'] ) ? 'yes' : 'NO'
+			)
+		);
+	}
+
+	/**
+	 * Read coordinates from the public WordCamps route and report on them.
+	 *
+	 * Writes nothing and sends no credential, which is the point: it separates
+	 * "the map is broken" from "the report credential is broken".
+	 *
+	 * @return void
+	 */
+	private function campus_coords_show() {
+		$coords = ( new WCAC_Source() )->campus_coords();
+
+		if ( is_wp_error( $coords ) ) {
+			WP_CLI::error( sprintf( 'The public WordCamps route failed: %s (%s)', $coords->get_error_message(), $coords->get_error_code() ) );
+		}
+
+		WP_CLI::log( sprintf( 'Campus Connect events with coordinates: %d', count( $coords ) ) );
+
+		if ( empty( $coords ) ) {
+			WP_CLI::error( 'The route answered but nothing in it matched a Campus Connect event. That points at the search or the name match, not at the events.' );
+		}
+
+		$no_site = 0;
+		$suspect = array();
+
+		foreach ( $coords as $id => $c ) {
+			if ( '' === $c['site'] ) {
+				++$no_site;
+			}
+
+			// A plausibility read, not a validation: these are the values that
+			// would put a marker in the sea.
+			if ( abs( $c['lat'] ) > 90 || abs( $c['lng'] ) > 180 || ( 0.0 === $c['lat'] && 0.0 === $c['lng'] ) ) {
+				$suspect[] = $id;
+			}
+		}
+
+		WP_CLI::log( sprintf( 'Without a site link:                    %d', $no_site ) );
+		WP_CLI::log( sprintf( 'Out of range or at exactly (0, 0):      %d', count( $suspect ) ) );
+
+		if ( ! empty( $suspect ) ) {
+			WP_CLI::warning( 'Suspect WordCamp IDs: ' . implode( ', ', array_slice( $suspect, 0, 20 ) ) );
+		}
+
+		$stored = WCAC_Campus_Snapshot::get();
+
+		if ( ! empty( $stored['coords'] ) ) {
+			WP_CLI::log( sprintf( 'In the stored snapshot:                 %d', count( $stored['coords'] ) ) );
+		}
+	}
+
 	private function campus_rows() {
 		$rows = ( new WCAC_Source() )->campus_connect();
 

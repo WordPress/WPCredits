@@ -164,6 +164,10 @@ class WCAC_Sync {
 				'cc_preflight_ok'    => 0,
 				'cc_preflight_table' => '',
 				'cc_growth_once'     => 0,
+				'cc_snapshot_at'     => '',
+				'cc_snapshot_rows'   => 0,
+				'cc_snapshot_coords' => 0,
+				'cc_snapshot_error'  => '',
 			)
 		);
 	}
@@ -1066,6 +1070,73 @@ class WCAC_Sync {
 	 * @param bool $accepted Operator passed --accept-growth for this run.
 	 * @return bool True to proceed.
 	 */
+	/**
+	 * Write the snapshot the dashboard reads in place of Airtable.
+	 *
+	 * Two sources, and only one of them needs a credential. The rows are the
+	 * report rows this run already fetched, mapped and volume-checked. The
+	 * coordinates come from Central's public WordCamps route, which answers an
+	 * anonymous request, so the map survives a lapsed report credential.
+	 *
+	 * A coordinate failure is logged and the previous snapshot kept, rather
+	 * than failing the run: the Airtable write below is still worth doing, and
+	 * a dashboard showing yesterday's map while saying so is better than one
+	 * showing none.
+	 *
+	 * @param array $records Mapped rows, keyed by WordCamp ID.
+	 * @return void
+	 */
+	protected function write_campus_snapshot( array $records ) {
+		$coords = $this->source->campus_coords();
+
+		if ( is_wp_error( $coords ) ) {
+			WCAC_Logger::log(
+				'warn',
+				sprintf(
+					'Campus Connect snapshot not updated: the public WordCamps route failed (%s). The previous snapshot is kept.',
+					$coords->get_error_message()
+				)
+			);
+
+			$this->set_state( array( 'cc_snapshot_error' => 'Coordinates could not be read: ' . $coords->get_error_message() ) );
+
+			return;
+		}
+
+		$snapshot = WCAC_Mapper::campus_snapshot( array_values( $records ), $coords, gmdate( 'c' ) );
+		$stored   = WCAC_Campus_Snapshot::store( $snapshot );
+
+		if ( is_wp_error( $stored ) ) {
+			// Not tallied as a sync error: the report was read fine and
+			// Airtable is about to be written. What failed is this plugin's
+			// refusal to publish a reading it does not believe, which is the
+			// guard working rather than the sync breaking.
+			WCAC_Logger::log( 'error', 'Campus Connect snapshot refused: ' . $stored->get_error_message() );
+
+			$this->set_state( array( 'cc_snapshot_error' => $stored->get_error_message() ) );
+
+			return;
+		}
+
+		$this->set_state(
+			array(
+				'cc_snapshot_at'     => gmdate( 'c' ),
+				'cc_snapshot_rows'   => count( $snapshot['rows'] ),
+				'cc_snapshot_coords' => count( $snapshot['coords'] ),
+				'cc_snapshot_error'  => '',
+			)
+		);
+
+		WCAC_Logger::log(
+			'info',
+			sprintf(
+				'Campus Connect snapshot updated: %d event row(s), %d coordinate(s).',
+				count( $snapshot['rows'] ),
+				count( $snapshot['coords'] )
+			)
+		);
+	}
+
 	protected function cc_volume_ok( $incoming, $accepted = false ) {
 		$incoming = (int) $incoming;
 		$state    = $this->state();
@@ -1637,6 +1708,16 @@ class WCAC_Sync {
 				'cc_series' => $keys['series'] ? 1 : 0,
 			)
 		);
+
+		/*
+		 * The dashboard's own copy, written here rather than after the Airtable
+		 * write and deliberately not gated on it. These rows have passed the
+		 * volume guard, so they are a good reading of the report; a third party's
+		 * write failing is no reason to leave the dashboard a day staler. This is
+		 * also the whole point of the snapshot: the reporting path no longer
+		 * depends on Airtable being reachable.
+		 */
+		$this->write_campus_snapshot( $records );
 
 		$sent = $this->airtable->upsert(
 			$table,

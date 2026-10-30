@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.12
+Stable tag: 1.1.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,52 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.13 =
+
+The Campus Connect reporting data no longer has to travel through Airtable.
+
+Both halves of it already existed upstream. The event rows come from
+`wordcamp-reports/v1/campus-connect-details`, which this plugin has read
+directly since the `campus_connect_viewer` subrole was granted. The
+coordinates, the one thing the dashboard could only get from the Airtable
+`WordCamps` table, turn out to be on `wp/v2/wordcamps`, which is public: an
+anonymous request returns every public Campus Connect event with
+`_venue_coordinates` filled in. Airtable was in the middle only because this
+plugin had no way to hand rows to a reader on the same site.
+
+* Added: `WCAC_Mapper::campus_coords()`, which picks the Campus Connect subset
+  out of the public WordCamps route. The route is ~94% regular WordCamps, so
+  the subset is found by name, which is the rule the Airtable base used in a
+  formula field: `IF(FIND("campus connect", LOWER({Name})), ...)`. Default-deny,
+  and `is_numeric()` rather than a truth test on the coordinates, because 0 is
+  a real latitude. Only lat, lng and site leave the mapper; the route also
+  returns `Organizer Name` and `WordPress.org Username`.
+* Added: `WCAC_Source::campus_coords()`, which pages that route anonymously.
+  No credential is sent, so a lapsed report credential cannot take the map
+  down with it. `search=campus connect` narrows ~1,500 events to about a
+  hundred; it is a narrowing, not the rule, and `X-WP-TotalPages` is followed
+  because today's result is 99 rows against a page size of 100.
+* Added: `WCAC_Campus_Snapshot`, which stores the rows and the coordinates in
+  one option and offers them through the `wcac_campus_connect_export` filter.
+  A reader need not know this class exists and keeps working unchanged if this
+  plugin is deactivated: it finds no provider and says so.
+* Added: refusal rules on the snapshot, so a broken read cannot blank a
+  dashboard. Under 50 rows, no coordinates at all, or either count falling
+  below half the stored snapshot, and the stored one is kept. A smaller dip is
+  accepted, because refusing it would serve staler data to avoid a smaller
+  inaccuracy.
+* Added: the snapshot is written before the Airtable write and is not gated on
+  it. The rows have passed the volume guard at that point, and a third party's
+  write failing is no reason to leave the dashboard a day staler.
+* Added: `cc_snapshot_at`, `cc_snapshot_rows`, `cc_snapshot_coords` and
+  `cc_snapshot_error` in the run state, and a Campus Connect snapshot row on
+  the status screen.
+* Added: `wp wcac campus-connect --snapshot` to read the stored snapshot, and
+  `--coords` to read the public route without writing anything.
+
+Nothing about the Airtable path changed. The `Campus Connect Events` table is
+still written exactly as before, so this release is additive and reversible.
 
 = 1.1.12 =
 

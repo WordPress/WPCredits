@@ -966,6 +966,184 @@ class WCAC_Mapper {
 	 * @param string $key  Key name.
 	 * @return mixed Empty string when absent.
 	 */
+	/**
+	 * The Airtable field name behind each Campus Connect report column.
+	 *
+	 * The snapshot handed to the tracker is keyed by the report's own column
+	 * names, because that is what WPCCT_Normalize consumes and what its frozen
+	 * fixtures are recorded in. campus_event() maps a report row to Airtable
+	 * field names, so this is the way back. The Airtable path in the tracker
+	 * performed exactly this translation by hand; keeping it in one named
+	 * constant means the two sources cannot drift apart silently.
+	 *
+	 * Order matters: it is the report's own column order, so a snapshot row
+	 * and a fixture row have identical key order and can be compared directly.
+	 */
+	const CAMPUS_SNAPSHOT_COLUMNS = array(
+		'Start Date (YYYY-mm-dd)'         => 'Start Date',
+		'End Date (YYYY-mm-dd)'           => 'End Date',
+		'Status'                          => 'Status',
+		'Name'                            => 'Name',
+		'Institution Name'                => 'Institution Name',
+		'City'                            => 'City',
+		'Country'                         => 'Country',
+		'Number of Anticipated Attendees' => 'Anticipated Attendees',
+		'Actual Attendees'                => 'Actual Attendees',
+		'URL'                             => 'URL',
+		'ID'                              => 'WordCamp ID',
+	);
+
+	/**
+	 * Assemble the snapshot the tracker reads in place of Airtable.
+	 *
+	 * Built from campus_event()'s mapped fields rather than from raw report
+	 * rows, deliberately: that is where a wcpt status slug becomes the label
+	 * the tracker buckets on, where HTML entities are decoded, and where
+	 * Anticipated Attendees is kept as organiser free text instead of being
+	 * coerced to a number. Re-deriving any of that here would be a second,
+	 * divergent implementation of rules that already have tests.
+	 *
+	 * Every documented column is present on every row, empty where the report
+	 * had nothing, so the consumer never has to tell "absent" from "blank".
+	 * The connector's own 'Synced At' stamp is not copied: the snapshot
+	 * reports its age once, in read_at, and a per-row copy of that stamp would
+	 * read like report data.
+	 *
+	 * @param array  $events  List of campus_event() 'fields' arrays.
+	 * @param array  $coords  WordCamp ID => array( lat, lng, site ).
+	 * @param string $read_at ISO-8601 time Central was read.
+	 * @return array array( read_at, rows, coords )
+	 */
+	public static function campus_snapshot( array $events, array $coords, $read_at ) {
+		$rows = array();
+
+		foreach ( $events as $fields ) {
+			if ( ! is_array( $fields ) || empty( $fields['WordCamp ID'] ) ) {
+				// Nothing to join a coordinate to and nothing to count, which
+				// is exactly what campus_event() returns for a row whose ID
+				// did not parse.
+				continue;
+			}
+
+			$row = array();
+
+			foreach ( self::CAMPUS_SNAPSHOT_COLUMNS as $column => $field ) {
+				$value = array_key_exists( $field, $fields ) ? $fields[ $field ] : '';
+
+				$row[ $column ] = is_scalar( $value ) ? (string) $value : '';
+			}
+
+			$rows[] = $row;
+		}
+
+		return array(
+			'read_at' => is_scalar( $read_at ) ? (string) $read_at : '',
+			'rows'    => $rows,
+			'coords'  => $coords,
+		);
+	}
+
+	/**
+	 * Coordinates for the Campus Connect subset of Central's public WordCamps
+	 * route, keyed by WordCamp ID.
+	 *
+	 * wp/v2/wordcamps needs no credential and carries _venue_coordinates on
+	 * every public event, which is why the map does not have to go through
+	 * Airtable to be drawn. What it also carries is ~1,430 regular WordCamps,
+	 * so the subset has to be picked out by name. The Airtable base did that
+	 * with a formula field:
+	 *
+	 *     IF(FIND("campus connect", LOWER({Name})), "Campus Connect", ...)
+	 *
+	 * so the name match below is that rule moved into PHP rather than a new
+	 * classification invented here. It is default-deny: a post whose title
+	 * does not say Campus Connect is not a Campus Connect event, and a post
+	 * without usable coordinates is dropped rather than carried as a marker
+	 * at (0, 0) in the Gulf of Guinea.
+	 *
+	 * Only lat, lng and site leave this method. The route also returns
+	 * Organizer Name and WordPress.org Username, and neither has any business
+	 * in a reporting blob.
+	 *
+	 * @param array $posts REST payloads from wp/v2/wordcamps.
+	 * @return array WordCamp ID as a string => array( lat, lng, site ).
+	 */
+	public static function campus_coords( array $posts ) {
+		$out = array();
+
+		foreach ( $posts as $post ) {
+			if ( ! is_array( $post ) ) {
+				continue;
+			}
+
+			$id = isset( $post['id'] ) ? (int) $post['id'] : 0;
+
+			if ( $id < 1 ) {
+				continue;
+			}
+
+			if ( ! self::is_campus_name( self::pick( $post, 'title' ) ) ) {
+				continue;
+			}
+
+			$coords = isset( $post['_venue_coordinates'] ) && is_array( $post['_venue_coordinates'] )
+				? $post['_venue_coordinates']
+				: array();
+
+			$lat = isset( $coords['latitude'] ) ? $coords['latitude'] : '';
+			$lng = isset( $coords['longitude'] ) ? $coords['longitude'] : '';
+
+			/* is_numeric(), not a truth test: 0 is a real latitude. Kampala is
+			   at 0.3 and Quito at -0.2, and a falsy check would drop the
+			   equator. It also refuses "n/a", which (float) would silently
+			   turn into 0.0. */
+			if ( ! is_numeric( $lat ) || ! is_numeric( $lng ) ) {
+				continue;
+			}
+
+			$site = esc_url_raw( (string) self::pick( $post, 'URL' ) );
+
+			if ( '' === $site ) {
+				// An event approved but not yet given its own site still has a
+				// Central page, which is better than no link at all.
+				$site = esc_url_raw( (string) self::pick( $post, 'link' ) );
+			}
+
+			$out[ (string) $id ] = array(
+				'lat'  => (float) $lat,
+				'lng'  => (float) $lng,
+				'site' => $site,
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether a WordCamp post's title marks it as a Campus Connect event.
+	 *
+	 * The title arrives as array( 'rendered' => ... ) from wp/v2 and as a
+	 * plain string from a hand-built fixture, and in both cases it is HTML
+	 * encoded, so it is decoded before matching: "St. Nobody&#039;s" has to
+	 * match the same way "St. Nobody's" does.
+	 *
+	 * @param mixed $title Title value from the REST payload.
+	 * @return bool
+	 */
+	protected static function is_campus_name( $title ) {
+		if ( is_array( $title ) ) {
+			$title = isset( $title['rendered'] ) ? $title['rendered'] : '';
+		}
+
+		if ( ! is_scalar( $title ) ) {
+			return false;
+		}
+
+		$title = html_entity_decode( (string) $title, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+		return false !== stripos( $title, 'campus connect' );
+	}
+
 	protected static function pick( array $post, $key ) {
 		return array_key_exists( $key, $post ) ? $post[ $key ] : '';
 	}

@@ -95,6 +95,86 @@ class WCAC_Source {
 		return add_query_arg( $args, untrailingslashit( $root ) . '/wp-json/wp/v2/' . $endpoint );
 	}
 
+	/** Search term that narrows the WordCamps route to Campus Connect events. */
+	const CAMPUS_SEARCH = 'campus connect';
+
+	/**
+	 * Hard cap on pages followed while collecting coordinates.
+	 *
+	 * The search returns 99 rows today against a page size of 100, so a second
+	 * page is weeks away rather than hypothetical. Twenty pages is 2,000 events,
+	 * far past any real figure, and exists only so a route that reports a wrong
+	 * X-WP-TotalPages cannot spin here.
+	 */
+	const CAMPUS_COORD_MAX_PAGES = 20;
+
+	/**
+	 * Coordinates for every public Campus Connect event, from Central's
+	 * WordCamps route.
+	 *
+	 * This is the one source in the plugin that needs no credential at all.
+	 * wp/v2/wordcamps is public, answers 200 to an anonymous request, and
+	 * carries _venue_coordinates on every event, which is why the map does not
+	 * have to be routed through Airtable and why a lapsed report credential
+	 * cannot take the map down with it.
+	 *
+	 * `search` narrows ~1,500 public WordCamps to about a hundred candidates.
+	 * It is a narrowing, not the rule: WordPress searches content as well as
+	 * title, so the returned set is still filtered by name in
+	 * WCAC_Mapper::campus_coords(), which owns the Campus Connect test.
+	 *
+	 * @return array|WP_Error WordCamp ID => array( lat, lng, site ).
+	 */
+	public function campus_coords() {
+		$posts = array();
+		$page  = 1;
+		$pages = 1;
+
+		do {
+			$result = $this->get(
+				$this->url(
+					$this->central_root(),
+					'wordcamps',
+					array(
+						'per_page' => 100,
+						'page'     => $page,
+						'search'   => self::CAMPUS_SEARCH,
+						// Relevance ordering is not stable across pages; an id
+						// sort is, so nothing is read twice or skipped.
+						'orderby'  => 'id',
+						'order'    => 'asc',
+					)
+				)
+			);
+
+			if ( is_wp_error( $result ) ) {
+				return $result;
+			}
+
+			$body = isset( $result['body'] ) ? $result['body'] : null;
+
+			// An error envelope from the REST API is still valid JSON and still
+			// arrives with a 200 in some configurations. A list of posts is the
+			// only shape that may be treated as a result.
+			if ( ! is_array( $body ) || ( ! empty( $body ) && ! isset( $body[0] ) ) ) {
+				return new WP_Error(
+					'wcac_coords_shape',
+					'The public WordCamps route did not return a list of posts.'
+				);
+			}
+
+			$posts = array_merge( $posts, $body );
+
+			if ( 1 === $page ) {
+				$pages = max( 1, (int) $result['total_pages'] );
+			}
+
+			++$page;
+		} while ( $page <= $pages && $page <= self::CAMPUS_COORD_MAX_PAGES );
+
+		return WCAC_Mapper::campus_coords( $posts );
+	}
+
 	/**
 	 * Fetch one page of WordCamps from Central.
 	 *

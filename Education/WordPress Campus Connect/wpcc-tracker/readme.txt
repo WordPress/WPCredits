@@ -4,7 +4,7 @@ Tags: campus connect, wordpress, education, events, statistics
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.2
+Stable tag: 1.2.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,49 @@ event countries that could not be matched to one of the five reporting regions.
 Until the first successful sync the blocks render bundled seed data.
 
 == Changelog ==
+
+= 1.2.0 =
+
+The figures can now come straight from WordCamp Central, with no Airtable in
+the path.
+
+Nothing this plugin publishes was ever Airtable's own knowledge. The event rows
+come from a report on Central, and the coordinates, the one thing that could
+only be read from the Airtable `WordCamps` table, turn out to be on
+`wp/v2/wordcamps`, which is public. Airtable was in the middle because this
+plugin had no way to be handed the rows by something on the same site.
+wordcamp-airtable-connector 1.1.13 offers them through a filter, and this
+release can read it.
+
+* Added: a source choice on the settings screen. 'A connector on this site'
+  asks for a snapshot through the `wcac_campus_connect_export` filter; 'The
+  Airtable base' is the original path, unchanged, and remains the only one that
+  can see the hand-curated columns in the base.
+* Added: `WPCCT_Normalize::from_snapshot()`, the gate between a payload this
+  plugin did not build and the rows it publishes. It refuses a missing
+  provider, a malformed payload, an empty row list, an empty coordinate map,
+  and rows missing the `ID` or `Status` column, naming which one in each case.
+  Rows are passed through untouched: the provider owns the mapping, and that is
+  where a wcpt status slug became the label bucketed here.
+* Added: the row floor is now `MIN_ROWS` and applies to both sources, so
+  neither path can be the lenient one.
+* Added: `source_via` in the stored blob, so the provenance line describes the
+  data in front of it rather than the path the next sync would take. A blob
+  built before this release carries no source, really did come through
+  Airtable, and keeps the old wording until the next sync replaces it.
+* Changed: the provenance line says 'WordCamp Central' rather than 'WordCamp
+  Central via Airtable' when the figures came through the connector, because
+  naming a system that was not in the path is the kind of small lie this line
+  exists to avoid.
+* Changed: the Airtable reader is now `read_from_airtable()` and the sync
+  chooses between it and `read_from_connector()`. Both return the same shape,
+  and every refusal still goes through `fail()`, which keeps the published
+  blob and releases the run lock.
+* Changed: the 'normalised result is empty' refusal names the source it
+  actually read.
+
+Defaults to the Airtable source, deliberately: an upgrade must not switch a
+live dashboard's source before anyone has confirmed a snapshot exists.
 
 = 1.1.2 =
 

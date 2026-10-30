@@ -748,6 +748,46 @@ class WCAC_Admin {
 						</td>
 					</tr>
 					<tr>
+						<th><?php esc_html_e( 'Campus Connect snapshot', 'wordcamp-airtable-connector' ); ?></th>
+						<td>
+							<?php
+							// The dashboard on this site reads this, not Airtable, so
+							// its age is the age of the published figures. It has its
+							// own row because it can be stale while the Airtable write
+							// above is perfectly healthy: a refused snapshot keeps the
+							// previous one rather than blanking the dashboard, and that
+							// is exactly the case nothing else on this screen would show.
+							$snap     = WCAC_Campus_Snapshot::get();
+							$snap_at  = isset( $snap['read_at'] ) ? (int) strtotime( (string) $snap['read_at'] ) : 0;
+							$snap_err = (string) $this->state_value( $state, 'cc_snapshot_error' );
+
+							if ( empty( $snap['rows'] ) ) {
+								esc_html_e( 'none stored yet', 'wordcamp-airtable-connector' );
+							} else {
+								printf(
+									/* translators: 1: human-readable time difference, 2: number of event rows, 3: number of coordinates. */
+									esc_html__( 'Central read %1$s, %2$s event rows, %3$s coordinates', 'wordcamp-airtable-connector' ),
+									esc_html( $snap_at ? $this->ago( $snap_at ) : __( 'at an unknown time', 'wordcamp-airtable-connector' ) ),
+									esc_html( number_format_i18n( count( $snap['rows'] ) ) ),
+									esc_html( number_format_i18n( isset( $snap['coords'] ) && is_array( $snap['coords'] ) ? count( $snap['coords'] ) : 0 ) )
+								);
+							}
+
+							if ( '' !== $snap_err ) {
+								echo '<br /><strong>';
+								esc_html_e( 'The last attempt was refused, so the figures above are the previous reading:', 'wordcamp-airtable-connector' );
+								echo '</strong> ';
+								echo esc_html( $snap_err );
+							}
+
+							printf(
+								'<br /><span class="description">%s</span>',
+								esc_html__( 'Coordinates come from Central\'s public WordCamps route and need no credential, so this half of the map keeps working even when the report credential does not.', 'wordcamp-airtable-connector' )
+							);
+							?>
+						</td>
+					</tr>
+					<tr>
 						<th><?php esc_html_e( 'Campus Connect failure latch', 'wordcamp-airtable-connector' ); ?></th>
 						<td>
 							<?php

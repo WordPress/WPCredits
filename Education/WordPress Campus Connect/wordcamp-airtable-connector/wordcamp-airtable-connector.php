@@ -3,7 +3,7 @@
  * Plugin Name:       WordCamp Airtable Connector
  * Plugin URI:        https://github.com/gomp/wordcamp-airtable-connector
  * Description:       Pulls WordCamps, Meetups, Sessions, Speakers, Sponsors and Campus Connect events from the WordCamp.org REST API and upserts them into an Airtable base on a schedule.
- * Version:           1.1.12
+ * Version:           1.1.13
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WCAC_VERSION', '1.1.12' );
+define( 'WCAC_VERSION', '1.1.13' );
 define( 'WCAC_FILE', __FILE__ );
 define( 'WCAC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WCAC_URL', plugin_dir_url( __FILE__ ) );
@@ -48,8 +48,16 @@ require_once WCAC_DIR . 'includes/class-wcac-logger.php';
 require_once WCAC_DIR . 'includes/class-wcac-source.php';
 require_once WCAC_DIR . 'includes/class-wcac-airtable.php';
 require_once WCAC_DIR . 'includes/class-wcac-mapper.php';
+require_once WCAC_DIR . 'includes/class-wcac-campus-snapshot.php';
 require_once WCAC_DIR . 'includes/class-wcac-sync.php';
 require_once WCAC_DIR . 'includes/class-wcac-admin.php';
+
+/*
+ * Offer the Campus Connect snapshot to any reader on this site. Registered
+ * here, at load, rather than inside the sync: a dashboard plugin may ask for
+ * the snapshot on any request, not only on a sync run.
+ */
+WCAC_Campus_Snapshot::boot();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once WCAC_DIR . 'includes/class-wcac-cli.php';

@@ -16,6 +16,36 @@ class WPCCT_Sync {
 	const API_URL = 'https://api.airtable.com/v0';
 
 	/**
+	 * Where the reporting spine is read from.
+	 *
+	 * 'connector' asks a plugin on this site for a snapshot it has already
+	 * read from WordCamp Central. 'airtable' is the original two-hop path and
+	 * stays as the fallback, and as the only path that can see the
+	 * hand-curated columns in the base.
+	 */
+	const SOURCE_CONNECTOR = 'connector';
+	const SOURCE_AIRTABLE  = 'airtable';
+
+	/**
+	 * Filter a provider answers with its Campus Connect snapshot.
+	 *
+	 * Owned by wordcamp-airtable-connector, which documents the contract. A
+	 * filter rather than a class call so this plugin does not depend on that
+	 * one being loaded, or loaded first.
+	 */
+	const PROVIDER_FILTER = 'wcac_campus_connect_export';
+
+	/**
+	 * Fewest events that can be a real reading of the report.
+	 *
+	 * The report has carried between 142 and 177 rows. A handful means a
+	 * filter, a renamed field or a broken provider, not a shrunken programme,
+	 * and publishing it would blank the dashboard. Applied to both sources, so
+	 * neither path can be the lenient one.
+	 */
+	const MIN_ROWS = 50;
+
+	/**
 	 * Option holding the current/last sync's progress. A plain (non-autoload)
 	 * option rather than a transient: WordPress always writes an option's
 	 * value to the wp_options table on update() regardless of whether an
@@ -81,6 +111,11 @@ class WPCCT_Sync {
 
 		return array_merge(
 			array(
+				/* Defaults to the Airtable path, which is where every existing
+				   install already is. Moving to the connector is an explicit
+				   change, so an upgrade cannot switch a live dashboard's source
+				   underneath it before anyone has confirmed a snapshot exists. */
+				'source'          => self::SOURCE_AIRTABLE,
 				'airtable_pat'    => '',
 				'base_id'         => 'appoiPJkMFdnJEmfa',
 				'events_table'    => 'Campus Connect Events',
@@ -204,6 +239,154 @@ class WPCCT_Sync {
 		self::set_progress( 'starting', __( 'Validating settings…', 'wpcc-tracker' ) );
 
 		$settings = self::settings();
+
+		$read = ( self::SOURCE_CONNECTOR === $settings['source'] )
+			? self::read_from_connector()
+			: self::read_from_airtable( $settings );
+
+		// Every refusal inside a reader has already gone through fail(), which
+		// owns the error option, the progress record and the lock. Nothing is
+		// left to do here but pass it back.
+		if ( is_wp_error( $read ) ) {
+			return $read;
+		}
+
+		self::set_progress(
+			'saving',
+			__( 'Normalising and saving…', 'wpcc-tracker' ),
+			array(
+				'events' => count( $read['rows'] ),
+				'coords' => count( $read['coords'] ),
+			)
+		);
+
+		$blob = WPCCT_Normalize::build( $read['rows'], $read['coords'], $read['source'] );
+
+		if ( ! WPCCT_Normalize::is_plausible( $blob ) ) {
+			/* The row-count floor in the reader counts records as they
+			   arrive, which a field rename does not change: the Airtable table
+			   is addressed by field name, so renaming one still delivers every
+			   record - the rows simply lose that column. The same is true of a
+			   snapshot whose provider has started emitting a column under a new
+			   name. This guard reads the built blob instead. See
+			   WPCCT_Normalize::is_plausible() for exactly what it does and does
+			   not catch. */
+			return self::fail(
+				sprintf(
+					/* translators: %s: the source the records came from. */
+					__( 'The %s returned records, but the normalised result is empty: either no event has a recognised Status, or no event country maps to a region. The Status or Country field has most likely been renamed upstream. Refusing to overwrite good data.', 'wpcc-tracker' ),
+					self::SOURCE_CONNECTOR === $settings['source']
+						? __( 'connector snapshot', 'wpcc-tracker' )
+						: __( 'Airtable base', 'wpcc-tracker' )
+				),
+				'saving'
+			);
+		}
+
+		update_option( WPCCT_OPT_DATA, $blob, false );
+		update_option( WPCCT_OPT_LASTSYNC, time(), false );
+		delete_option( WPCCT_OPT_LASTERR );
+
+		/* 'done' - and specifically its counts - is only ever written here,
+		   after wpcct_data has actually been persisted above. Nothing reports
+		   100%/done ahead of the real write.
+
+		   The counts are the stored blob's own, not the inputs':
+		   $read['rows'] counts every record the source returned, including the
+		   denied and cancelled ones that never reach the blob, and
+		   $read['coords'] counts every Campus Connect event with coordinates,
+		   including cancelled and declined ones that are not drawn. Reporting
+		   the inputs overstates both. */
+		self::set_progress(
+			'done',
+			__( 'Sync complete.', 'wpcc-tracker' ),
+			array(
+				'events'  => count( $blob['events'] ),
+				'markers' => count( $blob['markers'] ),
+			)
+		);
+
+		self::release_lock();
+
+		return true;
+	}
+
+	/** Object-cache group for the run lock. */
+	const CACHE_GROUP = 'wpcct';
+
+	/**
+	 * Take the run lock, if it is free.
+	 *
+	 * Two layers, because neither is sufficient on its own:
+	 *
+	 * - wp_cache_add() is a genuine atomic test-and-set - both memcached and
+	 *   Redis implement ADD as "fail if the key already exists" - but only
+	 *   where a persistent object cache is installed (as it is on the target
+	 *   host). On the default non-persistent cache it is per-request and so
+	 *   always succeeds, which is why it cannot stand alone.
+	 * - The option is durable and visible to every worker, but its write is
+	 *   NOT atomic. add_option() would be no better than update_option() here:
+	 *   it ends in an INSERT … ON DUPLICATE KEY UPDATE, so it cannot fail on
+	 *   the unique key, and two workers that both read a free lock would both
+	 *   come away believing they hold it.
+	 *
+	 * So: a real mutex wherever an external object cache is in play, and a
+	 * best-effort one elsewhere, where the remaining race needs two workers to
+	 * read the same free lock in the same instant. Losing that race yields the
+	 * behaviour that existed before the lock, so it does not justify a heavier
+	 * primitive.
+	 *
+	 * @return bool True when this process now holds the lock.
+	 */
+	private static function acquire_lock() {
+		$now      = time();
+		$ext_cache = function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache();
+
+		if ( $ext_cache && ! wp_cache_add( self::OPT_LOCK, $now, self::CACHE_GROUP, self::LOCK_TTL ) ) {
+			return false;
+		}
+
+		$held = (int) get_option( self::OPT_LOCK, 0 );
+
+		if ( $held > 0 && ( $now - $held ) < self::LOCK_TTL ) {
+			// The durable record says a run is still in flight; give back the
+			// cache key just taken, or the lock would outlive that run.
+			if ( $ext_cache ) {
+				wp_cache_delete( self::OPT_LOCK, self::CACHE_GROUP );
+			}
+			return false;
+		}
+
+		// Either free, or abandoned by a run that died before releasing.
+		update_option( self::OPT_LOCK, $now, false );
+
+		return true;
+	}
+
+	/**
+	 * Release the run lock, in both layers. Must be reached on every exit path
+	 * from run() that acquired it - success returns here, failures via fail().
+	 */
+	private static function release_lock() {
+		delete_option( self::OPT_LOCK );
+
+		if ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() ) {
+			wp_cache_delete( self::OPT_LOCK, self::CACHE_GROUP );
+		}
+	}
+
+	/**
+	 * Read the spine and the coordinates from Airtable.
+	 *
+	 * The original path, kept whole. It is still the fallback when the
+	 * connector is unavailable, and it is the only path that can see the
+	 * hand-curated columns in the base.
+	 *
+	 * @param array $settings Settings.
+	 * @return array|WP_Error array( rows, coords, source ) or a refusal.
+	 */
+	private static function read_from_airtable( $settings ) {
+		$settings = self::settings();
 		if ( empty( $settings['airtable_pat'] ) ) {
 			return self::fail( __( 'No Airtable token configured.', 'wpcc-tracker' ), 'starting' );
 		}
@@ -281,139 +464,88 @@ class WPCCT_Sync {
 			);
 		}
 
-		if ( count( $rows ) < 50 ) {
+		if ( count( $rows ) < self::MIN_ROWS ) {
 			/* A healthy export is ~142 rows. A tiny result means a filter or a
 			   renamed field, not a shrunken programme - keep the old blob. */
 			return self::fail(
 				sprintf(
-					/* translators: %d: number of records returned. */
-					__( 'Airtable returned only %d events; refusing to overwrite good data.', 'wpcc-tracker' ),
-					count( $rows )
+					/* translators: 1: number of records returned. 2: the floor. */
+					__( 'Airtable returned only %1$d events, against a floor of %2$d; refusing to overwrite good data.', 'wpcc-tracker' ),
+					count( $rows ),
+					self::MIN_ROWS
+				),
+				'events'
+			);
+		}
+
+		return array(
+			'rows'   => $rows,
+			'coords' => $coords,
+			'source' => array(
+				'synced'  => $synced_ts ? gmdate( 'c', $synced_ts ) : '',
+				'created' => $created_ts ? gmdate( 'c', $created_ts ) : '',
+				'via'     => 'airtable',
+			),
+		);
+	}
+
+	/**
+	 * Read the spine and the coordinates from a connector on this site.
+	 *
+	 * One hop instead of two. The provider has already read Central, mapped
+	 * the statuses, decoded the entities and checked the volume, so there is
+	 * nothing to fetch here and nothing to re-derive: this asks, checks the
+	 * shape, and applies the same floor the Airtable path applies.
+	 *
+	 * No credential is involved. The provider holds the one that reads the
+	 * report, and the coordinates it passes on came from a public route, which
+	 * is why this plugin can publish a map without holding anything.
+	 *
+	 * @return array|WP_Error array( rows, coords, source ) or a refusal.
+	 */
+	private static function read_from_connector() {
+		self::set_progress( 'events', __( 'Asking the connector for its Campus Connect snapshot…', 'wpcc-tracker' ) );
+
+		/* A filter rather than a class call, so this plugin need not know
+		   which plugin answers, need not load in any particular order, and
+		   degrades to a named refusal rather than a fatal if the provider is
+		   deactivated. */
+		$read = WPCCT_Normalize::from_snapshot( apply_filters( self::PROVIDER_FILTER, null ) );
+
+		if ( ! $read['ok'] ) {
+			return self::fail( $read['error'], 'events' );
+		}
+
+		if ( count( $read['rows'] ) < self::MIN_ROWS ) {
+			return self::fail(
+				sprintf(
+					/* translators: 1: number of rows offered. 2: the floor. */
+					__( 'The connector offered only %1$d events, against a floor of %2$d; refusing to overwrite good data.', 'wpcc-tracker' ),
+					count( $read['rows'] ),
+					self::MIN_ROWS
 				),
 				'events'
 			);
 		}
 
 		self::set_progress(
-			'saving',
-			__( 'Normalising and saving…', 'wpcc-tracker' ),
-			array(
-				'events' => count( $rows ),
-				'coords' => count( $coords ),
-			)
+			'coords',
+			__( 'Reading coordinates from the snapshot…', 'wpcc-tracker' ),
+			array( 'events' => count( $read['rows'] ) )
 		);
 
-		$blob = WPCCT_Normalize::build(
-			$rows,
-			$coords,
-			array(
-				'synced'  => $synced_ts ? gmdate( 'c', $synced_ts ) : '',
-				'created' => $created_ts ? gmdate( 'c', $created_ts ) : '',
-			)
+		return array(
+			'rows'   => $read['rows'],
+			'coords' => $read['coords'],
+			'source' => array(
+				// The snapshot states once when Central was read. There is no
+				// createdTime equivalent and none is needed: this path has no
+				// hand-imported rows to distinguish from refreshed ones.
+				'synced'  => $read['read_at'],
+				'created' => '',
+				'via'     => 'connector',
+			),
 		);
-
-		if ( ! WPCCT_Normalize::is_plausible( $blob ) ) {
-			/* The row-count guard above counts records as they arrive, which
-			   a field rename does not change: the Events table is addressed
-			   by field name, so renaming one still delivers all ~142 records
-			   - they simply lose that column. This guard reads the built blob
-			   instead. See WPCCT_Normalize::is_plausible() for exactly what it
-			   does and does not catch. */
-			return self::fail(
-				__( 'Airtable returned records, but the normalised result is empty: either no event has a recognised Status, or no event country maps to a region. The Status or Country field has most likely been renamed upstream. Refusing to overwrite good data.', 'wpcc-tracker' ),
-				'saving'
-			);
-		}
-
-		update_option( WPCCT_OPT_DATA, $blob, false );
-		update_option( WPCCT_OPT_LASTSYNC, time(), false );
-		delete_option( WPCCT_OPT_LASTERR );
-
-		/* 'done' - and specifically its counts - is only ever written here,
-		   after wpcct_data has actually been persisted above. Nothing reports
-		   100%/done ahead of the real write.
-
-		   The counts are the stored blob's own, not the inputs': $rows counts
-		   fetched records including the denied and cancelled ones that never
-		   reach the blob, and $coords counts every Campus Connect WordCamp
-		   with coordinates, including cancelled/declined camps that are not
-		   drawn. Reporting the inputs overstates both. */
-		self::set_progress(
-			'done',
-			__( 'Sync complete.', 'wpcc-tracker' ),
-			array(
-				'events'  => count( $blob['events'] ),
-				'markers' => count( $blob['markers'] ),
-			)
-		);
-
-		self::release_lock();
-
-		return true;
-	}
-
-	/** Object-cache group for the run lock. */
-	const CACHE_GROUP = 'wpcct';
-
-	/**
-	 * Take the run lock, if it is free.
-	 *
-	 * Two layers, because neither is sufficient on its own:
-	 *
-	 * - wp_cache_add() is a genuine atomic test-and-set - both memcached and
-	 *   Redis implement ADD as "fail if the key already exists" - but only
-	 *   where a persistent object cache is installed (as it is on the target
-	 *   host). On the default non-persistent cache it is per-request and so
-	 *   always succeeds, which is why it cannot stand alone.
-	 * - The option is durable and visible to every worker, but its write is
-	 *   NOT atomic. add_option() would be no better than update_option() here:
-	 *   it ends in an INSERT … ON DUPLICATE KEY UPDATE, so it cannot fail on
-	 *   the unique key, and two workers that both read a free lock would both
-	 *   come away believing they hold it.
-	 *
-	 * So: a real mutex wherever an external object cache is in play, and a
-	 * best-effort one elsewhere, where the remaining race needs two workers to
-	 * read the same free lock in the same instant. Losing that race yields the
-	 * behaviour that existed before the lock, so it does not justify a heavier
-	 * primitive.
-	 *
-	 * @return bool True when this process now holds the lock.
-	 */
-	private static function acquire_lock() {
-		$now      = time();
-		$ext_cache = function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache();
-
-		if ( $ext_cache && ! wp_cache_add( self::OPT_LOCK, $now, self::CACHE_GROUP, self::LOCK_TTL ) ) {
-			return false;
-		}
-
-		$held = (int) get_option( self::OPT_LOCK, 0 );
-
-		if ( $held > 0 && ( $now - $held ) < self::LOCK_TTL ) {
-			// The durable record says a run is still in flight; give back the
-			// cache key just taken, or the lock would outlive that run.
-			if ( $ext_cache ) {
-				wp_cache_delete( self::OPT_LOCK, self::CACHE_GROUP );
-			}
-			return false;
-		}
-
-		// Either free, or abandoned by a run that died before releasing.
-		update_option( self::OPT_LOCK, $now, false );
-
-		return true;
-	}
-
-	/**
-	 * Release the run lock, in both layers. Must be reached on every exit path
-	 * from run() that acquired it - success returns here, failures via fail().
-	 */
-	private static function release_lock() {
-		delete_option( self::OPT_LOCK );
-
-		if ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() ) {
-			wp_cache_delete( self::OPT_LOCK, self::CACHE_GROUP );
-		}
 	}
 
 	/**

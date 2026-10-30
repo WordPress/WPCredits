@@ -174,6 +174,21 @@ class WPCCT_Settings {
 		);
 
 		add_settings_section(
+			'wpcct_source',
+			__( 'Where the figures come from', 'wpcc-tracker' ),
+			array( __CLASS__, 'section_source' ),
+			self::PAGE_SLUG
+		);
+
+		add_settings_field(
+			'wpcct_source',
+			__( 'Source', 'wpcc-tracker' ),
+			array( __CLASS__, 'field_source' ),
+			self::PAGE_SLUG,
+			'wpcct_source'
+		);
+
+		add_settings_section(
 			'wpcct_main',
 			__( 'Airtable connection', 'wpcc-tracker' ),
 			'__return_false',
@@ -244,7 +259,94 @@ class WPCCT_Settings {
 				: $existing[ $key ];
 		}
 
+		/* Default-deny on an unrecognised value: only the two known sources
+		   are accepted, and anything else keeps the stored one rather than
+		   leaving the sync to decide what an unknown source means. */
+		$source = isset( $input['source'] ) ? sanitize_text_field( wp_unslash( $input['source'] ) ) : '';
+
+		$out['source'] = in_array( $source, array( WPCCT_Sync::SOURCE_CONNECTOR, WPCCT_Sync::SOURCE_AIRTABLE ), true )
+			? $source
+			: $existing['source'];
+
 		return $out;
+	}
+
+	/**
+	 * Explain the two sources above the choice.
+	 *
+	 * @return void
+	 */
+	public static function section_source() {
+		$offered = apply_filters( WPCCT_Sync::PROVIDER_FILTER, null );
+		$rows    = is_array( $offered ) && isset( $offered['rows'] ) && is_array( $offered['rows'] ) ? count( $offered['rows'] ) : 0;
+		$coords  = is_array( $offered ) && isset( $offered['coords'] ) && is_array( $offered['coords'] ) ? count( $offered['coords'] ) : 0;
+		$read_at = is_array( $offered ) && ! empty( $offered['read_at'] ) ? (int) strtotime( (string) $offered['read_at'] ) : 0;
+
+		echo '<p>';
+		esc_html_e( 'Both halves of the Campus Connect reporting data exist on WordCamp Central: the event rows behind a report that needs a subrole, and the coordinates on a public route that needs nothing. Airtable sat in the middle only because nothing could hand the rows over on this site. A connector plugin here now can.', 'wpcc-tracker' );
+		echo '</p>';
+
+		echo '<p>';
+
+		if ( $rows > 0 ) {
+			echo '<strong>';
+			esc_html_e( 'A connector is offering a snapshot right now:', 'wpcc-tracker' );
+			echo '</strong> ';
+			printf(
+				/* translators: 1: number of event rows. 2: number of coordinates. */
+				esc_html__( '%1$s event rows and %2$s coordinates', 'wpcc-tracker' ),
+				esc_html( number_format_i18n( $rows ) ),
+				esc_html( number_format_i18n( $coords ) )
+			);
+
+			if ( $read_at ) {
+				echo ', ';
+				printf(
+					/* translators: %s: human-readable time difference. */
+					esc_html__( 'read from Central %s ago', 'wpcc-tracker' ),
+					esc_html( human_time_diff( $read_at ) )
+				);
+			}
+
+			echo '.';
+		} else {
+			echo '<strong>';
+			esc_html_e( 'No connector is offering a snapshot on this site.', 'wpcc-tracker' );
+			echo '</strong> ';
+			esc_html_e( 'Until one does, the connector source would refuse every sync and keep the stored figures. The wordcamp-airtable-connector plugin provides it, and writes its first snapshot on its next Campus Connect run.', 'wpcc-tracker' );
+		}
+
+		echo '</p>';
+	}
+
+	/**
+	 * Render the source choice.
+	 *
+	 * @return void
+	 */
+	public static function field_source() {
+		$settings = WPCCT_Sync::settings();
+		$current  = $settings['source'];
+
+		$choices = array(
+			WPCCT_Sync::SOURCE_CONNECTOR => __( 'A connector on this site, which reads WordCamp Central directly. One hop, no Airtable, and no credential stored here.', 'wpcc-tracker' ),
+			WPCCT_Sync::SOURCE_AIRTABLE  => __( 'The Airtable base. Two hops, and the figures are as old as the last write into the base.', 'wpcc-tracker' ),
+		);
+
+		foreach ( $choices as $value => $label ) {
+			printf(
+				'<p><label><input type="radio" name="%1$s[source]" value="%2$s"%3$s /> %4$s</label></p>',
+				esc_attr( WPCCT_OPT_SETTINGS ),
+				esc_attr( $value ),
+				checked( $current, $value, false ),
+				esc_html( $label )
+			);
+		}
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Switching source does not change the figures on its own. The next sync rebuilds them from the source chosen here, and a refused sync keeps whatever is already published.', 'wpcc-tracker' )
+		);
 	}
 
 	/**

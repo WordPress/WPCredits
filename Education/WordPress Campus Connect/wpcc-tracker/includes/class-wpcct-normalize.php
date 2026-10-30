@@ -316,6 +316,99 @@ class WPCCT_Normalize {
 	 *                                updated.
 	 * @return array
 	 */
+	/**
+	 * Columns a snapshot row cannot do without.
+	 *
+	 * Without ID nothing joins to a coordinate and no event is identifiable;
+	 * without Status nothing can be bucketed and every total reads zero. Both
+	 * are checked by name so a failure says which one is missing, rather than
+	 * surfacing later as a generic "the normalised result is empty".
+	 */
+	const SNAPSHOT_REQUIRED_COLUMNS = array( 'ID', 'Status' );
+
+	/**
+	 * Read the Campus Connect snapshot a connector plugin offers on this site.
+	 *
+	 * This is the gate between a payload this plugin did not build and the
+	 * rows it publishes. The rows are passed through untouched on purpose: the
+	 * connector owns the mapping, and that is where a wcpt status slug became
+	 * the label bucketed here and where HTML entities were decoded. Re-deriving
+	 * any of it would be a second, divergent implementation of rules that
+	 * already have tests on the other side.
+	 *
+	 * Pure, and returns a plain result shape rather than a WP_Error, so every
+	 * refusal is testable without WordPress.
+	 *
+	 * @param mixed $payload Whatever the provider filter returned.
+	 * @return array array( ok, error, rows, coords, read_at )
+	 */
+	public static function from_snapshot( $payload ) {
+		$fail = function ( $message ) {
+			return array(
+				'ok'      => false,
+				'error'   => $message,
+				'rows'    => array(),
+				'coords'  => array(),
+				'read_at' => '',
+			);
+		};
+
+		if ( ! is_array( $payload ) || empty( $payload ) ) {
+			// The one failure whose cause is entirely in another plugin, so it
+			// has to say which plugin and what to look at.
+			return $fail( 'No plugin on this site offered Campus Connect data. The wordcamp-airtable-connector plugin provides it; check that it is active and that a Campus Connect sync has run at least once.' );
+		}
+
+		$rows = isset( $payload['rows'] ) && is_array( $payload['rows'] ) ? $payload['rows'] : null;
+
+		if ( null === $rows ) {
+			return $fail( 'The snapshot offered on this site carries no rows list.' );
+		}
+
+		if ( empty( $rows ) ) {
+			return $fail( 'The snapshot offered on this site carries no event rows.' );
+		}
+
+		if ( ! isset( $rows[0] ) || ! is_array( $rows[0] ) ) {
+			return $fail( 'The snapshot offered on this site does not carry a list of event rows.' );
+		}
+
+		$coords = isset( $payload['coords'] ) && is_array( $payload['coords'] ) ? $payload['coords'] : array();
+
+		if ( empty( $coords ) ) {
+			return $fail( 'The snapshot offered on this site carries no coordinates, so the map would be empty. An empty coordinate map with healthy event rows points at the provider, not at the programme.' );
+		}
+
+		foreach ( self::SNAPSHOT_REQUIRED_COLUMNS as $column ) {
+			$missing = 0;
+
+			foreach ( $rows as $row ) {
+				if ( ! is_array( $row ) || ! array_key_exists( $column, $row ) ) {
+					++$missing;
+				}
+			}
+
+			if ( $missing > 0 ) {
+				return $fail(
+					sprintf(
+						'%d of %d rows in the offered snapshot carry no %s column. The provider is emitting a shape this plugin cannot read; refusing it rather than publishing partial figures.',
+						$missing,
+						count( $rows ),
+						$column
+					)
+				);
+			}
+		}
+
+		return array(
+			'ok'      => true,
+			'error'   => '',
+			'rows'    => $rows,
+			'coords'  => $coords,
+			'read_at' => isset( $payload['read_at'] ) && is_scalar( $payload['read_at'] ) ? (string) $payload['read_at'] : '',
+		);
+	}
+
 	public static function build( $rows, $coords = array(), $source = array() ) {
 		$year = self::filter( 'wpcct_current_year', gmdate( 'Y' ) );
 
@@ -506,6 +599,13 @@ class WPCCT_Normalize {
 			   caller could not establish them. */
 			'source_synced'      => isset( $source['synced'] ) ? $source['synced'] : '',
 			'source_created'     => isset( $source['created'] ) ? $source['created'] : '',
+			/* Which path these rows travelled, recorded in the blob rather
+			   than read from settings when the line is rendered. A blob
+			   outlives a settings change and survives a failed sync, so the
+			   provenance line has to describe the data in front of it. Anything
+			   unrecognised reads as the Airtable path, which is the only one
+			   that existed before the snapshot. */
+			'source_via'         => ( isset( $source['via'] ) && 'connector' === $source['via'] ) ? 'connector' : 'airtable',
 			'totals'             => $totals,
 			'regions'            => $regions,
 			'pipeline'           => $pipeline,

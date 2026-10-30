@@ -286,6 +286,30 @@ t_eq( $undated['source_created'], '', 'and the same for source_created' );
 t_ok( array_key_exists( 'source_synced', $undated ), 'source_synced is always present so the renderer need not guess' );
 t_ok( WPCCT_Normalize::is_plausible( $dated ), 'carrying source dates does not disturb the plausibility guard' );
 
+/* Which source the blob came from, carried in the blob rather than read from
+   current settings. A blob survives a settings change and a failed sync, so
+   the provenance line has to describe the data in front of it, not the path
+   the next sync would take. */
+t_eq( $dated['source_via'], 'airtable', 'a blob with no stated source reads as the Airtable path, which is the only one that existed' );
+
+$via = WPCCT_Normalize::build(
+	wpcct_load_fixture(),
+	array(),
+	array( 'synced' => '2026-10-30T09:00:00+00:00', 'via' => 'connector' )
+);
+t_eq( $via['source_via'], 'connector', 'build() carries a stated source into the blob' );
+t_eq( $via['source_synced'], '2026-10-30T09:00:00+00:00', 'alongside the source date' );
+t_ok( WPCCT_Normalize::is_plausible( $via ), 'and the plausibility guard is indifferent to the source' );
+t_eq(
+	WPCCT_Normalize::build( wpcct_load_fixture(), array(), array( 'via' => 'something else' ) )['source_via'],
+	'airtable',
+	'an unrecognised source falls back to the Airtable wording rather than inventing a label'
+);
+
+/* The connector source, loaded before the rendering tests because it needs no
+   WordPress stubs: from_snapshot() is pure, like the rest of the normaliser. */
+require __DIR__ . '/test-connector-source.php';
+
 /* The later export, loaded after the 2026-08-27 assertions above so that a
    drift failure reads as drift rather than as a broken normaliser. */
 require __DIR__ . '/test-october-export.php';
