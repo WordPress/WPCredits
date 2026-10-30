@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.5.2
+Stable tag: 1.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,7 +47,7 @@ Translation activity is added up from every page of a profile's timeline, not fr
 = Bundled third-party libraries =
 
 * Chart.js 4.4.1 (MIT) - the growth chart.
-* Leaflet 1.9.4 (BSD-2-Clause) - the partner map. Map tiles are loaded at runtime from OpenStreetMap / CARTO.
+* Leaflet 1.9.4 (BSD-2-Clause) - the partner map. Map tiles are loaded at runtime from OpenStreetMap (tile.openstreetmap.org).
 
 == Installation ==
 
@@ -65,6 +65,9 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.5.3 =
+* The partner map draws on OpenStreetMap's standard tiles instead of CARTO's light basemap. CARTO stopped serving anonymous tiles and now stamps "API KEY REQUIRED" across every one of them while still answering with a valid image, so the map kept drawing with the watermark over it and nothing reported an error. The basemap looks different as a result: OpenStreetMap's standard style carries more color than CARTO's near-white one. This was fixed elsewhere in September but the fix never reached this plugin's own copy of the map code.
 
 = 1.5.2 =
 * Replaced every em dash and en dash in the plugin's text, code comments and this readme with a plain hyphen or a reworded sentence. The only visible change is the placeholder for a figure that is not available on the Outcomes & Quality cards, now a hyphen. No change in behavior.
