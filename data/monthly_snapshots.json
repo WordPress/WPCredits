@@ -96,5 +96,19 @@
     },
     "sitesCreated": 522,
     "source": "airtable"
+  },
+  "2026-11": {
+    "asOf": "2026-11-01",
+    "firstContributions": 517,
+    "graduates": 370,
+    "partnerInstitutions": 52,
+    "renewalRate": {
+      "count": 16,
+      "pct": 50,
+      "tooNew": 4,
+      "total": 32
+    },
+    "sitesCreated": 743,
+    "source": "airtable"
   }
 }
