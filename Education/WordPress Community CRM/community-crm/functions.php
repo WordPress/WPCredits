@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CCRM_VERSION', '1.4.0' );
+define( 'CCRM_VERSION', '1.4.1' );
 
 require_once get_theme_file_path( 'inc/login.php' );
 

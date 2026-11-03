@@ -7,7 +7,7 @@ Description: A block theme for the WordPress Community CRM - the internal tool o
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Version: 1.4.0
+Version: 1.4.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: community-crm
@@ -151,6 +151,25 @@ body .wp-site-blocks > * {
    scrolling. */
 .ccrm-login-main {
 	padding: 24px;
+}
+
+/* The sign-in card at the Education Directory's width: up to 1240px, 40px in
+   from the window's edges, and 20px on a phone, in line with the header's
+   name. The sides only; the vertical rhythm above stays. Named by the page as
+   well as the class, because a front page saved in the Site Editor carries
+   its own inline padding and no class; hence !important. */
+body.ccrm-login-page main.wp-block-group,
+.ccrm-login-main {
+	padding-right: 40px !important;
+	padding-left: 40px !important;
+}
+
+@media ( max-width: 640px ) {
+	body.ccrm-login-page main.wp-block-group,
+	.ccrm-login-main {
+		padding-right: 20px !important;
+		padding-left: 20px !important;
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -706,26 +725,60 @@ body .wp-site-blocks > * {
 	line-height: 1.15;
 }
 
+/* Code in a page's text wraps inside the column instead of widening the page,
+   a long command included; images never run wider than the column. */
+.ccrm-prose pre {
+	box-sizing: border-box;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+	border-radius: var(--wp--custom--radius--sm);
+	background: var(--wp--preset--color--surface);
+	padding: 12px 16px;
+	font-family: var(--wp--preset--font-family--mono);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.ccrm-prose code {
+	overflow-wrap: anywhere;
+}
+
+.ccrm-prose img {
+	max-width: 100%;
+	height: auto;
+}
+
+/* A page as the Education Directory draws one (its templates/page.html): a
+   card the wide size, 1240px (theme.json's content size), 16px under the
+   header on the near-white page, 40px in from the window's edges; white on a
+   hairline with 8px corners and a soft shadow, its text inset 40px and
+   running the card's full width. The templates set main's paddings inline,
+   so these need !important. */
+main.wp-block-group:has( > .ccrm-panel ) {
+	padding: 16px 40px !important;
+}
+
 .ccrm-panel {
 	box-sizing: border-box;
 	border: 1px solid var(--wp--preset--color--border);
-	border-radius: var(--wp--custom--radius--sm);
+	border-radius: var(--wp--custom--radius--lg);
 	background: var(--wp--preset--color--base);
-	box-shadow: none;
+	box-shadow: 0 1px 3px rgba( 0, 0, 0, 0.06 );
 }
 
-/* At phone width the page panel and the main area around it give their
-   content room: with the widths the templates set, a 375px screen left the
-   panel's content 139px wide. The templates set both paddings inline, so
-   these need !important. The front page has no panel and is left alone. */
-@media ( max-width: 781px ) {
+/* On a phone the card runs edge to edge, as the Education Directory's does,
+   its text 20px from the screen's edges, in line with the header's name. */
+@media ( max-width: 782px ) {
 	main.wp-block-group:has( > .ccrm-panel ) {
-		padding-right: 16px !important;
-		padding-left: 16px !important;
+		padding: 10px 0 !important;
 	}
 
 	.ccrm-panel {
-		padding: 24px 20px !important;
+		border-right: 0;
+		border-left: 0;
+		border-radius: 0;
+		padding: 28px 20px !important;
 	}
 }
 

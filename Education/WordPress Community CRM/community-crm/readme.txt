@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns, custom-colors, custom-logo, custom-menu, block-styles, editor-style, wide-blocks, translation-ready
@@ -24,7 +24,7 @@ the wordpress.org global footer closing the page.
 It wears the WordPress.org look the Education Directory (wordpresseducation.org)
 uses: headings in EB Garamond, everything else in Inter (both ship with the
 theme under the SIL Open Font License), the brand blue #3858e9 for actions,
-white cards on 1px hairlines with 2px corners, and the site's name in the header
+white cards on 1px hairlines, pages 1240px wide, and the site's name in the header
 in two tones with no logo beside it. The tokens (a 4px spacing base, the type
 scale, the palette) are mapped into theme.json, so the design is editable in the
 Site Editor without touching CSS.
@@ -176,6 +176,10 @@ WordPress.org, the name will need changing - theme names there cannot include
 "WordPress".
 
 == Changelog ==
+
+= 1.4.1 =
+* A page's width as the Education Directory's: the card 1240px wide (the content size), 16px under the header on a near-white page and 40px in from the window's edges, its text running the card's full width; on a phone the card runs edge to edge with its text 20px in. Page cards have 8px corners and a soft shadow, as the Education Directory's pages; the sign-in card keeps its 2px corners. The sign-in card is 1240px wide too.
+* Code in a page's text wraps inside the column instead of widening the page, and images never run wider than the column.
 
 = 1.4.0 =
 * The WordPress.org look the Education Directory uses: headings in EB Garamond and everything else in Inter, both shipped with the theme (assets/fonts, with their licenses); the hero's headline in the serif at display size; buttons at weight 600; cards and panels white on 1px hairlines with 2px corners, no shadow and no tint.
