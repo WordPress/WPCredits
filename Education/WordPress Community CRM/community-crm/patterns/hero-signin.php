@@ -3,7 +3,7 @@
  * Title: Sign-in card (hero + form)
  * Slug: community-crm/hero-signin
  * Categories: community-crm, call-to-action
- * Description: The full front-page card — illustrated hero with headline and buttons, and the WordPress.org sign-in panel below it.
+ * Description: The full front-page card - illustrated hero with headline and buttons, and the WordPress.org sign-in panel below it.
  * Keywords: hero, login, sign in, card, front page
  * Viewport Width: 1040
  *
@@ -23,7 +23,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph {"className":"ccrm-hero__lede","style":{"spacing":{"margin":{"top":"0","bottom":"0"}},"typography":{"lineHeight":"24px"}},"fontSize":"lg"} -->
-<p class="ccrm-hero__lede has-lg-font-size" style="margin-top:0;margin-bottom:0;line-height:24px"><?php echo esc_html__( 'Organizers use the Community CRM to keep track of the people, organizations and sponsors around meetups and WordCamps — without a new spreadsheet every year.', 'community-crm' ); ?></p>
+<p class="ccrm-hero__lede has-lg-font-size" style="margin-top:0;margin-bottom:0;line-height:24px"><?php echo esc_html__( 'Organizers use the Community CRM to keep track of the people, organizations and sponsors around meetups and WordCamps - without a new spreadsheet every year.', 'community-crm' ); ?></p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group --></div>
 <!-- /wp:group -->

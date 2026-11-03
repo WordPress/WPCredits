@@ -127,8 +127,14 @@ if ( ! function_exists( 'ccrm_handle_login_failed' ) ) {
 			// passed through. Core distinguishes invalid_username from
 			// incorrect_password, and while ccrm_login_notice() renders both with
 			// one generic message, putting the raw code in the URL would still
-			// confirm the account — the redirect is as readable as the page.
-			$safe_codes = array( 'empty_username', 'empty_password', 'empty_username_password', 'expired', 'denied' );
+			// confirm the account - the redirect is as readable as the page.
+			// A plugin's own codes from ccrm_login_error_messages() pass too: a
+			// plugin adds one only for an error raised after the password was
+			// checked, which tells nobody without the password anything.
+			$safe_codes = array_merge(
+				array( 'empty_username', 'empty_password', 'empty_username_password', 'expired', 'denied' ),
+				array_keys( ccrm_login_error_messages() )
+			);
 			$raw_code   = $error->get_error_code();
 
 			if ( in_array( $raw_code, $safe_codes, true ) ) {
@@ -189,7 +195,7 @@ if ( ! function_exists( 'ccrm_maybe_redirect_wp_login' ) ) {
 		$args = array();
 
 		if ( ! empty( $_GET['redirect_to'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			// Raw, not pre-encoded — add_query_arg() does the encoding.
+			// Raw, not pre-encoded - add_query_arg() does the encoding.
 			$args['redirect_to'] = esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		}
 
@@ -250,11 +256,39 @@ if ( ! function_exists( 'ccrm_login_notice' ) ) {
 				);
 
 			default:
+				$messages = ccrm_login_error_messages();
+
 				return array(
 					'type'    => 'error',
-					'message' => __( 'That username and password combination is not correct.', 'community-crm' ),
+					'message' => isset( $messages[ $code ] ) ? $messages[ $code ] : __( 'That username and password combination is not correct.', 'community-crm' ),
 				);
 		}
+	}
+}
+
+if ( ! function_exists( 'ccrm_login_error_messages' ) ) {
+	/**
+	 * Sign-in error codes of plugins that the form may name, with their messages.
+	 *
+	 * Filter: ccrm_login_error_messages, an array of code => message. Add a code
+	 * only for an error raised after the password was checked (an account that
+	 * is turned off, say): the code travels in the redirect, so a code raised
+	 * before the check would tell a stranger that the account exists. Codes are
+	 * matched after sanitize_key(), so use lower case letters, digits, dashes and
+	 * underscores.
+	 *
+	 * @return array<string,string>
+	 */
+	function ccrm_login_error_messages() {
+		$messages = array();
+
+		foreach ( (array) apply_filters( 'ccrm_login_error_messages', array() ) as $code => $message ) {
+			if ( is_string( $code ) && sanitize_key( $code ) === $code && '' !== $code && is_string( $message ) && '' !== $message ) {
+				$messages[ $code ] = $message;
+			}
+		}
+
+		return $messages;
 	}
 }
 
@@ -492,7 +526,7 @@ if ( ! function_exists( 'ccrm_render_login_block' ) ) {
 		);
 
 		// Inside the editor the current user is always signed in, which would
-		// preview the wrong state — force the form for block-renderer requests.
+		// preview the wrong state - force the form for block-renderer requests.
 		$is_editor_preview = defined( 'REST_REQUEST' ) && REST_REQUEST;
 
 		$primary = ( is_user_logged_in() && ! $is_editor_preview )
@@ -573,7 +607,7 @@ add_action( 'init', 'ccrm_register_login_block' );
 
 if ( ! function_exists( 'ccrm_login_shortcode' ) ) {
 	/**
-	 * [community_crm_login] — the same panel for classic content.
+	 * [community_crm_login] - the same panel for classic content.
 	 *
 	 * @param array $atts Shortcode attributes.
 	 * @return string

@@ -3,7 +3,7 @@
  * Title: 404 content
  * Slug: community-crm/404-content
  * Categories: community-crm
- * Description: The "page not found" card — code, headline, search field and a link back to the sign-in screen.
+ * Description: The "page not found" card - code, headline, search field and a link back to the sign-in screen.
  * Keywords: 404, not found, error
  * Inserter: no
  *

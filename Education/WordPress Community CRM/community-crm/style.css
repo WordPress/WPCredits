@@ -3,11 +3,11 @@ Theme Name: WordPress Community CRM
 Theme URI: https://github.com/maciejpilarski/community-crm
 Author: Maciej Pilarski
 Author URI: https://profiles.wordpress.org/gomp/
-Description: A block theme for the WordPress Community CRM — the internal tool organizers use to keep track of the people, organizations and sponsors around meetups and WordCamps. The front page doubles as the sign-in screen: a single card with an illustrated hero, a WordPress.org sign-in form and a request-access panel, framed by a thin header bar and a compact footer. Built on WordPress Design System tokens (brand blue, 13px system type, 2px control radius) and fully editable in the Site Editor. Ships a matching skin for wp-login.php so both routes look the same.
+Description: A block theme for the WordPress Community CRM - the internal tool organizers use to keep track of the people, organizations and sponsors around meetups and WordCamps. The front page doubles as the sign-in screen: a single card with an illustrated hero, a WordPress.org sign-in form and a request-access panel, framed by a thin header bar and a compact footer. Built on WordPress Design System tokens (brand blue, 13px system type, 2px control radius) and fully editable in the Site Editor. Ships a matching skin for wp-login.php so both routes look the same.
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Version: 1.2.2
+Version: 1.3.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: community-crm
@@ -18,7 +18,7 @@ Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns,
  * This is a block theme: the design tokens, palette, type scale and spacing
  * scale all live in theme.json and are edited through the Site Editor
  * (Appearance -> Editor). This stylesheet only carries the component CSS that
- * theme.json cannot express — the sign-in shell layout, the hero scrim and
+ * theme.json cannot express - the sign-in shell layout, the hero scrim and
  * the form controls.
  *
  * It is enqueued on the front end and passed to add_editor_style(), so the
@@ -32,8 +32,8 @@ Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns,
 /* -------------------------------------------------------------------------
  * 1. Page shell
  *
- * Pages are a full-viewport column — header, a growing middle, then the footer
- * — so the footer bar sits at the bottom of short pages rather than floating
+ * Pages are a full-viewport column - header, a growing middle, then the footer
+ * - so the footer bar sits at the bottom of short pages rather than floating
  * mid-screen. On the sign-in screen the footer is fixed to the window instead,
  * so it tracks the window as it resizes and stays visible while scrolling.
  *
@@ -67,7 +67,7 @@ body .wp-site-blocks > * {
 }
 
 /* .ccrm-main--center centres its content in the space between the header and
-   footer bars — right for the short 404 and "centered card" pages, where the
+   footer bars - right for the short 404 and "centered card" pages, where the
    content is a few lines.
 
    The sign-in screen deliberately does NOT centre. Centring splits all the
@@ -84,8 +84,8 @@ body .wp-site-blocks > * {
 
 /* The sign-in screen's vertical rhythm lives here rather than as inline
    padding in the template, so it can respond to the viewport HEIGHT (see the
-   short-viewport block at the end of this section). The whole composition —
-   header bar, card, footer bar — is meant to fit the viewport without
+   short-viewport block at the end of this section). The whole composition -
+   header bar, card, footer bar - is meant to fit the viewport without
    scrolling. */
 .ccrm-login-main {
 	padding: 24px;
@@ -99,7 +99,7 @@ body .wp-site-blocks > * {
 	border-bottom: 1px solid var(--wp--preset--color--border-soft);
 	/* The bar spans the window, but what is in it lines up with the content column
 	   below. The card is the content size centred inside main's gutters, which puts
-	   its left edge at (100% - content-size) / 2 exactly — the gutters cancel out.
+	   its left edge at (100% - content-size) / 2 exactly - the gutters cancel out.
 	   Once the window is too narrow for the full content size the card fills the
 	   gutters instead, and max() hands the bar the same gutter at the same moment.
 
@@ -165,7 +165,7 @@ body .wp-site-blocks > * {
 	box-sizing: border-box;
 	/* Owned here, not inline in the template, so the short-viewport rules below
 	   can tighten it without !important. min-height is a floor for the
-	   illustration when the copy is short — the copy usually exceeds it. */
+	   illustration when the copy is short - the copy usually exceeds it. */
 	min-height: 320px;
 	padding: 56px 40px;
 	background-color: var(--wp--preset--color--surface-hero);
@@ -205,7 +205,7 @@ body .wp-site-blocks > * {
 	text-wrap: pretty;
 }
 
-/* Short viewports — most laptops. Tighten the three vertical paddings so the
+/* Short viewports - most laptops. Tighten the three vertical paddings so the
    header, card and footer still fit without a scrollbar. Kept as one step
    rather than a sliding scale so there is only one alternate layout to check. */
 @media ( max-height: 900px ) {
@@ -293,7 +293,7 @@ body .wp-site-blocks > * {
 	grid-template-columns: minmax(0, var(--wp--custom--surface-width--lg));
 }
 
-/* Short viewports — the third of the three paddings trimmed so the sign-in
+/* Short viewports - the third of the three paddings trimmed so the sign-in
    screen fits without scrolling. Must come after the base rule above: media
    queries add no specificity, so a later unconditional rule would win. */
 @media ( max-height: 900px ) {
@@ -354,7 +354,7 @@ body .wp-site-blocks > * {
 	line-height: 20px;
 }
 
-/* #8d8d8d — the WPDS interactive stroke, 3:1 against white. */
+/* #8d8d8d - the WPDS interactive stroke, 3:1 against white. */
 .ccrm-field__input {
 	display: block;
 	box-sizing: border-box;
@@ -613,9 +613,15 @@ body .wp-site-blocks > * {
 	.ccrm-panel {
 		padding: 24px 20px !important;
 	}
+
+	/* The header bar lines up with the panel's edge here too, as it does at
+	   every other width (see section 2). */
+	body:has( main.wp-block-group > .ccrm-panel ) .ccrm-header {
+		padding-inline: 16px;
+	}
 }
 
-/* Skip link — visible only on focus. */
+/* Skip link - visible only on focus. */
 .skip-link.screen-reader-text:focus {
 	z-index: 100000;
 	top: 8px;

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.3.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns, custom-colors, custom-logo, custom-menu, block-styles, editor-style, wide-blocks, translation-ready
@@ -19,10 +19,10 @@ The theme renders the Community CRM homepage design: a single card holding an
 illustrated hero, the WordPress.org sign-in form and a request-access panel,
 framed by a thin header bar, under the official wordpress.org global header, with
 the wordpress.org global footer closing the page.
-— centred, in monospace.
+- centred, in monospace.
 
-Everything is built on WordPress Design System (WPDS) tokens — brand blue
-#3858e9, 13px system type, a 4px spacing base and 2px control radius — mapped
+Everything is built on WordPress Design System (WPDS) tokens - brand blue
+#3858e9, 13px system type, a 4px spacing base and 2px control radius - mapped
 into theme.json so the whole design is editable in the Site Editor without
 touching CSS.
 
@@ -53,11 +53,11 @@ there is nothing to compile; the editor previews the real PHP output.
 
 Block settings:
 
-* **Heading** — defaults to "Sign in".
-* **Hint text** — optional line under the heading. Empty by default, and the
+* **Heading** - defaults to "Sign in".
+* **Hint text** - optional line under the heading. Empty by default, and the
   panel renders no hint at all unless you set one.
-* **Show the request-access panel** — the panel on the right.
-* **Request access heading / intro / button URL** — where the button points.
+* **Show the request-access panel** - the panel on the right.
+* **Request access heading / intro / button URL** - where the button points.
   Leave the URL empty to link to the panel's own anchor (`#access`).
 
 A `[community_crm_login]` shortcode renders the same panel in classic content:
@@ -96,6 +96,16 @@ Turn it on once you are happy with the homepage:
 
     add_filter( 'ccrm_redirect_wp_login', '__return_true' );
 
+A plugin's own sign-in error, named on the form. Every failure reads "That
+username and password combination is not correct." unless its code is listed
+here. List a code only for an error raised after the password was checked, so
+the form tells nobody without the password whether an account exists:
+
+    add_filter( 'ccrm_login_error_messages', function ( $messages ) {
+        $messages['my_plugin_account_off'] = 'Your access is turned off.';
+        return $messages;
+    } );
+
 Single sign-on. The theme renders the standard WordPress login form; it does
 not itself authenticate against WordPress.org. If you add an SSO plugin, print
 its button into the panel and the theme adds an "or" divider above the
@@ -115,25 +125,25 @@ exists. `redirect_to` values are always passed through
 
 == Templates ==
 
-* **front-page** — the sign-in screen: illustrated hero and the sign-in form.
-* **index** — the post list.
+* **front-page** - the sign-in screen: illustrated hero and the sign-in form.
+* **index** - the post list.
 * **archive**, **search**, **single**, **page**, **404**.
-* **Page — no title** (`page-plain`) — full-bleed page content, no card.
-* **Page — centered card** (`page-centered`) — a 560px card centred vertically
+* **Page - no title** (`page-plain`) - full-bleed page content, no card.
+* **Page - centered card** (`page-centered`) - a 560px card centred vertically
   in the viewport. Good for short notices. (The sign-in screen itself is
   top-aligned; only this template and 404 centre.)
 
 == Patterns ==
 
-* **Sign-in card (hero + form)** — the whole front-page card.
-* **Illustrated hero** — the hero panel on its own.
-* **Sign-in panel** — the form and access panel in a standalone card.
+* **Sign-in card (hero + form)** - the whole front-page card.
+* **Illustrated hero** - the hero panel on its own.
+* **Sign-in panel** - the form and access panel in a standalone card.
 
 == Customising ==
 
 The palette, type scale and spacing scale live in theme.json and are editable
-under Appearance -> Editor -> Styles. The component CSS — the shell layout,
-the hero scrim, the form controls — is in style.css, loaded on the front end
+under Appearance -> Editor -> Styles. The component CSS - the shell layout,
+the hero scrim, the form controls - is in style.css, loaded on the front end
 and passed to `add_editor_style()` so the editor canvas matches.
 
 To swap the hero illustration, replace
@@ -158,10 +168,16 @@ and delete the SVG if you would rather upload a mark.
 == Notes ==
 
 The theme name matches the internal product name. If this is ever published on
-WordPress.org, the name will need changing — theme names there cannot include
+WordPress.org, the name will need changing - theme names there cannot include
 "WordPress".
 
 == Changelog ==
+
+= 1.3.0 =
+* The theme's spacing scale (a 4px base: 8, 12, 16, 20, 24, 32, 40 and 72px) is now the one in use. WordPress's own default spacing sizes, which share the scale's names, had been overriding it on every page, so a page panel was padded 81px instead of 40px and the main area 36px instead of 24px. Gaps are now whole pixels on the scale. The sign-in card's own paddings are unchanged.
+* At phone width the header bar lines up with the page panel's edge, as it does at every other width.
+* Plain hyphens instead of em dashes, in the sign-in screen's sentence, the spacing names, two template titles and the code comments.
+* A plugin can name its own sign-in errors on the sign-in form through the new `ccrm_login_error_messages` filter (code => message), for errors raised after the password was checked, such as an account whose access is turned off. Any other failure still reads "That username and password combination is not correct."
 
 = 1.2.2 =
 * At phone width a page's panel and the area around it are padded less, so their content is no longer squeezed into a narrow column (on a 375px screen the contributor portal was 139px wide).
@@ -179,8 +195,8 @@ WordPress.org, the name will need changing — theme names there cannot include
   WordPress error code was passed through in the redirect URL, so `invalid_username`
   and `incorrect_password` were distinguishable there even though both render the
   same generic message on the page. Authentication failures now all report as
-  `failed`; only codes that disclose nothing — the empty-field, expired and denied
-  cases — are still passed through.
+  `failed`; only codes that disclose nothing - the empty-field, expired and denied
+  cases - are still passed through.
 
 = 1.1.4 =
 * The sign-in screen's footer bar is now fixed to the bottom edge of the browser
@@ -188,14 +204,14 @@ WordPress.org, the name will need changing — theme names there cannot include
   page scrolls. Being out of flow, it can no longer be pushed down the page by
   the card above it, and no page background is left below it.
 * Reserved the footer's height at the foot of the shell so the card can never
-  end up hidden behind it on a short window — verified down to 400px tall, and
+  end up hidden behind it on a short window - verified down to 400px tall, and
   on phones where the stacked layout scrolls.
 * Other templates keep the footer in normal flow, where a permanently fixed bar
   would get in the way of long content.
 
 = 1.1.3 =
 * Moved the footer up on the sign-in screen. Its <main> no longer stretches to
-  fill the viewport, so the footer bar follows the card directly — a constant
+  fill the viewport, so the footer bar follows the card directly - a constant
   16px gap (24px on tall viewports), matching the gap above the card. Stretching
   had left 115px between card and footer at 900px tall, and 599px at 1440px.
 * Leftover viewport space now sits below the footer as page background instead
@@ -206,7 +222,7 @@ WordPress.org, the name will need changing — theme names there cannot include
 = 1.1.2 =
 * Tightened the space around the sign-in card. The card is no longer vertically
   centred: centring split all the leftover viewport space evenly above and
-  below it, so the gap under the header grew with the window — 66px at 900px
+  below it, so the gap under the header grew with the window - 66px at 900px
   tall, 132px at 1080px, 312px at 1440px. It is top-aligned now, so that gap is
   a constant 24px (16px on short viewports) on every screen, and the slack
   collects above the footer bar instead.
@@ -218,7 +234,7 @@ WordPress.org, the name will need changing — theme names there cannot include
 = 1.1.1 =
 * Fixed the scrollbar on the sign-in screen. The composition was 967px tall,
   so it overflowed most laptop viewports. With the hero buttons gone the hero
-  was also badly over-padded — 238px of copy inside 144px of padding and a
+  was also badly over-padded - 238px of copy inside 144px of padding and a
   420px floor. Trimmed the hero, main and sign-in paddings so the whole screen
   now fits any viewport 820px tall or more.
 * Moved the hero and main vertical padding out of the templates' inline styles
@@ -228,7 +244,7 @@ WordPress.org, the name will need changing — theme names there cannot include
   vertical paddings.
 * Switched the page shell to 100dvh (with a 100vh fallback) so mobile browsers
   no longer reserve height for a collapsing URL bar.
-* Renamed spacing preset 9 from "Hero" to "5X large" — the hero no longer uses
+* Renamed spacing preset 9 from "Hero" to "5X large" - the hero no longer uses
   it now that its padding lives in CSS.
 
 = 1.1.0 =

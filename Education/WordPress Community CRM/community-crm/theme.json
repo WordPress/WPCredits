@@ -179,6 +179,7 @@
 			]
 		},
 		"spacing": {
+			"defaultSpacingSizes": false,
 			"customSpacingSize": true,
 			"padding": true,
 			"margin": true,
@@ -195,47 +196,47 @@
 				{
 					"slug": "10",
 					"size": "4px",
-					"name": "1 — Extra small"
+					"name": "1 - Extra small"
 				},
 				{
 					"slug": "20",
 					"size": "8px",
-					"name": "2 — Small"
+					"name": "2 - Small"
 				},
 				{
 					"slug": "30",
 					"size": "12px",
-					"name": "3 — Medium"
+					"name": "3 - Medium"
 				},
 				{
 					"slug": "40",
 					"size": "16px",
-					"name": "4 — Large"
+					"name": "4 - Large"
 				},
 				{
 					"slug": "50",
 					"size": "20px",
-					"name": "5 — Extra large"
+					"name": "5 - Extra large"
 				},
 				{
 					"slug": "60",
 					"size": "24px",
-					"name": "6 — 2X large"
+					"name": "6 - 2X large"
 				},
 				{
 					"slug": "70",
 					"size": "32px",
-					"name": "7 — 3X large"
+					"name": "7 - 3X large"
 				},
 				{
 					"slug": "80",
 					"size": "40px",
-					"name": "8 — 4X large"
+					"name": "8 - 4X large"
 				},
 				{
 					"slug": "90",
 					"size": "72px",
-					"name": "9 — 5X large"
+					"name": "9 - 5X large"
 				}
 			]
 		},
@@ -568,14 +569,14 @@
 	"customTemplates": [
 		{
 			"name": "page-plain",
-			"title": "Page — no title",
+			"title": "Page - no title",
 			"postTypes": [
 				"page"
 			]
 		},
 		{
 			"name": "page-centered",
-			"title": "Page — centered card",
+			"title": "Page - centered card",
 			"postTypes": [
 				"page"
 			]

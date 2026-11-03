@@ -1,6 +1,6 @@
 <?php
 /**
- * WordPress Community CRM — theme functions.
+ * WordPress Community CRM - theme functions.
  *
  * A block theme needs very little PHP: theme.json carries the design tokens,
  * and /templates, /parts and /patterns are discovered automatically. This file
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CCRM_VERSION', '1.2.2' );
+define( 'CCRM_VERSION', '1.3.0' );
 
 require_once get_theme_file_path( 'inc/login.php' );
 

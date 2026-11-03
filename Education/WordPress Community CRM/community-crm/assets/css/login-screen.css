@@ -6,7 +6,7 @@
  * page form is ever edited away). This restyles it with the same WordPress
  * Design System tokens so the two never look like different products.
  *
- * Loaded via login_enqueue_scripts — see inc/login.php.
+ * Loaded via login_enqueue_scripts - see inc/login.php.
  *
  * @package Community_CRM
  */
@@ -277,7 +277,7 @@ body.login #backtoblog a:focus {
 /* --- The design's footer line -----------------------------------------
  *
  * Printed at login_footer, so this sits below the card and the #nav /
- * #backtoblog links — the same role the footer bar plays on the front page.
+ * #backtoblog links - the same role the footer bar plays on the front page.
  * -------------------------------------------------------------------- */
 
 body.login .ccrm-login-screen__poetry {
