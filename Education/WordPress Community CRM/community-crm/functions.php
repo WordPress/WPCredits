@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CCRM_VERSION', '1.3.0' );
+define( 'CCRM_VERSION', '1.4.0' );
 
 require_once get_theme_file_path( 'inc/login.php' );
 
@@ -112,6 +112,86 @@ if ( ! function_exists( 'ccrm_block_styles' ) ) {
 	}
 }
 add_action( 'init', 'ccrm_block_styles' );
+
+if ( ! function_exists( 'ccrm_accent_word' ) ) {
+	/**
+	 * Set the site title the way the Education Directory sets its own: the accent
+	 * word in brand blue, and whatever follows it in muted gray at normal weight.
+	 *
+	 * "Community CRM" comes out as "<em>Community</em> <i>CRM</i>". Derived from the
+	 * real site title, so renaming the site in Settings keeps working, and a title
+	 * without the accent word simply comes out plain.
+	 *
+	 * @param string $text Plain text.
+	 * @return string Escaped HTML with at most one `<em>` and one `<i>`.
+	 */
+	function ccrm_accent_word( $text ) {
+		$text = trim( (string) $text );
+
+		/**
+		 * The word picked out in brand blue in the site title.
+		 *
+		 * @param string $word Default "Community".
+		 */
+		$word = (string) apply_filters( 'ccrm_accent_word', __( 'Community', 'community-crm' ) );
+
+		if ( '' === $word ) {
+			return esc_html( $text );
+		}
+
+		// One split only, so a title that repeats the word is not half blue.
+		$parts = preg_split( '/\b(' . preg_quote( $word, '/' ) . ')\b/u', $text, 2, PREG_SPLIT_DELIM_CAPTURE );
+
+		if ( ! is_array( $parts ) || count( $parts ) < 3 ) {
+			return esc_html( $text );
+		}
+
+		$out  = esc_html( $parts[0] ) . '<em>' . esc_html( $parts[1] ) . '</em>';
+		$tail = trim( $parts[2] );
+
+		if ( '' !== $tail ) {
+			$out .= ' <i>' . esc_html( $tail ) . '</i>';
+		}
+
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'ccrm_accent_site_title' ) ) {
+	/**
+	 * Pick the accent word out of the Site Title block.
+	 *
+	 * Filtered rather than written into the header part, so the block stays a real
+	 * Site Title block.
+	 *
+	 * @param string $content Rendered block HTML.
+	 * @param array  $block   Parsed block.
+	 * @return string
+	 */
+	function ccrm_accent_site_title( $content, $block ) {
+		if ( empty( $block['blockName'] ) || 'core/site-title' !== $block['blockName'] ) {
+			return $content;
+		}
+
+		$name = trim( wp_strip_all_tags( (string) get_bloginfo( 'name', 'display' ) ) );
+
+		if ( '' === $name || false === strpos( $content, $name ) ) {
+			return $content;
+		}
+
+		$accented = ccrm_accent_word( $name );
+
+		if ( $accented === $name ) {
+			return $content;
+		}
+
+		// The one occurrence of the title text: it can also appear in an attribute.
+		$position = strpos( $content, $name );
+
+		return substr_replace( $content, $accented, $position, strlen( $name ) );
+	}
+}
+add_filter( 'render_block', 'ccrm_accent_site_title', 10, 2 );
 
 /*
  * No skip link is registered here on purpose: core renders one for block

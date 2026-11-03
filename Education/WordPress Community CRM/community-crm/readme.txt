@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns, custom-colors, custom-logo, custom-menu, block-styles, editor-style, wide-blocks, translation-ready
@@ -21,10 +21,13 @@ framed by a thin header bar, under the official wordpress.org global header, wit
 the wordpress.org global footer closing the page.
 - centred, in monospace.
 
-Everything is built on WordPress Design System (WPDS) tokens - brand blue
-#3858e9, 13px system type, a 4px spacing base and 2px control radius - mapped
-into theme.json so the whole design is editable in the Site Editor without
-touching CSS.
+It wears the WordPress.org look the Education Directory (wordpresseducation.org)
+uses: headings in EB Garamond, everything else in Inter (both ship with the
+theme under the SIL Open Font License), the brand blue #3858e9 for actions,
+white cards on 1px hairlines with 2px corners, and the site's name in the header
+in two tones with no logo beside it. The tokens (a 4px spacing base, the type
+scale, the palette) are mapped into theme.json, so the design is editable in the
+Site Editor without touching CSS.
 
 = What it gives you =
 
@@ -150,9 +153,10 @@ To swap the hero illustration, replace
 `assets/images/hero-network.webp` (2048x768) or override `.ccrm-hero`'s
 `background-image` in a child theme.
 
-The brand mark in the header is an inline SVG in `parts/header.html`. The
-theme also declares `custom-logo` support, so you can add a Site Logo block
-and delete the SVG if you would rather upload a mark.
+The header carries no logo: the WordPress.org bar above it already has one.
+The site's name shows in two tones, "Community" in brand blue and the rest in
+gray; the word is the `ccrm_accent_word` filter. The theme still declares
+`custom-logo` support, so a Site Logo block can be added to the header part.
 
 == Accessibility notes ==
 
@@ -172,6 +176,12 @@ WordPress.org, the name will need changing - theme names there cannot include
 "WordPress".
 
 == Changelog ==
+
+= 1.4.0 =
+* The WordPress.org look the Education Directory uses: headings in EB Garamond and everything else in Inter, both shipped with the theme (assets/fonts, with their licenses); the hero's headline in the serif at display size; buttons at weight 600; cards and panels white on 1px hairlines with 2px corners, no shadow and no tint.
+* The header as the Education Directory's: no WordPress logo, the site's name at 30px in two tones ("Community" in brand blue, "CRM" in gray), a 76px bar the window's width with 40px gutters (20px on phones), the menu as 15px items.
+* A page's text at 16px on a 1.625 line.
+* wp-login.php shows the two-tone name in place of the WordPress logo, in Inter, with 2px corners.
 
 = 1.3.0 =
 * The theme's spacing scale (a 4px base: 8, 12, 16, 20, 24, 32, 40 and 72px) is now the one in use. WordPress's own default spacing sizes, which share the scale's names, had been overriding it on every page, so a page panel was padded 81px instead of 40px and the main area 36px instead of 24px. Gaps are now whole pixels on the scale. The sign-in card's own paddings are unchanged.

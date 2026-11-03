@@ -249,6 +249,16 @@
 			"writingMode": true,
 			"fontFamilies": [
 				{
+					"slug": "sans",
+					"name": "Inter",
+					"fontFamily": "Inter, -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif"
+				},
+				{
+					"slug": "serif",
+					"name": "EB Garamond",
+					"fontFamily": "'EB Garamond', Georgia, 'Times New Roman', serif"
+				},
+				{
 					"slug": "system",
 					"name": "System",
 					"fontFamily": "-apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif"
@@ -315,7 +325,7 @@
 			}
 		},
 		"typography": {
-			"fontFamily": "var(--wp--preset--font-family--system)",
+			"fontFamily": "var(--wp--preset--font-family--sans)",
 			"fontSize": "var(--wp--preset--font-size--md)",
 			"fontWeight": "var(--wp--custom--font-weight--regular)",
 			"lineHeight": "20px"
@@ -492,9 +502,9 @@
 			},
 			"core/site-title": {
 				"typography": {
-					"fontSize": "var(--wp--preset--font-size--md)",
-					"fontWeight": "var(--wp--custom--font-weight--medium)",
-					"lineHeight": "20px"
+					"fontSize": "30px",
+					"fontWeight": "600",
+					"lineHeight": "1.2"
 				},
 				"color": {
 					"text": "var(--wp--preset--color--contrast)"

@@ -673,15 +673,24 @@ add_filter( 'login_headerurl', 'ccrm_login_header_url' );
 
 if ( ! function_exists( 'ccrm_login_header_text' ) ) {
 	/**
-	 * Use the site name for the login logo's title attribute.
+	 * The site's name, two-tone as in the header, in place of the WordPress logo.
+	 *
+	 * Core prints this text inside the logo link as it is, unescaped, so it is
+	 * built escaped by ccrm_accent_word() (at most one `<em>` and one `<i>`), and
+	 * the stylesheet shows it as text instead of the logo image.
 	 *
 	 * @return string
 	 */
 	function ccrm_login_header_text() {
-		return get_bloginfo( 'name', 'display' );
+		$name = trim( wp_strip_all_tags( (string) get_bloginfo( 'name', 'display' ) ) );
+
+		return function_exists( 'ccrm_accent_word' ) ? ccrm_accent_word( $name ) : esc_html( $name );
 	}
 }
-add_filter( 'login_headertext', 'ccrm_login_header_text' );
+// After Jetpack CRM's own filter (priority 10), which sets the plain site name.
+// Its optional login logo (CRM settings) is drawn behind the text and the
+// stylesheet's rule for this link outranks it, so no logo shows either way.
+add_filter( 'login_headertext', 'ccrm_login_header_text', 20 );
 
 if ( ! function_exists( 'ccrm_login_screen_footer' ) ) {
 	/**
