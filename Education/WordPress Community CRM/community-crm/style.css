@@ -7,7 +7,7 @@ Description: A block theme for the WordPress Community CRM — the internal tool
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Version: 1.2.1
+Version: 1.2.2
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: community-crm
@@ -598,6 +598,21 @@ body .wp-site-blocks > * {
 	border-radius: var(--wp--custom--radius--lg);
 	background: var(--wp--preset--color--base);
 	box-shadow: var(--wp--custom--elevation--card);
+}
+
+/* At phone width the page panel and the main area around it give their
+   content room: with the widths the templates set, a 375px screen left the
+   panel's content 139px wide. The templates set both paddings inline, so
+   these need !important. The front page has no panel and is left alone. */
+@media ( max-width: 781px ) {
+	main.wp-block-group:has( > .ccrm-panel ) {
+		padding-right: 16px !important;
+		padding-left: 16px !important;
+	}
+
+	.ccrm-panel {
+		padding: 24px 20px !important;
+	}
 }
 
 /* Skip link — visible only on focus. */
