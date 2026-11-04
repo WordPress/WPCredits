@@ -9,7 +9,7 @@ page — on a site that is not part of the wordpress.org network.
 | Plugin | `wporg-global-header-footer` |
 | Version | 1.0.0 |
 | Requires | WordPress 6.6, PHP 7.4 |
-| Used by | [Education Dashboard](../WordPress%20Education%20Dashboard), [Education Initiatives](../WordPress%20Education%20Initiatives), [Community CRM](../WordPress%20Community%20CRM) |
+| Used by | [Education Dashboard](../WordPress%20Education%20Dashboard), [Education Initiatives](../WordPress%20Education%20Initiatives), and the Community CRM, which has its own repository |
 
 ## Where the code comes from
 

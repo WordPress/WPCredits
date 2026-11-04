@@ -19,11 +19,10 @@ be zipped and installed on a WordPress site as it stands.
 | --- | --- | --- |
 | [`WordPress Education Initiatives`](./WordPress%20Education%20Initiatives) | The **public site**: one block theme plus five plugins that present the education programs and surface live program data. | Pre-release — [#160](https://github.com/WordPress/WPCredits/issues/160), [#161](https://github.com/WordPress/WPCredits/issues/161) |
 | [`WordPress Education Dashboard`](./WordPress%20Education%20Dashboard) | The **member-facing dashboard**: a plugin and its companion theme giving Credits students and mentors a signed-in view of their own placement, their calls and their report cards. | Pre-release, on staging — [#158](https://github.com/WordPress/WPCredits/issues/158), [#159](https://github.com/WordPress/WPCredits/issues/159) |
-| [`WordPress Community CRM`](./WordPress%20Community%20CRM) | The Community team's **internal CRM**: a block theme whose front page is the sign-in screen, plus a plugin bringing a FreeScout help desk onto the Jetpack CRM contact record. | Pre-release — [#162](https://github.com/WordPress/WPCredits/issues/162) |
-| [`WordPress.org Global Header and Footer`](./WordPress.org%20Global%20Header%20and%20Footer) | The official wordpress.org header and footer, vendored from `wporg-mu-plugins`, for sites outside the wordpress.org network. Used by all three sites above. | In use |
+| [`WordPress.org Global Header and Footer`](./WordPress.org%20Global%20Header%20and%20Footer) | The official wordpress.org header and footer, vendored from `wporg-mu-plugins`, for sites outside the wordpress.org network. Used by both sites above. | In use |
 | [`WordPress Education Media Kit`](./WordPress%20Education%20Media%20Kit) | The **media kit**: logos, partner badges, quotes and paste-ready boilerplate for institutions, sponsors and clubs announcing their involvement. A single self-contained HTML page, [published here](https://wordpress.github.io/WPCredits/Education/WordPress%20Education%20Media%20Kit/). |  Published |
 
-Each of the first three folders has its own README with the full component list, versions,
+Each of the first two folders has its own README with the full component list, versions,
 requirements and install steps. Start there — the summaries below are only meant to tell you which
 one you want.
 
@@ -65,15 +64,6 @@ The plugin's `docs/` folder also holds the three program guides — student, men
 manager — generated from one set of sections by `bin/build-docs.php` and published on the dashboard
 itself, each behind its own audience's access level.
 
-### WordPress Community CRM — the internal CRM
-
-Not an education program, but the same stack and the same team. A small assembly on top of
-[Jetpack CRM](https://wordpress.org/plugins/zero-bs-crm/) for tracking the people, organizations and
-sponsors around meetups and WordCamps: `community-crm` is a block theme whose homepage doubles as
-the sign-in screen, and `jpcrm-freescout` brings a FreeScout help desk into `wp-admin` over its REST
-API, adding a Support Tickets tab to every contact record. Jetpack CRM itself is third-party and is
-not mirrored here.
-
 ### WordPress Education Media Kit — the brand assets
 
 A single-page kit for anyone announcing a partnership, event or club: initiative logos, "proud
@@ -97,8 +87,7 @@ Open an issue instead, or say so in the testing thread.
 ## Requirements
 
 WordPress **6.6+** and PHP **7.4+** covers everything here (individual components are looser — the
-dashboard theme's `theme.json` v3 is what sets the 6.6 floor). `jpcrm-freescout` additionally needs
-Jetpack CRM 5.0+ and a FreeScout install with the API & Webhooks module enabled.
+dashboard theme's `theme.json` v3 is what sets the 6.6 floor).
 
 ## Credentials and privacy
 
