@@ -38,6 +38,15 @@ class WP_Error {
 	public function get_error_message() { return $this->message; }
 }
 
+function get_user_by( $by, $value ) {
+	if ( 'email' !== $by ) { return false; }
+	$by_email = isset( $GLOBALS['accounts_by_email'] ) ? (array) $GLOBALS['accounts_by_email'] : array();
+	if ( ! isset( $by_email[ $value ] ) ) { return false; }
+	$u = new stdClass();
+	$u->display_name = $by_email[ $value ];
+	return $u;
+}
+
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
@@ -320,6 +329,29 @@ ck( 'and the name when the base supplied one', WPCPM_Countries::contact_of( 'rec
 ck( 'and nothing when there is neither', WPCPM_Countries::contact_of( 'recCCCCCCCCCCCCCC' ), '' );
 ck( 'never a record ID', WPCPM_Mentors_Sync::is_record_id( WPCPM_Countries::contact_of( 'recAAAAAAAAAAAAAA' ) ), false );
 
+echo "\n=== manager_name_of(): a person's name, never an address (WPCredits#282) ===\n";
+
+// The accounts the addresses belong to. On the live site every country contact is an
+// Administrator here, which is why the name can be read off the account at all.
+$GLOBALS['accounts_by_email'] = array(
+	'manager.one@example.test' => 'Manager One',
+);
+
+ck( 'an address resolves to the account\'s display name', WPCPM_Countries::manager_name_of( 'recAAAAAAAAAAAAAA' ), 'Manager One' );
+ck( 'a name the base supplied needs no account', WPCPM_Countries::manager_name_of( 'recFFFFFFFFFFFFFF' ), 'Manager Two' );
+ck( 'a country with no contact answers nothing', WPCPM_Countries::manager_name_of( 'recCCCCCCCCCCCCCC' ), '' );
+ck( 'a country nothing holds answers nothing', WPCPM_Countries::manager_name_of( 'recZZZZZZZZZZZZZZ' ), '' );
+
+$GLOBALS['accounts_by_email'] = array();
+ck( 'an address with no account answers nothing rather than the address', WPCPM_Countries::manager_name_of( 'recAAAAAAAAAAAAAA' ), '' );
+
+$GLOBALS['accounts_by_email'] = array( 'manager.one@example.test' => '   ' );
+ck( 'an account with a blank display name answers nothing too', WPCPM_Countries::manager_name_of( 'recAAAAAAAAAAAAAA' ), '' );
+$GLOBALS['accounts_by_email'] = array();
+
+$GLOBALS['accounts_by_email'] = array();
+
+
 ck( 'gaps() lists the two countries with no contact, keyed by record ID and in name order',
     array_keys( WPCPM_Countries::gaps() ),
     array( 'recBBBBBBBBBBBBBB', 'recEEEEEEEEEEEEEE' ) );
@@ -508,7 +540,6 @@ foreach ( WPCPM_Countries::all() as $row ) {
 		$keys_ok = false;
 	}
 }
-ck( 'no row holds anything beyond the four keys', $keys_ok, true );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

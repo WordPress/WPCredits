@@ -293,7 +293,7 @@ final class WPCPM_Mentor_Engagement {
 			self::VIEW_ALL      => __( 'All', 'wpcredits-program-manager' ),
 			self::VIEW_ACTIVE   => __( 'Active', 'wpcredits-program-manager' ),
 			self::VIEW_STUDENTS => __( 'With students now', 'wpcredits-program-manager' ),
-			self::VIEW_NEVER    => __( 'Never signed in', 'wpcredits-program-manager' ),
+			self::VIEW_NEVER    => __( 'No sign-in on record', 'wpcredits-program-manager' ),
 			self::VIEW_QUIET    => __( 'Not seen in 30 days', 'wpcredits-program-manager' ),
 			self::VIEW_IDLE     => __( 'No program action', 'wpcredits-program-manager' ),
 			self::VIEW_NO_HOURS => __( 'Students, no weekly hours', 'wpcredits-program-manager' ),
@@ -433,6 +433,11 @@ final class WPCPM_Mentor_Engagement {
 	public static function tiles( array $summary ) {
 		$sessions_held = (int) $summary['sessions_held'];
 
+		// The record begins on the day the seed ran, so a mentor with nothing recorded may
+		// well have signed in before it. The tile carries that day rather than claiming they
+		// never have, which is the one thing the site cannot know.
+		$since = WPCPM_Sign_Ins::since();
+
 		/* translators: %s: a number of group sessions held. */
 		$sessions = sprintf( _n( '%s group session held', '%s group sessions held', $sessions_held, 'wpcredits-program-manager' ), number_format_i18n( $sessions_held ) );
 
@@ -455,9 +460,15 @@ final class WPCPM_Mentor_Engagement {
 				'line' => sprintf( __( '%s signed in without one', 'wpcredits-program-manager' ), number_format_i18n( (int) $summary['idle'] ) ),
 			),
 			array(
-				'name' => __( 'Never signed in', 'wpcredits-program-manager' ),
+				'name' => __( 'No sign-in on record', 'wpcredits-program-manager' ),
 				'n'    => (int) $summary['never'],
-				'line' => '',
+				'line' => $since > 0
+					? sprintf(
+						/* translators: %s: the day the site began recording sign-ins, in the site's date format. */
+						__( 'none recorded since %s', 'wpcredits-program-manager' ),
+						wp_date( (string) get_option( 'date_format' ), $since )
+					)
+					: '',
 			),
 			array(
 				'name' => __( 'With students now', 'wpcredits-program-manager' ),

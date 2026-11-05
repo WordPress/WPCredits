@@ -998,6 +998,7 @@ eval( $wpcpm_test_institutions_source );
 // The Mentor engagement card reads its summary through this class (1.122.26). The seam is set to an
 // empty site before the suite's first collect() and cleared at the end of the run, so no later code
 // in a longer process reads a stale input.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
 WPCPM_Mentor_Engagement::for_tests( array( 'accounts' => array(), 'notes' => array(), 'calls' => array() ) );
 

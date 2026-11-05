@@ -4339,10 +4339,40 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				continue;
 			}
 
+			// A test institution is counted nowhere, and that holds for both figures on this
+			// line: they are read over the stage's real institutions, while every institution
+			// at the stage, test ones included, is still listed below it and marked.
+			$real = array_diff_key( $group, $tests );
+
+			// WPCredits#259: the stage's own line says how many of its institutions have
+			// students on the program now, so the figure a manager reports monthly is read
+			// from the screen rather than counted by hand.
+			$running = 0;
+
+			foreach ( $real as $one ) {
+				$one_id = is_array( $one ) && isset( $one['record_id'] ) ? (string) $one['record_id'] : '';
+
+				if ( '' !== trim( $one_id ) && WPCPM_Roster_Index::current_count( $one_id ) > 0 ) {
+					++$running;
+				}
+			}
+
 			printf(
-				'<h3 class="wpcpm-inst-stage">%1$s <span class="wpcpm-count">%2$s</span></h3>',
+				'<h3 class="wpcpm-inst-stage">%1$s <span class="wpcpm-count">%2$s</span>%3$s</h3>',
 				esc_html( self::stage_label( $stage ) ),
-				esc_html( number_format_i18n( count( array_diff_key( $group, $tests ) ) ) )
+				esc_html( number_format_i18n( count( $real ) ) ),
+				$running > 0
+					? sprintf(
+						' <span class="wpcpm-inst-stage__students">%s</span>',
+						esc_html(
+							sprintf(
+								/* translators: %s: a number of institutions. */
+								_n( '%s with students now', '%s with students now', $running, 'wpcredits-program-manager' ),
+								number_format_i18n( $running )
+							)
+						)
+					)
+					: ''
 			);
 
 			$this->render_pipeline_table( $group, $summaries, $page );
@@ -4548,6 +4578,38 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 					esc_html__( 'whitespace', 'wpcredits-program-manager' )
 				);
 			}
+		}
+
+		// The derived status of WPCredits#259: an institution the program has confirmed and
+		// that has students on the program now. Derived here and never stored, because the
+		// site already knows both halves and a stage nobody maintains by hand is a stage that
+		// goes stale. The count is the roster's own, so it reads as the school's dashboard
+		// reads it.
+		$students = '' !== trim( $record_id ) ? WPCPM_Roster_Index::current_count( $record_id ) : 0;
+
+		if ( $students > 0 ) {
+			printf(
+				' <span class="wpcpm-inst-mark wpcpm-inst-mark--students" title="%1$s">%2$s</span>',
+				esc_attr(
+					sprintf(
+						/* translators: %s: a number of students. */
+						_n(
+							'%s student is enrolled now, with or without a mentor assigned.',
+							'%s students are enrolled now, with or without a mentor assigned.',
+							$students,
+							'wpcredits-program-manager'
+						),
+						number_format_i18n( $students )
+					)
+				),
+				esc_html(
+					sprintf(
+						/* translators: %s: a number of students. */
+						_n( '%s student now', '%s students now', $students, 'wpcredits-program-manager' ),
+						number_format_i18n( $students )
+					)
+				)
+			);
 		}
 
 		if ( ! empty( $row['record_id'] ) ) {

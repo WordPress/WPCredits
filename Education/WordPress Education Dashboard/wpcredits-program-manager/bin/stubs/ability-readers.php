@@ -1041,7 +1041,7 @@ class WPCPM_Mentor_Engagement {
 			self::VIEW_ALL      => __( 'All', 'wpcredits-program-manager' ),
 			self::VIEW_ACTIVE   => __( 'Active', 'wpcredits-program-manager' ),
 			self::VIEW_STUDENTS => __( 'With students now', 'wpcredits-program-manager' ),
-			self::VIEW_NEVER    => __( 'Never signed in', 'wpcredits-program-manager' ),
+			self::VIEW_NEVER    => __( 'No sign-in on record', 'wpcredits-program-manager' ),
 			self::VIEW_QUIET    => __( 'Not seen in 30 days', 'wpcredits-program-manager' ),
 			self::VIEW_IDLE     => __( 'No program action', 'wpcredits-program-manager' ),
 			self::VIEW_NO_HOURS => __( 'Students, no weekly hours', 'wpcredits-program-manager' ),

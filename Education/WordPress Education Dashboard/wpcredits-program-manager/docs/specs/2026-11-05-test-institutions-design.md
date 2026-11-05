@@ -1,7 +1,7 @@
 # Test institutions on the site (design, 5 November 2026)
 
 Approved by the product owner on 5 November 2026 ("Looks right, write the design"; the document "Approved, write the plan"). Plugin:
-WPCredits Program Manager. Version: 1.123.55, after 1.123.54 (student registration).
+WPCredits Program Manager. Version: 1.123.55, after 1.123.54 (student registration). Shipped as 1.123.55 on 5 November 2026.
 
 ## 1. Why
 

@@ -76,6 +76,9 @@ if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
 }
 
+/** What a stage heading may carry after its count: the WPCredits#259 figure, where there is one. */
+define( 'STAGE_STUDENTS', '(?: <span class="wpcpm-inst-stage__students">[^<]*</span>)?' );
+
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
@@ -532,6 +535,16 @@ if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 			++$GLOBALS['counts_reads'];
 			$o = get_option( self::OPT_COUNTS );
 			return is_array( $o ) ? $o : array( 'v' => 1, 'read' => 0, 'institutions' => array(), 'reconciliation' => array() );
+		}
+		/**
+		 * How many students one institution has on the program now, for the mark and the stage
+		 * heading of WPCredits#259. The real predicate is `groups()`'s and is pinned in
+		 * bin/test-institution-roster.php; here the number is fixture data.
+		 */
+		public static function current_count( $id, $cohort = '' ) {
+			$counts = isset( $GLOBALS['students_now'] ) ? (array) $GLOBALS['students_now'] : array();
+
+			return isset( $counts[ $id ] ) ? (int) $counts[ $id ] : 0;
 		}
 		public static function write_all( array $b, array $u, array $c, array $r, $read ) {}
 		public static function insert( $id, array $row ) {}
@@ -1504,7 +1517,21 @@ function landed_on( $outcome ) {
  * @return array<string, int>
  */
 function stage_headings( $html ) {
-	preg_match_all( '#<h3 class="wpcpm-inst-stage">(.*?) <span class="wpcpm-count">(\d+)</span></h3>#', $html, $m, PREG_SET_ORDER );
+	preg_match_all( '#<h3 class="wpcpm-inst-stage">(.*?) <span class="wpcpm-count">(\d+)</span>' . STAGE_STUDENTS . '</h3>#', $html, $m, PREG_SET_ORDER );
+	$out = array();
+	foreach ( $m as $h ) { $out[ html_entity_decode( $h[1], ENT_QUOTES ) ] = (int) $h[2]; }
+	return $out;
+}
+
+/**
+ * Every stage heading's second figure, the institutions of that stage with students on the program
+ * now (WPCredits#259), in document order; a stage with none says nothing and is not named here.
+ *
+ * @param string $html Rendered screen.
+ * @return array<string, int>
+ */
+function stage_students( $html ) {
+	preg_match_all( '#<h3 class="wpcpm-inst-stage">([^<]*) <span class="wpcpm-count">\d+</span> <span class="wpcpm-inst-stage__students">(\d+) with students now</span></h3>#', $html, $m, PREG_SET_ORDER );
 	$out = array();
 	foreach ( $m as $h ) { $out[ html_entity_decode( $h[1], ENT_QUOTES ) ] = (int) $h[2]; }
 	return $out;
@@ -6074,7 +6101,7 @@ $GLOBALS['opts'][ $IDX ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows 
 /** The table of one stage's group on the Pipeline, counted or folded, or '' when none is drawn. */
 $group_of = static function ( $html, $stage ) {
 	$stage = preg_quote( $stage, '#' );
-	if ( preg_match( '#<h3 class="wpcpm-inst-stage">' . $stage . ' <span class="wpcpm-count">\d+</span></h3>(.*?)(?=<h3|<details|<h2|$)#s', $html, $m ) ) {
+	if ( preg_match( '#<h3 class="wpcpm-inst-stage">' . $stage . ' <span class="wpcpm-count">\d+</span>' . STAGE_STUDENTS . '</h3>(.*?)(?=<h3|<details|<h2|$)#s', $html, $m ) ) {
 		return $m[1];
 	}
 	return preg_match( '#<details class="wpcpm-inst-folded"><summary>' . $stage . ' <span class="wpcpm-count">\d+</span></summary>(.*?)</details>#s', $html, $m ) ? $m[1] : '';
@@ -6276,6 +6303,48 @@ $GLOBALS['member_reads']         = array();
 // The Institution Dashboard of the test institution holds neither mark nor label (Ruling 7): the screen's
 // own queue and lists above are the only places the mark is drawn from this class.
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
+
+echo "\n=== WPCredits#259: the institutions with students on the program now ===\n";
+
+// The mark on a row and the second figure on a stage's heading are both read from the roster the
+// site already holds, so there is no status for anyone to keep up and none to go stale. Both of a
+// heading's figures are over the stage's real institutions: a test institution with students on it
+// raises neither, while its own row carries its own count beside its Test mark, because a row is
+// where a test institution is listed rather than left out. The seed's test institution and the
+// first real one, both moved to Confirmed, plus the real ones already there.
+$sn_rows                = $rows;
+$sn_rows[ $T ]['stage'] = 'Confirmed';
+$sn_rows[ $R ]['stage'] = 'Confirmed';
+
+$GLOBALS['opts'][ $IDX ]  = array( 'v' => 1, 'read' => $read_at, 'rows' => $sn_rows );
+$GLOBALS['students_now']  = array();
+$sn_none                  = render_tab( 'pipeline' );
+$GLOBALS['students_now']  = array( $R => 3 );
+$sn_one                   = render_tab( 'pipeline' );
+$GLOBALS['students_now']  = array( $R => 3, $T => 9 );
+$sn_with_test             = render_tab( 'pipeline' );
+
+ck( 'with nobody enrolled, no stage says anything about students', array( stage_students( $sn_none ), false !== strpos( $sn_none, 'wpcpm-inst-stage__students' ) ), array( array(), false ) );
+ck( 'the one real institution with students is the stage\'s figure', stage_students( $sn_one ), array( 'Confirmed' => 1 ) );
+ck( 'a test institution with students raises it no further', stage_students( $sn_with_test ), array( 'Confirmed' => 1 ) );
+ck(
+	'and the count of institutions at each stage is the same in all three',
+	stage_headings( $sn_none ) === stage_headings( $sn_one ) && stage_headings( $sn_one ) === stage_headings( $sn_with_test ),
+	true
+);
+ck(
+	'the real institution\'s row says how many it has; the test institution\'s says its own, beside the Test mark',
+	array(
+		false !== strpos( (string) $name_cell( $sn_with_test, $R ), '>3 students now</span>' ),
+		false !== strpos( (string) $name_cell( $sn_with_test, $T ), '>9 students now</span>' ),
+		false !== strpos( (string) $name_cell( $sn_with_test, $T ), $M ),
+		false !== strpos( (string) $name_cell( $sn_one, $T ), 'students now' ),
+	),
+	array( true, true, true, false )
+);
+
+$GLOBALS['students_now'] = array();
+$GLOBALS['opts'][ $IDX ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
 
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 

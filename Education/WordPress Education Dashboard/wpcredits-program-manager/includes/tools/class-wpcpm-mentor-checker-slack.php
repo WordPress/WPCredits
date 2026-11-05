@@ -86,7 +86,7 @@ final class WPCPM_Mentor_Checker_Slack {
 	 * @return bool
 	 */
 	public static function is_webhook( $url ) {
-		return is_string( $url ) && 1 === preg_match( '#^https://hooks\.slack\.com/services/[A-Za-z0-9_/-]+\z#', $url );
+		return WPCPM_Slack::is_webhook( $url );
 	}
 
 	/**
@@ -95,10 +95,7 @@ final class WPCPM_Mentor_Checker_Slack {
 	 * @return string
 	 */
 	private static function webhook() {
-		$settings = WPCPM_Settings::get();
-		$url      = isset( $settings['checker_slack_webhook'] ) ? $settings['checker_slack_webhook'] : '';
-
-		return self::is_webhook( $url ) ? $url : '';
+		return WPCPM_Slack::webhook();
 	}
 
 	/**
@@ -191,7 +188,7 @@ final class WPCPM_Mentor_Checker_Slack {
 				sleep( self::PAUSE );
 			}
 
-			$result = self::post( $webhook, self::message( $chunk ) );
+			$result = WPCPM_Slack::send( $webhook, self::message( $chunk ) );
 
 			if ( true !== $result ) {
 				break;
@@ -236,59 +233,6 @@ final class WPCPM_Mentor_Checker_Slack {
 		if ( ! wp_next_scheduled( self::RETRY_HOOK ) ) {
 			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::RETRY_HOOK );
 		}
-	}
-
-	/**
-	 * Post one message.
-	 *
-	 * No redirect is followed: a redirect would carry the body, mentors' names included, to whatever
-	 * address it named.
-	 *
-	 * @param string $webhook The webhook.
-	 * @param string $text    The message.
-	 * @return true|WP_Error
-	 */
-	private static function post( $webhook, $text ) {
-		$response = wp_remote_post(
-			$webhook,
-			array(
-				'timeout'     => 10,
-				'redirection' => 0,
-				'headers'     => array( 'Content-Type' => 'application/json; charset=utf-8' ),
-				'body'        => wp_json_encode(
-					array(
-						'text'         => $text,
-						// A profile link would otherwise unfurl into a card per mentor.
-						'unfurl_links' => false,
-						'unfurl_media' => false,
-					)
-				),
-			)
-		);
-
-		return self::outcome( $response );
-	}
-
-	/**
-	 * Whether Slack took the message: an incoming webhook answers 200 with the body `ok`, and
-	 * anything else with a status and a word saying why (`no_service`, `invalid_payload`, ...).
-	 *
-	 * @param array|WP_Error $response What `wp_remote_post()` handed back.
-	 * @return true|WP_Error
-	 */
-	private static function outcome( $response ) {
-		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'wpcpm_slack_unreachable', $response->get_error_message() );
-		}
-
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		$body = trim( (string) wp_remote_retrieve_body( $response ) );
-
-		if ( 200 === $code && 'ok' === $body ) {
-			return true;
-		}
-
-		return new WP_Error( 'wpcpm_slack_refused', sprintf( 'HTTP %d: %s', $code, substr( $body, 0, 100 ) ) );
 	}
 
 	/**

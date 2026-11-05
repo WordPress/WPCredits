@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.55
+Stable tag: 1.123.56
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,12 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.56 =
+
+* The Institutions screen marks every institution that has students on the program now, with how many, and each stage's heading says how many of its institutions have them. The site works this out for itself from the stage and the roster it already holds, so there is no status for anyone to keep up by hand. Both figures on a stage's heading are over its real institutions, a test institution left out of them as it is everywhere else, while every institution at the stage is still listed below it (WordPress/WPCredits#259).
+* A message goes to Slack when an institution reaches Confirmed: its name, where it is, the Administrator for its country, and how many confirmed institutions that makes. The Administrator is named from the country's contact and the account that address belongs to, so the message never prints an address or a record ID where a person belongs; an institution in a country with no contact is announced without that line. The institutions already confirmed when this is installed are recorded silently and never announced, and several arriving at once become one message rather than one each. A confirmation dated more than thirty days ago is treated the same way as those: recorded without a word, so a batch of old partnerships loaded into Airtable in one go is not read as new ones. A confirmation with no date on it, or a date nothing can read, is still announced. A test institution is announced nowhere and left out of the count the message prints, as it is left out of every other number on the site (WordPress/WPCredits#282).
+* The Engagement tab, the Administrator Dashboard's engagement card and the Abilities answers no longer say that a mentor "never signed in". The site has only kept a sign-in record since 15 October 2026, so they read "No sign-in on record", and the card's line names the day the record began.
 
 = 1.123.55 =
 

@@ -247,6 +247,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.ph
 // under, and whose own screens draw those settings: the real classes, since a scope named from a
 // stand-in's ID would prove nothing.
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-slack.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker-slack.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-finder.php';

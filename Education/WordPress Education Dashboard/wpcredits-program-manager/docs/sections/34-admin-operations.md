@@ -39,6 +39,26 @@ put back the value it replaced. A correction made while a run holds its lock the
 more run five minutes later, which reads the change from the base. Only one such run waits at a
 time, and it keeps to **Automatic sync** and leaves a run still going alone.
 
+Since 1.123.56 the institutions sync says on Slack that an institution has joined. A run that
+finds a record at Confirmed the site has not announced before posts one message once it has
+finished: the institution's name, its city and country where the record holds them, the
+Administrator for its country where the Countries table names one, and a last line with how many
+confirmed institutions that makes. It goes to the **Slack webhook** saved for the Mentor Status
+Checker, so the channel is chosen in Slack, and nothing is sent or recorded while no webhook is
+saved. Up to three in one run are announced one by one; more than that is one message naming them
+all, because a stage column edited in bulk is not fifty pieces of news. Each institution is
+announced once, under the option `wpcpm_institution_announced`, and the first run that has a
+webhook records every institution already at Confirmed and says nothing, so the partnerships signed
+before this shipped are not announced as new. A confirmation the program dated more than thirty
+days ago is history rather than news: it is remembered without a word, so a list of older
+partnerships entered in the base is quiet, while a record whose **Confirmed on** is empty or cannot
+be read is announced, losing a real partnership to an empty field being the worse of the two
+mistakes. A test institution is announced nowhere and is left out of the total the message prints,
+as it is left out of every other figure the site draws; renamed away from TEST, it is news at the
+sync that makes it real. A message Slack refuses leaves its institution unannounced, so the next
+run says it again, and the message is in the site's language whatever language the run was started
+in.
+
 Accounts are matched by the Airtable record the sync stored, then by email address, and, for
 mentors, last by WordPress.org username. **No account is ever deleted by a sync** - the most it will
 do is remove a role.
@@ -373,6 +393,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
+| `wpcpm_institution_announced` | `WPCPM_Institution_Announce::OPT_ANNOUNCED` (the record IDs of the institutions whose arrival at Confirmed has been announced on Slack, so none is announced a second time) |
 | `wpcpm_institution_modules_` | `WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX` (each institution's module order) |
 | `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
 | `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |

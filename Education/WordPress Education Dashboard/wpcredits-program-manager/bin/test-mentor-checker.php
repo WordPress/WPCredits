@@ -435,6 +435,7 @@ class WPCPM_Request {
 $GLOBALS['runs'] = 0;
 
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-slack.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker-slack.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker-runner.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php';

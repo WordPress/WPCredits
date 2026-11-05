@@ -94,6 +94,15 @@ function _n( $one, $many, $n, $d = null ) { return 1 === (int) $n ? $one : $many
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
 function gmdate_utc( $t ) { return gmdate( 'Y-m-d H:i', $t ); }
 
+// The card's "No sign-in on record" tile names the day the record began, so the tiles need
+// the option that holds it and the site's date format.
+function get_option( $name, $default = false ) {
+	if ( 'wpcpm_sign_ins_since' === $name ) { return isset( $GLOBALS['wpcpm_test_since'] ) ? $GLOBALS['wpcpm_test_since'] : 1792086785; }
+	if ( 'date_format' === $name ) { return 'F j, Y'; }
+	return $default;
+}
+function wp_date( $format, $t = null ) { return gmdate( (string) $format, (int) $t ); }
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 // The record ID pattern, which `WPCPM_Mentors_Sync::is_record_id()` delegates to, and the lookup of the account a Mentors
 // record ID is linked to, which a search that is a record ID takes.
@@ -301,9 +310,15 @@ ck( 'a holder with no row on the tab finds nobody, and no holder is none',
 echo "\n=== Words ===\n";
 
 $tiles = WPCPM_Mentor_Engagement::tiles( $s );
-ck( 'six tiles in the card\'s order', array_map( function ( $t ) { return $t['name']; }, $tiles ), array( 'Active mentors', 'Seen in the last 30 days', 'Took a program action', 'Never signed in', 'With students now', 'Calls held' ) );
+ck( 'six tiles in the card\'s order', array_map( function ( $t ) { return $t['name']; }, $tiles ), array( 'Active mentors', 'Seen in the last 30 days', 'Took a program action', 'No sign-in on record', 'With students now', 'Calls held' ) );
 ck( 'each with its number', array_map( function ( $t ) { return $t['n']; }, $tiles ), array( 4, 2, 2, 1, 2, 5 ) );
-ck( 'and its line', array_map( function ( $t ) { return $t['line']; }, $tiles ), array( 'not counting Administrators', '1 in the last 7 days', '1 signed in without one', '', '1 with weekly hours, 2 wrote notes', '1 with a note, 1 upcoming; 2 group sessions held' ) );
+ck( 'and its line', array_map( function ( $t ) { return $t['line']; }, $tiles ), array( 'not counting Administrators', '1 in the last 7 days', '1 signed in without one', 'none recorded since October 15, 2026', '1 with weekly hours, 2 wrote notes', '1 with a note, 1 upcoming; 2 group sessions held' ) );
+// The sign-in record begins on the day the seed ran, and the tile says so rather than
+// claiming a mentor never signed in; before the seed has run there is no such day, and the
+// tile says nothing instead of naming 1 January 1970.
+$GLOBALS['wpcpm_test_since'] = 0;
+ck( 'with no seed day yet, the tile carries no line', WPCPM_Mentor_Engagement::tiles( $s )[3]['line'], '' );
+unset( $GLOBALS['wpcpm_test_since'] );
 // Review finding D: the session noun agrees with its number.
 ck( 'the calls tile\'s line reads "1 group session held" for one, and keeps the plural for none and many', array_map( function ( $held ) use ( $s ) { return WPCPM_Mentor_Engagement::tiles( array_merge( $s, array( 'sessions_held' => $held ) ) )[5]['line']; }, array( 0, 1, 2, 1234 ) ), array( '1 with a note, 1 upcoming; 0 group sessions held', '1 with a note, 1 upcoming; 1 group session held', '1 with a note, 1 upcoming; 2 group sessions held', '1 with a note, 1 upcoming; 1,234 group sessions held' ) );
 ck( 'the sentence for the Administrators who mentor', WPCPM_Mentor_Engagement::apart( $s ), 'Administrators who also mentor are counted apart: 1.' );

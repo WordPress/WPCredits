@@ -290,6 +290,31 @@ class WPCPM_Roster_Index {
 	}
 
 	/**
+	 * How many students one institution has on the program now.
+	 *
+	 * The `current` group's length, and deliberately not a count of its own: a school's own
+	 * dashboard calls these students Current, and an Administrator reading the Institutions
+	 * screen has to be shown the same number, or the two screens disagree about a school in
+	 * front of the school. `groups()` already holds the rule, waiting students included or
+	 * excluded exactly as the roster shows them (WPCredits#259).
+	 *
+	 * Waiting students count: they are enrolled, and whether a mentor has been assigned yet is a
+	 * different question, asked and answered on the roster itself.
+	 *
+	 * One option read per institution, so a caller walking a list reads only the rows it means
+	 * to mark rather than the whole index.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param string $cohort    A `WPCPM_Cohort` key to narrow to; anything else counts every semester.
+	 * @return int
+	 */
+	public static function current_count( $record_id, $cohort = '' ) {
+		$groups = self::groups( $record_id, $cohort );
+
+		return count( $groups['current'] ) + count( $groups['waiting'] );
+	}
+
+	/**
 	 * Whether a tracked current student is still waiting for a mentor.
 	 *
 	 * **Either signal is a mentor.** `reports` is the Students Reports rows behind this

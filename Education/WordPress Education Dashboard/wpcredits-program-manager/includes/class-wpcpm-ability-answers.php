@@ -1676,7 +1676,7 @@ class WPCPM_Ability_Answers {
 					'format'      => 'date-time',
 					'description' => __( 'The time the figures were counted as of, ISO 8601 in UTC.', 'wpcredits-program-manager' ),
 				),
-				'summary' => self::object( $summary, null, __( 'The Engagement tab\'s figures: active mentors, how many signed in, were seen in 30 and in 7 days, never signed in, acted or stayed idle, those with students and what they set up, the calls and group sessions held, upcoming and noted, and the staff.', 'wpcredits-program-manager' ) ),
+				'summary' => self::object( $summary, null, __( 'The Engagement tab\'s figures: active mentors, how many signed in, were seen in 30 and in 7 days, have no sign-in on record, acted or stayed idle, those with students and what they set up, the calls and group sessions held, upcoming and noted, and the staff.', 'wpcredits-program-manager' ) ),
 			)
 		);
 	}
@@ -1813,9 +1813,9 @@ class WPCPM_Ability_Answers {
 						'type' => 'string',
 						'enum' => array( 'all', 'active', 'students', 'never', 'quiet', 'idle', 'no-hours', 'staff' ),
 					),
-					__( 'The Engagement tab\'s view the mentor is filed under, one of `all`, `active`, `students`, `never`, `quiet`, `idle`, `no-hours` or `staff`: `staff` for an Administrator who mentors, else the first follow-up that holds the mentor (`never` signed in, `quiet` for 30 days, `idle` with no program action, `no-hours` with students and no weekly hours), else `students` for a mentor with students now, `active`, and `all` for a mentor who stopped mentoring.', 'wpcredits-program-manager' )
+					__( 'The Engagement tab\'s view the mentor is filed under, one of `all`, `active`, `students`, `never`, `quiet`, `idle`, `no-hours` or `staff`: `staff` for an Administrator who mentors, else the first follow-up that holds the mentor (`never` with no sign-in on record, `quiet` for 30 days, `idle` with no program action, `no-hours` with students and no weekly hours), else `students` for a mentor with students now, `active`, and `all` for a mentor who stopped mentoring.', 'wpcredits-program-manager' )
 				),
-				'last_sign_in' => self::date_of_day( __( 'The day of the mentor\'s last sign-in, as Y-m-d in UTC; null when they never signed in.', 'wpcredits-program-manager' ) ),
+				'last_sign_in' => self::date_of_day( __( 'The day of the mentor\'s last sign-in, as Y-m-d in UTC; null when no sign-in has been recorded for them since the site began keeping the record.', 'wpcredits-program-manager' ) ),
 				'last_visit'   => self::date_of_day( __( 'The day of the mentor\'s last visit to the site, as Y-m-d in UTC; null when they never visited.', 'wpcredits-program-manager' ) ),
 			)
 		);

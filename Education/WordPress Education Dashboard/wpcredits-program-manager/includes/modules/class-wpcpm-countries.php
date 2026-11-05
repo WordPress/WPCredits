@@ -178,6 +178,51 @@ class WPCPM_Countries {
 	}
 
 	/**
+	 * The program manager's name for one country, or '' when the site cannot name them.
+	 *
+	 * `contact_of()` answers with the name when the base holds one and with the address
+	 * otherwise, and the base holds none: read on the live site on 5 November 2026, all 141
+	 * country rows that have a contact hold a Team record ID in that column, so `contact_of()`
+	 * answers with an address every time. An address is the right answer for a manager screen,
+	 * which is what that method is for. It is not what belongs in a message to a channel.
+	 *
+	 * The name comes from the account instead. The country contacts are the program's own
+	 * Administrators, so each of those addresses belongs to an account on this site: all 141
+	 * resolved on the same read, and so did every Confirmed institution's country.
+	 *
+	 * Nothing is guessed and nothing is half-answered. A country with no contact, an address
+	 * with no account, and an account with no display name all answer '', and the caller leaves
+	 * its line out rather than printing an address or a record ID where a person belongs.
+	 *
+	 * @param string $record_id Countries record ID.
+	 * @return string
+	 */
+	public static function manager_name_of( $record_id ) {
+		$contact = trim( (string) self::contact_of( $record_id ) );
+
+		if ( '' === $contact ) {
+			return '';
+		}
+
+		// A name the base supplied needs no account behind it.
+		if ( false === strpos( $contact, '@' ) ) {
+			return $contact;
+		}
+
+		if ( ! function_exists( 'get_user_by' ) ) {
+			return '';
+		}
+
+		$user = get_user_by( 'email', $contact );
+
+		if ( ! $user || ! isset( $user->display_name ) ) {
+			return '';
+		}
+
+		return trim( (string) $user->display_name );
+	}
+
+	/**
 	 * Every country with nobody to route to, by name.
 	 *
 	 * A list for the manager screen, never a reason to refuse anything: an institution

@@ -41,6 +41,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-learn.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-content-access.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-privacy-guard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-sign-ins.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-slack.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-wporg-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-program.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-icons.php';
@@ -127,6 +128,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-countri
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-test-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-sync.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-announce.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-members.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-agreement.php';
@@ -259,6 +261,9 @@ delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_SIGN_IN, '', true );
 delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_VISIT, '', true );
 delete_option( WPCPM_Sign_Ins::OPT_VERSION );
 delete_option( WPCPM_Sign_Ins::OPT_SINCE );
+
+// The institutions already announced on Slack (WPCredits#282).
+delete_option( WPCPM_Institution_Announce::OPT_ANNOUNCED );
 
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );

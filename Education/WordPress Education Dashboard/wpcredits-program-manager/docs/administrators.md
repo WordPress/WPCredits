@@ -485,6 +485,8 @@ The Institutions screen is six tabs, and a press on any of them comes back to it
 
 **Pipeline** lists every institution record by stage, as the last institutions sync read it, and says when that was. Each row gives the institution's name, which opens its Institution Dashboard as an Administrator sees it, its country and city, whether Airtable holds a contact address for it, never the address itself, whether it carries the consent tick, when the record was created and the state of its agreement. Since 1.123.29 the counts leave out the records at SPAM, Not Moving Forward and Revisit Later, and those with no stage: the number beside the card's heading, each stage's own count, **Confirmed with no agreement recorded**, **Institutions with no live member**, the countries line and **Consent** count only the rest. A stage is read without the spaces around it, so "SPAM " is SPAM, and a stage the plugin does not know is counted. Those four stages are still listed, under the line "Not counted above" after the others, each folded with its count; open one to see its records. **Confirmed with no agreement recorded** narrows the list to those institutions, and **Show every stage** brings the rest back. Above the stages, **Institutions with no live member** counts the institutions nobody can act for on this site, with the way to give one an account on the **Accounts** tab, and a line lists the countries named by institutions that have no Administrator contact in the Countries table. Under them, **Find an institution** finds any record, whatever its stage, by typing part of its name; each entry reads its name, its city and its stage, and **Open its page** opens that institution's Institution Dashboard. While the Institution Dashboard's page is missing, the names are not links and the field is not shown. Under the list, **Consent** counts the records collected before the form asked for consent, and the ones created without the tick since, which is how a record entered by hand in Airtable looks.
 
+Since 1.123.56 the Pipeline also says where the students are. A row whose institution has students enrolled now carries a small "N students now" beside its name, and each stage's heading reads, after its count, "N with students now": how many of that stage's institutions have any. The students behind both figures are the roster's own, the ones the institution's own **Students** section files under **Current** and **Waiting for a mentor**, every semester together, so a number an Administrator reads here and a number the school reads on its own dashboard cannot disagree; a student counts whether or not a mentor has been assigned yet. A row with no students shows no mark, and a stage whose institutions have none between them shows no figure, rather than a zero. The stage's figure is read over the stage's real institutions, as its count is, so a test institution is left out of it, while the mark on a row is that row's own count and a test institution's row carries it beside its Test mark. Neither figure is stored or kept up by hand anywhere: the stages are what the last institutions sync read, the students are the rosters as they stand, and how many partnerships have students on the program now is read off this screen rather than counted school by school.
+
 **Accounts** holds the **Invitations** card, whose button invites every institution account never invited, except one that also mentors and whose invitation was held when an application made it a mentor (the card says how many it left out, and only that account's own row sends it), and the **Institution accounts** list, under a warning naming any institution account locked out of roster changes for the rest of the day, a lock that lifts by itself the next day. The list works as the **Student accounts** list does: every institution account, a page at a time, with no email address printed, though the search finds one. **Search institutions** finds an account by name, username, email address or the name of the institution it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Institution** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens the Institution Dashboard as the institution the account acts for, while that page exists, **Send invite** or **Resend invite**, which emails that one account at once, and **Manage members**. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue, and come back to the list as it was. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
@@ -2323,6 +2325,26 @@ put back the value it replaced. A correction made while a run holds its lock the
 more run five minutes later, which reads the change from the base. Only one such run waits at a
 time, and it keeps to **Automatic sync** and leaves a run still going alone.
 
+Since 1.123.56 the institutions sync says on Slack that an institution has joined. A run that
+finds a record at Confirmed the site has not announced before posts one message once it has
+finished: the institution's name, its city and country where the record holds them, the
+Administrator for its country where the Countries table names one, and a last line with how many
+confirmed institutions that makes. It goes to the **Slack webhook** saved for the Mentor Status
+Checker, so the channel is chosen in Slack, and nothing is sent or recorded while no webhook is
+saved. Up to three in one run are announced one by one; more than that is one message naming them
+all, because a stage column edited in bulk is not fifty pieces of news. Each institution is
+announced once, under the option `wpcpm_institution_announced`, and the first run that has a
+webhook records every institution already at Confirmed and says nothing, so the partnerships signed
+before this shipped are not announced as new. A confirmation the program dated more than thirty
+days ago is history rather than news: it is remembered without a word, so a list of older
+partnerships entered in the base is quiet, while a record whose **Confirmed on** is empty or cannot
+be read is announced, losing a real partnership to an empty field being the worse of the two
+mistakes. A test institution is announced nowhere and is left out of the total the message prints,
+as it is left out of every other figure the site draws; renamed away from TEST, it is news at the
+sync that makes it real. A message Slack refuses leaves its institution unannounced, so the next
+run says it again, and the message is in the site's language whatever language the run was started
+in.
+
 Accounts are matched by the Airtable record the sync stored, then by email address, and, for
 mentors, last by WordPress.org username. **No account is ever deleted by a sync** - the most it will
 do is remove a role.
@@ -2657,6 +2679,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
+| `wpcpm_institution_announced` | `WPCPM_Institution_Announce::OPT_ANNOUNCED` (the record IDs of the institutions whose arrival at Confirmed has been announced on Slack, so none is announced a second time) |
 | `wpcpm_institution_modules_` | `WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX` (each institution's module order) |
 | `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
 | `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |

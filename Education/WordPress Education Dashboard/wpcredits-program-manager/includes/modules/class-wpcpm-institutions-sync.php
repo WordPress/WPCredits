@@ -1383,6 +1383,15 @@ class WPCPM_Institutions_Sync {
 		delete_option( self::OPT_STATE );
 		delete_option( self::OPT_LOCK );
 		wp_clear_scheduled_hook( self::CRON_TICK );
+
+		// Here, and not in the records phase, because the index is whole only once the run is:
+		// a phase that announced as it went would post about an institution the next phase
+		// might still rewrite, and a run that failed half way would have announced half of it.
+		// The lock is already released, and this takes none: it reads the index and writes one
+		// option of its own (WPCredits#282).
+		if ( class_exists( 'WPCPM_Institution_Announce' ) ) {
+			WPCPM_Institution_Announce::after_sync();
+		}
 	}
 
 	/**

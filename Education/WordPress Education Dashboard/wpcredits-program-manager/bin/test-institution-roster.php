@@ -1327,6 +1327,19 @@ ck( 'July to December 2026 holds only that one', array_keys( $h2['current'] ), a
 ck( 'and nothing else at all',
 	array( count( $h2['waiting'] ), count( $h2['finished'] ), count( $h2['not_started'] ) ), array( 0, 0, 0 ) );
 
+echo "\n=== current_count(): the students enrolled now (WPCredits#259) ===\n";
+
+// What the Institutions screen in wp-admin marks a Confirmed institution with, and what its
+// stage heading counts. Current and waiting together: a student with no mentor yet is still
+// enrolled, and whether anyone has been assigned is the roster's own question, asked there.
+ck( 'current and waiting together', WPCPM_Roster_Index::current_count( $A ), 4 );
+ck( 'the finished and the never-started are not on the program now',
+	WPCPM_Roster_Index::current_count( $A ) < count( $rows_a ), true );
+ck( "another institution's count is its own", WPCPM_Roster_Index::current_count( $B ), 1 );
+ck( 'a record ID nothing holds counts none', WPCPM_Roster_Index::current_count( $GHOST ), 0 );
+ck( 'and so does a value that is not one', WPCPM_Roster_Index::current_count( 'nonsense' ), 0 );
+ck( 'narrowed to a semester, only that semester', WPCPM_Roster_Index::current_count( $A, '2026-H2' ), 1 );
+
 $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $A ) ]['rows'][ $S_WAITING ]['start'] = '';
 $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $A ) ]['rows'][ $S_SPAM ]['start']    = '';
 $none = WPCPM_Roster_Index::groups( $A, WPCPM_Cohort::NONE );
