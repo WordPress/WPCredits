@@ -514,13 +514,16 @@ final class WPCPM_Mentor_Checker_Slack {
 	}
 
 	/**
-	 * Slack's escaping for text: `&`, `<` and `>` and nothing else.
+	 * Slack's escaping for text, which `WPCPM_Slack` holds for both announcers since 1.123.57.
+	 *
+	 * Kept as a name of this class's own because its six call sites read better for it, and
+	 * because the rule itself must not exist here twice.
 	 *
 	 * @param string $text Text to put in a message.
 	 * @return string
 	 */
 	private static function escape( $text ) {
-		return str_replace( array( '&', '<', '>' ), array( '&amp;', '&lt;', '&gt;' ), (string) $text );
+		return WPCPM_Slack::escape( $text );
 	}
 
 	/**

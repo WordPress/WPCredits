@@ -28,10 +28,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  * forty-odd partnerships already signed are not news. From then on an institution missing from
  * the set is one that has just arrived.
  *
- * **One option, written only from the sync.** The institutions sync holds a lock for its whole
- * run and calls this once the run is done, so the read-change-write of the set cannot race
- * another writer. That is the difference from `WPCPM_Mentor_Checker_Slack`, which keeps a row
- * per waiting mentor precisely because its writers are not serialized.
+ * **One announcer at a time, under a lock of its own (1.123.57).** 1.123.56 took no lock, on the
+ * claim that the sync's own lock covered this read-change-write. It does not: `finish()` lets that
+ * lock go and then calls this, and its call site says as much, so two runs finishing close
+ * together - an Administrator's **Sync institutions now** after an automatic run, or the follow-up
+ * run a correction asks for five minutes later - could both read this set, post overlapping
+ * messages and write each other's additions away. `WPCPM_Lock` serializes them instead, held
+ * through the sending and the writing and let go in `finally`. A run that cannot take it says
+ * nothing and records nothing: the run that holds it is reading the same index, and whatever is
+ * left unannounced is announced by the next run, exactly as a refused message is.
  *
  * **A flood becomes one message.** A stage column edited in bulk, or a first run of a restored
  * index, can move many institutions at once. Up to `PER_MESSAGE` are announced one by one;
@@ -72,6 +77,18 @@ final class WPCPM_Institution_Announce {
 	/** The stage an institution reaches when the program has said yes. */
 	const STAGE = 'Confirmed';
 
+	/** The lock one announcer holds while it reads the set, sends and writes it back. */
+	const LOCK = 'wpcpm_institution_announce_lock';
+
+	/**
+	 * How long that lock holds at most, in seconds.
+	 *
+	 * Three messages at `WPCPM_Slack::TIMEOUT` seconds each is the longest a run can spend
+	 * waiting on Slack, and the index reads before them are cheap; two minutes leaves room
+	 * without leaving a request that died mid-send holding the lock for long.
+	 */
+	const LOCK_TTL = 120;
+
 	/**
 	 * Say what this run has to say. Called by the institutions sync once a run is done.
 	 *
@@ -88,18 +105,41 @@ final class WPCPM_Institution_Announce {
 			return 0;
 		}
 
+		// Nothing is read, sent or written while another run is announcing: see the class's own
+		// note on the lock. Taken after the webhook read, so a site with no webhook saved writes
+		// no lock row either.
+		$token = WPCPM_Lock::take( self::LOCK, self::LOCK_TTL );
+
+		if ( '' === $token ) {
+			return 0;
+		}
+
 		$switched = switch_to_locale( get_locale() );
 
+		try {
+			return self::announce( $webhook );
+		} finally {
+			if ( $switched ) {
+				restore_previous_locale();
+			}
+
+			WPCPM_Lock::release( self::LOCK, $token );
+		}
+	}
+
+	/**
+	 * Say what this run has to say, inside the lock and the site's own language.
+	 *
+	 * @param string $webhook The webhook, already read and checked.
+	 * @return int How many institutions were announced; 0 for a seed or no news.
+	 */
+	private static function announce( $webhook ) {
 		$confirmed = self::confirmed();
 		$stored    = get_option( self::OPT_ANNOUNCED );
 
 		// The first run with a webhook records where the program already is and says nothing.
 		if ( ! is_array( $stored ) || ! isset( $stored['v'] ) || self::SCHEMA_VERSION !== (int) $stored['v'] ) {
 			self::remember( array_keys( $confirmed ) );
-
-			if ( $switched ) {
-				restore_previous_locale();
-			}
 
 			return 0;
 		}
@@ -123,10 +163,6 @@ final class WPCPM_Institution_Announce {
 				self::remember( array_merge( $known, $history ) );
 			}
 
-			if ( $switched ) {
-				restore_previous_locale();
-			}
-
 			return 0;
 		}
 
@@ -147,10 +183,6 @@ final class WPCPM_Institution_Announce {
 
 		if ( ! empty( $said ) || ! empty( $history ) ) {
 			self::remember( array_merge( $known, $history, $said ) );
-		}
-
-		if ( $switched ) {
-			restore_previous_locale();
 		}
 
 		return count( $said );
@@ -255,6 +287,7 @@ final class WPCPM_Institution_Announce {
 	public static function message( array $row, $total ) {
 		$name  = trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) );
 		$name  = '' !== $name ? $name : __( 'An institution', 'wpcredits-program-manager' );
+		$name  = WPCPM_Slack::escape( $name );
 		$place = self::place( $row );
 
 		$line = '' !== $place
@@ -290,9 +323,12 @@ final class WPCPM_Institution_Announce {
 			$name  = trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) );
 			$place = self::place( is_array( $row ) ? $row : array() );
 
-			if ( '' === $name ) {
-				continue;
-			}
+			// The same fallback the single message uses (1.123.57). Skipping the row left it out
+			// of the message while `after_sync()` recorded its ID with the rest, so an
+			// institution whose name reached Airtable later was never announced at all; and the
+			// heading counted the named ones, which read one short of the batch.
+			$name = '' !== $name ? $name : __( 'An institution', 'wpcredits-program-manager' );
+			$name = WPCPM_Slack::escape( $name );
 
 			/* translators: 1: an institution's name, 2: its city and country. */
 			$names[] = '' !== $place ? sprintf( __( '%1$s (%2$s)', 'wpcredits-program-manager' ), $name, $place ) : $name;
@@ -347,7 +383,7 @@ final class WPCPM_Institution_Announce {
 			return '';
 		}
 
-		return WPCPM_Countries::manager_name_of( $country );
+		return WPCPM_Slack::escape( WPCPM_Countries::manager_name_of( $country ) );
 	}
 
 	/**
@@ -360,8 +396,8 @@ final class WPCPM_Institution_Announce {
 	 * @return string
 	 */
 	private static function place( array $row ) {
-		$city    = trim( (string) ( isset( $row['city'] ) ? $row['city'] : '' ) );
-		$country = trim( (string) ( isset( $row['country_name'] ) ? $row['country_name'] : '' ) );
+		$city    = WPCPM_Slack::escape( trim( (string) ( isset( $row['city'] ) ? $row['city'] : '' ) ) );
+		$country = WPCPM_Slack::escape( trim( (string) ( isset( $row['country_name'] ) ? $row['country_name'] : '' ) ) );
 
 		if ( '' !== $city && '' !== $country ) {
 			/* translators: 1: a city, 2: a country. */

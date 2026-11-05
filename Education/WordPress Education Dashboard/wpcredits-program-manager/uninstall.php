@@ -262,8 +262,11 @@ delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_VISIT, '', true );
 delete_option( WPCPM_Sign_Ins::OPT_VERSION );
 delete_option( WPCPM_Sign_Ins::OPT_SINCE );
 
-// The institutions already announced on Slack (WPCredits#282).
+// The institutions already announced on Slack (WPCredits#282), and the lock one announcer holds
+// while it reads that set, sends and writes it back (1.123.57), which a request that dies sending
+// leaves behind until its two minutes are up.
 delete_option( WPCPM_Institution_Announce::OPT_ANNOUNCED );
+delete_option( WPCPM_Institution_Announce::LOCK );
 
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );

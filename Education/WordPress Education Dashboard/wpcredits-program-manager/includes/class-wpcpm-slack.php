@@ -60,6 +60,25 @@ final class WPCPM_Slack {
 	}
 
 	/**
+	 * Slack's escaping for text: `&`, `<` and `>`, and nothing else.
+	 *
+	 * Every value a message carries that came from somewhere else goes through this. Slack reads
+	 * `<...>` as a link and `<!channel>` as a mention, so a record's own text can otherwise speak
+	 * in the program's voice: an institution's name is typed into a public application form, and
+	 * `College <!channel>` would have notified the whole channel (WPCredits#282, found by the
+	 * 1.123.56 review). Here rather than in each caller, because one caller escaping and the other
+	 * forgetting is exactly how the two messages came to disagree.
+	 *
+	 * The format strings themselves are never escaped: `*bold*` and `:tada:` are ours to write.
+	 *
+	 * @param string $text Text to put in a message.
+	 * @return string
+	 */
+	public static function escape( $text ) {
+		return str_replace( array( '&', '<', '>' ), array( '&amp;', '&lt;', '&gt;' ), (string) $text );
+	}
+
+	/**
 	 * Post one message.
 	 *
 	 * Links never unfurl: a message naming a profile, an institution or a page would otherwise

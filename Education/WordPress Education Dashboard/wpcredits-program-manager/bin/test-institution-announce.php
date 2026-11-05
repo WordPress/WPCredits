@@ -99,6 +99,28 @@ class WPCPM_Slack {
 		$GLOBALS['sent'][] = $text;
 		return true === $GLOBALS['take'] ? true : new WP_Error();
 	}
+	public static function escape( $text ) {
+		return str_replace( array( '&', '<', '>' ), array( '&amp;', '&lt;', '&gt;' ), (string) $text );
+	}
+}
+
+/**
+ * The lock, stubbed: `$GLOBALS['lock_held']` stands for another request already inside
+ * `after_sync()`, and the two lists record what was taken and let go, so a run that forgets to
+ * let go fails here rather than on the site.
+ */
+class WPCPM_Lock {
+	public static function take( $name, $ttl ) {
+		if ( ! empty( $GLOBALS['lock_held'] ) ) {
+			return '';
+		}
+		$GLOBALS['lock_taken'][] = (string) $name;
+		return 'token-' . (string) $ttl;
+	}
+	public static function release( $name, $token ) {
+		$GLOBALS['lock_released'][] = (string) $name;
+		return true;
+	}
 }
 
 class WP_Error {
@@ -146,6 +168,9 @@ function reset_all( array $rows ) {
 	$GLOBALS['hook'] = HOOK;
 	$GLOBALS['rows'] = $rows;
 	$GLOBALS['managers'] = array();
+	$GLOBALS['lock_held'] = false;
+	$GLOBALS['lock_taken'] = array();
+	$GLOBALS['lock_released'] = array();
 }
 
 $one   = 'rec00000000000001';
@@ -416,6 +441,79 @@ ck(
 	'and counted in the total from then on',
 	false !== strpos( $GLOBALS['sent'][0], 'That makes 3 confirmed institutions.' ),
 	true
+);
+
+echo "=== What a record's own text cannot do to a message (1.123.57) ===\n";
+
+$evil = 'College <!channel> & Co';
+reset_all( array( $one => row( $evil, 'Confirmed', '<https://evil.test|Krakow>', 'Poland', 'recCOUNTRY00001' ) ) );
+$GLOBALS['managers'] = array( 'recCOUNTRY00001' => 'Jo & Co <Administrator>' );
+$GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ] = array( 'v' => 1, 'ids' => array(), 'seeded' => time() );
+
+ck( 'an institution whose name holds Slack markup is announced like any other', WPCPM_Institution_Announce::after_sync(), 1 );
+ck( 'its name reaches Slack as text', false !== strpos( $GLOBALS['sent'][0], 'College &lt;!channel&gt; &amp; Co' ), true );
+ck( 'the mention itself never reaches the payload', false === strpos( $GLOBALS['sent'][0], '<!channel>' ), true );
+ck( 'nor does a link written into the city', false === strpos( $GLOBALS['sent'][0], '<https://evil.test|' ), true );
+ck( "and the Administrator's own name is escaped as well", false !== strpos( $GLOBALS['sent'][0], 'Jo &amp; Co &lt;Administrator&gt;' ), true );
+
+$GLOBALS['sent'] = array();
+$GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ] = array( 'v' => 1, 'ids' => array(), 'seeded' => time() );
+$GLOBALS['rows'] = array(
+	$one               => row( $evil, 'Confirmed', 'Krakow', 'Poland' ),
+	'rec00000000000003' => row( 'B College <!here>', 'Confirmed', '', 'Poland' ),
+	'rec00000000000004' => row( 'C College', 'Confirmed', '', 'Poland' ),
+	'rec00000000000005' => row( 'D College', 'Confirmed', '', 'Poland' ),
+);
+ck( 'four at once are one message', WPCPM_Institution_Announce::after_sync(), 4 );
+ck( 'whose list escapes every name too', false !== strpos( $GLOBALS['sent'][0], 'College &lt;!channel&gt; &amp; Co' ), true );
+ck( 'including the second one', false !== strpos( $GLOBALS['sent'][0], 'B College &lt;!here&gt;' ), true );
+ck( 'and holds no raw markup at all', false === strpos( $GLOBALS['sent'][0], '<!' ), true );
+
+echo "\n=== One announcer at a time (1.123.57) ===\n";
+
+reset_all( array( $one => row( 'A College', 'Confirmed', '', 'Poland' ) ) );
+$GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ] = array( 'v' => 1, 'ids' => array(), 'seeded' => time() );
+$GLOBALS['lock_held'] = true;
+
+ck( 'a run that cannot take the lock announces nothing', WPCPM_Institution_Announce::after_sync(), 0 );
+ck( 'and sends nothing', count( $GLOBALS['sent'] ), 0 );
+ck( 'and records nothing, so the run holding the lock decides', $GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ]['ids'], array() );
+ck( 'and lets go of nothing it never took', $GLOBALS['lock_released'], array() );
+
+$GLOBALS['lock_held'] = false;
+ck( 'with the lock free the institution is announced', WPCPM_Institution_Announce::after_sync(), 1 );
+ck( 'the lock is taken under the announcer\'s own name', $GLOBALS['lock_taken'], array( WPCPM_Institution_Announce::LOCK ) );
+ck( 'and let go again', $GLOBALS['lock_released'], array( WPCPM_Institution_Announce::LOCK ) );
+
+reset_all( array( $one => row( 'A College', 'Confirmed', '', 'Poland' ) ) );
+ck( 'a seeding run takes the lock as well', WPCPM_Institution_Announce::after_sync(), 0 );
+ck( 'and lets it go, so the next run is not locked out', $GLOBALS['lock_released'], array( WPCPM_Institution_Announce::LOCK ) );
+
+$GLOBALS['take'] = false;
+$GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ] = array( 'v' => 1, 'ids' => array(), 'seeded' => time() );
+$GLOBALS['lock_released'] = array();
+ck( 'a refused message lets the lock go too', WPCPM_Institution_Announce::after_sync(), 0 );
+ck( 'the lock is free after it', $GLOBALS['lock_released'], array( WPCPM_Institution_Announce::LOCK ) );
+
+echo "\n=== A batch holding an institution with no name (1.123.57) ===\n";
+
+reset_all(
+	array(
+		$one                => row( '', 'Confirmed', 'Krakow', 'Poland' ),
+		'rec00000000000003' => row( 'B College', 'Confirmed', '', 'Poland' ),
+		'rec00000000000004' => row( 'C College', 'Confirmed', '', 'Poland' ),
+		'rec00000000000005' => row( 'D College', 'Confirmed', '', 'Poland' ),
+	)
+);
+$GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ] = array( 'v' => 1, 'ids' => array(), 'seeded' => time() );
+
+ck( 'all four are announced', WPCPM_Institution_Announce::after_sync(), 4 );
+ck( 'the heading counts four, not three', false !== strpos( $GLOBALS['sent'][0], '4 institutions have joined' ), true );
+ck( 'the unnamed one is named as the single message names it', false !== strpos( $GLOBALS['sent'][0], '- An institution' ), true );
+ck(
+	'and all four are recorded, so none is left to be announced twice',
+	count( $GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ]['ids'] ),
+	4
 );
 
 echo "\n";

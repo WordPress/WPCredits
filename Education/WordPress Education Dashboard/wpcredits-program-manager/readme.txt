@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.56
+Stable tag: 1.123.57
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,12 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.57 =
+
+* A record's own text can no longer speak in the program's voice on Slack. An institution's name, its city, its country and the Administrator's name are escaped before they go into the message, so a name holding `<!channel>` or a link reads as those characters rather than notifying the channel or becoming a link. The name is typed into a public application form, and both announcers now ask the one rule for it (WordPress/WPCredits#282).
+* Two syncs finishing close together can no longer announce the same institution twice or forget one. The sync lets its own lock go before the announcement, so the announcement takes one of its own and holds it while it reads what has been announced, sends and writes it back; a run that cannot take it says nothing and leaves the institutions to the next run, as a refused message already did. Before this, an Administrator pressing **Sync institutions now** while an automatic run waited on Slack could produce overlapping messages and lose a record, which announced that institution again later.
+* An institution with no name in a message about several arrivals is named "An institution", as it already was in a message about one. It was left out of the list while still being recorded as announced, so its arrival was never announced, and the message counted one fewer than it recorded.
 
 = 1.123.56 =
 
