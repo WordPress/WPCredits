@@ -814,22 +814,30 @@ function wpcredits_migrate_1_32_0_summary( $record ) {
 
 /**
  * The migrations whose records the Site Editor's notice tells, oldest first: each record's option, and
- * the function that says what the record holds.
+ * the function that says what the record holds. The 1.32.12 migration's (inc/migrate-1-32-12.php) is told
+ * after them where its file is loaded, as functions.php loads it.
  *
  * @return array<string, callable>
  */
 function wpcredits_migrate_notice_records() {
-	return array(
+	$records = array(
 		WPCREDITS_MIGRATED_1_32_0 => 'wpcredits_migrate_1_32_0_summary',
 		WPCREDITS_MIGRATED_1_32_1 => 'wpcredits_migrate_1_32_1_summary',
 	);
+
+	if ( defined( 'WPCREDITS_MIGRATED_1_32_12' ) ) {
+		$records[ WPCREDITS_MIGRATED_1_32_12 ] = 'wpcredits_migrate_1_32_12_summary';
+	}
+
+	return $records;
 }
 
 /**
  * The migrations' notice, on the Site Editor: one editor notice saying what the 1.32.0 and 1.32.1
  * migrations did to the saved templates, the older one's sentences first, for each Administrator until
  * they dismiss it or a week has passed since the newer of the runs that has something to tell, whichever
- * comes first. A record the Administrator dismissed before is not told again, and its option not read.
+ * comes first. Since theme 1.32.12, which adds its own record, each record is told for a week after its own
+ * run only, so a new run never brings back sentences that had run out. A record the Administrator dismissed before is not told again, and its option not read.
  * A default editor notice shows only inside the editor, not on the Site Editor's browse view, so it is
  * not taken as seen when it is merely enqueued: its dismissal tells the site which records it told
  * (`wpcredits_migrate_1_32_0_dismiss()`).
@@ -850,9 +858,11 @@ function wpcredits_migrate_1_32_0_notice() {
 			continue;
 		}
 
-		// The options are not autoloaded, so each is read once the notice is known to be for this request.
+		// The options are not autoloaded, so each is read once the notice is known to be for this request. A
+		// record is told for a week after its own run (theme 1.32.12): a later run does not bring back the
+		// sentences of an earlier one that has run out.
 		$record  = get_option( $option, array() );
-		$message = is_array( $record ) && ! empty( $record['ran'] ) ? call_user_func( $summary, $record ) : '';
+		$message = is_array( $record ) && ! empty( $record['ran'] ) && time() <= (int) $record['ran'] + WEEK_IN_SECONDS ? call_user_func( $summary, $record ) : '';
 
 		if ( '' !== $message ) {
 			$told[]      = $option;

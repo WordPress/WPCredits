@@ -136,7 +136,8 @@
 	scroll-margin-top: var( --wpc-landing-offset );
 }
 
-/* Two or three columns side by side from 900px, one below: the hero, the doors and the closing band.
+/* Two or three columns side by side from 900px, one below: the hero, the closing band, and the doors a
+   saved template keeps.
    Core stacks columns below 782px; these stack below 900px. */
 @media ( max-width: 899px ) {
 	.wp-block-columns.wpc-hub-stack {
@@ -173,9 +174,9 @@
    The hero
    ========================================================================== */
 
-/* The hero group sits 24px under the header and ends 48px under the figures row. With the doors
-   section's own 48px, and no block gap between (the rule at the top of this sheet), the row's bottom
-   hairline is 96px above the doors' cards, as every object on the page is 96px from the next
+/* The hero group sits 24px under the header and ends 48px under the figures row. With the roles
+   band's own 48px, and no block gap between (the rule at the top of this sheet), the row's bottom
+   hairline is 96px above the band's cards, as every object on the page is 96px from the next
    section's content. Two classes deep, the hub's habit, so no layout style outranks it in either
    print order. */
 .wp-block-group.wpc-hub-hero {
@@ -620,6 +621,73 @@
 }
 
 /* ==========================================================================
+   The Notice and 404 pages (theme 1.32.12)
+   ========================================================================== */
+
+/* Both pages are drawn in the hero's layout, their copy beside the hero's mountain of role words
+   (patterns/hub-mountain.php), and the rules above dress them as they dress the hero: below 900px the
+   picture's column is hidden and the copy takes the whole width, as the hero's does. */
+
+/* A lede's link, the Notice page's education address among them, may break anywhere where a line cannot
+   hold it whole, as on the narrowest phones, and nowhere it fits. */
+.wpc-hub-hero .wpc-hub-lede a {
+	overflow-wrap: anywhere;
+}
+
+/* The Notice page's forward, under its buttons: shown only where the page runs JavaScript (`wpc-js`, put
+   on the root first thing in the head, so it never shifts in), since without it nothing forwards. 14px in
+   the lede's gray, 20px under the buttons; Go now a link of the brand blue, Stay a plain text button
+   beside it, underlined as a link is, at least 24px tall to press. The line is a row that wraps, its
+   count, Go now and Stay 12px apart and its rows 4px apart, so a control that wraps onto a row of its own
+   (Stay, at 375px) starts flush with the line's left edge: the spaces between them in the markup are no
+   items of the row. The stopped line, one text, is its one item. */
+.wpc-notice-forward {
+	display: none;
+}
+
+.wpc-js .wpc-notice-forward {
+	display: block;
+}
+
+.wp-block-wpcredits-notice-forward.wpc-notice-forward {
+	color: var( --wpc-ink-70 );
+	font-size: 14px;
+	line-height: 1.6;
+	margin-top: 20px;
+}
+
+.wpc-notice-forward .wpc-notice-forward__line {
+	align-items: baseline;
+	column-gap: 12px;
+	display: flex;
+	flex-wrap: wrap;
+	margin: 0;
+	row-gap: 4px;
+}
+
+.wpc-notice-forward .wpc-notice-forward__go,
+.wpc-notice-forward .wpc-notice-forward__stay {
+	color: var( --wpc-brand );
+	font-weight: 500;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.wpc-notice-forward .wpc-notice-forward__stay {
+	background: none;
+	border: 0;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 500;
+	min-height: 24px;
+	padding: 0;
+}
+
+.wpc-notice-forward .wpc-notice-forward__line:focus {
+	outline: none;
+}
+
+/* ==========================================================================
    The sign-in section
    ========================================================================== */
 
@@ -657,8 +725,101 @@
 }
 
 /* ==========================================================================
+   The roles band (theme 1.32.12)
+   ========================================================================== */
+
+/* Four ways to take part under the hero, in place of the doors (the product owner's design of
+   5 November 2026): students, mentors, institutions and, while the Partners page is public, sponsors.
+   Each card is a door (`wpc-hub-door`, below), so its card, hover border, stretched link and focus ring
+   are the doors' rules. The heading before the grid is screen-reader only and takes no room, so the grid
+   sits at the section's top padding, as the doors' did. Two classes deep, the hub's habit, so no layout
+   style outranks a rule here in either print order. */
+.wp-block-group.wpc-hub-roles > .wpc-hub-roles__grid {
+	margin-block-start: 0;
+}
+
+/* One column on a phone, two from 640px, and from 900px a column for each card the grid holds, three or
+   four, so three cards fill the row as four do and never read as a missing fourth; 16px apart, as the
+   doors and the sign-in cards are. The grid is a group of the flow layout, whose block gap would put
+   20px above every card but the first, so the cards keep no margin of their own. */
+.wp-block-group.wpc-hub-roles__grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+.wp-block-group.wpc-hub-roles__grid > * {
+	margin: 0;
+}
+
+@media ( min-width: 640px ) {
+	.wp-block-group.wpc-hub-roles__grid {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+/* Three cards on two columns: the third takes the row's whole width, so the band ends on a full row. */
+@media ( min-width: 640px ) and ( max-width: 899px ) {
+	.wp-block-group.wpc-hub-roles__grid > :last-child:nth-child( odd ) {
+		grid-column: 1 / -1;
+	}
+}
+
+@media ( min-width: 900px ) {
+	.wp-block-group.wpc-hub-roles__grid {
+		grid-auto-columns: minmax( 0, 1fr );
+		grid-auto-flow: column;
+		grid-template-columns: none;
+	}
+}
+
+/* Each card opens with its role's icon, WordPress's own glyph, in the brand blue on the brand tint: a
+   40px tile with the hub's 2px corners, 10px above the title by the card's gap. A background image, its
+   color baked into the data URI as the notice tile's is (style.css), since a mask would clip the tile. It
+   is drawn from the card's class, so the card holds no Custom HTML and every word of it is edited in the
+   Site Editor; a card that loses its class keeps its words and loses its tile. */
+.wp-block-group.wpc-hub-role::before {
+	background: var( --wpc-brand-tint ) var( --wpc-hub-role-icon ) center / 24px no-repeat;
+	border-radius: var( --wpc-radius-control );
+	content: "";
+	display: block;
+	flex: none;
+	height: 40px;
+	width: 40px;
+}
+
+.wp-block-group.wpc-hub-role--students {
+	--wpc-hub-role-icon: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233858e9"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.25 16.437a6.5 6.5 0 1 1 9.5 0V16A2.75 2.75 0 0 0 14 13.25h-4A2.75 2.75 0 0 0 7.25 16v.437Zm1.5 1.193a6.47 6.47 0 0 0 3.25.87 6.47 6.47 0 0 0 3.25-.87V16c0-.69-.56-1.25-1.25-1.25h-4c-.69 0-1.25.56-1.25 1.25v1.63ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm10-2a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/></svg>' );
+}
+
+.wp-block-group.wpc-hub-role--mentors {
+	--wpc-hub-role-icon: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233858e9"><path fill-rule="evenodd" clip-rule="evenodd" d="M15.5 9.5a1 1 0 100-2 1 1 0 000 2zm0 1.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm-2.25 6v-2a2.75 2.75 0 00-2.75-2.75h-4A2.75 2.75 0 003.75 15v2h1.5v-2c0-.69.56-1.25 1.25-1.25h4c.69 0 1.25.56 1.25 1.25v2h1.5zm7-2v2h-1.5v-2c0-.69-.56-1.25-1.25-1.25H15v-1.5h2.5A2.75 2.75 0 0120.25 15zM9.5 8.5a1 1 0 11-2 0 1 1 0 012 0zm1.5 0a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg>' );
+}
+
+.wp-block-group.wpc-hub-role--institutions {
+	--wpc-hub-role-icon: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233858e9"><path fill-rule="evenodd" clip-rule="evenodd" d="M18.646 9H20V8l-1-.5L12 4 5 7.5 4 8v1h14.646zm-3-1.5L12 5.677 8.354 7.5h7.292zm-7.897 9.44v-6.5h-1.5v6.5h1.5zm5-6.5v6.5h-1.5v-6.5h1.5zm5 0v6.5h-1.5v-6.5h1.5zm2.252 8.81c0 .414-.334.75-.748.75H4.752a.75.75 0 010-1.5h14.5a.75.75 0 01.749.75z"/></svg>' );
+}
+
+.wp-block-group.wpc-hub-role--sponsors {
+	--wpc-hub-role-icon: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233858e9"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.706 8.646a.25.25 0 01-.188.137l-4.626.672a.25.25 0 00-.139.427l3.348 3.262a.25.25 0 01.072.222l-.79 4.607a.25.25 0 00.362.264l4.138-2.176a.25.25 0 01.233 0l4.137 2.175a.25.25 0 00.363-.263l-.79-4.607a.25.25 0 01.072-.222l3.347-3.262a.25.25 0 00-.139-.427l-4.626-.672a.25.25 0 01-.188-.137l-2.069-4.192a.25.25 0 00-.448 0L9.706 8.646zM12 7.39l-.948 1.921a1.75 1.75 0 01-1.317.957l-2.12.308 1.534 1.495c.412.402.6.982.503 1.55l-.362 2.11 1.896-.997a1.75 1.75 0 011.629 0l1.895.997-.362-2.11a1.75 1.75 0 01.504-1.55l1.533-1.495-2.12-.308a1.75 1.75 0 01-1.317-.957L12 7.39z"/></svg>' );
+}
+
+/* The mentors' card has the accent border: 2px of the brand blue where the others have the 1px hairline,
+   its padding a pixel less, so its words line up with theirs. Three classes deep, over the card style and
+   the door's padding. No shadow: the hub draws none. */
+.wpc-hub .wp-block-group.wpc-hub-role--mentors {
+	border: 2px solid var( --wpc-brand );
+	padding: 23px;
+}
+
+/* ==========================================================================
    The doors
    ========================================================================== */
+
+/* The "Who this is for" section the roles band replaced in theme 1.32.12. The theme no longer writes it;
+   these rules stay for a template saved in the Site Editor that keeps it, which the 1.32.12 migration
+   leaves as it is where an Administrator changed its shape (inc/migrate-1-32-12.php). The doors' card,
+   link and focus rules are the roles' and the sign-in cards' too. */
 
 .wp-block-columns.wpc-hub-doors__grid {
 	gap: 16px;

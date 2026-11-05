@@ -4,7 +4,7 @@
  *
  * The header part is a template file, so what depends on the request is added to its rendered blocks
  * here: the mark that says the page runs JavaScript, the class a lone navigation item gets, and, for a signed-in reader, the Menu button below desktop width, the ID of
- * the group it opens and the script that opens it. The stylesheet and the script that act on this
+ * the group it opens, the Get involved list at the top of it (inc/get-involved.php) and the script that opens it. The stylesheet and the script that act on this
  * markup name its classes and its ID; this file is the one place that prints them.
  *
  * @package WPCredits_Theme
@@ -32,10 +32,9 @@ add_action( 'wp_head', 'wpcredits_js_mark', 1 );
  *
  * Below 960px the header collapses its menu into a hamburger, which is the right thing for a
  * menu. This site's menu once held one entry (since 1.32.6 the theme adds its own items at the menu's
- * end, which makes it two or more for a visitor, but a signed-in reader's buttons are not counted, as
- * below, and with the partnership levels off there is no Partners link, so the menu can still hold one
- * item), and a mentor testing on a phone reported the obvious: tapping a hamburger to reveal one link
- * looks broken. It is not worth a toggle, an overlay and two taps to reach something that fits beside
+ * end, but a signed-in reader is hooked the Partners link alone, and with the partnership levels off
+ * there is no Partners link, so the menu can still hold one item), and a mentor testing on a phone
+ * reported the obvious: tapping a hamburger to reveal one link looks broken. It is not worth a toggle, an overlay and two taps to reach something that fits beside
  * the logo.
  *
  * So the count is taken here, where the rendered list actually is, and the stylesheet shows a lone
@@ -44,14 +43,10 @@ add_action( 'wp_head', 'wpcredits_js_mark', 1 );
  * no inner blocks to count. The moment a second item is added the class stops being applied and
  * the hamburger comes back on its own, with nothing to remember.
  *
- * The buttons a signed-in reader is offered, "Become a sponsor" and "Partner as an institution" (a reader
- * who acts for a sponsor or an institution is offered one), end the list too (inc/partners.php, theme
- * 1.32.9), but they wear `wpc-nav__panel-only` and show in the open Menu panel alone, never inline and
- * never behind the navigation's own hamburger, so they are not counted: a signed-in reader whose menu
- * holds one link besides them sees that link inline on a phone without JavaScript, where there is no Menu
- * panel, as before. Only a navigation link wearing the class is skipped, as style.css hides only that: an
- * item of another kind that wears it shows, so it is counted. A navigation that holds nothing else is not
- * rendered at all (inc/partners.php), so it never gets here.
+ * A navigation that holds the Get involved menu (`wpc-involve`, a visitor's, inc/get-involved.php) is a
+ * menu, never a lone item, whatever else it holds: on a phone its rows open the menu panel, under their
+ * heading, so the hamburger stays (theme 1.32.12). The signed-in reader's two buttons of 1.32.9 to 1.32.11,
+ * which this count skipped, are rows of the Menu panel's Get involved list now, outside the navigation.
  *
  * A lone item that leads to the home page is marked `wpc-nav--home` as well: on a signed-out phone
  * the site title already leads there, so the stylesheet leaves that one link out, and only
@@ -69,10 +64,9 @@ function wpcredits_lone_nav_item( $content ) {
 	$count = new WP_HTML_Tag_Processor( $content );
 
 	while ( $count->next_tag( array( 'class_name' => 'wp-block-navigation-item' ) ) ) {
-		// A signed-in reader's buttons show in the open Menu panel alone, so they are no item here. The
-		// class hides a navigation link; an item of another kind wearing it shows, so it counts.
-		if ( $count->has_class( 'wpc-nav__panel-only' ) && $count->has_class( 'wp-block-navigation-link' ) ) {
-			continue;
+		// The Get involved menu makes it a menu: on a phone its rows open the panel.
+		if ( $count->has_class( 'wpc-involve' ) ) {
+			return $content;
 		}
 
 		++$items;
@@ -110,11 +104,10 @@ add_filter( 'render_block_core/navigation', 'wpcredits_lone_nav_item' );
  * How many entries the header's menu would list.
  *
  * An entry is a navigation item (a submenu's items and the submenu itself each count), the Need
- * help? button, a Student Report Card or Mentor Report Card link, or Log out; the navigation
- * block's own open and close buttons are not entries. The buttons a signed-in reader is offered, Become
- * a sponsor and Partner as an institution, are navigation items the panel lists as rows (theme 1.32.9),
- * so they count here, where the lone-item count leaves them out. Needs `WP_HTML_Tag_Processor`, which
- * the header filter checks first.
+ * help? button, a Student Report Card or Mentor Report Card link, Log out, or a row of the Get involved
+ * list the panel opens with (theme 1.32.12; the two buttons it holds the rows of counted the same since
+ * 1.32.9); the navigation block's own open and close buttons are not entries. Needs
+ * `WP_HTML_Tag_Processor`, which the header filter checks first.
  *
  * @param string $html The header's rendered HTML.
  * @return int
@@ -124,7 +117,7 @@ function wpcredits_header_menu_entries( $html ) {
 	$tags    = new WP_HTML_Tag_Processor( (string) $html );
 
 	while ( $tags->next_tag() ) {
-		foreach ( array( 'wp-block-navigation-item', 'wpc-ask', 'wpc-viewer__link', 'wpc-viewer__logout' ) as $class ) {
+		foreach ( array( 'wp-block-navigation-item', 'wpc-ask', 'wpc-viewer__link', 'wpc-viewer__logout', 'wpc-involve__link' ) as $class ) {
 			if ( $tags->has_class( $class ) ) {
 				++$entries;
 				break;
@@ -158,13 +151,15 @@ function wpcredits_header_menu_button() {
  *
  * On the header part's outer group, the one whose class list holds `wpc-header`: the header gets
  * `wpc-header--menu`, the group holding the links (`wpc-nav__center`) gets the ID `wpc-header-menu`,
- * and the Menu button goes in right before that group, so Tab leads from the button into it. The
- * links stay the same elements in the same order. It is the outer group's render that sees every
- * entry at once, which is why the filter is here and not on the blocks that print them.
+ * the Get involved list the reader is offered goes in first inside that group, above the navigation
+ * (inc/get-involved.php, theme 1.32.12; style.css shows it in the open panel alone), and the Menu button
+ * goes in right before the group, so Tab leads from the button into it. The links stay the same elements
+ * in the same order. It is the outer group's render that sees every entry at once, which is why the
+ * filter is here and not on the blocks that print them.
  *
  * Nothing changes when the reader is signed out, when the group is not the header, or when the menu
- * would list fewer than two entries: a menu holding one link looks broken, and the header keeps its
- * row.
+ * would list fewer than two entries, the list's rows counted: a menu holding one link looks broken, and
+ * the header keeps its row.
  *
  * @param string $content Rendered block HTML.
  * @param array  $block   Parsed block.
@@ -178,7 +173,9 @@ function wpcredits_header_menu( $content, $block ) {
 		return $content;
 	}
 
-	if ( wpcredits_header_menu_entries( $content ) < 2 ) {
+	$involve = function_exists( 'wpcredits_involve_list_html' ) ? wpcredits_involve_list_html() : '';
+
+	if ( wpcredits_header_menu_entries( $content . $involve ) < 2 ) {
 		return $content;
 	}
 
@@ -196,13 +193,19 @@ function wpcredits_header_menu( $content, $block ) {
 
 	$tags->set_attribute( 'id', 'wpc-header-menu' );
 
-	// The button goes in at the start of the group's tag. The tag processor writes a new attribute
-	// into the tag, so the tag's `<` is the last one before the ID.
+	// The button goes in at the start of the group's tag, and the list right after its end. The tag
+	// processor writes a new attribute into the tag, so the tag's `<` is the last one before the ID, and
+	// its `>` the first one after it.
 	$html  = $tags->get_updated_html();
 	$at    = strpos( $html, 'id="wpc-header-menu"' );
 	$start = false === $at ? false : strrpos( substr( $html, 0, $at ), '<' );
+	$end   = false === $at ? false : strpos( $html, '>', $at );
 
-	return false === $start ? $content : substr_replace( $html, wpcredits_header_menu_button(), $start, 0 );
+	if ( false === $start || false === $end ) {
+		return $content;
+	}
+
+	return substr_replace( substr_replace( $html, $involve, $end + 1, 0 ), wpcredits_header_menu_button(), $start, 0 );
 }
 add_filter( 'render_block_core/group', 'wpcredits_header_menu', 10, 2 );
 

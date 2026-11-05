@@ -1,0 +1,19 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/get-involved",
+	"title": "Get involved",
+	"category": "theme",
+	"icon": "groups",
+	"description": "The header's Get involved menu: a button that opens the ways to take part in the program, mentors first. The theme hooks it at the end of a visitor's navigation; it is never inserted by hand.",
+	"keywords": [ "get involved", "mentor", "institution", "sponsor", "student" ],
+	"textdomain": "wpcredits-theme",
+	"supports": {
+		"html": false,
+		"inserter": false,
+		"reusable": false,
+		"multiple": false
+	},
+	"viewScript": "file:./view.js",
+	"render": "file:./render.php"
+}

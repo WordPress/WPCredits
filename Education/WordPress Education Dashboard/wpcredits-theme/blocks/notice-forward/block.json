@@ -1,0 +1,22 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/notice-forward",
+	"title": "Forward to the homepage",
+	"category": "theme",
+	"icon": "controls-forward",
+	"description": "The Notice template's line under the page's buttons: it counts down 5 seconds and takes the reader to the homepage, with a link to go now and a button to stay. Without JavaScript it shows nothing and forwards nowhere.",
+	"keywords": [ "notice", "forward", "redirect", "countdown" ],
+	"textdomain": "wpcredits-theme",
+	"supports": {
+		"html": false,
+		"inserter": false,
+		"reusable": false,
+		"multiple": false,
+		"align": false
+	},
+	"editorScript": "file:./index.js",
+	"viewScript": "file:./view.js",
+	"style": "wpcredits-hub",
+	"render": "file:./render.php"
+}

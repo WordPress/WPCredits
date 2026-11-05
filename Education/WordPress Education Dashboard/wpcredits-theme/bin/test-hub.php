@@ -21,6 +21,13 @@ require_once __DIR__ . '/stubs/hub-wp.php';
 require_once WPCREDITS_THEME_DIR . 'inc/hub.php';
 require_once WPCREDITS_THEME_DIR . 'inc/hub-content.php';
 require_once WPCREDITS_THEME_DIR . 'inc/template-tags.php';
+// The roles band's sponsor card asks the Partners link's test (theme 1.32.12); the Partners page's own
+// stylesheet asks a page's slug, none here.
+if ( ! function_exists( 'get_post_field' ) ) {
+	function get_post_field( $field, $post = 0 ) { return ''; }
+}
+
+require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 
 $fail  = 0;
 $total = 0;
@@ -491,9 +498,9 @@ echo "=== The template, and the front page ===\n";
 
 $theme_json = json_decode( theme_file( 'theme.json' ), true );
 
-ck( 'theme.json registers "Education Hub home" for pages, after the two page templates it had',
+ck( 'theme.json registers "Education Hub home" for pages, after the two page templates it had, and the Notice template after it (theme 1.32.12, bin/test-notice.php)',
 	array_column( $theme_json['customTemplates'], 'title', 'name' ),
-	array( 'page-full-width' => 'Full width page', 'page-documentation' => 'Documentation', 'page-education-hub' => 'Education Hub home' ) );
+	array( 'page-full-width' => 'Full width page', 'page-documentation' => 'Documentation', 'page-education-hub' => 'Education Hub home', 'page-notice' => 'Notice' ) );
 
 ck( 'for pages alone',
 	end( $theme_json['customTemplates'] )['postTypes'], array( 'page' ) );
@@ -511,9 +518,9 @@ preg_match_all( '#<!-- wp:(?:pattern \{"slug":"([a-z/-]+)"\}|(wpcredits/[a-z-]+)
 
 $patterns = array_map( static function ( $child ) { return '' !== $child[1] ? $child[1] : ( isset( $child[3] ) ? $child[3] : $child[2] ); }, $children );
 
-ck( 'and between them a main of the front page\'s kind, marked as the hub, holding the hero, the doors, programs, pathway, the sponsor strip and band, then the sign-in block last, above the footer (the product owner, 27 October 2026), in the page\'s order and no post content',
+ck( 'and between them a main of the front page\'s kind, marked as the hub, holding the hero, the four roles directly under it (theme 1.32.12, where the doors stood), programs, pathway, the sponsor strip and band, then the sign-in block last, above the footer (the product owner, 27 October 2026), in the page\'s order and no post content',
 	array( $hub[4], $hub[5] === '<main class="wp-block-group wpc-main wpc-hub"><!-- wp:pattern {"slug":"wpcredits/hub-hero"} /-->', $patterns, false !== strpos( theme_file( 'templates/page-education-hub.html' ), 'post-content' ) ),
-	array( '<!-- wp:group {"tagName":"main","className":"wpc-main wpc-hub","layout":{"type":"constrained"}} -->', true, array( 'wpcredits/hub-hero', 'wpcredits/hub-doors', 'wpcredits/hub-programs', 'wpcredits/hub-pathway', 'wpcpm/sponsors', 'wpcredits/hub-cta', 'wpcredits/sign-in' ), false ) );
+	array( '<!-- wp:group {"tagName":"main","className":"wpc-main wpc-hub","layout":{"type":"constrained"}} -->', true, array( 'wpcredits/hub-hero', 'wpcredits/hub-roles', 'wpcredits/hub-programs', 'wpcredits/hub-pathway', 'wpcpm/sponsors', 'wpcredits/hub-cta', 'wpcredits/sign-in' ), false ) );
 
 $strip_block = '<!-- wp:wpcpm/sponsors {"variant":"strip","align":"wide"} /-->';
 
@@ -593,6 +600,18 @@ ck( 'a page that is only called education-hub, storing no template, is drawn by 
 	),
 	array( 'page', 'page-education-hub', 'page-education-hub', 'page-documentation', 'page' ) );
 
+// The review of 935f4b5 (I1): `page-notice` is the Notice template's file name too, and a page drawn by it
+// forwards its readers to the homepage, so a page merely called notice must never be.
+ck( 'a page that is only called notice, storing no template, is drawn by page.html as any page is, never by the Notice template, which would forward its readers; one storing the Notice template is drawn by it, whatever its slug (back-soon); one storing another template keeps that one; the hub\'s rule is as it was',
+	array(
+		template_drawing_page( 'notice', 2401, '' ),
+		template_drawing_page( 'notice', 2401, 'page-notice' ),
+		template_drawing_page( 'back-soon', 2402, 'page-notice' ),
+		template_drawing_page( 'notice', 2401, 'page-documentation' ),
+		template_drawing_page( 'education-hub', 2301, '' ),
+	),
+	array( 'page', 'page-notice', 'page-notice', 'page-documentation', 'page' ) );
+
 request( 'page', 2301, array( 2301 => '' ) );
 
 ck( 'the filter takes the one candidate out and leaves the rest as they were: the page that stores the hub template keeps its list whole, the template it stores and the slug\'s candidate both; and a request that is no page, the Site Editor\'s own hierarchy for a custom template, is untouched',
@@ -666,8 +685,8 @@ foreach ( $GLOBALS['hooks']['after_setup_theme'] as $hooked ) {
 	call_user_func( $hooked[0] );
 }
 
-ck( 'and the editor draws the hub with it too',
-	$GLOBALS['editor_styles'], array( 'assets/css/hub.css' ) );
+ck( 'and the editor draws the hub with it too, and the Partners page\'s sheet after it (inc/partners.php, loaded here for the roles band\'s sponsor card)',
+	$GLOBALS['editor_styles'], array( 'assets/css/hub.css', 'assets/css/partners.css' ) );
 
 ck( 'functions.php loads inc/hub.php, then inc/hub-content.php, with the theme\'s other files',
 	false !== strpos( theme_file( 'functions.php' ), "require_once get_theme_file_path( 'inc/guide.php' );\nrequire_once get_theme_file_path( 'inc/hub.php' );\nrequire_once get_theme_file_path( 'inc/hub-content.php' );" ), true );
@@ -3115,7 +3134,7 @@ ck( 'signed out, the header\'s Log in is the plain login address and names no pa
 
 echo "\n=== The patterns ===\n";
 
-$pattern_files = array( 'hub-hero.php', 'hub-doors.php', 'hub-programs.php', 'hub-pathway.php', 'hub-cta.php' );
+$pattern_files = array( 'hub-hero.php', 'hub-roles.php', 'hub-programs.php', 'hub-pathway.php', 'hub-cta.php' );
 
 /**
  * A pattern file's header, as WordPress reads it.
@@ -3139,7 +3158,7 @@ ck( 'five patterns, each in the theme\'s own category, with the slug the templat
 	array_map( 'pattern_header', $pattern_files ),
 	array(
 		array( 'Title' => 'Education Hub hero', 'Slug' => 'wpcredits/hub-hero', 'Categories' => 'wpcredits, featured' ),
-		array( 'Title' => 'Education Hub doors', 'Slug' => 'wpcredits/hub-doors', 'Categories' => 'wpcredits' ),
+		array( 'Title' => 'Ways to take part', 'Slug' => 'wpcredits/hub-roles', 'Categories' => 'wpcredits' ),
 		array( 'Title' => 'Education Hub programs', 'Slug' => 'wpcredits/hub-programs', 'Categories' => 'wpcredits' ),
 		array( 'Title' => 'Education Hub pathway', 'Slug' => 'wpcredits/hub-pathway', 'Categories' => 'wpcredits' ),
 		array( 'Title' => 'Education Hub closing band', 'Slug' => 'wpcredits/hub-cta', 'Categories' => 'wpcredits' ),
@@ -3153,7 +3172,7 @@ ck( 'five patterns, each in the theme\'s own category, with the slug the templat
  * @return string[]
  */
 function grammar_of( $html ) {
-	$known = array( 'group', 'columns', 'column', 'paragraph', 'heading', 'buttons', 'button', 'table', 'html', 'wpcredits/program-stat', 'wpcredits/program-index', 'wpcredits/program-card', 'wpcredits/course-band', 'wpcredits/course-card', 'wpcredits/fit-list', 'wpcredits/fit-row', 'wpcredits/pathway' );
+	$known = array( 'group', 'columns', 'column', 'paragraph', 'heading', 'buttons', 'button', 'table', 'html', 'wpcredits/program-stat', 'wpcredits/program-index', 'wpcredits/program-card', 'wpcredits/course-band', 'wpcredits/course-card', 'wpcredits/fit-list', 'wpcredits/fit-row', 'wpcredits/pathway', 'wpcredits/sponsor-card' );
 	$open  = array();
 	$wrong = array();
 
@@ -3198,7 +3217,7 @@ ck( 'every section is wide, padded 48px above and below; the hero\'s columns non
 	),
 	array(
 		'wp-block-group alignwide wpc-hub-hero | padding-top:0;padding-right:0;padding-bottom:52px;padding-left:0',
-		'wp-block-group alignwide wpc-hub-doors | padding-top:48px;padding-bottom:48px',
+		'wp-block-group alignwide wpc-hub-roles | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-anchored | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-anchored | padding-top:48px;padding-bottom:48px',
 		'wp-block-group alignwide wpc-hub-cta | padding-top:48px;padding-bottom:48px',
@@ -3471,33 +3490,144 @@ ck( 'the sheet sets the mountain in the picture\'s own space, the box its view b
 		array( 'stroke: var( --wpc-ink ); stroke-width: 1.5;' ),
 	) );
 
-$doors_html        = wpcredits_test_pattern( 'hub-doors.php' );
-$GLOBALS['marked'] = true;
-$marked_doors      = markup_of( wpcredits_test_pattern( 'hub-doors.php' ), '//div[@class="wpc-hub-pic"]' );
-$GLOBALS['marked'] = false;
-$dx                = dom_of( $doors_html );
-$door_card         = '//div[contains(concat(" ", @class, " "), " wpc-hub-door ")]';
+echo "\n=== The four roles under the hero (theme 1.32.12) ===\n";
 
-ck( 'each door opens with its picture, the card\'s first element, from a Custom HTML block: hidden from screen readers and holding no link, button, field or tab stop, so the card is heard once, from its eyebrow on, and its own link stays the one way in; the picture\'s words the door\'s own, each a translated string',
+// The Partners page's launch switch, which the Partners link and the band's sponsor card follow: off, as live
+// is on 5 November 2026, unless a check sets it.
+if ( ! class_exists( 'WPCPM_Sponsor_Tiers' ) ) {
+	/** The plugin's launch switch for the partnership levels and the Partners page. */
+	class WPCPM_Sponsor_Tiers {
+		public static $live = false;
+		public static function live() { return self::$live; }
+	}
+}
+
+$roles_html        = wpcredits_test_pattern( 'hub-roles.php' );
+$GLOBALS['marked'] = true;
+$marked_roles      = wpcredits_test_pattern( 'hub-roles.php' );
+$GLOBALS['marked'] = false;
+$rx                = dom_of( $roles_html );
+$role_card         = '//div[contains(concat(" ", @class, " "), " wpc-hub-role ")]';
+
+ck( 'the band is the section of the doors it replaces, its heading for screen readers "Get involved", over a grid of cards: students, mentors and institutions written in the pattern, every word editable in the Site Editor, then the sponsor card, a block the theme draws only while the Partners page is public, last; no picture and no Custom HTML block, the icon drawn by the stylesheet',
 	array(
-		found( $dx, $door_card . '/*[1]', 'class' ),
-		found( $dx, $door_card . '/*[1]', 'aria-hidden' ),
-		found( $dx, $door_card . '/*[2]', 'class' ),
-		preg_match_all( '#<!-- wp:html -->\s*<div class="wpc-hub-pic" aria-hidden="true">#', $doors_html ),
-		count( $dx->query( '//div[@class="wpc-hub-pic"]//*[' . $focusable . ']' ) ),
-		array_map( static function ( $at ) use ( $dx ) { return found( $dx, '(//div[@class="wpc-hub-pic"])[' . $at . ']//span[normalize-space(text())]' ); }, array( 1, 2, 3 ) ),
-		unmarked( $marked_doors ),
-		preg_match_all( '/\[[^\[\]]+\]/', strip_tags( $marked_doors ) ),
+		found( $rx, '/html/body/div/*', 'class' ),
+		found( $rx, '/html/body/div/h2' ),
+		found( $rx, $role_card, 'class' ),
+		substr( trim( preg_replace( '#<!-- /wp:group -->\s*</div>\s*<!-- /wp:group -->\s*$#', '', trim( $roles_html ) ) ), -strlen( '<!-- wp:wpcredits/sponsor-card /--></div>' ) ),
+		substr_count( $roles_html, '<!-- wp:html' ),
+		count( $rx->query( '//*[local-name()="svg"]' ) ),
 	),
 	array(
-		array_fill( 0, 3, 'wpc-hub-pic' ),
-		array_fill( 0, 3, 'true' ),
-		array_fill( 0, 3, 'is-style-eyebrow' ),
-		3,
+		array( 'wp-block-heading screen-reader-text', 'wp-block-group wpc-hub-roles__grid' ),
+		array( 'Get involved' ),
+		array( 'wp-block-group is-style-card wpc-hub-door wpc-hub-role wpc-hub-role--students', 'wp-block-group is-style-card wpc-hub-door wpc-hub-role wpc-hub-role--mentors', 'wp-block-group is-style-card wpc-hub-door wpc-hub-role wpc-hub-role--institutions' ),
+		'<!-- wp:wpcredits/sponsor-card /--></div>',
 		0,
-		array( array( 'Your first contribution', 'Earn credit for it' ), array( 'Ready-to-run program', 'One-day workshop', 'WordPress Credits pilot' ), array( 'Verified WordPress experience', 'Graduates open to work' ) ),
+		0,
+	) );
+
+ck( 'each card is a title, one line and one link, the door\'s own classes, so the card, its hover border, its stretched link and its focus ring are the doors\' rules: Students "Earn credit by contributing", "Find where to start" to the programs, where the hero\'s button goes; Mentors "A few hours a week, a real impact", "Become a mentor" to /become-a-mentor/; Institutions "Bring the program to campus", "Partner with us" to the institution application; each word a translated string',
+	array(
+		array_map( static function ( $card ) use ( $rx ) { return implode( ' ', found( $rx, './*', 'class' ) === array() ? array() : array_map( static function ( $child ) { return $child->nodeName . ( $child->getAttribute( 'class' ) ? '.' . $child->getAttribute( 'class' ) : '' ); }, iterator_to_array( $rx->query( './*', $card ) ) ) ); }, iterator_to_array( $rx->query( $role_card ) ) ),
+		found( $rx, $role_card . '/h3' ),
+		found( $rx, $role_card . '/p[@class="wpc-hub-door__text"]' ),
+		found( $rx, $role_card . '/p[@class="wpc-hub-door__go"]/a/text()' ),
+		found( $rx, $role_card . '/p[@class="wpc-hub-door__go"]/a', 'href' ),
+		found( $rx, $role_card . '/p[@class="wpc-hub-door__go"]/a/span', 'aria-hidden' ),
+		unmarked( $marked_roles ),
+		found( dom_of( wpcredits_test_pattern( 'hub-hero.php' ) ), '//div[contains(@class,"wpc-hero__actions")]//a', 'href' )[0],
+	),
+	array(
+		array_fill( 0, 3, 'h3.wp-block-heading p.wpc-hub-door__text p.wpc-hub-door__go' ),
+		array( 'Students', 'Mentors', 'Institutions' ),
+		array( 'Earn credit by contributing', 'A few hours a week, a real impact', 'Bring the program to campus' ),
+		array( 'Find where to start', 'Become a mentor', 'Partner with us' ),
+		array( '#programs', 'https://site.example/become-a-mentor/', 'https://wordpresseducation.org/apply/' ),
+		array( 'true', 'true', 'true' ),
 		array(),
-		7,
+		'#programs',
+	) );
+
+$sponsor_off             = wpcredits_test_block( 'wpcredits/sponsor-card' );
+WPCPM_Sponsor_Tiers::$live = true;
+WPCPM_Sponsors_Page::$url  = '';
+$sponsor_pending         = wpcredits_test_block( 'wpcredits/sponsor-card' );
+$band_pending            = dom_of( do_blocks( $roles_html ) );
+WPCPM_Sponsors_Page::$url  = 'https://wordpresseducation.org/partners/';
+$sponsor_on              = wpcredits_test_block( 'wpcredits/sponsor-card' );
+$band_on                 = dom_of( do_blocks( $roles_html ) );
+WPCPM_Sponsor_Tiers::$live = false;
+$band_off                = dom_of( do_blocks( $roles_html ) );
+$sx                      = dom_of( $sponsor_on );
+
+ck( 'with the levels live and the Partners page not published (pending, as live\'s is on 5 November 2026) the sponsor card is nothing at all and the band holds three cards, as with the levels off; with the page published, four',
+	array( $sponsor_pending, found( $band_pending, '//div[contains(concat(" ", @class, " "), " wpc-hub-role ")]/h3' ), found( $band_on, '//div[contains(concat(" ", @class, " "), " wpc-hub-role ")]/h3' ) ),
+	array( '', array( 'Students', 'Mentors', 'Institutions' ), array( 'Students', 'Mentors', 'Institutions', 'Sponsors' ) ) );
+
+ck( 'the sponsor card is drawn by the theme while the Partners page is public, the test the header\'s Partners link is hooked by, and is nothing at all while it is not, so the band holds three cards then and four now: Sponsors, "Back the next contributors", "Become a sponsor" to the sponsor application, the doors\' classes and the card\'s own',
+	array(
+		$sponsor_off,
+		found( $sx, '/html/body/div', 'class' ),
+		found( $sx, '//h3' ),
+		found( $sx, '//p[@class="wpc-hub-door__text"]' ),
+		found( $sx, '//p[@class="wpc-hub-door__go"]/a/text()' ),
+		found( $sx, '//p[@class="wpc-hub-door__go"]/a', 'href' ),
+		found( $band_off, $role_card . '/h3' ),
+		found( $band_on, $role_card . '/h3' ),
+	),
+	array(
+		'',
+		array( 'wp-block-group is-style-card wpc-hub-door wpc-hub-role wpc-hub-role--sponsors wp-block-wpcredits-sponsor-card' ),
+		array( 'Sponsors' ),
+		array( 'Back the next contributors' ),
+		array( 'Become a sponsor' ),
+		array( 'https://wordpresseducation.org/sponsor-application/' ),
+		array( 'Students', 'Mentors', 'Institutions' ),
+		array( 'Students', 'Mentors', 'Institutions', 'Sponsors' ),
+	) );
+
+$sponsor_json  = json_decode( theme_file( 'blocks/sponsor-card/block.json' ), true );
+$sponsor_asset = is_file( WPCREDITS_THEME_DIR . 'blocks/sponsor-card/index.asset.php' ) ? include WPCREDITS_THEME_DIR . 'blocks/sponsor-card/index.asset.php' : null;
+
+ck( 'the sponsor card is a block of the theme\'s, registered in functions.php, with the hub\'s stylesheet and an editor preview the server draws; it saves nothing, so a later release that changes its words changes every saved template\'s card',
+	array(
+		is_array( $sponsor_json ) ? array( $sponsor_json['name'], $sponsor_json['style'] ?? null, $sponsor_json['editorScript'] ?? null, $sponsor_json['render'] ?? null, $sponsor_json['attributes'] ?? array() ) : null,
+		is_array( $sponsor_asset ) ? $sponsor_asset['dependencies'] : null,
+		false !== strpos( theme_file( 'functions.php' ), "register_block_type( get_theme_file_path( 'blocks/sponsor-card' ) );" ),
+		(bool) preg_match( '/save: function \(\) \{\s*return null;\s*\}/', theme_file( 'blocks/sponsor-card/index.js' ) ),
+	),
+	array(
+		array( 'wpcredits/sponsor-card', 'wpcredits-hub', 'file:./index.js', 'file:./render.php', array() ),
+		array( 'wp-blocks', 'wp-block-editor', 'wp-element', 'wp-i18n', 'wp-server-side-render' ),
+		true,
+		true,
+	) );
+
+ck( 'the band\'s grid: one column on a phone, two from 640px, where three cards make the third the row\'s whole width so three read as intended, and from 900px a column for each card it holds, three or four, filling the row as the sign-in cards do; its cards stand 16px apart and keep no block gap of their own, two classes deep',
+	array(
+		rules_for( '.wp-block-group.wpc-hub-roles__grid' ),
+		rules_for( '.wp-block-group.wpc-hub-roles__grid > *' ),
+		rules_for( '.wp-block-group.wpc-hub-roles__grid > :last-child:nth-child( odd )' ),
+		rules_for( '.wp-block-group.wpc-hub-roles > .wpc-hub-roles__grid' ),
+	),
+	array(
+		array( 'display: grid; gap: 16px; grid-template-columns: minmax( 0, 1fr );', 'grid-template-columns: repeat( 2, minmax( 0, 1fr ) );', 'grid-auto-columns: minmax( 0, 1fr ); grid-auto-flow: column; grid-template-columns: none;' ),
+		array( 'margin: 0;' ),
+		array( 'grid-column: 1 / -1;' ),
+		array( 'margin-block-start: 0;' ),
+	) );
+
+ck( 'each card opens with its icon, drawn by the stylesheet in the brand blue on the brand tint, 40px with the hub\'s 2px corners, the role\'s own glyph from WordPress\'s icon set; the mentors\' card has an accent border, 2px of the brand blue, its padding a pixel less so its words line up with the others\'',
+	array(
+		rules_for( '.wp-block-group.wpc-hub-role::before' ),
+		array_map( static function ( $role ) { return 1 === count( rules_for( '.wp-block-group.wpc-hub-role--' . $role ) ) && false !== strpos( rules_for( '.wp-block-group.wpc-hub-role--' . $role )[0], "--wpc-hub-role-icon: url( 'data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"%233858e9\">" ); }, array( 'students', 'mentors', 'institutions', 'sponsors' ) ),
+		rules_for( '.wpc-hub .wp-block-group.wpc-hub-role--mentors' ),
+	),
+	array(
+		array( 'background: var( --wpc-brand-tint ) var( --wpc-hub-role-icon ) center / 24px no-repeat; border-radius: var( --wpc-radius-control ); content: ""; display: block; flex: none; height: 40px; width: 40px;' ),
+		array( true, true, true, true ),
+		array( 'border: 2px solid var( --wpc-brand ); padding: 23px;' ),
 	) );
 
 echo "\n=== The page ===\n";
@@ -3506,20 +3636,20 @@ WPCPM_Outcome_Figures::$published = $monday;
 $page_html                        = wpcredits_test_page();
 $page                             = dom_of( $page_html );
 
-ck( 'without JavaScript the page holds every part: the three figures and their source, the four sign-in cards, the doors, six programs, the seven rows of the field-of-study flow, both ladders with all eleven details, and the band',
-	array( count( $page->query( '//div[contains(@class,"wpc-figure")]' ) ), count( $page->query( '//p[contains(@class,"wpc-figure-source")]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-sign-in__card")]' ) ), count( $page->query( '//div[contains(concat(" ", @class, " ")," wpc-hub-doors ")]//div[contains(concat(" ", @class, " ")," wpc-hub-door ")]' ) ), count( $page->query( '//article[@class="wpc-hub-program"]' ) ), count( $page->query( '//ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flow__row"]' ) ), count( $page->query( '//section[@class="wpc-hub-ladder"]' ) ), count( $page->query( '//article[@class="wpc-hub-detail"]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-cta__card")]' ) ) ),
+ck( 'without JavaScript the page holds every part: the three figures and their source, the four sign-in cards, the three roles (the Partners page not public), six programs, the seven rows of the field-of-study flow, both ladders with all eleven details, and the band',
+	array( count( $page->query( '//div[contains(@class,"wpc-figure")]' ) ), count( $page->query( '//p[contains(@class,"wpc-figure-source")]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-sign-in__card")]' ) ), count( $page->query( '//div[contains(concat(" ", @class, " ")," wpc-hub-roles ")]//div[contains(concat(" ", @class, " ")," wpc-hub-role ")]' ) ), count( $page->query( '//article[@class="wpc-hub-program"]' ) ), count( $page->query( '//ul[@class="wpc-hub-flow__rows"]/li[@class="wpc-hub-flow__row"]' ) ), count( $page->query( '//section[@class="wpc-hub-ladder"]' ) ), count( $page->query( '//article[@class="wpc-hub-detail"]' ) ), count( $page->query( '//div[contains(@class,"wpc-hub-cta__card")]' ) ) ),
 	array( 3, 1, 4, 3, 6, 7, 2, 11, 2 ) );
 
-ck( 'the sections in the page\'s order: the hero, the doors, the programs, the pathway, the band and the sign-in section last',
-	array_map( static function ( $class ) { return implode( ' ', array_intersect( array( 'wpc-hub-hero', 'wpc-hub-sign-in', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-cta' ), explode( ' ', $class ) ) ); }, found( $page, '/html/body/*', 'class' ) ),
-	array( 'wpc-hub-hero', 'wpc-hub-doors', 'wpc-hub-anchored', 'wpc-hub-anchored', 'wpc-hub-cta', 'wpc-hub-sign-in' ) );
+ck( 'the sections in the page\'s order: the hero, the four roles directly under it, the programs, the pathway, the band and the sign-in section last',
+	array_map( static function ( $class ) { return implode( ' ', array_intersect( array( 'wpc-hub-hero', 'wpc-hub-sign-in', 'wpc-hub-roles', 'wpc-hub-anchored', 'wpc-hub-cta' ), explode( ' ', $class ) ) ); }, found( $page, '/html/body/*', 'class' ) ),
+	array( 'wpc-hub-hero', 'wpc-hub-roles', 'wpc-hub-anchored', 'wpc-hub-anchored', 'wpc-hub-cta', 'wpc-hub-sign-in' ) );
 
 ck( 'and nothing on it is hidden but the controls the scripts show: the chips, the switch and each ladder\'s hint',
 	found( $page, '//*[@hidden]', 'class' ), array( 'wpc-hub-chips', 'wpc-hub-switch', 'wpc-hub-ladder__hint', 'wpc-hub-ladder__hint' ) );
 
-ck( 'the headings in order: the one h1, a heading for every section, the doors\' for screen readers second, the sign-in section\'s last',
+ck( 'the headings in order: the one h1, a heading for every section, the roles\' for screen readers second, the sign-in section\'s last',
 	found( $page, '//h1 | //h2' ),
-	array( 'Start learning with WordPress. Every step counts. Keep climbing.', 'Who this is for', 'Every education program, in one list', 'Seven steps from first workshop to first job', 'Four partner levels, measured on student outcomes', 'Looking for WordPress talent?', 'Help more students reach the next step', 'Sign in to your page' ) );
+	array( 'Start learning with WordPress. Every step counts. Keep climbing.', 'Get involved', 'Every education program, in one list', 'Seven steps from first workshop to first job', 'Four partner levels, measured on student outcomes', 'Looking for WordPress talent?', 'Help more students reach the next step', 'Sign in to your page' ) );
 
 /**
  * Every link on the page, in order: its words, then where it goes.
@@ -3547,9 +3677,9 @@ ck( 'every link of the design note\'s 6.9, in the page\'s order, the site\'s own
 			'Find where to start > #programs',
 			'Explore the pathway > #pathway',
 			'WordPress Credits impact dashboard > https://wordpress.github.io/WPCredits/',
-			'Browse programs → > #programs',
-			'Partner as an institution → > ' . $apply,
-			'Hire from WordPress → > https://jobs.wordpress.net/',
+			'Find where to start → > #programs',
+			'Become a mentor → > https://site.example/become-a-mentor/',
+			'Partner with us → > ' . $apply,
 			'Find or host an event → > https://events.wordpress.org/campusconnect/',
 			'Compare the five courses → > #wordpress-credits-courses',
 			'About the program → > https://wordpress.org/education/credits/',
@@ -3614,7 +3744,7 @@ WPCPM_Sponsor_Application::$url     = 'https://wordpresseducation.org/sponsor-ap
 ck( 'with either application\'s page not published, its five links go to the WordPress Credits handbook',
 	array_values( preg_grep( '#community/handbook/education/credits/$#', $unpublished_page ) ),
 	array(
-		'Partner as an institution → > https://make.wordpress.org/community/handbook/education/credits/',
+		'Partner with us → > https://make.wordpress.org/community/handbook/education/credits/',
 		'Partner as an institution > https://make.wordpress.org/community/handbook/education/credits/',
 		'Talk to the program team > https://make.wordpress.org/community/handbook/education/credits/',
 		'Sponsor > https://make.wordpress.org/community/handbook/education/credits/',
@@ -4299,7 +4429,7 @@ ck( 'in the Site Editor, where each figure is the block\'s wrapper, the preview\
 	),
 	array( array( 'flex: 1 1 0; margin-block: 0; min-width: 0;' ), array( 'flex-basis: 100%;' ), array( 'border-left: 1px solid var( --wpc-line-card );' ), array( 4, 1, 2 ), array( 0, 0, 0, 0 ) ) );
 
-ck( 'the hero, the doors and the band stack below 900px',
+ck( 'the hero and the band stack below 900px, and the doors a saved template keeps',
 	array( rules_for( '.wp-block-columns.wpc-hub-stack' ), rules_for( '.wp-block-columns.wpc-hub-stack > .wp-block-column' ) ),
 	array( array( 'flex-wrap: wrap !important;' ), array( 'flex-basis: 100% !important;' ) ) );
 
@@ -4328,13 +4458,13 @@ $has_classes = static function ( $one, $other ) use ( $page ) {
 
 // The editor prints `:root :where( .is-layout-flex ) { gap: 20px }` for every flex layout: one class
 // deep, so a one-class rule here ties with it, and loses where the sheet prints first.
-ck( 'the hero\'s columns, the doors\' grid and the band\'s grid keep their gaps over the editor\'s 20px flex gap: written two classes deep, on elements that print both classes, and no one-class rule for them is left; the hero\'s 40px at every width, since stacked its columns hold the copy alone',
+ck( 'the hero\'s columns, the band\'s grid, and the doors\' grid a saved template keeps, hold their gaps over the editor\'s 20px flex gap: written two classes deep, on elements that print both classes, and no one-class rule for them is left; the hero\'s 40px at every width, since stacked its columns hold the copy alone',
 	array(
 		array_values( array_filter( array_map( static function ( $rule ) { return preg_match( '/(?:^| )(gap: [^;]+;)/', $rule[1], $gap ) ? $gap[1] : ''; }, rules_placed( '.wp-block-columns.wpc-hub-hero__cols' ) ) ) ),
 		rules_for( '.wp-block-columns.wpc-hub-doors__grid' ),
 		rules_for( '.wp-block-columns.wpc-hub-cta__grid' ),
 		array( rules_for( '.wpc-hub-hero__cols' ), rules_for( '.wpc-hub-doors__grid' ), rules_for( '.wpc-hub-cta__grid' ) ),
-		array( $has_classes( 'wp-block-columns', 'wpc-hub-hero__cols' ), $has_classes( 'wp-block-columns', 'wpc-hub-doors__grid' ), $has_classes( 'wp-block-columns', 'wpc-hub-cta__grid' ) ),
+		array( $has_classes( 'wp-block-columns', 'wpc-hub-hero__cols' ), $has_classes( 'wp-block-group', 'wpc-hub-roles__grid' ), $has_classes( 'wp-block-columns', 'wpc-hub-cta__grid' ) ),
 	),
 	array( array( 'gap: 40px;' ), array( 'gap: 16px;' ), array( 'gap: 16px;' ), array( array(), array(), array() ), array( 1, 1, 1 ) ) );
 
@@ -4692,13 +4822,14 @@ ck( 'the hero\'s text is legible on the page\'s white, where it now sits, each c
 
 // The heading before the grid is screen-reader only and takes no room, so the grid is the first
 // thing in the section; the flow layout's block gap would put it 20px below the top padding.
-ck( 'the doors\' grid sits at the section\'s top padding, where the other sections\' content does: the block gap above it is removed, two classes deep, and it follows the screen-reader heading directly',
+ck( 'the band\'s grid sits at the section\'s top padding, where the other sections\' content does: the block gap above it is removed, two classes deep, and it follows the screen-reader heading directly; the doors\' grid a saved template keeps does the same',
 	array(
+		rules_for( '.wp-block-group.wpc-hub-roles > .wpc-hub-roles__grid' ),
+		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-roles ")]/*[1]', 'class' ),
+		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-roles ")]/*[2]', 'class' ),
 		rules_for( '.wp-block-group.wpc-hub-doors > .wpc-hub-doors__grid' ),
-		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-doors ")]/*[1]', 'class' ),
-		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-doors ")]/*[2]', 'class' ),
 	),
-	array( array( 'margin-block-start: 0;' ), array( 'wp-block-heading screen-reader-text' ), array( 'wp-block-columns wpc-hub-doors__grid wpc-hub-stack' ) ) );
+	array( array( 'margin-block-start: 0;' ), array( 'wp-block-heading screen-reader-text' ), array( 'wp-block-group wpc-hub-roles__grid' ), array( 'margin-block-start: 0;' ) ) );
 
 $template_file = theme_file( 'templates/page-education-hub.html' );
 $main_holds    = preg_match( '#<main[^>]*>(.*?)</main>#s', $template_file, $held ) ? $held[1] : '';
@@ -5062,15 +5193,15 @@ ck( 'today the page has no pathway: no section anchored #pathway, no pathway blo
 // The program lead's "we may also want to remove the links to the jobs site" (21 October 2026), the
 // owner's "do it": the Companies door and the closing band's Companies card exist to link there, so
 // both are parked with the planned content.
-ck( 'today nothing links to the jobs site: the doors are the students\' and the institutions\', the closing band holds the sponsors\' and schools\' card alone; with the filter on, the Companies door and card come back',
+ck( 'today nothing links to the jobs site: the roles are the students\', the mentors\' and the institutions\', the closing band holds the sponsors\' and schools\' card alone; with the filter on, the closing band\'s Companies card comes back, and the roles are the same, as the band has no Companies card (the doors\' parked one went with the doors)',
 	array(
 		substr_count( $today_page, 'jobs.wordpress.net' ),
-		found( $today_px, '//div[contains(concat(" ", @class, " "), " wpc-hub-doors ")]//div[contains(concat(" ", @class, " "), " wpc-hub-door ")]/p[contains(@class,"is-style-eyebrow")]' ),
+		found( $today_px, '//div[contains(concat(" ", @class, " "), " wpc-hub-roles ")]//div[contains(concat(" ", @class, " "), " wpc-hub-role ")]/h3' ),
 		found( $today_px, '//div[contains(@class,"wpc-hub-cta__card")]/p[contains(@class,"is-style-eyebrow")]' ),
-		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-doors ")]//div[contains(concat(" ", @class, " "), " wpc-hub-door ")]/p[contains(@class,"is-style-eyebrow")]' ),
+		found( $page, '//div[contains(concat(" ", @class, " "), " wpc-hub-roles ")]//div[contains(concat(" ", @class, " "), " wpc-hub-role ")]/h3' ),
 		found( $page, '//div[contains(@class,"wpc-hub-cta__card")]/p[contains(@class,"is-style-eyebrow")]' ),
 	),
-	array( 0, array( 'Students', 'Institutions' ), array( 'Sponsors and schools' ), array( 'Students', 'Institutions', 'Companies' ), array( 'Companies', 'Sponsors and schools' ) ) );
+	array( 0, array( 'Students', 'Mentors', 'Institutions' ), array( 'Sponsors and schools' ), array( 'Students', 'Mentors', 'Institutions' ), array( 'Companies', 'Sponsors and schools' ) ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

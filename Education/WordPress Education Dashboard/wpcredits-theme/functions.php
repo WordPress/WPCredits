@@ -45,9 +45,11 @@ require_once get_theme_file_path( 'inc/guide.php' );
 require_once get_theme_file_path( 'inc/hub.php' );
 require_once get_theme_file_path( 'inc/hub-content.php' );
 require_once get_theme_file_path( 'inc/header.php' );
+require_once get_theme_file_path( 'inc/get-involved.php' );
 require_once get_theme_file_path( 'inc/partners.php' );
 require_once get_theme_file_path( 'inc/migrate-1-32-0.php' );
 require_once get_theme_file_path( 'inc/migrate-1-32-1.php' );
+require_once get_theme_file_path( 'inc/migrate-1-32-12.php' );
 
 /**
  * Theme supports.
@@ -123,6 +125,9 @@ function wpcredits_register_blocks() {
 	register_block_type( get_theme_file_path( 'blocks/partner-levels' ), array( 'skip_inner_blocks' => true ) );
 	register_block_type( get_theme_file_path( 'blocks/partner-level' ) );
 	register_block_type( get_theme_file_path( 'blocks/partner-glance' ) );
+	register_block_type( get_theme_file_path( 'blocks/get-involved' ) );
+	register_block_type( get_theme_file_path( 'blocks/sponsor-card' ) );
+	register_block_type( get_theme_file_path( 'blocks/notice-forward' ) );
 }
 add_action( 'init', 'wpcredits_register_blocks' );
 

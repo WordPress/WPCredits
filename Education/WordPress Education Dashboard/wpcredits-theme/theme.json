@@ -455,6 +455,13 @@
 			"postTypes": [
 				"page"
 			]
+		},
+		{
+			"name": "page-notice",
+			"title": "Notice",
+			"postTypes": [
+				"page"
+			]
 		}
 	]
 }

@@ -179,6 +179,7 @@ function get_option( $key, $default = false ) {
 function get_bloginfo( $show = '', $filter = 'raw' ) { return 'name' === $show ? (string) get_option( 'blogname', '' ) : ''; }
 function home_url( $path = '' ) { return 'https://site.example' . $path; }
 function untrailingslashit( $value ) { return rtrim( (string) $value, '/\\' ); }
+function wp_unique_id( $prefix = '' ) { static $counter = 0; return $prefix . (string) ++$counter; }
 function has_custom_logo() { return ! empty( $GLOBALS['custom_logo'] ); }
 function wp_timezone() { return new DateTimeZone( (string) get_option( 'timezone', 'UTC' ) ); }
 function wp_date( $format, $timestamp = null, $timezone = null ) {
@@ -193,6 +194,7 @@ function is_singular( $type = '' ) {
 	return '' !== $shown && ( '' === $type || $type === $shown );
 }
 function get_queried_object_id() { return (int) $GLOBALS['request']['id']; }
+function is_404() { return ! empty( $GLOBALS['request']['404'] ); }
 function get_page_template_slug( $post = null ) {
 	$id = (int) $post;
 

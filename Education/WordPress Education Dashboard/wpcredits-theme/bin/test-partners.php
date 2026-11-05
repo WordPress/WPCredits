@@ -377,7 +377,7 @@ ck( 'the Partners page loads the hub\'s stylesheet and its own, after the hub\'s
 	array( $GLOBALS['styles']['wpcredits-partners'][1], $on_partners, $on_other ),
 	array( array( 'wpcredits-hub' ), array( 'wpcredits-hub', 'wpcredits-partners' ), array() ) );
 
-echo "\n=== The menu's items (theme 1.32.7) ===\n";
+echo "\n=== The menu's Partners link, and who is offered the Get involved rows (theme 1.32.12) ===\n";
 
 $anchor = array( 'blockName' => 'core/navigation', 'attrs' => array() );
 
@@ -401,8 +401,9 @@ function core_marks_current( array $attrs, $viewed, array $object ) {
 
 /**
  * The hooked block types for a position, as core's `insert_hooked_blocks()` (wp-includes/blocks.php,
- * WordPress 7.1) asks for them: the `hooked_block_types` filter over an empty list, since the theme
- * registers no block that hooks itself.
+ * WordPress 7.1) asks for them: the `hooked_block_types` filter over an empty list. This suite loads
+ * inc/partners.php alone, so these are the Partners link's; the Get involved block a visitor's menu ends
+ * with is inc/get-involved.php's, checked in bin/test-get-involved.php.
  *
  * @param string $position Where: before, after, first_child or last_child.
  * @param string $anchor   The anchor block's type.
@@ -445,47 +446,7 @@ function menu_items( array $ignored = array() ) {
 	);
 }
 
-$institution = array( 'label' => 'Partner as an institution', 'url' => 'https://site.example/apply/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' );
-$sponsor     = array( 'label' => 'Become a sponsor', 'url' => 'https://site.example/sponsor-application/', 'kind' => 'custom', 'className' => 'wpc-nav__partner' );
-$partners    = array( 'label' => 'Partners', 'url' => 'https://site.example/partners/', 'kind' => 'custom' );
-
-// A signed-in reader's buttons, the same but for the class that keeps them to the open Menu panel (theme 1.32.9).
-$institution_in = array_merge( $institution, array( 'className' => 'wpc-nav__partner wpc-nav__panel-only' ) );
-$sponsor_in     = array_merge( $sponsor, array( 'className' => 'wpc-nav__partner wpc-nav__panel-only' ) );
-
-$GLOBALS['logged_in']      = false;
-WPCPM_Sponsor_Tiers::$live = false;
-$off_types                 = hooked_types();
-$off                       = menu_items();
-
-WPCPM_Sponsor_Tiers::$live = true;
-$on_types                  = hooked_types();
-$on                        = menu_items();
-$elsewhere                 = array( hooked_types( 'after', 'core/navigation' ), hooked_types( 'last_child', 'core/group' ), hooked_types( 'first_child', 'core/navigation' ) );
-
-$GLOBALS['logged_in']      = true;
-$in_on_types               = hooked_types();
-$in_on                     = menu_items();
-WPCPM_Sponsor_Tiers::$live = false;
-$in_off_types              = hooked_types();
-$in_off                    = menu_items();
-
-$GLOBALS['logged_in']      = false;
-WPCPM_Sponsor_Tiers::$live = true;
-
-ck( 'signed out, the menu ends with two outline buttons, "Become a sponsor", to the sponsor application, then "Partner as an institution", to the institution application (theme 1.32.7, the site\'s owner, 25 October 2026), whether or not the partnership levels are public; while they are, a plain link, "Partners", to the Partners page comes before them; signed in, on the front end, the same items in the same order, the two buttons wearing `wpc-nav__panel-only` as well, so style.css shows them as rows of the open Menu panel below 1200px and nowhere else (theme 1.32.9, the product owner, 27 October 2026); all are written as core\'s navigation link, and nowhere else is anything hooked',
-	array( $off_types, $off, $on_types, $on, $in_on_types, $in_on, $in_off_types, $in_off, $elsewhere ),
-	array(
-		array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
-		array( array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
-		array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
-		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
-		array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
-		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ),
-		array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ),
-		array( array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ),
-		array( array(), array(), array() ),
-	) );
+$partners = array( 'label' => 'Partners', 'url' => 'https://site.example/partners/', 'kind' => 'custom' );
 
 /**
  * The hooked types and the items written at the menu's end for one kind of request, the globals put back.
@@ -512,175 +473,156 @@ function hooked_for( $kind, $logged_in, $live ) {
 	return $found;
 }
 
-$all_three = array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' );
+$link_only = array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ) );
 
-ck( 'signed in, a request to the REST API, which is how the Site Editor reads and saves the menu, and a request to wp-admin, where the Site Editor\'s screen asks for the menu inside its own request, are offered the Partners link alone while the levels are public and nothing while they are not, as in 1.32.8, so the Site Editor never shows the buttons and a menu saved there never holds them; signed out, either request gets the three items the front end gets, the buttons without `wpc-nav__panel-only`, as in 1.32.8',
+ck( 'the menu ends with a plain link, "Partners", to the Partners page while the partnership levels are public, written as core\'s navigation link, for every reader on every request: signed out or in, on the front end, over the REST API and in wp-admin; while they are not, nothing; the two buttons that followed it from 1.32.7 to 1.32.11 are hooked no more (they are rows of the Get involved menu, inc/get-involved.php), and nothing is hooked anywhere else',
 	array(
-		hooked_for( 'rest', true, true ),
-		hooked_for( 'rest', true, false ),
-		hooked_for( 'admin', true, true ),
-		hooked_for( 'admin', true, false ),
-		hooked_for( 'rest', false, true ),
-		hooked_for( 'admin', false, true ),
+		hooked_for( 'front', false, true ),
 		hooked_for( 'front', true, true ),
+		hooked_for( 'rest', true, true ),
+		hooked_for( 'admin', true, true ),
+		hooked_for( 'rest', false, true ),
+		hooked_for( 'front', false, false ),
+		hooked_for( 'front', true, false ),
+		array( hooked_types( 'after', 'core/navigation' ), hooked_types( 'last_child', 'core/group' ), hooked_types( 'first_child', 'core/navigation' ) ),
+	),
+	array( $link_only, $link_only, $link_only, $link_only, $link_only, array( array(), array() ), array( array(), array() ), array( array(), array(), array() ) ) );
+
+// Live on 5 November 2026: the levels' switch on, the Partners page pending, not published. The gate asks both, so
+// the Partners link (and the Get involved menu's sponsor row and the homepage's Sponsors card, which ask the same
+// gate) shows only while the page is published.
+WPCPM_Sponsors_Page::$url = '';
+$pending_page             = array( hooked_for( 'front', false, true ), hooked_for( 'front', true, true ), hooked_for( 'rest', true, true ), theme_call( 'wpcredits_partners_live' ) );
+WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
+WPCPM_Sponsor_Tiers::$live = true;
+$gate_published            = theme_call( 'wpcredits_partners_live' );
+WPCPM_Sponsor_Tiers::$live = false;
+$gate_off                  = theme_call( 'wpcredits_partners_live' );
+
+ck( 'with the levels live and the Partners page not published (pending, as live\'s is on 5 November 2026) there is no Partners link, for any reader on any request: the gate answers true only while the levels are live and the page is published, false with the levels off',
+	array( $pending_page, $gate_published, $gate_off ),
+	array( array( array( array(), array() ), array( array(), array() ), array( array(), array() ), false ), true, false ) );
+
+/**
+ * The gate in a world of its own: a fresh PHP run with the stub, inc/template-tags.php and inc/partners.php, and
+ * of the plugin only the classes given.
+ *
+ * @param string $classes The classes' code.
+ * @return mixed What `wpcredits_partners_live()` answers; null when the run did not print it.
+ */
+function gate_world( $classes ) {
+	$code = 'require ' . var_export( __DIR__ . '/stubs/hub-wp.php', true ) . '; require ' . var_export( WPCREDITS_THEME_DIR . 'inc/template-tags.php', true ) . '; ' . $classes;
+
+	$code .= ' require ' . var_export( WPCREDITS_THEME_DIR . 'inc/partners.php', true ) . ';';
+	$code .= ' echo json_encode( wpcredits_partners_live() );';
+
+	return json_decode( (string) shell_exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( $code ) . ' 2>&1' ), true );
+}
+
+$tiers_on = 'class WPCPM_Sponsor_Tiers { public static function live() { return true; } }';
+
+ck( 'every call of the gate into the plugin is guarded, so the theme works without it: no plugin, the switch on with no Partners page class, or one without `page_url()`, is false and throws nothing; the switch on and a published page is true',
+	array(
+		gate_world( '' ),
+		gate_world( $tiers_on ),
+		gate_world( $tiers_on . ' class WPCPM_Sponsors_Page {}' ),
+		gate_world( $tiers_on . ' class WPCPM_Sponsors_Page { public static function page_url() { return ""; } }' ),
+		gate_world( $tiers_on . ' class WPCPM_Sponsors_Page { public static function page_url() { return "https://site.example/partners/"; } }' ),
+	),
+	array( false, false, false, false, true ) );
+
+/**
+ * Whether this request's reader is offered the Get involved menu's institution and sponsor rows, as
+ * `wpcredits_partners_offers()` answers, for one kind of request, by what they act for and the roles they
+ * hold, and the membership questions asked, each kind once with the user it was asked about (null, the
+ * current user); the globals are put back.
+ *
+ * @param string[] $members   What the reader acts for now: `sponsor`, `institution`.
+ * @param string[] $roles     The plugin's roles the account holds.
+ * @param bool     $logged_in Whether the reader is signed in.
+ * @param string   $kind      The request, as hooked_for() takes it.
+ * @return array `institution` and `sponsor` offered, then the questions.
+ */
+function offered_to( array $members, array $roles = array(), $logged_in = true, $kind = 'front' ) {
+	$was = array( $GLOBALS['members'], $GLOBALS['viewer_roles'], $GLOBALS['asked'], $GLOBALS['logged_in'], $GLOBALS['rest_request'], $GLOBALS['is_admin'] );
+
+	$GLOBALS['members']      = $members;
+	$GLOBALS['viewer_roles'] = $roles;
+	$GLOBALS['asked']        = array();
+	$GLOBALS['logged_in']    = $logged_in;
+	$GLOBALS['rest_request'] = 'rest' === $kind;
+	$GLOBALS['is_admin']     = 'admin' === $kind;
+
+	$found = array( wpcredits_partners_offers( 'institution' ), wpcredits_partners_offers( 'sponsor' ) );
+	sort( $GLOBALS['asked'] );
+	$found[] = array_values( array_unique( array_map( 'json_encode', $GLOBALS['asked'] ) ) );
+
+	list( $GLOBALS['members'], $GLOBALS['viewer_roles'], $GLOBALS['asked'], $GLOBALS['logged_in'], $GLOBALS['rest_request'], $GLOBALS['is_admin'] ) = $was;
+
+	return $found;
+}
+
+$asked_both = array( '["institution",null]', '["sponsor",null]' );
+
+ck( 'a signed-in reader is not offered the row for what they already act for (the product owner, 28 October 2026, of the buttons the rows replace), as the plugin\'s membership tests answer it for the current user: one who acts for a sponsor is offered the institution row alone, one who acts for an institution the sponsor row alone, one who acts for both neither; one who holds the sponsor or the institution role but acts for neither, and one who acts for nothing, both; a visitor both, never asked; a REST or wp-admin request neither, asking nothing',
+	array(
+		offered_to( array( 'sponsor' ) ),
+		offered_to( array( 'institution' ) ),
+		offered_to( array( 'sponsor', 'institution' ) ),
+		offered_to( array(), array( 'wpcpm_sponsor', 'wpcpm_institution' ) ),
+		offered_to( array() ),
+		offered_to( array( 'sponsor', 'institution' ), array( 'wpcpm_sponsor' ), false ),
+		offered_to( array(), array(), true, 'rest' ),
+		offered_to( array(), array(), true, 'admin' ),
 	),
 	array(
-		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ) ),
-		array( array(), array() ),
-		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ) ),
-		array( array(), array() ),
-		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ) ),
-		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ) ),
-		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ) ),
+		array( true, false, $asked_both ),
+		array( false, true, $asked_both ),
+		array( false, false, $asked_both ),
+		array( true, true, $asked_both ),
+		array( true, true, $asked_both ),
+		array( true, true, array() ),
+		array( false, false, array() ),
+		array( false, false, array() ),
 	) );
 
 /**
- * What a signed-in reader is hooked at the menu's end in a world of its own: a fresh PHP run with the stub
- * and inc/partners.php alone, so WordPress has no `wp_is_serving_rest_request()` (it came in 6.5) and the
- * levels are not public (the plugin is not there), with `REST_REQUEST` defined as given, or not at all.
+ * What a signed-in reader is offered in a world of its own: a fresh PHP run with the stub, inc/template-tags.php
+ * and inc/partners.php, the plugin's classes as given and nothing else of it, with `REST_REQUEST` defined as
+ * given or not at all (WordPress without `wp_is_serving_rest_request()`, which came in 6.5).
  *
- * @param bool|null $constant The constant's value, or null to leave it undefined.
- * @return array|null Whether the function was there, then the types; null when the run did not print them.
+ * @param array     $classes  Class name => true for an `is_member()` that answers true, false for none.
+ * @param bool|null $constant `REST_REQUEST`'s value, or null to leave it undefined.
+ * @return array|null `institution` and `sponsor` offered; null when the run did not print them.
  */
-function rest_constant_world( $constant ) {
+function offered_world( array $classes, $constant = null ) {
 	$code = 'require ' . var_export( __DIR__ . '/stubs/hub-wp.php', true ) . '; require ' . var_export( WPCREDITS_THEME_DIR . 'inc/template-tags.php', true ) . '; $GLOBALS[\'logged_in\'] = true;';
 
 	if ( null !== $constant ) {
 		$code .= ' define( \'REST_REQUEST\', ' . var_export( $constant, true ) . ' );';
 	}
 
-	$code .= ' require ' . var_export( WPCREDITS_THEME_DIR . 'inc/partners.php', true ) . ';';
-	$code .= ' echo json_encode( array( function_exists( \'wp_is_serving_rest_request\' ), apply_filters( \'hooked_block_types\', array(), \'last_child\', \'core/navigation\', null ) ) );';
-
-	return json_decode( (string) shell_exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( $code ) . ' 2>&1' ), true );
-}
-
-ck( 'where WordPress has no `wp_is_serving_rest_request()`, a request is one to the REST API when `REST_REQUEST` is defined and true: then a signed-in reader is hooked nothing (the levels being off), and with the constant false or undefined the two buttons',
-	array( rest_constant_world( true ), rest_constant_world( false ), rest_constant_world( null ) ),
-	array(
-		array( false, array() ),
-		array( false, array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ) ),
-		array( false, array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' ) ),
-	) );
-
-/**
- * What a reader is hooked at the menu's end while the levels are public, by what they act for and the
- * roles they hold: the types, the items written, and the membership questions asked, each kind once with
- * the user it was asked about (null, the current user); the globals are put back.
- *
- * @param string[] $members   What the reader acts for now: `sponsor`, `institution`.
- * @param string[] $roles     The plugin's roles the account holds.
- * @param bool     $logged_in Whether the reader is signed in.
- * @param string   $kind      The request, as hooked_for() takes it.
- * @return array
- */
-function hooked_for_member( array $members, array $roles = array(), $logged_in = true, $kind = 'front' ) {
-	$was = array( $GLOBALS['members'], $GLOBALS['viewer_roles'], $GLOBALS['asked'] );
-
-	$GLOBALS['members']      = $members;
-	$GLOBALS['viewer_roles'] = $roles;
-	$GLOBALS['asked']        = array();
-
-	$found   = hooked_for( $kind, $logged_in, true );
-	$found[] = array_values( array_unique( array_map( 'json_encode', $GLOBALS['asked'] ) ) );
-
-	list( $GLOBALS['members'], $GLOBALS['viewer_roles'], $GLOBALS['asked'] ) = $was;
-
-	return $found;
-}
-
-$asked_both = array( '["sponsor",null]', '["institution",null]' );
-
-ck( 'a signed-in reader is not offered the button for what they already act for (the product owner, 28 October 2026), as the plugin\'s membership tests answer it for the current user: one who acts for a sponsor gets Partners and "Partner as an institution", one who acts for an institution Partners and "Become a sponsor", one who acts for both Partners alone; one who holds the sponsor or the institution role but acts for neither, and one who acts for nothing, get both buttons; a visitor gets all three as before and is never asked; a REST request asks nothing and is offered the Partners link alone, as before',
-	array(
-		hooked_for_member( array( 'sponsor' ) ),
-		hooked_for_member( array( 'institution' ) ),
-		hooked_for_member( array( 'sponsor', 'institution' ) ),
-		hooked_for_member( array(), array( 'wpcpm_sponsor', 'wpcpm_institution' ) ),
-		hooked_for_member( array() ),
-		hooked_for_member( array( 'sponsor', 'institution' ), array( 'wpcpm_sponsor' ), false ),
-		hooked_for_member( array( 'sponsor', 'institution' ), array(), true, 'rest' ),
-	),
-	array(
-		array( array( 'wpcredits-theme/partners-link', 'core/navigation-link' ), array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $institution_in ) ), $asked_both ),
-		array( array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link' ), array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ) ), $asked_both ),
-		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ), $asked_both ),
-		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ), $asked_both ),
-		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ), $asked_both ),
-		array( $all_three, array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ), array() ),
-		array( array( 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $partners ) ), array() ),
-	) );
-
-// Another plugin's navigation link hooked at the same anchor is hooked as `core/navigation-link` too, and reaches
-// `hooked_block_core/navigation-link` as the institution button would: for a reader who is not offered the
-// button it stays the other plugin's link, and nothing else is taken out of the list.
-$elsewhere_types = static function ( $hooked, $position, $anchor ) {
-	if ( 'last_child' === $position && 'core/navigation' === $anchor ) {
-		$hooked[] = 'core/navigation-link';
-	}
-
-	return $hooked;
-};
-$elsewhere_block = static function ( $block ) {
-	if ( is_array( $block ) ) {
-		$block['attrs'] = array( 'label' => 'Elsewhere', 'url' => 'https://site.example/elsewhere/', 'kind' => 'custom' );
-	}
-
-	return $block;
-};
-$elsewhere       = array( 'label' => 'Elsewhere', 'url' => 'https://site.example/elsewhere/', 'kind' => 'custom' );
-
-add_filter( 'hooked_block_types', $elsewhere_types, 5, 3 );
-add_filter( 'hooked_block_core/navigation-link', $elsewhere_block, 5, 4 );
-$elsewhere_institution = hooked_for_member( array( 'institution' ) );
-$elsewhere_both        = hooked_for_member( array( 'sponsor', 'institution' ) );
-remove_filter( 'hooked_block_types', $elsewhere_types, 5 );
-remove_filter( 'hooked_block_core/navigation-link', $elsewhere_block, 5 );
-
-ck( 'for a reader who acts for an institution, another plugin\'s navigation link at the menu\'s end stays in the list and stays that plugin\'s link, not turned into "Partner as an institution"; for one who acts for both it is all that is hooked beside Partners',
-	array( array_slice( $elsewhere_institution, 0, 2 ), array_slice( $elsewhere_both, 0, 2 ), isset( $GLOBALS['hooks']['hooked_block_types'] ) ? count( $GLOBALS['hooks']['hooked_block_types'] ) : 0 ),
-	array(
-		array( array( 'core/navigation-link', 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link' ), array( array( 'core/navigation-link', $elsewhere ), array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor_in ) ) ),
-		array( array( 'core/navigation-link', 'wpcredits-theme/partners-link' ), array( array( 'core/navigation-link', $elsewhere ), array( 'core/navigation-link', $partners ) ) ),
-		1,
-	) );
-
-/**
- * What a signed-in reader is hooked at the menu's end in a world of its own, a fresh PHP run with the stub,
- * inc/template-tags.php and inc/partners.php, the plugin's classes as given and nothing else of it (so the
- * levels are not public): each class, and whether it has an `is_member()` that says yes.
- *
- * @param array $classes Class name => true for an `is_member()` that answers true, false for none.
- * @return array|null The types; null when the run did not print them.
- */
-function member_world( array $classes ) {
-	$code = 'require ' . var_export( __DIR__ . '/stubs/hub-wp.php', true ) . '; require ' . var_export( WPCREDITS_THEME_DIR . 'inc/template-tags.php', true ) . '; $GLOBALS[\'logged_in\'] = true;';
-
 	foreach ( $classes as $class => $member ) {
 		$code .= ' class ' . $class . ' { ' . ( $member ? 'public static function is_member( $user = null ) { return true; }' : '' ) . ' }';
 	}
 
 	$code .= ' require ' . var_export( WPCREDITS_THEME_DIR . 'inc/partners.php', true ) . ';';
-	$code .= ' echo json_encode( apply_filters( \'hooked_block_types\', array(), \'last_child\', \'core/navigation\', null ) );';
+	$code .= ' echo json_encode( array( wpcredits_partners_offers( \'institution\' ), wpcredits_partners_offers( \'sponsor\' ) ) );';
 
 	return json_decode( (string) shell_exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( $code ) . ' 2>&1' ), true );
 }
 
-$both_buttons = array( 'wpcredits-theme/sponsor-link', 'core/navigation-link' );
-
-ck( 'with no plugin, with a plugin whose dashboards have no `is_member()`, and with dashboards that would say yes but no plugin active (no Mentor Report Card), a signed-in reader keeps both buttons; with the plugin and both tests saying yes, neither, so the world is the one the checks above stand in for',
+ck( 'with no plugin, with a plugin whose dashboards have no `is_member()`, and with dashboards that would say yes but no plugin active (no Mentor Report Card), a signed-in reader is offered both rows; with the plugin and both tests saying yes, neither; where WordPress has no `wp_is_serving_rest_request()`, `REST_REQUEST` defined and true makes a request one to the REST API, offered neither, and false or undefined, the front end',
 	array(
-		member_world( array() ),
-		member_world( array( 'WPCPM_Mentors_Dashboard' => false, 'WPCPM_Sponsors_Dashboard' => false, 'WPCPM_Institutions_Dashboard' => false ) ),
-		member_world( array( 'WPCPM_Sponsors_Dashboard' => true, 'WPCPM_Institutions_Dashboard' => true ) ),
-		member_world( array( 'WPCPM_Mentors_Dashboard' => false, 'WPCPM_Sponsors_Dashboard' => true, 'WPCPM_Institutions_Dashboard' => true ) ),
+		offered_world( array() ),
+		offered_world( array( 'WPCPM_Mentors_Dashboard' => false, 'WPCPM_Sponsors_Dashboard' => false, 'WPCPM_Institutions_Dashboard' => false ) ),
+		offered_world( array( 'WPCPM_Sponsors_Dashboard' => true, 'WPCPM_Institutions_Dashboard' => true ) ),
+		offered_world( array( 'WPCPM_Mentors_Dashboard' => false, 'WPCPM_Sponsors_Dashboard' => true, 'WPCPM_Institutions_Dashboard' => true ) ),
+		offered_world( array(), true ),
+		offered_world( array(), false ),
 	),
-	array( $both_buttons, $both_buttons, $both_buttons, array() ) );
+	array( array( true, true ), array( true, true ), array( true, true ), array( false, false ), array( false, false ), array( true, true ) ) );
 
-// Hooked blocks of one type cannot be told apart in `hooked_block_core/navigation-link`: each reaches it with
-// the same arguments. So the Partners link and the sponsor button are hooked under types of their own, which
-// core accepts (it looks for the type hooked, not the one the filter answers, in `ignoredHookedBlocks`), and
-// their filters answer a navigation link.
 $hooks_of = static function ( $hook ) {
 	return array_map(
 		static function ( $hooked ) {
@@ -690,77 +632,50 @@ $hooks_of = static function ( $hook ) {
 	);
 };
 
-ck( 'the four filters are hooked as core needs them, each at priority 10 with the arguments it takes: the types (the list, the position and the anchor\'s type), and the block of each of the three types (the block, the type, the position and the anchor)',
+ck( 'the two filters are hooked as core needs them, each at priority 10 with the arguments it takes: the types (the list, the position and the anchor\'s type) and the Partners link\'s block (the block, the type, the position and the anchor); the buttons\' filters, the type the sponsor button was hooked under, and the filter that left out a navigation of the buttons alone (1.32.10) are gone, so another plugin\'s navigation link hooked here is never touched',
 	array(
 		$hooks_of( 'hooked_block_types' ),
-		$hooks_of( 'hooked_block_core/navigation-link' ),
 		$hooks_of( 'hooked_block_wpcredits-theme/partners-link' ),
+		$hooks_of( 'hooked_block_core/navigation-link' ),
 		$hooks_of( 'hooked_block_wpcredits-theme/sponsor-link' ),
+		$hooks_of( 'render_block_core/navigation' ),
+		defined( 'WPCREDITS_SPONSOR_LINK_HOOK' ),
+		function_exists( 'wpcredits_partners_drop_empty_navigation' ) || function_exists( 'wpcredits_partners_button_class' ) || function_exists( 'wpcredits_partners_sponsor_block' ) || function_exists( 'wpcredits_partners_menu_item_block' ),
 	),
 	array(
 		array( array( 'wpcredits_partners_menu_item', 10, 3 ) ),
-		array( array( 'wpcredits_partners_menu_item_block', 10, 4 ) ),
 		array( array( 'wpcredits_partners_link_block', 10, 4 ) ),
-		array( array( 'wpcredits_partners_sponsor_block', 10, 4 ) ),
+		array(),
+		array(),
+		array(),
+		false,
+		false,
 	) );
 
-$left    = theme_call( 'wpcredits_partners_menu_item_block', null, 'core/navigation-link', 'last_child', $anchor );
-$other   = theme_call( 'wpcredits_partners_menu_item_block', array( 'blockName' => 'core/navigation-link', 'attrs' => array( 'label' => 'Kept' ) ), 'core/navigation-link', 'first_child', $anchor );
-$kept    = theme_call( 'wpcredits_partners_link_block', array( 'blockName' => 'wpcredits-theme/partners-link', 'attrs' => array( 'label' => 'Kept' ) ), 'wpcredits-theme/partners-link', 'after', $anchor );
-$gone    = theme_call( 'wpcredits_partners_link_block', null, 'wpcredits-theme/partners-link', 'last_child', $anchor );
-$s_kept  = theme_call( 'wpcredits_partners_sponsor_block', array( 'blockName' => 'wpcredits-theme/sponsor-link', 'attrs' => array( 'label' => 'Kept' ) ), 'wpcredits-theme/sponsor-link', 'before', $anchor );
-$s_gone  = theme_call( 'wpcredits_partners_sponsor_block', null, 'wpcredits-theme/sponsor-link', 'last_child', $anchor );
+$kept = theme_call( 'wpcredits_partners_link_block', array( 'blockName' => 'wpcredits-theme/partners-link', 'attrs' => array( 'label' => 'Kept' ) ), 'wpcredits-theme/partners-link', 'after', $anchor );
+$gone = theme_call( 'wpcredits_partners_link_block', null, 'wpcredits-theme/partners-link', 'last_child', $anchor );
 
-ck( 'a block another filter removed stays removed, and a block hooked anywhere but last in the navigation is left as it is, by each filter',
-	array( $left, $other['attrs'] ?? null, $kept['attrs'] ?? null, $gone, $s_kept['attrs'] ?? null, $s_gone ),
-	array( null, array( 'label' => 'Kept' ), array( 'label' => 'Kept' ), null, array( 'label' => 'Kept' ), null ) );
+ck( 'a block another filter removed stays removed, and a block hooked anywhere but last in the navigation is left as it is',
+	array( $kept['attrs'] ?? null, $gone ),
+	array( array( 'label' => 'Kept' ), null ) );
 
-// Each item's page, else the handbook, as every link to one of the site's own pages falls back
-// (`wpcredits_hub_url()`), and one fallback does not move another.
-$items = static function () {
-	return array_column( menu_items(), 1 );
-};
+WPCPM_Sponsor_Tiers::$live = true;
+$link_url                  = array_column( array_column( menu_items(), 1 ), 'url' );
+WPCPM_Sponsors_Page::$url  = '';
+$link_unpublished          = array_column( array_column( menu_items(), 1 ), 'url' );
+WPCPM_Sponsors_Page::$url  = 'https://site.example/partners/';
 
-WPCPM_Institution_Application::$url = '';
-$without_form = array_column( $items(), 'url' );
+ck( 'the Partners link leads to the Partners page; while the page is not published there is no link at all, where until 1.32.12 it fell back to another page',
+	array( $link_url, $link_unpublished ),
+	array( array( 'https://site.example/partners/' ), array() ) );
 
-WPCPM_Sponsor_Application::$url = '';
-$without_forms = array_column( $items(), 'url' );
-
-WPCPM_Sponsors_Page::$url = '';
-$without_any = array_column( $items(), 'url' );
-
-WPCPM_Institution_Application::$url = 'https://site.example/apply/';
-WPCPM_Sponsor_Application::$url     = 'https://site.example/sponsor-application/';
-$without_page = array_column( $items(), 'url' );
-
-WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
-
-ck( 'the Partners link leads to the Partners page, "Become a sponsor" to the sponsor application and "Partner as an institution" to the institution application; a page the plugin has not published falls back to the WordPress Credits handbook, as every link to one of the site\'s own pages does, and one fallback does not move another',
-	array( array_column( $items(), 'url' ), $without_form, $without_forms, $without_any, $without_page ),
-	array(
-		array( 'https://site.example/partners/', 'https://site.example/sponsor-application/', 'https://site.example/apply/' ),
-		array( 'https://site.example/partners/', 'https://site.example/sponsor-application/', WPCREDITS_HUB_HANDBOOK ),
-		array( 'https://site.example/partners/', WPCREDITS_HUB_HANDBOOK, WPCREDITS_HUB_HANDBOOK ),
-		array( WPCREDITS_HUB_HANDBOOK, WPCREDITS_HUB_HANDBOOK, WPCREDITS_HUB_HANDBOOK ),
-		array( WPCREDITS_HUB_HANDBOOK, 'https://site.example/sponsor-application/', 'https://site.example/apply/' ),
-	) );
-
-// The navigation block marks a link current by a page's ID, not by an address, so an item says which page it is
+// The navigation block marks a link current by a page's ID, not by an address, so the link says which page it is
 // on the page it leads to, and nowhere else.
 $GLOBALS['permalinks'] = array(
 	41 => 'https://site.example/partners/',
 	42 => 'https://site.example/about/',
-	43 => 'https://site.example/apply/',
-	44 => 'https://site.example/sponsor-application/',
 );
 
-/**
- * The hooked items for a request, as the navigation block asks for them, signed out.
- *
- * @param array $request The request: `singular`, `id` and `templates`.
- * @return array[] The Partners link's attributes, then the two buttons'.
- */
 function menu_items_on( array $request ) {
 	$GLOBALS['request'] = $request;
 
@@ -771,257 +686,47 @@ $page = static function ( $id ) {
 	return array( 'singular' => 'page', 'id' => $id, 'templates' => array() );
 };
 
-$on_partners     = menu_items_on( $page( 41 ) );
-$on_other_page   = menu_items_on( $page( 42 ) );
-$on_apply        = menu_items_on( $page( 43 ) );
-$on_sponsor_form = menu_items_on( $page( 44 ) );
-$on_a_post       = menu_items_on( array( 'singular' => 'post', 'id' => 41, 'templates' => array() ) );
-$on_archive      = menu_items_on( array( 'singular' => '', 'id' => 0, 'templates' => array() ) );
-
-WPCPM_Sponsors_Page::$url = '';
-$partners_unpublished     = menu_items_on( $page( 41 ) );
-WPCPM_Sponsors_Page::$url = 'https://site.example/partners/';
+$on_partners   = menu_items_on( $page( 41 ) );
+$on_other_page = menu_items_on( $page( 42 ) );
+$on_a_post     = menu_items_on( array( 'singular' => 'post', 'id' => 41, 'templates' => array() ) );
 
 $marks = static function ( $item ) {
 	return array( $item['kind'] ?? null, $item['type'] ?? null, $item['id'] ?? null );
 };
 
-ck( 'on the Partners page the Partners link carries the page\'s ID, as a link to a page does, so the navigation block marks it current, and the buttons stay the custom links they were; on the institution form\'s page and on the sponsor form\'s it is that form\'s button that carries the ID; on another page, a post or an archive, all are custom links',
+ck( 'on the Partners page the Partners link carries the page\'s ID, as a link to a page does, so core marks it current there and nowhere else, keeping its label and address; on another page or a post it is the custom link it was',
 	array(
 		array_map( $marks, $on_partners ),
-		array_map( $marks, $on_apply ),
-		array_map( $marks, $on_sponsor_form ),
-		array_map( static function ( $item ) { return array_keys( $item ); }, array_merge( $on_other_page, $on_a_post, $on_archive, $partners_unpublished ) ),
-	),
-	array(
-		array( array( 'post-type', 'page', 41 ), array( 'custom', null, null ), array( 'custom', null, null ) ),
-		array( array( 'custom', null, null ), array( 'custom', null, null ), array( 'post-type', 'page', 43 ) ),
-		array( array( 'custom', null, null ), array( 'post-type', 'page', 44 ), array( 'custom', null, null ) ),
-		array_merge( ...array_fill( 0, 4, array( array( 'label', 'url', 'kind' ), array( 'label', 'url', 'kind', 'className' ), array( 'label', 'url', 'kind', 'className' ) ) ) ),
-	) );
-
-ck( 'the marked items keep their label, address and class, and each button its class on its own form\'s page too, so their look and their place in the menu do not depend on the page',
-	array( $on_partners[0]['label'] ?? null, $on_partners[0]['url'] ?? null, $on_apply[2]['label'] ?? null, $on_apply[2]['url'] ?? null, $on_apply[2]['className'] ?? null, $on_sponsor_form[1]['label'] ?? null, $on_sponsor_form[1]['className'] ?? null, $on_partners[1]['className'] ?? null ),
-	array( 'Partners', 'https://site.example/partners/', 'Partner as an institution', 'https://site.example/apply/', 'wpc-nav__partner', 'Become a sponsor', 'wpc-nav__partner', 'wpc-nav__partner' ) );
-
-ck( 'core marks the Partners link current on the Partners page and each button on its own form\'s page, each on no other page, as it does a link to that page; the custom link each was before is never marked',
-	array(
+		array( $on_partners[0]['label'] ?? null, $on_partners[0]['url'] ?? null ),
 		core_marks_current( $on_partners[0] ?? array(), 41, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_partners[1] ?? array(), 41, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_partners[2] ?? array(), 41, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_apply[2] ?? array(), 43, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_apply[0] ?? array(), 43, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_sponsor_form[1] ?? array(), 44, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_sponsor_form[2] ?? array(), 44, array( 'post_type' => 'page' ) ),
-		core_marks_current( $on_apply[2] ?? array(), 41, array( 'post_type' => 'page' ) ),
 		core_marks_current( $on_other_page[0] ?? array(), 41, array( 'post_type' => 'page' ) ),
+		array_map( $marks, array_merge( $on_other_page, $on_a_post ) ),
 	),
-	array( true, false, false, true, false, true, false, false, false ) );
-
-$GLOBALS['logged_in'] = true;
-$in_on_apply          = menu_items_on( $page( 43 ) );
-$in_on_sponsor_form   = menu_items_on( $page( 44 ) );
-$GLOBALS['logged_in'] = false;
-
-ck( 'signed in, each button carries its own form\'s page ID there, as a visitor\'s does, and keeps both its classes, so the Menu panel draws its row in the brand blue at the button\'s weight on that page',
-	array( $marks( $in_on_apply[2] ?? array() ), $in_on_apply[2]['className'] ?? null, $marks( $in_on_sponsor_form[1] ?? array() ), $in_on_sponsor_form[1]['className'] ?? null ),
-	array( array( 'post-type', 'page', 43 ), 'wpc-nav__partner wpc-nav__panel-only', array( 'post-type', 'page', 44 ), 'wpc-nav__partner wpc-nav__panel-only' ) );
+	array(
+		array( array( 'post-type', 'page', 41 ) ),
+		array( 'Partners', 'https://site.example/partners/' ),
+		true,
+		false,
+		array( array( 'custom', null, null ), array( 'custom', null, null ) ),
+	) );
 
 // A menu saved in the Site Editor holds the items it was shown as links of its own, and lists the types it was
-// offered as ignored. The Site Editor is used signed in and reads and saves the menu over the REST API, where the
-// buttons are never offered, so a menu saved there never ignores them and every reader keeps both; each item has
-// a type of its own, so the Partners link is still hooked into a menu saved before the levels were public, and
-// nothing is hooked twice into one saved with all three (as a menu saved under 1.32.6, which offered the
-// institution button signed in too, may hold it).
-$GLOBALS['request']        = array( 'singular' => '', 'id' => 0, 'templates' => array() );
-$GLOBALS['logged_in']      = true;
-$GLOBALS['rest_request']   = true;
-WPCPM_Sponsor_Tiers::$live = true;
-$offered_signed_in         = hooked_types();
-WPCPM_Sponsor_Tiers::$live = false;
-$offered_while_off         = hooked_types();
-$GLOBALS['rest_request']   = false;
+// offered as ignored: a menu saved while the levels were public lists the Partners link, which is then not hooked
+// again; one saved while they were not lists nothing, so the link is hooked into it once they are.
+$GLOBALS['request']      = array( 'singular' => '', 'id' => 0, 'templates' => array() );
+$GLOBALS['logged_in']    = true;
+$GLOBALS['rest_request'] = true;
+$offered_signed_in       = hooked_types();
+$GLOBALS['rest_request'] = false;
+$GLOBALS['logged_in']    = false;
 
-WPCPM_Sponsor_Tiers::$live = true;
-$signed_in_after_save      = menu_items( $offered_signed_in );
-
-$GLOBALS['logged_in']      = false;
-$visitor_after_save        = menu_items( $offered_signed_in );
-$visitor_after_off_save    = menu_items( $offered_while_off );
-$saved_under_1_32_6        = menu_items( array( 'wpcredits-theme/partners-link', 'core/navigation-link' ) );
-$saved_with_all            = menu_items( array( 'wpcredits-theme/partners-link', 'wpcredits-theme/sponsor-link', 'core/navigation-link' ) );
-
-ck( 'a menu saved in the Site Editor, signed in over the REST API, lists at most the Partners link as ignored, so visitors keep both buttons and a signed-in reader keeps both for the Menu panel; one saved while the levels were not public lists nothing, so the Partners link is hooked into it once they are; one saved under 1.32.6 with the Partners link and the institution button gets the sponsor button alone, and one that ignores all three gets nothing, so nothing of a menu as the owner saved it is added twice or overwritten',
-	array( $offered_signed_in, $offered_while_off, $visitor_after_save, $signed_in_after_save, $visitor_after_off_save, $saved_under_1_32_6, $saved_with_all ),
-	array(
-		array( 'wpcredits-theme/partners-link' ),
-		array(),
-		array( array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
-		array( array( 'core/navigation-link', $sponsor_in ), array( 'core/navigation-link', $institution_in ) ),
-		array( array( 'core/navigation-link', $partners ), array( 'core/navigation-link', $sponsor ), array( 'core/navigation-link', $institution ) ),
-		array( array( 'core/navigation-link', $sponsor ) ),
-		array(),
-	) );
+ck( 'a menu saved in the Site Editor, signed in over the REST API, lists the Partners link as ignored and gets nothing hooked again; one saved while the levels were not public lists nothing, and is hooked the link',
+	array( $offered_signed_in, menu_items( $offered_signed_in ), menu_items( array() ) ),
+	array( array( 'wpcredits-theme/partners-link' ), array(), array( array( 'core/navigation-link', $partners ) ) ) );
 
 $GLOBALS['request']        = array( 'singular' => '', 'id' => 0, 'templates' => array() );
 $GLOBALS['logged_in']      = false;
 WPCPM_Sponsor_Tiers::$live = false;
-
-echo "\n=== A navigation of only the buttons a signed-in reader is offered (theme 1.32.10) ===\n";
-
-// The header's own filters run over the navigation, so the new one is judged with the lone count that follows it.
-require_once __DIR__ . '/stubs/header-markup.php';
-require_once WPCREDITS_THEME_DIR . 'inc/header.php';
-
-/**
- * The header's navigation as a reader's page draws it, through the filters of `render_block_core/navigation`:
- * the items a saved menu holds, then the ones the theme hooks at its end for this reader (menu_items()), in the
- * markup of bin/stubs/header-markup.php. A navigation with no items is not drawn at all, as core draws one.
- *
- * @param bool          $logged_in Whether the reader is signed in.
- * @param bool          $live      Whether the partnership levels are public.
- * @param string[]      $members   What the reader acts for: `sponsor`, `institution`.
- * @param array[]       $saved     The items the saved menu holds, as wpcredits_test_navigation() takes them.
- * @param string[]      $ignored   The types the saved menu lists as ignored.
- * @param callable|null $adjust    Changes the markup before the filters see it.
- * @return string The navigation's markup after the filters; '' for none.
- */
-function rendered_navigation( $logged_in, $live, array $members, array $saved = array(), array $ignored = array(), $adjust = null ) {
-	$was = array( $GLOBALS['logged_in'], WPCPM_Sponsor_Tiers::$live, $GLOBALS['members'] );
-
-	$GLOBALS['logged_in']      = $logged_in;
-	WPCPM_Sponsor_Tiers::$live = $live;
-	$GLOBALS['members']        = $members;
-
-	$items = $saved;
-
-	foreach ( menu_items( $ignored ) as $item ) {
-		$items[] = array( $item[1]['label'], $item[1]['url'], array(), isset( $item[1]['className'] ) ? $item[1]['className'] : '' );
-	}
-
-	$markup = wpcredits_test_navigation( $items );
-	$html   = apply_filters( 'render_block_core/navigation', $adjust ? $adjust( $markup ) : $markup );
-
-	list( $GLOBALS['logged_in'], WPCPM_Sponsor_Tiers::$live, $GLOBALS['members'] ) = $was;
-
-	return $html;
-}
-
-/** Whether a navigation is drawn, and the labels of its items in order. */
-$shown = static function ( $html ) {
-	return array( false !== strpos( $html, '<nav' ), '' === $html ? array() : found( dom_of( $html ), '//span[contains(@class,"wp-block-navigation-item__label")]' ) );
-};
-
-$about   = array( 'About', 'https://site.example/about/' );
-$nothing = array( false, array() );
-
-ck( 'signed in, a navigation that would show nothing but the buttons gets neither them nor an empty navigation landmark: an empty saved menu with the levels off, a menu whose Partners link was deleted in the Site Editor while the levels are public, and a reader who acts for a sponsor or for an institution with the levels off (one button left); one who acts for both has nothing hooked, so no navigation either',
-	array(
-		$shown( rendered_navigation( true, false, array() ) ),
-		$shown( rendered_navigation( true, true, array(), array(), array( 'wpcredits-theme/partners-link' ) ) ),
-		$shown( rendered_navigation( true, false, array( 'sponsor' ) ) ),
-		$shown( rendered_navigation( true, false, array( 'institution' ) ) ),
-		$shown( rendered_navigation( true, false, array( 'sponsor', 'institution' ) ) ),
-		$shown( rendered_navigation( true, true, array( 'sponsor' ), array(), array( 'wpcredits-theme/partners-link' ) ) ),
-	),
-	array( $nothing, $nothing, $nothing, $nothing, $nothing, $nothing ) );
-
-ck( 'signed in, a navigation with anything else that shows keeps the buttons as 1.32.9 has them: live\'s state (Partners, then the buttons), Partners with the one button a member is offered, a saved link with the levels off or with the Partners link ignored, and a saved menu with a submenu',
-	array(
-		$shown( rendered_navigation( true, true, array() ) ),
-		$shown( rendered_navigation( true, true, array( 'sponsor' ) ) ),
-		$shown( rendered_navigation( true, true, array( 'sponsor', 'institution' ) ) ),
-		$shown( rendered_navigation( true, false, array(), array( $about ) ) ),
-		$shown( rendered_navigation( true, true, array(), array( $about ), array( 'wpcredits-theme/partners-link' ) ) ),
-		$shown( rendered_navigation( true, false, array( 'institution' ), array( $about ) ) ),
-		$shown( rendered_navigation( true, false, array(), wpcredits_test_three_with_submenu() ) ),
-	),
-	array(
-		array( true, array( 'Partners', 'Become a sponsor', 'Partner as an institution' ) ),
-		array( true, array( 'Partners', 'Partner as an institution' ) ),
-		array( true, array( 'Partners' ) ),
-		array( true, array( 'About', 'Become a sponsor', 'Partner as an institution' ) ),
-		array( true, array( 'About', 'Become a sponsor', 'Partner as an institution' ) ),
-		array( true, array( 'About', 'Become a sponsor' ) ),
-		array( true, array( 'Homepage', 'About the program', 'Programs', 'WordPress Credits', 'Campus Connect', 'Become a sponsor', 'Partner as an institution' ) ),
-	) );
-
-ck( 'a visitor\'s navigation is as it was: the buttons wear no `wpc-nav__panel-only`, so they show, and a navigation of them alone, with the levels off, is drawn',
-	array(
-		$shown( rendered_navigation( false, true, array() ) ),
-		$shown( rendered_navigation( false, false, array() ) ),
-		$shown( rendered_navigation( false, false, array(), array( $about ) ) ),
-	),
-	array(
-		array( true, array( 'Partners', 'Become a sponsor', 'Partner as an institution' ) ),
-		array( true, array( 'Become a sponsor', 'Partner as an institution' ) ),
-		array( true, array( 'About', 'Become a sponsor', 'Partner as an institution' ) ),
-	) );
-
-// What style.css hides is a navigation link wearing the class, so an item of another kind wearing it shows: the
-// Home Link block's item, here, with a signed-in reader's buttons after it.
-$home_classed = array( 'Homepage', 'https://site.example/', array(), 'wpc-nav__panel-only' );
-$as_home_link = static function ( $markup ) {
-	return preg_replace( '/wpc-nav__panel-only wp-block-navigation-link/', 'wpc-nav__panel-only wp-block-home-link', $markup, 1 );
-};
-
-ck( 'an item of another kind that wears `wpc-nav__panel-only`, the Home Link\'s, shows (style.css hides a navigation link wearing it, and no other item), so the navigation is not empty and keeps the buttons',
-	$shown( rendered_navigation( true, false, array(), array( $home_classed ), array(), $as_home_link ) ),
-	array( true, array( 'Homepage', 'Become a sponsor', 'Partner as an institution' ) ) );
-
-// Fail safe: a navigation is left out only when its list is empty once the buttons are taken out of it. Blocks core
-// does not wrap in an item (the Search block's form, the Spacer's div) are not items, yet an editor put them there,
-// so they keep the whole navigation, buttons included, as 1.32.9 draws it (theme 1.32.10, fix round 1).
-$search_block = '<form role="search" method="get" action="https://site.example/" class="wp-block-search__button-outside wp-block-search"><label class="wp-block-search__label screen-reader-text" for="wp-block-search__input-1">Search</label><div class="wp-block-search__inside-wrapper"><input class="wp-block-search__input" id="wp-block-search__input-1" placeholder="" value="" type="search" name="s" required /><button aria-label="Search" class="wp-block-search__button wp-element-button" type="submit">Search</button></div></form>';
-$spacer_block = '<div style="height:24px" aria-hidden="true" class="wp-block-spacer"></div>';
-$with_block   = static function ( $block ) {
-	return static function ( $markup ) use ( $block ) {
-		return str_replace( '</ul>', $block . '</ul>', $markup );
-	};
-};
-$unwrapped    = static function ( $block ) use ( $shown, $with_block ) {
-	$html = rendered_navigation( true, false, array(), array(), array(), $with_block( $block ) );
-
-	return array( $shown( $html ), false !== strpos( $html, $block ) );
-};
-$buttons_only = array( true, array( 'Become a sponsor', 'Partner as an institution' ) );
-
-ck( 'the buttons and a block core does not wrap in an item keep the whole navigation as it is drawn, buttons included: a Search block, a Spacer block',
-	array( $unwrapped( $search_block ), $unwrapped( $spacer_block ) ),
-	array( array( $buttons_only, true ), array( $buttons_only, true ) ) );
-
-$spaced = static function ( $markup ) {
-	return str_replace( array( '</li><li', '</li></ul>', '<ul class="wp-block-navigation__container' ), array( "</li>\n\t\t<li", "</li>\n\t</ul>", "<ul\n\tclass=\"wp-block-navigation__container" ), $markup );
-};
-$unreadable = static function ( $markup ) {
-	return str_replace( 'wp-block-navigation__container', 'wp-block-navigation__list', $markup );
-};
-
-ck( 'the buttons alone are still left out when whitespace sits between them and around them, as core prints a list; markup whose list this cannot find is left as it is, buttons included',
-	array(
-		$shown( rendered_navigation( true, false, array(), array(), array(), $spaced ) ),
-		$shown( rendered_navigation( true, false, array(), array(), array(), $unreadable ) ),
-	),
-	array( $nothing, $buttons_only ) );
-
-$lone_of = static function ( $html ) {
-	return false !== strpos( $html, 'wpc-nav--lone' );
-};
-
-ck( 'the lone count that follows still marks the navigation of one link and the buttons, which are skipped, and has no navigation of buttons alone to see; with the levels off and no link there is no navigation, so no Menu panel row and no hamburger of its own without JavaScript',
-	array(
-		$lone_of( rendered_navigation( true, false, array(), array( array( 'Homepage', 'https://site.example/' ) ) ) ),
-		$lone_of( rendered_navigation( true, true, array() ) ),
-		rendered_navigation( true, false, array() ),
-	),
-	array( true, true, '' ) );
-
-$navigation_hooks = $hooks_of( 'render_block_core/navigation' );
-usort( $navigation_hooks, static function ( $a, $b ) { return $a[1] - $b[1]; } );
-
-ck( 'the filter that leaves out a navigation of only those buttons is hooked on `render_block_core/navigation` taking the content, one step ahead of the lone count (priority 9, the count\'s 10), so the count never sees such a navigation',
-	$navigation_hooks,
-	array( array( 'wpcredits_partners_drop_empty_navigation', 9, 1 ), array( 'wpcredits_lone_nav_item', 10, 1 ) ) );
 
 echo "\n=== The levels ===\n";
 
@@ -2013,52 +1718,40 @@ if ( preg_match( '/^3\. Build the header menu in the Site Editor\..*?(?=^4\. )/m
 ck( 'inc/partners.php no longer speaks of the menu\'s two items: the menu has the Partners link and, for a visitor, two buttons',
 	false === stripos( $partners_php, 'two items' ), true );
 
-ck( 'the file header names the three items the theme hooks, the link while the levels are public and the two buttons, for a visitor who is not signed in and, for a signed-in reader, in the Menu panel below 1200px',
+ck( 'the file header names the item the theme hooks, the Partners link while the levels are public, and that the Get involved menu\'s institution and sponsor rows ask it whom they are offered to; it says the two buttons of 1.32.7 to 1.32.11 are those rows now, and names the product owner',
 	array(
 		false !== strpos( $file_header, 'the "Partners" link' ),
-		false !== strpos( $file_header, '"Become a sponsor"' ),
-		false !== strpos( $file_header, '"Partner as an institution"' ),
-		false !== strpos( $file_header, 'not signed in' ),
-		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'in the Menu panel below 1200px' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'the Get involved menu\'s institution and sponsor rows' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'From 1.32.7 to 1.32.11 the menu ended with two buttons' ),
+		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'the product owner, 5 November 2026' ),
 	),
-	array( true, true, true, true, true ) );
+	array( true, true, true, true ) );
 
-ck( 'the hook\'s docblock says why a signed-in reader gets the buttons in the Menu panel alone: they ask someone with no account yet, so the wide signed-in bar keeps its one line without them, and below 1200px the panel has room (the product owner, 27 October 2026), by the class `wpc-nav__panel-only`; and why never during a REST request or a wp-admin request: the Site Editor is used signed in and reads the menu over REST, so a menu saved there never holds them; it no longer says a signed-in reader\'s bar has neither, and the paragraph of the two choices names one role, the product owner, for both; and it says why a reader is not offered the button for what they already act for (the product owner, 28 October 2026), asked of the plugin\'s membership tests and never the role, and that a visitor is never a member',
+ck( 'the hook\'s docblock says the link is hooked while the levels are public, that the Get involved block follows it for a visitor in place of the two buttons, and why the link has a type of its own; it no longer speaks of the buttons\' class or of the Menu panel\'s buttons',
 	array(
-		false !== strpos( $item_doc, 'has neither' ),
-		false !== strpos( $item_doc, 'no account yet' ),
-		false !== strpos( $item_doc, 'one line' ),
-		false !== strpos( $item_doc, 'below 1200px' ),
-		false !== strpos( $item_doc, 'the product owner, 27 October 2026' ),
+		false !== strpos( $item_doc, 'while the levels are public' ),
+		false !== strpos( $item_doc, 'The Get involved block follows it for a visitor' ),
+		false !== strpos( $item_doc, '`WPCREDITS_PARTNERS_LINK_HOOK`' ),
 		false !== strpos( $item_doc, '`wpc-nav__panel-only`' ),
-		false !== strpos( $item_doc, 'reads the menu over REST' ),
-		false !== strpos( $item_doc, 'wp-admin' ),
-		false !== strpos( $item_doc, 'never holds them' ),
-		false !== strpos( $item_doc, 'the site\'s owner\'s choice' ),
-		false !== strpos( $item_doc, '(theme 1.32.7, the product owner\'s choice of 25 October 2026)' ),
-		false !== strpos( $item_doc, 'the product owner, 28 October 2026' ),
-		false !== strpos( $item_doc, '`is_member()`' ),
-		false !== strpos( $item_doc, 'never the role' ),
-		false !== strpos( $item_doc, 'A visitor is never a member' ),
+		false !== strpos( $item_doc, 'the product owner, 21 October 2026' ),
 	),
-	array( false, true, true, true, true, true, true, true, true, false, true, true, true, true, true ) );
+	array( true, true, true, false, true ) );
 
-ck( 'the attrs docblock no longer says a signed-in reader has no button unless a menu saved in the Site Editor holds one: since 1.32.9 a signed-in reader\'s buttons are rows of the Menu panel, which colors a button\'s row on its own form\'s page in the brand blue, and the docblock says so',
-	array( false !== strpos( $attrs_doc, 'colors either row' ), false !== strpos( $attrs_doc, 'has no button unless' ), false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $attrs_doc ), 'rows of the Menu panel' ) ),
-	array( false, false, true ) );
+ck( 'the attrs docblock no longer says a signed-in reader has no button unless a menu saved in the Site Editor holds one, and says the Menu panel colors the Partners link\'s row on the Partners page',
+	array( false !== strpos( $attrs_doc, 'has no button unless' ), false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $attrs_doc ), 'the Menu panel below 1200px colors its row the same' ) ),
+	array( false, true ) );
 
-ck( 'setup step 3 of the readme says the theme adds Partners (while the levels are public), then Become a sponsor and Partner as an institution at the menu\'s end, in the bar for visitors who are not signed in and as rows of the Menu panel below 1200px for signed-in readers, without the button for what the reader already acts for, that the two buttons never show in the Site Editor, which is used signed in, so adding one by hand doubles it for visitors and in a signed-in reader\'s Menu panel, and that the Partners link does show there while the levels are public',
+ck( 'setup step 3 of the readme says the theme adds Partners (while the levels are public) at the menu\'s end, then the Get involved menu for visitors who are not signed in, the same rows at the top of a signed-in reader\'s Menu panel below 1200px, each row left out for a reader it does not fit; that neither shows in the Site Editor, which is used signed in; and that the Partners link does show there while the levels are public',
 	array(
 		false !== strpos( $step_3, 'The theme itself adds, at the menu\'s end, Partners (while the partnership levels are public)' ),
-		false !== strpos( $step_3, 'Become a sponsor and Partner as an institution' ),
-		false !== strpos( $step_3, 'in the bar for visitors who are not signed in' ),
-		false !== strpos( $step_3, 'for signed-in readers as rows of the Menu panel below 1200px only' ),
-		false !== strpos( $step_3, 'without the button for a sponsor or an institution the reader already acts for' ),
-		false !== strpos( $step_3, 'The two buttons never show in the Site Editor, which is used signed in' ),
-		false !== strpos( $step_3, 'adding one by hand doubles it, for visitors and in a signed-in reader\'s Menu panel' ),
+		false !== strpos( $step_3, 'the Get involved menu' ),
+		false !== strpos( $step_3, 'for visitors who are not signed in' ),
+		false !== strpos( $step_3, 'at the top of the Menu panel below 1200px' ),
+		false !== strpos( $step_3, 'Neither shows in the Site Editor, which is used signed in' ),
 		false !== strpos( $step_3, 'the Partners link does show there while the levels are public' ),
+		false !== strpos( $step_3, 'Become a sponsor and Partner as an institution: in the bar' ),
 	),
-	array( true, true, true, true, true, true, true, true ) );
+	array( true, true, true, true, true, true, false ) );
 
 $changelog_1_32_9 = preg_match( '/^= 1\.32\.9 =\s*(.*?)^= 1\.32\.8 =/ms', $readme, $found_log ) ? $found_log[1] : '';
 $panel_bullet     = preg_match( '/^\* A signed-in reader\'s Menu panel.*$/m', $changelog_1_32_9, $found_bullet ) ? $found_bullet[0] : '';
@@ -2067,37 +1760,13 @@ ck( 'the 1.32.9 changelog\'s Menu panel bullet says a reader who acts for a spon
 	array( false !== strpos( $panel_bullet, 'acts for a sponsor is not offered Become a sponsor' ), false !== strpos( $panel_bullet, 'acts for an institution is not offered Partner as an institution' ), false !== strpos( $panel_bullet, 'the product owner, 28 October 2026' ) ),
 	array( true, true, true ) );
 
-$drop_head = substr( $partners_php, 0, (int) strpos( $partners_php, 'function wpcredits_partners_drop_empty_navigation(' ) );
-$drop_doc  = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $drop_head, (int) strrpos( $drop_head, '/**' ) ) );
-
-ck( 'inc/partners.php names one role for the person who decided: no "the site\'s owner" is left, and the four places that said it (the file header\'s two, the hook\'s docblock and the sponsor button\'s) say "the product owner" (theme 1.32.10)',
+ck( 'inc/partners.php names one role for the person who decided: no "the site\'s owner" is left (theme 1.32.10), and the file header and the hook\'s docblock say "the product owner"',
 	array(
 		substr_count( $partners_php, 'the site\'s owner' ),
 		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), 'and the product owner agreed,' ),
-		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $file_header ), '"Partner as an institution" (the product owner,' ),
-		false !== strpos( $item_doc, '(the product owner, 21 and 25 October 2026)' ),
-		false !== strpos( preg_replace( '/\s*\n\s*\*\s*/', ' ', $partners_php ), 'the product owner\'s words, an outline button' ),
+		false !== strpos( $item_doc, '(the product owner, 21 October 2026)' ),
 	),
-	array( 0, true, true, true, true ) );
-
-ck( 'the docblock of the filter that leaves out a navigation of only the buttons says what it does and on what it decides: the rendered navigation, never the levels switch or the Partners link alone; the buttons are the navigation links wearing `wpc-nav__panel-only`, which style.css hides, taken out of the markup, and the navigation goes only when its list (`wp-block-navigation__container`) is then empty, anything else, a Search or Spacer block included, keeping it as it is; it runs before that count; and the hook\'s docblock points to it',
-	array(
-		false !== strpos( $drop_doc, 'the rendered navigation' ),
-		false !== strpos( $drop_doc, 'the levels switch' ),
-		false !== strpos( $drop_doc, 'the Partners link' ),
-		false !== strpos( $drop_doc, 'wp-block-navigation-link' ),
-		false !== strpos( $drop_doc, '`wpc-nav__panel-only`' ),
-		false !== strpos( $drop_doc, 'before that count' ),
-		false !== strpos( $item_doc, '`wpcredits_partners_drop_empty_navigation()`' ),
-		false !== strpos( $drop_doc, '`wp-block-navigation__container`' ),
-		false !== strpos( $drop_doc, 'a Search or Spacer block' ),
-		false !== strpos( $drop_doc, 'the navigation stays' ),
-	),
-	array( true, true, true, true, true, true, true, true, true, true ) );
-
-ck( 'the class docblock does not say "the two buttons": a reader who acts for a sponsor or an institution is offered one',
-	array( false !== strpos( $partners_php, 'The class the two buttons wear' ), false !== strpos( $partners_php, 'The class the buttons wear' ) ),
-	array( false, true ) );
+	array( 0, true, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

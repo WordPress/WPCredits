@@ -4,7 +4,8 @@
  * template, and the rule that keeps a page merely named after it from being drawn by it.
  *
  * The hub is a page template of its own, "Education Hub home" (`templates/page-education-hub.html`,
- * registered in theme.json), made of five patterns and three blocks. It prints no post content: the
+ * registered in theme.json), made of five patterns and three blocks. Its stylesheet also dresses the
+ * Notice template's pages and the 404 page, which are drawn in the hero's layout (theme 1.32.12). It prints no post content: the
  * page it is assigned to is only its address. Since 27 October 2026 the site's homepage (page 1488) is
  * drawn by it, the product owner having switched the homepage to it from the private preview page it
  * was first shown on.
@@ -18,6 +19,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** The hub template's slug, as theme.json registers it and a page stores it. */
 const WPCREDITS_HUB_TEMPLATE = 'page-education-hub';
+
+/**
+ * The Notice template's slug (theme 1.32.12): a page in the homepage hero's layout, its own content beside
+ * the hero's mountain, that forwards to the homepage after 5 seconds unless the reader stays.
+ */
+const WPCREDITS_NOTICE_TEMPLATE = 'page-notice';
 
 /**
  * Register the hub's stylesheet.
@@ -40,23 +47,27 @@ add_action( 'init', 'wpcredits_hub_register_style', 9 );
 
 /**
  * Whether this request is a page drawn by the hub template: the preview page, or the homepage once
- * the site owner has set it to the page that uses it.
+ * the site owner has set it to the page that uses it. Asked about another of the theme's page templates
+ * (theme 1.32.12), whether the page being viewed stores that one: the Notice template's pages.
  *
+ * @param string $template The page template's slug; the hub's unless told.
  * @return bool
  */
-function wpcredits_is_hub_page() {
+function wpcredits_is_hub_page( $template = WPCREDITS_HUB_TEMPLATE ) {
 	if ( ! is_singular( 'page' ) ) {
 		return false;
 	}
 
-	return WPCREDITS_HUB_TEMPLATE === get_page_template_slug( get_queried_object_id() );
+	return get_page_template_slug( get_queried_object_id() ) === $template;
 }
 
 /**
- * Enqueue the hub's stylesheet on a page the hub template draws.
+ * Enqueue the hub's stylesheet, its fonts with it, where a page is drawn in the hub's look: a page the hub
+ * template draws, and since theme 1.32.12 a page the Notice template draws and the 404 page, both in the
+ * homepage hero's layout.
  */
 function wpcredits_hub_assets() {
-	if ( wpcredits_is_hub_page() ) {
+	if ( wpcredits_is_hub_page() || wpcredits_is_hub_page( WPCREDITS_NOTICE_TEMPLATE ) || is_404() ) {
 		wp_enqueue_style( 'wpcredits-hub' );
 	}
 }
@@ -101,23 +112,30 @@ function wpcredits_hub_front_page( $templates ) {
 add_filter( 'frontpage_template_hierarchy', 'wpcredits_hub_front_page' );
 
 /**
- * Keep a page that is only called "education-hub" from being drawn by the hub template.
+ * Keep a page that is only called "education-hub", or "notice", from being drawn by the hub template, or
+ * by the Notice template.
  *
  * `page-education-hub` is the template's name, and also the file WordPress tries for a page whose slug
  * is `education-hub`, before `page.html`. So a page made later with that slug would show the hub and
- * never its own content, and without the hub's stylesheet, which follows the stored template. The
- * slug's candidate is dropped from the page's hierarchy unless the queried page stores the hub
- * template. The template a page stores is another entry of the list (`page-education-hub`, no suffix)
+ * never its own content, and without the hub's stylesheet, which follows the stored template. The Notice
+ * template (theme 1.32.12) is the same trap, and a worse one: `page-notice` is the file WordPress tries
+ * for a page whose slug is `notice`, and a page it draws forwards its readers to the homepage. Each slug's
+ * candidate is dropped from the page's hierarchy unless the queried page stores that template. The
+ * template a page stores is another entry of the list (`page-education-hub` or `page-notice`, no suffix)
  * and is not touched, nor is the front page's hierarchy, which has a rule of its own above.
  *
  * @param string[] $templates The page's template hierarchy.
  * @return string[]
  */
 function wpcredits_hub_page_hierarchy( $templates ) {
-	if ( wpcredits_is_hub_page() ) {
-		return $templates;
+	$dropped = array();
+
+	foreach ( array( WPCREDITS_HUB_TEMPLATE, WPCREDITS_NOTICE_TEMPLATE ) as $template ) {
+		if ( ! wpcredits_is_hub_page( $template ) ) {
+			$dropped[] = $template . '.php';
+		}
 	}
 
-	return array_values( array_diff( $templates, array( WPCREDITS_HUB_TEMPLATE . '.php' ) ) );
+	return array_values( array_diff( $templates, $dropped ) );
 }
 add_filter( 'page_template_hierarchy', 'wpcredits_hub_page_hierarchy' );

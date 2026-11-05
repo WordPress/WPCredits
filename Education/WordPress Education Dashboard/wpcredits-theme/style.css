@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.11
+Version: 1.32.12
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -425,15 +425,13 @@ body .skip-link.screen-reader-text:focus {
 	font-weight: 500;
 }
 
-/* "Become a sponsor" and "Partner as an institution", the menu's last items (inc/partners.php): for a
-   visitor who is not signed in, outline buttons in the brand blue, so they stand apart from the links
-   before them, "Partners" among them while the partnership levels are public, and from the filled Log in
-   beside them. In a signed-in reader's Menu panel below 1200px a button is a row like the others: the
-   panel's row rule ties with this one at the same weight and wins by coming later in the sheet, its rule
-   for a button row's borders is a class deeper, and its states for a button row, six deep against the
-   five of the states below, take their tint and dark blue away. The buttons a signed-in reader is
-   offered are shown there alone (`wpc-nav__panel-only`, below), and a button a menu saved in the Site
-   Editor holds as a link of its own is shown in the wide bar too, as it always was. */
+/* An outline button in the brand blue, `wpc-nav__partner`: what "Become a sponsor" and "Partner as an
+   institution" wore at the visitor's menu's end from 1.32.7 to 1.32.11, before they became rows of the Get
+   involved menu (below), and what a link a menu saved in the Site Editor holds as its own may still wear, so
+   it is drawn as it was. In the Menu panel below 1200px such a link is a row like the others: the panel's
+   row rule ties with this one at the same weight and wins by coming later in the sheet, its rule for a
+   button row's borders is a class deeper, and its states for a button row, six deep against the five of
+   the states below, take their tint and dark blue away. */
 .wpc-header .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 	border: 1px solid var( --wpc-brand );
 	color: var( --wpc-brand );
@@ -447,19 +445,167 @@ body .skip-link.screen-reader-text:focus {
 	color: var( --wpc-brand-dark );
 }
 
-/* The buttons a signed-in reader is offered (both, or one for a reader who acts for a sponsor or an
-   institution) are rows of the open Menu panel below 1200px and are shown nowhere else (inc/partners.php,
-   the product owner, 27 October 2026): the wide bar from 1200px keeps its items on one line without them,
-   and without JavaScript, where there is no panel, the bar is as it was. They wear `wpc-nav__panel-only`,
-   which this rule hides outside every query, so it holds at every width, without JavaScript and in print,
-   and the menu layout shows them again (`.wpc-js .wpc-header--menu`, six classes deep). Five classes deep,
-   it outranks core's rules that display a navigation item, the base one (two) and the open overlay's
-   (four), and the menu layout's own (four), in either print order. It names the class alone, never
-   `wpc-nav__partner`, so a button a menu saved in the Site Editor holds keeps its place in the bar. A
-   navigation that holds nothing else is not rendered at all (inc/partners.php), so the buttons never leave
-   an empty bar behind. */
-.wp-block-navigation .wp-block-navigation__container > .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only {
+/* --- Get involved -------------------------------------------------------- */
+/* The visitor's menu ends with one outlined button, "Get involved", after Partners and before the filled
+   Log in (theme 1.32.12, the product owner's design of 5 November 2026; inc/get-involved.php). It opens a
+   panel of role rows, mentors first, each an icon, a title and one line. The button is outlined in the
+   brand blue, as the two buttons it replaces were, at their size, with a chevron that turns over while the
+   panel is open. */
+.wpc-header .wpc-involve__toggle {
+	align-items: center;
+	background: none;
+	border: 1px solid var( --wpc-brand );
+	border-radius: var( --wpc-chrome-radius );
+	color: var( --wpc-brand );
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	font-size: 15px;
+	font-weight: 600;
+	gap: 4px;
+	padding: 7px var( --wpc-chrome-item-pad );
+	white-space: nowrap;
+}
+
+.wpc-header .wpc-involve__toggle:hover,
+.wpc-header .wpc-involve__toggle:focus-visible,
+.wpc-header .wpc-involve__toggle[aria-expanded="true"] {
+	background: var( --wpc-brand-tint );
+	color: var( --wpc-brand-dark );
+}
+
+.wpc-header .wpc-involve__chevron {
+	flex: none;
+	transition: transform .15s ease;
+}
+
+.wpc-header .wpc-involve__toggle[aria-expanded="true"] .wpc-involve__chevron {
+	transform: rotate( 180deg );
+}
+
+/* The panel is the dropdowns' panel, white on the bar's rule with 8px corners and their own soft shadow,
+   320px wide and hung 8px under the item from its right edge, so it opens toward the page and never past
+   the window's right edge. Placed against the item (core positions a navigation item), so opening it moves
+   nothing. Shown while the button says it is expanded, which the block's script keeps in step; without
+   JavaScript (no `wpc-js` on the root) it opens under the pointer and while the focus is in the item, so
+   its links are reached with a mouse, a finger or the keyboard. */
+.wpc-header .wpc-involve__panel {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-chrome-rule );
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba( 0, 0, 0, .12 );
 	display: none;
+	padding: 6px;
+	position: absolute;
+	right: 0;
+	top: calc( 100% + 8px );
+	width: 320px;
+	z-index: 60;
+}
+
+.wpc-header .wpc-involve__toggle[aria-expanded="true"] + .wpc-involve__panel {
+	display: block;
+}
+
+:root:not( .wpc-js ) .wpc-header .wpc-involve:hover > .wpc-involve__panel,
+:root:not( .wpc-js ) .wpc-header .wpc-involve:focus-within > .wpc-involve__panel {
+	display: block;
+}
+
+/* The 8px between the button and the panel belongs to the panel, so a pointer crossing it keeps the
+   no-JavaScript panel open. */
+.wpc-header .wpc-involve__panel::before {
+	content: "";
+	height: 9px;
+	left: 0;
+	position: absolute;
+	right: 0;
+	top: -9px;
+}
+
+.wpc-header .wpc-involve__rows {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* A row: the role's icon in the brand blue beside its title, 15px at weight 600, and its line, 13px in the
+   muted gray, the whole row the link, graying under the pointer and in focus as the dropdowns' rows do. */
+.wpc-header .wpc-involve__link {
+	align-items: flex-start;
+	border-radius: var( --wpc-chrome-radius );
+	color: var( --wpc-ink );
+	display: flex;
+	gap: 12px;
+	padding: 10px 12px;
+	text-decoration: none;
+}
+
+.wpc-header .wpc-involve__link:hover,
+.wpc-header .wpc-involve__link:focus {
+	background: var( --wpc-chrome-hover );
+	color: var( --wpc-ink );
+}
+
+.wpc-header .wpc-involve__icon {
+	color: var( --wpc-brand );
+	flex: none;
+}
+
+.wpc-header .wpc-involve__title {
+	display: block;
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 20px;
+}
+
+.wpc-header .wpc-involve__line {
+	color: var( --wpc-ink-60 );
+	display: block;
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 18px;
+}
+
+/* The row of the page being viewed, its form's, is in the brand blue, as the bar's current link is. */
+.wpc-header .wpc-involve__link[aria-current="page"] .wpc-involve__title {
+	color: var( --wpc-brand );
+}
+
+/* The same rows under a "Get involved" heading open a phone's menu and a signed-in reader's Menu panel
+   (inc/get-involved.php puts the list first in each). It is hidden everywhere else, at every width and
+   without JavaScript, so the bar never shows it; the open phone menu (the 960px block) and the Menu panel
+   (the menu layout) show it. */
+.wpc-header .wpc-involve-list {
+	display: none;
+}
+
+/* The list's heading is an `h2`, at the size of a row's line, not of the theme's h2 (theme.json sets that
+   at the element, which two classes outrank). */
+.wpc-header .wpc-involve-list__title {
+	color: var( --wpc-ink-60 );
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: normal;
+	line-height: 18px;
+	margin: 0;
+	padding: 12px 0 4px;
+}
+
+.wpc-header .wpc-involve-list .wpc-involve__link {
+	border-bottom: 1px solid var( --wpc-chrome-rule );
+	border-radius: 0;
+	padding: 12px 0;
+}
+
+.wpc-header .wpc-involve-list .wpc-involve__link:hover,
+.wpc-header .wpc-involve-list .wpc-involve__link:focus {
+	background: none;
+}
+
+.wpc-header .wpc-involve-list .wpc-involve__link:hover .wpc-involve__title,
+.wpc-header .wpc-involve-list .wpc-involve__link:focus-visible .wpc-involve__title {
+	color: var( --wpc-brand );
 }
 
 /* The caret, dimmed and flipped when its panel is open. */
@@ -1697,17 +1843,72 @@ p.is-style-pill {
 		top: calc( var( --wpc-header-live, var( --wpc-header-height ) ) + var( --wp-admin--admin-bar--height, 32px ) );
 	}
 
-	/* The open overlay's rows stand 8px apart, every row. At 2px the two outline buttons that end a
-	   visitor's menu, "Become a sponsor" and "Partner as an institution", nearly touched (measured at
-	   375px and 900px), and one gap for all of them keeps the list even. */
+	/* The open overlay's rows stand 8px apart, every row. At 2px the two outline buttons that ended a
+	   visitor's menu until 1.32.11 nearly touched (measured at 375px and 900px), and one gap for all of
+	   them keeps the list even. */
 	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container {
 		gap: 8px;
 	}
 
+	/* A visitor's open menu starts with the Get involved list, the rows under their heading, and the bar's
+	   Get involved item is not shown in it: the rows are there already. The list takes the overlay's whole
+	   width and reads from the left, whatever the navigation's justification sets for the overlay's column,
+	   and its text lines up with the overlay's links, 12px in. The item's rule is six classes deep, over
+	   core's open overlay rule that displays an item (four). */
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list {
+		display: block;
+		text-align: left;
+		width: 100%;
+	}
+
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item.wpc-involve {
+		display: none;
+	}
+
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list__title,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list .wpc-involve__link {
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+
+	/* Every row of the open menu answers the pointer alike: a Get involved row, the whole row, takes the tint
+	   the menu's links take under the pointer and in focus, and its title stays ink as theirs does. Seven
+	   deep, over the list's own states outside any query (four), which the signed-in Menu panel keeps: there
+	   every row answers with the brand blue and no tint. */
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list .wpc-involve__link:hover,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list .wpc-involve__link:focus {
+		background: var( --wpc-chrome-hover );
+	}
+
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list .wpc-involve__link:hover .wpc-involve__title,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list .wpc-involve__link:focus .wpc-involve__title {
+		color: var( --wpc-ink );
+	}
+
+	/* The overlay's links read from the left, as the Get involved rows above them do (theme 1.32.12, the
+	   product owner). Core lays the open overlay out as columns aligned by the navigation's justification,
+	   center in the header part, so the links stood centered under the rows. The overlay's content, its
+	   list, each item and each submenu stretch to its width instead, five classes deep over core's four,
+	   and each link and submenu toggle, the whole width, puts its text at the left, 12px in, where the Get
+	   involved heading and the rows' icons start; 16px at their own weight, as before. Its 12px padding is
+	   inside its width (`border-box`), so its box, and its hover tint, end where the rows' do, at the
+	   overlay's right gutter, not 24px past it at the window's edge. The signed-in Menu panel never opens
+	   the overlay, and the wide bar has none, so neither changes. */
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container {
+		align-items: stretch;
+		text-align: left;
+	}
+
 	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
 	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-submenu__toggle {
+		box-sizing: border-box;
 		font-size: 16px;
+		justify-content: flex-start;
 		padding: 12px;
+		text-align: left;
 		width: 100%;
 	}
 
@@ -2143,9 +2344,9 @@ p.is-style-pill {
 	}
 
 	/* An outline button is a row like the others here: the rule above replaces only the bottom border, so the
-	   wide row's outline button would keep its other three, with the text against the left one. It dresses
-	   the buttons a signed-in reader is offered (theme 1.32.9) and a button a menu saved in the Site Editor
-	   holds alike. */
+	   wide row's outline button would keep its other three, with the text against the left one. It dresses a
+	   button a menu saved in the Site Editor holds (the signed-in reader's own two buttons of 1.32.9 to
+	   1.32.11 are rows of the Get involved list now). */
 	.wpc-js .wpc-header--menu .wpc-nav .wpc-nav__partner > .wp-block-navigation-item__content {
 		border-left: 0;
 		border-right: 0;
@@ -2171,11 +2372,11 @@ p.is-style-pill {
 		color: var( --wpc-brand );
 	}
 
-	/* The buttons a signed-in reader is offered, Become a sponsor and Partner as an institution, are rows
-	   here, after the navigation's links, and nowhere else: the rule outside every query that hides
-	   `wpc-nav__panel-only` is five classes deep, so this one is six. The closed panel hides them with the
-	   rest of its rows. */
-	.wpc-js .wpc-header--menu .wpc-nav .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only {
+	/* The Get involved list opens the panel, the rows a signed-in reader is offered under their heading, and
+	   is shown nowhere else (the rule outside every query hides it): the wide bar from 1200px keeps its items
+	   on one line without it, as it did without the two buttons whose rows it holds. The closed panel hides
+	   it with the rest of its rows. */
+	.wpc-js .wpc-header--menu .wpc-involve-list {
 		display: block;
 	}
 

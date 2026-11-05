@@ -150,6 +150,130 @@ function wpcredits_hub_url( $target ) {
 }
 
 /**
+ * The mentor application's address: the plugin's form page while it is published, at /become-a-mentor/
+ * (the plugin's `WPCPM_Mentor_Application_Form`), and that address otherwise, so the header's Get involved
+ * row and the homepage's Mentors card lead where the design says with an older plugin, or none (theme
+ * 1.32.12). Not `wpcredits_hub_url()`, whose fallback is the handbook: the design names this address.
+ *
+ * @return string
+ */
+function wpcredits_mentor_application_url() {
+	$url = class_exists( 'WPCPM_Mentor_Application_Form' ) && method_exists( 'WPCPM_Mentor_Application_Form', 'page_url' ) ? (string) WPCPM_Mentor_Application_Form::page_url() : '';
+
+	return '' !== $url ? $url : home_url( '/become-a-mentor/' );
+}
+
+/**
+ * The hero's mountain of words, as an inline svg: rows of the pathway's step names, in the picture's own
+ * 520 by 380px space, cut to two peaks by a mask, a switchback trail up to a flag on the higher one, and
+ * its snow cap in the brand blue. The hero draws it behind its editor pieces (patterns/hub-hero.php), and
+ * the Notice and 404 pages draw it alone (patterns/hub-mountain.php, theme 1.32.12), so it is written
+ * once. Its IDs are fixed: a page draws it once.
+ *
+ * @return string
+ */
+function wpcredits_hub_mountain_svg() {
+	$names = array_column( wpcredits_hub_steps(), 'name' );
+	$rows  = '';
+
+	// The mountain's words: 42 rows 12px apart, from 96px above the picture to 4px under it. Each row is
+	// the step names in the hub's order, begun three names further on than the row above and set further
+	// left, so no two rows line up, and repeated until it is 130 characters long, wider than the mountain
+	// from any of its starting points.
+	for ( $row = 0; $row < 42; $row++ ) {
+		$from  = ( $row * 3 ) % count( $names );
+		$cycle = implode( ' // ', array_merge( array_slice( $names, $from ), array_slice( $names, 0, $from ) ) );
+		$line  = $cycle;
+
+		while ( mb_strlen( $line ) < 130 ) {
+			$line .= ' // ' . $cycle;
+		}
+
+		$rows .= '<text x="' . ( -14 - $row * 23 % 64 ) . '" y="' . ( -96 + 12 * $row ) . '">' . esc_html( $line ) . '</text>';
+	}
+
+	// The mountain's shape in the same space: the higher peak above the hero's chart, the lower one above
+	// its toolbar, and the notch between them in the gap over the selected block; the trail from the foot
+	// to the flag, through the gaps between the pieces; the snow cap's jagged edge under the summit.
+	$mountain = 'M0 384 L0 58 L110 -30 L227 64 L390 -70 L520 45 L520 384 Z';
+	$trail    = 'M150 384 L330 316 L296 230 L60 186 L250 66 L330 12 L430 -14 L378 -44 L390 -70';
+	$cap      = 'M330 -30 L390 -110 L450 -30 L432 -26 L418 -38 L404 -24 L390 -36 L376 -24 L362 -36 L348 -26 Z';
+	$area     = 'maskUnits="userSpaceOnUse" x="-10" y="-104" width="540" height="494"';
+	$gap      = '<path d="' . $trail . '" fill="none" stroke="#000" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>';
+
+	return '<svg class="wpc-hub-art__mountain" viewBox="-10 -104 540 494" focusable="false"><defs><g id="wpc-hub-mountain-words">' . $rows . '</g>'
+		. '<mask id="wpc-hub-mountain-body" ' . $area . '><path d="' . esc_attr( $mountain ) . '" fill="#fff"/><path d="' . esc_attr( $cap ) . '" fill="#000"/>' . $gap . '</mask>'
+		. '<mask id="wpc-hub-mountain-cap" ' . $area . '><path d="' . esc_attr( $mountain ) . '" fill="#fff"/><path d="M-10 -104 H530 V390 H-10 Z ' . esc_attr( $cap ) . '" fill="#000" fill-rule="evenodd"/>' . $gap . '</mask></defs>'
+		. '<use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-mountain-body)"/><use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-mountain-cap)"/>'
+		. '<path class="wpc-hub-art__route" d="' . esc_attr( $trail ) . '"/><path class="wpc-hub-art__pole" d="M390 -70 V-98"/><path class="wpc-hub-art__pennant" d="M390 -98 L414 -90 L390 -82 Z"/></svg>';
+}
+
+/**
+ * The homepage's band of role cards (theme 1.32.12, the product owner's design of 5 November 2026), as
+ * block markup: what the "Ways to take part" pattern prints (patterns/hub-roles.php) and what the 1.32.12
+ * migration writes in place of a saved template's "Who this is for" section (inc/migrate-1-32-12.php), so
+ * the two never differ.
+ *
+ * A screen-reader heading over a grid of cards: students, mentors and institutions written here, every
+ * word of them then the saved template's to edit, and the sponsors' card, a block the theme draws only
+ * while the Partners page is published (blocks/sponsor-card), last. Each card is the doors' card, so its link
+ * covers it and its focus ring is drawn around it by the doors' rules (hub.css); its icon is drawn by
+ * hub.css from its class (`wpc-hub-role--students` and the others), so the card holds no Custom HTML.
+ *
+ * @return string Block markup.
+ */
+function wpcredits_hub_roles_markup() {
+	$roles = array(
+		array(
+			'class' => 'wpc-hub-role--students',
+			'title' => __( 'Students', 'wpcredits-theme' ),
+			'line'  => __( 'Earn credit by contributing', 'wpcredits-theme' ),
+			'link'  => __( 'Find where to start', 'wpcredits-theme' ),
+			// Where the hero's button goes: the programs.
+			'href'  => '#programs',
+		),
+		array(
+			'class' => 'wpc-hub-role--mentors',
+			'title' => __( 'Mentors', 'wpcredits-theme' ),
+			'line'  => __( 'A few hours a week, a real impact', 'wpcredits-theme' ),
+			'link'  => __( 'Become a mentor', 'wpcredits-theme' ),
+			'href'  => wpcredits_mentor_application_url(),
+		),
+		array(
+			'class' => 'wpc-hub-role--institutions',
+			'title' => __( 'Institutions', 'wpcredits-theme' ),
+			'line'  => __( 'Bring the program to campus', 'wpcredits-theme' ),
+			'link'  => __( 'Partner with us', 'wpcredits-theme' ),
+			'href'  => wpcredits_hub_url( 'institution_application' ),
+		),
+	);
+
+	$cards = '';
+
+	foreach ( $roles as $role ) {
+		$class  = 'is-style-card wpc-hub-door wpc-hub-role ' . $role['class'];
+		$cards .= '<!-- wp:group ' . wp_json_encode(
+			array(
+				'className' => $class,
+				'layout'    => array( 'type' => 'default' ),
+			)
+		) . " -->\n"
+			. '<div class="wp-block-group ' . esc_attr( $class ) . "\"><!-- wp:heading {\"level\":3} -->\n"
+			. '<h3 class="wp-block-heading">' . esc_html( $role['title'] ) . "</h3>\n<!-- /wp:heading -->\n\n"
+			. "<!-- wp:paragraph {\"className\":\"wpc-hub-door__text\"} -->\n"
+			. '<p class="wpc-hub-door__text">' . esc_html( $role['line'] ) . "</p>\n<!-- /wp:paragraph -->\n\n"
+			. "<!-- wp:paragraph {\"className\":\"wpc-hub-door__go\"} -->\n"
+			. '<p class="wpc-hub-door__go"><a href="' . esc_url( $role['href'] ) . '">' . esc_html( $role['link'] ) . '<span aria-hidden="true"> →</span></a></p>' . "\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->\n\n";
+	}
+
+	return "<!-- wp:group {\"align\":\"wide\",\"className\":\"wpc-hub-roles\",\"style\":{\"spacing\":{\"padding\":{\"top\":\"48px\",\"bottom\":\"48px\"}}},\"layout\":{\"type\":\"default\"}} -->\n"
+		. "<div class=\"wp-block-group alignwide wpc-hub-roles\" style=\"padding-top:48px;padding-bottom:48px\"><!-- wp:heading {\"className\":\"screen-reader-text\"} -->\n"
+		. '<h2 class="wp-block-heading screen-reader-text">' . esc_html__( 'Get involved', 'wpcredits-theme' ) . "</h2>\n<!-- /wp:heading -->\n\n"
+		. "<!-- wp:group {\"className\":\"wpc-hub-roles__grid\",\"layout\":{\"type\":\"default\"}} -->\n"
+		. '<div class="wp-block-group wpc-hub-roles__grid">' . $cards . "<!-- wp:wpcredits/sponsor-card /--></div>\n<!-- /wp:group --></div>\n<!-- /wp:group -->";
+}
+
+/**
  * The six programs, in the order the index lists them.
  *
  * @return array[] Each: `slug`, `name`, `audiences` (`student`, `faculty`, `career`), `status`

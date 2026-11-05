@@ -6,7 +6,8 @@
  *
  * The markup comes on stdin, as bin/test-header-js.php renders it with the theme's own header filter:
  * a JSON object of named pages. Each scenario opens a page in the stand-in of bin/js/hub-dom.js, runs
- * assets/js/header-height.js and then assets/js/header-menu.js as a browser runs deferred scripts,
+ * assets/js/header-height.js, assets/js/header-menu.js and the Get involved block's view script
+ * (blocks/get-involved/view.js, theme 1.32.12) as a browser runs deferred scripts,
  * after the markup, and drives the page as a person does: a press (a pointerdown alone, or a full
  * one with the focus and the click after it), a touch, a key pressed on the element that has the
  * focus, the focus moved, a link followed.
@@ -35,9 +36,12 @@ const { page, pressKey, makeEvent } = require( './hub-dom.js' );
 
 const ROOT = path.resolve( process.argv[ 2 ] || path.join( __dirname, '..', '..' ) );
 const PAGES = JSON.parse( fs.readFileSync( 0, 'utf8' ) );
+const readIfThere = ( file ) => ( fs.existsSync( path.join( ROOT, file ) ) ? fs.readFileSync( path.join( ROOT, file ), 'utf8' ) : '' );
 const SCRIPTS = {
 	height: fs.readFileSync( path.join( ROOT, 'assets/js/header-height.js' ), 'utf8' ),
 	menu: fs.readFileSync( path.join( ROOT, 'assets/js/header-menu.js' ), 'utf8' ),
+	// The Get involved block's view script (theme 1.32.12), which a page with the menu loads.
+	involve: readIfThere( 'blocks/get-involved/view.js' ),
 };
 
 const scenarios = [];
@@ -122,7 +126,7 @@ function open( name, before ) {
 
 	const context = vm.createContext( { document: where.document, window: where.window } );
 
-	[ 'height', 'menu' ].forEach( ( key ) => vm.runInContext( SCRIPTS[ key ], context ) );
+	[ 'height', 'menu', 'involve' ].forEach( ( key ) => vm.runInContext( SCRIPTS[ key ], context ) );
 
 	return where;
 }
@@ -535,6 +539,182 @@ scenario( 'without MutationObserver the menu still opens and closes, and the ass
 	states.push( focused( where, help( where ) ) );
 
 	return states;
+} );
+
+/* ---- the Get involved menu (theme 1.32.12) ------------------------------------------- */
+
+const involve = ( where ) => where.document.querySelector( '.wpc-involve__toggle' );
+const involvePanel = ( where ) => where.document.getElementById( involve( where ).getAttribute( 'aria-controls' ) );
+const involved = ( where ) => involve( where ).getAttribute( 'aria-expanded' );
+const involveRows = ( where ) => involvePanel( where ).querySelectorAll( 'a[href]' );
+
+/**
+ * Open the visitor's page and check the menu is there, closed, naming its panel.
+ *
+ * @return {Object} The page.
+ */
+function openVisitor() {
+	const where = open( 'visitor' );
+
+	holds( !! involve( where ), 'the visitor\'s page has no Get involved button' );
+	holds( !! involvePanel( where ), 'the button names no panel on the page' );
+	holds( 'false' === involved( where ), 'the menu is not closed as the page opens' );
+
+	return where;
+}
+
+// The review of 935f4b5 (M2): the server prints a plain button, and the script makes it a disclosure.
+scenario( 'Get involved: the script gives the plain button its disclosure state, collapsed, and names the panel, the item\'s own, by its ID', [ 'false', true, true ], () => {
+	const where = openVisitor();
+	const button = involve( where );
+	const panel = where.document.querySelector( '.wpc-involve__panel' );
+
+	return [ button.getAttribute( 'aria-expanded' ), !! panel.id && panel.id === button.getAttribute( 'aria-controls' ), panel === involvePanel( where ) ];
+} );
+
+scenario( 'Get involved: the button opens its panel and closes it again, aria-expanded saying so, the focus staying on the button; a full press does the same, once each', [ [ 'true', true ], [ 'false', true ], [ 'true', 'false' ] ], () => {
+	const where = openVisitor();
+	const button = involve( where );
+	const states = [];
+
+	tap( button );
+	states.push( [ involved( where ), focused( where, button ) ] );
+	tap( button );
+	states.push( [ involved( where ), focused( where, button ) ] );
+
+	const pressed = [];
+
+	fullPress( button );
+	pressed.push( involved( where ) );
+	fullPress( button );
+	pressed.push( involved( where ) );
+	states.push( pressed );
+
+	return states;
+} );
+
+scenario( 'Get involved: Escape closes the open panel from the button or from any row and puts the focus on the button; with the panel closed Escape changes nothing and moves no focus', [ [ [ 'false', true ], [ 'false', true ], [ 'false', true ] ], [ 'false', true ] ], () => {
+	const where = openVisitor();
+	const button = involve( where );
+	const answers = [ button ].concat( involveRows( where ).slice( 0, 2 ) ).map( ( element ) => {
+		tap( button );
+		element.focus();
+		pressKey( where, 'Escape' );
+
+		return [ involved( where ), focused( where, button ) ];
+	} );
+
+	pageLink( where ).focus();
+	pressKey( where, 'Escape' );
+
+	return [ answers, [ involved( where ), focused( where, pageLink( where ) ) ] ];
+} );
+
+scenario( 'Get involved: a click or a touch outside closes the panel and moves no focus; a press inside the panel, on its own padding, or on the button\'s own pointerdown, does not', [ 'false', 'false', 'true', 'true' ], () => {
+	const where = openVisitor();
+	const button = involve( where );
+	const states = [];
+
+	tap( button );
+	text( where ).click();
+	states.push( involved( where ) );
+
+	tap( button );
+	press( text( where ) );
+	states.push( involved( where ) );
+
+	tap( button );
+	press( involvePanel( where ) );
+	involvePanel( where ).click();
+	states.push( involved( where ) );
+	press( button );
+	states.push( involved( where ) );
+
+	return states;
+} );
+
+scenario( 'Get involved: a press outside still closes it when the page\'s content stops the pointerdown or the click, since the menu listens in the capture phase', [ 'false', 'false' ], () => [
+	( where ) => press( text( where ) ),
+	( where ) => text( where ).click(),
+].map( ( pressOutside ) => {
+	const where = openVisitor();
+
+	[ 'pointerdown', 'click' ].forEach( ( type ) => where.document.querySelector( 'main' ).addEventListener( type, ( event ) => event.stopPropagation() ) );
+	tap( involve( where ) );
+	pressOutside( where );
+
+	return involved( where );
+} ) );
+
+scenario( 'Get involved: the focus leaving the panel and the button for the page closes it; moving between the button and the rows, or to nothing (a press Safari does not focus), leaves it open', [ 'false', 'true', 'true' ], () => {
+	const where = openVisitor();
+	const button = involve( where );
+	const [ first, second ] = involveRows( where );
+	const states = [];
+
+	tap( button );
+	first.focus();
+	pageLink( where ).focus();
+	states.push( involved( where ) );
+
+	tap( button );
+	first.focus();
+	second.focus();
+	button.focus();
+	states.push( involved( where ) );
+
+	first.focus();
+	first.blur();
+	holds( null === where.document.activeElement, 'something kept the focus after blur()' );
+	states.push( involved( where ) );
+
+	return states;
+} );
+
+scenario( 'Get involved: a row followed closes the panel, its default prevented or not; one followed with Ctrl, Cmd, Shift or Alt held opens elsewhere and leaves it open', [ [ 'false', 'false' ], [ 'true', 'true', 'true', 'true' ] ], () => {
+	const where = openVisitor();
+	const button = involve( where );
+	const [ first, second ] = involveRows( where );
+	const followed = [];
+	const elsewhere = [];
+
+	tap( button );
+	tap( first );
+	followed.push( involved( where ) );
+
+	second.addEventListener( 'click', ( event ) => event.preventDefault() );
+	tap( button );
+	tap( second );
+	followed.push( involved( where ) );
+
+	tap( button );
+	[ 'ctrlKey', 'metaKey', 'shiftKey', 'altKey' ].forEach( ( key ) => {
+		first.click( { [ key ]: true } );
+		elsewhere.push( involved( where ) );
+	} );
+
+	return [ followed, elsewhere ];
+} );
+
+// The phone's list, at the top of the open menu, is links under a heading: the script gives it no button and
+// no behavior, and a row there is a plain link.
+scenario( 'Get involved: the phone\'s list holds the same rows as links under its heading, with nothing for the script to open; a signed-in reader\'s page, which has the list in its Menu panel and no Get involved button, is left to the Menu button', [ [ 'Get involved', 2, 0 ], [ false, 'false' ] ], () => {
+	const where = openVisitor();
+	const list = where.document.querySelector( '.wpc-involve-list' );
+
+	holds( !! list, 'the visitor\'s page has no list' );
+
+	const signedIn = open( 'admin' );
+
+	holds( !! signedIn.document.querySelector( '#wpc-header-menu .wpc-involve-list' ), 'the signed-in page has no list in its Menu panel' );
+	tap( toggle( signedIn ) );
+	signedIn.document.querySelector( '.wpc-involve-list a[href]' ).focus();
+	pressKey( signedIn, 'Escape' );
+
+	return [
+		[ list.querySelector( '.wpc-involve-list__title' ).textContent.trim(), list.querySelectorAll( 'a[href]' ).length, list.querySelectorAll( 'button' ).length ],
+		[ !! signedIn.document.querySelector( '.wpc-involve__toggle' ), expanded( signedIn ) ],
+	];
 } );
 
 /* ---- the height script ----------------------------------------------------------- */

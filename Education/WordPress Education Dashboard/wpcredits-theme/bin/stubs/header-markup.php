@@ -10,7 +10,8 @@
  * turns the stand-in's translated strings into brackets sees only what the theme's own filters print.
  *
  * Loaded with `require_once __DIR__ . '/stubs/header-markup.php';` after bin/stubs/hub-wp.php and the
- * theme's inc/header.php, which marks a lone navigation item.
+ * theme's inc/header.php, which marks a lone navigation item; the header's navigation is run through the
+ * filters the theme hooks on `render_block_core/navigation`, as a page draws it.
  *
  * @package WPCredits_Theme
  */
@@ -20,10 +21,16 @@
  *
  * @param array $item The item: `array( label, address )`, or `array( label, address, children )` for a
  *                    submenu, whose children are items in the same shape; a link with a class of its
- *                    own, as the theme's hooked buttons have, is `array( label, address, array(), class )`.
+ *                    own is `array( label, address, array(), class )`; `array( 'html' => markup )` is an
+ *                    item printed as the markup given.
  * @return string
  */
 function wpcredits_test_navigation_item( array $item ) {
+	// An item the theme renders itself, such as the Get involved block's (theme 1.32.12), as it prints it.
+	if ( isset( $item['html'] ) ) {
+		return (string) $item['html'];
+	}
+
 	$label = '<span class="wp-block-navigation-item__label">' . esc_html( $item[0] ) . '</span>';
 
 	if ( empty( $item[2] ) ) {
@@ -159,7 +166,9 @@ function wpcredits_test_header( array $reader = array() ) {
 		$reader
 	);
 
-	$nav  = wpcredits_lone_nav_item( wpcredits_test_navigation( $reader['nav'] ) );
+	// The navigation through the theme's filters of `render_block_core/navigation` as a page runs them: the lone
+	// count, and the Get involved list where the theme's file for it is loaded (theme 1.32.12).
+	$nav  = apply_filters( 'render_block_core/navigation', wpcredits_test_navigation( $reader['nav'] ) );
 	$ask  = $reader['signed_in'] && $reader['help'] ? '<button type="button" class="wpc-ask wp-block-wpcredits-handbook-launcher" data-wpcpm-handbook-open>Need help?</button>' : '';
 
 	if ( $reader['signed_in'] ) {

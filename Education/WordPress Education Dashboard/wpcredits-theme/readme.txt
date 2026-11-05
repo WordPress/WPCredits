@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.11
+Stable tag: 1.32.12
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -46,12 +46,20 @@ Five details are the theme's rather than the reference's, and are deliberate:
 * The sign-in button stays in the bar below 960px rather than folding into the menu
   panel, because it is the way in to everything else on the site.
 * Below 1200px a signed-in reader's header is one row: the brand, the account
-  picture and a Menu button whose panel lists the navigation, Become a sponsor and
-  Partner as an institution (each left out for a reader who already acts for a
-  sponsor or an institution), Need help?, the Student Report Card and the Mentor
-  Report Card the reader can open, and Log out. The buttons are the panel's alone:
-  the wide row from 1200px leaves them out, so it stays on one line. Without
-  JavaScript the header keeps its wrapped row of links, without the buttons.
+  picture and a Menu button whose panel opens with the Get involved rows the
+  reader is offered (each left out for a reader it does not fit), then lists the
+  navigation, Need help?, the Student Report Card and the Mentor Report Card the
+  reader can open, and Log out. The rows are the panel's alone: the wide row from
+  1200px leaves them out, so it stays on one line. Without JavaScript the header
+  keeps its wrapped row of links, without the rows.
+* A visitor's bar reads the site's name, Partners (while the Partners page is
+  public), Get involved and Log in, the one filled button. Get involved is an
+  outlined button that opens a small panel of ways to take part, mentors first:
+  Mentor students, Partner as an institution, Become a sponsor (while the Partners
+  page is public) and Register as a student (while the plugin's form is open). On
+  a phone the same rows open the menu panel under a "Get involved" heading.
+  Without JavaScript the panel opens under the pointer and while the focus is in
+  it.
 
 = What the theme does and does not do =
 
@@ -93,7 +101,13 @@ traveling sees the same grouping as the program manager looking at the same list
   page the plugin creates, which has the slug `mentor-dashboard`.
 * Full width page - a custom template for any other page that needs the whole
   width.
-* Page, single, index, search and 404.
+* Notice - a page template that sets the page's own content in the homepage hero's
+  layout, beside the hero's mountain of role words, and takes the reader to the
+  homepage after 5 seconds, with a link to go now and a button to stay.
+  A new page is offered the "Back soon notice" pattern to start with. Without
+  JavaScript nothing forwards and the page keeps its buttons.
+* Page, single, index, search and 404. The 404 page is drawn in the same hero layout,
+  with the mountain and no forward, and keeps WordPress's 404 status.
 
 = Patterns =
 
@@ -113,8 +127,9 @@ CSS, stop reaching it. Styling still applies, because that comes from the styles
 = The Education Hub homepage =
 
 A page template, "Education Hub home", draws an alternative homepage built from the
-program team's hub: a hero with the program's three outcome figures, three doors for
-students, institutions and companies, every education program as a card with filter
+program team's hub: a hero with the program's three outcome figures, a band of ways to
+take part under it, a card each for students, mentors, institutions and, while the
+Partners page is public, sponsors, every education program as a card with filter
 chips, a flow from each field of study through the teams it joins to what a student
 will have to show, the pathway from a first workshop to a first job beside
 an institution's four partner levels, and a closing band, then a sign-in section with a
@@ -151,14 +166,13 @@ changes.
    - see Known limitations.
 3. Build the header menu in the Site Editor. Top-level items with children get the
    reference's dropdown panels; items without stay plain links. The theme itself adds,
-   at the menu's end, Partners (while the partnership levels are public), then Become a
-   sponsor and Partner as an institution: in the bar for visitors who are not signed
-   in, and for signed-in readers as rows of the Menu panel below 1200px only, without
-   the button for a sponsor or an institution the reader already acts for. The two
-   buttons never show in the Site Editor, which is used signed in, so adding one by
-   hand doubles it, for visitors and in a signed-in reader's Menu panel; the Partners
-   link does show there while the levels are public, and a menu saved with it keeps it
-   as an item of its own.
+   at the menu's end, Partners (while the partnership levels are public), then the Get
+   involved menu for visitors who are not signed in; signed-in readers get its rows
+   at the top of the Menu panel below 1200px, each row left out for a reader it does
+   not fit. Neither shows in the Site Editor, which is used signed in, so a link added
+   there by hand to one of the rows' pages shows beside them; the Partners link does
+   show there while the levels are public, and a menu saved with it keeps it as an
+   item of its own.
 4. Set a static front page under Settings → Reading if you want the landing page.
 
 The footer's three link columns are List blocks, not menus, so a site with one
@@ -202,6 +216,13 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.12 =
+
+* The header has one "Get involved" menu in place of a visitor's two buttons, Become a sponsor and Partner as an institution (the product owner, 5 November 2026): a visitor's bar reads the site's name, Partners, Get involved, outlined, and Log in, the one filled button. Get involved opens a small panel of ways to take part, mentors first, each an icon, a title and one line: Mentor students, Partner as an institution, Become a sponsor and, while the plugin's student form is open, Register as a student, each left out for a reader it does not fit, as the buttons were; the Partners link and the sponsor link show only while the Partners page is published. Escape, a press outside it or the focus leaving it closes the panel, and without JavaScript it opens under the pointer and while the focus is in it. On a phone the same rows open the menu panel under a "Get involved" heading, and a signed-in reader's Menu panel below 1200px opens with them.
+* The homepage's "Who this is for" section is a band of ways to take part, directly under the hero: Students, Mentors, Institutions and Sponsors, each an icon, a title, one line and one link, the mentors' card with an accent border; with three cards, each takes a third of the row. A homepage template saved in the Site Editor is updated once, in place, where its section has the shape the theme shipped, and the template as it was is kept in its revisions; any other is left as it was, and the Site Editor's notice says how to add the band by hand.
+* A new page template, Notice, uses the homepage hero's layout and its mountain of role words for a page's own content, and takes the reader to the homepage after 5 seconds unless they choose to stay; a new page can start from the "Back soon notice" pattern. The 404 page uses the same layout and mountain, without the forward, and keeps its 404 status.
+* For developers: `inc/get-involved.php` and the `wpcredits/get-involved` block, hooked after the Partners link for visitors, with the list put into a signed-in reader's Menu panel by `wpcredits_header_menu()`; the two button hooks, `WPCREDITS_SPONSOR_LINK_HOOK`, `wpcredits_partners_button_class()`, `wpcredits_partners_drop_empty_navigation()` and every `wpc-nav__panel-only` rule are gone. `patterns/hub-doors.php` gives way to `patterns/hub-roles.php` (`wpcredits_hub_roles_markup()`), the Sponsors card is the `wpcredits/sponsor-card` block, and `inc/migrate-1-32-12.php` updates a saved template (option `wpcredits_migrated_1_32_12`). `wpcredits_hub_mountain_svg()` is shared, the forward is the `wpcredits/notice-forward` block, and `wpcredits_is_hub_page()` takes a template, so hub.css loads on the Notice template and the 404 page too. New suites: `bin/test-get-involved.php`, `bin/test-migrate-1-32-12.php`, `bin/test-notice.php` and `bin/test-notice-js.php`.
 
 = 1.32.11 =
 

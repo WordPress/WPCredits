@@ -25,7 +25,38 @@ if ( 'cli' !== PHP_SAPI ) {
 
 require_once __DIR__ . '/stubs/hub-wp.php';
 require_once WPCREDITS_THEME_DIR . 'inc/icons.php';
+require_once WPCREDITS_THEME_DIR . 'inc/template-tags.php';
+require_once WPCREDITS_THEME_DIR . 'inc/hub-content.php';
+require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 require_once WPCREDITS_THEME_DIR . 'inc/header.php';
+
+if ( is_file( WPCREDITS_THEME_DIR . 'inc/get-involved.php' ) ) {
+	require_once WPCREDITS_THEME_DIR . 'inc/get-involved.php';
+}
+
+/**
+ * The plugin, as far as the Get involved rows ask it (theme 1.32.12): while `$GLOBALS['offered_nothing']` is
+ * true the reader is a mentor who acts for a sponsor and an institution, offered no row, as the header of Log
+ * out alone is drawn; every other page's reader is offered "Mentor students" and "Partner as an institution".
+ */
+class WPCPM_Mentors_Dashboard {
+	public static function is_mentor() { return ! empty( $GLOBALS['offered_nothing'] ); }
+}
+
+class WPCPM_Roles {
+	const ROLE_MENTOR = 'wpcpm_mentor';
+	public static function user_has_role( $user, $role ) { return false; }
+}
+
+class WPCPM_Sponsors_Dashboard {
+	public static function is_member( $user = null ) { return ! empty( $GLOBALS['offered_nothing'] ); }
+}
+
+class WPCPM_Institutions_Dashboard {
+	public static function is_member( $user = null ) { return ! empty( $GLOBALS['offered_nothing'] ); }
+}
+
+$GLOBALS['offered_nothing'] = false;
 require_once __DIR__ . '/stubs/header-markup.php';
 require_once __DIR__ . '/stubs/node-suite.php';
 
@@ -54,8 +85,8 @@ function wpcredits_test_header_page( array $reader, $logged_in ) {
 }
 
 // The pages the scenarios open: an Administrator's header with every entry, the navigation with a
-// submenu, a student's on their own Student Report Card, a header of Log out alone, which gets no
-// button, and a guest's.
+// submenu, a student's on their own Student Report Card, a header of Log out alone for a reader offered
+// no Get involved row, which gets no button, a guest's, and a visitor's with the Get involved menu.
 $pages = array(
 	'admin'   => wpcredits_test_header_page( array(), true ),
 	'submenu' => wpcredits_test_header_page( array( 'nav' => wpcredits_test_three_with_submenu() ), true ),
@@ -66,16 +97,36 @@ $pages = array(
 		),
 		true
 	),
-	'one'     => wpcredits_test_header_page(
-		array(
-			'nav'     => array(),
-			'help'    => false,
-			'student' => false,
-			'mentor'  => false,
-		),
-		true
-	),
+	'one'     => ( function () {
+		$GLOBALS['offered_nothing'] = true;
+
+		$one = wpcredits_test_header_page(
+			array(
+				'nav'     => array(),
+				'help'    => false,
+				'student' => false,
+				'mentor'  => false,
+			),
+			true
+		);
+
+		$GLOBALS['offered_nothing'] = false;
+
+		return $one;
+	} )(),
 	'guest'   => wpcredits_test_header_page( array( 'signed_in' => false ), false ),
+	// A visitor's header with the Get involved menu (theme 1.32.12): the navigation holding Partners and the
+	// block's own markup, run through the navigation's filters as a page draws it, the list put in by them.
+	'visitor' => wpcredits_test_header_page(
+		array(
+			'signed_in' => false,
+			'nav'       => array(
+				array( 'Partners', 'https://site.example/partners/' ),
+				array( 'html' => function_exists( 'wpcredits_involve_menu_html' ) ? wpcredits_involve_menu_html() : '' ),
+			),
+		),
+		false
+	),
 );
 
 exit( wpcredits_run_node_suite( __DIR__ . '/js/header-harness.js', $pages ) );

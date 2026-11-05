@@ -83,8 +83,36 @@ function theme_file( $path ) {
 
 require_once __DIR__ . '/stubs/hub-wp.php';
 require_once __DIR__ . '/stubs/header-markup.php';
+/**
+ * The plugin, as far as the Get involved rows ask it (inc/get-involved.php, theme 1.32.12): while
+ * `$GLOBALS['offered_nothing']` is true the reader is a mentor who acts for a sponsor and an institution, so a
+ * signed-in reader is offered no row and the header's entries are its own; the Get involved checks set it false.
+ */
+class WPCPM_Mentors_Dashboard {
+	public static function is_mentor() { return ! empty( $GLOBALS['offered_nothing'] ); }
+}
+
+class WPCPM_Roles {
+	const ROLE_MENTOR = 'wpcpm_mentor';
+	public static function user_has_role( $user, $role ) { return false; }
+}
+
+class WPCPM_Sponsors_Dashboard {
+	public static function is_member( $user = null ) { return ! empty( $GLOBALS['offered_nothing'] ); }
+}
+
+class WPCPM_Institutions_Dashboard {
+	public static function is_member( $user = null ) { return ! empty( $GLOBALS['offered_nothing'] ); }
+}
+
+$GLOBALS['offered_nothing'] = true;
+
 require_once WPCREDITS_THEME_DIR . 'inc/icons.php';
+require_once WPCREDITS_THEME_DIR . 'inc/template-tags.php';
+require_once WPCREDITS_THEME_DIR . 'inc/hub-content.php';
+require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
 require_once WPCREDITS_THEME_DIR . 'inc/header.php';
+require_once WPCREDITS_THEME_DIR . 'inc/get-involved.php';
 
 /**
  * Every style rule of style.css, or of another sheet of the theme, in the order the sheet has them, each
@@ -584,24 +612,26 @@ ck( 'with no navigation, Need help? and Log out are two entries and get the butt
 	array( $entries_of( $menu( $help_and_log_out ) ), $buttons_in( $menu( $help_and_log_out ) ), $entries_of( $menu( $report_card_and_log_out ) ), $buttons_in( $menu( $report_card_and_log_out ) ) ),
 	array( array( 'Need help?', 'Log out' ), 1, array( 'Student Report Card', 'Log out' ), 1 ) );
 
-// The menu's two buttons as inc/partners.php hooks them at the navigation's end (theme 1.32.9): a signed-in
-// reader's wear `wpc-nav__panel-only` besides `wpc-nav__partner`, so they show in the open Menu panel alone; a
-// visitor's wear `wpc-nav__partner`.
-$panel_buttons   = array(
-	array( 'Become a sponsor', 'https://site.example/sponsor-application/', array(), 'wpc-nav__partner wpc-nav__panel-only' ),
-	array( 'Partner as an institution', 'https://site.example/apply/', array(), 'wpc-nav__partner wpc-nav__panel-only' ),
-);
-$visitor_buttons = array(
-	array( 'Become a sponsor', 'https://site.example/sponsor-application/', array(), 'wpc-nav__partner' ),
-	array( 'Partner as an institution', 'https://site.example/apply/', array(), 'wpc-nav__partner' ),
-);
+// The Get involved list a signed-in reader's Menu panel opens with (inc/get-involved.php, theme 1.32.12): the
+// reader here, with no plugin, is offered "Mentor students" and "Partner as an institution", whose rows are
+// entries of the panel, as the two buttons they replace were (theme 1.32.9).
+$GLOBALS['offered_nothing'] = false;
+$involve_and_log_out        = wpcredits_test_header( array_merge( $no_extras, array( 'nav' => array() ) ) );
+$about_and_involve   = wpcredits_test_header( array( 'nav' => array( array( 'About', 'https://site.example/about/' ) ) ) );
+$involve_rows_of     = static function ( $html ) use ( $page_of, $has ) {
+	return array_map(
+		static function ( $node ) {
+			return trim( preg_replace( '/\s+/', ' ', $node->textContent ) );
+		},
+		iterator_to_array( $page_of( $html )->query( '//*[@id="wpc-header-menu"]//*[' . $has( 'wpc-involve__title' ) . ']' ) )
+	);
+};
 
-$buttons_and_log_out = wpcredits_test_header( array_merge( $no_extras, array( 'nav' => $panel_buttons ) ) );
-$about_and_buttons   = wpcredits_test_header( array( 'nav' => array_merge( array( array( 'About', 'https://site.example/about/' ) ), $panel_buttons ) ) );
+ck( 'a signed-in reader\'s Get involved rows are entries of the panel, at its top: with Log out alone beside them the header gets the button, and in a full header the rows come first, before the navigation\'s links, then Need help?, the report cards and Log out',
+	array( $buttons_in( $menu( $involve_and_log_out ) ), $involve_rows_of( $menu( $involve_and_log_out ) ), $entries_of( $menu( $about_and_involve ) ), $involve_rows_of( $menu( $about_and_involve ) ) ),
+	array( 1, array( 'Mentor students', 'Partner as an institution' ), array( 'About', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ), array( 'Mentor students', 'Partner as an institution' ) ) );
 
-ck( 'a signed-in reader\'s two buttons are entries of the panel, which lists them as rows: with Log out alone beside them the header gets the button, and in a full header they come right after the navigation\'s links, before Need help?',
-	array( $buttons_in( $menu( $buttons_and_log_out ) ), $entries_of( $menu( $buttons_and_log_out ) ), $entries_of( $menu( $about_and_buttons ) ) ),
-	array( 1, array( 'Become a sponsor', 'Partner as an institution', 'Log out' ), array( 'About', 'Become a sponsor', 'Partner as an institution', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ) ) );
+$GLOBALS['offered_nothing'] = true;
 
 $GLOBALS['logged_in'] = false;
 $signed_out_kept      = $menu( $admin ) === $admin;
@@ -651,66 +681,19 @@ ck( 'a navigation of one item is marked lone, and home too when its item leads t
 	),
 	array( array( true, true ), array( true, true ), array( true, false ), array( false, false ) ) );
 
-ck( 'a signed-in reader\'s two buttons, which show in the open Menu panel alone, are not counted as the navigation\'s items: one link and the two is still lone, and home when the link leads home, so a signed-in phone without JavaScript, which has no panel, shows that link inline as in 1.32.8; the two alone are no lone item; a visitor\'s two buttons, which show, are counted, so one link and those is a menu',
+// A navigation that holds the Get involved item, a visitor's (theme 1.32.12), is a menu, never a lone item: on a
+// phone its rows open the menu panel. The two buttons of 1.32.9 to 1.32.11, which the lone count skipped, are
+// gone from the navigation; a Home Link wearing their old class is an item like another.
+$involve_item = array( 'html' => '<li class="wp-block-navigation-item wpc-involve"><button type="button" class="wpc-involve__toggle" aria-expanded="false" aria-controls="wpc-involve-9">Get involved</button><div class="wpc-involve__panel" id="wpc-involve-9"></div></li>' );
+
+ck( 'the Get involved item makes a navigation a menu: alone, beside a link home, beside another link; one link alone is still lone, and home when it leads home',
 	array(
-		$lone_and_home( array_merge( array( array( 'Homepage', 'https://site.example/' ) ), $panel_buttons ) ),
-		$lone_and_home( array_merge( array( array( 'About', 'https://site.example/about/' ) ), $panel_buttons ) ),
-		$lone_and_home( $panel_buttons ),
-		$lone_and_home( array_merge( array( array( 'About', 'https://site.example/about/' ) ), $visitor_buttons ) ),
+		$lone_and_home( array( $involve_item ) ),
+		$lone_and_home( array( array( 'Homepage', 'https://site.example/' ), $involve_item ) ),
+		$lone_and_home( array( array( 'About', 'https://site.example/about/' ), $involve_item ) ),
+		$lone_and_home( array( array( 'Homepage', 'https://site.example/' ) ) ),
 	),
-	array( array( true, true ), array( true, false ), array( false, false ), array( false, false ) ) );
-
-// style.css hides an item that is a navigation link wearing `wpc-nav__panel-only` and no other (its rule names
-// `wp-block-navigation-link` as well), so the lone count skips the same: an item of another kind wearing the class,
-// the Home Link's, shows and is counted (theme 1.32.10; the 1.32.9 review's Minor 6).
-$classed_home = static function ( array $items ) {
-	$home = array( 'Homepage', 'https://site.example/', array(), 'wpc-nav__panel-only' );
-
-	return preg_replace( '/wpc-nav__panel-only wp-block-navigation-link/', 'wpc-nav__panel-only wp-block-home-link', wpcredits_test_navigation( array_merge( array( $home ), $items ) ), 1 );
-};
-$lone_of      = static function ( $html ) use ( $page_of, $has ) {
-	$nav = $page_of( wpcredits_lone_nav_item( $html ) );
-
-	return array(
-		(bool) $nav->query( '//nav[' . $has( 'wpc-nav--lone' ) . ']' )->length,
-		(bool) $nav->query( '//nav[' . $has( 'wpc-nav--home' ) . ']' )->length,
-	);
-};
-
-ck( 'the lone count skips an item that is a navigation link wearing `wpc-nav__panel-only` and nothing else: the Home Link wearing the class shows, so it is counted, and with one link beside it is a menu, alone it is the lone item (and home), and beside a signed-in reader\'s two buttons, which are skipped, it is still the lone item',
-	array(
-		$lone_of( $classed_home( array( array( 'About', 'https://site.example/about/' ) ) ) ),
-		$lone_of( $classed_home( array() ) ),
-		$lone_of( $classed_home( $panel_buttons ) ),
-	),
-	array( array( false, false ), array( true, true ), array( true, true ) ) );
-
-// A reader who acts for a sponsor or an institution is not offered its own button (inc/partners.php, the product
-// owner, 28 October 2026): live's signed-in menu, Partners and the buttons, then holds one button, or none.
-$partners_link      = array( 'Partners', 'https://site.example/partners/' );
-$sponsor_member     = wpcredits_test_header( array( 'nav' => array( $partners_link, $panel_buttons[1] ) ) );
-$institution_member = wpcredits_test_header( array( 'nav' => array( $partners_link, $panel_buttons[0] ) ) );
-$member_of_both     = wpcredits_test_header( array( 'nav' => array( $partners_link ) ) );
-
-ck( 'a reader who acts for a sponsor has Partners and "Partner as an institution" in the panel, one who acts for an institution Partners and "Become a sponsor", and each navigation is still lone, so without JavaScript the Partners link shows inline; one who acts for both has Partners alone in the panel, lone too, as in 1.32.8; each header gets the Menu button',
-	array(
-		$entries_of( $menu( $sponsor_member ) ),
-		$entries_of( $menu( $institution_member ) ),
-		$entries_of( $menu( $member_of_both ) ),
-		$lone_and_home( array( $partners_link, $panel_buttons[1] ) ),
-		$lone_and_home( array( $partners_link, $panel_buttons[0] ) ),
-		$lone_and_home( array( $partners_link ) ),
-		array( $buttons_in( $menu( $sponsor_member ) ), $buttons_in( $menu( $institution_member ) ), $buttons_in( $menu( $member_of_both ) ) ),
-	),
-	array(
-		array( 'Partners', 'Partner as an institution', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ),
-		array( 'Partners', 'Become a sponsor', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ),
-		array( 'Partners', 'Need help?', 'Student Report Card', 'Mentor Report Card', 'Log out' ),
-		array( true, false ),
-		array( true, false ),
-		array( true, false ),
-		array( 1, 1, 1 ),
-	) );
+	array( array( false, false ), array( false, false ), array( false, false ), array( true, true ) ) );
 
 /**
  * The PHP files of the theme, below bin/, that hold a text, as paths below the theme's root. Folders
@@ -1173,15 +1156,13 @@ ck( 'in the panel a button row hovers and takes the focus as the other rows do: 
 		true,
 	) );
 
-// A signed-in reader's two buttons (inc/partners.php, theme 1.32.9) wear `wpc-nav__panel-only` besides
-// `wpc-nav__partner`: they are rows of the open Menu panel below 1200px and are shown nowhere else.
-$panel_only_hider = '.wp-block-navigation .wp-block-navigation__container > .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only';
-$panel_only_shown = $m . ' .wpc-nav .wp-block-navigation-item.wp-block-navigation-link.wpc-nav__panel-only';
-$panel_only_rules = array();
+// The bar's Get involved item (theme 1.32.12) is hidden in a phone's open menu, which the list opens instead.
+$involve_hider = '.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item.wpc-involve';
+$involve_rules = array();
 
 foreach ( sheet_rules() as $rule ) {
-	if ( false !== strpos( $rule['selector'], 'wpc-nav__panel-only' ) ) {
-		$panel_only_rules[] = array( $rule['at'], $rule['selector'], $rule['declarations'] );
+	if ( preg_grep( '/\.wpc-involve(?![\w-])$/', $selectors_of( $rule['selector'] ) ) && preg_grep( '/^display:/', $rule['declarations'] ) ) {
+		$involve_rules[] = array( $rule['at'], $rule['selector'], $rule['declarations'] );
 	}
 }
 
@@ -1225,7 +1206,7 @@ $last_compound = static function ( $selector ) {
 // The deepest selector, in style.css and in the Partners page's and the Education Hub's sheets, that displays
 // what a navigation item is or may be matched as: a selector whose last compound names the item's classes
 // (`wp-block-navigation-item`, `wp-block-navigation-link`, `wpc-nav__partner`), or is `li` or `*`; the menu
-// layout's own among them, but for the two that name the class.
+// layout's own among them, but for the Get involved item's own.
 $deepest_item_shown = 0;
 $item_shown_sheets  = array( 'style.css', 'assets/css/partners.css', 'assets/css/hub.css' );
 
@@ -1238,27 +1219,22 @@ foreach ( $item_shown_sheets as $sheet ) {
 		foreach ( $selectors_of( $rule['selector'] ) as $selector ) {
 			$compound = $last_compound( $selector );
 
-			if ( false === strpos( $selector, 'wpc-nav__panel-only' ) && preg_match( '/\.(?:wp-block-navigation-item|wp-block-navigation-link|wpc-nav__partner)(?![\w-])|^(?:li(?![\w-])|\*)/', $compound ) ) {
+			if ( false === strpos( $selector, 'wpc-involve' ) && preg_match( '/\.(?:wp-block-navigation-item|wp-block-navigation-link|wpc-nav__partner)(?![\w-])|^(?:li(?![\w-])|\*)/', $compound ) ) {
 				$deepest_item_shown = max( $deepest_item_shown, $specificity( $selector ) );
 			}
 		}
 	}
 }
 
-ck( 'a signed-in reader\'s two buttons are rows of the open Menu panel alone: one rule outside every query hides `wpc-nav__panel-only`, so the wide bar from 1200px, a page without JavaScript and print never show them, five classes deep, deeper than core\'s base and open-overlay rules that display a navigation item (two and four) and than every rule of style.css, assets/css/partners.css and assets/css/hub.css that displays a selector ending in a navigation item\'s class (`wp-block-navigation-item`, `wp-block-navigation-link`, `wpc-nav__partner`), `li` or `*`, the menu layout\'s among them, in either print order; one rule in the screen query, under `.wpc-js .wpc-header--menu`, shows them, deeper still; no other rule names the class, and neither names `wpc-nav__partner`, so a button a menu saved in the Site Editor holds is drawn as in 1.32.8',
+ck( 'the bar\'s Get involved item is hidden in a phone\'s open menu by one rule, in the 960px block, six classes deep, deeper than core\'s base and open-overlay rules that display a navigation item (two and four) and than every rule of style.css, assets/css/partners.css and assets/css/hub.css that displays a selector ending in a navigation item\'s class, `li` or `*`, in either print order; no other rule displays or hides it',
 	array(
-		$panel_only_rules,
+		$involve_rules,
 		array_map( $specificity, $core_item_shown ),
-		$specificity( $panel_only_hider ) > max( max( array_map( $specificity, $core_item_shown ) ), $deepest_item_shown ),
-		$specificity( $panel_only_shown ) > $specificity( $panel_only_hider ),
+		$specificity( $involve_hider ) > max( max( array_map( $specificity, $core_item_shown ) ), $deepest_item_shown ),
 	),
 	array(
-		array(
-			array( '', $panel_only_hider, array( 'display: none;' ) ),
-			array( $menu_at, $panel_only_shown, array( 'display: block;' ) ),
-		),
+		array( array( '@media ( max-width: 960px )', $involve_hider, array( 'display: none;' ) ) ),
 		array( 2, 4 ),
-		true,
 		true,
 	) );
 
@@ -1392,31 +1368,52 @@ ck( 'the open phone overlay\'s rows stand 8px apart, every row: measured at 375p
 	array( rules_of( $overlay_rows, '@media ( max-width: 960px )' ), rules_anywhere( $overlay_rows ) ),
 	array( array( array( 'gap: 8px;' ) ), 1 ) );
 
+// The product owner (theme 1.32.12): core centers the open overlay's column, by the navigation's justification,
+// so the links stood centered under the Get involved rows, which read from the left. The overlay's content, its
+// list, each item and each submenu stretch to its width, and each link and submenu toggle reads from the left,
+// its text 12px in, as the Get involved heading's and the rows' left edge are; its 16px and its weight unchanged.
+// Its box is its full width, its 12px padding inside it (`box-sizing: border-box`), so it ends where the rows end,
+// at the overlay's right gutter: with the padding outside it, it ran 24px past them, to the window's edge (375px).
+// Core's rules are four classes deep; these five and six. Only the open overlay: the signed-in Menu panel and the
+// wide bar never have it.
+$open_at        = '@media ( max-width: 960px )';
+$overlay_column = '.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content, .wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container, .wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item, .wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container';
+$overlay_links  = '.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content, .wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-submenu__toggle';
+$core_column    = array(
+	'.wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container',
+	'.wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation-item',
+);
+
+ck( 'the open phone overlay\'s links read from the left, as the Get involved rows above them do: one rule in the 960px block stretches the overlay\'s content, its list, each item and each submenu to the overlay\'s width over core\'s centered column (deeper than core\'s four classes), and the links\' rule there puts each link\'s text at the left, 12px in, 16px as before, its box the overlay\'s width with its padding inside, so it ends where the rows end; the Get involved heading and rows are 12px in too; no rule of the signed-in Menu panel or of the wide bar changes',
+	array(
+		rules_of( $overlay_column, $open_at ),
+		rules_of( $overlay_links, $open_at ),
+		rules_of( '.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list__title, .wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wpc-involve-list .wpc-involve__link', $open_at ),
+		min( array_map( $specificity, $selectors_of( $overlay_column ) ) ) > max( array_map( $specificity, $core_column ) ),
+		count( array_filter( sheet_rules(), static function ( $rule ) { return false !== strpos( str_replace( ':not( .is-menu-open )', '', $rule['selector'] ), 'is-menu-open' ) && '@media ( max-width: 960px )' !== $rule['at'] && '@media ( max-width: 640px )' !== $rule['at']; } ) ),
+	),
+	array(
+		array( array( 'align-items: stretch;', 'text-align: left;' ) ),
+		array( array( 'box-sizing: border-box;', 'font-size: 16px;', 'justify-content: flex-start;', 'padding: 12px;', 'text-align: left;', 'width: 100%;' ) ),
+		array( array( 'padding-left: 12px;', 'padding-right: 12px;' ) ),
+		true,
+		0,
+	) );
+
 $header_php = theme_file( 'inc/header.php' );
 $lone_head  = substr( $header_php, 0, (int) strpos( $header_php, 'function wpcredits_lone_nav_item(' ) );
 $lone_doc   = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $lone_head, (int) strrpos( $lone_head, '/**' ) ) );
 
-ck( 'the lone-item comment of inc/header.php does not say the theme\'s own items make the menu two or more, nor that a signed-in reader gets none of the buttons: since 1.32.9 a signed-in reader\'s buttons are in the navigation but show in the open Menu panel alone, so they are not counted (`wpc-nav__panel-only`), and with the levels off the menu can still hold one item; the comment says so',
-	array( false !== strpos( $header_php, 'the theme\'s own items make it two' ), false !== strpos( $lone_doc, 'gets none of the buttons' ), false !== strpos( $lone_doc, 'can still hold one item' ), false !== strpos( $lone_doc, '`wpc-nav__panel-only`' ) ),
-	array( false, false, true, true ) );
+ck( 'the lone-item comment of inc/header.php does not say the theme\'s own items make the menu two or more: with the levels off there is no Partners link, so the menu can still hold one item; it says that the Get involved menu makes a navigation a menu, never a lone item',
+	array( false !== strpos( $header_php, 'the theme\'s own items make it two' ), false !== strpos( $lone_doc, 'can still hold one item' ), false !== strpos( $lone_doc, 'never a lone item' ), false !== strpos( $lone_doc, '`wpc-involve`' ) ),
+	array( false, true, true, true ) );
 
 $entries_head = substr( $header_php, 0, (int) strpos( $header_php, 'function wpcredits_header_menu_entries(' ) );
 $entries_doc  = preg_replace( '/\s*\n\s*\*\s*/', ' ', substr( $entries_head, (int) strrpos( $entries_head, '/**' ) ) );
-$sheet        = preg_replace( '/\s+/', ' ', theme_file( 'style.css' ) );
-$two_buttons  = '/signed-in reader\'s (?:own )?two buttons/';
 
-ck( 'the comments of inc/header.php and style.css speak of the buttons a signed-in reader is offered, never of "two buttons", since a reader who acts for a sponsor or an institution is offered one (theme 1.32.10): the lone count\'s and the entry count\'s docblocks say so, the lone count\'s says that a navigation of only those buttons is not rendered at all (inc/partners.php) and that only a navigation link wearing the class is skipped, as style.css hides only that; the sheet names the buttons a reader is offered in the four comments that said two',
-	array(
-		preg_match_all( $two_buttons, $header_php ),
-		preg_match_all( $two_buttons, $sheet ),
-		false !== stripos( $lone_doc, 'the buttons a signed-in reader is offered' ),
-		false !== stripos( $entries_doc, 'the buttons a signed-in reader is offered' ),
-		false !== strpos( $lone_doc, 'acts for a sponsor or an institution is offered one' ),
-		false !== strpos( $lone_doc, 'is not rendered at all' ),
-		false !== stripos( $lone_doc, 'only a navigation link' ),
-		substr_count( strtolower( $sheet ), 'the buttons a signed-in reader is offered' ) >= 4,
-	),
-	array( 0, 0, true, true, true, true, true, true ) );
+ck( 'the entry count\'s docblock names the Get involved list\'s rows among the entries, and the count names their class',
+	array( false !== strpos( $entries_doc, 'a row of the Get involved list' ), false !== strpos( $header_php, "'wpc-involve__link'" ) ),
+	array( true, true ) );
 
 echo "\n=== Under the WordPress.org header (theme 1.32.11) ===\n";
 

@@ -1,9 +1,8 @@
 <?php
 /**
- * The Partners page: its stylesheets, and the header menu's items for it: the "Partners" link while
- * the partnership levels are public, and the "Become a sponsor" and "Partner as an institution"
- * buttons, in the bar for a visitor who is not signed in and, for a signed-in reader, in the Menu panel
- * below 1200px alone.
+ * The Partners page: its stylesheets, and the header menu's item for it, the "Partners" link while the
+ * partnership levels are public, and the test of who is offered the Get involved menu's institution and
+ * sponsor rows (inc/get-involved.php).
  *
  * The page is the plugin's public sponsors page, at `/partners/` (plugin 1.123.18). WordPress draws a
  * page by its slug's template before `page.html`, so `templates/page-partners.html` draws it: the
@@ -13,10 +12,10 @@
  *
  * The menu's "Partners" link leads to this page, whose own "Become a partner" section has the button
  * on to the sponsorship application (a program Administrator asked for it and the product owner agreed,
- * 22 October 2026). The menu's buttons lead to the sponsorship application, "Become a sponsor" (theme
- * 1.32.7), and to the institution application form, "Partner as an institution" (the product owner,
- * 25 October 2026); until then the menu's one item, "Become a partner", led to this page, and before
- * that to the sponsorship application.
+ * 22 October 2026). From 1.32.7 to 1.32.11 the menu ended with two buttons, "Become a sponsor" and
+ * "Partner as an institution"; since 1.32.12 they are rows of the Get involved menu (inc/get-involved.php,
+ * the product owner, 5 November 2026), and before 1.32.7 the menu's one item, "Become a partner", led to
+ * this page, and before that to the sponsorship application.
  *
  * The levels are written once, in the Partners template, and edited in the Site Editor (theme 1.32.1,
  * the design's D5 and D6): the Partner levels block holds a Partner level block for each level and
@@ -42,18 +41,11 @@ const WPCREDITS_PARTNERS_SLUG = 'partners';
  * `hooked_block_{type}` filter answers, a navigation link, and looks for the type hooked, this one, in
  * a menu's `ignoredHookedBlocks`. Two hooked blocks of one type reach `hooked_block_core/navigation-link`
  * with the same arguments and cannot be told apart, and one type for both would leave a menu saved while
- * the levels were not public ignoring the Partners link for good, since it lists the button's type, the
- * only one then offered, as ignored. A menu saved in the Site Editor holds this name in that list, so it
+ * the levels were not public ignoring the Partners link for good, since it lists the institution button's
+ * type (hooked from 1.31.9 to 1.32.11), the only one then offered, as ignored. A menu saved in the Site Editor holds this name in that list, so it
  * stays as it is.
  */
 const WPCREDITS_PARTNERS_LINK_HOOK = 'wpcredits-theme/partners-link';
-
-/**
- * The type the menu's "Become a sponsor" button is hooked under, for the same reason as the Partners
- * link's (above): core writes the navigation link its filter answers and looks for this name in a menu's
- * `ignoredHookedBlocks`, where a menu saved in the Site Editor may hold it, so it stays as it is.
- */
-const WPCREDITS_SPONSOR_LINK_HOOK = 'wpcredits-theme/sponsor-link';
 
 /**
  * Register the Partners page's stylesheet, after the hub's, whose type, heads, cards and buttons it
@@ -98,56 +90,39 @@ function wpcredits_partners_editor_style() {
 add_action( 'after_setup_theme', 'wpcredits_partners_editor_style', 12 );
 
 /**
- * Whether the partnership levels are public: the plugin's launch switch, on.
+ * Whether the partnership levels are public and the Partners page is published, so a visitor can read it:
+ * the plugin's launch switch on (`WPCPM_Sponsor_Tiers::live()`) and the page's address given
+ * (`WPCPM_Sponsors_Page::page_url()`, '' unless the page's status is publish). Both, since the switch can
+ * stay on while the page is pending (live on 5 November 2026, the product owner). Every call is guarded, so
+ * the theme works without the plugin, and with one older than either.
+ *
+ * The one rule for everything the theme shows of the sponsorship: the header's Partners link
+ * (`wpcredits_partners_menu_item()`), the Get involved menu's "Become a sponsor" row (inc/get-involved.php)
+ * and the homepage's Sponsors card (blocks/sponsor-card), so none of them points at a page a visitor cannot
+ * open.
  *
  * @return bool
  */
 function wpcredits_partners_live() {
-	return class_exists( 'WPCPM_Sponsor_Tiers' ) && method_exists( 'WPCPM_Sponsor_Tiers', 'live' ) && WPCPM_Sponsor_Tiers::live();
+	if ( ! class_exists( 'WPCPM_Sponsor_Tiers' ) || ! method_exists( 'WPCPM_Sponsor_Tiers', 'live' ) || ! WPCPM_Sponsor_Tiers::live() ) {
+		return false;
+	}
+
+	return class_exists( 'WPCPM_Sponsors_Page' ) && method_exists( 'WPCPM_Sponsors_Page', 'page_url' ) && '' !== (string) WPCPM_Sponsors_Page::page_url();
 }
 
 /**
- * The header menu's last items, hooked into the menu as its last children (the product owner, 21 and 25
- * October 2026): the "Partners" link while the levels are public, then two buttons, "Become a sponsor" and
- * "Partner as an institution". The link leads to the Partners page, so while the levels are not public
- * there is no link, and nothing points at what visitors cannot see yet. The buttons lead to the sponsor
- * and the institution application forms, which do not depend on the levels.
+ * The header menu's "Partners" link, hooked into the menu as its last child while the levels are public
+ * (the product owner, 21 October 2026) and the Partners page is published (`wpcredits_partners_live()`,
+ * theme 1.32.12): it leads to the Partners page, so while either is not so there is no link, and nothing
+ * points at what visitors cannot see yet. The Get involved block follows it
+ * for a visitor (inc/get-involved.php, hooked at priority 20), in place of the two buttons that ended the
+ * menu from 1.32.7 to 1.32.11.
  *
- * The buttons ask someone who has no account yet. A visitor who is not signed in gets them in the bar. A
- * signed-in reader's wide bar, which carries the Student Report Card's and the Mentor Report Card's links,
- * keeps its items on one line from 1200px without them (theme 1.32.7, the product owner's choice of 25
- * October 2026), while below 1200px the Menu panel lists its entries as rows and has room for them (the
- * product owner, 27 October 2026). So a signed-in reader is hooked the buttons too, and they wear
- * `wpc-nav__panel-only` as well (`wpcredits_partners_button_class()`), which style.css hides everywhere
- * but the open Menu panel: not in the wide bar, not without JavaScript, where there is no panel, and not
- * in print.
- *
- * A signed-in reader is hooked them on the front end alone, never during a REST request or a wp-admin
- * request (`wpcredits_partners_front_end()`). The Site Editor is used signed in and reads the menu over
- * REST, from its screen in wp-admin, so it is never offered the buttons and a menu saved there never holds
- * them: a menu that held them would draw them as items of its own, without the class, for every reader at
- * every width.
- *
- * A signed-in reader whose navigation would show nothing else, an empty saved menu with the levels off or
- * a saved one whose Partners link was deleted in the Site Editor, gets no navigation rather than one of the
- * buttons alone (`wpcredits_partners_drop_empty_navigation()`).
- *
- * A signed-in reader is not offered the button for what they already act for (the product owner, 28
- * October 2026: "Hide the button for a reader's own role"): one who acts for a sponsor gets no "Become a
- * sponsor", one who acts for an institution no "Partner as an institution", one who acts for both neither
- * (`wpcredits_partners_offers()`). The plugin's own membership tests answer it, `is_member()` of the
- * Sponsor Dashboard and of the Institution Dashboard, the ones that route a member to their dashboard,
- * and never the role: an account keeps the sponsor or the institution role until a manager takes it away,
- * and the question is who acts for one now. A visitor is never a member, so a visitor gets both buttons
- * and is not asked; with an older plugin, or none, every signed-in reader keeps both. Only the theme's own
- * items are left out: what another plugin hooks here stays in the list as it was.
- *
- * The institution button is hooked as a navigation link, the type it has been since 1.31.9, and the link
- * and the sponsor button under types of their own (`WPCREDITS_PARTNERS_LINK_HOOK`,
- * `WPCREDITS_SPONSOR_LINK_HOOK`): see the constants. A menu saved in the Site Editor lists the types it
- * was offered as ignored. The buttons are never offered there, so a menu saved there never ignores them;
- * one saved before the levels were public is still offered the link once they are; and a menu saved with
- * an item holds it as a link of its own, as saved.
+ * The link is hooked under a type of its own (`WPCREDITS_PARTNERS_LINK_HOOK`): see the constant. A menu
+ * saved in the Site Editor lists the types it was offered as ignored, so one saved before the levels were
+ * public is still offered the link once they are, and a menu saved with the link holds it as a link of its
+ * own, as saved.
  *
  * @param string[] $hooked   The block types hooked at this position.
  * @param string   $position Where: before, after, first_child or last_child.
@@ -155,18 +130,8 @@ function wpcredits_partners_live() {
  * @return string[]
  */
 function wpcredits_partners_menu_item( $hooked, $position, $anchor ) {
-	if ( 'last_child' === $position && 'core/navigation' === $anchor ) {
-		if ( wpcredits_partners_live() ) {
-			$hooked[] = WPCREDITS_PARTNERS_LINK_HOOK;
-		}
-
-		if ( wpcredits_partners_offers( 'sponsor' ) ) {
-			$hooked[] = WPCREDITS_SPONSOR_LINK_HOOK;
-		}
-
-		if ( wpcredits_partners_offers( 'institution' ) ) {
-			$hooked[] = 'core/navigation-link';
-		}
+	if ( 'last_child' === $position && 'core/navigation' === $anchor && wpcredits_partners_live() ) {
+		$hooked[] = WPCREDITS_PARTNERS_LINK_HOOK;
 	}
 
 	return $hooked;
@@ -174,13 +139,13 @@ function wpcredits_partners_menu_item( $hooked, $position, $anchor ) {
 add_filter( 'hooked_block_types', 'wpcredits_partners_menu_item', 10, 3 );
 
 /**
- * Whether this request's reader is offered a button: "Become a sponsor" (`sponsor`) or "Partner as an
- * institution" (`institution`). A visitor always is, and is never asked what they act for, since a visitor
- * is never a member. A signed-in reader is on the front end alone (`wpcredits_partners_front_end()`), and
- * then unless they act for a sponsor or an institution already (`wpcredits_partners_acts_for()`; the
- * product owner, 28 October 2026). The hook and the institution button's block filter both ask it, so
- * the filter leaves a navigation link another plugin hooks here as it is whenever the button is not
- * offered.
+ * Whether this request's reader is offered the Get involved menu's "Become a sponsor" (`sponsor`) or
+ * "Partner as an institution" (`institution`) row (inc/get-involved.php), as they were offered the buttons
+ * of those names from 1.32.7 to 1.32.11. A visitor always is, and is never asked what they act for, since a
+ * visitor is never a member. A signed-in reader is on the front end alone (`wpcredits_partners_front_end()`),
+ * and then unless they act for a sponsor or an institution already (`wpcredits_partners_acts_for()`; the
+ * product owner, 28 October 2026: "Hide the button for a reader's own role"). The sponsor row also needs the
+ * Partners page published (`wpcredits_partners_live()`), which the row asks itself.
  *
  * @param string $kind `sponsor` or `institution`.
  * @return bool
@@ -199,7 +164,7 @@ function wpcredits_partners_offers( $kind ) {
  * or `WPCPM_Institutions_Dashboard::is_member()`, the tests that route a member to their dashboard.
  * Membership, never the role, for the reason the plugin gives: an account keeps the sponsor or the
  * institution role until a manager takes it away, and the question is about who acts for one now. False
- * with the plugin inactive, or one without the test, so an older plugin, or none, leaves both buttons.
+ * with the plugin inactive, or one without the test, so an older plugin, or none, leaves both rows.
  *
  * @param string $kind `sponsor` or `institution`.
  * @return bool
@@ -239,86 +204,14 @@ function wpcredits_partners_front_end() {
 }
 
 /**
- * The class the buttons wear: `wpc-nav__partner`, which draws them as outline buttons in the bar and as
- * rows in the Menu panel, and for a signed-in reader `wpc-nav__panel-only` as well, which keeps them to
- * the open Menu panel below 1200px (style.css; see `wpcredits_partners_menu_item()`). A button a menu saved
- * in the Site Editor holds as an item of its own keeps the class it was saved with, which is never the
- * second, as the Site Editor is never offered a signed-in reader's buttons.
- *
- * @return string
- */
-function wpcredits_partners_button_class() {
-	return is_user_logged_in() ? 'wpc-nav__partner wpc-nav__panel-only' : 'wpc-nav__partner';
-}
-
-/**
- * Leave a navigation out when nothing in it would show but the buttons a signed-in reader is offered.
- *
- * Those buttons wear `wpc-nav__panel-only`, so they show as rows of the open Menu panel and nowhere else.
- * A navigation with no item to show but them, an empty saved menu with the levels off, or a saved one
- * whose hooked Partners link was deleted in the Site Editor, would be drawn as an empty landmark: it still
- * takes its gap in the bar from 961px, and below 960px its hamburger opens nothing without JavaScript. So
- * it is not drawn, as core draws no navigation that has no items, and the Menu panel lists the reader's
- * other entries alone.
- *
- * It is decided here, from the rendered navigation, which is what the reader would be shown, never from
- * the levels switch or the Partners link alone: with the switch off a saved link keeps the navigation, and
- * with it on the Partners link may be gone. A button is a navigation link wearing the class
- * (`wp-block-navigation-link`), the item style.css hides. Each is taken out of the markup, and the
- * navigation goes only when the list that holds its blocks (`wp-block-navigation__container`) is then
- * empty. Anything else in that list keeps the navigation exactly as 1.32.9 draws it, buttons included: a
- * link, a submenu, an item of another kind that wears the class, and a block core does not wrap in an item
- * (a Search or Spacer block) that an editor put there. Where in doubt the navigation stays, so nothing an
- * editor put there is deleted, and markup whose list this cannot find is left as it is. A visitor's buttons
- * wear no class and show, so a visitor's navigation is never left out.
- *
- * It runs at priority 9, before that count, which then has no navigation of buttons alone to count.
- *
- * @param string $content Rendered block HTML.
- * @return string
- */
-function wpcredits_partners_drop_empty_navigation( $content ) {
-	if ( false === strpos( (string) $content, 'wpc-nav__panel-only' ) ) {
-		return $content;
-	}
-
-	$buttons = 0;
-	$rest    = preg_replace_callback(
-		'#<li\b([^>]*)>(?:(?!</?li\b).)*</li>#s',
-		static function ( $found ) use ( &$buttons ) {
-			$classes = preg_match( '/\sclass="([^"]*)"/', $found[1], $class ) ? preg_split( '/\s+/', trim( $class[1] ), -1, PREG_SPLIT_NO_EMPTY ) : array();
-
-			if ( ! in_array( 'wpc-nav__panel-only', $classes, true ) || ! in_array( 'wp-block-navigation-link', $classes, true ) ) {
-				return $found[0];
-			}
-
-			++$buttons;
-
-			return '';
-		},
-		(string) $content
-	);
-
-	if ( ! $buttons || null === $rest || ! preg_match( '#<ul\b[^>]*\sclass="[^"]*(?<![\w-])wp-block-navigation__container(?![\w-])[^"]*"[^>]*>(.*?)</ul>#s', $rest, $list ) || '' !== trim( $list[1] ) ) {
-		return $content;
-	}
-
-	return '';
-}
-add_filter( 'render_block_core/navigation', 'wpcredits_partners_drop_empty_navigation', 9 );
-
-/**
  * A hooked menu link's attributes: its label and address, and the class that dresses it.
  *
  * The navigation block marks a link current by a page's ID, not by its address: it matches a post type
  * archive's link by address, but a custom link to a page is never marked. So on the page a link leads to
  * it is written as a link to that page, with the page's ID, and the block marks it as it does a page
  * link, adding `current-menu-item` and `aria-current="page"`. The wide bar shows the Partners link in
- * the brand blue then, as it does any link to the page being viewed, and the button as it always looks,
- * its own rules winning over the header's current-item rules. A signed-in reader's buttons are rows of
- * the Menu panel below 1200px (theme 1.32.9), and the panel colors a button's row in the brand blue on its
- * own form's page, at the button's own weight (style.css), as it colors the Partners link's on the
- * Partners page. On every other page a link stays the custom link it was.
+ * the brand blue then, as it does any link to the page being viewed, and the Menu panel below 1200px
+ * colors its row the same. On every other page the link stays the custom link it was.
  *
  * @param string $label The link's text, translated.
  * @param string $url   Where it leads.
@@ -359,46 +252,12 @@ function wpcredits_partners_menu_position( $position, $anchor ) {
 }
 
 /**
- * The hooked button's label, address and class: "Partner as an institution", the Education Hub's own
- * words for it, leading to the institution application form, with `wpc-nav__panel-only` as well for a
- * signed-in reader (`wpcredits_partners_button_class()`).
- *
- * While the plugin has no published form the button falls back to the WordPress Credits handbook, as
- * every link to one of the site's own pages does (`wpcredits_hub_url()`).
- *
- * Where the button is not offered (`wpcredits_partners_offers()`: a signed-in reader who acts for an
- * institution, or a signed-in REST or wp-admin request), the theme hooked no navigation link here, so one
- * that reaches this filter is another plugin's, and it is left as it is.
- *
- * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
- * @param string     $type     The hooked block's type.
- * @param string     $position Where it is hooked.
- * @param array      $anchor   The anchor block, parsed.
- * @return array|null
- */
-function wpcredits_partners_menu_item_block( $block, $type, $position, $anchor ) {
-	if ( null === $block || ! wpcredits_partners_menu_position( $position, $anchor ) || ! wpcredits_partners_offers( 'institution' ) ) {
-		return $block;
-	}
-
-	$block['attrs'] = wpcredits_partners_menu_attrs(
-		__( 'Partner as an institution', 'wpcredits-theme' ),
-		wpcredits_hub_url( 'institution_application' ),
-		wpcredits_partners_button_class()
-	);
-
-	return $block;
-}
-add_filter( 'hooked_block_core/navigation-link', 'wpcredits_partners_menu_item_block', 10, 4 );
-
-/**
  * The hooked Partners link: a plain link to the Partners page, written as the navigation link it is
  * although it is hooked under a type of its own (`WPCREDITS_PARTNERS_LINK_HOOK`).
  *
- * The link is hooked only while the partnership levels are public, so with the plugin off there is none.
- * Should the levels be public while the Partners page is not published, which the plugin's own launch
- * does not leave, it falls back to the WordPress Credits handbook, as every link to one of the site's own
- * pages does.
+ * The link is hooked only while the partnership levels are public and the Partners page is published
+ * (`wpcredits_partners_live()`), so with the plugin off, or the page pending, there is none, and it always
+ * leads to the page itself.
  *
  * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
  * @param string     $type     The hooked block's type.
@@ -421,35 +280,6 @@ function wpcredits_partners_link_block( $block, $type, $position, $anchor ) {
 	return $block;
 }
 add_filter( 'hooked_block_' . WPCREDITS_PARTNERS_LINK_HOOK, 'wpcredits_partners_link_block', 10, 4 );
-
-/**
- * The hooked sponsor button: "Become a sponsor", the product owner's words, an outline button like the
- * institution one beside it, leading to the sponsor application form, written as a navigation link
- * although it is hooked under a type of its own (`WPCREDITS_SPONSOR_LINK_HOOK`), and wearing the
- * institution button's class (`wpcredits_partners_button_class()`). While the plugin has no published
- * form it falls back to the WordPress Credits handbook, as every link to one of the site's own pages does.
- *
- * @param array|null $block    The hooked block, parsed, or null when another filter removed it.
- * @param string     $type     The hooked block's type.
- * @param string     $position Where it is hooked.
- * @param array      $anchor   The anchor block, parsed.
- * @return array|null
- */
-function wpcredits_partners_sponsor_block( $block, $type, $position, $anchor ) {
-	if ( null === $block || ! wpcredits_partners_menu_position( $position, $anchor ) ) {
-		return $block;
-	}
-
-	$block['blockName'] = 'core/navigation-link';
-	$block['attrs']     = wpcredits_partners_menu_attrs(
-		__( 'Become a sponsor', 'wpcredits-theme' ),
-		wpcredits_hub_url( 'sponsor_application' ),
-		wpcredits_partners_button_class()
-	);
-
-	return $block;
-}
-add_filter( 'hooked_block_' . WPCREDITS_SPONSOR_LINK_HOOK, 'wpcredits_partners_sponsor_block', 10, 4 );
 
 /**
  * The five partnership levels the theme ships, in a program lead's words (21 October 2026), the lowest

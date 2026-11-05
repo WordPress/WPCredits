@@ -1364,9 +1364,9 @@ $nothing_new                                  = $notice_for( array( 'edit_theme_
 $GLOBALS['opts']['wpcredits_migrated_1_32_0'] = $both_records[0];
 $GLOBALS['opts']['wpcredits_migrated_1_32_1'] = $both_records[1];
 
-ck( 'the notice is shown for a week after the newer run that has something to tell, both records\' sentences in it: ten days after 1.32.0 and two after 1.32.1 it is; a week after 1.32.1 it is not; a 1.32.1 run that reached no template does not bring back a 1.32.0 notice older than a week',
+ck( 'each record is told for a week after its own run (theme 1.32.12, the review of 935f4b5, M1): ten days after 1.32.0 and two after 1.32.1, the notice tells the 1.32.1 sentences alone, the 1.32.0 ones a week gone; a week after 1.32.1 it tells nothing; a 1.32.1 run that reached no template does not bring back a 1.32.0 notice older than a week',
 	array( $within_week, $after_week, $nothing_new ),
-	array( wpcredits_migrate_1_32_0_summary( $both_records[0] ) . ' ' . $live_1_32_1, '', '' ) );
+	array( $live_1_32_1, '', '' ) );
 
 $records_said = array(
 	'unreadable' => array(
