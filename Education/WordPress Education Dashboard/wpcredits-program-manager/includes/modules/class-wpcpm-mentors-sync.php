@@ -197,6 +197,9 @@ class WPCPM_Mentors_Sync {
 				// future mentor scoreboard (section 13). Every name is asserted against
 				// bin/fixtures/mentors-table-fields.json by bin/test-students-sync.php.
 				'mentor_sponsored'     => 'Sponsored',
+				// The company's text column, written from an application's answer since 1.123.52; the
+				// linked "Sponsor Company Name" column is not, since the sponsors live on the site.
+				'mentor_sponsor_text'  => 'Sponsor company',
 				'mentor_wants_sponsor' => 'Wants to be in the looking for sponsors list',
 				'mentor_expertise'     => 'Contribution Area - Expertise',
 				// The columns an application's answers are written to when it becomes a mentor's row

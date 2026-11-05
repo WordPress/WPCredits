@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.51\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.52\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-30T22:20:27+00:00\n"
+"POT-Creation-Date: 2026-11-05T07:53:32+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -881,8 +881,8 @@ msgstr ""
 
 #: includes/class-wpcpm-airtable.php:489
 #: includes/class-wpcpm-airtable.php:863
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:650
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1090
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:668
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1111
 msgid "Airtable returned no table schema."
 msgstr ""
 
@@ -3148,7 +3148,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-details-card.php:562
 #: includes/modules/class-wpcpm-institution-import-form.php:237
 #: includes/modules/class-wpcpm-institution-import-form.php:261
-#: includes/modules/class-wpcpm-mentor-application-form.php:1116
+#: includes/modules/class-wpcpm-mentor-application-form.php:1153
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:281
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:293
 #: includes/modules/class-wpcpm-sponsor-application.php:1183
@@ -4029,7 +4029,7 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:58
 #: includes/mail/class-wpcpm-mail-log.php:512
-#: includes/modules/class-wpcpm-mentor-application-form.php:380
+#: includes/modules/class-wpcpm-mentor-application-form.php:383
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1215
 #: includes/modules/class-wpcpm-students-dashboard.php:766
 #: includes/modules/class-wpcpm-students-dashboard.php:1043
@@ -5422,7 +5422,7 @@ msgstr ""
 #: includes/mail/templates/institutions.php:402
 #: includes/mail/templates/sponsors.php:306
 #: includes/modules/class-wpcpm-institution-application.php:1365
-#: includes/modules/class-wpcpm-mentor-application-form.php:993
+#: includes/modules/class-wpcpm-mentor-application-form.php:1030
 #: includes/modules/class-wpcpm-sponsor-application.php:1029
 #, php-format
 msgid "Your reference is %s. Please quote it if you write to us about this application."
@@ -8072,7 +8072,7 @@ msgid "Can manage program"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-table.php:169
-#: includes/modules/class-wpcpm-mentor-application-form.php:1168
+#: includes/modules/class-wpcpm-mentor-application-form.php:1205
 #: includes/modules/class-wpcpm-student-report-form.php:1355
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:1046
 msgid "Yes"
@@ -8784,7 +8784,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-application.php:709
 #: includes/modules/class-wpcpm-institution-details.php:138
 #: includes/modules/class-wpcpm-institutions.php:4336
-#: includes/modules/class-wpcpm-mentor-application-form.php:396
+#: includes/modules/class-wpcpm-mentor-application-form.php:399
 msgid "Country"
 msgstr ""
 
@@ -8922,13 +8922,13 @@ msgid "The agreement"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:871
-#: includes/modules/class-wpcpm-mentor-application-form.php:469
+#: includes/modules/class-wpcpm-mentor-application-form.php:494
 #: includes/modules/class-wpcpm-sponsor-application.php:653
 msgid "Tell us more"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:872
-#: includes/modules/class-wpcpm-mentor-application-form.php:470
+#: includes/modules/class-wpcpm-mentor-application-form.php:495
 #: includes/modules/class-wpcpm-sponsor-application.php:654
 msgid "Before you send this"
 msgstr ""
@@ -8980,7 +8980,7 @@ msgid "We could not send the acknowledgement to %s today, so please keep the ref
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1405
-#: includes/modules/class-wpcpm-mentor-application-form.php:1030
+#: includes/modules/class-wpcpm-mentor-application-form.php:1067
 #: includes/modules/class-wpcpm-sponsor-application.php:1067
 msgid "Nothing has been sent yet. Please look at the answers marked below and send the form again."
 msgstr ""
@@ -8990,13 +8990,13 @@ msgid "Nothing has been sent yet, and nothing has been stored. The program can o
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1407
-#: includes/modules/class-wpcpm-mentor-application-form.php:1032
+#: includes/modules/class-wpcpm-mentor-application-form.php:1069
 #: includes/modules/class-wpcpm-sponsor-application.php:1069
 msgid "This form had been open for a long time, so it was not sent. Your answers are still here: please send it again."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1408
-#: includes/modules/class-wpcpm-mentor-application-form.php:1033
+#: includes/modules/class-wpcpm-mentor-application-form.php:1070
 #: includes/modules/class-wpcpm-sponsor-application.php:1070
 msgid "This form had been open for a while and could not be sent. Your answers are still here: please send it again."
 msgstr ""
@@ -9007,7 +9007,7 @@ msgid "Several applications have already been sent from here in the last hour, s
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1410
-#: includes/modules/class-wpcpm-mentor-application-form.php:1035
+#: includes/modules/class-wpcpm-mentor-application-form.php:1072
 #: includes/modules/class-wpcpm-sponsor-application.php:1072
 msgid "Something went wrong at our end and the application was not saved. Nothing has been sent. Please try once more."
 msgstr ""
@@ -9025,66 +9025,66 @@ msgid "This address was already confirmed, so there is nothing more to do. Your 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1414
-#: includes/modules/class-wpcpm-mentor-application-form.php:1039
+#: includes/modules/class-wpcpm-mentor-application-form.php:1076
 msgid "That confirmation link could not be read. It may have been broken across two lines by a mail program: please try the whole link again."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1448
 #: includes/modules/class-wpcpm-institution-resend.php:226
-#: includes/modules/class-wpcpm-mentor-application-form.php:1072
+#: includes/modules/class-wpcpm-mentor-application-form.php:1109
 #: includes/modules/class-wpcpm-sponsor-application.php:1108
 msgid "Sending..."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1449
-#: includes/modules/class-wpcpm-mentor-application-form.php:1073
+#: includes/modules/class-wpcpm-mentor-application-form.php:1110
 #: includes/modules/class-wpcpm-sponsor-application.php:1109
 msgid "Sending your application."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1490
-#: includes/modules/class-wpcpm-mentor-application-form.php:1098
+#: includes/modules/class-wpcpm-mentor-application-form.php:1135
 #: includes/modules/class-wpcpm-sponsor-application.php:1159
 msgid "Send this application"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1602
 #: includes/modules/class-wpcpm-institution-details-card.php:559
-#: includes/modules/class-wpcpm-mentor-application-form.php:1193
+#: includes/modules/class-wpcpm-mentor-application-form.php:1230
 msgid "Choose a country"
 msgstr ""
 
 #. translators: Shown in the empty country field, which takes typing.
 #: includes/modules/class-wpcpm-institution-application.php:1610
 #: includes/modules/class-wpcpm-institution-details-card.php:566
-#: includes/modules/class-wpcpm-mentor-application-form.php:1201
+#: includes/modules/class-wpcpm-mentor-application-form.php:1238
 msgid "Type to find your country"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1611
 #: includes/modules/class-wpcpm-institution-details-card.php:567
-#: includes/modules/class-wpcpm-mentor-application-form.php:1202
+#: includes/modules/class-wpcpm-mentor-application-form.php:1239
 msgid "No country has that name."
 msgstr ""
 
 #. translators: %s: how many countries the list shows, as a number.
 #: includes/modules/class-wpcpm-institution-application.php:1613
 #: includes/modules/class-wpcpm-institution-details-card.php:569
-#: includes/modules/class-wpcpm-mentor-application-form.php:1204
+#: includes/modules/class-wpcpm-mentor-application-form.php:1241
 #, php-format
 msgid "Countries in the list: %s"
 msgstr ""
 
 #. translators: %1$s: opening link tag to the WordPress.org privacy policy, %2$s: closing link tag.
 #: includes/modules/class-wpcpm-institution-application.php:1706
-#: includes/modules/class-wpcpm-mentor-application-form.php:1270
+#: includes/modules/class-wpcpm-mentor-application-form.php:1307
 #: includes/modules/class-wpcpm-sponsor-application.php:1603
 #, php-format
 msgid "You can read the WordPress.org privacy policy %1$shere%2$s."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1732
-#: includes/modules/class-wpcpm-mentor-application-form.php:1301
+#: includes/modules/class-wpcpm-mentor-application-form.php:1338
 #: includes/modules/class-wpcpm-sponsor-application.php:1629
 msgid "Please fill this in."
 msgstr ""
@@ -9096,7 +9096,7 @@ msgid "Please keep this to %s characters or fewer."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1744
-#: includes/modules/class-wpcpm-mentor-application-form.php:1303
+#: includes/modules/class-wpcpm-mentor-application-form.php:1340
 #: includes/modules/class-wpcpm-sponsor-application.php:1633
 msgid "That does not look like an email address."
 msgstr ""
@@ -9112,13 +9112,13 @@ msgid "Please give a number between %1$s and %2$s."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1761
-#: includes/modules/class-wpcpm-mentor-application-form.php:1304
+#: includes/modules/class-wpcpm-mentor-application-form.php:1341
 #: includes/modules/class-wpcpm-sponsor-application.php:1637
 msgid "Please choose one of the options offered."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1764
-#: includes/modules/class-wpcpm-mentor-application-form.php:1311
+#: includes/modules/class-wpcpm-mentor-application-form.php:1349
 #: includes/modules/class-wpcpm-sponsor-application.php:1662
 msgid "That answer could not be read. Please try it again."
 msgstr ""
@@ -9828,7 +9828,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-import-form.php:364
 #: includes/modules/class-wpcpm-institution-student-form.php:193
-#: includes/modules/class-wpcpm-mentor-application-form.php:372
+#: includes/modules/class-wpcpm-mentor-application-form.php:375
 msgid "Full name"
 msgstr ""
 
@@ -12103,14 +12103,14 @@ msgid "Checking which institutions have left the pipeline"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-sync.php:335
-#: includes/modules/class-wpcpm-mentors-sync.php:376
+#: includes/modules/class-wpcpm-mentors-sync.php:379
 #: includes/modules/class-wpcpm-students-sync.php:336
 msgid "Add an Airtable Personal Access Token and Base ID before syncing."
 msgstr ""
 
 #. translators: 1: current phase number, 2: total number of phases.
 #: includes/modules/class-wpcpm-institutions-sync.php:432
-#: includes/modules/class-wpcpm-mentors-sync.php:475
+#: includes/modules/class-wpcpm-mentors-sync.php:478
 #: includes/modules/class-wpcpm-students-sync.php:443
 #: includes/tools/class-wpcpm-duplicates-scan.php:357
 #, php-format
@@ -12192,7 +12192,7 @@ msgid "The Contact Email already belongs to an account on this site, which is a 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-sync.php:1212
-#: includes/modules/class-wpcpm-mentors-sync.php:1960
+#: includes/modules/class-wpcpm-mentors-sync.php:1963
 #: includes/modules/class-wpcpm-sponsor-members.php:563
 #: includes/modules/class-wpcpm-students-sync.php:3034
 msgid "That user does not exist."
@@ -13895,7 +13895,7 @@ msgid "The account is an Administrator's, which signs in already: no invitation 
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-activation.php:257
-#: includes/modules/class-wpcpm-mentors-sync.php:1348
+#: includes/modules/class-wpcpm-mentors-sync.php:1351
 msgid "No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Send invite or Resend invite on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
@@ -14035,131 +14035,131 @@ msgstr ""
 msgid "The Airtable row is written, and the mentor's account holds its record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:313
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:331
 msgid "The linked table, or its first column, is not in the base's schema."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:478
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:496
 msgid "The answers were left out: the token cannot read the base's columns."
 msgstr ""
 
 #. translators: %s: the name of a column of the Mentors table.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:483
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:501
 #, php-format
 msgid "%s: the Mentors table has no such column."
 msgstr ""
 
 #. translators: 1: the name of a column of the Mentors table, 2: its type in Airtable, such as rating.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:488
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:506
 #, php-format
 msgid "%1$s: the column is a %2$s, which the site does not write."
 msgstr ""
 
 #. translators: 1: the name of a column of the Mentors table, 2: the names the base does not hold, separated by commas.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:493
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:511
 #, php-format
 msgid "%1$s: not in the base: %2$s."
 msgstr ""
 
 #. translators: %s: the error Airtable or the site gave, a sentence.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:501
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:519
 #, php-format
 msgid "The base's columns could not be read: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:506
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:524
 msgid "The base's columns could not be read."
 msgstr ""
 
 #. translators: 1: the name of a column of the Mentors table, 2: the error Airtable or the site gave, a sentence.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:512
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:530
 #, php-format
 msgid "%1$s: its linked table could not be read: %2$s"
 msgstr ""
 
 #. translators: %s: the name of a column of the Mentors table.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:517
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:535
 #, php-format
 msgid "%s: its linked table could not be read."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:715
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:733
 msgid "There is no email address to search the Mentors table by."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:770
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:788
 msgid "The Mentor status to sync setting is blank, so nothing was written to Airtable. Fill it in, then press Write the Airtable row again."
 msgstr ""
 
 #. translators: %d: how many Mentors rows hold the applicant's address.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:806
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:824
 #, php-format
 msgid "Airtable holds %d Mentors rows with this address. Keep one, then press Write the Airtable row again."
 msgstr ""
 
 #. translators: %s: the username of the account that holds the Mentors row.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:816
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:834
 #, php-format
 msgid "The Mentors row with this address is linked to another account on this site, %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:864
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1141
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:882
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1162
 msgid "Airtable did not answer with a record ID."
 msgstr ""
 
 #. translators: %s: the error Airtable or the site gave.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:948
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:966
 #, php-format
 msgid "The base's columns could not be read from Airtable, so nothing was written: %s"
 msgstr ""
 
 #. translators: 1: the name of a column of the Mentors table, 2: the error Airtable or the site gave.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:952
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:970
 #, php-format
 msgid "%1$s could not be read from Airtable, so nothing was written: %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1059
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1080
 msgid "The check needs an email address."
 msgstr ""
 
 #. translators: %s: the status an activation writes, such as Active.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1103
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1124
 #, php-format
 msgid "The activation's status, %s, is not a choice of the Status column."
 msgstr ""
 
 #. translators: %s: the status the check row is written with, such as Inactive.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1112
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1133
 #, php-format
 msgid "The check row's status, %s, is one the mentors sync or the checker reads, or no choice of the Status column."
 msgstr ""
 
 #. translators: %s: the record IDs of the Mentors rows that hold the check address, separated by commas.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1128
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1149
 #, php-format
 msgid "Rows with the check address are already in the Mentors table: %s. Delete them by hand, then check again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1179
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1200
 msgid "Airtable did not confirm that it deleted the row."
 msgstr ""
 
 #. translators: %s: the name of a column of the Mentors table.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1195
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1216
 #, php-format
 msgid "%s: sent, and not read back."
 msgstr ""
 
 #. translators: %s: the check address, which is what to look for in the Mentors table.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1228
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1249
 #, php-format
 msgid "Could not search the Mentors table after the create failed, so a row may have been stored: look for %s in the Mentors table and delete it by hand."
 msgstr ""
 
 #. translators: %s: the record IDs of the rows the search found and deleted, separated by commas.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1267
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1288
 #, php-format
 msgid "The search after it found %s and deleted it."
 msgid_plural "The search after it found %s and deleted them."
@@ -14167,24 +14167,24 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the record ID of a row in the Mentors table.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1274
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1295
 #, php-format
 msgid "The row %s could not be deleted: delete it by hand in the Mentors table."
 msgstr ""
 
 #. translators: %s: the record ID of a row in the Mentors table that holds the check address.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1280
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1301
 #, php-format
 msgid "The row %s holds the check address but is not the check row, so it was not deleted: look at it in the Mentors table."
 msgstr ""
 
 #. translators: %s: the check address, which is what to look for in the Mentors table.
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1286
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1307
 #, php-format
 msgid "The search found no row yet, but Airtable may still store it: look for %s in the Mentors table in a minute and delete it by hand."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-airtable-row.php:1290
+#: includes/modules/class-wpcpm-mentor-airtable-row.php:1311
 msgid "The search after it found nothing, so nothing was stored and nothing was deleted."
 msgstr ""
 
@@ -14211,164 +14211,192 @@ msgstr ""
 msgid "the call for mentors page"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:384
+#: includes/modules/class-wpcpm-mentor-application-form.php:387
 msgid "We send the acknowledgement here, with a link to confirm the address."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:388
+#: includes/modules/class-wpcpm-mentor-application-form.php:391
 msgid "WordPress.org profile URL"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:392
+#: includes/modules/class-wpcpm-mentor-application-form.php:395
 msgid "Your profile's address, which is https://profiles.wordpress.org/ followed by your username, or just your username. If you do not have a profile yet, create one at https://login.wordpress.org/register."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:402
+#: includes/modules/class-wpcpm-mentor-application-form.php:405
 msgid "Are you a teacher from a WordPress Credits participating institution?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:408
+#: includes/modules/class-wpcpm-mentor-application-form.php:411
 msgid "Languages in which you could mentor students"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:411
+#: includes/modules/class-wpcpm-mentor-application-form.php:414
 msgid "Add as many as apply."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:415
+#: includes/modules/class-wpcpm-mentor-application-form.php:418
 msgid "In which WordPress contribution areas do you have expertise?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:418
+#: includes/modules/class-wpcpm-mentor-application-form.php:421
 msgid "This refers to your experience as a WordPress.org contributor. Add as many as apply. If you are new to contributing, select nothing."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:422
+#: includes/modules/class-wpcpm-mentor-application-form.php:425
 msgid "Available hours per week to mentor students"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:427
+#: includes/modules/class-wpcpm-mentor-application-form.php:430
 msgid "Mentoring asks for at least two hours a week."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:431
+#: includes/modules/class-wpcpm-mentor-application-form.php:434
+msgid "Are you sponsored to contribute to WordPress?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:437
+msgid "Sponsored means a company pays for the time you give to WordPress.org."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:441
+msgid "Which company sponsors you?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:445
+msgid "Only if you answered Yes above."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:449
+msgid "Would you like to be on the list of mentors looking for a sponsor?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:452
+msgid "Sponsors see this list on their Sponsor Dashboard once you are an active mentor and are not sponsored: your name, your WordPress.org profile photo, your contribution areas and how many students you have had."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:456
 msgid "Compliance declaration"
 msgstr ""
 
 #. translators: 1: an opening link tag to the GPL, 2: its closing tag, 3: an opening link tag to the WordPress trademark policy, 4: its closing tag.
-#: includes/modules/class-wpcpm-mentor-application-form.php:436
+#: includes/modules/class-wpcpm-mentor-application-form.php:461
 #, php-format
 msgid "I confirm that I comply with the %1$sGPL%2$s and do not violate, endorse, or work for companies that violate the %3$sWordPress trademark%4$s, misuse the WordPress name or logo, or distribute non-GPL-compliant derivatives of WordPress."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:445
+#: includes/modules/class-wpcpm-mentor-application-form.php:470
 msgid "Anything else you'd like us to know?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:451
+#: includes/modules/class-wpcpm-mentor-application-form.php:476
 msgid "Privacy policy"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:454
+#: includes/modules/class-wpcpm-mentor-application-form.php:479
 msgid "I confirm I have read the WordPress.org privacy policy and that my answers can be kept under it while the program reviews my application."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:466
+#: includes/modules/class-wpcpm-mentor-application-form.php:491
 msgid "About you"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:467
+#: includes/modules/class-wpcpm-mentor-application-form.php:492
 msgid "What you would mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:468
+#: includes/modules/class-wpcpm-mentor-application-form.php:493
 msgid "You and the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:815
+#: includes/modules/class-wpcpm-mentor-application-form.php:852
 msgid "The mentor application form is switched off. Turn on \"Applications from mentors\" on the Students and mentors tab of WPCredits Program > Settings when the program is ready to take them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:819
+#: includes/modules/class-wpcpm-mentor-application-form.php:856
 msgid "This form is not shown yet: the countries list is empty, and every application names a country. Read the lists again on the Connection tab of WPCredits Program > Settings."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:823
+#: includes/modules/class-wpcpm-mentor-application-form.php:860
 msgid "This form is not shown yet: the contribution teams list is empty, and every application names the teams its mentor knows. Run the mentors sync on the Mentors screen's Sync tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:941
+#: includes/modules/class-wpcpm-mentor-application-form.php:978
 msgid "The public mentor application form is drawn here on the front end. This is a summary, not the form: the live form carries a single-use token that the editor would spend."
 msgstr ""
 
 #. translators: %s: how many questions this group asks.
-#: includes/modules/class-wpcpm-mentor-application-form.php:960
+#: includes/modules/class-wpcpm-mentor-application-form.php:997
 #, php-format
 msgid "%s question"
 msgid_plural "%s questions"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:985
+#: includes/modules/class-wpcpm-mentor-application-form.php:1022
 msgid "Thank you for applying to mentor in the WordPress Credits Program. Your application is with us."
 msgstr ""
 
 #. translators: %s: the address the applicant gave.
-#: includes/modules/class-wpcpm-mentor-application-form.php:1007
+#: includes/modules/class-wpcpm-mentor-application-form.php:1044
 #, php-format
 msgid "We have sent an acknowledgement to %s with a link that confirms the address. Please follow it: the program writes to you about your application only once the address is confirmed. Every application is read by hand, and a reply can take several weeks."
 msgstr ""
 
 #. translators: %s: the address the applicant gave.
-#: includes/modules/class-wpcpm-mentor-application-form.php:1012
+#: includes/modules/class-wpcpm-mentor-application-form.php:1049
 #, php-format
 msgid "We could not send the acknowledgement to %s today, so please keep the reference above. Your application is stored and will be read by hand; a reply can take several weeks."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1031
+#: includes/modules/class-wpcpm-mentor-application-form.php:1068
 msgid "Nothing has been sent yet, and nothing has been stored. The program can only accept an application from somebody who confirms the privacy policy, so please tick the last box."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1034
+#: includes/modules/class-wpcpm-mentor-application-form.php:1071
 msgid "Several attempts have been made from this connection in the last hour, so this one was not taken. Please try again in an hour."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1036
+#: includes/modules/class-wpcpm-mentor-application-form.php:1073
 msgid "The program is not taking mentor applications through this form at the moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1037
+#: includes/modules/class-wpcpm-mentor-application-form.php:1074
 msgid "Thank you. Your address is confirmed, and your application is with the program's team."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1038
+#: includes/modules/class-wpcpm-mentor-application-form.php:1075
 msgid "This address was already confirmed, so there is nothing more to do. Your application is with the program's team."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1169
+#: includes/modules/class-wpcpm-mentor-application-form.php:1206
 #: includes/modules/class-wpcpm-student-report-form.php:1355
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:1046
 msgid "No"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1302
+#: includes/modules/class-wpcpm-mentor-application-form.php:1339
 msgid "The program can only take mentors who can say this, so please tick it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1305
+#: includes/modules/class-wpcpm-mentor-application-form.php:1342
 msgid "Give your WordPress.org username or your profile's address."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1306
+#: includes/modules/class-wpcpm-mentor-application-form.php:1343
 msgid "Please give a number of hours."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1307
+#: includes/modules/class-wpcpm-mentor-application-form.php:1344
 msgid "Please give at least one hour."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-form.php:1308
+#: includes/modules/class-wpcpm-mentor-application-form.php:1345
 msgid "Please give at most forty hours."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-form.php:1346
+msgid "Please name the company that sponsors you."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-queue.php:165
@@ -15975,127 +16003,127 @@ msgstr ""
 msgid "Assigning students to mentors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:536
+#: includes/modules/class-wpcpm-mentors-sync.php:539
 msgid "Reading each column's description…"
 msgstr ""
 
 #. translators: %s: number of linked names read.
-#: includes/modules/class-wpcpm-mentors-sync.php:541
+#: includes/modules/class-wpcpm-mentors-sync.php:544
 #, php-format
 msgid "%s institution and team names read"
 msgstr ""
 
 #. translators: 1: mentors read, 2: accounts created, 3: accounts linked.
-#: includes/modules/class-wpcpm-mentors-sync.php:548
+#: includes/modules/class-wpcpm-mentors-sync.php:551
 #, php-format
 msgid "%1$s mentors read · %2$s created · %3$s linked"
 msgstr ""
 
 #. translators: %s: number of mentors whose role was revoked.
-#: includes/modules/class-wpcpm-mentors-sync.php:557
+#: includes/modules/class-wpcpm-mentors-sync.php:560
 #, php-format
 msgid "%s no longer active"
 msgstr ""
 
 #. translators: %s: number of student reports read.
-#: includes/modules/class-wpcpm-mentors-sync.php:564
+#: includes/modules/class-wpcpm-mentors-sync.php:567
 #, php-format
 msgid "%s student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:569
+#: includes/modules/class-wpcpm-mentors-sync.php:572
 msgid "Joining tutors to students by email…"
 msgstr ""
 
 #. translators: 1: assignments written, 2: mentors with students.
-#: includes/modules/class-wpcpm-mentors-sync.php:574
+#: includes/modules/class-wpcpm-mentors-sync.php:577
 #, php-format
 msgid "%1$s assignments across %2$s mentors"
 msgstr ""
 
 #. translators: %s: error message from Airtable.
-#: includes/modules/class-wpcpm-mentors-sync.php:734
+#: includes/modules/class-wpcpm-mentors-sync.php:737
 #, php-format
 msgid "Could not read field descriptions from Airtable, so the built-in descriptions are being shown instead. Add the \"schema.bases:read\" scope to the token to use the descriptions written in Airtable. (%s)"
 msgstr ""
 
 #. translators: 1: Airtable field name, 2: Airtable table ID.
-#: includes/modules/class-wpcpm-mentors-sync.php:839
+#: includes/modules/class-wpcpm-mentors-sync.php:842
 #, php-format
 msgid "Read %2$s but found no names in the column \"%1$s\". Check the name field setting for that table."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1084
+#: includes/modules/class-wpcpm-mentors-sync.php:1087
 msgid "No current student status is set, so a sync would read every row of the Students Reports table as a current student. Add at least one under \"Currently mentoring\" on the Settings screen before syncing."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1088
+#: includes/modules/class-wpcpm-mentors-sync.php:1091
 msgid "The mentor status to sync is blank, so a sync would give every row of the mentors table a Mentor account whatever its status. Set it on the Settings screen before syncing."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1173
+#: includes/modules/class-wpcpm-mentors-sync.php:1176
 msgid "Where the student currently is in the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1174
+#: includes/modules/class-wpcpm-mentors-sync.php:1177
 msgid "The student's email address, as recorded in the program. Also what their tutor is matched on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1176
+#: includes/modules/class-wpcpm-mentors-sync.php:1179
 msgid "When the student's internship starts and finishes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1177
+#: includes/modules/class-wpcpm-mentors-sync.php:1180
 msgid "When the student's internship finishes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1178
+#: includes/modules/class-wpcpm-mentors-sync.php:1181
 msgid "The teacher at the student's institution who supervises their internship."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1179
+#: includes/modules/class-wpcpm-mentors-sync.php:1182
 msgid "The school or university the student comes from."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1180
+#: includes/modules/class-wpcpm-mentors-sync.php:1183
 msgid "The student's profile on WordPress.org, where their contributions are recorded."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1181
+#: includes/modules/class-wpcpm-mentors-sync.php:1184
 msgid "The student's handle in the Making WordPress Slack, for contacting them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1182
+#: includes/modules/class-wpcpm-mentors-sync.php:1185
 msgid "The WordPress contributor team the student's project belongs to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1183
+#: includes/modules/class-wpcpm-mentors-sync.php:1186
 msgid "The website the student built during the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1184
+#: includes/modules/class-wpcpm-mentors-sync.php:1187
 msgid "The student's reporting form, prefilled for their record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1185
+#: includes/modules/class-wpcpm-mentors-sync.php:1188
 msgid "The reporting form for the 50-hour track, prefilled for their record."
 msgstr ""
 
 #. translators: %s: WordPress username.
-#: includes/modules/class-wpcpm-mentors-sync.php:1339
+#: includes/modules/class-wpcpm-mentors-sync.php:1342
 #, php-format
 msgid "No invitation was sent to %s: its invitation is held. Send invite or Resend invite on its row in the Mentors screen's Accounts tab sends it."
 msgstr ""
 
 #. translators: 1: how many mentors whose accounts already existed became active in one run, 2: their WordPress usernames, separated by commas.
-#: includes/modules/class-wpcpm-mentors-sync.php:1404
+#: includes/modules/class-wpcpm-mentors-sync.php:1407
 #, php-format
 msgid "%1$s mentor whose account already existed became active in one run, so none was sent the welcome: %2$s. Its invitation waits in the Mentors screen's Accounts tab, where Send invite or Resend invite on its row sends it."
 msgid_plural "%1$s mentors whose accounts already existed became active in one run, so none was sent the welcome: %2$s. Their invitations wait in the Mentors screen's Accounts tab, where Send invite or Resend invite on each row sends it."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1964
+#: includes/modules/class-wpcpm-mentors-sync.php:1967
 msgid "That account does not hold the Mentor role."
 msgstr ""
 

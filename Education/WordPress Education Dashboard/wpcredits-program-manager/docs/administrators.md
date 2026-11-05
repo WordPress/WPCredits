@@ -233,13 +233,19 @@ form, and they are the page's to edit. So is the sentence an applicant reads onc
 own sentence is shown. A page already at /become-a-mentor/ when the plugin first looks is used as
 it is, so the form shows on it only once the block is added.
 
-The form asks the eleven questions the Airtable form asks, in its order: the applicant's full name;
+The form asks the eleven questions the Airtable form asks, in its order, and three more: the applicant's full name;
 their email; their WordPress.org profile (the username, an @username or the address of their
 profile on wordpress.org, kept as the username, and anything else refused with a sentence asking for
 one of those); their country (one field: type a few letters and pick one); whether they are a
 teacher at an institution taking part in the program; the languages they can mentor in; the
 contribution areas they have expertise in, which may be left empty; the hours a week they can give,
-from 1 to 40, kept to one decimal place; the compliance declaration, the GPL and trademark statement
+from 1 to 40, kept to one decimal place; since 1.123.52, the three sponsorship questions the
+Mentors table has columns for and the Airtable form never asked: whether they are sponsored to
+contribute to WordPress (Yes or No), which company sponsors them (asked of a sponsored applicant
+only: a Yes with no company is sent back with "Please name the company that sponsors you.", and a
+company typed beside a No is not kept), and whether they would like to be on the list of mentors
+looking for a sponsor, which sponsors see on their Sponsor Dashboard once the person is an active
+mentor and not sponsored; the compliance declaration, the GPL and trademark statement
 with its two links, which must be ticked; anything else they would like us to know; and the
 confirmation that they have read the WordPress.org privacy policy, which the line under the box
 links. An answer to **Anything else you'd like us to know?** holding what WordPress's

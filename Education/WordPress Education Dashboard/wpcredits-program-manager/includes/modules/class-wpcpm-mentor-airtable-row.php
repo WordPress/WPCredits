@@ -15,8 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **What is written.** Full Name, WordPress profile, Email and Status always, and the applicant's
  * answers whose columns exist: the country and the languages as links where the names match, the
- * contribution areas, the hours, the teacher answer and the free text. The three sponsorship
- * columns stay empty, since the form does not ask them. After that the row is Airtable's: the site
+ * contribution areas, the hours, the teacher answer and the free text, and since 1.123.52 the three
+ * sponsorship answers: Sponsored, the company's text column, and Wants to be in the looking for
+ * sponsors list (the linked Sponsor Company Name column stays empty: the sponsors live on the site). After that the row is Airtable's: the site
  * never updates it again, and never deletes a mentor's row. The one cell it ever changes is the
  * Status of the row that already holds the person, a returning mentor's own or the one found by the
  * address, which it sets back to the status the mentors sync reads.
@@ -59,6 +60,9 @@ final class WPCPM_Mentor_Airtable_Row {
 		'languages' => 'mentor_languages',
 		'expertise' => 'mentor_expertise',
 		'hours'     => 'mentor_hours',
+		'sponsored' => 'mentor_sponsored',
+		'sponsor_company' => 'mentor_sponsor_text',
+		'wants_sponsor' => 'mentor_wants_sponsor',
 		'teacher'   => 'mentor_teacher',
 		'anything'  => 'mentor_anything',
 	);
@@ -91,6 +95,20 @@ final class WPCPM_Mentor_Airtable_Row {
 		),
 		'hours'     => array(
 			'number'         => 'number',
+			'singleLineText' => 'text',
+		),
+		'sponsored' => array(
+			'singleSelect'   => 'choice',
+			'checkbox'       => 'box',
+			'singleLineText' => 'text',
+		),
+		'sponsor_company' => array(
+			'singleLineText' => 'text',
+			'multilineText'  => 'text',
+		),
+		'wants_sponsor' => array(
+			'singleSelect'   => 'choice',
+			'checkbox'       => 'box',
 			'singleLineText' => 'text',
 		),
 		'teacher'   => array(
@@ -996,6 +1014,9 @@ final class WPCPM_Mentor_Airtable_Row {
 			'languages' => array( 'English' ),
 			'expertise' => array() === $teams ? array() : array( (string) reset( $teams ) ),
 			'hours'     => '2.5',
+			'sponsored' => 'Yes',
+			'sponsor_company' => self::CHECK_NAME,
+			'wants_sponsor' => 'No',
 			'teacher'   => 'No',
 			'anything'  => 'A check row written by the site and deleted at once.',
 		);

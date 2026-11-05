@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.51
+Stable tag: 1.123.52
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.52 =
+
+* The mentor application form asks three questions the Airtable form never did, after the hours: whether the applicant is sponsored to contribute to WordPress, which company sponsors them, and whether they would like to be on the list of mentors looking for a sponsor, with a line under it saying what sponsors see of that list on their Sponsor Dashboard and when. The company is asked of a sponsored applicant only: a Yes with no company is sent back with "Please name the company that sponsors you.", and a company typed beside a No is not kept. The answers show with the others in Waiting for review.
+* When an applicant becomes a mentor, their new row in Airtable's Mentors table carries the three answers in Sponsored, Sponsor company and Wants to be in the looking for sponsors list, so a mentor who said Yes to the list shows on the Sponsor Dashboard's "Mentors looking for a sponsor" once active. The linked Sponsor Company Name column is left empty, since the sponsors live on this site. The check row an Administrator writes before the launch fills all three.
 
 = 1.123.51 =
 

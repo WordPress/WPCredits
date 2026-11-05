@@ -391,6 +391,15 @@ function schema( array $changes = array() ) {
 			'options' => choices( array( 'Polyglots', 'Training' ) ),
 		),
 		'Available hours per week'                  => array( 'type' => 'number' ),
+		'Sponsored'                                 => array(
+			'type'    => 'singleSelect',
+			'options' => choices( array( 'Yes', 'No' ) ),
+		),
+		'Sponsor company'                           => array( 'type' => 'singleLineText' ),
+		'Wants to be in the looking for sponsors list' => array(
+			'type'    => 'singleSelect',
+			'options' => choices( array( 'Yes', 'No' ) ),
+		),
 		'Teacher from a participating institution?' => array(
 			'type'    => 'singleSelect',
 			'options' => choices( array( 'Yes', 'No' ) ),
@@ -445,6 +454,9 @@ function application( array $more = array() ) {
 				'languages' => array( 'English', 'Polish' ),
 				'expertise' => array( 'Polyglots', 'Training' ),
 				'hours'     => '2.5',
+				'sponsored' => 'No',
+				'sponsor_company' => '',
+				'wants_sponsor' => 'Yes',
 				'anything'  => 'Tom & Jerry\'s "quote", and a &lt; b, Zoë &amp; co.',
 			),
 			$more
@@ -500,8 +512,18 @@ ck( 'the answers the row carries, by the key of fields() each is written to, in 
 		'languages' => 'mentor_languages',
 		'expertise' => 'mentor_expertise',
 		'hours'     => 'mentor_hours',
+		'sponsored' => 'mentor_sponsored',
+		'sponsor_company' => 'mentor_sponsor_text',
+		'wants_sponsor' => 'mentor_wants_sponsor',
 		'teacher'   => 'mentor_teacher',
 		'anything'  => 'mentor_anything',
+	) );
+ck( 'the three sponsorship columns are named by fields() together, the company\'s text column between the two Yes or No ones (1.123.52), and the linked Sponsor Company Name column is not one of them',
+	array_slice( $mentor_fields, (int) array_search( 'mentor_sponsored', array_keys( $mentor_fields ), true ), 3 ),
+	array(
+		'mentor_sponsored'       => 'Sponsored',
+		'mentor_sponsor_text'    => 'Sponsor company',
+		'mentor_wants_sponsor'   => 'Wants to be in the looking for sponsors list',
 	) );
 ck( 'the linked names are kept under one transient, and the check status is one the base offers', array( WPCPM_Mentor_Airtable_Row::LINKS_TRANSIENT, WPCPM_Mentor_Airtable_Row::CHECK_STATUS ), array( 'wpcpm_mapp_link_names', 'Inactive' ) );
 
@@ -522,9 +544,14 @@ ck( 'the row an application writes: the four cells the sync reads, then each ans
 		'Languages'                                 => array( 'recLANGENGLISH001', 'recLANGPOLISH0001' ),
 		'Contribution Area - Expertise'             => array( 'Polyglots', 'Training' ),
 		'Available hours per week'                  => 2.5,
+		'Sponsored'                                 => 'No',
+		'Wants to be in the looking for sponsors list' => 'Yes',
 		'Teacher from a participating institution?' => 'No',
 		$anything                                   => 'Tom & Jerry\'s "quote", and a < b, Zoë & co.',
 	) );
+ck( 'a sponsored applicant\'s row carries the company as typed and both choices; an empty company, a No\'s, writes no cell',
+	array_intersect_key( WPCPM_Mentor_Airtable_Row::cells( application( array( 'sponsored' => 'Yes', 'sponsor_company' => 'Acme & Sons', 'wants_sponsor' => 'No' ) ), schema(), names() )['cells'], array_flip( array( 'Sponsored', 'Sponsor company', 'Wants to be in the looking for sponsors list' ) ) ),
+	array( 'Sponsored' => 'Yes', 'Sponsor company' => 'Acme & Sons', 'Wants to be in the looking for sponsors list' => 'No' ) );
 ck( 'and nothing is left out', $row['left_out'], array() );
 ck( 'a name typed with quotes, an ampersand and a "<" is sent as typed',
 	WPCPM_Mentor_Airtable_Row::cells( application( array( 'name' => 'Zoë "Z" Example & Co &lt;3' ) ), schema(), names() )['cells']['Full Name'], 'Zoë "Z" Example & Co <3' );
@@ -538,7 +565,7 @@ ck( 'a language the base does not hold is left out by name, and the others are l
 	) ) );
 
 $no_hours = WPCPM_Mentor_Airtable_Row::cells( $ada, schema( array( 'Available hours per week' => null ) ), names() );
-ck( 'an answer whose column the table lacks is left out, and the rest is written', array( array_key_exists( 'Available hours per week', $no_hours['cells'] ), $no_hours['left_out'], count( $no_hours['cells'] ) ), array( false, array( 'Available hours per week' => array( 'why' => 'no-column', 'values' => array() ) ), 9 ) );
+ck( 'an answer whose column the table lacks is left out, and the rest is written', array( array_key_exists( 'Available hours per week', $no_hours['cells'] ), $no_hours['left_out'], count( $no_hours['cells'] ) ), array( false, array( 'Available hours per week' => array( 'why' => 'no-column', 'values' => array() ) ), 11 ) );
 ck( 'a column of a type the site does not write is left out with its type',
 	WPCPM_Mentor_Airtable_Row::cells( $ada, schema( array( 'Available hours per week' => array( 'type' => 'rating' ) ) ), names() )['left_out'],
 	array( 'Available hours per week' => array( 'why' => 'type', 'values' => array( 'rating' ) ) ) );
@@ -569,7 +596,7 @@ ck( 'a country goes as a link, a choice or text by its column, the name matched 
 	),
 	array( array( 'recCOUNTRYPL00001' ), 'Poland', 'Poland' ) );
 $atlantis = WPCPM_Mentor_Airtable_Row::cells( application( array( 'country' => 'Atlantis' ) ), schema(), names() );
-ck( 'a country the base does not hold is left out by name and the rest is written', array( array_key_exists( 'Country', $atlantis['cells'] ), $atlantis['left_out'], count( $atlantis['cells'] ) ), array( false, array( 'Country' => array( 'why' => 'unmatched', 'values' => array( 'Atlantis' ) ) ), 9 ) );
+ck( 'a country the base does not hold is left out by name and the rest is written', array( array_key_exists( 'Country', $atlantis['cells'] ), $atlantis['left_out'], count( $atlantis['cells'] ) ), array( false, array( 'Country' => array( 'why' => 'unmatched', 'values' => array( 'Atlantis' ) ) ), 11 ) );
 ck( 'and a country that is no choice of a choice column is left out the same way',
 	WPCPM_Mentor_Airtable_Row::cells( $ada, schema( array( 'Country' => array( 'type' => 'singleSelect', 'options' => choices( array( 'Germany' ) ) ) ) ), names() )['left_out'],
 	array( 'Country' => array( 'why' => 'unmatched', 'values' => array( 'Poland' ) ) ) );
@@ -826,6 +853,9 @@ ck( 'the synthetic mentor is named for what it is, with the address given, the f
 		'languages' => array( 'English' ),
 		'expertise' => array( 'Hosting' ),
 		'hours'     => '2.5',
+		'sponsored' => 'Yes',
+		'sponsor_company' => 'Mentor row check',
+		'wants_sponsor' => 'No',
 		'teacher'   => 'No',
 		'anything'  => 'A check row written by the site and deleted at once.',
 	) );

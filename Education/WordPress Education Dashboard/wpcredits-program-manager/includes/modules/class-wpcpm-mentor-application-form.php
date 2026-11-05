@@ -355,7 +355,10 @@ final class WPCPM_Mentor_Application_Form {
 	/**
 	 * The questions, keyed by the site field each answer is kept under: the Airtable form's eleven, in
 	 * its order and with its labels and help, as it read on 16 October 2026 (design, section 2.3).
-	 * It does not ask the Mentors table's three sponsorship columns, and neither does this.
+	 * The Airtable form never asked the Mentors table's three sponsorship columns; since 1.123.52 this
+	 * form does, after the hours: whether the applicant is sponsored, by which company (asked of a
+	 * sponsored applicant only, see `add_required()`), and whether they want to be on the Sponsor
+	 * Dashboard's list of mentors looking for a sponsor.
 	 *
 	 * The two boxes to tick carry a heading (`label`) and the words beside the box (`box`): the
 	 * compliance declaration's are the form's statement word for word, with its two links, and the
@@ -425,6 +428,28 @@ final class WPCPM_Mentor_Application_Form {
 				'min'      => 1,
 				'max'      => 40,
 				'help'     => __( 'Mentoring asks for at least two hours a week.', 'wpcredits-program-manager' ),
+			),
+			'sponsored'       => array(
+				'group'    => 'program',
+				'label'    => __( 'Are you sponsored to contribute to WordPress?', 'wpcredits-program-manager' ),
+				'type'     => 'yesno',
+				'required' => true,
+				'help'     => __( 'Sponsored means a company pays for the time you give to WordPress.org.', 'wpcredits-program-manager' ),
+			),
+			'sponsor_company' => array(
+				'group'     => 'program',
+				'label'     => __( 'Which company sponsors you?', 'wpcredits-program-manager' ),
+				'type'      => 'text',
+				'required'  => false,
+				'maxlength' => 120,
+				'help'      => __( 'Only if you answered Yes above.', 'wpcredits-program-manager' ),
+			),
+			'wants_sponsor'   => array(
+				'group'    => 'program',
+				'label'    => __( 'Would you like to be on the list of mentors looking for a sponsor?', 'wpcredits-program-manager' ),
+				'type'     => 'yesno',
+				'required' => true,
+				'help'     => __( 'Sponsors see this list on their Sponsor Dashboard once you are an active mentor and are not sponsored: your name, your WordPress.org profile photo, your contribution areas and how many students you have had.', 'wpcredits-program-manager' ),
 			),
 			'gpl'       => array(
 				'group'    => 'program',
@@ -719,6 +744,12 @@ final class WPCPM_Mentor_Application_Form {
 
 		unset( $values['consent'] );
 
+		// A company typed beside a No is not the applicant's sponsor: the No is the answer kept. Left
+		// as typed while the first question is unanswered, so it comes back in its box.
+		if ( isset( $values['sponsored'] ) && 'No' === $values['sponsored'] ) {
+			$values['sponsor_company'] = '';
+		}
+
 		return array(
 			'values'   => $values,
 			'problems' => $problems,
@@ -764,6 +795,12 @@ final class WPCPM_Mentor_Application_Form {
 			if ( self::is_blank( $value ) ) {
 				$problems[ $key ] = 'required';
 			}
+		}
+
+		// The sponsor's company is asked of a sponsored applicant alone, so it is required only beside
+		// a Yes (1.123.52).
+		if ( isset( $values['sponsored'] ) && 'Yes' === $values['sponsored'] && ! isset( $problems['sponsor_company'] ) && self::is_blank( isset( $values['sponsor_company'] ) ? $values['sponsor_company'] : null ) ) {
+			$problems['sponsor_company'] = 'company_needed';
 		}
 
 		return $problems;
@@ -1306,6 +1343,7 @@ final class WPCPM_Mentor_Application_Form {
 			'not_a_number' => __( 'Please give a number of hours.', 'wpcredits-program-manager' ),
 			'below_min'    => __( 'Please give at least one hour.', 'wpcredits-program-manager' ),
 			'above_max'    => __( 'Please give at most forty hours.', 'wpcredits-program-manager' ),
+			'company_needed' => __( 'Please name the company that sponsors you.', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $said[ $problem ] ) ? $said[ $problem ] : __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );

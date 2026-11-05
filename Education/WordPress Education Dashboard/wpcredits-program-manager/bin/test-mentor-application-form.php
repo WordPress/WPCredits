@@ -238,6 +238,8 @@ function answers( array $more = array() ) {
 			'languages' => array( 'Polish', 'English' ),
 			'expertise' => array( 'Training', 'Polyglots' ),
 			'hours'     => '2,5',
+			'sponsored' => 'No',
+			'wants_sponsor' => 'Yes',
 			'gpl'       => '1',
 			'anything'  => 'I lead a meetup.',
 			'consent'   => '1',
@@ -328,7 +330,7 @@ ck(
 echo "\n=== The questions ===\n";
 
 ck(
-	'the questions are the Airtable form\'s eleven, in its order, with its labels, under the site\'s own keys, and no sponsorship question',
+	'the questions are the Airtable form\'s eleven, in its order, with its labels, under the site\'s own keys, and since 1.123.52 the Mentors table\'s three sponsorship questions after the hours, before the compliance declaration',
 	array_map(
 		function ( $spec ) {
 			return $spec['label'];
@@ -344,6 +346,9 @@ ck(
 		'languages' => 'Languages in which you could mentor students',
 		'expertise' => 'In which WordPress contribution areas do you have expertise?',
 		'hours'     => 'Available hours per week to mentor students',
+		'sponsored' => 'Are you sponsored to contribute to WordPress?',
+		'sponsor_company' => 'Which company sponsors you?',
+		'wants_sponsor' => 'Would you like to be on the list of mentors looking for a sponsor?',
 		'gpl'       => 'Compliance declaration',
 		'anything'  => 'Anything else you\'d like us to know?',
 		'consent'   => 'Privacy policy',
@@ -355,9 +360,9 @@ ck(
 	array( 'I confirm that I comply with the GPL and do not violate, endorse, or work for companies that violate the WordPress trademark, misuse the WordPress name or logo, or distribute non-GPL-compliant derivatives of WordPress.', 2, array( 'GPL https://wordpress.org/about/license/', 'WordPress trademark https://wordpressfoundation.org/trademark-policy/' ) )
 );
 ck(
-	'the required ones: everything but the contribution areas and the free text',
+	'the required ones: everything but the contribution areas, the sponsor\'s company (asked of a sponsored applicant only, below) and the free text',
 	array_keys( array_filter( WPCPM_Mentor_Application_Form::fields(), function ( $spec ) { return ! empty( $spec['required'] ); } ) ),
-	array( 'name', 'email', 'profile', 'country', 'teacher', 'languages', 'hours', 'gpl', 'consent' )
+	array( 'name', 'email', 'profile', 'country', 'teacher', 'languages', 'hours', 'sponsored', 'wants_sponsor', 'gpl', 'consent' )
 );
 ck(
 	'the help is the form\'s: where a profile is, as many languages and areas as apply, none for somebody new to contributing',
@@ -446,6 +451,49 @@ ck(
 	array( array(), 'sent' )
 );
 ck( 'a key nobody asks about is refused', WPCPM_Mentor_Application_Form::clean( 'role', 'administrator' )['problem'], 'unknown_field' );
+
+echo "\n=== Sponsorship (1.123.52) ===\n";
+
+$sponsorship = WPCPM_Mentor_Application_Form::fields();
+ck( 'the three are a Yes or No, a line of text up to 120 characters and a Yes or No, in the part about you and the program',
+	array( $sponsorship['sponsored']['type'], $sponsorship['sponsor_company']['type'], $sponsorship['sponsor_company']['maxlength'], $sponsorship['wants_sponsor']['type'], array_unique( array( $sponsorship['sponsored']['group'], $sponsorship['sponsor_company']['group'], $sponsorship['wants_sponsor']['group'] ) ) ),
+	array( 'yesno', 'text', 120, 'yesno', array( 'program' ) ) );
+ck( 'each with its help line: what sponsored means, that the company is asked of a sponsored applicant, and what sponsors see of the list and when',
+	array( $sponsorship['sponsored']['help'], $sponsorship['sponsor_company']['help'], $sponsorship['wants_sponsor']['help'] ),
+	array(
+		'Sponsored means a company pays for the time you give to WordPress.org.',
+		'Only if you answered Yes above.',
+		'Sponsors see this list on their Sponsor Dashboard once you are an active mentor and are not sponsored: your name, your WordPress.org profile photo, your contribution areas and how many students you have had.',
+	) );
+
+reset_world();
+$no_company = submit( answers( array( 'sponsored' => 'Yes' ) ) );
+ck( 'a sponsored applicant who names no company is asked for it, and nothing is stored',
+	array( $no_company['stash']['problems']['sponsor_company'] ?? null, count( rows() ) ),
+	array( 'company_needed', 0 ) );
+$said_company = new ReflectionMethod( 'WPCPM_Mentor_Application_Form', 'problem_text' );
+$said_company->setAccessible( true );
+ck( 'in a sentence of its own', $said_company->invoke( null, 'company_needed' ), 'Please name the company that sponsors you.' );
+
+reset_world();
+$named = submit( answers( array( 'sponsored' => 'Yes', 'sponsor_company' => '  Acme Hosting ', 'wants_sponsor' => 'No' ) ) );
+$named_row = only_row();
+ck( 'one who names it is sent, and the three answers are kept',
+	array( $named['outcome'], array_intersect_key( $named_row ? WPCPM_Mentor_Application::fields_of( $named_row ) : array(), array_flip( array( 'sponsored', 'sponsor_company', 'wants_sponsor' ) ) ) ),
+	array( 'sent', array( 'sponsored' => 'Yes', 'sponsor_company' => 'Acme Hosting', 'wants_sponsor' => 'No' ) ) );
+
+reset_world();
+$not_sponsored = submit( answers( array( 'sponsored' => 'No', 'sponsor_company' => 'Acme Hosting' ) ) );
+$not_row       = only_row();
+ck( 'a company typed beside a No is not kept: the answer that counts is the No',
+	array( $not_sponsored['outcome'], $not_row ? WPCPM_Mentor_Application::fields_of( $not_row )['sponsor_company'] : null ),
+	array( 'sent', '' ) );
+
+reset_world();
+$unsaid = submit( answers( array( 'sponsored' => null, 'wants_sponsor' => null, 'sponsor_company' => 'Acme Hosting' ) ) );
+ck( 'both Yes or No questions must be answered, and a company typed while the first is unanswered comes back in its box',
+	array( $unsaid['stash']['problems']['sponsored'] ?? null, $unsaid['stash']['problems']['wants_sponsor'] ?? null, $unsaid['stash']['problems']['sponsor_company'] ?? null, $unsaid['stash']['values']['sponsor_company'] ?? null ),
+	array( 'required', 'required', null, 'Acme Hosting' ) );
 
 echo "\n=== The checks, in the sponsor form's order ===\n";
 
@@ -597,6 +645,9 @@ ck(
 		'languages' => array( 'English', 'Polish' ),
 		'expertise' => array( 'Polyglots', 'Training' ),
 		'hours'     => '2.5',
+		'sponsored' => 'No',
+		'sponsor_company' => '',
+		'wants_sponsor' => 'Yes',
 		'gpl'       => true,
 		// As a browser posts a text box, each line break CRLF, and kept so.
 		'anything'  => "Line one.\r\nC:\\path & \"quotes\"",
@@ -865,7 +916,7 @@ $spam_all = $spam_row ? json_encode( $GLOBALS['pmeta'][ $spam_row->ID ] ) : '';
 ck(
 	'a row filed as spam stores no refused typing: the free text and the profile that were refused are in none of its meta, and the page says sent',
 	array( $filed['outcome'], $spam_row ? WPCPM_Mentor_Application::state_of( $spam_row ) : null, $spam_row ? array_keys( WPCPM_Mentor_Application::fields_of( $spam_row ) ) : null, false !== strpos( $spam_all, 'Navigation' ), false !== strpos( $spam_all, 'Ada Example' ) ),
-	array( 'sent', 'spam', array( 'name', 'email', 'country', 'teacher', 'languages', 'expertise', 'hours', 'gpl' ), false, false )
+	array( 'sent', 'spam', array( 'name', 'email', 'country', 'teacher', 'languages', 'expertise', 'hours', 'sponsored', 'sponsor_company', 'wants_sponsor', 'gpl' ), false, false )
 );
 
 reset_world();
