@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.52
+Stable tag: 1.123.53
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.53 =
+
+* The Mentor guide marks where the Student guide begins: a section of its own, "What your students read", says that what follows is the Student guide as students read it, kept whole because a mentor cannot open the Student guide page, and the student sections sit under it in the page's contents list. Links into those sections still land where they did. The Student and Administrator guides are unchanged.
+* The Student and Mentor guides name the tracks by kind, not by hours: "the WordPress Credits Course full tracks" and "the Intro tracks" in place of the 150-hour and the 50-hour course.
 
 = 1.123.52 =
 

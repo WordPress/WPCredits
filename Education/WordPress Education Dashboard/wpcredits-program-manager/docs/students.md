@@ -143,7 +143,7 @@ form with your course's questions and the answers you saved, and the calendar fo
 
 If this site has no record of the course you took, the Program row says **Pending graduation**
 alone, with no link, your hours have a section of their own, *My hours*, and the report form asks
-the 150-hour course's questions.
+the questions of the WordPress Credits Course full tracks.
 
 The status is not yours to change, and not your mentor's either. The program's Administrators move
 it on by recording your graduation in the program records, and your card catches up at the next
@@ -168,9 +168,9 @@ Open **Your report form** and the questions are grouped in the order you meet th
   took part in, and the reflection posts for each stage.
 - **Wrap-up** - your closing post.
 
-What is asked depends on your track. The 150-hour course asks for the reflection posts and the
-module grades; the 50-hour course asks instead for one final project report; the Developer Track
-asks the 150-hour questions with seven more of its own; and the Designer Track follows its own
+What is asked depends on your track. The WordPress Credits Course full tracks ask for the reflection posts and the
+module grades; the Intro tracks ask instead for one final project report; the Developer Track
+asks the full tracks' questions with seven more of its own; and the Designer Track follows its own
 Learn course lesson by lesson - the course grades and your portfolio first, then the eight practical
 lessons, each with its own notes and its own screenshots, then your contribution team and project,
 then your reflection posts, the alumni program section with the meetings you took part in, the event
@@ -383,7 +383,7 @@ how to collaborate in a distributed team.
   calls you book on your Student Report Card and asynchronous support, on Slack or other
   communication channels.
 - **Time commitment.** The hours depend on your track and are flexible to meet each institution's
-  needs. On the 150-hour course this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
+  needs. On the WordPress Credits Course full tracks this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
   You can spread your hours flexibly, but you are expected to stay consistent. The program includes a
   theoretical onboarding phase and hands-on, practical activities.
 - **Projects.** You design and carry out a contribution project aligned with your studies and
@@ -394,7 +394,7 @@ how to collaborate in a distributed team.
   connections and learn how an open source community works.
 - **Deliverables.** What you hand in depends on your track, and your report form shows exactly what
   yours asks for. Most tracks ask for reflection posts on your personal website and a closing post;
-  the 50-hour tracks ask instead for one final project report, and on some tracks
+  the Intro tracks ask instead for one final project report, and on some tracks
   the website is optional. Whatever your track, your work earns contribution credits in the WordPress
   ecosystem.
 

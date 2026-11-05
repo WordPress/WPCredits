@@ -1670,14 +1670,15 @@ $set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
 // WPCredits#283), in both guides that carry the mentors' sections, after the page's own sections and
 // before what the students see, which runs straight on into the student guide.
 $mentor_new_parts = array( '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist' );
-$mentor_order     = array( '22-mentor-help', '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist', '26-mentor-student-view', '10-student-card' );
+$mentor_order     = array( '22-mentor-help', '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist', '26-mentor-student-view', '27-mentor-students-read', '10-student-card' );
+$admin_order      = array( '22-mentor-help', '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist', '26-mentor-student-view', '10-student-card', '11-student-booking' );
 $mentor_build     = (string) file_get_contents( __DIR__ . '/build-docs.php' );
 preg_match_all( "/'(\d\d-[a-z-]+)'/", $mentor_build, $mentor_listed );
 $mentor_runs = array();
 foreach ( array_keys( $mentor_listed[1], '22-mentor-help', true ) as $start ) {
 	$mentor_runs[] = array_slice( $mentor_listed[1], $start, count( $mentor_order ) );
 }
-ck( 'the Mentor guide and the Administrator guide both list the three sections, in that place', $mentor_runs, array( $mentor_order, $mentor_order ) );
+ck( 'the Mentor guide and the Administrator guide both list the three sections, in that place, and the Mentor guide alone puts its own heading before the student part (1.123.53, WordPress/WPCredits#283)', $mentor_runs, array( $mentor_order, $admin_order ) );
 
 $mentor_new_text = '';
 foreach ( $mentor_new_parts as $part ) {
@@ -1733,9 +1734,9 @@ $student_runs = array();
 foreach ( array_keys( $mentor_listed[1], '12-student-help', true ) as $start ) {
 	$student_runs[] = array_slice( $mentor_listed[1], $start, 2 );
 }
-ck( 'the Student, Mentor and Administrator guides all list the new section after If something looks wrong',
+ck( 'the Student, Mentor and Administrator guides all list the new section after If something looks wrong, and the Mentor guide\'s list of the sections it nests (1.123.53) does too',
     $student_runs,
-    array( array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ) ) );
+    array( array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ) ) );
 
 $student_new_text = (string) @file_get_contents( __DIR__ . '/../docs/sections/14-student-program.md' );
 ck( 'the section carries the handbook\'s headings',
@@ -1761,6 +1762,50 @@ $student_outputs = array(
 	(string) file_get_contents( __DIR__ . '/../docs/students.md' ),
 	(string) file_get_contents( __DIR__ . '/../docs/build/students.html' ),
 );
+
+// Tracks by kind, not by hours (1.123.53, the mentor coordinator on WordPress/WPCredits#283): the full
+// tracks (Foundations, Design, Developer, Translation) and the Intro tracks, in every section a student
+// or a mentor reads. A Haaga-Helia student's 100 hours were neither of the old two figures.
+$track_sections = array( '10-student-card', '14-student-program', '24-mentor-check-ins', '25-mentor-checklist' );
+$track_text     = '';
+foreach ( $track_sections as $part ) {
+	$track_text .= (string) @file_get_contents( __DIR__ . '/../docs/sections/' . $part . '.md' ) . "\n";
+}
+ck( 'the student and mentor sections name no track by its hours: no "150-hour" and no "50-hour" left',
+    array( substr_count( $track_text, '150-hour' ), substr_count( $track_text, '50-hour' ) ),
+    array( 0, 0 ) );
+ck( 'they say the full tracks and the Intro tracks instead, in each place the hours were',
+    array(
+		substr_count( $track_text, 'full tracks' ) >= 5,
+		substr_count( $track_text, 'Intro tracks' ) >= 5,
+		false !== strpos( $track_text, 'The WordPress Credits Course full tracks ask for the reflection posts and the' ),
+		false !== strpos( $track_text, 'the Intro tracks ask instead for one final project report' ),
+		false !== strpos( $track_text, 'On the WordPress Credits Course full tracks this usually means about 8 to 12 hours per week' ),
+	),
+    array( true, true, true, true, true ) );
+
+// The student part of the Mentor guide under a heading of its own (1.123.53): mentors cannot open the
+// Student guide page, so the guide keeps the whole of it, and the contents list now shows where it starts.
+$students_read = (string) @file_get_contents( __DIR__ . '/../docs/sections/27-mentor-students-read.md' );
+ck( 'the Mentor guide\'s student part starts with its own heading and one sentence saying what follows',
+    array( 0 === strpos( $students_read, "## What your students read\n" ), false !== strpos( $students_read, 'the Student guide, as your students read it' ) ),
+    array( true, true ) );
+ck( 'in the Mentor guide the student sections sit one level under it, and the Student and Administrator guides keep them as they were',
+    array(
+		false !== strpos( $mentor_outputs[0], "\n### What is on your Student Report Card\n" ),
+		false !== strpos( $mentor_outputs[0], "\n## What is on your Student Report Card\n" ),
+		false !== strpos( $mentor_outputs[0], "\n#### Arranging your Student Report Card\n" ),
+		false !== strpos( $student_outputs[0], "\n## What is on your Student Report Card\n" ),
+		false !== strpos( $mentor_outputs[2], "\n## What is on your Student Report Card\n" ),
+	),
+    array( true, false, true, true, true ) );
+ck( 'and keep their anchors, so a link into a section of the Mentor guide still lands',
+    array(
+		false !== strpos( $mentor_outputs[1], '<h3 class="wp-block-heading" id="what-is-on-your-student-report-card">What is on your Student Report Card</h3>' ),
+		false !== strpos( $mentor_outputs[1], '<h2 class="wp-block-heading" id="what-your-students-read">What your students read</h2>' ),
+		false !== strpos( $mentor_outputs[1], 'id="their-feedback-forms">Their feedback forms</h2>' ),
+	),
+    array( true, true, true ) );
 ck( 'all three guides are built with it',
     array( false !== strpos( $student_outputs[0], '## What is WordPress Credits?' ), false !== strpos( $student_outputs[1], 'What is WordPress Credits?</h2>' ), false !== strpos( $mentor_outputs[0], '## What is WordPress Credits?' ), false !== strpos( $mentor_outputs[2], '## What is WordPress Credits?' ) ),
     array( true, true, true, true ) );
@@ -1788,11 +1833,11 @@ ck( 'mentorship is the calls a student books, with no meeting promised',
     array( true ) );
 $mentor_check_ins = (string) file_get_contents( __DIR__ . '/../docs/sections/24-mentor-check-ins.md' );
 $mentor_checklist = (string) file_get_contents( __DIR__ . '/../docs/sections/25-mentor-checklist.md' );
-ck( 'the check-in templates and the checklist say they follow the 150-hour course and point to the report form',
+ck( 'the check-in templates and the checklist say they follow the course\'s full tracks (1.123.53) and point to the report form',
     array(
-		false !== strpos( $mentor_check_ins, 'The weeks follow the 150-hour WordPress Credits Course' ),
+		false !== strpos( $mentor_check_ins, 'The weeks follow the WordPress Credits Course full tracks' ),
 		false !== strpos( $mentor_check_ins, 'press **Report form**' ),
-		false !== strpos( $mentor_checklist, 'This checklist follows the 150-hour' ),
+		false !== strpos( $mentor_checklist, 'This checklist follows the full tracks of the' ),
 		false !== strpos( $mentor_checklist, 'report form shows what their track asks for' ),
 	),
     array( true, true, true, true ) );
@@ -1801,7 +1846,7 @@ ck( 'the website is asked for by track, and the wrap-up names both endings',
 		false !== strpos( $mentor_check_ins, 'Where their track asks for a personal website' ),
 		false !== strpos( $mentor_check_ins, 'wrap-up tasks their track asks for' ),
 		false !== strpos( $mentor_check_ins, 'the final project report' ),
-		false !== strpos( $mentor_checklist, 'the closing post or, on the 50-hour tracks, the final project report' ),
+		false !== strpos( $mentor_checklist, 'the closing post or, on the Intro tracks, the final project report' ),
 		stripos( $mentor_check_ins, 'weekly updates' ),
 	),
     array( true, true, true, true, false ) );

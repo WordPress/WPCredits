@@ -1,10 +1,10 @@
 ## Mentor check-in templates
 
 A starting point for your weekly calls.
-The weeks follow the 150-hour WordPress Credits Course on Learn WordPress, so adjust them to your
+The weeks follow the WordPress Credits Course full tracks on Learn WordPress, so adjust them to your
 student. What they hand in depends on their track and the time they have varies per institution:
 open them on your Mentor Report Card and press **Report form** to see what their track asks for. On the
-50-hour tracks, for example, a student ends with one final project report rather than reflection
+Intro tracks, for example, a student ends with one final project report rather than reflection
 posts, and on some tracks the personal website is optional. The hours below apply only where their
 track asks for hours.
 
@@ -157,7 +157,7 @@ wrap-up tasks their track asks for, which can include:
 - Presenting their project work, providing an overview of their progress and key learnings.
 - Attending a WordPress event, online or in person.
 - Publishing a final summary post on their personal website highlighting all their contributions,
-  tickets or translations, or, on the 50-hour tracks, writing
+  tickets or translations, or, on the Intro tracks, writing
   the final project report.
 
 **Helpful questions or topics for these final check-ins**

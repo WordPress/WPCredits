@@ -365,10 +365,10 @@ the success of the entire program.
 ## Mentor check-in templates
 
 A starting point for your weekly calls.
-The weeks follow the 150-hour WordPress Credits Course on Learn WordPress, so adjust them to your
+The weeks follow the WordPress Credits Course full tracks on Learn WordPress, so adjust them to your
 student. What they hand in depends on their track and the time they have varies per institution:
 open them on your Mentor Report Card and press **Report form** to see what their track asks for. On the
-50-hour tracks, for example, a student ends with one final project report rather than reflection
+Intro tracks, for example, a student ends with one final project report rather than reflection
 posts, and on some tracks the personal website is optional. The hours below apply only where their
 track asks for hours.
 
@@ -521,7 +521,7 @@ wrap-up tasks their track asks for, which can include:
 - Presenting their project work, providing an overview of their progress and key learnings.
 - Attending a WordPress event, online or in person.
 - Publishing a final summary post on their personal website highlighting all their contributions,
-  tickets or translations, or, on the 50-hour tracks, writing
+  tickets or translations, or, on the Intro tracks, writing
   the final project report.
 
 **Helpful questions or topics for these final check-ins**
@@ -548,7 +548,7 @@ the Online Event Format.
 
 ## Mentor checklist
 
-This checklist follows the 150-hour
+This checklist follows the full tracks of the
 [WordPress Credits Course](https://learn.wordpress.org/course/wordpress-credits/) on Learn WordPress.
 Your student's record names their own course, and their
 report form shows what their track asks for, so adjust it to them.
@@ -634,7 +634,7 @@ This is the active contribution phase.
 #### Closing out
 
 - Confirm their closing work is in the **Wrap-up** stage of their report form:
-  the closing post or, on the 50-hour tracks, the final project report.
+  the closing post or, on the Intro tracks, the final project report.
 - Mention the three feedback forms under their report form once. They are not marked, so do not chase
   them; *Their feedback forms* says why.
 - Point them toward ongoing resources if they want to stay involved: Learn WordPress, Make WordPress,
@@ -674,7 +674,13 @@ worth collecting.
 They are also not part of the report and are not marked, so a student who has answered none of them
 is not behind on anything. Please do not chase them.
 
-## What is on your Student Report Card
+## What your students read
+
+From here to the end, this is the Student guide, as your students read it. You cannot open a
+student's own Student Report Card or the Student guide page, so the whole of it is here, for you to
+know what they see and what they are told.
+
+### What is on your Student Report Card
 
 ![Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.](images/student-report-card-profile.png)
 
@@ -683,7 +689,7 @@ is not behind on anything. Please do not chase them.
 A card at the top of the page may invite you to set up a code for signing in, or tell you the
 program asks for one: *Signing in*, at the start of this guide, covers it.
 
-### Arranging your Student Report Card
+#### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the
 resources, your course, your report form with the feedback forms, your mentor call, and the tools
@@ -691,7 +697,7 @@ our sponsors offer. Each block has two small arrows at its top right. Press one 
 up or down at once, and the page remembers your order the next time you open it. The program updates
 come first until you move them.
 
-### My profile
+#### My profile
 
 Your program details as the program records hold them: your track, your internship dates, your
 educational institution, your tutor and your field of study, followed by your WordPress.org profile,
@@ -702,13 +708,13 @@ them in there and they appear here as soon as you save. The rest - your dates, y
 your tutor - come from the program records and cannot be changed from this site at all. If one of
 them is wrong, see *If something looks wrong* below.
 
-### My mentor
+#### My mentor
 
 Who your mentor is and how to reach them: their WordPress.org profile, their Slack handle, their
 website, and the contribution teams they work in. This is the person to ask first about anything
 to do with your contributions.
 
-### My course
+#### My course
 
 **Open your course** takes you to your course on Learn WordPress - the syllabus for the track you
 are on.
@@ -720,7 +726,7 @@ report form. Type the new total, press **Save hours**, and that is the whole err
 If your track has no Learn course, or you are not on a track at the moment (paused, for example),
 there is no course to open, and the hours box is a section of its own, **My hours**.
 
-### When your graduation is pending
+#### When your graduation is pending
 
 Once you have finished the work and your graduation has not been recorded yet, the program records
 hold your status as **Pending graduation**. It is a waiting state, not an ending. You are still on
@@ -733,7 +739,7 @@ form with your course's questions and the answers you saved, and the calendar fo
 
 If this site has no record of the course you took, the Program row says **Pending graduation**
 alone, with no link, your hours have a section of their own, *My hours*, and the report form asks
-the 150-hour course's questions.
+the questions of the WordPress Credits Course full tracks.
 
 The status is not yours to change, and not your mentor's either. The program's Administrators move
 it on by recording your graduation in the program records, and your card catches up at the next
@@ -744,7 +750,7 @@ If your track has partners, you see **In partnership with** and their logos here
 hours** - or, when neither section is on your card, under a heading of their own, **Partners of
 your track**.
 
-### Report form
+#### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is
 what your mentor reads. When a mentor or an Administrator opens your card, your report appears as
@@ -758,9 +764,9 @@ Open **Your report form** and the questions are grouped in the order you meet th
   took part in, and the reflection posts for each stage.
 - **Wrap-up** - your closing post.
 
-What is asked depends on your track. The 150-hour course asks for the reflection posts and the
-module grades; the 50-hour course asks instead for one final project report; the Developer Track
-asks the 150-hour questions with seven more of its own; and the Designer Track follows its own
+What is asked depends on your track. The WordPress Credits Course full tracks ask for the reflection posts and the
+module grades; the Intro tracks ask instead for one final project report; the Developer Track
+asks the full tracks' questions with seven more of its own; and the Designer Track follows its own
 Learn course lesson by lesson - the course grades and your portfolio first, then the eight practical
 lessons, each with its own notes and its own screenshots, then your contribution team and project,
 then your reflection posts, the alumni program section with the meetings you took part in, the event
@@ -779,24 +785,24 @@ not decide them. Fill in what you have and press **Save my report**; you can com
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save, and the four fields that also appear in *My profile* above update there at the same time.
 
-### Feedback forms
+#### Feedback forms
 
 Under your report, and nothing to do with it: three short forms asking how the program is going for
 you. See *Telling us how it is going* below.
 
-### Tools from our sponsors
+#### Tools from our sponsors
 
 The program's sponsors offer their tools to current students: a year of hosting, a premium plugin, a course. When a sponsor switches an offer on, it appears here with the sponsor's logo, what you get and how to redeem it. Press *Get my code*, beside the offer's *More information* link, and your code appears below, under *Your codes*, yours to keep; where the sponsor gives one link for everyone, *Show me the code* puts it there. Once you have claimed an offer, its card shows only the offer and the day you claimed it. Everything you have claimed stays under *Your codes*, even after an offer ends.
 
 Only you see your codes. Nobody is sent a code by mail, and sponsors see how many people claimed, never who. If a code does not work, press *Report a problem with this code* beside it: your program contact is told the offer and the last four characters and gets back to you. An Administrator looking at your card sees only how many tools you claimed.
 
-### Resources
+#### Resources
 
 At the foot of the page: the WordPress Credits Slack channel, the Student guide, and **Need
 help?** - a question box answered from the WordPress documentation, if the program has switched it
 on. Beside them, **Program updates and announcements** lists anything recently posted for you.
 
-## Booking a call with your mentor
+### Booking a call with your mentor
 
 Your mentor publishes the hours they are free, and you pick from them. There is no email back and
 forth about what suits.
@@ -827,7 +833,7 @@ A few things worth knowing:
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
 side - ask them in Slack to set their hours.
 
-## Group sessions
+### Group sessions
 
 Your mentor may run a session for several students at once - a walkthrough, a question hour,
 something for everybody who started the same week. Those appear under *My mentor call* in a list of
@@ -854,7 +860,7 @@ their name and **Leave the session**, and the list is headed simply *Group sessi
 program records show the change for you and for both mentors, you are taken off it and sent an email
 whose calendar file takes it out of your calendar.
 
-## Events from our sponsors
+### Events from our sponsors
 
 The program's sponsors may hold a webinar or another online event with the program. Once the program
 has approved one, it appears under *My mentor call*, below your group sessions, in a list of its
@@ -880,7 +886,7 @@ Administrators can see who is on an event; the sponsor sees how many people join
 sponsor stops offering events, an event of theirs that you are on stays on your list, marked
 *No longer offered*, with **Leave** alone.
 
-## Telling us how it is going
+### Telling us how it is going
 
 Under your report form are three short forms - **Getting started**, **Half way** and **Finishing
 up** - one for each stage of the program. Each takes a couple of minutes.
@@ -909,7 +915,7 @@ You can change your mind at any time. Reopen *Finishing up*, change the answer, 
 your institution's report the next time anyone opens it - including a report that was written weeks
 ago and has already been printed once.
 
-### What they ask
+#### What they ask
 
 Three questions repeat word for word in all three forms - your overall experience, how confident you
 feel contributing, and how much your mentor's support is helping. Answering the same three at each
@@ -926,7 +932,7 @@ and opportunities, and the two questions above about your institution's semester
 are yours to decline, and declining changes nothing else. Only you can answer them - an
 Administrator looking at your form sees them and cannot fill them in for you.
 
-### Filling one in
+#### Filling one in
 
 Open the form for the stage you are at, answer what you want to answer, and press **Save my
 answers**. Nothing is required - a form with two answers in it is worth more than one nobody filled
@@ -941,13 +947,13 @@ apply to you is not a question you have left blank.
 
 Your mentor does not see these answers on their page.
 
-### Leaving the program
+#### Leaving the program
 
 If you finish early or do not complete the program, the three forms above are replaced by a single
 short one, **Leaving the program** - four questions about how far you got and what stopped you. It
 is the part of the program we hear about least, and the part most worth hearing about.
 
-## If something looks wrong
+### If something looks wrong
 
 Your program details come from the program records, so if your dates, institution or tutor are not
 right, that is where it has to be corrected - changing it here would be overwritten at the next
@@ -960,20 +966,20 @@ they are yours to keep current, and the way to correct them is to correct them t
 If the page shows nothing at all, or says it cannot find your record, your account exists but is
 not linked to a program record yet. That is one for the Administrators.
 
-## What is WordPress Credits?
+### What is WordPress Credits?
 
 WordPress Credits is an educational program of the WordPress Foundation. It gives students the
 opportunity to practice their skills in a real, global, open source environment. Over the course of
 the program, you contribute to WordPress projects, guided by an experienced mentor, while learning
 how to collaborate in a distributed team.
 
-### What to expect
+#### What to expect
 
 - **Mentorship.** Your mentor guides you throughout the program, through
   calls you book on your Student Report Card and asynchronous support, on Slack or other
   communication channels.
 - **Time commitment.** The hours depend on your track and are flexible to meet each institution's
-  needs. On the 150-hour course this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
+  needs. On the WordPress Credits Course full tracks this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
   You can spread your hours flexibly, but you are expected to stay consistent. The program includes a
   theoretical onboarding phase and hands-on, practical activities.
 - **Projects.** You design and carry out a contribution project aligned with your studies and
@@ -984,11 +990,11 @@ how to collaborate in a distributed team.
   connections and learn how an open source community works.
 - **Deliverables.** What you hand in depends on your track, and your report form shows exactly what
   yours asks for. Most tracks ask for reflection posts on your personal website and a closing post;
-  the 50-hour tracks ask instead for one final project report, and on some tracks
+  the Intro tracks ask instead for one final project report, and on some tracks
   the website is optional. Whatever your track, your work earns contribution credits in the WordPress
   ecosystem.
 
-### What we mean by contributing to WordPress
+#### What we mean by contributing to WordPress
 
 Contributing to WordPress means taking part in a global open source project where everyone can play
 a role. It is not limited to writing code: there are many ways to contribute based on individual
@@ -1015,7 +1021,7 @@ Contributing does not require building a plugin or fixing code. It means choosin
 how it works, and dedicating time to support its goals. This is a practical way to gain experience
 and develop skills that are useful both inside and outside the WordPress community.
 
-### Immediate contribution opportunities
+#### Immediate contribution opportunities
 
 The WordPress project thrives on contributions from people all over the world. With WordPress
 Credits, we aim to guide you toward meaningful and accessible ways to get involved in the WordPress
@@ -1038,7 +1044,7 @@ your journey:
 - [Promote](https://make.wordpress.org/handbook/pathways/promote/): for communicators who want to
   help spread the word and support community events.
 
-### Your responsibilities
+#### Your responsibilities
 
 - Dedicate the required time and stay consistent with your contributions.
 - Communicate proactively with your mentor and team members.
@@ -1047,7 +1053,7 @@ your journey:
   [Code of Conduct](https://make.wordpress.org/handbook/community-code-of-conduct/).
 - Approach challenges with curiosity, responsibility and openness.
 
-### What you will gain
+#### What you will gain
 
 By the end of the program, you will:
 
@@ -1057,12 +1063,12 @@ By the end of the program, you will:
 - Connect with mentors, peers and professionals in the WordPress ecosystem.
 - Create a portfolio of contributions you can showcase in your career path.
 
-### Inside the course
+#### Inside the course
 
 [Watch the video](https://video.wordpress.com/embed/2bRfan4J) for a look inside the WordPress Credits
 Course.
 
-### Remember
+#### Remember
 
 This program is not just about completing hours. It is about learning, growing and contributing
 meaningfully. Take initiative, stay engaged, and use this opportunity to connect your studies with

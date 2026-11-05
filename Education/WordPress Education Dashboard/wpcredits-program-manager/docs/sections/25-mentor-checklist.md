@@ -1,6 +1,6 @@
 ## Mentor checklist
 
-This checklist follows the 150-hour
+This checklist follows the full tracks of the
 [WordPress Credits Course](https://learn.wordpress.org/course/wordpress-credits/) on Learn WordPress.
 Your student's record names their own course, and their
 report form shows what their track asks for, so adjust it to them.
@@ -86,7 +86,7 @@ This is the active contribution phase.
 #### Closing out
 
 - Confirm their closing work is in the **Wrap-up** stage of their report form:
-  the closing post or, on the 50-hour tracks, the final project report.
+  the closing post or, on the Intro tracks, the final project report.
 - Mention the three feedback forms under their report form once. They are not marked, so do not chase
   them; *Their feedback forms* says why.
 - Point them toward ongoing resources if they want to stay involved: Learn WordPress, Make WordPress,

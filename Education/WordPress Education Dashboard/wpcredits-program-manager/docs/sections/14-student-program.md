@@ -11,7 +11,7 @@ how to collaborate in a distributed team.
   calls you book on your Student Report Card and asynchronous support, on Slack or other
   communication channels.
 - **Time commitment.** The hours depend on your track and are flexible to meet each institution's
-  needs. On the 150-hour course this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
+  needs. On the WordPress Credits Course full tracks this usually means about 8 to 12 hours per week, over 13 to 18 weeks.
   You can spread your hours flexibly, but you are expected to stay consistent. The program includes a
   theoretical onboarding phase and hands-on, practical activities.
 - **Projects.** You design and carry out a contribution project aligned with your studies and
@@ -22,7 +22,7 @@ how to collaborate in a distributed team.
   connections and learn how an open source community works.
 - **Deliverables.** What you hand in depends on your track, and your report form shows exactly what
   yours asks for. Most tracks ask for reflection posts on your personal website and a closing post;
-  the 50-hour tracks ask instead for one final project report, and on some tracks
+  the Intro tracks ask instead for one final project report, and on some tracks
   the website is optional. Whatever your track, your work earns contribution credits in the WordPress
   ecosystem.
 

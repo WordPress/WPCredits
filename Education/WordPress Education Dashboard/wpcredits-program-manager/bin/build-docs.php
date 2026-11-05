@@ -94,12 +94,17 @@ $guides = array(
 			'24-mentor-check-ins',
 			'25-mentor-checklist',
 			'26-mentor-student-view',
+			'27-mentor-students-read',
 			'10-student-card',
 			'11-student-booking',
 			'13-student-feedback',
 			'12-student-help',
 			'14-student-program',
 		),
+		// The Student guide's sections sit one heading level down here, under *What your students
+		// read*, so the contents list shows where the mentors' part ends (1.123.53, #283). Their
+		// headings keep their words, so their anchors do not change.
+		'demote' => array( '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help', '14-student-program' ),
 	),
 	'administrators' => array(
 		'title' => 'Administrator guide',
@@ -209,6 +214,32 @@ function wpcpm_docs_section( $dir, $name ) {
 	}
 
 	return trim( (string) file_get_contents( $path ) );
+}
+
+/**
+ * A section with every heading one level further down, `##` to `###` and so on, for a guide that
+ * nests another guide's sections under a heading of its own. A line inside a fenced code block is
+ * left alone, and so is a heading already at the sixth level.
+ *
+ * @param string $md The section's Markdown.
+ * @return string
+ */
+function wpcpm_docs_demote( $md ) {
+	$fenced = false;
+	$lines  = explode( "\n", (string) $md );
+
+	foreach ( $lines as $i => $line ) {
+		if ( 0 === strpos( ltrim( $line ), '```' ) ) {
+			$fenced = ! $fenced;
+			continue;
+		}
+
+		if ( ! $fenced && 1 === preg_match( '/^#{1,5} /', $line ) ) {
+			$lines[ $i ] = '#' . $line;
+		}
+	}
+
+	return implode( "\n", $lines );
 }
 
 /**
@@ -469,7 +500,8 @@ foreach ( $guides as $slug => $guide ) {
 	$body = array();
 
 	foreach ( $guide['parts'] as $part ) {
-		$body[] = wpcpm_docs_section( $sections, $part );
+		$section = wpcpm_docs_section( $sections, $part );
+		$body[]  = isset( $guide['demote'] ) && in_array( $part, $guide['demote'], true ) ? wpcpm_docs_demote( $section ) : $section;
 	}
 
 	$body = implode( "\n\n", $body );
