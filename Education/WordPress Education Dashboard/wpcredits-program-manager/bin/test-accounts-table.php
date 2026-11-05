@@ -249,7 +249,7 @@ class WP_User_Query {
 		$GLOBALS['queries'][] = $args;
 
 		foreach ( array_keys( $args ) as $key ) {
-			if ( ! in_array( $key, array( 'role', 'number', 'offset', 'orderby', 'order', 'search', 'search_columns', 'meta_query', 'fields', 'count_total' ), true ) ) {
+			if ( ! in_array( $key, array( 'role', 'number', 'offset', 'orderby', 'order', 'search', 'search_columns', 'meta_query', 'fields', 'count_total', 'exclude' ), true ) ) {
 				$GLOBALS['unmodeled'][] = 'WP_User_Query argument ' . $key;
 			}
 		}
@@ -258,6 +258,10 @@ class WP_User_Query {
 
 		foreach ( $GLOBALS['users'] as $id => $user ) {
 			if ( ! empty( $args['role'] ) && ! in_array( $args['role'], $user->roles, true ) ) {
+				continue;
+			}
+
+			if ( ! empty( $args['exclude'] ) && in_array( (int) $id, array_map( 'intval', (array) $args['exclude'] ), true ) ) {
 				continue;
 			}
 
@@ -1902,6 +1906,28 @@ ck( 'and a clause under = with no value, or a list of values, is noted as one it
 	array( 'meta_query compare =' => 6 ) );
 
 $GLOBALS['unmodeled'] = $unmodeled_before;
+
+// IN, as the institution accounts of the test institutions are found: one key holding any of a list of
+// values, compared as strings; an empty list or a list of keys is not modeled.
+ck( 'IN is met by the key holding any value of the list as a string, and by nothing else, without a word about what it does not model',
+	array(
+		$probe( array( array( 'key' => 'wpcpm_probe_a', 'value' => array( '1', '7' ), 'compare' => 'IN' ) ) ),
+		$probe( array( array( 'key' => 'wpcpm_probe_b', 'value' => array( 0 ), 'compare' => 'IN' ) ) ),
+		$probe( array( array( 'key' => 'wpcpm_probe_a', 'value' => array( '2', '3' ), 'compare' => 'IN' ) ) ),
+		$GLOBALS['unmodeled'] === $unmodeled_before,
+	),
+	array(
+		array( 901 => true, 902 => false, 903 => false ),
+		array( 901 => false, 902 => true, 903 => false ),
+		array( 901 => false, 902 => false, 903 => false ),
+		true,
+	) );
+
+$probe( array( array( 'key' => 'wpcpm_probe_a', 'value' => array(), 'compare' => 'IN' ) ) );
+
+ck( 'and IN with an empty list is noted as one it does not model, once an account', array_count_values( array_slice( $GLOBALS['unmodeled'], count( $unmodeled_before ) ) ), array( 'meta_query compare IN' => 3 ) );
+
+$GLOBALS['unmodeled'] = $unmodeled_before;
 unset( $GLOBALS['umeta'][901], $GLOBALS['umeta'][902], $GLOBALS['umeta'][903] );
 
 echo "\n=== The views: All, Invited, Never invited, counted from the invitation stamps ===\n";
@@ -3119,6 +3145,73 @@ ck( 'the views, the heading and the views again read the counts three times, and
 ck( 'and every read answers the same counts: three accounts, one Invited, two Never invited',
 	array( $counted_heading, $counted_views === $counted_again, has( at( $counted_views, 'all' ), '(3)' ), has( at( $counted_views, 'invited' ), '(1)' ), has( at( $counted_views, 'never-invited' ), '(2)' ) ),
 	array( 3, true, true, true, true ) );
+
+echo "\n=== The views leave out the accounts the audience says its counts do not hold, and the list still shows them ===\n";
+
+/** An audience with accounts its counts leave out (a test institution's), by ID. */
+class WPCPM_Test_Uncounted_Table extends WPCPM_Test_Accounts_Table {
+	public static $uncounted = array();
+	protected function uncounted_ids() {
+		return self::$uncounted;
+	}
+	public function narrowed( array $args ) {
+		return $this->without_uncounted( $args );
+	}
+}
+
+request( array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ) );
+
+// Nothing to leave out: the default, and an audience that answers none, ask no `exclude` at all.
+$GLOBALS['queries'] = array();
+$plain              = new WPCPM_Test_Accounts_Table();
+$plain_views        = $plain->views_now();
+$sent               = array_map(
+	function ( $args ) {
+		return array_key_exists( 'exclude', $args );
+	},
+	$GLOBALS['queries']
+);
+
+ck( 'with no uncounted account the counts send no exclude', $sent, array( false, false ) );
+
+WPCPM_Test_Uncounted_Table::$uncounted = array();
+$GLOBALS['queries']                    = array();
+$none_views                            = ( new WPCPM_Test_Uncounted_Table() )->views_now();
+
+ck( 'an audience that answers none sends none either, and the counts are as before', array( array_key_exists( 'exclude', $GLOBALS['queries'][0] ), view_counts( $none_views ) ), array( false, view_counts( $plain_views ) ) );
+
+// Student 12 is one of the two never invited.
+WPCPM_Test_Uncounted_Table::$uncounted = array( 12 );
+$GLOBALS['queries']                    = array();
+$left_table                            = new WPCPM_Test_Uncounted_Table();
+$left_views                            = $left_table->views_now();
+$excluded                              = array_map(
+	function ( $args ) {
+		return isset( $args['exclude'] ) ? $args['exclude'] : null;
+	},
+	$GLOBALS['queries']
+);
+
+ck( 'with one uncounted account each count sends exclude with its ID', $excluded, array( array( 12 ), array( 12 ) ) );
+ck( 'and the views count one fewer, never invited', view_counts( $left_views ), array( 'all' => '2', 'invited' => '1', 'never-invited' => '1' ) );
+
+request( array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_view' => 'never-invited' ) );
+$GLOBALS['queries'] = array();
+$left_list          = new WPCPM_Test_Uncounted_Table();
+$left_list->prepare_items();
+
+ck( 'the list itself still holds the uncounted account', row_ids( drawn( $left_list ) ), array( 12, 13 ) );
+ck( 'and asks for no exclusion', array_key_exists( 'exclude', list_query() ), false );
+
+// WP_User_Query ignores exclude while include is set, so the IDs come out of the include list.
+$narrow = new WPCPM_Test_Uncounted_Table();
+
+ck( 'an include loses the uncounted IDs, in its order', at( $narrow->narrowed( array( 'include' => array( 13, 12, 11 ), 'exclude' => array( 12 ) ) ), 'include' ), array( 13, 11 ) );
+ck( 'an include that holds only uncounted IDs asks the one ID nobody holds, which an empty list would not', at( $narrow->narrowed( array( 'include' => array( 12 ), 'exclude' => array( 12 ) ) ), 'include' ), array( 0 ) );
+ck( 'with no include the arguments are as they were', $narrow->narrowed( array( 'exclude' => array( 12 ) ) ), array( 'exclude' => array( 12 ) ) );
+ck( 'with no exclude the include is left as it is', $narrow->narrowed( array( 'include' => array( 12, 13 ) ) ), array( 'include' => array( 12, 13 ) ) );
+
+WPCPM_Test_Uncounted_Table::$uncounted = array();
 
 echo "\n=== The tab a screen opens on is its first ===\n";
 

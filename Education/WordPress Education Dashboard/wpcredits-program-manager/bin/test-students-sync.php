@@ -381,6 +381,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-for
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-feedback.php';
 // The name order the reconciliation lists its status disagreements in is the switchers' own.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
+// A test institution's students are left out of the reconciliation's numbers: the real index, the real
+// rule for a test name and the one helper that asks it.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 
 // The program map and the report forms, the screenshot columns among them, are the compiled
 // tracks' (bin/stubs/compiled-seeds.php).
@@ -756,9 +761,9 @@ foreach ( $GLOBALS['airtable'][ $reports_table ] as $record ) { $reports_by[ $re
 ck( 'the ten who disagree are listed beside the count, by name as a person counts: 1, 2, 3 and on to 10',
 	array_column( $listed, 'name' ),
 	array_map( static function ( $n ) { return "Dee Disagreement $n"; }, range( 1, 10 ) ) );
-ck( 'each entry holds the name, the two statuses and the two records, and nothing else',
+ck( 'each entry holds the name, the two statuses, the two records and whether its institution is a test one, and nothing else',
 	array_unique( array_map( static function ( $row ) { $keys = array_keys( $row ); sort( $keys ); return implode( ',', $keys ); }, $listed ) ),
-	array( 'name,reports_record,reports_status,students_record,students_status' ) );
+	array( 'name,reports_record,reports_status,students_record,students_status,test' ) );
 ck( 'the statuses are each table\'s own: Graduate for the first six and Paused for the rest on the Students side, In Sensei on the reports side',
 	array( array_column( array_slice( $listed, 0, 6 ), 'students_status' ), array_column( array_slice( $listed, 6 ), 'students_status' ), array_unique( array_column( $listed, 'reports_status' ) ) ),
 	array( array_fill( 0, 6, 'Graduate' ), array_fill( 0, 4, 'Paused' ), array( 'In Sensei' ) ) );
@@ -912,6 +917,110 @@ ck( 'rows with no start date, split by status',
 	$recon['no_start_date'],
 	array( '' => 2, 'Developer Track' => 1, 'Not moving forward' => 4 ) );
 ck( 'the counts carry the read time of the run', $counts['read'], $started );
+
+echo "\n=== A test institution's students are listed and tallied in none of the reconciliation's numbers ===\n";
+
+// The same world twice, with and without a test institution's four Students rows: one with no report, no
+// start date and an address another of its rows holds, one of them with a status its report row disagrees
+// with, and a mentored one the address join missed. Every number is the one the world without them gives,
+// and the lists still hold them.
+$T_INST = 'recTESTINSTITUT01';
+$R_INST = 'recINSTITUTION001';
+WPCPM_Institutions_Index::write(
+	array(
+		$T_INST => array( 'record_id' => $T_INST, 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed' ),
+		$R_INST => array( 'record_id' => $R_INST, 'name' => 'Real University', 'stage' => 'Confirmed' ),
+	),
+	time()
+);
+
+$row_of = static function ( $record, $name, $email, $status, $institution, $start, $extra = array() ) {
+	return array_merge( array( 'record_id' => $record, 'name' => $name, 'email_key' => $email, 'email' => $email, 'status' => $status, 'institution' => $institution, 'start' => $start, 'has_mentor' => false, 'reports' => array() ), $extra );
+};
+$world  = array(
+	'rows'     => array(
+		'recREALS0000001' => $row_of( 'recREALS0000001', 'Real One', 'real-one@example.test', 'Graduate', $R_INST, '2026-05-04', array( 'reports' => array( 'recREALR0000001' ) ) ),
+		'recREALS0000002' => $row_of( 'recREALS0000002', 'Real Two', 'real-two@example.test', 'In Sensei', $R_INST, '' ),
+		'recREALS0000003' => $row_of( 'recREALS0000003', 'Real Three', 'real-three@example.test', 'In Sensei', $R_INST, '2026-05-04', array( 'reports' => array( 'recREALR0000003' ) ) ),
+	),
+	'students' => array(
+		array( 'record_id' => 'recREALR0000001', 'name' => 'Real One', 'email_key' => 'real-one@example.test', 'email' => 'real-one@example.test', 'program' => 'Graduate', 'institution_id' => $R_INST ),
+		array( 'record_id' => 'recREALR0000003', 'name' => 'Real Three', 'email_key' => 'real-three@example.test', 'email' => 'real-three@example.test', 'program' => 'Paused', 'institution_id' => $R_INST ),
+	),
+);
+$with   = $world;
+
+$with['rows']['recTESTS0000001'] = $row_of( 'recTESTS0000001', 'Test One', 'shared-test@example.test', 'In Sensei', $T_INST, '' );
+$with['rows']['recTESTS0000002'] = $row_of( 'recTESTS0000002', 'Test Two', 'shared-test@example.test', 'In Sensei', $T_INST, '2026-05-04' );
+$with['rows']['recTESTS0000003'] = $row_of( 'recTESTS0000003', 'Test Three', 'test-three@example.test', 'Graduate', $T_INST, '2026-05-04', array( 'reports' => array( 'recTESTR0000003' ) ) );
+$with['rows']['recTESTS0000004'] = $row_of( 'recTESTS0000004', 'Test Four', 'test-four@example.test', 'In Sensei', $T_INST, '2026-05-04', array( 'has_mentor' => true ) );
+$with['students'][]              = array( 'record_id' => 'recTESTR0000003', 'name' => 'Test Three', 'email_key' => 'test-three@example.test', 'email' => 'test-three@example.test', 'program' => 'In Sensei', 'institution_id' => $T_INST );
+
+$recon_without = $recon_of( $world );
+$recon_with    = $recon_of( $with );
+$figures       = static function ( array $recon ) {
+	return array( $recon['students_without_reports'], $recon['reports_without_students'], $recon['status_disagreements'], $recon['duplicate_emails'], $recon['no_institution'], $recon['no_start_date'] );
+};
+
+ck( 'the world without a test institution has what the checks below need: a student with no report, no start date, and a disagreement',
+	array( $recon_without['students_without_reports'], $recon_without['no_start_date'], $recon_without['status_disagreements'] ),
+	array( array( 'In Sensei' => 1 ), array( 'In Sensei' => 1 ), 1 ) );
+ck( 'students_without_reports, reports_without_students, status_disagreements, duplicate_emails, no_institution and no_start_date are those of the world without the test institution',
+	$figures( $recon_with ), $figures( $recon_without ) );
+ck( 'a status disagreement of the test institution\'s is still listed, marked as a test one, beside the real one, which is not', array(
+	array_column( $recon_with['status_disagreement_rows'], 'name' ),
+	array_column( $recon_with['status_disagreement_rows'], 'test' ),
+	array_column( $recon_without['status_disagreement_rows'], 'test' ),
+), array( array( 'Real Three', 'Test Three' ), array( false, true ), array( false ) ) );
+ck( 'and the mentored student the address join missed at the test institution is still listed',
+	array_column( $recon_with['mentored_without_reports'], 'students_record' ), array( 'recTESTS0000004' ) );
+
+// A test institution's report row with no Students row is left out of reports_without_students; a real one's is not.
+$orphans = $world;
+$orphans['students'][] = array( 'record_id' => 'recTESTORPH0001', 'name' => 'Test Orphan', 'email_key' => 'orphan-test@example.test', 'email' => 'orphan-test@example.test', 'program' => 'In Sensei', 'institution_id' => $T_INST );
+ck( 'a test institution\'s Students Reports row with no Students row is tallied in none of the numbers', $recon_of( $orphans )['reports_without_students'], $recon_without['reports_without_students'] );
+$orphans['students'][] = array( 'record_id' => 'recREALORPH0001', 'name' => 'Real Orphan', 'email_key' => 'orphan-real@example.test', 'email' => 'orphan-real@example.test', 'program' => 'In Sensei', 'institution_id' => $R_INST );
+ck( 'while a real one\'s is', $recon_of( $orphans )['reports_without_students'], array( 'In Sensei' => 1 ) );
+
+// A test row on a real row's address: no duplicate for the real institution, and the real row's disagreement is
+// counted and listed first, with the test row's listed after it, tallied in nothing.
+$shared             = $world;
+$shared['rows']['recREALS0000002']['email_key'] = 'real-three@example.test';
+$shared['rows']['recREALS0000002']['status']    = 'Paused';
+unset( $shared['rows']['recREALS0000003'] );
+$shared['students'][1]['program']               = 'In Sensei';
+$shared_without = $recon_of( $shared );
+$shared['rows'] = array( 'recTESTS0000000' => $row_of( 'recTESTS0000000', 'Test Shared', 'real-three@example.test', 'Graduate', $T_INST, '2026-05-04' ) ) + $shared['rows'];
+$shared_with = $recon_of( $shared );
+ck( 'a test row sharing an address with a real row: the same duplicates and disagreements as without it, the real row\'s disagreement still counted',
+	array( $shared_with['duplicate_emails'], $shared_with['status_disagreements'] ), array( $shared_without['duplicate_emails'], $shared_without['status_disagreements'] ) );
+ck( 'and the real row\'s disagreement is the one listed for the address', array_column( $shared_with['status_disagreement_rows'], 'students_record' ), array_column( $shared_without['status_disagreement_rows'], 'students_record' ) );
+ck( 'the shared-address world holds a real disagreement', $shared_without['status_disagreements'], 1 );
+
+// With no test institution at all, the row listed for an address is the first in file order, as it always was
+// (here the later record ID comes first in the file).
+$plain_order = array( 'rows' => array(
+	'recZZZORDER0001' => $row_of( 'recZZZORDER0001', 'Order Z', 'order@example.test', 'Paused', $R_INST, '2026-05-04' ),
+	'recAAAORDER0001' => $row_of( 'recAAAORDER0001', 'Order A', 'order@example.test', 'Graduate', $R_INST, '2026-05-04' ),
+), 'students' => array( array( 'record_id' => 'recORDERREP0001', 'name' => 'Order', 'email_key' => 'order@example.test', 'email' => 'order@example.test', 'program' => 'In Sensei', 'institution_id' => $R_INST ) ) );
+ck( 'one report address matching several disagreeing Students rows lists the first in file order', array_column( $recon_of( $plain_order )['status_disagreement_rows'], 'students_record' ), array( 'recZZZORDER0001' ) );
+
+// A test institution renamed away from TEST is real again: its rows are tallied like any other.
+WPCPM_Institutions_Index::write(
+	array(
+		$T_INST => array( 'record_id' => $T_INST, 'name' => 'Example Institution', 'stage' => 'Confirmed' ),
+		$R_INST => array( 'record_id' => $R_INST, 'name' => 'Real University', 'stage' => 'Confirmed' ),
+	),
+	time()
+);
+
+$recon_real = $recon_of( $with );
+
+ck( 'renamed away from TEST, the same rows are counted: one more disagreement, a duplicate address, three more students with no report and one more with no start date',
+	array( $recon_real['status_disagreements'], $recon_real['duplicate_emails'], $recon_real['students_without_reports'], $recon_real['no_start_date'] ),
+	array( 2, array( $T_INST => 1 ), array( 'In Sensei' => 4 ), array( 'In Sensei' => 2 ) ) );
+
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] );
 
 echo "\n=== The reference report ===\n";
 

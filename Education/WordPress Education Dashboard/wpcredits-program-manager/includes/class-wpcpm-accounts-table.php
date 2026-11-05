@@ -121,6 +121,13 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	private $invite_counts;
 
 	/**
+	 * The list's total less the uncounted accounts, which the heading prints; null while none are left out.
+	 *
+	 * @var int|null
+	 */
+	private $real_total = null;
+
+	/**
 	 * The audience: its module's ID, as in `wpcpm-<audience>`, the screen's address.
 	 *
 	 * @return string
@@ -1358,7 +1365,28 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			$found = $this->records_page( $view, $per_page );
 		}
 
-		$this->items = isset( $found['items'] ) ? (array) $found['items'] : array();
+		$this->items      = isset( $found['items'] ) ? (array) $found['items'] : array();
+		$this->real_total = null;
+
+		// The heading counts the accounts the views count: the same list less the uncounted ones, which the
+		// list itself still shows.
+		$uncounted = '' === $view ? $this->uncounted_ids() : array();
+
+		if ( ! empty( $uncounted ) ) {
+			$real             = $this->query(
+				array_merge(
+					$this->page_args( $per_page ),
+					array(
+						'number'      => 1,
+						'offset'      => 0,
+						'fields'      => 'ID',
+						'count_total' => true,
+						'exclude'     => $uncounted,
+					)
+				)
+			);
+			$this->real_total = isset( $real['total'] ) ? (int) $real['total'] : 0;
+		}
 
 		$this->set_pagination_args(
 			array(
@@ -1486,17 +1514,55 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * @return int
 	 */
 	private function count_view( $view ) {
-		$found = $this->query(
-			array(
-				'role'        => static::role(),
-				'number'      => 1,
-				'fields'      => 'ID',
-				'count_total' => true,
-				'meta_query'  => $this->view_clause( $view ),
-			)
+		$args      = array(
+			'role'        => static::role(),
+			'number'      => 1,
+			'fields'      => 'ID',
+			'count_total' => true,
+			'meta_query'  => $this->view_clause( $view ),
 		);
+		$uncounted = $this->uncounted_ids();
+
+		// The accounts the counts leave out (a test institution's): the lists still show them.
+		if ( ! empty( $uncounted ) ) {
+			$args['exclude'] = $uncounted;
+		}
+
+		$found = $this->query( $args );
 
 		return isset( $found['total'] ) ? (int) $found['total'] : 0;
+	}
+
+	/**
+	 * The accounts the views' counts leave out while the list still shows them: a test institution's.
+	 * None here; an audience with such accounts answers their IDs.
+	 *
+	 * @return int[]
+	 */
+	protected function uncounted_ids() {
+		return array();
+	}
+
+	/**
+	 * The arguments with `exclude` honored where the audience's query narrows by `include`.
+	 *
+	 * WP_User_Query ignores `exclude` when `include` is set, and the audiences set `include` for every
+	 * filter or search, so the uncounted IDs are taken out of the `include` list here (the one ID
+	 * nobody holds when none is left, since an empty `include` narrows nothing).
+	 *
+	 * @param array $args `WP_User_Query` arguments, as the table's `query()` has built them.
+	 * @return array
+	 */
+	protected function without_uncounted( array $args ) {
+		if ( empty( $args['exclude'] ) || ! isset( $args['include'] ) ) {
+			return $args;
+		}
+
+		$kept = array_values( array_diff( array_map( 'intval', (array) $args['include'] ), array_map( 'intval', (array) $args['exclude'] ) ) );
+
+		$args['include'] = empty( $kept ) ? array( 0 ) : $kept;
+
+		return $args;
 	}
 
 	/**
@@ -1614,7 +1680,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			return (int) $counts['all'];
 		}
 
-		return (int) $this->get_pagination_arg( 'total_items' );
+		return null !== $this->real_total ? $this->real_total : (int) $this->get_pagination_arg( 'total_items' );
 	}
 
 	/**

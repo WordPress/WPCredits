@@ -138,7 +138,14 @@ class WPCPM_Ability_Answers {
 
 		$stages = array();
 
+		// A test institution is in no stage's count, and a stage only test institutions are at is not named.
 		foreach ( WPCPM_Institutions_Index::by_stage() as $stage => $rows ) {
+			$rows = WPCPM_Test_Institutions::real_keys( (array) $rows );
+
+			if ( empty( $rows ) ) {
+				continue;
+			}
+
 			$label            = self::stage( $stage );
 			$stages[ $label ] = ( isset( $stages[ $label ] ) ? $stages[ $label ] : 0 ) + count( $rows );
 		}
@@ -179,7 +186,7 @@ class WPCPM_Ability_Answers {
 				'students'            => array(
 					'tracks'                     => self::map( $tracks ),
 					'finished_this_semester'     => (int) $programs['finished'],
-					'institutions_with_students' => count( (array) $programs['rows'] ),
+					'institutions_with_students' => WPCPM_Test_Institutions::count_real_rows( (array) $programs['rows'], 'record' ),
 					'read_at'                    => WPCPM_Abilities::time( $programs['read'] ),
 				),
 				'mentors'             => array(
@@ -381,6 +388,7 @@ class WPCPM_Ability_Answers {
 		$found   = array_slice( $found, 0, self::MATCHES_MAX );
 		$matches = array();
 		$records = array();
+		$tests   = array_flip( WPCPM_Test_Institutions::test_ids() ); // Read once, not once a match.
 
 		foreach ( $found as $match ) {
 			$row       = $match['row'];
@@ -404,6 +412,7 @@ class WPCPM_Ability_Answers {
 			$matches[] = array(
 				'record_id' => $match['id'],
 				'name'      => $match['name'],
+				'test'      => isset( $tests[ $match['id'] ] ),
 				'stage'     => self::stage( isset( $row['stage'] ) ? $row['stage'] : '' ),
 				'country'   => $country,
 				'city'      => WPCPM_Abilities::text( isset( $row['city'] ) ? $row['city'] : '' ),
@@ -1698,6 +1707,10 @@ class WPCPM_Ability_Answers {
 						array(
 							'record_id' => self::text_of( __( 'The institution\'s record ID.', 'wpcredits-program-manager' ) ),
 							'name'      => self::text_of( __( 'The institution\'s name.', 'wpcredits-program-manager' ) ),
+							'test'      => array(
+								'type'        => 'boolean',
+								'description' => __( 'True for a test institution, whose name starts with the word TEST: it is left out of every count the site gives.', 'wpcredits-program-manager' ),
+							),
 							/* translators: "No stage" is a value of the answer, which stays in English: keep it as it is. */
 							'stage'     => self::text_of( __( 'Its pipeline stage; "No stage" when it has none.', 'wpcredits-program-manager' ) ),
 							'country'   => self::text_of( __( 'Its country\'s name; empty when none is recorded.', 'wpcredits-program-manager' ) ),

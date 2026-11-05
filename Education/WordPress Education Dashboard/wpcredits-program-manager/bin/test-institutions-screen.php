@@ -196,6 +196,7 @@ class WP_User_Query {
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $GLOBALS['l10n'][ $s ] ?? $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
+function _x( $s, $c, $d = null ) { return __( $s ); }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( __( $s ) ); }
 function esc_attr( $s ) { return esc_html( $s ); }
@@ -422,6 +423,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 // Before the module, which uses it: PHP declares a class only once the traits it uses are declared.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+// The real rule for a test name, which the one helper asks (Ruling 21).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 // The real tab bar, the one every audience screen prints, so the bar read here is the bar a
 // manager gets.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
@@ -665,6 +669,7 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 	class WPCPM_Institution_Request {
 		const QUEUE_MAX    = 200;
 		const OVERDUE_DAYS = 14;
+		const META_INSTITUTION = '_wpcpm_req_institution';
 		const KIND_MENTOR  = 'mentor';
 		const KIND_DETAILS = 'details';
 		public static function init() {
@@ -700,6 +705,9 @@ if ( ! class_exists( 'WPCPM_Institution_People' ) ) {
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'people_init' );
 		}
+		/** The Manage members view's two blocks, as markers: the heading above them is what is read. */
+		public static function render_manager( $record ) { echo '<div class="wpcpm-people-stub"></div>'; }
+		public static function render_outcome( $record ) {}
 	}
 }
 
@@ -720,6 +728,11 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 		}
 		public static function former_members_of( $record_id ) {
 			return isset( $GLOBALS['former_members_of'][ $record_id ] ) ? $GLOBALS['former_members_of'][ $record_id ] : array();
+		}
+		/** The institution an account acts for, by user ID: what a check says it is, else none. */
+		public static function institution_of( $user = null ) {
+			$id = $user instanceof WP_User ? (int) $user->ID : (int) $user;
+			return isset( $GLOBALS['institution_of'][ $id ] ) ? $GLOBALS['institution_of'][ $id ] : '';
 		}
 	}
 }
@@ -1022,10 +1035,14 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 			return $GLOBALS['ack_result'] ?? 'sent';
 		}
 
-		/** IDs, like the real one: the bubble counts rows and draws none of them. */
+		/** IDs, like the real one: the bubble counts rows and draws none of them; oldest first, bounded as asked. */
+		public static function pending_ids( $limit = 0 ) {
+			$found = self::application_ids( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ) );
+			return (int) $limit > 0 ? array_slice( $found, 0, (int) $limit ) : $found;
+		}
+
 		public static function pending_count( $limit = 0 ) {
-			$found = count( self::application_ids( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ) ) );
-			return (int) $limit > 0 ? min( $found, (int) $limit ) : $found;
+			return count( self::pending_ids( $limit ) );
 		}
 	}
 }
@@ -1068,6 +1085,7 @@ if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	 */
 	class WPCPM_Institution_Panel {
 		const ANCHOR = 'wpcpm-agreement';
+		public static function render_manager_upload( $record ) {}
 		/** The revoke note's box by its name, as the real panel words it: the form and the refusal name it alike. */
 		public static function revoke_label() {
 			return 'Why it is revoked, in your own words';
@@ -1229,6 +1247,32 @@ if ( ! class_exists( 'WPCPM_Cohort' ) ) {
 		public static function label( $key ) { return 'Semester ' . (string) $key; }
 	}
 }
+
+/**
+ * A wpdb as far as the helper reaches it: its one prepared read of `ID, post_title` among the IDs given,
+ * answered from the world's posts of the application type, so a total reads a title and no meta.
+ * `$GLOBALS['title_reads']` counts the reads, and no statement touches a meta table.
+ */
+class WPCPM_Screen_Test_Wpdb {
+	public $posts = 'wp_posts';
+	public function prepare( $query, ...$args ) {
+		$args = ( 1 === count( $args ) && is_array( $args[0] ) ) ? $args[0] : $args;
+		$i    = 0;
+		return preg_replace_callback( '/%[ds]/', static function ( $m ) use ( $args, &$i ) { $v = $args[ $i++ ]; return 'd' === $m[0][1] ? (string) (int) $v : "'" . $v . "'"; }, $query );
+	}
+	public function get_results( $query, $output = 'OBJECT' ) {
+		$GLOBALS['title_reads'] = ( $GLOBALS['title_reads'] ?? 0 ) + 1;
+		preg_match( '/IN \(([0-9,\s]*)\)/', $query, $found );
+		$ids  = isset( $found[1] ) ? array_map( 'intval', explode( ',', $found[1] ) ) : array();
+		$type = preg_match( "/post_type = '([a-z_]+)'/", $query, $t ) ? $t[1] : '';
+		$rows = array();
+		foreach ( $GLOBALS['posts'] as $post ) {
+			if ( in_array( (int) $post->ID, $ids, true ) && $type === $post->post_type ) { $rows[] = (object) array( 'ID' => (string) $post->ID, 'post_title' => $post->post_title ); }
+		}
+		return $rows;
+	}
+}
+$GLOBALS['wpdb'] = new WPCPM_Screen_Test_Wpdb();
 
 /*
  * `get_posts()` and `wp_count_posts()`, for the reports card and nothing else.
@@ -1487,7 +1531,7 @@ function folded_groups( $html ) {
  * @return array[]
  */
 function queue_items( $html ) {
-	preg_match_all( '#<li class="wpcpm-queue-item([^"]*)"><h3 class="wpcpm-queue-title"><span class="wpcpm-inst-name__text">(.*?)</span> <span class="wpcpm-inst-muted">(.*?)</span></h3>#', $html, $m, PREG_SET_ORDER );
+	preg_match_all( '#<li class="wpcpm-queue-item([^"]*)"><h3 class="wpcpm-queue-title"><span class="wpcpm-inst-name__text">(.*?)</span>(?: <span class="wpcpm-inst-mark [^"]*"[^>]*>[^<]*</span>)? <span class="wpcpm-inst-muted">(.*?)</span></h3>#', $html, $m, PREG_SET_ORDER );
 	$out = array();
 	foreach ( $m as $row ) { $out[] = array( html_entity_decode( $row[2], ENT_QUOTES ), html_entity_decode( $row[3], ENT_QUOTES ), ' is-overdue' === $row[1] ); }
 	return $out;
@@ -1570,6 +1614,9 @@ function seed_request( $id, $record, $student, $actor, $note, $at, $kind = 'ment
 		'format'  => 'A change to the report',
 		'details' => 'A change to its details',
 	);
+
+	// The request's own meta, which the count reads to leave a test institution's out.
+	update_post_meta( $id, WPCPM_Institution_Request::META_INSTITUTION, $record );
 
 	$GLOBALS['request_facts'][ (int) $id ] = array(
 		'id'               => (int) $id,
@@ -1877,9 +1924,11 @@ $confirmed = array_keys( array_filter( $rows, function ( $r ) { return 'Confirme
 // The Pipeline tab's counts leave out the four stages a record is set aside at (1.123.29): SPAM,
 // Not Moving Forward, Revisit Later and no stage, read trimmed. Written out here rather than read
 // off the class, so a list that loses or gains a stage fails below. The fixture holds 17 of them.
+// A test institution (1.123.55: a name that starts with the word TEST in capitals) is no more counted
+// than one set aside, wherever its stage: the fixture's own, "TEST - Institution 20" at Under Review, is the 18th.
 $uncounted_stages = array( 'SPAM', 'Not Moving Forward', 'Revisit Later', '' );
 $counted_of       = function ( array $of ) use ( $uncounted_stages ) {
-	return array_filter( $of, function ( $r ) use ( $uncounted_stages ) { return ! in_array( trim( (string) $r['stage'] ), $uncounted_stages, true ); } );
+	return array_filter( $of, function ( $r ) use ( $uncounted_stages ) { return ! in_array( trim( (string) $r['stage'] ), $uncounted_stages, true ) && 1 !== preg_match( '/^TEST(?![A-Za-z0-9])/', trim( (string) $r['name'] ) ); } );
 };
 $counted          = $counted_of( $rows );
 
@@ -2001,19 +2050,20 @@ echo "\n=== Each tab reads what it draws ===\n";
 // The membership counts are a user query per institution, a hundred and four of them here, and the
 // provisioning reasons up to two more per Confirmed one, which the Accounts tab's list asks for the
 // count its No account view carries: a tab that does not print them must not pay for them. Pipeline
-// asks them of the institutions it counts, 87 of the 104, and Sync and storage of every one.
+// asks them of the institutions it counts, 86 of the 104, and Sync and storage of every one that is not a
+// test institution's, 103.
 $reads = array();
 foreach ( $slugs as $slug ) {
 	render_tab( $slug );
 	$reads[ $slug ] = array( count( $GLOBALS['member_reads'] ), count( $GLOBALS['blocks_read'] ), $GLOBALS['progress_reads'], $GLOBALS['counts_reads'] );
 }
-ck( 'the membership counts are asked on Pipeline, of the institutions it counts, and on Sync and storage, of every one, the provisioning reasons on Accounts alone, and the sync\'s progress and the roster counts on Sync and storage alone', $reads, array(
+ck( 'the membership counts are asked on Pipeline, of the institutions it counts, and on Sync and storage, of every one but the TEST record, the provisioning reasons on Accounts alone, and the sync\'s progress and the roster counts on Sync and storage alone', $reads, array(
 	'queue'      => array( 0, 0, 0, 0 ),
 	'pipeline'   => array( count( $counted ), 0, 0, 0 ),
 	'accounts'   => array( 0, count( $confirmed ), 0, 0 ),
 	'reports'    => array( 0, 0, 0, 0 ),
 	'agreements' => array( 0, 0, 0, 0 ),
-	'sync'       => array( count( $rows ), 0, 1, 1 ),
+	'sync'       => array( count( $rows ) - 1, 0, 1, 1 ),
 ) );
 
 echo "\n=== The notices, on every tab ===\n";
@@ -2082,14 +2132,16 @@ echo "\n=== The pipeline, on its tab ===\n";
 
 $html = render_tab( 'pipeline' );
 
-ck( 'the pipeline counts the fixture rows at a counted stage, 87 of its 104', array( count( $counted ), false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . count( $counted ) . '</span>' ) ), array( $seed['counts']['institutions'] - 17, true ) );
+ck( 'the pipeline counts the fixture rows at a counted stage, the TEST record left out: 86 of its 104', array( count( $counted ), false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . count( $counted ) . '</span>' ) ), array( $seed['counts']['institutions'] - 18, true ) );
 
 $headings = stage_headings( $html );
 $expected = array();
 foreach ( WPCPM_Institution_Agreement::STAGE_ORDER as $stage ) {
 	if ( isset( $seed['counts']['by_stage'][ $stage ] ) ) { $expected[ $stage ] = (int) $seed['counts']['by_stage'][ $stage ]; }
 }
-ck( 'the groups above the line are the fixture\'s counted stages and their counts, in STAGE_ORDER', $headings, $expected );
+// The TEST record is at Under Review: listed in that group's table, not in its count.
+$expected['Under Review'] -= 1;
+ck( 'the groups above the line are the fixture\'s counted stages and their counts, the TEST record left out of Under Review\'s, in STAGE_ORDER', $headings, $expected );
 ck( 'the three terminal stages fold under it, closed, in the order they always had, each with its count', folded_groups( $html ), array(
 	'Not Moving Forward' => array( (int) $seed['counts']['by_stage']['Not Moving Forward'], false ),
 	'SPAM'               => array( (int) $seed['counts']['by_stage']['SPAM'], false ),
@@ -2259,13 +2311,13 @@ $focus_counted = $counted_of( $focus );
 $focus_emailed = array_filter( $focus, function ( $r ) { return '' !== $r['contact_email']; } );
 
 ck( 'the four stages the counts leave out are SPAM, Not Moving Forward, Revisit Later and no stage', WPCPM_Institutions::UNCOUNTED_STAGES, array( 'SPAM', 'Not Moving Forward', 'Revisit Later', '' ) );
-ck( 'counted_rows() keeps the 88 rows whose trimmed stage is not one of them, keyed as given: "Paused" kept, "SPAM " left out', array(
+ck( 'counted_rows() keeps the 87 rows whose trimmed stage is not one of them and that are not a test institution\'s, keyed as given: "Paused" kept, "SPAM " left out', array(
 	count( WPCPM_Institutions::counted_rows( $focus ) ),
 	array_keys( WPCPM_Institutions::counted_rows( $focus ) ) === array_keys( $focus_counted ),
 	isset( WPCPM_Institutions::counted_rows( $focus )[ $paused ] ),
 	isset( WPCPM_Institutions::counted_rows( $focus )[ $spaced ] ),
 	WPCPM_Institutions::counted_rows( array() ),
-), array( 88, true, true, false, array() ) );
+), array( 87, true, true, false, array() ) );
 
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $focus;
 $GLOBALS['enqueued']                                           = array();
@@ -2279,7 +2331,7 @@ $above = $expected;
 $above['Paused'] = 1;
 $line_at         = strpos( $focus_html, '<h3 class="wpcpm-inst-uncounted">Not counted above</h3>' );
 
-ck( 'the card total is the 88 of the 106 at a counted stage', false !== strpos( $focus_html, 'Pipeline <span class="wpcpm-count">88</span>' ), true );
+ck( 'the card total is the 87 of the 106 at a counted stage, the TEST record left out', false !== strpos( $focus_html, 'Pipeline <span class="wpcpm-count">87</span>' ), true );
 ck( 'the stage counts above the line are the counted stages\', "Paused" drawn after the ones the lists know', stage_headings( substr( $focus_html, 0, (int) $line_at ) ), $above );
 ck( 'the line "Not counted above" comes once, after the last counted table and before the folded stages, and nothing counted is drawn after it', array(
 	substr_count( $focus_html, 'Not counted above' ),
@@ -2311,18 +2363,20 @@ foreach ( $focus_counted as $row ) {
 }
 ck( 'every other count on the tab is over the counted rows too: Confirmed with no agreement, no live member, the routing line and the consent card', array(
 	false !== strpos( $focus_html, 'Confirmed with no agreement recorded <span class="wpcpm-count">' . ( $seed['counts']['by_stage']['Confirmed'] - 3 ) . '</span></a>' ),
-	false !== strpos( $focus_html, 'Institutions with no live member <span class="wpcpm-count">88</span>' ),
+	false !== strpos( $focus_html, 'Institutions with no live member <span class="wpcpm-count">87</span>' ),
 	$focus_pipeline_reads,
 	false !== strpos( $focus_html, '<p class="wpcpm-inst-routing">Countries named by institutions with no Administrator contact in the Countries table: Nigeria (1)</p>' ),
 	array( $focus_before, $focus_since ),
 	false !== strpos( $focus_html, '<p class="wpcpm-inst-consent">' . $focus_before . ' institution records were collected before the consent question was added on 20 July 2026, ' . $seed['counts']['created_before_consent_question_confirmed'] . ' of them at Confirmed.</p>' ),
 	false !== strpos( $focus_html, 'Since then, ' . $focus_since . ' records have been created without the tick' ),
-), array( true, true, 88, true, array( 69, 4 ), true, true ) );
-ck( 'and the Sync and storage tab still counts every one: each institution asked once, every contact address that is not a member\'s counted, the spaced SPAM record\'s among them', array(
+), array( true, true, 87, true, array( 69, 3 ), true, true ) );
+$focus_emailed_real = array_filter( $focus_emailed, function ( $r ) { return 'TEST - Institution 20' !== $r['name']; } );
+ck( 'and the Sync and storage tab still counts every stage: each institution but the TEST record asked once, every other contact address that is not a member\'s counted, the spaced SPAM record\'s among them', array(
 	$focus_sync_reads,
-	false !== strpos( $focus_sync, '<th scope="row">Contacts who are not members</th><td>' . count( $focus_emailed ) . ' ' ),
-	count( $focus_emailed ),
-), array( 106, true, 103 ) );
+	false !== strpos( $focus_sync, '<th scope="row">Contacts who are not members</th><td>' . count( $focus_emailed_real ) . ' ' ),
+	count( $focus_emailed ) - count( $focus_emailed_real ),
+	count( $focus_emailed_real ),
+), array( 105, true, 1, 102 ) );
 ck( 'the filtered view draws Confirmed alone, with no line and no fold', array( array_keys( stage_headings( $focus_filtered ) ), strpos( $focus_filtered, 'Not counted above' ), strpos( $focus_filtered, '<details' ) ), array( array( 'Confirmed' ), false, false ) );
 
 // No stage is the fourth: a record with none folds last, under the name the card has always given it.
@@ -2331,7 +2385,7 @@ $with_stageless                                                = $focus;
 $with_stageless[ $stageless ]                                  = array_merge( reset( $rows ), array( 'record_id' => $stageless, 'name' => 'Stageless School', 'stage' => '', 'city' => 'City N' ) );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $with_stageless;
 $stageless_html                                                = render_tab( 'pipeline' );
-ck( 'a record with no stage folds last, as No stage, and is not counted', array( array_keys( folded_groups( $stageless_html ) ), folded_groups( $stageless_html )['No stage'] ?? null, false !== strpos( $stageless_html, 'Pipeline <span class="wpcpm-count">88</span>' ) ), array( array( 'Not Moving Forward', 'SPAM', 'Revisit Later', 'No stage' ), array( 1, false ), true ) );
+ck( 'a record with no stage folds last, as No stage, and is not counted', array( array_keys( folded_groups( $stageless_html ) ), folded_groups( $stageless_html )['No stage'] ?? null, false !== strpos( $stageless_html, 'Pipeline <span class="wpcpm-count">87</span>' ) ), array( array( 'Not Moving Forward', 'SPAM', 'Revisit Later', 'No stage' ), array( 1, false ), true ) );
 ck( 'and its option in the field reads its name and city alone', false !== strpos( $stageless_html, '<option value="' . $stageless . '">Stageless School, City N</option>' ), true );
 
 // Names: each opens the institution's page as an Administrator sees it, the address the Agreements
@@ -2402,7 +2456,7 @@ ck( 'with no published Institution Dashboard the names are plain and no field is
 	strpos( $no_page, 'wpcpm_institution_view' ),
 	strpos( $no_page, 'wpcpm-pipeline-find' ),
 	strpos( $no_page, 'Open its page' ),
-	false !== strpos( $no_page, 'Pipeline <span class="wpcpm-count">88</span>' ),
+	false !== strpos( $no_page, 'Pipeline <span class="wpcpm-count">87</span>' ),
 ), array( true, false, false, false, true ) );
 
 // The Find options come from the shared sort (`WPCPM_Dashboards::sort_switcher_options()`, the one the Viewing
@@ -2606,12 +2660,13 @@ echo "\n=== The manager backstop counts ===\n";
 // address the base names for one belongs to nobody on this site.
 $emailed = array_keys( array_filter( $rows, function ( $r ) { return '' !== $r['contact_email']; } ) );
 ck( 'the fixture names a contact address for 102 of the 104 institutions', count( $emailed ), 102 );
+$emailed_real  = array_filter( $emailed, function ( $id ) use ( $rows ) { return 'TEST - Institution 20' !== $rows[ $id ]['name']; } );
 $pipeline_html = render_tab( 'pipeline' );
 $sync_html     = render_tab( 'sync' );
 
-ck( 'with nobody provisioned, both counts are the whole pipeline: the Pipeline\'s over the institutions it counts, Sync and storage\'s over every one', array(
+ck( 'with nobody provisioned, both counts are the whole pipeline: the Pipeline\'s over the institutions it counts, Sync and storage\'s over every one but the TEST record, whose address is not counted', array(
 	false !== strpos( $pipeline_html, 'Institutions with no live member <span class="wpcpm-count">' . count( $counted ) . '</span>' ),
-	false !== strpos( $sync_html, '<th scope="row">Contacts who are not members</th><td>' . count( $emailed ) . ' ' ),
+	false !== strpos( $sync_html, '<th scope="row">Contacts who are not members</th><td>' . count( $emailed_real ) . ' ' ),
 ), array( true, true ) );
 
 // The one that pages a manager prints inside the pipeline card, above the stage tables; the
@@ -2659,15 +2714,15 @@ $pipeline_reads = $GLOBALS['member_reads'];
 $members_sync   = render_tab( 'sync' );
 $sync_reads     = $GLOBALS['member_reads'];
 
-ck( 'two counted institutions with a live member leave 85 with none', array( count( array_intersect_key( $GLOBALS['members_of'], $counted ) ), false !== strpos( $members, 'Institutions with no live member <span class="wpcpm-count">' . ( count( $counted ) - 2 ) . '</span>' ) ), array( 2, true ) );
-ck( 'and only the one whose member is the contact leaves the address counted', false !== strpos( $members_sync, '<th scope="row">Contacts who are not members</th><td>' . ( count( $emailed ) - 1 ) . ' ' ), true );
+ck( 'two counted institutions with a live member leave 84 with none', array( count( array_intersect_key( $GLOBALS['members_of'], $counted ) ), false !== strpos( $members, 'Institutions with no live member <span class="wpcpm-count">' . ( count( $counted ) - 2 ) . '</span>' ) ), array( 2, true ) );
+ck( 'and only the one whose member is the contact leaves the address counted', false !== strpos( $members_sync, '<th scope="row">Contacts who are not members</th><td>' . ( count( $emailed_real ) - 1 ) . ' ' ), true );
 ck( 'and the card says what a contact who is not a member means, and what is not built for it yet', false !== strpos( $members_sync, 'A Contact Email that belongs to no member is the address Airtable names for the institution' ), true );
-ck( 'each tab that prints a membership count asks each institution it counts for its members exactly once, for both counts together: Pipeline the 87 it counts, Sync and storage all 104', array(
+ck( 'each tab that prints a membership count asks each institution it counts for its members exactly once, for both counts together: Pipeline the 86 it counts, Sync and storage the 103 that are not a test institution\'s', array(
 	count( $pipeline_reads ),
 	count( array_unique( $pipeline_reads ) ),
 	count( $sync_reads ),
 	count( array_unique( $sync_reads ) ),
-), array( count( $counted ), count( $counted ), count( $rows ), count( $rows ) ) );
+), array( count( $counted ), count( $counted ), count( $rows ) - 1, count( $rows ) - 1 ) );
 ck( 'no address reaches the screen, the member\'s least of all', preg_match( '/@example\.test/i', $members . $members_sync ), 0 );
 
 $GLOBALS['members_of']   = array();
@@ -3834,6 +3889,68 @@ ck( 'an empty queue hangs nothing on the menu', $module->menu_label(), 'Institut
 $GLOBALS['posts']         = $held;
 $GLOBALS['awaiting']      = array( 601 );
 $GLOBALS['open_requests'] = $queue_requests;
+
+/* ---- a test institution waits in the queue and is not counted ------------ */
+
+echo "\n=== Test institutions are listed in the queue and left out of every number ===\n";
+
+// The world above, six waiting, gains a test institution's open application, signed agreement and
+// request, each older than the review window. The bubble, the heading's count and the line that says
+// the list is partial count the six real ones; the list draws all nine, three of them marked.
+$tq_saved = array( $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['awaiting'], $GLOBALS['open_requests'], $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ], $GLOBALS['request_facts'] );
+$tq_rec   = 'recTESTINSTITUT01';
+$tq_index = $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ];
+$tq_base  = ! empty( $tq_index['rows'] ) ? reset( $tq_index['rows'] ) : array( 'country' => '', 'country_name' => '' );
+
+$tq_index['rows'][ $tq_rec ]                     = array_merge( $tq_base, array( 'record_id' => $tq_rec, 'name' => 'TEST - Example Institution' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = $tq_index;
+
+seed_application( 8001, 'TEST - Example Application', WPCPM_Institution_Application::STATE_NEW, $now - ( 30 * $day ) );
+$tq_agreement                = new WP_Post();
+$tq_agreement->ID            = 8002;
+$tq_agreement->post_type     = WPCPM_Institution_Agreement::POST_TYPE;
+$tq_agreement->post_status   = 'private';
+$tq_agreement->post_title    = 'Signed agreement';
+$tq_agreement->post_date_gmt = gmdate( 'Y-m-d H:i:s', $now - ( 20 * $day ) );
+$GLOBALS['posts'][8002]      = $tq_agreement;
+update_post_meta( 8002, WPCPM_Institution_Agreement::META_INSTITUTION, $tq_rec );
+update_post_meta( 8002, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_SUBMITTED );
+$GLOBALS['awaiting']      = array( 8002, 601 );
+seed_request( 8003, $tq_rec, 'Student Test', 'Rep One', '', $now - ( 25 * $day ) );
+$GLOBALS['open_requests'] = array_merge( array( 8003 ), $tq_saved[3] );
+
+$tq_html  = render_screen();
+$GLOBALS['title_reads'] = 0;
+$tq_bubble              = $module->menu_label();
+ck( 'the bubble reads the application titles in one query, and no more', $GLOBALS['title_reads'], 1 );
+$tq_marks = static function ( $html ) { return substr_count( $html, 'wpcpm-inst-mark--test' ); };
+ck( 'the menu bubble still counts the six real ones', $tq_bubble, 'Institutions <span class="awaiting-mod count-6"><span class="pending-count">6</span></span>' );
+ck( 'the heading counts them too, and the list is not said to be partial', array( false !== strpos( $tq_html, 'Waiting for review <span class="wpcpm-count">6</span>' ), false !== strpos( $tq_html, 'Showing the oldest' ) ), array( true, false ) );
+ck( 'the queue lists all nine, the three test ones marked', array( count( queue_items( $tq_html ) ), $tq_marks( $tq_html ) ), array( 9, 3 ) );
+ck( 'and the oldest three are the test ones', array_column( array_slice( queue_items( $tq_html ), 0, 3 ), 0 ), array( 'TEST - Example Application', 'TEST - Example Institution', 'TEST - Example Institution' ) );
+
+// The test institution's row is gone from the index and the sync remembered it: still a test.
+unset( $tq_index['rows'][ $tq_rec ] );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = $tq_index;
+$GLOBALS['opts'][ WPCPM_Test_Institutions::OPTION ]    = array( $tq_rec );
+$tq_html = render_screen();
+ck( 'with its row removed from the index and remembered by the sync, the bubble and the heading still say six', array( $module->menu_label(), false !== strpos( $tq_html, 'Waiting for review <span class="wpcpm-count">6</span>' ) ), array( 'Institutions <span class="awaiting-mod count-6"><span class="pending-count">6</span></span>', true ) );
+ck( 'and its agreement and request are still listed, the agreement named as the queue names an institution the index no longer holds, all three marked', array( count( queue_items( $tq_html ) ), $tq_marks( $tq_html ), in_array( $tq_rec, array_column( queue_items( $tq_html ), 0 ), true ) ), array( 9, 3, true ) );
+unset( $GLOBALS['opts'][ WPCPM_Test_Institutions::OPTION ] );
+
+// A window of fifty: fifty real applications and the oldest of all a test one.
+$GLOBALS['posts']         = array();
+$GLOBALS['pmeta']         = array();
+$GLOBALS['awaiting']      = array();
+$GLOBALS['open_requests'] = array();
+seed_application( 8100, 'TEST - Example Application', WPCPM_Institution_Application::STATE_NEW, $now - ( 30 * $day ) );
+for ( $i = 1; $i <= WPCPM_Institutions::QUEUE_MAX; $i++ ) {
+	seed_application( 8100 + $i, sprintf( 'Real %d', $i ), WPCPM_Institution_Application::STATE_NEW, $now - ( 10 * $day ) + $i );
+}
+$tq_html = render_screen();
+ck( 'fifty rows are drawn, the test one among them, and the line counts the real rows drawn against the real total', array( count( queue_items( $tq_html ) ), $tq_marks( $tq_html ), false !== strpos( $tq_html, 'Showing the oldest 49 of 50.' ), false !== strpos( $tq_html, 'Waiting for review <span class="wpcpm-count">50</span>' ) ), array( 50, 1, true, true ) );
+
+list( $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['awaiting'], $GLOBALS['open_requests'], $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ], $GLOBALS['request_facts'] ) = $tq_saved;
 
 /* ---- a flood ------------------------------------------------------------ */
 
@@ -5727,6 +5844,438 @@ ck( 'render_link_form() names its institution field with ARG_INSTITUTION, whose 
 	WPCPM_Institutions::ARG_INSTITUTION,
 ), array( true, false, 'wpcpm_institution' ) );
 ck( 'and the handler that reads the press reads the same constant', array( '' !== $handler_body, false !== strpos( $handler_body, 'posted_text( self::ARG_INSTITUTION )' ), false !== strpos( $handler_body, "'wpcpm_institution'" ) ), array( true, true, false ) );
+
+echo "\n=== A test institution is listed, with a Test mark beside its name ===\n";
+
+// The seed's own test institution, recSEED0000000001 "TEST - Institution 20" (Under Review), and the
+// first real one. Every list the screen draws names the test one with the mark right after its name,
+// or reads "<name> (Test)" where only text can go; the real one carries neither; the items and their
+// order are the ones the list drew before.
+$T = 'recSEED0000000001';
+$R = 'recSEED0000000002';
+$M = 'wpcpm-inst-mark--test';
+
+$rows_t                  = $rows;
+$rows_t[ $T ]['stage']   = 'Confirmed';
+$rows_t[ $R ]['stage']   = 'Confirmed';
+$rows_t[ $T ]['agreement'] = array_merge( $rows_t[ $T ]['agreement'], array( 'status' => 'Accepted', 'kind' => 'Program template', 'template_version' => '2025-06-12' ) );
+$rows_t[ $R ]['agreement'] = array_merge( $rows_t[ $R ]['agreement'], array( 'status' => 'Accepted', 'kind' => 'Program template', 'template_version' => '2025-06-12' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows_t );
+
+/** The first cell of every table row whose cell ends with the record's code: `<tr><td>...<code>REC</code></td>`. */
+$cells_of = static function ( $html, $record ) {
+	preg_match_all( '#<tr><td>((?:(?!</td>).)*?)<code>' . preg_quote( $record, '#' ) . '</code></td>#s', $html, $found );
+	return $found[1];
+};
+/** How many marks a piece of markup holds. */
+$marks_in = static function ( $html ) use ( $M ) { return substr_count( $html, $M ); };
+
+// Pipeline: the row, beside the whitespace flag's place, and the Find entry.
+$pipe = render_tab( 'pipeline' );
+preg_match( '#<td class="wpcpm-inst-name">((?:(?!</td>).)*?)<code class="wpcpm-inst-record">' . $T . '</code></td>#s', $pipe, $t_cell );
+preg_match( '#<td class="wpcpm-inst-name">((?:(?!</td>).)*?)<code class="wpcpm-inst-record">' . $R . '</code></td>#s', $pipe, $r_cell );
+ck( 'Pipeline: the test institution\'s row holds the mark once, right after its name; the real row holds none', array(
+	isset( $t_cell[1] ) ? $marks_in( $t_cell[1] ) : -1,
+	isset( $t_cell[1] ) && false !== strpos( $t_cell[1], '</a></span> <span class="wpcpm-inst-mark ' . $M . '"' ),
+	isset( $r_cell[1] ) ? $marks_in( $r_cell[1] ) : -1,
+), array( 1, true, 0 ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'][ $T ]['stage'] = 'Under Review';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'][ $R ]['stage'] = 'Info Sent';
+$pipe = render_tab( 'pipeline' );
+ck( 'Pipeline, Find an institution: its entry, with the seed\'s stages', array(
+	false !== strpos( $pipe, '<option value="' . $T . '">TEST - Institution 20 (Test), City 19 (Under Review)</option>' ),
+	false !== strpos( $pipe, '<option value="' . $R . '">Institution 1, City 1 (Info Sent)</option>' ),
+	substr_count( $pipe, '(Test)' ),
+), array( true, true, 1 ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows_t;
+
+// Waiting for review: an application by its name, a request by its record, and the open application.
+$now_t = time();
+seed_application( 7001, 'TEST - Example Institution', WPCPM_Institution_Application::STATE_NEW, $now_t - 3600 );
+seed_application( 7002, 'Example College', WPCPM_Institution_Application::STATE_NEW, $now_t - 7200 );
+seed_request( 7003, $T, 'Student One', 'Rep One', '', $now_t - 1800 );
+seed_request( 7004, $R, 'Student Two', 'Rep One', '', $now_t - 900 );
+$kept_open_requests       = $GLOBALS['open_requests'] ?? array();
+$GLOBALS['open_requests'] = array( 7003, 7004 );
+
+$queue = render_tab( 'queue' );
+$title = static function ( $html, $name ) {
+	return preg_match( '#<h3 class="wpcpm-queue-title"><span class="wpcpm-inst-name__text">' . preg_quote( $name, '#' ) . '</span>(.*?)</h3>#s', $html, $m ) ? $m[1] : null;
+};
+ck( 'Waiting for review, an application: the mark follows its name, once; a real one has none', array(
+	null !== $title( $queue, 'TEST - Example Institution' ) ? 0 === strpos( $title( $queue, 'TEST - Example Institution' ), ' <span class="wpcpm-inst-mark ' . $M . '"' ) : null,
+	null !== $title( $queue, 'TEST - Example Institution' ) ? $marks_in( $title( $queue, 'TEST - Example Institution' ) ) : -1,
+	null !== $title( $queue, 'Example College' ) ? $marks_in( $title( $queue, 'Example College' ) ) : -1,
+), array( true, 1, 0 ) );
+ck( 'Waiting for review, a request: judged by its record', array(
+	null !== $title( $queue, 'TEST - Institution 20' ) ? $marks_in( $title( $queue, 'TEST - Institution 20' ) ) : -1,
+	null !== $title( $queue, 'Institution 1' ) ? $marks_in( $title( $queue, 'Institution 1' ) ) : -1,
+), array( 1, 0 ) );
+
+$open_t = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 7001 ) );
+$open_r = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 7002 ) );
+ck( 'Waiting for review, the open application: the mark sits in the heading after the name; a real one has none', array(
+	false !== strpos( $open_t, '<h2>TEST - Example Institution <span class="wpcpm-inst-mark ' . $M . '"' ),
+	$marks_in( $open_t ),
+	$marks_in( $open_r ),
+), array( true, 1, 0 ) );
+unset( $GLOBALS['posts'][7001], $GLOBALS['posts'][7002], $GLOBALS['request_facts'][7003], $GLOBALS['request_facts'][7004] );
+$GLOBALS['open_requests'] = $kept_open_requests;
+
+// Accounts: the locked accounts, and Manage members.
+$GLOBALS['locked']         = array( new WP_User( 50, 'Rep One', 'rep.one@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ), new WP_User( 51, 'Rep Two', 'rep.two@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ) );
+$GLOBALS['institution_of'] = array( 50 => $T, 51 => $R );
+$accounts_t                = render_tab( 'accounts' );
+$GLOBALS['locked']         = array();
+$GLOBALS['institution_of'] = array();
+ck( 'Accounts, locked accounts: the test institution\'s account reads "(Test)" after its username, the real one as before', array(
+	false !== strpos( $accounts_t, 'Rep One (repone) (Test), Rep Two (reptwo).' ),
+	substr_count( $accounts_t, '(Test)' ),
+), array( true, 1 ) );
+ck( 'and the notice counts the real account only: "1 institution account is locked out", naming both', array(
+	substr_count( $accounts_t, '1 institution account is locked out of roster changes for the rest of today.' ),
+	substr_count( $accounts_t, '2 institution accounts are locked out' ),
+), array( 1, 0 ) );
+
+$members_t = render_tab( 'accounts', array( WPCPM_Institutions::ARG_INSTITUTION => $T ) );
+$members_r = render_tab( 'accounts', array( WPCPM_Institutions::ARG_INSTITUTION => $R ) );
+ck( 'Accounts, Manage members: the heading carries the mark after the name; a real institution\'s has none', array(
+	false !== strpos( $members_t, '<h2>TEST - Institution 20 <span class="wpcpm-inst-mark ' . $M . '"' ),
+	$marks_in( $members_t ),
+	false !== strpos( $members_r, '<h2>Institution 1</h2>' ),
+	$marks_in( $members_r ),
+), array( true, 1, true, 0 ) );
+
+// The reconciliation card on the Sync tab: a test institution's students are listed, marked, and in no
+// number. A lone test disagreement still draws its list (Ruling 16), "and N more" counts the real rows
+// only, and the mentored count leaves the test institution's student out.
+$recon_kept = $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ];
+$recon_dis  = $recon_kept['reconciliation']['status_disagreement_rows'];
+$test_entry = array( 'name' => 'Test Disagreeing', 'test' => true, 'students_record' => 'recSTUDIS0000009', 'reports_record' => 'recREPDIS0000009', 'students_status' => 'Graduate', 'reports_status' => 'In Sensei' );
+$mark_html  = '<span class="wpcpm-inst-mark wpcpm-inst-mark--test"';
+
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['status_disagreement_rows'] = array_merge( $recon_dis, array( $test_entry ) );
+$sync_mixed = render_tab( 'sync' );
+ck( 'Sync, status disagreements: a test student is listed with the mark once, the count stays 10 and "and N more" counts the real rows only: ten, two real shown, 8 more', array(
+	false !== strpos( $sync_mixed, '<li>Test Disagreeing ' . $mark_html ),
+	substr_count( $sync_mixed, '<li>Test Disagreeing ' . $mark_html ),
+	false !== strpos( $sync_mixed, '<th scope="row">Status disagreements on joined rows</th><td>10</td>' ),
+	false !== strpos( $sync_mixed, '<li class="wpcpm-inst-muted">and 8 more</li>' ),
+	substr_count( $sync_mixed, 'Disagreeing One<br>' ),
+), array( true, 1, true, true, 1 ) );
+
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['status_disagreements']     = 0;
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['status_disagreement_rows'] = array( $test_entry );
+$sync_lone = render_tab( 'sync' );
+ck( 'a lone test disagreement, none real: the list is still drawn, the student named and marked, the count 0 and no "and N more"', array(
+	false !== strpos( $sync_lone, '<h3>Status disagreements on joined rows</h3>' ),
+	false !== strpos( $sync_lone, '<li>Test Disagreeing ' . $mark_html ),
+	false !== strpos( $sync_lone, '<th scope="row">Status disagreements on joined rows</th><td>0</td>' ),
+	false === strpos( $sync_lone, 'and 0 more' ) && false === strpos( $sync_lone, 'wpcpm-inst-muted">and ' ),
+), array( true, true, true, true ) );
+
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = $recon_kept;
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ]['reconciliation']['mentored_without_reports'][] = array( 'students_record' => 'recSTUTEST000001', 'name' => 'Test Mentored', 'email' => 'test-mentored@school.example.test', 'institution' => $T, 'status' => 'In Sensei', 'outcome' => 'none', 'reports_record' => '', 'reports_email' => '', 'joined_to' => '', 'joined_to_institution' => '' );
+$sync_missed = render_tab( 'sync' );
+ck( 'Sync, mentored students the join missed: the test institution\'s student is listed with the mark, the count stays 3', array(
+	false !== strpos( $sync_missed, '<th scope="row">Mentored students whose report record the address join missed</th><td>3</td>' ),
+	false !== strpos( $sync_missed, '<li>Test Mentored <span class="wpcpm-inst-muted">TEST - Institution 20 · In Sensei</span> ' . $mark_html ),
+	false === strpos( $sync_missed, '<li>Mismatched Student <span class="wpcpm-inst-muted">Institution 4 · In Sensei</span> ' . $mark_html ),
+), array( true, true, true ) );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = $recon_kept;
+
+// Semester reports: a report and a pair due for drafting.
+seed_report( 9301, $T, '2026-H1', 'draft', 1756000000, 'private', 'auto' );
+seed_report( 9302, $R, '2026-H1', 'draft', 1756000100, 'private', 'auto' );
+$GLOBALS['due'] = array(
+	array( 'institution' => $T, 'cohort' => '2024-H2', 'in_progress' => 0, 'window_end' => '2024-12-31' ),
+	array( 'institution' => $R, 'cohort' => '2024-H2', 'in_progress' => 0, 'window_end' => '2024-12-31' ),
+);
+$reports_t = render_tab( 'reports' );
+$t_cells   = $cells_of( $reports_t, $T );
+$r_cells   = $cells_of( $reports_t, $R );
+$ends_with_mark = static function ( $cell ) use ( $M ) { return 1 === preg_match( '#<span class="wpcpm-inst-mark ' . $M . '" title="[^"]*">Test</span><br />$#', $cell ); };
+ck( 'Semester reports, a report; Due for drafting, a pair: each cell of the test institution has the mark once, right after the name; the real one\'s has none', array(
+	count( $t_cells ),
+	count( array_filter( $t_cells, $ends_with_mark ) ),
+	array_sum( array_map( $marks_in, $t_cells ) ),
+	count( $r_cells ),
+	array_sum( array_map( $marks_in, $r_cells ) ),
+), array( 2, 2, 2, 2, 0 ) );
+unset( $GLOBALS['posts'][9301], $GLOBALS['posts'][9302] );
+
+// A report whose institution the index no longer holds, a test record the remembered list still names
+// (its row left Airtable after testing, its reports stayed): the mark stays, judged by the record ID and
+// never by the "(institution not in the index)" placeholder; an unremembered record has none.
+$GONE_T = 'recGONETESTREC001';
+$GONE_R = 'recGONEREALREC001';
+seed_report( 9303, $GONE_T, '2026-H1', 'draft', 1756000200, 'private', 'auto' );
+seed_report( 9304, $GONE_R, '2026-H1', 'draft', 1756000300, 'private', 'auto' );
+$GLOBALS['opts'][ WPCPM_Test_Institutions::OPTION ] = array( $GONE_T );
+$gone_html = render_tab( 'reports' );
+$gone_t    = $cells_of( $gone_html, $GONE_T );
+$gone_r    = $cells_of( $gone_html, $GONE_R );
+ck( 'Semester reports: a remembered test record the index lacks keeps its mark; an unremembered one has none', array(
+	count( $gone_t ),
+	count( array_filter( $gone_t, $ends_with_mark ) ),
+	count( $gone_r ),
+	array_sum( array_map( $marks_in, $gone_r ) ),
+	false !== strpos( $gone_t[0] ?? '', $GONE_T ),
+), array( 1, 1, 1, 0, true ) );
+unset( $GLOBALS['posts'][9303], $GLOBALS['posts'][9304], $GLOBALS['opts'][ WPCPM_Test_Institutions::OPTION ] );
+$GLOBALS['due'] = array( array( 'institution' => $report_record, 'cohort' => '2024-H2', 'in_progress' => 0, 'window_end' => '2024-12-31' ) );
+
+// Agreements: on file, in force, discrepancies and the versions.
+$GLOBALS['summaries']     = array( $T => array( 'state' => 'accepted', 'agreement_id' => 7101, 'accepted_at' => '2026-02-02' ), $R => array( 'state' => 'accepted', 'agreement_id' => 7102, 'accepted_at' => '2026-02-02' ) );
+$GLOBALS['discrepancies'] = array(
+	$T => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ),
+	$R => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ),
+);
+$agreements_t = render_tab( 'agreements' );
+$GLOBALS['summaries']     = array();
+$agreements_u = render_tab( 'agreements' );
+$GLOBALS['discrepancies'] = array();
+
+$li_of = static function ( $html, $record ) {
+	return preg_match( '#<li>(.*?) <code class="wpcpm-inst-record">' . preg_quote( $record, '#' ) . '</code></li>#s', $html, $m ) ? $m[1] : null;
+};
+ck( 'Agreements on file: the test institution\'s item holds the mark once after its link; the real one\'s none', array(
+	null !== $li_of( $agreements_u, $T ) ? $marks_in( $li_of( $agreements_u, $T ) ) : -1,
+	null !== $li_of( $agreements_u, $T ) && 1 === preg_match( '#</a> <span class="wpcpm-inst-mark ' . $M . '"[^>]*>Test</span>$#', $li_of( $agreements_u, $T ) ),
+	null !== $li_of( $agreements_u, $R ) ? $marks_in( $li_of( $agreements_u, $R ) ) : -1,
+), array( 1, true, 0 ) );
+
+$inforce = static function ( $html, $record ) {
+	return preg_match( '#<span class="wpcpm-inst-name__text"><a href="[^"]*=' . preg_quote( $record, '#' ) . '">[^<]*</a></span>(.*?) <span class="wpcpm-inst-muted">#s', $html, $m ) ? $m[1] : null;
+};
+ck( 'Agreements in force: the mark follows the name, once; a real one has none', array(
+	null !== $inforce( $agreements_t, $T ) ? $marks_in( $inforce( $agreements_t, $T ) ) : -1,
+	null !== $inforce( $agreements_t, $R ) ? $marks_in( $inforce( $agreements_t, $R ) ) : -1,
+), array( 1, 0 ) );
+
+$d_cells = $cells_of( $agreements_t, $T );
+ck( 'Agreement discrepancies: the test institution\'s cell holds the mark once, after its name; the real one\'s none', array(
+	count( $d_cells ),
+	count( array_filter( $d_cells, $ends_with_mark ) ),
+	array_sum( array_map( $marks_in, $cells_of( $agreements_t, $R ) ) ),
+), array( 1, 1, 0 ) );
+
+ck( 'Institutions per template version: the test institution\'s name reads "(Test)" in the list, the real one\'s as it was, and the count is the real ones', array(
+	false !== strpos( $agreements_t, '2025-06-12</th><td>1 <span class="wpcpm-inst-muted">(TEST - Institution 20 (Test), Institution 1)</span>' ) || false !== strpos( $agreements_t, '2025-06-12</th><td>1 <span class="wpcpm-inst-muted">(Institution 1, TEST - Institution 20 (Test))</span>' ),
+), array( true ) );
+
+echo "\n=== A test institution is listed and marked, and counted nowhere on the screen ===\n";
+
+// Every number on the Institutions screen is a count of real institutions (1.123.55): the same world with
+// and without a test institution prints the same number, and the test institution is still listed, marked.
+$IDX = WPCPM_Institutions_Index::OPT_NAME;
+$GLOBALS['opts'][ $IDX ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
+
+/** The table of one stage's group on the Pipeline, counted or folded, or '' when none is drawn. */
+$group_of = static function ( $html, $stage ) {
+	$stage = preg_quote( $stage, '#' );
+	if ( preg_match( '#<h3 class="wpcpm-inst-stage">' . $stage . ' <span class="wpcpm-count">\d+</span></h3>(.*?)(?=<h3|<details|<h2|$)#s', $html, $m ) ) {
+		return $m[1];
+	}
+	return preg_match( '#<details class="wpcpm-inst-folded"><summary>' . $stage . ' <span class="wpcpm-count">\d+</span></summary>(.*?)</details>#s', $html, $m ) ? $m[1] : '';
+};
+$row_count = static function ( $group ) { return substr_count( $group, '<tr><td class="wpcpm-inst-name">' ); };
+$name_cell = static function ( $html, $record ) {
+	return preg_match( '#<td class="wpcpm-inst-name">((?:(?!</td>).)*?)<code class="wpcpm-inst-record">' . preg_quote( $record, '#' ) . '</code></td>#s', $html, $m ) ? $m[1] : null;
+};
+$sentence_count = static function ( $html, $pattern ) { return preg_match( $pattern, $html, $m ) ? (int) $m[1] : -1; };
+
+// The seed's own TEST record is at Under Review: its heading counts the four real ones, its table lists five.
+$test_html = render_tab( 'pipeline' );
+$ur_group  = $group_of( $test_html, 'Under Review' );
+ck( 'Pipeline: Under Review counts the real institutions, 4 of its 5, and lists all five with the TEST one marked once', array(
+	stage_headings( $test_html )['Under Review'] ?? -1,
+	$row_count( $ur_group ),
+	substr_count( $ur_group, $M ),
+	null !== $name_cell( $ur_group, $T ) ? substr_count( $name_cell( $ur_group, $T ), $M ) : -1,
+), array( $seed['counts']['by_stage']['Under Review'] - 1, $seed['counts']['by_stage']['Under Review'], 1, 1 ) );
+
+// Review Focus 1: "Test College" is not a test institution (no capital TEST word): counted, and unmarked.
+$tc_id           = 'recINSTITUTION003';
+$with_tc         = $rows;
+$with_tc[ $tc_id ] = array_merge( reset( $rows ), array( 'record_id' => $tc_id, 'name' => 'Test College', 'stage' => 'Confirmed', 'city' => 'City TC' ) );
+$GLOBALS['opts'][ $IDX ]['rows'] = $with_tc;
+$tc_html = render_tab( 'pipeline' );
+ck( 'Pipeline: "Test College" at Confirmed is counted, the total 87 and the Confirmed heading one more, and its row carries no mark', array(
+	$sentence_count( $tc_html, '#Pipeline <span class="wpcpm-count">(\d+)</span>#' ),
+	stage_headings( $tc_html )['Confirmed'] ?? -1,
+	null !== $name_cell( $tc_html, $tc_id ) ? substr_count( $name_cell( $tc_html, $tc_id ), $M ) : -1,
+), array( count( $counted ) + 1, $seed['counts']['by_stage']['Confirmed'] + 1, 0 ) );
+
+// A folded stage: the TEST record set aside at Not Moving Forward; the fold counts the fixture's 14 real ones, lists 15.
+$with_nmf                  = $rows;
+$with_nmf[ $T ]['stage']   = 'Not Moving Forward';
+$GLOBALS['opts'][ $IDX ]['rows'] = $with_nmf;
+$nmf_html  = render_tab( 'pipeline' );
+$nmf_group = $group_of( $nmf_html, 'Not Moving Forward' );
+ck( 'Pipeline, a folded stage: the fold counts its real institutions, 14, and its table lists 15, the TEST one marked once; the total stays', array(
+	folded_groups( $nmf_html )['Not Moving Forward'][0] ?? -1,
+	$row_count( $nmf_group ),
+	substr_count( $nmf_group, $M ),
+	$sentence_count( $nmf_html, '#Pipeline <span class="wpcpm-count">(\d+)</span>#' ),
+), array( (int) $seed['counts']['by_stage']['Not Moving Forward'], (int) $seed['counts']['by_stage']['Not Moving Forward'] + 1, 1, count( $counted ) ) );
+
+// Agreements: a test institution set to Confirmed by hand with no agreement recorded. The same world
+// without it (it stays at Under Review) prints the same numbers; with it, it is listed, marked.
+$gap_count      = static function ( $html ) use ( $sentence_count ) { return $sentence_count( $html, '#Confirmed with no agreement recorded <span class="wpcpm-count">(\d+)</span>#' ); };
+$shown_count    = static function ( $html ) use ( $sentence_count ) { return $sentence_count( $html, '#Showing the (\d+) Confirmed institutions? with no agreement recorded\.#' ); };
+$card_count     = static function ( $html ) use ( $sentence_count ) { return $sentence_count( $html, '#(\d+) Confirmed institutions? (?:has|have) no agreement recorded:#' ); };
+$GLOBALS['summaries'] = array();
+
+$GLOBALS['opts'][ $IDX ]['rows'] = $rows;
+$gap_a_pipe = render_tab( 'pipeline' );
+$gap_a_flt  = render_tab( 'pipeline', array( 'wpcpm_filter' => 'agreement_gap' ) );
+$gap_a_card = render_tab( 'agreements' );
+$GLOBALS['opts'][ $IDX ]['rows'] = $rows;
+$GLOBALS['opts'][ $IDX ]['rows'][ $T ]['stage'] = 'Confirmed';
+$gap_b_pipe = render_tab( 'pipeline' );
+$gap_b_flt  = render_tab( 'pipeline', array( 'wpcpm_filter' => 'agreement_gap' ) );
+$gap_b_card = render_tab( 'agreements' );
+$gap_b_conf = $group_of( $gap_b_flt, 'Confirmed' );
+ck( 'Agreements: a test institution at Confirmed with no agreement recorded leaves every count of that gap as it was without it: the Pipeline\'s link, the filtered sentence, the Confirmed heading, and the card\'s sentence', array(
+	$gap_count( $gap_b_pipe ) === $gap_count( $gap_a_pipe ) && $gap_count( $gap_a_pipe ) > 0,
+	$shown_count( $gap_b_flt ) === $shown_count( $gap_a_flt ) && $shown_count( $gap_a_flt ) === $gap_count( $gap_a_pipe ),
+	( stage_headings( $gap_b_flt )['Confirmed'] ?? -1 ) === ( stage_headings( $gap_a_flt )['Confirmed'] ?? -2 ),
+	$card_count( $gap_b_card ) === $card_count( $gap_a_card ) && $card_count( $gap_a_card ) === $gap_count( $gap_a_pipe ),
+	( stage_headings( $gap_b_pipe )['Confirmed'] ?? -1 ) === ( stage_headings( $gap_a_pipe )['Confirmed'] ?? -2 ),
+	$sentence_count( $gap_b_pipe, '#Pipeline <span class="wpcpm-count">(\d+)</span>#' ),
+), array( true, true, true, true, true, count( $counted ) ) );
+ck( 'and it is still listed, marked: in the filtered view (one row more than the heading counts, once marked) and under Agreements on file', array(
+	$row_count( $gap_b_conf ),
+	substr_count( $gap_b_conf, $M ),
+	null !== $li_of( $gap_b_card, $T ) ? $marks_in( $li_of( $gap_b_card, $T ) ) : -1,
+	$row_count( $group_of( $gap_a_flt, 'Confirmed' ) ),
+), array( $gap_count( $gap_b_pipe ) + 1, 1, 1, $gap_count( $gap_a_pipe ) ) );
+ck( 'the Pipeline\'s default view counts the Confirmed heading as it did without it, listing the test row', array(
+	stage_headings( $gap_b_pipe )['Confirmed'] ?? -1,
+	$row_count( $group_of( $gap_b_pipe, 'Confirmed' ) ),
+), array( ( stage_headings( $gap_a_pipe )['Confirmed'] ?? -2 ), ( stage_headings( $gap_a_pipe )['Confirmed'] ?? -2 ) + 1 ) );
+
+// The zero case: only a test institution is Confirmed with no agreement recorded. Both sentences read 0, and
+// the test institution is still listed, marked, below the card's.
+$only_test              = $rows;
+foreach ( $only_test as $id => $row ) {
+	if ( 'Confirmed' === $row['stage'] ) { $only_test[ $id ]['stage'] = 'Info Sent'; }
+}
+$only_test[ $T ]['stage'] = 'Confirmed';
+$GLOBALS['opts'][ $IDX ]['rows'] = $only_test;
+$zero_card = render_tab( 'agreements' );
+$zero_flt  = render_tab( 'pipeline', array( 'wpcpm_filter' => 'agreement_gap' ) );
+ck( 'Agreements on file with only a test institution missing: "0 Confirmed institutions have no agreement recorded:" above its marked entry; the Pipeline\'s filtered sentence reads 0 too', array(
+	false !== strpos( $zero_card, '<p>0 Confirmed institutions have no agreement recorded:</p>' ),
+	null !== $li_of( $zero_card, $T ) ? $marks_in( $li_of( $zero_card, $T ) ) : -1,
+	false !== strpos( $zero_flt, 'Showing the 0 Confirmed institutions with no agreement recorded.' ),
+	$row_count( $group_of( $zero_flt, 'Confirmed' ) ),
+), array( true, 1, true, 1 ) );
+$GLOBALS['opts'][ $IDX ]['rows'] = $rows;
+
+// Agreements in force, discrepancies, template versions: the test institution and a real one, with and
+// without the test one's agreement and discrepancy.
+$GLOBALS['opts'][ $IDX ]['rows'] = $rows_t;
+$disc_count = static function ( $html ) use ( $sentence_count ) { return $sentence_count( $html, '#Agreement discrepancies <span class="wpcpm-count">(\d+)</span>#' ); };
+$ver_count  = static function ( $html ) use ( $sentence_count ) { return $sentence_count( $html, '#2025-06-12</th><td>(\d+) <span#' ); };
+$GLOBALS['summaries']     = array( $T => array( 'state' => 'accepted', 'agreement_id' => 7101, 'accepted_at' => '2026-02-02' ), $R => array( 'state' => 'accepted', 'agreement_id' => 7102, 'accepted_at' => '2026-02-02' ) );
+$GLOBALS['discrepancies'] = array( $T => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ), $R => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ) );
+$both_html = render_tab( 'agreements' );
+$GLOBALS['opts'][ $IDX ]['rows'][ $T ]['agreement'] = array_merge( $rows_t[ $T ]['agreement'], array( 'status' => '', 'kind' => '', 'template_version' => '' ) );
+$GLOBALS['summaries']     = array( $R => array( 'state' => 'accepted', 'agreement_id' => 7102, 'accepted_at' => '2026-02-02' ) );
+$GLOBALS['discrepancies'] = array( $R => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ) );
+$only_html = render_tab( 'agreements' );
+$GLOBALS['summaries']     = array();
+$GLOBALS['discrepancies'] = array();
+ck( 'Agreement discrepancies: a test institution\'s leaves the heading\'s count as it was without it, and its row is listed, marked', array(
+	$disc_count( $both_html ),
+	$disc_count( $only_html ),
+	count( $cells_of( $both_html, $T ) ),
+	array_sum( array_map( $marks_in, $cells_of( $both_html, $T ) ) ),
+	count( $cells_of( $only_html, $T ) ),
+), array( 1, 1, 1, 1, 0 ) );
+ck( 'Institutions per template version: signed by a real and a test institution counts 1 and names both, the test one labeled; the same world without the test one counts the same', array(
+	$ver_count( $both_html ),
+	$ver_count( $only_html ),
+	false !== strpos( $both_html, '(TEST - Institution 20 (Test), Institution 1)' ) || false !== strpos( $both_html, '(Institution 1, TEST - Institution 20 (Test))' ),
+	false !== strpos( $only_html, '(Institution 1)' ),
+), array( 1, 1, true, true ) );
+$GLOBALS['opts'][ $IDX ]['rows'] = $rows;
+
+// Semester reports: the heading counts the drafts of real institutions, and every row is listed.
+$kept_posts = $GLOBALS['posts'];
+$kept_pmeta = $GLOBALS['pmeta'];
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+seed_report( 9401, $R, '2026-H1', 'draft', 1756000000, 'private', 'auto' );
+seed_report( 9402, $T, '2026-H1', 'draft', 1756000100, 'private', 'auto' );
+$two_drafts = render_tab( 'reports' );
+unset( $GLOBALS['posts'][9402], $GLOBALS['pmeta'][9402] );
+$one_draft = render_tab( 'reports' );
+ck( 'Semester reports: one real draft and one test draft count 1, as the real one alone does, and both are listed, the test one marked', array(
+	false !== strpos( $two_drafts, 'Semester reports <span class="wpcpm-count">1</span>' ),
+	false !== strpos( $one_draft, 'Semester reports <span class="wpcpm-count">1</span>' ),
+	count( $cells_of( $two_drafts, $R ) ),
+	count( $cells_of( $two_drafts, $T ) ),
+	array_sum( array_map( $marks_in, $cells_of( $two_drafts, $T ) ) ),
+), array( true, true, 1, 1, 1 ) );
+unset( $GLOBALS['posts'][9401], $GLOBALS['pmeta'][9401] );
+
+// Ruling 8: sixty-one approved reports, the most recently edited a test institution's. Sixty are drawn,
+// the test one among them, and the sentence counts the real ones drawn: 59.
+for ( $i = 0; $i <= 60; $i++ ) {
+	seed_report( 9500 + $i, 60 === $i ? $T : $R, '2020-H1', 'approved', 1758000000 + $i );
+}
+$window       = render_tab( 'reports' );
+$window_rows  = array();
+if ( preg_match_all( '#<tr><td>(.*?)</tr>#s', $window, $window_found ) ) {
+	foreach ( $window_found[1] as $one ) {
+		if ( false !== strpos( $one, WPCPM_Semester_Report_Screen::ACTION_ASK ) ) { $window_rows[] = $one; }
+	}
+}
+ck( 'Semester reports: with 61 approved and the most recent a test one, sixty are drawn and the sentence says 59, the real ones drawn', array(
+	count( $window_rows ),
+	false !== strpos( $window, 'Every draft is listed, and the 59 most recently edited approved reports.' ),
+	count( $cells_of( $window, $T ) ),
+	false !== strpos( $window, 'Semester reports <span class="wpcpm-count">0</span>' ),
+), array( 60, true, 1, true ) );
+
+// Without a test report among the sixty drawn, the cut and its sentence are as before.
+update_post_meta( 9560, '_wpcpm_report_institution', $R );
+ck( 'and the same sixty-one all real say 60', false !== strpos( render_tab( 'reports' ), 'Every draft is listed, and the 60 most recently edited approved reports.' ), true );
+
+foreach ( range( 9500, 9560 ) as $id ) {
+	unset( $GLOBALS['posts'][ $id ], $GLOBALS['pmeta'][ $id ] );
+}
+$GLOBALS['posts'] = $kept_posts;
+$GLOBALS['pmeta'] = $kept_pmeta;
+
+// Sync and storage: the contact address of a test institution that belongs to no member leaves "Contacts who
+// are not members" as it was without it, and the member reads leave it out too.
+$contacts_of = static function ( $html ) use ( $sentence_count ) { return $sentence_count( $html, '#<th scope="row">Contacts who are not members</th><td>(\d+) #' ); };
+$without_t   = $rows;
+unset( $without_t[ $T ] );
+$with_t                          = $rows;
+$with_t[ $T ]['contact_email']   = 'test-contact@example.test';
+$GLOBALS['opts'][ $IDX ]['rows'] = $without_t;
+$GLOBALS['member_reads']         = array();
+$sync_without                    = render_tab( 'sync' );
+$GLOBALS['opts'][ $IDX ]['rows'] = $with_t;
+$GLOBALS['member_reads']         = array();
+$sync_with                       = render_tab( 'sync' );
+ck( 'Sync and storage: a test institution whose contact address belongs to no member leaves "Contacts who are not members" as it was without it, and its members are not read', array(
+	$contacts_of( $sync_with ) === $contacts_of( $sync_without ) && $contacts_of( $sync_without ) > 0,
+	in_array( $T, $GLOBALS['member_reads'], true ),
+	count( $GLOBALS['member_reads'] ),
+), array( true, false, count( $rows ) - 1 ) );
+$GLOBALS['opts'][ $IDX ]['rows'] = $rows;
+$GLOBALS['member_reads']         = array();
+
+
+// The Institution Dashboard of the test institution holds neither mark nor label (Ruling 7): the screen's
+// own queue and lists above are the only places the mark is drawn from this class.
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
 
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 

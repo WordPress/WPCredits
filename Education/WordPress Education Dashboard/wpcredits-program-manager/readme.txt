@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.54
+Stable tag: 1.123.55
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.55 =
+
+* An institution whose name starts with the word TEST, in capitals, is a test institution. It, and its application, agreement, requests, semester reports, representatives and students, are listed wherever a real institution's are, with a Test mark beside the name, and left out of every count: the Administrator Dashboard and the menu bubble, the Institutions and Students screens (the Registrations tab's counts too), the sponsor report's numbers, the agreement reminder's counts and the answers Claude access gives, where the institution summary says which institution is a test.
+* Accepting a test institution's Collaboration Agreement leaves its Airtable stage as it was, so it never reaches Confirmed and the public pages that list Confirmed institutions never show it. Everything else works as for any institution.
+* The site remembers a test institution after its row is removed from Airtable, so what it leaves on the site stays uncounted.
+* On the student registration form, an Administrator who is signed in also finds every test institution in the list of institutions, named with "(Test)", whatever its stage, so a test student can be registered for it. Everyone else sees the institutions offered as before, and the form opens or stays closed on those alone.
 
 = 1.123.54 =
 

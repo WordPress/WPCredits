@@ -416,6 +416,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+// The real rule for a test name and the one helper that asks it (Ruling 21).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 // The key an activation of a mentor application holds an invitation by (1.122.33), which the mail
 // layer reads where the class is loaded, as it is on the site: an account that also mentors can hold it.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
@@ -2671,6 +2674,157 @@ $status_draw = $GLOBALS['locked_reads'];
 ck( 'one draw of the Accounts tab asks for the accounts locked today once, for the notice that names them and for the Status cells together, sorted by status or not',
 	array( $plain_draw, $status_draw ),
 	array( 1, 1 ) );
+
+echo "\n=== A test institution's accounts and its No account row carry the Test mark ===\n";
+
+// An institution whose name starts with TEST stays on both lists, with a Test mark right after its
+// name inside the same cell (Task 3); the real institution's cell is as it was.
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = 'default' ) { return $text; }
+}
+
+define( 'TESTREC', 'recTESTINSTITUT01' );
+the_site();
+$GLOBALS['settled'][ TESTREC ] = true;
+write_index(
+	array(
+		index_row( ZETA, 'Zeta Example Institute', 'Confirmed', 'office@zeta.example' ),
+		index_row( TESTREC, 'TEST - Example Institution', 'Confirmed', 'tester@example.test' ),
+		index_row( 'recINSTTESTBAK0001', 'TEST - Backup Institution', 'Confirmed', 'backup@example.test' ),
+	)
+);
+seat( 41, 'Tess Tester', 'ttester', array( WPCPM_Roles::ROLE_INSTITUTION ), member_of( TESTREC, 1767225600 ) );
+$GLOBALS['locked'] = array();
+
+$marked = html_of( draw( screen() ) );
+$mark   = '<span class="wpcpm-inst-mark wpcpm-inst-mark--test"';
+$tess   = cell( row_for( $marked, 41 ), 'institution' );
+$nora   = cell( row_for( $marked, 21 ), 'institution' );
+ck( 'Institution accounts, the Institution column: the test institution\'s cell holds its name, then the mark once; the real one\'s is the name alone',
+	array( 0 === strpos( $tess, 'TEST - Example Institution ' . $mark ), substr_count( $tess, 'wpcpm-inst-mark--test' ), $nora ),
+	array( true, 1, 'Zeta Example Institute' ) );
+ck( 'and the accounts listed are the ones it listed before, with the test institution\'s account among them by name', row_ids( $marked ), array( 25, 22, 23, 26, 24, 21, 41 ) );
+
+$records = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+$test    = cell( record_row( $records, 'recINSTTESTBAK0001' ), 'institution' );
+ck( 'No account: the row of a test institution holds the mark once, after its name and before its record ID',
+	array( 0 === strpos( $test, '<strong>TEST - Backup Institution</strong> ' . $mark ), substr_count( $test, 'wpcpm-inst-mark--test' ), has( $test, '<br /><code class="wpcpm-inst-record">recINSTTESTBAK0001</code>' ) ),
+	array( true, 1, true ) );
+ck( 'and the real institutions with no account are listed with none',
+	substr_count( $records, 'wpcpm-inst-mark--test' ), 1 );
+ck( 'the list holds the test institution\'s row, as it did',
+	record_ids( $records ), array( 'recINSTTESTBAK0001' ) );
+
+echo "\n=== Test institutions' accounts and records are listed and counted nowhere ===\n";
+
+// The site, with and without a test institution's two accounts (one invited, one never) and its two records
+// (one with accounts, one with none): All, Invited and Never invited, and No account's count, are those of
+// the site without them; every one of them is still listed.
+$index_without = function () {
+	return array(
+		index_row( ZETA, 'Zeta Example Institute', 'Confirmed', 'office@zeta.example' ),
+		index_row( ALPHA, 'Alpha Example College', 'Confirmed', 'registrar@alpha.example' ),
+		index_row( ECOLE, 'École Example Charlie ', 'Confirmed', 'office@ecole.example' ),
+		index_row( DELTA, 'Delta Example School', 'Confirmed', 'sstudent@example.test' ),
+		index_row( ECHO_REC, 'Echo Example Academy', 'Agreement Sent', 'hello@echo.example' ),
+		index_row( FOX, 'Foxtrot Example University', 'Under Review', '' ),
+		index_row( GOLF, 'Golf Example Polytechnic', 'Not Moving Forward', 'golf@golf.example' ),
+		index_row( HOTEL, 'Hotel Example Institute', 'First Contact Made', '' ),
+	);
+};
+$world_with = function ( $with ) use ( $index_without ) {
+	the_site();
+
+	if ( $with ) {
+		write_index(
+			array_merge(
+				$index_without(),
+				array(
+					index_row( TESTREC, 'TEST - Example Institution', 'Confirmed', 'tester@example.test' ),
+					index_row( 'recTESTBACKUP0001', 'TEST - Backup Institution', 'Confirmed', 'backup@example.test' ),
+				)
+			)
+		);
+		$GLOBALS['settled'][ TESTREC ] = true;
+		$GLOBALS['settled']['recTESTBACKUP0001'] = true;
+		seat( 41, 'Tess Tester', 'ttester', array( WPCPM_Roles::ROLE_INSTITUTION ), member_of( TESTREC, 1767225600 ) );
+		seat( 42, 'Theo Tester', 'ttheo', array( WPCPM_Roles::ROLE_INSTITUTION ), member_of( TESTREC, 1767225600 ) + array( 'wpcpm_inst_invited' => 1768000000 ) );
+	}
+};
+
+$world_with( false );
+$plain_all = html_of( draw( screen() ) );
+$plain_no  = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+$world_with( true );
+$test_all = html_of( draw( screen() ) );
+$test_no  = html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) );
+
+ck( 'the site without a test institution has the counts the checks below hold the other to: six accounts, three invited, three never, two records with no account',
+	array( view_counts( $plain_all )['all'], view_counts( $plain_all )['invited'], view_counts( $plain_all )['never-invited'], view_counts( $plain_all )['no-account'] ),
+	array( '6', '3', '3', '2' ) );
+ck( 'All, Invited, Never invited and No account are those of the site without the test institution',
+	view_counts( $test_all ), view_counts( $plain_all ) );
+ck( 'the heading counts the real accounts, as All does, while the list holds the two test accounts more', array( heading_count( $plain_all ), heading_count( $test_all ), count( row_ids( $test_all ) ) - count( row_ids( $plain_all ) ) ), array( '6', '6', 2 ) );
+// Item: "Displaying N items" is the list's own count, every row, while the heading counts the real accounts.
+ck( 'Displaying counts every row the list holds, the test accounts among them', array( displaying( $plain_all ), displaying( $test_all ) ), array( '6 items', '8 items' ) );
+
+// Every value sort draws with a test account on the site, lists all rows, and its heading is the plain world's.
+foreach ( array( 'institution', 'since', 'status' ) as $sort_by ) {
+	foreach ( array( 'asc', 'desc' ) as $dir ) {
+		$world_with( false );
+		$sorted_plain = html_of( draw( screen( array( 'orderby' => $sort_by, 'order' => $dir ) ) ) );
+		$world_with( true );
+		$sorted_test = html_of( draw( screen( array( 'orderby' => $sort_by, 'order' => $dir ) ) ) );
+		ck( "sorted by $sort_by $dir with a test institution: the list holds every account, its heading is the plain world's, Displaying counts every row",
+			array( count( row_ids( $sorted_test ) ) - count( row_ids( $sorted_plain ) ), heading_count( $sorted_test ), displaying( $sorted_test ) ),
+			array( 2, heading_count( $sorted_plain ), '8 items' ) );
+	}
+}
+$world_with( true );
+
+ck( 'and on the No account view the same counts', view_counts( $test_no ), view_counts( $plain_no ) );
+ck( 'the accounts are still listed, the test institution\'s two among them', array( array_values( array_diff( row_ids( $test_all ), row_ids( $plain_all ) ) ), array_diff( row_ids( $plain_all ), row_ids( $test_all ) ) ), array( array( 41, 42 ), array() ) );
+ck( 'and so is the test institution\'s record with no account, marked, on the No account view, beside the real ones',
+	array( array_values( array_diff( record_ids( $test_no ), record_ids( $plain_no ) ) ), array_diff( record_ids( $plain_no ), record_ids( $test_no ) ), substr_count( $test_no, 'wpcpm-inst-mark--test' ) ),
+	array( array( 'recTESTBACKUP0001' ), array(), 1 ) );
+
+// Invited narrowed by a search: a count that carries an include still leaves them out.
+ck( 'a search that finds only a test institution\'s account lists it, and the views count what they did',
+	array( row_ids( html_of( draw( screen( array( 's' => 'ttheo' ) ) ) ) ), view_counts( html_of( draw( screen( array( 's' => 'ttheo' ) ) ) ) ) ),
+	array( array( 42 ), view_counts( $plain_all ) ) );
+ck( 'on the Invited view the list holds her and the views are as they were',
+	array( in_array( 42, row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), true ), view_counts( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ) ),
+	array( true, view_counts( $plain_all ) ) );
+
+// The gate above the No account view: "N Confirmed institutions ... have no agreement recorded" counts the
+// real ones only and names every one, the test institution's with its label.
+$gate_of = function ( $html ) {
+	return 1 === preg_match( '#<p class="wpcpm-warning">([^<]*) <a#', $html, $found ) ? html_entity_decode( $found[1], ENT_QUOTES ) : null;
+};
+
+$world_with( false );
+$GLOBALS['settled'][ ECOLE ] = false;
+$gate_plain = $gate_of( html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ) );
+$world_with( true );
+$GLOBALS['settled'][ ECOLE ]                       = false;
+$GLOBALS['settled']['recTESTBACKUP0001']          = false;
+$gate_with = $gate_of( html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ) );
+
+ck( 'the gate counts the real institutions with no agreement recorded, one here, and names it',
+	$gate_plain, 'No account is created in bulk while 1 Confirmed institution on this view has no agreement recorded: École Example Charlie.' );
+ck( 'with a test institution blocked too, the gate still says 1, and names both, the test one labeled',
+	$gate_with, 'No account is created in bulk while 1 Confirmed institution on this view has no agreement recorded: École Example Charlie, TEST - Backup Institution (Test).' );
+
+// Past the fifth name: the test institution sorts after seven real ones and is still named, and not counted.
+foreach ( array( 'A', 'B', 'C', 'D', 'E', 'F' ) as $n => $letter ) {
+	$record = 'recINSTKILO' . $letter . sprintf( '%05d', 11 + $n );
+
+	$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'][ $record ] = index_row( $record, 'Kilo Example ' . ( $n + 1 ), 'Confirmed', 'office@kilo' . strtolower( $letter ) . '.example' );
+}
+$gate_many = $gate_of( html_of( draw( screen( array( 'wpcpm_view' => 'no-account' ) ) ) ) );
+
+ck( 'with seven real institutions blocked and the test one past them, the gate names five real ones and the test one labeled, and counts "2 more" over the real ones alone',
+	$gate_many, 'No account is created in bulk while 7 Confirmed institutions on this view have no agreement recorded: École Example Charlie, Kilo Example 1, Kilo Example 2, Kilo Example 3, Kilo Example 4, TEST - Backup Institution (Test), and 2 more.' );
 
 echo "\n";
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );

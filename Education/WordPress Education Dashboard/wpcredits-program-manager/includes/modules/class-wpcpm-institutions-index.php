@@ -172,6 +172,7 @@ class WPCPM_Institutions_Index {
 	 * The sync's only write, made once after the last page has been read, so a run that
 	 * fails halfway leaves the previous index in place rather than half of a new one.
 	 * Rows without a well-formed record ID are dropped: they could never be looked up.
+	 * The sync remembers its test institutions (`WPCPM_Test_Institutions::remember()`) just before this write.
 	 *
 	 * @param array $rows Rows, keyed by or carrying their record ID.
 	 * @param int   $read Unix time the table was read.

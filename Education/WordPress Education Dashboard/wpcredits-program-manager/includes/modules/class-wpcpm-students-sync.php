@@ -2347,7 +2347,8 @@ class WPCPM_Students_Sync {
 	 * **The status disagreements are kept as a list as well as a count**, as the mentored
 	 * students the address join missed are (`mentored_without_reports()`), because a number
 	 * does not say which student a mentor saw wrongly. Each entry keeps the Students row's
-	 * name, the two statuses and the two records the card links to, and nothing else of the
+	 * name, the two statuses and the two records the card links to, and whether the student's
+	 * institution is a test one (`test`, which the count leaves out), and nothing else of the
 	 * student; the list stops at `DISAGREEMENT_ROWS_MAX`, by name, and the count stays whole.
 	 *
 	 * @param array $state Final state.
@@ -2357,6 +2358,9 @@ class WPCPM_Students_Sync {
 		$rows     = $state['rows'];
 		$reports  = isset( $state['students'] ) ? (array) $state['students'] : array();
 		$by_email = self::rows_by_email( $state );
+		// Read once: a Students row of a test institution is tallied in none of the numbers below
+		// and is still listed (`status_disagreement_rows`, `mentored_without_reports`).
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 
 		$out = array(
 			'students_without_reports' => array(),
@@ -2384,6 +2388,10 @@ class WPCPM_Students_Sync {
 				continue;
 			}
 
+			if ( isset( $row['institution'] ) && is_string( $row['institution'] ) && isset( $tests[ trim( $row['institution'] ) ] ) ) {
+				continue;
+			}
+
 			$status = isset( $row['status'] ) ? (string) $row['status'] : '';
 			$key    = isset( $row['email_key'] ) ? (string) $row['email_key'] : '';
 
@@ -2406,16 +2414,40 @@ class WPCPM_Students_Sync {
 			$status = isset( $report['program'] ) ? trim( (string) $report['program'] ) : '';
 
 			if ( '' === $key || ! isset( $by_email[ $key ] ) ) {
-				self::tally( $out['reports_without_students'], $status );
+				// A test institution's report row with no Students row is left out of the tally too.
+				if ( ! ( isset( $report['institution_id'] ) && is_string( $report['institution_id'] ) && isset( $tests[ trim( $report['institution_id'] ) ] ) ) ) {
+					self::tally( $out['reports_without_students'], $status );
+				}
+
 				continue;
 			}
 
-			// One disagreement per report row, however many Students rows share its address.
-			foreach ( $by_email[ $key ] as $record_id ) {
+			// One disagreement per report row, however many Students rows share its address. The real
+			// rows are read first, so a test row on the same address neither hides a real row's
+			// disagreement nor counts for one; a test row's own is listed and tallied in nothing.
+			// A stable partition: the real rows in their order, then the test rows in theirs.
+			$ordered   = array();
+			$test_rows = array();
+
+			foreach ( $by_email[ $key ] as $candidate ) {
+				if ( isset( $rows[ $candidate ]['institution'] ) && is_string( $rows[ $candidate ]['institution'] ) && isset( $tests[ trim( $rows[ $candidate ]['institution'] ) ] ) ) {
+					$test_rows[] = $candidate;
+				} else {
+					$ordered[] = $candidate;
+				}
+			}
+
+			$ordered = array_merge( $ordered, $test_rows );
+
+			foreach ( $ordered as $record_id ) {
 				$theirs = isset( $rows[ $record_id ]['status'] ) ? trim( (string) $rows[ $record_id ]['status'] ) : '';
 
 				if ( $theirs !== $status ) {
-					++$out['status_disagreements'];
+					$theirs_institution = isset( $rows[ $record_id ]['institution'] ) && is_string( $rows[ $record_id ]['institution'] ) ? trim( $rows[ $record_id ]['institution'] ) : '';
+
+					if ( ! isset( $tests[ $theirs_institution ] ) ) {
+						++$out['status_disagreements'];
+					}
 
 					// The Students row's name, the report's where that row has none.
 					$mine = isset( $rows[ $record_id ]['name'] ) ? trim( (string) $rows[ $record_id ]['name'] ) : '';
@@ -2423,6 +2455,7 @@ class WPCPM_Students_Sync {
 
 					$out['status_disagreement_rows'][] = array(
 						'name'            => $name,
+						'test'            => isset( $tests[ $theirs_institution ] ),
 						'students_record' => (string) $record_id,
 						'reports_record'  => isset( $report['record_id'] ) ? (string) $report['record_id'] : '',
 						'students_status' => $theirs,
@@ -2442,6 +2475,16 @@ class WPCPM_Students_Sync {
 		// the base's nine are all inside one school, and a pair split across two shows up
 		// on both, which is where it needs to be seen.
 		foreach ( $by_email as $record_ids ) {
+			// Real rows only: a test row on a real row's address is no duplicate of it.
+			$record_ids = array_values(
+				array_filter(
+					$record_ids,
+					static function ( $record_id ) use ( $rows, $tests ) {
+						return ! ( isset( $rows[ $record_id ]['institution'] ) && is_string( $rows[ $record_id ]['institution'] ) && isset( $tests[ trim( $rows[ $record_id ]['institution'] ) ] ) );
+					}
+				)
+			);
+
 			if ( count( $record_ids ) < 2 ) {
 				continue;
 			}

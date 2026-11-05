@@ -1091,6 +1091,11 @@ if ( ! empty( $missing ) ) {
 	exit( 1 );
 }
 
+// The real rule for a test name and the one helper that asks it (Ruling 21): neither ends in `exit`
+// past the guard, so a plain require does.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+
 /* ---- the fixture --------------------------------------------------------- */
 
 // Named with a Polish diacritic on purpose: the reads are by email precisely because a formula
@@ -3045,6 +3050,25 @@ $GLOBALS['fail_table'] = '';
 $GLOBALS['settings_extra'] = array( 'report_autodraft' => false );
 ck( 'switched off, the job does nothing', WPCPM_Semester_Report_Screen::autodraft_tick(), 0 );
 $GLOBALS['settings_extra'] = array();
+
+// Everything else works for a test institution (1.123.55): the job drafts its pair, mails the managers
+// naming it, and the queue lists the draft; only the numbers the dashboards print leave it out.
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['transients'] = array();
+$GLOBALS['mail']       = array();
+$GLOBALS['inst_rows']  = array( 'recTESTJOBUNIV001' => array( 'record_id' => 'recTESTJOBUNIV001', 'name' => 'TEST - Job University', 'stage' => 'Confirmed' ) );
+$GLOBALS['index']      = array( 'recTESTJOBUNIV001' => array( 'read' => 1756000000, 'rows' => $finished ) );
+$test_due              = array_values( array_filter( WPCPM_Semester_Report::due( gmdate( 'Y-m-d' ) ), static function ( $pair ) { return 'recTESTJOBUNIV001' === $pair['institution']; } ) );
+ck( 'a test institution at Confirmed with finished students is due its semester report', count( $test_due ) >= 1, true );
+ck( 'the job drafts it', WPCPM_Semester_Report_Screen::autodraft_tick(), 1 );
+ck( 'the draft exists', WPCPM_Semester_Report::find( 'recTESTJOBUNIV001', $test_due[0]['cohort'] ) instanceof WP_Post, true );
+$test_mails = array_values( array_filter( $GLOBALS['mail'], static function ( $m ) { return 'report-drafted' === $m['context'] && 'managers:report_notify' === $m['to']; } ) );
+ck( 'one report-drafted mail goes to the managers, its subject naming the institution', array( count( $test_mails ), isset( $test_mails[0] ) && has( $test_mails[0]['subject'], 'TEST - Job University' ) ), array( 1, true ) );
+ck( 'and the queue lists the draft', array_column( WPCPM_Semester_Report::queue(), 'institution' ), array( 'recTESTJOBUNIV001' ) );
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['mail'] = array();
+
 $GLOBALS['inst_rows']      = array( $A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' ), $B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ) );
 $GLOBALS['index']          = $saved_index;
 
@@ -3213,6 +3237,18 @@ ck( 'the institution is chosen in one labeled field that takes typing, wrapped f
 ), array( true, true, true, true ) );
 ck( 'over the same options as before: the two active institutions with a roster, by name, nothing chosen', $institution_select[1] ?? null, '<option value="' . $B . '">Universidad Beta</option><option value="' . $A . '">Uniwersytet Łexample</option>' );
 ck( 'and the semester and Draft now follow it in the same form', has( $picker, '</div> </div><select name="cohort">' ) && has( $picker, '<button type="submit" class="button">Draft now</button></form>' ), true );
+
+// A test institution is offered where a real one is, its entry reading "(Test)" after its name, in the
+// same place by name (Task 3): the picker takes text only.
+$T = 'recTESTINSTITUT01';
+$GLOBALS['inst_rows'][ $T ]     = array( 'record_id' => $T, 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed' );
+$GLOBALS['index'][ $T ]         = array( 'read' => 0, 'rows' => $finished );
+ob_start();
+WPCPM_Semester_Report_Screen::render_draft_picker();
+$picker_test = ob_get_clean();
+preg_match( '#<select name="institution" id="wpcpm-draft-institution" autocomplete="off">(.*?)</select>#s', $picker_test, $test_select );
+ck( 'Draft any semester: the test institution reads "(Test)" in its place by name, the real ones as before', $test_select[1] ?? null, '<option value="' . $T . '">TEST - Example Institution (Test)</option><option value="' . $B . '">Universidad Beta</option><option value="' . $A . '">Uniwersytet Łexample</option>' );
+unset( $GLOBALS['inst_rows'][ $T ], $GLOBALS['index'][ $T ] );
 
 $GLOBALS['index'][ $B ]['rows'] = array();
 ob_start();

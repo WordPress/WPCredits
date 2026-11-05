@@ -108,6 +108,13 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	private $worklist;
 
 	/**
+	 * The IDs of the accounts acting for a test institution, read once a table (`uncounted_ids()`).
+	 *
+	 * @var int[]|null
+	 */
+	private $uncounted;
+
+	/**
 	 * The Institution Dashboard's address, read once: '' while the page is missing.
 	 *
 	 * @var string|null
@@ -191,6 +198,8 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 
 		unset( $args['search'], $args['search_columns'] );
 
+		$args = $this->without_uncounted( $args );
+
 		$sorted_by = self::sorted_by( $args );
 
 		if ( in_array( $sorted_by, array( self::ORDERBY_INSTITUTION, self::ORDERBY_SINCE, self::ORDERBY_STATUS ), true ) ) {
@@ -266,6 +275,7 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 			array_merge(
 				$args,
 				array(
+					'fields'      => 'all',
 					'number'      => -1,
 					'offset'      => 0,
 					'orderby'     => 'ID',
@@ -569,10 +579,17 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 			$id   = ( isset( $item['id'] ) && is_scalar( $item['id'] ) ) ? (string) $item['id'] : '';
 			$name = ( isset( $item['name'] ) && is_scalar( $item['name'] ) && '' !== (string) $item['name'] ) ? (string) $item['name'] : $id;
 
-			return sprintf( '<strong>%1$s</strong><br /><code class="wpcpm-inst-record">%2$s</code>', esc_html( $name ), esc_html( $id ) );
+			// By the name the row holds (the record ID where it has none), which reads nothing per row.
+			return sprintf( '<strong>%1$s</strong>%2$s<br /><code class="wpcpm-inst-record">%3$s</code>', esc_html( $name ), WPCPM_Test_Institutions::mark( $name ), esc_html( $id ) );
 		}
 
-		return $item instanceof WP_User ? esc_html( $this->facts_of( $item )['institution'] ) : '';
+		if ( ! $item instanceof WP_User ) {
+			return '';
+		}
+
+		$institution = $this->facts_of( $item )['institution'];
+
+		return esc_html( $institution ) . WPCPM_Test_Institutions::mark( $institution );
 	}
 
 	/**
@@ -775,7 +792,48 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	 * @return int
 	 */
 	protected function count_records( $view ) {
-		return self::VIEW_NO_ACCOUNT === $view ? count( $this->worklist() ) : 0;
+		return self::VIEW_NO_ACCOUNT === $view ? WPCPM_Test_Institutions::count_real_rows( $this->worklist(), 'id' ) : 0;
+	}
+
+	/**
+	 * The accounts acting for a test institution, which the views' counts leave out while the list
+	 * still shows them: one read of IDs, none at all while there is no test institution.
+	 *
+	 * @return int[]
+	 */
+	protected function uncounted_ids() {
+		if ( null !== $this->uncounted ) {
+			return $this->uncounted;
+		}
+
+		$this->uncounted = array();
+		$tests           = WPCPM_Test_Institutions::test_ids();
+
+		if ( empty( $tests ) ) {
+			return $this->uncounted;
+		}
+
+		// Each through `id_of()`, because the program's own site answers a request for IDs with rows.
+		$this->uncounted = array_map(
+			array( 'WPCPM_Roles', 'id_of' ),
+			get_users(
+				array(
+					'role'        => static::role(),
+					'fields'      => 'ID',
+					'number'      => -1,
+					'count_total' => false,
+					'meta_query'  => array(
+						array(
+							'key'     => WPCPM_Institution_Members::META_RECORD_ID,
+							'value'   => $tests,
+							'compare' => 'IN',
+						),
+					),
+				)
+			)
+		);
+
+		return $this->uncounted;
 	}
 
 	/**
@@ -1051,20 +1109,34 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 	 * form that records them.
 	 */
 	private function render_gate() {
-		$blocked = array();
+		// Every blocked institution is named, a test one labeled; the numbers count the real ones only.
+		$tests   = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
+		$named   = array();
+		$labeled = array();
+		$real    = 0;
 
 		foreach ( $this->worklist() as $row ) {
-			if ( WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT === $row['reason'] ) {
-				$blocked[] = (string) $row['name'];
+			if ( WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT !== $row['reason'] ) {
+				continue;
 			}
+
+			if ( isset( $tests[ (string) $row['id'] ] ) ) {
+				// Listed, and so named at any place in the worklist; never counted.
+				$labeled[] = WPCPM_Test_Institutions::labeled( (string) $row['name'] );
+
+				continue;
+			}
+
+			++$real;
+			$named[] = (string) $row['name'];
 		}
 
-		if ( empty( $blocked ) ) {
+		if ( empty( $named ) && empty( $labeled ) ) {
 			return;
 		}
 
-		$names = array_slice( $blocked, 0, WPCPM_Institutions::PROVISION_NAMES );
-		$rest  = count( $blocked ) - count( $names );
+		$rest  = max( 0, $real - WPCPM_Institutions::PROVISION_NAMES );
+		$names = array_merge( array_slice( $named, 0, WPCPM_Institutions::PROVISION_NAMES ), $labeled );
 
 		if ( $rest > 0 ) {
 			$names[] = sprintf(
@@ -1082,10 +1154,10 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 					_n(
 						'No account is created in bulk while %1$s Confirmed institution on this view has no agreement recorded: %2$s.',
 						'No account is created in bulk while %1$s Confirmed institutions on this view have no agreement recorded: %2$s.',
-						count( $blocked ),
+						$real,
 						'wpcredits-program-manager'
 					),
-					number_format_i18n( count( $blocked ) ),
+					number_format_i18n( $real ),
 					implode( ', ', $names )
 				)
 			),
@@ -1098,7 +1170,7 @@ class WPCPM_Institutions_Table extends WPCPM_Accounts_Table {
 					admin_url( 'admin.php' )
 				)
 			),
-			esc_html( _n( 'Record it on the Agreements tab.', 'Record them on the Agreements tab.', count( $blocked ), 'wpcredits-program-manager' ) )
+			esc_html( _n( 'Record it on the Agreements tab.', 'Record them on the Agreements tab.', $real, 'wpcredits-program-manager' ) )
 		);
 	}
 

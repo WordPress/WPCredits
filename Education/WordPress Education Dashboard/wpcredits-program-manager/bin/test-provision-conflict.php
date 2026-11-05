@@ -271,6 +271,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 // passing after a rename that broke the real thing.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-members.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
+// The reconciliation the run ends with leaves a test institution's rows out of its numbers: the real index,
+// the real rule for a test name and the one helper that asks it.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 // The report form owns the list of screenshot columns; the reports read asks for them.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 

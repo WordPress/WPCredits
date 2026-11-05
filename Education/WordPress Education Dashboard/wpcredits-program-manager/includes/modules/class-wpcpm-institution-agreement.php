@@ -1475,8 +1475,9 @@ class WPCPM_Institution_Agreement {
 		);
 
 		// Forward only, and never off the end. An empty stage counts as preceding, because a
-		// record with no stage at all is one nothing has moved yet.
-		if ( self::precedes_confirmed( $stage ) ) {
+		// record with no stage at all is one nothing has moved yet. A test institution keeps its
+		// stage, so the public pages that list Confirmed institutions never show it.
+		if ( self::precedes_confirmed( $stage ) && ! WPCPM_Test_Institutions::is_test( $record ) ) {
 			$cells[ $fields['stage'] ] = self::STAGE_CONFIRMED;
 		}
 
@@ -2326,6 +2327,10 @@ class WPCPM_Institution_Agreement {
 	 * something. The day is stamped only when a message goes out, so an item that becomes
 	 * overdue at noon is not held until tomorrow by a silent run at dawn.
 	 *
+	 * Only the overdue agreements of a real institution are counted, in the subject and the first line;
+	 * a test institution's is still listed in the body, with "(Test)" after its name, and a digest whose
+	 * only overdue agreement is a test one is still sent, saying 0.
+	 *
 	 * @return int How many messages went out.
 	 */
 	public static function remind() {
@@ -2338,6 +2343,9 @@ class WPCPM_Institution_Agreement {
 		$days    = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
 		$cut     = time() - ( $days * DAY_IN_SECONDS );
 		$overdue = array();
+		$real    = 0;
+		// Read once for the whole loop, never once per agreement.
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 
 		foreach ( self::awaiting_review() as $post_id ) {
 			$post = get_post( $post_id );
@@ -2349,6 +2357,13 @@ class WPCPM_Institution_Agreement {
 			$facts = self::review_facts( $post_id );
 
 			if ( ! empty( $facts ) ) {
+				if ( isset( $tests[ trim( (string) $facts['institution'] ) ] ) || WPCPM_Sponsors_Index::is_test_name( (string) $facts['institution_name'] ) ) {
+					// Listed in the digest, with its mark, and left out of the count.
+					$facts['institution_name'] = WPCPM_Test_Institutions::label( (string) $facts['institution_name'], (string) $facts['institution_name'] );
+				} else {
+					++$real;
+				}
+
 				$overdue[] = $facts;
 			}
 		}
@@ -2360,7 +2375,7 @@ class WPCPM_Institution_Agreement {
 		$site  = WPCPM_Mail::site_name();
 		$queue = admin_url( 'admin.php?page=wpcpm-institutions' );
 
-		$build = static function () use ( $site, $overdue, $queue, $days ) {
+		$build = static function () use ( $site, $overdue, $real, $queue, $days ) {
 			// The count with its verb, in the subject's words and the first line's, and the days
 			// as "the 3-day review window", so a translator has one rule to follow rather than two
 			// counts crossing in one sentence. The list is one value, an agreement to a paragraph.
@@ -2381,13 +2396,13 @@ class WPCPM_Institution_Agreement {
 					'site_name'          => $site,
 					'agreements_waiting' => sprintf(
 						/* translators: %s: a number of signed agreements. */
-						_n( '%s signed agreement is', '%s signed agreements are', count( $overdue ), 'wpcredits-program-manager' ),
-						number_format_i18n( count( $overdue ) )
+						_n( '%s signed agreement is', '%s signed agreements are', $real, 'wpcredits-program-manager' ),
+						number_format_i18n( $real )
 					),
 					'agreements_overdue' => sprintf(
 						/* translators: %s: a number of signed agreements. */
-						_n( '%s signed agreement has been', '%s signed agreements have been', count( $overdue ), 'wpcredits-program-manager' ),
-						number_format_i18n( count( $overdue ) )
+						_n( '%s signed agreement has been', '%s signed agreements have been', $real, 'wpcredits-program-manager' ),
+						number_format_i18n( $real )
 					),
 					'review_days'        => number_format_i18n( $days ),
 					'overdue_list'       => implode( "\r\n\r\n", $items ),

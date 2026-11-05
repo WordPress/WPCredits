@@ -125,6 +125,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-countries.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-test-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-members.php';

@@ -95,6 +95,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-stash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-form.php';
 
@@ -2042,6 +2043,114 @@ ck( 'and the privacy policy is its heading and the Airtable form\'s sentence bes
 	false !== strpos( $page, '<span class="wpcpm-field__label" id="wpcpm-student-registration-consent-label">Privacy Policy Compliance <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__consent"><input type="checkbox" id="wpcpm-student-registration-consent" name="wpcpm_student_registration[consent]" value="1" required="required" /><label for="wpcpm-student-registration-consent">By clicking this checkbox, you understand that your information will be used in accordance with our Privacy Policy (<a href="https://wordpress.org/about/privacy/">https://wordpress.org/about/privacy/</a>).</label></span>' ),
 	true );
 
+echo "\n--- A test institution: left out for the public, offered to an Administrator (1.123.55) ---\n";
+
+/**
+ * The institutions of `form_institutions()` and two more, both Confirmed: "TEST: Example Campus", a
+ * test one, and "TESTAMENT College", which is not (no break after the word). And a test institution
+ * at a stage the setting does not name, which only an Administrator is offered.
+ */
+function form_test_world() {
+	form_world();
+
+	$index = form_institutions();
+
+	$index['recINSTITUTION008'] = array( 'record_id' => 'recINSTITUTION008', 'name' => 'TEST: Example Campus', 'stage' => 'Confirmed' );
+	$index['recINSTITUTION009'] = array( 'record_id' => 'recINSTITUTION009', 'name' => 'TESTAMENT College', 'stage' => 'Confirmed' );
+	$index['recINSTITUTION010'] = array( 'record_id' => 'recINSTITUTION010', 'name' => 'TEST - Pipeline Campus', 'stage' => 'Pipeline' );
+
+	update_option( WPCPM_Institutions_Index::OPT_NAME, array( 'v' => WPCPM_Institutions_Index::VERSION, 'read' => 1700000000, 'rows' => $index ) );
+}
+
+/** Sign in as an Administrator (the stand-in manager) or as nobody. */
+function form_sign_in( $administrator ) {
+	$GLOBALS['uid']    = $administrator ? 9 : 0;
+	$GLOBALS['manage'] = $administrator ? array( 9 ) : array();
+}
+
+form_test_world();
+form_sign_in( false );
+
+ck( 'the public list offers "TESTAMENT College" and not "TEST: Example Campus", the old four unchanged, A to Z',
+	WPCPM_Student_Registration_Form::institutions(),
+	array( 'recINSTITUTION001' => 'Example University', 'recINSTITUTION002' => 'Sample College', 'recINSTITUTION006' => 'test college', 'recINSTITUTION009' => 'TESTAMENT College', 'recINSTITUTION007' => 'Testing Academy' ) );
+$method = new ReflectionMethod( 'WPCPM_Student_Registration_Form', 'offered' );
+$source = implode( '', array_slice( file( $method->getFileName() ), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1 ) );
+
+ck( 'and it asks the one helper, never the name rule itself', array( false !== strpos( $source, 'WPCPM_Test_Institutions::is_test(' ), false !== strpos( $source, 'is_test_name(' ) ), array( true, false ) );
+
+$visitor = form_submit( form_posted( array( 'institution' => 'recINSTITUTION008' ) ) );
+
+ck( 'a visitor who posts a test institution\'s record ID is refused under its question, and nothing is stored',
+	array( $visitor['outcome'], $visitor['stash']['problems'] ?? null, count( form_regs() ) ),
+	array( 'again', array( 'institution' => 'bad_choice' ), 0 ) );
+
+$visitor = form_submit( form_posted( array( 'institution' => 'recINSTITUTION010' ) ) );
+
+ck( 'so is one at a stage the setting does not name',
+	array( $visitor['outcome'], $visitor['stash']['problems'] ?? null, count( form_regs() ) ),
+	array( 'again', array( 'institution' => 'bad_choice' ), 0 ) );
+
+form_sign_in( true );
+
+ck( 'an Administrator\'s list adds every test institution the index holds, whatever its stage, named "(Test)", A to Z by name',
+	WPCPM_Student_Registration_Form::institutions(),
+	array(
+		'recINSTITUTION001' => 'Example University',
+		'recINSTITUTION002' => 'Sample College',
+		'recINSTITUTION005' => 'TEST - Example institution (Test)',
+		'recINSTITUTION010' => 'TEST - Pipeline Campus (Test)',
+		'recINSTITUTION006' => 'test college',
+		'recINSTITUTION008' => 'TEST: Example Campus (Test)',
+		'recINSTITUTION009' => 'TESTAMENT College',
+		'recINSTITUTION007' => 'Testing Academy',
+	) );
+
+$GLOBALS['settings']['student_registration_stages'] = array();
+
+ck( 'whatever the setting says: with no stage named an Administrator is still offered the test institutions, a visitor none',
+	array( array_keys( WPCPM_Student_Registration_Form::institutions() ), ( static function () { form_sign_in( false ); return WPCPM_Student_Registration_Form::institutions(); } )() ),
+	array( array( 'recINSTITUTION005', 'recINSTITUTION010', 'recINSTITUTION008' ), array() ) );
+
+form_test_world();
+form_sign_in( true );
+
+$page = WPCPM_Student_Registration_Form::render();
+
+$admin_page = WPCPM_Student_Registration_Form::render();
+
+form_sign_in( false );
+
+$public_page = WPCPM_Student_Registration_Form::render();
+
+ck( 'the form an Administrator is drawn offers the test institution marked, and the public\'s does not',
+	array( false !== strpos( $admin_page, 'value="recINSTITUTION008"' ), false !== strpos( $admin_page, 'TEST: Example Campus (Test)' ), false !== strpos( $public_page, 'recINSTITUTION008' ) ),
+	array( true, true, false ) );
+
+form_sign_in( true );
+
+form_test_world();
+$GLOBALS['option_reads'] = array();
+form_sign_in( false );
+WPCPM_Student_Registration_Form::institutions();
+$public_reads = isset( $GLOBALS['option_reads'][ WPCPM_Institutions_Index::OPT_NAME ] ) ? $GLOBALS['option_reads'][ WPCPM_Institutions_Index::OPT_NAME ] : 0;
+$GLOBALS['option_reads'] = array();
+form_sign_in( true );
+WPCPM_Student_Registration_Form::institutions();
+$admin_reads = isset( $GLOBALS['option_reads'][ WPCPM_Institutions_Index::OPT_NAME ] ) ? $GLOBALS['option_reads'][ WPCPM_Institutions_Index::OPT_NAME ] : 0;
+unset( $GLOBALS['option_reads'] );
+
+ck( 'the list reads the index once for the ten it holds, for the public and for an Administrator, not once per row', array( $public_reads, $admin_reads ), array( 1, 1 ) );
+
+$admin = form_submit( form_posted( array( 'institution' => 'recINSTITUTION008' ) ) );
+
+ck( 'an Administrator\'s post of the test institution is accepted, as any other, and kept',
+	array( $admin['outcome'], count( form_regs() ) ),
+	array( 'sent', 1 ) );
+ck( 'and the name kept with it is the index\'s, without the "(Test)" of the list',
+	array_map( static function ( $post ) { return WPCPM_Student_Registration::fields_of( $post )['institution_name'] ?? null; }, array_values( form_regs() ) ),
+	array( 'TEST: Example Campus' ) );
+
 echo "\n--- A redraw keeps every answer and marks each problem ---\n";
 
 form_world();
@@ -2779,6 +2888,81 @@ tab_world();
 tab_reg( 'written' );
 
 ck( 'under fifty there is no such sentence', false === strpos( tab_html(), 'Showing the newest' ), true );
+
+echo "\n--- A test institution's registration: listed and marked, left out of every count (1.123.55) ---\n";
+
+/** The tab's figures as a reader sees them: the heading's number, the four views' counts, the rows drawn and the "Showing" sentence. */
+function tab_figures( array $query = array() ) {
+	$page = tab_html( $query );
+
+	preg_match( '#<h2>Student registrations <span class="wpcpm-count">(\d+)</span></h2>#', $page, $heading );
+	preg_match_all( '#<span class="count">\((\d+)\)</span>#', $page, $counts );
+	preg_match( '#Showing the newest (\d+) of (\d+)\.#', $page, $showing );
+
+	return array( 'heading' => $heading[1] ?? null, 'views' => $counts[1], 'rows' => substr_count( $page, 'class="wpcpm-queue-item"' ), 'showing' => array_slice( $showing, 1 ), 'page' => $page );
+}
+
+tab_world();
+
+tab_reg( 'waiting' );
+tab_reg( 'waiting', array( 'email' => 'held@example.test' ), array(), array( 'held' ) );
+tab_reg( 'failed', array(), array( 'error' => 'Airtable said no' ) );
+tab_reg( 'written', array(), array( 'record' => 'recSTUDENTROW0001' ) );
+tab_reg( 'spam' );
+
+$without = tab_figures();
+
+$test_waiting = tab_reg( 'waiting', array( 'email' => 'test-waiting@example.test', 'institution' => 'recINSTITUTION005', 'institution_name' => 'TEST - Example institution' ) );
+$test_failed  = tab_reg( 'failed', array( 'email' => 'test-failed@example.test', 'institution' => 'recINSTITUTION005' ), array( 'error' => 'Airtable said no' ) );
+$test_named   = tab_reg( 'written', array( 'email' => 'test-named@example.test', 'institution' => 'TEST: Typed by name' ), array( 'record' => 'recSTUDENTROW0009' ) );
+$with         = tab_figures();
+
+ck( 'with test registrations the heading and every view count are the numbers they were without them',
+	array( $with['heading'], $with['views'] ),
+	array( $without['heading'], $without['views'] ) );
+ck( 'and the three rows are listed all the same, one of them waiting, one failed and one written, each with its institution read "(Test)"',
+	array(
+		$without['rows'] + 3 === $with['rows'],
+		false !== strpos( $with['page'], 'id="wpcpm-sreg-' . $test_waiting . '"' ),
+		1 === preg_match( '#id="wpcpm-sreg-' . $test_waiting . '">.*?<p class="wpcpm-queue-age">[^<]*TEST - Example institution \(Test\)</p>#s', $with['page'] ),
+		1 === preg_match( '#id="wpcpm-sreg-' . $test_failed . '">.*?<p class="wpcpm-queue-age">[^<]*TEST - Example institution \(Test\)</p>#s', $with['page'] ),
+		1 === preg_match( '#id="wpcpm-sreg-' . $test_named . '">.*?<p class="wpcpm-queue-age">[^<]*TEST: Typed by name \(Test\)</p>#s', $with['page'] ),
+		1 === preg_match( '#id="wpcpm-sreg-' . $test_waiting . '">.*?<td>TEST - Example institution \(Test\)</td>#s', $with['page'] ),
+		false === strpos( $without['page'], '(Test)' ),
+	),
+	array( true, true, true, true, true, true, true ) );
+ck( 'a real institution\'s row reads as it did, with no mark',
+	array( substr_count( $with['page'], '(Test)' ) ),
+	array( 6 ) );
+
+// The newest first and bounded: fifty rows are drawn, one of them a test registration, and the
+// sentence counts the real ones, drawn and all.
+tab_world();
+
+for ( $i = 1; $i <= 52; $i++ ) {
+	tab_reg( 'written', array( 'email' => 'student' . $i . '@example.test' ), array( 'record' => 'recSTUDENTROW' . sprintf( '%04d', $i ) ) );
+}
+
+$full = tab_figures();
+
+tab_reg( 'written', array( 'email' => 'newest-test@example.test', 'institution' => 'recINSTITUTION005' ), array( 'record' => 'recSTUDENTROW0099' ) );
+$over = tab_figures();
+
+ck( 'fifty are drawn of fifty-two real ones; the newest test one is among the fifty and not in the count, so the sentence reads 49 of 52',
+	array( $full['rows'], $full['showing'], $over['rows'], $over['showing'], $over['views'][0] ),
+	array( 50, array( '50', '52' ), 50, array( '49', '52' ), '52' ) );
+
+// A site with no test institution: the same figures, the numbers are plain.
+tab_world();
+update_option( WPCPM_Institutions_Index::OPT_NAME, array( 'v' => WPCPM_Institutions_Index::VERSION, 'read' => 1700000000, 'rows' => array( 'recINSTITUTION001' => array( 'record_id' => 'recINSTITUTION001', 'name' => 'Example University', 'stage' => 'Confirmed' ) ) ) );
+tab_reg( 'waiting' );
+tab_reg( 'written', array( 'email' => 'w@example.test' ), array( 'record' => 'recSTUDENTROW0001' ) );
+
+$none = tab_figures();
+
+ck( 'with no test institution the figures are plain, as in 1.123.54',
+	array( $none['heading'], $none['views'], $none['rows'], false === strpos( $none['page'], '(Test)' ), WPCPM_Test_Institutions::test_ids() ),
+	array( '1', array( '2', '1', '0', '0' ), 2, true, array() ) );
 
 echo "\n--- What happened to each ---\n";
 

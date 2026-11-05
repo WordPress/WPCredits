@@ -96,6 +96,9 @@ final class WPCPM_Administrators_Cards {
 		$now    = time();
 		$review = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) ) * DAY_IN_SECONDS;
 
+		// Read once: a test institution's items are listed and left out of every number, the overdue
+		// counts included, and the index is one option unserialized on each read.
+		$tests    = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 		$awaiting = array();
 		$overdue  = 0;
 
@@ -106,16 +109,17 @@ final class WPCPM_Administrators_Cards {
 				continue;
 			}
 
-			$at   = (int) get_post_time( 'U', true, $post );
-			$late = ( $now - $at ) > $review;
+			$at     = (int) get_post_time( 'U', true, $post );
+			$late   = ( $now - $at ) > $review;
+			$record = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Agreement::META_INSTITUTION, true );
 
-			if ( $late ) {
+			if ( $late && ! isset( $tests[ trim( $record ) ] ) ) {
 				++$overdue;
 			}
 
 			$awaiting[] = array(
 				'id'      => (int) $post->ID,
-				'record'  => (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Agreement::META_INSTITUTION, true ),
+				'record'  => $record,
 				'at'      => $at,
 				'overdue' => $late,
 			);
@@ -131,7 +135,7 @@ final class WPCPM_Administrators_Cards {
 				continue;
 			}
 
-			if ( ! empty( $facts['overdue'] ) ) {
+			if ( ! empty( $facts['overdue'] ) && ! isset( $tests[ trim( (string) $facts['institution'] ) ] ) ) {
 				++$overdue_request;
 			}
 
@@ -178,9 +182,9 @@ final class WPCPM_Administrators_Cards {
 			// list holds.
 			'applications'         => array(
 				'open'         => $open,
-				'open_total'   => count( WPCPM_Institution_Application::application_ids( $open_states ) ),
+				'open_total'   => count( WPCPM_Test_Institutions::real_application_ids( WPCPM_Institution_Application::application_ids( $open_states ) ) ),
 				'closed'       => $closed,
-				'closed_total' => count( WPCPM_Institution_Application::application_ids( $closed_states ) ),
+				'closed_total' => count( WPCPM_Test_Institutions::real_application_ids( WPCPM_Institution_Application::application_ids( $closed_states ) ) ),
 			),
 			'agreements'           => array(
 				'awaiting' => $awaiting,
@@ -291,11 +295,11 @@ final class WPCPM_Administrators_Cards {
 	 *                 manager.
 	 */
 	public static function counts( array $data ) {
-		$review   = count( $data['agreements']['awaiting'] );
+		$review   = WPCPM_Test_Institutions::count_real_rows( $data['agreements']['awaiting'], 'record' );
 		$overdue  = (int) $data['agreements']['overdue'];
-		$drafts   = count( $data['reports']['queue'] );
-		$due      = count( $data['reports']['due'] );
-		$requests = count( $data['requests']['open'] );
+		$drafts   = WPCPM_Test_Institutions::count_real_rows( $data['reports']['queue'], 'institution' );
+		$due      = WPCPM_Test_Institutions::count_real_rows( $data['reports']['due'], 'institution' );
+		$requests = WPCPM_Test_Institutions::count_real_rows( $data['requests']['open'], 'institution' );
 		$late     = (int) $data['requests']['overdue'];
 		$look     = self::health_row( isset( $data['health'] ) ? (array) $data['health'] : array() )['count'];
 		$totals   = array_merge(
@@ -316,7 +320,7 @@ final class WPCPM_Administrators_Cards {
 				// The total, not count() of the (possibly capped) list that is actually drawn:
 				// the strip's number is a fact about the queue, and must not shrink just because
 				// the card beneath it stopped listing every row.
-				'n'     => isset( $data['applications']['open_total'] ) ? (int) $data['applications']['open_total'] : count( $data['applications']['open'] ),
+				'n'     => isset( $data['applications']['open_total'] ) ? (int) $data['applications']['open_total'] : WPCPM_Test_Institutions::count_real_rows( (array) $data['applications']['open'], 'post_title' ),
 				'card'  => 'applications',
 			),
 			'agreements'           => self::paired_tile(
@@ -434,7 +438,7 @@ final class WPCPM_Administrators_Cards {
 			// card lists under its syncs.
 			'locked'             => array(
 				'label' => __( 'Locked accounts', 'wpcredits-program-manager' ),
-				'n'     => count( $data['locked'] ),
+				'n'     => WPCPM_Test_Institutions::count_real_accounts( (array) $data['locked'] ),
 				'card'  => 'health',
 			),
 		);
@@ -1828,6 +1832,8 @@ final class WPCPM_Administrators_Cards {
 		$rows     = array();
 		$quiet    = 0;
 		$read     = 0;
+		// Read once: a test institution's row is listed in place and its figures stay out of every total.
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 
 		foreach ( array_keys( self::tracks() ) as $track ) {
 			$tracks[ $track ] = array(
@@ -1838,6 +1844,7 @@ final class WPCPM_Administrators_Cards {
 
 		foreach ( WPCPM_Institutions_Index::rows() as $record => $institution ) {
 			$record   = (string) $record;
+			$counted  = ! isset( $tests[ $record ] );
 			$envelope = WPCPM_Roster_Index::read( $record );
 			$roster   = isset( $envelope['rows'] ) && is_array( $envelope['rows'] ) ? $envelope['rows'] : array();
 
@@ -1851,7 +1858,7 @@ final class WPCPM_Administrators_Cards {
 			// synced in a while.
 			$this_read = isset( $envelope['read'] ) ? (int) $envelope['read'] : 0;
 
-			if ( $this_read > 0 && ( 0 === $read || $this_read < $read ) ) {
+			if ( $counted && $this_read > 0 && ( 0 === $read || $this_read < $read ) ) {
 				$read = $this_read;
 			}
 
@@ -1876,7 +1883,7 @@ final class WPCPM_Administrators_Cards {
 				$track = WPCPM_Program::track( $status );
 				$end   = self::day( isset( $row['end'] ) ? $row['end'] : '' );
 
-				if ( isset( $tracks[ $track ] ) && WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) === $semester ) {
+				if ( $counted && isset( $tracks[ $track ] ) && WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) === $semester ) {
 					++$tracks[ $track ]['signed_up'];
 				}
 
@@ -1886,7 +1893,7 @@ final class WPCPM_Administrators_Cards {
 					$label               = WPCPM_Program::label( $status );
 					$by_status[ $label ] = ( isset( $by_status[ $label ] ) ? $by_status[ $label ] : 0 ) + 1;
 
-					if ( isset( $tracks[ $track ] ) ) {
+					if ( $counted && isset( $tracks[ $track ] ) ) {
 						++$tracks[ $track ]['in_progress'];
 					}
 
@@ -1917,7 +1924,7 @@ final class WPCPM_Administrators_Cards {
 							$latest = $end;
 						}
 					}
-				} elseif ( 'Graduate' === $status && '' !== $end && $end >= $window['from'] && $end <= $window['to'] ) {
+				} elseif ( $counted && 'Graduate' === $status && '' !== $end && $end >= $window['from'] && $end <= $window['to'] ) {
 					// Graduate only, not every `past_statuses` entry: WPCPM_Cohort::participation()'s
 					// private bucket() buckets 'Graduate' as graduated and 'Dropped out' as withdrawn,
 					// and this count has to agree with that rule rather than inventing its own - a
@@ -1927,7 +1934,10 @@ final class WPCPM_Administrators_Cards {
 			}
 
 			if ( 0 === $in_progress ) {
-				++$quiet;
+				if ( $counted ) {
+					++$quiet;
+				}
+
 				continue;
 			}
 
@@ -2089,9 +2099,9 @@ final class WPCPM_Administrators_Cards {
 	 */
 	public static function render_applications( array $data ) {
 		$open         = isset( $data['open'] ) ? (array) $data['open'] : array();
-		$open_total   = isset( $data['open_total'] ) ? (int) $data['open_total'] : count( $open );
+		$open_total   = isset( $data['open_total'] ) ? (int) $data['open_total'] : WPCPM_Test_Institutions::count_real_rows( $open, 'post_title' );
 		$closed       = isset( $data['closed'] ) ? (array) $data['closed'] : array();
-		$closed_total = isset( $data['closed_total'] ) ? (int) $data['closed_total'] : count( $closed );
+		$closed_total = isset( $data['closed_total'] ) ? (int) $data['closed_total'] : WPCPM_Test_Institutions::count_real_rows( $closed, 'post_title' );
 		$module       = class_exists( 'WPCPM_Modules' ) ? WPCPM_Modules::get( 'institutions' ) : null;
 		$screen       = self::institutions_screen( 'queue', __( 'Institution applications', 'wpcredits-program-manager' ) );
 
@@ -2122,18 +2132,24 @@ final class WPCPM_Administrators_Cards {
 		// The line saying how many more are waiting counts the open list, so it sits right under it,
 		// before the rejected and spam ones, where it reads as that list's. It links nowhere: the
 		// card's way to the queue tab is its last line, below.
-		if ( $open_total > count( $open ) ) {
-			self::render_more_line( $open_total - count( $open ) );
+		// Both sides real: the total leaves a test institution's applications out, so the rows drawn
+		// do too, and a listed test application is no row of the count.
+		$open_real = WPCPM_Test_Institutions::count_real_rows( $open, 'post_title' );
+
+		if ( $open_total > $open_real ) {
+			self::render_more_line( $open_total - $open_real );
 		}
 
 		if ( ! empty( $closed ) ) {
+			$closed_real = WPCPM_Test_Institutions::count_real_rows( $closed, 'post_title' );
+
 			printf(
 				'<details class="wpcpm-administrator__closed"><summary>%s</summary>',
 				esc_html(
 					sprintf(
 						/* translators: %s: a number of applications. */
-						_n( '%s rejected or spam application', '%s rejected or spam applications', count( $closed ), 'wpcredits-program-manager' ),
-						number_format_i18n( count( $closed ) )
+						_n( '%s rejected or spam application', '%s rejected or spam applications', $closed_real, 'wpcredits-program-manager' ),
+						number_format_i18n( $closed_real )
 					)
 				)
 			);
@@ -2144,8 +2160,8 @@ final class WPCPM_Administrators_Cards {
 				}
 			}
 
-			if ( $closed_total > count( $closed ) ) {
-				self::render_more_line( $closed_total - count( $closed ), true );
+			if ( $closed_total > $closed_real ) {
+				self::render_more_line( $closed_total - $closed_real, true );
 			}
 
 			echo '</details>';
@@ -2226,9 +2242,10 @@ final class WPCPM_Administrators_Cards {
 
 		printf( '<article class="wpcpm-administrator__item wpcpm-application" id="wpcpm-application-%d">', (int) $post->ID );
 		printf(
-			'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <code class="wpcpm-administrator__ref">%3$s</code></h4>',
+			'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a>%3$s <code class="wpcpm-administrator__ref">%4$s</code></h4>',
 			esc_url( WPCPM_Institution_Application::queue_url( (int) $post->ID ) ),
 			esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),
+			WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 			esc_html( WPCPM_Institutions::application_reference( $post ) )
 		);
 		echo '<p class="wpcpm-administrator__facts">';
@@ -2286,7 +2303,8 @@ final class WPCPM_Administrators_Cards {
 		$revoked  = isset( $data['revoked'] ) ? (array) $data['revoked'] : array();
 		$screen   = self::institutions_screen( 'queue', __( 'Collaboration Agreements', 'wpcredits-program-manager' ) );
 
-		$count = count( $awaiting );
+		// A test institution's agreement is listed below and left out of the count.
+		$count = WPCPM_Test_Institutions::count_real_rows( $awaiting, 'record' );
 		WPCPM_Dashboard_Card::open(
 			array_merge(
 				self::SHELL,
@@ -2357,7 +2375,9 @@ final class WPCPM_Administrators_Cards {
 
 		// The sentences are translated by the caller, so _n() would translate them twice;
 		// the count picks the form here.
-		printf( '<details class="wpcpm-administrator__closed"><summary>%s</summary>', esc_html( sprintf( 1 === count( $rows ) ? $singular : $plural, number_format_i18n( count( $rows ) ) ) ) );
+		$real = WPCPM_Test_Institutions::count_real_rows( $rows, 'record' );
+
+		printf( '<details class="wpcpm-administrator__closed"><summary>%s</summary>', esc_html( sprintf( 1 === $real ? $singular : $plural, number_format_i18n( $real ) ) ) );
 
 		foreach ( $rows as $row ) {
 			echo '<article class="wpcpm-administrator__item wpcpm-agreement">';
@@ -2419,7 +2439,7 @@ final class WPCPM_Administrators_Cards {
 		$review_title = 'wpcpm-reports-review-title';
 		$due_title    = 'wpcpm-reports-due-title';
 
-		$count = count( $queue ) + count( $due );
+		$count = WPCPM_Test_Institutions::count_real_rows( $queue, 'institution' ) + WPCPM_Test_Institutions::count_real_rows( $due, 'institution' );
 		WPCPM_Dashboard_Card::open(
 			array_merge(
 				self::SHELL,
@@ -2542,7 +2562,7 @@ final class WPCPM_Administrators_Cards {
 		$closed = isset( $data['closed'] ) ? (array) $data['closed'] : array();
 		$screen = self::institutions_screen( 'queue', __( 'Requests from institutions', 'wpcredits-program-manager' ) );
 
-		$count = count( $open );
+		$count = WPCPM_Test_Institutions::count_real_rows( $open, 'institution' );
 		WPCPM_Dashboard_Card::open(
 			array_merge(
 				self::SHELL,
@@ -2759,7 +2779,7 @@ final class WPCPM_Administrators_Cards {
 
 		// A program is running while somebody is in progress on it: the badge and the phrase count
 		// those, and the institutions with a student in progress, the rows the card lists.
-		$institutions = count( $rows );
+		$institutions = WPCPM_Test_Institutions::count_real_rows( $rows, 'record' );
 		$running      = 0;
 
 		foreach ( $tracks as $track ) {
@@ -2828,7 +2848,7 @@ final class WPCPM_Administrators_Cards {
 
 				printf(
 					'<tr><td>%1$s</td><td class="wpcpm-admin-table__n">%2$s<span class="wpcpm-admin-table__breakdown">%3$s</span></td><td class="wpcpm-admin-table__n">%4$s</td><td class="wpcpm-admin-table__n">%5$s</td><td>%6$s</td><td>%7$s</td><td>%8$s</td></tr>',
-					self::institution_link( $row['record'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
+					self::institution_link( $row['record'], (string) $row['name'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
 					esc_html( number_format_i18n( (int) $row['in_progress'] ) ),
 					esc_html( implode( ', ', $breakdown ) ),
 					esc_html( number_format_i18n( (int) $row['mentors'] ) ),
@@ -2992,7 +3012,7 @@ final class WPCPM_Administrators_Cards {
 
 			foreach ( $locked as $user ) {
 				if ( $user instanceof WP_User ) {
-					$names[] = $user->display_name . ' (' . $user->user_login . ')';
+					$names[] = WPCPM_Test_Institutions::label( $user->display_name . ' (' . $user->user_login . ')', WPCPM_Institution_Members::institution_of( (int) $user->ID ) );
 				}
 			}
 
@@ -3591,20 +3611,27 @@ final class WPCPM_Administrators_Cards {
 	/**
 	 * The institution's name, linked to its dashboard through the switcher argument.
 	 *
-	 * Escaped here: every caller prints it into markup as is.
+	 * Escaped here: every caller prints it into markup as is. A test institution's name carries its
+	 * Test mark after the link (`WPCPM_Test_Institutions::mark()`, which escapes inside).
 	 *
 	 * @param string $record Institutions record ID.
+	 * @param string $name   The name the caller already holds, which decides the mark without a read of
+	 *                       the index; '' to judge by the record ID (one read), for a single item.
 	 * @return string
 	 */
-	private static function institution_link( $record ) {
+	private static function institution_link( $record, $name = '' ) {
 		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? (string) WPCPM_Institutions_Dashboard::page_url() : '';
-		$name = esc_html( self::institution_name( $record ) );
+		// The name a caller holds is used as given and decides the mark with no read; without one, the
+		// index's name does (the record ID where the index lacks the row). Escaped for output only.
+		$plain = '' !== (string) $name ? (string) $name : self::institution_name( $record );
+		$name  = esc_html( $plain );
+		$mark  = WPCPM_Test_Institutions::mark( $plain, WPCPM_Test_Institutions::MARK_DASHBOARD );
 
 		if ( '' === $page || '' === (string) $record ) {
-			return $name;
+			return $name . $mark;
 		}
 
-		return sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $page ) ), $name );
+		return sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $page ) ), $name ) . $mark;
 	}
 
 	/**

@@ -1293,7 +1293,26 @@ class WPCPM_Sponsors_Index {
 	const STATUS_APPROVED = 'Approved';
 	public static function rows() { return $GLOBALS['readers']['sponsor_rows']; }
 	public static function is_test( $sponsor ) { return is_array( $sponsor ) && ! empty( $sponsor['test'] ); }
+	// The real rule, line for line: bin/test-test-institutions.php checks the two bodies are the same.
+	public static function is_test_name( $name ) {
+		$name    = trim( (string) $name );
+		$matched = preg_match( '/^TEST(?![\p{L}\p{N}])/u', $name );
+
+		if ( false !== $matched ) {
+			return 1 === $matched;
+		}
+
+		return 0 === strncmp( $name, 'TEST', 4 ) && ( 4 === strlen( $name ) || 1 !== preg_match( '/^[A-Za-z0-9]$/', $name[4] ) );
+	}
 }
+
+// The real helper every count asks whether an institution is a test one, over the stand-ins above: it reads
+// the index's rows and the sponsors' rule, and a remembered list from the options, which a suite with none
+// answers empty.
+if ( ! function_exists( 'get_option' ) ) {
+	function get_option( $key, $fallback = false ) { return $fallback; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 
 /**
  * A time the mentor application fixtures were made at, for a post: core's get_post_time(), over the fixtures.

@@ -96,6 +96,7 @@ class WP_User_Query {
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
+function _x( $s, $c, $d = null ) { return $s; }
 function _n( $s, $p, $n, $d = null ) { return 1 === (int) $n ? $s : $p; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
@@ -369,6 +370,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 // Before the Institutions module, which uses it: PHP declares a class only once its traits are.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+// The real rule for a test name, which the one helper asks (Ruling 21), and the helper itself.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 
 /* ---- runner ------------------------------------------------------------- */
 
@@ -740,7 +744,12 @@ ck( 'two forms on one page carry distinct ids, each field\'s its own row\'s', ar
 // Ten institution names in the base end in a space and two Confirmed records have no name at
 // all. A picker that printed the stored string would show a manager two entries that look
 // identical, which is how a student ends up filed under the wrong one of a near-pair.
-ck( 'and the names print trimmed', has( $html, '<option value="' . $A . '">TEST - Institution 20</option>' ), true );
+// $A is a test institution (its name starts with TEST): its entry says so in words, where the picker takes text only (Ruling 20).
+ck( 'and the names print trimmed, a test institution\'s with "(Test)" after it', array(
+	has( $html, '<option value="' . $A . '">TEST - Institution 20 (Test)</option>' ),
+	has( $html, '<option value="' . $A . '">TEST - Institution 20</option>' ),
+	has( $html, '<option value="' . $B . '">Universidad Example</option>' ),
+), array( true, false, true ) );
 
 // The three rows the card will not offer a control for, each said in the words the handler
 // would use if somebody pressed anyway.

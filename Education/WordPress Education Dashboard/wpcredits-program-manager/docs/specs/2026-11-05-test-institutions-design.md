@@ -127,6 +127,19 @@ its semester report is drafted by the daily job and by hand; its agreement is ge
 accepted and returned; its students are enrolled, invited and synced. That is what the testers
 test.
 
+### 7.1 The student registration form offers a test institution to an Administrator
+
+(The product owner, 5 November 2026, so the first live test of student registration, 1.123.54, uses the
+shared test institution and no real institution's Airtable automations.) The student registration form
+at /student-registration/ leaves every test institution out of its list for the public, as 1.123.54
+does. A signed-in Administrator sees, in the same list, every test institution the institutions index
+holds, whatever its stage and whatever **Institutions offered** says, named with "(Test)" after it. The
+submit takes a test institution's record ID only from a signed-in Administrator: posted by anybody else
+it is refused under its question as an institution the form does not offer. A registration naming a
+test institution is handled as any other (its Students row links the test institution), and it is left
+out of every count with its institution (section 5). The page is not cached for anybody (1.123.54), so
+an Administrator's list never reaches a visitor.
+
 ## 8. Test students and the end of testing
 
 Students enrolled through the test institution are real rows in Airtable's Students table, linked

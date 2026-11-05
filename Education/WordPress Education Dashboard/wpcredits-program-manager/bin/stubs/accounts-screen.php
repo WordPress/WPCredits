@@ -141,7 +141,7 @@ class DieSignal extends Exception {}
  * settling what the one before it leaves tied; `number` and `offset`, -1 being no limit; `fields`
  * of `ID`, answered as the numeric strings WordPress's column read returns, or as the rows the
  * program's own site returns when a check asks (`ids_as_rows`, see `WPCPM_Roles::id_of()`); the
- * total counted only when `count_total` asks, 0 otherwise. And `include`, which narrows to those IDs
+ * total counted only when `count_total` asks, 0 otherwise. And `exclude`, which leaves those IDs out, and, as WordPress does, is ignored while an `include` is set. And `include`, which narrows to those IDs
  * and, as `orderby`, keeps their order, for a suite whose screen narrows its list to IDs of its own
  * reading (`query_include`): to any other suite it is something the stand-in does not model, so a
  * screen that has no reason to ask it fails its suite's last check the day it does. Rows that tie
@@ -158,7 +158,7 @@ class WP_User_Query {
 		$GLOBALS['queries'][] = $args;
 		$GLOBALS['reads'][]   = 'query';
 
-		$modeled = array( 'role', 'number', 'offset', 'orderby', 'order', 'search', 'search_columns', 'meta_query', 'meta_key', 'meta_value', 'fields', 'count_total' );
+		$modeled = array( 'role', 'number', 'offset', 'orderby', 'order', 'search', 'search_columns', 'meta_query', 'meta_key', 'meta_value', 'fields', 'count_total', 'exclude' );
 
 		if ( $GLOBALS['query_include'] ) {
 			$modeled[] = 'include';
@@ -202,6 +202,11 @@ class WP_User_Query {
 			}
 
 			if ( null !== $include && ! in_array( (int) $id, $include, true ) ) {
+				continue;
+			}
+
+			// As WordPress reads it: `exclude` is ignored while an `include` is set.
+			if ( null === $include && ! empty( $args['exclude'] ) && in_array( (int) $id, array_map( 'intval', (array) $args['exclude'] ), true ) ) {
 				continue;
 			}
 
@@ -487,6 +492,11 @@ function wp_new_user_notification( $id, $deprecated = null, $notify = '' ) {
 	}
 }
 function get_option( $key, $default = false ) {
+	// A suite may count the reads of an option by setting `$GLOBALS['option_reads']` to an array.
+	if ( isset( $GLOBALS['option_reads'] ) && is_array( $GLOBALS['option_reads'] ) ) {
+		$GLOBALS['option_reads'][ $key ] = ( isset( $GLOBALS['option_reads'][ $key ] ) ? $GLOBALS['option_reads'][ $key ] : 0 ) + 1;
+	}
+
 	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
 }
 function update_option( $key, $value, $autoload = null ) {

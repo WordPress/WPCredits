@@ -692,7 +692,8 @@ final class WPCPM_Semester_Report_Screen {
 				continue;
 			}
 
-			$options[ $record ] = trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) );
+			$name               = trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) );
+			$options[ $record ] = WPCPM_Test_Institutions::label( $name, $name );
 
 			foreach ( $roster as $student ) {
 				$key = WPCPM_Cohort::key( isset( $student['start'] ) ? $student['start'] : '' );

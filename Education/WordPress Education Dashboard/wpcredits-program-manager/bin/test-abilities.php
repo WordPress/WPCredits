@@ -676,6 +676,23 @@ ck( 'institution-summary: both read times are required, each a time or null, and
 	),
 	array( array( 'matches', 'more', 'read_at', 'institutions_read_at' ), array( 'string', 'null' ), array( 'string', 'null' ), true, true, false ) );
 
+$match_schema = $institution_schema['properties']['matches']['items'];
+ck( 'institution-summary: a match holds test right after name, a required boolean, described as the answer says',
+	array(
+		array_slice( array_keys( $match_schema['properties'] ), 0, 3 ),
+		isset( $match_schema['properties']['test']['type'] ) ? $match_schema['properties']['test']['type'] : null,
+		in_array( 'test', $match_schema['required'], true ),
+		isset( $match_schema['properties']['test']['description'] ) ? $match_schema['properties']['test']['description'] : null,
+	),
+	array( array( 'record_id', 'name', 'test' ), 'boolean', true, 'True for a test institution, whose name starts with the word TEST: it is left out of every count the site gives.' ) );
+// A test institution in a world of its own (not in the shared fixtures), put back after.
+$GLOBALS['readers']['institutions']['rows']['recINST0000000009'] = array_merge( $GLOBALS['readers']['institutions']['rows']['recINST0000000002'], array( 'record_id' => 'recINST0000000009', 'name' => 'TEST - Example Institution' ) );
+$test_answer = decoded( WPCPM_Ability_Answers::institutions( array( 'institution' => 'recINST0000000009' ) )['answer'] );
+ck( 'institution-summary: the answer for a test institution says test true and fits its schema', array( $test_answer->matches[0]->test, misfits( $institution_schema, $test_answer ) ), array( true, array() ) );
+$test_answer->matches[0]->test = 'yes';
+ck( 'and a test that is the word "yes" does not fit', misfits( $institution_schema, $test_answer, '$.' ), array( '$..matches[0].test is string, the schema says boolean' ) );
+readers_reset();
+
 echo "\n--- The answers that hold fewer keys still fit ---\n";
 $schema = $GLOBALS['registered']['wpcpm/program-counts']['output_schema'];
 readers_reset();

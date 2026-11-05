@@ -181,6 +181,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
+// The real rule for a test name, the pipeline index the helper reads a record ID in, and the helper (Ruling 21).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 
 // The key an activation of a mentor application holds an invitation by (1.122.33), which the mail
@@ -3326,6 +3330,176 @@ ck( 'it prints the tabs it is given, in their order, at the screen it is given, 
 ck( 'and marks none when the tab shown is not among them',
 	got( $printer( 'wpcpm-mentors', array( 'accounts' => 'Accounts' ), 'nope' ), $bar_in ),
 	array( 'Secondary menu', array( array( $mentors . '&tab=accounts', 'Accounts', false, false ) ) ) );
+
+echo "\n=== A test institution's student carries the Test mark in the Institution column ===\n";
+
+// A student's institution is a test one by the record ID the students sync stamped on the account,
+// or, where there is no stamp, by the name its program row holds (Ruling 9). The cell holds the name,
+// then the mark once; a real school's cell is the name alone, and the list holds the same rows.
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = 'default' ) { return $text; }
+}
+
+$test_record = 'recTESTINSTITUT01';
+reset_site();
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array(
+	'v'    => WPCPM_Institutions_Index::VERSION,
+	'read' => 1790000000,
+	'rows' => array(
+		$test_record => array( 'record_id' => $test_record, 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed' ),
+	),
+);
+// Stamped: its program row names the school, the stamp names the record.
+person( 11, 'Ada Lovelace', 'alovelace', array( WPCPM_Roles::ROLE_STUDENT ), 'TEST - Example Institution' );
+$GLOBALS['umeta'][11][ WPCPM_Students_Sync::META_INSTITUTION ] = $test_record;
+// Not stamped: the program row's name decides.
+person( 12, 'Bruno Diaz', 'bdiaz', array( WPCPM_Roles::ROLE_STUDENT ), 'TEST - Example Institution' );
+// A real school, and a school with no name at all.
+person( 13, 'Cleo Ahn', 'cahn', array( WPCPM_Roles::ROLE_STUDENT ), 'Escuela Norte' );
+person( 14, 'Dana Park', 'dpark', array( WPCPM_Roles::ROLE_STUDENT ), '' );
+
+$marked = html_of( draw( screen() ) );
+$mark   = '<span class="wpcpm-inst-mark wpcpm-inst-mark--test"';
+$cells  = array();
+
+foreach ( array( 11, 12, 13, 14 ) as $uid ) {
+	$cells[ $uid ] = cell( row_for( $marked, $uid ), 'institution' );
+}
+
+ck( 'the stamped student\'s cell: the school, then the mark once', array( 0 === strpos( $cells[11], 'TEST - Example Institution ' . $mark ), substr_count( $cells[11], 'wpcpm-inst-mark--test' ) ), array( true, 1 ) );
+ck( 'the student with no stamp is marked by the name the program row holds', array( 0 === strpos( $cells[12], 'TEST - Example Institution ' . $mark ), substr_count( $cells[12], 'wpcpm-inst-mark--test' ) ), array( true, 1 ) );
+ck( 'a real school\'s cell, and a student with none, hold no mark', array( $cells[13], $cells[14] ), array( 'Escuela Norte', '-' ) );
+ck( 'and the list holds the same four students, by name', row_ids( $marked ), array( 11, 12, 13, 14 ) );
+
+echo "\n=== Test institutions' students are listed and counted nowhere ===\n";
+
+// The nine statused students of the section above, with and without two more at the test institution,
+// one In Sensei and stamped, one Graduate and not: the status picker, the summary, the three views and the
+// institution picker's counts are those of the world without them; the list holds them, marked, and the
+// institution picker offers the test institution with its label and no count.
+$test_name = 'TEST - Example Institution';
+$put_tests = static function () use ( $test_record, $test_name ) {
+	person( 21, 'Test Stamped', 'tstamped', array( WPCPM_Roles::ROLE_STUDENT ), $test_name, 'In Sensei' );
+	$GLOBALS['umeta'][21][ WPCPM_Students_Sync::META_INSTITUTION ] = $test_record;
+	person( 22, 'Test Plain', 'tplain', array( WPCPM_Roles::ROLE_STUDENT ), $test_name, 'Graduate' );
+};
+$world_of  = static function ( $with, array $query = array() ) use ( $put_tests, $test_record, $test_name ) {
+	statused_students();
+
+	// Every world has the same index, so a stamp is read as the test institution it names.
+	$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array(
+		'v'    => WPCPM_Institutions_Index::VERSION,
+		'read' => 1790000000,
+		'rows' => array( $test_record => array( 'record_id' => $test_record, 'name' => $test_name, 'stage' => 'Confirmed' ) ),
+	);
+
+	if ( $with ) {
+		$put_tests();
+	}
+
+	return html_of( draw( screen( $query ) ) );
+};
+$no_test   = static function ( array $options ) use ( $test_name ) {
+	return array_values( array_filter( $options, static function ( $option ) use ( $test_name ) { return 0 !== strpos( $option[0], $test_name ); } ) );
+};
+
+$without = $world_of( false );
+$with    = $world_of( true );
+
+ck( 'the world without the test institution has what the checks below need: nine students on seven statuses, in three views',
+	array( count( status_chips( $without ) ), view_counts( $without ) ), array( 7, array( 'all' => '9', 'invited' => '0', 'never-invited' => '9' ) ) );
+ck( 'Students by status: the same chips as without the test institution\'s two students', status_chips( $with ), status_chips( $without ) );
+ck( 'the status picker has the same counts', status_picker( $with ), status_picker( $without ) );
+ck( 'the All, Invited and Never invited counts are the same', view_counts( $with ), view_counts( $without ) );
+ck( 'the heading counts the real students, as the All view does, while the list holds two more rows: the test students', array( heading_count( $without ), heading_count( $with ), count( row_ids( $with ) ) - count( row_ids( $without ) ) ), array( '9', '9', 2 ) );
+$added = array_values( array_diff( row_ids( $with ), row_ids( $without ) ) );
+sort( $added );
+
+ck( 'the list still holds the two test students, marked, among the nine', array( $added, array_diff( row_ids( $without ), row_ids( $with ) ), substr_count( $with, 'wpcpm-inst-mark--test' ) ), array( array( 21, 22 ), array(), 2 ) );
+
+$picked = picker( $with );
+
+ck( 'the institution picker offers the test institution as "TEST - Example Institution (Test)" with no count, and every other option as without it',
+	array( $no_test( $picked ), array_values( array_filter( $picked, static function ( $option ) use ( $test_name ) { return 0 === strpos( $option[0], $test_name ); } ) ) ),
+	array( picker( $without ), array( array( $test_name, false, $test_name . ' (Test)' ) ) ) );
+
+// Chosen, the list lists both of them; the views count nobody there.
+$chosen = $world_of( true, array( 'wpcpm_institution' => $test_name ) );
+
+$chosen_ids = row_ids( $chosen );
+sort( $chosen_ids );
+
+ck( 'with the test institution chosen the list holds both its students, marked, and the picker keeps it selected with no count', array(
+	$chosen_ids,
+	substr_count( $chosen, 'wpcpm-inst-mark--test' ),
+	array_values( array_filter( picker( $chosen ), static function ( $option ) { return $option[1]; } ) ),
+), array( array( 21, 22 ), 2, array( array( $test_name, true, $test_name . ' (Test)' ) ) ) );
+ck( 'and the three views count none of them: the include a chosen institution asks for loses their IDs', array( view_counts( $chosen ), heading_count( $chosen ) ), array( array( 'all' => '0', 'invited' => '0', 'never-invited' => '0' ), '0' ) );
+ck( 'each count, the heading among them, asked WordPress for the one account nobody holds, as a list left empty is read as no narrowing at all', array_map( function ( $args ) { return arg( $args, 'include' ); }, queries( 'count' ) ), array( array( 0 ), array( 0 ), array( 0 ) ) );
+
+// The institution sort draws with test students, and its heading is the plain world's.
+$sorted_with    = $world_of( true, array( 'orderby' => 'institution', 'order' => 'asc' ) );
+$sorted_without = $world_of( false, array( 'orderby' => 'institution', 'order' => 'asc' ) );
+ck( 'sorted by Institution with test students: every row listed, the heading the plain world\'s, Displaying counts every row', array( count( row_ids( $sorted_with ) ) - count( row_ids( $sorted_without ) ), heading_count( $sorted_with ), displaying( $sorted_with ) ), array( 2, heading_count( $sorted_without ), '11 items' ) );
+
+// A status only test students hold keeps its option and chip with no count, and filters.
+$put_only = static function () use ( $test_record, $test_name ) {
+	person( 23, 'Test Only', 'tonly', array( WPCPM_Roles::ROLE_STUDENT ), $test_name, 'Pending graduation' );
+};
+statused_students();
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => WPCPM_Institutions_Index::VERSION, 'read' => 1790000000, 'rows' => array( $test_record => array( 'record_id' => $test_record, 'name' => $test_name, 'stage' => 'Confirmed' ) ) );
+$put_only();
+$only = html_of( draw( screen() ) );
+$only_option = array_values( array_filter( status_picker( $only ), static function ( $o ) { return 'Pending graduation' === $o[0]; } ) );
+$only_chip   = array_values( array_filter( status_chips( $only ), static function ( $c ) { return false !== strpos( $c[2], 'Pending%20graduation' ); } ) );
+ck( 'a status only a test student holds is in the picker with no count and has a chip with an empty count',
+	array( $only_option, array_column( $only_chip, 1 ) ), array( array( array( 'Pending graduation', false, WPCPM_Program::status_words( 'Pending graduation' ) ) ), array( '' ) ) );
+$only_chosen = html_of( draw( screen( array( 'wpcpm_student_status' => 'Pending graduation' ) ) ) );
+ck( 'chosen, it filters: the test student is listed, the views count nobody, and the picker keeps it selected', array( row_ids( $only_chosen ), view_counts( $only_chosen )['all'], array_column( array_filter( status_picker( $only_chosen ), static function ( $o ) { return $o[1]; } ), 0 ) ), array( array( 23 ), '0', array( 'Pending graduation' ) ) );
+
+// A student judged a test one by the stamp, whose program row's name does not start with TEST: labeled.
+statused_students();
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => WPCPM_Institutions_Index::VERSION, 'read' => 1790000000, 'rows' => array( $test_record => array( 'record_id' => $test_record, 'name' => $test_name, 'stage' => 'Confirmed' ) ) );
+person( 24, 'Stamped Plain', 'splain', array( WPCPM_Roles::ROLE_STUDENT ), 'Plain Name College', 'In Sensei' );
+$GLOBALS['umeta'][24][ WPCPM_Students_Sync::META_INSTITUTION ] = $test_record;
+$stamped = html_of( draw( screen() ) );
+ck( 'a stamped test student at a school whose name does not start with TEST: the picker option reads "(Test)" with no count',
+	array_values( array_filter( picker( $stamped ), static function ( $o ) { return 0 === strpos( $o[0], 'Plain Name' ); } ) ), array( array( 'Plain Name College', false, 'Plain Name College (Test)' ) ) );
+
+// A real school's option is never turned "(Test)" by one test-judged student whose program row names it:
+// the count stays, and counts the real students only.
+person( 25, 'Real Plain', 'rplain', array( WPCPM_Roles::ROLE_STUDENT ), 'Plain Name College', 'In Sensei' );
+$mixed = html_of( draw( screen() ) );
+ck( 'a real student beside the stamped test one at "Plain Name College": its option keeps a count of the real students and no "(Test)"',
+	array_values( array_filter( picker( $mixed ), static function ( $o ) { return 0 === strpos( $o[0], 'Plain Name' ); } ) ), array( array( 'Plain Name College', false, 'Plain Name College (1)' ) ) );
+
+// The institution column marks from the roster's flag: the same marks as ever, and a page of rows reads
+// the institutions index as many times as a page of one row, on a site with test institutions or none.
+$index_reads = static function ( $with ) use ( $world_of ) {
+	$GLOBALS['option_reads'] = array();
+	$html                    = $world_of( $with );
+	$reads                   = isset( $GLOBALS['option_reads'][ WPCPM_Institutions_Index::OPT_NAME ] ) ? $GLOBALS['option_reads'][ WPCPM_Institutions_Index::OPT_NAME ] : 0;
+	unset( $GLOBALS['option_reads'] );
+
+	return array( $reads, substr_count( $html, 'wpcpm-inst-mark--test' ), count( row_ids( $html ) ) );
+};
+$reads_without = $index_reads( false );
+$reads_with    = $index_reads( true );
+
+ck( 'the column marks the two test students and no one else', array( $reads_without[1], $reads_with[1], $reads_with[2] - $reads_without[2] ), array( 0, 2, 2 ) );
+ck( 'and the page reads the index as often with eleven rows as with nine: not once per row', $reads_with[0], $reads_without[0] );
+ck( 'a few times at most, whatever the rows', $reads_with[0] <= 4, true );
+
+// A status chosen: the test institution's Graduate is listed and not counted.
+$grads_without = $world_of( false, array( 'wpcpm_student_status' => 'Graduate' ) );
+$grads_with    = $world_of( true, array( 'wpcpm_student_status' => 'Graduate' ) );
+
+ck( 'with a status chosen the views count the real students on it only, as without the test institution', view_counts( $grads_with ), view_counts( $grads_without ) );
+ck( 'and the list holds the test institution\'s Graduate beside the real one', array( row_ids( $grads_without ), row_ids( $grads_with ) ), array( array( 32 ), array( 32, 22 ) ) );
+ck( 'a search that finds only a test student lists her, and the views count the whole list as they do for any search: the real students', array(
+	view_counts( $world_of( true, array( 's' => 'tplain' ) ) ),
+	row_ids( $world_of( true, array( 's' => 'tplain' ) ) ),
+), array( array( 'all' => '9', 'invited' => '0', 'never-invited' => '9' ), array( 22 ) ) );
 
 echo "\n";
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );

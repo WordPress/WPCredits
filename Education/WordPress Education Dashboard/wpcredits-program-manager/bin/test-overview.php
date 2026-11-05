@@ -671,12 +671,14 @@ $busy = array(
 	'due'                  => array( array( 'institution' => 'recINSTB000000002', 'cohort' => '2026-H1' ) ),
 	'requests'             => array(
 		801 => array(
-			'id'      => 801,
-			'overdue' => true,
+			'id'          => 801,
+			'institution' => 'recINSTB000000002',
+			'overdue'     => true,
 		),
 		802 => array(
-			'id'      => 802,
-			'overdue' => false,
+			'id'          => 802,
+			'institution' => 'recINSTB000000002',
+			'overdue'     => false,
 		),
 	),
 	'locked'               => array( 21 ),

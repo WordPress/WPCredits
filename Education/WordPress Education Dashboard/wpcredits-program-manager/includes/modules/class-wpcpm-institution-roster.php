@@ -257,7 +257,8 @@ class WPCPM_Institution_Roster {
 			// Two records in the base have no `Name` at all. An entry with an empty label is
 			// one nobody can pick, so those fall back to the record ID: not a name, but it is
 			// what the grid shows beside the row and it can be found.
-			$options[ (string) $record_id ] = '' === $name ? (string) $record_id : $name;
+			// A test institution reads "(Test)" after its name: judged by the name, which reads nothing.
+			$options[ (string) $record_id ] = '' === $name ? (string) $record_id : WPCPM_Test_Institutions::label( $name, $name );
 		}
 
 		return $options;

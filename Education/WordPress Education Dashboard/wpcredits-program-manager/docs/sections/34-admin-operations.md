@@ -451,3 +451,4 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_students_lock` | `WPCPM_Students_Sync::OPT_LOCK` |
 | `wpcpm_students_report` | `WPCPM_Students_Sync::OPT_REPORT` |
 | `wpcpm_students_state` | `WPCPM_Students_Sync::OPT_STATE` |
+| `wpcpm_test_institutions` | `WPCPM_Test_Institutions::OPTION` (the record IDs of the test institutions the institutions sync found, remembered after their rows leave Airtable) |

@@ -2592,22 +2592,32 @@ class WPCPM_Institution_Application {
 	}
 
 	/**
+	 * The applications waiting for somebody: the IDs the menu bubble counts, oldest first.
+	 *
+	 * @param int $limit Most rows to read, or 0 for every one of them.
+	 * @return int[]
+	 */
+	public static function pending_ids( $limit = 0 ) {
+		// Bounded on request, because the one caller that matters runs on every wp-admin page
+		// load for every manager. Counting the whole table there means a flood of submissions
+		// slows down every screen in the site, which is a worse outcome than a bubble that
+		// stops counting: the caller asks for one more than it can display, which is all it
+		// needs to know whether to print a number or "200+".
+		return array_map( 'intval', self::query( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ), 'ids', $limit ) );
+	}
+
+	/**
 	 * How many applications are waiting for somebody: the menu bubble's number.
 	 *
 	 * @param int $limit Most rows to count, or 0 for every one of them.
 	 * @return int
 	 */
 	public static function pending_count( $limit = 0 ) {
-		// Bounded on request, because the one caller that matters runs on every wp-admin page
-		// load for every manager. Counting the whole table there means a flood of submissions
-		// slows down every screen in the site, which is a worse outcome than a bubble that
-		// stops counting: the caller asks for one more than it can display, which is all it
-		// needs to know whether to print a number or "200+".
-		return count( self::query( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ), 'ids', $limit ) );
+		return count( self::pending_ids( $limit ) );
 	}
 
 	/**
-	 * The query behind both of the above.
+	 * The query behind the three readers above: `applications()`, `application_ids()` and `pending_ids()`.
 	 *
 	 * @param array  $states States to include; anything that is not a state is dropped.
 	 * @param string $fields `all` for posts, `ids` for IDs.

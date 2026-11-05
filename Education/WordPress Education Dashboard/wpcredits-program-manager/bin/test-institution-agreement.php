@@ -340,6 +340,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	/**
@@ -2133,6 +2135,63 @@ ck( 'the acceptance itself stands: one PATCH, and the document is accepted', arr
 ck( 'the gate is shut until the next sync writes the option', WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), false );
 ck( 'and every member was told all the same, because nothing sends that message later', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
 
+/* ---- a test institution keeps its stage -------------------------------- */
+
+echo "\n=== handle_accept(): a test institution keeps its stage ===\n";
+
+$id = review_world();
+seed_index( 'recAAAAAAAAAAAAA1', 'TEST - Universidad Example' );
+$outcome = run( 'handle_accept' );
+
+ck( 'a test institution\'s acceptance carries the five agreement cells and no stage', patched_cells(), array(
+	'Agreement Status'           => 'Accepted',
+	'Agreement Kind'             => 'Program template',
+	'Agreement Accepted On'      => gmdate( 'Y-m-d' ),
+	'Agreement Accepted By'      => $GLOBALS['users'][1]->display_name,
+	'Agreement Template Version' => '2025-11-04',
+) );
+ck( 'in one PATCH, and the stage it read is the stage it leaves', array( count( $GLOBALS['patched'] ), $GLOBALS['audit'][0]['data']['stage'], $GLOBALS['audit'][0]['data']['confirms'] ), array( 1, 'Under Review', 0 ) );
+ck( 'the outcome is the same as for a real one', $outcome, 'agreement-accepted' );
+ck( 'the gate is open on this request', WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ), true );
+ck( 'every member was told, as for a real one', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
+
+$id = review_world( 'template', '' );
+seed_index( 'recAAAAAAAAAAAAA1', 'TEST - Universidad Example' );
+run( 'handle_accept' );
+ck( 'an empty stage precedes Confirmed, and the test rule still wins', array_key_exists( 'Current Stage', patched_cells() ), false );
+
+$id = review_world();
+run( 'handle_accept' );
+ck( 'a real institution\'s acceptance still writes Confirmed', patched_cells()['Current Stage'] ?? null, 'Confirmed' );
+
+foreach ( array( 'Confirmed', 'Student' ) as $past ) {
+	review_world( 'template', $past );
+	run( 'handle_accept' );
+	ck( "a real institution already at $past gets no stage written", array_key_exists( 'Current Stage', patched_cells() ), false );
+}
+
+// No other code writes a stage: one assignment to the stage cell across includes/, the line before
+// it asking the helper, and one `stage =>` in the approval's new row (left as it is, design 6).
+$assigns = array();
+$rows    = array();
+$iter    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes', FilesystemIterator::SKIP_DOTS ) );
+foreach ( $iter as $file ) {
+	if ( 'php' !== $file->getExtension() ) {
+		continue;
+	}
+	$lines = file( $file->getPathname() );
+	foreach ( $lines as $n => $line ) {
+		if ( false !== strpos( $line, '$cells[ $fields[\'stage\'] ] =' ) ) {
+			$assigns[] = basename( $file->getPathname() ) . ' after ' . ( false !== strpos( $lines[ $n - 1 ], 'WPCPM_Test_Institutions::is_test( $record )' ) ? 'the helper' : 'something else' );
+		}
+		if ( false !== strpos( $line, '$fields[\'stage\']      =>' ) ) {
+			$rows[] = basename( $file->getPathname() );
+		}
+	}
+}
+ck( 'one assignment to the stage cell, behind the helper', $assigns, array( 'class-wpcpm-institution-agreement.php after the helper' ) );
+ck( 'and one stage in a new row, the approval\'s', $rows, array( 'class-wpcpm-institution-approval.php' ) );
+
 /* ---- return ------------------------------------------------------------- */
 
 echo "\n=== handle_return(): a note, verbatim, with somebody to reply to ===\n";
@@ -3082,6 +3141,39 @@ ck( 'once the overdue one is dealt with, the digest stops', WPCPM_Institution_Ag
 update_option( 'wpcpm_agreement_reminded', '', false );
 $GLOBALS['settings']['agreement_review_days'] = 1;
 ck( 'the window is the setting, not the default', WPCPM_Institution_Agreement::remind(), 2 );
+
+// A test institution's agreement is listed in the digest, with "(Test)" after its name, and left out of
+// the count; when it is the only one waiting, the digest is still sent, and says none.
+$GLOBALS['settings']['agreement_review_days'] = 3;
+$test_rec = 'recTESTINSTITUT01';
+reset_world();
+seed_index( $rec_a, 'Universidad Example' );
+seed_index( $test_rec, 'TEST - Example Institution' );
+$GLOBALS['managers'] = array( new WP_User( 1, 'Program Manager', 'pm@example.org' ), new WP_User( 2, 'Second Manager', 'two@example.org' ) );
+waiting_post( $rec_a, 5 );
+waiting_post( $test_rec, 5 );
+ck( 'a real and a test agreement waiting five days: the digest goes to both Administrators', WPCPM_Institution_Agreement::remind(), 2 );
+ck( 'its subject counts the real one only', $GLOBALS['mail'][0]['subject'], '[WPCredits] 1 signed agreement is waiting for review' );
+ck( 'and its body lists both, the test one with "(Test)"', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Universidad Example, uploaded ' ),
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'TEST - Example Institution (Test), uploaded ' ),
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Universidad Example (Test)' ),
+), array( true, true, false ) );
+
+reset_world();
+seed_index( $test_rec, 'TEST - Example Institution' );
+$GLOBALS['managers'] = array( new WP_User( 1, 'Program Manager', 'pm@example.org' ), new WP_User( 2, 'Second Manager', 'two@example.org' ) );
+waiting_post( $test_rec, 5 );
+ck( 'only the test one waiting: the digest is still sent to both Administrators', WPCPM_Institution_Agreement::remind(), 2 );
+ck( 'saying none are waiting, and listing it', array( $GLOBALS['mail'][0]['subject'], false !== strpos( $GLOBALS['mail'][0]['body'], 'TEST - Example Institution (Test), uploaded ' ) ), array( '[WPCredits] 0 signed agreements are waiting for review', true ) );
+
+// Its row gone from the index and remembered by the sync: named by its record ID, still a test.
+reset_world();
+update_option( WPCPM_Test_Institutions::OPTION, array( $test_rec ), false );
+$GLOBALS['managers'] = array( new WP_User( 1, 'Program Manager', 'pm@example.org' ), new WP_User( 2, 'Second Manager', 'two@example.org' ) );
+waiting_post( $test_rec, 5 );
+ck( 'a test agreement whose index row is gone is still sent, counted as none, and listed by its record with "(Test)"', array( WPCPM_Institution_Agreement::remind(), $GLOBALS['mail'][0]['subject'], false !== strpos( $GLOBALS['mail'][0]['body'], $test_rec . ' (Test), uploaded ' ) ), array( 2, '[WPCredits] 0 signed agreements are waiting for review', true ) );
+delete_option( WPCPM_Test_Institutions::OPTION );
 
 /* ---- the base's spelling, and the hooks --------------------------------- */
 

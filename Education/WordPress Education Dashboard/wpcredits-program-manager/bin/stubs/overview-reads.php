@@ -93,6 +93,63 @@ function wpcpm_overview_progress( $audience ) {
 	);
 }
 
+/* ---- what the test-institution helper reads --------------------------------- */
+
+// The cards and the menu bubble count real institutions only (1.123.55), so the helper and the
+// real sponsors index (which holds the rule on a name) load over this file. This world holds no
+// test institution: the index stand-in below holds no row, the application titles come from a
+// `$wpdb` that holds no post, and no institution account acts for an institution.
+
+if ( ! class_exists( 'WPCPM_Sponsors_Index' ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+}
+
+if ( ! class_exists( 'WPCPM_Test_Institutions' ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+}
+
+if ( ! class_exists( 'WPCPM_Overview_Wpdb' ) ) {
+	/** A `$wpdb` whose one prepared read of titles finds no post. */
+	class WPCPM_Overview_Wpdb {
+		public $posts = 'wp_posts';
+
+		public function prepare( $query, ...$args ) {
+			return $query;
+		}
+
+		public function get_results( $query, $output = 'OBJECT' ) {
+			return array();
+		}
+	}
+}
+
+if ( ! isset( $GLOBALS['wpdb'] ) ) {
+	$GLOBALS['wpdb'] = new WPCPM_Overview_Wpdb();
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
+	/** No institution account acts for an institution here. */
+	class WPCPM_Institution_Members {
+		public static function institution_of( $user = null ) {
+			return '';
+		}
+	}
+}
+
+if ( ! function_exists( 'get_posts' ) ) {
+	/** The real sponsors index reads its rows with this: no sponsor post here, so no row. */
+	function get_posts( $args = array() ) {
+		return array();
+	}
+}
+
+if ( ! function_exists( 'get_post_meta' ) ) {
+	/** No post holds any meta here. */
+	function get_post_meta( $id, $key = '', $single = false ) {
+		return $single ? '' : array();
+	}
+}
+
 /* ---- the institutions' queues ---------------------------------------------- */
 
 /**
@@ -105,6 +162,7 @@ class WPCPM_Institution_Application {
 	const STATE_INFO     = 'info';
 	const STATE_REJECTED = 'rejected';
 	const STATE_SPAM     = 'spam';
+	const POST_TYPE      = 'wpcpm_inst_app';
 
 	/** The rows the dashboard's card draws, which the Overview never does, so none is built. */
 	public static function applications( $states, $limit = 0 ) {
@@ -119,8 +177,14 @@ class WPCPM_Institution_Application {
 	}
 
 	/** The Institutions entry's bubble: the applications that wait. */
+	public static function pending_ids( $limit = 0 ) {
+		$open = (int) wpcpm_overview_holds( 'applications', 0 );
+
+		return $open < 1 ? array() : range( 1, $open );
+	}
+
 	public static function pending_count( $limit = 0 ) {
-		return (int) wpcpm_overview_holds( 'applications', 0 );
+		return count( self::pending_ids( $limit ) );
 	}
 }
 
@@ -142,6 +206,8 @@ class WPCPM_Institution_Agreement {
 
 /** Mentor requests: the open ones with their facts, and none closed. */
 class WPCPM_Institution_Request {
+	const META_INSTITUTION = '_wpcpm_req_institution';
+
 	public static function open_requests( $limit = 20 ) {
 		return array_keys( (array) wpcpm_overview_holds( 'requests', array() ) );
 	}
@@ -183,6 +249,10 @@ class WPCPM_Institution_Roster {
 class WPCPM_Institutions_Index {
 	public static function rows() {
 		return array();
+	}
+
+	public static function row( $record_id ) {
+		return null;
 	}
 }
 
@@ -342,6 +412,11 @@ class WPCPM_Students_Sync {
 class WPCPM_Mentors_Sync {
 	const OPT_LAST   = 'wpcpm_mentors_last_sync';
 	const CRON_DAILY = 'wpcpm_mentors_daily';
+
+	/** The rule the helper judges a record ID by. */
+	public static function is_record_id( $value ) {
+		return is_scalar( $value ) && (bool) preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) );
+	}
 
 	public static function progress() {
 		return wpcpm_overview_progress( 'mentors' );

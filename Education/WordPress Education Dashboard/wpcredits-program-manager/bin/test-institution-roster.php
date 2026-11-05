@@ -391,6 +391,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php';
+// The real rule for a test name and the one helper that asks it (Ruling 21).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = 'default' ) { return $text; }
+}
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -790,6 +796,22 @@ ck( 'every index row, in index order, one entry each',
 		// grid shows beside the row; an entry with an empty label is one nobody can pick.
 		$MIX   => $MIX,
 	) );
+
+// A test institution is listed where a real one is, its entry reading "(Test)" after its name: the
+// Viewing as list takes text only, and the order and the other entries are as they were (Task 3).
+$TEST_ID   = 'recTESTINSTITUT01';
+$held_rows = WPCPM_Institutions_Index::rows();
+WPCPM_Institutions_Index::write( $held_rows + array( $TEST_ID => array( 'record_id' => $TEST_ID, 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed' ) ), 1756800000 );
+ck( 'a test institution reads "(Test)" after its name in the list, in its place, the real entries unchanged',
+	WPCPM_Institution_Roster::switcher_options(),
+	array(
+		$EMPTY   => 'Nobody University',
+		$A       => 'Universidad Example',
+		$B       => 'Beta Institute',
+		$MIX     => $MIX,
+		$TEST_ID => 'TEST - Example Institution (Test)',
+	) );
+WPCPM_Institutions_Index::write( $held_rows, 1756800000 );
 
 /* ---- 5.3: claim() --------------------------------------------------------- */
 

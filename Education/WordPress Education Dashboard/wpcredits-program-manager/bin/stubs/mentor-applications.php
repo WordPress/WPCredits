@@ -335,6 +335,11 @@ function run( callable $step ) {
 /* ---- options and transients ----------------------------------------------------------------- */
 
 function get_option( $key, $default = false ) {
+	// A suite may count the reads of an option by setting `$GLOBALS['option_reads']` to an array.
+	if ( isset( $GLOBALS['option_reads'] ) && is_array( $GLOBALS['option_reads'] ) ) {
+		$GLOBALS['option_reads'][ $key ] = ( isset( $GLOBALS['option_reads'][ $key ] ) ? $GLOBALS['option_reads'][ $key ] : 0 ) + 1;
+	}
+
 	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
 }
 function update_option( $key, $value, $autoload = null ) {

@@ -235,7 +235,10 @@ final class WPCPM_Sponsor_Report_Numbers {
 
 		$rows = array();
 
-		foreach ( array_keys( $countries ) as $record ) {
+		// A test institution counts nowhere: its roster is not read, and a row that names it is passed over.
+		$tests = array_flip( WPCPM_Test_Institutions::test_ids() );
+
+		foreach ( array_keys( WPCPM_Test_Institutions::real_keys( $countries ) ) as $record ) {
 			foreach ( WPCPM_Roster_Index::rows( $record ) as $row ) {
 				if ( ! is_array( $row ) ) {
 					continue;
@@ -244,7 +247,12 @@ final class WPCPM_Sponsor_Report_Numbers {
 				// A row names its institution; one that names none is the roster's it sits on.
 				$institution = isset( $row['institution'] ) ? trim( (string) $row['institution'] ) : '';
 				$institution = '' !== $institution ? $institution : (string) $record;
-				$reduced     = self::reduce( $row, $current, $institution, isset( $countries[ $institution ] ) ? $countries[ $institution ] : '' );
+
+				if ( isset( $tests[ $institution ] ) || WPCPM_Sponsors_Index::is_test_name( $institution ) ) {
+					continue;
+				}
+
+				$reduced = self::reduce( $row, $current, $institution, isset( $countries[ $institution ] ) ? $countries[ $institution ] : '' );
 
 				if ( null !== $reduced ) {
 					$rows[] = $reduced;

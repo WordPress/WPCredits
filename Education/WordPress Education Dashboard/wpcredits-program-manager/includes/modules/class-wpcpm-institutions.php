@@ -617,6 +617,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		delete_option( WPCPM_Institutions_Index::OPT_NAME );
 		delete_option( WPCPM_Institutions_Index::OPT_LOCK );
+		delete_option( WPCPM_Test_Institutions::OPTION );
 		delete_option( WPCPM_Countries::OPT_NAME );
 		delete_option( WPCPM_Private_Files::OPT_PROBE );
 		delete_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
@@ -2068,6 +2069,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * manager does about a queue is the same at two hundred as at two thousand, and the
 	 * difference between those two numbers is a cost the whole of wp-admin would carry.
 	 *
+	 * A test institution's items are listed in the queue and left out of this number: each of the
+	 * three readers is read with its own bound first, and the test items are dropped after that
+	 * bounded read, so the question stays the same size however many test items there are.
+	 *
 	 * @return int Between 0 and `COUNT_MAX`.
 	 */
 	private static function queue_count() {
@@ -2075,9 +2080,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// on every wp-admin page load, so the question it asks has to stay the same size whatever
 		// the queue does. `COUNT_MAX + 1` is enough to tell "199" from "200 or more".
 		$limit   = self::COUNT_MAX + 1;
-		$waiting = (int) WPCPM_Institution_Application::pending_count( $limit )
-			+ count( (array) WPCPM_Institution_Agreement::awaiting_review( $limit ) )
-			+ count( (array) WPCPM_Institution_Request::open_requests( $limit ) );
+		$waiting = count( WPCPM_Test_Institutions::real_application_ids( WPCPM_Institution_Application::pending_ids( $limit ) ) )
+			+ count( WPCPM_Test_Institutions::real_post_ids( (array) WPCPM_Institution_Agreement::awaiting_review( $limit ), WPCPM_Institution_Agreement::META_INSTITUTION ) )
+			+ count( WPCPM_Test_Institutions::real_post_ids( (array) WPCPM_Institution_Request::open_requests( $limit ), WPCPM_Institution_Request::META_INSTITUTION ) );
 
 		return min( self::COUNT_MAX, $waiting );
 	}
@@ -2118,7 +2123,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * created, is one of those, so no other kind is ever called a mentor request.
 	 *
 	 * @param int $limit How many rows to build, at most.
-	 * @return array{rows: array[], waiting: int} Rows: `kind` (`application`, `agreement` or
+	 * @return array{rows: array[], waiting: int} `waiting` is the real total, a test institution's
+	 *               items left out. Rows: `test` (bool), `kind` (`application`, `agreement` or
 	 *               `request`), `kind_label`, `id`, `at`, `overdue`, `name`, `country_name`,
 	 *               `contact`, `state`, `signals`, `duplicate`, `record`, and on a request
 	 *               row `request_kind`, `request_label`, `student`, `student_name`,
@@ -2134,7 +2140,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$applications = WPCPM_Institution_Application::applications( $open_states, $limit );
 		$documents    = array_map( 'intval', (array) WPCPM_Institution_Agreement::awaiting_review() );
 		$requests     = array_map( 'intval', (array) WPCPM_Institution_Request::open_requests( WPCPM_Institution_Request::QUEUE_MAX ) );
-		$waiting      = count( WPCPM_Institution_Application::application_ids( $open_states ) ) + count( $documents ) + count( $requests );
+		// The real total: a test institution's items are listed below and left out of this number.
+		$waiting = count( WPCPM_Test_Institutions::real_application_ids( WPCPM_Institution_Application::application_ids( $open_states ) ) )
+			+ count( WPCPM_Test_Institutions::real_post_ids( $documents, WPCPM_Institution_Agreement::META_INSTITUTION ) )
+			+ count( WPCPM_Test_Institutions::real_post_ids( $requests, WPCPM_Institution_Request::META_INSTITUTION ) );
+		$tests   = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 
 		$documents  = array_slice( $documents, 0, $limit );
 		$requests   = array_slice( $requests, 0, $limit );
@@ -2164,6 +2174,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'signals'      => self::signals( $post ),
 				'duplicate'    => in_array( (int) $post->ID, $duplicates, true ),
 				'record'       => '',
+				'test'         => WPCPM_Sponsors_Index::is_test_name( $name ),
 			);
 		}
 
@@ -2180,6 +2191,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 			$country = isset( $index['country'] ) ? (string) $index['country'] : '';
 			$at      = (int) get_post_time( 'U', true, $post );
+			$name    = self::institution_name( $record );
 
 			$rows[] = array(
 				'kind'         => 'agreement',
@@ -2187,13 +2199,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'id'           => (int) $post->ID,
 				'at'           => $at,
 				'overdue'      => ( $now - $at ) > $overdue,
-				'name'         => self::institution_name( $record ),
+				'name'         => $name,
 				'country_name' => self::country_name( $country, isset( $index['country_name'] ) ? (string) $index['country_name'] : '' ),
 				'contact'      => WPCPM_Countries::contact_of( $country ),
 				'state'        => '',
 				'signals'      => array(),
 				'duplicate'    => false,
 				'record'       => $record,
+				'test'         => isset( $tests[ trim( $record ) ] ) || WPCPM_Sponsors_Index::is_test_name( $name ),
 			);
 		}
 
@@ -2219,6 +2232,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'signals'       => array(),
 				'duplicate'     => false,
 				'record'        => (string) $facts['institution'],
+				'test'          => isset( $tests[ trim( (string) $facts['institution'] ) ] ) || WPCPM_Sponsors_Index::is_test_name( (string) $facts['institution_name'] ),
 				'request_kind'  => (string) $facts['kind'],
 				'request_label' => (string) $facts['kind_label'],
 				'student'       => (string) $facts['student'],
@@ -2750,7 +2764,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The membership counts are a user query per institution, so they are asked here and on Sync
 	 * and storage, the two tabs that print one of them, and on no other. Here they are asked of the
 	 * institutions the tab counts (`counted_rows()`), as every count on it is; Sync and storage's
-	 * count is over every record, as it always was.
+	 * count is over every record that is not a test institution's.
 	 */
 	private function render_tab_pipeline() {
 		$index = WPCPM_Institutions_Index::read();
@@ -2837,7 +2851,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return;
 		}
 
-		printf( '<h2>%s</h2>', esc_html( self::institution_name( $record ) ) );
+		printf(
+			'<h2>%1$s%2$s</h2>',
+			esc_html( self::institution_name( $record ) ),
+			WPCPM_Test_Institutions::mark( $record ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
+		);
 		$this->render_back_to_accounts();
 
 		WPCPM_Institution_People::render_manager( $record );
@@ -2933,7 +2951,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	private function render_tab_sync() {
 		$progress = WPCPM_Institutions_Sync::progress();
 		$index    = WPCPM_Institutions_Index::read();
-		$gaps     = self::membership_gaps( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() );
+		$gaps     = self::membership_gaps( WPCPM_Test_Institutions::real_keys( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() ) );
 
 		if ( ! empty( $progress['error'] ) ) {
 			printf(
@@ -2965,10 +2983,19 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return;
 		}
 
+		// Every locked account is named, the test ones labeled; the number counts the real ones only.
+		$real  = WPCPM_Test_Institutions::count_real_accounts( $locked );
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 		$names = array();
 
 		foreach ( $locked as $user ) {
-			$names[] = sprintf( '%1$s (%2$s)', $user->display_name, $user->user_login );
+			$name = sprintf( '%1$s (%2$s)', $user->display_name, $user->user_login );
+
+			if ( isset( $tests[ WPCPM_Institution_Members::institution_of( (int) $user->ID ) ] ) ) {
+				$name = WPCPM_Test_Institutions::labeled( $name );
+			}
+
+			$names[] = $name;
 		}
 
 		printf(
@@ -2976,8 +3003,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html(
 				sprintf(
 					/* translators: %d: how many accounts. */
-					_n( '%d institution account is locked out of roster changes for the rest of today.', '%d institution accounts are locked out of roster changes for the rest of today.', count( $locked ), 'wpcredits-program-manager' ),
-					count( $locked )
+					_n( '%d institution account is locked out of roster changes for the rest of today.', '%d institution accounts are locked out of roster changes for the rest of today.', $real, 'wpcredits-program-manager' ),
+					$real
 				)
 			),
 			esc_html(
@@ -3142,14 +3169,23 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		// Said out loud whenever the list is shorter than the queue, so nobody reads the rows
 		// on the screen as the whole of what is waiting for them.
-		if ( count( $rows ) < $waiting ) {
+		$drawn = 0;
+
+		foreach ( $rows as $row ) {
+			if ( empty( $row['test'] ) ) {
+				++$drawn;
+			}
+		}
+
+		// The drawn rows that count, a test institution's left out, against the real total.
+		if ( $drawn < $waiting ) {
 			printf(
 				'<p class="description">%s</p>',
 				esc_html(
 					sprintf(
 						/* translators: 1: how many rows are drawn, 2: how many are waiting in total. */
 						__( 'Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; as these are decided on the Administrator Dashboard, the next of them take their place.', 'wpcredits-program-manager' ),
-						number_format_i18n( count( $rows ) ),
+						number_format_i18n( $drawn ),
 						number_format_i18n( $waiting )
 					)
 				)
@@ -3201,8 +3237,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		printf( '<li class="wpcpm-queue-item%s">', $overdue ? ' is-overdue' : '' );
 
 		printf(
-			'<h3 class="wpcpm-queue-title"><span class="wpcpm-inst-name__text">%1$s</span> <span class="wpcpm-inst-muted">%2$s</span></h3>',
+			'<h3 class="wpcpm-queue-title"><span class="wpcpm-inst-name__text">%1$s</span>%2$s <span class="wpcpm-inst-muted">%3$s</span></h3>',
 			esc_html( (string) $row['name'] ),
+			// The name the row holds decides, which reads nothing.
+			WPCPM_Test_Institutions::mark( (string) $row['name'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 			esc_html( (string) $row['kind_label'] )
 		);
 
@@ -3363,8 +3401,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<div class="wpcpm-card wpcpm-application" id="wpcpm-application">';
 
 		printf(
-			'<h2>%1$s <span class="wpcpm-inst-muted">%2$s</span></h2>',
+			'<h2>%1$s%2$s <span class="wpcpm-inst-muted">%3$s</span></h2>',
 			esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),
+			WPCPM_Test_Institutions::mark( $name ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 			esc_html( self::application_reference( $post ) )
 		);
 
@@ -4201,7 +4240,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * total as the partnerships in play, and the SPAM, Not Moving Forward and Revisit Later records
 	 * in it said otherwise. The four `UNCOUNTED_STAGES` are still listed, after the line "Not counted
 	 * above", each a closed fold with its own count, in the order the index groups them
-	 * (`by_stage()`), and a stage stored with a space around it folds with the stage it names.
+	 * (`by_stage()`), and a stage stored with a space around it folds with the stage it names. A stage's
+	 * count and a fold's leave test institutions out, while their tables list them, marked.
 	 *
 	 * Each name opens the institution's page, and the field above the groups finds any record
 	 * whatever its stage (`render_pipeline_find()`). Both need the Institution Dashboard's page, read
@@ -4218,11 +4258,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$page      = (string) $this->dashboard_url();
 		$summaries = array();
 
+		// The test institutions' record IDs as a set, read once: each stage's count and the agreement gap's
+		// leave them out, and every list still draws them (marked, by `render_pipeline_row()`).
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
+
 		foreach ( $rows as $record_id => $row ) {
 			$summaries[ $record_id ] = WPCPM_Institution_Agreement::summary( $record_id );
 		}
 
-		$gap = self::agreement_gap( $counted, $summaries );
+		// Listed: every Confirmed row at a counted stage, a test institution's too (Ruling G2); counted: the real ones.
+		$gap       = self::agreement_gap( self::at_counted_stage( $rows ), $summaries );
+		$gap_count = count( array_diff_key( $gap, $tests ) );
 
 		echo '<div class="wpcpm-card">';
 		printf(
@@ -4249,10 +4295,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 						_n(
 							'Showing the %s Confirmed institution with no agreement recorded.',
 							'Showing the %s Confirmed institutions with no agreement recorded.',
-							count( $gap ),
+							$gap_count,
 							'wpcredits-program-manager'
 						),
-						number_format_i18n( count( $gap ) )
+						number_format_i18n( $gap_count )
 					)
 				),
 				esc_url( $this->tab_url( 'pipeline' ) ),
@@ -4263,7 +4309,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'<p class="wpcpm-inst-gap"><a href="%1$s">%2$s <span class="wpcpm-count">%3$s</span></a></p>',
 				esc_url( add_query_arg( 'wpcpm_filter', self::FILTER_GAP, $this->tab_url( 'pipeline' ) ) ),
 				esc_html__( 'Confirmed with no agreement recorded', 'wpcredits-program-manager' ),
-				esc_html( number_format_i18n( count( $gap ) ) )
+				esc_html( number_format_i18n( $gap_count ) )
 			);
 		}
 
@@ -4296,7 +4342,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			printf(
 				'<h3 class="wpcpm-inst-stage">%1$s <span class="wpcpm-count">%2$s</span></h3>',
 				esc_html( self::stage_label( $stage ) ),
-				esc_html( number_format_i18n( count( $group ) ) )
+				esc_html( number_format_i18n( count( array_diff_key( $group, $tests ) ) ) )
 			);
 
 			$this->render_pipeline_table( $group, $summaries, $page );
@@ -4311,7 +4357,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				printf(
 					'<details class="wpcpm-inst-folded"><summary>%1$s <span class="wpcpm-count">%2$s</span></summary>',
 					esc_html( self::stage_label( $stage ) ),
-					esc_html( number_format_i18n( count( $group ) ) )
+					esc_html( number_format_i18n( count( array_diff_key( $group, $tests ) ) ) )
 				);
 
 				$this->render_pipeline_table( $group, $summaries, $page );
@@ -4381,12 +4427,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				continue;
 			}
 
+			// The label is judged by the name the row holds, which reads nothing: a row with no name is no test.
 			$record_id = trim( (string) $key );
 			$name      = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
 			$name      = '' !== $name ? $name : $record_id;
 			$city      = isset( $row['city'] ) ? trim( (string) $row['city'] ) : '';
 			$stage     = isset( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
-			$label     = '' !== $city ? sprintf( '%1$s, %2$s', $name, $city ) : $name;
+			$label     = WPCPM_Test_Institutions::label( $name, isset( $row['name'] ) ? trim( (string) $row['name'] ) : '' );
+			$label     = '' !== $city ? sprintf( '%1$s, %2$s', $label, $city ) : $label;
 			$label     = '' !== $stage ? sprintf( '%1$s (%2$s)', $label, $stage ) : $label;
 
 			$options[ $record_id ] = $label;
@@ -4489,6 +4537,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'<span class="wpcpm-inst-name__text">%s</span>',
 				self::institution_link( $trimmed, $record_id, $page ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the name, and the link around it.
 			);
+
+			// By the row's name, which reads nothing, for every row of a long list.
+			echo WPCPM_Test_Institutions::mark( $trimmed ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 
 			if ( $name !== $trimmed ) {
 				printf(
@@ -4722,13 +4773,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return;
 		}
 
+		// Every one is listed below, a test institution's marked; the sentence counts the real ones.
+		$tests        = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
+		$real_missing = count( array_diff_key( array_flip( $missing ), $tests ) );
+
 		printf(
 			'<p>%s</p>',
 			esc_html(
 				sprintf(
 					/* translators: %s: number of institutions. */
-					_n( '%s Confirmed institution has no agreement recorded:', '%s Confirmed institutions have no agreement recorded:', count( $missing ), 'wpcredits-program-manager' ),
-					number_format_i18n( count( $missing ) )
+					_n( '%s Confirmed institution has no agreement recorded:', '%s Confirmed institutions have no agreement recorded:', $real_missing, 'wpcredits-program-manager' ),
+					number_format_i18n( $real_missing )
 				)
 			)
 		);
@@ -4738,7 +4793,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<ul class="wpcpm-notices wpcpm-inst-unrecorded">';
 
 		foreach ( $missing as $record_id ) {
-			$name = esc_html( self::institution_name( $record_id ) );
+			$plain = self::institution_name( $record_id );
+			$name  = esc_html( $plain );
 
 			if ( '' !== $page ) {
 				$name = sprintf(
@@ -4749,8 +4805,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			}
 
 			printf(
-				'<li>%1$s <code class="wpcpm-inst-record">%2$s</code></li>',
+				'<li>%1$s%2$s <code class="wpcpm-inst-record">%3$s</code></li>',
 				$name, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above: the name, and the link around it.
+				WPCPM_Test_Institutions::mark( $plain ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 				esc_html( $record_id )
 			);
 		}
@@ -4832,8 +4889,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			echo '<li class="wpcpm-inst-inforce__row">';
 
 			printf(
-				'<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">%1$s</span> <span class="wpcpm-inst-muted">%2$s</span></p>',
+				'<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">%1$s</span>%2$s <span class="wpcpm-inst-muted">%3$s</span></p>',
 				self::institution_link( $item['name'], $item['id'], $page ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the name, and the link around it.
+				WPCPM_Test_Institutions::mark( $item['name'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 				esc_html(
 					'' === $day ? $word : sprintf(
 						/* translators: 1: "Accepted on the site" or "Recorded on file", 2: the day it was accepted, in the site's date format. */
@@ -5262,7 +5320,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			array_sum( array_map( 'intval', $no_start ) ),
 			self::breakdown( $no_start )
 		);
-		$this->recon_row( __( 'Mentored students whose report record the address join missed', 'wpcredits-program-manager' ), count( $missed ), '' );
+		$this->recon_row( __( 'Mentored students whose report record the address join missed', 'wpcredits-program-manager' ), WPCPM_Test_Institutions::count_real_rows( $missed, 'institution' ), '' );
 
 		printf(
 			'<tr><th scope="row">%1$s</th><td%2$s>%3$s <span class="wpcpm-inst-muted">%4$s</span></td></tr>',
@@ -5325,7 +5383,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @param array|null $listed Entries from the sync's `status_disagreement_rows`, or null where the run kept none.
 	 */
 	private function render_disagreements( $total, $listed ) {
-		if ( $total < 1 || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+		// Drawn whenever it lists rows: a lone test disagreement is listed, though the count leaves it out.
+		if ( ( $total < 1 && empty( $listed ) ) || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			return;
 		}
 
@@ -5340,6 +5399,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<p class="description">' . esc_html__( 'Each is a student whose Students row and Students Reports row, found by the same email address, carry different statuses. Check both rows and correct the one that is out of date.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<ul class="wpcpm-inst-missed">';
 
+		// Only the real rows are counted off against the count, which leaves a test institution's out.
 		$shown = 0;
 
 		foreach ( $listed as $row ) {
@@ -5351,6 +5411,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				return isset( $row[ $key ] ) ? trim( (string) $row[ $key ] ) : '';
 			};
 
+			$test   = ! empty( $row['test'] );
 			$theirs = $get( 'students_status' );
 			$ours   = $get( 'reports_status' );
 
@@ -5363,11 +5424,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html( '' !== $ours ? $ours : __( '(no status)', 'wpcredits-program-manager' ) )
 			);
 
-			++$shown;
+			if ( ! $test ) {
+				++$shown;
+			}
 
 			printf(
-				'<li>%1$s<br>%2$s</li>',
+				'<li>%1$s%2$s<br>%3$s</li>',
 				esc_html( '' !== $get( 'name' ) ? $get( 'name' ) : __( '(no name)', 'wpcredits-program-manager' ) ),
+				$test ? WPCPM_Test_Institutions::badge() : '', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- badge() escapes its classes, title and word.
 				$sentence // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built above from escaped parts and airtable_link()'s own markup.
 			);
 		}
@@ -5405,6 +5469,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<h3>' . esc_html__( 'Mentored students whose report record the address join missed', 'wpcredits-program-manager' ) . '</h3>';
 		echo '<p class="description">' . esc_html__( 'Each has a mentor on the Students row and no Students Reports row under the same address, so the roster shows them as Current with no hours. The pairing is by name and is a pointer for a person to check, never a join: the site does not read a report into a school\'s roster on a name.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<ul class="wpcpm-inst-missed">';
+
+		// Read once: a test institution's student is listed, marked, and left out of the count above.
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
 
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {
@@ -5454,11 +5521,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$status = $get( 'status' );
 
 			printf(
-				'<li>%1$s <span class="wpcpm-inst-muted">%2$s · %3$s</span><br>%4$s</li>',
+				'<li>%1$s <span class="wpcpm-inst-muted">%2$s · %3$s</span>%5$s<br>%4$s</li>',
 				esc_html( '' !== $get( 'name' ) ? $get( 'name' ) : __( '(no name)', 'wpcredits-program-manager' ) ),
 				esc_html( self::institution_name( $get( 'institution' ) ) ),
 				esc_html( '' !== $status ? $status : __( '(no status)', 'wpcredits-program-manager' ) ),
-				$sentence // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built above from escaped parts and airtable_link()'s own markup.
+				$sentence, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built above from escaped parts and airtable_link()'s own markup.
+				isset( $tests[ $get( 'institution' ) ] ) ? WPCPM_Test_Institutions::badge() : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- badge() escapes its classes, title and word.
 			);
 		}
 
@@ -5714,7 +5782,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				continue;
 			}
 
-			$choices[ trim( (string) $record_id ) ] = self::institution_name( $record_id );
+			$choices[ trim( (string) $record_id ) ] = WPCPM_Test_Institutions::label( self::institution_name( $record_id ), is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '' );
 		}
 
 		asort( $choices, SORT_NATURAL | SORT_FLAG_CASE );
@@ -5808,7 +5876,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		printf(
 			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
 			esc_html__( 'Agreement discrepancies', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $discrepancies ) ) )
+			esc_html( number_format_i18n( count( WPCPM_Test_Institutions::real_keys( $discrepancies ) ) ) )
 		);
 		echo '<p class="description">' . esc_html__( 'An institution is settled only when the site\'s record and Airtable\'s Agreement Status agree. These are the ones where they do not; each is locked until they do.', 'wpcredits-program-manager' ) . '</p>';
 
@@ -5830,10 +5898,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		foreach ( $discrepancies as $record_id => $sides ) {
 			$site     = isset( $sides['site_state'] ) ? (string) $sides['site_state'] : '';
 			$airtable = isset( $sides['airtable_status'] ) ? (string) $sides['airtable_status'] : '';
+			$plain    = self::institution_name( (string) $record_id );
 
 			printf(
-				'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s</td><td>%4$s</td></tr>',
-				esc_html( self::institution_name( (string) $record_id ) ),
+				'<tr><td>%1$s%2$s<br /><code>%3$s</code></td><td>%4$s</td><td>%5$s</td></tr>',
+				esc_html( $plain ),
+				WPCPM_Test_Institutions::mark( $plain ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 				esc_html( (string) $record_id ),
 				esc_html( '' !== $site ? $site : __( '(nothing recorded)', 'wpcredits-program-manager' ) ),
 				esc_html( '' !== $airtable ? $airtable : __( '(empty)', 'wpcredits-program-manager' ) )
@@ -5907,6 +5977,16 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$approved_total = count( $approved );
 		$approved       = array_slice( $approved, 0, self::REPORTS_SHOWN );
 
+		// What is counted is the real institutions' reports: the test institutions' are drawn, marked, and
+		// left out of the heading's number and of the window's sentence. The window's own condition below
+		// stays on the reports drawn, test ones included, since it says whether the list was cut.
+		$tests         = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
+		$is_real       = static function ( $post ) use ( $tests ) {
+			return ! isset( $tests[ WPCPM_Semester_Report::institution_of( $post ) ] );
+		};
+		$real_drafts   = count( array_filter( $drafts, $is_real ) );
+		$real_approved = count( array_filter( $approved, $is_real ) );
+
 		// Drafts first, whatever their date: this card is the manager's queue since the
 		// approval design, and the thing waiting for them belongs above the thing that is done.
 		// Every draft is here; only the approved half above was capped.
@@ -5916,7 +5996,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		printf(
 			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
 			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $drafts ) ) )
+			esc_html( number_format_i18n( $real_drafts ) )
 		);
 		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; an Administrator reviews and approves it on the Institution Dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
 
@@ -5930,7 +6010,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 						sprintf(
 							/* translators: %s: how many approved reports are listed. */
 							__( 'Every draft is listed, and the %s most recently edited approved reports.', 'wpcredits-program-manager' ),
-							number_format_i18n( count( $approved ) )
+							number_format_i18n( $real_approved )
 						)
 					)
 				);
@@ -5980,6 +6060,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$record = WPCPM_Semester_Report::institution_of( $post );
 		$cohort = WPCPM_Semester_Report::cohort_of( $post );
 		$name   = '' !== $record ? self::institution_name( $record ) : '';
+		// What decides the mark: the index's name, else the record ID (a remembered test record keeps its
+		// mark after its row left the index), never the placeholder below.
+		$judged = $name;
 		$name   = '' !== $name ? $name : __( '(institution not in the index)', 'wpcredits-program-manager' );
 
 		// The switcher argument, because `resolve_institution()` is what places a manager on
@@ -5997,10 +6080,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			: __( 'by an Administrator', 'wpcredits-program-manager' );
 
 		printf(
-			'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s%4$s</td><td>%5$s</td><td>%6$s<br /><span class="description">%7$s</span></td><td>%8$s</td><td>',
+			'<tr><td>%1$s%2$s<br /><code>%3$s</code></td><td>%4$s%5$s</td><td>%6$s</td><td>%7$s<br /><span class="description">%8$s</span></td><td>%9$s</td><td>',
 			'' !== $url
 				? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( $name ) )
 				: esc_html( $name ),
+			WPCPM_Test_Institutions::mark( $judged ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 			esc_html( '' !== $record ? $record : '-' ),
 			esc_html( $label ),
 			'' !== $cohort ? sprintf( ' <code>%s</code>', esc_html( $cohort ) ) : '',
@@ -6040,8 +6124,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				$name = self::institution_name( $pair['institution'] );
 
 				printf(
-					'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s</td><td>%4$s</td><td>',
+					'<tr><td>%1$s%2$s<br /><code>%3$s</code></td><td>%4$s</td><td>%5$s</td><td>',
 					esc_html( '' !== $name ? $name : __( '(institution not in the index)', 'wpcredits-program-manager' ) ),
+					WPCPM_Test_Institutions::mark( $name ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
 					esc_html( $pair['institution'] ),
 					esc_html( WPCPM_Cohort::label( $pair['cohort'] ) ),
 					esc_html( number_format_i18n( (int) $pair['in_progress'] ) )
@@ -6201,6 +6286,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	private function render_template_versions( array $rows, $read, array $generated ) {
 		$by_version = array();
+		$real_count = array();
 
 		foreach ( $rows as $row ) {
 			$agreement = isset( $row['agreement'] ) && is_array( $row['agreement'] ) ? $row['agreement'] : array();
@@ -6211,7 +6297,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 			$version = isset( $agreement['template_version'] ) ? trim( (string) $agreement['template_version'] ) : '';
 
-			$by_version[ $version ][] = self::institution_name( isset( $row['record_id'] ) ? (string) $row['record_id'] : '' );
+			$record_id = isset( $row['record_id'] ) ? (string) $row['record_id'] : '';
+
+			// Judged by the name the row holds, which reads nothing, for every institution with an agreement:
+			// each is named, a test one labeled, and only the real ones are counted.
+			$name = isset( $row['name'] ) ? (string) $row['name'] : '';
+
+			$by_version[ $version ][] = WPCPM_Test_Institutions::label( self::institution_name( $record_id ), $name );
+
+			if ( ! isset( $real_count[ $version ] ) ) {
+				$real_count[ $version ] = 0;
+			}
+
+			if ( ! WPCPM_Test_Institutions::is_test( $name ) ) {
+				++$real_count[ $version ];
+			}
 		}
 
 		echo '<h3>' . esc_html__( 'Institutions per template version', 'wpcredits-program-manager' ) . '</h3>';
@@ -6251,7 +6351,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'' !== $version
 					? esc_html( $version )
 					: esc_html__( 'No version recorded (the bespoke and legacy agreements)', 'wpcredits-program-manager' ),
-				esc_html( number_format_i18n( count( $names ) ) ),
+				esc_html( number_format_i18n( isset( $real_count[ $version ] ) ? $real_count[ $version ] : 0 ) ),
 				esc_html( implode( ', ', $names ) )
 			);
 		}
@@ -6406,16 +6506,30 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	/**
 	 * The index rows the Pipeline tab counts: those whose stage, trimmed, is not one of
-	 * `UNCOUNTED_STAGES`, keyed as given.
+	 * `UNCOUNTED_STAGES` and that are not a test institution's, keyed as given.
 	 *
 	 * Trimmed because the base stores what was typed, and a stage with a space after it is the stage
 	 * it names: "SPAM " is left out as "SPAM" is. A stage the list does not know is counted, so a
-	 * stage the base grows later shows in the totals rather than vanishing from them.
+	 * stage the base grows later shows in the totals rather than vanishing from them. A test
+	 * institution (a name that starts with the word TEST in capitals) is left out wherever its stage:
+	 * it is listed and marked, and counted nowhere.
 	 *
-	 * @param array $rows Index rows.
+	 * @param array $rows Index rows, keyed by record ID.
 	 * @return array The counted rows.
 	 */
 	public static function counted_rows( array $rows ) {
+		return WPCPM_Test_Institutions::real_keys( self::at_counted_stage( $rows ) );
+	}
+
+	/**
+	 * The index rows whose stage, trimmed, is not one of `UNCOUNTED_STAGES`, test institutions
+	 * included, keyed as given: the rows a list at a counted stage draws, before the real ones are
+	 * counted (`counted_rows()`).
+	 *
+	 * @param array $rows Index rows.
+	 * @return array
+	 */
+	private static function at_counted_stage( array $rows ) {
 		return array_filter(
 			$rows,
 			static function ( $row ) {
@@ -6470,7 +6584,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The Confirmed rows whose agreement is not recorded, keyed as the index keys them.
 	 *
 	 * The filter link's count and the filtered view read the same list, so they cannot
-	 * disagree. Forty-two rows on day one, every real Confirmed institution being legacy.
+	 * disagree. Forty-two rows on day one, every real Confirmed institution being legacy. The list
+	 * holds a test institution's row if one is Confirmed with no agreement, so the view lists it,
+	 * marked; the callers count the real ones (`render_pipeline()`).
 	 *
 	 * @param array $rows      Index rows.
 	 * @param array $summaries Summaries keyed by record ID.

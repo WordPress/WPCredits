@@ -462,6 +462,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-mentors.ph
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-claims.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-posts.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 
 // The fence on what a sponsor's member writing posts may upload, hooked for everyone as
 // `WPCPM_Sponsor_Posts::init()` hooks it, and deciding per call.
@@ -503,6 +504,7 @@ class WPCPM_Flash {
 class WPCPM_Institutions_Index {
 	public static $rows = array();
 	public static function row( $record ) { return self::$rows[ $record ] ?? null; }
+	public static function rows() { return self::$rows; }
 }
 /** The sponsors the index holds by record, and each one's assigned Administrator, as a case gives them. */
 class WPCPM_Sponsors_Index {
@@ -513,6 +515,17 @@ class WPCPM_Sponsors_Index {
 	public static function patch( $record, array $patch ) { return true; }
 	public static function empty_row() { return array( 'name' => '', 'support' => array() ); }
 	public static function is_key( $value ) { return is_string( $value ) && 1 === preg_match( '/^(?:rec|spo)[A-Za-z0-9]{14}$/', $value ); }
+	/** The real rule for a test name, body for body: `bin/test-test-institutions.php` holds this copy to the class's own. */
+	public static function is_test_name( $name ) {
+		$name    = trim( (string) $name );
+		$matched = preg_match( '/^TEST(?![\p{L}\p{N}])/u', $name );
+
+		if ( false !== $matched ) {
+			return 1 === $matched;
+		}
+
+		return 0 === strncmp( $name, 'TEST', 4 ) && ( 4 === strlen( $name ) || 1 !== preg_match( '/^[A-Za-z0-9]$/', $name[4] ) );
+	}
 }
 /** Each country's routing: its contact's address and booking link, as the countries map holds them. */
 class WPCPM_Countries {

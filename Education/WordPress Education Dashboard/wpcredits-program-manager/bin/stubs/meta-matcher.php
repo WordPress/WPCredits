@@ -21,7 +21,7 @@
  * the database's collation would also match a value in another case, which no query here asks.
  *
  * A key given as a list under `EXISTS` is any of them, as WordPress reads it (`meta_key IN (...)`),
- * the way the Invited view asks. WordPress binds one key in the join a `NOT EXISTS` clause makes, so
+ * the way the Invited view asks; and `IN`, on one key and a list of values. WordPress binds one key in the join a `NOT EXISTS` clause makes, so
  * a list there is not modeled; nor is `=` without a value, with a list of values or of keys, nor a
  * clause that is itself a query, nested.
  *
@@ -72,6 +72,11 @@ function wpcpm_stub_meta_matches( $id, array $clauses ) {
 		} elseif ( '=' === $compare && is_scalar( $clause['key'] ) && isset( $clause['value'] ) && is_scalar( $clause['value'] ) ) {
 			$held  = $present ? $GLOBALS['umeta'][ $id ][ (string) $clause['key'] ] : null;
 			$meets = is_scalar( $held ) && (string) $held === trim( (string) $clause['value'] );
+		} elseif ( 'IN' === $compare && is_scalar( $clause['key'] ) && isset( $clause['value'] ) && is_array( $clause['value'] ) && ! empty( $clause['value'] ) ) {
+			// One key holding any of a list of values, compared as strings: how the institution
+			// accounts of the test institutions are found.
+			$held  = $present ? $GLOBALS['umeta'][ $id ][ (string) $clause['key'] ] : null;
+			$meets = is_scalar( $held ) && in_array( (string) $held, array_map( 'strval', $clause['value'] ), true );
 		} else {
 			$GLOBALS['unmodeled'][] = 'meta_query compare ' . $compare;
 			$meets                  = true;

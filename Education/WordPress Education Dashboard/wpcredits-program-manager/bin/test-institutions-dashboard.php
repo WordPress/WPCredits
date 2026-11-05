@@ -509,6 +509,13 @@ if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php';
+// The real rule for a test name and the one helper that asks it, loaded so the guard below bites if the
+// dashboard ever drew a mark (Ruling 7: the institution's own dashboard holds neither mark nor label).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = 'default' ) { return $text; }
+}
 
 $GLOBALS['transients'] = array();
 $GLOBALS['http']       = array();
@@ -1909,6 +1916,34 @@ ck( 'the section follows the capability and not the membership', substr_count( $
 $GLOBALS['manage'] = array( 4 );
 $out               = render_as( 2 );
 ck( 'and goes with it', tells_in( $out ), array() );
+
+echo "\n=== A test institution's own dashboard holds neither mark nor label (Ruling 7) ===\n";
+
+// The Test mark belongs to the lists an Administrator reads; the institution's own dashboard, which its
+// members and the Administrators who view it see, names it as any institution is named. A guard: it
+// passes before and after Task 3, and fails the day a mark or a "(Test)" reaches this page.
+$test_record = 'recTESTINSTITUT01';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'][ $test_record ] = array(
+	'record_id'      => $test_record,
+	'name'           => 'TEST - Example Institution',
+	'stage'          => 'Confirmed',
+	'city'           => 'Pune',
+	'country'        => 'recCOUNTRYINDIA01',
+	'country_name'   => 'India',
+	'website'        => '',
+	'contact_person' => '',
+	'contact_email'  => 'contact@example.test',
+);
+$GLOBALS['manage'] = array( 4 );
+$test_page         = render_as( 4, array( 'wpcpm_institution_view' => $test_record ) );
+ck( 'the test institution\'s dashboard names it, with no Test mark, no badge and no "(Test)" label',
+	array(
+		false !== strpos( $test_page, 'TEST - Example Institution' ),
+		substr_count( $test_page, 'wpcpm-inst-mark--test' ),
+		substr_count( $test_page, 'wpcpm-badge--test' ),
+		substr_count( $test_page, '(Test)' ),
+	),
+	array( true, 0, 0, 0 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -36,9 +36,9 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  * to a student. The email to the address is where the difference is told.
  *
  * **Nothing here reads Airtable.** The page is drawn from the site's copies: the institutions the
- * institutions sync holds, at the stages the setting names (never one whose name is a test's, by the
- * site's rule, `WPCPM_Sponsors_Index::is_test_name()`), and the Languages table's copy. The process
- * that runs once a submission's answer has gone is the one place a public request reaches Airtable.
+ * institutions sync holds, at the stages the setting names (never a test institution, by the site's
+ * rule, `WPCPM_Test_Institutions::is_test()`, except to an Administrator), and the Languages table's
+ * copy. The process that runs once a submission's answer has gone is the one place a public request reaches Airtable.
  *
  * The page is deliberately **not gated**, as the other forms' are not: see `ensure_page()`. Its
  * introduction and its thank-you are the owner's to word on the page: the page starts with the Airtable
@@ -298,12 +298,30 @@ final class WPCPM_Student_Registration_Form {
 	/**
 	 * The institutions the form offers: the ones the site holds from the institutions sync whose
 	 * current stage is one of the stages the setting names, by Airtable record ID to name, trimmed, A to
-	 * Z. An institution whose name is a test's by the site's rule (`WPCPM_Sponsors_Index::is_test_name()`:
-	 * the word TEST in capitals, no letter or digit after it) is never offered, whatever its stage.
+	 * Z. A test institution (`WPCPM_Test_Institutions::is_test()`: its name starts with the word TEST in
+	 * capitals, no letter or digit after it) is never offered to the public, whatever its stage.
+	 *
+	 * An Administrator is offered, in the same list, every test institution the institutions index
+	 * holds, whatever its stage and whatever the setting says, its name followed by "(Test)": the first
+	 * live test of the form uses the shared test institution. The submit checks a posted institution
+	 * against this same list, so a test institution's record ID posted by anybody else is refused as an
+	 * institution the form does not offer. The page is not cached for anybody, so an Administrator's
+	 * list never reaches a visitor.
 	 *
 	 * @return array<string, string>
 	 */
 	public static function institutions() {
+		return self::offered( current_user_can( WPCPM_Roles::CAP_MANAGE ) );
+	}
+
+	/**
+	 * The institutions the form offers, with the test institutions of an Administrator's list or without
+	 * them (`institutions()`).
+	 *
+	 * @param bool $with_tests Whether every test institution the index holds is added, marked.
+	 * @return array<string, string>
+	 */
+	private static function offered( $with_tests ) {
 		$stages = WPCPM_Settings::get_value( 'student_registration_stages', array( 'Confirmed' ) );
 		$wanted = array();
 
@@ -314,6 +332,7 @@ final class WPCPM_Student_Registration_Form {
 		}
 
 		$names = array();
+		$shown = array();
 
 		foreach ( WPCPM_Institutions_Index::rows() as $id => $row ) {
 			if ( ! is_array( $row ) || ! isset( $row['name'], $row['stage'] ) || ! is_scalar( $row['name'] ) || ! is_scalar( $row['stage'] ) ) {
@@ -322,7 +341,20 @@ final class WPCPM_Student_Registration_Form {
 
 			$name = trim( (string) $row['name'] );
 
-			if ( '' === $name || ! in_array( trim( (string) $row['stage'] ), $wanted, true ) || WPCPM_Sponsors_Index::is_test_name( $name ) ) {
+			if ( '' === $name ) {
+				continue;
+			}
+
+			if ( WPCPM_Test_Institutions::is_test( $name ) ) {
+				// Only an Administrator is offered one, at any stage.
+				if ( ! $with_tests ) {
+					continue;
+				}
+
+				$shown[ (string) $id ] = WPCPM_Test_Institutions::label( $name, $name );
+			} elseif ( in_array( trim( (string) $row['stage'] ), $wanted, true ) ) {
+				$shown[ (string) $id ] = $name;
+			} else {
 				continue;
 			}
 
@@ -339,7 +371,7 @@ final class WPCPM_Student_Registration_Form {
 		$sorted = array();
 
 		foreach ( $ids as $id ) {
-			$sorted[ $id ] = $names[ $id ];
+			$sorted[ $id ] = $shown[ $id ];
 		}
 
 		return $sorted;
@@ -739,7 +771,9 @@ final class WPCPM_Student_Registration_Form {
 			$values[ $key ] = $clean['value'];
 
 			if ( 'institution' === $key && '' !== $clean['value'] && isset( $institution[ $clean['value'] ] ) ) {
-				$values['institution_name'] = $institution[ $clean['value'] ];
+				// The name the index holds, not the list's text: a test institution's reads "(Test)" there.
+				$row                        = WPCPM_Institutions_Index::row( $clean['value'] );
+				$values['institution_name'] = null === $row ? $institution[ $clean['value'] ] : trim( (string) $row['name'] );
 			}
 		}
 
@@ -852,7 +886,8 @@ final class WPCPM_Student_Registration_Form {
 			return __( 'This form is not shown yet: Airtable is not connected, so no registration could be written. Connect it on the Connection tab of WPCredits Program > Settings.', 'wpcredits-program-manager' );
 		}
 
-		if ( empty( self::institutions() ) ) {
+		// The public's list: a test institution offered to an Administrator does not open the form.
+		if ( empty( self::offered( false ) ) ) {
 			return __( 'This form is not shown yet: no institution the site holds is at a stage ticked under Institutions offered, on the Students and mentors tab of WPCredits Program > Settings. New partners arrive with the institutions sync, every three hours.', 'wpcredits-program-manager' );
 		}
 

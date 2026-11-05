@@ -63,6 +63,14 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	private $status_counts;
 
 	/**
+	 * The record ID or name a test institution was judged by, keyed by the name the picker prints
+	 * (`institution_counts()`), so its option is labeled by what made it a test.
+	 *
+	 * @var array<string, string>
+	 */
+	private $test_judged = array();
+
+	/**
 	 * The student page's address, read once: '' while the page is missing.
 	 *
 	 * @var string|null
@@ -145,6 +153,8 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 			// `include` as no narrowing at all, which would list every account.
 			$args['include'] = empty( $scope ) ? array( 0 ) : $scope;
 		}
+
+		$args = $this->without_uncounted( $args );
 
 		if ( self::ORDERBY_INSTITUTION === self::sorted_by( $args ) ) {
 			return $this->by_institution( $args );
@@ -450,7 +460,11 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	 * meta key a query could use. WordPress primes every account's meta in the same read, so the
 	 * program rows cost no query each.
 	 *
-	 * @return array<int, array{name: string, institution: string, status: string}>
+	 * Each row also says whether its institution is a test one (`test`), by the student's stamp or else
+	 * the name the program row holds (`institution_to_judge()`), judged against the test record IDs
+	 * read once, so the counts leave a test institution's students out and every list still shows them.
+	 *
+	 * @return array<int, array{name: string, institution: string, status: string, test: bool, judged: string}>
 	 */
 	private function roster() {
 		if ( null !== $this->roster ) {
@@ -468,6 +482,8 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 			)
 		);
 
+		$tests = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
+
 		foreach ( (array) $query->get_results() as $user ) {
 			$id = WPCPM_Roles::id_of( $user );
 
@@ -475,12 +491,16 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 				continue;
 			}
 
-			$program = WPCPM_Students_Sync::get_program( $id );
+			$program     = WPCPM_Students_Sync::get_program( $id );
+			$institution = isset( $program['institution'] ) ? trim( (string) $program['institution'] ) : '';
+			$judged      = self::institution_to_judge( (int) $id, $institution );
 
 			$this->roster[ $id ] = array(
 				'name'        => isset( $user->display_name ) ? (string) $user->display_name : '',
-				'institution' => isset( $program['institution'] ) ? trim( (string) $program['institution'] ) : '',
+				'institution' => $institution,
 				'status'      => WPCPM_Students_Sync::status_of( $program ),
+				'test'        => WPCPM_Mentors_Sync::is_record_id( $judged ) ? isset( $tests[ $judged ] ) : WPCPM_Sponsors_Index::is_test_name( $judged ),
+				'judged'      => $judged,
 			);
 		}
 
@@ -494,7 +514,11 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	 * The institution in force is offered even where nobody holds the status chosen, at 0, so it
 	 * stays in the picker, selectable and selected, and the list under it says nobody is there.
 	 *
-	 * @return array<string, int> Institution => accounts.
+	 * A test institution keeps its key, so its option stays in the picker, with a null count: its
+	 * students are left out of every count. A name's count is null only when every row under it is a
+	 * test row; a stale stamp on one test student never turns a real school's option into "(Test)".
+	 *
+	 * @return array<string, int|null> Institution => accounts, null for a test institution.
 	 */
 	private function institution_counts() {
 		$counts = array();
@@ -505,13 +529,23 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 				continue;
 			}
 
+			if ( ! empty( $row['test'] ) ) {
+				// Kept in the picker; only a name with no real student under it reads "(Test)" with no count.
+				if ( ! array_key_exists( $row['institution'], $counts ) ) {
+					$counts[ $row['institution'] ] = null;
+				}
+
+				$this->test_judged[ $row['institution'] ] = $row['judged'];
+				continue;
+			}
+
 			$counts[ $row['institution'] ] = isset( $counts[ $row['institution'] ] ) ? $counts[ $row['institution'] ] + 1 : 1;
 		}
 
 		$chosen = WPCPM_Students::institution_filter();
 
-		if ( '' !== $chosen && ! isset( $counts[ $chosen ] ) ) {
-			$counts[ $chosen ] = 0;
+		if ( '' !== $chosen && ! array_key_exists( $chosen, $counts ) ) {
+			$counts[ $chosen ] = WPCPM_Sponsors_Index::is_test_name( $chosen ) ? null : 0;
 		}
 
 		ksort( $counts );
@@ -544,12 +578,22 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 				continue;
 			}
 
+			// A status only test students hold keeps its key with no count, so it stays in the picker and
+			// the chips and still filters; the counts are the real students'.
+			if ( ! empty( $row['test'] ) ) {
+				if ( ! array_key_exists( $row['status'], $counts ) ) {
+					$counts[ $row['status'] ] = null;
+				}
+
+				continue;
+			}
+
 			$counts[ $row['status'] ] = isset( $counts[ $row['status'] ] ) ? $counts[ $row['status'] ] + 1 : 1;
 		}
 
 		$chosen = WPCPM_Students::status_filter();
 
-		if ( '' !== $chosen && ! isset( $counts[ $chosen ] ) ) {
+		if ( '' !== $chosen && ! array_key_exists( $chosen, $counts ) ) {
 			$counts[ $chosen ] = 0;
 		}
 
@@ -580,7 +624,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 			foreach ( (array) WPCPM_Settings::get_value( $setting, array() ) as $listed ) {
 				$listed = trim( (string) $listed );
 
-				if ( isset( $counts[ $listed ] ) && ! isset( $ordered[ $listed ] ) ) {
+				if ( array_key_exists( $listed, $counts ) && ! array_key_exists( $listed, $ordered ) ) {
 					$ordered[ $listed ] = $counts[ $listed ];
 				}
 			}
@@ -598,6 +642,23 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 		);
 
 		return $ordered + $others;
+	}
+
+	/**
+	 * The Student accounts at a test institution, which the views' counts leave out.
+	 *
+	 * @return int[]
+	 */
+	protected function uncounted_ids() {
+		$ids = array();
+
+		foreach ( $this->roster() as $id => $row ) {
+			if ( ! empty( $row['test'] ) ) {
+				$ids[] = (int) $id;
+			}
+		}
+
+		return $ids;
 	}
 
 	/**
@@ -638,7 +699,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 				'<li><a href="%1$s"%2$s><span class="count">%3$s</span> <span class="wpcpm-waiting__label">%4$s</span></a></li>',
 				esc_url( $url ),
 				$current === $status_name ? ' class="current" aria-current="true"' : '',
-				esc_html( number_format_i18n( $count ) ),
+				esc_html( null === $count ? '' : number_format_i18n( $count ) ),
 				esc_html( WPCPM_Program::status_words( $status_name ) )
 			);
 		}
@@ -684,7 +745,8 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 					'<option value="%1$s"%2$s>%3$s</option>',
 					esc_attr( $name ),
 					selected( (string) $name, $current_institution, false ),
-					esc_html( sprintf( '%1$s (%2$s)', $name, number_format_i18n( $count ) ) )
+					// A test institution's option reads its label with no count: its students are in no count.
+					esc_html( null === $count ? WPCPM_Test_Institutions::label( (string) $name, isset( $this->test_judged[ $name ] ) ? $this->test_judged[ $name ] : (string) $name ) : sprintf( '%1$s (%2$s)', $name, number_format_i18n( $count ) ) )
 				);
 			}
 
@@ -703,7 +765,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 					'<option value="%1$s"%2$s>%3$s</option>',
 					esc_attr( $status_name ),
 					selected( $status_name, $current_status, false ),
-					esc_html( sprintf( '%1$s (%2$s)', WPCPM_Program::status_words( $status_name ), number_format_i18n( $count ) ) )
+					esc_html( null === $count ? WPCPM_Program::status_words( $status_name ) : sprintf( '%1$s (%2$s)', WPCPM_Program::status_words( $status_name ), number_format_i18n( $count ) ) )
 				);
 			}
 
@@ -794,8 +856,25 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	 */
 	protected function column_institution( $user ) {
 		$program = WPCPM_Students_Sync::get_program( $user->ID );
+		$name    = isset( $program['institution'] ) ? $program['institution'] : '';
 
-		return self::or_dash( isset( $program['institution'] ) ? $program['institution'] : '' );
+		// Marked when the student's institution is a test one: by the stamp the sync wrote, else by the
+		// name the program row holds.
+		return self::or_dash( $name ) . ( ! empty( $this->roster()[ (int) $user->ID ]['test'] ) ? WPCPM_Test_Institutions::badge() : '' );
+	}
+
+	/**
+	 * What decides whether a student's institution is a test one: the record ID the students sync
+	 * stamped on the account, or, where there is no stamp, the institution's name on the program row.
+	 *
+	 * @param int    $user_id The account.
+	 * @param string $name    The institution's name on the program row.
+	 * @return string A record ID or a name, for `WPCPM_Test_Institutions::is_test()`.
+	 */
+	private static function institution_to_judge( $user_id, $name ) {
+		$stamp = trim( (string) get_user_meta( $user_id, WPCPM_Students_Sync::META_INSTITUTION, true ) );
+
+		return '' !== $stamp ? $stamp : trim( $name );
 	}
 
 	/**

@@ -45,6 +45,13 @@ class WPCPM_Student_Registrations_Tab {
 	const FLASH = 'students_admin';
 
 	/**
+	 * The test institutions' record IDs, read once as the tab draws.
+	 *
+	 * @var string[]
+	 */
+	private static $tests = array();
+
+	/**
 	 * Hooks: the three presses, for a signed-in Administrator alone (`admin_post_`, never `nopriv`).
 	 */
 	public static function init() {
@@ -270,9 +277,23 @@ class WPCPM_Student_Registrations_Tab {
 
 		$view  = self::current_view();
 		$views = self::views();
-		$total = WPCPM_Student_Registration::count_in( $views[ $view ]['states'] );
-		$rows  = WPCPM_Student_Registration::in_states( $views[ $view ]['states'], self::LIST_MAX );
-		$open  = WPCPM_Student_Registration::count_in( array( WPCPM_Student_Registration::STATE_WAITING, WPCPM_Student_Registration::STATE_FAILED ) );
+		// The test institutions' record IDs, read once: their registrations are listed but left out of
+		// every count. With none, the queries and the output are what they always were.
+		self::$tests = WPCPM_Test_Institutions::test_ids();
+		$total       = WPCPM_Student_Registration::count_in( $views[ $view ]['states'], self::$tests );
+		$rows        = WPCPM_Student_Registration::in_states( $views[ $view ]['states'], self::LIST_MAX );
+		$open        = WPCPM_Student_Registration::count_in( array( WPCPM_Student_Registration::STATE_WAITING, WPCPM_Student_Registration::STATE_FAILED ), self::$tests );
+		$drawn       = count( $rows );
+
+		if ( ! empty( self::$tests ) ) {
+			$drawn = 0;
+
+			foreach ( $rows as $post ) {
+				if ( ! WPCPM_Student_Registration::is_test_registration( $post, self::$tests ) ) {
+					++$drawn;
+				}
+			}
+		}
 
 		echo '<div class="wpcpm-card" id="wpcpm-student-registrations">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Student registrations', 'wpcredits-program-manager' ), esc_html( number_format_i18n( $open ) ) );
@@ -289,7 +310,7 @@ class WPCPM_Student_Registrations_Tab {
 				esc_url( self::view_url( $slug ) ),
 				$slug === $view ? ' class="current" aria-current="page"' : '',
 				esc_html( $about['label'] ),
-				esc_html( number_format_i18n( WPCPM_Student_Registration::count_in( $about['states'] ) ) )
+				esc_html( number_format_i18n( WPCPM_Student_Registration::count_in( $about['states'], self::$tests ) ) )
 			);
 		}
 
@@ -302,14 +323,14 @@ class WPCPM_Student_Registrations_Tab {
 			return;
 		}
 
-		if ( count( $rows ) < $total ) {
+		if ( $drawn < $total ) {
 			printf(
 				'<p class="description">%s</p>',
 				esc_html(
 					sprintf(
 						/* translators: 1: how many registrations are drawn, 2: how many there are. */
 						__( 'Showing the newest %1$s of %2$s.', 'wpcredits-program-manager' ),
-						number_format_i18n( count( $rows ) ),
+						number_format_i18n( $drawn ),
 						number_format_i18n( $total )
 					)
 				)
@@ -393,7 +414,14 @@ class WPCPM_Student_Registrations_Tab {
 
 		$names = WPCPM_Student_Airtable_Row::institution_links();
 
-		return isset( $names[ $value ] ) ? (string) $names[ $value ] : $value;
+		$name = isset( $names[ $value ] ) ? (string) $names[ $value ] : $value;
+
+		// A test institution's registration is listed, and its institution reads "(Test)".
+		if ( ! empty( self::$tests ) && ( in_array( $value, self::$tests, true ) || WPCPM_Sponsors_Index::is_test_name( $value ) ) ) {
+			return WPCPM_Test_Institutions::labeled( $name );
+		}
+
+		return $name;
 	}
 
 	/**

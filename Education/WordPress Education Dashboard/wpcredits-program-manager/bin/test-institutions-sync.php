@@ -512,7 +512,9 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 
 $fail = 0;
@@ -1303,6 +1305,62 @@ WPCPM_Institutions_Sync::start();
 run_to_end();
 ck( 'records with no fields at all do not replace the index', array( count( WPCPM_Institutions_Index::rows() ), WPCPM_Institutions_Sync::is_running() ), array( 1, true ) );
 ck( 'and the error names the settings to check', array( false !== strpos( WPCPM_Institutions_Sync::progress()['error'], 'name field' ) ), array( true ) );
+
+/* ---- test institutions are remembered where the index is written -------------- */
+
+echo "\n=== Test institutions are remembered where the index is written ===\n";
+
+$seed_test = 'recSEED0000000001'; // "TEST - Institution 20", Under Review, in the seed.
+$renamed   = 'recSEED0000000008'; // Institution 4, Confirmed.
+
+reset_site( $seed );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'a full run remembers the seed\'s TEST record, not autoloaded', array( WPCPM_Test_Institutions::remembered(), $GLOBALS['autoload'][ WPCPM_Test_Institutions::OPTION ] ), array( array( $seed_test ), false ) );
+
+// Renamed in Airtable between two runs: the one leaves the list, the other joins it at the write
+// that renames it in the index.
+$GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] = airtable_pages( $seed, array( $seed_test => array( 'Name' => 'Institution 20' ), $renamed => array( 'Name' => 'TEST - Institution 4' ) ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'a second run with the names swapped leaves the renamed-away record off the list and puts the renamed one on it', WPCPM_Test_Institutions::remembered(), array( $renamed ) );
+ck( 'and the helper reads the same: the first is real, the second a test', array( WPCPM_Test_Institutions::is_test( $seed_test ), WPCPM_Test_Institutions::is_test( $renamed ) ), array( false, true ) );
+
+// The test row removed from Airtable after testing: the run that drops it from the index remembers it.
+$kept = array();
+foreach ( airtable_pages( $seed, array( $seed_test => array( 'Name' => 'Institution 20' ), $renamed => array( 'Name' => 'TEST - Institution 4' ) ) ) as $page ) {
+	foreach ( $page as $record ) {
+		if ( $renamed !== $record['id'] ) {
+			$kept[] = $record;
+		}
+	}
+}
+$GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] = array_chunk( $kept, 100 );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'a third run without the record leaves the index without it', WPCPM_Institutions_Index::row( $renamed ), null );
+ck( 'the list still holds it', WPCPM_Test_Institutions::remembered(), array( $renamed ) );
+ck( 'and it is still a test institution', WPCPM_Test_Institutions::is_test( $renamed ), true );
+
+// A read the no-fields guard refuses changes neither the index nor the list.
+$index_before = WPCPM_Institutions_Index::rows();
+$list_before  = WPCPM_Test_Institutions::remembered();
+$blank        = array();
+foreach ( $GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] as $page ) {
+	$stripped = array();
+	foreach ( $page as $record ) {
+		$stripped[] = array( 'id' => $record['id'], 'createdTime' => $record['createdTime'], 'fields' => array() );
+	}
+	$blank[] = $stripped;
+}
+$GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] = $blank;
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'a run the no-fields guard refuses changes neither the index nor the list', array( WPCPM_Institutions_Index::rows() === $index_before, WPCPM_Test_Institutions::remembered() === $list_before, WPCPM_Institutions_Sync::is_running() ), array( true, true, true ) );
 
 /* ---- cancel, lock, start ------------------------------------------------- */
 

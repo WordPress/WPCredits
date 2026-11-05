@@ -801,6 +801,8 @@ class WPCPM_Institutions_Sync {
 			);
 		}
 
+		// The test institutions are remembered at the write that may drop them from the index.
+		WPCPM_Test_Institutions::remember( $held, $state['rows'] );
 		WPCPM_Institutions_Index::write( $state['rows'], $state['started'] );
 
 		$state['indexed'] = true;

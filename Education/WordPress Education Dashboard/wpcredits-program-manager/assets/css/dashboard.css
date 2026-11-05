@@ -567,6 +567,14 @@
 	border-color: rgba( 217, 119, 6, 0.35 );
 }
 
+/* The mark beside a test institution's name on the dashboards (1.123.55): the neutral gray of the
+   paused badge, since a test institution is neither a program figure nor a warning. Without a fill
+   the badge's padding reads as a stray space before the comma that follows the name. */
+.wpcpm-badge--test {
+	background: rgba( 100, 116, 139, 0.14 );
+	border-color: rgba( 100, 116, 139, 0.4 );
+}
+
 /* Details table: field and value. */
 .wpcpm-mentee__table {
 	border-collapse: collapse;

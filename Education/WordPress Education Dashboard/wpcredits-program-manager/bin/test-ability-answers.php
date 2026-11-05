@@ -339,7 +339,7 @@ $readers = array(
 	'includes/modules/class-wpcpm-institutions-index.php'       => array( 'WPCPM_Institutions_Index', array( 'read', 'rows', 'row', 'by_stage' ) ),
 	'includes/class-wpcpm-roster-index.php'                     => array( 'WPCPM_Roster_Index', array( 'read', 'rows', 'unlinked', 'counts', 'groups' ) ),
 	'includes/modules/class-wpcpm-institution-members.php'      => array( 'WPCPM_Institution_Members', array( 'members_of' ) ),
-	'includes/modules/class-wpcpm-sponsors-index.php'           => array( 'WPCPM_Sponsors_Index', array( 'rows', 'is_test' ) ),
+	'includes/modules/class-wpcpm-sponsors-index.php'           => array( 'WPCPM_Sponsors_Index', array( 'rows', 'is_test', 'is_test_name' ) ),
 	'includes/modules/class-wpcpm-mentor-application-feed.php'  => array( 'WPCPM_Mentor_Application_Feed', array( 'build', 'today' ) ),
 	'includes/modules/class-wpcpm-mentor-application.php'       => array( 'WPCPM_Mentor_Application', array( 'states', 'open_states', 'applications', 'count_in', 'state_of', 'fields_of', 'reference_of', 'is_confirmed', 'signals_of', 'events', 'last_at', 'decided_at' ) ),
 	'includes/class-wpcpm-outcome-figures.php'                  => array( 'WPCPM_Outcome_Figures', array( 'published' ) ),
@@ -572,11 +572,26 @@ ck( 'students: per track, by the track\'s label, in progress and signed up, as t
 ) );
 ck( 'students: finished this semester is the card\'s finished', $a['students']['finished_this_semester'], 7 );
 ck( 'students: the institutions with students are the card\'s rows', $a['students']['institutions_with_students'], 2 );
+// Programs running lists a test institution's row, marked, and counts it nowhere: the answer counts the real rows.
+$GLOBALS['readers']['programs']['rows'][] = array( 'record' => 'recTESTINSTITUT01', 'name' => 'TEST - Example Institution', 'in_progress' => 3, 'by_status' => array( 'Alpha Track' => 3 ), 'waiting' => 0, 'mentors' => 1, 'earliest' => '', 'latest' => '', 'agreement' => 'none', 'report' => 'none' );
+$GLOBALS['readers']['institutions']['rows']['recTESTINSTITUT01'] = array( 'record_id' => 'recTESTINSTITUT01', 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed' );
+$with_test = plain( build( 'program_counts' )['answer'] );
+array_pop( $GLOBALS['readers']['programs']['rows'] );
+unset( $GLOBALS['readers']['institutions']['rows']['recTESTINSTITUT01'] );
+ck( 'students: a test institution\'s row among the card\'s rows is not an institution with students', $with_test['students']['institutions_with_students'], 2 );
 ck( 'students: read at the roster\'s oldest read, in UTC', $a['students']['read_at'], '2026-10-24T00:00:00+00:00' );
 ck( 'mentors: the Engagement summary\'s active and staff', $a['mentors'], array( 'active' => 40, 'staff' => 3 ) );
 ck( 'the mentors were counted as of now', engagement_now() >= $before && engagement_now() <= $after, true );
 ck( 'institutions: each stage\'s rows, no stage by that name, a stage cleaned to one line', $a['institutions']['by_stage'], array( 'Confirmed' => 2, 'Under Review' => 1, 'Info Sent' => 1, 'No stage' => 1 ) );
 ck( 'institutions: read at the index\'s read time', $a['institutions']['read_at'], '2026-10-24T01:00:00+00:00' );
+// A test institution is in no count (Task 7, Ruling 17): added to a world of its own, at Under Review, and put back.
+$GLOBALS['readers']['institutions']['rows']['recINST0000000009'] = array_merge( $GLOBALS['readers']['institutions']['rows']['recINST0000000002'], array( 'record_id' => 'recINST0000000009', 'name' => 'TEST - Example Institution' ) );
+$with_test = plain( build( 'program_counts' )['answer'] );
+$GLOBALS['readers']['institutions']['rows']['recINST0000000009']['stage'] = 'Parked';
+$parked    = plain( build( 'program_counts' )['answer'] );
+readers_reset();
+ck( 'institutions: a test institution at Under Review is in no stage\'s count', $with_test['institutions']['by_stage'], array( 'Confirmed' => 2, 'Under Review' => 1, 'Info Sent' => 1, 'No stage' => 1 ) );
+ck( 'institutions: a stage only a test institution is at is not named', array_key_exists( 'Parked', $parked['institutions']['by_stage'] ), false );
 ck( 'sponsors: the keys', array_keys( $a['sponsors'] ), array( 'approved', 'test_approved', 'with_accounts', 'live_offers', 'claims_this_semester', 'tiers' ) );
 ck( 'sponsors: the card\'s numbers, and the approved that are test sponsors', array( $a['sponsors']['approved'], $a['sponsors']['test_approved'], $a['sponsors']['with_accounts'], $a['sponsors']['live_offers'], $a['sponsors']['claims_this_semester'] ), array( 5, 2, 3, 4, 9 ) );
 ck( 'sponsors: a test sponsor that is not approved is not counted', $a['sponsors']['test_approved'], 2 );
@@ -795,7 +810,8 @@ ck( 'the answer\'s keys', array_keys( $a ), array( 'matches', 'more', 'read_at',
 ck( 'a record ID finds that institution alone', array( count( $a['matches'] ), $a['more'] ), array( 1, false ) );
 ck( 'the roster\'s read time, in UTC', $a['read_at'], '2026-10-24T03:00:00+00:00' );
 ck( 'and the institutions\' own, the index the names, stages and agreements come from, beside it', $a['institutions_read_at'], '2026-10-24T01:00:00+00:00' );
-ck( 'a match: the keys', array_keys( $a['matches'][0] ), array( 'record_id', 'name', 'stage', 'country', 'city', 'agreement', 'members', 'students' ) );
+ck( 'a match: the keys', array_keys( $a['matches'][0] ), array( 'record_id', 'name', 'test', 'stage', 'country', 'city', 'agreement', 'members', 'students' ) );
+ck( 'a match says it is not a test institution', $a['matches'][0]['test'], false );
 ck( 'a match: name, stage, country\'s name and city', array( $a['matches'][0]['record_id'], $a['matches'][0]['name'], $a['matches'][0]['stage'], $a['matches'][0]['country'], $a['matches'][0]['city'] ), array( 'recINST0000000001', 'University of Example', 'Confirmed', 'Exampleland', 'Sample City' ) );
 ck( 'its agreement: status, kind, three dates and whether a document is on file, and no one who accepted it', $a['matches'][0]['agreement'], array(
 	'status' => 'Accepted', 'kind' => 'Standard', 'submitted_on' => '2026-02-20', 'accepted_on' => '2026-03-02', 'signed_on' => '2026-03-01', 'has_document' => true,
@@ -874,6 +890,22 @@ $GLOBALS['translations'] = array( 'No stage' => 'Sin etapa' );
 ck( 'with "No stage" translated, a match with no stage still says "No stage"', build( 'institutions', array( 'institution' => 'recINST0000000005' ) )['answer']['matches'][0]['stage'], 'No stage' );
 ck( 'and so does the key it is counted under', array_key_exists( 'No stage', (array) build( 'program_counts' )['answer']['institutions']['by_stage'] ), true );
 $GLOBALS['translations'] = array();
+
+// A test institution says so (Ruling 17), found by its record ID and by its name. Its own world, put back after.
+$GLOBALS['readers']['institutions']['rows']['recINST0000000009'] = array_merge( $GLOBALS['readers']['institutions']['rows']['recINST0000000002'], array( 'record_id' => 'recINST0000000009', 'name' => 'TEST - Example Institution' ) );
+$by_id   = plain( build( 'institutions', array( 'institution' => 'recINST0000000009' ) )['answer'] );
+$by_name = plain( build( 'institutions', array( 'institution' => 'example' ) )['answer'] );
+ck( 'a test institution found by its record ID: test true, the keys as any match\'s', array( $by_id['matches'][0]['test'], array_keys( $by_id['matches'][0] ) ), array( true, array( 'record_id', 'name', 'test', 'stage', 'country', 'city', 'agreement', 'members', 'students' ) ) );
+ck( 'and found by "example" among the others: only it is a test', array_column( $by_name['matches'], 'test', 'record_id' ), array( 'recINST0000000003' => false, 'recINST0000000009' => true, 'recINST0000000001' => false ) );
+ck( 'its name is as the index holds it', $by_id['matches'][0]['name'], 'TEST - Example Institution' );
+ck( 'nothing of a person on its answer either', array( false !== strpos( json_of( $by_id ), 'Contact Person Zeta' ), false !== strpos( json_of( $by_id ), 'contact-zeta' ), false !== strpos( json_of( $by_id ), 'Acceptor Name Omega' ) ), array( false, false, false ) );
+// A track of a test institution's student is listed by find-student as any track is (Ruling 17: lookups total nothing).
+$GLOBALS['readers']['roster']['recINST0000000009'] = array(
+	'recPUPD0000000009' => readers_track( 'delta', 'recPUPD0000000009', 'recINST0000000009', array( 'status' => 'In Sensei', 'start' => '2026-03-02' ) ),
+);
+$found = build( 'students', array( 'who' => 'pupil-delta@example.test' ) );
+ck( 'a test institution\'s student\'s track is still found by find-student, with the test institution named', array( tracks_of( $found ), track_of( $found, 'recPUPD0000000009' )['institution'] ), array( array( array( 'recPUPD0000000009' ) ), array( 'record_id' => 'recINST0000000009', 'name' => 'TEST - Example Institution' ) ) );
+readers_reset();
 
 echo "\n--- One institution: nothing of a person, and typed text on one line (Review Focus 4) ---\n";
 $built = build( 'institutions', array( 'institution' => 'recINST0000000001' ) );

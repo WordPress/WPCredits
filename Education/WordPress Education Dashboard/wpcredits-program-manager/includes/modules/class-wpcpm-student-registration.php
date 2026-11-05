@@ -512,10 +512,56 @@ final class WPCPM_Student_Registration {
 	 * How many registrations are in the given states, read as IDs.
 	 *
 	 * @param array $states States to count.
+	 * @param array $tests  The record IDs of the test institutions (`WPCPM_Test_Institutions::test_ids()`),
+	 *                      whose registrations are left out of the count; none, and the query is the
+	 *                      one it always was.
 	 * @return int
 	 */
-	public static function count_in( array $states ) {
-		return count( self::query( $states, 'ids', 0, 'DESC', '' ) );
+	public static function count_in( array $states, array $tests = array() ) {
+		$ids = self::query( $states, 'ids', 0, 'DESC', '' );
+
+		if ( empty( $tests ) ) {
+			return count( $ids );
+		}
+
+		if ( function_exists( 'update_meta_cache' ) && ! empty( $ids ) ) {
+			update_meta_cache( 'post', array_map( 'intval', $ids ) );
+		}
+
+		$count = 0;
+
+		foreach ( $ids as $id ) {
+			$post = $id instanceof WP_Post ? $id : self::registration( (int) $id );
+
+			if ( null !== $post && ! self::is_test_registration( $post, $tests ) ) {
+				++$count;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Whether a registration's institution is a test institution: its stored answer is the record ID
+	 * of one of the given, or a name that starts with TEST.
+	 *
+	 * @param WP_Post $post  The registration.
+	 * @param array   $tests The record IDs of the test institutions.
+	 * @return bool
+	 */
+	public static function is_test_registration( WP_Post $post, array $tests ) {
+		$fields = self::fields_of( $post );
+		$value  = isset( $fields['institution'] ) && is_scalar( $fields['institution'] ) ? trim( (string) $fields['institution'] ) : '';
+
+		if ( '' === $value ) {
+			return false;
+		}
+
+		if ( WPCPM_Mentors_Sync::is_record_id( $value ) ) {
+			return in_array( $value, $tests, true );
+		}
+
+		return WPCPM_Sponsors_Index::is_test_name( $value );
 	}
 
 	/**

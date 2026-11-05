@@ -468,6 +468,13 @@ class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 	public static function is_member() { return false; }
 }
+/** The institution an account acts for, by user ID, as a check says it is: the cards name a locked account's institution through it. */
+class WPCPM_Institution_Members {
+	public static function institution_of( $user = null ) {
+		$id = $user instanceof WP_User ? (int) $user->ID : (int) $user;
+		return isset( $GLOBALS['institution_of'][ $id ] ) ? $GLOBALS['institution_of'][ $id ] : '';
+	}
+}
 class WPCPM_Institution_Roster {
 	const ARG_VIEW = 'wpcpm_institution_view';
 	public static function locked_today() { return isset( $GLOBALS['locked'] ) ? $GLOBALS['locked'] : array(); }
@@ -491,7 +498,31 @@ class WPCPM_Countries {
 	// The name the countries map holds for a record, which the answers table prints before the one stored.
 	public static function name_of( $country ) { return 'recCOUNTRY0000001' === (string) $country ? 'Poland' : ''; }
 }
+/**
+ * A wpdb as far as the helper reaches it: its one prepared read of `ID, post_title` among the IDs given,
+ * answered from the world's posts of the application type, so the totals read a title and no meta.
+ */
+class WPCPM_Dashboard_Test_Wpdb {
+	public $posts = 'wp_posts';
+	public function prepare( $query, ...$args ) {
+		$args = ( 1 === count( $args ) && is_array( $args[0] ) ) ? $args[0] : $args;
+		$i    = 0;
+		return preg_replace_callback( '/%[ds]/', static function ( $m ) use ( $args, &$i ) { $v = $args[ $i++ ]; return 'd' === $m[0][1] ? (string) (int) $v : "'" . $v . "'"; }, $query );
+	}
+	public function get_results( $query, $output = 'OBJECT' ) {
+		preg_match( '/IN \(([0-9,\s]*)\)/', $query, $found );
+		$ids  = isset( $found[1] ) ? array_map( 'intval', explode( ',', $found[1] ) ) : array();
+		$type = preg_match( "/post_type = '([a-z_]+)'/", $query, $t ) ? $t[1] : '';
+		$rows = array();
+		foreach ( $GLOBALS['posts'] as $post ) {
+			if ( in_array( (int) $post->ID, $ids, true ) && $type === $post->post_type ) { $rows[] = (object) array( 'ID' => (string) $post->ID, 'post_title' => $post->post_title ); }
+		}
+		return $rows;
+	}
+}
+$GLOBALS['wpdb'] = new WPCPM_Dashboard_Test_Wpdb();
 class WPCPM_Institution_Application {
+	const POST_TYPE = 'wpcpm_inst_app';
 	const STATE_NEW = 'new'; const STATE_HELD = 'held'; const STATE_INFO = 'info'; const STATE_REJECTED = 'rejected'; const STATE_SPAM = 'spam'; const STATE_APPROVED = 'approved';
 	const META_STATE = '_wpcpm_app_state'; const META_COUNTRY = '_wpcpm_app_country'; const META_COUNTRY_NAME = '_wpcpm_app_country_name';
 	const META_FIELDS = '_wpcpm_app_fields'; const META_CONSENT = '_wpcpm_app_consent'; const META_SITE = '_wpcpm_app_site';
@@ -805,6 +836,17 @@ class WPCPM_Sponsor_Codes {
 }
 class WPCPM_Sponsors_Index {
 	const STATUS_APPROVED = 'Approved';
+	/** The real rule for a test name, body for body: `bin/test-test-institutions.php` holds this copy to the class's own. */
+	public static function is_test_name( $name ) {
+		$name    = trim( (string) $name );
+		$matched = preg_match( '/^TEST(?![\p{L}\p{N}])/u', $name );
+
+		if ( false !== $matched ) {
+			return 1 === $matched;
+		}
+
+		return 0 === strncmp( $name, 'TEST', 4 ) && ( 4 === strlen( $name ) || 1 !== preg_match( '/^[A-Za-z0-9]$/', $name[4] ) );
+	}
 	public static function rows() { return isset( $GLOBALS['sponsor_rows'] ) ? $GLOBALS['sponsor_rows'] : array(); }
 	public static function row( $record ) { $rows = self::rows(); return isset( $rows[ $record ] ) ? $rows[ $record ] : null; }
 	public static function is_key( $v ) { return 1 === preg_match( '/^(rec|spo)[A-Za-z0-9]{14}\z/', (string) $v ); }
@@ -936,6 +978,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
+// The one helper that decides which institutions are tests, over the stand-ins of the index and of the
+// sponsors' rule above (Ruling 21).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = 'default' ) { return $text; }
+}
 // The Institutions screen's class, the real one, read in under another name through a rewrite of its
 // source, as bin/test-sponsors-screen.php reads the sponsor posts' class: the stand-in above keeps
 // the class's own name for everything the cards ask of it, and hands the answers table to this one,
@@ -1694,6 +1742,42 @@ $with_222 = WPCPM_Administrators_Cards::programs();
 ck( 'a mentored student the join missed is in progress and not waiting', array( $with_222['rows'][0]['in_progress'], $with_222['rows'][0]['waiting'] ), array( 4, 1 ) );
 ck( 'and counts as a mentor though the join never brought a name', $with_222['rows'][0]['mentors'], 2 );
 array_pop( $GLOBALS['rosters'][ $A ]['rows'] );
+
+// Programs running (Ruling E1): a test institution with three students in progress on a track and one
+// Graduate who ended this semester. The same world with and without its roster: tracks, finished, quiet,
+// the read time and the phrase are the same, and the world with it lists one more row, its own, marked.
+$phrase_of = static function ( $html ) { return 1 === preg_match( '#(\d+ programs? running, \d+ institutions?)#', $html, $m ) ? $m[1] : null; };
+$TP_REC        = 'recTESTINSTITUT01';
+$progs_without = WPCPM_Administrators_Cards::programs();
+$card_without  = capture( static function () use ( $progs_without ) { WPCPM_Administrators_Cards::render_programs( $progs_without ); } );
+
+$GLOBALS['inst_rows'][ $TP_REC ] = array( 'record_id' => $TP_REC, 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed', 'country' => '', 'country_name' => '' );
+$GLOBALS['rosters'][ $TP_REC ]   = array( 'v' => 4, 'read' => 1756700000, 'rows' => array(
+	array( 'record_id' => 'recS0000000000101', 'status' => 'In Sensei', 'start' => $in_early, 'end' => '2026-12-15', 'reports' => array( 'recR1' ), 'mentor_name' => 'Mentor One' ),
+	array( 'record_id' => 'recS0000000000102', 'status' => 'Developer Track', 'start' => $in_early_dev, 'end' => '2026-11-30', 'reports' => array(), 'mentor_name' => '' ),
+	array( 'record_id' => 'recS0000000000103', 'status' => 'In Sensei 50h', 'start' => $in_early, 'end' => '', 'reports' => array( 'recR2' ), 'mentor_name' => 'Mentor One' ),
+	array( 'record_id' => 'recS0000000000104', 'status' => 'Graduate', 'start' => '2026-02-01', 'end' => $in_late, 'reports' => array( 'recR3' ), 'mentor_name' => 'Mentor Two' ),
+) );
+$progs_with = WPCPM_Administrators_Cards::programs();
+$card_with  = capture( static function () use ( $progs_with ) { WPCPM_Administrators_Cards::render_programs( $progs_with ); } );
+
+ck( 'Programs running: the tracks, the finished, the quiet and the read time are those of the world without the test institution', array( $progs_with['tracks'], $progs_with['finished'], $progs_with['quiet'], $progs_with['read'] ), array( $progs_without['tracks'], $progs_without['finished'], $progs_without['quiet'], $progs_without['read'] ) );
+ck( 'and the phrase is the same, the test institution counted among neither the programs nor the institutions', array( $phrase_of( $card_with ), $phrase_of( $card_without ) ), array( '3 programs running, 1 institution', '3 programs running, 1 institution' ) );
+ck( 'and the card still lists the test institution\'s row, which the world without it has not: one row more, its own, marked', array(
+	count( $progs_with['rows'] ) - count( $progs_without['rows'] ),
+	in_array( $TP_REC, array_column( $progs_with['rows'], 'record' ), true ),
+	in_array( $TP_REC, array_column( $progs_without['rows'], 'record' ), true ),
+	has( $card_with, 'TEST - Example Institution</a> <span class="wpcpm-badge wpcpm-badge--test"' ),
+), array( 1, true, false, true ) );
+ck( 'the row\'s own figures are its roster\'s: three in progress', array_column( array_filter( $progs_with['rows'], static function ( $row ) use ( $TP_REC ) { return $TP_REC === $row['record']; } ), 'in_progress' ), array( 3 ) );
+
+// Nobody in progress at the test institution: it adds to no "quiet" either.
+$GLOBALS['rosters'][ $TP_REC ]['rows'] = array( array( 'record_id' => 'recS0000000000104', 'status' => 'Graduate', 'start' => '2026-02-01', 'end' => $in_late, 'reports' => array(), 'mentor_name' => '' ) );
+$progs_idle = WPCPM_Administrators_Cards::programs();
+
+ck( 'a test institution with nobody in progress is not "quiet" either, and its graduate is not finished', array( $progs_idle['quiet'], $progs_idle['finished'], count( $progs_idle['rows'] ) ), array( $progs_without['quiet'], $progs_without['finished'], count( $progs_without['rows'] ) ) );
+
+unset( $GLOBALS['rosters'][ $TP_REC ], $GLOBALS['inst_rows'][ $TP_REC ] );
 ck( 'the agreement state and the latest report state ride along', array( $programs['rows'][0]['agreement'], $programs['rows'][0]['report'] ), array( 'accepted', 'draft' ) );
 ck( 'an institution with nobody in progress is counted, not listed', $programs['quiet'], 1 );
 // The oldest non-zero read, not the newest: "how old are these numbers" is honestly answered
@@ -4404,6 +4488,167 @@ ck( 'and no line is printed under them',
 unset( $GLOBALS['count_short'] );
 
 list( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['agr_facts'], $GLOBALS['sponsor_apps'] ) = $saved_queues;
+
+echo "\n=== A test institution is listed on every card, with a Test badge after its name ===\n";
+
+// The Administrator Dashboard never loads the admin stylesheet, so the mark is the dashboards' own badge
+// (`wpcpm-badge--test`). Each card lists the test institution's item where a real one's is, the badge once,
+// right after the link; a real institution's item holds none; the cards list what they listed before.
+$T_REC = 'recTESTINSTITUT01';
+$U_REC = 'recTESTUSERINST01';
+$kept  = array(
+	'inst_rows'      => $GLOBALS['inst_rows'],
+	'agr'            => $GLOBALS['agr'],
+	'reports'        => $GLOBALS['reports'],
+	'requests'       => $GLOBALS['requests'],
+	'facts'          => $GLOBALS['facts'],
+	'locked'         => $GLOBALS['locked'],
+	'institution_of' => isset( $GLOBALS['institution_of'] ) ? $GLOBALS['institution_of'] : array(),
+);
+
+// What the world gives with no test institution in it, read before any is added: the section below
+// holds every number to it.
+$base_data   = WPCPM_Administrators_Cards::collect();
+$base_counts = WPCPM_Administrators_Cards::counts( $base_data );
+
+$GLOBALS['inst_rows'][ $T_REC ] = array( 'record_id' => $T_REC, 'name' => 'TEST - Example Institution', 'stage' => 'Confirmed', 'country' => '', 'country_name' => '' );
+
+seed_post( 531, 'wpcpm_inst_app', 'TEST - Example Applicant', array( '_wpcpm_app_state' => 'new', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '', '_wpcpm_app_fields' => array( 'Name' => 'TEST - Example Applicant' ) ), '2026-09-03 08:00:00' );
+seed_post( 611, 'wpcpm_agreement', 'Agreement TEST', array( '_wpcpm_agr_institution' => $T_REC, '_wpcpm_agr_state' => 'submitted' ), '2026-08-21 08:00:00' );
+seed_post( 711, 'wpcpm_inst_report', 'Report TEST 2026-H1', array( '_wpcpm_report_state' => 'draft', '_wpcpm_report_institution' => $T_REC, '_wpcpm_report_cohort' => '2026-H1' ) );
+seed_post( 712, 'wpcpm_inst_report', 'Report TEST approved', array( '_wpcpm_report_state' => 'approved', '_wpcpm_report_institution' => $T_REC, '_wpcpm_report_cohort' => '2026-H1' ) );
+
+$GLOBALS['agr']['submitted'][]     = 611;
+$GLOBALS['reports']['queue'][]     = array( 'post_id' => 711, 'institution' => $T_REC, 'cohort' => '2026-H1', 'generated' => 1756500000, 'origin' => 'auto', 'in_progress' => 1, 'age_days' => 5, 'approved_at' => 0, 'approved_by' => 0 );
+$GLOBALS['reports']['due'][]       = array( 'institution' => $T_REC, 'cohort' => '2025-H2', 'in_progress' => 0, 'window_end' => '2025-12-31' );
+$GLOBALS['reports']['approved'][]  = array( 'post_id' => 712, 'institution' => $T_REC, 'cohort' => '2026-H1', 'generated' => 1756000000, 'origin' => 'manager', 'in_progress' => 0, 'age_days' => 9, 'approved_at' => 1756600000, 'approved_by' => 3 );
+$GLOBALS['requests']['open'][]     = 811;
+$GLOBALS['requests']['open'][]     = 812;
+$GLOBALS['facts'][811]             = array_merge( $GLOBALS['facts'][801], array( 'id' => 811, 'institution' => $T_REC, 'institution_name' => 'TEST - Example Institution' ) );
+$GLOBALS['facts'][812]             = array_merge( $GLOBALS['facts'][801], array( 'id' => 812, 'institution' => $T_REC, 'institution_name' => 'TEST - Example Institution', 'kind' => 'details', 'kind_label' => 'A change to its details', 'changes' => array() ) );
+$GLOBALS['locked']                 = array( new WP_User( 21, 'Rep One', 'administrator@example.test' ), new WP_User( 22, 'Rep Two', 'rep.two@example.test' ) );
+$GLOBALS['institution_of']         = array( 21 => $A, 22 => $T_REC );
+
+$test_data = WPCPM_Administrators_Cards::collect();
+$badge     = 'wpcpm-badge--test';
+$cards_t   = array(
+	'applications' => capture( static function () use ( $test_data ) { WPCPM_Administrators_Cards::render_applications( $test_data['applications'] ); } ),
+	'agreements'   => capture( static function () use ( $test_data ) { WPCPM_Administrators_Cards::render_agreements( $test_data['agreements'] ); } ),
+	'reports'      => capture( static function () use ( $test_data ) { WPCPM_Administrators_Cards::render_reports( $test_data['reports'] ); } ),
+	'requests'     => capture( static function () use ( $test_data ) { WPCPM_Administrators_Cards::render_requests( $test_data['requests'] ); } ),
+	'health'       => capture( static function () use ( $test_data ) { WPCPM_Administrators_Cards::render_health( $test_data['health'], $test_data['locked'] ); } ),
+);
+
+// The badge sits right after the closing link of the item's title: `</a> <span class="wpcpm-badge wpcpm-badge--test"`.
+$after_link = '</a> <span class="wpcpm-badge ' . $badge . '"';
+ck( 'Institution applications: the test application\'s heading holds the badge once, after its link; no real application\'s does', array(
+	substr_count( $cards_t['applications'], $badge ),
+	has( $cards_t['applications'], 'TEST - Example Applicant' . $after_link ),
+	has( $cards_t['applications'], 'Uni Nueva</a> <span class="wpcpm-badge' ),
+), array( 1, true, false ) );
+ck( 'Collaboration Agreements: the test institution\'s item holds the badge once, after its link; the real ones none', array(
+	substr_count( $cards_t['agreements'], $badge ),
+	has( $cards_t['agreements'], 'TEST - Example Institution</a> <span class="wpcpm-badge ' . $badge . '"' ),
+), array( 1, true ) );
+ck( 'Semester reports, to review, due and approved: one badge in each list, after the link', array(
+	substr_count( $cards_t['reports'], $badge ),
+	substr_count( $cards_t['reports'], 'TEST - Example Institution</a> <span class="wpcpm-badge ' . $badge . '"' ),
+), array( 3, 3 ) );
+ck( 'Requests from institutions, the mentor request and the details request: a badge each, after the link', array(
+	substr_count( $cards_t['requests'], $badge ),
+	substr_count( $cards_t['requests'], 'TEST - Example Institution</a> <span class="wpcpm-badge ' . $badge . '"' ),
+), array( 2, 2 ) );
+ck( 'Syncs and health, locked accounts: the test institution\'s account reads "(Test)" after its username, the real one\'s as before', array(
+	has( $cards_t['health'], 'Rep One (' ),
+	has( $cards_t['health'], 'Rep Two (reptwo) (Test)' ),
+	substr_count( $cards_t['health'], '(Test)' ),
+), array( true, true, 1 ) );
+
+// Programs running (Ruling E1): the test institution's row is listed in its place with the badge once,
+// after its link; the real row holds none.
+$programs_t         = $programs;
+$programs_t['rows'] = array(
+	array_merge( $programs['rows'][0], array( 'record' => $T_REC, 'name' => 'TEST - Example Institution' ) ),
+	$programs['rows'][0],
+);
+$programs_card = capture( static function () use ( $programs_t ) { WPCPM_Administrators_Cards::render_programs( $programs_t ); } );
+// The mark is judged by the name the row holds, with no read of the index: a row whose name is a test's
+// and whose record is a real one's carries the badge, and the reverse carries none.
+$programs_n         = $programs;
+$programs_n['rows'] = array(
+	array_merge( $programs['rows'][0], array( 'record' => $A, 'name' => 'TEST - Passed Name' ) ),
+	array_merge( $programs['rows'][0], array( 'record' => $T_REC, 'name' => 'Passed Real Name' ) ),
+);
+$programs_by_name = capture( static function () use ( $programs_n ) { WPCPM_Administrators_Cards::render_programs( $programs_n ); } );
+ck( 'Programs running: the mark follows the name the row holds, not the record it links to', array(
+	substr_count( $programs_by_name, $badge ),
+	has( $programs_by_name, '>TEST - Passed Name</a> <span class="wpcpm-badge ' . $badge . '"' ),
+	has( $programs_by_name, 'Passed Real Name</a></td>' ),
+), array( 1, true, true ) );
+ck( 'Programs running: the test institution\'s row holds the badge once, right after its link, and the real row none', array(
+	substr_count( $programs_card, $badge ),
+	has( $programs_card, 'TEST - Example Institution</a> <span class="wpcpm-badge ' . $badge . '"' ),
+	has( $programs_card, 'Uniwersytet Alpha</a></td>' ),
+), array( 1, true, true ) );
+
+echo "\n=== Test institutions are listed and not counted ===\n";
+
+// The same world with and without the test institution's items, which the section above stood up: every
+// tile and card count is the one the world without them gives, and every test item is still listed.
+$tile_n      = static function ( array $tiles, $key ) { return isset( $tiles[ $key ] ) ? (int) $tiles[ $key ]['n'] : 0; };
+$count_of    = static function ( $html ) { return 1 === preg_match( '#<span class="wpcpm-group__count">([0-9,]+)</span>#', $html, $m ) ? (int) $m[1] : null; };
+$test_counts = WPCPM_Administrators_Cards::counts( $test_data );
+$keys        = array( 'applications', 'agreements', 'reports', 'requests', 'locked' );
+
+ck( 'the tiles of the world without a test institution are what the tiles of the world with one say', array_map( static function ( $k ) use ( $tile_n, $test_counts ) { return $tile_n( $test_counts, $k ); }, $keys ), array_map( static function ( $k ) use ( $tile_n, $base_counts ) { return $tile_n( $base_counts, $k ); }, $keys ) );
+ck( 'and their labels are the same: the agreements tile says its overdue count without the test one', array( $test_counts['agreements']['label'], $test_counts['requests']['label'], $test_counts['reports']['label'] ), array( $base_counts['agreements']['label'], $base_counts['requests']['label'], $base_counts['reports']['label'] ) );
+ck( 'the strip holds every tile the world without a test institution holds', array_keys( $test_counts ), array_keys( $base_counts ) );
+ck( 'the totals collect() reads leave the test items out: open applications, agreements overdue, requests overdue', array( $test_data['applications']['open_total'], $test_data['agreements']['overdue'], $test_data['requests']['overdue'] ), array( $base_data['applications']['open_total'], $base_data['agreements']['overdue'], $base_data['requests']['overdue'] ) );
+ck( 'each card\'s count is the real one, while the card still lists the test items', array(
+	$count_of( $cards_t['applications'] ) === $tile_n( $base_counts, 'applications' ),
+	$count_of( $cards_t['agreements'] ) === $tile_n( $base_counts, 'agreements' ),
+	$count_of( $cards_t['requests'] ) === $tile_n( $base_counts, 'requests' ),
+	$count_of( $cards_t['reports'] ),
+	count( $test_data['applications']['open'] ) - count( $base_data['applications']['open'] ),
+	count( $test_data['agreements']['awaiting'] ) - count( $base_data['agreements']['awaiting'] ),
+	count( $test_data['requests']['open'] ) - count( $base_data['requests']['open'] ),
+), array( true, true, true, count( $base_data['reports']['queue'] ) + count( $base_data['reports']['due'] ), 1, 1, 2 ) );
+ck( 'the reports tile counts the one real draft and the one real pair due, the test ones left out', array( $test_counts['reports']['n'], $test_counts['reports']['label'] ), array( count( $base_data['reports']['queue'] ), $base_counts['reports']['label'] ) );
+ck( 'the locked tile counts the real account and the card names both, the test one with "(Test)"', array( $test_counts['locked']['n'], has( $cards_t['health'], 'Rep One (' ), has( $cards_t['health'], 'Rep Two (reptwo) (Test)' ) ), array( 1, true, true ) );
+
+// Without totals, a list of test applications alone counts none, so the card prints no "N more" line.
+$only_test = capture( static function () { WPCPM_Administrators_Cards::render_applications( array( 'open' => array( $GLOBALS['posts'][531] ), 'closed' => array() ) ); } );
+ck( 'the fallback totals count real rows: a test application alone draws no "more" line and a count of 0', array( has( $only_test, 'more is waiting' ) || has( $only_test, 'more are waiting' ), $count_of( $only_test ), has( $only_test, 'TEST - Example Applicant' ) ), array( false, 0, true ) );
+
+// A rejected application of a test institution: listed in the closed fold, which counts as it did. The
+// world's year of rejected applications is set aside, so the fold's window holds the rows it is about.
+$posts_kept = $GLOBALS['posts'];
+$one_closed = false;
+foreach ( $GLOBALS['posts'] as $post_id => $post ) {
+	if ( 'wpcpm_inst_app' === $post->post_type && in_array( get_post_meta( $post_id, '_wpcpm_app_state', true ), array( 'rejected', 'spam' ), true ) ) {
+		if ( $one_closed ) { unset( $GLOBALS['posts'][ $post_id ] ); }
+		$one_closed = true;
+	}
+}
+$base_data    = WPCPM_Administrators_Cards::collect();
+$closed_before = capture( static function () use ( $base_data ) { WPCPM_Administrators_Cards::render_applications( $base_data['applications'] ); } );
+seed_post( 532, 'wpcpm_inst_app', 'TEST - Example Rejected', array( '_wpcpm_app_state' => 'rejected', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '', '_wpcpm_app_fields' => array( 'Name' => 'TEST - Example Rejected' ) ), '2026-09-02 08:00:00' );
+$rej_data  = WPCPM_Administrators_Cards::collect();
+$closed_t  = capture( static function () use ( $rej_data ) { WPCPM_Administrators_Cards::render_applications( $rej_data['applications'] ); } );
+$summary_of = static function ( $html ) { return 1 === preg_match( '#<summary>([0-9,]+) rejected or spam applications?</summary>#', $html, $m ) ? (int) $m[1] : null; };
+ck( 'a rejected test application leaves the closed fold\'s summary and total as they were, and is listed in the fold', array(
+	$summary_of( $closed_t ),
+	$summary_of( $closed_before ),
+	$rej_data['applications']['closed_total'],
+	$base_data['applications']['closed_total'],
+	has( $closed_t, 'TEST - Example Rejected</a> <span class="wpcpm-badge ' . $badge . '"' ),
+), array( $summary_of( $closed_before ), $summary_of( $closed_before ), $base_data['applications']['closed_total'], $base_data['applications']['closed_total'], true ) );
+$GLOBALS['posts'] = $posts_kept;
+
+foreach ( $kept as $key => $value ) {
+	$GLOBALS[ $key ] = $value;
+}
+unset( $GLOBALS['facts'][811], $GLOBALS['facts'][812], $GLOBALS['posts'][531], $GLOBALS['posts'][611], $GLOBALS['posts'][711], $GLOBALS['posts'][712] );
 
 // Back to reading the site: the seam was set for this run only.
 WPCPM_Mentor_Engagement::for_tests( null );

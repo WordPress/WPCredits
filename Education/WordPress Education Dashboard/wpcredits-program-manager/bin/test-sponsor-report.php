@@ -862,6 +862,7 @@ require_once __DIR__ . '/../includes/class-wpcpm-roster-index.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-institutions-index.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-tracks.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-test-institutions.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-mentors.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
@@ -1437,6 +1438,26 @@ $program = array( 'started' => 3, 'finished' => 1, 'active' => 4, 'hours' => 118
 // Chloe, who dropped out before it began. Hours 12 + 100 + 6.5 over the active rows. Teams: three
 // active rows name one, and Esi's names two; Polyglots and Training are two teams.
 ck( 'the program over the seeded term: every figure', $N::program( '2025-10-01', '2026-09-30' ), $program );
+
+// A test institution in another country, its students started this term, one finished, ten hours: no figure moves.
+// Its own roster, and a row of a real roster that names it, are both passed over.
+$I_TEST  = 'recSEED0000000104';
+$main_at = $GLOBALS['opts'];
+$GLOBALS['opts']['wpcpm_institutions_index']['rows'][ $I_TEST ] = institution_row( $I_TEST, 'TEST - Example Institution', 'recSEED0000000903', 'Tess Contact Example', 'tess.contact@test-inst.example' );
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $I_TEST ) ] = roster(
+	array(
+		student( 'recSEED0000000301', 'Tara Student', 'In Sensei', $I_TEST, '2026-01-12', '', '4', 'Core' ),
+		student( 'recSEED0000000302', 'Tobi Student', 'Graduate', $I_TEST, '2026-02-02', '2026-06-01', '6', 'Docs' ),
+	)
+);
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $I1 ) ]['rows']['recSEED0000000303'] = student( 'recSEED0000000303', 'Tess Student', 'In Sensei', $I_TEST, '2026-03-03', '', '3', 'Docs' );
+ck( 'a test institution\'s students, in its roster and on a real one, are in no figure: started, finished, active, hours, contributions, teams, institutions and countries as without it', $N::program( '2025-10-01', '2026-09-30' ), $program );
+// The shared-country edge: the test institution in a country a real institution holds ($C1, the seeded
+// institution's; the "another country" above, 903, is held by no seeded real one). The country is still
+// counted once, and not dropped because the test institution shares it.
+$GLOBALS['opts']['wpcpm_institutions_index']['rows'][ $I_TEST ]['country'] = $C1;
+ck( 'a test institution in a real institution\'s country: countries and every figure as without it', $N::program( '2025-10-01', '2026-09-30' ), $program );
+$GLOBALS['opts'] = $main_at;
 
 $spam_row = $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $I1 ) ]['rows']['recSEED0000000204'];
 $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $I1 ) ]['rows']['recSEED0000000204']['status'] = 'In Sensei';
