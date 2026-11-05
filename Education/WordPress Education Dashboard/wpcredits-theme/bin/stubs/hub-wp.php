@@ -201,14 +201,21 @@ function get_page_template_slug( $post = null ) {
 function is_user_logged_in() { return ! empty( $GLOBALS['logged_in'] ); }
 
 /**
- * Core's wp_login_url(): the login page with the address to return to, percent-encoded, passed
- * through the `login_url` filter, which a plugin can use to change the address.
+ * Core's wp_login_url(): the login page, with the address to return to, percent-encoded, only when
+ * one is given (core adds `redirect_to` only for a non-empty address), passed through the
+ * `login_url` filter, which a plugin can use to change the address.
  *
- * @param string $redirect The address to return to after signing in.
+ * @param string $redirect The address to return to after signing in, or '' for none.
  * @return string
  */
 function wp_login_url( $redirect = '' ) {
-	return apply_filters( 'login_url', 'https://site.example/wp-login.php?redirect_to=' . rawurlencode( (string) $redirect ), $redirect );
+	$url = 'https://site.example/wp-login.php';
+
+	if ( '' !== (string) $redirect ) {
+		$url .= '?redirect_to=' . rawurlencode( (string) $redirect );
+	}
+
+	return apply_filters( 'login_url', $url, $redirect );
 }
 
 /* ---- hooks, styles and blocks ----------------------------------------------------- */

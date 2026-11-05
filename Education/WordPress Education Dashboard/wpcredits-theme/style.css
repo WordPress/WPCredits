@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.10
+Version: 1.32.11
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -276,6 +276,14 @@ body .skip-link.screen-reader-text:focus {
 .wp-site-blocks > .wpc-main--dashboard + .global-footer,
 .wp-site-blocks > .wpc-main--content + .global-footer,
 .wp-site-blocks > .global-footer {
+	margin-block-start: 0;
+}
+
+/* The same gap put the site header 20px below the WordPress.org header, a white strip between the
+   dark bar and the header: the WordPress.org header is the page column's first child, so core leaves
+   it alone, and the header part is the second (WordPress/WPCredits#289). The part goes flush under
+   the bar. */
+.wp-site-blocks > .wpc-header-part {
 	margin-block-start: 0;
 }
 
@@ -1987,11 +1995,10 @@ p.is-style-pill {
 	   gutter at each side so the rows' text lines up with the brand, 4px above the first row and 8px
 	   under the last. It scrolls inside itself, for a phone held sideways or a longer navigation, and is
 	   capped at the window's height less all that lies above it at the top of a page: the bar, the admin
-	   bar, the WordPress.org bar (`--wp-global-header-height`, which that bar's stylesheet declares on
-	   the root element) and the gap under it, WordPress's top-level block gap (the `margin-block-start`
-	   of every child of `.wp-site-blocks` but the first, the value of `--wp--style--block-gap`). So at the
-	   top of a page the panel's foot is inside the window, and once the page has scrolled those away the
-	   panel scrolls inside itself a little sooner than it must. The second `max-height` is for the
+	   bar and the WordPress.org bar (`--wp-global-header-height`, which that bar's stylesheet declares on
+	   the root element). Since 1.32.11 no top-level block gap stands between the WordPress.org bar and
+	   this one. So at the top of a page the panel's foot is inside the window, and once the page has
+	   scrolled those away the panel scrolls inside itself a little sooner than it must. The second `max-height` is for the
 	   phones whose `vh` counts the browser's own bars.
 
 	   `overscroll-behavior` is `auto`, so a scroll the panel cannot take, its rows fitting or its end
@@ -2005,8 +2012,8 @@ p.is-style-pill {
 		box-shadow: 0 12px 24px rgba( 0, 0, 0, .08 );
 		display: block;
 		left: 0;
-		max-height: calc( 100vh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) - var( --wp--style--block-gap, 0px ) );
-		max-height: calc( 100svh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) - var( --wp--style--block-gap, 0px ) );
+		max-height: calc( 100vh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) );
+		max-height: calc( 100svh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) );
 		overflow-y: auto;
 		overscroll-behavior: auto;
 		padding: 4px var( --wpc-chrome-gutter ) 8px;

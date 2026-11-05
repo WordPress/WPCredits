@@ -1020,7 +1020,7 @@ $selectors_not_starting_with = static function ( $prefix ) use ( $names_any, $se
 	return $found;
 };
 
-$panel_height = 'calc( 100vh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) - var( --wp--style--block-gap, 0px ) )';
+$panel_height = 'calc( 100vh - var( --wpc-header-live, var( --wpc-header-height ) ) - var( --wp-admin--admin-bar--height, 0px ) - var( --wp-global-header-height, 0px ) )';
 $panel_lines  = rules_of( $m . ' .wpc-nav__center', $menu_at )[0] ?? array();
 
 $row_selectors = array(
@@ -1062,7 +1062,7 @@ ck( 'below 1200px the signed-in bar is one row: the header is positioned and tra
 	),
 	array() );
 
-ck( 'the panel is the group holding the links: a block placed under the bar, as wide as it, scrolling inside itself and capped at the window\'s height less all that lies above it at the top of a page, the bar, the admin bar, the WordPress.org bar and the block gap under it (100vh, then 100svh after it), handing a scroll it cannot take to the page (`overscroll-behavior: auto`, its one overscroll line), hidden by visibility and shown by the open header; each rule once, in the screen query',
+ck( 'the panel is the group holding the links: a block placed under the bar, as wide as it, scrolling inside itself and capped at the window\'s height less all that lies above it at the top of a page, the bar, the admin bar and the WordPress.org bar, with no gap under it since 1.32.11 (100vh, then 100svh after it), handing a scroll it cannot take to the page (`overscroll-behavior: auto`, its one overscroll line), hidden by visibility and shown by the open header; each rule once, in the screen query',
 	array(
 		$unpinned(
 			array(
@@ -1417,6 +1417,21 @@ ck( 'the comments of inc/header.php and style.css speak of the buttons a signed-
 		substr_count( strtolower( $sheet ), 'the buttons a signed-in reader is offered' ) >= 4,
 	),
 	array( 0, 0, true, true, true, true, true, true ) );
+
+echo "\n=== Under the WordPress.org header (theme 1.32.11) ===\n";
+
+// Core spaces every child of the page column but the first: `:where(.wp-site-blocks) > * { margin-block-start: 20px }`.
+// The WordPress.org header is the first child and the site header's part the second, so the part
+// stood 20px below the dark bar, a white strip between them (WordPress/WPCredits#289).
+$gap_sheet = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'style.css' ) );
+
+ck( 'the site header sits flush under the WordPress.org header: the header part takes core\'s top-level gap off at two classes, which outranks core\'s `:where()` rule, as the dashboard and content pages\' mains and the footer do, in one rule of its own outside any at-rule; and the Menu panel\'s height cap no longer takes that gap off the window, since there is none, so the sheet names `--wp--style--block-gap` nowhere outside its comments',
+	array(
+		rules_of( '.wp-site-blocks > .wpc-header-part' ),
+		rules_anywhere( '.wp-site-blocks > .wpc-header-part' ),
+		substr_count( $gap_sheet, '--wp--style--block-gap' ),
+	),
+	array( array( array( 'margin-block-start: 0;' ) ), 1, 0 ) );
 
 $GLOBALS['logged_in'] = false;
 

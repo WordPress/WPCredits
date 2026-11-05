@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.10
+Stable tag: 1.32.11
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -202,6 +202,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.11 =
+
+* The header's Log in, for a visitor who is signed out, no longer sends everyone to the Mentor Report Card: a student, a sponsor or an institution contact who signed in from it landed on that page's "no access" screen. It is now the plain login form, and each person goes to their own page as they sign in, as the plugin routes them (WordPress/WPCredits#290). The homepage's sign-in cards and the mentor call to action keep their own pages.
+* The site header sits flush under the WordPress.org header, without the 20px white strip WordPress's top-level block gap put between them (WordPress/WPCredits#289).
+* For developers: the viewer chip calls `wp_login_url()` with no address; `.wp-site-blocks > .wpc-header-part` takes `margin-block-start` to 0, and the Menu panel's height cap no longer subtracts `--wp--style--block-gap`.
 
 = 1.32.10 =
 

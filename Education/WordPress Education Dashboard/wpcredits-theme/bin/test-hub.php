@@ -3095,6 +3095,24 @@ ck( 'the head sits 22px above the grid by the programs\' own head rule, which is
 sign_in_pages( ...array_values( $sign_pages ) );
 $GLOBALS['logged_in'] = false;
 
+echo "\n=== Log in, signed out (theme 1.32.11) ===\n";
+
+// The header's Log in comes from the viewer chip; drawn signed out with the mentors' page published, as
+// it is on the site, and the page put back after.
+$chip_mentors_before          = WPCPM_Mentors_Dashboard::$url;
+WPCPM_Mentors_Dashboard::$url = 'https://wordpresseducation.org/mentor/';
+$GLOBALS['logged_in']         = false;
+$guest_chip                   = wpcredits_test_block( 'wpcredits/viewer-chip' );
+WPCPM_Mentors_Dashboard::$url = $chip_mentors_before;
+
+ck( 'signed out, the header\'s Log in is the plain login address and names no page to return to, so the plugin sends each person to their own page as they sign in (a student to the Student Report Card, a mentor to the Mentor Report Card, an institution contact or a sponsor to their dashboard); until 1.32.11 it named the mentors\' page, and everyone but a mentor landed on its "no access" screen (WordPress/WPCredits#290). One link, in the guest chip',
+	array(
+		preg_match_all( '#<a class="wpc-viewer__signin" href="([^"]*)">Log in</a>#', $guest_chip, $guest_links ),
+		$guest_links[1],
+		false !== strpos( $guest_chip, 'wpc-viewer--guest' ),
+	),
+	array( 1, array( 'https://site.example/wp-login.php' ), true ) );
+
 echo "\n=== The patterns ===\n";
 
 $pattern_files = array( 'hub-hero.php', 'hub-doors.php', 'hub-programs.php', 'hub-pathway.php', 'hub-cta.php' );

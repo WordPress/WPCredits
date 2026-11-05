@@ -15,22 +15,25 @@
  * @package WPCredits_Theme
  */
 
-$wpcredits_page = wpcredits_mentor_page_url();
-
+// Signed out, Log in is the plain login address, naming no page to return to: the plugin then
+// sends each person to their own page as they sign in, a student to the Student Report Card, a
+// mentor to the Mentor Report Card, an institution contact or a sponsor to their dashboard. Until
+// 1.32.11 it named the mentor page, and everyone but a mentor landed on that page's "no access"
+// screen (WordPress/WPCredits#290).
 if ( ! is_user_logged_in() ) {
-	$wpcredits_redirect = '' !== $wpcredits_page ? $wpcredits_page : home_url( '/' );
-
 	printf(
 		// get_block_wrapper_attributes() returns an already-escaped attribute
 		// string; running it through an escaper again would mangle the quotes.
 		'<div %1$s><a class="wpc-viewer__signin" href="%2$s">%3$s</a></div>',
 		get_block_wrapper_attributes( array( 'class' => 'wpc-viewer wpc-viewer--guest' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		esc_url( wp_login_url( $wpcredits_redirect ) ),
+		esc_url( wp_login_url() ),
 		esc_html__( 'Log in', 'wpcredits-theme' )
 	);
 
 	return;
 }
+
+$wpcredits_page = wpcredits_mentor_page_url();
 
 $wpcredits_user = wp_get_current_user();
 
