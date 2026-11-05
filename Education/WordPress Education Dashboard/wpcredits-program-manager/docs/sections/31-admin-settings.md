@@ -80,8 +80,8 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 
 ### The Students and mentors tab
 
-Five sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
-pages** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
+Six sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
+pages**, **Student registrations** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
 
 #### Who is on the program
 
@@ -165,6 +165,26 @@ when the page is missing, a sentence saying that re-activating the plugin recrea
   default: the same arrangement for students, with a "Student Report Card" link in the toolbar and
   the same exceptions: a requested destination wins, their own profile screen stays reachable, and
   anyone who can write posts is left alone.
+
+#### Student registrations
+
+The form students register through, since 1.123.54. Its address is under the switch.
+
+- **Registrations from students** - **Take student registrations through the form on this site**.
+  Off by default, since it is a public page anybody can post to and, switched on, it accepts writes
+  into the shared Airtable base from anybody on the internet. Each registration is written to the
+  Airtable Students table with an empty Status, as the Airtable form writes it, unless the address
+  belongs to an account on this site or is registered already: for such an address nothing is
+  written to Airtable. The Registrations tab of the Students screen lists every registration. While
+  this is off, the page shows one sentence saying registrations are closed, and an Administrator who
+  opens it a second saying why. As with the other forms, its consent box links to the WordPress.org
+  privacy policy, not to this site's own privacy page, and the row's fold says so.
+- **Institutions offered** - a checklist of the stages Airtable lists for an institution's Current
+  Stage, with **Confirmed** ticked by default and no other: an institution at a stage that is not
+  ticked is not offered on the form. The list may be empty. With none ticked, or no institution at a
+  ticked stage, the form says registrations are closed. A new partner appears after the next
+  institutions sync, every three hours. When Airtable cannot list the stages, the row is typed, one
+  stage a line, as the pipeline stages are.
 
 #### Mentor applications
 

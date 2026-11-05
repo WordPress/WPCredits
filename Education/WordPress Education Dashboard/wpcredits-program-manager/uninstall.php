@@ -96,6 +96,11 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-report-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-feedback.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-airtable-row.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration-process.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration-form.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registrations-tab.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-provision.php';
@@ -307,7 +312,7 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // one row per request and one per school. And the order a company keeps its Sponsor Dashboard's four
 // sections in, one option per sponsor (Institutions release 3), beside the order each institution keeps
 // its Institution Dashboard's three in.
-foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX ) as $wpcpm_prefix ) {
+foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Student_Registration::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}

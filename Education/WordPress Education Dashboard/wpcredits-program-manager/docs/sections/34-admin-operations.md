@@ -175,6 +175,8 @@ still the old one and no other page, post or attachment holds the new one: the t
 the status and the modified date are not touched, and no save runs), and /program-manager-guide/ takes a visitor there. The release
 script writes the page by its ID, so a release does not care which address it has.
 
+The student registration form's page is at /student-registration/ since 1.123.54, with the same Welcome text the Airtable form opened with, the program's address and the form. Activation makes it, and so can a person, with the same address: a published page at that address is used as it is, and nothing on it is changed. The page is not gated, because the students who use it have no account yet, and it is not cached.
+
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
 The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
@@ -188,7 +190,7 @@ claims meta, the sponsor applications with the logo files nobody approved, the m
 with what deleted ones counted for the public feed of their figures, the sponsor reports and their
 locks, forgetting the PDF each report held, the sponsor events with the people on them and their
 locks, and the institution records that keep the five answers an application gave which Airtable has
-no column for.
+no column for, and the student registrations with their answers and consent evidence, their locks and the page's ID.
 **Accounts are never deleted**, and their program details are untouched.
 
 ### When something is wrong
@@ -438,9 +440,12 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_sponsors_migrated` | `WPCPM_Sponsors_Migration::OPT_REPORT` |
 | `wpcpm_sponsors_migrating` | `WPCPM_Sponsors_Migration::TRANSIENT_RUNNING` (the migration's once-a-minute guard) |
 | `wpcpm_sponsors_page_id` | `WPCPM_Sponsors_Page::OPT_PAGE` |
+| `wpcpm_sreg_lock_` | `WPCPM_Student_Registration::LOCK_PREFIX` (the per-address locks a registration's write takes, and the hourly job's own lock, `wpcpm_sreg_lock_run`) |
 | `wpcpm_sreport_lock_` | `WPCPM_Sponsor_Report::LOCK_PREFIX` (the per-sponsor locks a sponsor report's draft takes, so the daily run and an Administrator's draft cannot store two reports for one term) |
+| `wpcpm_student_languages` | `WPCPM_Student_Airtable_Row::LANGUAGES_OPTION` (the site's copy of the Airtable Languages table, record ID to name, read at most once a day, which the registration form's two language questions and the row written to Airtable use) |
 | `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
 | `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_student_registration_page_id` | `WPCPM_Student_Registration_Form::OPT_PAGE` |
 | `wpcpm_students_last_error` | `WPCPM_Students_Sync::OPT_ERROR` |
 | `wpcpm_students_last_sync` | `WPCPM_Students_Sync::OPT_LAST` |
 | `wpcpm_students_lock` | `WPCPM_Students_Sync::OPT_LOCK` |

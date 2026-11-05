@@ -472,15 +472,17 @@ function delete_post_meta( $id, $key, $value = '' ) {
 }
 
 /**
- * `get_posts()` as the mentor application classes ask it: one type, a status, a state's IN clause,
- * the order asked for, a ceiling, IDs or posts. The order is `orderby` (`date`, which is
- * `post_date` on the site's clock, `ID`, or `meta_value_num`, which reads the number in the post
- * meta `meta_key` names; an array names the direction of each field) with `order` (ASC or DESC) for
- * a string, and core's own default when none is given: the newest first. A `meta_key` is an inner
- * join, as core's is: a post without that key is not found at all. A tie falls to the ID, in the
- * direction of the first field. Anything else it is asked, and an IN clause with an empty list
- * (what core answers to that depends on the version), is recorded in `$GLOBALS['unmodeled']`,
- * which a suite checks is empty at its end.
+ * `get_posts()` as the mentor application classes ask it: one type, a status, a state's IN clause
+ * (and a `LIKE` or `NOT LIKE` clause, read as core reads one: the value as the table holds it, a
+ * list serialized, holding the text anywhere and in any case, on a post that has the key at all,
+ * since core joins on it), the order asked for, a ceiling, IDs or posts. The order is `orderby`
+ * (`date`, which is `post_date` on the site's clock, `ID`, or `meta_value_num`, which reads the
+ * number in the post meta `meta_key` names; an array names the direction of each field) with
+ * `order` (ASC or DESC) for a string, and core's own default when none is given: the newest
+ * first. A `meta_key` is an inner join, as core's is: a post without that key is not found at all.
+ * A tie falls to the ID, in the direction of the first field. Anything else it is asked, and an
+ * IN clause with an empty list (what core answers to that depends on the version), is recorded in
+ * `$GLOBALS['unmodeled']`, which a suite checks is empty at its end.
  *
  * @param array $args The query.
  * @return array
@@ -544,8 +546,17 @@ function get_posts( $args = array() ) {
 			if ( ! is_array( $clause ) || ! isset( $clause['key'] ) ) {
 				continue;
 			}
-			$have = get_post_meta( $post->ID, $clause['key'], true );
-			if ( isset( $clause['compare'] ) && 'IN' === $clause['compare'] ? ! in_array( $have, (array) $clause['value'], true ) : $have !== $clause['value'] ) {
+			$have    = get_post_meta( $post->ID, $clause['key'], true );
+			$compare = isset( $clause['compare'] ) ? $clause['compare'] : '=';
+			if ( 'LIKE' === $compare || 'NOT LIKE' === $compare ) {
+				$stored = is_array( $have ) || is_object( $have ) ? serialize( $have ) : (string) $have;
+				$found  = false !== stripos( $stored, (string) $clause['value'] );
+				if ( ! isset( $GLOBALS['pmeta'][ (int) $post->ID ][ $clause['key'] ] ) || ( 'LIKE' === $compare ) !== $found ) {
+					continue 2;
+				}
+				continue;
+			}
+			if ( 'IN' === $compare ? ! in_array( $have, (array) $clause['value'], true ) : $have !== $clause['value'] ) {
 				continue 2;
 			}
 		}

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.53
+Stable tag: 1.123.54
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,15 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.54 =
+
+* Students can register for the WordPress Credits Program on this site, at /student-registration/, with the same questions as the Airtable Student Registration Form, in its words and its order. The form is off until it is switched on, under Student registrations on the Students and mentors tab of Settings, and lists the institutions at the stages ticked under Institutions offered, Confirmed alone by default.
+* A registration is written to the Airtable Students table with an empty Status, as the Airtable form writes it, so a program manager assigns the mentor and the track as before and the site makes no account and sends no invitation by itself. An address that belongs to an account on this site, or that the site or the Students table holds already, writes nothing: the student is sent an email that says so instead. Every student sees the same thank-you, whatever happened.
+* When Airtable cannot be reached, the registration waits on the site and is tried again every hour; after 72 hours it shows as Could not be written, with Write it now.
+* Past 200 registrations in a day, a registration is still taken but waits for an Administrator, who writes it with Write it now on the Registrations tab.
+* A Registrations tab on the Students screen lists every registration, newest first, with what happened to it and a link to the Airtable row or the account; a registration filed as spam can be put back or deleted for good.
+* Three new emails, in a Student registrations area of Tools > Emails: registration received, already has an account, already registered.
 
 = 1.123.53 =
 

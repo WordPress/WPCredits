@@ -110,6 +110,7 @@
 .wpcpm-field input[type="text"],
 .wpcpm-field input[type="email"],
 .wpcpm-field input[type="number"],
+.wpcpm-field input[type="date"],
 .wpcpm-field select,
 .wpcpm-field textarea {
 	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
@@ -131,6 +132,11 @@
 	max-width: 10em;
 }
 
+/* A date is a short answer too: the browser's own field, in the reader's own format. */
+.wpcpm-field--date input[type="date"] {
+	max-width: 14em;
+}
+
 /* The checkbox list and the consent box: control first, label after it, because
    "[x] Yes, I confirm" is how a tick reads. */
 .wpcpm-field__check,
@@ -149,6 +155,8 @@
 
 .wpcpm-field__consent label {
 	font-weight: 400;
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .wpcpm-field__hint {
@@ -197,6 +205,19 @@
 	flex-wrap: wrap;
 	gap: 0.75em;
 	margin: 0;
+}
+
+/* A form with no group boxes (the student registration) is 24px from its last question to the
+   button, as a group box's margin makes it on the mentor form. The margins collapse, so this is
+   the gap, not an addition to the question's 20px. */
+.wpcpm-application__send--flat {
+	margin-top: 1.5em;
+}
+
+/* The introduction above the student registration form: a long address breaks inside the
+   column instead of running past it on a phone. */
+.wpcpm-application-intro {
+	overflow-wrap: anywhere;
 }
 
 /* Matches the button on the dashboards without depending on their stylesheet, so the two

@@ -705,6 +705,7 @@ $named_options = array(
 	'wpcpm_mentor_application_log',        // WPCPM_Mentor_Application::OPT_LOG, through delete_all().
 	'wpcpm_mentor_application_counts',     // WPCPM_Mentor_Application::OPT_KEPT, through delete_all().
 	'wpcpm_mentor_application_page_id',    // WPCPM_Mentor_Application_Form::OPT_PAGE.
+	'wpcpm_student_languages',             // WPCPM_Student_Airtable_Row::LANGUAGES_OPTION, through WPCPM_Students::uninstall().
 	// Three rows a site may still hold from code that is gone (1.123.27), deleted by name: the
 	// stored check against the agreement Doc, the import's check log and the report vocabulary's
 	// version, through WPCPM_Institutions::uninstall(), WPCPM_Institution_Import::delete_all() and
@@ -734,6 +735,10 @@ foreach ( $swept_options as $name ) {
 // inside the activation leaves behind, one row per application: the time it runs to, as a lock
 // writes it.
 $GLOBALS['opts']['wpcpm_mapp_lock_501'] = (string) ( time() + 600 );
+
+// The lock a student's registration is worked on under, one row per address, left by a request that died.
+$GLOBALS['opts']['wpcpm_sreg_lock_x']   = (string) ( time() + 300 );
+$GLOBALS['opts']['wpcpm_sreg_lock_run'] = (string) ( time() + 900 );
 
 // The locks a details request is decided under, and a school's request is raised under (Institutions
 // release 2), which a request that dies holding one leaves behind: a row per request and a row per
@@ -788,7 +793,7 @@ set_transient( 'feed_example', 'kept', HOUR_IN_SECONDS );
 
 // One post of every type the clean-up removes, private as the modules keep them; an offer is found
 // through its sponsor, and every offer has one.
-$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record' );
+$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_stu_reg' );
 
 foreach ( $plugin_types as $type ) {
 	a_post( $type, 'private', 'wpcpm_offer' === $type ? array( '_wpcpm_offer_sponsor' => 'recSEED0000000003' ) : array() );
@@ -937,7 +942,7 @@ $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_s
 // move onto the site completes, and the Sponsors module's uninstall clears them through the names
 // the migration keeps (1.111.0).
 $sync_hooks  = array( 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick' );
-$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily' ), $sync_hooks );
+$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly' ), $sync_hooks );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -1123,6 +1128,7 @@ ck( 'the three keys an activation leaves on a mentor\'s account go, the held inv
 ck( 'the locks a details request left behind, one per request and one per school, go with the rest', array( get_option( 'wpcpm_req_lock_810', 'gone' ), get_option( 'wpcpm_req_lock_details_recSEED0000000001', 'gone' ) ), array( 'gone', 'gone' ) );
 ck( 'so does the lock a patch of the institutions index left behind, and the extra sync run a patch asked for', array( get_option( 'wpcpm_institutions_index_lock', 'gone' ), in_array( array( 'hook' => 'wpcpm_institutions_sync_daily', 'args' => array( 'again' ) ), $GLOBALS['cron'], true ) ), array( 'gone', false ) );
 ck( 'a lock an application left behind goes with the rest, and the two account keys of an activation', array( get_option( 'wpcpm_mapp_lock_501', 'gone' ), array_intersect_key( $GLOBALS['umeta'][ $mentor ], array_flip( array( 'wpcpm_mentor_row_pending', 'wpcpm_mentor_activated_at' ) ) ) ), array( 'gone', array() ) );
+ck( 'a lock a student registration left behind goes with the rest, and so does the hourly run\'s', array( get_option( 'wpcpm_sreg_lock_x', 'gone' ), get_option( 'wpcpm_sreg_lock_run', 'gone' ) ), array( 'gone', 'gone' ) );
 ck( 'an Administrator\'s booking link and rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too, and the account\'s own row stays', $GLOBALS['umeta'][ $admin ], array( 'nickname' => 'manager-one' ) );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
@@ -1300,6 +1306,10 @@ $names = array(
 	'WPCPM_Mentor_Provision::USER_INVITE_HELD'      => 'wpcpm_mentor_invite_held',
 	'WPCPM_Mentor_Airtable_Row::LINKS_TRANSIENT'    => 'wpcpm_mapp_link_names',
 	'WPCPM_Mentor_Application::LOCK_PREFIX'         => 'wpcpm_mapp_lock_',
+	'WPCPM_Student_Airtable_Row::LANGUAGES_OPTION'  => 'wpcpm_student_languages',
+	'WPCPM_Student_Registration::POST_TYPE'         => 'wpcpm_stu_reg',
+	'WPCPM_Student_Registration::LOCK_PREFIX'       => 'wpcpm_sreg_lock_',
+	'WPCPM_Student_Registration_Process::CRON_HOURLY' => 'wpcpm_student_registrations_hourly',
 );
 
 ck( 'the names seeded above are the ones the classes declare', array_map( 'declared', array_keys( $names ) ), array_values( $names ) );

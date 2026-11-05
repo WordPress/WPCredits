@@ -36,6 +36,7 @@ final class WPCPM_Mail_Catalog {
 	const MODULE_SPONSORS     = 'sponsors';
 	const MODULE_EVENTS       = 'events';
 	const MODULE_MENTOR_APPS  = 'mentor-applications';
+	const MODULE_STUDENT_REGS = 'student-registrations';
 	const MODULE_WORDPRESS    = 'wordpress';
 	const MODULE_TWO_FACTOR   = 'two-factor';
 	const MODULE_OTHER        = 'other';
@@ -65,6 +66,7 @@ final class WPCPM_Mail_Catalog {
 			self::MODULE_SPONSORS     => __( 'Sponsors', 'wpcredits-program-manager' ),
 			self::MODULE_EVENTS       => __( 'Sponsor events', 'wpcredits-program-manager' ),
 			self::MODULE_MENTOR_APPS  => __( 'Mentor applications', 'wpcredits-program-manager' ),
+			self::MODULE_STUDENT_REGS => __( 'Student registrations', 'wpcredits-program-manager' ),
 			self::MODULE_WORDPRESS    => __( 'WordPress', 'wpcredits-program-manager' ),
 			self::MODULE_TWO_FACTOR   => __( 'Two Factor', 'wpcredits-program-manager' ),
 			self::MODULE_OTHER        => __( 'Other', 'wpcredits-program-manager' ),
@@ -108,6 +110,7 @@ final class WPCPM_Mail_Catalog {
 		$s = self::MODULE_SPONSORS;
 		$e = self::MODULE_EVENTS;
 		$m = self::MODULE_MENTOR_APPS;
+		$g = self::MODULE_STUDENT_REGS;
 		$w = self::MODULE_WORDPRESS;
 
 		$list = array(
@@ -248,6 +251,12 @@ final class WPCPM_Mail_Catalog {
 			'mentor-more-information'            => array( __( 'More information asked of a mentor applicant', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),
 			'mentor-declined'                    => array( __( 'Mentor application declined', 'wpcredits-program-manager' ), $m, self::TYPE_APPLICANT ),
 			'mentor-application-notice'          => array( __( 'New mentor application, to Administrators', 'wpcredits-program-manager' ), $m, self::TYPE_ADMIN ),
+			// Student registrations (1.123.54): the three emails to the address a registration gave, which
+			// may have no account (the second goes to one that does, but the form's visitor is still an
+			// applicant for it).
+			'student-registration-received'      => array( __( 'Student registration received, to the student', 'wpcredits-program-manager' ), $g, self::TYPE_APPLICANT ),
+			'student-registration-account'       => array( __( 'Student registration from an address with an account', 'wpcredits-program-manager' ), $g, self::TYPE_APPLICANT ),
+			'student-registration-already'       => array( __( 'Student registration from an address already registered', 'wpcredits-program-manager' ), $g, self::TYPE_APPLICANT ),
 			// WordPress's own.
 			'wp-password-reset'                  => array( __( 'Password reset', 'wpcredits-program-manager' ), $w, '' ),
 			'wp-password-changed'                => array( __( 'Password changed', 'wpcredits-program-manager' ), $w, '' ),

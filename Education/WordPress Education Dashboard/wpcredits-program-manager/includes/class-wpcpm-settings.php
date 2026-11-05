@@ -124,6 +124,14 @@ class WPCPM_Settings {
 			'mentor_course_link'            => '',
 			'mentor_lapse_days'             => 90,
 
+			// Student registrations (1.123.54): whether students can register through the form on this
+			// site, and the Current Stage of the institutions it offers. Off by default: on means
+			// accepting writes into the shared Airtable base from anybody on the internet, which a
+			// person decides on the day rather than an update deciding it. Confirmed alone, since an
+			// institution that is not yet confirmed has no students to register.
+			'student_registrations_enabled' => false,
+			'student_registration_stages'   => array( 'Confirmed' ),
+
 			// Institutions module. The countries table is read for the same reason as
 			// the three lookup tables above: an institution's country arrives as a bare
 			// record ID, and it is the country that says which manager looks after it.
@@ -312,6 +320,8 @@ class WPCPM_Settings {
 				'mentor_notify',
 				'mentor_course_link',
 				'mentor_lapse_days',
+				'student_registrations_enabled',
+				'student_registration_stages',
 			),
 			'institutions'               => array(
 				'applications_enabled',
@@ -604,7 +614,7 @@ class WPCPM_Settings {
 			$clean['student_statuses'] = $statuses;
 		}
 
-		foreach ( array( 'past_statuses', 'institution_active_stages', 'two_factor_roles' ) as $list_key ) {
+		foreach ( array( 'past_statuses', 'institution_active_stages', 'student_registration_stages', 'two_factor_roles' ) as $list_key ) {
 			if ( isset( $input[ $list_key ] ) ) {
 				$raw  = wp_unslash( $input[ $list_key ] );
 				$list = self::clean_list( $raw );
@@ -761,7 +771,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mcp_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'mcp_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

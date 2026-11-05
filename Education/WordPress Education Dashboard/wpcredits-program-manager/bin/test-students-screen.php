@@ -131,15 +131,39 @@ class WPCPM_Students_Dashboard {
 	public static function init() {}
 }
 
-/** The Student Report Card's form and the feedback form: booted by the module, never drawn here. */
+/** The Student Report Card's form, the feedback form and the registration record, form and process: booted by the module, never drawn here. */
 class WPCPM_Student_Report_Form {
 	public static function init() {}
 }
 class WPCPM_Student_Feedback {
 	public static function init() {}
 }
+class WPCPM_Student_Registration {
+	const STATE_WAITING = 'waiting';
+	const STATE_WRITTEN = 'written';
+	const STATE_ACCOUNT = 'account';
+	const STATE_ALREADY = 'already';
+	const STATE_FAILED  = 'failed';
+	const STATE_SPAM    = 'spam';
+	public static function init() {}
+	public static function delete_all() {}
+	// The Registrations tab's reads: nobody has registered.
+	public static function count_in( array $states ) { return 0; }
+	public static function in_states( array $states, $limit = 0, $order = 'DESC' ) { return array(); }
+}
+class WPCPM_Student_Registration_Form {
+	public static function init() {}
+	public static function ensure_page() {}
+}
+class WPCPM_Student_Registration_Process {
+	public static function init() {}
+	public static function schedule() {}
+	public static function unschedule() {}
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The Registrations tab, which the module boots and draws; it reads the registration record stood in above.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registrations-tab.php';
 // The record ID pattern, and the roster index a Students record ID is looked up in.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
@@ -2723,7 +2747,7 @@ ck( 'a count a press on the ticked accounts left unprinted is not shown under th
 	array( WPCPM_Mail::queue(), html_of( notice_now() ) ),
 	array( array( 12, 13 ), '<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>' ) );
 
-echo "\n=== The screen in two tabs, Accounts and Sync, in the Settings screen's bar ===\n";
+echo "\n=== The screen in three tabs, Accounts, Registrations and Sync, in the Settings screen's bar ===\n";
 
 three_students();
 manager( 200 );
@@ -2734,6 +2758,7 @@ $two_tabs = function ( $shown ) use ( $home ) {
 		'Secondary menu',
 		array(
 			array( $home . '&tab=accounts', 'Accounts', 'accounts' === $shown, 'accounts' === $shown ),
+			array( $home . '&tab=registrations', 'Registrations', 'registrations' === $shown, 'registrations' === $shown ),
 			array( $home . '&tab=sync', 'Sync', 'sync' === $shown, 'sync' === $shown ),
 		),
 	);
@@ -2744,6 +2769,7 @@ $bars     = array();
 foreach ( array(
 	'from the menu'                    => array( 'page' => 'wpcpm-students' ),
 	'asked for Accounts'               => screen(),
+	'asked for Registrations'          => screen( array( 'tab' => 'registrations' ) ),
 	'asked for Sync'                   => screen( array( 'tab' => 'sync' ) ),
 	'asked for a tab it does not have' => screen( array( 'tab' => 'nope' ) ),
 ) as $case => $query ) {
@@ -2756,11 +2782,12 @@ foreach ( array(
 	);
 }
 
-ck( 'the bar holds two tabs, Accounts then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Sync when asked for, marked for the eye and for a screen reader',
+ck( 'the bar holds three tabs, Accounts, Registrations, then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Registrations and Sync when asked for, marked for the eye and for a screen reader',
 	$bars,
 	array(
 		'from the menu'                    => $two_tabs( 'accounts' ),
 		'asked for Accounts'               => $two_tabs( 'accounts' ),
+		'asked for Registrations'          => $two_tabs( 'registrations' ),
 		'asked for Sync'                   => $two_tabs( 'sync' ),
 		'asked for a tab it does not have' => $two_tabs( 'accounts' ),
 	) );
@@ -2803,6 +2830,7 @@ ck( 'the bar is the Settings screen\'s, tag for tag: the same named region holdi
 
 $GLOBALS['l10n'] = array(
 	'Accounts'       => 'Cuentas',
+	'Registrations'  => 'Registros',
 	'Sync'           => 'Sincronización',
 	'Secondary menu' => 'Menú secundario',
 );
@@ -2818,7 +2846,7 @@ ck( 'the labels are translated where the bar prints them, and so is the name the
 			return null === $bar ? null : array( $bar[0], array_column( $bar[1], 1 ) );
 		}
 	),
-	array( 'Menú secundario', array( 'Cuentas', 'Sincronización' ) ) );
+	array( 'Menú secundario', array( 'Cuentas', 'Registros', 'Sincronización' ) ) );
 
 $names = run(
 	function () {
@@ -2835,8 +2863,9 @@ ck( 'the tabs are the module\'s own list, Accounts first, and a form names its t
 	),
 	array(
 		array(
-			'accounts' => 'Accounts',
-			'sync'     => 'Sync',
+			'accounts'      => 'Accounts',
+			'registrations' => 'Registrations',
+			'sync'          => 'Sync',
 		),
 		'accounts',
 		'sync',
@@ -2847,10 +2876,11 @@ ck( 'the tabs are the module\'s own list, Accounts first, and a form names its t
 $read = array();
 foreach ( array(
 	'none'     => null,
-	'accounts' => 'accounts',
-	'sync'     => 'sync',
-	'unknown'  => 'nope',
-	'empty'    => '',
+	'accounts'      => 'accounts',
+	'registrations' => 'registrations',
+	'sync'          => 'sync',
+	'unknown'       => 'nope',
+	'empty'         => '',
 ) as $case => $value ) {
 	request( null === $value ? array( 'page' => 'wpcpm-students' ) : array( 'page' => 'wpcpm-students', 'tab' => $value ) );
 	$read[ $case ] = got(
@@ -2868,11 +2898,12 @@ foreach ( array(
 ck( 'the tab shown is the one the address names, and Accounts when it names none or one the screen does not have',
 	$read,
 	array(
-		'none'     => 'accounts',
-		'accounts' => 'accounts',
-		'sync'     => 'sync',
-		'unknown'  => 'accounts',
-		'empty'    => 'accounts',
+		'none'          => 'accounts',
+		'accounts'      => 'accounts',
+		'registrations' => 'registrations',
+		'sync'          => 'sync',
+		'unknown'       => 'accounts',
+		'empty'         => 'accounts',
 	) );
 
 echo "\n=== Each tab holds its own cards ===\n";
@@ -2919,6 +2950,29 @@ ck( 'the Sync tab the reverse: the warning, the last sync error, the Airtable sy
 		'report'      => true,
 	) );
 ck( 'and on the Sync tab no account is read, on its load hook or as it draws', $sync_reads, array() );
+
+manager( 203 );
+WPCPM_Settings::$connected = false;
+update_option( WPCPM_Students_Sync::OPT_ERROR, 'Airtable answered 401.' );
+WPCPM_Flash::set( 'students_admin', 'sreg-deleted' );
+$registrations_page        = html_of( page_for( screen( array( 'tab' => 'registrations' ) ) ) );
+$registrations_reads       = $GLOBALS['queries'];
+WPCPM_Settings::$connected = true;
+
+ck( 'the Registrations tab holds the Student registrations card, with its sentence and its views, and the notice of the press made on it; none of the Accounts tab\'s cards, the sync\'s, nor the warning about Airtable',
+	array(
+		has( $registrations_page, '<h2>Student registrations <span class="wpcpm-count">0</span></h2>' ),
+		has( $registrations_page, 'Students who registered through the form on the site, newest first.' ),
+		has( $registrations_page, 'Waiting to be written <span class="count">(0)</span>' ),
+		has( $registrations_page, '<div class="notice notice-success is-dismissible"><p>The registration is deleted for good.</p></div>' ),
+		has( $registrations_page, '<div class="wpcpm-card wpcpm-invites">' ),
+		has( $registrations_page, '<h2>Student accounts <span class="wpcpm-count">' ),
+		has( $registrations_page, '<h2>Airtable sync</h2>' ),
+		has( $registrations_page, 'Airtable is not connected yet' ),
+		has( $registrations_page, 'Last sync error' ),
+		$registrations_reads,
+	),
+	array( true, true, true, true, false, false, false, false, false, array() ) );
 
 // Each tab's parts in the order a manager reads them: what the last press did, then why no more
 // accounts arrive while Airtable is not connected, then the tab's own cards.

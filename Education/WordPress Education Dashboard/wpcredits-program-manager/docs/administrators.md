@@ -180,7 +180,7 @@ warning that says why, in the tool's own words.
 
 | Screen | What it does |
 | --- | --- |
-| **Students** | Two tabs: **Accounts**, the invitations and every Student account in one list, and **Sync**, the students sync and its last report. |
+| **Students** | Three tabs: **Accounts**, the invitations and every Student account in one list, **Registrations**, the students who registered through the form on the site, and **Sync**, the students sync and its last report. |
 | **Mentors** | Four tabs: **Waiting for review**, the applications to mentor that came through the form on the site, read and decided here, with the applicants made mentors under **Activated**, the tab the screen opens on while any wait; **Accounts**, the invitations and every Mentor account in one list; **Engagement**, how each mentor uses the site; and **Sync**, the mentors sync, a warning while mentors made from applications wait for their Airtable row, and its last report. |
 | **Institutions** | Six tabs: **Waiting for review**, the applications, signed agreements and requests from institutions waiting, read here and decided on the Administrator Dashboard; **Pipeline**, every institution record by stage and the consent report; **Accounts**, the invitations, every institution account in one list, the Confirmed institutions with no account yet, and each institution's members; **Semester reports**, every semester report and the semesters due for drafting; **Agreements**, the agreements to record as on file, the agreements in force with the form to revoke each, the ones Airtable disagrees with, and the plugin's copy of the Collaboration Agreement; and **Sync and storage**, the institutions sync, the reconciliation of Students with Students Reports, and the check of how the host serves the private files. |
 | **Sponsors** | Eight tabs: **Waiting for review**, the sponsor applications, sponsor posts, sponsor offers and the changes to them, sponsor events while they are on, and signed agreements waiting, read here and decided on the Administrator Dashboard; **Sponsors**, the box that finishes the move of the sponsor records onto the site while it is incomplete, then every sponsor with its status, tier, product, program contact, accounts and logo, **Edit** and **Manage accounts** on each row, and the form that adds a sponsor; **Accounts**, the invitations, every sponsor account in one list, the Approved sponsors with no account yet, where their accounts are created, and each sponsor's accounts; **Offers and codes**, every offer with its codes and claims; **Interests**, what sponsors said they would like to support; **Reports**, each sponsor's report and the editor it is written in; **Agreements**, the standing state of every Approved sponsor's agreement; and **Handbook listing**, the sponsors' listing for the handbook, in the bar only while the sponsor tiers are announced. |
@@ -193,6 +193,8 @@ Since 1.93.0 the Sponsors screen is no longer a placeholder: it holds every spon
 Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for an Administrator, and since 1.123.0, while **Sponsor tiers** is on, the events waiting too, and since 1.123.18 the sponsor offers and the changes to them waiting for review. Since 1.122.0 that queue is read on the screen's **Waiting for review** tab and decided on the Administrator Dashboard, as the institution queue is.
 
 Since 1.118.0 the Students screen is two tabs, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Students** opens on, holds the **Invitations** card and the **Student accounts** list. **Sync** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync students now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
+
+Since 1.123.54 the Students screen has a third tab between them, **Registrations**, and the paragraph above holds for the other two. It lists the students who registered through the form on the site (the form's page, `/student-registration/`, is in *Pages the plugin owns*), newest first, 50 at most with a line saying how many there are when there are more, in four views each with its count: **All**, which holds every registration but spam, **Waiting to be written**, which holds those held for an Administrator too, **Could not be written** and **Spam**. Each registration shows the date, the name, the address, the institution and what became of it, one of six outcomes: **Written to Airtable**, with a link to the Students row; **Already has an account**, with a link to the account; **Already registered**, with a link to the row Airtable found, or to the earlier registration on the page when Airtable named none; **Waiting to be written**, which says why it waits: past the day's limit of 40 registrations, when the hourly job writes it; held for an Administrator, when more than 200 registrations arrived that day, which the hourly job leaves alone until **Write it now** is pressed on it; or that Airtable could not take it yet and that it is tried again every hour, with the number of tries, the last try and the reason; **Could not be written**, which gives the reason, after 72 hours of trying, or when **Write it now** fails again; and **Spam**, which the form's checks filed. It also says what the row left out, such as a language Airtable does not hold, and when the student's email was not sent, because the day's limit on emails was reached or the mail host refused it. **Answers and consent**, folded under each, holds the answers by their questions and what the student agreed to, when, from which shortened address and in which browser. Three presses work on a registration: **Write it now**, on one that could not be written or one held for an Administrator, tries it once at once, taking the hold off first, so a held one it does not settle then waits for the hourly job like any other; **Put back**, on spam, queues it again and tries it once at once, as a new registration is tried; and **Delete for good**, on spam, asks first and removes it. Each comes back to the view it was pressed on and says what it did. The site writes one Students row for a registration and never changes or deletes it afterward, so a correction to a row is made in Airtable. No email goes to Administrators when a student registers, since a new student reaches them through Airtable, where the row appears.
 
 The **Student accounts** list works like WordPress's own **Users** screen: every Student account, a page at a time, so each one can be reached however many the site has. **Search students** finds an account by name, username, email address or institution, and by a record ID. The Students record ID of any of a student's tracks is the ID Claude gives for a student in place of a name, so this is where an Administrator puts the name to one; the Students Reports record the account follows finds the account too. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Student** heading turns it Z to A; a press on **Username** or **Institution** sorts the list by it, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Student** column cannot be hidden, because each row's actions sit under it. The institution picker above the table, each institution with its number of accounts, narrows the list to one institution, and the **Invitations** card follows it, so its button invites only the students at that institution who have never been invited, and comes back to that institution's list. A student who also mentors and whose invitation was held when an application made them a mentor is left out of the button, and the card says how many it left out: only that student's own row sends it (see *Becoming a mentor*). The status picker beside the institution picker, each status with its number of accounts, narrows the list to one status, alone or together with an institution, so **Filter** can show, for example, the students on one track at one school. The **Invitations** card follows the status as it follows the institution: with a status chosen, its button invites only the students with that status who have never been invited (at that institution too, when one is chosen), says the status in the button, and comes back to the list narrowed the same way. **Show all students**, which appears while a picker is set, clears both. Each picker counts within the other filter, so a number is how many students choosing that option would list: the status picker counts the students at the institution chosen, and the institution picker the students with the status chosen. An option already chosen stays in its picker, selected, even when it counts 0. The **Status** column shows each student's status in the words the status picker and the summary use for it: a track by its name, a few statuses in plain words such as Graduated, and any other as it is recorded; a student with no status shows a hyphen. The Institution Dashboard's student list calls the same value **Program**, which is the word schools read. Above the views, **Students by status** shows how many students hold each status, one chip each with its count, within the institution chosen; a press on a chip narrows the list to that status, keeping the institution and the view, and the chip in force is bold, outlined in blue. The status picker and the summary list the statuses in the program's own order: the current statuses as **Currently mentoring** lists them, then the past ones as **Past students** lists them (both under **Settings** > **Students and mentors**), then any other status from A to Z by the words shown. A student with no status is in the list under all statuses and is counted under none. The pickers, the summary, a search by institution and the **Institution** sort work on the whole list, never only on the page in view.
 
@@ -620,8 +622,8 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 
 ### The Students and mentors tab
 
-Five sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
-pages** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
+Six sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
+pages**, **Student registrations** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
 
 #### Who is on the program
 
@@ -705,6 +707,26 @@ when the page is missing, a sentence saying that re-activating the plugin recrea
   default: the same arrangement for students, with a "Student Report Card" link in the toolbar and
   the same exceptions: a requested destination wins, their own profile screen stays reachable, and
   anyone who can write posts is left alone.
+
+#### Student registrations
+
+The form students register through, since 1.123.54. Its address is under the switch.
+
+- **Registrations from students** - **Take student registrations through the form on this site**.
+  Off by default, since it is a public page anybody can post to and, switched on, it accepts writes
+  into the shared Airtable base from anybody on the internet. Each registration is written to the
+  Airtable Students table with an empty Status, as the Airtable form writes it, unless the address
+  belongs to an account on this site or is registered already: for such an address nothing is
+  written to Airtable. The Registrations tab of the Students screen lists every registration. While
+  this is off, the page shows one sentence saying registrations are closed, and an Administrator who
+  opens it a second saying why. As with the other forms, its consent box links to the WordPress.org
+  privacy policy, not to this site's own privacy page, and the row's fold says so.
+- **Institutions offered** - a checklist of the stages Airtable lists for an institution's Current
+  Stage, with **Confirmed** ticked by default and no other: an institution at a stage that is not
+  ticked is not offered on the form. The list may be empty. With none ticked, or no institution at a
+  ticked stage, the form says registrations are closed. A new partner appears after the next
+  institutions sync, every three hours. When Airtable cannot list the stages, the row is typed, one
+  stage a line, as the pipeline stages are.
 
 #### Mentor applications
 
@@ -1211,7 +1233,7 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 #### Templates
 
-The plugin's emails, grouped by area, each area in a table of its own. There are six:
+The plugin's emails, grouped by area, each area in a table of its own. There are eight:
 
 - **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
   is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
@@ -1263,6 +1285,12 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   notice of a new application to the Administrators. The four to the applicant ship with the words
   the program's Airtable automations sent, and carry the program's contact address as their
   Reply-To when **Contact address in emails** is set, so an answer reaches the program.
+- **Student registrations** (since 1.123.54): what a student is told once the registration they sent
+  on the site has an outcome. There are three: the registration was received and written to
+  Airtable, the address already has an account on the site (with the sign-in link and the password
+  reset link), and the address is already registered. Each goes to the address the student gave,
+  once, and carries the program's contact address as its Reply-To when **Contact address in
+  emails** is set, so an answer reaches the program.
 
 Where an email is two, as the mentor's confirmations with and without a meeting link and the others
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
@@ -1428,7 +1456,7 @@ account's email address as it is now; an account with no program role links to i
 a row with no account is plain text. Then the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
 area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
-events, Mentor applications, WordPress, Two Factor or Other); which email it was; its subject; and
+events, Mentor applications, Student registrations, WordPress, Two Factor or Other); which email it was; its subject; and
 its status. The status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the
@@ -2419,6 +2447,8 @@ still the old one and no other page, post or attachment holds the new one: the t
 the status and the modified date are not touched, and no save runs), and /program-manager-guide/ takes a visitor there. The release
 script writes the page by its ID, so a release does not care which address it has.
 
+The student registration form's page is at /student-registration/ since 1.123.54, with the same Welcome text the Airtable form opened with, the program's address and the form. Activation makes it, and so can a person, with the same address: a published page at that address is used as it is, and nothing on it is changed. The page is not gated, because the students who use it have no account yet, and it is not cached.
+
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
 The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
@@ -2432,7 +2462,7 @@ claims meta, the sponsor applications with the logo files nobody approved, the m
 with what deleted ones counted for the public feed of their figures, the sponsor reports and their
 locks, forgetting the PDF each report held, the sponsor events with the people on them and their
 locks, and the institution records that keep the five answers an application gave which Airtable has
-no column for.
+no column for, and the student registrations with their answers and consent evidence, their locks and the page's ID.
 **Accounts are never deleted**, and their program details are untouched.
 
 ### When something is wrong
@@ -2682,9 +2712,12 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_sponsors_migrated` | `WPCPM_Sponsors_Migration::OPT_REPORT` |
 | `wpcpm_sponsors_migrating` | `WPCPM_Sponsors_Migration::TRANSIENT_RUNNING` (the migration's once-a-minute guard) |
 | `wpcpm_sponsors_page_id` | `WPCPM_Sponsors_Page::OPT_PAGE` |
+| `wpcpm_sreg_lock_` | `WPCPM_Student_Registration::LOCK_PREFIX` (the per-address locks a registration's write takes, and the hourly job's own lock, `wpcpm_sreg_lock_run`) |
 | `wpcpm_sreport_lock_` | `WPCPM_Sponsor_Report::LOCK_PREFIX` (the per-sponsor locks a sponsor report's draft takes, so the daily run and an Administrator's draft cannot store two reports for one term) |
+| `wpcpm_student_languages` | `WPCPM_Student_Airtable_Row::LANGUAGES_OPTION` (the site's copy of the Airtable Languages table, record ID to name, read at most once a day, which the registration form's two language questions and the row written to Airtable use) |
 | `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
 | `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_student_registration_page_id` | `WPCPM_Student_Registration_Form::OPT_PAGE` |
 | `wpcpm_students_last_error` | `WPCPM_Students_Sync::OPT_ERROR` |
 | `wpcpm_students_last_sync` | `WPCPM_Students_Sync::OPT_LAST` |
 | `wpcpm_students_lock` | `WPCPM_Students_Sync::OPT_LOCK` |

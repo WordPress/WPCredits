@@ -36,7 +36,7 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 #### Templates
 
-The plugin's emails, grouped by area, each area in a table of its own. There are six:
+The plugin's emails, grouped by area, each area in a table of its own. There are eight:
 
 - **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
   is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
@@ -88,6 +88,12 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   notice of a new application to the Administrators. The four to the applicant ship with the words
   the program's Airtable automations sent, and carry the program's contact address as their
   Reply-To when **Contact address in emails** is set, so an answer reaches the program.
+- **Student registrations** (since 1.123.54): what a student is told once the registration they sent
+  on the site has an outcome. There are three: the registration was received and written to
+  Airtable, the address already has an account on the site (with the sign-in link and the password
+  reset link), and the address is already registered. Each goes to the address the student gave,
+  once, and carries the program's contact address as its Reply-To when **Contact address in
+  emails** is set, so an answer reaches the program.
 
 Where an email is two, as the mentor's confirmations with and without a meeting link and the others
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
@@ -253,7 +259,7 @@ account's email address as it is now; an account with no program role links to i
 a row with no account is plain text. Then the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
 area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
-events, Mentor applications, WordPress, Two Factor or Other); which email it was; its subject; and
+events, Mentor applications, Student registrations, WordPress, Two Factor or Other); which email it was; its subject; and
 its status. The status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the

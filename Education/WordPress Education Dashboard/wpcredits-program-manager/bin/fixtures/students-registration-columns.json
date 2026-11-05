@@ -1,0 +1,35 @@
+{
+	"_comment": "The Students columns a registration on the site writes (1.123.54). The types of Tutor email, Total hours, Languages, Prefered language, English and proactivity acceptance and Privacy Policy Compliance are the design's table's, read from the live base on 5 November 2026; the rest are the 7 September read's (students-table-fields.json). Tutor email is the tutor's address (Ruling 23). Two names are spelled so on purpose and look like typos: 'Tutor ' ends in a space, and 'Prefered language' has one r. create_records() sends no typecast, so a name or a choice spelled any other way is a 422 for the whole record; bin/test-student-registration.php holds WPCPM_Mentors_Sync::fields() to these names and the field of study choices to the institutions' student form.",
+	"students_table": "tbla8GZg5x6NY7aWt",
+	"read": "2026-11-05",
+	"columns": {
+		"Full Name": "singleLineText",
+		"Email": "email",
+		"Educational Institutions": "multipleRecordLinks",
+		"Your field of study": "singleSelect",
+		"Tutor ": "singleLineText",
+		"Tutor email": "email",
+		"Start Date": "date",
+		"End Date": "date",
+		"Total hours": "number",
+		"Languages": "multipleRecordLinks",
+		"Prefered language": "multipleRecordLinks",
+		"Accessibility needs": "multilineText",
+		"English and proactivity acceptance": "checkbox",
+		"Privacy Policy Compliance": "checkbox",
+		"Status": "singleSelect"
+	},
+	"choices": {
+		"Your field of study": [
+			"Technology & Engineering",
+			"Design & Creative Media",
+			"Languages, Communication & Writing",
+			"Business, Marketing & Management",
+			"Education & Learning",
+			"Natural Sciences & Mathematics",
+			"Health & Medicine",
+			"Arts & Architecture",
+			"Humanities & Social Sciences"
+		]
+	}
+}

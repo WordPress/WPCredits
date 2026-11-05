@@ -76,6 +76,7 @@ function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
+function wp_lostpassword_url( $r = '' ) { return 'https://example.test/wp-login.php?action=lostpassword'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 // The site's public home page, which `{site_link}` names: every dashboard's address starts with it.
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
@@ -226,7 +227,7 @@ echo "=== The registry ===\n";
 $all = WPCPM_Mail_Templates::all();
 
 ck(
-	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events and the Mentor applications, in that order',
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications and the Student registrations, in that order',
 	array_keys( $all ),
 	array(
 		'invite-student',
@@ -329,6 +330,9 @@ ck(
 		'mentor-more-information',
 		'mentor-declined',
 		'mentor-application-notice',
+		'student-registration-received',
+		'student-registration-account',
+		'student-registration-already',
 	)
 );
 
@@ -571,6 +575,11 @@ $shape = array(
 	'mentor-more-information'       => array( "\n", array(), array() ),
 	'mentor-declined'               => array( "\n", array(), array( 'applicant_name' ) ),
 	'mentor-application-notice'     => array( "\n", array(), array( 'applicant_name', 'profile_link' ) ),
+	// The Student registrations (1.123.54): the student's name in the body alone, and the sign-in and
+	// password reset links each needed in the account email, whose point they are.
+	'student-registration-received' => array( "\n", array(), array( 'student_name' ) ),
+	'student-registration-account'  => array( "\n", array( 'login_link', 'lost_password_link' ), array() ),
+	'student-registration-already'  => array( "\n", array(), array() ),
 );
 $want_whole = array();
 foreach ( $shape as $id => $want ) {

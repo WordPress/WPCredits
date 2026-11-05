@@ -189,39 +189,39 @@ class WPCPM_Mentors_Sync {
 			'wpcpm_mentors_fields',
 			array(
 				// Mentors table.
-				'mentor_name'          => 'Full Name',
-				'mentor_profile'       => 'WordPress profile',
-				'mentor_email'         => 'Email',
-				'mentor_status'        => 'Status',
+				'mentor_name'                => 'Full Name',
+				'mentor_profile'             => 'WordPress profile',
+				'mentor_email'               => 'Email',
+				'mentor_status'              => 'Status',
 				// The sponsorship columns, for the Sponsor Dashboard (spec section 5.6) and the
 				// future mentor scoreboard (section 13). Every name is asserted against
 				// bin/fixtures/mentors-table-fields.json by bin/test-students-sync.php.
-				'mentor_sponsored'     => 'Sponsored',
+				'mentor_sponsored'           => 'Sponsored',
 				// The company's text column, written from an application's answer since 1.123.52; the
 				// linked "Sponsor Company Name" column is not, since the sponsors live on the site.
-				'mentor_sponsor_text'  => 'Sponsor company',
-				'mentor_wants_sponsor' => 'Wants to be in the looking for sponsors list',
-				'mentor_expertise'     => 'Contribution Area - Expertise',
+				'mentor_sponsor_text'        => 'Sponsor company',
+				'mentor_wants_sponsor'       => 'Wants to be in the looking for sponsors list',
+				'mentor_expertise'           => 'Contribution Area - Expertise',
 				// The columns an application's answers are written to when it becomes a mentor's row
 				// (`WPCPM_Mentor_Airtable_Row`, 1.122.33), asserted against the same fixture. The last
 				// one is spelled with a right single quotation mark, as the table spells it.
-				'mentor_country'       => 'Country',
-				'mentor_languages'     => 'Languages',
-				'mentor_hours'         => 'Available hours per week',
-				'mentor_teacher'       => 'Teacher from a participating institution?',
-				'mentor_anything'      => 'Anything else you’d like us to know?',
+				'mentor_country'             => 'Country',
+				'mentor_languages'           => 'Languages',
+				'mentor_hours'               => 'Available hours per week',
+				'mentor_teacher'             => 'Teacher from a participating institution?',
+				'mentor_anything'            => 'Anything else you’d like us to know?',
 				// Students Reports table.
-				'report_name'          => 'Name',
-				'report_email'         => 'Email',
-				'report_status'        => 'Status',
-				'report_mentor'        => 'Mentor',
-				'report_instituton'    => 'Educational institution',
-				'report_profile'       => 'WordPress Profile',
-				'report_slack'         => 'Slack Name',
-				'report_team'          => 'Main Contribution Team',
-				'report_website'       => 'Personal Website URL',
-				'report_start'         => 'Internship Start Date',
-				'report_end'           => 'Internship End Date',
+				'report_name'                => 'Name',
+				'report_email'               => 'Email',
+				'report_status'              => 'Status',
+				'report_mentor'              => 'Mentor',
+				'report_instituton'          => 'Educational institution',
+				'report_profile'             => 'WordPress Profile',
+				'report_slack'               => 'Slack Name',
+				'report_team'                => 'Main Contribution Team',
+				'report_website'             => 'Personal Website URL',
+				'report_start'               => 'Internship Start Date',
+				'report_end'                 => 'Internship End Date',
 				// The hours a student has logged, against the target their status carries in
 				// `WPCPM_Program::hours_target()`. A number in the base, kept as the string
 				// every other cell on this row is, and formatted where it is printed: the
@@ -235,32 +235,41 @@ class WPCPM_Mentors_Sync {
 				// drawn from it needs clamping and a percentage needs no upper faith. An unset
 				// cell is absent rather than 0, which is a student nobody has logged for yet
 				// and not a student who has done nothing.
-				'report_hours'         => 'Hours',
-				'report_link'          => 'Personal link',
-				'report_link_50h'      => '50h personal link',
-				'report_link_dev'      => 'Dev Track ONLY personal link',
+				'report_hours'               => 'Hours',
+				'report_link'                => 'Personal link',
+				'report_link_50h'            => '50h personal link',
+				'report_link_dev'            => 'Dev Track ONLY personal link',
 				// Students table, for the tutor join.
-				'student_email'        => 'Email',
-				'student_tutor'        => 'Tutor ',
-				'student_tutors'       => 'Tutors official',
+				'student_email'              => 'Email',
+				'student_tutor'              => 'Tutor ',
+				'student_tutors'             => 'Tutors official',
 				// Both live only in the Students table, not in Students Reports, which is
 				// why they arrive through the same email-keyed join the tutor does.
-				'student_study'        => 'Your field of study',
-				'student_access'       => 'Accessibility needs',
+				'student_study'              => 'Your field of study',
+				'student_access'             => 'Accessibility needs',
 				// The rest of the Students table the students sync's Students-table pass
 				// reads for the per-institution roster index (design spec section 8.1).
 				// `Educational Institutions` is plural with a capital I, and `Start Date`
 				// is this table's own column, not the reports table's `Internship Start
 				// Date`; every name here is asserted against
 				// bin/fixtures/students-table-fields.json by bin/test-students-sync.php.
-				'student_record_name'  => 'Full Name',
-				'student_status'       => 'Status',
-				'student_institution'  => 'Educational Institutions',
-				'student_start'        => 'Start Date',
-				'student_end'          => 'End Date',
-				'student_mentor'       => 'Mentor',
-				'student_profile'      => 'WP Profile',
-				'student_import_key'   => 'Site import key',
+				'student_record_name'        => 'Full Name',
+				'student_status'             => 'Status',
+				'student_institution'        => 'Educational Institutions',
+				'student_start'              => 'Start Date',
+				'student_end'                => 'End Date',
+				'student_mentor'             => 'Mentor',
+				'student_profile'            => 'WP Profile',
+				'student_import_key'         => 'Site import key',
+				// The columns a registration on the site writes (1.123.54), read from the live base
+				// on 5 November 2026 and held to bin/fixtures/students-registration-columns.json by
+				// bin/test-student-registration.php. 'Prefered language' is spelled so in the table.
+				'student_tutor_email'        => 'Tutor email',
+				'student_hours'              => 'Total hours',
+				'student_languages'          => 'Languages',
+				'student_preferred_language' => 'Prefered language',
+				'student_english'            => 'English and proactivity acceptance',
+				'student_privacy'            => 'Privacy Policy Compliance',
 			)
 		);
 	}

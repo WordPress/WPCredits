@@ -1667,7 +1667,7 @@ final class WPCPM_Institution_Import {
 	 * @param string $raw The cell.
 	 * @return string
 	 */
-	private static function text( $raw ) {
+	public static function text( $raw ) {
 		$value = sanitize_text_field( (string) $raw );
 		$value = preg_replace( '/\s+/u', ' ', $value );
 
@@ -1702,7 +1702,7 @@ final class WPCPM_Institution_Import {
 	 * @param string $value Cleaned text.
 	 * @return bool
 	 */
-	private static function is_formula( $value ) {
+	public static function is_formula( $value ) {
 		return '' !== $value && false !== strpos( '=+-@', substr( $value, 0, 1 ) );
 	}
 
@@ -1717,7 +1717,7 @@ final class WPCPM_Institution_Import {
 	 * @param string $value The cell, as the file had it.
 	 * @return bool
 	 */
-	private static function has_control( $value ) {
+	public static function has_control( $value ) {
 		return (bool) preg_match( '/[\t\r\n|]/', (string) $value );
 	}
 

@@ -1263,6 +1263,7 @@ class WPCPM_Settings_Screen {
 
 		$this->close_section();
 
+		$this->render_student_registration_settings( $settings );
 		$this->render_mentor_application_settings( $settings );
 	}
 
@@ -1278,6 +1279,55 @@ class WPCPM_Settings_Screen {
 	 */
 	private static function policy_note() {
 		return __( 'The form\'s consent box links to the WordPress.org privacy policy, not to this site\'s own privacy page.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The Students and mentors tab's student registration section (1.123.54): whether students can
+	 * register through the form on this site, and the institutions the form offers.
+	 *
+	 * Drawn as the mentor application form's switch is: off by default, the page's address under it
+	 * (read only once the form exists), and the privacy policy the consent box links named in the
+	 * row's fold (`policy_note()`). The institutions are chosen by their Current Stage, from the
+	 * stages Airtable lists, as the pipeline stages are, with the same typed fallback.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_student_registration_settings( array $settings ) {
+		$this->open_section(
+			__( 'Student registrations', 'wpcredits-program-manager' ),
+			__( 'Whether students can register through the form on this site, and which institutions the form offers.', 'wpcredits-program-manager' ),
+			'student-registrations'
+		);
+
+		$register_url  = class_exists( 'WPCPM_Student_Registration_Form' ) ? (string) WPCPM_Student_Registration_Form::page_url() : '';
+		$registrations = __( 'Registrations from students', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="student_registrations_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $registrations ),
+			checked( ! empty( $settings['student_registrations_enabled'] ), true, false ),
+			esc_html__( 'Take student registrations through the form on this site', 'wpcredits-program-manager' ),
+			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::page_line( $register_url );
+		WPCPM_Settings_Rows::close_row( $registrations, array( __( 'Each registration is written to the Airtable Students table with an empty Status, as the Airtable form writes it, unless the address belongs to an account on this site or is registered already; the Registrations tab of the Students screen lists every one. While this is off the page shows one sentence saying registrations are closed, and an Administrator a second saying why.', 'wpcredits-program-manager' ), self::policy_note() ) );
+
+		$stages = WPCPM_Settings_Choices::institution_stages( $settings );
+		$why    = WPCPM_Settings_Choices::why_empty( 'institution_stages', $settings );
+
+		WPCPM_Settings_Rows::checklist_row(
+			'student_registration_stages',
+			__( 'Institutions offered', 'wpcredits-program-manager' ),
+			WPCPM_Settings::clean_list( isset( $settings['student_registration_stages'] ) ? (array) $settings['student_registration_stages'] : array() ),
+			$stages,
+			__( 'The Current Stage of the institutions the form lists; an institution at another stage is not offered.', 'wpcredits-program-manager' ),
+			array(),
+			WPCPM_Settings_Rows::typed( 'stages', $why ),
+			array(),
+			__( 'With none ticked, or no institution at a ticked stage, the form says registrations are closed. A new partner appears after the next institutions sync, every three hours.', 'wpcredits-program-manager' )
+		);
+
+		$this->close_section();
 	}
 
 	/**

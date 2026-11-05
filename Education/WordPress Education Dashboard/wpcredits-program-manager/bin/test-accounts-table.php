@@ -2482,6 +2482,7 @@ echo "\n=== The screen plumbing the audiences share: one trait, which neither mo
 // does a method moved back out of the trait. Two of them are defaults a module replaces where its
 // audience differs, by design: where its list stands (`list_state()`), which the Students module
 // keeps for its institution filter, and how one account is sent its invitation (`invite_one()`).
+// The Students module also replaces the tab bar's labels and the page, for its Registrations tab (1.123.54).
 // Four more are replaced by the Mentors module alone, for its Engagement and Waiting for review tabs:
 // the screen's load hook (`load_screen()`, whose trait copy it keeps for the Accounts tab under another
 // name), the tab the screen opens on (`tab()`, the queue while applications wait there, 1.122.31), the
@@ -2503,7 +2504,7 @@ $uses_screen    = function ( $code ) {
 	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code );
 };
 
-ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and the Mentors module\'s load hook, choice of tab, tab labels and page, which add its Engagement and Waiting for review tabs',
+ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and its tab labels and page, which add its Registrations tab, and the Mentors module\'s load hook, choice of tab, tab labels and page, which add its Engagement and Waiting for review tabs',
 	array(
 		'trait'    => array_values( array_diff( array( 'list_state', 'hook_screen', 'load_screen', 'handle_list_form', 'apply_pressed', 'save_per_page', 'handle_invite', 'invite_one', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited' ), $screen_methods[1] ) ),
 		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ), $replaced( $students_code ) ),
@@ -2511,7 +2512,7 @@ ck( 'the screen plumbing the Students and Mentors modules held twice is one trai
 	),
 	array(
 		'trait'    => array(),
-		'students' => array( true, array(), array( 'list_state' ) ),
+		'students' => array( true, array(), array( 'list_state', 'tab_labels', 'render_admin_page' ) ),
 		'mentors'  => array( true, array(), array( 'load_screen', 'tab', 'tab_labels', 'render_admin_page' ) ),
 	) );
 

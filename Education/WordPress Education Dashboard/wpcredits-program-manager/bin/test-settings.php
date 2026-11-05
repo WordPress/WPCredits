@@ -540,6 +540,7 @@ $probe = array(
 	'mentor_notify'                 => 'probe-one@example.test,probe-two@example.test',
 	'mentor_course_link'            => 'https://learn.example.test/course/probe/?group=PROBE',
 	'mentor_lapse_days'             => '120',
+	'student_registration_stages'   => array( 'Confirmed', 'Student' ),
 	// The Emails tool's contact address (1.122.19).
 	'mail_contact'                  => 'programs@example.test',
 );
@@ -1130,6 +1131,61 @@ foreach ( array( 'http://learn.example.test/course/mentors/', 'javascript:alert(
 
 ck( 'and a course link typed with no scheme is given https and kept, as WordPress 6.9 and later gives it',
 	WPCPM_Settings::save( array( 'mentor_course_link' => 'learn.example.test/course' ) )['mentor_course_link'], 'https://learn.example.test/course' );
+
+echo "\n=== Student registrations settings (1.123.54) ===\n";
+
+// On means accepting writes into the shared base from anybody on the internet, so the switch is off
+// until a person turns it on, and the form offers the institutions that are Confirmed alone.
+$registration_before_umeta = $GLOBALS['umeta'];
+$registration_before_opts  = $GLOBALS['opts'];
+store_settings( WPCPM_Settings::defaults() );
+$defaults = WPCPM_Settings::defaults();
+ck( 'student registrations are off until a person switches them on, and the form offers the Confirmed institutions alone',
+	array( $defaults['student_registrations_enabled'], $defaults['student_registration_stages'] ),
+	array( false, array( 'Confirmed' ) ) );
+
+$registration_scopes = array();
+
+foreach ( array_keys( WPCPM_Settings::scopes() ) as $scope_name ) {
+	foreach ( array( 'student_registrations_enabled', 'student_registration_stages' ) as $registration_key ) {
+		if ( in_array( $registration_key, WPCPM_Settings::scope_keys( $scope_name ), true ) ) {
+			$registration_scopes[ $registration_key ][] = $scope_name;
+		}
+	}
+}
+
+ck( 'both are in the Students and mentors tab\'s scope and in no other', $registration_scopes,
+	array( 'student_registrations_enabled' => array( 'people' ), 'student_registration_stages' => array( 'people' ) ) );
+ck( 'and they follow the mentor lapse days there',
+	array_slice( WPCPM_Settings::scope_keys( 'people' ), -3 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages' ) );
+
+$ticked   = WPCPM_Settings::save( array( 'student_registrations_enabled' => '1' ), 'people' )['student_registrations_enabled'];
+$unticked = WPCPM_Settings::save( array(), 'people' )['student_registrations_enabled'];
+ck( 'a save of the tab with the box ticked stores true, and without it false', array( $ticked, $unticked ), array( true, false ) );
+
+store_settings( array_merge( $defaults, array( 'student_registrations_enabled' => true ) ) );
+ck( 'while a patch that does not name it, or a save of another tab, leaves it on',
+	array( WPCPM_Settings::patch( array( 'mentor_lapse_days' => '40' ) )['student_registrations_enabled'], WPCPM_Settings::save( array(), 'sponsors' )['student_registrations_enabled'] ),
+	array( true, true ) );
+ck( 'and a patch can switch it off and on again',
+	array( WPCPM_Settings::patch( array( 'student_registrations_enabled' => false ) )['student_registrations_enabled'], WPCPM_Settings::patch( array( 'student_registrations_enabled' => '1' ) )['student_registrations_enabled'] ),
+	array( false, true ) );
+
+store_settings( $defaults );
+ck( 'the institutions offered are the boxes ticked, the empty value that makes unticking every box a post dropped',
+	WPCPM_Settings::save( array( 'student_registration_stages' => array( '', 'Confirmed', 'Student' ) ), 'people' )['student_registration_stages'],
+	array( 'Confirmed', 'Student' ) );
+ck( 'and none ticked, the empty value alone, saves an empty list',
+	WPCPM_Settings::save( array( 'student_registration_stages' => array( '' ) ), 'people' )['student_registration_stages'],
+	array() );
+ck( 'an empty list is not put back (Ruling 21): the default is not restored and no notice is queued',
+	array( WPCPM_Settings::get()['student_registration_stages'], $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-defaults'] ?? null, array_key_exists( 'student_registration_stages', WPCPM_Settings::never_blank() ) ),
+	array( array(), null, false ) );
+ck( 'and a save of another tab leaves the list as it was',
+	WPCPM_Settings::save( array(), 'sponsors' )['student_registration_stages'], array() );
+
+$GLOBALS['umeta'] = $registration_before_umeta;
+$GLOBALS['opts']  = $registration_before_opts;
 
 echo "\n=== Make mentors from applications (1.122.33) ===\n";
 
@@ -1724,7 +1780,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // row gives them.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
@@ -2740,6 +2796,7 @@ $design_sections = array(
 		'When someone leaves'   => 'when-someone-leaves',
 		'Accounts'              => 'accounts',
 		'Landing pages'         => 'landing-pages',
+		'Student registrations' => 'student-registrations',
 		'Mentor applications'   => 'mentor-applications',
 	),
 	'institutions' => array(
@@ -2837,8 +2894,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 26 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 26, 0, 26 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 27 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 27, 0, 27 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -3147,7 +3204,7 @@ ck( 'the model is typed while the provider lists no models, the field holding th
     array( false !== strpos( $model_row, '<input type="text" id="wpcpm-handbook_model" name="handbook_model" value="gemini-2.5-flash" class="regular-text" autocomplete="off" />' ), preg_match( '#<select\b[^>]*name="handbook_model"#', $model_row ) ),
     array( true, 0 ) );
 ck( 'the two status lists and the pipeline stages are checkbox lists',
-    $drawn_by['checklist_row'], array( 'institution_active_stages', 'past_statuses', 'student_statuses' ) );
+    $drawn_by['checklist_row'], array( 'institution_active_stages', 'past_statuses', 'student_registration_stages', 'student_statuses' ) );
 ck( 'the four reviewer lists are the program managers to tick, with a line for other addresses',
     $drawn_by['reviewers_row'], array( 'agreement_notify', 'mentor_notify', 'report_notify', 'sponsor_notify' ) );
 // The reviewer lists are drawn by the two helpers every other field is, not by markup of their own:
@@ -3598,6 +3655,70 @@ ck( 'the Mentor applications section draws Make mentors from applications after 
         true,
     ) );
 
+// The Student registrations section (1.123.54), drawn with the institutions' stages as Airtable would
+// list them: the lists are read through a private cache, so the check fills it for the one draw.
+$choices_cache = new ReflectionProperty( 'WPCPM_Settings_Choices', 'read' );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	$choices_cache->setAccessible( true );
+}
+
+$choices_before = $choices_cache->getValue();
+$choices_cache->setValue( null, array_merge( (array) $choices_before, array( 'options|' . $defaults['institutions_table'] . '|Current Stage' => array( 'Confirmed' => 'Confirmed', 'Student' => 'Student', 'Under Review' => 'Under Review' ) ) ) );
+store_settings( $defaults );
+$registration_tab = draw_settings( 'people' );
+$choices_cache->setValue( null, $choices_before );
+
+preg_match( '#<tr><th scope="row">Registrations from students</th>.*?</tr>#s', $registration_tab, $registration_row );
+preg_match( '#<tr><th scope="row">Institutions offered</th>.*?</tr>#s', $registration_tab, $offered_row );
+
+ck( 'the Student registrations section is drawn after Landing pages and before Mentor applications, with its intro',
+	array(
+		strpos( $registration_tab, '<h2>Landing pages</h2>' ) < strpos( $registration_tab, '<h2>Student registrations</h2>' ) && strpos( $registration_tab, '<h2>Student registrations</h2>' ) < strpos( $registration_tab, '<h2>Mentor applications</h2>' ),
+		false !== strpos( $registration_tab, '<h2>Student registrations</h2>' ),
+		false !== strpos( $registration_tab, 'Whether students can register through the form on this site, and which institutions the form offers.' ),
+	),
+	array( true, true, true ) );
+ck( 'Registrations from students is a box, off by default, with the sentence about the page, and the missing-page line while the form does not exist',
+	array(
+		isset( $registration_row[0] ) && false !== strpos( $registration_row[0], '<input type="checkbox" name="student_registrations_enabled" value="1"> Take student registrations through the form on this site</label>' ),
+		help_of( $registration_tab, 'Registrations from students' )[0] ?? null,
+		isset( $registration_row[0] ) && false !== strpos( $registration_row[0], '<p class="description wpcpm-warning">The page is missing: re-activate the plugin to recreate it.</p>' ),
+	),
+	array( true, array( 'A public page anybody can post to.' ), true ) );
+ck( 'its fold says what a registration writes and where the Administrators see it, then the privacy policy the consent box links',
+	help_of( $registration_tab, 'Registrations from students' )[1] ?? null,
+	array(
+		'Each registration is written to the Airtable Students table with an empty Status, as the Airtable form writes it, unless the address belongs to an account on this site or is registered already; the Registrations tab of the Students screen lists every one. While this is off the page shows one sentence saying registrations are closed, and an Administrator a second saying why.',
+		'The form\'s consent box links to the WordPress.org privacy policy, not to this site\'s own privacy page.',
+	) );
+ck( 'Institutions offered is a checklist of the institutions\' stages Airtable lists, Confirmed ticked and the others not, with the empty value that lets every box be unticked',
+	array(
+		isset( $offered_row[0] ) && false !== strpos( $offered_row[0], '<input type="hidden" name="student_registration_stages[]" value="" />' ),
+		isset( $offered_row[0] ) && false !== strpos( $offered_row[0], '<input type="checkbox" name="student_registration_stages[]" value="Confirmed" checked=\'checked\' /> Confirmed' ),
+		isset( $offered_row[0] ) && false !== strpos( $offered_row[0], '<input type="checkbox" name="student_registration_stages[]" value="Student" /> Student' ),
+		isset( $offered_row[0] ) && false !== strpos( $offered_row[0], '<input type="checkbox" name="student_registration_stages[]" value="Under Review" /> Under Review' ),
+	),
+	array( true, true, true, true ) );
+ck( 'its help says which stage is read and its fold what an empty list does and when a new partner appears',
+	help_of( $registration_tab, 'Institutions offered' ),
+	array(
+		array( 'The Current Stage of the institutions the form lists; an institution at another stage is not offered.' ),
+		array( 'With none ticked, or no institution at a ticked stage, the form says registrations are closed. A new partner appears after the next institutions sync, every three hours.' ),
+	) );
+
+store_settings( array_merge( $defaults, array( 'student_registrations_enabled' => true, 'student_registration_stages' => array( 'Student' ) ) ) );
+$typed_tab = draw_settings( 'people' );
+store_settings( $defaults );
+preg_match( '#<tr><th scope="row">(?:<label[^>]*>)?Institutions offered(?:</label>)?</th>.*?</tr>#s', $typed_tab, $typed_row );
+ck( 'with no list to draw, Institutions offered is the typed textarea of the pipeline stages row, one stage a line, holding the stage saved',
+	array(
+		isset( $typed_row[0] ) && 1 === preg_match( '#<textarea[^>]*name="student_registration_stages"[^>]*>Student</textarea>#', $typed_row[0] ),
+		isset( $typed_row[0] ) && false !== strpos( $typed_row[0], 'Type one stage per line.' ),
+		false !== strpos( $typed_tab, 'name="student_registrations_enabled" value="1" checked=\'checked\'' ),
+	),
+	array( true, true, true ) );
+
 preg_match( '#<tr><th scope="row">Token scopes</th>.*?</tr>#s', $states['connection'], $scopes_row );
 preg_match( '#<tr><th scope="row">Automatic sync</th>.*?</tr>#s', $states['people'], $sync_row );
 
@@ -3813,13 +3934,13 @@ ck( 'and with its page missing, each says so in the same words',
     ) );
 
 // The same words because the same code: the four landing pages are drawn by one row, and each row that
-// prints a page, the four and the three application forms, prints its address, or the sentence saying
+// prints a page, the four and the four application forms (the students' since 1.123.54), prints its address, or the sentence saying
 // it is missing, through one line of the rows class.
 preg_match_all( "/WPCPM_Settings_Rows::landing_row\(\s*'([a-z_]+)'/", $screen_source, $landing_drawn );
 
 ck( 'the four landing pages are drawn by the one landing row, and the sentence saying a page is missing is written once, in the rows\' page line',
     array( $landing_drawn[1], substr_count( $screen_source . $rows_file_source, 'The page is missing: re-activate the plugin to recreate it.' ), substr_count( $screen_source, 'WPCPM_Settings_Rows::page_line( ' ) ),
-    array( array( 'mentor_home', 'student_home', 'institution_home', 'sponsor_home' ), 1, 3 ) );
+    array( array( 'mentor_home', 'student_home', 'institution_home', 'sponsor_home' ), 1, 4 ) );
 
 // The student's page is the Student Report Card, as the toolbar names it for the student; the name
 // it had before, My Program, is one the page no longer carries.

@@ -208,6 +208,21 @@ function modules_in( $words ) {
 }
 
 /**
+ * The three sentences of the student registration emails (1.123.54) that say "a program manager": the
+ * design of 5 November 2026 fixes those words, so they are the one place the old name stays, and
+ * only in these sentences, as the design wrote them.
+ *
+ * @return string[]
+ */
+function design_sentences() {
+	return array(
+		'A program manager will be in touch by email with the next steps, including your mentor and your course.',
+		'If you would like to join another course, reply to this email and a program manager will help.',
+		'We already have your registration, so there is nothing more to fill in. A program manager will be in touch by email with the next steps.',
+	);
+}
+
+/**
  * Every "program manager" or "program managers" some words hold, whatever their case. The people who
  * run the program are the Administrators in every sentence, screen and email a person reads; the
  * plugin's own name, WPCredits Program Manager, is a product name and stays.
@@ -216,7 +231,7 @@ function modules_in( $words ) {
  * @return string[]
  */
 function program_managers_in( $words ) {
-	preg_match_all( '/\bprogram[\s\x{00A0}]+managers?\b/iu', str_ireplace( 'WPCredits Program Manager', '', (string) $words ), $found );
+	preg_match_all( '/\bprogram[\s\x{00A0}]+managers?\b/iu', str_ireplace( array_merge( array( 'WPCredits Program Manager' ), design_sentences() ), '', (string) $words ), $found );
 
 	return $found[0];
 }

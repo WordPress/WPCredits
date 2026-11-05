@@ -641,6 +641,7 @@ $surfaces = array(
 	// fragment, which the Mentor Report Card and the Institution's student page insert after they load, is
 	// read only and prints none (bin/test-report-images.php draws it).
 	'includes/modules/class-wpcpm-student-report-form.php'               => array( 'student-report-card' ),
+	'includes/modules/class-wpcpm-student-registrations-tab.php'         => array( 'admin' ),
 	'includes/tools/class-wpcpm-emails.php'                              => array( 'admin' ),
 	'includes/tools/class-wpcpm-track-builder-screen.php'                => array( 'admin' ),
 	'includes/tools/class-wpcpm-track-editor-screen.php'                 => array( 'admin' ),
