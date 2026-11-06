@@ -89,6 +89,8 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 define( 'ABSPATH', __DIR__ . '/' );
+// The index stamps each write with the account that made it (1.123.58); no account is signed in here.
+function get_current_user_id() { return isset( $GLOBALS['stamp_uid'] ) ? (int) $GLOBALS['stamp_uid'] : 0; }
 
 define( 'MINUTE_IN_SECONDS', 60 );
 
@@ -600,6 +602,12 @@ function ck( $label, $got, $want ) {
 	printf( "FAIL %s\n     got:  %s\n     want: %s\n", $label, var_export( $got, true ), var_export( $want, true ) );
 }
 
+/** A row without the stamp of its last write (1.123.58), whose time is the clock's: it is pinned on its own below. */
+function unstamped( $row ) {
+	unset( $row['modified'], $row['modified_by'] );
+	return $row;
+}
+
 /** Empty every store-shaped global between groups of checks that count rows. */
 function reset_store() {
 	$GLOBALS['posts']        = array();
@@ -727,14 +735,14 @@ ck( 'insert() over a known key replaces the row, keeps the post and keeps the sl
 );
 
 $rows                = WPCPM_Sponsors_Index::rows();
-$expected_weglot     = array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $KEY_WEGLOT, 'slug' => 'weglot', 'name' => 'Weglot SAS' ) );
-$expected_dreamhost  = array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $KEY_DREAMHOST, 'slug' => 'dream-host', 'name' => 'Dream Host' ) );
+$expected_weglot     = unstamped( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $KEY_WEGLOT, 'slug' => 'weglot', 'name' => 'Weglot SAS' ) ) );
+$expected_dreamhost  = unstamped( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $KEY_DREAMHOST, 'slug' => 'dream-host', 'name' => 'Dream Host' ) ) );
 
 ck( 'rows() is keyed by key in post ID order, every key present and typed',
 	array(
 		array_keys( $rows ),
-		$rows[ $KEY_WEGLOT ],
-		$rows[ $KEY_DREAMHOST ],
+		unstamped( $rows[ $KEY_WEGLOT ] ),
+		unstamped( $rows[ $KEY_DREAMHOST ] ),
 		is_bool( $rows[ $KEY_WEGLOT ]['consent'] ),
 		is_array( $rows[ $KEY_WEGLOT ]['mentors'] ),
 	),
@@ -1309,7 +1317,7 @@ ck( 'and its post is titled with the name exactly, when it is made, when it is w
 echo "\n=== the row shape ===\n";
 
 ck( 'the row has no offer mirror keys and no logo facts, and carries the six tier keys, the report stamp and the owed term, the seventh and the eighth, and the event allowance, the ninth',
-	array_keys( WPCPM_Sponsors_Index::empty_row() ),
+	array_keys( unstamped( WPCPM_Sponsors_Index::empty_row() ) ),
 	array(
 		'record_id',
 		'slug',
@@ -1343,6 +1351,28 @@ ck( 'the row has no offer mirror keys and no logo facts, and carries the six tie
 	)
 );
 ck( 'a row says whether it is a test sponsor, never listed publicly (1.123.18): false unless set, and read as a flag whatever was stored', array( WPCPM_Sponsors_Index::empty_row()['test'], WPCPM_Sponsors_Index::is_test( array( 'test' => '1' ) ), WPCPM_Sponsors_Index::is_test( array( 'test' => '' ) ), WPCPM_Sponsors_Index::is_test( array() ) ), array( false, true, false, false ) );
+
+// The stamp of the last write (1.123.58): the time and the account, written by insert() and by every
+// patch, kept when a caller names its own time, and empty on a row nothing has written since.
+ck( 'a row carries the time of its last write and the account that made it, both empty until written', array( WPCPM_Sponsors_Index::empty_row()['modified'], WPCPM_Sponsors_Index::empty_row()['modified_by'] ), array( '', '' ) );
+reset_store();
+$KEY_STAMP = 'recSEED0000001601';
+WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $KEY_STAMP, 'name' => 'Stamp Example' ) ) );
+$stamped_insert = WPCPM_Sponsors_Index::row( $KEY_STAMP );
+$GLOBALS['stamp_uid'] = 5;
+WPCPM_Sponsors_Index::patch( $KEY_STAMP, array( 'website' => 'https://stamp.example/' ) );
+$stamped_patch = WPCPM_Sponsors_Index::row( $KEY_STAMP );
+WPCPM_Sponsors_Index::patch( $KEY_STAMP, array( 'notes' => 'Named time.', 'modified' => '1767225600', 'modified_by' => '3' ) );
+$stamped_named = WPCPM_Sponsors_Index::row( $KEY_STAMP );
+$GLOBALS['stamp_uid'] = 0;
+ck( 'insert() stamps the time and no account when nobody is signed in, patch() stamps the account that made it, and a time a caller names is kept as it is', array(
+	ctype_digit( $stamped_insert['modified'] ) && (int) $stamped_insert['modified'] >= time() - 5,
+	$stamped_insert['modified_by'],
+	ctype_digit( $stamped_patch['modified'] ) && (int) $stamped_patch['modified'] >= time() - 5,
+	$stamped_patch['modified_by'],
+	$stamped_named['modified'],
+	$stamped_named['modified_by'],
+), array( true, '', true, '5', '1767225600', '3' ) );
 
 // A row as 1.111.0 stored it: nineteen keys, none of the six tier keys 1.112.0 added and not the
 // report stamp 1.115.0 added. Every sponsor on the live site was written that way, and until
@@ -1635,7 +1665,7 @@ ck( 'an old index of three rows becomes three private posts under the same keys,
 		array_keys( $rows_1 ),
 		array_column( $posts_1, 1 ),
 		$rows_1[ $KEY_MANGO ]['manager'],
-		$rows_1[ $KEY_MANGO ],
+		unstamped( $rows_1[ $KEY_MANGO ] ),
 		array( $report_1['complete'], $report_1['rows'], $report_1['posts'] ),
 		WPCPM_Sponsors_Migration::report() === $report_1,
 	),

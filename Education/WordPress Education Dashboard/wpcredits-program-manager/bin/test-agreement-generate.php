@@ -1150,7 +1150,7 @@ try {
 	$outcome = $e->getMessage();
 }
 
-ck( 'and a stranger never reaches the resolver', array( $outcome, $GLOBALS['decisions'] ), array( 'wp_die: Please log in to generate the Collaboration Agreement.', array() ) );
+ck( 'and a stranger never reaches the resolver', array( $outcome, $GLOBALS['decisions'] ), array( 'wp_die: Log in to generate the Collaboration Agreement.', array() ) );
 
 reset_world();
 seed_index( 'recMEMBEROWN00001' );

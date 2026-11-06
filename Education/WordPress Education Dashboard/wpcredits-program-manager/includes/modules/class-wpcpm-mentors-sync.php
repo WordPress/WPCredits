@@ -111,6 +111,13 @@ class WPCPM_Mentors_Sync {
 	const LOCK_TIMEOUT = 120;
 
 	/**
+	 * The token of the tick lock this request holds, or '' when it holds none (1.123.58).
+	 *
+	 * @var string
+	 */
+	private static $lock_token = '';
+
+	/**
 	 * The most mentors whose accounts already existed that one run sends the welcome to (1.123.42).
 	 *
 	 * A returning mentor, or a student or an institution member made a mentor, is queued the site's
@@ -360,9 +367,24 @@ class WPCPM_Mentors_Sync {
 
 	/**
 	 * The recurring entry point; respects the auto-sync setting.
+	 *
+	 * A run in progress is left alone unless it has stalled, as `WPCPM_Students_Sync::cron_auto()`
+	 * decides it (1.123.58): `start()` begins again from the top, so a run slower than the gap, or one
+	 * waiting out a refusal, would otherwise never finish. A run the count check stopped waits for an
+	 * Administrator, since a fresh run would read the same short base and stop again.
 	 */
 	public static function cron_daily() {
 		if ( ! WPCPM_Settings::get_value( 'auto_sync' ) ) {
+			return;
+		}
+
+		if ( self::is_stopped() ) {
+			return;
+		}
+
+		$progress = self::progress();
+
+		if ( ! empty( $progress['running'] ) && empty( $progress['stalled'] ) ) {
 			return;
 		}
 
@@ -379,11 +401,27 @@ class WPCPM_Mentors_Sync {
 	 * redirects straight to a screen that reports progress and drives the
 	 * remaining ticks itself.
 	 *
+	 * A run the count check stopped is replaced like any other: the fresh run reads the base again,
+	 * and stops again while it is still short (`WPCPM_Sync_Guard`).
+	 *
+	 * **One run at a time** (1.123.58): a run that is going and has not stalled is refused, and its
+	 * state and its tick lock are left as they were, so Sync now pressed during a run no longer
+	 * starts it again from the first page. A restart is the deliberate exception (`--restart`): it
+	 * starts from the beginning and lets go of the lock, so a tick still working the run it replaced
+	 * stops at its next page (`hold_lock()`).
+	 *
 	 * @param bool $run_first_tick Process one slice before returning. For WP-CLI,
 	 *                             which has no browser to drive the ticks.
-	 * @return true|WP_Error
+	 * @param bool $accept         Start the run with its counts accepted (`--accept`), so the count
+	 *                             check lets it take roles whatever it reads. This run's alone.
+	 * @param bool $restart        Start again from the beginning even while a run is going.
+	 * @return true|WP_Error `wpcpm_sync_running` while a run is going and not restarted.
 	 */
-	public static function start( $run_first_tick = false ) {
+	public static function start( $run_first_tick = false, $accept = false, $restart = false ) {
+		if ( ! $restart && self::is_going() ) {
+			return new WP_Error( 'wpcpm_sync_running', __( 'A sync is already running.', 'wpcredits-program-manager' ) );
+		}
+
 		if ( ! WPCPM_Settings::is_connected() ) {
 			$error = new WP_Error( 'wpcpm_not_connected', __( 'Add an Airtable Personal Access Token and Base ID before syncing.', 'wpcredits-program-manager' ) );
 			update_option( self::OPT_ERROR, $error->get_error_message(), false );
@@ -402,34 +440,38 @@ class WPCPM_Mentors_Sync {
 			return $error;
 		}
 
-		delete_option( self::OPT_LOCK );
+		if ( $restart ) {
+			delete_option( self::OPT_LOCK );
+		}
 
-		update_option(
-			self::OPT_STATE,
-			array(
-				'phase'       => 'schema',
-				'offset'      => null,
-				'started'     => time(),
-				'touched'     => time(),
-				'steps'       => array(),
-				'mentors'     => array(),
-				'sponsorship' => array(),
-				// The accounts that already existed and that this run made active mentors, whose welcome
-				// is queued when the pass over the Mentors table ends (`queue_relinked()`).
-				'relink_ids'  => array(),
-				'reports'     => array(),
-				// All three are email-keyed maps filled by the same pass over the Students
-				// table. They auto-vivify, so leaving two of them out worked - but the
-				// asymmetry is what made a missing "Field of study" read as a code difference
-				// between it and the tutor rather than as two caches of different ages.
-				'tutors'      => array(),
-				'study'       => array(),
-				'access'      => array(),
-				'stats'       => self::empty_stats(),
-				'notices'     => array(),
-			),
-			false
+		$state = array(
+			'phase'       => 'schema',
+			'offset'      => null,
+			'started'     => time(),
+			'touched'     => time(),
+			'steps'       => array(),
+			'mentors'     => array(),
+			'sponsorship' => array(),
+			// The accounts that already existed and that this run made active mentors, whose welcome
+			// is queued when the pass over the Mentors table ends (`queue_relinked()`).
+			'relink_ids'  => array(),
+			'reports'     => array(),
+			// All three are email-keyed maps filled by the same pass over the Students
+			// table. They auto-vivify, so leaving two of them out worked - but the
+			// asymmetry is what made a missing "Field of study" read as a code difference
+			// between it and the tutor rather than as two caches of different ages.
+			'tutors'      => array(),
+			'study'       => array(),
+			'access'      => array(),
+			'stats'       => self::empty_stats(),
+			'notices'     => array(),
 		);
+
+		if ( $accept ) {
+			$state['accepted'] = true;
+		}
+
+		update_option( self::OPT_STATE, $state, false );
 
 		delete_option( self::OPT_ERROR );
 
@@ -446,14 +488,96 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Whether a run is in progress.
+	 * Whether a run is in progress: a run the count check stopped is not, since nothing moves it on
+	 * until an Administrator does (`is_stopped()`).
 	 *
 	 * @return bool
 	 */
 	public static function is_running() {
 		$state = get_option( self::OPT_STATE );
 
-		return is_array( $state ) && ! empty( $state['phase'] ) && 'done' !== $state['phase'];
+		return is_array( $state ) && ! empty( $state['phase'] ) && 'done' !== $state['phase'] && empty( $state['guard'] );
+	}
+
+	/**
+	 * Whether a run is going and has not stalled (1.123.58): running, and moved on within
+	 * `LOCK_TIMEOUT`, the rule the recurring start leaves a run alone by.
+	 *
+	 * @return bool
+	 */
+	private static function is_going() {
+		$progress = self::progress();
+
+		return ! empty( $progress['running'] ) && empty( $progress['stalled'] );
+	}
+
+	/**
+	 * Whether the count check stopped the run before its revoke step (1.123.58): the state holds the
+	 * two counts (`guard`) until Run anyway, Sync now or Cancel replaces it.
+	 *
+	 * @return bool
+	 */
+	public static function is_stopped() {
+		$state = get_option( self::OPT_STATE );
+
+		return is_array( $state ) && ! empty( $state['guard'] );
+	}
+
+	/**
+	 * Run anyway: let the run the count check stopped go on from where it stopped, with the counts it
+	 * read (1.123.58). The acceptance is the run's, written on its state, so the next run is checked
+	 * again. The stop's error goes, and the tick that carries the run on is booked.
+	 *
+	 * @return bool False when no stopped run was there to accept.
+	 */
+	public static function accept() {
+		$state = get_option( self::OPT_STATE );
+
+		if ( ! is_array( $state ) || empty( $state['guard'] ) ) {
+			return false;
+		}
+
+		unset( $state['guard'] );
+		$state['accepted'] = true;
+		$state['touched']  = time();
+
+		update_option( self::OPT_STATE, $state, false );
+		delete_option( self::OPT_ERROR );
+
+		if ( ! wp_next_scheduled( self::CRON_TICK ) ) {
+			wp_schedule_single_event( time() + 10, self::CRON_TICK );
+		}
+
+		return true;
+	}
+
+	/**
+	 * How many accounts are linked to a mentor's record and marked active: what the count check holds
+	 * a run's read against. One query, for its total alone.
+	 *
+	 * @return int
+	 */
+	public static function linked_active() {
+		$query = new WP_User_Query(
+			array(
+				'fields'      => 'ID',
+				'number'      => 1,
+				'count_total' => true,
+				'meta_query'  => array(
+					'relation' => 'AND',
+					array(
+						'key'     => self::META_RECORD_ID,
+						'compare' => 'EXISTS',
+					),
+					array(
+						'key'   => self::META_ACTIVE,
+						'value' => '1',
+					),
+				),
+			)
+		);
+
+		return (int) $query->get_total();
 	}
 
 	/**
@@ -490,6 +614,10 @@ class WPCPM_Mentors_Sync {
 			'idle'       => $touched ? max( 0, time() - $touched ) : 0,
 			'error'      => (string) get_option( self::OPT_ERROR, '' ),
 			'stalled'    => $running && $touched && ( time() - $touched ) > self::LOCK_TIMEOUT,
+			// A run the count check stopped (1.123.58): both counts and the stop's sentence, for the
+			// Sync tab and the command line.
+			'stopped'    => self::is_stopped(),
+			'guard'      => WPCPM_Sync_Guard::stop_in( $state, 'mentors' ),
 		);
 	}
 
@@ -596,44 +724,61 @@ class WPCPM_Mentors_Sync {
 	 * Abandon a stuck run.
 	 */
 	public static function cancel() {
+		// The deliberate end of the run, so its last error goes with it: left, a stop's sentence would
+		// still ask for Run anyway with no run to press it on (1.123.58).
 		delete_option( self::OPT_STATE );
+		delete_option( self::OPT_ERROR );
 		delete_option( self::OPT_LOCK );
 		wp_clear_scheduled_hook( self::CRON_TICK );
 	}
 
 	/**
-	 * Claim the right to run a tick.
+	 * Claim the right to run a tick (1.123.58: on the atomic lock).
 	 *
-	 * Now that both the browser poll and cron can drive a run, two ticks could
-	 * otherwise process the same Airtable page and double-count. add_option()
-	 * fails when the row already exists, which makes the claim atomic at the
-	 * database level rather than a read-then-write race.
+	 * Both the browser poll and cron drive a run, and two ticks at once would process the same
+	 * Airtable page and double-count. `WPCPM_Lock::take()` decides who holds the row in one statement
+	 * the database answers by its unique key, so of two ticks taking it a moment apart one is refused;
+	 * the token it answers is kept for `hold_lock()` and `release_lock()`. A lock left by a tick that
+	 * died runs out after `LOCK_TIMEOUT`, and the next tick takes it over.
 	 *
 	 * @return bool
 	 */
 	private static function acquire_lock() {
-		if ( add_option( self::OPT_LOCK, time(), '', false ) ) {
-			return true;
-		}
+		$token = (string) WPCPM_Lock::take( self::OPT_LOCK, self::LOCK_TIMEOUT );
 
-		$held = (int) get_option( self::OPT_LOCK );
-
-		// A lock older than the timeout belonged to a tick that died mid-run;
-		// leaving it in place would strand the sync forever.
-		if ( $held && ( time() - $held ) < self::LOCK_TIMEOUT ) {
+		if ( '' === $token ) {
 			return false;
 		}
 
-		update_option( self::OPT_LOCK, time(), false );
+		self::$lock_token = $token;
 
 		return true;
 	}
 
 	/**
-	 * Release the tick lock.
+	 * Hold the tick lock for one more `LOCK_TIMEOUT`, after a page of a long read (1.123.58).
+	 *
+	 * The budget is checked only between slices, and one slice of a long read can outlast the lock,
+	 * which would let a second tick take it over and read the same pages beside this one. So every
+	 * phase that pages through Airtable calls this after each page. False means the lock ran out and
+	 * another tick took it: this tick stops at once, as one that lost its lock, and writes nothing.
+	 *
+	 * @return bool Whether this tick still holds the lock.
+	 */
+	private static function hold_lock() {
+		self::$lock_token = (string) WPCPM_Lock::extend( self::OPT_LOCK, self::$lock_token, self::LOCK_TIMEOUT );
+
+		return '' !== self::$lock_token;
+	}
+
+	/**
+	 * Release the tick lock: only the row this tick took, so a tick whose lock ran out and was taken
+	 * over never lets go of its successor's.
 	 */
 	private static function release_lock() {
-		delete_option( self::OPT_LOCK );
+		WPCPM_Lock::release( self::OPT_LOCK, self::$lock_token );
+
+		self::$lock_token = '';
 	}
 
 	/**
@@ -645,7 +790,8 @@ class WPCPM_Mentors_Sync {
 	public static function run_tick( $budget = null ) {
 		$state = get_option( self::OPT_STATE );
 
-		if ( ! is_array( $state ) || empty( $state['phase'] ) || 'done' === $state['phase'] ) {
+		// A run the count check stopped waits for Run anyway, Sync now or Cancel, untouched.
+		if ( ! is_array( $state ) || empty( $state['phase'] ) || 'done' === $state['phase'] || ! empty( $state['guard'] ) ) {
 			return;
 		}
 
@@ -689,6 +835,14 @@ class WPCPM_Mentors_Sync {
 					break;
 			}
 
+			// Every slice holds the lock longer before its state is written (`hold_lock()`), whatever its
+			// phase: a tick whose lock was taken over, by a restart or by a tick that found it run out,
+			// or lost under a long read, stops at once, since another tick holds the run now and a state
+			// written here would be written over its work.
+			if ( ! self::hold_lock() ) {
+				return;
+			}
+
 			// Count the slice against its phase so the bar can interpolate, and
 			// stamp the clock so a genuinely wedged run can be told apart from a
 			// slow one.
@@ -700,9 +854,32 @@ class WPCPM_Mentors_Sync {
 
 			if ( is_wp_error( $result ) ) {
 				update_option( self::OPT_ERROR, $result->get_error_message(), false );
+
+				// A refusal the base takes back is waited out, as the students sync waits one out
+				// (1.123.58): the tick is booked for after the wait, and the run says once that it
+				// waited. A credential error, a configuration error and the count check's stop are not
+				// going to take themselves back, so the run waits on them for a person.
+				$delay = WPCPM_Students_Sync::retry_delay( $result );
+
+				if ( $delay > 0 ) {
+					if ( empty( $state['retried'] ) ) {
+						$state['notices'][] = sprintf(
+							/* translators: %s: the error message Airtable, or the HTTP client, returned. */
+							__( 'A read was refused during this run (%s). The run waited and carried on from where it stopped.', 'wpcredits-program-manager' ),
+							$result->get_error_message()
+						);
+					}
+
+					$state['retried'] = ( isset( $state['retried'] ) ? (int) $state['retried'] : 0 ) + 1;
+				}
+
 				// Keep the state so the run can be resumed once the cause is fixed.
 				update_option( self::OPT_STATE, $state, false );
 				self::release_lock();
+
+				if ( $delay > 0 && ! wp_next_scheduled( self::CRON_TICK ) ) {
+					wp_schedule_single_event( time() + $delay, self::CRON_TICK );
+				}
 
 				return;
 			}
@@ -1210,7 +1387,7 @@ class WPCPM_Mentors_Sync {
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
 	 * @param array          $settings Plugin settings.
-	 * @return true|WP_Error
+	 * @return bool|WP_Error False when the tick lost its lock (`hold_lock()`).
 	 */
 	private static function phase_mentors( array &$state, WPCPM_Airtable $airtable, array $settings ) {
 		$fields = self::fields();
@@ -1226,6 +1403,10 @@ class WPCPM_Mentors_Sync {
 
 		if ( is_wp_error( $page ) ) {
 			return $page;
+		}
+
+		if ( ! self::hold_lock() ) {
+			return false;
 		}
 
 		foreach ( $page['records'] as $record ) {
@@ -1315,10 +1496,9 @@ class WPCPM_Mentors_Sync {
 	 * with its active flag at 0) is a candidate, once each time it becomes one, never when a run reads
 	 * a mentor who is active on the site already: that includes one a site application made a
 	 * mentor, whose invitation the activation queued. The created account's rules apply: nothing
-	 * with invitation emails off, and never to an Administrator. A match by username alone may be
-	 * somebody else, so, as the activation does, its invitation is held and the run says how to send
-	 * it; an invitation held already is named and left alone, since the drain would pass it over
-	 * unheard. The candidates wait in the state, which is stored between the requests of a run, and are
+	 * with invitation emails off, and never to an Administrator. A match by username alone is never
+	 * linked here (1.123.58): it waits under Needs confirming, and Confirm decides its welcome. An
+	 * invitation held already is named and left alone, since the drain would pass it over unheard. The candidates wait in the state, which is stored between the requests of a run, and are
 	 * queued when the pass ends (`queue_relinked()`).
 	 *
 	 * @param array[] $linked What the step said of each account it linked: `user_id`,
@@ -1355,13 +1535,6 @@ class WPCPM_Mentors_Sync {
 				continue;
 			}
 
-			if ( isset( $entry['how'] ) && 'login' === $entry['how'] ) {
-				update_user_meta( $user_id, WPCPM_Mentor_Provision::USER_INVITE_HELD, 'login' );
-				$state['notices'][] = __( 'No invitation was sent, since a match by username alone may be somebody else: once that is confirmed, press Send invite or Resend invite on its row in the Mentors screen\'s Accounts tab.', 'wpcredits-program-manager' );
-
-				continue;
-			}
-
 			if ( ! isset( $state['relink_ids'] ) || ! is_array( $state['relink_ids'] ) ) {
 				$state['relink_ids'] = array();
 			}
@@ -1377,7 +1550,8 @@ class WPCPM_Mentors_Sync {
 	 *
 	 * Called when the last page of the Mentors table is read, so the run knows how many there are: all
 	 * of them are queued, or, when there are more than `RELINK_INVITE_MAX`, none: each is held (`bulk`)
-	 * and one notice, the first of the run, names them. Nothing is queued or held when invitation
+	 * and one notice, the first of the run, names them. `relinked_invited` counts the accounts queued,
+	 * and a notice says how many the queue's lock refused (the fix wave of 1.123.58). Nothing is queued or held when invitation
 	 * emails are off by now. The candidates leave the state either way, so a later request cannot
 	 * queue them again.
 	 *
@@ -1427,25 +1601,80 @@ class WPCPM_Mentors_Sync {
 			return;
 		}
 
+		// Counted from what the queue answered (the fix wave of 1.123.58): only an account this run
+		// queued is counted, and one the queue's lock refused is named in the run's notices, which say
+		// how many to send by hand.
+		$queued  = 0;
+		$refused = 0;
+
 		foreach ( $ids as $user_id ) {
-			WPCPM_Mail::queue_invite( $user_id );
+			$answer = (int) WPCPM_Mail::queue_invite( $user_id );
+
+			if ( WPCPM_Mail::QUEUE_BUSY === $answer ) {
+				++$refused;
+			} elseif ( 1 === $answer ) {
+				++$queued;
+			}
 		}
 
 		$counted = isset( $state['stats']['relinked_invited'] ) ? (int) $state['stats']['relinked_invited'] : 0;
 
-		$state['stats']['relinked_invited'] = $counted + count( $ids );
+		$state['stats']['relinked_invited'] = $counted + $queued;
+
+		// First among the notices, as the held welcome's is, since the report keeps the first hundred.
+		if ( $refused > 0 ) {
+			array_unshift(
+				$state['notices'],
+				sprintf(
+					/* translators: %s: how many invitations could not be queued. */
+					_n(
+						'%s invitation could not be queued: the queue was busy. Send it from the Accounts tab.',
+						'%s invitations could not be queued: the queue was busy. Send them from the Accounts tab.',
+						$refused,
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( $refused )
+				)
+			);
+		}
 	}
 
 	/**
 	 * Phase 2 - handle mentors that are no longer Active in Airtable.
 	 *
+	 * **The count check comes first** (1.123.58, `WPCPM_Sync_Guard`): a run that read no mentor, or
+	 * under half as many as there are accounts linked to a record and marked active, takes nobody's
+	 * role. The two counts go on the state (`guard`), the phase stays where it is, and the guard's
+	 * error is answered, which `run_tick()` stores as the last error with the state kept.
+	 *
 	 * @param array $state    Sync state, by reference.
 	 * @param array $settings Plugin settings.
-	 * @return true
+	 * @return true|WP_Error
 	 */
 	private static function phase_revoke( array &$state, array $settings ) {
 		$active_ids = array_keys( is_array( $state['mentors'] ) ? $state['mentors'] : array() );
 		$started    = isset( $state['started'] ) ? (int) $state['started'] : 0;
+
+		$check = WPCPM_Sync_Guard::check( 'mentors', count( $active_ids ), self::linked_active(), ! empty( $state['accepted'] ) );
+
+		if ( is_wp_error( $check ) ) {
+			$counts         = (array) $check->get_error_data();
+			$state['guard'] = array(
+				'read'   => (int) $counts['read'],
+				'linked' => (int) $counts['linked'],
+			);
+
+			return $check;
+		}
+
+		// The read set is known and the check passed: a match waiting under Needs confirming whose
+		// mentor the base no longer holds is taken off the list, so nobody confirms a mentor who has
+		// left (1.123.58). A stopped run, above, reads too little to say so, and removes nothing.
+		foreach ( array_keys( WPCPM_Mentor_Provision::unconfirmed() ) as $waiting ) {
+			if ( ! in_array( (string) $waiting, $active_ids, true ) ) {
+				WPCPM_Mentor_Provision::forget_unconfirmed( (string) $waiting );
+			}
+		}
 
 		$linked = get_users(
 			array(
@@ -1521,7 +1750,7 @@ class WPCPM_Mentors_Sync {
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
 	 * @param array          $settings Plugin settings.
-	 * @return true|WP_Error
+	 * @return bool|WP_Error False when the tick lost its lock (`hold_lock()`).
 	 */
 	private static function phase_reports( array &$state, WPCPM_Airtable $airtable, array $settings ) {
 		$fields = self::fields();
@@ -1559,6 +1788,10 @@ class WPCPM_Mentors_Sync {
 
 		if ( is_wp_error( $page ) ) {
 			return $page;
+		}
+
+		if ( ! self::hold_lock() ) {
+			return false;
 		}
 
 		foreach ( $page['records'] as $record ) {
@@ -1644,7 +1877,7 @@ class WPCPM_Mentors_Sync {
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
 	 * @param array          $settings Plugin settings.
-	 * @return true|WP_Error
+	 * @return bool|WP_Error False when the tick lost its lock (`hold_lock()`).
 	 */
 	private static function phase_students( array &$state, WPCPM_Airtable $airtable, array $settings ) {
 		$fields = self::fields();
@@ -1665,6 +1898,10 @@ class WPCPM_Mentors_Sync {
 
 		if ( is_wp_error( $page ) ) {
 			return $page;
+		}
+
+		if ( ! self::hold_lock() ) {
+			return false;
 		}
 
 		foreach ( $page['records'] as $record ) {
@@ -1845,9 +2082,11 @@ class WPCPM_Mentors_Sync {
 		);
 
 		update_option( self::OPT_REPORT, $report, false );
+		// A run that got here got past whatever refusal it waited out on the way: the report's notice
+		// says so, and the last error is for a run that stopped (1.123.58).
+		delete_option( self::OPT_ERROR );
 		update_option( self::OPT_LAST, time(), false );
 		delete_option( self::OPT_STATE );
-		delete_option( self::OPT_LOCK );
 		wp_clear_scheduled_hook( self::CRON_TICK );
 	}
 

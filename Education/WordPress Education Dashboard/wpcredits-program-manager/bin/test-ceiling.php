@@ -455,6 +455,21 @@ ck( 'a release touches its own key and no other', array( WPCPM_Ceiling::count( '
 seed( 'old', DAY_IN_SECONDS, -1, 4 );
 ck( 'and the current window\'s only: yesterday\'s row keeps its count', array( WPCPM_Ceiling::release( 'old', DAY_IN_SECONDS ), $GLOBALS['opts'][ name_for( 'old', DAY_IN_SECONDS, -1 ) ]['count'] ), array( false, 4 ) );
 
+echo "\n=== When the window turns (1.123.58) ===\n";
+
+$turns = array();
+foreach ( array( gmmktime( 13, 0, 0, 11, 6, 2026 ), gmmktime( 13, 20, 0, 11, 6, 2026 ), gmmktime( 13, 59, 59, 11, 6, 2026 ) ) as $moment ) {
+	WPCPM_Ceiling::for_tests(
+		static function () use ( $moment ) {
+			return $moment;
+		}
+	);
+	$turns[] = WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS );
+}
+WPCPM_Ceiling::for_tests( null );
+ck( 'resets_at() is the start of the next window: 14:00:00 for any moment from 13:00:00 to 13:59:59 in an hour\'s window', $turns, array_fill( 0, 3, gmmktime( 14, 0, 0, 11, 6, 2026 ) ) );
+ck( 'and it is the bucket claim() counts in: the real clock\'s next hour', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), ( bucket_now( HOUR_IN_SECONDS ) + 1 ) * HOUR_IN_SECONDS );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

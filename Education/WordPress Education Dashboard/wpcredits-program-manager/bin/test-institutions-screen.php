@@ -415,6 +415,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
@@ -854,7 +855,15 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 		}
 		public static function register_cron() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::register_cron' ); }
 		public static function start() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::start' ); return empty( $GLOBALS['sync_refuses'] ) ? true : new WP_Error( 'wpcpm_not_connected', 'not connected' ); }
-		public static function tick( $budget = null ) { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::tick', $budget ); }
+		public static function tick( $budget = null ) {
+			$GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::tick', $budget );
+
+			// A check can have the slice finish the run: the run stops, and its report is written.
+			if ( ! empty( $GLOBALS['tick_finishes'] ) ) {
+				$GLOBALS['sync_running'] = false;
+				update_option( self::OPT_REPORT, array( 'stats' => array( 'provisioned' => 3 ), 'finished' => time() ) );
+			}
+		}
 		public static function cancel() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::cancel' ); }
 		public static function is_running() { return ! empty( $GLOBALS['sync_running'] ); }
 		public static function progress() {
@@ -1799,7 +1808,7 @@ ck( 'and draws its cards as .wpcpm-card', substr_count( $src, "'<div class=\"wpc
 // (WPCPM_Accounts_Screen); the scan reads those three sources after this module's own.
 $handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php' );
 preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $handler_src, $handlers );
-ck( 'the fifteen handlers exist', $handlers[1], array(
+ck( 'the sixteen handlers exist', $handlers[1], array(
 	// The account presses of the Accounts tab: one institution's Create account, and the
 	// invitations card's button. Create account on the ticked institutions and the invitations on
 	// the ticked accounts are the list's own form, handled on the screen's load hook.
@@ -1811,8 +1820,9 @@ ck( 'the fifteen handlers exist', $handlers[1], array(
 	// Sending the confirmation link again, on an open application whose address is unconfirmed
 	// (1.123.26).
 	'handle_resend_link', 'handle_purge',
-	// From the shared sync module.
-	'handle_tick', 'handle_sync', 'handle_cancel',
+	// From the shared sync module, Run anyway among them (1.123.58), which this module hooks nothing to:
+	// its sync has its own empty-read guard and no Run anyway.
+	'handle_tick', 'handle_sync', 'handle_accept', 'handle_cancel',
 	// A row's invitation, from the shared accounts screen.
 	'handle_invite',
 ) );
@@ -3516,6 +3526,29 @@ $GLOBALS['calls'] = array();
 outcome( array( $module, 'handle_tick' ) );
 ck( 'and leaves an idle one alone', in_array( array( 'WPCPM_Institutions_Sync::tick', 8 ), $GLOBALS['calls'], true ), false );
 
+// The tick that finishes the run leaves the finished notice on a channel of its own (1.123.58): the
+// screen's channel is read for a word by the Administrator Dashboard and the institution panel, and
+// the notice is an array. Read here as the dashboard reads the screen's channel, before the Sync tab.
+$GLOBALS['uid']           = 78;
+$GLOBALS['sync_running']  = true;
+$GLOBALS['tick_finishes'] = true;
+outcome( array( $module, 'handle_tick' ) );
+$GLOBALS['tick_finishes'] = false;
+$finished_flash           = get_user_meta( 78, WPCPM_Flash::META );
+$dashboard_warnings       = array();
+set_error_handler( static function ( $number, $message ) use ( &$dashboard_warnings ) { $dashboard_warnings[] = $message; return true; } );
+$dashboard_read = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+restore_error_handler();
+$accounts_first = render_tab( 'accounts' );
+$sync_after     = render_tab( 'sync' );
+ck( 'the tick that finishes the run flashes finished, with the accounts it created, on the sync\'s own channel, which the Administrator Dashboard drawn first leaves for the Sync tab, with no warning',
+	array( $finished_flash, $dashboard_read, $dashboard_warnings, false !== strpos( $accounts_first, 'Sync finished.' ) ),
+	array( array( WPCPM_Institutions::FLASH_SYNC_FINISHED => array( 'status' => 'finished', 'created' => 3 ) ), '', array(), false ) );
+ck( 'and the Sync and storage tab says it, naming only the accounts created',
+	false !== strpos( $sync_after, '<div class="notice notice-success is-dismissible"><p>Sync finished. Accounts created: 3.</p></div>' ), true );
+delete_option( WPCPM_Institutions_Sync::OPT_REPORT );
+$GLOBALS['uid'] = 1;
+
 /* ---- the decisions' way back -------------------------------------------- */
 
 // The six decisions on an application post no tab: they come back to the screen's own address,
@@ -3528,7 +3561,7 @@ $back = 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutio
 $GLOBALS['sync_progress'] = array( 'running' => true, 'label' => 'Reading institution records…', 'step_label' => 'Step 2 of 4', 'percent' => 40, 'detail' => '53 of 106', 'elapsed' => 75, 'stalled' => false );
 $running = render_tab( 'sync' );
 ck( 'a running sync draws the progress panel admin.js polls', array(
-	false !== strpos( $running, '<div class="wpcpm-progress" data-wpcpm-progress data-action="wpcpm_institutions_tick" data-nonce="nonce" data-poll="3">' ),
+	false !== strpos( $running, '<div class="wpcpm-progress" data-wpcpm-progress data-action="wpcpm_institutions_tick" data-nonce="nonce" data-poll="3" data-finished="The sync has finished. The page will show its report.">' ),
 	false !== strpos( $running, '<strong data-wpcpm-label>Reading institution records…</strong>' ),
 	false !== strpos( $running, 'aria-valuenow="40"' ),
 	false !== strpos( $running, '<span data-wpcpm-elapsed data-label="running for %s">running for 1:15</span>' ),
@@ -4722,13 +4755,28 @@ ck( 'the question is on the application\'s own history too', array(
 $GLOBALS['mail_refuses'] = true;
 $GLOBALS['mail']         = array();
 $_POST                   = array( WPCPM_Institutions::FIELD_APPLICATION => 501, 'wpcpm_question' => 'Which term would the first students start in?' );
-outcome( array( $module, 'handle_info' ) );
+$refused_went = outcome( array( $module, 'handle_info' ) );
+$refused_left = get_user_meta( 1, WPCPM_Flash::META );
 ck( 'a question the mail server would not take is reported, and moves nothing', array(
-	get_user_meta( 1, WPCPM_Flash::META ),
+	$refused_left['institutions'] ?? '',
 	$GLOBALS['mail'],
 	(string) get_post_meta( 501, WPCPM_Institution_Application::META_STATE, true ),
 	count( get_post_meta( 501, WPCPM_Institution_Application::META_EVENT, false ) ),
-), array( array( 'institutions' => 'app-not-sent' ), array(), 'info', 1 ) );
+), array( 'app-not-sent', array(), 'info', 1 ) );
+ck( 'a question whose mail fails is kept in its box, and the press goes back to the opened application', array(
+	$refused_went,
+	$refused_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ]['typed'] ?? null,
+), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=501', array( 'question' => 'Which term would the first students start in?' ) ) );
+next_request( 1, 91 );
+$refused_page = dashboard_decisions( 91, 501 );
+$refused_box  = boxes_named( $refused_page, 'wpcpm_question' );
+ck( 'and the box draws that question back, as the application\'s decisions are drawn', $refused_box, array( 'Which term would the first students start in?' ) );
+ck( 'a question that could not be sent is drawn back but not marked invalid: nothing in the box needs a change, and the notice speaks', array(
+	false !== strpos( $refused_page, 'name="wpcpm_question" rows="4" maxlength="2000">' ),
+	false !== strpos( $refused_page, 'wpcpm_question-problem' ),
+	false !== strpos( $refused_page, 'aria-invalid' ),
+), array( true, false, false ) );
+delete_user_meta( 91, WPCPM_Flash::META );
 delete_user_meta( 1, WPCPM_Flash::META );
 $GLOBALS['mail_refuses'] = false;
 
@@ -4765,8 +4813,13 @@ delete_user_meta( 1, WPCPM_Flash::META );
 
 $_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 503, 'wpcpm_question' => 'Could you tell us which department this is?' );
 update_post_meta( 503, WPCPM_Institution_Application::META_FIELDS, array( 'Contact Email' => 'not an address' ) );
-outcome( array( $module, 'handle_info' ) );
-ck( 'an application with no usable address has nobody to ask', array( get_user_meta( 1, WPCPM_Flash::META ), $GLOBALS['mail'] ), array( array( 'institutions' => 'app-no-email' ), array() ) );
+$no_address_went = outcome( array( $module, 'handle_info' ) );
+$no_address_left = get_user_meta( 1, WPCPM_Flash::META );
+ck( 'an application with no usable address has nobody to ask', array( $no_address_left['institutions'] ?? '', $GLOBALS['mail'] ), array( 'app-no-email', array() ) );
+ck( 'and so is one to an applicant with no address: the question is kept, and the press goes back to the opened application', array(
+	$no_address_went,
+	$no_address_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:503' ]['typed'] ?? null,
+), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=503', array( 'question' => 'Could you tell us which department this is?' ) ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 update_post_meta( 503, WPCPM_Institution_Application::META_FIELDS, array( 'Contact Email' => 'reitoria@example.test' ) );
 
@@ -5054,6 +5107,28 @@ ck( 'handle_reject mails a neutral acknowledgement with no reason anywhere in it
 ), array( 'send_to', 'someone.else@example.test', 'institution-declined', true, false, false, 'rejected', array( 'institutions' => 'app-rejected' ) ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 $rejected_notice = (string) ( WPCPM_Institutions::queue_messages()['app-rejected'][1] ?? '' );
+ck( 'a reject whose acknowledgement was sent says the applicant has the acknowledgement', array( $rejected_notice, WPCPM_Institutions::queue_messages()['app-rejected'][0] ), array( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next Administrator can read it.', 'success' ) );
+
+// Rejected, and nothing could be sent: no usable address, then a mail host that refuses.
+$saved_503   = $GLOBALS['pmeta'][503];
+$unsent_said = array();
+foreach ( array( 'no address' => array( 'not an address', false ), 'refused' => array( 'reitoria@example.test', true ) ) as $why => $case ) {
+	$GLOBALS['pmeta'][503] = $saved_503;
+	update_post_meta( 503, WPCPM_Institution_Application::META_FIELDS, array( 'Contact Email' => $case[0] ) );
+	$GLOBALS['mail_refuses'] = $case[1];
+	$GLOBALS['mail']         = array();
+	$_POST                   = array( WPCPM_Institutions::FIELD_APPLICATION => 503, 'wpcpm_reason' => 'Out of scope.' );
+	outcome( array( $module, 'handle_reject' ) );
+	$unsent_said[ $why ] = array( get_user_meta( 1, WPCPM_Flash::META )['institutions'] ?? '', $GLOBALS['mail'], (string) get_post_meta( 503, WPCPM_Institution_Application::META_STATE, true ) );
+	delete_user_meta( 1, WPCPM_Flash::META );
+}
+$GLOBALS['mail_refuses'] = false;
+$GLOBALS['pmeta'][503]   = $saved_503;
+ck( 'a reject whose acknowledgement could not be sent says so: no usable address, or a mail host that refused, the application rejected either way', $unsent_said, array(
+	'no address' => array( 'app-rejected-unsent', array(), 'rejected' ),
+	'refused'    => array( 'app-rejected-unsent', array(), 'rejected' ),
+) );
+ck( 'and its sentence is a warning that names both causes', WPCPM_Institutions::queue_messages()['app-rejected-unsent'] ?? null, array( 'warning', 'The application is rejected. No acknowledgement could be sent: the application has no usable address, or the mail host refused the message.' ) );
 ck( 'the notice after Reject names the program\'s Administrators, as the Reject box does', array(
 	false !== strpos( $rejected_notice, 'Your reason is on the application\'s own history, where the next Administrator can read it.' ),
 	strpos( $rejected_notice, 'next manager' ),
@@ -5811,11 +5886,13 @@ $lands( 'queue', 'handle_resolve', outcomes_handed( body_of_method( $request_src
 // approval's refusals by their codes, a map's values and its default; Create account on the ticked
 // institutions, which the list's form carries out through the Institutions table's action, and the
 // ticked accounts' invitations, each the first of the pair it returns; a row's invitation, the string
-// it returns; a PDF the scan refused, its map's values.
+// it returns; a PDF the scan refused, its map's values; the invitations card's button, the outcome
+// its queueing answers (the fix wave of 1.123.58).
 $values   = "/(?:=>|:)\s*'([a-z][a-z0-9-]*)'\s*[,;]/";
 $pairs    = "/(?<![a-z_])array\(\s*'([a-z][a-z0-9-]*)'\s*,/";
 $returned = "/(?:return\s+|[?:]\s*)'([a-z][a-z0-9-]*)'\s*[;:]/";
 $decided  = array(
+	'handle_bulk_invite: self::queue_bulk($pending)'                    => array( 'accounts', body_of_method( $trait_src, 'queue_bulk' ), $returned ),
 	'handle_approve: self::approval_outcome($result->get_error_code())' => array( 'queue', body_of_method( $module_src, 'approval_outcome' ), $values ),
 	'handle_list_form: $status'                                         => array( 'accounts', body_of_method( $module_src, 'provision_ticked' ), $pairs ),
 	'invite_selected: $status'                                          => array( 'accounts', body_of_method( $table_src, 'queue_ticked' ), $pairs ),
@@ -5866,7 +5943,7 @@ $handler_body = body_of_method( $pipeline_src, 'handle_link' );
 ck( 'the SPAM stage is a constant of the class, and the uncounted stages begin with it', array( WPCPM_Institutions::STAGE_SPAM, WPCPM_Institutions::UNCOUNTED_STAGES[0], false !== strpos( $pipeline_src, 'const UNCOUNTED_STAGES = array( self::STAGE_SPAM,' ) ), array( 'SPAM', 'SPAM', true ) );
 ck( 'link_choices() leaves it out by that constant, and has no literal "SPAM" in it', array( false !== strpos( $choices_body, 'self::STAGE_SPAM' ), false !== strpos( $choices_body, "'SPAM'" ), '' !== $choices_body ), array( true, false, true ) );
 ck( 'render_link_form() names its institution field with ARG_INSTITUTION, whose value is the field the handler has always read', array(
-	false !== strpos( $form_body, "'name'    => self::ARG_INSTITUTION" ),
+	false !== strpos( $form_body, "'name'        => self::ARG_INSTITUTION" ),
 	false !== strpos( $form_body, "'wpcpm_institution'" ),
 	WPCPM_Institutions::ARG_INSTITUTION,
 ), array( true, false, 'wpcpm_institution' ) );

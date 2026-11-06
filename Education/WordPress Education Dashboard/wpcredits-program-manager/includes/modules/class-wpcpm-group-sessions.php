@@ -408,6 +408,14 @@ class WPCPM_Group_Sessions {
 
 		check_admin_referer( self::ACTION_CREATE );
 
+		// Every refusal below keeps what was typed, and the planner is drawn open from it with the
+		// refused date marked at its own box (1.123.58, CARD-04). What an earlier refusal kept is
+		// dropped first.
+		$form  = self::planner_form( $mentor_id );
+		$typed = self::typed_plan();
+
+		WPCPM_Flash::forget( $form );
+
 		// Sanitized *and* validated: `sanitize_text_field()` for the shape, then `date_string()` and
 		// `time_string()`, which return an empty string for anything that is not a real date or a
 		// real time. The sanitizer is not redundant - it is what makes the validator's input a
@@ -420,15 +428,15 @@ class WPCPM_Group_Sessions {
 		$topic    = trim( mb_substr( $topic, 0, WPCPM_Mentor_Calls::MAX_TOPIC ) );
 
 		if ( '' === $date || '' === $time ) {
-			self::bounce( 'session-when' );
+			self::refuse_plan( $form, $typed, 'session-when' );
 		}
 
 		if ( $minutes < self::MIN_MINUTES || $minutes > self::MAX_MINUTES ) {
-			self::bounce( 'session-length' );
+			self::refuse_plan( $form, $typed, 'session-length' );
 		}
 
 		if ( $capacity < self::MIN_CAPACITY || $capacity > self::MAX_CAPACITY ) {
-			self::bounce( 'session-capacity' );
+			self::refuse_plan( $form, $typed, 'session-capacity' );
 		}
 
 		// Entered in the mentor's own clock - the one they mean when they say "Tuesday at two" -
@@ -443,13 +451,13 @@ class WPCPM_Group_Sessions {
 
 		if ( '' !== $rule ) {
 			if ( ! isset( self::repeat_rules()[ $rule ] ) ) {
-				self::bounce( 'error' );
+				self::refuse_plan( $form, $typed, 'error' );
 			}
 
 			$count = isset( $_POST['repeat_count'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['repeat_count'] ) ) ) : '';
 
 			if ( ! ctype_digit( $count ) || (int) $count < 2 || (int) $count > self::MAX_SERIES ) {
-				self::bounce( 'series-count', array( self::MAX_SERIES ) );
+				self::refuse_plan( $form, $typed, 'series-count', array( self::MAX_SERIES ) );
 			}
 
 			$dates = array_merge( $dates, self::repeat_dates( $date, $rule, (int) $count, $zone ) );
@@ -459,7 +467,7 @@ class WPCPM_Group_Sessions {
 			// the second would plan a single session under a success notice, which is worse than a
 			// refusal (the final review of 1.109.0).
 			if ( count( $dates ) !== (int) $count ) {
-				self::bounce( 'error' );
+				self::refuse_plan( $form, $typed, 'error' );
 			}
 		}
 
@@ -467,7 +475,12 @@ class WPCPM_Group_Sessions {
 		// read as the first is, an empty box passed over, a box holding no date refusing the form.
 		// After the rule's dates, so a box repeating one of them reads as a date given twice.
 		if ( isset( $_POST['more_dates'] ) && is_array( $_POST['more_dates'] ) ) {
-			foreach ( wp_unslash( $_POST['more_dates'] ) as $more ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each entry is sanitized and validated below.
+			$box = 1;
+
+			foreach ( array_values( wp_unslash( $_POST['more_dates'] ) ) as $more ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each entry is sanitized and validated below.
+				// The boxes are numbered from 2, the first date being 1, as their labels say.
+				++$box;
+
 				// An entry that is not text at all can only come from a tampered form, and casting it
 				// would warn and name "Array" in the notice.
 				if ( ! is_scalar( $more ) ) {
@@ -487,7 +500,19 @@ class WPCPM_Group_Sessions {
 					// refusal rather than met with the lone session's "needs a date and a start
 					// time" (the re-review of 1.109.0's fix wave). Forty characters is enough to
 					// find the box by and too few to carry a novel into the flash.
-					self::bounce( 'series-date', array( mb_substr( $held, 0, 40 ) ) );
+					self::refuse_plan(
+						$form,
+						$typed,
+						'series-date',
+						array( mb_substr( $held, 0, 40 ) ),
+						array(
+							self::more_box_id( $box ) => sprintf(
+								/* translators: %s: what the box held, as typed. */
+								__( '%s is not a date. Write it as YYYY-MM-DD.', 'wpcredits-program-manager' ),
+								$held
+							),
+						)
+					);
 				}
 
 				$dates[] = $more;
@@ -497,7 +522,7 @@ class WPCPM_Group_Sessions {
 		$planned = self::plan_dates( $dates, $time, $zone, time() );
 
 		if ( '' !== $planned['refused'] ) {
-			self::refuse_dates( $planned['refused'], $planned['date'], count( $dates ) );
+			self::refuse_dates( $planned['refused'], $planned['date'], count( $dates ), $form, $typed, $zone );
 		}
 
 		// The same lock a booking takes, and for the same reason: the diary is read here and up to
@@ -505,7 +530,7 @@ class WPCPM_Group_Sessions {
 		// could win one of those starts in between and the sessions would go in over it. One date
 		// was a narrow window; sixteen is sixteen times the window (the final review of 1.108.0).
 		if ( ! WPCPM_Mentor_Calls::lock_for( $mentor_id ) ) {
-			self::bounce( 'busy' );
+			self::refuse_plan( $form, $typed, 'busy' );
 		}
 
 		// Nothing else of this mentor's may run at any moment of a planned session, in either
@@ -519,7 +544,7 @@ class WPCPM_Group_Sessions {
 
 		if ( $clash > 0 ) {
 			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
-			self::refuse_dates( 'clash', wp_date( 'Y-m-d', $clash, $zone ), count( $dates ) );
+			self::refuse_dates( 'clash', wp_date( 'Y-m-d', $clash, $zone ), count( $dates ), $form, $typed, $zone );
 		}
 
 		$created = self::create_sessions( $mentor_id, $starts, $minutes, $capacity, $topic, $zone );
@@ -529,7 +554,7 @@ class WPCPM_Group_Sessions {
 		WPCPM_Mentor_Calls::unlock_for( $mentor_id );
 
 		if ( array() === $created ) {
-			self::bounce( 'error' );
+			self::refuse_plan( $form, $typed, 'error' );
 		}
 
 		if ( count( $created ) > 1 ) {
@@ -796,11 +821,36 @@ class WPCPM_Group_Sessions {
 	 * `when` left by then is a start time the clocks jump over on one of the dates. It gets words of
 	 * its own, and the date named with them for a series (the final review of 1.109.0).
 	 *
-	 * @param string $why   `when`, `past`, `twice`, `clash` or `many`.
-	 * @param string $date  The date refused, `Y-m-d`, or ''.
-	 * @param int    $count How many dates the form carried.
+	 * A past or a clashing date is also the problem of the box that holds it, named in the site's
+	 * date format, and what was typed is kept for the planner to be drawn from (1.123.58, CARD-04).
+	 *
+	 * @param string       $why   `when`, `past`, `twice`, `clash` or `many`.
+	 * @param string       $date  The date refused, `Y-m-d`, or ''.
+	 * @param int          $count How many dates the form carried.
+	 * @param string       $form  The planner's kept form, `planner_form()`.
+	 * @param array        $typed What was typed, `typed_plan()`.
+	 * @param DateTimeZone $zone  The mentor's clock.
 	 */
-	private static function refuse_dates( $why, $date, $count ) {
+	private static function refuse_dates( $why, $date, $count, $form, array $typed, DateTimeZone $zone ) {
+		$problems = array();
+
+		if ( '' !== $date && in_array( $why, array( 'past', 'clash' ), true ) ) {
+			$day   = DateTimeImmutable::createFromFormat( '!Y-m-d', (string) $date, $zone );
+			$named = false === $day ? (string) $date : wp_date( (string) get_option( 'date_format', 'Y-m-d' ), $day->getTimestamp() + 12 * HOUR_IN_SECONDS, $zone );
+
+			$problems[ self::box_holding( $date, $typed ) ] = 'past' === $why
+				? sprintf(
+					/* translators: %s: the date, in the site's date format. */
+					__( '%s is in the past. Choose a date from today on.', 'wpcredits-program-manager' ),
+					$named
+				)
+				: sprintf(
+					/* translators: %s: the date, in the site's date format. */
+					__( '%s clashes with a session you already have. Choose another date or time.', 'wpcredits-program-manager' ),
+					$named
+				);
+		}
+
 		if ( $count < 2 ) {
 			$alone = array(
 				'when'  => 'session-gap',
@@ -808,16 +858,109 @@ class WPCPM_Group_Sessions {
 				'clash' => 'session-clash',
 			);
 
-			self::bounce( isset( $alone[ $why ] ) ? $alone[ $why ] : 'session-when' );
+			self::refuse_plan( $form, $typed, isset( $alone[ $why ] ) ? $alone[ $why ] : 'session-when', array(), $problems );
 		}
 
 		// The cap is named from its one constant, so the number cannot drift between the notice,
 		// the count box's hint and the code (the final review of 1.109.0).
 		if ( 'many' === $why ) {
-			self::bounce( 'series-many', array( self::MAX_SERIES ) );
+			self::refuse_plan( $form, $typed, 'series-many', array( self::MAX_SERIES ), $problems );
 		}
 
-		self::bounce( 'series-' . $why, '' === $date ? array() : array( $date ) );
+		self::refuse_plan( $form, $typed, 'series-' . $why, '' === $date ? array() : array( $date ), $problems );
+	}
+
+	/**
+	 * The planner's kept form: what a refused plan keeps its typing under (1.123.58).
+	 *
+	 * @param int $mentor_id The mentor whose diary it plans.
+	 * @return string
+	 */
+	private static function planner_form( $mentor_id ) {
+		return 'planner:' . (int) $mentor_id;
+	}
+
+	/**
+	 * What the planner posted, every field as typed, unslashed and not cleaned (1.123.58).
+	 *
+	 * @return array
+	 */
+	private static function typed_plan() {
+		$typed = array();
+
+		foreach ( array( 'date', 'repeat', 'repeat_count', 'time', 'minutes', 'capacity', 'topic' ) as $field ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- `handle_create()` verifies the nonce first; kept as typed for the form's redraw, and escaped where it is drawn.
+			if ( isset( $_POST[ $field ] ) && is_scalar( $_POST[ $field ] ) ) {
+				$typed[ $field ] = wp_unslash( (string) $_POST[ $field ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above.
+			}
+		}
+
+		$more = array();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		if ( isset( $_POST['more_dates'] ) && is_array( $_POST['more_dates'] ) ) {
+			foreach ( array_values( wp_unslash( $_POST['more_dates'] ) ) as $box ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above.
+				$more[] = is_scalar( $box ) ? (string) $box : '';
+			}
+		}
+
+		$typed['more_dates'] = array_slice( $more, 0, self::MORE_BOXES );
+
+		// A value longer than the store keeps is not kept at all, rather than kept cut.
+		return array_filter(
+			$typed,
+			static function ( $value ) {
+				return ! is_string( $value ) || mb_strlen( $value ) <= WPCPM_Flash::KEPT_MAX;
+			}
+		);
+	}
+
+	/**
+	 * The id of one of the planner's extra date boxes.
+	 *
+	 * @param int $box Its place in the series, from 2.
+	 * @return string
+	 */
+	private static function more_box_id( $box ) {
+		return 'wpcpm-session-more-' . (int) $box;
+	}
+
+	/**
+	 * The box a refused date was typed in: the first date's, an extra box, or, for a date the
+	 * repeat rule made, the rule's.
+	 *
+	 * @param string $date  The date, `Y-m-d`.
+	 * @param array  $typed What was typed.
+	 * @return string The box's id.
+	 */
+	private static function box_holding( $date, array $typed ) {
+		$date = (string) $date;
+
+		if ( isset( $typed['date'] ) && WPCPM_Mentor_Availability::date_string( $typed['date'] ) === $date ) {
+			return 'wpcpm-session-date';
+		}
+
+		foreach ( $typed['more_dates'] as $at => $box ) {
+			if ( WPCPM_Mentor_Availability::date_string( $box ) === $date ) {
+				return self::more_box_id( $at + 2 );
+			}
+		}
+
+		return 'wpcpm-session-repeat';
+	}
+
+	/**
+	 * Refuse a plan: keep what was typed and why each box was refused, then back with the message.
+	 *
+	 * @param string $form     The planner's kept form.
+	 * @param array  $typed    What was typed.
+	 * @param string $status   Message key.
+	 * @param array  $args     The arguments its sentence takes, if any.
+	 * @param array  $problems Box id => the sentence saying why it was refused.
+	 */
+	private static function refuse_plan( $form, array $typed, $status, array $args = array(), array $problems = array() ) {
+		WPCPM_Flash::keep( $form, $typed, $problems );
+		self::bounce( $status, $args );
 	}
 
 	/**
@@ -1019,7 +1162,7 @@ class WPCPM_Group_Sessions {
 		// Before the nonce: a student whose login lapsed while the page sat open is told to log in,
 		// not that the link has expired (the deep check of 1.109.1, SURFACES-4).
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to join a session.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to join a session.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		check_admin_referer( self::ACTION_JOIN );
@@ -1162,7 +1305,7 @@ class WPCPM_Group_Sessions {
 	public static function handle_join_series() {
 		// Before the nonce, as a single join asks it (SURFACES-4).
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to join a session.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to join a session.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		check_admin_referer( self::ACTION_JOIN_SERIES );
@@ -1246,7 +1389,7 @@ class WPCPM_Group_Sessions {
 	public static function handle_leave() {
 		// Before the nonce, as joining asks it (SURFACES-4).
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to leave a session.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to leave a session.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		check_admin_referer( self::ACTION_LEAVE );
@@ -1429,7 +1572,28 @@ class WPCPM_Group_Sessions {
 	private static function render_create_form( WP_User $mentor, array $settings ) {
 		$zone = WPCPM_Mentor_Availability::timezone( $settings['timezone'] );
 
-		echo '<details class="wpcpm-sessions__new">';
+		// A refused plan comes back open, every box as it was typed and the refused date marked at
+		// its own box (1.123.58, CARD-04).
+		$kept     = WPCPM_Flash::kept( self::planner_form( $mentor->ID ) );
+		$typed    = $kept['values'];
+		$problems = $kept['problems'];
+		$value    = static function ( $field, $fallback = '' ) use ( $typed ) {
+			return isset( $typed[ $field ] ) && is_scalar( $typed[ $field ] ) ? (string) $typed[ $field ] : (string) $fallback;
+		};
+		$marks    = static function ( $id, $hint = '' ) use ( $problems ) {
+			$sentence = isset( $problems[ $id ] ) ? (string) $problems[ $id ] : '';
+
+			if ( '' === $sentence ) {
+				return '' === $hint ? '' : ' aria-describedby="' . esc_attr( $hint ) . '"';
+			}
+
+			return WPCPM_Form_Errors::attrs( $id, $sentence, $hint );
+		};
+		$problem  = static function ( $id ) use ( $problems ) {
+			return isset( $problems[ $id ] ) ? WPCPM_Form_Errors::problem( $id, (string) $problems[ $id ] ) : '';
+		};
+
+		printf( '<details class="wpcpm-sessions__new"%s>', array() !== $typed || array() !== $problems ? ' open' : '' );
 		printf(
 			'<summary class="wpcpm-sessions__new-toggle">%s</summary>',
 			esc_html__( 'Plan a group session', 'wpcredits-program-manager' )
@@ -1445,10 +1609,36 @@ class WPCPM_Group_Sessions {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CREATE ) );
 		printf( '<input type="hidden" name="mentor" value="%d" />', (int) $mentor->ID );
 
+		if ( array() !== $problems ) {
+			$fields = array(
+				'wpcpm-session-date'   => array(
+					'id'    => 'wpcpm-session-date',
+					'label' => __( 'Date', 'wpcredits-program-manager' ),
+				),
+				'wpcpm-session-repeat' => array(
+					'id'    => 'wpcpm-session-repeat',
+					'label' => __( 'Repeat', 'wpcredits-program-manager' ),
+				),
+			);
+
+			for ( $box = 2; $box <= self::MORE_BOXES + 1; ++$box ) {
+				$fields[ self::more_box_id( $box ) ] = array(
+					'id'    => self::more_box_id( $box ),
+					/* translators: %d: the date's place in the series, from 2. */
+					'label' => sprintf( __( 'Date %d', 'wpcredits-program-manager' ), $box ),
+				);
+			}
+
+			echo WPCPM_Form_Errors::summary( $problems, $fields, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+		}
+
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-date">%1$s</label>'
-				. '<input type="date" id="wpcpm-session-date" name="date" required /></p>',
-			esc_html__( 'Date', 'wpcredits-program-manager' )
+				. '<input type="date" id="wpcpm-session-date" name="date"%2$s required%3$s />%4$s</p>',
+			esc_html__( 'Date', 'wpcredits-program-manager' ),
+			'' === $value( 'date' ) ? '' : ' value="' . esc_attr( $value( 'date' ) ) . '"',
+			$marks( 'wpcpm-session-date' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::attrs() or here.
+			$problem( 'wpcpm-session-date' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::problem().
 		);
 
 		// A repeat rule (the design's section 12): the rule makes the dates after the first, the
@@ -1456,10 +1646,18 @@ class WPCPM_Group_Sessions {
 		// that the first date counts.
 		echo '<p class="wpcpm-field wpcpm-sessions__repeat">';
 		printf( '<label for="wpcpm-session-repeat">%s</label>', esc_html__( 'Repeat', 'wpcredits-program-manager' ) );
-		echo '<select id="wpcpm-session-repeat" name="repeat">';
+		printf(
+			'<select id="wpcpm-session-repeat" name="repeat"%s>',
+			$marks( 'wpcpm-session-repeat' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::attrs() or here.
+		);
 
 		foreach ( self::repeat_rules() as $rule => $label ) {
-			printf( '<option value="%1$s">%2$s</option>', esc_attr( $rule ), esc_html( $label ) );
+			printf(
+				'<option value="%1$s"%3$s>%2$s</option>',
+				esc_attr( $rule ),
+				esc_html( $label ),
+				'' !== $rule && (string) $rule === $value( 'repeat' ) ? ' selected="selected"' : ''
+			);
 		}
 
 		echo '</select>';
@@ -1469,8 +1667,9 @@ class WPCPM_Group_Sessions {
 		// than bounced into an emptied form (the owner, 15 September 2026). With JavaScript off
 		// the box is open and optional, and the handler refuses a rule without a count as before.
 		printf(
-			'<input type="number" id="wpcpm-session-repeat-count" name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat" />',
-			(int) self::MAX_SERIES
+			'<input type="number" id="wpcpm-session-repeat-count" name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat"%s />',
+			(int) self::MAX_SERIES,
+			'' === $value( 'repeat_count' ) ? '' : ' value="' . esc_attr( $value( 'repeat_count' ) ) . '"'
 		);
 		printf(
 			'<span class="wpcpm-field__hint" id="wpcpm-sessions-repeat-hint">%s</span>',
@@ -1482,6 +1681,7 @@ class WPCPM_Group_Sessions {
 				)
 			)
 		);
+		echo $problem( 'wpcpm-session-repeat' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::problem().
 		echo '</p>';
 
 		// More dates, for a series (the design's decision 1): the same time, length, places and
@@ -1493,13 +1693,27 @@ class WPCPM_Group_Sessions {
 		// Each box says which date it is and nothing else, so the sentence below is named as their
 		// description: a screen reader that reads "Date 5" alone would never reach the one place
 		// that says an empty box is fine (the final review of 1.108.0).
+		$more_typed = isset( $typed['more_dates'] ) && is_array( $typed['more_dates'] ) ? array_values( $typed['more_dates'] ) : array();
+		$more_said  = '';
+
 		for ( $more = 2; $more <= self::MORE_BOXES + 1; ++$more ) {
+			$box_id   = self::more_box_id( $more );
+			$box_held = isset( $more_typed[ $more - 2 ] ) && is_scalar( $more_typed[ $more - 2 ] ) ? (string) $more_typed[ $more - 2 ] : '';
+
+			// Each box has an id of its own, for the summary to link to a refused one (1.123.58).
 			printf(
-				'<input type="date" name="more_dates[]" aria-label="%s" aria-describedby="wpcpm-sessions-more-hint" />',
+				'<input type="date" id="%1$s" name="more_dates[]"%2$s aria-label="%3$s"%4$s />',
+				esc_attr( $box_id ),
+				'' === $box_held ? '' : ' value="' . esc_attr( $box_held ) . '"',
 				/* translators: %d: the date's place in the series, from 2. */
-				esc_attr( sprintf( __( 'Date %d', 'wpcredits-program-manager' ), $more ) )
+				esc_attr( sprintf( __( 'Date %d', 'wpcredits-program-manager' ), $more ) ),
+				$marks( $box_id, 'wpcpm-sessions-more-hint' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::attrs() or here.
 			);
+
+			$more_said .= $problem( $box_id );
 		}
+
+		echo $more_said; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::problem().
 
 		printf(
 			'<span class="wpcpm-field__hint" id="wpcpm-sessions-more-hint">%s</span>',
@@ -1509,7 +1723,7 @@ class WPCPM_Group_Sessions {
 
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-time">%1$s</label>'
-				. '<input type="time" id="wpcpm-session-time" name="time" required />'
+				. '<input type="time" id="wpcpm-session-time" name="time"%3$s required />'
 				. '<span class="wpcpm-field__hint">%2$s</span></p>',
 			esc_html__( 'Start time', 'wpcredits-program-manager' ),
 			esc_html(
@@ -1518,34 +1732,38 @@ class WPCPM_Group_Sessions {
 					__( 'In your own timezone, %s. Your students see it in theirs.', 'wpcredits-program-manager' ),
 					WPCPM_Mentor_Availability::zone_label( $zone->getName() )
 				)
-			)
+			),
+			'' === $value( 'time' ) ? '' : ' value="' . esc_attr( $value( 'time' ) ) . '"'
 		);
 
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-minutes">%1$s</label>'
-				. '<input type="number" id="wpcpm-session-minutes" name="minutes" value="60" min="%2$d" max="%3$d" step="%2$d" required /></p>',
+				. '<input type="number" id="wpcpm-session-minutes" name="minutes" value="%4$s" min="%2$d" max="%3$d" step="%2$d" required /></p>',
 			esc_html__( 'Length in minutes', 'wpcredits-program-manager' ),
 			(int) self::MIN_MINUTES,
-			(int) self::MAX_MINUTES
+			(int) self::MAX_MINUTES,
+			esc_attr( $value( 'minutes', '60' ) )
 		);
 
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-capacity">%1$s</label>'
-				. '<input type="number" id="wpcpm-session-capacity" name="capacity" value="6" min="%2$d" max="%3$d" required />'
+				. '<input type="number" id="wpcpm-session-capacity" name="capacity" value="%5$s" min="%2$d" max="%3$d" required />'
 				. '<span class="wpcpm-field__hint">%4$s</span></p>',
 			esc_html__( 'Places', 'wpcredits-program-manager' ),
 			(int) self::MIN_CAPACITY,
 			(int) self::MAX_CAPACITY,
-			esc_html__( 'How many students may join.', 'wpcredits-program-manager' )
+			esc_html__( 'How many students may join.', 'wpcredits-program-manager' ),
+			esc_attr( $value( 'capacity', '6' ) )
 		);
 
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-topic">%1$s</label>'
-				. '<textarea id="wpcpm-session-topic" name="topic" rows="3" maxlength="%2$d"></textarea>'
+				. '<textarea id="wpcpm-session-topic" name="topic" rows="3" maxlength="%2$d">%4$s</textarea>'
 				. '<span class="wpcpm-field__hint">%3$s</span></p>',
 			esc_html__( 'What it is about', 'wpcredits-program-manager' ),
 			(int) WPCPM_Mentor_Calls::MAX_TOPIC,
-			esc_html__( 'Shown to your students beside the session, so they know whether it is for them.', 'wpcredits-program-manager' )
+			esc_html__( 'Shown to your students beside the session, so they know whether it is for them.', 'wpcredits-program-manager' ),
+			esc_textarea( $value( 'topic' ) )
 		);
 
 		printf(

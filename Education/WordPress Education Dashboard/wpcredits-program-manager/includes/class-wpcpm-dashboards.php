@@ -368,6 +368,9 @@ class WPCPM_Dashboards {
 	 *                              none (the mentor application form's country, 1.122.31).
 	 *     @type string     $describedby The ids of a hint and a problem the select and the field are
 	 *                              described by, space-separated, or '' for none.
+	 *     @type bool       $required Whether the select is `required` (1.123.58): a browser without
+	 *                              the script refuses an empty choice at the field. The script takes it
+	 *                              off the select it hides and sets `aria-required` on the field.
 	 *     @type bool       $invalid Whether the form refused the answer: the select and the field are
 	 *                              then both marked `aria-invalid`, ahead of what describes them.
 	 *                              False by default, and only a form that bounced a post sets it.
@@ -387,6 +390,7 @@ class WPCPM_Dashboards {
 				'mark'        => '',
 				'describedby' => '',
 				'invalid'     => false,
+				'required'    => false,
 			),
 			$args
 		);
@@ -423,7 +427,7 @@ class WPCPM_Dashboards {
 		// Not put back as it was left: a browser that restores a form after Back would set the hidden
 		// list on the name picked last while the field reads the page's own, and Show would open
 		// somebody else's page.
-		printf( '<select name="%1$s" id="%2$s" autocomplete="off"%3$s>', esc_attr( $args['name'] ), esc_attr( $id ), $aria ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
+		printf( '<select name="%1$s" id="%2$s" autocomplete="off"%3$s%4$s>', esc_attr( $args['name'] ), esc_attr( $id ), $aria, ! empty( $args['required'] ) ? ' required' : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() above.
 
 		foreach ( (array) $args['options'] as $value => $label ) {
 			printf(

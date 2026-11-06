@@ -92,6 +92,19 @@ class WPCPM_Student_Report_Form {
 	const MAX_TEXT = 5000;
 
 	/**
+	 * What a refused save keeps its answers under, followed by the student's record: one form per
+	 * student, the hours box and the form alike, since both post to `handle_save()` (1.123.58).
+	 */
+	const KEPT_FORM = 'report-form:';
+
+	/** Where a save was posted from: the hours box in *My course*, or the form (1.123.58, CARD-08). */
+	const FROM_HOURS = 'hours';
+	const FROM_FORM  = 'form';
+
+	/** The id of the hours box's own outcome when the count was refused (1.123.58). */
+	const HOURS_MESSAGE_ID = 'wpcpm-hours-message';
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -352,6 +365,12 @@ class WPCPM_Student_Report_Form {
 	public static function render( WP_User $student, array $program, $heading = '' ) {
 		$message = self::message( self::status() );
 
+		// A save from the hours box says its outcome in the box, in *My course*, and leaves the
+		// form as it was (1.123.58, CARD-08).
+		if ( self::FROM_HOURS === self::from() ) {
+			$message = array();
+		}
+
 		// Closed by default: it is a long form somebody opens deliberately, and a Student Report
 		// Card that begins with twenty boxes buries everything under it. **Open when there is
 		// something to say** - a "Saved" or a rejected grade behind a closed disclosure is a
@@ -421,6 +440,15 @@ class WPCPM_Student_Report_Form {
 		$values = self::values( $record );
 		$can    = ! $read_only && self::user_can_edit( $student->ID );
 
+		// A refused save is drawn again from what was posted, never from the record, and each
+		// refused answer is marked at its field (1.123.58, CARD-01 and CARD-02). Only on the form
+		// somebody may save, and not after a save from the hours box, which says its own outcome.
+		$hours_only = self::FROM_HOURS === self::from();
+		$kept       = $can && ! $hours_only ? self::kept( $record ) : array(
+			'values'   => array(),
+			'problems' => array(),
+		);
+
 		// What the screenshot control needs and no other control does: whose card this is, the
 		// site's copy of each picture, and how many files the base holds for a question the site
 		// has no copy of. Built once here rather than looked up per field, and passed rather
@@ -445,7 +473,9 @@ class WPCPM_Student_Report_Form {
 
 		echo '<div class="wpcpm-report__body">';
 
-		self::render_message();
+		if ( ! $hours_only ) {
+			self::render_message();
+		}
 
 		if ( is_wp_error( $values ) ) {
 			// Said out loud rather than drawn as an empty form. Twenty-two blank boxes over a
@@ -490,10 +520,16 @@ class WPCPM_Student_Report_Form {
 			wp_nonce_field( self::ACTION_SAVE . '_' . (int) $student->ID );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+			printf( '<input type="hidden" name="wpcpm_from" value="%s" />', esc_attr( self::FROM_FORM ) );
+
+			echo self::summary( $fields, $kept['problems'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 		} else {
 			// The same class, so one set of layout rules dresses both.
 			echo '<div class="wpcpm-report wpcpm-report--readonly">';
 		}
+
+		$values              = self::with_kept( $fields, $values, $kept['values'] );
+		$context['problems'] = $kept['problems'];
 
 		self::render_groups( $fields, $values, $can, $context, $read_only && in_array( $audience, array( 'mentor', 'manager' ), true ) );
 
@@ -537,6 +573,58 @@ class WPCPM_Student_Report_Form {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The stored answers with what a refused save posted laid over them, by column name (1.123.58).
+	 *
+	 * A question the save posted nothing for, a screenshot or one the program fills in, keeps the
+	 * stored answer.
+	 *
+	 * @param array $fields The fields, column name => spec.
+	 * @param array $values The stored answers, column name => value.
+	 * @param array $kept   What was posted, form key => value.
+	 * @return array
+	 */
+	private static function with_kept( array $fields, array $values, array $kept ) {
+		if ( array() === $kept ) {
+			return $values;
+		}
+
+		foreach ( array_keys( $fields ) as $name ) {
+			$key = self::key( $name );
+
+			if ( array_key_exists( $key, $kept ) ) {
+				$values[ $name ] = $kept[ $key ];
+			}
+		}
+
+		return $values;
+	}
+
+	/**
+	 * The summary a refused save's form opens with, or '' when nothing was refused (1.123.58).
+	 *
+	 * @param array $fields   The fields, column name => spec, in the form's order.
+	 * @param array $problems Form key => the sentence saying why it was refused.
+	 * @return string
+	 */
+	private static function summary( array $fields, array $problems ) {
+		if ( array() === $problems ) {
+			return '';
+		}
+
+		$map = array();
+
+		foreach ( $fields as $name => $spec ) {
+			$key         = self::key( $name );
+			$map[ $key ] = array(
+				'id'    => 'wpcpm-report-' . $key,
+				'label' => isset( $spec['label'] ) ? (string) $spec['label'] : (string) $name,
+			);
+		}
+
+		return WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 3 ) );
 	}
 
 	/**
@@ -903,6 +991,45 @@ class WPCPM_Student_Report_Form {
 		wp_nonce_field( self::ACTION_SAVE . '_' . (int) $student->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+		printf( '<input type="hidden" name="wpcpm_from" value="%s" />', esc_attr( self::FROM_HOURS ) );
+
+		// The outcome of a save made here, said here rather than at the form, and the count drawn
+		// as typed when it was refused (1.123.58, CARD-08).
+		$problem = '';
+
+		if ( $can && self::FROM_HOURS === self::from() ) {
+			// Read under the record the handler keeps under, which can differ from the program
+			// row's copy.
+			$kept    = self::kept( WPCPM_Mentor_Calls::student_record( $student->ID ) );
+			$key     = self::key( 'Hours' );
+			$problem = isset( $kept['problems'][ $key ] ) && is_string( $kept['problems'][ $key ] ) ? $kept['problems'][ $key ] : '';
+
+			if ( array_key_exists( $key, $kept['values'] ) ) {
+				$values['Hours'] = $kept['values'][ $key ];
+			}
+
+			$outcome = self::message( self::status() );
+
+			if ( '' !== $problem ) {
+				$outcome = array( 'error', $problem );
+			} elseif ( 'report-refused' === self::status() ) {
+				// The form below is drawn from the record here, so the box says where the count is.
+				$outcome = array( 'error', __( 'Airtable did not take your hours. They are still in the box: save them again in a moment.', 'wpcredits-program-manager' ) );
+			} elseif ( isset( $outcome[0] ) && 'success' === $outcome[0] ) {
+				$outcome = array( 'success', __( 'Hours saved.', 'wpcredits-program-manager' ) );
+			}
+
+			if ( ! empty( $outcome ) ) {
+				$said = WPCPM_Dashboard_Card::message( $outcome[0], $outcome[1], 'wpcpm-hours__message' );
+
+				// A refused count's input names this paragraph as what describes it.
+				if ( '' !== $problem ) {
+					$said = preg_replace( '/^<p /', '<p id="' . esc_attr( self::HOURS_MESSAGE_ID ) . '" ', $said, 1 );
+				}
+
+				echo $said; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints; the id is escaped here.
+			}
+		}
 
 		// Drawn here rather than through `render_field()`. That renders one `<p>` holding label,
 		// input and hint, which leaves the Save button an outsider beside all three - the label
@@ -911,7 +1038,7 @@ class WPCPM_Student_Report_Form {
 		// left aligned.
 		$spec  = $fields['Hours'];
 		$value = isset( $values['Hours'] ) ? $values['Hours'] : '';
-		self::render_hours_field( $spec, $value, $can, true );
+		self::render_hours_field( $spec, $value, $can, true, '' !== $problem, '' !== $problem ? self::HOURS_MESSAGE_ID : '' );
 		echo '</form>';
 	}
 
@@ -922,12 +1049,15 @@ class WPCPM_Student_Report_Form {
 	 * Builder's preview draws the hours question through the same code, with no value, no form and
 	 * no Save button (the design's decision 27). `render_hours()` passes exactly what it drew before.
 	 *
-	 * @param array $spec        The `Hours` question.
-	 * @param mixed $value       The student's hours; empty for a preview.
-	 * @param bool  $can         Whether the input is drawn editable.
-	 * @param bool  $with_button Whether the Save button follows the input, which needs the form.
+	 * @param array  $spec        The `Hours` question.
+	 * @param mixed  $value       The student's hours; empty for a preview.
+	 * @param bool   $can         Whether the input is drawn editable.
+	 * @param bool   $with_button Whether the Save button follows the input, which needs the form.
+	 * @param bool   $refused     Whether the count was refused, which marks the input (1.123.58).
+	 * @param string $problem_id  The id of the paragraph saying why, named first by the input's
+	 *                            `aria-describedby`; '' for none.
 	 */
-	private static function render_hours_field( array $spec, $value, $can, $with_button ) {
+	private static function render_hours_field( array $spec, $value, $can, $with_button, $refused = false, $problem_id = '' ) {
 		$id = 'wpcpm-report-' . self::key( 'Hours' );
 
 		// Same id scheme as render_field(), so a screen reader hears this box described the same
@@ -943,7 +1073,7 @@ class WPCPM_Student_Report_Form {
 		echo '<span class="wpcpm-hours__entry">';
 
 		printf(
-			'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="numeric"%7$s%8$s />',
+			'<input type="%10$s" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="numeric"%7$s%8$s%9$s />',
 			esc_attr( $id ),
 			esc_attr( self::key( 'Hours' ) ),
 			esc_attr( is_scalar( $value ) ? (string) $value : '' ),
@@ -951,7 +1081,9 @@ class WPCPM_Student_Report_Form {
 			esc_attr( isset( $spec['min'] ) ? (string) $spec['min'] : '' ),
 			esc_attr( isset( $spec['max'] ) ? (string) $spec['max'] : '' ),
 			$can ? '' : ' disabled="disabled"',
-			empty( $spec['help'] ) ? '' : ' aria-describedby="' . esc_attr( $hint_id ) . '"'
+			self::described_by( array( $problem_id, empty( $spec['help'] ) ? '' : $hint_id ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by described_by(), which escapes.
+			$refused ? ' aria-invalid="true"' : '',
+			esc_attr( self::number_box_type( $value ) )
 		);
 
 		if ( $can && $with_button ) {
@@ -1054,6 +1186,13 @@ class WPCPM_Student_Report_Form {
 		$hint_id   = $id . '-hint';
 		$described = empty( $spec['help'] ) ? '' : ' aria-describedby="' . esc_attr( $hint_id ) . '"';
 
+		// A refused answer is marked at its control, its sentence read first (1.123.58, CARD-02).
+		$problem = isset( $context['problems'][ $key ] ) && is_string( $context['problems'][ $key ] ) ? $context['problems'][ $key ] : '';
+
+		if ( '' !== $problem ) {
+			$described = WPCPM_Form_Errors::attrs( $id, $problem, empty( $spec['help'] ) ? '' : $hint_id );
+		}
+
 		// A reader, not a writer: a mentor or a manager reading somebody else's card never fills
 		// it in, and a disabled box said "something is wrong here" while lowering the contrast of
 		// what it holds. The team list and the screenshot are the two exceptions: their own
@@ -1088,6 +1227,12 @@ class WPCPM_Student_Report_Form {
 		// span; the `<fieldset>` inside carries the accessible grouping instead.
 		$wrapper = in_array( $type, array( 'team', 'image' ), true ) ? 'div' : 'p';
 
+		// A paragraph cannot hold the paragraph a refused answer's sentence is printed in, so a
+		// refused field is a block of its own (1.123.58).
+		if ( '' !== $problem ) {
+			$wrapper = 'div';
+		}
+
 		// A checkbox reads as "[x] Yes, I agree to…", so the box comes first and the label after
 		// it. Printing the label above would turn a consent question into a heading with an
 		// unlabeled tick under it. The Required mark goes inside that label, after the words, as
@@ -1099,21 +1244,24 @@ class WPCPM_Student_Report_Form {
 			// without this a student could tick the box once and never take it back. It is a
 			// consent checkbox, so that is the one direction that must work.
 			printf(
-				'<p class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s%6$s /><label for="%1$s">%5$s%7$s</label>',
+				'<%8$s class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s%6$s /><label for="%1$s">%5$s%7$s</label>',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				checked( self::is_ticked( $value ), true, false ),
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
 				esc_html( $spec['label'] ),
 				$described, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
-				$required // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_html__() or the empty string.
+				$required, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_html__() or the empty string.
+				esc_attr( $wrapper )
 			);
+
+			echo ( '' === $problem ? '' : WPCPM_Form_Errors::problem( $id, $problem ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::problem().
 
 			if ( ! empty( $spec['help'] ) ) {
 				printf( '<span class="wpcpm-field__hint" id="%1$s">%2$s</span>', esc_attr( $hint_id ), esc_html( $spec['help'] ) );
 			}
 
-			echo '</p>';
+			printf( '</%s>', esc_attr( $wrapper ) );
 
 			return;
 		}
@@ -1159,7 +1307,7 @@ class WPCPM_Student_Report_Form {
 			echo '</select>';
 		} elseif ( 'number' === $type ) {
 			printf(
-				'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="decimal"%7$s%8$s />',
+				'<input type="%9$s" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="decimal"%7$s%8$s />',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				esc_attr( is_scalar( $value ) ? (string) $value : '' ),
@@ -1167,7 +1315,8 @@ class WPCPM_Student_Report_Form {
 				esc_attr( isset( $spec['min'] ) ? (string) $spec['min'] : '' ),
 				esc_attr( isset( $spec['max'] ) ? (string) $spec['max'] : '' ),
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
-				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
+				$described, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
+				esc_attr( self::number_box_type( $value ) )
 			);
 		} elseif ( 'textarea' === $type || 'richtext' === $type ) {
 			printf(
@@ -1212,11 +1361,47 @@ class WPCPM_Student_Report_Form {
 			);
 		}
 
+		echo ( '' === $problem ? '' : WPCPM_Form_Errors::problem( $id, $problem ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::problem().
+
 		if ( ! empty( $spec['help'] ) ) {
 			printf( '<span class="wpcpm-field__hint" id="%1$s">%2$s</span>', esc_attr( $hint_id ), esc_html( $spec['help'] ) );
 		}
 
 		printf( '</%s>', esc_attr( $wrapper ) );
+	}
+
+	/**
+	 * An `aria-describedby` naming the ids given, in order, or '' when none is given.
+	 *
+	 * @param string[] $ids The ids, '' for none.
+	 * @return string
+	 */
+	private static function described_by( array $ids ) {
+		$ids = array_values(
+			array_filter(
+				array_map( 'strval', $ids ),
+				static function ( $value ) {
+					return '' !== $value;
+				}
+			)
+		);
+
+		return array() === $ids ? '' : ' aria-describedby="' . esc_attr( implode( ' ', $ids ) ) . '"';
+	}
+
+	/**
+	 * The type a number box is drawn with: `number`, or `text` for a refused answer that is not a
+	 * number, which a number box would show as empty, losing the typing it was kept for (1.123.58).
+	 *
+	 * @param mixed $value The answer drawn.
+	 * @return string
+	 */
+	private static function number_box_type( $value ) {
+		if ( ! is_scalar( $value ) || '' === (string) $value || is_numeric( (string) $value ) ) {
+			return 'number';
+		}
+
+		return 'text';
 	}
 
 
@@ -1488,6 +1673,14 @@ class WPCPM_Student_Report_Form {
 			return;
 		}
 
+		// Every error-toned outcome is an alert focused on load, as the hours box prints its own: Airtable's
+		// refusal since the fix wave of 1.123.58, and the rest since its trial (T12). A success is a status.
+		if ( 'error' === $message[0] ) {
+			echo WPCPM_Dashboard_Card::message( 'error', $message[1], 'wpcpm-calls__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+
+			return;
+		}
+
 		printf(
 			'<p class="wpcpm-calls__message wpcpm-calls__message--%1$s" role="status">%2$s</p>',
 			esc_attr( $message[0] ),
@@ -1512,11 +1705,22 @@ class WPCPM_Student_Report_Form {
 			wp_die( esc_html__( 'You cannot fill in that report form.', 'wpcredits-program-manager' ), 403 );
 		}
 
+		// The hours box posts here too, and the student is sent back to the box they used, with its
+		// outcome beside it, rather than to the form (1.123.58, CARD-08).
+		$from = isset( $_POST['wpcpm_from'] ) ? sanitize_key( wp_unslash( $_POST['wpcpm_from'] ) ) : '';
+		$from = self::FROM_HOURS === $from ? self::FROM_HOURS : self::FROM_FORM;
+
 		$record = WPCPM_Mentor_Calls::student_record( $student_id );
 
 		if ( '' === $record ) {
-			self::bounce( 'report-no-record' );
+			self::bounce( 'report-no-record', $from );
 		}
+
+		// What an earlier refusal kept is dropped first, so a refusal whose page was never drawn
+		// cannot fill the boxes after this save (1.123.58).
+		$form = self::KEPT_FORM . $record;
+
+		WPCPM_Flash::forget( $form );
 
 		$program = WPCPM_Students_Sync::get_program( $student_id );
 		$fields  = self::fields( self::track_of( $program, $student_id ) );
@@ -1527,6 +1731,10 @@ class WPCPM_Student_Report_Form {
 
 		$cells    = array();
 		$rejected = array();
+
+		// Each refused answer, by its form key, with the one sentence that says why (1.123.58,
+		// CARD-02): the field is marked and the summary links to it when the form comes back.
+		$problems = array();
 
 		foreach ( $fields as $name => $spec ) {
 			$key = self::key( $name );
@@ -1554,16 +1762,19 @@ class WPCPM_Student_Report_Form {
 				continue;
 			}
 
-			list( $ok, $value ) = self::clean( $posted[ $key ], $spec );
+			$result = self::clean_result( $posted[ $key ], $spec );
 
 			// **"Rejected" and "cleared" cannot be the same answer.** Airtable empties a number
 			// column with `null`, so `null` is a legitimate value to send - and a first draft used
 			// it for "could not be understood" as well, which would have made an unreadable grade
 			// silently erase the stored one. Hence the pair: whether to write, and what.
-			if ( $ok ) {
-				$cells[ $name ] = $value;
+			if ( $result['ok'] ) {
+				$cells[ $name ] = $result['value'];
 			} else {
-				$rejected[] = $spec['label'];
+				$rejected[]       = $spec['label'];
+				$problems[ $key ] = self::FROM_HOURS === $from && 'Hours' === $name
+					? self::hours_refused_text()
+					: self::problem_text( $result['problem'], $spec );
 			}
 		}
 
@@ -1575,10 +1786,11 @@ class WPCPM_Student_Report_Form {
 		if ( empty( $cells ) ) {
 			// The unreadable answer first, for the reason given at the other bounce below.
 			if ( '' !== $images && empty( $rejected ) ) {
-				self::bounce( $images );
+				self::bounce( $images, $from );
 			}
 
-			self::bounce( empty( $rejected ) ? 'report-nothing' : 'report-rejected' );
+			self::keep( $form, $posted, $problems );
+			self::bounce( empty( $rejected ) ? 'report-nothing' : 'report-rejected', $from );
 		}
 
 		$settings = WPCPM_Settings::get();
@@ -1593,8 +1805,11 @@ class WPCPM_Student_Report_Form {
 			)
 		);
 
+		// Nothing was written, so every answer typed is kept for the form to be drawn from, the
+		// readable ones with the rest (1.123.58, CARD-01).
 		if ( is_wp_error( $result ) ) {
-			self::bounce( 'report-refused' );
+			self::keep( $form, $posted, $problems );
+			self::bounce( 'report-refused', $from );
 		}
 
 		// The cache holds what Airtable had a moment ago, which is now wrong.
@@ -1615,10 +1830,134 @@ class WPCPM_Student_Report_Form {
 		// `$rejected` pair exists to prevent. The screenshot refusal is said on its own
 		// whenever it is the only thing that went wrong, which is nearly always.
 		if ( '' !== $images && empty( $rejected ) ) {
-			self::bounce( $images );
+			self::bounce( $images, $from );
 		}
 
-		self::bounce( empty( $rejected ) ? 'report-saved' : 'report-partly' );
+		// Saved but for the answers named: they come back as typed, at their fields, beside the
+		// saved ones, which the kept values hold as they were posted.
+		if ( ! empty( $rejected ) ) {
+			self::keep( $form, $posted, $problems );
+		}
+
+		self::bounce( empty( $rejected ) ? 'report-saved' : 'report-partly', $from );
+	}
+
+	/**
+	 * Keep what a refused save posted, and why each refused answer was refused, for the one time
+	 * the form is drawn again (1.123.58, CARD-01).
+	 *
+	 * @param string $form     The form, `KEPT_FORM` and the student's record.
+	 * @param array  $posted   The posted answers, form key => value, unslashed and not cleaned.
+	 * @param array  $problems Form key => the sentence saying why it was refused.
+	 */
+	private static function keep( $form, array $posted, array $problems ) {
+		$values = array();
+
+		foreach ( $posted as $key => $value ) {
+			// A value longer than the store keeps is not kept at all, rather than kept cut.
+			if ( is_string( $value ) && mb_strlen( $value ) > WPCPM_Flash::KEPT_MAX ) {
+				continue;
+			}
+
+			$values[ sanitize_key( (string) $key ) ] = $value;
+		}
+
+		WPCPM_Flash::keep( $form, $values, $problems );
+	}
+
+	/**
+	 * What a refused save kept for this student's form, read once per request, or nothing when the
+	 * last save was not refused (1.123.58).
+	 *
+	 * @param string $record The student's record.
+	 * @return array{values: array, problems: array<string, string>}
+	 */
+	private static function kept( $record ) {
+		if ( '' === (string) $record ) {
+			return array(
+				'values'   => array(),
+				'problems' => array(),
+			);
+		}
+
+		return WPCPM_Flash::kept( self::KEPT_FORM . $record );
+	}
+
+	/**
+	 * The one sentence a refused answer is named with at its field (1.123.58, CARD-02), from the
+	 * reason `WPCPM_Field_Value::clean()` gives. Shared with the feedback forms, which take the same
+	 * rules.
+	 *
+	 * @param string $problem The reason, one of `WPCPM_Field_Value`'s keys.
+	 * @param array  $spec    The field's spec, for the bounds a number takes.
+	 * @return string
+	 */
+	public static function problem_text( $problem, array $spec ) {
+		if ( 'not_a_number' === $problem ) {
+			return self::number_text();
+		}
+
+		if ( ( 'below_min' === $problem || 'above_max' === $problem ) && isset( $spec['min'], $spec['max'] ) ) {
+			return sprintf(
+				/* translators: 1: the smallest number the answer takes, 2: the largest. */
+				__( 'Write a number from %1$s to %2$s.', 'wpcredits-program-manager' ),
+				number_format_i18n( (float) $spec['min'] ),
+				number_format_i18n( (float) $spec['max'] )
+			);
+		}
+
+		if ( 'below_min' === $problem || 'above_max' === $problem ) {
+			return self::number_text();
+		}
+
+		if ( 'out_of_range' === $problem ) {
+			return sprintf(
+				/* translators: %s: the highest number on the scale. */
+				__( 'Choose a rating from 1 to %s.', 'wpcredits-program-manager' ),
+				number_format_i18n( isset( $spec['max'] ) ? (int) $spec['max'] : 5 )
+			);
+		}
+
+		if ( 'bad_choice' === $problem ) {
+			return __( 'Choose one of the options in the list.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'bad_email' === $problem ) {
+			return __( 'That does not look like an email address.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'bad_date' === $problem ) {
+			return __( 'Write the date as YYYY-MM-DD.', 'wpcredits-program-manager' );
+		}
+
+		return __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What a grade or an hours count with words in it is told (1.123.58).
+	 *
+	 * @return string
+	 */
+	private static function number_text() {
+		return __( 'Write the number only, such as 85.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What the hours box says when the count it was given is refused (1.123.58, CARD-08).
+	 *
+	 * @return string
+	 */
+	private static function hours_refused_text() {
+		return __( 'The hours were not saved. Write the number of hours only, such as 12.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * Where the last save was posted from, on the request its redirect lands on (1.123.58).
+	 *
+	 * @return string `FROM_HOURS` or `FROM_FORM`.
+	 */
+	private static function from() {
+		return self::FROM_HOURS === (string) WPCPM_Flash::take( 'report-from' ) ? self::FROM_HOURS : self::FROM_FORM;
 	}
 
 
@@ -1936,17 +2275,16 @@ class WPCPM_Student_Report_Form {
 	}
 
 	/**
-	 * A submitted value, in the shape Airtable takes, or null if it cannot be used.
+	 * A submitted value, in the shape Airtable takes, or a refusal with its reason (1.123.58, CARD-02).
 	 *
-	 * The rules live in `WPCPM_Field_Value`, shared with the feedback forms. This keeps the pair
-	 * the handler reads, and passes the form's own text cap so nothing a student can type got
-	 * shorter when the rules moved.
+	 * The rules live in `WPCPM_Field_Value`, shared with the feedback forms. This passes the form's
+	 * own text cap so nothing a student can type got shorter when the rules moved.
 	 *
 	 * @param mixed $raw  Posted value.
 	 * @param array $spec Field spec.
-	 * @return array{0:bool,1:mixed} Whether to write it, and what to write.
+	 * @return array{ok:bool,value:mixed,problem:string}
 	 */
-	private static function clean( $raw, array $spec ) {
+	private static function clean_result( $raw, array $spec ) {
 		$spec['max_text'] = self::MAX_TEXT;
 
 		// This form calls a single select's list `options`, because that is what the control
@@ -1957,9 +2295,7 @@ class WPCPM_Student_Report_Form {
 			$spec['choices'] = (array) $spec['options'];
 		}
 
-		$result = WPCPM_Field_Value::clean( $raw, $spec );
-
-		return array( $result['ok'], $result['value'] );
+		return WPCPM_Field_Value::clean( $raw, $spec );
 	}
 
 
@@ -1979,14 +2315,21 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * Back to the student page with a message.
 	 *
+	 * A save from the hours box lands on *My course*, where the box is, and the box says the
+	 * outcome; every other lands on the form (1.123.58, CARD-08).
+	 *
 	 * @param string $status Outcome flag.
+	 * @param string $from   `FROM_HOURS` or `FROM_FORM`.
 	 */
-	private static function bounce( $status ) {
+	private static function bounce( $status, $from = self::FROM_FORM ) {
+		$hours = self::FROM_HOURS === $from;
+
 		WPCPM_Flash::set( 'report', $status );
+		WPCPM_Flash::set( 'report-from', $hours ? self::FROM_HOURS : self::FROM_FORM );
 
 		$page = WPCPM_Students_Dashboard::page_url();
 
-		wp_safe_redirect( ( '' !== $page ? $page : home_url( '/' ) ) . '#wpcpm-report-form' );
+		wp_safe_redirect( ( '' !== $page ? $page : home_url( '/' ) ) . ( $hours ? '#wpcpm-module-' . WPCPM_Students_Dashboard::MODULE_COURSE : '#wpcpm-report-form' ) );
 		exit;
 	}
 
@@ -2001,9 +2344,10 @@ class WPCPM_Student_Report_Form {
 			'report-saved'         => array( 'success', __( 'Your report form is saved, and your mentor can see it.', 'wpcredits-program-manager' ) ),
 			'report-nothing'       => array( 'error', __( 'Nothing was submitted, so nothing changed.', 'wpcredits-program-manager' ) ),
 			'report-no-record'     => array( 'error', __( 'Your record could not be found in the program data, so there is nothing to save to.', 'wpcredits-program-manager' ) ),
-			'report-refused'       => array( 'error', __( 'The program records refused the change, so nothing was saved. Please try again.', 'wpcredits-program-manager' ) ),
-			'report-partly'        => array( 'error', __( 'Saved, except for one or more answers that could not be read. A grade or an hours count takes digits, and a grade is between 0 and 100; a choice question takes one of its own options.', 'wpcredits-program-manager' ) ),
-			'report-rejected'      => array( 'error', __( 'Nothing was saved: one or more answers could not be read. A grade or an hours count takes digits, and a grade is between 0 and 100; a choice question takes one of its own options.', 'wpcredits-program-manager' ) ),
+			'report-refused'       => array( 'error', __( 'Airtable did not take your report. Your answers are still in the form below: save it again in a moment.', 'wpcredits-program-manager' ) ),
+			// Each answer that could not be read is named at its field, under the summary (1.123.58).
+			'report-partly'        => array( 'error', __( 'The rest was saved. The answers marked below need a change.', 'wpcredits-program-manager' ) ),
+			'report-rejected'      => array( 'error', __( 'Nothing was saved. The answers marked below need a change.', 'wpcredits-program-manager' ) ),
 			// The screenshots. Each says what to do next, because every one of these is
 			// something the student can act on rather than something that has gone wrong.
 			'report-image-refused' => array(

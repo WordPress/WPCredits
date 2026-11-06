@@ -87,7 +87,14 @@ final class WPCPM_Return {
 
 		$anchor = WPCPM_Request::posted_key( self::ANCHOR_FIELD );
 
-		return in_array( $anchor, self::ANCHORS, true ) ? $page . '#wpcpm-' . $anchor : $page;
+		if ( ! in_array( $anchor, self::ANCHORS, true ) ) {
+			return $page;
+		}
+
+		// The decision's outcome is printed inside the card it comes back to (SDB-02, 1.123.58).
+		WPCPM_Dashboard_Card::target( 'wpcpm-' . $anchor );
+
+		return $page . '#wpcpm-' . $anchor;
 	}
 
 	/**

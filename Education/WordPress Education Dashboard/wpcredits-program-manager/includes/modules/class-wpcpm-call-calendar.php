@@ -628,10 +628,12 @@ class WPCPM_Call_Calendar {
 			'<label class="wpcpm-slots__label" for="wpcpm-call-topic">%s</label>',
 			esc_html__( 'What would you like to discuss? (optional)', 'wpcredits-program-manager' )
 		);
+		// A booking that lost its slot keeps the topic typed for it (1.123.58, CARD-04).
 		printf(
-			'<textarea class="wpcpm-slots__topic" id="wpcpm-call-topic" name="topic" rows="2" maxlength="%1$d" placeholder="%2$s"></textarea>',
+			'<textarea class="wpcpm-slots__topic" id="wpcpm-call-topic" name="topic" rows="2" maxlength="%1$d" placeholder="%2$s">%3$s</textarea>',
 			(int) WPCPM_Mentor_Calls::MAX_TOPIC,
-			esc_attr__( 'Anything you would like your mentor to prepare.', 'wpcredits-program-manager' )
+			esc_attr__( 'Anything you would like your mentor to prepare.', 'wpcredits-program-manager' ),
+			esc_textarea( WPCPM_Mentor_Calls::kept_topic( $student->ID ) )
 		);
 
 		echo '<ul class="wpcpm-slots__list">';

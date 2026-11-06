@@ -583,6 +583,7 @@ class WPCPM_Students_Sync {
 	const META_PROGRAM     = 'wpcpm_student_program';
 	const META_MENTOR      = 'wpcpm_student_mentor';
 	const META_INSTITUTION = 'wpcpm_student_institution';
+	const META_RECORD_ID   = 'wpcpm_student_record_id';
 	public static function get_program( $user_id ) {
 		$stored = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
 		return is_array( $stored ) ? $stored : array();
@@ -844,13 +845,18 @@ class WPCPM_Institution_Audit {
 }
 
 class WPCPM_Flash {
-	const META = 'wpcpm_flash';
+	const META     = 'wpcpm_flash';
+	const KEPT_MAX = 60000;
 	public static function set( $channel, $value, $user = 0 ) { $GLOBALS['flash'][ $channel ] = $value; }
 	public static function take( $channel, $user = 0 ) {
 		$value = isset( $GLOBALS['flash'][ $channel ] ) ? $GLOBALS['flash'][ $channel ] : null;
 		unset( $GLOBALS['flash'][ $channel ] );
 		return $value;
 	}
+	// A refused form's kept answers, in the same bag (1.123.58): what the feedback handler keeps.
+	public static function keep( $form, array $values, array $problems = array() ) { $GLOBALS['flash'][ 'kept:' . $form ] = array( 'values' => $values, 'problems' => $problems ); }
+	public static function kept( $form ) { $entry = self::take( 'kept:' . $form ); return is_array( $entry ) ? $entry : array( 'values' => array(), 'problems' => array() ); }
+	public static function forget( $form ) { self::take( 'kept:' . $form ); }
 	public static function peek( $channel, $user = 0 ) {
 		return isset( $GLOBALS['flash'][ $channel ] ) ? $GLOBALS['flash'][ $channel ] : null;
 	}
@@ -999,6 +1005,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 // The real class, not a stand-in: WPCPM_Return::url() is what a refused Draft now (final
 // review, Important 2) has to resolve through, and a stub could quietly disagree with it.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 // The real one field for a long list, which the Draft now picker draws its institution with.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
@@ -4052,6 +4059,22 @@ ck( 'no dash but the plain hyphen in any of the three files', $dashes, array() )
 $handbook = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/13-student-feedback.md' );
 
 ck( 'the students\' handbook names the semester report exception', has( strtolower( $handbook ), 'semester report' ), true );
+
+// 1.123.58, IDB-09: the screen's outcome is printed in its own class, toned, heard and focusable.
+$GLOBALS['flash'] = array( WPCPM_Semester_Report_Screen::FLASH => array( 'status' => 'refused' ) );
+$refused_html     = screen_html( $B, '' );
+$GLOBALS['flash'] = array( WPCPM_Semester_Report_Screen::FLASH => array( 'status' => 'saved' ) );
+$saved_html       = screen_html( $B, '' );
+$GLOBALS['flash'] = array();
+ck(
+	'an upload refused is an error in its tone, as an alert, focusable; one accepted is a success, as a status',
+	array(
+		has( $refused_html, '<p class="wpcpm-report-card__message wpcpm-report-card__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>That is not something you can do here.</p>' ),
+		has( $saved_html, '<p class="wpcpm-report-card__message wpcpm-report-card__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Saved.</p>' ),
+		WPCPM_Semester_Report_Screen::tone_for( 'draft-exists' ),
+	),
+	array( true, true, 'info' )
+);
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

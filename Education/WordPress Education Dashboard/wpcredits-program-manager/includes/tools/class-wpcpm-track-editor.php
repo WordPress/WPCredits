@@ -282,7 +282,14 @@ final class WPCPM_Track_Editor {
 		}
 
 		if ( $async ) {
-			wp_send_json_success( array( 'order' => array_map( 'strval', array_keys( $questions ) ) ) );
+			// The revision rides with the answer so the page's own move is not a change made elsewhere:
+			// the property form on the same page takes it, and its next Save is not stale.
+			wp_send_json_success(
+				array(
+					'order'    => array_map( 'strval', array_keys( $questions ) ),
+					'revision' => WPCPM_Track_Store::revision( $post_id ),
+				)
+			);
 		}
 
 		$this->redirect_back(

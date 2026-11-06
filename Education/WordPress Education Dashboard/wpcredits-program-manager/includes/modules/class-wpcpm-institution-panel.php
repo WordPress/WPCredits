@@ -222,11 +222,9 @@ class WPCPM_Institution_Panel {
 			return;
 		}
 
-		printf(
-			'<p class="wpcpm-agreement-panel__message wpcpm-agreement-panel__message--%1$s">%2$s</p>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] )
-		);
+		// Toned, heard and focused as every card's outcome is (1.123.58, IDB-09): a refusal as an
+		// alert, anything else as a status.
+		echo WPCPM_Dashboard_Card::message( $messages[ $status ][0], $messages[ $status ][1], 'wpcpm-agreement-panel__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
 	}
 
 	/**

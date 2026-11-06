@@ -65,6 +65,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/mail/class-wpcpm-mail-captu
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-teams.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-field-value.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-typed-text.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-errors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-updates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-template.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-two-factor.php';
@@ -90,6 +91,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-pa
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-store.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-guard.php';
 // Before the modules that use it: PHP declares a class only once the traits it uses are declared.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
@@ -245,6 +247,9 @@ delete_metadata( 'user', 0, WPCPM_Students_Sync::META_INSTITUTION, '', true );
 delete_metadata( 'user', 0, WPCPM_Mentor_Provision::USER_ROW_PENDING, '', true );
 delete_metadata( 'user', 0, WPCPM_Mentor_Provision::USER_ACTIVATED_AT, '', true );
 delete_metadata( 'user', 0, WPCPM_Mentor_Provision::USER_INVITE_HELD, '', true );
+// The accounts the mentors sync found by a mentor's WordPress.org username alone, waiting under Needs
+// confirming on the Mentors screen's Sync tab (1.123.58).
+delete_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED );
 WPCPM_Tools::uninstall();
 WPCPM_Roles::unregister();
 
@@ -320,8 +325,9 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 // the locks a school's details request is raised, decided and withdrawn under (Institutions release 2),
 // one row per request and one per school. And the order a company keeps its Sponsor Dashboard's four
 // sections in, one option per sponsor (Institutions release 3), beside the order each institution keeps
-// its Institution Dashboard's three in.
-foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Student_Registration::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX ) as $wpcpm_prefix ) {
+// its Institution Dashboard's three in. And the lock a company's interest in a mentor is filed under
+// (1.123.58), one row per sponsor and mentor.
+foreach ( array( 'wpcpm_institution_modules_', 'wpcpm_sponsor_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_', WPCPM_Mail::INVITE_LOCK, WPCPM_Mentor_Application::LOCK_PREFIX, WPCPM_Student_Registration::LOCK_PREFIX, WPCPM_Institution_Request::LOCK_PREFIX, WPCPM_Sponsor_Mentors::INTEREST_LOCK ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}
@@ -381,12 +387,16 @@ wp_clear_scheduled_hook( 'wpcpm_handbook_sync_tick' );
 
 // The email log's table, its two options, the option the plugin kept its mail in before 1.122.18
 // and the daily cleanup; anyone still waiting for an invitation that is no longer coming, and the
-// counts and times of the last bulk invite (the final fix wave of the deep check of 1.109.1).
+// counts and times of the last bulk invite (the final fix wave of the deep check of 1.109.1); and the
+// lock the queue is written under (1.123.58), which a request that dies holding it leaves behind.
 WPCPM_Mail_Log::uninstall();
 // The Administrators' edits of the emails and of the signature and footer (1.122.19).
 delete_option( WPCPM_Mail_Templates::OPTION );
-WPCPM_Mail::clear_queue();
+// Forced: an uninstall deletes the queue whether or not a request holds its lock, since nothing
+// of the plugin's may run after it (the fix wave of 1.123.58).
+WPCPM_Mail::clear_queue( true );
 delete_option( WPCPM_Mail::RUN_OPTION );
+delete_option( WPCPM_Mail::QUEUE_LOCK );
 
 // Reminder markers on calls. `WPCPM_Mentor_Calls::delete_all()` removes the calls
 // themselves, but a call deleted by hand before now would leave its marker behind.

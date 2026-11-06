@@ -68,6 +68,8 @@ note** after each call - that is also what keeps them out of the "Need a call" g
 your own notes; notes written by somebody else stay theirs. Once a student's mentoring has finished,
 their notes are kept as a record but no new ones can be added.
 
+Since 1.123.58 a note pressed twice is saved once.
+
 ### Tools from our sponsors
 
 When the program switches the section on for mentors, offers a sponsor opened to mentors appear on your card too, laid out as students see them: *Get my code* beside the offer's *More information* link, and your codes under *Your codes*, each with *Report a problem with this code* beside it. Offers for students only are not shown here.

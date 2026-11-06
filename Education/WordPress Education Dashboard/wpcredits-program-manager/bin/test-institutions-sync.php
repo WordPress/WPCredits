@@ -91,6 +91,13 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) {
 	$GLOBALS['opts'][ $k ]     = $v;
 	$GLOBALS['autoload'][ $k ] = $a;
+
+	// What another request does the moment after this write: fired once, and forgotten (1.123.58).
+	if ( isset( $GLOBALS['after_write'][ $k ] ) && is_callable( $GLOBALS['after_write'][ $k ] ) ) {
+		$then = $GLOBALS['after_write'][ $k ];
+		unset( $GLOBALS['after_write'][ $k ] );
+		$then();
+	}
 	return true;
 }
 function add_option( $k, $v, $dep = '', $a = null ) {
@@ -259,7 +266,7 @@ class WPCPM_Airtable {
 		$number = ! empty( $args['offset'] ) ? (int) substr( $args['offset'], 4 ) : 1;
 
 		if ( ! empty( $GLOBALS['fail_page'] ) && (int) $GLOBALS['fail_page'] === $number ) {
-			return new WP_Error( 'wpcpm_airtable_http', 'Airtable said 503 on page ' . $number );
+			return isset( $GLOBALS['fail_error'] ) ? $GLOBALS['fail_error'] : new WP_Error( 'wpcpm_airtable_http', 'Airtable said 503 on page ' . $number );
 		}
 
 		$records = isset( $pages[ $number - 1 ] ) ? $pages[ $number - 1 ] : array();
@@ -336,6 +343,8 @@ if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 // The real class, not a stand-in. Since 1.98.2 the institutions sync reads its recurrence and
 // its cycle origin from here, and a stub would let the two drift apart without a failure.
 require_once dirname( __DIR__ ) . '/includes/modules/class-wpcpm-students-sync.php';
+// And the count check whose stops its wait never retries (1.123.58).
+require_once dirname( __DIR__ ) . '/includes/modules/class-wpcpm-sync-guard.php';
 
 if ( ! class_exists( 'WPCPM_Countries' ) ) {
 	class WPCPM_Countries {
@@ -343,7 +352,7 @@ if ( ! class_exists( 'WPCPM_Countries' ) ) {
 		public static function refresh( $airtable = null ) {
 			$GLOBALS['calls']['countries_refresh'][] = $airtable instanceof WPCPM_Airtable;
 			if ( ! empty( $GLOBALS['countries_error'] ) ) {
-				return new WP_Error( 'wpcpm_countries_http', 'Countries unreadable' );
+				return 'no-table' === $GLOBALS['countries_error'] ? new WP_Error( 'wpcpm_countries_no_table', 'No Countries table is set.' ) : new WP_Error( 'wpcpm_countries_http', 'Countries unreadable' );
 			}
 			update_option( self::OPT_NAME, array( 'v' => 1, 'read' => time(), 'rows' => $GLOBALS['countries'] ), false );
 			return true;
@@ -515,6 +524,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+// The tick lock is a row of the options table the lock writes straight to it (1.123.58): the stand-in
+// runs its statements over `$GLOBALS['opts']`.
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 
 $fail = 0;
@@ -1282,11 +1295,49 @@ ck( 'the next tick resumed from page two, not page one',
 	array( 'page2' ) );
 ck( 'and the run finished', array( WPCPM_Institutions_Sync::is_running(), count( WPCPM_Institutions_Index::rows() ) ), array( false, $SEEDED ) );
 
+// A refusal the base takes back is waited out (LOG-06, 1.123.58), as the students sync waits one out:
+// the tick is booked for after the wait, and the run says once that it waited.
+reset_site( $seed );
+$GLOBALS['fail_page'] = 2;
+WPCPM_Institutions_Sync::start();
+unset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] );
+$refused_at = time();
+WPCPM_Institutions_Sync::tick( WPCPM_Institutions_Sync::BUDGET_AJAX );
+WPCPM_Institutions_Sync::tick( WPCPM_Institutions_Sync::BUDGET_AJAX );
+$waited = get_option( WPCPM_Institutions_Sync::OPT_STATE );
+ck( 'a passing refusal books the tick after the wait and says so in the run\'s notices',
+	array( isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] ) && $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] >= $refused_at + 30 && $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] <= $refused_at + 31, $waited['notices'], $waited['retried'] ),
+	array( true, array( 'A read was refused during this run (Airtable said 503 on page 2). The run waited and carried on from where it stopped.' ), 2 ) );
+$GLOBALS['fail_page'] = 0;
+run_to_end();
+ck( 'and the run that waited finishes with no error left for the screen, the wait in its report', array( WPCPM_Institutions_Sync::is_running(), get_option( WPCPM_Institutions_Sync::OPT_ERROR, '' ), in_array( 'A read was refused during this run (Airtable said 503 on page 2). The run waited and carried on from where it stopped.', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'], true ) ), array( false, '', true ) );
+
+reset_site( $seed );
+$GLOBALS['fail_page'] = 2;
+WPCPM_Institutions_Sync::start();
+unset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] );
+$GLOBALS['fail_error'] = new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 403): NOT_AUTHORIZED', array( 'status' => 403 ) );
+WPCPM_Institutions_Sync::tick( WPCPM_Institutions_Sync::BUDGET_AJAX );
+ck( 'a refusal that will not pass books nothing and says nothing of a wait', array( isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] ), get_option( WPCPM_Institutions_Sync::OPT_STATE )['notices'] ), array( false, array() ) );
+unset( $GLOBALS['fail_error'] );
+$GLOBALS['fail_page'] = 0;
+
 reset_site( $seed );
 $GLOBALS['countries_error'] = true;
 WPCPM_Institutions_Sync::start();
 run_to_end();
 ck( 'a failed countries read stops the run before the table is touched', array( WPCPM_Institutions_Sync::is_running(), isset( $GLOBALS['calls']['fetch_page'] ), WPCPM_Institutions_Sync::progress()['error'] ), array( true, false, 'Countries unreadable' ) );
+
+// No Countries table set is a setting to put right, not a refusal to wait out (1.123.58).
+reset_site( $seed );
+$GLOBALS['countries_error'] = 'no-table';
+WPCPM_Institutions_Sync::start();
+unset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] );
+WPCPM_Institutions_Sync::tick( WPCPM_Institutions_Sync::BUDGET_AJAX );
+ck( 'a countries read with no Countries table set books no tick and says nothing of a wait',
+	array( isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] ), get_option( WPCPM_Institutions_Sync::OPT_STATE )['notices'], WPCPM_Institutions_Sync::progress()['error'] ),
+	array( false, array(), 'No Countries table is set.' ) );
+$GLOBALS['countries_error'] = false;
 
 // A read that comes back with records carrying no fields is Airtable's answer to an
 // unknown field name, not an empty table.
@@ -1374,7 +1425,8 @@ ck( 'and the run is no longer running', WPCPM_Institutions_Sync::is_running(), f
 
 reset_site( $seed );
 WPCPM_Institutions_Sync::start();
-$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time();
+// The lock's row holds the time it runs to (1.123.58, `WPCPM_Lock`): one another tick took just now.
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = (string) ( time() + WPCPM_Institutions_Sync::LOCK_TIMEOUT );
 WPCPM_Institutions_Sync::tick();
 ck( 'a fresh lock held elsewhere makes a tick do nothing', array( WPCPM_Institutions_Sync::progress()['phase'], isset( $GLOBALS['calls']['countries_refresh'] ) ), array( 'countries', false ) );
 
@@ -1581,6 +1633,110 @@ ck( 'the ceiling\'s sweep and the application purge are still daily', array(
 // The checker moved too, on its own and later: from weekly to daily in 1.122.4, at the owner's
 // request, and still not onto the syncs' three hours.
 ck( 'and the mentor checker runs daily, not on the syncs\' three hours', 1 === preg_match( "#const RECURRENCE\s*=\s*'daily';#", $checker ), true );
+
+echo "\n=== One run at a time, on the atomic lock (LOG-05, LOG-07, 1.123.58) ===\n";
+
+/** A run part of the way through the Institutions table, last moved on `$ago` seconds ago. */
+function going_state( $ago ) {
+	return array(
+		'phase'     => 'records',
+		'offset'    => 'page2',
+		'started'   => time() - $ago - 60,
+		'touched'   => time() - $ago,
+		'steps'     => array( 'countries' => 1 ),
+		'rows'      => array(),
+		'documents' => array(),
+		'indexed'   => false,
+		'rebuild'   => array(),
+		'stats'     => WPCPM_Institutions_Sync::empty_stats(),
+		'notices'   => array(),
+		'marker'    => 'the run going',
+	);
+}
+
+/** The tick lock's private steps, as a tick takes them. */
+function institutions_lock( $method ) {
+	$m = new ReflectionMethod( 'WPCPM_Institutions_Sync', $method );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$m->setAccessible( true );
+	}
+
+	return $m->invoke( null );
+}
+
+reset_site( $seed );
+update_option( WPCPM_Institutions_Sync::OPT_STATE, going_state( 10 ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = (string) ( time() + 100 );
+$lock_before                                         = $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ];
+$refused                                             = WPCPM_Institutions_Sync::start();
+ck( 'start() refuses while a run is going and has not stalled, and leaves the state and the lock as they were',
+	array( is_wp_error( $refused ) ? $refused->get_error_code() : $refused, get_option( WPCPM_Institutions_Sync::OPT_STATE ) === going_state( 10 ), $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] ?? null, get_option( WPCPM_Institutions_Sync::OPT_ERROR ) ),
+	array( 'wpcpm_sync_running', true, $lock_before, false ) );
+
+update_option( WPCPM_Institutions_Sync::OPT_STATE, going_state( 200 ) );
+$started = WPCPM_Institutions_Sync::start();
+$fresh   = get_option( WPCPM_Institutions_Sync::OPT_STATE );
+ck( 'a stalled run may be started again', array( $started, $fresh['phase'], array_key_exists( 'marker', $fresh ) ), array( true, 'countries', false ) );
+
+update_option( WPCPM_Institutions_Sync::OPT_STATE, going_state( 10 ) );
+$restarted = WPCPM_Institutions_Sync::start( false, true );
+$fresh     = get_option( WPCPM_Institutions_Sync::OPT_STATE );
+ck( 'start() with restart starts again from the beginning, and lets the lock go with the run it replaced',
+	array( $restarted, $fresh['phase'], array_key_exists( 'marker', $fresh ), isset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] ) ),
+	array( true, 'countries', false, false ) );
+WPCPM_Institutions_Sync::cancel();
+
+$GLOBALS['wpdb'] = new WPCPM_Test_Options_Wpdb();
+$first           = institutions_lock( 'acquire_lock' );
+$second          = institutions_lock( 'acquire_lock' );
+ck( 'two ticks taking the lock at once: one gets it', array( $first, $second, count( preg_grep( '/^INSERT IGNORE INTO wp_options .*wpcpm_institutions_lock/', $GLOBALS['wpdb']->statements ) ) ), array( true, false, 2 ) );
+ck( 'and while it is held, a tick holds the run\'s lock', WPCPM_Institutions_Sync::lock_held(), true );
+institutions_lock( 'release_lock' );
+ck( 'and the one that got it lets it go', array( isset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] ), WPCPM_Institutions_Sync::lock_held() ), array( false, false ) );
+
+institutions_lock( 'acquire_lock' );
+// The lock ran out under this tick, and a second tick took it over.
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = (string) ( time() + 500 );
+institutions_lock( 'release_lock' );
+ck( 'a tick whose lock was taken over does not let go of its successor\'s', WPCPM_Lock::until( WPCPM_Institutions_Sync::OPT_LOCK ), time() + 500 );
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] );
+
+reset_site( $seed );
+$three                                     = array_slice( airtable_pages( $seed )[0], 0, 3 );
+$GLOBALS['pages']['tbl4V0FEbzRP7I2w2']     = array( array( $three[0] ), array( $three[1] ), array( $three[2] ) );
+$records_step                              = new ReflectionMethod( 'WPCPM_Institutions_Sync', 'phase_records' );
+if ( PHP_VERSION_ID < 80100 ) {
+	$records_step->setAccessible( true );
+}
+$state           = going_state( 0 );
+$state['offset'] = null;
+institutions_lock( 'acquire_lock' );
+$untils = array( WPCPM_Lock::until( WPCPM_Institutions_Sync::OPT_LOCK ) );
+for ( $page = 1; $page <= 3; $page++ ) {
+	$records_step->invokeArgs( null, array( &$state, new WPCPM_Airtable(), WPCPM_Settings::get() ) );
+	$untils[] = WPCPM_Lock::until( WPCPM_Institutions_Sync::OPT_LOCK );
+}
+institutions_lock( 'release_lock' );
+ck( 'a long read refreshes its lock after every page',
+	array( $untils[1] > $untils[0], $untils[2] > $untils[1], $untils[3] > $untils[2], count( $GLOBALS['calls']['fetch_page'] ), ! empty( $state['indexed'] ) ),
+	array( true, true, true, 3, true ) );
+
+// A restart while a tick rebuilds the agreements, a phase that reads no pages: the restart lets the
+// lock go, and the old tick finds it gone before its next state write, and stops.
+reset_site( $seed );
+$GLOBALS['wpdb'] = new WPCPM_Test_Options_Wpdb();
+$rebuilding      = array_merge( going_state( 0 ), array( 'indexed' => true, 'rebuild' => array_map( static function ( $n ) { return sprintf( 'recNOTREAD%07d', $n ); }, range( 1, 3 * WPCPM_Institutions_Sync::REBUILD_BATCH ) ) ) );
+$restarted_run   = array_merge( going_state( 0 ), array( 'phase' => 'countries', 'marker' => 'the restarted run' ) );
+update_option( WPCPM_Institutions_Sync::OPT_STATE, $rebuilding );
+$GLOBALS['after_write'][ WPCPM_Institutions_Sync::OPT_STATE ] = static function () use ( $restarted_run ) {
+	$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ] = $restarted_run;
+	$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ]  = (string) ( time() + 900 );
+};
+WPCPM_Institutions_Sync::tick( 60 );
+ck( 'a tick whose lock was taken over in a non-paging phase stops before its next state write',
+	array( isset( $GLOBALS['after_write'][ WPCPM_Institutions_Sync::OPT_STATE ] ), get_option( WPCPM_Institutions_Sync::OPT_STATE ) === $restarted_run, WPCPM_Lock::until( WPCPM_Institutions_Sync::OPT_LOCK ) ),
+	array( false, true, time() + 900 ) );
+unset( $GLOBALS['after_write'], $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

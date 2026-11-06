@@ -355,12 +355,7 @@ class WPCPM_Students_Dashboard { public static function page_url() { return 'htt
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
-	public static function leave( $status, $card, $record = '', $detail = '' ) { $GLOBALS['left'] = array( $status, $card, $record, $detail ); throw new WPCPM_Test_Redirect( $status ); }
-}
-class WPCPM_Flash {
-	public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][ $channel ][ $user_id ?: $GLOBALS['uid'] ] = $value; }
-	public static function take( $channel, $user_id = 0 ) { $uid = $user_id ?: $GLOBALS['uid']; $v = $GLOBALS['flash'][ $channel ][ $uid ] ?? ''; unset( $GLOBALS['flash'][ $channel ][ $uid ] ); return $v; }
-	public static function sweep( $stale, $user_id = 0 ) { $uid = $user_id ?: $GLOBALS['uid']; foreach ( $GLOBALS['flash'] ?? array() as $channel => $by ) { if ( is_array( $by ) && array_key_exists( $uid, $by ) && $stale( (string) $channel, $by[ $uid ] ) ) { unset( $GLOBALS['flash'][ $channel ][ $uid ] ); } } }
+	public static function leave( $status, $card, $record = '', $detail = '', array $args = array() ) { $GLOBALS['left'] = array( $status, $card, $record, $detail ); $GLOBALS['left_args'] = $args; throw new WPCPM_Test_Redirect( $status ); }
 }
 /** The real writer's contract: a BOM, one line per row, cells joined by commas, a leading formula character neutralized. */
 class WPCPM_Institution_Export {
@@ -383,6 +378,11 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+// The real flash and the real form-error markup (1.123.58): a refused form keeps what was typed and why through
+// `WPCPM_Flash::keep()`, so the suite reads it back the way a page does. The flash remembers within a request what
+// it handed back, so a redraw after a refusal goes through `next_request()` below.
+require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
 // The shell the Offers and Usage cards are drawn in.
 require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
@@ -427,6 +427,55 @@ $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['sent'] = array(); $G
 
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; $GLOBALS['redirected'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left'] ?? array( 'redirect', $GLOBALS['redirected'] ); } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
 function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); return ob_get_clean(); }
+/**
+ * Run what the next request does, as a fresh user id holding the user meta the person held, so
+ * `WPCPM_Flash::take()`'s per-request memo does not hide what the request before it left (a handler
+ * redirects and exits, so in production nothing is memoized across the two). What the request took
+ * from the meta is gone for the person's request after it.
+ *
+ * @param callable $run What the next request does.
+ * @return mixed What it returns.
+ */
+function next_request( $run ) {
+	static $next = 900;
+	$from = $GLOBALS['uid'];
+	++$next;
+	$GLOBALS['umeta'][ $next ] = isset( $GLOBALS['umeta'][ $from ] ) ? $GLOBALS['umeta'][ $from ] : array();
+	// The same person: the same roles and the same standing, under the id of the new request.
+	if ( isset( $GLOBALS['users'][ $from ] ) ) {
+		$GLOBALS['users'][ $next ]     = clone $GLOBALS['users'][ $from ];
+		$GLOBALS['users'][ $next ]->ID = $next;
+	}
+	$managed = in_array( $from, $GLOBALS['manage'], true );
+	if ( $managed ) {
+		$GLOBALS['manage'][] = $next;
+	}
+	$GLOBALS['uid']            = $next;
+	$result                    = $run();
+	$GLOBALS['umeta'][ $from ] = $GLOBALS['umeta'][ $next ];
+	unset( $GLOBALS['umeta'][ $next ], $GLOBALS['users'][ $next ] );
+	$GLOBALS['manage']         = array_values( array_diff( $GLOBALS['manage'], array( $next ) ) );
+	$GLOBALS['uid']            = $from;
+	return $result;
+}
+/**
+ * A member of the fixture's sponsor whose request has read nothing yet: a new user id holding the user meta of another
+ * (user 5 by default), the way a person's next press is a request of its own.
+ *
+ * @param int $from The user whose meta the new one holds.
+ * @return int
+ */
+function fresh_member( $from = 5 ) {
+	static $member = 600;
+	++$member;
+	$GLOBALS['users'][ $member ] = $GLOBALS['users'][5];
+	$GLOBALS['umeta'][ $member ]  = $GLOBALS['umeta'][ $from ];
+	return $member;
+}
+/** A card, drawn on the request after a refusal. */
+function redrawn( $class, $record, $context ) { return next_request( static function () use ( $class, $record, $context ) { return card( $class, $record, $context ); } ); }
+/** What the flash holds for a form, read without taking it: its `values` and `problems`; empty arrays when it holds none. */
+function peek_kept( $form ) { $entry = $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ][ WPCPM_Flash::KEPT_CHANNEL . $form ] ?? array(); return array( 'values' => $entry['values'] ?? array(), 'problems' => $entry['problems'] ?? array() ); }
 /** Every string and key of a nested array, flattened, for the privacy walks. */
 function walk( $value, &$out, $key = '' ) { if ( is_array( $value ) ) { foreach ( $value as $k => $v ) { $out['keys'][] = (string) $k; walk( $v, $out, $k ); } } elseif ( is_string( $value ) ) { $out['values'][] = $value; } }
 
@@ -1175,7 +1224,7 @@ ck( 'offer-mirror-failed is not a status any more', isset( WPCPM_Sponsor_Offers:
 
 echo "\n=== The Offers card: states and codes ===\n";
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $new_id, 'wpcpm_state' => 'live' ), array( 'WPCPM_Sponsor_Offers', 'handle_state' ) );
-ck( 'a shared offer with its code goes live', array( $r[0], WPCPM_Sponsor_Offers::read( $new_id )['state'], end( $GLOBALS['audit'] )['kind'] ), array( 'offer-state-saved', 'live', 'offer_state' ) );
+ck( 'a shared offer with its code goes live', array( $r[0], WPCPM_Sponsor_Offers::read( $new_id )['state'], end( $GLOBALS['audit'] )['kind'] ), array( 'offer-switched-on', 'live', 'offer_state' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $new_id, 'wpcpm_state' => 'draft' ), array( 'WPCPM_Sponsor_Offers', 'handle_state' ) );
 ck( 'a move the machine refuses is said', $r[0], 'offer-transition' );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $new_id, 'wpcpm_title' => 'Second offer', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
@@ -1419,7 +1468,7 @@ function wpcpm_test_boxes( $html, $offer_id ) {
 		$out['title'] = array( 'markup' => $m[1], 'shown' => $line, 'posts' => $line, 'maxlength' => (int) $m[2] );
 	}
 	foreach ( array( 'text', 'instructions' ) as $key ) {
-		if ( preg_match( '/<textarea id="wpcpm-offer-' . (int) $offer_id . '-' . $key . '" name="wpcpm_' . $key . '" rows="\d+" maxlength="(\d+)">(.*?)<\/textarea>/s', $form, $m ) ) {
+		if ( preg_match( '/<textarea id="wpcpm-offer-' . (int) $offer_id . '-' . $key . '" name="wpcpm_' . $key . '" rows="\d+" maxlength="(\d+)"[^>]*>(.*?)<\/textarea>/s', $form, $m ) ) {
 			// And it drops the one line feed that comes right after a text area's opening tag.
 			$shown       = $shows( (string) preg_replace( '/^(?:\r\n|\r|\n)/', '', $m[2] ) );
 			$out[ $key ] = array( 'markup' => $m[2], 'shown' => $shown, 'posts' => str_replace( "\n", "\r\n", $shown ), 'maxlength' => (int) $m[1] );
@@ -1453,7 +1502,7 @@ $GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array();
 $t_count = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_team, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-1', 'wpcpm_text' => $t_team, 'wpcpm_instructions' => $t_instr, 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'a member\'s new offer titled "Save <3 on <b>hosting</b> > plans" is refused now, because the cleaner would take "<b>" and "</b>", and nothing is created', array( $r[0], $r[3], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'Title' ), $t_count ) );
-$t_new = wpcpm_test_form( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), 'new' );
+$t_new = wpcpm_test_form( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), 'new' );
 ck( 'and the page it lands on draws the new-offer form with what was typed', array( wpcpm_test_value( $t_new, 'wpcpm_title' ), false !== strpos( $t_new, ">\n" . esc_textarea( str_replace( "\r\n", "\n", $t_instr ) ) . '</textarea>' ) ), array( $t_team, true ) );
 // Such a text is still what an offer holds when an earlier release stored it, and the boxes below
 // draw it and save it back. The offer is made as that release's handler made it: the posted fields
@@ -1464,7 +1513,7 @@ WPCPM_Sponsor_Codes::set_shared( $mem_id, 'TYPED-1' );
 $mem    = WPCPM_Sponsor_Offers::read( $mem_id );
 ck( 'stored so by an earlier release, it keeps every word: the title as the post holds it after kses, the text as the cleaner left it', array( $mem['title'], $mem['text'] ), array( $t_team_mem, $t_team_cl ) );
 ck( 'the instructions, with the same words and a "<" and ">" that stay as typed, quotes, "&" and line breaks, are stored as the cleaner left them', $mem['instructions'], $t_instr_cl );
-$html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$html  = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 ck( 'the new-offer form takes the plain limits, 120, 500 and 4,000 characters', array( false !== strpos( $html, 'id="wpcpm-offer-new-title" name="wpcpm_title" value="" maxlength="120" required' ), false !== strpos( $html, 'id="wpcpm-offer-new-text" name="wpcpm_text" rows="2" maxlength="500"></textarea>' ), false !== strpos( $html, 'id="wpcpm-offer-new-instructions" name="wpcpm_instructions" rows="4" maxlength="4000"></textarea>' ) ), array( true, true, true ) );
 $boxes = wpcpm_test_boxes( $html, $mem_id );
 ck( 'its title box shows the title as typed with the held "&gt;" and no tag, and takes 3 characters more than the limit', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_team_box, 123 ) );
@@ -1482,7 +1531,7 @@ ck( 'and again: the same bytes', array( $again['title'], $again['text'], $again[
 $r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => $t_ages ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 $ages_got = WPCPM_Sponsor_Offers::read( $mem_id );
 ck( 'a member retitles it "Ages 8 < 12 welcome, adults > 18 pay": kses would have taken "< 12 welcome, adults >" and the words in it, and the post holds every word', array( $r[0], $ages_got['title'], mb_strlen( $ages_got['title'] ) ), array( 'offer-saved', $t_ages_mem, 42 ) );
-$boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $mem_id );
+$boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $mem_id );
 ck( 'its box shows it as typed and takes the limit, nothing held', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_ages, 120 ) );
 $GLOBALS['title_writes'] = 0;
 $r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_low' => '7' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
@@ -1493,7 +1542,7 @@ $GLOBALS['uid'] = 1;
 $ctx_admin = array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t_ages, 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TYPED-2', 'wpcpm_text' => $t_team, 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'an administrator\'s text with "<b>" in it is refused the same way, named by its box', array( $r[0], $r[3] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ) ) );
-card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin );
+redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx_admin );
 // A typing with no tag that the cleaner still rewrites, a "<" with no ">" after it and the quote
 // marks and the ampersands after that, saved by a member and by an administrator. The text is post
 // meta, which kses never reads, so each save stores it as the cleaner left it, the same bytes.
@@ -1505,7 +1554,7 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => $t
 $adm_id = wpcpm_test_newest( $A );
 $adm    = WPCPM_Sponsor_Offers::read( $adm_id );
 ck( 'the title is what the cleaner left, the "<" and ">" as typed, and the text is the same as a member\'s save of the same typing stores', array( $m_r[0], $r[0], $adm['title'], $adm['text'], WPCPM_Sponsor_Offers::read( $mem_id )['text'] ), array( 'offer-saved', 'offer-created', $t_ages, $t_qa_cl, $t_qa_cl ) );
-$boxes     = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $adm_id );
+$boxes     = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $adm_id );
 ck( 'its title box shows it as typed and takes the limit', array( $boxes['title']['shown'], $boxes['title']['maxlength'] ), array( $t_ages, 120 ) );
 $GLOBALS['title_writes'] = 0;
 $r = post( wpcpm_test_unedited( $A, $adm_id, array( 'wpcpm_expires' => '2026-11-30' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
@@ -1526,7 +1575,7 @@ $r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_title' => $title_at, 
 $full = WPCPM_Sponsor_Offers::read( $mem_id );
 ck( 'a member saves all three at their limits and the save is accepted', $r[0], 'offer-saved' );
 ck( 'each is stored longer than its limit and counted at it: nothing was cut', array( mb_strlen( $full['title'] ) > 120, mb_strlen( $full['text'] ) > 500, mb_strlen( $full['instructions'] ) > 4000, WPCPM_Typed_Text::typed_length( $full['title'] ), WPCPM_Typed_Text::typed_length( $full['text'] ), WPCPM_Typed_Text::typed_length( $full['instructions'] ) ), array( true, true, true, 120, 500, 4000 ) );
-$boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $mem_id );
+$boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $mem_id );
 ck( 'and each comes back to its box exactly as typed, with the box\'s own limit', array( $boxes['title']['shown'] === $title_at, $boxes['text']['shown'] === str_replace( "\r\n", "\n", $text_at ), $boxes['instructions']['shown'] === str_replace( "\r\n", "\n", $instr_at ), $boxes['title']['maxlength'], $boxes['text']['maxlength'], $boxes['instructions']['maxlength'] ), array( true, true, true, 120, 500, 4000 ) );
 $before = array( $full['title'], $full['text'], $full['instructions'] );
 $r = post( wpcpm_test_unedited( $A, $mem_id, array( 'wpcpm_expires' => '2027-01-31' ) ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
@@ -1569,7 +1618,7 @@ $f_id = WPCPM_Sponsor_Offers::seed( $F, $legacy( $t_team_mem, $t_ages_mem ) );
 $f    = WPCPM_Sponsor_Offers::read( $f_id );
 ck( 'the form the records hold a "<3" and a ">" in is imported as it is, and its boxes draw it as typed', array( $f['text'], $f['instructions'] ), array( $t_team_mem, $t_ages_mem ) );
 $GLOBALS['uid'] = 5;
-$f_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $F, $ctx ), $f_id );
+$f_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $F, $ctx ), $f_id );
 ck( 'the imported text\'s box shows what was meant and takes the limit and the 3 held', array( $f_boxes['text']['shown'], $f_boxes['text']['maxlength'], $f_boxes['instructions']['shown'], $f_boxes['instructions']['maxlength'] ), array( $t_team_box, 503, $t_ages, 4000 ) );
 $GLOBALS['uid'] = 1;
 $g_id = WPCPM_Sponsor_Offers::seed( $G, $legacy( str_repeat( 'x', 600 ), str_repeat( 'y', 5000 ) ) );
@@ -1626,7 +1675,7 @@ function wpcpm_test_form( $html, $offer_id ) {
 function wpcpm_test_value( $form, $name ) {
 	return preg_match( '/name="' . preg_quote( $name, '/' ) . '" value="([^"]*)"/', $form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
 }
-$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['flash'] = array();
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] );
 $k_id    = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Kept offer', 'kind' => 'codes', 'text' => 'One year free', 'instructions' => "Enter the code\r\nat checkout.", 'url' => 'https://plugins.mango-example.com/kept', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
 $k_saved = WPCPM_Sponsor_Offers::read( $k_id );
 $k_post  = static function ( array $change = array() ) use ( $A, $k_id ) {
@@ -1643,7 +1692,7 @@ ck( 'a title the cleaner would cut to "Kids 18 pay" is refused, with the sentenc
 ck( 'and nothing is stored: the offer, its post title, the log and the program records are as they were', array( WPCPM_Sponsor_Offers::read( $k_id ) === $k_saved, $GLOBALS['title_writes'], $GLOBALS['audit'], $GLOBALS['patched'] ), array( true, 0, array(), array() ) );
 ck( 'and the refusal spends nothing of a daily ceiling or of the refusal meter', $GLOBALS['buckets'], $k_buckets );
 ck( 'the messages map has the refusal, its whole sentence the detail', WPCPM_Sponsor_Offers::messages()['offer-loss'] ?? null, array( 'error', '' ) );
-$k_html  = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$k_html  = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 $k_boxes = wpcpm_test_boxes( $k_html, $k_id );
 $k_form  = wpcpm_test_form( $k_html, $k_id );
 ck( 'the card draws the offer and its edit form open, every box as it was typed, a line break as the box counts it', array(
@@ -1661,74 +1710,80 @@ ck( 'and every other field as it was left: the link with its "&amp;", the audien
 	wpcpm_test_value( $k_form, 'wpcpm_expires' ),
 ), array( $k_link, true, false, '5', '2026-12-31' ) );
 ck( 'with the room each box had when it was typed in', array( $k_boxes['title']['maxlength'] ?? null, $k_boxes['text']['maxlength'] ?? null, $k_boxes['instructions']['maxlength'] ?? null ), array( 120, 500, 4000 ) );
-$k_again = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
-ck( 'and only once: drawn again, the form shows the stored offer, folded as before', array( $k_again['title']['shown'] ?? null, $k_again['text']['shown'] ?? null, false !== strpos( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), 'id="wpcpm-offer-' . $k_id . '">' ) ), array( 'Kept offer', 'One year free', true ) );
+$k_again = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'and only once: drawn again, the form shows the stored offer, folded as before', array( $k_again['title']['shown'] ?? null, $k_again['text']['shown'] ?? null, false !== strpos( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), 'id="wpcpm-offer-' . $k_id . '">' ) ), array( 'Kept offer', 'One year free', true ) );
 
 $r = post( $k_post( array( 'wpcpm_title' => 'Q&amp;A <b>x</b>' ) ), $k_save );
-$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+$k_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
 ck( '"Q&amp;A <b>x</b>", whose "<b>" the cleaner takes, is refused and comes back in the text input exactly as typed, the "&amp;" five characters', array( $r[0], $k_boxes['title']['shown'] ?? null, $k_boxes['title']['markup'] ?? null ), array( 'offer-loss', 'Q&amp;A <b>x</b>', 'Q&amp;amp;A &lt;b&gt;x&lt;/b&gt;' ) );
 $r1 = post( $k_post( array( 'wpcpm_text' => 'Get 10%cashback' ) ), $k_save );
 $r2 = post( $k_post( array( 'wpcpm_instructions' => "Use it\r\n<b>today</b>" ) ), $k_save );
-$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+$k_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
 ck( 'a text or instructions the cleaner would take from are refused the same way, each named by its own label', array( $r1[0], $r1[3], $r2[0], $r2[3] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), 'offer-loss', WPCPM_Typed_Text::loss_message( 'How to redeem it' ) ) );
 ck( 'and the form gets the last one\'s typing: posting it again dropped what the first kept', array( $k_boxes['text']['shown'] ?? null, $k_boxes['instructions']['shown'] ?? null ), array( 'One year free', "Use it\n<b>today</b>" ) );
 
 $r = post( $k_post( array( 'wpcpm_title' => $k_lossy ) ), $k_save );
 $GLOBALS['uid'] = 1;
-$k_manager = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $k_id );
+$k_manager = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), $k_id );
 $GLOBALS['uid'] = 5;
-$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$k_html = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 ck( 'another person never sees it, a manager drawing the same offer included, while the one who typed it does', array( $k_manager['title']['shown'] ?? null, wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null ), array( 'Kept offer', $k_lossy ) );
 $r = post( $k_post( array( 'wpcpm_title' => $k_lossy ) ), $k_save );
-$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$k_html = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 ck( 'and another form never does: the new-offer form and every other offer\'s form are drawn as stored', array( wpcpm_test_value( wpcpm_test_form( $k_html, 'new' ), 'wpcpm_title' ), wpcpm_test_boxes( $k_html, $mem_id )['title']['shown'] ?? null, wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null ), array( '', WPCPM_Typed_Text::typed_text( WPCPM_Sponsor_Offers::read( $mem_id )['title'] ), $k_lossy ) );
 
 $k_count = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'A <b>bold</b> offer', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'SEALED-CODE-1', 'wpcpm_text' => 'Plain words', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), $k_save );
 ck( 'a new offer the cleaner would take words from creates nothing', array( $r[0], $r[3], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'Title' ), $k_count ) );
-ck( 'and its shared code is not kept: the pool holds a code sealed, and a flash would hold it in the clear', strpos( serialize( $GLOBALS['flash'] ), 'SEALED-CODE-1' ), false );
-$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'and its shared code is not kept: the pool holds a code sealed, and a flash would hold it in the clear', strpos( serialize( $GLOBALS['umeta'] ), 'SEALED-CODE-1' ), false );
+$k_html = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 $k_new  = wpcpm_test_form( $k_html, 'new' );
 ck( 'its typing comes back in the new-offer form, the kind chosen with it, and in no offer\'s form', array( wpcpm_test_value( $k_new, 'wpcpm_title' ), false !== strpos( $k_new, 'name="wpcpm_kind" value="shared" checked="checked"' ), wpcpm_test_value( $k_new, 'wpcpm_shared' ), wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null ), array( 'A <b>bold</b> offer', true, '', 'Kept offer' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'A <b>bold</b> pool', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "SEALED-2\nSEALED-3", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), $k_save );
-ck( 'nor are pasted codes', array( $r[0], strpos( serialize( $GLOBALS['flash'] ), 'SEALED-2' ) ), array( 'offer-loss', false ) );
+ck( 'nor are pasted codes', array( $r[0], strpos( serialize( $GLOBALS['umeta'] ), 'SEALED-2' ) ), array( 'offer-loss', false ) );
 $GLOBALS['uid'] = 1;
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'For <b>A</b> only', 'wpcpm_kind' => 'codes', 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), $k_save );
-$k_other = wpcpm_test_value( wpcpm_test_form( card( 'WPCPM_Sponsor_Offers', $B, $ctx_admin ), 'new' ), 'wpcpm_title' );
-$k_own   = wpcpm_test_value( wpcpm_test_form( card( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), 'new' ), 'wpcpm_title' );
+$k_other = wpcpm_test_value( wpcpm_test_form( redrawn( 'WPCPM_Sponsor_Offers', $B, $ctx_admin ), 'new' ), 'wpcpm_title' );
+$k_own   = wpcpm_test_value( wpcpm_test_form( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx_admin ), 'new' ), 'wpcpm_title' );
 ck( 'a manager\'s typing on one sponsor\'s new-offer form never reaches another sponsor\'s', array( $r[0], $k_other, $k_own ), array( 'offer-loss', '', 'For <b>A</b> only' ) );
 $GLOBALS['uid'] = 5;
 
 $k_long = str_repeat( 'Long title ', 11 ) . 'and more words';
 $r = post( $k_post( array( 'wpcpm_title' => $k_long, 'wpcpm_text' => 'Kept with it' ) ), $k_save );
-$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
-ck( 'a title over its limit is refused as before, and its form now comes back with the typing, the title kept up to the box\'s limit of 120', array( $r[0], $r[3], $k_boxes['title']['shown'] ?? null, $k_boxes['text']['shown'] ?? null ), array( 'offer-rejected', 'The title is 15 characters over the limit of 120. Shorten it and save again.', mb_substr( $k_long, 0, 120 ), 'Kept with it' ) );
+$k_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'a title over its limit is refused as before, and its form now comes back with the typing, the title kept whole, never cut', array( $r[0], $r[3], $k_boxes['title']['shown'] ?? null, $k_boxes['text']['shown'] ?? null ), array( 'offer-rejected', 'The title is 15 characters over the limit of 120. Shorten it and save again.', $k_long, 'Kept with it' ) );
 $r = post( $k_post( array( 'wpcpm_text' => str_repeat( 'x', 501 ) ) ), $k_save );
-$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
-ck( 'and so does a text over its limit', array( $r[0], $r[3], $k_boxes['text']['shown'] ?? null ), array( 'offer-rejected', 'What you get is 1 character over the limit of 500. Shorten it and save again.', str_repeat( 'x', 500 ) ) );
+$k_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+ck( 'and so does a text over its limit', array( $r[0], $r[3], $k_boxes['text']['shown'] ?? null ), array( 'offer-rejected', 'What you get is 1 character over the limit of 500. Shorten it and save again.', str_repeat( 'x', 501 ) ) );
 
 $r = post( $k_post( array( 'wpcpm_title' => "Bad \xC3\x28 bytes", 'wpcpm_text' => 'Kept beside it' ) ), $k_save );
-$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+$k_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
 ck( 'a title that is not valid UTF-8, which the cleaner empties, is refused as a loss and not kept: its box shows the stored title, and the text beside it is kept', array( $r[0], $k_boxes['title']['shown'] ?? null, $k_boxes['text']['shown'] ?? null ), array( 'offer-loss', 'Kept offer', 'Kept beside it' ) );
 
+// Each press is a request of its own, a member of its own here (the flash remembers within a request what it
+// handed back, and a forget after that would find nothing to drop).
+$GLOBALS['uid'] = fresh_member();
 $r = post( $k_post( array( 'wpcpm_title' => $k_lossy ) ), $k_save );
+$GLOBALS['uid'] = fresh_member( $GLOBALS['uid'] );
 $r = post( $k_post( array( 'wpcpm_low' => '7' ) ), $k_save );
-$k_html = card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$k_html = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 ck( 'a typing a refusal kept goes when the form is posted again, so a save that went through before the page drew it is drawn as saved', array( $r[0], wpcpm_test_boxes( $k_html, $k_id )['title']['shown'] ?? null, wpcpm_test_value( wpcpm_test_form( $k_html, $k_id ), 'wpcpm_low' ) ), array( 'offer-saved', 'Kept offer', '7' ) );
+$GLOBALS['umeta'][5] = $GLOBALS['umeta'][ $GLOBALS['uid'] ];
+$GLOBALS['uid']      = 5;
 
 $k_keeps = array( 'wpcpm_title' => 'We <3 WordPress', 'wpcpm_text' => "Ages 8 < 12 welcome, adults > 18 pay\r\nQ&A: \"blocks\" & themes, it's free, 100% off", 'wpcpm_instructions' => "a <\r\nline, &amp; and &copy; typed out, and \xF0\x9F\x98\x80" );
 $r = post( $k_post( $k_keeps ), $k_save );
 $k_got = WPCPM_Sponsor_Offers::read( $k_id );
 ck( 'a typing the cleaner keeps whole saves as before: a "<3", a "<" before a space or a line break, quotes, "&", typed-out entities, a "%" and an emoji', array( $r[0], $k_got['title'], $k_got['text'], $k_got['instructions'] ), array( 'offer-saved', 'We &lt;3 WordPress', sanitize_textarea_field( $k_keeps['wpcpm_text'] ), sanitize_textarea_field( $k_keeps['wpcpm_instructions'] ) ) );
-ck( 'and keeps nothing for the form', isset( $GLOBALS['flash'][ 'typed:offer:' . $A . ':' . $k_id ][5] ), false );
+ck( 'and keeps nothing for the form', isset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ][ WPCPM_Flash::KEPT_CHANNEL . 'offer:' . $A . ':' . $k_id ] ), false );
 $r = post( $k_post( array( 'wpcpm_title' => $k_lossy, 'wpcpm_instructions' => "\r\nleading break" ) ), $k_save );
-$k_boxes = wpcpm_test_boxes( card( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
+$k_boxes = wpcpm_test_boxes( redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx ), $k_id );
 ck( 'a kept typing that starts with a line break comes back with it: the parser drops the line feed right after a text area\'s opening tag, so the box writes one of its own', array( $r[0], $k_boxes['instructions']['shown'] ?? null ), array( 'offer-loss', "\nleading break" ) );
 
 echo "\n=== A box posted back as it was drawn is the stored text, whatever is in it ===\n";
 // This card's own save and the import store what the cleaner keeps. Another writer need not: here a
 // tag and a percent octet the cleaner would take are held as they were written.
-$GLOBALS['uid'] = 5; $GLOBALS['flash'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$GLOBALS['uid'] = 5; unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
 $s_text  = 'Use code <SAVE20>';
 $s_instr = "Get 10%cashback\r\nat checkout.";
 $s_id    = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Stored by another writer', 'kind' => 'codes', 'text' => $s_text, 'instructions' => $s_instr, 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
@@ -1738,23 +1793,23 @@ ck( 'an offer whose text holds "<SAVE20>" and whose instructions hold "10%cashba
 ck( 'and the two keep their bytes: a box posted back as drawn is neither asked about losses nor rewritten', array( $s_got['text'] === $s_text, $s_got['instructions'] === $s_instr ), array( true, true ) );
 $r = post( wpcpm_test_unedited( $A, $s_id, array( 'wpcpm_text' => 'Use code <SAVE20> now' ) ), $k_save );
 ck( 'the same box edited to "Use code <SAVE20> now" is refused, and nothing is stored', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_id )['text'] === $s_text ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), true ) );
-card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 $r = post( wpcpm_test_unedited( $A, $s_id, array( 'wpcpm_instructions' => "Get 10%cashback\r\nat checkout, now." ) ), $k_save );
 ck( 'and so are the instructions, edited', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_id )['instructions'] === $s_instr ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'How to redeem it' ), true ) );
-card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 // The unedited test reads what was typed, never what the cleaner makes of it: a typing the cleaner
 // cuts back to the stored text is an edit, and the words it would take are the person's.
 $s_plain = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Stored plain', 'kind' => 'codes', 'text' => 'Use code SAVE20', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
 $r       = post( wpcpm_test_unedited( $A, $s_plain, array( 'wpcpm_text' => 'Use code SAVE20<b></b>' ) ), $k_save );
 ck( 'a stored "Use code SAVE20" typed as "Use code SAVE20<b></b>", which the cleaner cuts back to the stored text, is refused, and the stored text is unchanged', array( $r[0], $r[3], WPCPM_Sponsor_Offers::read( $s_plain )['text'] ), array( 'offer-loss', WPCPM_Typed_Text::loss_message( 'What you get, in a sentence or two' ), 'Use code SAVE20' ) );
-card( 'WPCPM_Sponsor_Offers', $A, $ctx );
+redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
 
 echo "\n=== A title drawn from a stored value with a line break inside it ===\n";
 // A title can hold a line break: the first offer is seeded with the sponsor's name, which can be
 // written on two lines in the base's grid. A text input drops the break from its value, so "Free
 // hosting" and "for students" drawn as stored would post back as "Free hostingfor students". The
 // break is drawn as a space, and a title posted back as it was drawn is the stored title.
-$GLOBALS['uid'] = 5; $GLOBALS['flash'] = array(); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
+$GLOBALS['uid'] = 5; unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
 $h_title = "Free hosting\nfor students";
 $h_id    = WPCPM_Sponsor_Offers::create( $A, array( 'title' => $h_title, 'kind' => 'codes', 'text' => 'One year free', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
 $h_post  = wpcpm_test_unedited( $A, $h_id, array( 'wpcpm_expires' => '2026-12-31' ) );
@@ -1784,7 +1839,7 @@ echo "\n=== The review: a member's offer, and a change to a live one, wait for a
 // is off here, as before the launch: the review is not a tier's and names none.
 $Rv = 'WPCPM_Sponsor_Offer_Review';
 unset( $GLOBALS['settings']['sponsor_tiers_live'] );
-$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['flash'] = array();
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['sent'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] );
 $ctx_m   = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['users'][5] );
 $ctx_mgr = array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] );
 $k_state   = array( 'WPCPM_Sponsor_Offers', 'handle_state' );
@@ -1909,9 +1964,9 @@ WPCPM_Sponsor_Offers::set_state( $rv2, 'ended' );
 // Switching off and ending take effect at once, with no review.
 $GLOBALS['uid'] = 5;
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1, 'wpcpm_state' => 'paused' ), $k_state );
-ck( 'a member pauses a live offer at once: nobody sees it, nothing waits', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'], rv_student_sees( $rv1 ), rv_waiting() ), array( 'offer-state-saved', 'paused', null, array() ) );
+ck( 'a member pauses a live offer at once: nobody sees it, nothing waits', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'], rv_student_sees( $rv1 ), rv_waiting() ), array( 'offer-paused', 'paused', null, array() ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv1, 'wpcpm_state' => 'live' ), $k_state );
-ck( 'and resumes it at once: what was approved needs no second review', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'], rv_student_sees( $rv1 )[1] ), array( 'offer-state-saved', 'live', 'Two years of hosting, from the day you claim.' ) );
+ck( 'and resumes it at once: what was approved needs no second review', array( $r[0], WPCPM_Sponsor_Offers::read( $rv1 )['state'], rv_student_sees( $rv1 )[1] ), array( 'offer-resumed', 'live', 'Two years of hosting, from the day you claim.' ) );
 
 // The program's own staff need no review, here as on the Sponsors screen.
 $GLOBALS['uid'] = 1;
@@ -1919,7 +1974,7 @@ $r    = post( array_merge( $rv_new, array( 'wpcpm_title' => 'Made by the program
 $rv3  = wpcpm_test_newest( $A );
 $r2   = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $rv3, 'wpcpm_state' => 'live' ), $k_state );
 $r3   = post( wpcpm_test_unedited( $A, $rv3, array( 'wpcpm_text' => 'Changed by the program.' ) ), $k_save );
-ck( 'an Administrator\'s offer is approved as it is made, goes live at the press, and a change of theirs is what students see at once', array( $r[0], $r2[0], $r3[0], WPCPM_Sponsor_Offers::read( $rv3 )['state'], WPCPM_Sponsor_Offers::read( $rv3 )['proposed'], rv_student_sees( $rv3 )[1], rv_waiting() ), array( 'offer-created', 'offer-state-saved', 'offer-saved', 'live', array(), 'Changed by the program.', array() ) );
+ck( 'an Administrator\'s offer is approved as it is made, goes live at the press, and a change of theirs is what students see at once', array( $r[0], $r2[0], $r3[0], WPCPM_Sponsor_Offers::read( $rv3 )['state'], WPCPM_Sponsor_Offers::read( $rv3 )['proposed'], rv_student_sees( $rv3 )[1], rv_waiting() ), array( 'offer-created', 'offer-switched-on', 'offer-saved', 'live', array(), 'Changed by the program.', array() ) );
 WPCPM_Sponsor_Offers::set_state( $rv3, 'ended' );
 $seeded = WPCPM_Sponsor_Offers::create( $B, array( 'title' => 'Seeded by the program', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ), false, true );
 ck( 'what the program seeds is approved as it is made', WPCPM_Sponsor_Offers::read( $seeded )['approved'], true );
@@ -1993,14 +2048,17 @@ function hc_block( $html, $offer_id ) {
 }
 /** The review item an Administrator reads for one offer, drawn as the Administrator Dashboard draws it. */
 function hc_item( $offer_id ) {
-	foreach ( WPCPM_Sponsor_Offer_Review::waiting_all() as $row ) {
-		if ( (int) $row['id'] === (int) $offer_id ) {
-			ob_start();
-			WPCPM_Sponsor_Offer_Review::render_item( $row, 'dashboard' );
-			return (string) ob_get_clean();
+	// Drawn as the next request, as a page is: what a refused press kept for the item is read there, once.
+	return next_request( static function () use ( $offer_id ) {
+		foreach ( WPCPM_Sponsor_Offer_Review::waiting_all() as $row ) {
+			if ( (int) $row['id'] === (int) $offer_id ) {
+				ob_start();
+				WPCPM_Sponsor_Offer_Review::render_item( $row, 'dashboard' );
+				return (string) ob_get_clean();
+			}
 		}
-	}
-	return '';
+		return '';
+	} );
 }
 /** The Codes added block of an item, or '' when it has none. */
 function hc_codes_block( $item ) { return preg_match( '#<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added">.*?</dd></div>#s', $item, $m ) ? $m[0] : ''; }
@@ -2261,7 +2319,7 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $race, 'wpcpm_state' =
 unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] );
 ck( 'an End the pool\'s lock refuses is told to try again, and the offer is as it was', array( $r[0], WPCPM_Sponsor_Offers::read( $race )['state'], WPCPM_Sponsor_Codes::held_count( $race ) ), array( 'offer-busy', 'live', 1 ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $race, 'wpcpm_state' => 'ended' ), $k_state );
-ck( 'ended, the offer drops its held codes and the mark, and the queue no longer finds it', array( $r[0], WPCPM_Sponsor_Offers::read( $race )['state'], WPCPM_Sponsor_Codes::held_count( $race ), get_post_meta( $race, WPCPM_Sponsor_Offers::META_CODES_HELD, true ), array_key_exists( $race, WPCPM_Sponsor_Offers::waiting() ), WPCPM_Sponsor_Codes::counts( $race )['available'] ), array( 'offer-state-saved', 'ended', 0, '', false, 2 ) );
+ck( 'ended, the offer drops its held codes and the mark, and the queue no longer finds it', array( $r[0], WPCPM_Sponsor_Offers::read( $race )['state'], WPCPM_Sponsor_Codes::held_count( $race ), get_post_meta( $race, WPCPM_Sponsor_Offers::META_CODES_HELD, true ), array_key_exists( $race, WPCPM_Sponsor_Offers::waiting() ), WPCPM_Sponsor_Codes::counts( $race )['available'] ), array( 'offer-ended', 'ended', 0, '', false, 2 ) );
 // The End's row on the trail counts the codes it dropped (1.123.23), as a Discard's and a Return's
 // rows count theirs: set_state() hands back how many, and an End that drops none says nothing of
 // codes.
@@ -2570,6 +2628,102 @@ foreach ( $wk as $label => $id ) {
 ck( 'the card draws Running low on exactly the offers is_low() names: the one live and under its mark, the live one past its last day not among them', array( $wk_drawn['warning'], $wk_drawn['low'] ), array( array( 'change_low', 'low' ), array( 'change_low', 'low' ) ) );
 ck( 'and a returned note on exactly the offers is_returned() names: the new offer sent back, the two changes, the codes taken out, and not the one switched on after its return', array( $wk_drawn['returned'], $wk_drawn['is_returned'] ), array( array( 'new', 'change', 'change_low', 'codes_out' ), array( 'new', 'change', 'change_low', 'codes_out' ) ) );
 ck( 'the line itself is the card\'s own words, with the offer\'s mark in them', false !== strpos( hc_block( $wk_html, $wk['low'] ), '<span class="wpcpm-offer__warning">Running low: fewer than 3 codes left. Add more, or pause the offer.</span>' ), true );
+$GLOBALS['uid'] = 5;
+
+echo "\n=== The offer form keeps its typing on every refusal and marks the box at fault (1.123.58, SDB-05, SDB-06) ===\n";
+$GLOBALS['uid'] = 5; $GLOBALS['audit'] = array(); $GLOBALS['patched'] = array(); unset( $GLOBALS['umeta'][5][ WPCPM_Flash::META ] );
+$n_save   = array( 'WPCPM_Sponsor_Offers', 'handle_save' );
+$n_state  = array( 'WPCPM_Sponsor_Offers', 'handle_state' );
+$n_codes  = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Cloud credits', 'kind' => 'codes', 'text' => 'One year free', 'instructions' => 'Enter the code at checkout.', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+$n_shared = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'One code for all', 'kind' => 'shared', 'text' => 'Ten percent off', 'instructions' => 'Use it at checkout.', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ), false, true );
+WPCPM_Sponsor_Codes::set_shared( $n_shared, 'SHARED-ONE' );
+WPCPM_Sponsor_Offers::set_state( $n_shared, 'live' );
+/** The fields the edit form of an offer posts, with the ones in $change replaced. */
+$n_post = static function ( $id, array $change = array() ) use ( $A ) {
+	$offer = WPCPM_Sponsor_Offers::read( $id );
+	return array_merge( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $id, 'wpcpm_title' => $offer['title'], 'wpcpm_text' => 'A typed text', 'wpcpm_instructions' => 'Typed instructions', 'wpcpm_url' => '', 'wpcpm_kind' => $offer['kind'], 'wpcpm_low' => '10', 'wpcpm_expires' => '' ), $change );
+};
+$n_cases = array(
+	'the title missing'                    => array( $n_codes, array( 'wpcpm_title' => '' ), 'title' ),
+	'a link with a name and password in it' => array( $n_codes, array( 'wpcpm_url' => 'https://name:secret@example.test/' ), 'url' ),
+	'a last day nobody can read'           => array( $n_codes, array( 'wpcpm_expires' => '31/12/2026' ), 'expires' ),
+	'a shared code over the limit'         => array( $n_shared, array( 'wpcpm_shared' => str_repeat( 'x', WPCPM_Sponsor_Codes::LINE_MAX + 1 ) ), 'shared' ),
+	'the live offer\'s shared code emptied' => array( $n_shared, array( 'wpcpm_shared' => '' ), 'shared' ),
+);
+$n_results = array();
+foreach ( $n_cases as $label => $case ) {
+	list( $id, $change, $field ) = $case;
+	$posted = $n_post( $id, $change );
+	$r      = post( $posted, $n_save );
+	$kept   = peek_kept( 'offer:' . $A . ':' . $id );
+	$html   = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
+	$n_results[ $label ] = array(
+		$r[0],
+		$r[1],
+		$kept['values']['title'] ?? null,
+		$kept['values']['text'] ?? null,
+		isset( $kept['problems'][ $field ] ),
+		false !== strpos( $html, '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-' . $id . '" open>' ),
+		1 === preg_match( '#id="wpcpm-offer-' . $id . '-' . $field . '"[^>]*aria-invalid="true"#', $html ),
+	);
+}
+$n_new_post = array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Brand new pool', 'wpcpm_text' => 'Typed with the codes', 'wpcpm_instructions' => 'Typed instructions', 'wpcpm_url' => '', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "GOOD-1\n" . str_repeat( 'y', WPCPM_Sponsor_Codes::LINE_MAX + 1 ), 'wpcpm_low' => '10', 'wpcpm_expires' => '' );
+$r          = post( $n_new_post, $n_save );
+$kept       = peek_kept( 'offer:' . $A . ':new' );
+$html       = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$n_results['a codes list with a bad line'] = array( $r[0], $r[1], $kept['values']['title'] ?? null, $kept['values']['text'] ?? null, isset( $kept['problems']['codes'] ), wpcpm_test_value( wpcpm_test_form( $html, 'new' ), 'wpcpm_title' ) === 'Brand new pool', 1 === preg_match( '#id="wpcpm-offer-new-codes"[^>]*aria-invalid="true"#', $html ) );
+$n_want = array();
+foreach ( $n_cases as $label => $case ) {
+	$n_want[ $label ] = array( 'offer-rejected', 'offers', $case[1]['wpcpm_title'] ?? WPCPM_Sponsor_Offers::read( $case[0] )['title'], 'A typed text', true, true, true );
+}
+$n_want['a codes list with a bad line'] = array( 'offer-rejected', 'offers', 'Brand new pool', 'Typed with the codes', true, true, true );
+$r    = post( $n_post( $n_codes, array( 'wpcpm_expires' => '31/12/2026' ) ), $n_save );
+$html = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'the last day\'s sentence links to its field in the summary', 1 === substr_count( $html, '<a href="#wpcpm-offer-' . $n_codes . '-expires">Last day (optional)</a>: Write the last day as YYYY-MM-DD.' ), true );
+ck( 'every offer-rejected leave keeps the typing and opens the form it came from', $n_results, $n_want );
+ck( 'and the codes and the shared code are not in what it keeps', array( strpos( serialize( $GLOBALS['umeta'] ), 'GOOD-1' ), strpos( serialize( $GLOBALS['umeta'] ), 'SHARED-ONE' ) ), array( false, false ) );
+
+$r    = post( $n_post( $n_codes, array( 'wpcpm_title' => '' ) ), $n_save );
+$html = redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
+ck( 'the missing title is marked at the title', array(
+	$r[3],
+	1 === preg_match( '#<input type="text" id="wpcpm-offer-' . $n_codes . '-title"[^>]*aria-invalid="true"[^>]*aria-describedby="wpcpm-offer-' . $n_codes . '-title-problem"#', $html ),
+	false !== strpos( $html, '<p class="wpcpm-field__problem" id="wpcpm-offer-' . $n_codes . '-title-problem">Give the offer a title.</p>' ),
+	1 === substr_count( $html, '<a href="#wpcpm-offer-' . $n_codes . '-title">Title</a>: Give the offer a title.' ),
+), array( 'Give the offer a title.', true, true, true ) );
+$r = post( $n_post( $n_codes, array( 'wpcpm_url' => 'https://name:secret@example.test/' ) ), $n_save );
+$u = $r[3];
+redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
+$r = post( $n_post( $n_codes, array( 'wpcpm_expires' => '31/12/2026' ) ), $n_save );
+ck( 'the link and the last day each say their own sentence', array( $u, $r[3] ), array( 'Give the link without a user name or password in it.', 'Write the last day as YYYY-MM-DD.' ) );
+redrawn( 'WPCPM_Sponsor_Offers', $A, $ctx );
+
+echo "\n--- each of the four moves says its own sentence, naming the offer ---\n";
+$mv_make = static function ( $kind ) use ( $A ) {
+	$id = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Cloud credits', 'kind' => 'shared', 'text' => 'One year free', 'instructions' => 'Enter the code.', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ), false, true );
+	WPCPM_Sponsor_Codes::set_shared( $id, 'MOVE-' . $kind );
+	return $id;
+};
+$mv_said = static function ( $to, $id ) use ( $A, $n_state ) {
+	$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $id, 'wpcpm_state' => $to ), $n_state );
+	return array( $r[0], vsprintf( WPCPM_Sponsor_Offers::messages()[ $r[0] ][1], $GLOBALS['left_args'] ) );
+};
+$mv_live = $mv_make( 'live' );
+WPCPM_Sponsor_Offers::set_state( $mv_live, 'live' );
+$mv_paused  = $mv_said( 'paused', $mv_live );
+$mv_resumed = $mv_said( 'live', $mv_live );
+$mv_review  = $mv_make( 'review' );
+WPCPM_Sponsor_Offers::submit( $mv_review, 5 );
+$mv_back  = $mv_said( 'draft', $mv_review );
+$mv_ended = $mv_said( 'ended', $mv_live );
+ck( 'each of the four moves says its own sentence, naming the offer', array( $mv_paused, $mv_resumed, $mv_back, $mv_ended ), array(
+	array( 'offer-paused', 'Paused: Cloud credits is hidden until you resume it.' ),
+	array( 'offer-resumed', 'Resumed: Cloud credits is offered again.' ),
+	array( 'offer-taken-back', 'Taken back: Cloud credits is a draft again, and nobody can claim it.' ),
+	array( 'offer-ended', 'Ended: Cloud credits is closed for good, and its codes stay in the usage report.' ),
+) );
+$mv_on = $mv_said( 'live', $mv_make( 'on' ) );
+ck( 'the switch-on of an approved draft says its own sentence too, naming the offer', $mv_on, array( 'offer-switched-on', 'Switched on: Cloud credits is live.' ) );
 $GLOBALS['uid'] = 5;
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );

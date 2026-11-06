@@ -125,6 +125,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-guard.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-contribution-teams.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
@@ -473,7 +474,7 @@ ck( 'a sponsored applicant who names no company is asked for it, and nothing is 
 	array( 'company_needed', 0 ) );
 $said_company = new ReflectionMethod( 'WPCPM_Mentor_Application_Form', 'problem_text' );
 $said_company->setAccessible( true );
-ck( 'in a sentence of its own', $said_company->invoke( null, 'company_needed' ), 'Please name the company that sponsors you.' );
+ck( 'in a sentence of its own', $said_company->invoke( null, 'company_needed' ), 'Name the company that sponsors you.' );
 
 reset_world();
 $named = submit( answers( array( 'sponsored' => 'Yes', 'sponsor_company' => '  Acme Hosting ', 'wants_sponsor' => 'No' ) ) );
@@ -506,9 +507,9 @@ $offsets     = array(
 	'closed'     => strpos( $submit_path, 'self::closed_reason()' ),
 	'honeypot'   => strpos( $submit_path, 'WPCPM_Form_Guard::honeypot_filled(' ),
 	'dwell'      => strpos( $submit_path, 'WPCPM_Form_Guard::check_token(' ),
-	'consent'    => strpos( $submit_path, "self::clean( 'consent'" ),
 	'answers'    => strpos( $submit_path, '$cleaned  = self::clean_all(' ),
 	'required'   => strpos( $submit_path, 'self::add_required(' ),
+	'consent'    => strpos( $submit_path, "self::clean( 'consent'" ),
 	'site'       => strpos( $submit_path, 'WPCPM_Form_Guard::claim_site(' ),
 	'scoring'    => strpos( $submit_path, 'self::score(' ),
 	'duplicates' => strpos( $submit_path, 'self::duplicate_signals(' ),
@@ -525,11 +526,11 @@ for ( $i = 0; $i < WPCPM_Form_Guard::PER_HOUR; $i++ ) {
 	submit( answers(), array( 'nonce' => 'nonce-stale' ) );
 }
 $busy = submit( answers( array( 'email' => 'six@example.test' ) ) );
-ck( '1. the per-actor ceiling comes first: after five posts whose nonce failed, the sixth from one address in an hour is refused and stores nothing', array( $busy['outcome'], count( rows() ) ), array( 'busy', 0 ) );
+ck( '1. the per-actor ceiling comes first: after five posts whose nonce failed, the sixth from one address in an hour is refused and stores nothing', array( $busy['outcome'], count( rows() ) ), array( 'busy-kept', 0 ) );
 
 reset_world();
 $expired = submit( answers(), array( 'nonce' => 'nonce-stale' ) );
-ck( '2. a nonce that fails stores nothing and hands back every answer but the tick', array( $expired['outcome'], count( rows() ), $expired['stash']['values']['name'] ?? null, isset( $expired['stash']['values']['consent'] ) ), array( 'expired', 0, 'Ada Okonjo', false ) );
+ck( '2. a nonce that fails stores nothing and hands back every answer, the tick it was sent with among them', array( $expired['outcome'], count( rows() ), $expired['stash']['values']['name'] ?? null, $expired['stash']['values']['consent'] ?? null ), array( 'expired', 0, 'Ada Okonjo', true ) );
 
 reset_world();
 $GLOBALS['settings']['mentor_applications_enabled'] = false;
@@ -555,13 +556,13 @@ ck( '   a token this site never signed is spam', array( $forged['outcome'], WPCP
 reset_world();
 foreach ( array( null, '0', 'yes', '' ) as $tick ) {
 	$refused = submit( answers( array( 'consent' => $tick ) ) );
-	ck( sprintf( '6. consent %s refuses the whole submission and stores nothing, not even as spam', var_export( $tick, true ) ), array( $refused['outcome'], count( rows() ) ), array( 'consent', 0 ) );
+	ck( sprintf( '8. consent %s refuses the whole submission, marked at the box, and stores nothing, not even as spam', var_export( $tick, true ) ), array( $refused['outcome'], $refused['stash']['problems'] ?? null, count( rows() ) ), array( 'again', array( 'consent' => 'consent' ), 0 ) );
 }
 
 reset_world();
 $again = submit( answers( array( 'name' => '', 'gpl' => null, 'languages' => array(), 'profile' => 'https://example.test/' ) ) );
 ck(
-	'8. requiredness: each blank answer, an unticked statement and a profile that is no username come back marked, with the rest of the answers, and nothing is stored',
+	'7. requiredness: each blank answer, an unticked statement and a profile that is no username come back marked, with the rest of the answers, and nothing is stored',
 	array( $again['outcome'], $again['stash']['problems'] ?? null, $again['stash']['values']['email'] ?? null, count( rows() ) ),
 	array( 'again', array( 'profile' => 'bad_profile', 'name' => 'required', 'languages' => 'required', 'gpl' => 'unticked' ), 'ada@example.test', 0 )
 );
@@ -924,7 +925,11 @@ $sent = submit( answers() );
 $_GET = array( WPCPM_Mentor_Application_Form::QUERY_STASH => substr( $sent['url'], strpos( $sent['url'], '=' ) + 1 ) );
 $thanks = WPCPM_Mentor_Application_Form::render();
 ck( 'the thank-you names the reference and the address, says to confirm it, and draws no form', array( false !== strpos( $thanks, 'MAPP-2026-0500' ), false !== strpos( $thanks, 'ada@example.test with a link that confirms the address' ), false !== strpos( $thanks, '<form' ) ), array( true, true, false ) );
-ck( 'and it is one-shot: the stash is gone once read', WPCPM_Mentor_Application_Form::render() === $thanks, false );
+// Read, not taken (1.123.58, FORM-06): within its thirty minutes a reload draws it again.
+ck( 'a reload of the thank-you within its 30 minutes draws the confirmation again, with the reference', array( WPCPM_Mentor_Application_Form::render() === $thanks, false !== strpos( $thanks, 'MAPP-2026-0500' ) ), array( true, true ) );
+$GLOBALS['transients'] = array();
+$gone                  = WPCPM_Mentor_Application_Form::render();
+ck( 'after the stash is gone, the page draws the empty form under the expired sentence, which says nothing was lost either way', array( false !== strpos( $gone, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $gone, '<form' ), strpos( $gone, 'MAPP-' ) ), array( true, true, false ) );
 $owner = array();
 foreach ( array( 'block' => array( 'WPCPM_Mentor_Application_Form', 'render_block' ), 'shortcode' => array( 'WPCPM_Mentor_Application_Form', 'render' ) ) as $how => $draw ) {
 	reset_world();
@@ -949,6 +954,190 @@ ck(
 	"<!-- wp:paragraph -->\n<p>We are looking for dedicated mentors to guide the next generation of contributors in WordPress Credits, a flagship educational program of the WordPress Foundation.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph -->\n<p>We cannot ensure sponsorship for mentors. By applying you confirm that you have at least two hours each week for your students. Before applying, read <a href=\"https://make.wordpress.org/handbook/wordpress-credits-contribution-internship-program/call-for-mentors/\">the call for mentors page</a>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:wpcpm/mentor-application /-->"
 );
 ck( 'and it is never gated: no access level is written on it', isset( $GLOBALS['pmeta'][ $made ] ), false );
+// A cached copy of any page the form is drawn on would hand one visitor another's token, answers or
+// confirmation, so every draw sends the headers, the block's and the shortcode's alike (1.123.58).
+reset_world();
+$GLOBALS['on_page'] = 99;
+$GLOBALS['nocache'] = 0;
+WPCPM_Mentor_Application_Form::render();
+ck( 'a draw of the form on a page that is not its configured one sends the no-cache headers', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 1, true ) );
+unset( $GLOBALS['on_page'] );
+
+echo "\n=== A refusal keeps every answer and says it once (1.123.58) ===\n";
+
+/** The page a redirect lands on, drawn from the address it carries. */
+function page_after( array $landed ) {
+	$_GET = array();
+
+	if ( preg_match( '/[?&]([a-z_]+)=([^&]+)$/', $landed['url'], $arg ) ) {
+		$_GET = array( $arg[1] => $arg[2] );
+	}
+
+	return WPCPM_Mentor_Application_Form::render();
+}
+
+/** The transients written under the form's own prefix. */
+function kept_transients() {
+	return array_values(
+		array_filter(
+			array_keys( $GLOBALS['transients'] ),
+			function ( $key ) {
+				return 0 === strpos( $key, WPCPM_Mentor_Application_Form::TRANSIENT_PREFIX );
+			}
+		)
+	);
+}
+
+/** The ceiling at its limit for this connection, at 13:20 on the suite's clock, the time shown as H:i. */
+function at_the_limit() {
+	$GLOBALS['opts']['time_format'] = 'H:i';
+	$GLOBALS['site_offset']         = 0;
+	WPCPM_Ceiling::for_tests(
+		function () {
+			return gmmktime( 13, 20, 0, 11, 6, 2026 );
+		}
+	);
+	for ( $i = 0; $i < WPCPM_Form_Guard::PER_HOUR; $i++ ) {
+		WPCPM_Form_Guard::claim_actor( WPCPM_Form_Guard::actor_key( WPCPM_Mentor_Application_Form::ACTOR_PREFIX ), WPCPM_Form_Guard::PER_HOUR );
+	}
+}
+
+reset_world();
+$refused = submit( answers( array( 'name' => '', 'email' => '' ) ) );
+$page    = page_after( $refused );
+$summary = strpos( $page, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h2 class="wpcpm-errors__title">Two answers need a change</h2>' );
+$name_at = strpos( $page, '<a href="#wpcpm-mentor-application-name">Full name</a>' );
+$mail_at = strpos( $page, '<a href="#wpcpm-mentor-application-email">Email</a>' );
+$set_at  = strpos( $page, '<fieldset' );
+ck(
+	'a refused send opens the form with the summary: its heading counts the problems, and each links its field by the field\'s label',
+	array( false !== $summary && $summary < $set_at, false !== $name_at && $summary < $name_at && $name_at < $mail_at, false !== $mail_at && $mail_at < $set_at ),
+	array( true, true, true )
+);
+ck( 'and the old generic sentence is gone', strpos( $page, 'Please look at the answers marked below' ), false );
+ck( 'the summary is inside the form, its first child', false !== strpos( $page, 'data-wpcpm-status="Sending your application."><div class="wpcpm-errors"' ), true );
+
+reset_world();
+$both = submit( answers( array( 'name' => '', 'consent' => null ) ) );
+$page = page_after( $both );
+ck(
+	'consent is checked in the same pass as the other answers: one bounce marks the box and the missing answer together',
+	array( array_keys( $both['stash']['problems'] ?? array() ), false !== strpos( $page, 'Tick this box to send the form.' ), 1 === preg_match( '#id="wpcpm-mentor-application-consent" name="[^"]+" value="1" required="required" aria-invalid="true" aria-describedby="wpcpm-mentor-application-consent-problem"#', $page ), count( rows() ) ),
+	array( array( 'name', 'consent' ), true, true, 0 )
+);
+// The tick is the sender's own work, kept with the other answers (1.123.58, trial T2): a box drawn
+// empty again is refused by the browser itself on the next Send, before anything is said.
+reset_world();
+$ticked = submit( answers( array( 'name' => '' ) ) );
+$page   = page_after( $ticked );
+ck( 'a ticked consent box comes back ticked after a refusal for another answer', array( $ticked['outcome'], array_keys( $ticked['stash']['problems'] ?? array() ), $ticked['stash']['values']['consent'] ?? null, false !== strpos( $page, 'id="wpcpm-mentor-application-consent" name="wpcpm_mentor_application[consent]" value="1" checked="checked" required="required" />' ), count( rows() ) ), array( 'again', array( 'name' ), true, true, 0 ) );
+reset_world();
+$spam_unticked = submit( answers( array( 'name' => '', 'consent' => null ) ), array( 'honeypot' => 'https://spam.example.test' ) );
+ck( 'and a post headed for the spam pile is still refused without it, told of the box alone', array( $spam_unticked['outcome'], $spam_unticked['stash']['problems'] ?? null, count( rows() ) ), array( 'again', array( 'consent' => 'consent' ), 0 ) );
+
+reset_world();
+at_the_limit();
+$busy = submit( answers() );
+$page = page_after( $busy );
+ck(
+	'a busy connection with a good nonce keeps the answers and draws the form, with the sentence that says when to try again',
+	array( false !== strpos( $busy['url'], WPCPM_Mentor_Application_Form::QUERY_STASH . '=' ), $busy['outcome'], $busy['stash']['values']['name'] ?? null, $busy['stash']['values']['languages'] ?? null, false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Your answers are still here: send the form again after 14:00.' ), false !== strpos( $page, 'Send this application</button>' ), false !== strpos( $page, 'value="Ada Okonjo"' ), count( rows() ) ),
+	array( true, 'busy-kept', 'Ada Okonjo', array( 'English', 'Polish' ), true, true, true, 0 )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers(), array( 'nonce' => 'nonce-stale' ) );
+$page = page_after( $busy );
+ck(
+	'a busy post with no valid nonce stores no stash',
+	array( kept_transients(), $busy['url'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'https://example.test/become-a-mentor/?' . WPCPM_Mentor_Application_Form::QUERY_OUTCOME . '=busy', true, false )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers( array( 'anything' => str_repeat( 'a', WPCPM_Flash::KEPT_MAX + 1 ) ) ) );
+$page = page_after( $busy );
+ck(
+	'a busy post too long to keep keeps nothing and says so',
+	array( kept_transients(), $busy['outcome'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken, and the answers were too long to keep here. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'busy-unkept', true, false )
+);
+WPCPM_Ceiling::for_tests( null );
+$GLOBALS['site_offset'] = 2 * HOUR_IN_SECONDS;
+
+reset_world();
+$typo = submit( answers( array( 'email' => 'name@campus' ) ) );
+$page = page_after( $typo );
+ck(
+	'a refused address comes back as typed',
+	array( $typo['stash']['problems'] ?? null, 1 === preg_match( '#<input type="email" id="wpcpm-mentor-application-email" name="[^"]+" value="name@campus"#', $page ) ),
+	array( array( 'email' => 'bad_email' ), true )
+);
+
+reset_world();
+$token  = dwell_token();
+$first  = submit( answers(), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+ck(
+	'a second press with the same token goes to the first press\'s confirmation and stores nothing',
+	array( count( rows() ), $first['outcome'], $second['outcome'], $second['stash']['reference'] ?? null, $second['stash']['email'] ?? null, count( $GLOBALS['mail'] ) ),
+	array( 1, 'sent', 'sent', 'MAPP-2026-0500', 'ada@example.test', 1 )
+);
+
+reset_world();
+$GLOBALS['mail_fails'] = true;
+$token  = dwell_token();
+$first  = submit( answers(), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+$path   = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-form.php' ), 'handle_submit' );
+ck(
+	'the second press names the first press\'s real outcome, its record landing after the mail step: a quiet thank-you for an acknowledgement that did not go',
+	array( count( rows() ), $first['outcome'], $second['outcome'], $second['stash']['reference'] ?? null, strpos( $path, 'WPCPM_Form_Guard::landed(' ) > strpos( $path, 'self::mail_administrators(' ) ),
+	array( 1, 'sent-quiet', 'sent-quiet', 'MAPP-2026-0500', true )
+);
+
+reset_world();
+$token = dwell_token();
+$_POST = array( '_wpnonce' => wp_create_nonce( WPCPM_Mentor_Application_Form::ACTION_SUBMIT ) );
+WPCPM_Form_Guard::check_token( WPCPM_Mentor_Application_Form::DWELL_SCOPE, $token );
+$key   = WPCPM_Form_Guard::token_key( WPCPM_Mentor_Application_Form::DWELL_SCOPE, $token );
+$reads = 0;
+$GLOBALS['filtered']['wpcpm_form_guard_pause'] = function () use ( &$reads, $key ) {
+	return function ( $microseconds ) use ( &$reads, $key ) {
+		if ( 3 === ++$reads ) {
+			WPCPM_Form_Guard::landed( $key, WPCPM_Mentor_Application::store( array( 'name' => 'Ada Okonjo', 'email' => 'ada@example.test' ), WPCPM_Mentor_Application::STATE_NEW, array(), WPCPM_Form_Guard::consent_evidence( 'x' ) ) );
+		}
+	};
+};
+$second = submit( answers(), array( 'token' => $token ) );
+unset( $GLOBALS['filtered'] );
+ck(
+	'a second press while the first is still in flight waits for its row',
+	array( count( rows() ), $reads, $second['outcome'], $second['stash']['reference'] ?? null ),
+	array( 1, 3, 'sent', 'MAPP-2026-0500' )
+);
+
+reset_world();
+$token  = dwell_token();
+$first  = submit( answers( array( 'consent' => null ) ), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+ck(
+	'a used token whose first press bounced bounces stale with the answers',
+	array( $first['outcome'], $second['outcome'], $second['stash']['values']['name'] ?? null, count( rows() ), WPCPM_Form_Guard::row_of( WPCPM_Form_Guard::token_key( WPCPM_Mentor_Application_Form::DWELL_SCOPE, $token ) ) ),
+	array( 'again', 'stale', 'Ada Okonjo', 0, null )
+);
+
+reset_world();
+$_GET = array( WPCPM_Mentor_Application_Form::QUERY_STASH => 'answersthathaveexpired' );
+$page = WPCPM_Mentor_Application_Form::render();
+ck(
+	'a stash id whose answers have expired draws the form empty, with the sentence that says so, and marks no field',
+	array( false !== strpos( $page, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $page, '<form' ), strpos( $page, 'aria-invalid' ), strpos( $page, 'wpcpm-errors' ) ),
+	array( true, true, false, false )
+);
+
 ck( 'nothing was asked of WordPress that the stand-ins do not model', isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );

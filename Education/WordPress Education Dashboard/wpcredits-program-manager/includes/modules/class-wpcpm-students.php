@@ -31,6 +31,9 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	const ACTION_BULK = 'wpcpm_students_bulk_invite';
 	const ACTION_TICK   = 'wpcpm_students_tick';
 
+	/** Admin-post action for Run anyway, past the count check's stop (1.123.58). */
+	const ACTION_ACCEPT = 'wpcpm_students_sync_accept';
+
 	/** The screen's tab the accounts are on, which every link and form of the list returns to. */
 	const TAB_ACCOUNTS = 'accounts';
 
@@ -111,6 +114,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
+		add_action( 'admin_post_' . self::ACTION_ACCEPT, array( $this, 'handle_accept' ) );
 		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
 		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
@@ -318,9 +322,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			$this->leave( $back, 'invites-none' );
 		}
 
-		WPCPM_Mail::queue_invites( $pending );
-
-		$this->leave( $back, 'invites-queued' );
+		$this->leave( $back, self::queue_bulk( $pending ) );
 	}
 
 	/**
@@ -356,7 +358,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 	/**
 	 * The Sync tab: the sync's notices, the warning while Airtable is not connected, the last run's
-	 * error, the Airtable sync card and the last run's report.
+	 * error, and after it Run anyway while the count check holds the run stopped (1.123.58), the
+	 * Airtable sync card and the last run's report.
 	 */
 	private function render_tab_sync() {
 		$report = get_option( WPCPM_Students_Sync::OPT_REPORT );
@@ -371,6 +374,10 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 				esc_html__( 'Last sync error:', 'wpcredits-program-manager' ),
 				esc_html( $error )
 			);
+		}
+
+		if ( WPCPM_Students_Sync::is_stopped() ) {
+			$this->render_run_anyway( __( 'Run the sync anyway? Every linked account it did not read loses the Student role.', 'wpcredits-program-manager' ), self::TAB_SYNC );
 		}
 
 		$this->render_sync_panel( WPCPM_Students_Sync::progress(), (int) get_option( WPCPM_Students_Sync::OPT_LAST ) );
@@ -514,9 +521,11 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 		if ( $progress['running'] ) {
 			printf(
-				'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3">',
+				'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3" data-finished="%3$s">',
 				esc_attr( self::ACTION_TICK ),
-				esc_attr( wp_create_nonce( self::ACTION_TICK ) )
+				esc_attr( wp_create_nonce( self::ACTION_TICK ) ),
+				// Said by the poller as the run finishes, before it reloads the page (1.123.58).
+				esc_attr__( 'The sync has finished. The page will show its report.', 'wpcredits-program-manager' )
 			);
 
 			echo '<p class="wpcpm-progress__head"><span class="spinner is-active" aria-hidden="true"></span> ';
@@ -546,6 +555,14 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 				'<p class="wpcpm-progress__stalled" data-wpcpm-stalled%1$s>%2$s</p>',
 				$progress['stalled'] ? '' : ' hidden',
 				esc_html__( 'No progress for over two minutes. The run may have been interrupted - cancel it and start again.', 'wpcredits-program-manager' )
+			);
+
+			// Printed by the poller when the count check stops the run (1.123.58, trial T5): the check's
+			// sentence, then the way to Run anyway, since the poller reloads nothing. `inline`, so
+			// WordPress's own script leaves it inside the panel.
+			printf(
+				'<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="%s" hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>',
+				esc_attr__( 'Reload this page to choose Run anyway or Cancel.', 'wpcredits-program-manager' )
 			);
 
 			echo '<noscript><meta http-equiv="refresh" content="15" /></noscript>';

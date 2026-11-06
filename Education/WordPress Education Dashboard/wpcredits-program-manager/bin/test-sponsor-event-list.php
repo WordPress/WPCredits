@@ -1023,7 +1023,7 @@ ck(
 		$leave             = press( 'handle_leave', pressing( $partner ), 0 );
 		return array( $join, $leave, $GLOBALS['nonces'], store_state() === $before, $GLOBALS['flash'] );
 	},
-	array( array( 'died', 'Please log in to join an event.', 403 ), array( 'died', 'Please log in to leave an event.', 403 ), array(), true, array() )
+	array( array( 'died', 'Log in to join an event.', 403 ), array( 'died', 'Log in to leave an event.', 403 ), array(), true, array() )
 );
 ck(
 	'a stale page is stopped on the nonce keyed to the event before anything else is read: nothing is written, mailed or flashed',

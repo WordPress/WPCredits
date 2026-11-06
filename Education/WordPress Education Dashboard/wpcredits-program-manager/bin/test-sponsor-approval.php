@@ -45,6 +45,8 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 define( 'ABSPATH', __DIR__ . '/' );
+// The index stamps each write with the account that made it (1.123.58); no account is signed in here.
+function get_current_user_id() { return 0; }
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );

@@ -255,6 +255,23 @@ function activated_at( $id, $time ) {
  * @return mixed
  */
 function carried() {
+	$detail = detail();
+
+	// Only the press's own words for the notice: the status and the sentence it worded, or '' when it
+	// worded none. Who the press concerned travels beside them (`detail()`).
+	return is_array( $detail ) && '' !== trim( (string) ( $detail['message'] ?? '' ) ) ? array(
+		'status'  => $detail['status'],
+		'message' => $detail['message'],
+	) : ( null === $detail ? null : '' );
+}
+
+/**
+ * Everything the last press carried beside its outcome: the status, its own sentence, and the
+ * applicant's name and reference that `notices()` puts before the sentence.
+ *
+ * @return mixed
+ */
+function detail() {
 	$flash = get_user_meta( 9, 'wpcpm_flash', true );
 
 	return is_array( $flash ) && array_key_exists( WPCPM_Mentor_Application_Queue::FLASH_MESSAGE, $flash ) ? $flash[ WPCPM_Mentor_Application_Queue::FLASH_MESSAGE ] : null;
@@ -319,6 +336,9 @@ function press( $action, $id, array $more = array() ) {
 		WPCPM_Mentor_Application_Queue::FIELD_APPLICATION   => (string) $id,
 		WPCPM_Mentor_Application_Queue::VIEW_ARG             => isset( $more['view'] ) ? $more['view'] : 'waiting',
 	);
+	if ( isset( $more['drawn'] ) ) {
+		$_POST[ WPCPM_Mentor_Application_Queue::FIELD_DRAWN ] = $more['drawn'];
+	}
 	if ( isset( $more['note'] ) ) {
 		$_POST[ WPCPM_Mentor_Application_Queue::FIELD_NOTE ] = wp_slash( $more['note'] );
 	}
@@ -699,7 +719,7 @@ WPCPM_Mentor_Activation::$enabled = true;
 $done                             = press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, $sel, array( 'note' => 'Wrote in on Monday.', 'view' => 'selected' ) );
 ck( 'The course is completed on a selected row makes the applicant a mentor, by who pressed and with the note, sends the Slack message, and comes back to the Selected view saying so',
 	array( $done['flash'], $done['stop'], WPCPM_Mentor_Activation::$calls, WPCPM_Mentor_Checker_Slack::$flushed ),
-	array( 'mapp-activated', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=selected', array( array( $sel, 9, 'Wrote in on Monday.' ) ), 1 ) );
+	array( 'mapp-activated', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=selected#wpcpm-mentor-application-' . $sel, array( array( $sel, 9, 'Wrote in on Monday.' ) ), 1 ) );
 ck( 'and carries no words of its own for the notice, whose sentence is the one above', carried(), '' );
 foreach ( array(
 	'refused'        => array( 'activated', 'refused', 'mapp-activated-refused' ),
@@ -896,7 +916,7 @@ ck( 'an application filed as already a mentor is dated so, and has no invitation
 $retried = press( WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE, $refused, array( 'view' => 'active' ) );
 ck( 'Write the Airtable row again on an activated application writes it, by who pressed, and comes back to Activated',
 	array( $retried['flash'], $retried['stop'], WPCPM_Mentor_Activation::$retries ),
-	array( 'mapp-airtable-written', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=active', array( array( $refused, 9 ) ) ) );
+	array( 'mapp-airtable-written', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue&mapp_view=active#wpcpm-mentor-application-' . $refused, array( array( $refused, 9 ) ) ) );
 ck( 'and is refused on a row that is not active', press( WPCPM_Mentor_Application_Queue::ACTION_AIRTABLE, an_application( 'selected' ) )['flash'], 'mapp-state' );
 $retry_flashes = array();
 foreach ( array(
@@ -1435,6 +1455,152 @@ $decided_page  = tab_for( reference_for( $only_declined ) );
 ck( 'and so does Recently decided when the application found is the only one in it, the section and its note still there',
 	array( row_ids( $decided_page ), substr_count( $decided_page, '<ol class="wpcpm-queue">' ), false !== strpos( $decided_page, '<section class="wpcpm-mapp-decided">' ), false === strpos( $decided_page, 'No application has been filed as spam or declined.' ) ),
 	array( array( $only_declined ), 1, true, true ) );
+
+echo "\n=== A decision taken twice, and the outcomes that name the applicant (1.123.58) ===\n";
+
+/**
+ * The notice the last press leaves, read on another Administrator's page: the flash is copied to an
+ * account that has read none, since a take is kept for the rest of a request.
+ *
+ * @return string The sentence of the outcome the press flashed.
+ */
+function notice_of_last_press() {
+	static $reader = 40;
+
+	++$reader;
+	$flash = get_user_meta( 9, 'wpcpm_flash', true );
+
+	$GLOBALS['umeta'][ $reader ]['wpcpm_flash'] = $flash;
+	$GLOBALS['uid']                             = $reader;
+	$GLOBALS['manage'][]                        = $reader;
+	$notices                                    = WPCPM_Mentor_Application_Queue::notices();
+	$status                                     = is_array( $flash ) && isset( $flash['mentors_admin'] ) ? $flash['mentors_admin'] : '';
+	$GLOBALS['uid']                             = 9;
+
+	return isset( $notices[ $status ] ) ? $notices[ $status ][1] : '';
+}
+
+/**
+ * Press a decision the way the second of two Administrators does: the row was read as it stood before
+ * the first press wrote (`$before`), and, once the second holds the lock, it is the row as the first
+ * wrote it (`$after`), which is what `forget_cached()` hands the work.
+ *
+ * @param string $action The decision.
+ * @param int    $id     The row.
+ * @param array  $before The row's meta before the first press.
+ * @param array  $after  The row's meta after it.
+ * @return array As `press()`.
+ */
+function press_after_a_rival( $action, $id, array $before, array $after ) {
+	$GLOBALS['pmeta'][ $id ]                                    = $before;
+	$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $id ) ] = '1';
+	$GLOBALS['wpdb']->before_takeover                           = function () use ( $id, $after ) {
+		$GLOBALS['pmeta'][ $id ] = $after;
+	};
+
+	return press( $action, $id );
+}
+
+reset_world();
+an_account( 7, 'Administrator 7', 'seven@example.test', array( 'administrator' ) );
+$rival_id = an_application( 'new', true, array( 'name' => 'Ada Example' ) );
+$before   = $GLOBALS['pmeta'][ $rival_id ];
+$GLOBALS['uid'] = 7;
+$GLOBALS['manage'][] = 7;
+$first_select  = press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $rival_id );
+$GLOBALS['uid'] = 9;
+$after         = $GLOBALS['pmeta'][ $rival_id ];
+$second_select = press_after_a_rival( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $rival_id, $before, $after );
+$decided_words = notice_of_last_press();
+ck( 'two Selects on one row send one email: the second, under the lock, finds the row selected and answers who decided it and when',
+	array( count( $first_select['mail'] ), count( $second_select['mail'] ), $second_select['flash'], $second_select['state'], $decided_words ),
+	array( 1, 0, 'mapp-decided', 'selected', 'Ada Example (' . WPCPM_Mentor_Application::reference_of( get_post( $rival_id ) ) . '): Administrator 7 already decided this application: selected, on ' . wp_date( 'F j, Y g:i a', WPCPM_Mentor_Application::last_at( $rival_id, WPCPM_Mentor_Application::EVENT_SELECTED ) ) . '. Nothing was sent.' ) );
+ck( 'and the lock is let go', WPCPM_Lock::until( WPCPM_Mentor_Application::lock_name( $rival_id ) ), 0 );
+
+reset_world();
+an_account( 7, 'Administrator 7', 'seven@example.test', array( 'administrator' ) );
+$rival_id        = an_application( 'new' );
+$before          = $GLOBALS['pmeta'][ $rival_id ];
+$GLOBALS['uid']  = 7;
+$GLOBALS['manage'][] = 7;
+$first_select    = press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $rival_id );
+$GLOBALS['uid']  = 9;
+$after           = $GLOBALS['pmeta'][ $rival_id ];
+$late_decline    = press_after_a_rival( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $rival_id, $before, $after );
+ck( 'a Decline after a Select sends nothing',
+	array( $late_decline['flash'], count( $first_select['mail'] ) + count( $late_decline['mail'] ), $late_decline['state'] ),
+	array( 'mapp-decided', 1, 'selected' ) );
+
+reset_world();
+$both         = an_application( 'new' );
+$decline_won  = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $both, array( 'drawn' => 'new' ) );
+$select_late  = press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $both, array( 'drawn' => 'new' ) );
+ck( 'Decline then Select within a second sends one email and the second press is told the row was declined',
+	array( count( $decline_won['mail'] ), count( $select_late['mail'] ), $select_late['flash'], $select_late['state'], 0 === strpos( notice_of_last_press(), 'Ada Okonjo (' ) && false !== strpos( notice_of_last_press(), 'already decided this application: declined, on ' ) ),
+	array( 1, 0, 'mapp-decided', 'declined', true ) );
+
+reset_world();
+$twice       = an_application( 'new' );
+$info_one    = press( WPCPM_Mentor_Application_Queue::ACTION_INFO, $twice, array( 'drawn' => 'new' ) );
+$info_two    = press( WPCPM_Mentor_Application_Queue::ACTION_INFO, $twice, array( 'drawn' => 'new' ) );
+ck( 'Ask for more information twice sends one request',
+	array( count( $info_one['mail'] ), count( $info_two['mail'] ), $info_two['flash'], count( array_keys( array_column( WPCPM_Mentor_Application::events( $twice ), 'event' ), WPCPM_Mentor_Application::EVENT_INFO, true ) ) ),
+	array( 1, 0, 'mapp-decided', 1 ) );
+
+reset_world();
+$appeal   = an_application( 'declined' );
+$appealed = press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $appeal, array( 'drawn' => 'declined' ) );
+ck( 'Select on a row drawn as declined still goes through', array( $appealed['flash'], $appealed['state'], count( $appealed['mail'] ) ), array( 'mapp-selected', 'selected', 1 ) );
+$drawn_row = an_application( 'new' );
+ck( 'and the three forms post the state the row was drawn in', substr_count( row_for_id( tab(), $drawn_row ), 'name="' . WPCPM_Mentor_Application_Queue::FIELD_DRAWN . '" value="new"' ), 3 );
+
+reset_world();
+$unsent                     = an_application( 'new' );
+$GLOBALS['mail_fails']      = true;
+$failed_select              = press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $unsent );
+ck( 'a Select whose mail fails writes nothing and lets the lock go',
+	array( $failed_select['flash'], $failed_select['state'], last_event( $unsent )[0], WPCPM_Lock::until( WPCPM_Mentor_Application::lock_name( $unsent ) ) ),
+	array( 'mapp-not-sent', 'new', 'address confirmed', 0 ) );
+
+reset_world();
+$named = an_application( 'new', true, array( 'name' => 'Ada Example' ) );
+press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $named );
+ck( 'every outcome names the applicant and the reference',
+	0 === strpos( notice_of_last_press(), 'Ada Example (' . WPCPM_Mentor_Application::reference_of( get_post( $named ) ) . '): ' ),
+	true );
+
+reset_world();
+$older = an_application( 'new', true, array( 'name' => 'Ada Example' ) );
+$newer = an_application( 'new', true, array( 'name' => 'Bea Example' ) );
+$left  = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $older );
+ck( 'the press lands on the next row\'s anchor when the decided row left the view',
+	array( $left['flash'], substr( $left['stop'], - strlen( '#wpcpm-mentor-application-' . $newer ) ) ),
+	array( 'mapp-declined', '#wpcpm-mentor-application-' . $newer ) );
+$last = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $newer );
+ck( 'and on the view\'s top when no row follows', false === strpos( $last['stop'], '#' ), true );
+$stays = an_application( 'new' );
+$kept_listed = press( WPCPM_Mentor_Application_Queue::ACTION_INFO, $stays );
+ck( 'a row still listed in the view is landed on itself', substr( $kept_listed['stop'], - strlen( '#wpcpm-mentor-application-' . $stays ) ), '#wpcpm-mentor-application-' . $stays );
+
+reset_world();
+$refused_row = an_application( 'selected' );
+$refused     = press( WPCPM_Mentor_Application_Queue::ACTION_WITHDRAW, $refused_row, array( 'note' => 'no', 'view' => 'selected' ) );
+$kept_flash  = get_user_meta( 9, 'wpcpm_flash', true );
+$reader      = 77;
+$GLOBALS['umeta'][ $reader ]['wpcpm_flash'] = $kept_flash;
+$GLOBALS['uid']                             = $reader;
+$GLOBALS['manage'][]                        = $reader;
+$box_html                                   = row_for_id( tab( 'selected' ), $refused_row );
+$GLOBALS['uid']                             = 9;
+ck( 'a refused note lands on its row, its box marked and its typing kept',
+	array(
+		$refused['flash'],
+		substr( $refused['stop'], - strlen( '#wpcpm-mentor-application-' . $refused_row ) ),
+		false !== strpos( $box_html, 'aria-invalid="true"' ),
+		1 === preg_match( '#<textarea[^>]*aria-invalid="true"[^>]*>\nno</textarea>#', $box_html ),
+		false !== strpos( $box_html, 'class="wpcpm-field__problem"' ),
+	),
+	array( 'mapp-note-short', '#wpcpm-mentor-application-' . $refused_row, true, true, true ) );
 
 reset_world();
 ck( 'a view with nothing in it says so', false !== strpos( tab(), 'Nothing here. New applications appear in Waiting.' ), true );

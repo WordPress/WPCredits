@@ -380,7 +380,7 @@ final class WPCPM_Institution_Create {
 			self::release_lock( $institution );
 			self::schedule( $batch_id );
 
-			return self::outcome( 'unreadable', WPCPM_Institution_Import::STATE_CREATING, $rechecked['rows'] );
+			return self::outcome( 'create-unreadable', WPCPM_Institution_Import::STATE_CREATING, $rechecked['rows'] );
 		}
 
 		$rows = $rechecked['rows'];
@@ -397,7 +397,7 @@ final class WPCPM_Institution_Create {
 		if ( ! empty( $ran['halt'] ) ) {
 			self::schedule( $batch_id );
 
-			return self::outcome( 'unreadable', WPCPM_Institution_Import::STATE_CREATING, $rows );
+			return self::outcome( 'create-unreadable', WPCPM_Institution_Import::STATE_CREATING, $rows );
 		}
 
 		if ( self::remaining( $rows ) > 0 ) {
@@ -517,7 +517,31 @@ final class WPCPM_Institution_Create {
 			$created = $airtable->create_records( $table, array( array( 'fields' => $fields ) ) );
 
 			if ( is_wp_error( $created ) ) {
+				// **What the client created before it failed is recorded first** (1.123.58, LOG-13).
+				// The error carries the IDs earlier requests created, which are students the base
+				// holds now: the row is stamped with its ID and put on the roster before the failure
+				// is reported, so the retry that follows does not create it a second time.
+				$made = (array) $created->get_error_data();
+				$made = isset( $made['created'] ) ? array_values( (array) $made['created'] ) : array();
+
 				$blame = self::blame( $created );
+
+				if ( isset( $made[0] ) && WPCPM_Mentors_Sync::is_record_id( (string) $made[0] ) ) {
+					$rows[ $index ] = self::stamp( $row, (string) $made[0], $key );
+					self::save_rows( $batch_id, $rows );
+					self::announce( $institution, $batch, $rows[ $index ], (string) $made[0], $actor, $ground );
+
+					// The row is created; the refusal is about what came after it, so a refusal of the
+					// base still stops the slice, and one of the record moves on to the next row.
+					if ( self::BLAME_ROW !== $blame ) {
+						return array(
+							'rows' => $rows,
+							'halt' => true,
+						);
+					}
+
+					continue;
+				}
 
 				if ( self::BLAME_ROW !== $blame ) {
 					// **Not this row's fault, so not this row's failure.** A missing token, an

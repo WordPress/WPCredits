@@ -2162,8 +2162,8 @@ $again = form_redraw( $bounced );
 ck( 'a refused post comes back as again with each problem, nothing stored',
 	array( $bounced['outcome'], $problems, count( form_regs() ) ),
 	array( 'again', array( 'access' => 'markup', 'email' => 'bad_email', 'end' => 'end_before_start', 'hours' => 'not_a_number', 'preferred' => 'preferred_not_spoken', 'tutor' => 'formula' ), 0 ) );
-ck( 'the page says what happened, and draws the form',
-	array( false !== strpos( $again, '<p class="wpcpm-application__message is-error" role="status">Nothing has been sent yet. Please look at the answers marked below and send the form again.</p>' ), false !== strpos( $again, '<form' ) ),
+ck( 'the page says what happened, in the summary of the six problems, and draws the form',
+	array( false !== strpos( $again, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h2 class="wpcpm-errors__title">Six answers need a change</h2>' ), false !== strpos( $again, '<form' ) ),
 	array( true, true ) );
 ck( 'every answer that was fine, and the ones refused for how they sit beside another, is back in its box',
 	array(
@@ -2176,9 +2176,16 @@ ck( 'every answer that was fine, and the ones refused for how they sit beside an
 		1 === preg_match( '#value="English" checked="checked" /> <span>English</span>#', $again ) && 1 === preg_match( '#value="Polish" checked="checked" /> <span>Polish</span>#', $again ) && 1 === preg_match( '#value="Spanish" /> <span>Spanish</span>#', $again ),
 		false !== strpos( $again, '<option value="Spanish" selected=\'selected\'>Spanish</option>' ),
 		false !== strpos( $again, 'name="wpcpm_student_registration[english]" value="1" checked="checked"' ),
-		false !== strpos( $again, 'name="wpcpm_student_registration[consent]" value="1"' ) && false === strpos( $again, 'name="wpcpm_student_registration[consent]" value="1" checked' ),
+		// The consent tick is kept with the rest (1.123.58, trial T2).
+		false !== strpos( $again, 'name="wpcpm_student_registration[consent]" value="1" checked="checked"' ),
 	),
 	array_fill( 0, 10, true ) );
+// The tick is the sender's own work, kept with the other answers (1.123.58, trial T2): a box drawn
+// empty again is refused by the browser itself on the next Send, before anything is said.
+form_world();
+$ticked = form_submit( form_posted( array( 'name' => '' ) ) );
+$drawn  = form_redraw( $ticked );
+ck( 'a ticked consent box comes back ticked after a refusal for another answer', array( $ticked['outcome'], array_keys( $ticked['stash']['problems'] ?? array() ), $ticked['stash']['values']['consent'] ?? null, 1 === preg_match( '#name="wpcpm_student_registration\[consent\]" value="1" checked="checked" required="required"#', $drawn ), count( form_regs() ) ), array( 'again', array( 'name' ), true, true, 0 ) );
 ck( 'and what was typed in a free text and the tutor, which were refused, comes back as typed and escaped, a tag of it no tag on the page',
 	array( false !== strpos( $again, 'name="wpcpm_student_registration[tutor]" value="+Tutor"' ), false !== strpos( $again, '>Needs &lt;b&gt;bold&lt;/b&gt; help</textarea>' ), false !== strpos( $again, '<b>bold' ) ),
 	array( true, true, false ) );
@@ -2188,18 +2195,18 @@ ck( 'each problem is marked on its question: the field invalid, described by the
 
 // The sentences, by problem. Four posts between them raise every problem the form words.
 $words = array(
-	'required'             => 'Please fill this in.',
+	'required'             => 'Fill this in.',
 	'formula'              => 'This cannot start with =, +, - or @.',
 	'control'              => 'This cannot hold a tab, a line break or a "|".',
-	'name_length'          => 'Please give your full name, from 2 to 200 characters.',
+	'name_length'          => 'Give your full name, from 2 to 200 characters.',
 	'bad_email'            => 'That does not look like an email address.',
-	'bad_choice'           => 'Please choose one of the options offered.',
-	'too_long'             => 'Please keep this to 120 characters.',
-	'bad_date'             => 'Please give a date.',
+	'bad_choice'           => 'Choose one of the options offered.',
+	'too_long'             => 'Keep this to 120 characters.',
+	'bad_date'             => 'Give a date.',
 	'end_before_start'     => 'The end date has to be on or after the start date.',
-	'not_a_number'         => 'Please give a number of hours.',
-	'below_min'            => 'Please give at least one hour.',
-	'above_max'            => 'Please give at most 2,000 hours.',
+	'not_a_number'         => 'Give a number of hours.',
+	'below_min'            => 'Give at least one hour.',
+	'above_max'            => 'Give at most 2,000 hours.',
 	'preferred_not_spoken' => 'Your preferred language has to be one of the languages you ticked above.',
 	'unticked'             => 'The program can only take students who can say this, so please tick it.',
 );
@@ -2242,16 +2249,15 @@ $thanks_html = '<div class="wpcpm-application"><div class="wpcpm-application__do
 $outcomes    = WPCPM_Student_Registration_Form::outcomes();
 
 ck( 'the outcomes beside closed, in the words the design gives and the mentor form\'s for the three it shares',
-	array( $outcomes['again'][1], $outcomes['consent'][1], $outcomes['lost'][1], $outcomes['closed'][1], $outcomes['stale'][1], $outcomes['expired'][1], $outcomes['busy'][1], array_keys( $outcomes ) ),
+	array( $outcomes['lost'][1], $outcomes['closed'][1], $outcomes['stale'][1], $outcomes['expired'][1], $outcomes['busy'][1] === WPCPM_Form_Stash::outcomes()['busy'][1], array_keys( $outcomes ) ),
 	array(
-		'Nothing has been sent yet. Please look at the answers marked below and send the form again.',
-		'Nothing has been sent yet, and nothing has been stored. The program can only take a registration from somebody who agrees to the privacy policy, so please tick the last box.',
-		'Something went wrong at our end and the registration was not saved. Please try once more.',
+		'Something went wrong at our end and the registration was not saved. Try once more.',
 		'Student registrations through this form are closed for now.',
 		'This form had been open for a long time, so it was not sent. Your answers are still here: please send it again.',
 		'This form had been open for a while and could not be sent. Your answers are still here: please send it again.',
-		'Several attempts have been made from this connection in the last hour, so this one was not taken. Please try again in an hour.',
-		array( 'again', 'consent', 'stale', 'expired', 'busy', 'lost', 'closed' ),
+		true,
+		// A refused send says no sentence since 1.123.58: the summary of its problems says it.
+		array( 'busy', 'busy-kept', 'busy-unkept', 'stash-gone', 'stale', 'expired', 'lost', 'closed' ),
 	) );
 
 form_world();
@@ -2275,7 +2281,13 @@ ck( 'an outcome nobody defined is the plain form', array( false !== strpos( WPCP
 
 $_GET = array( WPCPM_Student_Registration_Form::QUERY_OUTCOME => 'busy' );
 
-ck( 'a busy answer says so and draws no form', array( false !== strpos( WPCPM_Student_Registration_Form::render(), 'Several attempts have been made' ), false !== strpos( WPCPM_Student_Registration_Form::render(), '<form' ) ), array( true, false ) );
+$time_format = $GLOBALS['opts']['time_format'] ?? null;
+unset( $GLOBALS['opts']['time_format'] );
+ck( 'with no time format on the site, the hour\'s turn is given as H:i, so the sentence never ends "after ."', 1 === preg_match( '/ after \d\d:00\.$/', WPCPM_Form_Stash::outcomes()['busy'][1] ), true );
+if ( null !== $time_format ) {
+	$GLOBALS['opts']['time_format'] = $time_format;
+}
+ck( 'a busy answer says so and draws no form', array( false !== strpos( WPCPM_Student_Registration_Form::render(), 'Too many attempts were made from this connection in this hour' ), false !== strpos( WPCPM_Student_Registration_Form::render(), '<form' ) ), array( true, false ) );
 
 $_GET = array();
 
@@ -2289,9 +2301,9 @@ $offsets     = array(
 	'closed'    => strpos( $submit_path, 'self::closed_reason()' ),
 	'honeypot'  => strpos( $submit_path, 'WPCPM_Form_Guard::honeypot_filled(' ),
 	'dwell'     => strpos( $submit_path, 'WPCPM_Form_Guard::check_token(' ),
-	'consent'   => strpos( $submit_path, "self::clean( 'consent'" ),
 	'answers'   => strpos( $submit_path, '$cleaned  = self::clean_all(' ),
 	'required'  => strpos( $submit_path, 'self::add_required(' ),
+	'consent'   => strpos( $submit_path, "self::clean( 'consent'" ),
 	'hold'      => strpos( $submit_path, 'WPCPM_Form_Guard::claim_site( self::SITE_HOLD_KEY, self::HOLD_PER_DAY )' ),
 	'site'      => strpos( $submit_path, 'WPCPM_Form_Guard::claim_site( self::SITE_KEY, WPCPM_Form_Guard::PER_DAY )' ),
 	'store'     => strpos( $submit_path, 'WPCPM_Student_Registration::store(' ),
@@ -2318,12 +2330,12 @@ $busy = form_submit( form_posted( array( 'email' => 'more@example.test' ) ) );
 
 ck( '1. the per-actor ceiling comes first: thirty posts from one address in an hour are all taken, even those whose nonce failed, and the thirty-first is refused and stores nothing',
 	array( array_unique( $outcomes_first ), count( $outcomes_first ), $busy['outcome'], count( form_regs() ) ),
-	array( array( 'expired' ), 30, 'busy', 0 ) );
+	array( array( 'expired' ), 30, 'busy-kept', 0 ) );
 
 form_world();
 $expired = form_submit( form_posted(), array( 'nonce' => 'nonce-stale' ) );
 
-ck( '2. a nonce that fails stores nothing and hands back every answer but the tick', array( $expired['outcome'], count( form_regs() ), $expired['stash']['values']['name'] ?? null, $expired['stash']['values']['hours'] ?? null, isset( $expired['stash']['values']['consent'] ) ), array( 'expired', 0, 'Ada Example', '150.6', false ) );
+ck( '2. a nonce that fails stores nothing and hands back every answer, the tick it was sent with among them', array( $expired['outcome'], count( form_regs() ), $expired['stash']['values']['name'] ?? null, $expired['stash']['values']['hours'] ?? null, $expired['stash']['values']['consent'] ?? null ), array( 'expired', 0, 'Ada Example', '150.6', true ) );
 
 form_world();
 $GLOBALS['settings']['student_registrations_enabled'] = false;
@@ -2369,7 +2381,7 @@ form_world();
 foreach ( array( null, '0', 'yes', '' ) as $tick ) {
 	$refused = form_submit( form_posted( array( 'consent' => $tick ) ) );
 
-	ck( sprintf( '6. the privacy tick %s refuses the whole submission and stores nothing, not even as spam', var_export( $tick, true ) ), array( $refused['outcome'], count( form_regs() ) ), array( 'consent', 0 ) );
+	ck( sprintf( '8. the privacy tick %s refuses the whole submission, marked at the box, and stores nothing, not even as spam', var_export( $tick, true ) ), array( $refused['outcome'], $refused['stash']['problems'] ?? null, count( form_regs() ) ), array( 'again', array( 'consent' => 'consent' ), 0 ) );
 }
 
 form_world();
@@ -2603,6 +2615,152 @@ ck( 'while what became of each once the answer had gone is what it should: the s
 		'the address\'s lock held'      => array( 'waiting', 0 ),
 	) );
 
+// A cached copy of any page the form is drawn on would hand one visitor another's token, answers or
+// confirmation, so every draw sends the headers, the block's and the shortcode's alike (1.123.58).
+form_world();
+$GLOBALS['on_page'] = 99;
+$GLOBALS['nocache'] = 0;
+WPCPM_Student_Registration_Form::render();
+ck( 'a draw of the form on a page that is not its configured one sends the no-cache headers', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 1, true ) );
+unset( $GLOBALS['on_page'] );
+
+echo "\n--- A refusal keeps every answer and says it once (1.123.58) ---\n";
+
+/** The transients written under the form's own prefix. */
+function form_kept_transients() {
+	return array_values( preg_grep( '/^' . WPCPM_Student_Registration_Form::TRANSIENT_PREFIX . '/', array_keys( $GLOBALS['transients'] ) ) );
+}
+
+/** The ceiling at its limit for this connection, at 13:20 on the suite's clock, the time shown as H:i. */
+function form_at_the_limit() {
+	$GLOBALS['opts']['time_format'] = 'H:i';
+	$GLOBALS['site_offset']         = 0;
+	WPCPM_Ceiling::for_tests(
+		function () {
+			return gmmktime( 13, 20, 0, 11, 6, 2026 );
+		}
+	);
+	for ( $i = 0; $i < WPCPM_Student_Registration_Form::PER_HOUR; $i++ ) {
+		WPCPM_Form_Guard::claim_actor( WPCPM_Form_Guard::actor_key( WPCPM_Student_Registration_Form::ACTOR_PREFIX ), WPCPM_Student_Registration_Form::PER_HOUR );
+	}
+}
+
+form_world();
+$refused = form_submit( form_posted( array( 'name' => '', 'email' => '' ) ) );
+$page    = form_redraw( $refused );
+$summary = strpos( $page, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h2 class="wpcpm-errors__title">Two answers need a change</h2>' );
+$name_at = strpos( $page, '<a href="#wpcpm-student-registration-name">Full Name</a>' );
+$mail_at = strpos( $page, '<a href="#wpcpm-student-registration-email">Email</a>' );
+// The form asks its questions with no fieldset, so the summary stands before the first question.
+$set_at  = strpos( $page, 'class="wpcpm-field ' );
+ck(
+	'a refused send opens the form with the summary: its heading counts the problems, and each links its field by the field\'s label',
+	array( false !== $summary && $summary < $set_at, false !== $name_at && $summary < $name_at && $name_at < $mail_at, false !== $mail_at && $mail_at < $set_at ),
+	array( true, true, true )
+);
+ck( 'and the old generic sentence is gone', strpos( $page, 'Please look at the answers marked below' ), false );
+
+form_world();
+$both = form_submit( form_posted( array( 'name' => '', 'consent' => null ) ) );
+$page = form_redraw( $both );
+ck(
+	'consent is checked in the same pass as the other answers: one bounce marks the box and the missing answer together',
+	array( array_keys( $both['stash']['problems'] ?? array() ), false !== strpos( $page, 'Tick this box to send the form.' ), 1 === preg_match( '#id="wpcpm-student-registration-consent" name="[^"]+" value="1" required="required" aria-invalid="true" aria-describedby="wpcpm-student-registration-consent-problem"#', $page ), count( form_regs() ) ),
+	array( array( 'name', 'consent' ), true, true, 0 )
+);
+
+form_world();
+form_at_the_limit();
+$busy = form_submit( form_posted() );
+$page = form_redraw( $busy );
+ck(
+	'a busy connection with a good nonce keeps the answers and draws the form, with the sentence that says when to try again',
+	array( false !== strpos( $busy['url'], WPCPM_Student_Registration_Form::QUERY_STASH . '=' ), $busy['outcome'], $busy['stash']['values']['name'] ?? null, false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Your answers are still here: send the form again after 14:00.' ), false !== strpos( $page, 'Send this registration</button>' ), false !== strpos( $page, 'value="Ada Example"' ), count( form_regs() ) ),
+	array( true, 'busy-kept', 'Ada Example', true, true, true, 0 )
+);
+
+form_world();
+form_at_the_limit();
+$busy = form_submit( form_posted(), array( 'nonce' => 'nonce-stale' ) );
+$page = form_redraw( $busy );
+ck(
+	'a busy post with no valid nonce stores no stash',
+	array( form_kept_transients(), $busy['url'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'https://example.test/student-registration/?' . WPCPM_Student_Registration_Form::QUERY_OUTCOME . '=busy', true, false )
+);
+
+form_world();
+form_at_the_limit();
+$busy = form_submit( form_posted( array( 'access' => str_repeat( 'a', 60001 ) ) ) );
+$page = form_redraw( $busy );
+ck(
+	'a busy post too long to keep keeps nothing and says so',
+	array( form_kept_transients(), $busy['outcome'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken, and the answers were too long to keep here. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'busy-unkept', true, false )
+);
+WPCPM_Ceiling::for_tests( null );
+$GLOBALS['site_offset'] = 2 * HOUR_IN_SECONDS;
+
+form_world();
+$typo = form_submit( form_posted( array( 'email' => 'name@campus' ) ) );
+$page = form_redraw( $typo );
+ck(
+	'a refused address comes back as typed',
+	array( $typo['stash']['problems'] ?? null, false !== strpos( $page, 'id="wpcpm-student-registration-email" name="wpcpm_student_registration[email]" value="name@campus"' ) ),
+	array( array( 'email' => 'bad_email' ), true )
+);
+
+form_world();
+$token  = form_token();
+$first  = form_submit( form_posted(), array( 'token' => $token ) );
+$second = form_submit( form_posted(), array( 'token' => $token ) );
+ck(
+	'a second press with the same token goes to the first press\'s confirmation and stores nothing',
+	array( count( form_regs() ), $first['outcome'], $second['outcome'], $second['url'] ),
+	array( 1, 'sent', 'sent', 'https://example.test/student-registration/?' . WPCPM_Student_Registration_Form::QUERY_OUTCOME . '=sent' )
+);
+
+form_world();
+$token = form_token();
+$_POST = array( '_wpnonce' => wp_create_nonce( WPCPM_Student_Registration_Form::ACTION_SUBMIT ) );
+WPCPM_Form_Guard::check_token( WPCPM_Student_Registration_Form::DWELL_SCOPE, $token );
+$key   = WPCPM_Form_Guard::token_key( WPCPM_Student_Registration_Form::DWELL_SCOPE, $token );
+$reads = 0;
+$GLOBALS['filtered']['wpcpm_form_guard_pause'] = function () use ( &$reads, $key ) {
+	return function ( $microseconds ) use ( &$reads, $key ) {
+		if ( 3 === ++$reads ) {
+			WPCPM_Form_Guard::landed( $key, WPCPM_Student_Registration::store( array( 'name' => 'Ada Example', 'email' => 'ada@example.test' ), WPCPM_Student_Registration::STATE_WAITING, array(), WPCPM_Form_Guard::consent_evidence( 'x' ) ) );
+		}
+	};
+};
+$second = form_submit( form_posted(), array( 'token' => $token ) );
+unset( $GLOBALS['filtered'] );
+ck(
+	'a second press while the first is still in flight waits for its row',
+	array( count( form_regs() ), $reads, $second['outcome'] ),
+	array( 1, 3, 'sent' )
+);
+
+form_world();
+$token  = form_token();
+$first  = form_submit( form_posted( array( 'consent' => null ) ), array( 'token' => $token ) );
+$second = form_submit( form_posted(), array( 'token' => $token ) );
+ck(
+	'a used token whose first press bounced bounces stale with the answers',
+	array( $first['outcome'], $second['outcome'], $second['stash']['values']['name'] ?? null, count( form_regs() ) ),
+	array( 'again', 'stale', 'Ada Example', 0 )
+);
+
+form_world();
+$_GET = array( WPCPM_Student_Registration_Form::QUERY_STASH => 'answersthathaveexpired' );
+$page = WPCPM_Student_Registration_Form::render();
+ck(
+	'a stash id whose answers have expired draws the form empty, with the sentence that says so, and marks no field',
+	array( false !== strpos( $page, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $page, '<form' ), strpos( $page, 'aria-invalid' ), strpos( $page, 'wpcpm-errors' ) ),
+	array( true, true, false, false )
+);
+$_GET = array();
+
 echo "\n--- The page the plugin makes ---\n";
 
 form_world();
@@ -2620,7 +2778,7 @@ ck( 'the page at student-registration is adopted as it is when it is there, made
 	array( 42, '<!-- wp:paragraph --><p>Register in Airtable.</p><!-- /wp:paragraph -->', 'student-registration', 'Student registration', 'publish', $made, $made ) );
 ck( 'and a page it makes is three paragraph blocks, the Airtable form\'s introduction with the program\'s address linked, then the form',
 	get_post( $made )->post_content,
-	"<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">Welcome!</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">Please fill out this short form to express your interest in joining the program. It only takes a few minutes and helps us better understand your background and availability.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">If you have any questions before submitting your interest, feel free to contact us at <a href=\"mailto:education@wordpressfoundation.org\">education@wordpressfoundation.org</a></p>\n<!-- /wp:paragraph -->\n\n<!-- wp:wpcpm/student-registration /-->" );
+	"<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">Welcome!</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">Fill out this short form to express your interest in joining the program. It only takes a few minutes and helps us better understand your background and availability.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">If you have any questions before submitting your interest, feel free to contact us at <a href=\"mailto:education@wordpressfoundation.org\">education@wordpressfoundation.org</a></p>\n<!-- /wp:paragraph -->\n\n<!-- wp:wpcpm/student-registration /-->" );
 $student_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/application.css' );
 ck( 'the stylesheet lets the consent label and the introduction break a long word, and gives the button 24 px under a flat form',
 	array(

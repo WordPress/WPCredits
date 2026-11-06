@@ -145,12 +145,15 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * it) is not on the list, though its form comes back too: it keeps exactly what was typed under
 	 * the form's own name before it leaves (`loss_check()`), and the form draws that instead.
 	 *
+	 * The ceiling (`sevent-ceiling`) is on the list too (1.123.58, SDB-23): no press within the hour puts
+	 * it right, but the plan the person typed is still theirs, and the form comes back with it for the
+	 * press after the hour turns.
+	 *
 	 * Every other outcome keeps nothing: a success; a wait, which the card says in the form's place;
 	 * a sponsor that no longer holds the planner, or the switch, which draw no form to come back to;
-	 * an event canceled or over, whose form is gone; a refusal of who is pressing; and the ceiling
-	 * (`sevent-ceiling`), which no press within the hour puts right.
+	 * an event canceled or over, whose form is gone; and a refusal of who is pressing.
 	 */
-	const KEEPS_TYPED = array( 'sevent-fields', 'sevent-past-term', 'sevent-before-term', 'sevent-in-past', 'sevent-busy', 'sevent-shrink', 'sevent-failed' );
+	const KEEPS_TYPED = array( 'sevent-fields', 'sevent-past-term', 'sevent-before-term', 'sevent-in-past', 'sevent-busy', 'sevent-shrink', 'sevent-failed', 'sevent-ceiling' );
 
 	/**
 	 * The form's two boxes of typed text, in the form's order, each with the field it posts and how the
@@ -221,7 +224,13 @@ final class WPCPM_Sponsor_Event_Planner {
 			'sevent-past'                    => array( 'error', __( 'That event has taken place, so it can no longer be changed or canceled.', 'wpcredits-program-manager' ) ),
 			'sevent-shrink'                  => array( 'error', __( 'More people have joined than that many places would hold.', 'wpcredits-program-manager' ) ),
 			'sevent-failed'                  => array( 'error', __( 'Your event could not be saved right now. Try again later.', 'wpcredits-program-manager' ) ),
-			'sevent-ceiling'                 => array( 'error', __( 'Ten an hour is the limit. Try again in an hour.', 'wpcredits-program-manager' ) ),
+			// A cancel past the same ceiling has no plan to keep: it says what to try again.
+			/* translators: 1: how many times an hour a sponsor can change events, 2: the time the hour turns, in the planner's time zone and the site's time format. */
+			'sevent-ceiling-cancel'          => array( 'error', _n( 'Events can be changed %1$s time an hour. Try this cancel again after %2$s.', 'Events can be changed %1$s times an hour. Try this cancel again after %2$s.', self::PER_HOUR, 'wpcredits-program-manager' ) ),
+			// The count is the ceiling's own (`spend_press()` claims `PER_HOUR`), the time is when the hour
+			// turns (`WPCPM_Ceiling::resets_at()`), and the plan is still in the form (1.123.58, SDB-23).
+			/* translators: 1: how many times an hour a sponsor can plan or change an event, 2: the time the hour turns, in the site's time format. */
+			'sevent-ceiling'                 => array( 'error', _n( 'You can plan or change an event %1$s time an hour. Your plan is still here: send it again after %2$s.', 'You can plan or change events %1$s times an hour. Your plan is still here: send it again after %2$s.', self::PER_HOUR, 'wpcredits-program-manager' ) ),
 			'sevent-plan-title-loss'         => array( 'error', WPCPM_Typed_Text::loss_message( __( 'Title', 'wpcredits-program-manager' ), 'plan' ) ),
 			'sevent-plan-description-loss'   => array( 'error', WPCPM_Typed_Text::loss_message( __( 'Description', 'wpcredits-program-manager' ), 'plan' ) ),
 			'sevent-change-title-loss'       => array( 'error', WPCPM_Typed_Text::loss_message( __( 'Title', 'wpcredits-program-manager' ) ) ),
@@ -438,6 +447,7 @@ final class WPCPM_Sponsor_Event_Planner {
 		$first = strcmp( $drawn, $from ) < 0 ? $drawn : $from;
 		$last  = '' !== $until && strcmp( $drawn, $until ) > 0 ? $drawn : $until;
 		$kept  = self::kept_for( $record, (int) $event->ID );
+		$why   = self::problems_for( $record, (int) $event->ID );
 
 		echo array() !== $kept ? '<details class="wpcpm-sevent__change" open>' : '<details class="wpcpm-sevent__change">';
 		printf( '<summary class="wpcpm-sevent__change-toggle">%s</summary>', esc_html__( 'Change the event', 'wpcredits-program-manager' ) );
@@ -461,7 +471,8 @@ final class WPCPM_Sponsor_Event_Planner {
 			max( 1, (int) $facts['joined'] ),
 			$first,
 			$last,
-			$kept
+			$kept,
+			$why
 		);
 
 		self::submit( __( 'Save the changes', 'wpcredits-program-manager' ) );
@@ -530,7 +541,8 @@ final class WPCPM_Sponsor_Event_Planner {
 			);
 		}
 
-		$kept = self::kept_for( $record, 0 );
+		$kept     = self::kept_for( $record, 0 );
+		$problems = self::problems_for( $record, 0 );
 
 		self::open_form( self::ACTION_PLAN, $record, 'wpcpm-sponsor__form wpcpm-sevent__form', __( 'Sending', 'wpcredits-program-manager' ) );
 		self::render_fields(
@@ -548,7 +560,8 @@ final class WPCPM_Sponsor_Event_Planner {
 			1,
 			WPCPM_Sponsor_Tiers::today(),
 			$until,
-			$kept
+			$kept,
+			$problems
 		);
 		self::submit( __( 'Plan the event', 'wpcredits-program-manager' ) );
 		echo '</form>';
@@ -600,9 +613,42 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * @param int          $floor  The fewest places the box takes.
 	 * @param string       $first  The first day the date box offers, `Y-m-d`.
 	 * @param string       $last   The last day it offers, `Y-m-d`, or '' for no last day.
-	 * @param array        $kept   What a refusal of this form kept as typed, by row, or none.
+	 * @param array        $kept     What a refusal of this form kept as typed, by row, or none.
+	 * @param array        $problems Why the refusal refused each row it refused, by row, or none
+	 *                               (`problems_for()`): the form opens with the summary, inside the
+	 *                               card, and each refused row says its sentence at its box
+	 *                               (1.123.58, SDB-06).
 	 */
-	public static function render_fields( $prefix, array $values, DateTimeZone $zone, $floor, $first, $last, array $kept = array() ) {
+	public static function render_fields( $prefix, array $values, DateTimeZone $zone, $floor, $first, $last, array $kept = array(), array $problems = array() ) {
+		$map   = array();
+		$names = array(
+			'date'        => __( 'Date', 'wpcredits-program-manager' ),
+			'time'        => __( 'Start time', 'wpcredits-program-manager' ),
+			'minutes'     => __( 'Length in minutes', 'wpcredits-program-manager' ),
+			'places'      => __( 'Places', 'wpcredits-program-manager' ),
+			'title'       => __( 'Title', 'wpcredits-program-manager' ),
+			'description' => __( 'Description', 'wpcredits-program-manager' ),
+			'link'        => __( 'Call link', 'wpcredits-program-manager' ),
+		);
+
+		foreach ( $names as $row => $name ) {
+			$map[ $row ] = array(
+				'id'    => $prefix . '-' . $row,
+				'label' => $name,
+			);
+		}
+
+		echo WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+
+		// A refused row is marked: `aria-invalid` on its box, and the sentence right after it, tied to it
+		// by `aria-describedby` with the hint the box already has.
+		$marks = static function ( $row, $hint = '' ) use ( $prefix, $problems ) {
+			return WPCPM_Form_Errors::attrs( $prefix . '-' . $row, isset( $problems[ $row ] ) ? (string) $problems[ $row ] : '', '' === $hint ? '' : $prefix . '-' . $hint );
+		};
+		$why   = static function ( $row ) use ( $prefix, $problems ) {
+			return WPCPM_Form_Errors::problem( $prefix . '-' . $row, isset( $problems[ $row ] ) ? (string) $problems[ $row ] : '' );
+		};
+
 		foreach ( array_keys( self::typed_limits() ) as $key ) {
 			if ( isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) && ! isset( self::TYPED_BOXES[ $key ] ) ) {
 				$values[ $key ] = $kept[ $key ];
@@ -625,9 +671,9 @@ final class WPCPM_Sponsor_Event_Planner {
 			printf( ' max="%s"', esc_attr( $last ) );
 		}
 
-		echo ' required /></p>';
+		echo ' required' . $marks( 'date' ) . ' />' . $why( 'date' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() and problem() escape what they print.
 		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-time">%2$s</label><input type="time" id="%1$s-time" name="%3$s" value="%4$s" required aria-describedby="%1$s-zone" /><span class="wpcpm-student__note" id="%1$s-zone">%5$s</span></p>',
+			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-time">%2$s</label><input type="time" id="%1$s-time" name="%3$s" value="%4$s" required%6$s />%7$s<span class="wpcpm-student__note" id="%1$s-zone">%5$s</span></p>',
 			esc_attr( $prefix ),
 			esc_html__( 'Start time', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_TIME ),
@@ -638,30 +684,36 @@ final class WPCPM_Sponsor_Event_Planner {
 					__( 'In your time zone, %s. Everyone who joins sees it in theirs.', 'wpcredits-program-manager' ),
 					WPCPM_Mentor_Availability::zone_label( $zone->getName() )
 				)
-			)
+			),
+			$marks( 'time', 'zone' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			$why( 'time' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-minutes">%2$s</label><input type="number" id="%1$s-minutes" name="%3$s" value="%4$s" min="%5$d" max="%6$d" step="%7$d" required /></p>',
+			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-minutes">%2$s</label><input type="number" id="%1$s-minutes" name="%3$s" value="%4$s" min="%5$d" max="%6$d" step="%7$d" required%8$s />%9$s</p>',
 			esc_attr( $prefix ),
 			esc_html__( 'Length in minutes', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_MINUTES ),
 			esc_attr( $values['minutes'] ),
 			(int) WPCPM_Sponsor_Event::MIN_MINUTES,
 			(int) WPCPM_Sponsor_Event::MAX_MINUTES,
-			(int) self::MINUTES_STEP
+			(int) self::MINUTES_STEP,
+			$marks( 'minutes' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			$why( 'minutes' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-places">%2$s</label><input type="number" id="%1$s-places" name="%3$s" value="%4$s" min="%5$d" max="%6$d" step="1" aria-describedby="%1$s-places-note" /><span class="wpcpm-student__note" id="%1$s-places-note">%7$s</span></p>',
+			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-places">%2$s</label><input type="number" id="%1$s-places" name="%3$s" value="%4$s" min="%5$d" max="%6$d" step="1"%8$s />%9$s<span class="wpcpm-student__note" id="%1$s-places-note">%7$s</span></p>',
 			esc_attr( $prefix ),
 			esc_html__( 'Places', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_PLACES ),
 			esc_attr( $values['places'] ),
 			(int) $floor,
 			(int) WPCPM_Sponsor_Event::MAX_PLACES,
-			esc_html__( 'Leave it blank for no limit.', 'wpcredits-program-manager' )
+			esc_html__( 'Leave it blank for no limit.', 'wpcredits-program-manager' ),
+			$marks( 'places', 'places-note' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			$why( 'places' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-title">%2$s</label><input type="text" id="%1$s-title" name="%3$s" value="%4$s" maxlength="%5$d" required /></p>',
+			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-title">%2$s</label><input type="text" id="%1$s-title" name="%3$s" value="%4$s" maxlength="%5$d" required%6$s />%7$s</p>',
 			esc_attr( $prefix ),
 			esc_html__( 'Title', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_TITLE ),
@@ -669,10 +721,12 @@ final class WPCPM_Sponsor_Event_Planner {
 			// attr_text() writes each "&" of the text read back out first, and kept_attr() each "&" of
 			// a kept typing, so the box shows that text as it is.
 			esc_attr( null !== $title ? WPCPM_Typed_Text::kept_attr( $title ) : WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $values['title'] ) ) ),
-			(int) ( null !== $title ? WPCPM_Typed_Text::kept_room( $values['title'], WPCPM_Sponsor_Event::MAX_TITLE ) : WPCPM_Typed_Text::drawn_limit( $values['title'], WPCPM_Sponsor_Event::MAX_TITLE ) )
+			(int) ( null !== $title ? WPCPM_Typed_Text::kept_room( $values['title'], WPCPM_Sponsor_Event::MAX_TITLE ) : WPCPM_Typed_Text::drawn_limit( $values['title'], WPCPM_Sponsor_Event::MAX_TITLE ) ),
+			$marks( 'title' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			$why( 'title' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-description">%2$s</label><textarea id="%1$s-description" name="%3$s" rows="4" maxlength="%4$d" required aria-describedby="%1$s-description-note">%5$s</textarea><span class="wpcpm-student__note" id="%1$s-description-note">%6$s</span></p>',
+			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-description">%2$s</label><textarea id="%1$s-description" name="%3$s" rows="4" maxlength="%4$d" required%7$s>%5$s</textarea>%8$s<span class="wpcpm-student__note" id="%1$s-description-note">%6$s</span></p>',
 			esc_attr( $prefix ),
 			esc_html__( 'Description', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_DESCRIPTION ),
@@ -680,16 +734,20 @@ final class WPCPM_Sponsor_Event_Planner {
 			// The parser drops one line feed right after the opening tag, so a kept typing, which can
 			// begin with a line break, is given one of its own first.
 			null !== $description ? "\n" . esc_textarea( $description ) : esc_textarea( WPCPM_Typed_Text::typed_text( $values['description'] ) ),
-			esc_html__( 'Shown on the Partners page once the event is approved. Put the call link in its own box.', 'wpcredits-program-manager' )
+			esc_html__( 'Shown on the Partners page once the event is approved. Put the call link in its own box.', 'wpcredits-program-manager' ),
+			$marks( 'description', 'description-note' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			$why( 'description' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-link">%2$s</label><input type="url" id="%1$s-link" name="%3$s" value="%4$s" maxlength="%5$d" pattern="https?://.+" required aria-describedby="%1$s-link-note" /><span class="wpcpm-student__note" id="%1$s-link-note">%6$s</span></p>',
+			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-link">%2$s</label><input type="url" id="%1$s-link" name="%3$s" value="%4$s" maxlength="%5$d" pattern="https?://.+" required%7$s />%8$s<span class="wpcpm-student__note" id="%1$s-link-note">%6$s</span></p>',
 			esc_attr( $prefix ),
 			esc_html__( 'Call link', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_LINK ),
 			esc_attr( $values['link'] ),
 			(int) WPCPM_Sponsor_Event::MAX_LINK,
-			esc_html__( 'Only the people who join, and the program, see this link.', 'wpcredits-program-manager' )
+			esc_html__( 'Only the people who join, and the program, see this link.', 'wpcredits-program-manager' ),
+			$marks( 'link', 'link-note' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			$why( 'link' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 	}
 
@@ -862,8 +920,8 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * cleaner would take words from them (`refuse_loss()`), then the press counted (`spend_press()`),
 	 * then the form's fields read on the planner's clock, then the store's plan, which asks the
 	 * allowance again under the sponsor's lock; the program contact is told. Once the form is read,
-	 * every outcome but the ceiling's leaves through `leave_typed()`, so a refusal the person puts
-	 * right by pressing again brings the form back with what was typed.
+	 * every outcome, the ceiling's among them, leaves through `leave_typed()`, so a refusal the person
+	 * puts right by pressing again brings the form back with what was typed.
 	 */
 	public static function handle_plan() {
 		$asked = WPCPM_Request::posted_text( self::FIELD_SPONSOR );
@@ -886,12 +944,12 @@ final class WPCPM_Sponsor_Event_Planner {
 		$posted = self::posted_fields();
 
 		self::refuse_loss( $record, 0, $posted );
-		self::spend_press( $record );
+		self::spend_press( $record, 0, $posted );
 
 		$read = WPCPM_Sponsor_Event::fields_from( $posted, self::zone() );
 
 		if ( array() !== $read['errors'] ) {
-			self::leave_typed( 'sevent-fields', $record, 0, $posted, self::detail( $read['errors'] ) );
+			self::leave_typed( 'sevent-fields', $record, 0, $posted, self::detail( $read['errors'] ), array(), $read['errors'] );
 		}
 
 		$planned = WPCPM_Sponsor_Event::plan( $record, $read['fields'], get_current_user_id(), $claim['decision']['ground'] );
@@ -912,8 +970,8 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * the text it holds in a box posted back as drawn (`unedited`), and tells the people on the event
 	 * of a new time, length, title or link, the sponsor's members are sent the new calendar file when
 	 * the program had approved it, and the program contact is told. When the change alters nothing,
-	 * the store writes nothing and says so, and nobody is told. Once the form is read, every outcome
-	 * but the ceiling's leaves through `leave_typed()`, as a plan's does.
+	 * the store writes nothing and says so, and nobody is told. Once the form is read, every outcome,
+	 * the ceiling's among them, leaves through `leave_typed()`, as a plan's does.
 	 */
 	public static function handle_change() {
 		$asked = WPCPM_Request::posted_text( self::FIELD_SPONSOR );
@@ -939,12 +997,12 @@ final class WPCPM_Sponsor_Event_Planner {
 		$posted   = self::posted_fields();
 		$unedited = self::refuse_loss( $record, (int) $event->ID, $posted );
 
-		self::spend_press( $record );
+		self::spend_press( $record, (int) $event->ID, $posted );
 
 		$read = WPCPM_Sponsor_Event::fields_from( $posted, self::zone() );
 
 		if ( array() !== $read['errors'] ) {
-			self::leave_typed( 'sevent-fields', $record, (int) $event->ID, $posted, self::detail( $read['errors'] ) );
+			self::leave_typed( 'sevent-fields', $record, (int) $event->ID, $posted, self::detail( $read['errors'] ), array(), $read['errors'] );
 		}
 
 		$changed = WPCPM_Sponsor_Event::change( $event, array_merge( $read['fields'], array( 'unedited' => $unedited ) ), get_current_user_id() );
@@ -1051,12 +1109,31 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * which reads no link and writes, mails and schedules nothing, costs nothing; a press the store
 	 * is then asked about counts, refused by the form's own check or by the store as well.
 	 *
-	 * @param string $record Sponsor key, for where the refusal lands.
+	 * A plan or a change that is past the ceiling keeps what was typed (`leave_typed()`), and the
+	 * sentence says how many presses an hour hold and when the hour turns (1.123.58, SDB-23): the
+	 * count is `PER_HOUR`, and the time is `WPCPM_Ceiling::resets_at()`, on the site's clock.
+	 *
+	 * @param string     $record   Sponsor key, for where the refusal lands.
+	 * @param int        $event_id The event a change was for, or 0 for a plan.
+	 * @param array|null $posted   What the form posted (`posted_fields()`), or null for a press with
+	 *                             no form to bring back, a cancel's.
 	 */
-	private static function spend_press( $record ) {
-		if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( self::CEILING, (string) get_current_user_id() ), self::PER_HOUR, HOUR_IN_SECONDS ) ) {
-			self::leave( 'sevent-ceiling', $record );
+	private static function spend_press( $record, $event_id = 0, $posted = null ) {
+		if ( WPCPM_Ceiling::claim( WPCPM_Ceiling::key( self::CEILING, (string) get_current_user_id() ), self::PER_HOUR, HOUR_IN_SECONDS ) ) {
+			return;
 		}
+
+		// The site's time format, or H:i where it has none, so the sentence never ends "after .".
+		$format = trim( (string) get_option( 'time_format' ) );
+		// In the zone the planner's form names, as the form formats its own times (1.123.58).
+		$args = array( number_format_i18n( self::PER_HOUR ), wp_date( '' !== $format ? $format : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), self::zone() ) );
+
+		if ( is_array( $posted ) ) {
+			self::leave_typed( 'sevent-ceiling', $record, (int) $event_id, $posted, '', $args );
+		}
+
+		// A cancel has no plan to keep: it says what to try again.
+		self::leave( 'sevent-ceiling-cancel', $record, '', $args );
 	}
 
 	/**
@@ -1147,8 +1224,10 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * @param array    $posted   What the form posted, as `posted_fields()` read it.
 	 * @param string   $sponsor  The sponsor the form plans for, or '' for the program's own forms.
 	 * @param int      $event_id The event a change was for, or 0 for a plan.
+	 * @param array    $problems Each refused row and the one sentence that says why, kept beside the
+	 *                           title and the description for the form to mark them (`problems_for()`).
 	 */
-	public static function keep_typed( $status, array $keeps, array $posted, $sponsor, $event_id ) {
+	public static function keep_typed( $status, array $keeps, array $posted, $sponsor, $event_id, array $problems = array() ) {
 		if ( ! in_array( (string) $status, $keeps, true ) ) {
 			// Taken to be dropped: the flash clears a channel by reading it.
 			WPCPM_Flash::take( self::TYPED );
@@ -1191,7 +1270,7 @@ final class WPCPM_Sponsor_Event_Planner {
 			$typed[ $key ] = WPCPM_Request::posted_raw( $box[0] );
 		}
 
-		self::keep_loss( (string) $sponsor, (int) $event_id, $typed, $drawn );
+		self::keep_loss( (string) $sponsor, (int) $event_id, $typed, $problems );
 	}
 
 	/**
@@ -1275,7 +1354,9 @@ final class WPCPM_Sponsor_Event_Planner {
 
 		foreach ( self::TYPED_BOXES as $key => $box ) {
 			if ( ! in_array( $key, $unedited, true ) && WPCPM_Typed_Text::cleaner_loses( $typed[ $key ], $box[1] ) ) {
-				self::keep_loss( (string) $sponsor, (int) $event_id, array_merge( $posted, $typed ), $stored );
+				$asked = self::messages()[ ( (int) $event_id > 0 ? 'sevent-change-' : 'sevent-plan-' ) . $key . '-loss' ][1];
+
+				self::keep_loss( (string) $sponsor, (int) $event_id, array_merge( $posted, $typed ), array( $key => $asked ) );
 
 				return array(
 					'unedited' => $unedited,
@@ -1315,32 +1396,35 @@ final class WPCPM_Sponsor_Event_Planner {
 
 	/**
 	 * Keep what was typed into a refused press, for the one time its form is drawn again
-	 * (`WPCPM_Typed_Text::keep()`), each row it is given: the title and the description exactly as
-	 * typed, each in the room its box was drawn with (`WPCPM_Typed_Text::kept_room()` of the event's
-	 * text, or of an empty box for a plan), and any of the other five as the request readers read
-	 * them, up to `typed_limits()`. A press refused because the cleaner would take words from it
-	 * gives every row of the form (`loss_check()`); one refused for an outcome of `KEEPS_TYPED`
-	 * gives the title and the description alone, the other rows waiting on the planner's channel
-	 * (`keep_typed()`).
+	 * (`WPCPM_Flash::keep()`), each row it is given: the title and the description exactly as typed,
+	 * and any of the other five as the request readers read them, a value longer than its box lets a
+	 * person type left as an empty one (`typed_limits()`). A press refused because the cleaner would
+	 * take words from it gives every row of the form (`loss_check()`); one refused for an outcome of
+	 * `KEEPS_TYPED` gives the title and the description alone, the other rows waiting on the
+	 * planner's channel (`keep_typed()`). The sentence for each refused row is kept beside them
+	 * (`problems_for()`).
 	 *
 	 * @param string $record   Sponsor key, or '' for the program's own forms.
 	 * @param int    $event_id The event a change was for, or 0 for a plan.
 	 * @param array  $typed    Each row as it is to come back.
-	 * @param array  $stored   The event's title and description as stored, or none for a plan.
+	 * @param array  $problems Each refused row and the one sentence that says why.
 	 */
-	private static function keep_loss( $record, $event_id, array $typed, array $stored ) {
-		$room = array();
+	private static function keep_loss( $record, $event_id, array $typed, array $problems = array() ) {
+		$limits = self::typed_limits();
+		$values = array();
 
-		foreach ( self::typed_limits() as $key => $limit ) {
-			$room[ $key ] = isset( self::TYPED_BOXES[ $key ] ) ? WPCPM_Typed_Text::kept_room( isset( $stored[ $key ] ) ? (string) $stored[ $key ] : '', $limit ) : $limit;
+		foreach ( array_intersect_key( $typed, $limits ) as $key => $value ) {
+			$value = is_scalar( $value ) ? (string) $value : '';
+
+			$values[ $key ] = ! isset( self::TYPED_BOXES[ $key ] ) && mb_strlen( str_replace( "\r\n", "\n", $value ) ) > $limits[ $key ] ? '' : $value;
 		}
 
-		WPCPM_Typed_Text::keep( self::typed_form( $record, $event_id ), array_intersect_key( $typed, $room ), $room );
+		WPCPM_Flash::keep( self::typed_form( $record, $event_id ), $values, $problems );
 	}
 
 	/**
-	 * The name a press refused because the cleaner would take words keeps its typing under
-	 * (`WPCPM_Typed_Text::keep()`): a sponsor's Plan form, or its Change form of one event, named by
+	 * The name a refused press keeps its typing under
+	 * (`WPCPM_Flash::keep()`): a sponsor's Plan form, or its Change form of one event, named by
 	 * the event's post ID, so the typing comes back in the form it was typed in and in no other. The
 	 * program's own forms on the Administrator Dashboard's card are named with no sponsor.
 	 *
@@ -1420,30 +1504,51 @@ final class WPCPM_Sponsor_Event_Planner {
 	 */
 	public static function kept_for( $sponsor, $event_id ) {
 		$typed = self::typed( $sponsor, $event_id );
+		$kept  = WPCPM_Flash::kept( self::typed_form( (string) $sponsor, (int) $event_id ) );
 
-		return self::kept_rows( WPCPM_Typed_Text::kept( self::typed_form( (string) $sponsor, (int) $event_id ) ), $typed );
+		return self::kept_rows( $kept['values'], $typed );
+	}
+
+	/**
+	 * Why one of the planner's forms was refused, for the rows `kept_for()` hands back with it: each
+	 * refused row and its one sentence, kept with the typing (1.123.58, SDB-06). None for a form that
+	 * comes back without its typing, so a row is never marked on a form that shows the stored values.
+	 * Read the way `kept_for()` is, once and the same on every ask of a request.
+	 *
+	 * @param string $sponsor  The sponsor the form plans for, or '' for the program's own forms.
+	 * @param int    $event_id The event a Change form changes, or 0 for a Plan form.
+	 * @return array<string, string>
+	 */
+	public static function problems_for( $sponsor, $event_id ) {
+		if ( array() === self::kept_for( $sponsor, $event_id ) ) {
+			return array();
+		}
+
+		$kept = WPCPM_Flash::kept( self::typed_form( (string) $sponsor, (int) $event_id ) );
+
+		return $kept['problems'];
 	}
 
 	/**
 	 * Drop what an earlier refusal of one of the planner's forms kept under the form's own name,
-	 * because the form has been posted again (`WPCPM_Typed_Text::forget()`): every plan and change
+	 * because the form has been posted again (`WPCPM_Flash::forget()`): every plan and change
 	 * calls it first, the program's own on the Administrator Dashboard's card with no sponsor.
 	 *
 	 * @param string $sponsor  The sponsor the form plans for, or '' for the program's own forms.
 	 * @param int    $event_id The event a Change form changes, or 0 for a Plan form.
 	 */
 	public static function forget_typed( $sponsor, $event_id ) {
-		WPCPM_Typed_Text::forget( self::typed_form( (string) $sponsor, (int) $event_id ) );
+		WPCPM_Flash::forget( self::typed_form( (string) $sponsor, (int) $event_id ) );
 	}
 
 	/**
 	 * What one of the sponsor's forms comes back with exactly as typed (`render_fields()`'s `$kept`):
-	 * what was kept under the form's own name (`WPCPM_Typed_Text::kept()`), and with it, when that is
+	 * what was kept under the form's own name (`WPCPM_Flash::kept()`), and with it, when that is
 	 * the title and the description a refusal of `KEEPS_TYPED` kept (`keep_typed()`), the form's
 	 * other rows from the planner's channel (`typed()`), whose title and description the cleaner has
 	 * read and are left out.
 	 *
-	 * The typing under the form's name waits `WPCPM_Typed_Text::KEPT_FOR`, and the channel until the
+	 * The typing under the form's name waits `WPCPM_Flash::KEPT_FOR`, and the channel until the
 	 * next draw, so a refusal looked at later finds the channel's rows alone: those are drawn without
 	 * the title and the description, which then come from the event, as it holds them, or empty for a
 	 * plan, and never as the cleaner's text the channel holds for them, which a box left as drawn
@@ -1518,7 +1623,36 @@ final class WPCPM_Sponsor_Event_Planner {
 		$extra = WPCPM_Sponsor_Event::extra_events( $row, $until );
 		$code  = (string) $refusal->get_error_code();
 
-		self::leave_typed( self::status_of( $refusal, $until, $extra, self::held_for_wait( $code, $record, $until, $extra ) ), $record, $event_id, $posted, '', WPCPM_Sponsor_Event::edge_of( $code, $row ) );
+		$status = self::status_of( $refusal, $until, $extra, self::held_for_wait( $code, $record, $until, $extra ) );
+		$args   = WPCPM_Sponsor_Event::edge_of( $code, $row );
+
+		self::leave_typed( $status, $record, $event_id, $posted, '', $args, self::problem_of( $status, $args ) );
+	}
+
+	/**
+	 * The row a store refusal is about and the sentence that says why, for the form to mark: a start
+	 * outside the term or one that has passed is the day's, fewer places than the people on the event
+	 * the places'. A refusal about no one row marks none (1.123.58, SDB-06).
+	 *
+	 * @param string   $status A key of `messages()`.
+	 * @param string[] $args   The values the status's sentence names, in its order, or none.
+	 * @return array<string, string>
+	 */
+	private static function problem_of( $status, array $args ) {
+		$rows = array(
+			'sevent-past-term'   => 'date',
+			'sevent-before-term' => 'date',
+			'sevent-in-past'     => 'date',
+			'sevent-shrink'      => 'places',
+		);
+
+		if ( ! isset( $rows[ $status ] ) ) {
+			return array();
+		}
+
+		$sentence = (string) self::messages()[ $status ][1];
+
+		return array( $rows[ $status ] => array() === $args ? $sentence : vsprintf( $sentence, array_map( 'strval', array_values( $args ) ) ) );
 	}
 
 	/**
@@ -1769,8 +1903,8 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * every row of it, which the form draws instead. A press stopped before its form is read keeps
 	 * nothing: on the nonce; by the claim, which refuses a stranger, the switch off and a row the site
 	 * no longer holds; by `own_event()`'s refusal of a change; or by a sponsor that no longer holds the
-	 * planner. Nor does a press past the ceiling, which leaves through `leave()` once the form is read
-	 * (`spend_press()`).
+	 * planner. A press past the ceiling leaves through here too, once the form is read
+	 * (`spend_press()`), and keeps the plan.
 	 *
 	 * @param string   $status   A key of `messages()`.
 	 * @param string   $record   The sponsor.
@@ -1778,9 +1912,10 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * @param array    $posted   What the form posted (`posted_fields()`).
 	 * @param string   $detail   A sentence after the status's own, or ''.
 	 * @param string[] $args     The values the status's sentence names, in its order, or none.
+	 * @param array    $problems Each refused row and the one sentence that says why, for the form to mark.
 	 */
-	private static function leave_typed( $status, $record, $event_id, array $posted, $detail = '', array $args = array() ) {
-		self::keep_typed( $status, self::KEEPS_TYPED, $posted, $record, $event_id );
+	private static function leave_typed( $status, $record, $event_id, array $posted, $detail = '', array $args = array(), array $problems = array() ) {
+		self::keep_typed( $status, self::KEEPS_TYPED, $posted, $record, $event_id, $problems );
 		self::leave( $status, $record, $detail, $args );
 	}
 }

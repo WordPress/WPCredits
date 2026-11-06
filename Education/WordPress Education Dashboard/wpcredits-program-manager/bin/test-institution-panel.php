@@ -259,6 +259,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 // The real way back, which prints nothing for a form drawn anywhere but the Administrator Dashboard.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
@@ -1158,6 +1159,34 @@ ck( 'and names the two writers it could have lost to', false !== strpos( $busy, 
 ck( 'and the other producer of the same slug, the daily ceiling', false !== strpos( $busy, 'used up the documents one day allows it to generate and upload' ), true );
 ck( 'as an error rather than as news', false !== strpos( $busy, 'wpcpm-agreement-panel__message--error' ), true );
 ck( 'and the form is still there to try again with', false !== strpos( $busy, 'name="wpcpm_agreement_drive"' ), true );
+
+// 1.123.58, IDB-09: the panel's outcome carries its tone, is heard, and can take the focus. One
+// fresh manager a message, for the reason above.
+$GLOBALS['uid']       = 60;
+$GLOBALS['users'][60] = new WP_User( 60, 'Eli Manager', 'eli@example.test' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'agreement-not-pdf', 60 );
+$not_pdf              = panel( $rec_b, true );
+$GLOBALS['uid']       = 61;
+$GLOBALS['users'][61] = new WP_User( 61, 'Fay Manager', 'fay@example.test' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'agreement-uploaded', 61 );
+$uploaded             = panel( $rec_b, true );
+ck(
+	'an upload refused is an error in its tone, as an alert, focusable; one accepted is a success, as a status',
+	array(
+		false !== strpos( $not_pdf, '<p class="wpcpm-agreement-panel__message wpcpm-agreement-panel__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Nothing was uploaded. That file is not a PDF.' ),
+		false !== strpos( $uploaded, '<p class="wpcpm-agreement-panel__message wpcpm-agreement-panel__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The signed agreement is uploaded.' ),
+	),
+	array( true, true )
+);
+$css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
+ck(
+	'and the page colors the two tones on the leading border of the panel\'s, the import\'s and the report\'s messages',
+	array(
+		1 === preg_match( '/\.wpcpm-agreement-panel__message\.is-success,\s*\.wpcpm-import__message\.is-success,\s*\.wpcpm-report-card__message\.is-success\s*\{\s*border-inline-start-color: #1a7f37;/', $css ),
+		1 === preg_match( '/\.wpcpm-agreement-panel__message\.is-error,\s*\.wpcpm-import__message\.is-error,\s*\.wpcpm-report-card__message\.is-error\s*\{\s*border-inline-start-color: #b32d2e;/', $css ),
+	),
+	array( true, true )
+);
 
 /* ---- two recordings in flight cannot both open the account --------------- */
 

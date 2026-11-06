@@ -166,7 +166,8 @@ function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][
 // Nothing hooked: the program map holds no rows of its own, so each of its five maps answers empty
 // here, as it does on a site with nothing compiled.
 function apply_filters( $tag, $value ) { return $value; }
-function get_current_user_id() { return 7; }
+function get_current_user_id() { return $GLOBALS['uid'] ?? 7; }
+function wp_generate_uuid4() { static $n = 0; return 'uuid-' . ++$n; }
 function add_option( $k, $v = '', $deprecated = '', $autoload = null ) {
 	if ( array_key_exists( $k, $GLOBALS['opts'] ) || in_array( $k, $GLOBALS['add_loses'], true ) ) {
 		return false;
@@ -1764,6 +1765,26 @@ $logged_line = WPCPM_Track_Store::log_entries( $logged );
 $logged_line = end( $logged_line );
 
 ck( 'a logged column name reads back exactly as it was named', $logged_line['detail']['columns'] ?? null, array( $typed_column ) );
+
+// The save stamp (1.123.58): the Track Builder's property form is drawn with it, and only a save moves it.
+echo "\n=== The save stamp ===\n";
+$stamped = WPCPM_Track_Store::create( track( 'Stamped Track', 'stamped' ) );
+unset( $GLOBALS['pmeta'][ $stamped ][ WPCPM_Track_Store::META_STAMP ] ); // As a track saved before stamps began.
+ck( 'a track never saved since stamps began has none: an empty revision, and nobody saved it', array( WPCPM_Track_Store::revision( $stamped ), WPCPM_Track_Store::saved_by( $stamped ), WPCPM_Track_Store::saved_at( $stamped ) ), array( '', 0, 0 ) );
+$GLOBALS['uid'] = 9;
+$before_save    = time();
+WPCPM_Track_Store::save( $stamped, WPCPM_Track_Store::get( $stamped ) );
+$first = WPCPM_Track_Store::revision( $stamped );
+ck( 'a save writes the stamp: an opaque value, the saving user and the time', array( '' !== $first, WPCPM_Track_Store::saved_by( $stamped ), WPCPM_Track_Store::saved_at( $stamped ) >= $before_save ), array( true, 9, true ) );
+WPCPM_Track_Store::save( $stamped, WPCPM_Track_Store::get( $stamped ) );
+ck( 'and two saves in one second differ', WPCPM_Track_Store::revision( $stamped ) !== $first, true );
+$GLOBALS['uid'] = 4;
+$kept_stamp     = WPCPM_Track_Store::revision( $stamped );
+WPCPM_Track_Store::publish( $stamped );
+ck( 'a Publish from elsewhere leaves the stamp as it was', array( WPCPM_Track_Store::revision( $stamped ), WPCPM_Track_Store::saved_by( $stamped ) ), array( $kept_stamp, 9 ) );
+WPCPM_Track_Store::unpublish( $stamped );
+ck( 'and so does a Take off', array( WPCPM_Track_Store::revision( $stamped ), WPCPM_Track_Store::saved_by( $stamped ) ), array( $kept_stamp, 9 ) );
+unset( $GLOBALS['uid'] );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

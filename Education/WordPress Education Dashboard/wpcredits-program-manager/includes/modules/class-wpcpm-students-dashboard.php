@@ -229,7 +229,7 @@ class WPCPM_Students_Dashboard {
 
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
-				__( 'Please log in to see your program details.', 'wpcredits-program-manager' ),
+				__( 'Log in to see your program details.', 'wpcredits-program-manager' ),
 				wp_login_url( self::page_url() ? self::page_url() : home_url( '/' ) ),
 				__( 'Log in', 'wpcredits-program-manager' )
 			);

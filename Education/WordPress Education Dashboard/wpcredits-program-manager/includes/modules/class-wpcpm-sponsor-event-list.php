@@ -466,7 +466,7 @@ final class WPCPM_Sponsor_Event_List {
 		// Before the nonce: somebody whose login lapsed while the page sat open is told to log in,
 		// not that the link has expired, as the group sessions tell them.
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to join an event.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to join an event.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		$event  = self::begin( self::ACTION_JOIN );
@@ -489,7 +489,7 @@ final class WPCPM_Sponsor_Event_List {
 	public static function handle_leave() {
 		// Before the nonce, as a join asks it.
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to leave an event.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to leave an event.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		$event = self::begin( self::ACTION_LEAVE );

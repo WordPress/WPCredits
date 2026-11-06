@@ -82,6 +82,9 @@ email with one calendar file that holds every date; each date keeps its own row,
 still join or leave a single one. Changing or canceling a session touches that session alone, and
 the rest of the series stands.
 
+Since 1.123.58 a session or series that cannot be planned comes back with the planner open and every
+field as you left it, and the date that clashed, or is in the past, is marked.
+
 ### One note for the whole group
 
 Under a session you have run, **Add a note for everybody on this session**. You write it once and it

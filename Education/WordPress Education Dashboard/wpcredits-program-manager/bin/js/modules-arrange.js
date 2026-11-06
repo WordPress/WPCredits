@@ -19,7 +19,7 @@
  * element that holds the focus is moved, the focus goes to the document. The optimistic move that
  * a press makes is one insertion; anything after it is the script re-arranging the page.
  *
- * Three scenarios, and a mutation proof: the script with the comparison it used to make, the
+ * Five scenarios, and a mutation proof: the script with the comparison it used to make, the
  * page's keys against the whole answer, run through the first scenario, must go wrong. A check
  * that passes whatever the script does would pass that too.
  *
@@ -269,6 +269,12 @@ function build( source, saved, drawn ) {
 
 			page.posted.push( options.body.entries );
 
+			// A request that never reached the server, as a dropped connection or a timeout gives:
+			// the browser's fetch rejects rather than answering.
+			if ( answer.reject ) {
+				return Promise.reject( new TypeError( 'Failed to fetch' ) );
+			}
+
 			return Promise.resolve( {
 				ok: answer.ok,
 				json: () => Promise.resolve( { data: { order: answer.order } } ),
@@ -364,6 +370,19 @@ function kept( script ) {
 			await world.press( 'company', 'up', { ok: false } );
 
 			return { order: world.order(), edges: world.edges(), live: world.live() };
+		}
+	);
+
+	await scenario(
+		'a move whose request fails on the network is put back and the refusal is said, as a refused move is',
+		{ order: [ 'mentors', 'offer', 'company' ], edges: [ [ true, false ], [ false, false ], [ false, true ] ], live: REFUSED, focus: 'company up' },
+		async () => {
+			const world = build( source, saved, drawn );
+
+			await world.press( 'offer', 'down', { ok: true, order: [ 'mentors', 'sponsorship', 'offer', 'company' ] } );
+			await world.press( 'company', 'up', { reject: true } );
+
+			return { order: world.order(), edges: world.edges(), live: world.live(), focus: world.focus() };
 		}
 	);
 

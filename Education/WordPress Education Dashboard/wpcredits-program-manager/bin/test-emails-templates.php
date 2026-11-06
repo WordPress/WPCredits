@@ -165,6 +165,7 @@ require_once __DIR__ . '/stubs/scroll-regions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -576,6 +577,36 @@ ck( 'when the shipped text has changed since the edit, the editor says the edit 
 new_administrator();
 press( 'handle_save', array( 'wpcpm_email' => 'invite-student' ) + $good );
 ck( 'and saving the edit again clears it: the edit now carries the shipped text\'s fingerprint, and is Edited', WPCPM_Mail_Templates::state( 'invite-student' )['state'], 'edited' );
+
+// A stale save (1.123.58): the editor posts the `at` of the edit it was drawn from, and a save from a
+// form drawn before another Administrator's edit is refused, with the typing kept and who and when named.
+new_administrator();
+$drawn_at = (int) WPCPM_Mail_Templates::edit( 'invite-student' )['at'];
+$drawn    = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-student' ) );
+$unedited = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-mentor' ) );
+ck( 'the editor posts the stored edit\'s at, and 0 for an email with no edit', array( false !== strpos( $drawn, '<input type="hidden" name="wpcpm_edit_at" value="' . $drawn_at . '" />' ), false !== strpos( $unedited, '<input type="hidden" name="wpcpm_edit_at" value="0" />' ) ), array( true, true ) );
+
+$other_at = strtotime( '2026-10-10 12:05:00 UTC' );
+$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-student']['at'] = $other_at;
+$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-student']['by'] = 1;
+$stored_before = WPCPM_Mail_Templates::edit( 'invite-student' );
+$stale_typing  = array(
+	'subject' => '[{site_name}] Another wording',
+	'body'    => "Hello.\r\n\r\n{set_password_link}\r\n\r\nSee you soon.",
+);
+new_administrator();
+ck( 'a stale save goes back to the editor', press( 'handle_save', array( 'wpcpm_email' => 'invite-student', 'wpcpm_edit_at' => (string) $drawn_at ) + $stale_typing ), 'redirect: ' . $editor_url );
+$left_flash = $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ][ WPCPM_Emails::FLASH ] ?? array();
+ck( 'and the refusal is recorded as the outcome email-stale', array( $left_flash['outcome'] ?? 'none', $left_flash['type'] ?? '' ), array( 'email-stale', 'error' ) );
+$stale_page = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-student' ) );
+ck( 'a stale save keeps the wording in the boxes and says who changed the email and when', array( WPCPM_Mail_Templates::edit( 'invite-student' ) === $stored_before, false !== strpos( $stale_page, 'Nothing was saved: Ida Admin changed this email at October 10, 2026 2:05 pm, after you opened it. Your wording is still in the boxes: check it against the email as it is now, and save again.' ), box( $stale_page, 'wpcpm-email-subject' ), box( $stale_page, 'wpcpm-email-body' ) ), array( true, true, $stale_typing['subject'], str_replace( "\r\n", "\n", $stale_typing['body'] ) ) );
+
+new_administrator();
+press( 'handle_save', array( 'wpcpm_email' => 'invite-student', 'wpcpm_edit_at' => (string) $other_at ) + $stale_typing );
+ck( 'a save from a form drawn at the stored edit writes', WPCPM_Mail_Templates::edit( 'invite-student' )['subject'], $stale_typing['subject'] );
+new_administrator();
+press( 'handle_save', array( 'wpcpm_email' => 'invite-student' ) + $good );
+ck( 'and a form that posts no at checks nothing, as a form drawn before this field did not', WPCPM_Mail_Templates::edit( 'invite-student' )['subject'], '[{site_name}] Welcome &lt;3' );
 
 // An edit set aside: the state says why, and the editor that the shipped text is sent.
 new_administrator();
@@ -1075,8 +1106,18 @@ ck( 'set, the field holds it, and the footer names it', array( false !== strpos(
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array();
 
 new_administrator();
-WPCPM_Flash::set( 'emails-contact-refused', true );
-ck( 'and a save refused for what was typed is said on the tab', false !== strpos( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'footer' ) ), '<div class="notice notice-error"><p>Contact address in emails was not saved: what was typed is not an email address. The one saved before is kept.</p></div>' ), true );
+$contact_said = 'Enter one email address, such as program@example.org, or leave the box empty to name none. The address saved before was kept.';
+WPCPM_Flash::keep( WPCPM_Settings_Screen::kept_form( 'tool:emails' ), array( 'mail_contact' => 'name@' ), array( 'mail_contact' => $contact_said ) );
+$refused_tab = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'footer' ) );
+ck( 'and a save refused for what was typed is said at the field, marked, with the typing back and a summary above linking it (1.123.58)',
+    array(
+        false !== strpos( $refused_tab, 'name="mail_contact" value="name@"' ),
+        false !== strpos( $refused_tab, 'aria-invalid="true" aria-describedby="wpcpm-mail_contact-problem"' ),
+        false !== strpos( $refused_tab, '<p class="wpcpm-field__problem" id="wpcpm-mail_contact-problem">' . $contact_said . '</p>' ),
+        false !== strpos( $refused_tab, '<a href="#wpcpm-mail_contact">Contact address in emails</a>' ),
+        false !== strpos( $refused_tab, 'emails-contact-refused' ),
+    ),
+    array( true, true, true, true, false ) );
 ck( 'the tool keeps that one setting, and its Settings section is on the Signature and footer tab', array( ( new WPCPM_Emails() )->settings_keys(), ( new WPCPM_Emails() )->settings_url() ), array( array( 'mail_contact' ), 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=footer' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );

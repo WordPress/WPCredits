@@ -28,7 +28,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *    is told nothing, because a bot that learns which attempt was recognized writes a better one.
  * 2. **The dwell token.** Minted when the form is drawn, signed with `wp_hash()` against the
  *    form's nonce, its own scope and twelve random characters of its own, judged on the way back
- *    in four answers: `spam` for a token never minted here or one already used; `stale` for a tab
+ *    in five answers: `spam` for a token never minted here; `used` for one already used, which is a
+ *    second press and waits for the first press's row (1.123.58); `stale` for a tab
  *    left open overnight, which is not spam; `fast` for a token this site signed and posted back
  *    sooner than anybody could read the form, which is an applicant pressing Send again after a
  *    bounce redrew the page and is a hold rather than the spam pile (FANON-1); `ok` for the rest.
@@ -97,7 +98,7 @@ final class WPCPM_Form_Guard {
 	const POLICY_URL = 'https://wordpress.org/about/privacy/';
 
 	/**
-	 * The four answers `check_token()` gives.
+	 * Four of the five answers `check_token()` gives (`TOKEN_USED` below is the fifth).
 	 *
 	 * `TOKEN_FAST` is the one added by FANON-1: a token this site signed, inside its lifetime,
 	 * used once, and younger than `MIN_SECONDS`. It used to be `TOKEN_SPAM`, which filed a
@@ -107,6 +108,21 @@ final class WPCPM_Form_Guard {
 	const TOKEN_SPAM  = 'spam';
 	const TOKEN_STALE = 'stale';
 	const TOKEN_FAST  = 'fast';
+
+	/**
+	 * The fifth answer (1.123.58, FORM-04): a token this site signed whose one use is already
+	 * claimed. Until then it was `TOKEN_SPAM`, so the second press of a double click with scripts
+	 * off filed the application a second time as spam, and the page the browser drew showed the
+	 * spam row's reference. The caller now waits for the first press's row (`wait_for_row()`) and
+	 * answers with that row's confirmation, storing nothing.
+	 */
+	const TOKEN_USED = 'used';
+
+	/** What the record of a claimed token holds while its press has stored no row yet. */
+	const PENDING = 'pending';
+
+	/** The transient a claimed token's record is kept under, before its key. */
+	const DWELL_PREFIX = 'wpcpm_dwell_';
 
 	/*
 	 * 1. The honeypot
@@ -178,9 +194,11 @@ final class WPCPM_Form_Guard {
 	/**
 	 * Judge a posted dwell token.
 	 *
-	 * Four answers, and the difference between them matters. `spam` is a token that was never
-	 * minted here for this form, or one that has already been used: the caller stores those
-	 * rows and holds them as spam, and the sender is told nothing. `stale` is a token older
+	 * Five answers, and the difference between them matters. `spam` is a token that was never
+	 * minted here for this form: the caller stores those rows and holds them as spam, and the
+	 * sender is told nothing. `used` is a token this site signed whose one use is claimed
+	 * already: the second press of a double click, whose caller waits for the first press's row
+	 * and answers with its confirmation, storing nothing (1.123.58, FORM-04). `stale` is a token older
 	 * than half a day, which is an ordinary human with a tab left open overnight: they are
 	 * asked to send again, with everything they typed still in the boxes. `fast` is a token
 	 * this site signed, posted back sooner than anybody could have read the form: that is not a
@@ -210,31 +228,20 @@ final class WPCPM_Form_Guard {
 	 *
 	 * @param string $scope The form's own scope.
 	 * @param string $token The posted token.
-	 * @return string `ok`, `spam`, `stale` or `fast`.
+	 * The press that claims the token records it as in flight (`in_flight()`), and replaces the
+	 * record with its row once stored (`landed()`) or forgets it before any bounce (`bounced()`).
+	 *
+	 * @return string `ok`, `spam`, `used`, `stale` or `fast`.
 	 */
 	public static function check_token( $scope, $token ) {
-		$token = trim( (string) $token );
-		$parts = explode( '.', $token );
-		$count = count( $parts );
+		$parts = self::token_parts( $token );
 
-		// Three parts: time, random, signature. The two-part shape of tokens minted before the
-		// S5 fix wave was accepted for one deploy window and expired with it (clean-up 1.98.1).
-		if ( 3 !== $count || ! ctype_digit( $parts[0] ) || ! ctype_alnum( (string) $parts[1] ) ) {
+		// Three parts, the time in its one spelling (FANON-4): see `token_parts()`.
+		if ( null === $parts ) {
 			return self::TOKEN_SPAM;
 		}
 
-		$issued = (int) $parts[0];
-
-		// One spelling of the time and no other. `ctype_digit()` accepts a leading zero and the
-		// cast takes it straight back off, so `0T`, `00T` and forty zeros in front of `T` all
-		// signed and aged as `T` while hashing to a claim of their own: sixty spellings of one
-		// harvested token were sixty first uses (FANON-4).
-		if ( (string) $issued !== $parts[0] ) {
-			return self::TOKEN_SPAM;
-		}
-
-		$random    = (string) $parts[1];
-		$signature = (string) $parts[2];
+		list( $issued, $random, $signature ) = $parts;
 
 		// The nonce this token was signed against. Read here rather than passed in so that a
 		// caller cannot check a token against a nonce other than the one that was posted with
@@ -254,15 +261,24 @@ final class WPCPM_Form_Guard {
 
 		// Hashed rather than used raw, the way `WPCPM_Ceiling` asks: nothing about a claim is
 		// readable in the options table. Over the canonical parts and never the posted string,
-		// for the reason the docblock gives. Before the age is judged, so that a token used
-		// once fast and once slowly is still one use. The order has a cost: a token harvested
-		// and posted at age zero now claims before it is judged fast, so the bot gets a held
-		// row and an acknowledgement where the old order gave it a silent spam row - still
-		// worse for the bot than waiting the six seconds out, which buys `ok`, a `new` row and
-		// a manager page.
-		if ( ! WPCPM_Ceiling::claim( 'dwell:' . wp_hash( (string) $scope . '|' . $issued . '|' . $random . '|' . $signature ), 1, self::TOKEN_LIFETIME ) ) {
-			return self::TOKEN_SPAM;
+		// for the reason the docblock gives, through `token_key()`, so the claim and the record
+		// of the press that made it cannot disagree about which token they are. Before the age is
+		// judged, so that a token used once fast and once slowly is still one use. The order has
+		// a cost: a token harvested and posted at age zero now claims before it is judged fast,
+		// so the bot gets a held row and an acknowledgement where the old order gave it a silent
+		// spam row - still worse for the bot than waiting the six seconds out, which buys `ok`, a
+		// `new` row and a manager page.
+		$key = self::token_key( $scope, $token );
+
+		if ( ! WPCPM_Ceiling::claim( 'dwell:' . $key, 1, self::TOKEN_LIFETIME ) ) {
+			// Signed here and used already: the second press of a double click, which waits for
+			// the first press's row rather than filing a second one (1.123.58, FORM-04).
+			return self::TOKEN_USED;
 		}
+
+		// The press that claimed the token says so at the claim, so a second press that arrives
+		// while this one is still working finds it in flight and waits for its row.
+		self::in_flight( $key );
 
 		// Signed here, unused, and younger than anybody can read a form in: the applicant who
 		// pressed Send again straight after a bounce redrew the page with a token minted at the
@@ -273,6 +289,175 @@ final class WPCPM_Form_Guard {
 		}
 
 		return self::TOKEN_OK;
+	}
+
+	/**
+	 * A posted token's three parts, or null for a token that does not parse.
+	 *
+	 * Three parts: time, random, signature. The two-part shape of tokens minted before the S5
+	 * fix wave was accepted for one deploy window and expired with it (clean-up 1.98.1). And one
+	 * spelling of the time and no other: `ctype_digit()` accepts a leading zero and the cast
+	 * takes it straight back off, so `0T`, `00T` and forty zeros in front of `T` all signed and
+	 * aged as `T` while hashing to a claim of their own: sixty spellings of one harvested token
+	 * were sixty first uses (FANON-4).
+	 *
+	 * @param string $token The posted token.
+	 * @return array|null `array( issued, random, signature )`.
+	 */
+	private static function token_parts( $token ) {
+		$parts = explode( '.', trim( (string) $token ) );
+
+		if ( 3 !== count( $parts ) || ! ctype_digit( $parts[0] ) || ! ctype_alnum( (string) $parts[1] ) ) {
+			return null;
+		}
+
+		$issued = (int) $parts[0];
+
+		if ( (string) $issued !== $parts[0] ) {
+			return null;
+		}
+
+		return array( $issued, (string) $parts[1], (string) $parts[2] );
+	}
+
+	/**
+	 * The key a token's single use is claimed under, and its press's record kept under: the hash
+	 * of its canonical parts, `scope|issued|random|signature`. '' for a token that does not parse.
+	 *
+	 * @param string $scope The form's own scope.
+	 * @param string $token The posted token.
+	 * @return string
+	 */
+	public static function token_key( $scope, $token ) {
+		$parts = self::token_parts( $token );
+
+		if ( null === $parts ) {
+			return '';
+		}
+
+		return wp_hash( (string) $scope . '|' . $parts[0] . '|' . $parts[1] . '|' . $parts[2] );
+	}
+
+	/**
+	 * Record that the press holding a token's key is at work and has stored no row yet.
+	 *
+	 * A transient for the token's own lifetime, the longest a second press of it can arrive in.
+	 *
+	 * @param string $key From `token_key()`.
+	 */
+	public static function in_flight( $key ) {
+		if ( '' === (string) $key ) {
+			return;
+		}
+
+		set_transient( self::DWELL_PREFIX . $key, self::PENDING, self::TOKEN_LIFETIME );
+	}
+
+	/**
+	 * Record the row the press holding a token's key stored, for a second press to answer with.
+	 *
+	 * @param string $key    From `token_key()`.
+	 * @param int    $row_id The row it stored.
+	 */
+	public static function landed( $key, $row_id ) {
+		if ( '' === (string) $key || (int) $row_id < 1 ) {
+			return;
+		}
+
+		set_transient( self::DWELL_PREFIX . $key, (int) $row_id, self::TOKEN_LIFETIME );
+	}
+
+	/**
+	 * Forget the record of a press that stored nothing: it bounced, and a second press of its
+	 * token is answered `stale`, with its answers.
+	 *
+	 * @param string $key From `token_key()`.
+	 */
+	public static function bounced( $key ) {
+		if ( '' === (string) $key ) {
+			return;
+		}
+
+		delete_transient( self::DWELL_PREFIX . $key );
+	}
+
+	/**
+	 * What a token's record says: the row its press stored, `PENDING` while it has stored none,
+	 * or null when there is no record (it bounced, or it is older than the token).
+	 *
+	 * @param string $key From `token_key()`.
+	 * @return int|string|null
+	 */
+	public static function row_of( $key ) {
+		if ( '' === (string) $key ) {
+			return null;
+		}
+
+		$name = self::DWELL_PREFIX . $key;
+
+		// Every read goes past the request's own cache, since the record is written by another
+		// request while this one waits for it: `get_transient()` serves a value it has read once
+		// from the runtime cache, so a second press that read `pending` would read `pending` five
+		// more times after the first press had landed. With an object cache the forced read asks
+		// the cache itself; without one the two option entries the transient is read through are
+		// dropped from the runtime cache first, so the read reaches the database.
+		if ( wp_using_ext_object_cache() ) {
+			$record = wp_cache_get( $name, 'transient', true );
+		} else {
+			wp_cache_delete( '_transient_' . $name, 'options' );
+			wp_cache_delete( '_transient_timeout_' . $name, 'options' );
+
+			$record = get_transient( $name );
+		}
+
+		if ( self::PENDING === $record ) {
+			return self::PENDING;
+		}
+
+		if ( is_numeric( $record ) && (int) $record > 0 ) {
+			return (int) $record;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Wait for the row the first press of a token stores: read the record up to `$tries` times,
+	 * pausing between reads, and answer with the row once it lands.
+	 *
+	 * Six reads half a second apart by default, so a second press waits up to about three seconds
+	 * for the first, which is longer than a press takes to store its row; the sponsor form asks for
+	 * twelve, since its press re-encodes two images before its row exists. The pause is the
+	 * `wpcpm_form_guard_pause` filter's callable, handed the microseconds (`usleep()` unless a
+	 * suite stands one in), since a suite has no business sleeping.
+	 *
+	 * @param string $key      From `token_key()`.
+	 * @param int    $tries    How many reads.
+	 * @param int    $pause_us Microseconds between two reads.
+	 * @return int The row, or 0 when the record is gone or still pending after the last read.
+	 */
+	public static function wait_for_row( $key, $tries = 6, $pause_us = 500000 ) {
+		$tries = max( 1, (int) $tries );
+		$pause = apply_filters( 'wpcpm_form_guard_pause', 'usleep' );
+		$pause = is_callable( $pause ) ? $pause : 'usleep';
+
+		for ( $read = 1; $read <= $tries; $read++ ) {
+			$row = self::row_of( $key );
+
+			if ( is_int( $row ) ) {
+				return $row;
+			}
+
+			if ( null === $row ) {
+				return 0;
+			}
+
+			if ( $read < $tries ) {
+				call_user_func( $pause, max( 0, (int) $pause_us ) );
+			}
+		}
+
+		return 0;
 	}
 
 	/**

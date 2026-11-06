@@ -136,14 +136,22 @@ abstract class WPCPM_Tool {
 		}
 
 		WPCPM_Settings_Screen::open_settings_form( $this->settings_scope() );
+		WPCPM_Settings_Screen::draw_marked( $this->settings_scope(), array( $this, 'render_settings_table' ) );
+		submit_button( __( 'Save settings', 'wpcredits-program-manager' ), 'primary', 'submit', true, array( 'id' => 'wpcpm-save-' . $this->id() ) );
+		echo '</form>';
+		echo '</div>';
+	}
+
+	/**
+	 * The table of the tool's Settings section, drawn by `WPCPM_Settings_Screen::draw_marked()`,
+	 * which marks the rows a Save did not write (1.123.58). Public only so it can be called back.
+	 */
+	public function render_settings_table() {
 		echo '<table class="form-table" role="presentation"><tbody>';
 
 		$this->render_settings_rows();
 
 		echo '</tbody></table>';
-		submit_button( __( 'Save settings', 'wpcredits-program-manager' ), 'primary', 'submit', true, array( 'id' => 'wpcpm-save-' . $this->id() ) );
-		echo '</form>';
-		echo '</div>';
 	}
 
 	/**

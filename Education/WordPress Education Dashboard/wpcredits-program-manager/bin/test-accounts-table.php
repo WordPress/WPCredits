@@ -750,6 +750,29 @@ if ( ! class_exists( 'WPCPM_Mail', false ) ) {
 	class WPCPM_Mail {
 		const QUEUE_OPTION = 'wpcpm_invite_queue';
 		const INVITE_GAP   = 900;
+		const QUEUE_BUSY   = -1;
+
+		/** @var bool Whether the last queueing found the queue's lock held, as the real one says. */
+		public static $busy = false;
+
+		/**
+		 * Whether another request holds the queue's lock: its row in the options table, as a check
+		 * sets it (the fix wave of 1.123.58).
+		 *
+		 * @return bool
+		 */
+		public static function lock_held() {
+			return isset( $GLOBALS['opts']['wpcpm_invite_queue_lock'] );
+		}
+
+		/**
+		 * Whether the last queueing found the lock held.
+		 *
+		 * @return bool
+		 */
+		public static function queue_was_busy() {
+			return self::$busy;
+		}
 
 		/**
 		 * The stamps an invitation can leave, by the role each belongs to, as WPCPM_Mail keeps them,
@@ -777,12 +800,26 @@ if ( ! class_exists( 'WPCPM_Mail', false ) ) {
 		public static function queue_invite( $user_id ) {
 			$GLOBALS['queue_calls'][] = array( 'queue_invite', (int) $user_id );
 
-			$queue = self::queue();
+			self::$busy = self::lock_held();
 
-			if ( (int) $user_id && ! in_array( (int) $user_id, $queue, true ) ) {
+			if ( self::$busy ) {
+				return self::QUEUE_BUSY;
+			}
+
+			$queue = self::queue();
+			$added = (int) $user_id && ! in_array( (int) $user_id, $queue, true );
+
+			if ( $added ) {
 				$queue[]                               = (int) $user_id;
 				$GLOBALS['opts'][ self::QUEUE_OPTION ] = $queue;
 			}
+
+			// Another request, played after each queueing when a check asks.
+			if ( isset( $GLOBALS['after_queue'] ) && is_callable( $GLOBALS['after_queue'] ) ) {
+				call_user_func( $GLOBALS['after_queue'] );
+			}
+
+			return $added ? 1 : 0;
 		}
 
 		/**
@@ -806,6 +843,12 @@ if ( ! class_exists( 'WPCPM_Mail', false ) ) {
 		 */
 		public static function queue_invites( array $user_ids ) {
 			$GLOBALS['queue_calls'][] = array( 'queue_invites', array_values( array_map( 'intval', $user_ids ) ) );
+
+			self::$busy = self::lock_held();
+
+			if ( self::$busy ) {
+				return 0;
+			}
 
 			$queue = self::queue();
 			$fresh = array();
@@ -1444,8 +1487,11 @@ function stamps_query( $view ) {
  * @param int[]  $waiting Whom the queue holds already.
  * @return array{0: mixed, 1: int[], 2: array} What came of it, the queue, the ways in taken.
  */
-function queue_press( $table, array $ids, $resend, array $waiting = array() ) {
+function queue_press( $table, array $ids, $resend, array $waiting = array(), $lock_held = false ) {
 	$GLOBALS['opts']        = empty( $waiting ) ? array() : array( WPCPM_Mail::QUEUE_OPTION => $waiting );
+	if ( $lock_held ) {
+		$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+	}
 	$GLOBALS['reads']       = array();
 	$GLOBALS['queue_calls'] = array();
 
@@ -2258,6 +2304,32 @@ ck( 'Resend invite on Bruno and Ada queues Bruno, invited before, through queue_
 	queue_press( 'WPCPM_Test_Accounts_Table', array( '11', '12' ), true ),
 	array( array( 'invites-queued', array( 'resend' => true, 'queued' => 1 ) ), array( 11 ), array( array( 'queue_invite', 11 ) ) ) );
 
+// The queue's lock held by another request (the fix wave of 1.123.58): a press that queued nothing
+// says the queue was busy, as the bulk presses do, not that the accounts were waiting already or
+// invited before; one that queued some says its count, and the busy sentence after it.
+$GLOBALS['after_queue'] = null;
+$busy_send              = queue_press( 'WPCPM_Test_Accounts_Table', array( '12', '13' ), false, array(), true );
+$busy_resend            = queue_press( 'WPCPM_Test_Accounts_Table', array( '11' ), true, array(), true );
+ck( 'a press on the ticked accounts while the queue\'s lock is held by another request queues nothing and leaves the bulk presses\' busy outcome, Send invite and Resend invite alike',
+	array( $busy_send[0], $busy_send[1], $busy_resend[0], $busy_resend[1] ),
+	array( array( 'invites-busy', array( 'resend' => false ) ), array(), array( 'invites-busy', array( 'resend' => true ) ), array() ) );
+
+$GLOBALS['umeta'][14]['wpcpm_student_invited'] = 1600000000;
+$GLOBALS['users'][14]->roles                   = array( WPCPM_Roles::ROLE_STUDENT );
+$GLOBALS['after_queue']                        = static function () {
+	$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+};
+$busy_some              = queue_press( 'WPCPM_Test_Accounts_Table', array( '11', '14' ), true );
+$GLOBALS['after_queue'] = null;
+unset( $GLOBALS['umeta'][14]['wpcpm_student_invited'] );
+$GLOBALS['users'][14]->roles = array( WPCPM_Roles::ROLE_MENTOR );
+ck( 'and the sentence for two refused after a count is the plural, which never says nothing was queued',
+	WPCPM_Accounts_Table::selected_sentence( array( 'resend' => true, 'busy' => 2, 'queued' => 1 ) ),
+	'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 2 invitations could not be queued because the queue was busy for a moment. Press the button again for them.' );
+ck( 'and a Resend invite the lock refused after the first queues that one, says its count, and the busy sentence after it',
+	array( $busy_some[0], $busy_some[1], WPCPM_Accounts_Table::selected_sentence( $busy_some[0][1] ) ),
+	array( array( 'invites-queued', array( 'resend' => true, 'busy' => 1, 'queued' => 1 ) ), array( 11 ), '1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. One invitation could not be queued because the queue was busy for a moment. Press the button again for it.' ) );
+
 $outside = queue_press( 'WPCPM_Test_Accounts_Table', array( '14', '12', '999', '12', '0', '-3' ), false );
 
 ck( 'an account outside the audience\'s role is left out, Dana the mentor on the students\' list, and so are an ID nobody holds and what is no ID at all; a repeat counts once, and the ticked accounts are read in one go before any is looked at',
@@ -2477,7 +2549,10 @@ ck( 'an invitation an activation held is said to wait for an Administrator to co
 // a module draws its list without the screen's load hook when nothing built the table (`table()`).
 $mentors_code = code_of( $mentors_src );
 $words_of     = function ( $code ) use ( $screen_code ) {
-	$printer = ( false === strpos( $code, 'function notice_sentence(' ) && 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code ) ) ? $screen_code : $code;
+	// A module that words an outcome of its own keeps the trait's copy under another name and hands it
+	// every other outcome (the Mentors module's Confirm, 1.123.58): the trait's copy is the printer then.
+	$keeps   = false !== strpos( $code, 'notice_sentence as private accounts_notice_sentence;' ) && false !== strpos( $code, 'return $this->accounts_notice_sentence( $status, $sentence );' );
+	$printer = ( ( $keeps || false === strpos( $code, 'function notice_sentence(' ) ) && 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code ) ) ? $screen_code : $code;
 	$worded  = $printer === $code ? $code : $code . $printer;
 	$start   = strpos( $printer, 'function notice_sentence(' );
 	$end     = false === $start ? false : strpos( $printer, "\n\t}\n", $start );
@@ -2512,10 +2587,12 @@ echo "\n=== The screen plumbing the audiences share: one trait, which neither mo
 // Four more are replaced by the Mentors module alone, for its Engagement and Waiting for review tabs:
 // the screen's load hook (`load_screen()`, whose trait copy it keeps for the Accounts tab under another
 // name), the tab the screen opens on (`tab()`, the queue while applications wait there, 1.122.31), the
-// tab bar's labels (`tab_labels()`) and the page (`render_admin_page()`).
+// tab bar's labels (`tab_labels()`) and the page (`render_admin_page()`); and one more for its Sync tab,
+// the sentence an outcome prints (`notice_sentence()`, whose trait copy it keeps under another name for
+// every outcome but Confirm's, 1.123.58).
 preg_match_all( '/^\t(?:(?:public|protected|private|static)\s+)*function\s+(\w+)\s*\(/m', $screen_code, $screen_methods );
 
-$replaceable    = array( 'list_state', 'invite_one', 'load_screen', 'tab', 'tab_labels', 'render_admin_page' );
+$replaceable    = array( 'list_state', 'invite_one', 'load_screen', 'tab', 'tab_labels', 'render_admin_page', 'notice_sentence' );
 $declared_again = function ( $code ) use ( $screen_methods, $replaceable ) {
 	preg_match_all( '/function\s+(\w+)\s*\(/', $code, $own );
 
@@ -2530,7 +2607,7 @@ $uses_screen    = function ( $code ) {
 	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen(?:;| \{)$/m', $code );
 };
 
-ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and its tab labels and page, which add its Registrations tab, and the Mentors module\'s load hook, choice of tab, tab labels and page, which add its Engagement and Waiting for review tabs',
+ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again, but for a default the trait leaves to a module: the Students module\'s own list state, for its institution filter, and its tab labels and page, which add its Registrations tab, and the Mentors module\'s load hook, choice of tab, tab labels and page, which add its Engagement and Waiting for review tabs, and the sentence an outcome prints, for Confirm on its Sync tab',
 	array(
 		'trait'    => array_values( array_diff( array( 'list_state', 'hook_screen', 'load_screen', 'handle_list_form', 'apply_pressed', 'save_per_page', 'handle_invite', 'invite_one', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited' ), $screen_methods[1] ) ),
 		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ), $replaced( $students_code ) ),
@@ -2539,7 +2616,7 @@ ck( 'the screen plumbing the Students and Mentors modules held twice is one trai
 	array(
 		'trait'    => array(),
 		'students' => array( true, array(), array( 'list_state', 'tab_labels', 'render_admin_page' ) ),
-		'mentors'  => array( true, array(), array( 'load_screen', 'tab', 'tab_labels', 'render_admin_page' ) ),
+		'mentors'  => array( true, array(), array( 'load_screen', 'tab', 'tab_labels', 'render_admin_page', 'notice_sentence' ) ),
 	) );
 
 echo "\n=== The seams answer none on the base, so a list that keeps no records draws as it did ===\n";

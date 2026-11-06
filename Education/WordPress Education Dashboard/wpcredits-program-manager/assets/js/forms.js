@@ -31,7 +31,9 @@
  *   a name shared by radios is not a control and is left alone;
  * - `data-wpcpm-confirm` on a form or on a submit control is a question asked with
  *   `window.confirm()` before the form posts, and a No posts nothing. It is read for any form on
- *   the page when that form is submitted, including one inserted after the page loaded.
+ *   the page when that form is submitted, including one inserted after the page loaded;
+ * - `.wpcpm-errors`, a refused form's error summary, or else `data-wpcpm-card-message`, the outcome
+ *   a card's handler left in its card, takes the focus when the page loads (1.123.58).
  */
 ( function () {
 	'use strict';
@@ -529,7 +531,36 @@
 		}
 	}
 
+	/**
+	 * Move the focus to what a refused or answered form says, once the page has loaded (1.123.58):
+	 * the error summary a refused form opens with (`WPCPM_Form_Errors::summary()`), else the message a
+	 * card's handler left inside the card it came back to (`WPCPM_Dashboard_Card::message()`). The
+	 * first of either on the page; a page with neither is left as it is. With scripts off, the
+	 * summary's `role="alert"` and the message's own role are what a screen reader hears.
+	 *
+	 * Every closed `details` element around the target is opened first (1.123.58, trial T11): a
+	 * dashboard card is one, opened at the anchor by the dashboards' own script, which may run after
+	 * this one, and an element inside a closed `details` takes no focus.
+	 */
+	function focusOutcome() {
+		var target = document.querySelector( '.wpcpm-errors' ) || document.querySelector( '[data-wpcpm-card-message]' );
+		var node;
+
+		if ( ! target || 'function' !== typeof target.focus ) {
+			return;
+		}
+
+		for ( node = target.parentNode; node; node = node.parentNode ) {
+			if ( 'DETAILS' === node.tagName && ! node.open ) {
+				node.open = true;
+			}
+		}
+
+		target.focus();
+	}
+
 	ready( function () {
+		focusOutcome();
 		watchPressed();
 		watchSubmits();
 		releaseOnRestore();

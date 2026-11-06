@@ -43,8 +43,12 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 
-$GLOBALS['opts']     = array();
-$GLOBALS['autoload'] = array();
+$GLOBALS['opts']       = array();
+$GLOBALS['transients'] = array();
+$GLOBALS['tcache']     = array();
+$GLOBALS['ext_cache']  = false;
+$GLOBALS['filtered']   = array();
+$GLOBALS['autoload']   = array();
 $GLOBALS['password'] = 0;
 $GLOBALS['posts']    = array();
 $GLOBALS['settings'] = array( 'application_trusted_proxy' => '' );
@@ -78,6 +82,30 @@ function add_option( $k, $v, $x = '', $a = null ) {
 	return true;
 }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+// The transient store with the request's own cache in front of it, as core keeps one: a value read
+// once is served from the cache (`$GLOBALS['tcache']`) until its entry is deleted, or, with an object
+// cache, until a forced read asks the store. A write by this request updates the cache; a write by
+// another request is a write to `$GLOBALS['transients']` alone, which the cache does not see.
+function get_transient( $k ) {
+	if ( array_key_exists( $k, $GLOBALS['tcache'] ) ) { return $GLOBALS['tcache'][ $k ]; }
+	return $GLOBALS['tcache'][ $k ] = array_key_exists( $k, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $k ] : false;
+}
+function set_transient( $k, $v, $t = 0 ) { $GLOBALS['transients'][ $k ] = $v; $GLOBALS['tcache'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['transients'][ $k ], $GLOBALS['tcache'][ $k ] ); return true; }
+function wp_using_ext_object_cache() { return ! empty( $GLOBALS['ext_cache'] ); }
+function wp_cache_get( $k, $group = '', $force = false ) {
+	if ( ! $force && array_key_exists( $k, $GLOBALS['tcache'] ) ) { return $GLOBALS['tcache'][ $k ]; }
+	return $GLOBALS['tcache'][ $k ] = array_key_exists( $k, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $k ] : false;
+}
+function wp_cache_delete( $k, $group = '' ) {
+	if ( 'options' === $group && 0 === strpos( $k, '_transient_' ) && 0 !== strpos( $k, '_transient_timeout_' ) ) {
+		unset( $GLOBALS['tcache'][ substr( $k, strlen( '_transient_' ) ) ] );
+	}
+	return true;
+}
+// The one filter the guard offers: the pause between two reads of a token's record, which a check
+// stands in for so that nothing here sleeps.
+function apply_filters( $hook, $value, ...$args ) { return isset( $GLOBALS['filtered'][ $hook ] ) ? $GLOBALS['filtered'][ $hook ] : $value; }
 
 class WPCPM_Settings {
 	public static function get_value( $key, $fallback = null ) {
@@ -110,9 +138,13 @@ function ck( $label, $actual, $expected ) {
 
 /** Forget every option and put the request back to a plain one. */
 function reset_world() {
-	$GLOBALS['opts']     = array();
-	$GLOBALS['autoload'] = array();
-	$GLOBALS['posts']    = array();
+	$GLOBALS['opts']       = array();
+	$GLOBALS['transients'] = array();
+	$GLOBALS['tcache']     = array();
+	$GLOBALS['ext_cache']  = false;
+	$GLOBALS['filtered']   = array();
+	$GLOBALS['autoload']   = array();
+	$GLOBALS['posts']      = array();
 	$GLOBALS['settings'] = array( 'application_trusted_proxy' => '' );
 	$GLOBALS['policy']   = 'https://example.test/privacy/';
 	$_POST               = array();
@@ -157,7 +189,7 @@ function dwell_token( $scope, $age = 30, $action = 'act', $random = '' ) {
 echo "=== The numbers ===\n";
 ck( 'the six constants keep the institution values', array( WPCPM_Form_Guard::MIN_SECONDS, WPCPM_Form_Guard::TOKEN_LIFETIME, WPCPM_Form_Guard::PER_HOUR, WPCPM_Form_Guard::PER_DAY, WPCPM_Form_Guard::MAIL_PER_DAY, WPCPM_Form_Guard::MAX_LINKS ), array( 6, 43200, 5, 40, 200, 3 ) );
 ck( 'the mail ceiling stands far above the degrade, or it would silence the held rows it exists for', WPCPM_Form_Guard::MAIL_PER_DAY > WPCPM_Form_Guard::PER_DAY, true );
-ck( 'the four token answers', array( WPCPM_Form_Guard::TOKEN_OK, WPCPM_Form_Guard::TOKEN_SPAM, WPCPM_Form_Guard::TOKEN_STALE, WPCPM_Form_Guard::TOKEN_FAST ), array( 'ok', 'spam', 'stale', 'fast' ) );
+ck( 'the five token answers', array( WPCPM_Form_Guard::TOKEN_OK, WPCPM_Form_Guard::TOKEN_SPAM, WPCPM_Form_Guard::TOKEN_STALE, WPCPM_Form_Guard::TOKEN_FAST, WPCPM_Form_Guard::TOKEN_USED ), array( 'ok', 'spam', 'stale', 'fast', 'used' ) );
 
 echo "\n=== 1. The honeypot ===\n";
 reset_world();
@@ -187,7 +219,7 @@ ck( 'a token minted this instant is too fast to be a person, and says so as itse
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
 $young = dwell_token( 'scope-a', 1, 'act', 'AbCdEf012345' );
-ck( 'and it is single use like any other: the second send of it is spam', array( WPCPM_Form_Guard::check_token( 'scope-a', $young ), WPCPM_Form_Guard::check_token( 'scope-a', $young ) ), array( 'fast', 'spam' ) );
+ck( 'and it is single use like any other: the second send of it is used', array( WPCPM_Form_Guard::check_token( 'scope-a', $young ), WPCPM_Form_Guard::check_token( 'scope-a', $young ) ), array( 'fast', 'used' ) );
 ck( 'a token that is young and unsigned is spam, not held', WPCPM_Form_Guard::check_token( 'scope-a', time() . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ), 'spam' );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
@@ -196,7 +228,7 @@ reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
 $token = dwell_token( 'scope-a', 45, 'act', 'AbCdEf012345' );
 ck( 'the first use is accepted', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'ok' );
-ck( 'and the second use of the same token is not', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'spam' );
+ck( 'and the second use of the same token is not', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'used' );
 ck( 'the claim behind it is one non-autoloaded option row', array( count( $GLOBALS['opts'] ) - 1, in_array( true, $GLOBALS['autoload'], true ) ), array( 1, false ) );
 
 // FANON-4: `ctype_digit()` takes a leading zero and `(int)` normalizes it away again, so one
@@ -214,7 +246,7 @@ for ( $pad = 1; $pad <= 60; $pad++ ) {
 
 ck( 'the first use of a token is accepted', WPCPM_Form_Guard::check_token( 'scope-a', $once ), 'ok' );
 ck( 'and sixty leading-zero spellings of it are every one of them refused', array_unique( $zeros ), array( 'spam' ) );
-ck( 'a replay of the identical string is refused too', WPCPM_Form_Guard::check_token( 'scope-a', $once ), 'spam' );
+ck( 'a replay of the identical string is refused too, as used', WPCPM_Form_Guard::check_token( 'scope-a', $once ), 'used' );
 ck( 'sixty spellings wrote one claim row between them: the key is the canonical token', count( $GLOBALS['opts'] ) - $before, 1 );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
@@ -241,6 +273,75 @@ reset_world();
 ck( 'a token checked with no nonce in the request is a forgery', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) ), 'spam' );
 $_POST['_wpnonce'] = 'nonce-something-else';
 ck( 'a token posted with another form\'s nonce is refused', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) ), 'spam' );
+
+echo "\n=== 2a. A token used twice (1.123.58) ===\n";
+reset_world();
+$_POST['_wpnonce'] = wp_create_nonce( 'act' );
+$twice = dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' );
+ck( 'a token used once answers TOKEN_USED, not spam, and a forged one is still spam', array( WPCPM_Form_Guard::check_token( 'scope-a', $twice ), WPCPM_Form_Guard::check_token( 'scope-a', $twice ), WPCPM_Form_Guard::check_token( 'scope-a', str_replace( 'AbCdEf012345', 'zzzzzzzzzzzz', $twice ) ) ), array( 'ok', 'used', 'spam' ) );
+$parts = explode( '.', $twice );
+ck( "token_key() is the claim's own key, and '' for a token that does not parse", array( WPCPM_Form_Guard::token_key( 'scope-a', $twice ), WPCPM_Form_Guard::token_key( 'scope-a', '0' . $twice ), WPCPM_Form_Guard::token_key( 'scope-a', 'nonsense' ), WPCPM_Ceiling::count( 'dwell:' . WPCPM_Form_Guard::token_key( 'scope-a', $twice ), WPCPM_Form_Guard::TOKEN_LIFETIME ) ), array( wp_hash( 'scope-a|' . $parts[0] . '|' . $parts[1] . '|' . $parts[2] ), '', '', 1 ) );
+ck( 'the press that claimed it is recorded in flight at the claim', WPCPM_Form_Guard::row_of( WPCPM_Form_Guard::token_key( 'scope-a', $twice ) ), 'pending' );
+reset_world();
+$recorded = array();
+WPCPM_Form_Guard::in_flight( 'k1' );
+$recorded[] = WPCPM_Form_Guard::row_of( 'k1' );
+WPCPM_Form_Guard::landed( 'k1', 42 );
+$recorded[] = WPCPM_Form_Guard::row_of( 'k1' );
+WPCPM_Form_Guard::bounced( 'k1' );
+$recorded[] = WPCPM_Form_Guard::row_of( 'k1' );
+ck( 'in_flight(), landed() and bounced() record pending, the row id and nothing', $recorded, array( 'pending', 42, null ) );
+ck( 'under the prefix, for the token\'s lifetime, and nothing for an empty key', array( array_keys( ( WPCPM_Form_Guard::in_flight( 'k2' ) ?? $GLOBALS['transients'] ) ), WPCPM_Form_Guard::in_flight( '' ) ?? count( $GLOBALS['transients'] ) ), array( array( 'wpcpm_dwell_k2' ), 1 ) );
+
+reset_world();
+$reads = 0;
+$GLOBALS['filtered']['wpcpm_form_guard_pause'] = static function ( $microseconds ) use ( &$reads ) {
+	++$reads;
+	if ( 3 === $reads ) {
+		WPCPM_Form_Guard::landed( 'k3', 77 );
+	}
+};
+WPCPM_Form_Guard::in_flight( 'k3' );
+$landed_row = WPCPM_Form_Guard::wait_for_row( 'k3' );
+$landed_after = $reads;
+$reads = 0;
+$GLOBALS['filtered']['wpcpm_form_guard_pause'] = static function ( $microseconds ) use ( &$reads ) {
+	++$reads;
+};
+WPCPM_Form_Guard::in_flight( 'k4' );
+$pending_row   = WPCPM_Form_Guard::wait_for_row( 'k4' );
+$pending_after = $reads;
+$reads         = 0;
+$gone_row      = WPCPM_Form_Guard::wait_for_row( 'k5' );
+ck( 'wait_for_row() answers the row once it lands, and 0 after six reads still pending, or at once when the record is gone', array( $landed_row, $landed_after, $pending_row, $pending_after, $gone_row, $reads ), array( 77, 3, 0, 5, 0, 0 ) );
+
+// The record is written by the first press's request while this one waits, so a read the request's
+// own cache answers would see `pending` for ever. Each mode is played: with no object cache, and
+// with one, the stand-in serving the first value it read until its entry is dropped or a read is forced.
+$past_cache = array();
+foreach ( array( 'no object cache' => false, 'an object cache' => true ) as $mode => $external ) {
+	reset_world();
+	$GLOBALS['ext_cache'] = $external;
+	WPCPM_Form_Guard::in_flight( 'k6' );
+	$GLOBALS['tcache'] = array();
+	$cached            = get_transient( 'wpcpm_dwell_k6' );
+	$reads             = 0;
+	$GLOBALS['filtered']['wpcpm_form_guard_pause'] = static function ( $microseconds ) use ( &$reads ) {
+		// The first press's request lands the row: a write this request's cache never sees.
+		if ( 2 === ++$reads ) {
+			$GLOBALS['transients']['wpcpm_dwell_k6'] = 88;
+		}
+	};
+	$row                 = WPCPM_Form_Guard::wait_for_row( 'k6' );
+	$past_cache[ $mode ] = array( $cached, $external ? $GLOBALS['tcache']['wpcpm_dwell_k6'] : get_transient( 'wpcpm_dwell_k6' ), $row, $reads );
+}
+ck( 'wait_for_row() reads past the request\'s own cache, so a row another request lands is seen on a later read, with an object cache and without one', $past_cache, array( 'no object cache' => array( 'pending', 88, 88, 2 ), 'an object cache' => array( 'pending', 88, 88, 2 ) ) );
+reset_world();
+WPCPM_Form_Guard::in_flight( 'k7' );
+$GLOBALS['tcache'] = array();
+get_transient( 'wpcpm_dwell_k7' );
+$GLOBALS['transients']['wpcpm_dwell_k7'] = 99;
+ck( 'and the stand-in caches as core does: a plain read after another request\'s write still says pending', get_transient( 'wpcpm_dwell_k7' ), 'pending' );
 
 echo "\n=== 3. The per-actor ceiling ===\n";
 reset_world();

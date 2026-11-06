@@ -27,6 +27,18 @@ Save of its own, rather than on this one: at the top of the screen, or for Email
 Settings section, and the next part of this guide, on the tools, says what each of those settings
 does.
 
+Since 1.123.58 a Save writes only what you changed on the page. Each tab remembers the value every
+setting had when the page was opened, so a setting somebody else changed since, on another tab, as
+another Administrator or on the command line, stays as they left it. If you changed it too, their
+value is kept, the setting is marked, and a warning above the tab names it: check it, and save
+again if yours should win. A value a setting cannot take, such as an address with a typo in a Who
+is mailed list or a course link that is not https, is not saved: the value saved before stays,
+what you typed comes back in the box, and the box says why. Each Who is mailed list has a box above
+it, **Mail every Administrator account instead of the people below**: tick it to mail every
+Administrator account, since a list left empty is refused. On the command line,
+`wp wpcredits setting set <list> everyone` does the same, and `wp wpcredits setting get <list>`
+then prints *every Administrator account*.
+
 ### The Connection tab
 
 Its first line names the four tools that keep their settings on their own screens. Then two

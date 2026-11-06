@@ -213,7 +213,8 @@ class WPCPM_Admin {
 		wp_enqueue_script(
 			'wpcpm-admin',
 			WPCPM_PLUGIN_URL . 'assets/js/admin.js',
-			array(),
+			// WordPress's live region, which the invitations and sync pollers speak through (1.123.58).
+			array( 'wp-a11y' ),
 			WPCPM_VERSION,
 			true
 		);

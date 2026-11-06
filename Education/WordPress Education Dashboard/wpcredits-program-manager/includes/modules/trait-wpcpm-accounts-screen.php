@@ -318,8 +318,10 @@ trait WPCPM_Accounts_Screen {
 		$this->verify( static::ACTION_INVITE . '_' . $user_id );
 
 		$result = $this->invite_one( $user_id );
+		$person = get_user_by( 'id', $user_id );
 
-		$this->leave( $this->list_url(), WPCPM_Mail::invite_outcome( $result ) );
+		// A sent invitation names the person it went to (1.123.58).
+		$this->leave( $this->list_url(), WPCPM_Mail::invite_outcome( $result ), true === $result && $person instanceof WP_User ? array( 'who' => $person->display_name ) : array() );
 	}
 
 	/**
@@ -373,8 +375,8 @@ trait WPCPM_Accounts_Screen {
 	 *
 	 * @param string $url    This screen's address to return to, which WPCPM_Return may swap for the dashboard.
 	 * @param string $status An outcome key the screen's message map knows.
-	 * @param array  $detail What the press adds: for the invitations `resend`, `queued` or `why`, and
-	 *                       `recent`, how many a Resend invite left out for the fifteen minutes; for a
+	 * @param array  $detail What the press adds: for a row's invitation `who`, the person's name; for
+	 *                       the invitations `resend`, `queued` or `why`, and `recent`, how many a Resend invite left out for the fifteen minutes; for a
 	 *                       bulk action the table carries out itself, what its `handle_action()`
 	 *                       returned beside the outcome.
 	 */
@@ -493,11 +495,30 @@ trait WPCPM_Accounts_Screen {
 			array( 'error' => array( 'error', WPCPM_Mail::invite_failed_message() ) ),
 			WPCPM_Mail::invite_notices(),
 			array(
-				'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
-				'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
-				'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+				'invites-queued'    => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
+				'invites-none'      => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
+				// The queue's lock was taken by another request, so the press queued nothing (the fix
+				// wave of 1.123.58, `WPCPM_Mail::queue_was_busy()`).
+				'invites-busy'      => array( 'info', __( 'The queue was busy for a moment and nothing was queued. Press the button again.', 'wpcredits-program-manager' ) ),
+				'invites-stopped'   => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+				// A Stop that could not take the queue's lock, which leaves the run as it was.
+				'invites-stop-busy' => array( 'error', __( 'The run could not be stopped this moment. Press Stop again.', 'wpcredits-program-manager' ) ),
 			)
 		);
+	}
+
+	/**
+	 * Queue the invitations of a bulk press and answer its outcome (the fix wave of 1.123.58):
+	 * `invites-busy` when the queue's lock was taken by another request and nothing was queued,
+	 * `invites-queued` otherwise, as the press always said.
+	 *
+	 * @param int[] $pending The accounts never invited.
+	 * @return string
+	 */
+	protected static function queue_bulk( array $pending ) {
+		$queued = (int) WPCPM_Mail::queue_invites( $pending );
+
+		return 0 === $queued && WPCPM_Mail::queue_was_busy() ? 'invites-busy' : 'invites-queued';
 	}
 
 	/**
@@ -522,8 +543,14 @@ trait WPCPM_Accounts_Screen {
 	protected function notice_sentence( $status, $sentence ) {
 		$detail = WPCPM_Flash::take( static::FLASH_DETAIL );
 
+		// Worded by the screen's class when no detail was carried for it, as a sync's `finished` is
+		// (`WPCPM_Sync_Module::notice_sentence()`, 1.123.58).
 		if ( ! is_array( $detail ) || ! isset( $detail['status'] ) || (string) $status !== (string) $detail['status'] ) {
-			return (string) $sentence;
+			return parent::notice_sentence( $status, $sentence );
+		}
+
+		if ( 'invited' === (string) $status && isset( $detail['who'] ) && '' !== trim( (string) $detail['who'] ) ) {
+			return WPCPM_Mail::invited_sentence( (string) $detail['who'] );
 		}
 
 		wpcpm_load_accounts_tables();

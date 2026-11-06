@@ -1020,5 +1020,63 @@ scenario(
 	}
 );
 
+/* ---- A refused form's summary, and a card's outcome, take the focus on load (1.123.58). ---- */
+
+scenario(
+	'a page holding a refused form\'s error summary moves the focus to it when the script loads',
+	{ focused: 'summary' },
+	() => {
+		mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } );
+		mk( 'div', { class: 'wpcpm-errors notice', role: 'alert', tabindex: '-1', id: 'summary' } );
+
+		load( FORMS );
+
+		return { focused: doc.activeElement ? doc.activeElement.id : null };
+	}
+);
+
+scenario(
+	'with no summary, the message a card\'s handler left takes the focus',
+	{ focused: 'message' },
+	() => {
+		mk( 'div', { class: 'wpcpm-card', id: 'card' } );
+		mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } );
+
+		load( FORMS );
+
+		return { focused: doc.activeElement ? doc.activeElement.id : null };
+	}
+);
+
+scenario(
+	'an outcome inside a closed card is opened and focused',
+	{ focused: 'message', open: [ true, true ] },
+	() => {
+		const outer = mk( 'details', { class: 'wpcpm-card', id: 'card' } );
+		const inner = mk( 'details', { id: 'inner' } );
+		const message = mk( 'p', { 'data-wpcpm-card-message': '', tabindex: '-1', id: 'message' } );
+
+		inner.add( message );
+		outer.add( inner );
+
+		load( FORMS );
+
+		return { focused: doc.activeElement ? doc.activeElement.id : null, open: [ outer.open, inner.open ] };
+	}
+);
+
+scenario(
+	'a page with neither leaves the focus where it was',
+	{ focused: null },
+	() => {
+		mk( 'div', { class: 'wpcpm-errors-not', id: 'other' } );
+		mk( 'form', { 'data-wpcpm-once': '' } );
+
+		load( FORMS );
+
+		return { focused: doc.activeElement ? doc.activeElement.id : null };
+	}
+);
+
 console.log( '\n' + ran + ' scenarios, ' + failed + ' differ' );
 process.exit( failed ? 1 : 0 );

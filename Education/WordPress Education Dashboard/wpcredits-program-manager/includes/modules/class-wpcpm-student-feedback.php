@@ -827,7 +827,15 @@ class WPCPM_Student_Feedback {
 		$unread = is_wp_error( $values );
 		$values = $unread ? array() : $values;
 
-		self::render_message();
+		// The outcome of a send is said inside the form it was sent from, which is drawn open, and
+		// a refused form is drawn from what was sent (1.123.58, CARD-01 and CARD-09). Said above the
+		// heading only when that form is not drawn on this page.
+		$sent_from = self::sent_from();
+		$unlocked  = self::unlocked( $keys, $forms, $values );
+
+		if ( ! in_array( $sent_from, $unlocked, true ) ) {
+			self::render_message();
+		}
 
 		// A heading of its own, because these are a different errand from the report above them.
 		// It is an <h4> under the section's <h3>, not another <h3>: they belong to the Report form
@@ -865,12 +873,10 @@ class WPCPM_Student_Feedback {
 
 		// **One stage at a time.** A form appears once the one before it is finished, so the answers
 		// arrive in the order they are asked about rather than all at the end - which is the whole
-		// point of asking the same three questions three times. See `unlocked()`.
-		$unlocked = self::unlocked( $keys, $forms, $values );
-
+		// point of asking the same three questions three times. See `unlocked()`, asked above.
 		foreach ( $unlocked as $key ) {
 			if ( isset( $forms[ $key ] ) ) {
-				self::render_form( $key, $forms[ $key ], $student, $values, $can, $is_self );
+				self::render_form( $key, $forms[ $key ], $student, $values, $can, $is_self, $key === $sent_from );
 			}
 		}
 
@@ -932,13 +938,33 @@ class WPCPM_Student_Feedback {
 	 * @param array   $values  Answers already on the record.
 	 * @param bool    $can     Whether it may be filled in.
 	 * @param bool    $is_self Whether the reader is the student themselves.
+	 * @param bool    $sent    Whether the last send came from this form: it is drawn open with its
+	 *                         outcome inside, and from what was sent when that was refused.
 	 */
-	private static function render_form( $key, array $form, WP_User $student, array $values, $can, $is_self ) {
+	private static function render_form( $key, array $form, WP_User $student, array $values, $can, $is_self, $sent = false ) {
 		list( $answered, $asking ) = self::progress( $form, $values );
 
+		$kept = $sent && $can ? WPCPM_Flash::kept( self::kept_form( $key, $student->ID ) ) : array(
+			'values'   => array(),
+			'problems' => array(),
+		);
+
+		// Drawn from what was sent, never from the record, after a refusal: the count above still
+		// says what the record holds.
+		foreach ( array_keys( $form['fields'] ) as $name ) {
+			$field_key = self::key( $name );
+
+			if ( array_key_exists( $field_key, $kept['values'] ) ) {
+				$values[ $name ] = $kept['values'][ $field_key ];
+			}
+		}
+
+		$problems = $kept['problems'];
+
 		printf(
-			'<details class="wpcpm-report__disclosure wpcpm-feedback" id="wpcpm-feedback-%1$s">',
-			esc_attr( $key )
+			'<details class="wpcpm-report__disclosure wpcpm-feedback" id="wpcpm-feedback-%1$s"%2$s>',
+			esc_attr( $key ),
+			$sent ? ' open' : ''
 		);
 
 		// The count says what is done, not how much there is to do: "6 of 9 answered" is progress,
@@ -968,6 +994,10 @@ class WPCPM_Student_Feedback {
 
 		echo '<div class="wpcpm-report__body">';
 
+		if ( $sent ) {
+			self::render_message();
+		}
+
 		printf( '<p class="wpcpm-student__note">%s</p>', esc_html( $form['note'] ) );
 
 		if ( $can ) {
@@ -985,6 +1015,8 @@ class WPCPM_Student_Feedback {
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
 			printf( '<input type="hidden" name="form" value="%s" />', esc_attr( $key ) );
+
+			echo self::summary( $form, $problems ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 		} else {
 			printf(
 				'<p class="wpcpm-student__note">%s</p>',
@@ -1009,7 +1041,7 @@ class WPCPM_Student_Feedback {
 			);
 
 			foreach ( $anchors as $name => $spec ) {
-				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can );
+				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can, self::problem_for( $name, $problems ) );
 			}
 
 			echo '</fieldset>';
@@ -1029,7 +1061,7 @@ class WPCPM_Student_Feedback {
 				continue;
 			}
 
-			self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can );
+			self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can, self::problem_for( $name, $problems ) );
 		}
 
 		echo '</fieldset>';
@@ -1058,7 +1090,7 @@ class WPCPM_Student_Feedback {
 			}
 
 			foreach ( $permissions as $name => $spec ) {
-				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can && $is_self );
+				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can && $is_self, self::problem_for( $name, $problems ) );
 			}
 
 			echo '</fieldset>';
@@ -1074,6 +1106,68 @@ class WPCPM_Student_Feedback {
 		echo $can ? '</form>' : '</div>';
 		echo '</div>';
 		echo '</details>';
+	}
+
+	/**
+	 * What a refused send keeps its answers under: the form and the student's record, or their
+	 * account where the site knows no record (1.123.58).
+	 *
+	 * @param string $form_key   The form.
+	 * @param int    $student_id The student.
+	 * @return string
+	 */
+	private static function kept_form( $form_key, $student_id ) {
+		$record = get_user_meta( (int) $student_id, WPCPM_Students_Sync::META_RECORD_ID, true );
+		$record = is_string( $record ) ? sanitize_text_field( $record ) : '';
+
+		return 'feedback:' . sanitize_key( (string) $form_key ) . ':' . ( '' !== $record ? $record : 'user-' . (int) $student_id );
+	}
+
+	/**
+	 * Which form the last send came from, on the request its redirect lands on, or ''.
+	 *
+	 * @return string
+	 */
+	private static function sent_from() {
+		return sanitize_key( (string) WPCPM_Flash::take( 'feedback-form' ) );
+	}
+
+	/**
+	 * The sentence a question was refused with on the last send, or ''.
+	 *
+	 * @param string $name     Airtable field name.
+	 * @param array  $problems Form key => sentence.
+	 * @return string
+	 */
+	private static function problem_for( $name, array $problems ) {
+		$key = self::key( $name );
+
+		return isset( $problems[ $key ] ) && is_string( $problems[ $key ] ) ? $problems[ $key ] : '';
+	}
+
+	/**
+	 * The summary a refused form opens with, or '' when no answer was refused (1.123.58).
+	 *
+	 * @param array $form     Form definition.
+	 * @param array $problems Form key => sentence.
+	 * @return string
+	 */
+	private static function summary( array $form, array $problems ) {
+		if ( array() === $problems ) {
+			return '';
+		}
+
+		$map = array();
+
+		foreach ( $form['fields'] as $name => $spec ) {
+			$key         = self::key( $name );
+			$map[ $key ] = array(
+				'id'    => 'wpcpm-feedback-' . $key,
+				'label' => isset( $spec['label'] ) ? (string) $spec['label'] : (string) $name,
+			);
+		}
+
+		return WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 3 ) );
 	}
 
 	/**
@@ -1198,14 +1292,18 @@ class WPCPM_Student_Feedback {
 	 *
 	 * @param string $name  Airtable field name.
 	 * @param array  $spec  Field spec.
-	 * @param mixed  $value Current answer.
-	 * @param bool   $can   Whether it may be answered.
+	 * @param mixed  $value   Current answer.
+	 * @param bool   $can     Whether it may be answered.
+	 * @param string $problem The sentence it was refused with on the last send, or '' (1.123.58).
 	 */
-	private static function render_field( $name, array $spec, $value, $can ) {
+	private static function render_field( $name, array $spec, $value, $can, $problem = '' ) {
 		$key  = self::key( $name );
 		$id   = 'wpcpm-feedback-' . $key;
 		$type = isset( $spec['type'] ) ? $spec['type'] : 'textarea';
 		$dis  = $can ? '' : ' disabled="disabled"';
+
+		// A refused answer is marked at its control, its sentence beside it (1.123.58, CARD-02).
+		$marks = '' === $problem ? '' : WPCPM_Form_Errors::attrs( $id, $problem );
 
 		// The conditional questions carry their rule in the markup rather than in the script, so
 		// the script is one rule reader instead of one branch per question - and so a rule changed
@@ -1237,22 +1335,25 @@ class WPCPM_Student_Feedback {
 		// grouping on the `<fieldset>` inside instead.
 		if ( 'rating' === $type ) {
 			printf( '<span class="wpcpm-field__label">%s</span>', esc_html( $spec['label'] ) );
-			self::render_rating( $key, $spec, $value, $can );
+			self::render_rating( $key, $spec, $value, $can, $problem );
 		} elseif ( 'checkbox' === $type ) {
 			printf(
-				'<label class="wpcpm-feedback__consent"><input type="checkbox" name="feedback[%1$s]" value="1"%2$s%3$s /> <span>%4$s</span></label>',
+				'<label class="wpcpm-feedback__consent"><input type="checkbox"%5$s name="feedback[%1$s]" value="1"%2$s%3$s%6$s /> <span>%4$s</span></label>',
 				esc_attr( $key ),
-				! empty( $value ) ? ' checked="checked"' : '',
+				self::is_ticked( $value ) ? ' checked="checked"' : '',
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
-				esc_html( $spec['label'] )
+				esc_html( $spec['label'] ),
+				'' === $problem ? '' : ' id="' . esc_attr( $id ) . '"',
+				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Form_Errors::attrs(), which escapes.
 			);
 		} elseif ( 'select' === $type ) {
 			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $spec['label'] ) );
 			printf(
-				'<select id="%1$s" name="feedback[%2$s]" data-wpcpm-field="%2$s"%3$s>',
+				'<select id="%1$s" name="feedback[%2$s]" data-wpcpm-field="%2$s"%3$s%4$s>',
 				esc_attr( $id ),
 				esc_attr( $key ),
-				$dis // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Form_Errors::attrs(), which escapes.
 			);
 
 			// A blank first option, selected when there is no answer: without one the browser
@@ -1277,16 +1378,33 @@ class WPCPM_Student_Feedback {
 		} else {
 			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $spec['label'] ) );
 			printf(
-				'<textarea id="%1$s" name="feedback[%2$s]" rows="3" maxlength="%3$d"%4$s>%5$s</textarea>',
+				'<textarea id="%1$s" name="feedback[%2$s]" rows="3" maxlength="%3$d"%4$s%6$s>%5$s</textarea>',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				(int) self::MAX_TEXT,
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
-				esc_textarea( is_scalar( $value ) ? (string) $value : '' )
+				esc_textarea( is_scalar( $value ) ? (string) $value : '' ),
+				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Form_Errors::attrs(), which escapes.
 			);
 		}
 
+		echo '' === $problem ? '' : WPCPM_Form_Errors::problem( $id, $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by WPCPM_Form_Errors::problem().
+
 		echo '</div>';
+	}
+
+	/**
+	 * Whether a checkbox's answer is a tick: true from the record, `1` from a send drawn again.
+	 *
+	 * @param mixed $value The answer.
+	 * @return bool
+	 */
+	private static function is_ticked( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		return is_scalar( $value ) && in_array( strtolower( trim( (string) $value ) ), array( '1', 'true' ), true );
 	}
 
 	/**
@@ -1298,10 +1416,11 @@ class WPCPM_Student_Feedback {
 	 *
 	 * @param string $key   Field key.
 	 * @param array  $spec  Field spec.
-	 * @param mixed  $value Current answer.
-	 * @param bool   $can   Whether it may be answered.
+	 * @param mixed  $value   Current answer.
+	 * @param bool   $can     Whether it may be answered.
+	 * @param string $problem The sentence it was refused with on the last send, or '' (1.123.58).
 	 */
-	private static function render_rating( $key, array $spec, $value, $can ) {
+	private static function render_rating( $key, array $spec, $value, $can, $problem = '' ) {
 		$max  = isset( $spec['max'] ) ? (int) $spec['max'] : 5;
 		$ends = isset( $spec['ends'] ) ? $spec['ends'] : array( '', '' );
 
@@ -1316,10 +1435,17 @@ class WPCPM_Student_Feedback {
 			. '<path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.6 9.4l6.5-.9L12 2.6z" />'
 			. '</svg>';
 
+		// A refused rating's group carries the id the summary links to and the marks its control
+		// would (1.123.58).
+		$id = 'wpcpm-feedback-' . $key;
+
 		printf(
-			'<fieldset class="wpcpm-rating" data-wpcpm-field="%1$s"><legend class="screen-reader-text">%2$s</legend>',
+			'<fieldset class="wpcpm-rating"%3$s data-wpcpm-field="%1$s"%4$s><legend class="screen-reader-text">%2$s</legend>',
 			esc_attr( $key ),
-			esc_html( $spec['label'] )
+			esc_html( $spec['label'] ),
+			// A radio group, where `aria-invalid` is a state the role takes.
+			'' === $problem ? '' : ' id="' . esc_attr( $id ) . '" role="radiogroup"',
+			'' === $problem ? '' : WPCPM_Form_Errors::attrs( $id, $problem ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by WPCPM_Form_Errors::attrs(), which escapes.
 		);
 
 		// Named low and high rather than left to `:first-of-type`. The low end is what the steps
@@ -1365,6 +1491,14 @@ class WPCPM_Student_Feedback {
 			return;
 		}
 
+		// Every error-toned outcome is an alert focused on load, as the hours box prints its own: Airtable's
+		// refusal since the fix wave of 1.123.58, and the rest since its trial (T12). A success is a status.
+		if ( 'error' === $message[0] ) {
+			echo WPCPM_Dashboard_Card::message( 'error', $message[1], 'wpcpm-calls__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+
+			return;
+		}
+
 		printf(
 			'<p class="wpcpm-calls__message wpcpm-calls__message--%1$s" role="status">%2$s</p>',
 			esc_attr( $message[0] ),
@@ -1406,6 +1540,11 @@ class WPCPM_Student_Feedback {
 		$program = WPCPM_Students_Sync::get_program( $student_id );
 		$form    = $forms[ $form_key ];
 
+		// What an earlier refusal of this form kept is dropped first (1.123.58).
+		$kept_form = self::kept_form( $form_key, $student_id );
+
+		WPCPM_Flash::forget( $kept_form );
+
 		$posted = isset( $_POST['feedback'] ) && is_array( $_POST['feedback'] )
 			? wp_unslash( $_POST['feedback'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Every value is validated by type below.
 			: array();
@@ -1413,9 +1552,10 @@ class WPCPM_Student_Feedback {
 		// The permissions box is the student's own, and `user_can_edit()` above is not: it passes
 		// program managers too, and it is right to, because a manager typing up a paper survey on
 		// a student's behalf is a real errand. Consent is the one thing that errand cannot cover.
-		$is_self = self::is_self( $student_id );
-		$cells   = array();
-		$dropped = 0;
+		$is_self  = self::is_self( $student_id );
+		$cells    = array();
+		$dropped  = 0;
+		$problems = array();
 
 		foreach ( $form['fields'] as $name => $spec ) {
 			$key = self::key( $name );
@@ -1443,14 +1583,25 @@ class WPCPM_Student_Feedback {
 				continue;
 			}
 
-			list( $ok, $value ) = self::clean( isset( $posted[ $key ] ) ? $posted[ $key ] : '', $spec );
+			$result = self::clean_result( isset( $posted[ $key ] ) ? $posted[ $key ] : '', $spec );
 
-			if ( $ok ) {
-				$cells[ $name ] = $value;
+			// An answer that cannot be read is named at its field when the form comes back, and the
+			// rest is sent (1.123.58, CARD-02).
+			if ( $result['ok'] ) {
+				$cells[ $name ] = $result['value'];
+			} else {
+				$problems[ $key ] = WPCPM_Student_Report_Form::problem_text( $result['problem'], $spec );
 			}
 		}
 
+		// Every refusal below keeps what was sent, for the form to be drawn from (1.123.58, CARD-01).
+		$keep = static function () use ( $kept_form, $posted, $problems ) {
+			WPCPM_Flash::keep( $kept_form, self::sendable( $posted ), $problems );
+		};
+
 		if ( empty( $cells ) ) {
+			$keep();
+
 			// A post carrying nothing but somebody else's permissions is not an empty form, and
 			// saying "nothing was filled in" would hide the one thing worth knowing about it.
 			self::bounce( $dropped ? 'feedback-not-yours' : 'feedback-nothing', $form_key );
@@ -1460,6 +1611,7 @@ class WPCPM_Student_Feedback {
 		$record = self::record_for( $student, $program, true );
 
 		if ( is_wp_error( $record ) ) {
+			$keep();
 			self::bounce( 'feedback-failed', $form_key );
 		}
 
@@ -1487,7 +1639,13 @@ class WPCPM_Student_Feedback {
 		);
 
 		if ( is_wp_error( $result ) ) {
+			$keep();
 			self::bounce( 'feedback-refused', $form_key );
+		}
+
+		// Sent but for the answers named: they come back as typed, at their fields.
+		if ( array() !== $problems ) {
+			$keep();
 		}
 
 		self::forget( $record );
@@ -1497,7 +1655,11 @@ class WPCPM_Student_Feedback {
 			self::stamp_permissions( $student_id, $form, $cells );
 		}
 
-		self::bounce( $dropped ? 'feedback-not-yours' : 'feedback-saved', $form_key );
+		if ( $dropped ) {
+			self::bounce( 'feedback-not-yours', $form_key );
+		}
+
+		self::bounce( array() !== $problems ? 'feedback-partly' : 'feedback-saved', $form_key );
 	}
 
 	/**
@@ -1583,7 +1745,8 @@ class WPCPM_Student_Feedback {
 	}
 
 	/**
-	 * A submitted answer, in the shape Airtable takes, or a refusal.
+	 * A submitted answer, in the shape Airtable takes, or a refusal with its reason, for the sentence a
+	 * refused answer is named with (1.123.58, CARD-02).
 	 *
 	 * The rules live in `WPCPM_Field_Value`, shared with the Student Report Card form. A field
 	 * with no type is a long answer here, where the report form's is a single line, so the
@@ -1592,18 +1755,37 @@ class WPCPM_Student_Feedback {
 	 *
 	 * @param mixed $raw  Posted value.
 	 * @param array $spec Field spec.
-	 * @return array{0:bool,1:mixed}
+	 * @return array{ok:bool,value:mixed,problem:string}
 	 */
-	private static function clean( $raw, array $spec ) {
+	private static function clean_result( $raw, array $spec ) {
 		if ( ! isset( $spec['type'] ) ) {
 			$spec['type'] = 'textarea';
 		}
 
 		$spec['max_text'] = self::MAX_TEXT;
 
-		$result = WPCPM_Field_Value::clean( $raw, $spec );
+		return WPCPM_Field_Value::clean( $raw, $spec );
+	}
 
-		return array( $result['ok'], $result['value'] );
+	/**
+	 * What was sent, keyed by the form's own keys, as `WPCPM_Flash::keep()` takes it (1.123.58).
+	 *
+	 * @param array $posted Form key => value, unslashed and not cleaned.
+	 * @return array
+	 */
+	private static function sendable( array $posted ) {
+		$values = array();
+
+		foreach ( $posted as $key => $value ) {
+			// A value longer than the store keeps is not kept at all, rather than kept cut.
+			if ( is_string( $value ) && mb_strlen( $value ) > WPCPM_Flash::KEPT_MAX ) {
+				continue;
+			}
+
+			$values[ sanitize_key( (string) $key ) ] = $value;
+		}
+
+		return $values;
 	}
 
 	/**
@@ -1614,6 +1796,7 @@ class WPCPM_Student_Feedback {
 	 */
 	private static function bounce( $status, $form_key = '' ) {
 		WPCPM_Flash::set( 'feedback', $status );
+		WPCPM_Flash::set( 'feedback-form', sanitize_key( (string) $form_key ) );
 
 		$page = WPCPM_Students_Dashboard::page_url();
 		$page = ( '' !== $page ) ? $page : home_url( '/' );
@@ -1640,8 +1823,10 @@ class WPCPM_Student_Feedback {
 	public static function message( $status ) {
 		$messages = array(
 			'feedback-saved'     => array( 'success', __( 'Thank you - your answers have been sent. You can change them at any time.', 'wpcredits-program-manager' ) ),
+			// Sent, but for the answers named at their fields under the summary (1.123.58).
+			'feedback-partly'    => array( 'success', __( 'Your other answers have been sent. The ones marked below need a change.', 'wpcredits-program-manager' ) ),
 			'feedback-nothing'   => array( 'error', __( 'Nothing was filled in, so nothing was sent.', 'wpcredits-program-manager' ) ),
-			'feedback-refused'   => array( 'error', __( 'Airtable would not take your answers. Nothing has been lost - try again in a moment.', 'wpcredits-program-manager' ) ),
+			'feedback-refused'   => array( 'error', __( 'Airtable did not take your answers. They are still in the form below: send it again in a moment.', 'wpcredits-program-manager' ) ),
 			'feedback-failed'    => array( 'error', __( 'Your feedback could not be matched to your program record, so nothing was sent.', 'wpcredits-program-manager' ) ),
 			'feedback-unknown'   => array( 'error', __( 'That form does not exist.', 'wpcredits-program-manager' ) ),
 			// Seen by a manager, and it names the rule rather than the failure: the answers were

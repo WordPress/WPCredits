@@ -94,6 +94,31 @@ class El {
 		delete this.attrs[ name ];
 	}
 
+	// A details element's `open`, which reflects its attribute, as on a page.
+	get open() {
+		return null !== this.getAttribute( 'open' );
+	}
+
+	set open( value ) {
+		if ( value ) {
+			this.attrs.open = '';
+		} else {
+			delete this.attrs.open;
+		}
+	}
+
+	// Where the focus is, as the page's `document.activeElement` says (1.123.58). As in a browser, an
+	// element inside a closed details element is not rendered and takes no focus.
+	focus() {
+		for ( let node = this.parentNode; node; node = node.parentNode ) {
+			if ( 'DETAILS' === node.tagName && ! node.open ) {
+				return;
+			}
+		}
+
+		doc.activeElement = this;
+	}
+
 	addEventListener( type, fn, options ) {
 		const capture = true === options || !! ( options && options.capture );
 
@@ -113,10 +138,10 @@ class El {
 		return out;
 	}
 
-	// Comma lists of `tag[attr][attr="value"]`: all the script's selectors are of that shape.
+	// Comma lists of `tag.class[attr][attr="value"]`: all the script's selectors are of that shape.
 	matches( selector ) {
 		return selector.split( ',' ).map( ( s ) => s.trim() ).some( ( part ) => {
-			const m = part.match( /^([a-z]*)((?:\[[^\]]+\])*)$/i );
+			const m = part.match( /^([a-z]*)((?:\.[a-z0-9_-]+)*)((?:\[[^\]]+\])*)$/i );
 
 			if ( ! m ) {
 				return false;
@@ -126,7 +151,13 @@ class El {
 				return false;
 			}
 
-			return ( m[ 2 ].match( /\[[^\]]+\]/g ) || [] ).every( ( test ) => {
+			const classes = ( this.attrs.class || '' ).split( /\s+/ );
+
+			if ( ! ( m[ 2 ].match( /\.[a-z0-9_-]+/gi ) || [] ).every( ( dot ) => classes.includes( dot.slice( 1 ) ) ) ) {
+				return false;
+			}
+
+			return ( m[ 3 ].match( /\[[^\]]+\]/g ) || [] ).every( ( test ) => {
 				const mm = test.match( /^\[([^=\]]+)(?:="([^"]*)")?\]$/ );
 				const value = this.getAttribute( mm[ 1 ] );
 
@@ -166,6 +197,7 @@ function reset() {
 	registry.length = 0;
 	doc.listeners = [];
 	doc.readyState = 'complete';
+	doc.activeElement = null;
 }
 
 // Run forms.js in a fresh context, as a page that has just loaded it. `state.answer` is what

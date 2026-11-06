@@ -517,7 +517,7 @@ ck(
 
 $refused = WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'Universidad', 'website' => 'uev.edu', 'city' => 'Heredia', 'country' => 'recZZ000000000009', 'contact_email' => 'ana@example.test' ) );
 
-ck( 'a country the map does not offer is refused with the application\'s sentence', $refused['problems'], array( 'country' => 'Please choose one of the options offered.' ) );
+ck( 'a country the map does not offer is refused with the application\'s sentence', $refused['problems'], array( 'country' => 'Choose one of the options offered.' ) );
 ck( 'and is not among the values, which keep the rest', array_keys( $refused['values'] ), array( 'name', 'website', 'city', 'contact_email' ) );
 
 $refused = WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'Universidad', 'website' => 'uev.edu', 'city' => 'Heredia', 'country' => COSTA, 'contact_email' => 'ana at example dot test' ) );
@@ -530,11 +530,11 @@ ck(
 	'a required answer left empty is asked for, as the application asks',
 	$refused['problems'],
 	array(
-		'name'          => 'Please fill this in.',
-		'website'       => 'Please fill this in.',
-		'city'          => 'Please fill this in.',
-		'country'       => 'Please fill this in.',
-		'contact_email' => 'Please fill this in.',
+		'name'          => 'Fill this in.',
+		'website'       => 'Fill this in.',
+		'city'          => 'Fill this in.',
+		'country'       => 'Fill this in.',
+		'contact_email' => 'Fill this in.',
 	)
 );
 ck( 'and keeps no value for them', $refused['values'], array() );
@@ -549,7 +549,7 @@ $refused = WPCPM_Institution_Details::clean( 'now', array( 'contact_person' => '
 ck(
 	'the role and the languages are required in the first group, the languages when none the list offers is ticked',
 	$refused['problems'],
-	array( 'contact_role' => 'Please fill this in.', 'student_languages' => 'Please fill this in.' )
+	array( 'contact_role' => 'Fill this in.', 'student_languages' => 'Fill this in.' )
 );
 
 $base = array( 'contact_person' => 'Ana', 'contact_role' => 'Registrar', 'student_languages' => array( 'English' ) );
@@ -558,23 +558,23 @@ ck( 'who signs, their title and the page are not required when all are left empt
 ck(
 	'a title with nobody named to sign asks for the name',
 	WPCPM_Institution_Details::clean( 'now', $base + array( 'signer_title' => 'Dean' ) )['problems'],
-	array( 'signer_name' => 'Please fill this in.' )
+	array( 'signer_name' => 'Fill this in.' )
 );
 ck(
 	'and a name with no title asks for the title',
 	WPCPM_Institution_Details::clean( 'now', $base + array( 'signer_name' => 'A Signer' ) )['problems'],
-	array( 'signer_title' => 'Please fill this in.' )
+	array( 'signer_title' => 'Fill this in.' )
 );
 
 $refused = WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'Universidad', 'website' => 'javascript:alert(1)', 'city' => 'Heredia', 'country' => COSTA, 'contact_email' => 'ana@example.test' ) );
 
 ck( 'a web address naming a scheme of its own is refused', array_keys( $refused['problems'] ), array( 'website' ) );
-ck( 'and says the answer could not be read', $refused['problems']['website'], 'That answer could not be read. Please try it again.' );
+ck( 'and says what to give, in the form\'s own sentence for it (1.123.58)', $refused['problems']['website'], 'Give a web address starting with https://, or just the domain.' );
 
 $long = 'https://ejemplo.edu/' . str_repeat( 'a', 200 );
 
-ck( 'a website over 200 characters is refused, with the length it may have', WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'U', 'website' => $long, 'city' => 'H', 'country' => COSTA, 'contact_email' => 'ana@example.test' ) )['problems'], array( 'website' => 'Please keep this to 200 characters or fewer.' ) );
-ck( 'and so is the page about WordPress Credits', WPCPM_Institution_Details::clean( 'now', $base + array( 'credits_page' => $long ) )['problems'], array( 'credits_page' => 'Please keep this to 200 characters or fewer.' ) );
+ck( 'a website over 200 characters is refused, with the length it may have', WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'U', 'website' => $long, 'city' => 'H', 'country' => COSTA, 'contact_email' => 'ana@example.test' ) )['problems'], array( 'website' => 'Keep this to 200 characters or fewer.' ) );
+ck( 'and so is the page about WordPress Credits', WPCPM_Institution_Details::clean( 'now', $base + array( 'credits_page' => $long ) )['problems'], array( 'credits_page' => 'Keep this to 200 characters or fewer.' ) );
 
 $only_checked = WPCPM_Institution_Details::clean( 'now', array( 'name' => 'Not mine to change', 'website' => 'x.edu', 'country' => POLAND ) + $base );
 
@@ -946,11 +946,11 @@ echo "\n-- write(): a stored change is cleaned again, as a typed one is --------
 
 foreach (
 	array(
-		'a web address naming a scheme of its own' => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'javascript:alert(1)' ) ), 'Website: That answer could not be read. Please try it again. Nothing was changed.' ),
-		'a web address over 200 characters'        => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'https://ejemplo.edu/' . str_repeat( 'a', 200 ) ) ), 'Website: Please keep this to 200 characters or fewer. Nothing was changed.' ),
-		'a page address over 200 characters'       => array( array( 'credits_page' => array( 'from' => '', 'to' => 'https://ejemplo.edu/' . str_repeat( 'a', 200 ) ) ), 'Page about WordPress Credits: Please keep this to 200 characters or fewer. Nothing was changed.' ),
+		'a web address naming a scheme of its own' => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'javascript:alert(1)' ) ), 'Website: Give a web address starting with https://, or just the domain. Nothing was changed.' ),
+		'a web address over 200 characters'        => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'https://ejemplo.edu/' . str_repeat( 'a', 200 ) ) ), 'Website: Keep this to 200 characters or fewer. Nothing was changed.' ),
+		'a page address over 200 characters'       => array( array( 'credits_page' => array( 'from' => '', 'to' => 'https://ejemplo.edu/' . str_repeat( 'a', 200 ) ) ), 'Page about WordPress Credits: Keep this to 200 characters or fewer. Nothing was changed.' ),
 		'an email that is not one'                 => array( array( 'contact_email' => array( 'from' => 'ana@example.test', 'to' => 'ana at example dot test' ) ), 'Contact\'s email: That does not look like an email address. Nothing was changed.' ),
-		'a country the map does not offer'         => array( array( 'country' => array( 'from' => COSTA, 'to' => 'recZZ000000000009' ) ), 'Country: Please choose one of the options offered. Nothing was changed.' ),
+		'a country the map does not offer'         => array( array( 'country' => array( 'from' => COSTA, 'to' => 'recZZ000000000009' ) ), 'Country: Choose one of the options offered. Nothing was changed.' ),
 	) as $why => $case
 ) {
 	reset_world();

@@ -68,6 +68,9 @@ final class WPCPM_Mentor_Application_Queue {
 	/** The field naming the application a decision is posted for. */
 	const FIELD_APPLICATION = 'wpcpm_mapp_app';
 
+	/** The field the three emailing decisions post the state the row was drawn in. */
+	const FIELD_DRAWN = 'wpcpm_drawn_state';
+
 	/** The field a decision's note is posted in. */
 	const FIELD_NOTE = 'wpcpm_mapp_note';
 
@@ -110,6 +113,14 @@ final class WPCPM_Mentor_Application_Queue {
 
 	/** The mentor invitation's id, which the mail log keeps every one under. */
 	const MAIL_INVITE = 'invite-mentor';
+
+	/**
+	 * The IDs the view listed, oldest first, as the press found them (`begin()`), so an outcome can
+	 * land on the row after the one decided when that row has left the view (`landing()`).
+	 *
+	 * @var int[]
+	 */
+	private static $order = array();
 
 	/**
 	 * Hooks: the ten decisions, for a signed-in Administrator alone (`admin_post_`, never `nopriv`).
@@ -286,6 +297,8 @@ final class WPCPM_Mentor_Application_Queue {
 			self::leave( 'mapp-unknown' );
 		}
 
+		self::$order = self::listed_ids( self::posted_view() );
+
 		if ( ! in_array( WPCPM_Mentor_Application::state_of( $post ), $states, true ) ) {
 			self::leave( 'mapp-state' );
 		}
@@ -323,7 +336,7 @@ final class WPCPM_Mentor_Application_Queue {
 
 		if ( '' !== $refused ) {
 			WPCPM_Typed_Text::keep_box( $form, $key, $typed, self::MAX_NOTE );
-			self::leave( $refused );
+			self::leave( $refused, '', (int) $post->ID, $key );
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- begin() checked the nonce before any handler reads this.
@@ -353,14 +366,16 @@ final class WPCPM_Mentor_Application_Queue {
 
 	/**
 	 * Email the applicant under one id, with their name, the reference and what the email adds, and
-	 * the program's Reply-To; or leave, refused, when the email could not be handed off.
+	 * the program's Reply-To; and say whether it went. It never redirects, so a press may call it
+	 * inside the application's lock (`locked()`).
 	 *
 	 * @param WP_Post $post  The row.
 	 * @param string  $email Where it goes.
 	 * @param string  $id    The email's id.
 	 * @param array   $more  What this email adds to the name and the reference.
+	 * @return bool Whether the email was handed off.
 	 */
-	private static function mail( WP_Post $post, $email, $id, array $more = array() ) {
+	private static function send_mail( WP_Post $post, $email, $id, array $more = array() ) {
 		$values = array_merge(
 			array(
 				'site_name'      => WPCPM_Mail::site_name(),
@@ -374,15 +389,16 @@ final class WPCPM_Mentor_Application_Queue {
 			return WPCPM_Mail_Templates::mail( $id, $values, array( 'headers' => WPCPM_Mentor_Application_Form::reply_headers() ) );
 		};
 
-		if ( ! WPCPM_Mail::send_to( $email, $id, $build ) ) {
-			self::leave( 'mapp-not-sent' );
-		}
+		return WPCPM_Mail::send_to( $email, $id, $build );
 	}
 
 	/**
 	 * Select: the selection email with the mentors' course invitation link, and the row waits for the
 	 * course. From the queue, from a lapsed row whose applicant turned up again, and from a declined
 	 * row whose applicant appealed (design, section 5: "a note and Select on the same row").
+	 *
+	 * The mail and the write run under the application's lock (`locked()`), with the state read again
+	 * there: a row another press decided meanwhile answers `mapp-decided`, and nothing is sent.
 	 */
 	public static function handle_select() {
 		$post  = self::begin( self::ACTION_SELECT, self::select_states() );
@@ -396,38 +412,63 @@ final class WPCPM_Mentor_Application_Queue {
 		$note  = self::note( $post, 'select', false );
 		$email = self::confirmed_address( $post );
 
-		self::mail(
+		self::locked(
 			$post,
-			$email,
-			self::MAIL_SELECTED,
-			array(
-				// The template's course name is optional but shares its sentence with the required link, so a
-				// title an Administrator blanked is the default title, as the template's example has it, never
-				// a hole before the link.
-				'course_name'     => '' !== $title ? $title : 'WordPress Credits Mentor\'s Course',
-				'course_link'     => $link,
-				'program_contact' => WPCPM_Mail_Templates::program_contact(),
-			)
+			static function ( WP_Post $row ) use ( $email, $link, $title, $note ) {
+				if ( self::moved( $row ) || ! in_array( WPCPM_Mentor_Application::state_of( $row ), self::select_states(), true ) ) {
+					return self::decided( $row );
+				}
+
+				$sent = self::send_mail(
+					$row,
+					$email,
+					self::MAIL_SELECTED,
+					array(
+						// The template's course name is optional but shares its sentence with the required link, so a
+						// title an Administrator blanked is the default title, as the template's example has it, never
+						// a hole before the link.
+						'course_name'     => '' !== $title ? $title : 'WordPress Credits Mentor\'s Course',
+						'course_link'     => $link,
+						'program_contact' => WPCPM_Mail_Templates::program_contact(),
+					)
+				);
+
+				if ( ! $sent ) {
+					return 'mapp-not-sent';
+				}
+
+				WPCPM_Mentor_Application::decide( (int) $row->ID, WPCPM_Mentor_Application::STATE_SELECTED, WPCPM_Mentor_Application::EVENT_SELECTED, get_current_user_id(), $note );
+
+				return 'mapp-selected';
+			}
 		);
-
-		WPCPM_Mentor_Application::decide( (int) $post->ID, WPCPM_Mentor_Application::STATE_SELECTED, WPCPM_Mentor_Application::EVENT_SELECTED, get_current_user_id(), $note );
-
-		self::leave( 'mapp-selected' );
 	}
 
 	/**
-	 * Ask for more information: the request goes, and the row stays in the queue, dated.
+	 * Ask for more information: the request goes, and the row stays in the queue, dated. Under the
+	 * application's lock, as Select and Decline are (`locked()`).
 	 */
 	public static function handle_info() {
 		$post  = self::begin( self::ACTION_INFO, WPCPM_Mentor_Application::open_states() );
 		$note  = self::note( $post, 'info', false );
 		$email = self::confirmed_address( $post );
 
-		self::mail( $post, $email, self::MAIL_INFO );
+		self::locked(
+			$post,
+			static function ( WP_Post $row ) use ( $email, $note ) {
+				if ( self::moved( $row ) || ! in_array( WPCPM_Mentor_Application::state_of( $row ), WPCPM_Mentor_Application::open_states(), true ) ) {
+					return self::decided( $row );
+				}
 
-		WPCPM_Mentor_Application::decide( (int) $post->ID, WPCPM_Mentor_Application::STATE_INFO, WPCPM_Mentor_Application::EVENT_INFO, get_current_user_id(), $note );
+				if ( ! self::send_mail( $row, $email, self::MAIL_INFO ) ) {
+					return 'mapp-not-sent';
+				}
 
-		self::leave( 'mapp-info' );
+				WPCPM_Mentor_Application::decide( (int) $row->ID, WPCPM_Mentor_Application::STATE_INFO, WPCPM_Mentor_Application::EVENT_INFO, get_current_user_id(), $note );
+
+				return 'mapp-info';
+			}
+		);
 	}
 
 	/**
@@ -445,17 +486,29 @@ final class WPCPM_Mentor_Application_Queue {
 
 	/**
 	 * Decline: the decline email goes, and the row closes. The note stays on the site and is never sent.
+	 * Under the application's lock, as Select and Ask for more information are (`locked()`).
 	 */
 	public static function handle_decline() {
 		$post  = self::begin( self::ACTION_DECLINE, WPCPM_Mentor_Application::open_states() );
 		$note  = self::note( $post, 'decline', false );
 		$email = self::confirmed_address( $post );
 
-		self::mail( $post, $email, self::MAIL_DECLINED );
+		self::locked(
+			$post,
+			static function ( WP_Post $row ) use ( $email, $note ) {
+				if ( self::moved( $row ) || ! in_array( WPCPM_Mentor_Application::state_of( $row ), WPCPM_Mentor_Application::open_states(), true ) ) {
+					return self::decided( $row );
+				}
 
-		WPCPM_Mentor_Application::decide( (int) $post->ID, WPCPM_Mentor_Application::STATE_DECLINED, WPCPM_Mentor_Application::EVENT_DECLINED, get_current_user_id(), $note );
+				if ( ! self::send_mail( $row, $email, self::MAIL_DECLINED ) ) {
+					return 'mapp-not-sent';
+				}
 
-		self::leave( 'mapp-declined' );
+				WPCPM_Mentor_Application::decide( (int) $row->ID, WPCPM_Mentor_Application::STATE_DECLINED, WPCPM_Mentor_Application::EVENT_DECLINED, get_current_user_id(), $note );
+
+				return 'mapp-declined';
+			}
+		);
 	}
 
 	/**
@@ -497,6 +550,63 @@ final class WPCPM_Mentor_Application_Queue {
 	}
 
 	/**
+	 * Whether the row, read under the lock, is in another state than the one the form was drawn in:
+	 * somebody decided it in between, so an email would follow another one. A form that posts no
+	 * state is not asked.
+	 *
+	 * @param WP_Post $row The row, read under the lock.
+	 * @return bool
+	 */
+	private static function moved( WP_Post $row ) {
+		$drawn = WPCPM_Request::posted_key( self::FIELD_DRAWN, '' );
+
+		return '' !== $drawn && WPCPM_Mentor_Application::state_of( $row ) !== $drawn;
+	}
+
+	/**
+	 * The answer for a press that finds, under the lock, the row no longer in a state it is offered
+	 * from: who decided it, what, and when, in the history's own words. Nothing was sent.
+	 *
+	 * @param WP_Post $row The row, read under the lock.
+	 * @return array{0: string, 1: string} `mapp-decided` and its sentence.
+	 */
+	private static function decided( WP_Post $row ) {
+		$skipped = array(
+			WPCPM_Mentor_Application::EVENT_SUBMITTED,
+			WPCPM_Mentor_Application::EVENT_CONFIRMED,
+			WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED,
+		);
+		$last    = null;
+
+		foreach ( WPCPM_Mentor_Application::events( (int) $row->ID ) as $event ) {
+			if ( ! in_array( $event['event'], $skipped, true ) ) {
+				$last = $event;
+			}
+		}
+
+		$words = self::event_words();
+		$by    = is_array( $last ) && $last['actor'] > 0 ? get_userdata( $last['actor'] ) : null;
+		$name  = $by instanceof WP_User ? $by->display_name : __( 'An Administrator', 'wpcredits-program-manager' );
+		$what  = is_array( $last ) ? ( isset( $words[ $last['event'] ] ) ? $words[ $last['event'] ] : $last['event'] ) : WPCPM_Mentor_Application::state_of( $row );
+		$when  = is_array( $last ) ? wp_date( get_option( 'date_format', 'F j, Y' ) . ' ' . get_option( 'time_format', 'g:i a' ), $last['at'] ) : '';
+
+		if ( '' === $when ) {
+			// A row with no history to read: the state it is in, with no date.
+			return array(
+				'mapp-decided',
+				sprintf(
+					/* translators: 1: the application's reference, 2: its state. */
+					__( '%1$s is already %2$s. Nothing was sent.', 'wpcredits-program-manager' ),
+					WPCPM_Mentor_Application::reference_of( $row ),
+					$what
+				),
+			);
+		}
+
+		return array( 'mapp-decided', sprintf( self::messages()['mapp-decided'][1], $name, $what, $when ) );
+	}
+
+	/**
 	 * Do a press's work under the application's lock (`WPCPM_Mentor_Application::lock_name()`,
 	 * through `WPCPM_Lock`), the one the activation, its retry, settling and the lapse clock take, so
 	 * one of them at a time works on the row (1.122.33). Once the lock is held, the row's meta is
@@ -506,7 +616,8 @@ final class WPCPM_Mentor_Application_Queue {
 	 * redirect ends the request, and `exit` runs no `finally`.
 	 *
 	 * @param WP_Post  $post The row.
-	 * @param callable $work Given the row, answers a key of `messages()`.
+	 * @param callable $work Given the row, answers a key of `messages()`, or that key and the
+	 *                       press's own sentence for it.
 	 */
 	private static function locked( WP_Post $post, callable $work ) {
 		$lock  = WPCPM_Mentor_Application::lock_name( (int) $post->ID );
@@ -519,12 +630,16 @@ final class WPCPM_Mentor_Application_Queue {
 		try {
 			WPCPM_Mentor_Application::forget_cached( (int) $post->ID );
 
-			$status = (string) call_user_func( $work, $post );
+			$answer = call_user_func( $work, $post );
 		} finally {
 			WPCPM_Lock::release( $lock, $token );
 		}
 
-		self::leave( $status );
+		if ( is_array( $answer ) ) {
+			self::leave( (string) $answer[0], isset( $answer[1] ) ? (string) $answer[1] : '' );
+		}
+
+		self::leave( (string) $answer );
 	}
 
 	/**
@@ -747,28 +862,123 @@ final class WPCPM_Mentor_Application_Queue {
 	}
 
 	/**
-	 * Back to the tab with a one-shot outcome, at the view the press was made on, and, where the step
-	 * pressed worded its own sentence for it, that sentence beside it, tagged with the outcome
-	 * (`notices()`). Every press writes the second channel, empty when it carries nothing, so a
+	 * The view a press was made on: the one it posted, or the queue.
+	 *
+	 * @return string A key of `views()`.
+	 */
+	private static function posted_view() {
+		$view = WPCPM_Request::posted_key( self::VIEW_ARG, 'waiting' );
+
+		return isset( self::views()[ $view ] ) ? $view : 'waiting';
+	}
+
+	/**
+	 * The IDs a view lists, in the order it draws them.
+	 *
+	 * @param string $view A key of `views()`.
+	 * @return int[]
+	 */
+	private static function listed_ids( $view ) {
+		$rows = 'active' === $view
+			? WPCPM_Mentor_Activation::activated_posts( self::QUEUE_MAX )
+			: WPCPM_Mentor_Application::applications( self::views()[ $view ]['states'], self::QUEUE_MAX );
+
+		return array_values(
+			array_map(
+				static function ( $post ) {
+					return (int) $post->ID;
+				},
+				(array) $rows
+			)
+		);
+	}
+
+	/**
+	 * The row an outcome lands on: the one decided while the view still lists it, else the next row
+	 * the view listed when the press began and still lists, else none (the view's top).
+	 *
+	 * @param int    $id   The application the press was for.
+	 * @param string $view The view it was made on.
+	 * @return int The row's ID, or 0.
+	 */
+	private static function landing( $id, $view ) {
+		$at = array_search( $id, self::$order, true );
+
+		if ( false === $at && null === WPCPM_Mentor_Application::application( $id ) ) {
+			return 0;
+		}
+
+		$states = self::views()[ $view ]['states'];
+		$ahead  = false === $at ? array( $id ) : array_merge( array( $id ), array_slice( self::$order, $at + 1 ) );
+
+		foreach ( $ahead as $candidate ) {
+			$row = WPCPM_Mentor_Application::application( $candidate );
+
+			if ( $row instanceof WP_Post && in_array( WPCPM_Mentor_Application::state_of( $row ), $states, true ) ) {
+				return (int) $candidate;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Back to the tab with a one-shot outcome, at the view the press was made on and the row it
+	 * concerns, and with what names the applicant (the name and the reference, which `notices()` puts
+	 * before the outcome's sentence) and, where the step pressed worded its own sentence for the
+	 * outcome, that sentence, all tagged with the outcome. Every press writes the second channel, so a
 	 * sentence a redirect nobody followed left behind is never printed under a later press.
 	 *
 	 * @param string $status  A key of `messages()`.
 	 * @param string $message The step's own sentence for it, or ''.
+	 * @param int    $land    The row to land on, or 0 for the row decided while the view lists it,
+	 *                        else the next one it lists, else the view's top.
+	 * @param string $box     The decision's note box that was refused, or ''.
 	 */
-	private static function leave( $status, $message = '' ) {
-		$view    = WPCPM_Request::posted_key( self::VIEW_ARG, 'waiting' );
+	private static function leave( $status, $message = '', $land = 0, $box = '' ) {
+		$view    = self::posted_view();
 		$message = trim( (string) $message );
+		$id      = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+		$post    = $id > 0 ? WPCPM_Mentor_Application::application( $id ) : null;
+		$land    = $land > 0 ? (int) $land : ( $id > 0 ? self::landing( $id, $view ) : 0 );
+		$detail  = array(
+			'status'  => (string) $status,
+			'message' => $message,
+		);
+
+		if ( $post instanceof WP_Post ) {
+			$name                = WPCPM_Mentor_Application::name_of( $post );
+			$detail['who']       = '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' );
+			$detail['reference'] = WPCPM_Mentor_Application::reference_of( $post );
+			$detail['id']        = (int) $post->ID;
+			$detail['box']       = (string) $box;
+		}
 
 		WPCPM_Flash::set( self::FLASH, $status );
-		WPCPM_Flash::set(
-			self::FLASH_MESSAGE,
-			'' === $message ? '' : array(
-				'status'  => (string) $status,
-				'message' => $message,
-			)
-		);
-		wp_safe_redirect( self::view_url( isset( self::views()[ $view ] ) ? $view : 'waiting' ) );
+		WPCPM_Flash::set( self::FLASH_MESSAGE, $detail );
+		wp_safe_redirect( self::view_url( $view ) . ( $land > 0 ? '#wpcpm-mentor-application-' . $land : '' ) );
 		exit;
+	}
+
+	/**
+	 * The sentence a refused note is marked with at its box, when the last press was a refusal of
+	 * this row's box of this decision, or ''. Read from what the press carried, which is the notice's
+	 * too (`notices()`), and which `WPCPM_Flash::take()` hands to both.
+	 *
+	 * @param WP_Post $post The row.
+	 * @param string  $key  The decision's box.
+	 * @return string
+	 */
+	private static function refusal( WP_Post $post, $key ) {
+		$carried = WPCPM_Flash::take( self::FLASH_MESSAGE );
+
+		if ( ! is_array( $carried ) || ! isset( $carried['id'], $carried['box'], $carried['status'] ) || (int) $carried['id'] !== (int) $post->ID || (string) $carried['box'] !== $key ) {
+			return '';
+		}
+
+		$messages = self::messages();
+
+		return isset( $messages[ (string) $carried['status'] ] ) ? (string) $messages[ (string) $carried['status'] ][1] : '';
 	}
 
 	/**
@@ -786,8 +996,23 @@ final class WPCPM_Mentor_Application_Queue {
 		$messages = self::messages();
 		$carried  = WPCPM_Flash::take( self::FLASH_MESSAGE );
 
-		if ( is_array( $carried ) && isset( $carried['status'], $carried['message'], $messages[ (string) $carried['status'] ] ) && '' !== trim( (string) $carried['message'] ) ) {
-			$messages[ (string) $carried['status'] ][1] = (string) $carried['message'];
+		if ( is_array( $carried ) && isset( $carried['status'], $messages[ (string) $carried['status'] ] ) ) {
+			$status = (string) $carried['status'];
+
+			if ( isset( $carried['message'] ) && '' !== trim( (string) $carried['message'] ) ) {
+				$messages[ $status ][1] = (string) $carried['message'];
+			}
+
+			// Every outcome names the applicant and the reference before what was done.
+			if ( isset( $carried['who'], $carried['reference'] ) && '' !== (string) $carried['reference'] ) {
+				$messages[ $status ][1] = sprintf(
+					/* translators: 1: the applicant's name, 2: the application's reference, such as MAPP-2026-0007, 3: what was done, the outcome's own sentence. */
+					__( '%1$s (%2$s): %3$s', 'wpcredits-program-manager' ),
+					(string) $carried['who'],
+					(string) $carried['reference'],
+					$messages[ $status ][1]
+				);
+			}
 		}
 
 		return $messages;
@@ -858,6 +1083,8 @@ final class WPCPM_Mentor_Application_Queue {
 			'mapp-withdrawn'      => array( 'success', __( 'The application is withdrawn and listed under Lapsed, with your note. Nothing was sent to the applicant, and Select is offered there if they come back.', 'wpcredits-program-manager' ) ),
 			'mapp-reopened'       => array( 'success', __( 'The application is back in the queue, under Waiting. Nothing was sent to the address on it.', 'wpcredits-program-manager' ) ),
 			'mapp-reopened-sent'  => array( 'success', __( 'The application is back in the queue, under Waiting, and the acknowledgement it never had is sent, with the link that confirms the address.', 'wpcredits-program-manager' ) ),
+			/* translators: 1: the Administrator's display name, 2: the decision as the history prints it, such as "selected", 3: the date and time in the site's formats. */
+			'mapp-decided'        => array( 'warning', __( '%1$s already decided this application: %2$s, on %3$s. Nothing was sent.', 'wpcredits-program-manager' ) ),
 			'mapp-unknown'        => array( 'error', __( 'There is no mentor application with that ID.', 'wpcredits-program-manager' ) ),
 			'mapp-state'          => array( 'error', __( 'That application is not in a state this decision applies to. Reload the page to see where it got to.', 'wpcredits-program-manager' ) ),
 			'mapp-unconfirmed'    => array( 'error', __( 'Nothing was sent. The applicant has not confirmed the address with the link in the acknowledgement, and a decision that emails them waits until they have. If they never do, Mark as spam closes the application without writing to anyone.', 'wpcredits-program-manager' ) ),
@@ -1710,10 +1937,12 @@ final class WPCPM_Mentor_Application_Queue {
 				$view,
 				array(
 					'action'  => self::ACTION_SELECT,
+					'drawn'   => $state,
 					'label'   => __( 'Select', 'wpcredits-program-manager' ),
 					'class'   => 'button button-primary',
 					'note'    => __( 'A note for the next Administrator, optional. It is never sent.', 'wpcredits-program-manager' ),
 					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'select' ),
+					'refused' => self::refusal( $post, 'select' ),
 					'confirm' => sprintf(
 						/* translators: %s: the applicant's name. */
 						__( 'Select %s and send the selection email with the mentors\' course invitation link?', 'wpcredits-program-manager' ),
@@ -1728,21 +1957,24 @@ final class WPCPM_Mentor_Application_Queue {
 				$post,
 				$view,
 				array(
-					'action' => self::ACTION_INFO,
-					'label'  => __( 'Ask for more information', 'wpcredits-program-manager' ),
-					'note'   => __( 'What you are asking about, for the next Administrator, optional. The email is the template\'s; this is never sent.', 'wpcredits-program-manager' ),
-					'kept'   => WPCPM_Typed_Text::kept_box( $kept, 'info' ),
+					'action'  => self::ACTION_INFO,
+					'drawn'   => $state,
+					'label'   => __( 'Ask for more information', 'wpcredits-program-manager' ),
+					'note'    => __( 'What you are asking about, for the next Administrator, optional. The email is the template\'s; this is never sent.', 'wpcredits-program-manager' ),
+					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'info' ),
+					'refused' => self::refusal( $post, 'info' ),
 				)
 			);
 			self::render_form(
 				$post,
 				$view,
 				array(
-					'action' => self::ACTION_SECOND,
-					'label'  => __( 'Second opinion', 'wpcredits-program-manager' ),
-					'note'   => __( 'What a colleague should look at. Needed; nothing is sent to the applicant.', 'wpcredits-program-manager' ),
-					'needed' => true,
-					'kept'   => WPCPM_Typed_Text::kept_box( $kept, 'second' ),
+					'action'  => self::ACTION_SECOND,
+					'label'   => __( 'Second opinion', 'wpcredits-program-manager' ),
+					'note'    => __( 'What a colleague should look at. Needed; nothing is sent to the applicant.', 'wpcredits-program-manager' ),
+					'needed'  => true,
+					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'second' ),
+					'refused' => self::refusal( $post, 'second' ),
 				)
 			);
 			self::render_form(
@@ -1750,9 +1982,11 @@ final class WPCPM_Mentor_Application_Queue {
 				$view,
 				array(
 					'action'  => self::ACTION_DECLINE,
+					'drawn'   => $state,
 					'label'   => __( 'Decline', 'wpcredits-program-manager' ),
 					'note'    => __( 'Why, for the next Administrator, optional. It is never sent.', 'wpcredits-program-manager' ),
 					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'decline' ),
+					'refused' => self::refusal( $post, 'decline' ),
 					'confirm' => sprintf(
 						/* translators: %s: the applicant's name. */
 						__( 'Decline the application from %s and send the decline email?', 'wpcredits-program-manager' ),
@@ -1798,6 +2032,7 @@ final class WPCPM_Mentor_Application_Queue {
 					'class'   => 'button button-primary',
 					'note'    => __( 'How you know, for the next Administrator, optional. It is never sent.', 'wpcredits-program-manager' ),
 					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'complete' ),
+					'refused' => self::refusal( $post, 'complete' ),
 					'confirm' => sprintf(
 						/* translators: %s: the applicant's name. */
 						__( 'Make %s a mentor now? It makes or links their account, writes or reactivates their Airtable row, and queues the invitation with the welcome unless the account must be confirmed first or is an Administrator\'s. If Airtable refuses the row, they are a mentor all the same. An applicant who is a mentor already is only filed as one.', 'wpcredits-program-manager' ),
@@ -1828,6 +2063,7 @@ final class WPCPM_Mentor_Application_Queue {
 					'note'    => __( 'Why: what the applicant wrote. Needed; nothing is sent to them.', 'wpcredits-program-manager' ),
 					'needed'  => true,
 					'kept'    => WPCPM_Typed_Text::kept_box( $kept, 'withdraw' ),
+					'refused' => self::refusal( $post, 'withdraw' ),
 					'confirm' => sprintf(
 						/* translators: %s: the applicant's name. */
 						__( 'Withdraw %s? The application moves to Lapsed and nothing is sent.', 'wpcredits-program-manager' ),
@@ -1845,7 +2081,9 @@ final class WPCPM_Mentor_Application_Queue {
 	 * @param WP_Post $post The row.
 	 * @param string  $view The view to come back to.
 	 * @param array   $args `action`, `label`, `class`, `note` (the box's label, or '' for no box),
-	 *                      `needed`, `kept` (a refused press's typing, or null) and `confirm`.
+	 *                      `needed`, `kept` (a refused press's typing, or null), `drawn` (the state
+	 *                      the row was drawn in, or ''), `refused` (the sentence the box was refused
+	 *                      with, or '') and `confirm`.
 	 */
 	private static function render_form( WP_Post $post, $view, array $args ) {
 		$args = array_merge(
@@ -1856,6 +2094,8 @@ final class WPCPM_Mentor_Application_Queue {
 				'note'    => '',
 				'needed'  => false,
 				'kept'    => null,
+				'refused' => '',
+				'drawn'   => '',
 				'confirm' => '',
 			),
 			$args
@@ -1869,13 +2109,18 @@ final class WPCPM_Mentor_Application_Queue {
 			'' !== $args['confirm'] ? ' data-wpcpm-confirm="' . esc_attr( $args['confirm'] ) . '"' : ''
 		);
 		wp_nonce_field( $args['action'] . '_' . (int) $post->ID );
+
+		if ( '' !== $args['drawn'] ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_DRAWN ), esc_attr( $args['drawn'] ) );
+		}
+
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
 		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_APPLICATION ), (int) $post->ID );
 		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::VIEW_ARG ), esc_attr( $view ) );
 
 		if ( '' !== $args['note'] ) {
 			printf(
-				'<p class="wpcpm-app-action__note"><label for="%1$s">%2$s</label><br /><textarea id="%1$s" name="%3$s" rows="2" maxlength="%4$d"%5$s>%6$s</textarea></p>',
+				'<p class="wpcpm-app-action__note"><label for="%1$s">%2$s</label><br /><textarea id="%1$s" name="%3$s" rows="2" maxlength="%4$d"%5$s%7$s>%6$s</textarea>%8$s</p>',
 				esc_attr( $box ),
 				esc_html( $args['note'] ),
 				esc_attr( self::FIELD_NOTE ),
@@ -1883,7 +2128,9 @@ final class WPCPM_Mentor_Application_Queue {
 				$args['needed'] ? ' minlength="' . (int) self::MIN_NOTE . '" required="required"' : '',
 				// The parser drops one line feed right after the opening tag, so kept typing that
 				// begins with a line break keeps it.
-				is_string( $args['kept'] ) ? "\n" . esc_textarea( $args['kept'] ) : ''
+				is_string( $args['kept'] ) ? "\n" . esc_textarea( $args['kept'] ) : '',
+				WPCPM_Form_Errors::attrs( $box, $args['refused'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
+				WPCPM_Form_Errors::problem( $box, $args['refused'] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 			);
 		}
 

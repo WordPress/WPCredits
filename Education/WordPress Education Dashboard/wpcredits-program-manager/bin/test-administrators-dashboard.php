@@ -181,6 +181,7 @@ function esc_url_raw( $s ) { return (string) $s; }
 function wp_kses( $s, $allowed ) { return (string) $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 /*
@@ -2584,7 +2585,7 @@ ck( 'the manager gets the page with the title', has( $out, 'class="wpcpm-dashboa
 // words and the strip, and nowhere else.
 $intro = '<p class="wpcpm-dashboard__intro">Everything waiting for an Administrator, what to watch, and the program&#039;s numbers, read from the site and Airtable.</p>';
 ck( 'one sentence under the title says what the page is, before the last decision\'s words and the strip, once', array(
-	has( $out, '<h2 class="wpcpm-dashboard__title">Today</h2>' . $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success">' ),
+	has( $out, '<h2 class="wpcpm-dashboard__title">Today</h2>' . $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>' ),
 	before_in( $out, $intro, 'id="wpcpm-attention"' ),
 	substr_count( $out, 'wpcpm-dashboard__intro' ),
 ), array( true, true, 1 ) );
@@ -2648,9 +2649,9 @@ ck( 'and the dashboards\' opener, enqueued through the shell both pages share', 
 // reviews) cannot make an earlier check read the wrong count.
 $GLOBALS['flash'] = array( 'institution_report' => array( 'status' => 'refused' ) );
 $out_report_flash = WPCPM_Administrators_Dashboard::render( array() );
-ck( 'render_messages() also prints a refusal flashed on the report screen\'s channel, with its class', has( $out_report_flash, 'That is not something you can do here.' ) && has( $out_report_flash, 'wpcpm-dashboard__message--error wpcpm-dashboard__message--refused' ), true );
+ck( 'render_messages() also prints a refusal flashed on the report screen\'s channel, with its class', has( $out_report_flash, 'That is not something you can do here.' ) && has( $out_report_flash, 'wpcpm-dashboard__message--error is-error" role="alert"' ), true );
 ck( 'and that channel is taken too, so it shows once', isset( $GLOBALS['flash']['institution_report'] ), false );
-ck( 'with no title the sentence opens the page, the refusal right under it', has( $out_report_flash, '<div class="wpcpm-dashboard wpcpm-administrator">' . $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error wpcpm-dashboard__message--refused">' ), true );
+ck( 'with no title the sentence opens the page, the refusal right under it', has( $out_report_flash, '<div class="wpcpm-dashboard wpcpm-administrator">' . $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' ), true );
 // A refused Draft now on the Sponsor reports card (1.115.0) comes back here on the institutions
 // channel, and prints in the Sponsors screen's own words for it, in the error tone.
 $GLOBALS['flash']      = array( 'institutions' => 'sreport-exists' );
@@ -2658,8 +2659,8 @@ $out_sreport_flash     = WPCPM_Administrators_Dashboard::render( array() );
 $GLOBALS['flash']      = array( 'institutions' => 'sreport-no-tier' );
 $out_sreport_flash_two = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a refused Draft now prints the Sponsors screen\'s sentence for it, in the error tone, and a sentence that holds here too: this page has no Reports card to send a manager to', array(
-	has( $out_sreport_flash, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error">' . esc_html( WPCPM_Sponsor_Report_Screen::messages()['sreport-exists'][1] ) . '</p>' ),
-	has( $out_sreport_flash_two, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error">' . esc_html( WPCPM_Sponsor_Report_Screen::messages()['sreport-no-tier'][1] ) . '</p>' ),
+	has( $out_sreport_flash, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' . esc_html( WPCPM_Sponsor_Report_Screen::messages()['sreport-exists'][1] ) . '</p>' ),
+	has( $out_sreport_flash_two, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' . esc_html( WPCPM_Sponsor_Report_Screen::messages()['sreport-no-tier'][1] ) . '</p>' ),
 	has( $out_sreport_flash, 'Reports card' ),
 ), array( true, true, false ) );
 
@@ -3608,6 +3609,51 @@ echo "\n=== An institution's agreement and a company's each read their own words
 
 // The institution agreement and the sponsor agreement word their outcomes for their own audiences
 // under the same keys, `agreement-returned`, `agreement-note` and fifteen more, and every decision
+// The outcome of a decision is printed inside the card it came from (SDB-02, 1.123.58).
+$card_of = static function ( $html, $id ) {
+	$from = strpos( (string) $html, 'id="' . $id . '"' );
+	$card = false === $from ? '' : substr( (string) $html, $from );
+	$end  = strpos( $card, '</details>' );
+
+	return false === $end ? $card : substr( $card, 0, $end );
+};
+$_POST            = array( WPCPM_Return::FIELD => 'dashboard', WPCPM_Return::ANCHOR_FIELD => 'reports' );
+WPCPM_Return::url( 'https://example.test/wp-admin/' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'sevent-approved' );
+$in_card = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'a decision posted from a card comes back with its sentence inside that card, as a status',
+	array( has( $card_of( $in_card, 'wpcpm-reports' ), 'role="status" tabindex="-1" data-wpcpm-card-message>The event is approved.</p>' ), substr_count( $in_card, 'data-wpcpm-card-message' ) ),
+	array( true, 1 ) );
+$_POST = array( WPCPM_Return::FIELD => 'dashboard', WPCPM_Return::ANCHOR_FIELD => 'reports' );
+WPCPM_Return::url( 'https://example.test/wp-admin/' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'sevent-note-empty' );
+$in_card = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'a refused decision is an alert in its card', array( has( $card_of( $in_card, 'wpcpm-reports' ), 'role="alert"' ), substr_count( $in_card, 'data-wpcpm-card-message' ) ), array( true, 1 ) );
+$_POST = array( WPCPM_Return::FIELD => 'dashboard', WPCPM_Return::ANCHOR_FIELD => 'reports' );
+WPCPM_Return::url( 'https://example.test/wp-admin/' );
+$GLOBALS['flash']['institution_report'] = array( 'status' => 'refused' );
+$in_card = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'a refused Draft now from the report screen is said in the card it came from', array( has( $card_of( $in_card, 'wpcpm-reports' ), 'That is not something you can do here.' ), has( $card_of( $in_card, 'wpcpm-reports' ), 'role="alert"' ), substr_count( $in_card, 'data-wpcpm-card-message' ) ), array( true, true, 1 ) );
+// A refused Draft now that came back with a decision held already (the fix wave of 1.123.58): both
+// are said, the refusal after the decision, where before the outcomes moved into the cards both
+// paragraphs printed.
+$_POST = array( WPCPM_Return::FIELD => 'dashboard', WPCPM_Return::ANCHOR_FIELD => 'reports' );
+WPCPM_Return::url( 'https://example.test/wp-admin/' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'sevent-approved' );
+$GLOBALS['flash']['institution_report'] = array( 'status' => 'refused' );
+$beside                                 = WPCPM_Administrators_Dashboard::render( array() );
+$beside_card                            = $card_of( $beside, 'wpcpm-reports' );
+$decision_at                            = strpos( $beside_card, 'role="status" tabindex="-1" data-wpcpm-card-message>The event is approved.</p>' );
+$refusal_at                             = strpos( $beside_card, 'role="alert" tabindex="-1" data-wpcpm-card-message>That is not something you can do here.</p>' );
+ck( 'a refused Draft now is said beside a held decision',
+	array( false !== $decision_at, false !== $refusal_at && false !== $decision_at && $refusal_at > $decision_at, substr_count( $beside, 'data-wpcpm-card-message' ), isset( $GLOBALS['flash']['institution_report'] ) ),
+	array( true, true, 2, false ) );
+$_POST            = array();
+$GLOBALS['flash'] = array( 'institutions' => 'sevent-approved' );
+$no_card          = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'an outcome with no card is said under the intro line, where it was', has( $no_card, $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status"' ), true );
+$GLOBALS['flash'] = array();
+
 // this page posts flashes on the Institutions screen's channel. Merged under one key, the map the
 // page prints from told an institution's Administrator what the company was told. So the sponsor
 // agreement flashes its outcomes here under its own prefix, and the page reads its sentences under
@@ -3616,7 +3662,7 @@ echo "\n=== An institution's agreement and a company's each read their own words
 // and since 1.123.29 one of their questions is "Their role at the institution".
 $said_for = static function ( $status ) {
 	$GLOBALS['flash'] = array( 'institutions' => $status );
-	preg_match_all( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--[a-z]+">(.*?)</p>#s', WPCPM_Administrators_Dashboard::render( array() ), $said );
+	preg_match_all( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--[a-z]+ is-[a-z]+" role="[a-z]+" tabindex="-1" data-wpcpm-card-message>(.*?)</p>#s', WPCPM_Administrators_Dashboard::render( array() ), $said );
 	return implode( "\n", $said[1] );
 };
 $institution_returned = $said_for( 'agreement-returned' );
@@ -4222,8 +4268,8 @@ $se_said          = WPCPM_Administrators_Dashboard::render( array() );
 $GLOBALS['flash'] = array( 'institutions' => 'sevent-note-empty' );
 $se_refused       = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a decision on the card comes back with its sentence in the queue\'s words, in its tone', array(
-	has( $se_said, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success">The event is approved.</p>' ),
-	has( $se_refused, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error">Nothing was changed. Write a note for the sponsor: it is the whole of what the sponsor is told.</p>' ),
+	has( $se_said, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The event is approved.</p>' ),
+	has( $se_refused, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Nothing was changed. Write a note for the sponsor: it is the whole of what the sponsor is told.</p>' ),
 ), array( true, true ) );
 
 /* ---- each link to wp-admin names its card for a screen reader ------------ */

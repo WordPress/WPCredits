@@ -238,6 +238,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, and the settings screen with its own save handler,
 // pressed for real in the BUILDER-3 section below.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 // The track rules, whose comparison of a status with the past statuses the "Past students" section
@@ -645,12 +646,12 @@ $blank = WPCPM_Settings::save( array( 'checker_slack_webhook' => '' ), 'tool:men
 ck( 'posting the mask back, or nothing, keeps it', array( $saved['checker_slack_webhook'], $blank['checker_slack_webhook'] ), array( $hook, $hook ) );
 
 $refused = WPCPM_Settings::save( array( 'checker_slack_webhook' => 'https://example.test/services/T0/B0/x' ), 'tool:mentor-status-checker' );
-ck( 'an address that is not a Slack incoming webhook is refused: the one saved stays, and the screen is told',
-    array( $refused['checker_slack_webhook'], WPCPM_Flash::take( 'checker-webhook-refused' ) ), array( $hook, true ) );
+ck( 'an address that is not a Slack incoming webhook is refused: the one saved stays, and the sentence says why',
+    array( $refused['checker_slack_webhook'], WPCPM_Settings::last_refused() ), array( $hook, array( 'checker_slack_webhook' => 'Give the address Slack showed when the incoming webhook was made, or type remove to clear it. The webhook saved before was kept.' ) ) );
 
 $listed = WPCPM_Settings::save( array( 'checker_slack_webhook' => array( $hook . 'x' ) ), 'tool:mentor-status-checker' );
 ck( 'a webhook posted as a list, which no form of the plugin\'s sends, is refused like any other bad value rather than ending the save',
-    array( $listed['checker_slack_webhook'], WPCPM_Flash::take( 'checker-webhook-refused' ) ), array( $hook, true ) );
+    array( $listed['checker_slack_webhook'], array_keys( WPCPM_Settings::last_refused() ) ), array( $hook, array( 'checker_slack_webhook' ) ) );
 
 $removed = WPCPM_Settings::save( array( 'checker_slack_webhook' => 'Remove' ), 'tool:mentor-status-checker' );
 ck( 'the word remove takes it away, and then there is no mask to show',
@@ -664,8 +665,9 @@ ck( 'the channel the message names is saved as typed, trimmed', $channel['checke
 // is told why.
 $contact = WPCPM_Settings::save( array( 'mail_contact' => ' programs@example.test ' ), 'tool:emails' );
 $typo    = WPCPM_Settings::save( array( 'mail_contact' => 'programs@' ), 'tool:emails' );
-ck( 'the contact address in emails is saved trimmed, and one that is not an address is refused: the one saved stays, and the tab is told',
-    array( $contact['mail_contact'], $typo['mail_contact'], WPCPM_Flash::take( 'emails-contact-refused' ) ), array( 'programs@example.test', 'programs@example.test', true ) );
+ck( 'the contact address in emails is saved trimmed, and one that is not an address is refused: the one saved stays, and the sentence says why; the old notice flash is gone',
+    array( $contact['mail_contact'], $typo['mail_contact'], WPCPM_Settings::last_refused(), WPCPM_Flash::take( 'emails-contact-refused' ) ),
+    array( 'programs@example.test', 'programs@example.test', array( 'mail_contact' => 'Enter one email address, such as program@example.org, or leave the box empty to name none. The address saved before was kept.' ), '' ) );
 ck( 'and a blank one clears it', WPCPM_Settings::save( array( 'mail_contact' => '' ), 'tool:emails' )['mail_contact'], '' );
 
 // Only providers the plugin can actually talk to.
@@ -737,17 +739,46 @@ foreach ( $ranges as $key => $range ) {
 	ck( sprintf( '%s accepts its floor', $key ), array( $saved[ $key ] ), array( $range[0] ) );
 }
 
-// The notify list: commas or newlines, valid addresses kept once, everything else dropped.
+// The notify list: commas or newlines, valid addresses kept once; an entry that is no address refuses
+// the list, which keeps what was stored and says which entries (SET-02, 1.123.58).
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => "one@example.org,\ntwo@example.org, one@example.org\n\n  three@example.org  " ) );
+ck( 'agreement_notify keeps the addresses, each once, in the order typed',
+    array( $saved['agreement_notify'], WPCPM_Settings::last_refused() ), array( 'one@example.org,two@example.org,three@example.org', array() ) );
+
 $saved = WPCPM_Settings::save(
 	array(
 		'agreement_notify' => "one@example.org, not-an-address\ntwo@example.org,name@\n@example.org, one@example.org\n\n  three@example.org  ",
 	)
 );
-ck( 'agreement_notify keeps the addresses and drops the junk',
-    array( $saved['agreement_notify'] ), array( 'one@example.org,two@example.org,three@example.org' ) );
+ck( 'and refuses a list with an entry that is no address: the stored list stays, and the sentence names each wrong entry as typed',
+    array( $saved['agreement_notify'], WPCPM_Settings::last_refused() ),
+    array( 'one@example.org,two@example.org,three@example.org', array( 'agreement_notify' => '"not-an-address", "name@", "@example.org" are not email addresses, so the list was not saved. Correct them or remove them, then save again.' ) ) );
 
-$saved = WPCPM_Settings::save( array( 'agreement_notify' => "nothing here\njavascript:alert(1)" ) );
-ck( 'and is empty when nothing valid was typed', array( $saved['agreement_notify'] ), array( '' ) );
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => "nothing\njavascript:alert(1) one@example.org" ) );
+ck( 'two wrong entries are each named, in quotes', WPCPM_Settings::last_refused(), array( 'agreement_notify' => '"nothing", "javascript:alert(1)" are not email addresses, so the list was not saved. Correct them or remove them, then save again.' ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => 'one@example.org, typo@' ) );
+ck( 'and a single wrong entry in the singular', WPCPM_Settings::last_refused(), array( 'agreement_notify' => '"typo@" is not an email address, so the list was not saved. Correct it or remove it, then save again.' ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => '' ) );
+ck( 'a list the save would empty is refused too, unless its box says every Administrator account',
+    array( $saved['agreement_notify'], WPCPM_Settings::last_refused() ),
+    array( 'one@example.org,two@example.org,three@example.org', array( 'agreement_notify' => 'Name at least one address, or tick the box above to mail every Administrator account.' ) ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => 'kept-below@example.org', 'agreement_notify' . WPCPM_Settings::EVERYONE_SUFFIX => true ) );
+ck( 'the box "Mail every Administrator account instead of the people below" writes the list empty, whatever the list below it holds, and refuses nothing',
+    array( $saved['agreement_notify'], WPCPM_Settings::last_refused() ), array( '', array() ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => 'not-an-address', 'agreement_notify' . WPCPM_Settings::EVERYONE_SUFFIX => true ) );
+ck( 'and with the box ticked a list that is no address is not read at all', array( $saved['agreement_notify'], WPCPM_Settings::last_refused() ), array( '', array() ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => '' ) );
+ck( 'an empty list with the box unticked is refused even when the stored list is empty, the stored list kept', array( $saved['agreement_notify'], array_keys( WPCPM_Settings::last_refused() ) ), array( '', array( 'agreement_notify' ) ) );
+
+$saved = WPCPM_Settings::patch( array( 'report_notify' => '', 'report_notify' . WPCPM_Settings::EVERYONE_SUFFIX => true ) );
+ck( 'a patch carrying the box writes the list empty, as wp wpcredits setting set <key> everyone does', array( $saved['report_notify'], WPCPM_Settings::last_refused() ), array( '', array() ) );
+
+WPCPM_Settings::save( array( 'agreement_notify' => "one@example.org,\ntwo@example.org,three@example.org" ) );
 
 $saved = WPCPM_Settings::save( array( 'agreement_notify' => 'kept@example.org' ) );
 $saved = WPCPM_Settings::save( array( 'base_id' => 'appPROBE0000000003' ) );
@@ -1061,7 +1092,9 @@ ck( 'the three report settings and their defaults', array( $defaults['report_aut
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 $saved = WPCPM_Settings::save( array( 'report_autodraft_grace_days' => '2', 'report_notify' => "one@example.org, junk\nadministrator@example.test" ) );
 ck( 'the grace has a floor of a week', $saved['report_autodraft_grace_days'], 7 );
-ck( 'the addresses are cleaned like the agreement ones', $saved['report_notify'], 'one@example.org,administrator@example.test' );
+ck( 'the addresses are held to the agreement ones\' rule: an entry that is no address refuses the list', array( $saved['report_notify'], WPCPM_Settings::last_refused() ), array( '', array( 'report_notify' => '"junk" is not an email address, so the list was not saved. Correct it or remove it, then save again.' ) ) );
+$saved = WPCPM_Settings::save( array( 'report_notify' => "one@example.org\nadministrator@example.test" ) );
+ck( 'and a list of addresses is saved as the comma list', $saved['report_notify'], 'one@example.org,administrator@example.test' );
 ck( 'a save that does not carry the switch leaves it on', $saved['report_autodraft'], true );
 $saved = WPCPM_Settings::save( array( 'report_autodraft' => '', 'report_autodraft_grace_days' => '900' ) );
 ck( 'the switch carried empty is off', $saved['report_autodraft'], false );
@@ -1117,8 +1150,9 @@ ck( 'the mentor form is off until an Administrator switches it on, a new applica
 	array( $defaults['mentor_applications_enabled'], $defaults['mentor_notify'], $defaults['mentor_course_link'], $defaults['mentor_lapse_days'] ),
 	array( false, '', '', 90 ) );
 
-$saved = WPCPM_Settings::save( array( 'mentor_notify' => 'Ida@Example.test, not-an-address ida@example.test', 'mentor_course_link' => ' https://learn.example.test/course/mentors/?group=EXAMPLE ', 'mentor_lapse_days' => '1000' ) );
-ck( 'the notice list is cleaned as its siblings are: split, lowered, the non-addresses dropped, duplicates gone', $saved['mentor_notify'], 'ida@example.test' );
+$saved = WPCPM_Settings::save( array( 'mentor_notify' => 'Ida@Example.test, ida@example.test', 'mentor_course_link' => ' https://learn.example.test/course/mentors/?group=EXAMPLE ', 'mentor_lapse_days' => '1000' ) );
+ck( 'the notice list is cleaned as its siblings are: split, lowered, duplicates gone', $saved['mentor_notify'], 'ida@example.test' );
+ck( 'and held to their rule: an entry that is no address refuses it', array( WPCPM_Settings::save( array( 'mentor_notify' => 'ida@example.test, not-an-address' ) )['mentor_notify'], array_keys( WPCPM_Settings::last_refused() ) ), array( 'ida@example.test', array( 'mentor_notify' ) ) );
 ck( 'the course link is kept as an https link, trimmed', $saved['mentor_course_link'], 'https://learn.example.test/course/mentors/?group=EXAMPLE' );
 ck( 'the days are clamped: 365 at most, 14 at least', array( $saved['mentor_lapse_days'], WPCPM_Settings::save( array( 'mentor_lapse_days' => '3' ) )['mentor_lapse_days'] ), array( 365, 14 ) );
 
@@ -1127,8 +1161,13 @@ ck( 'the days are clamped: 365 at most, 14 at least', array( $saved['mentor_laps
 // protocol allowed, so "not a link at all" is kept as https://not%20a%20link%20at%20all, where earlier
 // versions gave it http:// and refused it. What the site does on 6.9 and later is pinned after the loop.
 foreach ( array( 'http://learn.example.test/course/mentors/', 'javascript:alert(1)', 'http://example.test/course' ) as $typed ) {
-	ck( sprintf( 'and a course link that is not https is saved as none: %s', $typed ), WPCPM_Settings::save( array( 'mentor_course_link' => $typed ) )['mentor_course_link'], '' );
+	ck( sprintf( 'and a course link that is not https is refused, the link saved before kept, with the sentence that says why: %s', $typed ),
+		array( WPCPM_Settings::save( array( 'mentor_course_link' => $typed ) )['mentor_course_link'], WPCPM_Settings::last_refused() ),
+		array( 'https://learn.example.test/course/mentors/?group=EXAMPLE', array( 'mentor_course_link' => 'Give a link that starts with https://. The link saved before was kept.' ) ) );
 }
+
+ck( 'a course link emptied on purpose is saved as none, refusing nothing', array( WPCPM_Settings::save( array( 'mentor_course_link' => '  ' ) )['mentor_course_link'], WPCPM_Settings::last_refused() ), array( '', array() ) );
+WPCPM_Settings::save( array( 'mentor_course_link' => 'https://learn.example.test/course/mentors/?group=EXAMPLE' ) );
 
 ck( 'and a course link typed with no scheme is given https and kept, as WordPress 6.9 and later gives it',
 	WPCPM_Settings::save( array( 'mentor_course_link' => 'learn.example.test/course' ) )['mentor_course_link'], 'https://learn.example.test/course' );
@@ -2159,8 +2198,8 @@ ck( 'the notice names the tab, or the tool, that was saved',
 $messages = WPCPM_Settings_Screen::settings_messages();
 
 ck( 'every outcome the settings flash can carry has words, the refusal among them as an error that says what the form asked for',
-    array( array_keys( $messages ), $messages['refused'] ),
-    array( array( 'saved', 'refused', 'log-cleared', 'lists-read' ), array( 'error', 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.' ) ) );
+    array( array_keys( $messages ), $messages['refused'], $messages['saved-except'] ),
+    array( array( 'saved', 'saved-except', 'refused', 'log-cleared', 'lists-read' ), array( 'error', 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.' ), array( 'warning', 'The settings marked below were not saved. Everything else was saved.' ) ) );
 
 WPCPM_Tracks::$live = array();
 $GLOBALS['umeta']   = array();
@@ -2181,6 +2220,344 @@ ck( 'and the save handler and save() both ask it, while neither resolves a scope
         substr_count( method_source( $screen_source, 'handle_settings_save' ) . method_source( $settings_source, 'save' ), 'scopes()' ),
     ),
     array( 1, 1, 0 ) );
+
+echo "\n=== A page drawn earlier writes only what the person changed (1.123.58) ===\n";
+
+// A signed-in person of its own: `WPCPM_Flash::take()` memoizes per request, and the screens drawn above
+// have already taken these channels as person 1.
+$GLOBALS['signed_in'] = 61;
+
+/**
+ * The fingerprints a tab's form carries, as a browser posts them: setting => fingerprint.
+ *
+ * @param string $scope The tab.
+ * @return array<string, string>
+ */
+function drawn_post( $scope ) {
+	preg_match_all( '#name="' . preg_quote( WPCPM_Settings::FIELD_DRAWN, '#' ) . '\[([a-z0-9_]+)\]" value="([a-f0-9]{32})"#', WPCPM_Settings::drawn_fields( $scope ), $found, PREG_SET_ORDER );
+
+	$drawn = array();
+
+	foreach ( $found as $field ) {
+		$drawn[ $field[1] ] = $field[2];
+	}
+
+	return $drawn;
+}
+
+/**
+ * Run something as the next request of the person signed in now: a person of its own id, holding the
+ * user meta the person held, so `WPCPM_Flash::take()`'s per-request memo does not hide what the
+ * request before it left (a handler redirects and exits, so in production nothing is memoized across
+ * the two).
+ *
+ * @param callable $run What the next request does.
+ * @return mixed What it returns.
+ */
+function next_request( $run ) {
+	static $next = 900;
+
+	$from = $GLOBALS['signed_in'];
+
+	++$next;
+
+	$GLOBALS['umeta'][ $next ] = isset( $GLOBALS['umeta'][ $from ] ) ? $GLOBALS['umeta'][ $from ] : array();
+	$GLOBALS['signed_in']      = $next;
+	$result                    = $run();
+	$GLOBALS['signed_in']      = $from;
+
+	return $result;
+}
+
+$people_page = array_merge(
+	$defaults,
+	array(
+		'mentor_applications_enabled' => false,
+		'mentor_course_link'          => 'https://learn.example.test/course/one/',
+		'mentor_lapse_days'           => 90,
+		'mentor_notify'               => 'ida@example.test',
+	)
+);
+
+store_settings( $people_page );
+$drawn = drawn_post( 'people' );
+ck( 'the form carries a fingerprint for every setting of its scope, and no other', array_keys( $drawn ), $scopes['people'] );
+store_settings( array_merge( $people_page, array( 'api_token' => 'patEXAMPLE0000000000001' ) ) );
+ck( 'and a fingerprint is no setting\'s value: a secret the page masks never reaches it', array( substr_count( WPCPM_Settings::drawn_fields( 'connection' ), WPCPM_Settings::FIELD_DRAWN . '[api_token]' ), strpos( WPCPM_Settings::drawn_fields( 'connection' ), 'patEXAMPLE' ) ), array( 1, false ) );
+store_settings( $people_page );
+ck( 'a scope this version does not have draws none', array( WPCPM_Settings::drawn_fields( 'no-such-tab' ), WPCPM_Settings::drawn_fields( '' ) ), array( '', '' ) );
+
+// The page as drawn, posted back with one change: the lapse days.
+$as_drawn = array(
+	'student_statuses'      => implode( "\n", (array) $people_page['student_statuses'] ),
+	'past_statuses'         => implode( "\n", (array) $people_page['past_statuses'] ),
+	'mentor_status'         => $people_page['mentor_status'],
+	'on_inactive'           => $people_page['on_inactive'],
+	'student_on_inactive'   => $people_page['student_on_inactive'],
+	'mentor_notify'         => $people_page['mentor_notify'],
+	'mentor_course_link'    => $people_page['mentor_course_link'],
+	'mentor_lapse_days'     => '120',
+	WPCPM_Settings::FIELD_DRAWN => $drawn,
+);
+
+foreach ( array( 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_activation_enabled', 'student_registrations_enabled' ) as $flag ) {
+	if ( ! empty( $people_page[ $flag ] ) ) {
+		$as_drawn[ $flag ] = '1';
+	}
+}
+
+// Meanwhile the command line switches the mentor form on: the 17 October 2026 case.
+store_settings( array_merge( $people_page, array( 'mentor_applications_enabled' => true ) ) );
+press_tab( 'people', $as_drawn );
+ck( 'a switch changed elsewhere since the page was drawn is not switched back by a Save of that page',
+    array( WPCPM_Settings::get()['mentor_applications_enabled'], WPCPM_Settings::get()['mentor_lapse_days'], WPCPM_Settings::last_kept() ),
+    array( true, 120, array() ) );
+
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/three/' ) ) );
+ck( 'a setting the person changed and that changed elsewhere since too keeps the stored value, and is named',
+    array( WPCPM_Settings::get()['mentor_course_link'], WPCPM_Settings::last_kept(), $GLOBALS['umeta'][ $GLOBALS['signed_in'] ][ WPCPM_Flash::META ][ WPCPM_Settings_Screen::kept_channel( 'people' ) ] ?? null, WPCPM_Settings::get()['mentor_lapse_days'] ),
+    array( 'https://learn.example.test/course/two/', array( 'mentor_course_link' ), array( 'mentor_course_link' ), 120 ) );
+
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+ck( 'one changed to the same value in both places is no conflict', array( WPCPM_Settings::get()['mentor_course_link'], WPCPM_Settings::last_kept() ), array( 'https://learn.example.test/course/two/', array() ) );
+
+store_settings( $people_page );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/three/' ) ) );
+ck( 'with nothing changed elsewhere, the person\'s change is written', array( WPCPM_Settings::get()['mentor_course_link'], WPCPM_Settings::last_kept() ), array( 'https://learn.example.test/course/three/', array() ) );
+
+store_settings( array_merge( $people_page, array( 'mentor_applications_enabled' => true ) ) );
+$no_prints = $as_drawn;
+unset( $no_prints[ WPCPM_Settings::FIELD_DRAWN ] );
+press_tab( 'people', $no_prints );
+ck( 'a form that carries no fingerprints is saved as before, every setting as posted', WPCPM_Settings::get()['mentor_applications_enabled'], false );
+
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'http://learn.example.test/plain/' ) ) );
+ck( 'a refused setting is refused, not named as changed elsewhere, and its typing and sentence wait for the tab',
+    array( WPCPM_Settings::get()['mentor_course_link'], WPCPM_Settings::last_kept(), next_request( static function () { return WPCPM_Flash::kept( WPCPM_Settings_Screen::kept_form( 'people' ) ); } ), $GLOBALS['umeta'][ $GLOBALS['signed_in'] ][ WPCPM_Flash::META ]['settings'] ?? null ),
+    array( 'https://learn.example.test/course/two/', array(), array( 'values' => array( 'mentor_course_link' => 'http://learn.example.test/plain/' ), 'problems' => array( 'mentor_course_link' => 'Give a link that starts with https://. The link saved before was kept.' ) ), 'saved-except' ) );
+
+ck( 'the fingerprint reads a value as text: an integer and its numeral, true and "1", false, null and "" are alike',
+    array( WPCPM_Settings::fingerprint( 90 ) === WPCPM_Settings::fingerprint( '90' ), WPCPM_Settings::fingerprint( true ) === WPCPM_Settings::fingerprint( '1' ), WPCPM_Settings::fingerprint( false ) === WPCPM_Settings::fingerprint( null ), WPCPM_Settings::fingerprint( array( 'a' ) ) === WPCPM_Settings::fingerprint( array( 'b' ) ) ),
+    array( true, true, true, false ) );
+
+ck( 'a posted fingerprint is taken only for a setting there is, and only in a fingerprint\'s shape',
+    WPCPM_Settings::drawn_from( array( 'mentor_lapse_days' => str_repeat( 'a', 32 ), 'no_such_setting' => str_repeat( 'b', 32 ), 'mentor_notify' => 'not-a-print', 'auto_sync' => array( 'x' ) ) ),
+    array( 'mentor_lapse_days' => str_repeat( 'a', 32 ) ) );
+
+store_settings( array_merge( $defaults, array( 'api_token' => 'patEXAMPLE0000000000002' ) ) );
+$connection_drawn = drawn_post( 'connection' );
+$token_mask       = WPCPM_Settings::masked_token();
+store_settings( array_merge( $defaults, array( 'api_token' => 'patEXAMPLE0000000000003' ) ) );
+press_tab( 'connection', array( 'api_token' => $token_mask, 'base_id' => (string) $defaults['base_id'], WPCPM_Settings::FIELD_DRAWN => $connection_drawn ) );
+ck( 'a token rotated elsewhere since is kept by a Save that posts its mask, with no warning', array( WPCPM_Settings::get()['api_token'], WPCPM_Settings::last_kept() ), array( 'patEXAMPLE0000000000003', array() ) );
+store_settings( $defaults );
+unset( $GLOBALS['signed_in'] );
+
+echo "\n=== What a Save did not write is marked at its field (1.123.58) ===\n";
+
+// Each scenario is a signed-in person of its own: `WPCPM_Flash::take()` memoizes per request.
+$GLOBALS['signed_in'] = 71;
+$link_said            = 'Give a link that starts with https://. The link saved before was kept.';
+$link_label           = "Mentors' course invitation link";
+
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'http://learn.example.test/plain/' ) ) );
+$refused_tab = next_request( static function () { return draw_settings( 'people' ); } );
+
+ck( 'a refused setting\'s row is drawn again from the typing, marked aria-invalid, with its sentence beside it',
+    array(
+        1 === preg_match( '#<input type="url" id="wpcpm-mentor_course_link" name="mentor_course_link" value="http://learn\.example\.test/plain/" class="regular-text" aria-invalid="true" aria-describedby="wpcpm-mentor_course_link-problem" autocomplete="off" />#', $refused_tab ),
+        false !== strpos( $refused_tab, 'autocomplete="off" /><p class="wpcpm-field__problem" id="wpcpm-mentor_course_link-problem">' . $link_said . '</p>' ),
+        false !== strpos( $refused_tab, 'value="https://learn.example.test/course/two/"' ),
+    ),
+    array( true, true, false ) );
+
+$summary = WPCPM_Form_Errors::summary(
+	array( 'mentor_course_link' => $link_said ),
+	array( 'mentor_course_link' => array( 'id' => 'wpcpm-mentor_course_link', 'label' => $link_label ) ),
+	array( 'class' => 'notice notice-error inline' )
+);
+
+ck( 'the tab opens with the summary, linking the refused setting by its label, and the outcome notice is the warning',
+    array(
+        false !== strpos( $summary, '<a href="#wpcpm-mentor_course_link">' . htmlspecialchars( $link_label, ENT_QUOTES ) . '</a>' ),
+        false !== strpos( $refused_tab, $summary ),
+        strpos( $refused_tab, $summary ) < strpos( $refused_tab, '<h2>' ),
+        false !== strpos( $refused_tab, '<div class="notice notice-warning is-dismissible"><p>The settings marked below were not saved. Everything else was saved.</p></div>' ),
+        strpos( $refused_tab, 'notice-warning is-dismissible' ) < strpos( $refused_tab, $summary ),
+    ),
+    array( true, true, true, true, true ) );
+// WordPress's common.js moves every .notice under the page's heading on DOM ready, and a moved summary
+// loses the focus forms.js gave it; core leaves .notice.inline where it is (1.123.58, trial T8).
+ck( 'the admin summary\'s classes include inline, so it stays in the form and keeps its focus',
+    array( WPCPM_Form_Errors::ADMIN_CLASS, 1 === preg_match( '#<div class="wpcpm-errors notice notice-error inline" role="alert" tabindex="-1">#', $refused_tab ) ),
+    array( 'notice notice-error inline', true ) );
+
+$GLOBALS['signed_in'] = 72;
+ck( 'and the next page shows none of it',
+    array( false !== strpos( draw_settings( 'people' ), 'wpcpm-field__problem' ), false !== strpos( draw_settings( 'people' ), 'wpcpm-errors' ) ),
+    array( false, false ) );
+
+// A kept setting: the conflict case of the section above.
+$GLOBALS['signed_in'] = 73;
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/three/' ) ) );
+$kept_tab    = next_request( static function () { return draw_settings( 'people' ); } );
+$kept_said   = 'Changed elsewhere after this page was opened, so the value saved then is shown and yours was not saved. Check it, and save again if yours should win.';
+$kept_report = WPCPM_Form_Errors::summary(
+	array( 'mentor_course_link' => $kept_said ),
+	array( 'mentor_course_link' => array( 'id' => 'wpcpm-mentor_course_link', 'label' => $link_label ) ),
+	array( 'class' => 'notice notice-warning inline', 'heading' => 'One setting changed since you opened this page' )
+);
+
+ck( 'a kept setting is named in a warning above the tab and marked at its field',
+    array(
+        false !== strpos( $kept_tab, $kept_report ),
+        false !== strpos( $kept_tab, '<p class="wpcpm-field__problem" id="wpcpm-mentor_course_link-problem">' . $kept_said . '</p>' ),
+        false !== strpos( $kept_tab, 'name="mentor_course_link" value="https://learn.example.test/course/two/"' ),
+        false !== strpos( $kept_tab, '<div class="notice notice-success is-dismissible">' ),
+        false !== strpos( $kept_report, 'notice notice-warning' ),
+    ),
+    array( true, true, true, true, true ) );
+
+// What a Save left for a page that was never drawn is gone after the next Save of the scope.
+$GLOBALS['signed_in'] = 81;
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'http://learn.example.test/plain/' ) ) );
+$left = $GLOBALS['umeta'][81][ WPCPM_Flash::META ] ?? array();
+$GLOBALS['umeta'][82] = array( WPCPM_Flash::META => $left );
+$GLOBALS['signed_in'] = 82;
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/two/', 'mentor_lapse_days' => '120' ) ) );
+$after_save = $GLOBALS['umeta'][82][ WPCPM_Flash::META ] ?? array();
+$later_page = next_request( static function () { return draw_settings( 'people' ); } );
+
+ck( 'a refusal kept and never drawn is not drawn after a later successful Save of the scope: the entry is gone and the page shows no old typing',
+    array(
+        isset( $left[ WPCPM_Flash::KEPT_CHANNEL . WPCPM_Settings_Screen::kept_form( 'people' ) ] ),
+        isset( $after_save[ WPCPM_Flash::KEPT_CHANNEL . WPCPM_Settings_Screen::kept_form( 'people' ) ] ),
+        false !== strpos( $later_page, 'wpcpm-errors' ),
+        false !== strpos( $later_page, 'http://learn.example.test/plain/' ),
+    ),
+    array( true, false, false, false ) );
+
+$GLOBALS['signed_in'] = 83;
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/three/' ) ) );
+$conflict_meta        = $GLOBALS['umeta'][83][ WPCPM_Flash::META ] ?? array();
+$GLOBALS['umeta'][84] = array( WPCPM_Flash::META => $conflict_meta );
+$GLOBALS['signed_in'] = 84;
+press_tab( 'people', $as_drawn );
+$clean_meta = $GLOBALS['umeta'][84][ WPCPM_Flash::META ] ?? array();
+
+ck( 'a Save with no conflict leaves no settings-kept warning for the next form, whichever tab or tool it is',
+    array( isset( $conflict_meta[ WPCPM_Settings_Screen::kept_channel( 'people' ) ] ), isset( $clean_meta[ WPCPM_Settings_Screen::kept_channel( 'people' ) ] ), false !== strpos( next_request( static function () { return draw_settings( 'institutions' ); } ), 'wpcpm-errors' ) ),
+    array( true, false, false ) );
+
+// The warning waits on a channel of the tab's own (the fix wave of 1.123.58): a conflict on People
+// whose page was never drawn is not printed on Institutions, where none of its fields is drawn, and
+// waits for the People tab, which names it at its field.
+$GLOBALS['signed_in'] = 85;
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/three/' ) ) );
+$other_tab = next_request( static function () { return draw_settings( 'institutions' ); } );
+$own_tab   = next_request( static function () { return draw_settings( 'people' ); } );
+
+ck( 'a conflict on one tab warns on that tab only, and not on another',
+    array( false !== strpos( $other_tab, 'changed since you opened this page' ), false !== strpos( $own_tab, $kept_report ) ),
+    array( false, true ) );
+
+// And a Save of another tab before the People page is drawn leaves the People tab's warning waiting.
+$GLOBALS['signed_in'] = 86;
+store_settings( array_merge( $people_page, array( 'mentor_course_link' => 'https://learn.example.test/course/two/' ) ) );
+press_tab( 'people', array_merge( $as_drawn, array( 'mentor_course_link' => 'https://learn.example.test/course/three/' ) ) );
+press_tab( 'institutions', array() );
+$after_other_save = $GLOBALS['umeta'][86][ WPCPM_Flash::META ] ?? array();
+$own_tab          = next_request( static function () { return draw_settings( 'people' ); } );
+
+ck( 'a Save on one tab leaves another tab\'s pending warning',
+    array( isset( $after_other_save[ WPCPM_Settings_Screen::kept_channel( 'people' ) ] ), false !== strpos( $own_tab, $kept_report ) ),
+    array( true, true ) );
+
+// The box above each Who is mailed list.
+$GLOBALS['signed_in'] = 74;
+store_settings( array_merge( $defaults, array( 'agreement_notify' => '', 'report_notify' => 'pat@program.example' ) ) );
+$boxes_tab = draw_settings( 'institutions' );
+$box_label = 'Mail every Administrator account instead of the people below';
+
+ck( 'each Who is mailed row draws the box above its list, ticked while the stored list is empty and not otherwise',
+    array(
+        false !== strpos( $boxes_tab, '<input type="checkbox" name="agreement_notify_everyone" value="1" checked="checked"' ),
+        false !== strpos( $boxes_tab, '<input type="checkbox" name="report_notify_everyone" value="1" />' ),
+        false !== strpos( $boxes_tab, 'name="report_notify_everyone" value="1" checked' ),
+        2 === substr_count( $boxes_tab, $box_label ),
+        strpos( $boxes_tab, 'name="agreement_notify_everyone"' ) < strpos( $boxes_tab, 'name="agreement_notify"' ),
+        strpos( $boxes_tab, 'name="report_notify_everyone"' ) < strpos( $boxes_tab, 'name="report_notify"' ),
+    ),
+    array( true, true, false, true, true, true ) );
+
+$GLOBALS['signed_in'] = 75;
+store_settings( array_merge( $defaults, array( 'mentor_notify' => 'ida@example.test', 'sponsor_notify' => '' ) ) );
+ck( 'and so do the Sponsors and Students and mentors tabs, for the lists they hold',
+    array(
+        false !== strpos( draw_settings( 'people' ), '<input type="checkbox" name="mentor_notify_everyone" value="1" />' ),
+        false !== strpos( draw_settings( 'sponsors' ), '<input type="checkbox" name="sponsor_notify_everyone" value="1" checked="checked"' ),
+    ),
+    array( true, true ) );
+
+// A reviewer list refused draws its typing back, the bad entries named.
+$GLOBALS['signed_in'] = 76;
+$choices_cache = new ReflectionProperty( 'WPCPM_Settings_Choices', 'read' );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	$choices_cache->setAccessible( true );
+}
+
+$choices_were = $choices_cache->getValue();
+$choices_cache->setValue( null, array_merge( (array) $choices_were, array( 'managers' => array( 'Administrators' => array( 'ana@program.example' => 'Ana', 'pat@program.example' => 'Pat' ) ) ) ) );
+
+store_settings( array_merge( $defaults, array( 'agreement_notify' => 'pat@program.example' ) ) );
+$institutions_as_drawn = array();
+
+foreach ( $scopes['institutions'] as $key ) {
+	if ( is_bool( $defaults[ $key ] ) ) {
+		continue;
+	}
+
+	$institutions_as_drawn[ $key ] = is_array( $defaults[ $key ] ) ? implode( "\n", $defaults[ $key ] ) : (string) $defaults[ $key ];
+}
+
+foreach ( $scopes['institutions'] as $key ) {
+	if ( is_bool( $defaults[ $key ] ) && ! empty( $defaults[ $key ] ) ) {
+		$institutions_as_drawn[ $key ] = '1';
+	}
+}
+
+$institutions_as_drawn[ WPCPM_Settings::FIELD_DRAWN ] = drawn_post( 'institutions' );
+$institutions_as_drawn['agreement_notify']            = array( 'ana@program.example', 'typo@, also-wrong' );
+// The other list is empty as stored, so its box was drawn ticked and posts as ticked.
+$institutions_as_drawn['report_notify' . WPCPM_Settings::EVERYONE_SUFFIX] = '1';
+press_tab( 'institutions', $institutions_as_drawn );
+$reviewers_said = '"typo@", "also-wrong" are not email addresses, so the list was not saved. Correct them or remove them, then save again.';
+$reviewers_tab  = next_request( static function () { return draw_settings( 'institutions' ); } );
+$choices_cache->setValue( null, $choices_were );
+
+ck( 'a reviewer list refused draws its typing back on the Other addresses line, the bad entries named',
+    array(
+        WPCPM_Settings::get()['agreement_notify'],
+        WPCPM_Settings::last_refused(),
+        1 === preg_match( '#<input type="checkbox" name="agreement_notify\[\]" value="ana@program\.example" checked=\'checked\' />#', $reviewers_tab ),
+        1 === preg_match( '#<input type="checkbox" name="agreement_notify\[\]" value="pat@program\.example" />#', $reviewers_tab ),
+        1 === preg_match( '#<input type="text" id="wpcpm-agreement_notify-other" name="agreement_notify\[\]" value="typo@, also-wrong" class="regular-text" placeholder="[^"]*" autocomplete="off" aria-invalid="true" aria-describedby="wpcpm-agreement_notify-other-problem" />#', $reviewers_tab ),
+        false !== strpos( $reviewers_tab, '<p class="wpcpm-field__problem" id="wpcpm-agreement_notify-other-problem">' . htmlspecialchars( $reviewers_said, ENT_QUOTES ) . '</p>' ),
+        false !== strpos( $reviewers_tab, '<a href="#wpcpm-agreement_notify-other">Who is emailed about institutions</a>' ),
+    ),
+    array( 'pat@program.example', array( 'agreement_notify' => $reviewers_said ), true, true, true, true, true ) );
+
+unset( $GLOBALS['signed_in'] );
+store_settings( $defaults );
 
 echo "\n=== Writing some settings and leaving the rest: patch() ===\n";
 
@@ -2215,8 +2592,8 @@ $patched = WPCPM_Settings::patch(
 );
 
 ck( 'each setting patched is held to save()\'s rule for it: clamped, refused, cleaned, a blank token left alone, an unknown answer read as the fallback',
-    array( $patched['logo_max_kb'], $patched['handbook_provider'], $patched['agreement_notify'], $patched['api_token'], $patched['on_inactive'] ),
-    array( 8192, '', 'a@example.org', 'patKEEPME0000000000', 'revoke' ) );
+    array( $patched['logo_max_kb'], $patched['handbook_provider'], $patched['agreement_notify'], $patched['api_token'], $patched['on_inactive'], array_keys( WPCPM_Settings::last_refused() ) ),
+    array( 8192, '', '', 'patKEEPME0000000000', 'revoke', array( 'agreement_notify' ) ) );
 
 store_settings( $defaults );
 WPCPM_Settings::patch( array( 'mentor_status' => '' ) );
@@ -2402,6 +2779,12 @@ function forms_of( $html ) {
 		$fields = array();
 
 		foreach ( $names[1] as $name ) {
+			// The fingerprints of what the form was drawn with (1.123.58) and the boxes above the Who is
+			// mailed lists are plumbing, as the nonce is: no setting is stored under either.
+			if ( 0 === strpos( $name, WPCPM_Settings::FIELD_DRAWN . '[' ) || substr( $name, -strlen( WPCPM_Settings::EVERYONE_SUFFIX ) ) === WPCPM_Settings::EVERYONE_SUFFIX ) {
+				continue;
+			}
+
 			$name = preg_replace( '/\[\]$/', '', $name );
 
 			if ( ! in_array( $name, $plumbing, true ) ) {
@@ -4321,22 +4704,39 @@ store_settings( $defaults );
 
 unset( $GLOBALS['signed_in'] );
 
-// A webhook refused by a save is said on the screen the save lands on, once.
-store_settings( $defaults );
-$GLOBALS['signed_in'] = 34;
-WPCPM_Settings::save( array( 'checker_slack_webhook' => 'https://example.test/hook' ), 'tool:mentor-status-checker' );
-$refused_screen = draw_tool_screen( 'mentor-status-checker' );
-$GLOBALS['signed_in'] = 35;
-$next_screen          = draw_tool_screen( 'mentor-status-checker' );
-unset( $GLOBALS['signed_in'] );
+// The Emails tool's contact address and the checker's webhook are refused through the same map as
+// every other setting (1.123.58): the stored value stays, last_refused() names the setting with its
+// sentence, the outcome is saved-except, and the two flashes that said so before are not set any more.
+$webhook_typed = 'https://example.test/' . 'hook';
+$webhook_said  = 'Give the address Slack showed when the incoming webhook was made, or type remove to clear it. The webhook saved before was kept.';
+$contact_said  = 'Enter one email address, such as program@example.org, or leave the box empty to name none. The address saved before was kept.';
 
-ck( 'a Slack webhook that was not saved is said on the checker\'s screen, as an error, before its Settings section',
+store_settings( array_merge( $defaults, array( 'mail_contact' => 'programs@example.test', 'checker_slack_webhook' => $hook ) ) );
+$GLOBALS['signed_in'] = 63;
+
+press_tab( 'tool:emails', array( 'mail_contact' => 'name@' ) );
+$contact_refusal = array( WPCPM_Settings::get()['mail_contact'], WPCPM_Settings::last_refused(), $GLOBALS['umeta'][63][ WPCPM_Flash::META ]['settings'] ?? null );
+press_tab( 'tool:mentor-status-checker', array( 'checker_slack_webhook' => $webhook_typed ) );
+$webhook_refusal = array( WPCPM_Settings::get()['checker_slack_webhook'], WPCPM_Settings::last_refused(), $GLOBALS['umeta'][63][ WPCPM_Flash::META ]['settings'] ?? null );
+$old_flashes     = array_intersect_key( $GLOBALS['umeta'][63][ WPCPM_Flash::META ] ?? array(), array( 'emails-contact-refused' => 1, 'checker-webhook-refused' => 1 ) );
+
+ck( 'a contact address that is no address is refused through the map: the stored one stays, the sentence names it, the outcome is saved-except',
+    $contact_refusal, array( 'programs@example.test', array( 'mail_contact' => $contact_said ), 'saved-except' ) );
+ck( 'and a webhook that is not Slack\'s the same, and neither old flash is set any more',
+    array( $webhook_refusal, $old_flashes ), array( array( $hook, array( 'checker_slack_webhook' => $webhook_said ), 'saved-except' ), array() ) );
+
+$webhook_screen = next_request( static function () { return draw_tool_settings( 'mentor-status-checker' ); } );
+
+ck( 'the checker\'s Settings section draws the webhook\'s sentence at its field, and not the typing: a secret is never drawn back',
     array(
-        in_order( offsets_of( $refused_screen, array( '<h1>Mentor Status Checker</h1>', 'The Slack webhook was not saved', '<h2 id="settings">Settings</h2>' ) ) ),
-        substr_count( $refused_screen, '<div class="notice notice-error"><p>The Slack webhook was not saved' ),
-        substr_count( $next_screen, 'The Slack webhook was not saved' ),
+        false !== strpos( $webhook_screen, '<p class="wpcpm-field__problem" id="wpcpm-checker_slack_webhook-problem">' . $webhook_said . '</p>' ),
+        false !== strpos( $webhook_screen, $webhook_typed ),
+        false !== strpos( $webhook_screen, 'aria-invalid="true" aria-describedby="wpcpm-checker_slack_webhook-problem"' ),
     ),
-    array( true, 1, 0 ) );
+    array( true, false, true ) );
+
+unset( $GLOBALS['signed_in'] );
+store_settings( $defaults );
 
 // A tool is called by its name, as the menu and the Overview call it, and its section by what it is.
 ck( 'on each tool\'s screen the title is the tool\'s name, the section is called Settings, with no "Tool:" and no "Tool" pill, and none of the section\'s ids is another element\'s',

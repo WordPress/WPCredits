@@ -27,6 +27,9 @@ button underneath.
 - Links and simple emphasis survive; scripts and other markup are stripped **on save**, so nothing
   dangerous is stored rather than merely hidden at render time.
 
+Since 1.123.58 each audience's notice has its own Save, so saving one notice never touches another,
+and a notice changed after you opened the page is not overwritten.
+
 ### Emails
 
 **WPCredits Program > Tools > Emails.** The plugin's emails you can edit, by area. One you have not
@@ -206,6 +209,10 @@ made of placeholders alone, such as `{mentor_name}`, is saved; if they all come 
 email goes out with its shipped subject rather than with none, since an email with no subject is
 not sent.
 
+Since 1.123.58 an email somebody changed after you opened it is not overwritten: the editor says who
+changed it and when, and keeps your wording in the boxes. An email restored to the shipped text
+after you opened the page is refused the same way.
+
 #### Signature and footer
 
 The one block every email the plugin sends ends with, after a blank line and a line holding `-- `.
@@ -329,6 +336,11 @@ from those awaiting promotion, as the tool's status line does, and **Promote all
 them out. Once the switch is on, the same rows await promotion again. One that **Promote all
 eligible** finds has left Selected (course pending) since the run comes back as failed under the
 applicant's name, with the reason.
+
+Since 1.123.58 Promote keeps the keyboard's place on the promoted row and says who was promoted; a
+run's progress is said at each quarter and at the end. A row that was not promoted has its reason
+said, and Promote all says how many were promoted and moves the keyboard's place to the first of
+them.
 
 #### Settings
 
@@ -618,6 +630,12 @@ it **Edit**, **Move up**, **Move down** and **Remove**. The arrows move a questi
 site cannot keep a move, the question goes back and a notice above the list says why. Remove takes
 the question off the form; the column, and whatever students wrote in it, stay in Airtable, and the
 confirmation says so.
+
+Since 1.123.58 a track that cannot be saved lists every problem at the top, each linked to its
+field, and a track another Administrator saved after you opened it is not overwritten; your own
+question moves on the same page do not count as a change. A Publish or Take off meanwhile is not a
+save, so it does not block yours. Publish, Check and Take off can be pressed once. A question moved
+while the connection failed is put back, and the page says so.
 
 Each group ends with **Add a question**: the Airtable column, what the student reads, the control and,
 when the group's module has lessons Learn answered, **Under lesson**. Total hours offers it only

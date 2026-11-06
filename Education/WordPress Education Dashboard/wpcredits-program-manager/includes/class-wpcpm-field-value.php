@@ -208,6 +208,17 @@ final class WPCPM_Field_Value {
 	}
 
 	/**
+	 * What a form says about a web address it refuses for naming a scheme other than http or
+	 * https, its `bad_url` (1.123.58, FORM-11): `clean_url()` gives a scheme-less address one, so
+	 * the one thing to ask for is an address that starts with https://, or the domain alone.
+	 *
+	 * @return string
+	 */
+	public static function bad_url_text() {
+		return __( 'Give a web address starting with https://, or just the domain.', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * A URL the way the rest of the plugin normalizes them.
 	 *
 	 * Airtable's url columns are full of scheme-less values, and a student retyping one the same

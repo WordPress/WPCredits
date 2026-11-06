@@ -54,6 +54,9 @@ You can change any answer later: open the form again and your answers are still 
 title tells you how many of its questions you have answered, and says *all answered* when you have
 finished it - which is also when the next one appears.
 
+Since 1.123.58 a feedback form that could not be sent comes back with your answers, and the form you
+saved opens again with its message inside it.
+
 The count only ever includes the questions you are actually being asked. A follow-up that did not
 apply to you is not a question you have left blank.
 

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.57
+Stable tag: 1.123.58
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,19 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.58 =
+
+Scan release 1.
+
+* Nothing typed is lost to a refusal. Every form that is refused comes back with what was typed, opens with a summary of what needs a change, linked to each field, and marks each field with its reason: the public forms, the Student Report Card's report, hours and feedback forms, the Mentor Report Card's session planner and notes, the Institution Dashboard's enrollment, correction, Add account and Invite a colleague forms, the Sponsor Dashboard's profile, offers and event planner, the Institutions and Sponsors screens, the Track Builder and Settings. A chosen file is the one thing a form cannot keep, and the form says so.
+* A public form refused for too many attempts from one connection keeps its answers and says when to try again; the privacy box is checked with every other answer; a second press of Send files one application, not a second one as spam; a page whose kept answers expired says so.
+* No action runs twice: Select, Ask for more information and Decline check the application again as they send, the note form, the Track Builder's Publish, Check and Take off, the link form and the four enrollment forms can be pressed once, a second interest in the same mentor within 30 days is on record already, a sync runs once at a time, and the invitation queue is written under a lock.
+* A page opened earlier never undoes a change made since. A Settings tab writes only what changed on it and names a setting changed elsewhere meanwhile; a value a setting cannot take is refused, not saved as blank; a Who is mailed list is never emptied by accident, and its new box, Mail every Administrator account instead of the people below, is the way to every Administrator account. The header notices save one audience at a time; a sponsor, a track and an email edited after the page was opened are refused with the typing kept. `wp wpcredits setting get` and `set` change a setting by the Save's own rules, `everyone` setting a Who is mailed list to every Administrator account.
+* The mentors and students syncs count before they take anyone's role, and stop on a read of nothing or of under half the linked accounts, with Run anyway on the Sync tab and `--accept` on the command line; a stopped run is not running, so the Sync tab stops polling and says why. A mentor found by an account's login alone waits under Needs confirming. Every sync waits out a passing Airtable refusal; a create that fails partway keeps the ids it made.
+* No page reloads under you: the invitations card counts in place, and a screen reader hears it at each quarter and at the end; the sync's steps, a stall and the finish are heard, and its counts are said on the Sync tab.
+* Every outcome is printed where you are: inside the card a dashboard press came from, with its tone, read out and focused; queue outcomes name the applicant; the offer moves say what each did; a rejection says whether its acknowledgement went; a failed module or question move is put back.
+* A busy invitation queue is said, never hidden: a Stop that cannot take the queue's lock leaves the run as it was and asks to be pressed again, and a press that queued nothing because the queue was busy says so rather than that the invitations are queued.
 
 = 1.123.57 =
 

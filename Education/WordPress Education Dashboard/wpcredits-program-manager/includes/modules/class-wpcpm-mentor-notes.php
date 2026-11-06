@@ -79,6 +79,14 @@ class WPCPM_Mentor_Notes {
 	const MAX_LENGTH = 5000;
 
 	/**
+	 * How long, in seconds, the same note by the same person on the same student counts as the
+	 * same press (1.123.58, CARD-05): a double click, or a second press on a slow connection, lands
+	 * well inside a minute, and a mentor who means to file the same words again a minute later
+	 * files them.
+	 */
+	const DUPLICATE_WINDOW = 60;
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -381,6 +389,13 @@ class WPCPM_Mentor_Notes {
 			self::redirect_back( $student, 'empty' );
 		}
 
+		// The same words by the same person on the same student, saved a moment ago, are the same
+		// press arriving twice: nothing more is filed, and the second press is told what the first
+		// was, so neither tab reads as having failed (1.123.58, CARD-05).
+		if ( self::duplicate_of( $student, get_current_user_id(), $note ) > 0 ) {
+			self::redirect_back( $student, 'saved' );
+		}
+
 		$name = isset( $_POST['student_name'] ) ? sanitize_text_field( wp_unslash( $_POST['student_name'] ) ) : '';
 
 		// The note and the name are written as slashed copies (`wp_slash()`): core unslashes what
@@ -419,6 +434,64 @@ class WPCPM_Mentor_Notes {
 		}
 
 		self::redirect_back( $student, 'saved' );
+	}
+
+	/**
+	 * The note this person saved on this student in the last `DUPLICATE_WINDOW` seconds with these
+	 * very words, or 0 when there is none (1.123.58, CARD-05).
+	 *
+	 * The query narrows by author, student and date; the words and the time are compared here as
+	 * well, so the answer does not lean on how a query reads a date column. The words are compared
+	 * as `WPCPM_Typed_Text::same_lines()` reads them: core runs kses on the insert for anybody without
+	 * `unfiltered_html`, which stores an `&` as `&amp;`, and a break may come back as CR LF.
+	 *
+	 * @param string $record The student's Airtable record ID.
+	 * @param int    $author Who is saving.
+	 * @param string $text   The note's words, as they would be saved.
+	 * @return int The note's post ID, or 0.
+	 */
+	private static function duplicate_of( string $record, int $author, string $text ): int {
+		if ( '' === $record || $author <= 0 || '' === $text ) {
+			return 0;
+		}
+
+		$since = time() - self::DUPLICATE_WINDOW;
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'private',
+				'author'           => $author,
+				'numberposts'      => 20,
+				'orderby'          => 'date',
+				'order'            => 'DESC',
+				'suppress_filters' => false,
+				'date_query'       => array(
+					array(
+						'column'    => 'post_date_gmt',
+						'after'     => gmdate( 'Y-m-d H:i:s', $since ),
+						'inclusive' => true,
+					),
+				),
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_STUDENT,
+						'value' => $record,
+					),
+				),
+			)
+		);
+
+		foreach ( $posts as $post ) {
+			if ( ! $post instanceof WP_Post || (int) $post->post_author !== $author || ! WPCPM_Typed_Text::same_lines( $text, (string) $post->post_content ) ) {
+				continue;
+			}
+
+			if ( (int) get_post_time( 'U', true, $post ) >= $since ) {
+				return (int) $post->ID;
+			}
+		}
+
+		return 0;
 	}
 
 	/**
@@ -733,7 +806,11 @@ class WPCPM_Mentor_Notes {
 		echo '<div class="wpcpm-note__body">' . wp_kses_post( wpautop( esc_html( $note->post_content ) ) ) . '</div>';
 
 		if ( $can_purge ) {
-			echo '<form class="wpcpm-note__delete" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+			printf(
+				'<form class="wpcpm-note__delete" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Deleting the note', 'wpcredits-program-manager' )
+			);
 			wp_nonce_field( self::ACTION_DELETE . '_' . $note->ID );
 			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_DELETE ) . '" />';
 			printf( '<input type="hidden" name="note_id" value="%d" />', (int) $note->ID );
@@ -759,7 +836,13 @@ class WPCPM_Mentor_Notes {
 	private static function render_form( $student_record, $student_name, $mentor_id ) {
 		$field_id = 'wpcpm-note-' . sanitize_html_class( $student_record );
 
-		echo '<form class="wpcpm-notes__form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		// Guarded like every other form on the card: a double click filed the note twice
+		// (1.123.58, CARD-05). `handle_add()` refuses the second copy as well.
+		printf(
+			'<form class="wpcpm-notes__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Saving the note', 'wpcredits-program-manager' )
+		);
 		wp_nonce_field( self::ACTION_ADD . '_' . $student_record );
 		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_ADD ) . '" />';
 		printf( '<input type="hidden" name="student" value="%s" />', esc_attr( $student_record ) );

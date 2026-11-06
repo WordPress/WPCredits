@@ -745,7 +745,7 @@ class WPCPM_Track_Editor_Screen {
 	 * @param string $column The column.
 	 */
 	private static function render_mover( $track, $column ) {
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="wpcpm-question__mover" data-wpcpm-refused="' . esc_attr__( 'The move was not saved. The question is back where it was.', 'wpcredits-program-manager' ) . '">';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="wpcpm-question__mover" data-wpcpm-refused="' . esc_attr__( 'The move was not saved. The question is back where it was.', 'wpcredits-program-manager' ) . '" data-wpcpm-unsent="' . esc_attr__( 'The move could not be sent. The questions are back in the order last saved.', 'wpcredits-program-manager' ) . '">';
 		wp_nonce_field( WPCPM_Track_Editor::ACTION_MOVE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Editor::ACTION_MOVE ) . '" />';
 		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );

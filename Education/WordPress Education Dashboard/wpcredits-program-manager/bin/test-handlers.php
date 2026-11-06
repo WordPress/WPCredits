@@ -199,6 +199,7 @@ function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo ''; }
 function wp_verify_nonce( $n, $a = '' ) { return 1; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return $GLOBALS['uid']; }
+function wp_generate_uuid4() { static $n = 0; return 'uuid-' . ++$n; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
@@ -2351,9 +2352,9 @@ check( 'every session handler answers the question of who may press it before it
         'handle_edit'        => 'You cannot change that session.',
         'handle_note'        => 'You cannot add notes for that session.',
         'handle_cancel'      => 'You cannot cancel that call.',
-        'handle_join'        => 'Please log in to join a session.',
-        'handle_join_series' => 'Please log in to join a session.',
-        'handle_leave'       => 'Please log in to leave a session.',
+        'handle_join'        => 'Log in to join a session.',
+        'handle_join_series' => 'Log in to join a session.',
+        'handle_leave'       => 'Log in to leave a session.',
         'the mentor'         => 'The link you followed has expired.',
     ) );
 
@@ -2404,8 +2405,8 @@ $GLOBALS['uid']         = 20;
 check( 'Book and the timezone save answer the question of who is logged in before they check the nonce',
     $call_answers,
     array(
-        'handle_book'     => 'Please log in to book a call.',
-        'handle_timezone' => 'Please log in first.',
+        'handle_book'     => 'Log in to book a call.',
+        'handle_timezone' => 'Log in first.',
     ) );
 
 echo "\n=== The room is read under the lock, and two students' files name each alone (SESSIONS-13) ===\n";
@@ -2620,6 +2621,9 @@ $expired  = 'The link you followed has expired.';
 // and it answers as a background request is answered: the capability's sentence in a JSON error
 // with a 403, for the script to show, and a failed nonce with check_ajax_referer()'s -1.
 $sponsor_refusals = array(
+	// Run anyway (1.123.58), which the Sponsors module inherits with the sync's other handlers and
+	// hooks nothing to, as it hooks none of them.
+	'handle_accept'      => array( $no_right, $expired ),
 	'handle_add'         => array( $no_right, $expired ),
 	'handle_bulk_invite' => array( $no_right, $expired ),
 	'handle_cancel'      => array( $no_right, $expired ),
@@ -2634,7 +2638,7 @@ $sponsor_refusals = array(
 	'handle_tick'        => array( array( 'success' => false, 'data' => array( 'message' => $no_right ), 'status' => 403 ), '-1' ),
 );
 
-check( 'the screen\'s handlers, each found by name, are the twelve named here with their refusals', array_keys( $sponsor_handlers ), array_keys( $sponsor_refusals ) );
+check( 'the screen\'s handlers, each found by name, are the thirteen named here with their refusals', array_keys( $sponsor_handlers ), array_keys( $sponsor_refusals ) );
 
 $GLOBALS['nonce_fails'] = true;
 $GLOBALS['grants'][30]  = array( 'read' );
@@ -2915,7 +2919,7 @@ foreach ( $list_presses as $list_press ) {
 
 $list_words = class_exists( 'WPCPM_Sponsor_Event_List' ) ? WPCPM_Sponsor_Event_List::messages() : array();
 
-check( 'a lapsed login is told to log in to join or to leave, before the nonce', $list_left['out'] ?? null, array( 'handle_join' => 'Please log in to join an event.', 'handle_leave' => 'Please log in to leave an event.' ) );
+check( 'a lapsed login is told to log in to join or to leave, before the nonce', $list_left['out'] ?? null, array( 'handle_join' => 'Log in to join an event.', 'handle_leave' => 'Log in to leave an event.' ) );
 check( 'a stale nonce stops each on the nonce screen, and flashes nothing', $list_left['stale'] ?? null, array( 'handle_join' => array( 'The link you followed has expired.', '' ), 'handle_leave' => array( 'The link you followed has expired.', '' ) ) );
 check( 'with Sponsor tiers off each is answered with the program\'s 403 and flashes nothing, and switched on an ID that is no event is said as gone, in words the list has', array( $list_left['off'] ?? null, $list_left['gone'] ?? null, isset( $list_words['gone'] ) ), array(
 	array( 'handle_join' => array( 'This is not available.', '', '' ), 'handle_leave' => array( 'This is not available.', '', '' ) ),

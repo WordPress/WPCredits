@@ -114,6 +114,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/** Run the move onto the site again, from the migration box. */
 	const ACTION_MIGRATE = 'wpcpm_sponsors_migrate';
 
+	/**
+	 * The hidden field of the Edit form that carries the version of the row it was drawn from
+	 * (1.123.58): `version()`. A save whose version is no longer the row's is stale and writes nothing.
+	 */
+	const FIELD_VERSION = 'wpcpm_version';
+
 	/** The query argument that draws a sponsor's Edit form on the Sponsors tab: `?edit=<key>`. */
 	const ARG_EDIT = 'edit';
 
@@ -156,6 +162,18 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		'contact_person' => array( self::MAX_LINE, 'contact-too-long', 'contact-loss' ),
 		'funded_line'    => array( self::MAX_LINE, 'funded-too-long', 'funded-loss' ),
 		'notes'          => array( self::MAX_NOTES, 'notes-too-long', 'notes-loss' ),
+	);
+
+	/**
+	 * The fields a refused save names with a sentence of their own (`clean_fields()`), in the forms'
+	 * order. The name is named when it is missing; one refused for its length has the sentence of
+	 * `TYPED`.
+	 */
+	const PROBLEM_FIELDS = array(
+		'name'            => 'name',
+		'website'         => 'website',
+		'contact_email'   => 'contact_email',
+		'event_allowance' => 'event_allowance',
 	);
 
 	/**
@@ -806,14 +824,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'sponsor-added'      => array( 'success', __( 'The sponsor was added. Nothing else happens until its status is Approved and its account is created.', 'wpcredits-program-manager' ) ),
 			'sponsor-saved'      => array( 'success', __( 'The sponsor was saved.', 'wpcredits-program-manager' ) ),
 			'sponsor-unchanged'  => array( 'info', __( 'Nothing changed, so nothing was saved.', 'wpcredits-program-manager' ) ),
-			'sponsor-rejected'   => array(
-				'error',
-				sprintf(
-					/* translators: %d: the most extra events the Tier box grants one term. */
-					__( 'Nothing was saved: one of the values could not be accepted. A sponsor needs a name; the website has to be a web address, the contact email an email address, Extra events this term a whole number from 0 to %d, and every choice one this form offers.', 'wpcredits-program-manager' ),
-					self::MAX_EXTRA_EVENTS
-				),
-			),
+			'sponsor-rejected'   => array( 'error', __( 'Nothing was saved. The fields marked below need a change.', 'wpcredits-program-manager' ) ),
+			// Worded from the press's detail, who changed the sponsor and when, in notice_sentence();
+			// this is the sentence for a change by nobody the site knows, with its time still to fill in.
+			'sponsor-stale'      => array( 'error', self::stale_template( false ) ),
 			// A typed text over its limit is named, with the limit (`long_sentence()`).
 			'name-too-long'      => array( 'error', self::long_sentence( __( 'Name', 'wpcredits-program-manager' ), self::MAX_LINE ) ),
 			'contact-too-long'   => array( 'error', self::long_sentence( __( 'Contact person', 'wpcredits-program-manager' ), self::MAX_LINE ) ),
@@ -924,6 +938,15 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		$listed = $this->list_notice_sentence( $status, $sentence );
+
+		// A stale Edit save, with who changed the sponsor and when (1.123.58). The detail was taken by
+		// the list's reading above, which remembers what it took.
+		if ( 'sponsor-stale' === $status ) {
+			$detail = WPCPM_Flash::take( self::FLASH_DETAIL );
+
+			return self::stale_sentence( is_array( $detail ) ? $detail : array() );
+		}
+
 		$queued = class_exists( 'WPCPM_Sponsor_Application' ) ? WPCPM_Sponsor_Application::sentence_for( $status, $sentence ) : (string) $sentence;
 
 		return (string) $sentence !== $listed ? $listed : $queued;
@@ -1007,9 +1030,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$this->leave( $this->accounts_url(), 'invites-none' );
 		}
 
-		WPCPM_Mail::queue_invites( $pending );
-
-		$this->leave( $this->accounts_url(), 'invites-queued' );
+		$this->leave( $this->accounts_url(), self::queue_bulk( $pending ) );
 	}
 
 	/**
@@ -1455,17 +1476,25 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		if ( 'attach' === $op ) {
+			$typed = WPCPM_Request::posted_raw( 'wpcpm_email' );
+			$form  = self::attach_form( $record );
 			$email = sanitize_email( WPCPM_Request::posted_text( 'wpcpm_email' ) );
 			$user  = is_email( $email ) ? get_user_by( 'email', $email ) : false;
 
+			// What an earlier refusal of this form kept is stale once it is posted again. A refusal brings
+			// the typed address back to the box, so a mistyped one is corrected rather than typed anew.
+			WPCPM_Flash::forget( $form );
+
 			if ( ! $user instanceof WP_User || ! $user->exists() ) {
+				WPCPM_Flash::keep( $form, array( 'email' => $typed ) );
 				$this->redirect_back( 'attach-no-account' );
 			}
 
 			$attached = WPCPM_Sponsor_Members::attach( $user->ID, $record, WPCPM_Sponsor_Members::HOW_MANAGER, get_current_user_id() );
 
 			if ( is_wp_error( $attached ) ) {
-				$this->redirect_back( 'attach-refused' );
+				WPCPM_Flash::keep( $form, array( 'email' => $typed ) );
+				$this->redirect_back( 'attach-refused', array( 'reason' => $attached->get_error_message() ) );
 			}
 
 			WPCPM_Mail::queue_invites( array( (int) $user->ID ) );
@@ -1497,8 +1526,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * Approved, as it does for any sponsor (design section 5).
 	 *
 	 * A refusal comes back to the tab the form names, the Sponsors tab (`redirect_back()`), with the
-	 * sentence that names a typed text over its limit, or the one that lists the rules
-	 * (`refusal()`); the sponsor added opens on its Edit form, which that tab draws in place of its
+	 * sentence that names a typed text over its limit, or the one that sends the manager to the fields
+	 * marked on the form, each with its own sentence (`refusal()`, `clean_fields()`); the sponsor added opens on its Edit form, which that tab draws in place of its
 	 * cards (`redirect_to_edit()`).
 	 *
 	 * The typed texts are the Edit form's (`handle_edit()`): before any field is cleaned, the first in
@@ -1517,7 +1546,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$form     = self::typed_form( '' );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
-		WPCPM_Typed_Text::forget( $form );
+		WPCPM_Flash::forget( $form );
 
 		$typed = self::typed_post( $fields );
 		$lost  = self::lost_box( $typed, array() );
@@ -1530,7 +1559,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$clean = self::clean_fields( self::posted_fields( $fields ), $defaults );
 
 		if ( ! $clean['ok'] ) {
-			self::keep_typing( $form, $typed, $defaults );
+			self::keep_typing( $form, $typed, $defaults, $clean['problems'] );
 			$this->redirect_back( self::refusal( $clean ) );
 		}
 
@@ -1612,6 +1641,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * A save refused for a loss, for a typed text's length or for any other value keeps the whole form
 	 * as it was posted, for the one time the form is drawn again (`keep_typing()`): one value refuses
 	 * the whole save, and the manager makes the change the refusal names and loses none of the others.
+	 * A refusal for a value names each field it refused (`clean_fields()`), and the form marks them.
+	 *
+	 * A stale form (1.123.58) is refused first of all, before any field is read: the version it posts
+	 * is not the row's (`version()`), so the row was written since the form was drawn. Nothing is
+	 * written, the typing is kept, and `sponsor-stale` names who changed the sponsor and when.
 	 */
 	public function handle_edit() {
 		$key = WPCPM_Request::posted_text( 'wpcpm_sponsor' );
@@ -1627,9 +1661,29 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$form = self::typed_form( $key );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
-		WPCPM_Typed_Text::forget( $form );
+		WPCPM_Flash::forget( $form );
 
 		$typed = self::typed_post( self::EDITABLE );
+
+		// The form posts the version of the row it was drawn from. A save whose version is no longer the
+		// row's writes nothing: another Administrator, or the sponsor, saved it since, and this save
+		// would put the old values back. The typing is kept, and the notice says who changed the row and
+		// when. A post that carries no version (a form drawn before this release) makes no claim.
+		$version = WPCPM_Request::posted_text( self::FIELD_VERSION, null );
+
+		if ( null !== $version && self::version( $current ) !== $version ) {
+			self::keep_typing( $form, $typed, $current );
+			WPCPM_Flash::set(
+				self::FLASH_DETAIL,
+				array(
+					'status'      => 'sponsor-stale',
+					'modified'    => (string) $current['modified'],
+					'modified_by' => (string) $current['modified_by'],
+				)
+			);
+			$this->redirect_to_edit( 'sponsor-stale', $key );
+		}
+
 		$drawn = self::drawn_typed( $typed, $current );
 		$lost  = self::lost_box( $typed, $drawn );
 
@@ -1642,7 +1696,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$clean = self::clean_fields( array_diff_key( self::posted_fields( self::EDITABLE ), array_flip( $drawn ) ), $current );
 
 		if ( ! $clean['ok'] ) {
-			self::keep_typing( $form, $typed, $current );
+			self::keep_typing( $form, $typed, $current, $clean['problems'] );
 			$this->redirect_to_edit( self::refusal( $clean ), $key );
 		}
 
@@ -1786,20 +1840,24 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 *                       lists.
 	 * @param array $current The record as the store holds it, or the new record's defaults; a key it
 	 *                       lacks is `WPCPM_Sponsors_Index::empty_row()`'s.
-	 * @return array `ok` (bool), `row` (`$current` with every accepted change), `changed` (the keys
-	 *               whose value changed, in the forms' order), and for a refusal `long`: the typed
-	 *               text of `TYPED` refused for its length, or '' for any other refusal.
+	 * Every field is read before the save is refused (1.123.58), so one save names every field it
+	 * refuses: a refusal answers `problems`, each refused field of `PROBLEM_FIELDS` and the one
+	 * sentence that says why, which the forms print beside the field and in the summary above them.
+	 * A choice no form offers, from a hand-made post, refuses the save without a field to mark.
+	 *
+	 * @return array `ok` (bool), `row` (`$current` with every accepted change, or `$current` for a
+	 *               refusal) and `values` (the same, under the name the forms' contract gives it),
+	 *               `changed` (the keys whose value changed, in the forms' order), `long`: the first
+	 *               typed text of `TYPED` refused for its length, or '' for any other refusal, and
+	 *               `problems`: each refused field and its sentence, or nothing for a save that passed.
 	 */
 	public static function clean_fields( array $posted, array $current ) {
-		$current = array_merge( WPCPM_Sponsors_Index::empty_row(), $current );
-		$refused = array(
-			'ok'      => false,
-			'row'     => $current,
-			'changed' => array(),
-			'long'    => '',
-		);
-		$row     = $current;
-		$changed = array();
+		$current  = array_merge( WPCPM_Sponsors_Index::empty_row(), $current );
+		$row      = $current;
+		$changed  = array();
+		$problems = array();
+		$long     = '';
+		$refused  = false;
 
 		foreach ( self::EDITABLE as $field ) {
 			// The extra events are read after the Friend's rule below: see the docblock.
@@ -1810,13 +1868,17 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$value = self::clean_field( $field, $posted[ $field ], $current[ $field ] );
 
 			if ( null === $value ) {
+				$refused = true;
+
 				// A typed text is refused for its length alone (`clean_typed()`), and the notice
-				// names it.
+				// names it; the first such box, in the forms' order, is the one named.
 				if ( isset( self::TYPED[ $field ] ) && is_scalar( $posted[ $field ] ) ) {
-					$refused['long'] = $field;
+					$long = '' === $long ? $field : $long;
+				} elseif ( isset( self::PROBLEM_FIELDS[ $field ] ) ) {
+					$problems[ $field ] = self::problem_sentence( $field );
 				}
 
-				return $refused;
+				continue;
 			}
 
 			if ( $value !== $current[ $field ] ) {
@@ -1840,27 +1902,71 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$extra = self::clean_field( 'event_allowance', $posted['event_allowance'], $current['event_allowance'] );
 
 			if ( null === $extra ) {
-				return $refused;
-			}
+				$refused                     = true;
+				$problems['event_allowance'] = self::problem_sentence( 'event_allowance' );
+			} else {
+				$allowance = self::allowance_after( $extra, $current, (string) $row['tier_until'] );
 
-			$allowance = self::allowance_after( $extra, $current, (string) $row['tier_until'] );
-
-			// Put in its place among the fields changed, which the loop above keeps in the forms' order.
-			if ( $allowance !== $current['event_allowance'] ) {
-				$row['event_allowance'] = $allowance;
-				$changed                = array_values( array_intersect( self::EDITABLE, array_merge( $changed, array( 'event_allowance' ) ) ) );
+				// Put in its place among the fields changed, which the loop above keeps in the forms' order.
+				if ( $allowance !== $current['event_allowance'] ) {
+					$row['event_allowance'] = $allowance;
+					$changed                = array_values( array_intersect( self::EDITABLE, array_merge( $changed, array( 'event_allowance' ) ) ) );
+				}
 			}
 		}
 
-		// Required whether or not it was posted: an Add without one, or an Edit that cleared it.
-		if ( '' === $row['name'] ) {
-			return $refused;
+		// Required whether or not it was posted: an Add without one, or an Edit that cleared it. A name
+		// refused for its length has its own sentence already.
+		if ( '' === $row['name'] && 'name' !== $long ) {
+			$refused          = true;
+			$problems['name'] = self::problem_sentence( 'name' );
+		}
+
+		// Every field is read, so one save names every field it refuses, in the forms' order.
+		$problems = array_intersect_key( $problems, array_flip( self::EDITABLE ) );
+
+		if ( $refused ) {
+			return array(
+				'ok'       => false,
+				'row'      => $current,
+				'values'   => $current,
+				'changed'  => array(),
+				'long'     => $long,
+				'problems' => $problems,
+			);
 		}
 
 		return array(
-			'ok'      => true,
-			'row'     => $row,
-			'changed' => $changed,
+			'ok'       => true,
+			'row'      => $row,
+			'values'   => $row,
+			'changed'  => $changed,
+			'long'     => '',
+			'problems' => array(),
+		);
+	}
+
+	/**
+	 * The one sentence a refused field is named with, on the form beside it and in the summary above
+	 * it (`clean_fields()`).
+	 *
+	 * @param string $field A key of `PROBLEM_FIELDS`.
+	 * @return string
+	 */
+	private static function problem_sentence( $field ) {
+		switch ( $field ) {
+			case 'name':
+				return __( 'Give the sponsor a name.', 'wpcredits-program-manager' );
+			case 'website':
+				return __( 'Enter a web address that starts with https://.', 'wpcredits-program-manager' );
+			case 'contact_email':
+				return __( 'Enter one email address, such as name@example.org.', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: %s: the most extra events the Tier box grants one term. */
+			__( 'Give a whole number from 0 to %s.', 'wpcredits-program-manager' ),
+			number_format_i18n( self::MAX_EXTRA_EVENTS )
 		);
 	}
 
@@ -2000,7 +2106,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 	/**
 	 * The status a save that `clean_fields()` refused leaves with: the one that names a typed text
-	 * over its limit, or the one that lists the rules for every other refusal.
+	 * over its limit, or the one that sends the manager to the fields marked on the form for every
+	 * other refusal.
 	 *
 	 * @param array $clean What `clean_fields()` answered.
 	 * @return string A key of `messages()`.
@@ -2139,7 +2246,66 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * @return string
 	 */
 	private static function typed_form( $key ) {
-		return '' === (string) $key ? 'sponsor-add' : 'sponsor-edit:' . $key;
+		return '' === (string) $key ? 'sponsor-add:new' : 'sponsor-edit:' . $key;
+	}
+
+	/**
+	 * The version of a sponsor's row, which the Edit form is drawn with and posts back: the
+	 * fingerprint (`WPCPM_Settings::fingerprint()`) of the fields of `EDITABLE`, the ones the form
+	 * carries. A save is stale only when one of them changed since the form was drawn; a write to a
+	 * field the form does not carry (a stamp the daily run sets, the agreement, the account flag) or
+	 * the same person's Attach or Detach leaves an open form current.
+	 *
+	 * @param array $row The sponsor's row.
+	 * @return string
+	 */
+	public static function version( array $row ) {
+		$row = array_merge( WPCPM_Sponsors_Index::empty_row(), $row );
+
+		return WPCPM_Settings::fingerprint( array_intersect_key( $row, array_flip( self::EDITABLE ) ) );
+	}
+
+	/**
+	 * The format of the stale-save sentence: with the name of whoever changed the sponsor, or, for a
+	 * change by nobody the site knows by name, without it.
+	 *
+	 * @param bool $named Whether the sentence names who changed the sponsor.
+	 * @return string
+	 */
+	private static function stale_template( $named ) {
+		if ( $named ) {
+			/* translators: 1: the display name of the Administrator who changed the sponsor, 2: the date and time of the change. */
+			return __( 'Nothing was saved: %1$s changed this sponsor at %2$s, after you opened the form. Your changes are still in the form: check them against the record and save again.', 'wpcredits-program-manager' );
+		}
+
+		/* translators: %s: the date and time the sponsor was changed. */
+		return __( 'Nothing was saved: this sponsor was changed at %s, after you opened the form. Your changes are still in the form: check them against the record and save again.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The stale-save sentence, worded from what the refused save left beside it.
+	 *
+	 * The time is the row's `modified` stamp in the site's date and time formats, and the name is the
+	 * display name of the account that wrote it; a row nobody is known to have written names no one,
+	 * and a row with no stamp says only that it changed.
+	 *
+	 * @param array $detail `modified` and `modified_by`, as the row held them.
+	 * @return string
+	 */
+	public static function stale_sentence( array $detail ) {
+		// A row nobody stamped names no time and no person, and invents none.
+		if ( ! isset( $detail['modified'] ) || '' === (string) $detail['modified'] || ! ctype_digit( (string) $detail['modified'] ) ) {
+			return __( 'This sponsor was changed after this page was drawn. Your typing is kept below: check it against the record and save again.', 'wpcredits-program-manager' );
+		}
+
+		$stamp = isset( $detail['modified'] ) && ctype_digit( (string) $detail['modified'] ) ? (int) $detail['modified'] : time();
+		$when  = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $stamp );
+		$by    = isset( $detail['modified_by'] ) && ctype_digit( (string) $detail['modified_by'] ) ? get_user_by( 'id', (int) $detail['modified_by'] ) : false;
+		$name  = $by instanceof WP_User ? trim( (string) $by->display_name ) : '';
+
+		return '' === $name
+			? sprintf( self::stale_template( false ), $when )
+			: sprintf( self::stale_template( true ), $name, $when );
 	}
 
 	/**
@@ -2210,22 +2376,22 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * `render_add()`): every field as it was posted, so the manager makes the change the refusal names
 	 * and loses none of the others.
 	 *
-	 * A typed text of `TYPED` is kept as typed, up to the room its box was drawn with, and never less
-	 * than the text it was drawn with (`WPCPM_Typed_Text::kept_room()`); the website and the contact
-	 * address whole, as their boxes take any length. A choice is kept when its field's rule takes it
-	 * (`clean_field()`): a value the form offers, or the one the record holds, which is what a select,
+	 * Through `WPCPM_Flash::keep()` (1.123.58), which keeps a text whole and drops one over its
+	 * `KEPT_MAX`, with the sentence of each field the save refused. A typed text of `TYPED` is kept as
+	 * typed; the website and the contact address whole, as their boxes take any length. A choice is kept
+	 * when its field's rule takes it (`clean_field()`): a value the form offers, or the one the record holds, which is what a select,
 	 * the Term ends day and the extra events' number can post. A list is kept as the ticked values the
 	 * form draws (`clean_list()`). A choice a hand-made post sent is not kept, so the form is never
 	 * drawn offering it.
 	 *
-	 * @param string $form  The form, as `typed_form()` names it.
-	 * @param array  $typed What was typed, as `typed_post()` read it.
-	 * @param array  $row   The record the form was drawn from, or the new record's defaults.
+	 * @param string $form     The form, as `typed_form()` names it.
+	 * @param array  $typed    What was typed, as `typed_post()` read it.
+	 * @param array  $row      The record the form was drawn from, or the new record's defaults.
+	 * @param array  $problems Each refused field and the sentence that says why.
 	 */
-	private static function keep_typing( $form, array $typed, array $row ) {
+	private static function keep_typing( $form, array $typed, array $row, array $problems = array() ) {
 		$row  = array_merge( WPCPM_Sponsors_Index::empty_row(), $row );
 		$kept = array();
-		$room = array();
 
 		foreach ( $typed as $field => $value ) {
 			if ( is_array( $value ) ) {
@@ -2234,18 +2400,17 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				continue;
 			}
 
-			if ( isset( self::TYPED[ $field ] ) ) {
-				$room[ $field ] = WPCPM_Typed_Text::kept_room( (string) $row[ $field ], self::TYPED[ $field ][0] );
-			} elseif ( in_array( $field, array( 'website', 'contact_email' ), true ) || null !== self::clean_field( $field, $value, $row[ $field ] ) ) {
-				$room[ $field ] = mb_strlen( (string) $value, 'UTF-8' );
-			} else {
+			// A text is kept as it was typed; a choice only when its field's rule takes it, so the form
+			// is never drawn offering one it does not. A value refused with a sentence is kept too: the
+			// sentence stands beside it.
+			if ( ! isset( self::TYPED[ $field ] ) && ! isset( $problems[ $field ] ) && ! in_array( $field, array( 'website', 'contact_email' ), true ) && null === self::clean_field( $field, $value, $row[ $field ] ) ) {
 				continue;
 			}
 
 			$kept[ $field ] = $value;
 		}
 
-		WPCPM_Typed_Text::keep( $form, $kept, $room );
+		WPCPM_Flash::keep( $form, $kept, $problems );
 	}
 
 	/**
@@ -2617,15 +2782,28 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * count waits there to be printed under this press's notice.
 	 *
 	 * @param string $status An outcome key the screen's message map knows.
+	 * @param array  $detail What the press adds to the outcome, for the notice's words: `reason`, why an
+	 *                       attached account was refused.
 	 */
-	protected function redirect_back( $status ) {
+	protected function redirect_back( $status, array $detail = array() ) {
 		$record = WPCPM_Request::posted_text( self::ARG_SPONSOR );
 
 		if ( self::TAB_ACCOUNTS === WPCPM_Request::posted_key( self::TAB_FIELD ) && '' !== $record ) {
-			$this->leave( self::accounts_view_url( $record ), $status );
+			$this->leave( self::accounts_view_url( $record ), $status, $detail );
 		}
 
 		parent::redirect_back( $status );
+	}
+
+	/**
+	 * The form Attach account keeps a refused address under, by the sponsor it attaches to, as
+	 * `WPCPM_Flash::keep()` names a form (1.123.58).
+	 *
+	 * @param string $record The sponsor's key.
+	 * @return string
+	 */
+	private static function attach_form( $record ) {
+		return 'sponsor-attach:' . trim( (string) $record );
 	}
 
 	/**
@@ -2975,7 +3153,16 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		echo '<input type="hidden" name="wpcpm_op" value="attach" />';
 		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( self::TAB_ACCOUNTS ) );
 		printf( '<label class="screen-reader-text" for="wpcpm-attach-%1$s">%2$s</label>', esc_attr( $record ), esc_html__( 'Email address', 'wpcredits-program-manager' ) );
-		printf( '<input type="email" id="wpcpm-attach-%1$s" name="wpcpm_email" placeholder="%2$s" required /> ', esc_attr( $record ), esc_attr__( 'name@company.example', 'wpcredits-program-manager' ) );
+		// A refused address comes back as it was typed, once.
+		$refused = WPCPM_Flash::kept( self::attach_form( $record ) );
+		$typed   = isset( $refused['values']['email'] ) && is_string( $refused['values']['email'] ) ? $refused['values']['email'] : '';
+
+		printf(
+			'<input type="email" id="wpcpm-attach-%1$s" name="wpcpm_email" placeholder="%2$s"%3$s required /> ',
+			esc_attr( $record ),
+			esc_attr__( 'name@company.example', 'wpcredits-program-manager' ),
+			'' !== $typed ? ' value="' . esc_attr( $typed ) . '"' : ''
+		);
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Attach account', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
@@ -3746,8 +3933,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_EDIT ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $key ) );
 		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
-		// A refused save: every field is drawn as it was posted (`keep_typing()`).
-		self::render_fields( 'edit', $row, WPCPM_Typed_Text::kept( self::typed_form( $key ) ) );
+		// The version of the row as drawn, which a save posts back (`version()`).
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_VERSION ), esc_attr( self::version( $row ) ) );
+		// A refused save: every field is drawn as it was posted (`keep_typing()`), each refused one
+		// marked.
+		$refused = WPCPM_Flash::kept( self::typed_form( $key ) );
+		self::render_fields( 'edit', $row, $refused['values'], $refused['problems'] );
 		printf(
 			'<p class="submit"><button type="submit" class="button button-primary">%1$s</button> <a href="%2$s">%3$s</a></p>',
 			esc_html__( 'Save', 'wpcredits-program-manager' ),
@@ -3797,8 +3988,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		wp_nonce_field( self::ACTION_ADD );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_ADD ) );
 		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::TAB_FIELD ), esc_attr( 'sponsors' ) );
-		// A refused Add: every field is drawn as it was posted (`keep_typing()`).
-		self::render_fields( 'add', array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'status' => self::STATUS_ADDED ) ), WPCPM_Typed_Text::kept( self::typed_form( '' ) ) );
+		// A refused Add: every field is drawn as it was posted (`keep_typing()`), each refused one marked.
+		$refused = WPCPM_Flash::kept( self::typed_form( '' ) );
+		self::render_fields( 'add', array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'status' => self::STATUS_ADDED ) ), $refused['values'], $refused['problems'] );
 		printf( '<p class="submit"><button type="submit" class="button button-primary">%s</button></p>', esc_html__( 'Add the sponsor', 'wpcredits-program-manager' ) );
 		echo '</form>';
 	}
@@ -3832,8 +4024,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * @param array  $row  The record, or the new record's defaults.
 	 * @param array  $kept What a refused save of the form kept, field => what was typed or the ticked
 	 *                     values of a list, or an empty array.
+	 * @param array  $problems Each field the save refused and the sentence that says why (1.123.58):
+	 *                     the summary above the table links them, and each field is marked and carries
+	 *                     its sentence.
 	 */
-	private static function render_fields( $form, array $row, array $kept = array() ) {
+	private static function render_fields( $form, array $row, array $kept = array(), array $problems = array() ) {
 		$id      = 'wpcpm-' . $form . '-';
 		$allowed = array( 'span' => array( 'class' => array() ) );
 		$typed   = static function ( $field ) use ( $kept ) {
@@ -3867,24 +4062,62 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			return 'website' === $field ? WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::kept_attr( $stored ) ) : $stored;
 		};
 
+		// The summary of a refused save, above the fields it links to, in the forms' order.
+		$summary = WPCPM_Form_Errors::summary(
+			$problems,
+			array(
+				'name'            => array(
+					'id'    => $id . 'name',
+					'label' => __( 'Name', 'wpcredits-program-manager' ),
+				),
+				'website'         => array(
+					'id'    => $id . 'website',
+					'label' => __( 'Website', 'wpcredits-program-manager' ),
+				),
+				'contact_email'   => array(
+					'id'    => $id . 'contact-email',
+					'label' => __( 'Contact email', 'wpcredits-program-manager' ),
+				),
+				'event_allowance' => array(
+					'id'    => $id . 'event-allowance',
+					'label' => __( 'Extra events this term', 'wpcredits-program-manager' ),
+				),
+			),
+			array( 'class' => WPCPM_Form_Errors::ADMIN_CLASS )
+		);
+
+		echo $summary; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
+
+		// A refused field's mark and its sentence, or nothing.
+		$mark    = static function ( $field, $control ) use ( $problems ) {
+			return WPCPM_Form_Errors::attrs( $control, isset( $problems[ $field ] ) ? $problems[ $field ] : '' );
+		};
+		$problem = static function ( $field, $control ) use ( $problems ) {
+			return WPCPM_Form_Errors::problem( $control, isset( $problems[ $field ] ) ? $problems[ $field ] : '' );
+		};
+
 		echo '<table class="form-table" role="presentation"><tbody>';
 
 		printf(
-			'<tr><th scope="row"><label for="%1$sname">%2$s %3$s</label></th><td><input type="text" class="regular-text" id="%1$sname" name="wpcpm_name" value="%4$s" maxlength="%5$d" required /></td></tr>',
+			'<tr><th scope="row"><label for="%1$sname">%2$s %3$s</label></th><td><input type="text" class="regular-text" id="%1$sname" name="wpcpm_name" value="%4$s" maxlength="%5$d"%6$s required />%7$s</td></tr>',
 			esc_attr( $id ),
 			esc_html__( 'Name', 'wpcredits-program-manager' ),
 			wp_kses( '<span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>', $allowed ),
 			esc_attr( $value( 'name' ) ),
-			(int) WPCPM_Typed_Text::drawn_limit( (string) $row['name'], self::MAX_LINE )
+			(int) WPCPM_Typed_Text::drawn_limit( (string) $row['name'], self::MAX_LINE ),
+			$mark( 'name', $id . 'name' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
+			$problem( 'name', $id . 'name' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
 		);
 
 		// `inputmode="url"` on a text field, as the application form draws its own: a url field
 		// refuses a scheme-less address, and example.com is how most people write one.
 		printf(
-			'<tr><th scope="row"><label for="%1$swebsite">%2$s</label></th><td><input type="text" inputmode="url" class="regular-text" id="%1$swebsite" name="wpcpm_website" value="%3$s" /></td></tr>',
+			'<tr><th scope="row"><label for="%1$swebsite">%2$s</label></th><td><input type="text" inputmode="url" class="regular-text" id="%1$swebsite" name="wpcpm_website" value="%3$s"%4$s />%5$s</td></tr>',
 			esc_attr( $id ),
 			esc_html__( 'Website', 'wpcredits-program-manager' ),
-			esc_attr( $value( 'website' ) )
+			esc_attr( $value( 'website' ) ),
+			$mark( 'website', $id . 'website' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
+			$problem( 'website', $id . 'website' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
 		);
 
 		self::select_row( $id . 'status', 'status', __( 'Status', 'wpcredits-program-manager' ), array_combine( WPCPM_Sponsors_Index::STATUSES, WPCPM_Sponsors_Index::STATUSES ), $row['status'], $typed( 'status' ) );
@@ -3910,11 +4143,13 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			(int) WPCPM_Typed_Text::drawn_limit( (string) $row['contact_person'], self::MAX_LINE )
 		);
 		printf(
-			'<tr><th scope="row"><label for="%1$scontact-email">%2$s</label></th><td><input type="email" class="regular-text" id="%1$scontact-email" name="wpcpm_contact_email" value="%3$s" /><p class="description">%4$s</p></td></tr>',
+			'<tr><th scope="row"><label for="%1$scontact-email">%2$s</label></th><td><input type="email" class="regular-text" id="%1$scontact-email" name="wpcpm_contact_email" value="%3$s"%5$s />%6$s<p class="description">%4$s</p></td></tr>',
 			esc_attr( $id ),
 			esc_html__( 'Contact email', 'wpcredits-program-manager' ),
 			esc_attr( $value( 'contact_email' ) ),
-			esc_html__( 'Create account makes the account at this address and sends its invitation here.', 'wpcredits-program-manager' )
+			esc_html__( 'Create account makes the account at this address and sends its invitation here.', 'wpcredits-program-manager' ),
+			$mark( 'contact_email', $id . 'contact-email' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
+			$problem( 'contact_email', $id . 'contact-email' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
 		);
 
 		$none = array( '' => __( 'Not chosen', 'wpcredits-program-manager' ) );
@@ -3989,7 +4224,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			// tier the select holds, so a Champion whose term has ended can be renewed and granted
 			// more in one save.
 			if ( in_array( WPCPM_Sponsor_Tiers::EVENT_CO_HOSTED, WPCPM_Sponsor_Tiers::events( (string) $row['tier'] ), true ) ) {
-				self::render_extra_row( $id, $row, $typed( 'event_allowance' ) );
+				self::render_extra_row( $id, $row, $typed( 'event_allowance' ), isset( $problems['event_allowance'] ) ? $problems['event_allowance'] : '' );
 			}
 
 			printf(
@@ -4077,11 +4312,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * as the term that ended once its last day has passed, until the box is changed. After a refused
 	 * save, the box holds the number that was posted (`keep_typing()`).
 	 *
-	 * @param string      $id   The form's ID prefix.
-	 * @param array       $row  The sponsor's row.
-	 * @param string|null $kept The number a refused save of the form posted, as posted, or null.
+	 * @param string      $id      The form's ID prefix.
+	 * @param array       $row     The sponsor's row.
+	 * @param string|null $kept    The number a refused save of the form posted, as posted, or null.
+	 * @param string      $problem The sentence the save refused the number with, or ''.
 	 */
-	private static function render_extra_row( $id, array $row, $kept = null ) {
+	private static function render_extra_row( $id, array $row, $kept = null, $problem = '' ) {
 		$granted   = self::granted( $row );
 		$allowance = is_array( $row['event_allowance'] ) ? $row['event_allowance'] : array();
 		$other     = '';
@@ -4097,11 +4333,13 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		printf(
-			'<tr><th scope="row"><label for="%1$sevent-allowance">%2$s</label></th><td><input type="number" id="%1$sevent-allowance" name="wpcpm_event_allowance" value="%3$s" min="0" max="%4$d" step="1" class="small-text" />',
+			'<tr><th scope="row"><label for="%1$sevent-allowance">%2$s</label></th><td><input type="number" id="%1$sevent-allowance" name="wpcpm_event_allowance" value="%3$s" min="0" max="%4$d" step="1" class="small-text"%5$s />%6$s',
 			esc_attr( $id ),
 			esc_html__( 'Extra events this term', 'wpcredits-program-manager' ),
 			esc_attr( null !== $kept ? WPCPM_Typed_Text::kept_attr( $kept ) : (string) (int) $granted ),
-			(int) self::MAX_EXTRA_EVENTS
+			(int) self::MAX_EXTRA_EVENTS,
+			WPCPM_Form_Errors::attrs( $id . 'event-allowance', $problem ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
+			WPCPM_Form_Errors::problem( $id . 'event-allowance', $problem ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
 		);
 
 		if ( '' !== $other ) {

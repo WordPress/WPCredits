@@ -592,6 +592,42 @@ class WPCPM_Flash {
 	}
 	/** A new request: nothing taken yet. */
 	public static function new_request() { self::$taken = array(); }
+	/** The channel a refused form keeps its typing on, as the real one names it. */
+	const KEPT_CHANNEL = 'kept:';
+	/** What a refused form keeps (1.123.58), on the stand-in's own channels: each value as a string, and the sentence for each refused field. */
+	public static function keep( $form, array $values, array $problems = array() ) {
+		$kept = array();
+		foreach ( $values as $field => $value ) {
+			if ( is_array( $value ) ) {
+				$kept[ (string) $field ] = array_values( array_filter( $value, 'is_string' ) );
+				continue;
+			}
+			$value = str_replace( "\r\n", "\n", (string) $value );
+			if ( mb_strlen( $value, 'UTF-8' ) <= WPCPM_Flash_Real::KEPT_MAX ) {
+				$kept[ (string) $field ] = $value;
+			}
+		}
+		$why = array();
+		foreach ( $problems as $field => $sentence ) {
+			if ( is_string( $sentence ) && '' !== trim( $sentence ) ) {
+				$why[ (string) $field ] = $sentence;
+			}
+		}
+		if ( array() === $kept && array() === $why ) {
+			return;
+		}
+		self::set( self::KEPT_CHANNEL . $form, array( 'at' => time(), 'values' => $kept, 'problems' => $why ) );
+	}
+	/** What a refused form kept, taken once; both keys always there. */
+	public static function kept( $form ) {
+		$entry = self::take( self::KEPT_CHANNEL . $form );
+		return array(
+			'values'   => is_array( $entry ) && isset( $entry['values'] ) && is_array( $entry['values'] ) ? $entry['values'] : array(),
+			'problems' => is_array( $entry ) && isset( $entry['problems'] ) && is_array( $entry['problems'] ) ? $entry['problems'] : array(),
+		);
+	}
+	/** Drop what an earlier refusal of the form kept. */
+	public static function forget( $form ) { self::take( self::KEPT_CHANNEL . $form ); }
 }
 
 // The plugin's own flash, loaded through a rewrite under a name of its own. The stand-in above keeps
@@ -639,6 +675,10 @@ class WPCPM_Sponsors_Dashboard {
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-request.php';
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
+}
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/class-wpcpm-return.php';
 require_once __DIR__ . '/../includes/class-wpcpm-ics.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
@@ -653,6 +693,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-report.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event.php';
 
 // Loaded only when it is there, so that before it exists every check below fails on its own.
@@ -2527,11 +2568,12 @@ ck(
 				$left = press( 'handle_program_plan', program_slashed(), KEPT_PLAN_MANAGER );
 				$rows = rows_of( $card_for( KEPT_PLAN_MANAGER ), 'wpcpm-sevent-program-new' );
 				$meta = program_flash_meta( KEPT_PLAN_MANAGER );
-				return array( $left, array( $rows['title'], $rows['description'], $rows['link'] ), array_keys( $meta ), isset( $meta['typed:sevent::new']['typed'] ) && $meta['typed:sevent::new']['typed'] === $program_slashed_boxes );
+				// The card the handler named for its outcome (1.123.58) is not typing: the page takes it.
+				return array( $left, array( $rows['title'], $rows['description'], $rows['link'] ), array_values( array_diff( array_keys( $meta ), array( WPCPM_Dashboard_Card::TARGET ) ) ), isset( $meta['kept:sevent::new']['values'] ) && $meta['kept:sevent::new']['values'] === $program_slashed_boxes );
 			}
 		);
 	},
-	array( array( 'sevent-program-fields', $admin_card ), array( '', '', $program_slashed_rows[2] ), array( 'typed:sevent::new' ), true )
+	array( array( 'sevent-program-fields', $admin_card ), array( '', '', $program_slashed_rows[2] ), array( 'kept:sevent::new' ), true )
 );
 ck(
 	'and so does the program\'s Change form, of the later of its events, drawn after the sooner one\'s form took the flash, its title and description boxes holding the event\'s own',
@@ -2541,8 +2583,8 @@ ck(
 				$left = press( 'handle_program_change', array_merge( program_slashed(), decision( $program_second ) ), KEPT_CHANGE_MANAGER );
 				$rows = rows_of( $card_for( KEPT_CHANGE_MANAGER ), 'wpcpm-sevent-program-' . $program_second );
 				$meta = program_flash_meta( KEPT_CHANGE_MANAGER );
-				$name = 'typed:sevent::' . (int) $program_second;
-				return array( $left, array( $rows['title'], $rows['description'], $rows['link'] ), array_keys( $meta ) === array( $name ), isset( $meta[ $name ]['typed'] ) && $meta[ $name ]['typed'] === $program_slashed_boxes );
+				$name = 'kept:sevent::' . (int) $program_second;
+				return array( $left, array( $rows['title'], $rows['description'], $rows['link'] ), array_values( array_diff( array_keys( $meta ), array( WPCPM_Dashboard_Card::TARGET ) ) ) === array( $name ), isset( $meta[ $name ]['values'] ) && $meta[ $name ]['values'] === $program_slashed_boxes );
 			}
 		);
 	},

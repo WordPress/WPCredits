@@ -189,6 +189,7 @@ require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 // The real one field for a long list, which the Link picker is drawn with.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 
@@ -711,10 +712,10 @@ ck( 'under a nonce keyed to that row', has( $html, 'value="nonce-wpcpm_instituti
 // The one field for a long list, as the Emails tool's Email filter is: labeled, taking typing and
 // narrowing, the plain select still what the form sends without the script. It opens on its prompt,
 // so a press with nothing chosen sends nothing the handler would link.
-preg_match( '#<select name="wpcpm_institution" id="wpcpm-link-' . $CLEAN . '" autocomplete="off">(.*?)</select>#s', $html, $link_select );
+preg_match( '#<select name="wpcpm_institution" id="wpcpm-link-' . $CLEAN . '" autocomplete="off" required>(.*?)</select>#s', $html, $link_select );
 ck( 'the institution is chosen from the index, not typed, in one field that takes typing, wrapped for the wp-admin field rules', array(
 	has( $html, '<form class="wpcpm-inst-link wpcpm-admin-picker" method="post"' ),
-	has( $html, '<div class="wpcpm-admin-combo"><label for="wpcpm-link-' . $CLEAN . '" id="wpcpm-link-' . $CLEAN . '-label">Institution to link this row to</label> <select name="wpcpm_institution" id="wpcpm-link-' . $CLEAN . '" autocomplete="off">' ),
+	has( $html, '<div class="wpcpm-admin-combo"><label for="wpcpm-link-' . $CLEAN . '" id="wpcpm-link-' . $CLEAN . '-label">Institution to link this row to</label> <select name="wpcpm_institution" id="wpcpm-link-' . $CLEAN . '" autocomplete="off" required>' ),
 	has( $html, '<input type="text" id="wpcpm-link-' . $CLEAN . '-input" class="wpcpm-dashboard__switcher-input" role="combobox"' ),
 	has( $html, '</div> </div> <button type="submit" class="button">Link</button></form>' ),
 	in_array( WPCPM_Dashboards::SWITCHER_SCRIPT, $GLOBALS['enqueued'], true ),
@@ -918,6 +919,44 @@ ck( 'a well-formed institution the site has never read is refused', array( outco
 
 press_link( 1, array( 'wpcpm_student' => $CLEAN, 'wpcpm_institution' => 'the university' ) );
 ck( 'and so is a posted value that is not a record ID at all', array( outcome_status( 1 ), $GLOBALS['at']['reads'] ), array( 'bad-record', array() ) );
+
+// Pressed with "Choose an institution" still chosen: the field says so, and nothing is read or written.
+$students_before = $GLOBALS['at']['records'][ $CLEAN ];
+press_link( 1, array( 'wpcpm_student' => $CLEAN, 'wpcpm_institution' => '' ) );
+ck( 'Link with no institution chosen is refused at the field, and nothing is written', array(
+	outcome( 1 ),
+	$GLOBALS['at']['reads'],
+	$GLOBALS['at']['writes'],
+	$GLOBALS['inserted'],
+	audit_rows(),
+	$GLOBALS['at']['records'][ $CLEAN ] === $students_before,
+), array( array( 'status' => 'link-no-institution', 'detail' => $CLEAN ), array(), array(), array(), array(), true ) );
+ck( 'and its sentence says to choose first and that nothing was written', ( new ReflectionMethod( 'WPCPM_Institutions', 'link_message' ) )->invoke( null, 'link-no-institution' ), 'Choose an institution first. Nothing was written.' );
+
+/** The next page the same person reads: the flash handed to a person of their own, who has read nothing yet. */
+function next_page( $from, $to ) {
+	$GLOBALS['umeta'][ (int) $to ]['wpcpm_flash'] = $GLOBALS['umeta'][ (int) $from ]['wpcpm_flash'] ?? array();
+	unset( $GLOBALS['umeta'][ (int) $from ]['wpcpm_flash'] );
+}
+
+next_page( 1, 41 );
+$refused_card = render_card( 41 );
+$field_id     = 'wpcpm-link-' . $CLEAN;
+ck( 'the refused row\'s field is marked, and says why beside itself', array(
+	has( $refused_card, '<select name="wpcpm_institution" id="' . $field_id . '" autocomplete="off" aria-invalid="true" aria-describedby="' . $field_id . '-problem" required>' ),
+	has( $refused_card, '<p class="wpcpm-field__problem" id="' . $field_id . '-problem">Choose an institution first. Nothing was written.</p>' ),
+	substr_count( $refused_card, 'aria-invalid="true"' ) >= 2,
+), array( true, true, true ) );
+ck( 'and the summary above the list links to that field', array(
+	has( $refused_card, '<div class="wpcpm-errors inline" role="alert" tabindex="-1"><h4 class="wpcpm-errors__title">One answer needs a change</h4>' ),
+	has( $refused_card, '<a href="#' . $field_id . '">Institution to link this row to</a>: Choose an institution first. Nothing was written.' ),
+	has( $refused_card, 'Nothing was written.</li>' ),
+), array( true, true, true ) );
+ck( 'no other row is marked', substr_count( $refused_card, 'wpcpm-field__problem' ), 1 );
+ck( 'the link form is guarded against a second press with its busy word, and the institution control is required', array(
+	has( $refused_card, 'data-wpcpm-once data-wpcpm-busy="Linking">' ),
+	has( $refused_card, 'autocomplete="off" required>' ) || has( $refused_card, ' required>' ),
+), array( true, true ) );
 
 // A PATCH that came back an error leaves the row where it was, so nothing may be written on
 // this side of it either: a roster row for a link the base refused is a student filed under a

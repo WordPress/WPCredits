@@ -45,6 +45,7 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function wp_json_encode( $v ) { return json_encode( $v ); }
+function number_format_i18n( $n, $d = 0 ) { return number_format( (float) $n, (int) $d ); }
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
 function add_query_arg( $args, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
@@ -645,6 +646,61 @@ ck( 'nothing to delete sends nothing', array( $airtable->delete_records( 'tblX',
 
 $no_token = new WPCPM_Airtable( array( 'api_token' => '', 'base_id' => 'appTEST' ) );
 ck( 'and without a token it refuses before sending', array( $no_token->delete_records( 'tblX', array( $del[0] ) )->get_error_code(), sent() ), array( 'wpcpm_no_token', 0 ) );
+
+echo "\n=== create_records(): a stop says which records it had already created (LOG-13, 1.123.58) ===\n";
+
+/**
+ * Airtable's answer to a POST of records: each created, with the ID given.
+ *
+ * @param string[] $ids Record IDs.
+ * @return array
+ */
+function created_answer( array $ids ) {
+	return response( 200, array( 'records' => array_map( static function ( $id ) { return array( 'id' => $id, 'fields' => array() ); }, $ids ) ) );
+}
+
+$make = array();
+$made = array();
+for ( $i = 1; $i <= 12; $i++ ) {
+	$make[] = array( 'fields' => array( 'Name' => 'Student ' . $i ) );
+	$made[] = 'recCREATED' . str_pad( (string) $i, 7, '0', STR_PAD_LEFT );
+}
+
+fresh( 'web' );
+queue( created_answer( array_slice( $made, 0, 10 ) ) );
+queue( response( 422, array( 'error' => array( 'type' => 'INVALID_VALUE_FOR_COLUMN' ) ) ) );
+$r = $airtable->create_records( 'tblX', $make );
+ck( 'a create that fails on its second request answers the ids the first created',
+	array( sent(), is_wp_error( $r ) ? $r->get_error_code() : $r, is_wp_error( $r ) ? $r->get_error_data()['status'] : null, is_wp_error( $r ) ? ( $r->get_error_data()['created'] ?? null ) : null ),
+	array( 2, 'wpcpm_airtable_error', 422, array_slice( $made, 0, 10 ) ) );
+
+fresh( 'web' );
+queue( response( 500, array( 'error' => array( 'type' => 'SERVER_ERROR' ) ) ) );
+$r = $airtable->create_records( 'tblX', $make );
+ck( 'and one that fails on its first answers none, the status as it was', array( $r->get_error_data()['status'], $r->get_error_data()['created'] ), array( 500, array() ) );
+
+fresh( 'web' );
+queue( created_answer( array_slice( $made, 0, 10 ) ) );
+queue( created_answer( array_slice( $made, 10 ) ) );
+ck( 'a create that goes through answers every id, in order', $airtable->create_records( 'tblX', $make ), $made );
+
+echo "\n=== fetch_all() past 100 pages answers capped, not a part of the table (LOG-23, 1.123.58) ===\n";
+
+fresh( 'cron' );
+for ( $i = 1; $i <= 100; $i++ ) {
+	queue( response( 200, array( 'records' => array( array( 'id' => 'rec' . $i, 'fields' => array() ) ), 'offset' => 'itr' . $i ) ) );
+}
+$r = $airtable->fetch_all( 'tblX' );
+ck( 'fetch_all() past 100 pages answers capped, not a part of the table',
+	array( sent(), is_wp_error( $r ) ? $r->get_error_code() : count( $r ), is_wp_error( $r ) ? $r->get_error_message() : '' ),
+	array( 100, 'wpcpm_airtable_capped', 'Airtable has more than 10,000 rows to give for this read, and one read stops at that many, so nothing was counted.' ) );
+
+fresh( 'cron' );
+for ( $i = 1; $i <= 100; $i++ ) {
+	queue( response( 200, array( 'records' => array( array( 'id' => 'rec' . $i, 'fields' => array() ) ) ) + ( $i < 100 ? array( 'offset' => 'itr' . $i ) : array() ) ) );
+}
+$r = $airtable->fetch_all( 'tblX' );
+ck( 'and a table that ends on its hundredth page is read whole', array( sent(), is_wp_error( $r ) ? $r->get_error_code() : count( $r ) ), array( 100, 100 ) );
 
 echo "\n=== Creating a column, the one call that uses the schema token ===\n";
 

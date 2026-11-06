@@ -864,7 +864,7 @@ class WPCPM_Mentor_Calls {
 		// login that lapsed after the page was drawn fails the nonce first and meets core's
 		// "link has expired" page, never this sentence (1.116.1, mirroring SURFACES-4).
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to book a call.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to book a call.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		check_admin_referer( self::ACTION_BOOK );
@@ -884,6 +884,14 @@ class WPCPM_Mentor_Calls {
 		$start  = isset( $_POST['start'] ) ? absint( wp_unslash( $_POST['start'] ) ) : 0;
 		$mentor = self::mentor_for_student( $student_id );
 
+		// The topic as typed, kept when the slot is lost to somebody else or to a booking going
+		// through at the same moment, so the next slot is booked without typing it again
+		// (1.123.58, CARD-04). What an earlier refusal kept is dropped first.
+		$form  = self::booking_form( $start, $student_id );
+		$typed = isset( $_POST['topic'] ) && is_scalar( $_POST['topic'] ) ? wp_unslash( (string) $_POST['topic'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Kept as typed for the box's redraw, and escaped where it is drawn; sanitized below before it is saved.
+
+		WPCPM_Flash::forget( $form );
+
 		if ( ! $mentor instanceof WP_User ) {
 			self::bounce( 'no-mentor' );
 		}
@@ -897,6 +905,7 @@ class WPCPM_Mentor_Calls {
 		if ( ! self::lock( $mentor->ID ) ) {
 			// Somebody else is mid-booking with this mentor. Sending them back to try
 			// again is honest; queueing behind a lock in a page request is not.
+			self::keep_topic( $form, $start, $typed );
 			self::bounce( 'busy' );
 		}
 
@@ -904,6 +913,7 @@ class WPCPM_Mentor_Calls {
 
 		if ( null === $slot ) {
 			self::unlock( $mentor->ID );
+			self::keep_topic( $form, $start, $typed );
 			self::bounce( 'taken' );
 		}
 
@@ -1097,7 +1107,7 @@ class WPCPM_Mentor_Calls {
 	public static function handle_timezone() {
 		// Before the nonce, as booking asks it (1.116.1, mirroring SURFACES-4).
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in first.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in first.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		check_admin_referer( self::ACTION_ZONE );
@@ -1107,6 +1117,57 @@ class WPCPM_Mentor_Calls {
 		WPCPM_Mentor_Availability::set_timezone( get_current_user_id(), $zone );
 
 		self::bounce( 'zone' );
+	}
+
+	/**
+	 * What a refused booking keeps its topic under: the slot and the student's record, or their
+	 * account where the site knows no record (1.123.58).
+	 *
+	 * @param int $start      The slot's start.
+	 * @param int $student_id The student the booking is for.
+	 * @return string
+	 */
+	private static function booking_form( $start, $student_id ) {
+		$record = self::student_record( (int) $student_id );
+
+		return 'booking:' . (int) $start . ':' . ( '' !== $record ? $record : 'user-' . (int) $student_id );
+	}
+
+	/**
+	 * Keep a refused booking's topic, and which slot it was for, for the calendar's next draw.
+	 *
+	 * @param string $form  The booking's kept form.
+	 * @param int    $start The slot's start.
+	 * @param string $typed The topic as typed.
+	 */
+	private static function keep_topic( $form, $start, $typed ) {
+		// Nothing to keep, or more than the store keeps, which is not kept cut.
+		if ( '' === trim( (string) $typed ) || mb_strlen( (string) $typed ) > WPCPM_Flash::KEPT_MAX ) {
+			return;
+		}
+
+		WPCPM_Flash::keep( $form, array( 'topic' => (string) $typed ) );
+		WPCPM_Flash::set( 'booking-slot', (int) $start );
+	}
+
+	/**
+	 * The topic a refused booking kept for this student, read once, or '' (1.123.58, CARD-04).
+	 *
+	 * For the calendar's topic box, which the next press sends with whichever slot it is.
+	 *
+	 * @param int $student_id The student the calendar books for.
+	 * @return string
+	 */
+	public static function kept_topic( $student_id ) {
+		$start = (int) WPCPM_Flash::take( 'booking-slot' );
+
+		if ( $start <= 0 ) {
+			return '';
+		}
+
+		$kept = WPCPM_Flash::kept( self::booking_form( $start, $student_id ) );
+
+		return isset( $kept['values']['topic'] ) && is_scalar( $kept['values']['topic'] ) ? (string) $kept['values']['topic'] : '';
 	}
 
 	/**

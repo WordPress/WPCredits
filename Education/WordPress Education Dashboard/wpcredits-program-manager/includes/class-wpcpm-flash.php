@@ -42,6 +42,25 @@ class WPCPM_Flash {
 	const META = 'wpcpm_flash';
 
 	/**
+	 * The channel prefix a refused form's kept values wait under, one channel per form (1.123.58).
+	 * Apart from `WPCPM_Typed_Text::KEPT_CHANNEL`, so the two stores never read each other's entries.
+	 */
+	const KEPT_CHANNEL = 'kept:';
+
+	/**
+	 * How long a refused form's kept values wait for the form to be drawn again, in seconds: a refusal
+	 * lands on its page at once, so an entry older than this is from a page that never drew the form.
+	 * The same ten minutes `WPCPM_Typed_Text::KEPT_FOR` gives its boxes.
+	 */
+	const KEPT_FOR = 600;
+
+	/**
+	 * The most characters one kept value holds: above the longest box any signed-in form draws (the
+	 * enrollment list's paste box, 300 rows), so a crafted post keeps no more than a box could hold.
+	 */
+	const KEPT_MAX = 60000;
+
+	/**
 	 * Queue a message for the next page this user loads.
 	 *
 	 * @param string $channel Message channel, e.g. `call` or `availability`.
@@ -150,6 +169,130 @@ class WPCPM_Flash {
 		} else {
 			update_user_meta( $user_id, self::META, wp_slash( $left ) );
 		}
+	}
+
+	/**
+	 * Keep what a person posted to a form that was refused, and why each field was refused, for the
+	 * one time the form is drawn again (1.123.58).
+	 *
+	 * For the forms of a signed-in person: the dashboards' and wp-admin's. A public form keeps its
+	 * values behind `WPCPM_Form_Stash`, since its sender has no account, and a form of one box keeps
+	 * through `WPCPM_Typed_Text::keep_box()`, which cuts to the box's own room. A refused form is drawn
+	 * again from what `kept()` hands back, never from the stored record.
+	 *
+	 * A value is a string, with a line break read as one LF, or a list of strings (the boxes of a
+	 * checklist). A string over `KEPT_MAX` characters is not kept at all, never kept cut, and neither
+	 * is an item of a list over it, so a form drawn again never shows a box holding part of what was
+	 * typed as if it were the whole; the rest of the form is kept. A string that is not valid UTF-8,
+	 * and anything that is neither, is not kept. A problem is a field and one sentence. When nothing
+	 * is left to keep, nothing is stored. Every keep first clears the person's kept entries older than `KEPT_FOR`, for
+	 * whatever form, and any value on such a channel that is not a kept entry (`sweep()`), so a form
+	 * that is never drawn again does not leave what was typed in user meta for good.
+	 *
+	 * @param string $form     The form, by what it does and the record it edits, such as
+	 *                         `sponsor-edit:42`.
+	 * @param array  $values   Each field and what was posted for it, unslashed and not cleaned.
+	 * @param array  $problems Each refused field and the one sentence that says why.
+	 */
+	public static function keep( $form, array $values, array $problems = array() ) {
+		self::sweep(
+			static function ( $channel, $entry ) {
+				if ( 0 !== strpos( $channel, self::KEPT_CHANNEL ) ) {
+					return false;
+				}
+
+				return ! is_array( $entry ) || ! isset( $entry['at'] ) || time() - (int) $entry['at'] > self::KEPT_FOR;
+			}
+		);
+
+		$kept = array();
+
+		foreach ( $values as $field => $value ) {
+			if ( is_array( $value ) ) {
+				$list = array();
+
+				foreach ( $value as $item ) {
+					if ( is_string( $item ) && mb_check_encoding( $item, 'UTF-8' ) && mb_strlen( $item, 'UTF-8' ) <= self::KEPT_MAX ) {
+						$list[] = $item;
+					}
+				}
+
+				$kept[ (string) $field ] = $list;
+
+				continue;
+			}
+
+			if ( ! is_scalar( $value ) || is_bool( $value ) || ! mb_check_encoding( (string) $value, 'UTF-8' ) ) {
+				continue;
+			}
+
+			$value = str_replace( "\r\n", "\n", (string) $value );
+
+			if ( mb_strlen( $value, 'UTF-8' ) > self::KEPT_MAX ) {
+				continue;
+			}
+
+			$kept[ (string) $field ] = $value;
+		}
+
+		$why = array();
+
+		foreach ( $problems as $field => $sentence ) {
+			if ( is_string( $sentence ) && '' !== trim( $sentence ) ) {
+				$why[ (string) $field ] = $sentence;
+			}
+		}
+
+		if ( array() === $kept && array() === $why ) {
+			return;
+		}
+
+		self::set(
+			self::KEPT_CHANNEL . $form,
+			array(
+				'at'       => time(),
+				'values'   => $kept,
+				'problems' => $why,
+			)
+		);
+	}
+
+	/**
+	 * What a refused form kept for its redraw, handed back once and cleared (1.123.58).
+	 *
+	 * Both keys are always there, so a form reads `$kept['values']` and `$kept['problems']` without a
+	 * test. An entry older than `KEPT_FOR` hands back nothing and is cleared all the same: one still
+	 * waiting is from a page that never drew the form, and it must not turn up on a later visit.
+	 *
+	 * @param string $form The form, named as `keep()` was given it.
+	 * @return array{values: array, problems: array<string, string>}
+	 */
+	public static function kept( $form ) {
+		$none  = array(
+			'values'   => array(),
+			'problems' => array(),
+		);
+		$entry = self::take( self::KEPT_CHANNEL . $form );
+
+		if ( ! is_array( $entry ) || ! isset( $entry['at'] ) || time() - (int) $entry['at'] > self::KEPT_FOR ) {
+			return $none;
+		}
+
+		return array(
+			'values'   => isset( $entry['values'] ) && is_array( $entry['values'] ) ? $entry['values'] : array(),
+			'problems' => isset( $entry['problems'] ) && is_array( $entry['problems'] ) ? $entry['problems'] : array(),
+		);
+	}
+
+	/**
+	 * Drop what an earlier refusal of a form kept, because the form has been posted again: every
+	 * handler that keeps calls this first, so a refusal whose page never drew the form cannot fill
+	 * the boxes after a save that went through (1.123.58).
+	 *
+	 * @param string $form The form, named as `keep()` was given it.
+	 */
+	public static function forget( $form ) {
+		self::take( self::KEPT_CHANNEL . $form );
 	}
 
 	/**

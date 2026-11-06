@@ -81,7 +81,16 @@ final class WPCPM_Sponsor_Tier_Card {
 		return array(
 			'tier-sent'    => array( 'success', __( 'Sent. Your program contact will be in touch.', 'wpcredits-program-manager' ) ),
 			'tier-unsent'  => array( 'warning', __( 'Your message is on record. No program contact could be mailed just now; the program will see it on the Sponsors screen.', 'wpcredits-program-manager' ) ),
-			'tier-ceiling' => array( 'error', __( 'You have sent five messages today. Tomorrow, then.', 'wpcredits-program-manager' ) ),
+			// The count is the ceiling's own (`handle_talk()` claims `WPCPM_Sponsor_Interests::PER_DAY`), and
+			// the sentence names what was limited (1.123.58, SDB-23).
+			'tier-ceiling' => array(
+				'error',
+				sprintf(
+					/* translators: %s: how many messages the Sponsorship card sends a day. */
+					_n( 'You can send %s message a day from the Sponsorship card. Try again tomorrow.', 'You can send %s messages a day from the Sponsorship card. Try again tomorrow.', WPCPM_Sponsor_Interests::PER_DAY, 'wpcredits-program-manager' ),
+					number_format_i18n( WPCPM_Sponsor_Interests::PER_DAY )
+				),
+			),
 			'tier-failed'  => array( 'error', __( 'That could not be recorded right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'tier-off'     => array( 'error', __( 'That is not available for your company right now.', 'wpcredits-program-manager' ) ),
 			'refused'      => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),

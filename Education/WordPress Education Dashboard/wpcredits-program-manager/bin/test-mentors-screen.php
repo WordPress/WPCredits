@@ -69,12 +69,42 @@ require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/screen-helpers.php';
 
 /**
+ * Core's AJAX nonce check and JSON answer, for the sync's tick behind the progress bar: the check
+ * dies with core's answer when the request carries anything but the nonce for this action, and the
+ * answer is kept (`$GLOBALS['json_sent']`) and ends the request, as core's does.
+ *
+ * @param string $action    The nonce action.
+ * @param string $query_arg Where the request carries it.
+ * @return int
+ */
+function check_ajax_referer( $action = -1, $query_arg = false ) {
+	$GLOBALS['nonce_checks'][] = $action;
+
+	if ( ! isset( $_REQUEST[ $query_arg ] ) || wp_create_nonce( $action ) !== $_REQUEST[ $query_arg ] ) {
+		throw new DieSignal( '-1' );
+	}
+
+	return 1;
+}
+function wp_send_json_success( $data = null, $status = null ) {
+	$GLOBALS['json_sent'] = array( 'success' => true, 'data' => $data );
+	throw new DieSignal( 'json' );
+}
+function wp_send_json_error( $data = null, $status = null ) {
+	$GLOBALS['json_sent'] = array( 'success' => false, 'data' => $data );
+	throw new DieSignal( 'json' );
+}
+
+/**
  * The settings, as far as the screen and the sync's start read them: whether Airtable is connected,
  * which a check can switch off, and the two statuses the start refuses to run without.
  */
 class WPCPM_Settings {
 	public static $connected = true;
+	/** The values a check sets, read by Confirm for the invitation setting (1.123.58). */
+	public static $values = array();
 	public static function is_connected() { return self::$connected; }
+	public static function get_value( $key, $fallback = null ) { return array_key_exists( $key, self::$values ) ? self::$values[ $key ] : $fallback; }
 	public static function get() {
 		return array(
 			'student_statuses' => array( 'Currently mentoring' ),
@@ -175,10 +205,13 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.ph
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 // The record ID pattern, which `WPCPM_Mentors_Sync::is_record_id()` delegates to: a search that is a Mentors record ID finds its mentor.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
+// The moment a waiting match was found is printed in the site's own formats.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
 
 // The Engagement table prints no checkbox, so `row_ids()` (which reads the Accounts list's) cannot read it.
@@ -186,6 +219,26 @@ function engagement_ids( $html ) {
 	preg_match_all( '/<tr id="mentor-(\d+)">/', (string) $html, $found );
 
 	return array_map( 'intval', $found[1] );
+}
+/**
+ * The account a confirmed match links, as core keeps it: the account by its ID, its website written
+ * where the account holds it, and the address cleaned as core's own cleaning leaves an address
+ * already clean.
+ */
+if ( ! function_exists( 'get_userdata' ) ) {
+	function get_userdata( $id ) {
+		return isset( $GLOBALS['users'][ (int) $id ] ) ? $GLOBALS['users'][ (int) $id ] : false;
+	}
+}
+function wp_update_user( $data ) {
+	$GLOBALS['users'][ (int) $data['ID'] ]->user_url = (string) $data['user_url'];
+
+	return (int) $data['ID'];
+}
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	function esc_url_raw( $url ) {
+		return (string) $url;
+	}
 }
 if ( ! function_exists( 'wp_date' ) ) {
 	function wp_date( $format, $timestamp = null ) {
@@ -1658,7 +1711,7 @@ ck( 'followed, it sends Bruno his invitation now, as the row\'s form did, and st
 	array( $GLOBALS['mails'], isset( $GLOBALS['umeta'][12]['wpcpm_mentor_invited'] ) && is_int( $GLOBALS['umeta'][12]['wpcpm_mentor_invited'] ) ),
 	array( array( 12 ), true ) );
 ck( 'then returns to the Accounts tab, saying the email went',
-	array( link_of( $followed['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent.' ) ),
+	array( link_of( $followed['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent to Bruno Diaz.' ) ),
 	array( $accounts, true ) );
 
 manager( 41 );
@@ -1781,7 +1834,7 @@ ck( 'followed, it sends Hal his invitation and comes back to that page of that l
 	array( array( 42 ), array( 'https://example.test/wp-admin/admin.php', array_merge( array( 'page' => 'wpcpm-mentors', 'tab' => 'accounts' ), $place ) ) ) );
 ck( 'where the Accounts tab says the email went, above the same list, two now that Hal has left the view, on its second page, Gia\'s',
 	array( shown_tab( $landed ), notices_in( $landed ), displaying( $landed ), row_ids( $landed ) ),
-	array( 'Accounts', '<div class="notice notice-success is-dismissible"><p>Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>', '2 items', array( 41 ) ) );
+	array( 'Accounts', '<div class="notice notice-success is-dismissible"><p>Invitation email sent to Hal Norte. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>', '2 items', array( 41 ) ) );
 
 unset( $GLOBALS['umeta'][260]['wpcpm_mentors_per_page'] );
 
@@ -2444,6 +2497,9 @@ ck( 'Sync mentors now, pressed on the Sync tab, starts the run and comes back to
 ck( 'the tab drawn there, which says the run started, above the progress it points to',
 	array( shown_tab( $landed ), notices_in( $landed ), has( $landed, 'data-wpcpm-progress' ) ),
 	array( 'Sync', '<div class="notice notice-success is-dismissible"><p>Sync started. Progress is shown below and updates as it runs.</p></div>', true ) );
+ck( 'and the panel holds the notice the poller prints when the count check stops the run, hidden, kept in place, with the way to Run anyway',
+	has( $landed, '<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="Reload this page to choose Run anyway or Cancel." hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>' ),
+	true );
 
 manager( 211 );
 update_option(
@@ -2524,6 +2580,43 @@ ck( 'the invitations card is handed the flash channel the Mentors screen reads i
 	array( arg( hidden_fields_of( $stop_form ), 'wpcpm_flash' ), WPCPM_Mail::queue(), WPCPM_Mail::run(), shown_tab( $stopped_page ), notices_in( $stopped_page ) ),
 	array( 'mentors_admin', array(), array(), 'Accounts', '<div class="notice notice-info is-dismissible"><p>Sending stopped. Invitations already sent cannot be recalled.</p></div>' ) );
 
+// The same Stop while another request holds the queue's lock through all of Stop's tries (the fix
+// wave of 1.123.58): the run is left as it was, and the tab says to press again.
+three_mentors();
+manager( 910 );
+update_option( WPCPM_Mail::QUEUE_OPTION, array( 12, 13 ) );
+$busy_run = array(
+	'total'    => 2,
+	'started'  => time(),
+	'finished' => 0,
+);
+update_option( WPCPM_Mail::RUN_OPTION, $busy_run );
+$sending   = forms_by_action( html_of( page_for( screen() ) ) );
+$stop_form = isset( $sending[ WPCPM_Mail::ACTION_STOP ] ) ? $sending[ WPCPM_Mail::ACTION_STOP ] : '';
+
+$GLOBALS['uid']                            = 911;
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$stop_busy                                 = press_form( $stop_form, array( 'WPCPM_Mail', 'handle_stop' ) );
+$stop_busy_page                            = html_of( page_for( link_of( $stop_busy['redirect'] )[1] ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+
+ck( 'a Stop that cannot take the queue\'s lock leaves the run as it was, and the Accounts tab says to press Stop again',
+	array( WPCPM_Mail::queue(), WPCPM_Mail::run(), shown_tab( $stop_busy_page ), notices_in( $stop_busy_page ) ),
+	array( array( 12, 13 ), $busy_run + array( 'unsent' => 0 ), 'Accounts', '<div class="notice notice-error is-dismissible"><p>The run could not be stopped this moment. Press Stop again.</p></div>' ) );
+
+// The invitations card's button while another request holds the queue's lock: nothing is queued, and
+// the tab says the queue was busy rather than that the invitations were queued.
+three_mentors();
+manager( 912 );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$bulk_busy                                 = post_to( 'handle_bulk_invite', WPCPM_Mentors::ACTION_BULK, array( 'wpcpm_tab' => 'accounts' ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+$bulk_busy_landing = link_of( $bulk_busy['redirect'] );
+
+ck( 'the invitations card\'s button, pressed while the queue\'s lock is held by another request, queues nothing and says the queue was busy',
+	array( $bulk_busy_landing, WPCPM_Mail::queue(), notices_in( html_of( page_for( $bulk_busy_landing[1] ) ) ) ),
+	array( $to_accounts, array(), '<div class="notice notice-info is-dismissible"><p>The queue was busy for a moment and nothing was queued. Press the button again.</p></div>' ) );
+
 manager( 220 );
 update_option(
 	WPCPM_Mail::RUN_OPTION,
@@ -2578,6 +2671,257 @@ $left  = get_user_meta( 250, WPCPM_Flash::META, true );
 ck( 'an outcome that comes back to the other tab, as a form drawn before the screen had tabs sends it, is taken there unprinted, so no later page shows it as news',
 	array( $wrong, is_array( $left ) && array_key_exists( 'mentors_admin', $left ) ),
 	array( '', false ) );
+
+echo "\n=== The count check's stop, and Run anyway (1.123.58) ===\n";
+
+$stop_sentence = WPCPM_Sync_Guard::sentence( 'mentors', 0, 140 );
+$stopped_state = array(
+	'phase'   => 'revoke',
+	'started' => time(),
+	'touched' => time(),
+	'guard'   => array(
+		'read'   => 0,
+		'linked' => 140,
+	),
+);
+
+three_mentors();
+manager( 300 );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, $stopped_state );
+update_option( WPCPM_Mentors_Sync::OPT_ERROR, $stop_sentence );
+$stopped_page  = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
+$stopped_forms = forms_by_action( $stopped_page );
+$run_anyway    = isset( $stopped_forms[ WPCPM_Mentors::ACTION_ACCEPT ] ) ? $stopped_forms[ WPCPM_Mentors::ACTION_ACCEPT ] : '';
+delete_option( WPCPM_Mentors_Sync::OPT_STATE );
+delete_option( WPCPM_Mentors_Sync::OPT_ERROR );
+manager( 301 );
+$plain_page = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
+
+$said_at = strpos( $stopped_page, '<div class="notice notice-error"><p><strong>Last sync error:</strong> ' . esc_html( $stop_sentence ) . '</p></div>' );
+$form_at = strpos( $stopped_page, 'data-wpcpm-confirm="Run the sync anyway? Every linked account it did not read loses the Mentor role."' );
+
+ck( 'the Sync tab prints Run anyway with its confirm while the state holds the stop, and not otherwise',
+	array( false !== $said_at, false !== $form_at && $said_at < $form_at, has( $run_anyway, '<button type="submit" class="button">Run anyway</button>' ), tab_field_of( $run_anyway ), arg( hidden_fields_of( $run_anyway ), '_wpnonce' ), isset( forms_by_action( $plain_page )[ WPCPM_Mentors::ACTION_ACCEPT ] ), has( $plain_page, 'Run anyway' ) ),
+	array( true, true, true, 'sync', wp_create_nonce( WPCPM_Mentors::ACTION_ACCEPT ), false, false ) );
+
+manager( 302 );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, $stopped_state );
+$GLOBALS['caps'] = false;
+$no_right        = post_to( 'handle_accept', WPCPM_Mentors::ACTION_ACCEPT, array( 'wpcpm_tab' => 'sync' ) );
+$GLOBALS['caps'] = true;
+$no_right_checks = $GLOBALS['nonce_checks'];
+request( array( 'action' => WPCPM_Mentors::ACTION_ACCEPT ), array( '_wpnonce' => 'a-stale-nonce', 'wpcpm_tab' => 'sync' ) );
+$bad_nonce = run(
+	function () {
+		( new WPCPM_Mentors() )->handle_accept();
+	}
+);
+$kept_stop = get_option( WPCPM_Mentors_Sync::OPT_STATE );
+delete_option( WPCPM_Mentors_Sync::OPT_STATE );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, array( 'phase' => 'mentors', 'started' => time(), 'touched' => time() ) );
+$not_stopped     = post_to( 'handle_accept', WPCPM_Mentors::ACTION_ACCEPT, array( 'wpcpm_tab' => 'sync' ) );
+$not_stopped_at  = link_of( $not_stopped['redirect'] );
+$not_stopped_now = notices_in( html_of( page_for( $not_stopped_at[1] ) ) );
+
+ck( 'Run anyway checks the right, then the nonce, then the state',
+	array( $no_right['died'], $no_right_checks, $bad_nonce['died'], $kept_stop === $stopped_state, $not_stopped_at, $not_stopped_now, array_key_exists( 'accepted', get_option( WPCPM_Mentors_Sync::OPT_STATE ) ) ),
+	array( 'You do not have permission to manage the program.', array(), 'The link you followed has expired.', true, $to_sync, '<div class="notice notice-info is-dismissible"><p>That sync was not stopped by its count check, so there was nothing to run anyway.</p></div>', false ) );
+
+manager( 303 );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, $stopped_state );
+update_option( WPCPM_Mentors_Sync::OPT_ERROR, $stop_sentence );
+$accepted    = post_to( 'handle_accept', WPCPM_Mentors::ACTION_ACCEPT, array( 'wpcpm_tab' => 'sync' ) );
+$accepted_at = link_of( $accepted['redirect'] );
+$after       = get_option( WPCPM_Mentors_Sync::OPT_STATE );
+
+ck( 'Run anyway on a stopped run lets it go on, clears the stop\'s error, and comes back to the Sync tab, which says so above the progress',
+	array( $accepted_at, ! empty( $after['accepted'] ), array_key_exists( 'guard', $after ), get_option( WPCPM_Mentors_Sync::OPT_ERROR ), notices_in( html_of( page_for( $accepted_at[1] ) ) ) ),
+	array( $to_sync, true, false, false, '<div class="notice notice-success is-dismissible"><p>The sync goes on from where it stopped, with the counts it read.</p></div>' ) );
+delete_option( WPCPM_Mentors_Sync::OPT_STATE );
+
+echo "\n=== One run at a time, and the tick that finishes says so (LOG-05, ADM-03, 1.123.58) ===\n";
+
+$going_state = array(
+	'phase'   => 'mentors',
+	'offset'  => 'page2',
+	'started' => time() - 30,
+	'touched' => time(),
+);
+
+three_mentors();
+manager( 360 );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, $going_state );
+$pressed    = post_to( 'handle_sync', WPCPM_Mentors::ACTION_SYNC, array( 'wpcpm_tab' => 'sync' ) );
+$pressed_at = link_of( $pressed['redirect'] );
+$kept_run   = get_option( WPCPM_Mentors_Sync::OPT_STATE );
+ck( 'Sync now pressed during a run comes back with running',
+	array( $pressed_at, $kept_run === $going_state, notices_in( html_of( page_for( $pressed_at[1] ) ) ) ),
+	array( $to_sync, true, '<div class="notice notice-info is-dismissible"><p>A sync is already running. Its progress is shown below.</p></div>' ) );
+
+/** The tick behind the progress bar, pressed by the person looking. */
+function tick_now() {
+	$GLOBALS['json_sent'] = null;
+	request( array( 'action' => WPCPM_Mentors::ACTION_TICK ), array( 'nonce' => wp_create_nonce( WPCPM_Mentors::ACTION_TICK ) ) );
+	run(
+		function () {
+			( new WPCPM_Mentors() )->handle_tick();
+		}
+	);
+
+	return $GLOBALS['json_sent'];
+}
+
+three_mentors();
+manager( 361 );
+update_option(
+	WPCPM_Mentors_Sync::OPT_STATE,
+	array(
+		'phase'   => 'assign',
+		'offset'  => null,
+		'started' => time() - 60,
+		'touched' => time(),
+		'steps'   => array(),
+		'mentors' => array(),
+		'reports' => array(),
+		'stats'   => array_merge( WPCPM_Mentors_Sync::empty_stats(), array( 'created' => 2, 'linked' => 3, 'updated' => 2 ) ),
+		'notices' => array(),
+	)
+);
+$answered = tick_now();
+$flashed  = get_user_meta( 361, WPCPM_Flash::META, true );
+$finished = notices_in( html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) ) );
+ck( 'the tick that finishes a run flashes finished with its counts, and the Sync tab says it',
+	array( $answered['data']['running'] ?? null, is_array( $flashed ) ? ( $flashed['mentors_admin'] ?? null ) : null, $finished ),
+	array( false, array( 'status' => 'finished', 'created' => 2, 'refreshed' => 5 ), '<div class="notice notice-success is-dismissible"><p>Sync finished. Accounts created: 2. Accounts refreshed: 5.</p></div>' ) );
+
+manager( 362 );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, $going_state );
+// Another tick holds the run's lock, so this one runs no slice and the run goes on.
+$GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOCK ] = (string) ( time() + WPCPM_Mentors_Sync::LOCK_TIMEOUT );
+$answered = tick_now();
+ck( 'a tick that does not finish the run flashes nothing', array( $answered['data']['running'] ?? null, get_user_meta( 362, WPCPM_Flash::META, true ) ), array( true, '' ) );
+unset( $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOCK ] );
+delete_option( WPCPM_Mentors_Sync::OPT_STATE );
+
+manager( 363 );
+update_option( WPCPM_Mentors_Sync::OPT_STATE, $stopped_state );
+$answered = tick_now();
+ck( 'a stopped run is not ticked by the poll',
+	array( $answered['data']['stopped'] ?? null, $answered['data']['running'] ?? null, get_option( WPCPM_Mentors_Sync::OPT_STATE ) === $stopped_state, get_user_meta( 363, WPCPM_Flash::META, true ) ),
+	array( true, false, true, '' ) );
+delete_option( WPCPM_Mentors_Sync::OPT_STATE );
+
+echo "\n=== Needs confirming: a login is not a mentor (1.123.58) ===\n";
+
+three_mentors();
+mentor( 40, 'Lee Login', 'lee-example', array( WPCPM_Roles::ROLE_STUDENT ) );
+manager( 310 );
+update_option(
+	WPCPM_Mentor_Provision::OPT_UNCONFIRMED,
+	array(
+		'recMENTOR0001' => array(
+			'name'    => 'Lee Mentor',
+			'profile' => 'https://profiles.wordpress.org/lee-example/',
+			'user_id' => 40,
+			'at'      => 1700000000,
+		),
+	)
+);
+$waiting_page  = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
+$waiting_card  = between( $waiting_page, '<h2>Needs confirming</h2>', '</table>' );
+$confirm_forms = forms_by_action( $waiting_page );
+$confirm_form  = isset( $confirm_forms[ WPCPM_Mentors::ACTION_CONFIRM_MATCH ] ) ? $confirm_forms[ WPCPM_Mentors::ACTION_CONFIRM_MATCH ] : '';
+
+ck( 'Needs confirming lists a waiting match with its Confirm',
+	array(
+		has( $waiting_page, '<h2>Needs confirming</h2>' ),
+		has( $waiting_card, 'The sync found an account whose login is a mentor&#039;s WordPress.org username, and nothing else ties the two: no address and no record. It gave the account nothing. Confirm a match only when the account is the mentor&#039;s.' ),
+		substr_count( $waiting_card, '<tr>' ) - 1,
+		has( $waiting_card, '<a href="https://profiles.wordpress.org/lee-example/">Lee Mentor</a>' ),
+		has( $waiting_card, 'lee-example' ),
+		has( $waiting_card, 'lee-example@example.test' ),
+		has( $waiting_card, 'Lee Login' ),
+		has( $waiting_card, WPCPM_Dates::moment( 1700000000 ) ),
+		substr_count( $waiting_card, '>Confirm</button>' ),
+		has( $waiting_card, 'data-wpcpm-confirm="Make Lee Login a mentor and give the account this mentor&#039;s students?"' ),
+		arg( hidden_fields_of( $confirm_form ), 'record' ),
+		arg( hidden_fields_of( $confirm_form ), '_wpnonce' ),
+		tab_field_of( $confirm_form ),
+	),
+	array( true, true, 1, true, true, true, true, true, 1, true, 'recMENTOR0001', wp_create_nonce( WPCPM_Mentors::ACTION_CONFIRM_MATCH . '_recMENTOR0001' ), 'sync' ) );
+ck( 'and only while a match waits', has( $plain_page, 'Needs confirming' ), false );
+
+$GLOBALS['uid'] = 311;
+$confirmed      = press_form( $confirm_form, array( new WPCPM_Mentors(), 'handle_confirm_match' ) );
+$confirmed_at   = link_of( $confirmed['redirect'] );
+
+ck( 'Confirm links the record and adds the role, and comes back to the Sync tab, which says so; with invitation emails off nothing is queued and the sentence says nothing of one',
+	array( $confirmed_at, $GLOBALS['users'][40]->roles, get_user_meta( 40, WPCPM_Mentors_Sync::META_RECORD_ID, true ), (int) get_user_meta( 40, WPCPM_Mentors_Sync::META_ACTIVE, true ), WPCPM_Mail::queue(), get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ), notices_in( html_of( page_for( $confirmed_at[1] ) ) ) ),
+	array( $to_sync, array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ), 'recMENTOR0001', 1, array(), array(), '<div class="notice notice-success is-dismissible"><p>Confirmed: Lee Login is linked to the mentor&#039;s record and holds the Mentor role. The next sync gives the account its students.</p></div>' ) );
+
+$GLOBALS['uid'] = 312;
+$again          = press_form( $confirm_form, array( new WPCPM_Mentors(), 'handle_confirm_match' ) );
+$again_at       = link_of( $again['redirect'] );
+
+ck( 'and a match no longer waiting is match-gone, changing nothing',
+	array( $again_at, notices_in( html_of( page_for( $again_at[1] ) ) ), $GLOBALS['users'][40]->roles ),
+	array( $to_sync, '<div class="notice notice-info is-dismissible"><p>That match is no longer waiting: a sync found the mentor another way, or the account is gone. Nothing was changed.</p></div>', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ) ) );
+
+// With invitation emails on, Confirm queues the welcome as a link by address does, and says so; an
+// Administrator's account keeps its own roles, is queued nothing, and the sentence says which.
+$confirm_press = function ( $uid, $user_id, $record ) {
+	update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, array( $record => array( 'name' => 'Pat Mentor', 'profile' => '', 'user_id' => $user_id, 'at' => 1700000000 ) ) );
+	$GLOBALS['uid'] = $uid;
+	$out            = post_to( 'handle_confirm_match', WPCPM_Mentors::confirm_action( $record ), array( 'record' => $record, 'wpcpm_tab' => 'sync' ) );
+
+	return notices_in( html_of( page_for( link_of( $out['redirect'] )[1] ) ) );
+};
+three_mentors();
+mentor( 41, 'Pat Login', 'pat-example', array( WPCPM_Roles::ROLE_STUDENT ) );
+mentor( 42, 'Ola Admin', 'oadmin2', array( 'administrator' ) );
+WPCPM_Settings::$values = array( 'send_welcome_email' => true );
+manager( 320 );
+$queued_notice = $confirm_press( 320, 41, 'recMENTOR0003' );
+$queued_now    = WPCPM_Mail::queue();
+manager( 330 );
+$admin_notice = $confirm_press( 330, 42, 'recMENTOR0004' );
+$admin_queue  = WPCPM_Mail::queue();
+WPCPM_Settings::$values = array();
+
+ck( 'with invitation emails on, Confirm queues the invitation and says so in a second sentence',
+	array( $queued_now, $queued_notice ),
+	array( array( 41 ), '<div class="notice notice-success is-dismissible"><p>Confirmed: Pat Login is linked to the mentor&#039;s record and holds the Mentor role. The next sync gives the account its students. An invitation with the welcome is queued.</p></div>' ) );
+ck( 'an Administrator\'s account confirmed keeps its roles, is queued nothing, and the sentence says it keeps its Administrator role',
+	array( $GLOBALS['users'][42]->roles, $admin_queue, get_user_meta( 42, WPCPM_Mentors_Sync::META_RECORD_ID, true ), $admin_notice ),
+	array( array( 'administrator' ), array(), 'recMENTOR0004', '<div class="notice notice-success is-dismissible"><p>Confirmed: Ola Admin is linked to the mentor&#039;s record and keeps its Administrator role. The next sync gives the account its students.</p></div>' ) );
+
+// Confirm while another request holds the queue's lock (the fix wave of 1.123.58): the account is
+// linked, nothing is queued, and the second sentence says to send the invitation from its row.
+three_mentors();
+mentor( 43, 'Kim Login', 'kim-example', array( WPCPM_Roles::ROLE_STUDENT ) );
+WPCPM_Settings::$values = array( 'send_welcome_email' => true );
+manager( 916 );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$busy_notice                               = $confirm_press( 916, 43, 'recMENTOR0005' );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+WPCPM_Settings::$values = array();
+
+ck( 'Confirm while the queue\'s lock is held by another request links the account, queues nothing, and says the invitation could not be queued',
+	array( WPCPM_Mail::queue(), get_user_meta( 43, WPCPM_Mentors_Sync::META_RECORD_ID, true ), $busy_notice ),
+	array( array(), 'recMENTOR0005', '<div class="notice notice-success is-dismissible"><p>Confirmed: Kim Login is linked to the mentor&#039;s record and holds the Mentor role. The next sync gives the account its students. The invitation could not be queued: the queue was busy. Send it from the account&#039;s row.</p></div>' ) );
+
+manager( 313 );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, array( 'recMENTOR0002' => array( 'name' => 'Kim Mentor', 'profile' => '', 'user_id' => 12, 'at' => 1700000000 ) ) );
+$GLOBALS['caps'] = false;
+$no_right        = post_to( 'handle_confirm_match', WPCPM_Mentors::ACTION_CONFIRM_MATCH . '_recMENTOR0002', array( 'record' => 'recMENTOR0002', 'wpcpm_tab' => 'sync' ) );
+$GLOBALS['caps'] = true;
+$no_right_checks = $GLOBALS['nonce_checks'];
+$wrong_record    = post_to( 'handle_confirm_match', WPCPM_Mentors::ACTION_CONFIRM_MATCH . '_recMENTOR0001', array( 'record' => 'recMENTOR0002', 'wpcpm_tab' => 'sync' ) );
+
+ck( 'Confirm checks the right, then a nonce keyed to the record',
+	array( $no_right['died'], $no_right_checks, $wrong_record['died'], array_keys( get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ), $GLOBALS['users'][12]->roles ),
+	array( 'You do not have permission to manage the program.', array(), 'The link you followed has expired.', array( 'recMENTOR0002' ), array( WPCPM_Roles::ROLE_MENTOR ) ) );
+delete_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED );
 
 echo "\n=== The Engagement tab ===\n";
 

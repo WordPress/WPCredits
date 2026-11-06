@@ -82,7 +82,7 @@ class WP_Error {
 }
 
 class WP_User {
-	public $ID = 0, $display_name = '', $user_login = '', $user_email = '', $roles = array();
+	public $ID = 0, $display_name = '', $user_login = '', $user_email = '', $user_url = '', $roles = array();
 	public function __construct( $id, $name, array $roles, $login = '' ) {
 		$this->ID           = (int) $id;
 		$this->display_name = $name;
@@ -515,6 +515,19 @@ function wp_cache_delete( $key, $group = '' ) {
 	$GLOBALS['cache_deleted'][] = array( $key, $group );
 
 	return true;
+}
+
+// The queue's lock forgets core's mark that the queue option is missing (1.123.58). This file keeps
+// no cache, so it holds no mark and keeps none; bin/test-mail.php models the mark.
+if ( ! function_exists( 'wp_cache_get' ) ) {
+	function wp_cache_get( $key, $group = '' ) {
+		return false;
+	}
+}
+if ( ! function_exists( 'wp_cache_set' ) ) {
+	function wp_cache_set( $key, $value, $group = '' ) {
+		return true;
+	}
 }
 function delete_option( $key ) {
 	unset( $GLOBALS['opts'][ $key ] );

@@ -1371,6 +1371,65 @@ ck( 'the screen\'s script counts a waiting row apart from the eligible ones, int
 	array( false !== strpos( $checker_js, "} else if ( 'waiting' === action ) {" ), false !== strpos( $checker_js, 'waiting: 0' ) ),
 	array( true, true ) );
 
+$checker_php = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php' );
+ck( 'the progress bar is named by its visible label',
+	array(
+		1 === preg_match( '#<div class="wpcpm-checker-progress__bar" role="progressbar" id="wpcpm-checker-progress-bar" aria-labelledby="wpcpm-checker-progress-label" #', $checker_php ),
+		1 === preg_match( '#<span class="wpcpm-checker-progress__label" id="wpcpm-checker-progress-label"></span>#', $checker_php ),
+	),
+	array( true, true ) );
+
+echo "\n=== What the script does with a Promote and a run, run by node ===\n";
+// Promote moves the keyboard to the new row's name cell and says what it did in the status region,
+// and a run speaks at each quarter and at its end, not after every batch. Run on a stand-in for the
+// screen, as bin/test-student-modules.php runs its harness; the harness prints each scenario.
+$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+
+if ( '' === $node ) {
+	echo "skip the script was not run: node is not on the path\n";
+} else {
+	$process = proc_open(
+		escapeshellarg( $node ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'bin/js/mentor-checker-promote.js' ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'assets/js/mentor-checker.js' ) . ' 2>&1',
+		array( 1 => array( 'pipe', 'w' ) ),
+		$pipes
+	);
+
+	$out = explode( "\n", rtrim( (string) stream_get_contents( $pipes[1] ) ) );
+
+	fclose( $pipes[1] );
+
+	$status  = proc_close( $process );
+	$ran     = 0;
+	$differ  = 0;
+	$summary = null;
+
+	foreach ( $out as $line ) {
+		if ( 0 === strpos( $line, 'ok   ' ) ) {
+			++$ran;
+			++$total;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, 'FAIL ' ) ) {
+			++$ran;
+			++$total;
+			++$differ;
+			++$fail;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, '       ' ) ) {
+			echo $line . "\n";
+		} elseif ( '' !== trim( $line ) ) {
+			if ( preg_match( '/^(\d+) scenarios, (\d+) differ$/', trim( $line ), $counts ) ) {
+				$summary = array( (int) $counts[1], (int) $counts[2] );
+			}
+
+			echo '     ' . $line . "\n";
+		}
+	}
+
+	ck( 'the script ran scenarios', $ran > 0, true );
+	ck( 'and its own summary counts the scenarios and the failures shown above', $summary, array( $ran, $differ ) );
+	ck( 'and node ended with a status of 0, or of 1 when a scenario differed', $status, $differ ? 1 : 0 );
+}
+
 echo "\n=== Where the mentors come from ===\n";
 
 reset_world();

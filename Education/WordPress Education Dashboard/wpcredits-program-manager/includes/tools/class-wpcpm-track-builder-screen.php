@@ -611,7 +611,7 @@ final class WPCPM_Track_Builder_Screen {
 				: __( 'Publish this track', 'wpcredits-program-manager' );
 
 			if ( array() === $pending ) {
-				self::render_button( WPCPM_Track_Builder::ACTION_PUBLISH, $track, $button );
+				self::render_button( WPCPM_Track_Builder::ACTION_PUBLISH, $track, $button, __( 'Publishing', 'wpcredits-program-manager' ) );
 			} else {
 				self::render_publish_confirm( $track, $label, $pending, $button );
 			}
@@ -620,7 +620,7 @@ final class WPCPM_Track_Builder_Screen {
 		$live = in_array( $state, array( 'published', 'changed' ), true );
 
 		if ( $live ) {
-			self::render_button( WPCPM_Track_Builder::ACTION_VERIFY, $track, __( 'Check it against Airtable', 'wpcredits-program-manager' ) );
+			self::render_button( WPCPM_Track_Builder::ACTION_VERIFY, $track, __( 'Check it against Airtable', 'wpcredits-program-manager' ), __( 'Checking', 'wpcredits-program-manager' ) );
 		}
 
 		// Not on one of the four original tracks, which the store never takes off (the design's
@@ -628,7 +628,7 @@ final class WPCPM_Track_Builder_Screen {
 		// (decision 34), and the other three are the program's base statuses. The button is not
 		// drawn where it could only be refused, and the line under it says why.
 		if ( $live && ! $reserved ) {
-			self::render_button( WPCPM_Track_Builder::ACTION_UNPUBLISH, $track, __( 'Take it off the live site', 'wpcredits-program-manager' ) );
+			self::render_button( WPCPM_Track_Builder::ACTION_UNPUBLISH, $track, __( 'Take it off the live site', 'wpcredits-program-manager' ), __( 'Taking it off', 'wpcredits-program-manager' ) );
 		}
 
 		echo '</p>';
@@ -655,7 +655,11 @@ final class WPCPM_Track_Builder_Screen {
 		$field   = 'wpcpm-confirm-' . (int) $track;
 		$columns = count( $pending );
 
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="wpcpm-tracks__confirm">';
+		printf(
+			'<form method="post" action="%1$s" class="wpcpm-tracks__confirm" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Publishing', 'wpcredits-program-manager' )
+		);
 		wp_nonce_field( WPCPM_Track_Builder::ACTION_PUBLISH );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Builder::ACTION_PUBLISH ) . '" />';
 		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );
@@ -731,7 +735,7 @@ final class WPCPM_Track_Builder_Screen {
 		$question_values = isset( $flash['question_values'] ) && is_array( $flash['question_values'] ) ? $flash['question_values'] : array();
 		$lesson          = isset( $args['lesson'] ) ? (int) $args['lesson'] : 0;
 
-		self::render_notice( $flash );
+		$problems = self::render_refusal( $flash, array( 'label', 'status', 'key', 'course_url', 'hours_target', 'hue', 'sponsors', 'partners_narrative' ) );
 
 		printf(
 			'<p><a href="%1$s">%2$s</a> <a href="%3$s">%4$s</a> <a href="%5$s">%6$s</a></p>',
@@ -747,6 +751,11 @@ final class WPCPM_Track_Builder_Screen {
 		wp_nonce_field( WPCPM_Track_Builder::ACTION_SAVE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Builder::ACTION_SAVE ) . '" />';
 		printf( '<input type="hidden" name="track" value="%d" />', (int) $form['id'] );
+		printf(
+			'<input type="hidden" id="wpcpm-track-revision" name="%1$s" value="%2$s" />',
+			esc_attr( WPCPM_Track_Builder::FIELD_REVISION ),
+			esc_attr( isset( $form['revision'] ) ? (string) $form['revision'] : '' )
+		);
 
 		echo '<table class="form-table" role="presentation"><tbody>';
 
@@ -760,20 +769,15 @@ final class WPCPM_Track_Builder_Screen {
 
 			$value = array_key_exists( $field, $typed ) ? $typed[ $field ] : ( isset( $form[ $field ] ) ? $form[ $field ] : '' );
 
-			printf(
-				'<tr><th scope="row"><label for="wpcpm_%1$s">%2$s</label></th><td><input type="text" class="regular-text" id="wpcpm_%1$s" name="wpcpm_%1$s" value="%3$s" /></td></tr>',
-				esc_attr( $field ),
-				esc_html( $heading ),
-				esc_attr( (string) $value )
-			);
+			self::render_text_row( $field, $heading, $value, $problems );
 
 			if ( 'course_url' === $field ) {
 				self::render_course_row( $form );
 			}
 
 			if ( 'hue' === $field ) {
-				self::render_partners_row( $form, $typed );
-				self::render_narrative_row( $form, $typed );
+				self::render_partners_row( $form, $typed, $problems );
+				self::render_narrative_row( $form, $typed, $problems );
 			}
 		}
 
@@ -784,6 +788,62 @@ final class WPCPM_Track_Builder_Screen {
 
 		self::render_course_press( $form );
 		self::render_questions( $form, $url, $question_values, $lesson );
+	}
+
+	/**
+	 * What a press left at the top of a form: the summary of every problem, each linking its box,
+	 * or, for a refusal of the whole form and for every other outcome, the notice.
+	 *
+	 * @param array    $flash  What the last press left.
+	 * @param string[] $fields The properties the form draws, in its order.
+	 * @return array<string, string> Property => the sentence it was refused with; empty when the
+	 *                               press named no box.
+	 */
+	private static function render_refusal( array $flash, array $fields ) {
+		$problems = isset( $flash['problems'] ) && is_array( $flash['problems'] ) ? array_filter( $flash['problems'], 'is_string' ) : array();
+
+		if ( array() === $problems ) {
+			self::render_notice( $flash );
+
+			return array();
+		}
+
+		$boxes  = array();
+		$labels = self::track_labels();
+
+		foreach ( $fields as $field ) {
+			$boxes[ $field ] = array(
+				// The partners are a group of boxes: the summary links the group, which has an id of its own.
+				'id'    => 'sponsors' === $field ? 'wpcpm-sponsors-group' : 'wpcpm_' . $field,
+				'label' => $labels[ $field ],
+			);
+		}
+
+		echo WPCPM_Form_Errors::summary( $problems, $boxes, array( 'class' => WPCPM_Form_Errors::ADMIN_CLASS ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+
+		return $problems;
+	}
+
+	/**
+	 * One property in a text box on its own row, marked when the last press refused it.
+	 *
+	 * @param string $field    The property.
+	 * @param string $heading  What the row is called.
+	 * @param mixed  $value    What the box holds.
+	 * @param array  $problems Property => the sentence it was refused with.
+	 */
+	private static function render_text_row( $field, $heading, $value, array $problems ) {
+		$id   = 'wpcpm_' . $field;
+		$said = isset( $problems[ $field ] ) ? $problems[ $field ] : '';
+
+		printf(
+			'<tr><th scope="row"><label for="%1$s">%2$s</label></th><td><input type="text" class="regular-text" id="%1$s" name="%1$s" value="%3$s"%4$s />%5$s</td></tr>',
+			esc_attr( $id ),
+			esc_html( $heading ),
+			esc_attr( (string) $value ),
+			WPCPM_Form_Errors::attrs( $id, $said ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( $id, $said ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		);
 	}
 
 	/**
@@ -837,8 +897,9 @@ final class WPCPM_Track_Builder_Screen {
 	 * @param array $form  The track as `WPCPM_Track_Builder::form()` gives it.
 	 * @param array $typed What a refused Save carried back: its `sponsors`, when there, are the
 	 *                     boxes ticked in place of the ones the track names.
+	 * @param array $problems Field => the sentence a refused Save gave it.
 	 */
-	private static function render_partners_row( array $form, array $typed ) {
+	private static function render_partners_row( array $form, array $typed, array $problems = array() ) {
 		$choices = isset( $form['partner_choices'] ) && is_array( $form['partner_choices'] ) ? $form['partner_choices'] : array();
 		$stored  = isset( $form['sponsors'] ) && is_array( $form['sponsors'] ) ? $form['sponsors'] : array();
 		$ticked  = array_map( 'strval', array_key_exists( 'sponsors', $typed ) && is_array( $typed['sponsors'] ) ? $typed['sponsors'] : $stored );
@@ -855,9 +916,10 @@ final class WPCPM_Track_Builder_Screen {
 		}
 
 		printf(
-			'<tr><th scope="row">%1$s</th><td><fieldset><legend class="screen-reader-text">%1$s</legend><input type="hidden" name="%2$s[]" value="" />',
+			'<tr><th scope="row">%1$s</th><td><fieldset id="wpcpm-sponsors-group"%3$s><legend class="screen-reader-text">%1$s</legend><input type="hidden" name="%2$s[]" value="" />',
 			esc_html( $heading ),
-			esc_attr( WPCPM_Track_Partners::FIELD )
+			esc_attr( WPCPM_Track_Partners::FIELD ),
+			isset( $problems['sponsors'] ) ? ' aria-describedby="' . esc_attr( WPCPM_Form_Errors::problem_id( 'wpcpm-sponsors-group' ) ) . '"' : ''
 		);
 
 		foreach ( $choices as $record => $choice ) {
@@ -870,8 +932,10 @@ final class WPCPM_Track_Builder_Screen {
 			);
 		}
 
+		echo '</fieldset>';
+		echo isset( $problems['sponsors'] ) ? WPCPM_Form_Errors::problem( 'wpcpm-sponsors-group', $problems['sponsors'] ) : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		printf(
-			'</fieldset><p class="description">%s</p></td></tr>',
+			'<p class="description">%s</p></td></tr>',
 			esc_html__( 'The sponsors that co-brand this track. Only Approved sponsors at the Partner tier are offered; a sponsor whose term ended, or that is paused, stays ticked here until you untick it and stops showing on the site by itself.', 'wpcredits-program-manager' )
 		);
 	}
@@ -889,17 +953,22 @@ final class WPCPM_Track_Builder_Screen {
 	 * @param array $form  The track as `WPCPM_Track_Builder::form()` gives it.
 	 * @param array $typed What a refused Save carried back: its `partners_narrative`, when there, is
 	 *                     the text drawn in place of the track's.
+	 * @param array $problems Field => the sentence a refused Save gave it.
 	 */
-	private static function render_narrative_row( array $form, array $typed ) {
+	private static function render_narrative_row( array $form, array $typed, array $problems = array() ) {
 		$stored = isset( $form['partners_narrative'] ) && is_string( $form['partners_narrative'] ) ? $form['partners_narrative'] : '';
 		$text   = array_key_exists( 'partners_narrative', $typed ) && is_scalar( $typed['partners_narrative'] ) ? (string) $typed['partners_narrative'] : $stored;
 
+		$said = isset( $problems['partners_narrative'] ) ? $problems['partners_narrative'] : '';
+
 		printf(
-			'<tr><th scope="row"><label for="wpcpm_partners_narrative">%1$s</label></th><td><textarea id="wpcpm_partners_narrative" name="wpcpm_partners_narrative" rows="8" class="large-text" maxlength="%2$d">%3$s</textarea><p class="description">%4$s</p></td></tr>',
+			'<tr><th scope="row"><label for="wpcpm_partners_narrative">%1$s</label></th><td><textarea id="wpcpm_partners_narrative" name="wpcpm_partners_narrative" rows="8" class="large-text" maxlength="%2$d"%5$s>%3$s</textarea>%6$s<p class="description">%4$s</p></td></tr>',
 			esc_html( self::track_labels()['partners_narrative'] ),
 			(int) WPCPM_Track_Definition::MAX_NARRATIVE,
 			esc_textarea( $text ),
-			esc_html__( 'One text for all of this track\'s partners; rewrite it each term. When a partner\'s annual report is drafted, which the site does the day after that partner\'s term ends, its block for this track starts with this text as the track was last published: after rewriting it, publish the track before the next partner\'s term ends. Each report keeps its own copy, edited on the report.', 'wpcredits-program-manager' )
+			esc_html__( 'One text for all of this track\'s partners; rewrite it each term. When a partner\'s annual report is drafted, which the site does the day after that partner\'s term ends, its block for this track starts with this text as the track was last published: after rewriting it, publish the track before the next partner\'s term ends. Each report keeps its own copy, edited on the report.', 'wpcredits-program-manager' ),
+			WPCPM_Form_Errors::attrs( 'wpcpm_partners_narrative', $said ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( 'wpcpm_partners_narrative', $said ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 	}
 
@@ -979,7 +1048,7 @@ final class WPCPM_Track_Builder_Screen {
 		$flash = isset( $args['flash'] ) && is_array( $args['flash'] ) ? $args['flash'] : array();
 		$typed = isset( $flash['values'] ) && is_array( $flash['values'] ) ? $flash['values'] : array();
 
-		self::render_notice( $flash );
+		$problems = self::render_refusal( $flash, array( 'label', 'status', 'key', 'course_url' ) );
 
 		printf( '<p><a href="%1$s">%2$s</a></p>', esc_url( $url ), esc_html__( 'Back to every track', 'wpcredits-program-manager' ) );
 
@@ -999,12 +1068,7 @@ final class WPCPM_Track_Builder_Screen {
 		echo '<table class="form-table" role="presentation"><tbody>';
 
 		foreach ( array_intersect_key( self::track_labels(), array_flip( array( 'label', 'status', 'key', 'course_url' ) ) ) as $field => $heading ) {
-			printf(
-				'<tr><th scope="row"><label for="wpcpm_%1$s">%2$s</label></th><td><input type="text" class="regular-text" id="wpcpm_%1$s" name="wpcpm_%1$s" value="%3$s" /></td></tr>',
-				esc_attr( $field ),
-				esc_html( $heading ),
-				esc_attr( array_key_exists( $field, $typed ) ? (string) $typed[ $field ] : '' )
-			);
+			self::render_text_row( $field, $heading, array_key_exists( $field, $typed ) ? (string) $typed[ $field ] : '', $problems );
 		}
 
 		echo '</tbody></table>';
@@ -1025,7 +1089,7 @@ final class WPCPM_Track_Builder_Screen {
 		$flash = isset( $args['flash'] ) && is_array( $args['flash'] ) ? $args['flash'] : array();
 		$typed = isset( $flash['values'] ) && is_array( $flash['values'] ) ? $flash['values'] : array();
 
-		self::render_notice( $flash );
+		$problems = self::render_refusal( $flash, array( 'label', 'status', 'key' ) );
 
 		printf( '<p><a href="%1$s">%2$s</a></p>', esc_url( $url ), esc_html__( 'Back to every track', 'wpcredits-program-manager' ) );
 
@@ -1060,12 +1124,7 @@ final class WPCPM_Track_Builder_Screen {
 		) as $field => $heading ) {
 			$value = array_key_exists( $field, $typed ) ? $typed[ $field ] : ( isset( $form[ $field ] ) ? $form[ $field ] : '' );
 
-			printf(
-				'<tr><th scope="row"><label for="wpcpm_%1$s">%2$s</label></th><td><input type="text" class="regular-text" id="wpcpm_%1$s" name="wpcpm_%1$s" value="%3$s" /></td></tr>',
-				esc_attr( $field ),
-				esc_html( $heading ),
-				esc_attr( (string) $value )
-			);
+			self::render_text_row( $field, $heading, $value, $problems );
 		}
 
 		echo '</tbody></table>';
@@ -1080,9 +1139,15 @@ final class WPCPM_Track_Builder_Screen {
 	 * @param string $action The admin-post action.
 	 * @param int    $track  The track it acts on.
 	 * @param string $label  What the button says.
+	 * @param string $busy   What it says while the press is on its way; the form is posted once
+	 *                       (`data-wpcpm-once`) when this is given.
 	 */
-	private static function render_button( $action, $track, $label ) {
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+	private static function render_button( $action, $track, $label, $busy = '' ) {
+		printf(
+			'<form method="post" action="%1$s"%2$s>',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			'' === $busy ? '' : ' data-wpcpm-once data-wpcpm-busy="' . esc_attr( $busy ) . '"'
+		);
 		wp_nonce_field( $action );
 		echo '<input type="hidden" name="action" value="' . esc_attr( $action ) . '" />';
 		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );

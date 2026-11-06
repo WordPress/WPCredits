@@ -221,7 +221,7 @@ $GLOBALS['users'][7] = new WP_User( 7, 'Visitor', array( 'subscriber' ) );
 echo "\n=== The page loads the script that asks a note's Delete ===\n";
 
 $out = page_for( 0 );
-ck( 'a visitor who is logged out is sent to log in', false !== strpos( $out, 'Please log in to see the students assigned to you.' ) );
+ck( 'a visitor who is logged out is sent to log in', false !== strpos( $out, 'Log in to see the students assigned to you.' ) );
 ck( 'and the page enqueued wpcpm-forms before it stopped there', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ) );
 
 $out = page_for( 7 );

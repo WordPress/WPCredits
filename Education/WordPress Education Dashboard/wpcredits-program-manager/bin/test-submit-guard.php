@@ -54,8 +54,8 @@ ck( 'forms.js exists and defines the guard, as a handler of the submit event and
         false !== strpos( $js, "querySelectorAll( 'form[data-wpcpm-once]' )" ),
     ),
     array( true, false, false, false ) );
-ck( 'and wires it, with the confirm reader in the one submit listener, after the press tracker and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, with the confirm reader in the one submit listener, after the focus on a refused form\'s summary or a card\'s outcome (1.123.58) and the press tracker, and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*focusOutcome\(\);\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
 
 // The deep check of 1.109.1, SESSIONS-6: "Cancel the session" and "Leave the session" carried a
 // `data-wpcpm-confirm` sentence that no script read, so one press canceled a session for everybody.
@@ -618,9 +618,13 @@ $surfaces = array(
 	'includes/modules/class-wpcpm-institutions.php'                      => array( 'admin', 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-mentor-application-queue.php'          => array( 'admin' ),
 	'includes/modules/class-wpcpm-mentor-notes.php'                      => array( 'mentor-report-card' ),
+	// Confirm under Needs confirming, on the Mentors screen's Sync tab (1.123.58).
+	'includes/modules/class-wpcpm-mentors.php'                           => array( 'admin' ),
 	'includes/modules/class-wpcpm-sponsor-agreement-card.php'            => array( 'sponsor-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-agreement.php'                 => array( 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-application.php'               => array( 'admin', 'administrator-dashboard' ),
+	// Run anyway, on the Mentors and Students screens' Sync tabs (1.123.58).
+	'includes/modules/class-wpcpm-sync-module.php'                       => array( 'admin' ),
 	// Leave is drawn wherever the list or an event's actions are: the Administrator Dashboard's Events
 	// card, through the queue's Coming up; the Institution Dashboard's own page; and the Student Report
 	// Card and the Mentor Report Card, through the calendar's render_student() and render_mentor().

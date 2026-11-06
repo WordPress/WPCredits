@@ -782,15 +782,28 @@ final class WPCPM_Mail_Templates {
 	 *                             that has none.
 	 * @param string      $body    The body as posted, unslashed and not cleaned.
 	 * @param int         $user_id Who saved it.
+	 * @param int|null    $base_at The `at` of the stored edit the form was drawn from, 0 for an email
+	 *                             with no edit; null for a save that checks nothing. A stored edit
+	 *                             with a different `at` was made or dropped after the form was drawn.
 	 * @return true|WP_Error `wpcpm_mail_refused`, carrying the sentence that refuses it, when nothing
-	 *                       was stored.
+	 *                       was stored; `wpcpm_edit_stale`, carrying who changed the email and when,
+	 *                       when the stored edit is not the one the form was drawn from.
 	 */
-	public static function save( $id, $subject, $body, $user_id ) {
+	public static function save( $id, $subject, $body, $user_id, $base_at = null ) {
 		$id    = (string) $id;
 		$entry = self::entry_of( $id );
 
 		if ( null === $entry ) {
 			return new WP_Error( 'wpcpm_mail_refused', __( 'Nothing was saved: the site has no such email.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( null !== $base_at ) {
+			$stored = self::edit( $id );
+			$now_at = null === $stored ? 0 : (int) $stored['at'];
+
+			if ( (int) $base_at !== $now_at ) {
+				return new WP_Error( 'wpcpm_edit_stale', self::stale_sentence( $stored ) );
+			}
 		}
 
 		// Only the footer has no subject: for any other email a missing one is a subject left empty.
@@ -825,6 +838,28 @@ final class WPCPM_Mail_Templates {
 		);
 
 		return true;
+	}
+
+	/**
+	 * The sentence a save refused as stale says: who changed the email and when, in the site's date
+	 * and time formats. An email whose edit was dropped since the form was drawn has no one to name.
+	 *
+	 * @param array|null $stored The edit as `edit()` answers it, or null for none.
+	 * @return string
+	 */
+	private static function stale_sentence( $stored ) {
+		if ( null === $stored ) {
+			return __( 'Nothing was saved: this email was restored to the shipped text after you opened it. Your wording is still in the boxes: check it against the email as it is now, and save again.', 'wpcredits-program-manager' );
+		}
+
+		$user = (int) $stored['by'] > 0 ? get_user_by( 'id', (int) $stored['by'] ) : false;
+
+		return sprintf(
+			/* translators: 1: the display name of the Administrator who changed the email, 2: the date and time of the change. */
+			__( 'Nothing was saved: %1$s changed this email at %2$s, after you opened it. Your wording is still in the boxes: check it against the email as it is now, and save again.', 'wpcredits-program-manager' ),
+			$user ? $user->display_name : __( 'An Administrator', 'wpcredits-program-manager' ),
+			wp_date( get_option( 'date_format', 'F j, Y' ) . ' ' . get_option( 'time_format', 'g:i a' ), (int) $stored['at'] )
+		);
 	}
 
 	/**

@@ -101,6 +101,10 @@ not decide them. Fill in what you have and press **Save my report**; you can com
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save, and the four fields that also appear in *My profile* above update there at the same time.
 
+Since 1.123.58 a report that could not be saved comes back with every answer you typed, and the
+answer that needs a change is marked, with a list of them at the top. Saving your hours keeps you in
+My course and says "Hours saved." there.
+
 ### Feedback forms
 
 Under your report, and nothing to do with it: three short forms asking how the program is going for

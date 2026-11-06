@@ -634,3 +634,22 @@
 	height: 16px;
 	width: 16px;
 }
+
+/* The hours box's own outcome, printed inside the box after a save from it (1.123.58, CARD-08):
+   the rules the notes' outcome is drawn with, under the box's own name. */
+.wpcpm-hours__message {
+	border-left: 3px solid currentColor;
+	font-weight: 600;
+	margin: 0 0 1em;
+	padding-left: 0.75em;
+}
+
+.wpcpm-hours__message.is-error {
+	color: #b32d2e;
+}
+
+/* A refused count comes back in a text box, so the words typed show; it keeps the number box's
+   width (1.123.58). */
+.wpcpm-hours input[type="text"] {
+	width: 5em;
+}

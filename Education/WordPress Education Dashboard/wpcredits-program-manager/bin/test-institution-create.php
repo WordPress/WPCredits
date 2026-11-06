@@ -69,6 +69,7 @@ $GLOBALS['hooks']    = array();
 
 function __( $t, $d = null ) { return $t; }
 function esc_html__( $t, $d = null ) { return $t; }
+function _n( $one, $many, $n, $d = null ) { return 1 === (int) $n ? $one : $many; }
 function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function sanitize_text_field( $s ) { return trim( preg_replace( '/[\r\n\t ]+/', ' ', strip_tags( (string) $s ) ) ); }
@@ -309,6 +310,16 @@ class WPCPM_Airtable {
 						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 404): NOT_FOUND: Could not find table tblNOPE in application appX', array( 'status' => 404 ) );
 					case 'too-large':
 						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 413): REQUEST_TOO_LARGE', array( 'status' => 413 ) );
+					case 'after-created':
+						// The real client's answer when a request after the first fails (1.123.58): the
+						// error, carrying the IDs the earlier requests created, which are in the base.
+						$made              = sprintf( 'rec%014d', count( $GLOBALS['base'] ) + 1 );
+						$GLOBALS['base'][] = array(
+							'id'     => $made,
+							'fields' => $fields,
+						);
+
+						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 503): the service is unavailable', array( 'status' => 503, 'created' => array( $made ) ) );
 					default:
 						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 503): the service is unavailable', array( 'status' => 503 ) );
 				}
@@ -382,6 +393,8 @@ class WPCPM_Institution_Policy {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-create.php';
+// The form's words for a slice's outcome, read by the one check below that asks what the school is told.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import-form.php';
 
 // The program map is the compiled tracks' (bin/stubs/compiled-seeds.php), planted by fresh().
 WPCPM_Tracks::init();
@@ -728,9 +741,29 @@ $out             = WPCPM_Institution_Create::create_slice( $batch_id );
 // Creating on the strength of a check this slice could not make is creating on a preview that
 // may be minutes old. Nothing goes out, and the batch waits for the base to come back.
 ck( 'a base that cannot be read creates nothing', count( $GLOBALS['created'] ), 0 );
-ck( 'and says so', $out['problem'], 'unreadable' );
+ck( 'and says so, in the creating stage\'s own word', $out['problem'], 'create-unreadable' );
 ck( 'and the batch is still going', state_of( $batch_id ), WPCPM_Institution_Import::STATE_CREATING );
 ck( 'and a continuation is scheduled', false !== wp_next_scheduled( WPCPM_Institution_Import::CRON_TICK, array( $batch_id ) ), true );
+
+// 1.123.58, INS-09: the creating stage's hiccup has its own outcome. The check's `unreadable` says
+// nothing was created, while a slice that stopped partway has created records and carries on.
+fresh();
+$twelve = array();
+for ( $i = 1; $i <= 12; ++$i ) {
+	$twelve[] = row( $i + 1, 'Student ' . $i, sprintf( 'student-%d@institution-3.example', $i ) );
+}
+$batch_id = stage( $HERE, $twelve );
+$GLOBALS['on_create'] = function ( $n ) { if ( 6 === $n ) { $GLOBALS['base_refusal'] = 'base'; } };
+$out = WPCPM_Institution_Create::create_slice( $batch_id );
+$GLOBALS['on_create']    = null;
+$GLOBALS['base_refusal'] = '';
+$said = WPCPM_Institution_Import_Form::outcome_sentence( $out['problem'], array( 'created' => $out['created'] ) );
+ck(
+	'an Airtable hiccup while creating says how many were created and that the rest carry on, and the check\'s unreadable is not said',
+	array( $out['problem'], $out['created'], false !== strpos( $said, '7 student records were created' ), false !== strpos( $said, 'the rest are created by themselves' ), false !== strpos( $said, 'Nothing was created' ), false !== strpos( $said, 'the list was not checked' ) ),
+	array( 'create-unreadable', 7, true, true, false, false )
+);
+ck( 'and one record created is said in the singular', false !== strpos( WPCPM_Institution_Import_Form::outcome_sentence( 'create-unreadable', array( 'created' => 1 ) ), '1 student record was created' ), true );
 
 echo "\n=== A lost response creates one record, not two ===\n";
 
@@ -870,6 +903,27 @@ foreach ( array( 'unsent' => 'pending', 'base' => 'creating', 'not-found' => 'cr
 	// it failed would strand a student who exists in Airtable and is on nobody's roster.
 	ck( sprintf( 'the first row is left %s', $expected ), row_states( $batch_id )[0], $expected );
 }
+
+// A refusal that comes after the client created records (LOG-13, 1.123.58): the IDs it carries are
+// students the base now holds, so the row is stamped with its ID before the stop is reported, and a
+// retry does not create it again.
+fresh();
+$batch_id = stage(
+	$HERE,
+	array(
+		row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
+		row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ),
+	)
+);
+$GLOBALS['base_refusal'] = 'after-created';
+WPCPM_Institution_Create::create_slice( $batch_id );
+$GLOBALS['base_refusal'] = '';
+$made_before             = array_column( $GLOBALS['base'], 'id' );
+ck( 'the ids created before a failure are recorded on the batch before the failure is reported',
+	array( row_states( $batch_id ), rows_of( $batch_id )[0]['record_id'] ?? '', state_of( $batch_id ), count( $made_before ) ),
+	array( array( 'created', 'pending' ), end( $made_before ), WPCPM_Institution_Import::STATE_CREATING, 1 ) );
+WPCPM_Institution_Create::create_slice( $batch_id );
+ck( 'and the retry creates only the row that was not', array( row_states( $batch_id ), count( $GLOBALS['base'] ), rows_of( $batch_id )[0]['record_id'] ), array( array( 'created', 'created' ), 2, $made_before[0] ) );
 
 // The lock a slice holds is a heartbeat with a token, released only by its holder. A slice of a
 // full batch can outlive the 120-second timeout while still working; before this the next tick

@@ -705,6 +705,7 @@ $named_options = array(
 	'wpcpm_mentor_application_log',        // WPCPM_Mentor_Application::OPT_LOG, through delete_all().
 	'wpcpm_mentor_application_counts',     // WPCPM_Mentor_Application::OPT_KEPT, through delete_all().
 	'wpcpm_mentor_application_page_id',    // WPCPM_Mentor_Application_Form::OPT_PAGE.
+	'wpcpm_mentors_unconfirmed',           // WPCPM_Mentor_Provision::OPT_UNCONFIRMED, the matches waiting under Needs confirming (1.123.58).
 	'wpcpm_student_languages',             // WPCPM_Student_Airtable_Row::LANGUAGES_OPTION, through WPCPM_Students::uninstall().
 	// Three rows a site may still hold from code that is gone (1.123.27), deleted by name: the
 	// stored check against the agreement Doc, the import's check log and the report vocabulary's
@@ -739,6 +740,10 @@ $GLOBALS['opts']['wpcpm_mapp_lock_501'] = (string) ( time() + 600 );
 // The lock a student's registration is worked on under, one row per address, left by a request that died.
 $GLOBALS['opts']['wpcpm_sreg_lock_x']   = (string) ( time() + 300 );
 $GLOBALS['opts']['wpcpm_sreg_lock_run'] = (string) ( time() + 900 );
+
+// The lock a company's interest in a mentor is filed under (1.123.58), one row per sponsor and mentor,
+// left by a request that died holding it.
+$GLOBALS['opts']['wpcpm_interest_lock_recSEED0000000003_recSEED0000000004'] = (string) ( time() + 30 );
 
 // The locks a details request is decided under, and a school's request is raised under (Institutions
 // release 2), which a request that dies holding one leaves behind: a row per request and a row per
@@ -785,6 +790,8 @@ $GLOBALS['opts']['wpcpm_mail_log_purged']  = time();
 $GLOBALS['opts']['wpcpm_mail_templates'] = array( 'templates' => array( 'invite-student' => array( 'subject' => 'Hi', 'body' => '{set_password_link}', 'by' => 1, 'at' => time(), 'shipped' => 'x' ) ), 'footer' => null );
 $GLOBALS['opts']['wpcpm_invite_queue'] = array( 7 );
 $GLOBALS['opts']['wpcpm_invite_run']   = array( 'total' => 241, 'started' => time() - HOUR_IN_SECONDS, 'finished' => 0 );
+// The lock the queue is written under (1.123.58), left by a request that died holding it.
+$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
 
 // What is not the plugin's, and the key the signed agreements are encrypted with, which the file
 // keeps on purpose.
@@ -1082,6 +1089,7 @@ ck( 'the rewrite rules are flushed once, so the badge\'s rule leaves the stored 
 
 echo "\n=== The options ===\n";
 
+ck( 'uninstall deletes wpcpm_mentors_unconfirmed', array_key_exists( 'wpcpm_mentors_unconfirmed', $GLOBALS['opts'] ), false );
 ck( 'every option the file names goes, the Track Builder\'s included', array_values( array_intersect( $named_options, array_keys( $GLOBALS['opts'] ) ) ), array() );
 ck( 'the sweep takes every institution\'s module order and every sponsor\'s, every Track Builder form, one nothing else knew of included, and every invitation lock', array_values( array_intersect( $swept_options, array_keys( $GLOBALS['opts'] ) ) ), array() );
 
@@ -1132,6 +1140,7 @@ ck( 'so does the lock a patch of the institutions index left behind, and the ext
 ck( 'and so does the list of test institutions the sync remembers beside the index', get_option( 'wpcpm_test_institutions', 'gone' ), 'gone' );
 ck( 'a lock an application left behind goes with the rest, and the two account keys of an activation', array( get_option( 'wpcpm_mapp_lock_501', 'gone' ), array_intersect_key( $GLOBALS['umeta'][ $mentor ], array_flip( array( 'wpcpm_mentor_row_pending', 'wpcpm_mentor_activated_at' ) ) ) ), array( 'gone', array() ) );
 ck( 'a lock a student registration left behind goes with the rest, and so does the hourly run\'s', array( get_option( 'wpcpm_sreg_lock_x', 'gone' ), get_option( 'wpcpm_sreg_lock_run', 'gone' ) ), array( 'gone', 'gone' ) );
+ck( 'a lock an interest in a mentor left behind goes with the rest', get_option( 'wpcpm_interest_lock_recSEED0000000003_recSEED0000000004', 'gone' ), 'gone' );
 ck( 'an Administrator\'s booking link and rows-per-page choices for the Student, Mentor, Institution, Sponsor and Administrator accounts and for the Mentor engagement list go too, and the account\'s own row stays', $GLOBALS['umeta'][ $admin ], array( 'nickname' => 'manager-one' ) );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
@@ -1143,6 +1152,7 @@ ck( 'and so do the email log\'s table, its schema version and the time of its la
 ck( 'and so do the Administrators\' edits of the emails and the footer', get_option( 'wpcpm_mail_templates', 'gone' ), 'gone' );
 ck( 'and so does everybody still waiting for an invitation', get_option( 'wpcpm_invite_queue', 'gone' ), 'gone' );
 ck( 'and the counts and times of the last bulk invite', get_option( 'wpcpm_invite_run', 'gone' ), 'gone' );
+ck( 'and the lock the queue is written under, left by a request that died holding it', get_option( 'wpcpm_invite_queue_lock', 'gone' ), 'gone' );
 
 echo "\n=== What the Track Builder keeps outside its posts (SURFACES-7) ===\n";
 
@@ -1191,6 +1201,7 @@ $names = array(
 	'WPCPM_Sponsors_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_sponsor_modules_',
 	'WPCPM_Mail::QUEUE_OPTION'                      => 'wpcpm_invite_queue',
 	'WPCPM_Mail::RUN_OPTION'                        => 'wpcpm_invite_run',
+	'WPCPM_Mail::QUEUE_LOCK'                        => 'wpcpm_invite_queue_lock',
 	'WPCPM_Mail::INVITE_LOCK'                       => 'wpcpm_invite_lock_',
 	'WPCPM_Mail_Log::OLD_OPTION'                    => 'wpcpm_mail_log',
 	'WPCPM_Mail_Log::OPT_VERSION'                   => 'wpcpm_mail_log_version',
@@ -1308,11 +1319,13 @@ $names = array(
 	'WPCPM_Mentor_Provision::USER_ROW_PENDING'      => 'wpcpm_mentor_row_pending',
 	'WPCPM_Mentor_Provision::USER_ACTIVATED_AT'     => 'wpcpm_mentor_activated_at',
 	'WPCPM_Mentor_Provision::USER_INVITE_HELD'      => 'wpcpm_mentor_invite_held',
+	'WPCPM_Mentor_Provision::OPT_UNCONFIRMED'       => 'wpcpm_mentors_unconfirmed',
 	'WPCPM_Mentor_Airtable_Row::LINKS_TRANSIENT'    => 'wpcpm_mapp_link_names',
 	'WPCPM_Mentor_Application::LOCK_PREFIX'         => 'wpcpm_mapp_lock_',
 	'WPCPM_Student_Airtable_Row::LANGUAGES_OPTION'  => 'wpcpm_student_languages',
 	'WPCPM_Student_Registration::POST_TYPE'         => 'wpcpm_stu_reg',
 	'WPCPM_Student_Registration::LOCK_PREFIX'       => 'wpcpm_sreg_lock_',
+	'WPCPM_Sponsor_Mentors::INTEREST_LOCK'          => 'wpcpm_interest_lock_',
 	'WPCPM_Student_Registration_Process::CRON_HOURLY' => 'wpcpm_student_registrations_hourly',
 );
 

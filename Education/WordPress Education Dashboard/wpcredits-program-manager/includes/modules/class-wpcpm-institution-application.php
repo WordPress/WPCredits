@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // stat.
 require_once dirname( __DIR__ ) . '/class-wpcpm-form-guard.php';
 require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
+require_once dirname( __DIR__ ) . '/class-wpcpm-form-errors.php';
 // The mentor form, for its list of languages, which the languages question offers (1.123.29): one
 // list for the two forms, read where it is kept. Loaded here for the same reason as the two above,
 // so every suite that requires this file has the list the form draws.
@@ -290,6 +291,25 @@ class WPCPM_Institution_Application {
 
 	/** Post meta, repeating: one row per event, `event`, `at`, `actor`, `note`. */
 	const META_EVENT = '_wpcpm_app_event';
+
+	/**
+	 * The key of the dwell token this request claimed, while its press has stored no row: every
+	 * bounce forgets the token's record (`WPCPM_Form_Guard::bounced()`) and the stored row takes its
+	 * place (`landed()`), so a second press of the token knows what to answer (1.123.58).
+	 *
+	 * @var string
+	 */
+	private static $dwell = '';
+
+	/**
+	 * Whether this request ticked the consent box. A bounce that draws the form again keeps the
+	 * tick with the other answers (1.123.58, trial T2): the person ticked it, and a box drawn empty
+	 * again is refused by the browser itself on the next Send. It is never one of the values a row
+	 * stores; `bounce()` adds it to the stash alone.
+	 *
+	 * @var bool
+	 */
+	private static $ticked = false;
 
 	/**
 	 * Hooks.
@@ -645,6 +665,17 @@ class WPCPM_Institution_Application {
 			return;
 		}
 
+		self::send_no_cache();
+	}
+
+	/**
+	 * Keep the response that draws this form out of every cache: the headers that say so, and the
+	 * constant every page cache reads. Sent from `no_cache()` on the form's own page and from every
+	 * draw of the form, the block's and the shortcode's on any page (1.123.58), since a cached copy
+	 * would hand one visitor another's token, answers or confirmation. `nocache_headers()` sends
+	 * nothing once the headers have gone, so a draw late in a page costs nothing.
+	 */
+	private static function send_no_cache() {
 		nocache_headers();
 
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
@@ -1198,6 +1229,9 @@ class WPCPM_Institution_Application {
 			return '' !== $closed ? self::sentence( $closed ) : self::preview( $countries );
 		}
 
+		// The draw is the page's, wherever the block or the shortcode stands: never cached.
+		self::send_no_cache();
+
 		$stash   = self::read_stash();
 		$outcome = isset( $stash['outcome'] ) ? (string) $stash['outcome'] : '';
 
@@ -1213,7 +1247,7 @@ class WPCPM_Institution_Application {
 		// refusal or contradict what has just been said: a source that has used its five
 		// submissions this hour, an address that has just been confirmed and has nothing left to
 		// send, and the confirmation panel itself.
-		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'verified', 'verified-already' ), true );
+		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'busy-unkept', 'verified', 'verified-already' ), true );
 
 		if ( '' !== $closed ) {
 			// Switched off, every visitor reads the sentence in the form's place, once.
@@ -1227,7 +1261,7 @@ class WPCPM_Institution_Application {
 			}
 		} elseif ( $draws ) {
 			self::render_form(
-				isset( $stash['values'] ) && is_array( $stash['values'] ) ? $stash['values'] : array(),
+				self::values_to_draw( $stash ),
 				isset( $stash['problems'] ) && is_array( $stash['problems'] ) ? $stash['problems'] : array(),
 				$countries
 			);
@@ -1247,6 +1281,62 @@ class WPCPM_Institution_Application {
 			: '';
 
 		return '<div class="wpcpm-application">' . $title . $body . '</div>';
+	}
+
+	/**
+	 * The answers a redrawn form shows: the cleaned ones, and, for an answer typed into a box and
+	 * refused, which so has none, what was typed (1.123.58, FORM-11), escaped where it is drawn as
+	 * every value is.
+	 *
+	 * @param array $stash What the handler left behind.
+	 * @return array Answers keyed by column name or field key.
+	 */
+	private static function values_to_draw( array $stash ) {
+		$values = isset( $stash['values'] ) && is_array( $stash['values'] ) ? $stash['values'] : array();
+		$fields = self::fields();
+
+		if ( isset( $stash['typed'] ) && is_array( $stash['typed'] ) ) {
+			foreach ( $stash['typed'] as $column => $typed ) {
+				if ( isset( $fields[ $column ] ) && self::hands_back_typing( $fields[ $column ] ) && ! isset( $values[ $column ] ) && is_string( $typed ) ) {
+					$values[ $column ] = $typed;
+				}
+			}
+		}
+
+		return $values;
+	}
+
+	/**
+	 * Whether a question's refused answer is handed back as it was typed: every one a person types
+	 * into, a text, an address, a web address and a free text.
+	 *
+	 * @param array $spec The question's spec.
+	 * @return bool
+	 */
+	private static function hands_back_typing( array $spec ) {
+		return in_array( $spec['type'], array( 'text', 'email', 'url', 'textarea' ), true );
+	}
+
+	/**
+	 * Everything typed into the boxes a person types in, as posted: what the per-connection
+	 * ceiling's refusal keeps beside the cleaned values (1.123.58), measured whole by
+	 * `WPCPM_Form_Stash::fits()`, so a post too long to keep is not cut to fit and kept.
+	 *
+	 * @param array $posted The posted answers, keyed by form key, unslashed.
+	 * @return array Column name or field key => what was typed.
+	 */
+	private static function typing( array $posted ) {
+		$typed = array();
+
+		foreach ( self::fields() as $column => $spec ) {
+			$key = self::form_key( $column );
+
+			if ( self::hands_back_typing( $spec ) && isset( $posted[ $key ] ) && is_string( $posted[ $key ] ) && '' !== $posted[ $key ] && mb_check_encoding( $posted[ $key ], 'UTF-8' ) ) {
+				$typed[ $column ] = $posted[ $key ];
+			}
+		}
+
+		return $typed;
 	}
 
 	/**
@@ -1396,22 +1486,26 @@ class WPCPM_Institution_Application {
 	 *
 	 * One map so that every slug the handlers stash has a sentence, which
 	 * `bin/test-institution-application.php` asserts: an outcome with no wording would land a
-	 * stranger on a page that had visibly done something and said nothing about it.
+	 * stranger on a page that had visibly done something and said nothing about it. A refused send
+	 * says no sentence of its own since 1.123.58: the form opens with the summary of its problems
+	 * (`WPCPM_Form_Errors::summary()`), the unticked privacy box among them, where `again` and
+	 * `consent` each said one. The per-connection ceiling's three and `stash-gone` are every public
+	 * form's (`WPCPM_Form_Stash::outcomes()`).
 	 *
 	 * @return array<string, array> Slug => `array( level, sentence )`.
 	 */
 	public static function outcomes() {
-		return array(
-			'again'            => array( 'error', __( 'Nothing has been sent yet. Please look at the answers marked below and send the form again.', 'wpcredits-program-manager' ) ),
-			'consent'          => array( 'error', __( 'Nothing has been sent yet, and nothing has been stored. The program can only accept an application from an institution that confirms the privacy policy, so please tick the last box.', 'wpcredits-program-manager' ) ),
-			'stale'            => array( 'error', __( 'This form had been open for a long time, so it was not sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
-			'expired'          => array( 'error', __( 'This form had been open for a while and could not be sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
-			'busy'             => array( 'error', __( 'Several applications have already been sent from here in the last hour, so this one was not. Please try again later.', 'wpcredits-program-manager' ) ),
-			'lost'             => array( 'error', __( 'Something went wrong at our end and the application was not saved. Nothing has been sent. Please try once more.', 'wpcredits-program-manager' ) ),
-			'closed'           => array( 'info', __( 'The program is not taking applications through this form at the moment.', 'wpcredits-program-manager' ) ),
-			'verified'         => array( 'success', __( 'Thank you. Your address is confirmed, and your application is with an Administrator.', 'wpcredits-program-manager' ) ),
-			'verified-already' => array( 'info', __( 'This address was already confirmed, so there is nothing more to do. Your application is with an Administrator.', 'wpcredits-program-manager' ) ),
-			'verify-failed'    => array( 'error', __( 'That confirmation link could not be read. It may have been broken across two lines by a mail program: please try the whole link again.', 'wpcredits-program-manager' ) ),
+		return array_merge(
+			WPCPM_Form_Stash::outcomes(),
+			array(
+				'stale'            => array( 'error', __( 'This form had been open for a long time, so it was not sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
+				'expired'          => array( 'error', __( 'This form had been open for a while and could not be sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
+				'lost'             => array( 'error', __( 'Something went wrong at our end and the application was not saved. Nothing has been sent. Try once more.', 'wpcredits-program-manager' ) ),
+				'closed'           => array( 'info', __( 'The program is not taking applications through this form at the moment.', 'wpcredits-program-manager' ) ),
+				'verified'         => array( 'success', __( 'Thank you. Your address is confirmed, and your application is with an Administrator.', 'wpcredits-program-manager' ) ),
+				'verified-already' => array( 'info', __( 'This address was already confirmed, so there is nothing more to do. Your application is with an Administrator.', 'wpcredits-program-manager' ) ),
+				'verify-failed'    => array( 'error', __( 'That confirmation link could not be read. It may have been broken across two lines by a mail program: please try the whole link again.', 'wpcredits-program-manager' ) ),
+			)
 		);
 	}
 
@@ -1448,6 +1542,10 @@ class WPCPM_Institution_Application {
 			esc_attr__( 'Sending...', 'wpcredits-program-manager' ),
 			esc_attr__( 'Sending your application.', 'wpcredits-program-manager' )
 		);
+
+		// The summary of a refused send, the form's first child: a heading counting the problems and
+		// a link to each field, which assets/js/forms.js moves the focus to (1.123.58, FORM-02).
+		echo self::summary( $problems ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SUBMIT ) );
 
@@ -1494,6 +1592,42 @@ class WPCPM_Institution_Application {
 	}
 
 	/**
+	 * The summary a refused send opens with: each problem linked to its question by the question's
+	 * label, in the form's order, or '' when nothing was refused.
+	 *
+	 * @param array $problems Problem slugs, keyed by column name or field key.
+	 * @return string
+	 */
+	private static function summary( array $problems ) {
+		$fields    = array();
+		$sentences = array();
+
+		foreach ( self::fields() as $column => $spec ) {
+			$fields[ $column ] = array(
+				'id'    => self::field_id( $column ),
+				'label' => (string) $spec['label'],
+			);
+
+			if ( isset( $problems[ $column ] ) ) {
+				$sentences[ $column ] = self::problem_text( (string) $problems[ $column ], $spec );
+			}
+		}
+
+		return WPCPM_Form_Errors::summary( $sentences, $fields );
+	}
+
+	/**
+	 * The id a question's control is drawn with, which its problem's id and the summary's link are
+	 * made from.
+	 *
+	 * @param string $column Airtable column name, or a site answer's key.
+	 * @return string
+	 */
+	private static function field_id( $column ) {
+		return 'wpcpm-application-' . self::form_key( $column );
+	}
+
+	/**
 	 * The honeypot.
 	 *
 	 * Drawn by the guard since 1.97.0, so both public forms print one honeypot.
@@ -1518,7 +1652,7 @@ class WPCPM_Institution_Application {
 	 */
 	private static function render_field( $column, array $spec, $value, $problem, array $countries ) {
 		$key  = self::form_key( $column );
-		$id   = 'wpcpm-application-' . $key;
+		$id   = self::field_id( $column );
 		$name = self::FIELD_ANSWERS . '[' . $key . ']';
 		$type = $spec['type'];
 		// A required attribute only where one control is the whole answer: a checkbox array has no
@@ -1558,11 +1692,13 @@ class WPCPM_Institution_Application {
 
 		if ( 'consent' === $type ) {
 			printf(
-				'<span class="wpcpm-field__consent"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%4$s /><label for="%1$s">%5$s%6$s</label></span>',
+				'<span class="wpcpm-field__consent"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%4$s%5$s /><label for="%1$s">%6$s%7$s</label></span>',
 				esc_attr( $id ),
 				esc_attr( $name ),
+				// Ticked again only by the sender's own tick, which a bounce keeps (1.123.58, trial T2).
+				checked( true === $value, true, false ),
 				$required, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
-				$describedby, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
+				$invalid . $describedby, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal and the escaped id above.
 				esc_html( $spec['label'] ),
 				$required_mark // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
 			);
@@ -1576,7 +1712,8 @@ class WPCPM_Institution_Application {
 
 			$picked = is_array( $value ) ? $value : array();
 
-			printf( '<span class="wpcpm-field__choices" role="group" aria-labelledby="%1$s-label"%2$s>', esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
+			// The group carries the question's id, so the summary's link to it lands on its boxes.
+			printf( '<span class="wpcpm-field__choices" id="%1$s" role="group" aria-labelledby="%1$s-label"%2$s>', esc_attr( $id ), $describedby ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
 
 			foreach ( isset( $spec['choices'] ) ? (array) $spec['choices'] : array() as $choice ) {
 				printf(
@@ -1729,13 +1866,13 @@ class WPCPM_Institution_Application {
 	 */
 	public static function problem_text( $problem, array $spec ) {
 		if ( 'required' === $problem ) {
-			return __( 'Please fill this in.', 'wpcredits-program-manager' );
+			return __( 'Fill this in.', 'wpcredits-program-manager' );
 		}
 
 		if ( 'too_long' === $problem ) {
 			return sprintf(
 				/* translators: %s: the most characters the answer may have, as a number. */
-				__( 'Please keep this to %s characters or fewer.', 'wpcredits-program-manager' ),
+				__( 'Keep this to %s characters or fewer.', 'wpcredits-program-manager' ),
 				number_format_i18n( isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : 0 )
 			);
 		}
@@ -1745,20 +1882,29 @@ class WPCPM_Institution_Application {
 		}
 
 		if ( 'not_a_number' === $problem ) {
-			return __( 'Please give a number.', 'wpcredits-program-manager' );
+			return __( 'Give a number.', 'wpcredits-program-manager' );
 		}
 
 		if ( 'below_min' === $problem || 'above_max' === $problem ) {
 			return sprintf(
 				/* translators: 1: smallest number accepted, 2: largest number accepted. */
-				__( 'Please give a number between %1$s and %2$s.', 'wpcredits-program-manager' ),
+				__( 'Give a number between %1$s and %2$s.', 'wpcredits-program-manager' ),
 				number_format_i18n( isset( $spec['min'] ) ? (int) $spec['min'] : 0 ),
 				number_format_i18n( isset( $spec['max'] ) ? (int) $spec['max'] : 0 )
 			);
 		}
 
 		if ( 'bad_choice' === $problem ) {
-			return __( 'Please choose one of the options offered.', 'wpcredits-program-manager' );
+			return __( 'Choose one of the options offered.', 'wpcredits-program-manager' );
+		}
+
+		// A web address naming another scheme, `ftp://` or `mailto:` (1.123.58, FORM-11).
+		if ( 'bad_url' === $problem ) {
+			return WPCPM_Field_Value::bad_url_text();
+		}
+
+		if ( 'consent' === $problem ) {
+			return __( 'Tick this box to send the form.', 'wpcredits-program-manager' );
 		}
 
 		return __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );
@@ -1869,6 +2015,9 @@ class WPCPM_Institution_Application {
 			$posted = wp_unslash( $_POST[ self::FIELD_ANSWERS ] );
 		}
 
+		// The consent tick, which every bounce that draws the form again keeps (`bounce()`).
+		self::$ticked = self::ticked( $posted );
+
 		// 1. The per-actor ceiling, and it is first for a reason that has nothing to do with
 		// spam. A refusal, not a hold: five in an hour from one address is nobody's genuine
 		// application, and this is the one layer that stores nothing at all. It runs before the
@@ -1878,13 +2027,40 @@ class WPCPM_Institution_Application {
 		// nonce - which anybody can send, in a loop, for ever - wrote those two rows every time
 		// and was never counted by anything. Nothing above this line writes; the row this line
 		// writes is one per address per window and the daily sweep takes it away.
+		//
+		// Its refusal keeps the answers only for a post whose nonce holds, and only when they fit
+		// (1.123.58, FORM-01): a flood with no nonce, or with a body of any size, stays as cheap as
+		// this line makes it and writes nothing more.
+		self::$dwell = '';
+
 		if ( ! WPCPM_Form_Guard::claim_actor( self::actor_key(), self::PER_HOUR ) ) {
-			self::bounce( 'busy' );
+			if ( ! wp_verify_nonce( $nonce, self::ACTION_SUBMIT ) ) {
+				self::bounce( 'busy' );
+			}
+
+			$kept = array(
+				'values' => self::clean_all( $posted )['values'],
+				'typed'  => self::typing( $posted ),
+			);
+
+			if ( ! WPCPM_Form_Stash::fits( $kept ) ) {
+				self::bounce( 'busy-unkept' );
+			}
+
+			self::bounce( 'busy-kept', $kept );
 		}
 
 		// 2. The nonce.
 		if ( ! wp_verify_nonce( $nonce, self::ACTION_SUBMIT ) ) {
-			self::bounce( 'expired', array( 'values' => self::clean_all( $posted )['values'] ) );
+			$cleaned = self::clean_all( $posted );
+
+			self::bounce(
+				'expired',
+				array(
+					'values' => $cleaned['values'],
+					'typed'  => $cleaned['typed'],
+				)
+			);
 		}
 
 		// 3. The switch is the settings screen's business rather than the applicant's, and cannot
@@ -1906,12 +2082,32 @@ class WPCPM_Institution_Application {
 			$signals[] = 'honeypot';
 		}
 
-		// 5. The dwell token, in its four answers. `stale` bounces; `fast` holds; anything else
-		// that is not `ok` is spam.
-		$dwell = self::check_token( WPCPM_Request::posted_text( self::TOKEN_FIELD ) );
+		// 5. The dwell token, in its five answers. `stale` bounces; `fast` holds; `used` waits for
+		// the first press's row and answers with its confirmation (1.123.58, FORM-04); anything
+		// else that is not `ok` is spam.
+		$token = WPCPM_Request::posted_text( self::TOKEN_FIELD );
+		$dwell = self::check_token( $token );
 
 		if ( WPCPM_Form_Guard::TOKEN_STALE === $dwell ) {
-			self::bounce( 'stale', array( 'values' => self::clean_all( $posted )['values'] ) );
+			$cleaned = self::clean_all( $posted );
+
+			self::bounce(
+				'stale',
+				array(
+					'values' => $cleaned['values'],
+					'typed'  => $cleaned['typed'],
+				)
+			);
+		}
+
+		if ( WPCPM_Form_Guard::TOKEN_USED === $dwell ) {
+			self::answer_second_press( WPCPM_Form_Guard::token_key( self::DWELL_SCOPE, $token ), $posted );
+		}
+
+		if ( WPCPM_Form_Guard::TOKEN_OK === $dwell || WPCPM_Form_Guard::TOKEN_FAST === $dwell ) {
+			// This press claimed the token: from here every bounce forgets its record, and the row
+			// replaces it.
+			self::$dwell = WPCPM_Form_Guard::token_key( self::DWELL_SCOPE, $token );
 		}
 
 		if ( WPCPM_Form_Guard::TOKEN_FAST === $dwell ) {
@@ -1927,38 +2123,36 @@ class WPCPM_Institution_Application {
 			$signals[] = 'dwell';
 		}
 
-		// 6. Consent, which is a precondition and not an answer. Nothing is stored without it,
-		// not even as spam.
-		$consent_key = self::form_key( 'Privacy Policy Compliance' );
-		$agreed      = self::clean( 'Privacy Policy Compliance', isset( $posted[ $consent_key ] ) ? $posted[ $consent_key ] : '' );
-
-		if ( empty( $agreed['ok'] ) || true !== $agreed['value'] ) {
-			// The values are cleaned here, on the way out, rather than before this decision:
-			// cleaning is pure and stores nothing, and this is the one refusal that has to hand
-			// back what was typed without having taken the fields step yet.
-			self::bounce( 'consent', array( 'values' => self::clean_all( $posted )['values'] ) );
-		}
-
-		// 7. The eighteen fields, walked from `fields()` and never from `$_POST`: a key nobody
+		// 6. The eighteen fields, walked from `fields()` and never from `$_POST`: a key nobody
 		// asked about cannot become a cell that way.
 		$cleaned  = self::clean_all( $posted );
 		$values   = $cleaned['values'];
 		$problems = $cleaned['problems'];
 
-		// 8. Requiredness, once, after cleaning. A row already headed for the spam pile skips
-		// it: telling a bot which of eighteen fields it missed is free tuition.
-		if ( ! $spam ) {
-			$problems = self::add_required( $values, $problems );
+		// 7. Requiredness, once, after cleaning. A row already headed for the spam pile skips
+		// it: telling a bot which of eighteen fields it missed is free tuition. A spam row is
+		// stored with what cleaned.
+		$problems = $spam ? array() : self::add_required( $values, $problems );
 
-			if ( ! empty( $problems ) ) {
-				self::bounce(
-					'again',
-					array(
-						'values'   => $values,
-						'problems' => $problems,
-					)
-				);
-			}
+		// 8. Consent, which is a precondition and not an answer, checked in the same pass as the
+		// answers since 1.123.58 (FORM-12), so one bounce marks the box with the rest. Nothing is
+		// stored without it, not even as spam.
+		$consent_key = self::form_key( 'Privacy Policy Compliance' );
+		$agreed      = self::clean( 'Privacy Policy Compliance', isset( $posted[ $consent_key ] ) ? $posted[ $consent_key ] : '' );
+
+		if ( empty( $agreed['ok'] ) || true !== $agreed['value'] ) {
+			$problems['Privacy Policy Compliance'] = 'consent';
+		}
+
+		if ( ! empty( $problems ) ) {
+			self::bounce(
+				'again',
+				array(
+					'values'   => $values,
+					'problems' => $problems,
+					'typed'    => $cleaned['typed'],
+				)
+			);
 		}
 
 		// 9. Content scoring. Holds, never refuses: a wrongly refused application is an
@@ -2038,6 +2232,12 @@ class WPCPM_Institution_Application {
 			self::mail_managers( $post_id );
 		}
 
+		// The token's record is the row now, for a second press of it to answer with: after the mail
+		// step, so the row already says whether its acknowledgement went (`sent` or `sent-quiet`).
+		WPCPM_Form_Guard::landed( self::$dwell, (int) $post_id );
+
+		self::$dwell = '';
+
 		self::bounce(
 			$suppressed ? 'sent-quiet' : 'sent',
 			array(
@@ -2071,17 +2271,24 @@ class WPCPM_Institution_Application {
 	 * Pure: it reads, it decides, it writes nothing. That is what lets the refusal paths call
 	 * it on their way out to fill the form back in.
 	 *
-	 * **Consent never comes back.** It is dropped from the values here, in the one place, so
-	 * that no failure path can repopulate a tick: an applicant who is shown a form with the
-	 * consent box already ticked has not agreed to anything, and the evidence stored against
-	 * the application would say they had.
+	 * **Consent is never a value.** It is dropped from the values here, in the one place. A
+	 * bounce keeps the applicant's own tick in the stash alone (`bounce()`, 1.123.58, trial T2),
+	 * since they ticked it and a box drawn empty again is refused by the browser on the next
+	 * Send; nothing ticks a box the applicant did not tick, which would be agreement nobody gave.
+	 *
+	 * **A refused answer comes back as typed** (1.123.58, FORM-11): an address `is_email()` refuses
+	 * ("name@campus") or a web address naming another scheme has no cleaned value to hand back, so
+	 * what was typed comes back beside the values as `typed`, cut to the length of its box, for the
+	 * form to draw in the box it was typed in and for nothing else. It is never one of the values,
+	 * since a row filed as spam stores those.
 	 *
 	 * @param array $posted The posted answers, keyed by form key.
-	 * @return array{values:array,problems:array} Both keyed by Airtable column name or field key.
+	 * @return array{values:array,problems:array,typed:array} Each keyed by Airtable column name or field key.
 	 */
 	private static function clean_all( array $posted ) {
 		$values   = array();
 		$problems = array();
+		$typed    = array();
 
 		foreach ( self::fields() as $column => $spec ) {
 			$key = self::form_key( $column );
@@ -2091,6 +2298,16 @@ class WPCPM_Institution_Application {
 
 			if ( empty( $clean['ok'] ) ) {
 				$problems[ $column ] = $clean['problem'];
+
+				// An array only a crafted post sends, and text that is not valid UTF-8, are no typing
+				// worth handing back.
+				if ( self::hands_back_typing( $spec ) && is_scalar( $raw ) && mb_check_encoding( (string) $raw, 'UTF-8' ) ) {
+					$kept = mb_substr( (string) $raw, 0, isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : self::MAX_TEXT );
+
+					if ( '' !== $kept ) {
+						$typed[ $column ] = $kept;
+					}
+				}
 
 				continue;
 			}
@@ -2103,6 +2320,7 @@ class WPCPM_Institution_Application {
 		return array(
 			'values'   => $values,
 			'problems' => $problems,
+			'typed'    => $typed,
 		);
 	}
 
@@ -2674,7 +2892,7 @@ class WPCPM_Institution_Application {
 	 * Derived from the post ID rather than counted, because a counter needs a lock and this
 	 * needs neither: two applications a second apart must not be handed one reference, and the
 	 * post ID is already unique and already stable. It is not a secret and is not a key to
-	 * anything - the confirmation page is drawn from a one-shot stash, not from a reference in
+	 * anything - the confirmation page is drawn from a stash, not from a reference in
 	 * the address bar - so nothing rests on it being unguessable.
 	 *
 	 * @param int $post_id Application post ID.
@@ -2726,8 +2944,22 @@ class WPCPM_Institution_Application {
 			'query_stash'   => self::QUERY_STASH,
 			'prefix'        => self::TRANSIENT_PREFIX,
 			'minutes'       => self::TRANSIENT_MINUTES,
-			'one_shot'      => array( 'sent', 'sent-quiet', 'verified', 'verified-already', 'verify-failed' ),
+			// A confirmation is read, not taken (1.123.58, FORM-06): a reload or a return through
+			// history within its minutes draws it again, reference included.
+			'one_shot'      => array( 'verified', 'verified-already', 'verify-failed' ),
 		);
+	}
+
+	/**
+	 * Whether the posted answers tick the consent box, read the strict way `clean()` reads it.
+	 *
+	 * @param array $posted The posted answers, unslashed.
+	 * @return bool
+	 */
+	private static function ticked( array $posted ) {
+		$raw = isset( $posted[ self::form_key( 'Privacy Policy Compliance' ) ] ) ? $posted[ self::form_key( 'Privacy Policy Compliance' ) ] : '';
+
+		return true === self::clean( 'Privacy Policy Compliance', $raw )['value'];
 	}
 
 	/**
@@ -2737,6 +2969,20 @@ class WPCPM_Institution_Application {
 	 * @param array  $stash   What the page needs to draw: values, problems, a reference.
 	 */
 	private static function bounce( $outcome, array $stash = array() ) {
+		// A press that claimed its token and stored nothing forgets the token's record, so a second
+		// press of it answers `stale` with its own answers rather than waiting for a row.
+		if ( '' !== self::$dwell ) {
+			WPCPM_Form_Guard::bounced( self::$dwell );
+
+			self::$dwell = '';
+		}
+
+		// A form drawn again keeps the consent tick its sender gave, with the other answers
+		// (1.123.58, trial T2). Only a stash carrying answers draws the form.
+		if ( self::$ticked && array_key_exists( 'values', $stash ) && is_array( $stash['values'] ) ) {
+			$stash['values']['Privacy Policy Compliance'] = true;
+		}
+
 		WPCPM_Form_Stash::bounce(
 			self::stash_form(),
 			$outcome,
@@ -2744,6 +2990,45 @@ class WPCPM_Institution_Application {
 			static function ( $value ) {
 				return self::is_blank( $value );
 			}
+		);
+	}
+
+	/**
+	 * Answer the second press of a token (1.123.58, FORM-04): wait for the row the first press
+	 * stores and bounce to its own confirmation, its reference included, as the first press was
+	 * answered; with no row, the first press bounced, and this one is `stale`, with its answers.
+	 * Nothing is stored for it.
+	 *
+	 * @param string $key    The token's key.
+	 * @param array  $posted The posted answers, keyed by form key, unslashed.
+	 */
+	private static function answer_second_press( $key, array $posted ) {
+		$row  = WPCPM_Form_Guard::wait_for_row( $key );
+		$post = $row ? get_post( $row ) : null;
+
+		if ( $post instanceof WP_Post && self::POST_TYPE === $post->post_type ) {
+			$fields    = get_post_meta( $row, self::META_FIELDS, true );
+			$signals   = get_post_meta( $row, self::META_SIGNALS, true );
+			$reference = (string) get_post_meta( $row, self::META_REFERENCE, true );
+			$quiet     = self::STATE_SPAM !== (string) get_post_meta( $row, self::META_STATE, true ) && is_array( $signals ) && in_array( 'mail-ceiling', $signals, true );
+
+			self::bounce(
+				$quiet ? 'sent-quiet' : 'sent',
+				array(
+					'reference' => '' !== $reference ? $reference : self::reference( $row ),
+					'email'     => self::email_of( is_array( $fields ) ? $fields : array() ),
+				)
+			);
+		}
+
+		$cleaned = self::clean_all( $posted );
+
+		self::bounce(
+			'stale',
+			array(
+				'values' => $cleaned['values'],
+				'typed'  => $cleaned['typed'],
+			)
 		);
 	}
 

@@ -98,6 +98,7 @@ class WP_Post {
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
+function _n( $one, $many, $n, $d = null ) { return 1 === (int) $n ? $one : $many; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
@@ -235,7 +236,18 @@ class WPCPM_Flash {
 		if ( count( $left ) === count( $pending ) ) { return; }
 		if ( empty( $left ) ) { delete_user_meta( $user_id, self::META ); } else { update_user_meta( $user_id, self::META, wp_slash( $left ) ); }
 	}
+	/** A refused form's sentences, kept under the real store's channel and handed back once. */
+	public static function keep( $form, array $values, array $problems = array() ) { self::set( 'kept:' . $form, array( 'at' => time(), 'values' => $values, 'problems' => $problems ) ); }
+	public static function kept( $form ) {
+		$entry = self::take( 'kept:' . $form );
+		return array(
+			'values'   => is_array( $entry ) && isset( $entry['values'] ) ? $entry['values'] : array(),
+			'problems' => is_array( $entry ) && isset( $entry['problems'] ) ? $entry['problems'] : array(),
+		);
+	}
+	public static function forget( $form ) { self::take( 'kept:' . $form ); }
 }
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -832,19 +844,74 @@ echo "\n=== The rules that need two cells ===\n";
 reset_world();
 save( 2, $report, array( k( 'students', 'End Date' ) => '2026-01-01' ) );
 ck( 'an end date before the stored start date is refused', $GLOBALS['writes'], array() );
-ck( 'and the message names the field', array( flash_status(), flash_detail() ), array( 'student-rejected', 'End date.' ) );
+// The pair is one period (1.123.58, IDB-12): both of its dates are refused, and named.
+ck( 'and the message names both dates of the pair', array( flash_status(), flash_detail() ), array( 'student-rejected', 'Start date, End date.' ) );
 
 reset_world();
 save( 2, $report, array( k( 'students', 'End Date' ) => '2036-06-30' ) );
 ck( 'an end date in 2036 is refused by max_days', $GLOBALS['writes'], array() );
-ck( 'by name', flash_detail(), 'End date.' );
+ck( 'by name', flash_detail(), 'Start date, End date.' );
 
 reset_world();
-save( 2, $report, array( k( 'students', 'Start Date' ) => '2026-03-01', k( 'students', 'End Date' ) => '2026-02-01' ) );
-ck( 'the rule runs against what was just typed, not only against what is stored', $GLOBALS['writes'], array(
-	array( 'table' => 'tblSTUDENTS', 'id' => $student, 'fields' => array( 'Start Date' => '2026-03-01' ) ),
+save( 2, $report, array( k( 'students', 'Full Name' ) => 'Ada Nowak', k( 'students', 'Start Date' ) => '2026-03-01', k( 'students', 'End Date' ) => '2026-02-01' ) );
+// 1.123.58, IDB-12: the pair is one period, so a pair that breaks the rule writes neither date.
+ck( 'the rule runs against what was just typed, and refuses the pair it makes', $GLOBALS['writes'], array(
+	array( 'table' => 'tblSTUDENTS', 'id' => $student, 'fields' => array( 'Full Name' => 'Ada Nowak' ) ),
 ) );
-ck( 'and the rest of the save still lands', flash_status(), 'student-partly' );
+ck( 'and the rest of the save still lands, naming both dates', array( flash_status(), flash_detail() ), array( 'student-partly', 'Start date, End date.' ) );
+
+// A start date moved past the stored end date: the stored record keeps both, the form both typed, both marked.
+reset_world();
+$GLOBALS['umeta'][2] = array();
+$id_start = 'wpcpm-student-' . k( 'students', 'Start Date' );
+$id_end   = 'wpcpm-student-' . k( 'students', 'End Date' );
+save( 2, $report, array( k( 'students', 'Start Date' ) => '2026-07-15', k( 'students', 'End Date' ) => '2026-06-30' ) );
+$pair_status = flash_status();
+$pair_form   = draw( 2, $report, $inst_a, 10 );
+$pair_values = drawn_values( $pair_form );
+/** One input's tag, by its id. */
+function input_tag( $html, $id ) { return preg_match( '#<input\b[^>]*\bid="' . preg_quote( $id, '#' ) . '"[^>]*>#', (string) $html, $m ) ? $m[0] : ''; }
+ck(
+	'a start date moved past the stored end date writes neither date, keeps both typed and marks both',
+	array(
+		$pair_status,
+		$GLOBALS['writes'],
+		$GLOBALS['live_rows'][ $report ]['fields']['Start Date'],
+		$GLOBALS['live_rows'][ $report ]['fields']['End Date'],
+		$pair_values[ k( 'students', 'Start Date' ) ],
+		$pair_values[ k( 'students', 'End Date' ) ],
+		false !== strpos( input_tag( $pair_form, $id_start ), 'aria-invalid="true"' ),
+		false !== strpos( input_tag( $pair_form, $id_end ), 'aria-invalid="true"' ),
+		has( $pair_form, '<p class="wpcpm-field__problem" id="' . $id_start . '-problem">The start date has to come before the end date, and a placement cannot run longer than a year. Neither date was saved.</p>' ),
+		has( $pair_form, '<p class="wpcpm-field__problem" id="' . $id_end . '-problem">Check this date against the start date. Neither date was saved.</p>' ),
+	),
+	array( 'student-rejected', array(), '2026-02-01', '2026-06-30', '2026-07-15', '2026-06-30', true, true, true, true )
+);
+ck(
+	'each refused slot says its own reason at its field, and the summary counts them',
+	array(
+		substr_count( $pair_form, 'aria-invalid="true"' ),
+		has( $pair_form, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h4 class="wpcpm-errors__title">Two answers need a change</h4>' ),
+		has( $pair_form, 'A date is written as YYYY-MM-DD, an end date has to be after the start date' ),
+		has( $pair_form, 'Nothing was saved. What was refused: Start date, End date.' ),
+	),
+	array( 2, true, false, true )
+);
+ck( 'and the sentences are said once: the next drawing marks nothing', substr_count( draw( 2, $report, $inst_a, 10 ), 'aria-invalid' ), 0 );
+
+reset_world();
+save( 2, $report, array( k( 'students', 'Start Date' ) => '2025-01-01' ) );
+ck( 'a start date moved more than a year before the stored end date refuses the pair too', array( flash_status(), $GLOBALS['writes'], flash_detail() ), array( 'student-rejected', array(), 'Start date, End date.' ) );
+
+reset_world();
+$GLOBALS['umeta'][2] = array();
+save( 2, $report, array( k( 'students', 'Your field of study' ) => 'Underwater Basket Weaving', k( 'students', 'End Date' ) => '2026-06-31' ) );
+$own_form = draw( 2, $report, $inst_a, 10 );
+ck( 'a box refused for its own value says that, at its field', array(
+	has( $own_form, 'id="' . $id_end . '-problem">A date is written as YYYY-MM-DD.</p>' ),
+	has( $own_form, '-problem">The field of study has to be one of the program&#039;s own choices.</p>' ),
+	has( $own_form, 'Two answers need a change' ),
+), array( true, true, true ) );
 
 reset_world();
 save( 2, $report, array( k( 'students', 'Start Date' ) => '2026-01-01', k( 'students', 'End Date' ) => '2026-12-31' ) );
@@ -1363,9 +1430,9 @@ $GLOBALS['members'][5] = array( $inst_a );
 $typed_channel         = WPCPM_Typed_Text::KEPT_CHANNEL . 'student:' . $report;
 
 save( 2, $report, array( k( 'students', 'Full Name' ) => '  Ada Nowak  ', k( 'students', 'End Date' ) => '2036-06-30' ) );
-ck( 'an end date more than a year after the start is refused by name, and the full name beside it saved', array( flash_status(), flash_detail(), writes_to( 'tblSTUDENTS' ) ), array(
+ck( 'an end date more than a year after the start is refused by name, with the start date of its pair, and the full name beside it saved', array( flash_status(), flash_detail(), writes_to( 'tblSTUDENTS' ) ), array(
 	'student-partly',
-	'End date.',
+	'Start date, End date.',
 	array( array( 'table' => 'tblSTUDENTS', 'id' => $student, 'fields' => array( 'Full Name' => 'Ada Nowak' ) ) ),
 ) );
 ck( 'what was typed waits for this account\'s next drawing of the form, and for no other account', array( isset( $GLOBALS['umeta'][2]['wpcpm_flash'][ $typed_channel ] ), isset( $GLOBALS['umeta'][5]['wpcpm_flash'][ $typed_channel ] ) ), array( true, false ) );

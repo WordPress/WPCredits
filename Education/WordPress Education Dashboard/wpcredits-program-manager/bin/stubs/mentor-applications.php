@@ -76,6 +76,20 @@ class WP_Post {
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $user_url = '', $roles = array();
 	public function __construct( $id = 0, $name = '', $email = '', array $roles = array() ) {
+		// `new WP_User( $id )`, as core's revoke steps build one: the account the site keeps, its roles
+		// the same list, so a role taken here is taken there.
+		if ( 1 === func_num_args() && isset( $GLOBALS['users'][ (int) $id ] ) ) {
+			$kept               = $GLOBALS['users'][ (int) $id ];
+			$this->ID           = $kept->ID;
+			$this->display_name = $kept->display_name;
+			$this->user_email   = $kept->user_email;
+			$this->user_login   = $kept->user_login;
+			$this->user_url     = $kept->user_url;
+			$this->roles        = &$kept->roles;
+
+			return;
+		}
+
 		$this->ID           = (int) $id;
 		$this->display_name = $name;
 		$this->user_email   = $email;
@@ -244,7 +258,9 @@ function remove_filter( $hook, $callback, $priority = 10 ) {
 	return true;
 }
 function apply_filters( $hook, $value, ...$args ) {
-	return $value;
+	// A suite stands a filter in by naming a callback for it (`$GLOBALS['filtered']`), as the
+	// sponsor suite does; with none the value is unfiltered.
+	return isset( $GLOBALS['filtered'][ $hook ] ) ? call_user_func( $GLOBALS['filtered'][ $hook ], $value, ...$args ) : $value;
 }
 function do_action( $hook, ...$args ) {}
 function add_shortcode( $tag, $callback ) {
@@ -344,6 +360,15 @@ function get_option( $key, $default = false ) {
 }
 function update_option( $key, $value, $autoload = null ) {
 	$GLOBALS['opts'][ $key ] = $value;
+
+	// What another request does the moment after this write, as a check plants it: fired once, and
+	// forgotten (1.123.58).
+	if ( isset( $GLOBALS['after_write'][ $key ] ) && is_callable( $GLOBALS['after_write'][ $key ] ) ) {
+		$then = $GLOBALS['after_write'][ $key ];
+		unset( $GLOBALS['after_write'][ $key ] );
+		$then();
+	}
+
 	return true;
 }
 function add_option( $key, $value, $deprecated = '', $autoload = null ) {
@@ -373,6 +398,22 @@ function wp_cache_delete( $key, $group = '' ) {
 		$GLOBALS['events'][] = 'drop ' . $group . ' ' . $key;
 	}
 	return true;
+}
+
+// The queue's lock forgets core's mark that the queue option is missing (1.123.58). This file keeps
+// no cache, so it holds no mark and keeps none; bin/test-mail.php models the mark.
+if ( ! function_exists( 'wp_cache_get' ) ) {
+	function wp_cache_get( $key, $group = '' ) {
+		return false;
+	}
+}
+if ( ! function_exists( 'wp_cache_set' ) ) {
+	function wp_cache_set( $key, $value, $group = '' ) {
+		return true;
+	}
+}
+function wp_using_ext_object_cache() {
+	return false;
 }
 function get_transient( $key ) {
 	return array_key_exists( $key, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $key ] : false;

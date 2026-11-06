@@ -31,6 +31,44 @@ class WPCPM_Settings {
 	const FIELD_DRAWN_STATUSES = 'student_statuses_drawn';
 
 	/**
+	 * The field a settings form posts what it drew under: each setting of its scope and the
+	 * fingerprint of the value the page was drawn with (`drawn_fields()`), so a save writes only what
+	 * the person changed and keeps what changed elsewhere since (1.123.58). A form field, never a
+	 * stored setting.
+	 */
+	const FIELD_DRAWN = 'wpcpm_drawn';
+
+	/**
+	 * The four Who is mailed lists, each of which, left empty, mails every Administrator account
+	 * (`addresses()`'s callers fall back to them).
+	 */
+	const NOTIFY_LISTS = array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify' );
+
+	/**
+	 * What a Who is mailed list's box posts under, after the list's own name: ticked, the list is
+	 * written empty, which mails every Administrator account, whatever the list below it holds
+	 * (1.123.58). A form field, never a stored setting.
+	 */
+	const EVERYONE_SUFFIX = '_everyone';
+
+	/**
+	 * Why the last write refused each setting it did not write, by setting: a value its rule would
+	 * have saved as blank, or a list it would have emptied (`write()`, 1.123.58). Read with
+	 * `last_refused()`.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $refused = array();
+
+	/**
+	 * The settings the last write kept as stored because they changed since the page was drawn and
+	 * the person changed them too (`write()`, 1.123.58). Read with `last_kept()`.
+	 *
+	 * @var string[]
+	 */
+	private static $kept = array();
+
+	/**
 	 * Bump this when a *saved* option has to be migrated rather than merely defaulted.
 	 *
 	 * 2: `Paused` and `Pending graduation` joined `student_statuses`.
@@ -496,6 +534,9 @@ class WPCPM_Settings {
 	public static function save( array $input, $scope = '' ) {
 		$scope = (string) $scope;
 		$keys  = self::scope_keys( $scope );
+		$drawn = isset( $input[ self::FIELD_DRAWN ] ) ? self::drawn_from( $input[ self::FIELD_DRAWN ] ) : null;
+
+		unset( $input[ self::FIELD_DRAWN ] );
 
 		if ( null === $keys ) {
 			return self::get();
@@ -513,7 +554,140 @@ class WPCPM_Settings {
 			}
 		}
 
-		return self::write( $input, $keys );
+		return self::write( $input, $keys, $drawn );
+	}
+
+	/**
+	 * A setting's value as a fingerprint: what a form posts for the value it was drawn with
+	 * (`drawn_fields()`), and what a save compares the value it would write, and the value stored
+	 * now, with (1.123.58).
+	 *
+	 * The value is read as text before it is hashed, a boolean as '1' or '', null as '', and a list
+	 * item by item with its keys, so a value read back from the database, where an integer can come
+	 * back as a numeral, gives the fingerprint the value written gave. A fingerprint, not the value,
+	 * so a secret the page shows masked never reaches the page.
+	 *
+	 * @param mixed $value A setting's value.
+	 * @return string 32 hexadecimal characters.
+	 */
+	public static function fingerprint( $value ) {
+		return md5( serialize( self::as_text( $value ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Hashed, never stored or read back.
+	}
+
+	/**
+	 * A value with every scalar in it as text, for `fingerprint()`.
+	 *
+	 * @param mixed $value A setting's value.
+	 * @return string|array
+	 */
+	private static function as_text( $value ) {
+		if ( is_array( $value ) ) {
+			$text = array();
+
+			foreach ( $value as $key => $item ) {
+				$text[ (string) $key ] = self::as_text( $item );
+			}
+
+			return $text;
+		}
+
+		if ( is_bool( $value ) ) {
+			return $value ? '1' : '';
+		}
+
+		return is_scalar( $value ) ? (string) $value : '';
+	}
+
+	/**
+	 * The hidden fields a settings form carries: for every setting of its scope, the fingerprint of
+	 * the value the page is drawn with (1.123.58). `WPCPM_Settings_Screen::open_settings_form()`
+	 * prints them, so a tab's form and a tool's Settings section carry them alike.
+	 *
+	 * One field a setting rather than one fingerprint of the whole tab: a fingerprint of the tab can
+	 * say only that something changed since the page was drawn, and a save would then have to refuse
+	 * the whole tab or write it whole; a fingerprint a setting says which setting the person changed
+	 * and which changed elsewhere, so the save writes the first and keeps the second. The price is
+	 * forty bytes a setting, about a kilobyte on the largest tab.
+	 *
+	 * @param string $scope A key of `scopes()`.
+	 * @return string The fields' markup, or '' for a scope this version does not have.
+	 */
+	public static function drawn_fields( $scope ) {
+		$keys = self::scope_keys( (string) $scope );
+
+		if ( null === $keys || '' === (string) $scope ) {
+			return '';
+		}
+
+		$settings = self::get();
+		$fields   = '';
+
+		foreach ( $keys as $key ) {
+			$fields .= sprintf(
+				'<input type="hidden" name="%1$s[%2$s]" value="%3$s" />',
+				esc_attr( self::FIELD_DRAWN ),
+				esc_attr( $key ),
+				esc_attr( self::fingerprint( array_key_exists( $key, $settings ) ? $settings[ $key ] : null ) )
+			);
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * The fingerprints a form posted, by setting: only a known setting's, and only a fingerprint's
+	 * shape, so a hand-made post can do no more than a form posting no fingerprint at all.
+	 *
+	 * @param mixed $posted What the form posted under `FIELD_DRAWN`.
+	 * @return array<string, string>
+	 */
+	public static function drawn_from( $posted ) {
+		$drawn    = array();
+		$defaults = self::defaults();
+
+		if ( ! is_array( $posted ) ) {
+			return $drawn;
+		}
+
+		foreach ( $posted as $key => $print ) {
+			if ( is_string( $key ) && array_key_exists( $key, $defaults ) && is_string( $print ) && 1 === preg_match( '/^[a-f0-9]{32}$/', $print ) ) {
+				$drawn[ $key ] = $print;
+			}
+		}
+
+		return $drawn;
+	}
+
+	/**
+	 * Why the last save or patch did not write each setting it refused, by setting (1.123.58).
+	 *
+	 * @return array<string, string>
+	 */
+	public static function last_refused() {
+		return self::$refused;
+	}
+
+	/**
+	 * The settings the last save kept as stored because they changed since the page was drawn
+	 * (1.123.58).
+	 *
+	 * @return string[]
+	 */
+	public static function last_kept() {
+		return self::$kept;
+	}
+
+	/**
+	 * Refuse one setting in the write under way: its stored value stays, and the sentence says why.
+	 *
+	 * @param array  $clean    The settings the write builds, by reference.
+	 * @param array  $current  The settings as stored.
+	 * @param string $key      The setting.
+	 * @param string $sentence Why.
+	 */
+	private static function refuse( array &$clean, array $current, $key, $sentence ) {
+		$clean[ $key ]         = array_key_exists( $key, $current ) ? $current[ $key ] : self::defaults()[ $key ];
+		self::$refused[ $key ] = (string) $sentence;
 	}
 
 	/**
@@ -537,9 +711,12 @@ class WPCPM_Settings {
 	 * gets back with the one it sent.
 	 *
 	 * @param array $changes Setting => raw value, as `save()` is handed them.
-	 * @return array The settings as written.
+	 * @param bool  $dry     True to work out what would be written and write nothing: the settings
+	 *                       as they would be written come back, `last_refused()` is filled, and
+	 *                       nothing is stored, flashed, stamped, scheduled or compiled.
+	 * @return array The settings as written, or as they would be written for a dry patch.
 	 */
-	public static function patch( array $changes ) {
+	public static function patch( array $changes, $dry = false ) {
 		if ( array() !== self::tracks_dropped_by( $changes ) ) {
 			unset( $changes['student_statuses'], $changes[ self::FIELD_DRAWN_STATUSES ] );
 		}
@@ -549,9 +726,9 @@ class WPCPM_Settings {
 		}
 
 		$current = self::get();
-		$saved   = self::write( $changes, array_keys( array_intersect_key( $changes, self::defaults() ) ) );
+		$saved   = self::write( $changes, array_keys( array_intersect_key( $changes, self::defaults() ) ), null, (bool) $dry );
 
-		if ( class_exists( 'WPCPM_Track_Store' ) && self::changed( $current, $saved, array( 'student_statuses', 'past_statuses' ) ) ) {
+		if ( ! $dry && class_exists( 'WPCPM_Track_Store' ) && self::changed( $current, $saved, array( 'student_statuses', 'past_statuses' ) ) ) {
 			WPCPM_Track_Store::compile();
 		}
 
@@ -562,14 +739,21 @@ class WPCPM_Settings {
 	 * Sanitize and store the settings a save or a patch reads, and leave every other setting as
 	 * stored.
 	 *
-	 * @param array    $input Raw input, typically from $_POST.
-	 * @param string[] $keys  The settings this write reads.
+	 * @param array                      $input Raw input, typically from $_POST.
+	 * @param string[]                   $keys  The settings this write reads.
+	 * @param array<string, string>|null $drawn The fingerprints the form was drawn with, by setting
+	 *                                          (`drawn_from()`), or null for a write that carries none:
+	 *                                          a patch, or a form from before.
+	 * @param bool                       $dry   True to return the settings as they would be written and do
+	 *                                          nothing after: no option, flash, version stamp or schedule.
 	 * @return array The settings as written.
 	 */
-	private static function write( array $input, array $keys ) {
-		$current = self::get();
-		$reads   = array_fill_keys( $keys, true );
-		$clean   = $current;
+	private static function write( array $input, array $keys, $drawn = null, $dry = false ) {
+		$current       = self::get();
+		$reads         = array_fill_keys( $keys, true );
+		$clean         = $current;
+		self::$refused = array();
+		self::$kept    = array();
 
 		// An empty token field means "leave the stored token alone" - the UI only
 		// ever renders a masked placeholder, so blank must not wipe the secret.
@@ -718,8 +902,17 @@ class WPCPM_Settings {
 			$host = $url ? strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) : '';
 
 			// Google only, and https only: this value is rendered as a link on an admin screen,
-			// and a free-text URL field there is a redirect waiting to happen.
-			$clean['agreement_doc_url'] = in_array( $host, array( 'docs.google.com', 'drive.google.com' ), true ) ? $url : '';
+			// and a free-text URL field there is a redirect waiting to happen. A link typed that the
+			// rule would save as none is refused, the stored link kept (SET-03, 1.123.58).
+			$typed = is_string( $input['agreement_doc_url'] ) ? trim( wp_unslash( $input['agreement_doc_url'] ) ) : '';
+
+			if ( in_array( $host, array( 'docs.google.com', 'drive.google.com' ), true ) ) {
+				$clean['agreement_doc_url'] = $url;
+			} elseif ( '' === $typed ) {
+				$clean['agreement_doc_url'] = '';
+			} else {
+				self::refuse( $clean, $current, 'agreement_doc_url', __( 'Give a link that starts with https://docs.google.com/ or https://drive.google.com/. The link saved before was kept.', 'wpcredits-program-manager' ) );
+			}
 		}
 
 		// Who hears about an agreement upload, a drafted report or a sponsor's interest (`addresses()`).
@@ -727,13 +920,47 @@ class WPCPM_Settings {
 		// as the boxes ticked beside its Other addresses line (`agreement_notify[]` and so on), every
 		// entry split the way the text is, so both write the same list for the same addresses, and the
 		// boxes keep the order the list is stored in, as the status lists do.
-		foreach ( array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify' ) as $notify_key ) {
+		foreach ( self::NOTIFY_LISTS as $notify_key ) {
+			// The box above the list, "Mail every Administrator account instead of the people below":
+			// ticked, the list is written empty and what it holds is not read (1.123.58).
+			if ( ! empty( $input[ $notify_key . self::EVERYONE_SUFFIX ] ) ) {
+				$clean[ $notify_key ] = '';
+
+				continue;
+			}
+
 			if ( ! isset( $input[ $notify_key ] ) ) {
 				continue;
 			}
 
 			$raw       = wp_unslash( $input[ $notify_key ] );
 			$addresses = self::addresses( $raw );
+			$wrong     = self::not_addresses( $raw );
+
+			// A typed entry that is no address refuses the list, rather than the list saved without it:
+			// with one address typed wrong, the list would be empty, which mails every Administrator
+			// account (SET-02, 1.123.58). And a list the save would empty is refused too, for the same
+			// reason: an empty list is never what a person meant by unticking the last box.
+			if ( array() !== $wrong ) {
+				self::refuse(
+					$clean,
+					$current,
+					$notify_key,
+					sprintf(
+						/* translators: %s: the entries that are not email addresses, in quotes, separated by commas. */
+						_n( '%s is not an email address, so the list was not saved. Correct it or remove it, then save again.', '%s are not email addresses, so the list was not saved. Correct them or remove them, then save again.', count( $wrong ), 'wpcredits-program-manager' ),
+						'"' . implode( '", "', $wrong ) . '"'
+					)
+				);
+
+				continue;
+			}
+
+			if ( array() === $addresses ) {
+				self::refuse( $clean, $current, $notify_key, __( 'Name at least one address, or tick the box above to mail every Administrator account.', 'wpcredits-program-manager' ) );
+
+				continue;
+			}
 
 			if ( is_array( $raw ) ) {
 				$addresses = self::kept_in_stored_order( $addresses, self::addresses( isset( $current[ $notify_key ] ) ? (string) $current[ $notify_key ] : '' ) );
@@ -746,9 +973,16 @@ class WPCPM_Settings {
 		// https link or none. It goes to a stranger in an email the site sends, so a link that is not
 		// https, or not a link, is saved as none rather than mailed.
 		if ( isset( $input['mentor_course_link'] ) ) {
-			$link = is_string( $input['mentor_course_link'] ) ? esc_url_raw( trim( wp_unslash( $input['mentor_course_link'] ) ), array( 'https' ) ) : '';
+			$typed = is_string( $input['mentor_course_link'] ) ? trim( wp_unslash( $input['mentor_course_link'] ) ) : '';
+			$link  = '' !== $typed ? esc_url_raw( $typed, array( 'https' ) ) : '';
 
-			$clean['mentor_course_link'] = is_string( $link ) && 0 === strpos( $link, 'https://' ) ? $link : '';
+			if ( is_string( $link ) && 0 === strpos( $link, 'https://' ) ) {
+				$clean['mentor_course_link'] = $link;
+			} elseif ( '' === $typed ) {
+				$clean['mentor_course_link'] = '';
+			} else {
+				self::refuse( $clean, $current, 'mentor_course_link', __( 'Give a link that starts with https://. The link saved before was kept.', 'wpcredits-program-manager' ) );
+			}
 		}
 
 		// The one connecting address whose forwarded header the application form believes.
@@ -761,7 +995,11 @@ class WPCPM_Settings {
 		if ( isset( $input['application_trusted_proxy'] ) ) {
 			$proxy = is_string( $input['application_trusted_proxy'] ) ? trim( wp_unslash( $input['application_trusted_proxy'] ) ) : '';
 
-			$clean['application_trusted_proxy'] = ( '' !== $proxy && false !== filter_var( $proxy, FILTER_VALIDATE_IP ) ) ? $proxy : '';
+			if ( '' === $proxy || false !== filter_var( $proxy, FILTER_VALIDATE_IP ) ) {
+				$clean['application_trusted_proxy'] = $proxy;
+			} else {
+				self::refuse( $clean, $current, 'application_trusted_proxy', __( 'Give one IP address, such as 192.0.2.10, or leave the box empty. The address saved before was kept.', 'wpcredits-program-manager' ) );
+			}
 		}
 
 		// Guarded like `handbook_enabled`, unlike the checkboxes above: a write can be handed
@@ -786,7 +1024,7 @@ class WPCPM_Settings {
 
 		// The Slack webhook is a secret like the schema token: blank or the mask keeps it, "remove"
 		// clears it. Anything else must be a Slack incoming webhook, or the one saved stays and the
-		// checker's screen says why (`WPCPM_Mentor_Checker::render_admin_page()`).
+		// field says why (`last_refused()`).
 		// A value that is not a string, which no form of the plugin's posts, is refused the same way.
 		if ( isset( $input['checker_slack_webhook'] ) ) {
 			$webhook = is_string( $input['checker_slack_webhook'] ) ? trim( wp_unslash( $input['checker_slack_webhook'] ) ) : null;
@@ -797,13 +1035,13 @@ class WPCPM_Settings {
 				if ( class_exists( 'WPCPM_Mentor_Checker_Slack' ) && WPCPM_Mentor_Checker_Slack::is_webhook( $webhook ) ) {
 					$clean['checker_slack_webhook'] = $webhook;
 				} else {
-					WPCPM_Flash::set( 'checker-webhook-refused', true );
+					self::refuse( $clean, $current, 'checker_slack_webhook', __( 'Give the address Slack showed when the incoming webhook was made, or type remove to clear it. The webhook saved before was kept.', 'wpcredits-program-manager' ) );
 				}
 			}
 		}
 
 		// The contact address the emails' footer names: an address, or blank to name none. Anything else
-		// keeps the one saved, and the Emails tool's Signature and footer tab says why: a footer naming
+		// keeps the one saved, and the field says why (`last_refused()`): a footer naming
 		// a mistyped address would send every question nowhere.
 		if ( isset( $input['mail_contact'] ) ) {
 			$contact = is_string( $input['mail_contact'] ) ? trim( wp_unslash( $input['mail_contact'] ) ) : null;
@@ -813,7 +1051,7 @@ class WPCPM_Settings {
 			} elseif ( is_string( $contact ) && is_email( $contact ) && sanitize_email( $contact ) === $contact ) {
 				$clean['mail_contact'] = $contact;
 			} else {
-				WPCPM_Flash::set( 'emails-contact-refused', true );
+				self::refuse( $clean, $current, 'mail_contact', __( 'Enter one email address, such as program@example.org, or leave the box empty to name none. The address saved before was kept.', 'wpcredits-program-manager' ) );
 			}
 		}
 
@@ -867,6 +1105,37 @@ class WPCPM_Settings {
 			}
 		}
 
+		// A page drawn earlier writes only what the person changed on it (SET-01, LOG-03, 1.123.58).
+		// The form posted, for every setting of its scope, the fingerprint of the value it was drawn
+		// with. A setting posted back as drawn is not the person's change, so the stored value stays,
+		// whatever another tab, another Administrator or the command line made it since. A setting the
+		// person changed is written, unless the stored value changed since the page was drawn too, to
+		// something else: then the stored value stays and the setting is named (`last_kept()`). A
+		// setting the form drew no fingerprint for is written as before; a refused one is already back
+		// to its stored value.
+		if ( is_array( $drawn ) ) {
+			foreach ( $keys as $key ) {
+				if ( ! isset( $drawn[ $key ] ) || array_key_exists( $key, self::last_refused() ) || ! array_key_exists( $key, $clean ) ) {
+					continue;
+				}
+
+				$mine = self::fingerprint( $clean[ $key ] );
+
+				if ( $mine === $drawn[ $key ] ) {
+					$clean[ $key ] = $current[ $key ];
+
+					continue;
+				}
+
+				$stored = self::fingerprint( $current[ $key ] );
+
+				if ( $stored !== $drawn[ $key ] && $stored !== $mine ) {
+					$clean[ $key ] = $current[ $key ];
+					self::$kept[]  = $key;
+				}
+			}
+		}
+
 		// Four fields that must never be blank. The mentor status and "Currently mentoring" are
 		// what the mentors and students syncs filter the base by, and
 		// `WPCPM_Airtable::formula_in()` turns an empty list into no filter at all: a blank would
@@ -888,6 +1157,10 @@ class WPCPM_Settings {
 				$clean[ $key ] = self::defaults()[ $key ];
 				$restored[]    = $key;
 			}
+		}
+
+		if ( $dry ) {
+			return $clean;
 		}
 
 		update_option( self::OPT_NAME, $clean );
@@ -1116,6 +1389,33 @@ class WPCPM_Settings {
 		}
 
 		return $list;
+	}
+
+	/**
+	 * The entries of a typed list of addresses, split as `addresses()` splits them, that are not
+	 * addresses, as typed (SET-02, 1.123.58).
+	 *
+	 * @param string|string[] $raw The text input's text, or the boxes and the Other addresses line.
+	 * @return string[]
+	 */
+	private static function not_addresses( $raw ) {
+		$wrong = array();
+
+		foreach ( is_array( $raw ) ? $raw : array( (string) $raw ) as $entry ) {
+			if ( ! is_string( $entry ) ) {
+				continue;
+			}
+
+			foreach ( preg_split( '/[\s,]+/', $entry, -1, PREG_SPLIT_NO_EMPTY ) as $address ) {
+				$clean = sanitize_email( strtolower( trim( (string) $address ) ) );
+
+				if ( '' === $clean || ! is_email( $clean ) ) {
+					$wrong[] = sanitize_text_field( (string) $address );
+				}
+			}
+		}
+
+		return array_values( array_unique( $wrong ) );
 	}
 
 	/**

@@ -49,8 +49,9 @@
  *   cleaned or refused, never stored as typed: a language not on the list is dropped, a title
  *   with no signer refuses the signer's name, a signer with no title refuses the title, and a
  *   page address naming any scheme but http or https is refused.
- * - **A failure never hands back a tick.** The stash that refills the form is asserted to
- *   carry no consent value at all, in every failure path.
+ * - **A failure hands back the sender's own tick, and only that.** The stash that refills the form
+ *   carries the consent tick when the refused post ticked it (1.123.58, trial T2), and none when it
+ *   did not; the tick is never one of the values a row stores.
  * - **A label is the applicant's words and a key is the base's.** The internship question asks
  *   about "practicums" (1.123.27) over the column that says "practices": the thirteen columns and
  *   the field name each posts under, hashed from the column, are pinned as they were, with the five
@@ -173,6 +174,10 @@ function apply_filters( $hook, $value ) {
 	if ( 'wpcpm_application_domain_takes_mail' === $hook ) {
 		return (bool) $GLOBALS['mx'];
 	}
+	// And the guard's pause between two reads of a token's record, which a check stands in for.
+	if ( isset( $GLOBALS['filtered'][ $hook ] ) ) {
+		return call_user_func( $GLOBALS['filtered'][ $hook ], $value );
+	}
 	return $value;
 }
 function wp_check_comment_disallowed_list( $author, $email, $url, $comment, $ip, $agent ) { return (bool) $GLOBALS['disallowed']; }
@@ -190,6 +195,8 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function get_privacy_policy_url() { return (string) $GLOBALS['policy']; }
 function nocache_headers() { ++$GLOBALS['nocache']; }
+function wp_using_ext_object_cache() { return false; }
+function wp_cache_delete( $k, $g = '' ) { return true; }
 function is_page( $id = 0 ) { return (int) $id === (int) ( $GLOBALS['on_page'] ?? 0 ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
@@ -1058,7 +1065,7 @@ ck( 'one of 201 is refused as too long, in both answers, and nothing of it is ke
 ck( 'one of 500 characters is refused too', WPCPM_Institution_Application::clean( 'Website', 'example.edu/' . str_repeat( 'a', 500 ) )['problem'], 'too_long' );
 ck( 'a scheme-less address is counted as it will be kept, with the scheme: 194 typed characters become 202', array( WPCPM_Institution_Application::clean( 'Website', 'example.edu/' . str_repeat( 'a', 182 ) )['problem'], WPCPM_Institution_Application::clean( 'Website', 'example.edu/' . str_repeat( 'a', 180 ) )['ok'] ), array( 'too_long', true ) );
 ck( 'an address that names another scheme is still refused as that, not as too long', WPCPM_Institution_Application::clean( 'credits_page', 'javascript:' . str_repeat( 'a', 300 ) )['problem'], 'bad_url' );
-ck( 'the sentence for a refusal says how many characters the answer may have', WPCPM_Institution_Application::problem_text( 'too_long', array( 'maxlength' => 200 ) ), 'Please keep this to 200 characters or fewer.' );
+ck( 'the sentence for a refusal says how many characters the answer may have', WPCPM_Institution_Application::problem_text( 'too_long', array( 'maxlength' => 200 ) ), 'Keep this to 200 characters or fewer.' );
 
 echo "\n-- what is drawn, and when nothing is ---------------------------------\n";
 
@@ -1178,7 +1185,7 @@ ck( 'the page is a text box that takes an address, as Website is, of 200 charact
 
 // The languages, drawn as the mentor form draws its own: a group of boxes the heading names and
 // the hint describes, in columns, every box posting under the question's name as a list.
-preg_match( '#<div class="wpcpm-field wpcpm-field--choices wpcpm-field--columns"><span class="wpcpm-field__label" id="' . $speaks_id . '-label">In which languages do your students study\? <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__choices" role="group" aria-labelledby="' . $speaks_id . '-label" aria-describedby="' . $speaks_id . '-help">(.*?)</span><span class="wpcpm-field__hint" id="' . $speaks_id . '-help">Tick every language your students study in\.</span></div>#', $form, $speaks );
+preg_match( '#<div class="wpcpm-field wpcpm-field--choices wpcpm-field--columns"><span class="wpcpm-field__label" id="' . $speaks_id . '-label">In which languages do your students study\? <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__choices" id="' . $speaks_id . '" role="group" aria-labelledby="' . $speaks_id . '-label" aria-describedby="' . $speaks_id . '-help">(.*?)</span><span class="wpcpm-field__hint" id="' . $speaks_id . '-help">Tick every language your students study in\.</span></div>#', $form, $speaks );
 preg_match_all( '#<label class="wpcpm-field__check"><input type="checkbox" name="wpcpm_application\[' . WPCPM_Institution_Application::form_key( 'student_languages' ) . '\]\[\]" value="([^"]*)" /> <span>([^<]*)</span></label>#', $speaks[1] ?? '', $boxes );
 ck( 'the languages are a group of boxes in columns, under a heading with the mark, the hint describing them', isset( $speaks[1] ), true );
 ck( 'one box for each language the mentor form offers, in its order, each named as it is valued', array( $boxes[1], $boxes[2] ), array( $languages, $languages ) );
@@ -1267,7 +1274,7 @@ $internship_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key(
 
 ck(
 	'the question is a label with an id and the mark, over its choices in a group that label names and the hint describes',
-	false !== strpos( $form, '<span class="wpcpm-field__label" id="' . $internship_id . '-label">How do your internships or practicums typically work? <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__choices" role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help">' ),
+	false !== strpos( $form, '<span class="wpcpm-field__label" id="' . $internship_id . '-label">How do your internships or practicums typically work? <span class="wpcpm-field__required">Required</span></span><span class="wpcpm-field__choices" id="' . $internship_id . '" role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help">' ),
 	true
 );
 ck(
@@ -1285,7 +1292,7 @@ $again = WPCPM_Institution_Application::render();
 
 ck(
 	'a form handed back for no box ticked has the group describe itself by the hint and the problem',
-	array( false !== strpos( $again, 'role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help ' . $internship_id . '-problem">' ), false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $internship_id . '-problem">Please fill this in.</span>' ) ),
+	array( false !== strpos( $again, 'role="group" aria-labelledby="' . $internship_id . '-label" aria-describedby="' . $internship_id . '-help ' . $internship_id . '-problem">' ), false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $internship_id . '-problem">Fill this in.</span>' ) ),
 	array( true, true )
 );
 
@@ -1337,7 +1344,7 @@ $again = WPCPM_Institution_Application::render();
 
 ck(
 	'and the form handed back says so under the field, which the select and the field are marked invalid by and described by',
-	array( false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $country_id . '-problem">Please fill this in.</span>' ), false !== strpos( $again, 'id="' . $country_id . '" autocomplete="off" aria-invalid="true" aria-describedby="' . $country_id . '-problem">' ), false !== strpos( $again, 'id="' . $country_id . '-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' . $country_id . '-list" autocomplete="off" spellcheck="false" placeholder="Type to find your country" aria-invalid="true" aria-describedby="' . $country_id . '-problem"' ) ),
+	array( false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $country_id . '-problem">Fill this in.</span>' ), false !== strpos( $again, 'id="' . $country_id . '" autocomplete="off" aria-invalid="true" aria-describedby="' . $country_id . '-problem">' ), false !== strpos( $again, 'id="' . $country_id . '-input" class="wpcpm-dashboard__switcher-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' . $country_id . '-list" autocomplete="off" spellcheck="false" placeholder="Type to find your country" aria-invalid="true" aria-describedby="' . $country_id . '-problem"' ) ),
 	array( true, true, true )
 );
 // The mark is the refusal's, so the form drawn before any post, and a form handed back over another
@@ -1459,10 +1466,12 @@ ck( 'the confirmation names the reference', false !== strpos( $page, 'APP-2026-0
 ck( 'and does not draw the form again', strpos( $page, '<form' ), false );
 $again = WPCPM_Institution_Application::render();
 
-// One-shot: the id is still in the address bar, and a reload or a forwarded link gets the
-// plain form rather than repeating somebody else's confirmation back at whoever opens it.
-ck( 'and is gone on the next page load', strpos( $again, 'APP-' ), false );
-ck( 'which shows the plain form again', false !== strpos( $again, '<form' ), true );
+// Read, not taken since 1.123.58 (FORM-06): within its thirty minutes a reload, or a return
+// through history, draws the confirmation again; once it is gone, the expired sentence.
+ck( 'a reload of the thank-you within its 30 minutes draws the confirmation again, with the reference', array( $again === $page, false !== strpos( $again, 'APP-2026-0500' ) ), array( true, true ) );
+$GLOBALS['transients'] = array();
+$gone                  = WPCPM_Institution_Application::render();
+ck( 'after the stash is gone, the page draws the empty form under the expired sentence, which says nothing was lost either way', array( false !== strpos( $gone, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $gone, '<form' ), strpos( $gone, 'APP-' ) ), array( true, true, false ) );
 
 echo "\n-- the two mails ------------------------------------------------------\n";
 
@@ -1497,7 +1506,7 @@ foreach ( array( 'absent' => null, 'zero' => '0', 'yes' => 'yes', 'empty' => '' 
 	reset_world();
 	$sent = submit( answers( array( 'Privacy Policy Compliance' => $value ) ) );
 
-	ck( "consent $label: the submission is refused", $sent['outcome'], 'consent' );
+	ck( "consent $label: the submission is refused, marked at the box", array( $sent['outcome'], $sent['stash']['problems'] ?? null ), array( 'again', array( 'Privacy Policy Compliance' => 'consent' ) ) );
 	ck( "consent $label: and nothing at all is stored", count( stored() ), 0 );
 	ck( "consent $label: and nobody is mailed", array( count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ) ), array( 0, 0 ) );
 }
@@ -1518,8 +1527,16 @@ $_GET[ WPCPM_Institution_Application::QUERY_STASH ] = $sent['id'];
 $back = WPCPM_Institution_Application::render();
 
 ck( 'the form comes back with the answers in it', false !== strpos( $back, 'value="Universidad Example"' ), true );
-ck( 'and the consent box unticked', strpos( $back, 'value="1" required="required" checked' ), false );
-ck( 'and says what to do', false !== strpos( $back, 'tick the last box' ), true );
+ck( 'and the consent box unticked', strpos( $back, 'value="1" checked="checked"' ), false );
+ck( 'and says what to do, at the box and in the summary', array( substr_count( $back, 'Tick this box to send the form.' ), 1 === preg_match( '#id="wpcpm-application-' . WPCPM_Institution_Application::form_key( 'Privacy Policy Compliance' ) . '" name="[^"]+" value="1" required="required" aria-invalid="true"#', $back ) ), array( 2, true ) );
+
+// The tick is the sender's own work, kept with the other answers (1.123.58, trial T2): a box drawn
+// empty again is refused by the browser itself on the next Send, before anything is said.
+reset_world();
+$sent = submit( answers( array( 'Name' => '' ) ) );
+$_GET[ WPCPM_Institution_Application::QUERY_STASH ] = $sent['id'];
+$back = WPCPM_Institution_Application::render();
+ck( 'a ticked consent box comes back ticked after a refusal for another answer', array( $sent['outcome'], $sent['stash']['problems'] ?? null, $sent['stash']['values']['Privacy Policy Compliance'] ?? null, 1 === preg_match( '#id="wpcpm-application-' . WPCPM_Institution_Application::form_key( 'Privacy Policy Compliance' ) . '" name="[^"]+" value="1" checked="checked" required="required" />#', $back ), count( stored() ) ), array( 'again', array( 'Name' => 'required' ), true, true, 0 ) );
 
 echo "\n-- the honeypot -------------------------------------------------------\n";
 
@@ -1570,7 +1587,7 @@ arm_nonce();
 $token = dwell_token( 45 );
 
 ck( 'the first use of a token is accepted', WPCPM_Institution_Application::check_token( $token ), 'ok' );
-ck( 'and the second use of the same token is not', WPCPM_Institution_Application::check_token( $token ), 'spam' );
+ck( 'and the second use of the same token is not: it is used, and waits for the first press\'s row', WPCPM_Institution_Application::check_token( $token ), 'used' );
 
 reset_world();
 arm_nonce();
@@ -1596,9 +1613,10 @@ $second    = submit( answers( array( 'Name' => 'Second University', 'Contact Ema
 $rows      = stored();
 
 ck( 'a harvested token gets one application through', get_post_meta( $rows[0]->ID, WPCPM_Institution_Application::META_STATE, true ), WPCPM_Institution_Application::STATE_NEW );
-ck( 'and the replay is held as spam', get_post_meta( $rows[1]->ID, WPCPM_Institution_Application::META_STATE, true ), WPCPM_Institution_Application::STATE_SPAM );
-ck( 'saying why', in_array( 'dwell', get_post_meta( $rows[1]->ID, WPCPM_Institution_Application::META_SIGNALS, true ), true ), true );
-ck( 'the sender of the replay is told nothing about it', array( $first['outcome'], $second['outcome'] ), array( 'sent', 'sent' ) );
+// Since 1.123.58 (FORM-04) the replay is a second press: it stores nothing and is answered with the
+// first press's own confirmation, where it was a spam row whose reference the page then showed.
+ck( 'and the replay stores nothing', count( $rows ), 1 );
+ck( 'its sender is answered with the first press\'s confirmation', array( $first['outcome'], $second['outcome'], $second['stash']['reference'] ?? null ), array( 'sent', 'sent', $first['stash']['reference'] ?? 'none' ) );
 ck( 'and only the first was mailed about', count( $GLOBALS['mail'] ), 1 );
 
 reset_world();
@@ -1615,7 +1633,7 @@ $expired = submit( answers(), array( 'nonce' => 'nonce-from-last-week' ) );
 ck( 'an expired nonce is a message and not a death screen', $expired['outcome'], 'expired' );
 ck( 'nothing is stored for it either', count( stored() ), 0 );
 ck( 'and the writing is still handed back', $expired['stash']['values']['City'], 'San Jose' );
-ck( 'and still without the tick', array_key_exists( 'Privacy Policy Compliance', $expired['stash']['values'] ), false );
+ck( 'and the tick it was sent with', $expired['stash']['values']['Privacy Policy Compliance'] ?? null, true );
 
 echo "\n-- a re-send straight after a bounce (FANON-1) -------------------------\n";
 
@@ -1663,13 +1681,15 @@ ck( 'five in an hour from one source are taken', count( stored() ), 5 );
 
 $sixth = submit( answers( array( 'Name' => 'University 6', 'Contact Email' => 'a6@example.edu' ) ) );
 
-ck( 'the sixth is refused outright', $sixth['outcome'], 'busy' );
+ck( 'the sixth is refused outright, its answers kept since its nonce holds (1.123.58)', array( $sixth['outcome'], $sixth['stash']['values']['Name'] ?? null ), array( 'busy-kept', 'University 6' ) );
 ck( 'and stores nothing at all: this is the one layer that does not keep the row', count( stored() ), 5 );
 
-// `busy` has nothing to hand back, so it says so in the address bar and writes nothing. Five
-// transients, one for each of the five that were taken, and not a sixth.
-ck( 'and writes nothing either: the refusal travels as itself', false !== strpos( $sixth['url'], 'wpcpm_app_said=busy' ), true );
-ck( 'so a source that keeps posting stops costing the options table anything', count( $GLOBALS['transients'] ), 5 );
+// A post whose nonce fails has nothing worth keeping, so it says so in the address bar and writes
+// nothing. Six transients: one for each of the five that were taken and the sixth's answers, and
+// not a seventh.
+$seventh = submit( answers( array( 'Name' => 'University 7' ) ), array( 'nonce' => 'nonce-stale' ) );
+ck( 'and one with no valid nonce writes nothing either: the refusal travels as itself', array( $seventh['url'], count( stored() ) ), array( 'https://example.test/institution-application/?wpcpm_app_said=busy', 5 ) );
+ck( 'so a source that keeps posting stops costing the options table anything', count( preg_grep( '/^' . WPCPM_Institution_Application::TRANSIENT_PREFIX . '/', array_keys( $GLOBALS['transients'] ) ) ), 6 );
 
 $elsewhere = submit(
 	array_merge( answers( array( 'Name' => 'Somewhere Else', 'Contact Email' => 'else@example.edu' ) ) ),
@@ -1854,7 +1874,7 @@ $again    = WPCPM_Institution_Application::render();
 $title_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'signer_title' );
 
 ck( 'and the form handed back says so under the title, with the name kept as typed', array(
-	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $title_id . '-problem">Please fill this in.</span>' ),
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $title_id . '-problem">Fill this in.</span>' ),
 	false !== strpos( $again, 'value="Signer Example"' ),
 ), array( true, true ) );
 
@@ -1871,7 +1891,7 @@ $again     = WPCPM_Institution_Application::render();
 $signer_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'signer_name' );
 
 ck( 'and the form handed back says so under the name, with the title kept as typed', array(
-	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $signer_id . '-problem">Please fill this in.</span>' ),
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $signer_id . '-problem">Fill this in.</span>' ),
 	false !== strpos( $again, 'value="Dean of the Faculty of Engineering"' ),
 ), array( true, true ) );
 
@@ -1899,9 +1919,9 @@ ck( 'no language ticked is refused, and nothing is stored', array( $silent['outc
 follow( $silent['url'] );
 $again = WPCPM_Institution_Application::render();
 
-ck( 'and the form handed back says Please fill this in. under the boxes, which the problem describes as well as the hint', array(
+ck( 'and the form handed back says Fill this in. under the boxes, which the problem describes as well as the hint', array(
 	false !== strpos( $again, 'role="group" aria-labelledby="' . $speaks_id . '-label" aria-describedby="' . $speaks_id . '-help ' . $speaks_id . '-problem">' ),
-	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $speaks_id . '-problem">Please fill this in.</span>' ),
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $speaks_id . '-problem">Fill this in.</span>' ),
 ), array( true, true ) );
 
 reset_world();
@@ -1923,10 +1943,11 @@ ck( 'a page address with a javascript: scheme is refused, and nothing is stored'
 follow( $script['url'] );
 $again = WPCPM_Institution_Application::render();
 
-ck( 'and the form handed back says the answer could not be read, the address gone from the box', array(
-	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $page_id . '-problem">That answer could not be read. Please try it again.</span>' ),
-	strpos( $again, 'javascript:' ),
-), array( true, false ) );
+ck( 'and the form handed back says what to give, the address back in its box as typed and escaped (1.123.58)', array(
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $page_id . '-problem">Give a web address starting with https://, or just the domain.</span>' ),
+	false !== strpos( $again, 'id="' . $page_id . '" name="wpcpm_application[' . WPCPM_Institution_Application::form_key( 'credits_page' ) . ']" value="javascript:alert(1)"' ),
+	substr_count( $again, 'javascript:' ),
+), array( true, true, 1 ) );
 
 // The same cap on a post: a hand-made request is not stopped by the box's `maxlength`.
 reset_world();
@@ -1937,7 +1958,7 @@ ck( 'a website and a page address over 200 characters are each refused as too lo
 follow( $too_long['url'] );
 $again = WPCPM_Institution_Application::render();
 
-ck( 'and the form handed back says how long an address may be, under each', substr_count( $again, 'Please keep this to 200 characters or fewer.</span>' ), 2 );
+ck( 'and the form handed back says how long an address may be, under each', substr_count( $again, 'Keep this to 200 characters or fewer.</span>' ), 2 );
 
 // A row filed as spam skips requiredness, so a title with no signer is not refused there; it is
 // not kept either, or approving that row once it was put back in the queue would copy a title
@@ -2239,7 +2260,7 @@ ck( 'the sender is told nothing was saved', $lost['outcome'], 'lost' );
 ck( 'and nothing was', count( stored() ), 0 );
 ck( 'nobody is mailed about a row that does not exist', array( count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ) ), array( 0, 0 ) );
 ck( 'their writing is handed back', handed_back( $lost )['Why are you interested in offering WordPress Credits to your students?'] ?? '', 'Our students need real open source experience before they graduate.' );
-ck( 'still without the tick', array_key_exists( 'Privacy Policy Compliance', handed_back( $lost ) ), false );
+ck( 'with the tick it was sent with', handed_back( $lost )['Privacy Policy Compliance'] ?? null, true );
 
 follow( $lost['url'] );
 $page = WPCPM_Institution_Application::render();
@@ -2259,14 +2280,18 @@ $GLOBALS['on_page'] = 99;
 
 WPCPM_Institution_Application::no_cache();
 
-ck( 'a page that is not the form is left alone', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 0, false ) );
+// The headers alone: every draw of the form defines DONOTCACHEPAGE since 1.123.58, and earlier
+// checks have drawn it.
+ck( 'a page that is not the form is left alone', $GLOBALS['nocache'], 0 );
 
 $GLOBALS['on_page'] = 42;
 unset( $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] );
 
 WPCPM_Institution_Application::no_cache();
 
-ck( 'and so is every page on a site that has no application page at all', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 0, false ) );
+// The headers alone: every draw of the form defines DONOTCACHEPAGE since 1.123.58, and earlier
+// checks have drawn it.
+ck( 'and so is every page on a site that has no application page at all', $GLOBALS['nocache'], 0 );
 
 $GLOBALS['opts'][ WPCPM_Institution_Application::OPT_PAGE ] = 42;
 
@@ -2649,9 +2674,9 @@ $offsets = array(
 	'closed'   => strpos( $submit, 'self::is_open()' ),
 	'honeypot' => strpos( $submit, 'self::HONEYPOT' ),
 	'dwell'    => strpos( $submit, 'self::check_token(' ),
-	'consent'  => strpos( $submit, "self::form_key( 'Privacy Policy Compliance' )" ),
 	'fields'   => strpos( $submit, '$cleaned  = self::clean_all(' ),
 	'required' => strpos( $submit, 'self::add_required(' ),
+	'consent'  => strpos( $submit, "self::form_key( 'Privacy Policy Compliance' )" ),
 	'scoring'  => strpos( $submit, 'self::score(' ),
 	'site'     => strpos( $submit, "'apply-site'" ),
 	'store'    => strpos( $submit, 'self::store(' ),
@@ -2681,7 +2706,9 @@ foreach ( explode( "\n", $src ) as $line ) {
 $code = implode( "\n", $code );
 
 ck( 'nothing on the public path calls check_admin_referer()', strpos( $code, 'check_admin_referer' ), false );
-ck( 'and the nonce is verified rather than asserted', substr_count( $code, 'wp_verify_nonce(' ), 1 );
+// Twice since 1.123.58: once where the per-actor ceiling refuses, to decide whether anything is
+// kept (FORM-01), and once as the step after it.
+ck( 'and the nonce is verified rather than asserted', substr_count( $code, 'wp_verify_nonce(' ), 2 );
 ck( 'and the submit handler reads no query string', substr_count( $submit, 'WPCPM_Request::text(' ) + substr_count( $submit, 'WPCPM_Request::key(' ) + substr_count( $submit, 'WPCPM_Request::id(' ), 0 );
 
 // Every slug a handler can stash has a sentence to go with it, or the page would visibly have
@@ -2690,7 +2717,8 @@ $slugs = array();
 preg_match_all( "/self::bounce\(\s*'([a-z-]+)'/", $src, $found );
 
 foreach ( $found[1] as $slug ) {
-	if ( 'sent' !== $slug && ! isset( WPCPM_Institution_Application::outcomes()[ $slug ] ) ) {
+	// `again` says no sentence since 1.123.58: the summary of its problems is what it says.
+	if ( 'sent' !== $slug && 'again' !== $slug && ! isset( WPCPM_Institution_Application::outcomes()[ $slug ] ) ) {
 		$slugs[] = $slug;
 	}
 }
@@ -2732,6 +2760,166 @@ $done = WPCPM_Institution_Application::render();
 ck( 'and the page after sending says the same need where it speaks of the email', array(
 	false !== strpos( $done, 'with a link that confirms the address. Please follow it: we cannot take your application further until you do.' ),
 ), array( true ) );
+
+// A cached copy of any page the form is drawn on would hand one visitor another's token, answers or
+// confirmation, so every draw sends the headers, the block's and the shortcode's alike (1.123.58).
+reset_world();
+$GLOBALS['on_page'] = 99;
+$GLOBALS['nocache'] = 0;
+WPCPM_Institution_Application::render();
+ck( 'a draw of the form on a page that is not its configured one sends the no-cache headers', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 1, true ) );
+unset( $GLOBALS['on_page'] );
+
+echo "\n-- a refusal keeps every answer and says it once (1.123.58) ---------------\n";
+
+/** The page a redirect lands on, drawn. */
+function page_after( array $landed ) {
+	follow( $landed['url'] );
+
+	return WPCPM_Institution_Application::render();
+}
+
+/** The transients written under the form's own prefix. */
+function kept_transients() {
+	return array_values( preg_grep( '/^' . WPCPM_Institution_Application::TRANSIENT_PREFIX . '/', array_keys( $GLOBALS['transients'] ) ) );
+}
+
+/** The ceiling at its limit for this connection, at 13:20 on the suite's clock, the time shown as H:i. */
+function at_the_limit() {
+	$GLOBALS['opts']['time_format'] = 'H:i';
+	WPCPM_Ceiling::for_tests(
+		function () {
+			return gmmktime( 13, 20, 0, 11, 6, 2026 );
+		}
+	);
+	for ( $i = 0; $i < WPCPM_Form_Guard::PER_HOUR; $i++ ) {
+		WPCPM_Form_Guard::claim_actor( WPCPM_Form_Guard::actor_key( 'apply' ), WPCPM_Form_Guard::PER_HOUR );
+	}
+}
+
+/** The id a question's control is drawn with. */
+function control_id( $column ) {
+	return 'wpcpm-application-' . WPCPM_Institution_Application::form_key( $column );
+}
+
+reset_world();
+$refused = submit( answers( array( 'Name' => '', 'City' => '' ) ) );
+$page    = page_after( $refused );
+$summary = strpos( $page, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h2 class="wpcpm-errors__title">Two answers need a change</h2>' );
+$name_at = strpos( $page, '<a href="#' . control_id( 'Name' ) . '">Name of your institution</a>' );
+$city_at = strpos( $page, '<a href="#' . control_id( 'City' ) . '">City</a>' );
+$set_at  = strpos( $page, '<fieldset' );
+ck(
+	'a refused send opens the form with the summary: its heading counts the problems, and each links its field by the field\'s label',
+	array( false !== $summary && $summary < $set_at, false !== $name_at && $summary < $name_at && $name_at < $city_at, false !== $city_at && $city_at < $set_at ),
+	array( true, true, true )
+);
+ck( 'and the old generic sentence is gone', strpos( $page, 'Please look at the answers marked below' ), false );
+
+reset_world();
+$both = submit( answers( array( 'Name' => '', 'Privacy Policy Compliance' => null ) ) );
+$page = page_after( $both );
+ck(
+	'consent is checked in the same pass as the other answers: one bounce marks the box and the missing answer together',
+	array( array_keys( $both['stash']['problems'] ?? array() ), false !== strpos( $page, 'Tick this box to send the form.' ), count( stored() ) ),
+	array( array( 'Name', 'Privacy Policy Compliance' ), true, 0 )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers() );
+$page = page_after( $busy );
+ck(
+	'a busy connection with a good nonce keeps the answers and draws the form, with the sentence that says when to try again',
+	array( '' !== $busy['id'], $busy['outcome'], $busy['stash']['values']['Name'] ?? null, false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Your answers are still here: send the form again after 14:00.' ), false !== strpos( $page, 'Send this application</button>' ), false !== strpos( $page, 'value="Universidad Example"' ), count( stored() ) ),
+	array( true, 'busy-kept', 'Universidad Example', true, true, true, 0 )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers(), array( 'nonce' => 'nonce-stale' ) );
+$page = page_after( $busy );
+ck(
+	'a busy post with no valid nonce stores no stash',
+	array( kept_transients(), $busy['url'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'https://example.test/institution-application/?' . WPCPM_Institution_Application::QUERY_OUTCOME . '=busy', true, false )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers( array( 'Anything else you’d like us to know?' => str_repeat( 'a', 60001 ) ) ) );
+$page = page_after( $busy );
+ck(
+	'a busy post too long to keep keeps nothing and says so',
+	array( kept_transients(), $busy['outcome'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken, and the answers were too long to keep here. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'busy-unkept', true, false )
+);
+WPCPM_Ceiling::for_tests( null );
+
+reset_world();
+$typo = submit( answers( array( 'Contact Email' => 'name@campus', 'credits_page' => 'ftp://example.test' ) ) );
+$page = page_after( $typo );
+ck(
+	'a refused address and a refused web address come back as typed, and bad_url has its own sentence',
+	array( $typo['stash']['problems'] ?? null, 1 === preg_match( '#id="' . control_id( 'Contact Email' ) . '" name="[^"]+" value="name@campus"#', $page ), 1 === preg_match( '#id="' . control_id( 'credits_page' ) . '" name="[^"]+" value="ftp://example.test"#', $page ), false !== strpos( $page, 'Give a web address starting with https://, or just the domain.' ) ),
+	array( array( 'Contact Email' => 'bad_email', 'credits_page' => 'bad_url' ), true, true, true )
+);
+
+reset_world();
+$token  = dwell_token( 60 );
+$first  = submit( answers(), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+ck(
+	'a second press with the same token goes to the first press\'s confirmation and stores nothing',
+	array( count( stored() ), $second['outcome'], $second['stash']['reference'] ?? null, $second['stash']['email'] ?? null ),
+	array( 1, 'sent', $first['stash']['reference'] ?? 'none', 'ana@example.edu' )
+);
+
+reset_world();
+$token = dwell_token( 60 );
+$_POST = array( '_wpnonce' => wp_create_nonce( WPCPM_Institution_Application::ACTION_SUBMIT ) );
+WPCPM_Institution_Application::check_token( $token );
+$key   = WPCPM_Form_Guard::token_key( WPCPM_Institution_Application::DWELL_SCOPE, $token );
+$reads = 0;
+$GLOBALS['filtered']['wpcpm_form_guard_pause'] = function () use ( &$reads, $key ) {
+	return function ( $microseconds ) use ( &$reads, $key ) {
+		if ( 3 === ++$reads ) {
+			// The first press's row, as its store writes the part a confirmation reads.
+			$row = wp_insert_post( array( 'post_type' => WPCPM_Institution_Application::POST_TYPE, 'post_status' => 'private' ) );
+			update_post_meta( $row, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_NEW );
+			update_post_meta( $row, WPCPM_Institution_Application::META_FIELDS, array( 'Name' => 'Universidad Example', 'Contact Email' => 'ana@example.edu' ) );
+			update_post_meta( $row, WPCPM_Institution_Application::META_REFERENCE, WPCPM_Institution_Application::reference( $row ) );
+			WPCPM_Form_Guard::landed( $key, $row );
+		}
+	};
+};
+$second = submit( answers(), array( 'token' => $token ) );
+unset( $GLOBALS['filtered'] );
+ck(
+	'a second press while the first is still in flight waits for its row',
+	array( count( stored() ), $reads, $second['outcome'], $second['stash']['reference'] ?? null, $second['stash']['email'] ?? null ),
+	array( 1, 3, 'sent', stored() ? WPCPM_Institution_Application::reference( stored()[0]->ID ) : 'none', 'ana@example.edu' )
+);
+
+reset_world();
+$token  = dwell_token( 60 );
+$first  = submit( answers( array( 'Privacy Policy Compliance' => null ) ), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+ck(
+	'a used token whose first press bounced bounces stale with the answers',
+	array( $first['outcome'], $second['outcome'], $second['stash']['values']['Name'] ?? null, count( stored() ) ),
+	array( 'again', 'stale', 'Universidad Example', 0 )
+);
+
+reset_world();
+$_GET = array( WPCPM_Institution_Application::QUERY_STASH => 'answersthathaveexpired' );
+$page = WPCPM_Institution_Application::render();
+ck(
+	'a stash id whose answers have expired draws the form empty, with the sentence that says so, and marks no field',
+	array( false !== strpos( $page, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $page, '<form' ), strpos( $page, 'aria-invalid' ), strpos( $page, 'wpcpm-errors' ) ),
+	array( true, true, false, false )
+);
+$_GET = array();
 
 echo "\n-- the editor's preview -----------------------------------------------\n";
 

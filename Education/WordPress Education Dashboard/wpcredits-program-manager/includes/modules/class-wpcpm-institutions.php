@@ -124,6 +124,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	const FLASH = 'institutions';
 
 	/**
+	 * Flash channel for the sync's `finished` notice and its count (1.123.58), which only the Sync and
+	 * storage tab reads. Not `FLASH`: the Administrator Dashboard and the institution panel read that
+	 * channel for a word, and the notice is an array.
+	 */
+	const FLASH_SYNC_FINISHED = 'institutions_sync_finished';
+
+	/**
 	 * The one filter the Pipeline tab offers, the Confirmed institutions with no agreement
 	 * recorded, as the `wpcpm_filter` query argument.
 	 */
@@ -199,6 +206,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	const LINK_DONE           = 'linked';
 	const LINK_BAD_RECORD     = 'bad-record';
 	const LINK_NO_INSTITUTION = 'unknown-institution';
+	const LINK_NO_CHOICE      = 'link-no-institution';
 	const LINK_READ_FAILED    = 'read-failed';
 	const LINK_WRITE_FAILED   = 'write-failed';
 
@@ -304,6 +312,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	const TYPED_QUESTION = 'app-question';
 	const TYPED_REASON   = 'app-reason';
+
+	/**
+	 * The outcomes that refuse the question box, and the Reject box, for its own words (length and
+	 * cleaning), in the words `queue_messages()` gives them; a question that could not be sent needs
+	 * no change in the box, and only the notice speaks: the box they come back to is marked invalid and carries the sentence beside it
+	 * (1.123.58).
+	 */
+	const QUESTION_REFUSALS = array( 'app-question', 'app-question-loss', 'app-question-long' );
+	const REASON_REFUSALS   = array( 'app-reason-loss', 'app-reason-long' );
 
 	/** The two messages this queue sends, named for the mail log. */
 	const MAIL_INFO     = 'institution-information';
@@ -713,6 +730,44 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * What the `finished` notice counts for the Institutions sync (1.123.58): the accounts its
+	 * provision step made. It links and updates no account, so its sentence names no refreshed count.
+	 *
+	 * @param array $stats The report's statistics.
+	 * @return array{created: int}
+	 */
+	protected function finished_counts( array $stats ) {
+		return array(
+			'created' => isset( $stats['provisioned'] ) ? (int) $stats['provisioned'] : 0,
+		);
+	}
+
+	/**
+	 * The `finished` notice travels on a channel of its own (`FLASH_SYNC_FINISHED`, 1.123.58).
+	 *
+	 * @return string
+	 */
+	protected function finished_channel() {
+		return self::FLASH_SYNC_FINISHED;
+	}
+
+	/**
+	 * The outcome the last press left, or on the Sync and storage tab, when the press left none, the
+	 * sync's `finished` notice (1.123.58), which no other tab takes.
+	 *
+	 * @return string
+	 */
+	protected function taken_status() {
+		$status = parent::taken_status();
+
+		if ( '' === $status && self::TAB_SYNC === self::tab() ) {
+			$status = $this->take_finished( WPCPM_Flash::take( self::FLASH_SYNC_FINISHED ) );
+		}
+
+		return $status;
+	}
+
+	/**
 	 * The Institutions sync calls its slice `tick()`.
 	 *
 	 * @param int $budget Seconds.
@@ -871,9 +926,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->leave( $this->accounts_url(), 'invites-none' );
 		}
 
-		WPCPM_Mail::queue_invites( $pending );
-
-		$this->leave( $this->accounts_url(), 'invites-queued' );
+		$this->leave( $this->accounts_url(), self::queue_bulk( $pending ) );
 	}
 
 	/**
@@ -907,7 +960,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// `WPCPM_Institution_People::handle_add_account()` explains: a value that is not a
 		// record ID at all is a forged or a broken form, and deciding after it keeps the
 		// decision the log reads about a well-formed institution.
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $students_record ) || ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $students_record ) ) {
+			$this->finish_link( self::LINK_BAD_RECORD, '' );
+		}
+
+		// Pressed with "Choose an institution" still chosen: refused at the field before anything is
+		// read or written, and the detail names the row, so the sentence is drawn at that row's field.
+		if ( '' === $institution ) {
+			$this->finish_link( self::LINK_NO_CHOICE, $students_record );
+		}
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
 			$this->finish_link( self::LINK_BAD_RECORD, '' );
 		}
 
@@ -1249,6 +1312,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * or one too long, is refused before anything is sent or written, and comes back to its form as
 	 * it was typed (`WPCPM_Typed_Text::keep_box()`): the press lands on the application it was made
 	 * for, opened on this screen, or on the Administrator Dashboard's card when it came from there.
+	 * So does one that could not be sent, for an application with no usable address or a mail host
+	 * that refused it (1.123.58): the notice says the question is still the Administrator's to ask,
+	 * and the box holds it.
 	 */
 	public function handle_info() {
 		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
@@ -1298,8 +1364,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		$email = self::application_email( $post );
 
+		// Refused for the address, not the words, and the words are kept all the same: the question was
+		// typed for this application, and the box comes back holding it, at the opened application.
 		if ( ! is_email( $email ) ) {
-			$this->redirect_back( 'app-no-email' );
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-no-email', $post );
 		}
 
 		$manager   = wp_get_current_user();
@@ -1323,8 +1392,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			);
 		};
 
+		// A question the mail host would not take is as much the Administrator's as one the cleaner
+		// refused: the notice says it is still theirs to ask, so the box holds it.
 		if ( ! WPCPM_Mail::send_to( $email, self::MAIL_INFO, $build ) ) {
-			$this->redirect_back( 'app-not-sent' );
+			WPCPM_Typed_Text::keep_box( $form, 'question', $typed, self::MAX_NOTE );
+			$this->back_to_application( 'app-not-sent', $post );
 		}
 
 		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_INFO );
@@ -1400,14 +1472,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return WPCPM_Mail_Templates::mail( self::MAIL_DECLINED, array( 'site_name' => $site ) );
 		};
 
-		if ( is_email( $email ) ) {
-			WPCPM_Mail::send_to( $email, self::MAIL_DECLINED, $build );
-		}
+		// What the send did is told: an Administrator who reads "the applicant has an acknowledgement"
+		// may tell a school it was written to, and an application with no usable address, or a mail
+		// host that refused, wrote to nobody.
+		$sent = is_email( $email ) && WPCPM_Mail::send_to( $email, self::MAIL_DECLINED, $build );
 
 		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_REJECTED );
 		self::record_event( (int) $post->ID, self::EVENT_REJECTED, $reason );
 
-		$this->redirect_back( 'app-rejected' );
+		$this->redirect_back( $sent ? 'app-rejected' : 'app-rejected-unsent' );
 	}
 
 	/**
@@ -2568,6 +2641,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'app-not-sent'         => array( 'error', __( 'Nothing was sent and nothing moved. This site could not hand the question to its mail server, so the application is exactly where it was and the question is still yours to ask. Try again, and look at the recent mail on the settings screen if it keeps failing.', 'wpcredits-program-manager' ) ),
 			'app-info'             => array( 'success', __( 'The question is on its way, with your address to reply to. The application waits in the queue for their answer.', 'wpcredits-program-manager' ) ),
 			'app-rejected'         => array( 'success', __( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next Administrator can read it.', 'wpcredits-program-manager' ) ),
+			'app-rejected-unsent'  => array( 'warning', __( 'The application is rejected. No acknowledgement could be sent: the application has no usable address, or the mail host refused the message.', 'wpcredits-program-manager' ) ),
 			'app-spam'             => array( 'info', __( 'The application is marked as spam. Nothing was sent: the address is forged or is somebody else\'s, and either way a reply is wrong.', 'wpcredits-program-manager' ) ),
 			'app-half-done'        => array( 'error', __( 'Nothing happened. Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish.', 'wpcredits-program-manager' ) ),
 			'app-reopened'         => array( 'info', __( 'The application is open again and back in the queue.', 'wpcredits-program-manager' ) ),
@@ -2745,6 +2819,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		if ( self::TAB_ACCOUNTS !== $tab && self::TAB_SYNC !== $tab ) {
 			$messages['error'] = self::failed_message();
 		}
+
+		// The sync's report counts the accounts it made and none it refreshed (1.123.58).
+		/* translators: %s: how many accounts the sync created. */
+		$messages['finished'] = array( 'success', __( 'Sync finished. Accounts created: %s.', 'wpcredits-program-manager' ) );
 
 		return array_merge( $messages, $invitations );
 	}
@@ -3031,9 +3109,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( ! empty( $progress['running'] ) ) {
 			printf(
-				'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3">',
+				'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3" data-finished="%3$s">',
 				esc_attr( self::ACTION_TICK ),
-				esc_attr( wp_create_nonce( self::ACTION_TICK ) )
+				esc_attr( wp_create_nonce( self::ACTION_TICK ) ),
+				// Said by the poller as the run finishes, before it reloads the page (1.123.58).
+				esc_attr__( 'The sync has finished. The page will show its report.', 'wpcredits-program-manager' )
 			);
 
 			echo '<p class="wpcpm-progress__head"><span class="spinner is-active" aria-hidden="true"></span> ';
@@ -4081,12 +4161,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$this->render_decision_form(
 			$post,
 			array(
-				'return' => (string) $where,
-				'action' => self::ACTION_INFO,
-				'label'  => __( 'Send this question', 'wpcredits-program-manager' ),
-				'field'  => 'wpcpm_question',
-				'prompt' => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
-				'kept'   => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ), 'question' ),
+				'return'  => (string) $where,
+				'action'  => self::ACTION_INFO,
+				'label'   => __( 'Send this question', 'wpcredits-program-manager' ),
+				'field'   => 'wpcpm_question',
+				'prompt'  => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+				'kept'    => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ), 'question' ),
+				'refused' => self::QUESTION_REFUSALS,
 			)
 		);
 
@@ -4100,6 +4181,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'field'   => 'wpcpm_reason',
 				'prompt'  => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
 				'kept'    => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ), 'reason' ),
+				'refused' => self::REASON_REFUSALS,
 				'confirm' => sprintf(
 					/* translators: %s: institution name. */
 					__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
@@ -4176,8 +4258,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * these confirm-guarded forms is not left looking at a form stuck reading "Working".
 	 *
 	 * @param WP_Post $post The application.
-	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`, and
-	 *                      `kept`: what a refusal of the form kept for its box, or null.
+	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`,
+	 *                      `kept`: what a refusal of the form kept for its box, or null; and
+	 *                      `refused`: the outcomes that refuse the box, which mark it when the last
+	 *                      press left one for this application.
 	 */
 	private function render_decision_form( WP_Post $post, array $args ) {
 		$args = array_merge(
@@ -4190,9 +4274,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'field'   => '',
 				'prompt'  => '',
 				'kept'    => null,
+				'refused' => array(),
 			),
 			$args
 		);
+
+		$problem = '' !== $args['field'] ? $this->box_problem( $post, $args['kept'], (array) $args['refused'] ) : '';
 
 		// The double-submit guard, forms.js, live on the Administrator Dashboard, which enqueues
 		// it, and in wp-admin, where the admin class loads it on every plugin screen: two presses
@@ -4213,14 +4300,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( '' !== $args['field'] ) {
 			printf(
-				'<p><label for="%1$s">%2$s</label><br /><textarea class="large-text" id="%1$s" name="%1$s" rows="4" maxlength="%3$d">%4$s</textarea></p>',
+				'<p><label for="%1$s">%2$s</label><br /><textarea class="large-text" id="%1$s" name="%1$s" rows="4" maxlength="%3$d"%5$s>%4$s</textarea></p>',
 				esc_attr( $args['field'] ),
 				esc_html( $args['prompt'] ),
 				(int) self::MAX_NOTE,
 				// The parser drops one line feed right after the opening tag, so a kept typing that
 				// begins with a line break keeps it.
-				is_string( $args['kept'] ) ? "\n" . esc_textarea( $args['kept'] ) : ''
+				is_string( $args['kept'] ) ? "\n" . esc_textarea( $args['kept'] ) : '',
+				WPCPM_Form_Errors::attrs( (string) $args['field'], $problem ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built with esc_attr() in WPCPM_Form_Errors.
 			);
+
+			echo WPCPM_Form_Errors::problem( (string) $args['field'], $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
 		}
 
 		printf(
@@ -4229,6 +4319,35 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( $args['label'] )
 		);
 		echo '</form>';
+	}
+
+	/**
+	 * The sentence a refused box says beside itself, or '' when it was not refused (1.123.58).
+	 *
+	 * The press left its outcome on this screen's channel, and the box is the refused one when the
+	 * outcome is one of its own refusals and the application is the one the press was made for: the
+	 * application opened on this screen, or the one whose typing the box got back. Read from the
+	 * channel's memo, which the notice above the tabs reads too, so the sentence is the one it prints.
+	 *
+	 * @param WP_Post     $post    The application.
+	 * @param string|null $kept    What a refusal kept for the box, or null.
+	 * @param string[]    $refused The outcomes that refuse this box.
+	 * @return string
+	 */
+	private function box_problem( WP_Post $post, $kept, array $refused ) {
+		$status = WPCPM_Flash::take( $this->flash_key() );
+
+		if ( ! is_string( $status ) || ! in_array( $status, $refused, true ) ) {
+			return '';
+		}
+
+		if ( ! is_string( $kept ) && WPCPM_Request::id( self::ARG_APPLICATION ) !== (int) $post->ID ) {
+			return '';
+		}
+
+		$messages = self::queue_messages();
+
+		return isset( $messages[ $status ][1] ) ? (string) $messages[ $status ][1] : '';
 	}
 
 	/**
@@ -5702,8 +5821,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * a long list (`WPCPM_Dashboards::render_combo()`), which drops down, takes typing and narrows,
 	 * the select it stands for still what the form sends without the script. Its ids are the row's,
 	 * since every row's form is on one page. It opens on "Choose an institution", which sends
-	 * nothing the handler would link; the select is not `required`, because the script hides it,
-	 * and a browser refuses to send a form whose hidden required field is empty without saying why.
+	 * nothing the handler would link. The select is `required` (1.123.58), so a browser without the
+	 * script refuses an empty choice at the field; the script takes `required` off the select it
+	 * hides, since a browser refuses a form whose hidden required field is empty without saying why,
+	 * and the handler's own refusal (`LINK_NO_CHOICE`) says it at the field instead. The form is
+	 * guarded against a second press.
 	 *
 	 * @param string $record_id Students record ID.
 	 * @param string $name      The student's name, for the confirm.
@@ -5716,10 +5838,16 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			'' !== $name ? $name : $record_id
 		);
 
+		// Refused for nothing chosen: this row's field says so, beside itself (`render_link_outcome()`).
+		$flash   = WPCPM_Flash::take( self::FLASH_LINK );
+		$problem = is_array( $flash ) && isset( $flash['status'], $flash['detail'] ) && self::LINK_NO_CHOICE === $flash['status'] && 0 === strcmp( $record_id, (string) $flash['detail'] ) ? self::link_message( self::LINK_NO_CHOICE ) : '';
+		$field   = 'wpcpm-link-' . $record_id;
+
 		printf(
-			' <form class="wpcpm-inst-link wpcpm-admin-picker" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
+			' <form class="wpcpm-inst-link wpcpm-admin-picker" method="post" action="%1$s" data-wpcpm-confirm="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr( $confirm )
+			esc_attr( $confirm ),
+			esc_attr__( 'Linking', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( self::ACTION_LINK . '_' . $record_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_LINK ) );
@@ -5728,14 +5856,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<div class="wpcpm-admin-combo">';
 		WPCPM_Dashboards::render_combo(
 			array(
-				'id'      => 'wpcpm-link-' . $record_id,
-				'name'    => self::ARG_INSTITUTION,
-				'options' => array( '' => __( 'Choose an institution', 'wpcredits-program-manager' ) ) + $choices,
-				'label'   => __( 'Institution to link this row to', 'wpcredits-program-manager' ),
-				'find'    => __( 'Find an institution', 'wpcredits-program-manager' ),
-				'none'    => __( 'No institutions match that search.', 'wpcredits-program-manager' ),
+				'id'          => $field,
+				'name'        => self::ARG_INSTITUTION,
+				'options'     => array( '' => __( 'Choose an institution', 'wpcredits-program-manager' ) ) + $choices,
+				'label'       => self::link_label(),
+				'find'        => __( 'Find an institution', 'wpcredits-program-manager' ),
+				'none'        => __( 'No institutions match that search.', 'wpcredits-program-manager' ),
+				'required'    => true,
+				'invalid'     => '' !== $problem,
+				'describedby' => '' !== $problem ? WPCPM_Form_Errors::problem_id( $field ) : '',
 			)
 		);
+		echo WPCPM_Form_Errors::problem( $field, $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
 		echo '</div>';
 
 		printf( ' <button type="submit" class="button">%s</button>', esc_html__( 'Link', 'wpcredits-program-manager' ) );
@@ -5778,6 +5910,28 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return;
 		}
 
+		// Nothing chosen: the sentence is the field's, beside it, and the summary above the list links
+		// to the field, as every refused form's does (`WPCPM_Form_Errors`).
+		if ( self::LINK_NO_CHOICE === $status ) {
+			$summary = WPCPM_Form_Errors::summary(
+				array( 'institution' => self::link_message( $status ) ),
+				array(
+					'institution' => array(
+						'id'    => 'wpcpm-link-' . $detail,
+						'label' => self::link_label(),
+					),
+				),
+				array(
+					'level' => 4,
+					'class' => 'inline',
+				)
+			);
+
+			echo $summary; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors.
+
+			return;
+		}
+
 		// "Nothing was written" first, in every refusal. What a manager needs to know before
 		// the reason is whether the base changed, because the answer decides whether the next
 		// thing they do is fix the row or nothing at all.
@@ -5787,6 +5941,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( self::link_message( $status ) ),
 			'' !== $detail ? ' <code>' . esc_html( $detail ) . '</code>' : ''
 		);
+	}
+
+	/**
+	 * The Link picker's label, which its summary names the field by.
+	 *
+	 * @return string
+	 */
+	private static function link_label() {
+		return __( 'Institution to link this row to', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -5808,6 +5971,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			self::LINK_ALREADY        => __( 'This row already names an institution. This list is as old as the last sync; run one to rebuild it.', 'wpcredits-program-manager' ),
 			self::LINK_BAD_RECORD     => __( 'That control did not name a Students row and an institution this site can act on.', 'wpcredits-program-manager' ),
 			self::LINK_NO_INSTITUTION => __( 'That institution is not in the pipeline index. Run a sync and try again.', 'wpcredits-program-manager' ),
+			self::LINK_NO_CHOICE      => __( 'Choose an institution first. Nothing was written.', 'wpcredits-program-manager' ),
 			self::LINK_READ_FAILED    => __( 'Airtable would not answer, so the checks that keep this control from creating a second Students Reports row could not be run.', 'wpcredits-program-manager' ),
 			self::LINK_WRITE_FAILED   => __( 'Airtable refused the change, so the row is exactly where it was.', 'wpcredits-program-manager' ),
 		);

@@ -28,9 +28,11 @@ function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
 class WP_Error {
 	private $code;
 	private $message;
-	public function __construct( $code = '', $message = '' ) { $this->code = $code; $this->message = $message; }
+	private $data;
+	public function __construct( $code = '', $message = '', $data = null ) { $this->code = $code; $this->message = $message; $this->data = $data; }
 	public function get_error_code() { return $this->code; }
 	public function get_error_message() { return $this->message; }
+	public function get_error_data() { return $this->data; }
 }
 
 /** What WP_CLI::error() does, as something a check can catch. */
@@ -55,7 +57,55 @@ function wp_json_encode( $d, $flags = 0 ) { return json_encode( $d, $flags ); }
 function number_format_i18n( $n ) { return number_format( (float) $n ); }
 
 // The site's clock and formats, for the real date class: UTC, WordPress's own default formats.
-function get_option( $key, $fallback = false ) { return 'date_format' === $key ? 'F j, Y' : ( 'time_format' === $key ? 'g:i a' : $fallback ); }
+function get_option( $key, $fallback = false ) {
+	if ( array_key_exists( $key, $GLOBALS['options'] ) ) {
+		return $GLOBALS['options'][ $key ];
+	}
+	return 'date_format' === $key ? 'F j, Y' : ( 'time_format' === $key ? 'g:i a' : $fallback );
+}
+
+/**
+ * The options table and the cron, as far as `wp wpcredits sync_mentors` reaches them through the real
+ * mentors sync: the run's state, its lock, its error and report, and the tick it books (1.123.58).
+ */
+$GLOBALS['options'] = array();
+$GLOBALS['cron']    = array();
+function update_option( $key, $value, $autoload = null ) { $GLOBALS['options'][ $key ] = $value; return true; }
+// The tick lock writes its row straight to the options table (1.123.58): the stand-in's table is this one.
+$GLOBALS['opts'] = &$GLOBALS['options'];
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+function add_option( $key, $value, $deprecated = '', $autoload = null ) { if ( array_key_exists( $key, $GLOBALS['options'] ) ) { return false; } $GLOBALS['options'][ $key ] = $value; return true; }
+function delete_option( $key ) { unset( $GLOBALS['options'][ $key ] ); return true; }
+function wp_next_scheduled( $hook ) { return isset( $GLOBALS['cron'][ $hook ] ) ? $GLOBALS['cron'][ $hook ] : false; }
+function wp_schedule_single_event( $time, $hook ) { $GLOBALS['cron'][ $hook ] = (int) $time; return true; }
+function wp_clear_scheduled_hook( $hook ) { unset( $GLOBALS['cron'][ $hook ] ); return 1; }
+function _n( $single, $plural, $number, $domain = '' ) { return 1 === (int) $number ? $single : $plural; }
+function apply_filters( $hook, $value, ...$args ) { return $value; }
+
+/**
+ * The count the guard is given: how many accounts are linked to a mentor's record and marked active,
+ * as a check sets it (`$GLOBALS['linked_active']`).
+ */
+$GLOBALS['linked_active'] = 0;
+class WP_User_Query {
+	public function __construct( array $args ) {}
+	public function get_total() { return $GLOBALS['linked_active']; }
+}
+/** And the accounts linked to a record, which the revoke step of an accepted run walks: none here. */
+function get_users( $args = array() ) { return array(); }
+
+/**
+ * The account half of making a mentor, stood in: each mentor the run reads is counted as provisioned,
+ * and given no account, so the run reads them and links none.
+ */
+class WPCPM_Mentor_Provision {
+	const USER_ROW_PENDING  = 'wpcpm_mentor_row_pending';
+	const USER_ACTIVATED_AT = 'wpcpm_mentor_activated_at';
+	public static function provision( array $mentor, array &$report, $found = null ) { return 0; }
+	/** Needs confirming holds nothing here, so a run that passes the check forgets nothing. */
+	public static function unconfirmed() { return array(); }
+	public static function forget_unconfirmed( $record_id ) {}
+}
 function wp_date( $format, $time = null ) { return gmdate( $format, $time ); }
 
 /** An account, as `get_userdata()` gives one: the fields the command reads. */
@@ -161,12 +211,80 @@ class WPCPM_Outcome_Figures {
 class WP_Post {
 	public $ID = 0;
 }
-class WPCPM_Airtable {}
+/**
+ * The client, as far as the mentors sync reaches it in `wp wpcredits sync_mentors`: no schema, empty
+ * lookups, the mentors a check sets (`$GLOBALS['mentor_rows']`), and for any other table a refusal
+ * that will not pass, so an accepted run stops at the reports with its state kept.
+ */
+class WPCPM_Airtable {
+	public function fetch_schema() { return new WP_Error( 'wpcpm_airtable_no_schema', 'No schema here.' ); }
+	public function fetch_all( $table, array $args = array() ) { return array(); }
+	public function formula_in( $field, array $values ) { return 'OR()'; }
+	public function fetch_page( $table, array $args = array() ) {
+		if ( 'Mentors' !== $table ) {
+			return new WP_Error( 'wpcpm_no_table', 'The reports are not read here.' );
+		}
+		return array( 'records' => $GLOBALS['mentor_rows'], 'offset' => null );
+	}
+	public static function flatten( $value ) { return is_array( $value ) ? implode( ', ', $value ) : (string) $value; }
+}
+$GLOBALS['mentor_rows'] = array();
 /** The connection, for the commands that read or write Airtable: configured, unless a check says not. */
 class WPCPM_Settings {
+	const NOTIFY_LISTS    = array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify' );
+	const EVERYONE_SUFFIX = '_everyone';
 	public static $connected = true;
+	/** Setting => the sentence this stand-in refuses it with, and the settings it leaves as stored as a live track would. */
+	public static $refuse  = array();
+	public static $hold    = array();
+	/** What `patch()` was asked, in order: array( changes, dry ). */
+	public static $patched = array();
+	private static $refused = array();
 	public static function is_connected() { return self::$connected; }
+	public static function defaults() {
+		return array(
+			'mentor_applications_enabled' => false,
+			'mentor_lapse_days'           => 90,
+			'mentor_course_link'          => '',
+			'student_statuses'            => array( 'In Sensei', 'Paused' ),
+			'past_statuses'               => array( 'Graduate' ),
+			'agreement_notify'            => '',
+			'report_notify'               => '',
+			'sponsor_notify'              => '',
+			'mentor_notify'               => '',
+			'api_token'                   => '',
+			'schema_token'                => '',
+			'handbook_key'                => '',
+			'checker_slack_webhook'       => '',
+		);
+	}
+	public static function get() { return array_merge( self::defaults(), $GLOBALS['settings'] ); }
+	public static function get_value( $key, $fallback = null ) { $all = self::get(); return array_key_exists( $key, $all ) ? $all[ $key ] : $fallback; }
+	/** Writes into `$GLOBALS['settings']` unless dry; refuses and holds what a check says to. The box is read as the real one reads it: ticked, the list is written empty. */
+	public static function patch( array $changes, $dry = false ) {
+		self::$patched[] = array( $changes, $dry );
+		self::$refused   = array();
+		$written         = self::get();
+
+		foreach ( $changes as $key => $value ) {
+			if ( ! array_key_exists( $key, self::defaults() ) ) { continue; }
+			if ( isset( self::$refuse[ $key ] ) ) { self::$refused[ $key ] = self::$refuse[ $key ]; continue; }
+			if ( in_array( $key, self::$hold, true ) ) { continue; }
+			$written[ $key ] = $value;
+		}
+
+		if ( ! $dry ) { $GLOBALS['settings'] = $written; }
+
+		return $written;
+	}
+	public static function last_refused() { return self::$refused; }
+	public static function masked_token() { return self::mask( 'api_token' ); }
+	public static function masked_schema_token() { return self::mask( 'schema_token' ); }
+	public static function masked_handbook_key() { return self::mask( 'handbook_key' ); }
+	public static function masked_slack_webhook() { return self::mask( 'checker_slack_webhook' ); }
+	private static function mask( $key ) { $v = (string) self::get_value( $key, '' ); return '' === $v ? '' : str_repeat( '•', 12 ) . substr( $v, -4 ); }
 }
+$GLOBALS['settings'] = array();
 class WPCPM_Mentor_Application {
 	public static function by_reference( $reference ) {
 		if ( 'MAPP-2026-0503' !== $reference ) {
@@ -208,7 +326,11 @@ class WPCPM_Mentor_Airtable_Row {
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-engagement.php';
-// The real lookup of a mentor and the real list of their students, which `wp wpcredits mentor` prints.
+// The real lookup of a mentor and the real list of their students, which `wp wpcredits mentor` prints,
+// and the real sync `wp wpcredits sync_mentors` runs, with its guard and the wait it shares.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sync-guard.php';
+require_once __DIR__ . '/../includes/class-wpcpm-lock.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
@@ -636,6 +758,75 @@ WPCPM_Outcome_Figures::$status = array();
 ck( 'a last attempt with no time, no sentence, or one of either that is not what a run writes, prints what it has, with no warning',
 	array( $odd_attempts, $cli_warnings ),
 	array( array( 'log: Last attempt: failed', 'log: Last attempt: held', 'log: Last attempt, 2026-10-19 07:00 UTC: unknown' ), array() ) );
+
+echo "\n=== wp wpcredits sync_mentors and the count check (1.123.58) ===\n";
+
+// The real mentors sync, over twelve mentors read while 140 accounts are linked: a run the guard stops
+// ends with the command's own sentence, and --accept starts a run that goes past it.
+$GLOBALS['settings'] = array(
+	'mentor_status'      => 'Active',
+	'mentors_table'      => 'Mentors',
+	'reports_table'      => 'Reports',
+	'students_table'     => 'Students',
+	'institutions_table' => 'Institutions',
+	'institutions_name_field' => 'Name',
+	'teams_table'        => 'Teams',
+	'teams_name_field'   => 'Name',
+	'on_inactive'        => 'revoke',
+);
+$GLOBALS['mentor_rows'] = array();
+for ( $i = 1; $i <= 12; $i++ ) {
+	$GLOBALS['mentor_rows'][] = array( 'id' => sprintf( 'recMENTOR%04d', $i ), 'fields' => array( 'Full Name' => 'Mentor ' . $i ) );
+}
+$GLOBALS['linked_active'] = 140;
+$GLOBALS['options']       = array();
+
+$stopped_lines = cli_lines( 'sync_mentors', array() );
+ck( 'a CLI run the guard stops ends with its own sentence, naming --accept',
+	array( end( $stopped_lines ), WPCPM_Mentors_Sync::is_stopped() ),
+	array( 'error: Airtable returned 12 mentors. That is under half of the 140 accounts linked to a mentor\'s record, so the mentors sync stopped before taking anyone\'s Mentor role, and every account was kept. If the base really holds that few now, run the command again with --accept.', true ) );
+
+$GLOBALS['options']     = array();
+$GLOBALS['mentor_rows'] = array();
+$GLOBALS['linked_active'] = 1;
+$none_lines = cli_lines( 'sync_mentors', array() );
+ck( 'and a read of none says so, the one account in the singular', end( $none_lines ), 'error: Airtable returned no mentors. That is under half of the 1 account linked to a mentor\'s record, so the mentors sync stopped before taking anyone\'s Mentor role, and every account was kept. If the base really holds that few now, run the command again with --accept.' );
+
+$GLOBALS['options'] = array();
+$accepted_lines     = cli_lines( 'sync_mentors', array(), array( 'accept' => true ) );
+$accepted_state     = get_option( WPCPM_Mentors_Sync::OPT_STATE );
+ck( 'sync_mentors --accept starts an accepted run, which goes past the count check',
+	array( ! empty( $accepted_state['accepted'] ), $accepted_state['phase'], array_key_exists( 'guard', $accepted_state ), end( $accepted_lines ) ),
+	array( true, 'reports', false, 'error: The reports are not read here.' ) );
+
+// One run at a time (LOG-05, 1.123.58): a run going and not stalled is not started over by the
+// command, which says how to start it again; --restart is the deliberate restart, from the first step.
+$going = array(
+	'phase'   => 'reports',
+	'offset'  => 'page2',
+	'started' => time() - 30,
+	'touched' => time(),
+	'marker'  => 'the run going',
+);
+$GLOBALS['options']                                = array();
+$GLOBALS['options'][ WPCPM_Mentors_Sync::OPT_STATE ] = $going;
+$refused_lines                                       = cli_lines( 'sync_mentors', array() );
+ck( 'sync_mentors refuses during a run and says how to restart',
+	array( $refused_lines, get_option( WPCPM_Mentors_Sync::OPT_STATE ) === $going ),
+	array( array( 'error: A sync is already running. Run the command with --restart to start it again from the beginning.' ), true ) );
+
+$GLOBALS['options'][ WPCPM_Mentors_Sync::OPT_STATE ] = $going;
+$GLOBALS['linked_active']                           = 140;
+$restart_lines                                      = cli_lines( 'sync_mentors', array(), array( 'restart' => true ) );
+$restarted                                          = get_option( WPCPM_Mentors_Sync::OPT_STATE );
+ck( '--restart starts again',
+	array( is_array( $restarted ) && ! array_key_exists( 'marker', $restarted ), WPCPM_Mentors_Sync::is_stopped(), false !== strpos( (string) end( $restart_lines ), 'run the command again with --accept' ) ),
+	array( true, true, true ) );
+
+$GLOBALS['settings']      = array();
+$GLOBALS['options']       = array();
+$GLOBALS['cron']          = array();
+$GLOBALS['linked_active'] = 0;
 
 echo "\n=== The help names each command as WP-CLI registers it ===\n";
 
@@ -1119,6 +1310,100 @@ ck( 'while the account\'s own username, an @handle and a profile address find it
 
 $GLOBALS['accounts'] = array();
 $GLOBALS['mentees']  = array();
+
+echo "\n=== wp wpcredits setting ===\n";
+
+$GLOBALS['settings']   = array( 'mentor_applications_enabled' => true, 'mentor_lapse_days' => 90, 'student_statuses' => array( 'In Sensei', 'Paused' ), 'api_token' => 'patEXAMPLE0000000000001', 'agreement_notify' => 'ana@program.example,pat@program.example' );
+WPCPM_Settings::$patched = array();
+
+ck( 'setting get prints a setting, a boolean as on or off, a list joined, a secret masked',
+    array(
+        cli_lines( 'setting', array( 'get', 'mentor_applications_enabled' ) ),
+        cli_lines( 'setting', array( 'get', 'mentor_lapse_days' ) ),
+        cli_lines( 'setting', array( 'get', 'student_statuses' ) ),
+        cli_lines( 'setting', array( 'get', 'api_token' ) ),
+        cli_lines( 'setting', array( 'get', 'schema_token' ) ),
+    ),
+    array(
+        array( 'line: on' ),
+        array( 'line: 90' ),
+        array( 'line: In Sensei, Paused' ),
+        array( 'line: ' . str_repeat( '•', 12 ) . '0001' ),
+        array( 'line: ' ),
+    ) );
+ck( 'and a secret is never printed as stored', false !== strpos( implode( ' ', cli_lines( 'setting', array( 'get', 'api_token' ) ) ), 'patEXAMPLE' ), false );
+ck( 'and refuses a key there is none of with the sentence',
+    array( cli_lines( 'setting', array( 'get', 'no_such_setting' ) ), cli_lines( 'setting', array( 'set', 'no_such_setting', '1' ) ), WPCPM_Settings::$patched ),
+    array( array( 'error: There is no setting called no_such_setting.' ), array( 'error: There is no setting called no_such_setting.' ), array() ) );
+
+// Everyone: the four Who is mailed lists, written empty through patch() with the box.
+$lines = cli_lines( 'setting', array( 'set', 'agreement_notify', 'everyone' ) );
+ck( 'setting set <key> everyone writes the list empty through patch() with the box, and says from what to what',
+    array( $lines, WPCPM_Settings::$patched, WPCPM_Settings::get()['agreement_notify'] ),
+    array(
+        array( 'success: Changed agreement_notify from ana@program.example,pat@program.example to every Administrator account.' ),
+        array( array( array( 'agreement_notify' => '', 'agreement_notify_everyone' => true ), false ) ),
+        '',
+    ) );
+ck( 'and everyone for a list already empty writes nothing',
+    array( cli_lines( 'setting', array( 'set', 'agreement_notify', 'everyone' ) ), count( WPCPM_Settings::$patched ) ),
+    array( array( 'log: agreement_notify is already every Administrator account. Nothing was written.' ), 1 ) );
+ck( 'and get names a list that mails every Administrator account rather than printing nothing',
+    cli_lines( 'setting', array( 'get', 'agreement_notify' ) ),
+    array( 'line: every Administrator account' ) );
+ck( 'while everyone for any other key is refused with the sentence that lists the four, and writes nothing',
+    array( cli_lines( 'setting', array( 'set', 'mentor_lapse_days', 'everyone' ) ), count( WPCPM_Settings::$patched ) ),
+    array( array( 'error: everyone is a value only for the four Who is mailed lists: agreement_notify, report_notify, sponsor_notify, mentor_notify.' ), 1 ) );
+
+// A write.
+WPCPM_Settings::$patched = array();
+ck( 'setting set writes through patch(), and says from what to what',
+    array( cli_lines( 'setting', array( 'set', 'mentor_lapse_days', '120' ) ), WPCPM_Settings::$patched, WPCPM_Settings::get()['mentor_lapse_days'] ),
+    array( array( 'success: Changed mentor_lapse_days from 90 to 120.' ), array( array( array( 'mentor_lapse_days' => 120 ), false ) ), 120 ) );
+ck( 'a switch is taken as 1, 0, on, off, true or false, and printed on or off; a list as comma-separated',
+    array(
+        cli_lines( 'setting', array( 'set', 'mentor_applications_enabled', 'off' ) ),
+        cli_lines( 'setting', array( 'set', 'mentor_applications_enabled', 'TRUE' ) ),
+        cli_lines( 'setting', array( 'set', 'past_statuses', 'Graduate, Withdrawn' ) ),
+        WPCPM_Settings::get()['past_statuses'],
+    ),
+    array(
+        array( 'success: Changed mentor_applications_enabled from on to off.' ),
+        array( 'success: Changed mentor_applications_enabled from off to on.' ),
+        array( 'success: Changed past_statuses from Graduate to Graduate, Withdrawn.' ),
+        array( 'Graduate', 'Withdrawn' ),
+    ) );
+ck( 'a secret is changed and printed masked on both sides, never as typed',
+    cli_lines( 'setting', array( 'set', 'api_token', 'patEXAMPLE0000000000002' ) ),
+    array( 'success: Changed api_token from ' . str_repeat( '•', 12 ) . '0001 to ' . str_repeat( '•', 12 ) . '0002.' ) );
+
+// The value stored.
+WPCPM_Settings::$patched = array();
+ck( 'set to the value stored writes nothing and says so',
+    array( cli_lines( 'setting', array( 'set', 'mentor_lapse_days', '120' ) ), cli_lines( 'setting', array( 'set', 'mentor_applications_enabled', '1' ) ), WPCPM_Settings::$patched ),
+    array( array( 'log: mentor_lapse_days is already 120. Nothing was written.' ), array( 'log: mentor_applications_enabled is already on. Nothing was written.' ), array() ) );
+
+// Dry run.
+ck( 'set --dry-run hands patch() the dry flag and says what would change, writing nothing',
+    array( cli_lines( 'setting', array( 'set', 'mentor_lapse_days', '200' ), array( 'dry-run' => true ) ), WPCPM_Settings::$patched, WPCPM_Settings::get()['mentor_lapse_days'] ),
+    array( array( 'log: Dry run: mentor_lapse_days would change from 120 to 200. Nothing was written.' ), array( array( array( 'mentor_lapse_days' => 200 ), true ) ), 120 ) );
+
+// A refusal.
+WPCPM_Settings::$refuse  = array( 'mentor_course_link' => 'Give a link that starts with https://. The link saved before was kept.' );
+WPCPM_Settings::$patched = array();
+ck( 'a refused value is not written, and the refusal\'s sentence is the CLI\'s error',
+    array( cli_lines( 'setting', array( 'set', 'mentor_course_link', 'http://learn.example.test/' ) ), WPCPM_Settings::get()['mentor_course_link'] ),
+    array( array( 'error: mentor_course_link was not changed: Give a link that starts with https://. The link saved before was kept.' ), '' ) );
+WPCPM_Settings::$refuse = array();
+
+// A status list a live track holds.
+WPCPM_Settings::$hold = array( 'student_statuses' );
+ck( 'a status list a live track holds is left, and the CLI says why',
+    array( cli_lines( 'setting', array( 'set', 'student_statuses', 'Paused' ) ), WPCPM_Settings::get()['student_statuses'] ),
+    array( array( 'error: student_statuses was left as it was: a track on the live site runs on a status this change would take out, or would make past. Take the track off the live site in the Track Builder first.' ), array( 'In Sensei', 'Paused' ) ) );
+WPCPM_Settings::$hold = array();
+
+$GLOBALS['settings'] = array();
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

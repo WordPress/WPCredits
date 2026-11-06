@@ -170,6 +170,8 @@ require_once __DIR__ . '/../includes/class-wpcpm-wporg-profile.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
 require_once __DIR__ . '/../includes/class-wpcpm-contribution-teams.php';
+// The count check whose stop the sync's progress reports (1.123.58).
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sync-guard.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
@@ -331,7 +333,7 @@ ck( 'the fixture record IDs are the shape Airtable actually uses',
 // The validator moved with the control: the contribution team is asked for on the report form
 // since 1.46.0, not in the profile editor. The assertions below are unchanged - what has to hold
 // about a hand-edited linked-record field does not depend on which form posted it.
-$clean = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'clean' );
+$clean = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'clean_result' );
 
 // Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1 and deprecated in 8.5.
 if ( PHP_VERSION_ID < 80100 ) {
@@ -347,9 +349,9 @@ if ( PHP_VERSION_ID < 80100 ) {
 function teams( $posted ) {
 	global $clean;
 
-	list( , $ids ) = $clean->invoke( null, $posted, array( 'type' => 'team' ) );
+	$result = $clean->invoke( null, $posted, array( 'type' => 'team' ) );
 
-	return $ids;
+	return $result['value'];
 }
 
 ck( 'several known teams all survive',

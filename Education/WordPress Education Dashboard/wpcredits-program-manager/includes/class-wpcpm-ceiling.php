@@ -74,6 +74,38 @@ class WPCPM_Ceiling {
 	const VERSION = 1;
 
 	/**
+	 * The suite's clock, or null for the real one (`for_tests()`).
+	 *
+	 * @var callable|null
+	 */
+	private static $clock = null;
+
+	/**
+	 * Replace the clock the windows are cut by. Test-only: a suite that has to say when an hour
+	 * turns hands a clock of its own, and null puts the real one back.
+	 *
+	 * @param callable|null $clock Answers the current Unix time.
+	 */
+	public static function for_tests( $clock = null ) {
+		self::$clock = is_callable( $clock ) ? $clock : null;
+	}
+
+	/**
+	 * When the current window of a length closes and the next one opens: the moment a key
+	 * refused in this window is counted afresh, the turn of the clock hour for a window of an
+	 * hour. The buckets `claim()` counts in, so a sentence that says when to try again says the
+	 * moment the ceiling itself lets go (1.123.58).
+	 *
+	 * @param int $window Window length in seconds.
+	 * @return int A Unix time.
+	 */
+	public static function resets_at( $window ) {
+		$window = self::window( $window );
+
+		return ( self::bucket( $window ) + 1 ) * $window;
+	}
+
+	/**
 	 * Hook the sweep. Scheduling it is the module's job at activation.
 	 */
 	public static function init() {
@@ -323,7 +355,16 @@ class WPCPM_Ceiling {
 	 * @return int
 	 */
 	private static function bucket( $window ) {
-		return (int) floor( time() / $window );
+		return (int) floor( self::now() / $window );
+	}
+
+	/**
+	 * The current Unix time: the real clock, or the suite's.
+	 *
+	 * @return int
+	 */
+	private static function now() {
+		return null !== self::$clock ? (int) call_user_func( self::$clock ) : time();
 	}
 
 	/**

@@ -787,10 +787,44 @@ class WPCPM_Flash {
 			unset( $GLOBALS['flash'][ $uid ] );
 		}
 	}
+	/**
+	 * What a refused form keeps for its redraw (1.123.58), as the real class keeps it: on a channel of
+	 * its own, a text whole with a line break read as one LF, a list of texts, and each refused field
+	 * with its sentence; handed back once by `kept()`, and dropped by `forget()`.
+	 */
+	public static function keep( $form, array $values, array $problems = array() ) {
+		$kept = array();
+		foreach ( $values as $field => $value ) {
+			$kept[ (string) $field ] = is_array( $value ) ? array_values( array_filter( $value, 'is_string' ) ) : str_replace( "\r\n", "\n", (string) $value );
+		}
+		if ( array() === $kept && array() === $problems ) { return; }
+		self::set( 'kept:' . $form, array( 'at' => time(), 'values' => $kept, 'problems' => $problems ) );
+	}
+	public static function kept( $form ) {
+		$entry = self::take( 'kept:' . $form );
+		return array(
+			'values'   => is_array( $entry ) && isset( $entry['values'] ) ? $entry['values'] : array(),
+			'problems' => is_array( $entry ) && isset( $entry['problems'] ) ? $entry['problems'] : array(),
+		);
+	}
+	public static function forget( $form ) { self::take( 'kept:' . $form ); }
 	/** A new request: nothing taken yet. */
 	public static function new_request() { self::$taken = array(); }
 	/** Each person's flash is their own, kept in their user meta: the given user, or the current one. */
 	private static function user( $user_id ) { return (int) ( $user_id ? $user_id : $GLOBALS['uid'] ); }
+}
+/** Drop every refused form's kept values, whoever they wait for: the checks that press without drawing the form again. */
+function drop_kept() {
+	foreach ( isset( $GLOBALS['flash'] ) ? (array) $GLOBALS['flash'] : array() as $uid => $channels ) {
+		foreach ( array_keys( (array) $channels ) as $channel ) {
+			if ( 0 === strpos( (string) $channel, 'kept:' ) ) {
+				unset( $GLOBALS['flash'][ $uid ][ $channel ] );
+			}
+		}
+		if ( empty( $GLOBALS['flash'][ $uid ] ) ) {
+			unset( $GLOBALS['flash'][ $uid ] );
+		}
+	}
 }
 /** What waits in the flash for anybody: every user's channels together, channel => value. */
 function flash_left() {
@@ -820,11 +854,20 @@ class WPCPM_Request {
 }
 // Connected unless a check says otherwise: the checks that draw the screen with no connection clear
 // `connected`, and find nothing on it that asks about one.
-class WPCPM_Settings { public static function get() { return $GLOBALS['settings']; } public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } public static function is_connected() { return ! isset( $GLOBALS['connected'] ) || (bool) $GLOBALS['connected']; } }
+class WPCPM_Settings { public static function get() { return $GLOBALS['settings']; } public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } public static function is_connected() { return ! isset( $GLOBALS['connected'] ) || (bool) $GLOBALS['connected']; }
+	// The real fingerprint's reading (bin/test-settings.php pins it): a value with every scalar as text, hashed.
+	public static function fingerprint( $value ) { return md5( serialize( self::as_text( $value ) ) ); }
+	private static function as_text( $value ) {
+		if ( is_array( $value ) ) { $text = array(); foreach ( $value as $k => $v ) { $text[ (string) $k ] = self::as_text( $v ); } return $text; }
+		if ( is_bool( $value ) ) { return $value ? '1' : ''; }
+		return is_scalar( $value ) ? (string) $value : '';
+	}
+}
 class WPCPM_Mentors { public static function format_duration( $s ) { return $s . 's'; } }
 // The real class: it prints the way from this screen into the Administrator Dashboard, and maps
 // every press's way back: a form that says it came from the dashboard goes back there (a sponsor
 // report's draft, 1.115.0), and anything else comes back to this screen.
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/class-wpcpm-return.php';
 // What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
 require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
@@ -997,6 +1040,7 @@ require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
@@ -1360,6 +1404,7 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'attach', 'wpcpm_email' =
 ck( 'attach by address finds the account', $r[2], 'attached' );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'nobody@example.test' ), array( $module, 'handle_members' ) );
 ck( 'an address with no account is not created here: provisioning does that', $r[2], 'attach-no-account' );
+drop_kept();
 ck( 'and its sentence says Attach account takes an account that exists, and where a sponsor\'s first account is made', WPCPM_Sponsors::messages()['attach-no-account'], array( 'error', 'No account has that address. Attach account attaches an account that exists; a sponsor\'s first account is made with Create account on the No account view.' ) );
 $attached = WPCPM_Sponsor_Members::members_of( $A );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'detach', 'wpcpm_user' => $attached[0]->ID ), array( $module, 'handle_members' ) );
@@ -1698,6 +1743,7 @@ ck( 'a press that names the Accounts tab and no sponsor comes back to the tab it
 	array( 'redirect', $home . '&tab=accounts', 'attach-no-account' ),
 	array( 'redirect', $home . '&tab=sponsors', 'attach-no-account' ),
 ) );
+drop_kept();
 ck( 'a sponsor\'s accounts are the Accounts tab with the sponsor\'s record in the address, encoded as a query value', array(
 	method_exists( 'WPCPM_Sponsors', 'accounts_view_url' ) ? WPCPM_Sponsors::accounts_view_url( $B ) : 'no accounts_view_url()',
 	method_exists( 'WPCPM_Sponsors', 'accounts_view_url' ) ? WPCPM_Sponsors::accounts_view_url( 'rec a&b #1' ) : 'no accounts_view_url()',
@@ -2153,7 +2199,7 @@ ck( 'its form posts the Sponsors tab beside the sponsor, under the nonce keyed t
 	post_forms( $edit_a, true ),
 	tab_fields( $edit_a ),
 ), array(
-	array( array( '_wpnonce' => 'nonce-wpcpm_sponsor_edit_' . $A, 'action' => 'wpcpm_sponsor_edit', 'wpcpm_sponsor' => $A, 'wpcpm_support[]' => '', 'wpcpm_tab' => 'sponsors', 'wpcpm_test' => '0' ) ),
+	array( array( '_wpnonce' => 'nonce-wpcpm_sponsor_edit_' . $A, 'action' => 'wpcpm_sponsor_edit', 'wpcpm_sponsor' => $A, 'wpcpm_support[]' => '', 'wpcpm_tab' => 'sponsors', 'wpcpm_test' => '0', 'wpcpm_version' => WPCPM_Sponsors::version( (array) WPCPM_Sponsors_Index::row( $A ) ) ) ),
 	array( 'wpcpm_sponsor_edit' ),
 	array(),
 	array( 'sponsors' => 1 ),
@@ -3633,13 +3679,16 @@ ck( 'Edit saves the number with the term\'s last day, audited by name, and the b
 $r = post( array( 'wpcpm_sponsor' => $X_CHAMPION, 'wpcpm_tier_until' => '2027-03-31', 'wpcpm_event_allowance' => '2' ), array( $module, 'handle_edit' ) );
 ck( 'the box saved as it was drawn changes nothing', array( isset( $r[2] ) ? $r[2] : $r, allowance_of( $X_CHAMPION ) ), array( 'sponsor-unchanged', array( 'until' => '2027-03-31', 'extra' => 2 ) ) );
 
-$x_refused = array();
+$x_refused  = array();
+$x_problems = array();
 foreach ( array( '-1', '2.5', 'two', '12' ) as $x_posted ) {
-	$r           = post( array( 'wpcpm_sponsor' => $X_CHAMPION, 'wpcpm_event_allowance' => $x_posted ), array( $module, 'handle_edit' ) );
-	$x_refused[] = isset( $r[2] ) ? $r[2] : $r;
+	$r            = post( array( 'wpcpm_sponsor' => $X_CHAMPION, 'wpcpm_event_allowance' => $x_posted ), array( $module, 'handle_edit' ) );
+	$x_refused[]  = isset( $r[2] ) ? $r[2] : $r;
+	WPCPM_Flash::new_request();
+	$x_problems[] = WPCPM_Flash::kept( 'sponsor-edit:' . $X_CHAMPION )['problems'];
 }
 ck( 'a number below none, one that is not whole, words, and more than eleven refuse the save, and the grant stays', array( $x_refused, allowance_of( $X_CHAMPION ) ), array( array_fill( 0, 4, 'sponsor-rejected' ), array( 'until' => '2027-03-31', 'extra' => 2 ) ) );
-ck( 'and the refusal\'s sentence names the box among the values it could not accept, with the highest number the box takes', WPCPM_Sponsors::messages()['sponsor-rejected'], array( 'error', 'Nothing was saved: one of the values could not be accepted. A sponsor needs a name; the website has to be a web address, the contact email an email address, Extra events this term a whole number from 0 to 11, and every choice one this form offers.' ) );
+ck( 'and the refusal\'s sentence sends the manager to the fields marked on the form, which name the box with the highest number it takes', array( WPCPM_Sponsors::messages()['sponsor-rejected'], $x_problems ), array( array( 'error', 'Nothing was saved. The fields marked below need a change.' ), array_fill( 0, 4, array( 'event_allowance' => 'Give a whole number from 0 to 11.' ) ) ) );
 
 $x_saved = array();
 foreach ( array( '11', '', '0' ) as $x_posted ) {
@@ -4702,10 +4751,12 @@ ck( 'a draft pressed while another request drafts one of the sponsor\'s reports 
 $r         = post( array( 'wpcpm_record' => $sr_backer, 'wpcpm_until' => '2026-09-30', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-reports' ), array( $S, 'handle_draft' ) );
 $dashboard = WPCPM_Flash::take( WPCPM_Institutions::FLASH );
 ck( 'a draft refused on the Administrator Dashboard goes back there, saying why on that page\'s channel', array( $r, $dashboard ), array( array( 'redirect', 'https://example.test/administrator-dashboard/#wpcpm-sponsor-reports', '' ), 'sreport-exists' ) );
+ck( 'and names the Sponsor reports card, which the dashboard prints the sentence in (1.123.58)', WPCPM_Flash::take( WPCPM_Dashboard_Card::TARGET ), 'wpcpm-sponsor-reports' );
 $r         = post( array( 'wpcpm_record' => $sr_partner, 'wpcpm_until' => '2026-09-30', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-reports' ), array( $S, 'handle_draft' ) );
 $sr_p26    = WPCPM_Sponsor_Report::find( $sr_partner, '2026-09-30' );
 $sr_p26_id = $sr_p26 instanceof WP_Post ? (int) $sr_p26->ID : 0;
 ck( 'and one made there opens the new draft in the editor, as a draft made on this screen does', array( $r, WPCPM_Flash::take( WPCPM_Institutions::FLASH ), $sr_p26_id > 0 ), array( array( 'redirect', $editor_at . $sr_p26_id, 'sreport-drafted' ), '', true ) );
+WPCPM_Flash::take( WPCPM_Dashboard_Card::TARGET );
 post( array( 'wpcpm_record' => $sr_backer, 'wpcpm_until' => '2025-09-30' ), array( $S, 'handle_draft' ) );
 $sr_a25    = WPCPM_Sponsor_Report::find( $sr_backer, '2025-09-30' );
 $sr_a25_id = $sr_a25 instanceof WP_Post ? (int) $sr_a25->ID : 0;
@@ -6384,13 +6435,14 @@ ck( 'with a space after each "<" the save goes through, storing every word, and 
 	isset( $r_unseen[2] ) ? $r_unseen[2] : $r_unseen,
 	isset( $r[2] ) ? $r[2] : $r,
 	array( $after['name'], $after['notes'], $after['website'] ),
-	post_diff( array_merge( $drawn, $spaced ), $back ),
+	// The version is the row's after the save, so a form drawn before it differs there alone.
+	array_keys( post_diff( array_merge( $drawn, $spaced ), $back ) ),
 	last_audit()['data'],
 ), array(
 	'name-loss',
 	'sponsor-saved',
 	array( trim( sanitize_text_field( $spaced['wpcpm_name'] ) ), trim( sanitize_textarea_field( $spaced['wpcpm_notes'] ) ), 'https://loss.example/octets' ),
-	array(),
+	array( 'wpcpm_version' ),
 	array( 'fields' => array( 'name', 'notes' ) ),
 ) );
 
@@ -6482,7 +6534,7 @@ foreach ( array(
 	$r = post( $typed, array( $module, 'handle_add' ) );
 	ck( 'Add refused as ' . $status . ': the form comes back as it was posted, once', array(
 		isset( $r[2] ) ? $r[2] : $r,
-		post_diff( 'name-too-long' === $status ? array_merge( $typed, array( 'wpcpm_name' => str_repeat( 'n', 200 ) ) ) : $typed, add_posts() ),
+		post_diff( $typed, add_posts() ),
 		post_diff( $add_drawn, add_posts() ),
 	), array( $status, array(), array() ) );
 }
@@ -6579,6 +6631,8 @@ ck( 'a name, a Contact person and a funded line stored with a line break inside 
 	array_values( $broken ),
 	array( 'fields' => array( 'notes' ) ),
 ) );
+// Drawn again: the save before this one changed the row, and a form drawn before that is stale.
+$drawn   = edit_posts( $LT );
 $r_codes = post( array_merge( $drawn, array( 'wpcpm_name' => 'Caf%C3%A9 Co Ltd' ) ), array( $module, 'handle_edit' ) );
 edit_posts( $LT );
 $r_plain = post( array_merge( $drawn, array( 'wpcpm_name' => 'Cafe Co Ltd' ) ), array( $module, 'handle_edit' ) );
@@ -6832,6 +6886,173 @@ $ts_fields = form_fields_of( render_tab( 'sponsors' ), WPCPM_Sponsors::ACTION_AD
 $r         = post( array_merge( isset( $ts_fields[0] ) ? $ts_fields[0] : array(), array( 'wpcpm_name' => 'Added Under Test', 'wpcpm_test' => '1' ) ), array( $module, 'handle_add' ) );
 $ts_added  = array_values( array_diff( array_keys( WPCPM_Sponsors_Index::rows() ), $ts_before ) );
 ck( 'and a sponsor added with it ticked is a test sponsor from the start', array( $r[2], isset( $ts_added[0] ) ? WPCPM_Sponsors_Index::row( $ts_added[0] )['test'] : null ), array( 'sponsor-added', true ) );
+
+echo "\n=== A refused save names each field, a stale Edit form is refused, and Attach account keeps its address (1.123.58) ===\n";
+
+// The wording of a date and a time the stale sentence is written in is the site's own.
+$GLOBALS['opts']['date_format'] = 'Y-m-d';
+$GLOBALS['opts']['time_format'] = 'H:i';
+
+$NS = 'spoNOTES0000001a';
+$GS = 'spoSTALE000000001';
+$GL = 'spoLEGACY0000001a';
+foreach ( array( $GS => 'Stale Example', $GL => 'Legacy Example' ) as $stale_key => $stale_name ) {
+	WPCPM_Sponsors_Index::insert( array_merge( WPCPM_Sponsors_Index::empty_row(), array( 'record_id' => $stale_key, 'name' => $stale_name, 'status' => 'Approved', 'website' => 'https://first.example/' ) ) );
+}
+WPCPM_Sponsors_Index::forget();
+
+/** The Edit form of one sponsor after a press that was refused, drawn on the next page. */
+function refused_edit_page( array $r, $key ) {
+	WPCPM_Flash::set( WPCPM_Sponsors::FLASH, isset( $r[2] ) ? (string) $r[2] : '' );
+	$page           = render_tab( 'sponsors', array( 'edit' => $key ) );
+	$GLOBALS['get'] = array();
+	return $page;
+}
+
+// A website that is not a web address is named alone, at its field.
+$clean = WPCPM_Sponsors::clean_fields( array( 'name' => 'Stale Example', 'website' => 'https://ana%20b@loss.example/' ), (array) WPCPM_Sponsors_Index::row( $GS ) );
+ck( 'a refused website names the website alone, at its field: clean_fields() answers its sentence', array( $clean['ok'], $clean['problems'] ), array( false, array( 'website' => 'Enter a web address that starts with https://.' ) ) );
+$typed = array_merge( edit_posts( $GS ), array( 'wpcpm_website' => 'https://ana%20b@loss.example/', 'wpcpm_notes' => 'Kept with it.' ) );
+$r     = post( $typed, array( $module, 'handle_edit' ) );
+$page  = refused_edit_page( $r, $GS );
+$site_id = 'wpcpm-edit-website';
+ck( 'and the screen holds the summary linking the field, the notice that sends the manager to the marked fields, and the field marked', array(
+	isset( $r[2] ) ? $r[2] : $r,
+	false !== strpos( $page, '<div class="wpcpm-errors notice notice-error inline" role="alert" tabindex="-1">' ),
+	false !== strpos( $page, '<a href="#' . $site_id . '">Website</a>: Enter a web address that starts with https://.' ),
+	false !== strpos( $page, 'Nothing was saved. The fields marked below need a change.' ),
+	false !== strpos( $page, 'id="' . $site_id . '" name="wpcpm_website" value="https://ana%20b@loss.example/" aria-invalid="true" aria-describedby="' . $site_id . '-problem" />' ),
+	false !== strpos( $page, '<p class="wpcpm-field__problem" id="' . $site_id . '-problem">Enter a web address that starts with https://.</p>' ),
+	substr_count( $page, 'aria-invalid="true"' ),
+	false !== strpos( $page, 'One answer needs a change' ),
+	false !== strpos( $page, 'Kept with it.' ),
+), array( 'sponsor-rejected', true, true, true, true, true, 1, true, true ) );
+
+// Two refused fields are two sentences, each at its field.
+$typed = array_merge( edit_posts( $GS ), array( 'wpcpm_website' => 'https://ana%20b@loss.example/', 'wpcpm_contact_email' => 'two@@example' ) );
+$r     = post( $typed, array( $module, 'handle_edit' ) );
+$page  = refused_edit_page( $r, $GS );
+ck( 'two refused fields are two sentences, each at its field', array(
+	false !== strpos( $page, 'Two answers need a change' ),
+	false !== strpos( $page, '<a href="#wpcpm-edit-website">Website</a>: Enter a web address that starts with https://.' ),
+	false !== strpos( $page, '<a href="#wpcpm-edit-contact-email">Contact email</a>: Enter one email address, such as name@example.org.' ),
+	substr_count( $page, 'class="wpcpm-field__problem"' ),
+), array( true, true, true, 2 ) );
+$clean = WPCPM_Sponsors::clean_fields( array( 'website' => 'https://ana%20b@loss.example/', 'contact_email' => 'two@@example' ), (array) WPCPM_Sponsors_Index::row( $GS ) );
+ck( 'clean_fields() answers both, in the forms\' order', $clean['problems'], array( 'website' => 'Enter a web address that starts with https://.', 'contact_email' => 'Enter one email address, such as name@example.org.' ) );
+
+// Add: a missing name, and a number over the limit is the Edit form's alone.
+$r    = post( array_merge( add_posts(), array( 'wpcpm_name' => '', 'wpcpm_website' => 'https://ana%20b@loss.example/' ) ), array( $module, 'handle_add' ) );
+WPCPM_Flash::set( WPCPM_Sponsors::FLASH, isset( $r[2] ) ? (string) $r[2] : '' );
+$page = render_tab( 'sponsors' );
+ck( 'the Add form names its missing name and its website the same way, under its own form', array(
+	isset( $r[2] ) ? $r[2] : $r,
+	false !== strpos( $page, '<a href="#wpcpm-add-name">Name</a>: Give the sponsor a name.' ),
+	false !== strpos( $page, '<a href="#wpcpm-add-website">Website</a>: Enter a web address that starts with https://.' ),
+	false !== strpos( $page, 'value="https://ana%20b@loss.example/" aria-invalid="true"' ),
+), array( 'sponsor-rejected', true, true, true ) );
+
+// The stale Edit form.
+$GLOBALS['users'][9] = new WP_User( 9, array( 'administrator' ), 'Second Administrator', 'second@example.test' );
+$first_form          = edit_posts( $GS );
+$version             = $first_form['wpcpm_version'] ?? '';
+$GLOBALS['uid']      = 9;
+WPCPM_Sponsors_Index::patch( $GS, array( 'website' => 'https://second.example/', 'modified' => (string) gmmktime( 14, 5, 0, 11, 6, 2026 ), 'modified_by' => '9' ) );
+$GLOBALS['uid']      = 1;
+WPCPM_Sponsors_Index::forget();
+$audit_before = count( $GLOBALS['audit'] );
+$r            = post( array_merge( $first_form, array( 'wpcpm_website' => 'https://first-wins.example/', 'wpcpm_notes' => 'My own note.' ) ), array( $module, 'handle_edit' ) );
+WPCPM_Sponsors_Index::forget();
+$page         = refused_edit_page( $r, $GS );
+$sentence     = 'Nothing was saved: Second Administrator changed this sponsor at 2026-11-06 14:05, after you opened the form. Your changes are still in the form: check them against the record and save again.';
+ck( 'a stale Edit form is refused with the typing kept and the sentence naming who changed the sponsor and when', array(
+	$r,
+	WPCPM_Sponsors_Index::row( $GS )['website'],
+	count( $GLOBALS['audit'] ) - $audit_before,
+	false !== strpos( $page, '<div class="notice notice-error is-dismissible"><p>' . esc_html( $sentence ) . '</p></div>' ),
+	false !== strpos( $page, 'name="wpcpm_website" value="https://first-wins.example/"' ),
+	false !== strpos( $page, 'My own note.' ),
+	false !== strpos( $page, 'name="wpcpm_version" value="' . WPCPM_Sponsors::version( (array) WPCPM_Sponsors_Index::row( $GS ) ) . '"' ),
+), array( array( 'redirect', $home . '&tab=sponsors&edit=' . $GS, 'sponsor-stale' ), 'https://second.example/', 0, true, true, true, true ) );
+ck( 'the stale sentence of a change by nobody the site knows names no one', WPCPM_Sponsors::stale_sentence( array( 'modified' => (string) gmmktime( 14, 5, 0, 11, 6, 2026 ), 'modified_by' => '' ) ), 'Nothing was saved: this sponsor was changed at 2026-11-06 14:05, after you opened the form. Your changes are still in the form: check them against the record and save again.' );
+ck( 'and the sentence the map holds for it is the one with the time still to be filled in', WPCPM_Sponsors::messages()['sponsor-stale'], array( 'error', 'Nothing was saved: this sponsor was changed at %s, after you opened the form. Your changes are still in the form: check them against the record and save again.' ) );
+
+// A fresh form saves as before.
+$fresh = edit_posts( $GS );
+$r     = post( array_merge( $fresh, array( 'wpcpm_website' => 'https://fresh.example/' ) ), array( $module, 'handle_edit' ) );
+WPCPM_Sponsors_Index::forget();
+ck( 'a fresh Edit form saves as before: the website is written, and the row carries the stamp of this write', array(
+	isset( $r[2] ) ? $r[2] : $r,
+	WPCPM_Sponsors_Index::row( $GS )['website'],
+	WPCPM_Sponsors_Index::row( $GS )['modified_by'],
+	ctype_digit( WPCPM_Sponsors_Index::row( $GS )['modified'] ) && (int) WPCPM_Sponsors_Index::row( $GS )['modified'] >= time() - 5,
+), array( 'sponsor-saved', 'https://fresh.example/', '1', true ) );
+
+// A row from before this release holds no stamp, and is held to the same rule: its version is the fingerprint of the fields the form carries.
+$legacy_id  = WPCPM_Sponsors_Index::post_id_of( $GL );
+$legacy_row = get_post_meta( $legacy_id, WPCPM_Sponsors_Index::META_ROW, true );
+unset( $legacy_row['modified'], $legacy_row['modified_by'] );
+update_post_meta( $legacy_id, WPCPM_Sponsors_Index::META_ROW, $legacy_row );
+WPCPM_Sponsors_Index::forget();
+$legacy_form = edit_posts( $GL );
+$expected    = WPCPM_Settings::fingerprint( array_intersect_key( (array) WPCPM_Sponsors_Index::row( $GL ), array_flip( WPCPM_Sponsors::EDITABLE ) ) );
+$GLOBALS['uid'] = 9;
+WPCPM_Sponsors_Index::patch( $GL, array( 'website' => 'https://changed-since.example/' ) );
+$GLOBALS['uid'] = 1;
+WPCPM_Sponsors_Index::forget();
+$r = post( array_merge( $legacy_form, array( 'wpcpm_website' => 'https://late.example/' ) ), array( $module, 'handle_edit' ) );
+WPCPM_Sponsors_Index::forget();
+ck( 'a row from before this release is versioned by the fingerprint of its editable fields and held to the same rule', array(
+	$legacy_form['wpcpm_version'] ?? '',
+	isset( $r[2] ) ? $r[2] : $r,
+	WPCPM_Sponsors_Index::row( $GL )['website'],
+), array( $expected, 'sponsor-stale', 'https://changed-since.example/' ) );
+
+ck( 'a row with no stamp says only that it changed, naming nobody and inventing no time', WPCPM_Sponsors::stale_sentence( array() ), 'This sponsor was changed after this page was drawn. Your typing is kept below: check it against the record and save again.' );
+
+// A write to a field the form does not carry never makes an open Edit stale: the daily run's stamps,
+// the agreement and the account flag, and the same person's own Attach.
+$open_form = edit_posts( $GL );
+WPCPM_Sponsors_Index::patch( $GL, array( 'tier_mailed_for' => '2027-01-31', 'report_drafted_for' => '2027-01-31', 'agreement' => array( 'status' => 'Accepted', 'accepted_on' => '2026-11-01', 'has_document' => true ), 'dashboard_account' => true ) );
+WPCPM_Sponsors_Index::forget();
+$r = post( array_merge( $open_form, array( 'wpcpm_website' => 'https://after-machine.example/' ) ), array( $module, 'handle_edit' ) );
+WPCPM_Sponsors_Index::forget();
+ck( 'a save after a machine write to a field the form does not carry goes through', array( isset( $r[2] ) ? $r[2] : $r, WPCPM_Sponsors_Index::row( $GL )['website'] ), array( 'sponsor-saved', 'https://after-machine.example/' ) );
+$open_form = edit_posts( $GL );
+$attach    = post( array( 'wpcpm_sponsor' => $GL, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'administrator@example.test', 'wpcpm_tab' => 'accounts' ), array( $module, 'handle_members' ) );
+drop_kept();
+WPCPM_Sponsors_Index::forget();
+$r = post( array_merge( $open_form, array( 'wpcpm_website' => 'https://after-attach.example/' ) ), array( $module, 'handle_edit' ) );
+WPCPM_Sponsors_Index::forget();
+ck( 'and a save after the person\'s own Attach goes through', array( $attach[2] ?? '', isset( $r[2] ) ? $r[2] : $r, WPCPM_Sponsors_Index::row( $GL )['website'] ), array( 'attached', 'sponsor-saved', 'https://after-attach.example/' ) );
+
+// A form drawn before this release carries no version and makes no claim.
+$GL_old = array_diff_key( edit_posts( $GL ), array( 'wpcpm_version' => true ) );
+$r      = post( array_merge( $GL_old, array( 'wpcpm_website' => 'https://no-claim.example/' ) ), array( $module, 'handle_edit' ) );
+WPCPM_Sponsors_Index::forget();
+ck( 'and a post that carries no version makes no claim', array( isset( $r[2] ) ? $r[2] : $r, WPCPM_Sponsors_Index::row( $GL )['website'] ), array( 'sponsor-saved', 'https://no-claim.example/' ) );
+
+// Attach account.
+$r    = post( array( 'wpcpm_sponsor' => $GS, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'nobody@example.test', 'wpcpm_tab' => 'accounts' ), array( $module, 'handle_members' ) );
+WPCPM_Flash::set( WPCPM_Sponsors::FLASH, isset( $r[2] ) ? (string) $r[2] : '' );
+$view = render_tab( 'accounts', array( WPCPM_Sponsors::ARG_SPONSOR => $GS ) );
+$view_again = render_tab( 'accounts', array( WPCPM_Sponsors::ARG_SPONSOR => $GS ) );
+ck( 'Attach account keeps the typed address when no account has it, once', array(
+	$r[2],
+	false !== strpos( $view, 'name="wpcpm_email" placeholder="name@company.example" value="nobody@example.test" required />' ),
+	false !== strpos( $view_again, 'name="wpcpm_email" placeholder="name@company.example" required />' ),
+), array( 'attach-no-account', true, true ) );
+
+$GLOBALS['users'][7] = new WP_User( 7, array( WPCPM_Roles::ROLE_ADMIN ), 'Role Holder', 'role.holder@example.test' );
+$r    = post( array( 'wpcpm_sponsor' => $GS, 'wpcpm_op' => 'attach', 'wpcpm_email' => 'role.holder@example.test', 'wpcpm_tab' => 'accounts' ), array( $module, 'handle_members' ) );
+WPCPM_Flash::set( WPCPM_Sponsors::FLASH, isset( $r[2] ) ? (string) $r[2] : '' );
+$view = render_tab( 'accounts', array( WPCPM_Sponsors::ARG_SPONSOR => $GS ) );
+ck( 'a refused attach says why when the policy gives a reason, and keeps the typed address', array(
+	$r[2],
+	false !== strpos( $view, 'That account cannot act for this sponsor: An administrator already manages every sponsor and is not attached to one.' ),
+	false !== strpos( $view, 'value="role.holder@example.test"' ),
+), array( 'attach-refused', true, true ) );
+unset( $GLOBALS['users'][7], $GLOBALS['users'][9] );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

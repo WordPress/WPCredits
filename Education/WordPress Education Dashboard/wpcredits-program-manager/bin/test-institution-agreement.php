@@ -3506,6 +3506,10 @@ echo "\n=== A decision posted from the Administrator Dashboard comes back to its
 
 // The real way back, loaded only here, so every check above ran as it always has; and that page at
 // its contract, its address.
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
 if ( ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {

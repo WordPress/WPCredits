@@ -352,7 +352,8 @@ final class WPCPM_Sponsor_Logo {
 
 		echo '<div class="wpcpm-logo">';
 
-		echo '<p class="wpcpm-student__note">' . esc_html(
+		// The note is the hint of both file boxes below, tied to each by `aria-describedby` (1.123.58, SDB-06).
+		echo '<p class="wpcpm-student__note" id="' . esc_attr( $base . '-note' ) . '">' . esc_html(
 			sprintf(
 				/* translators: %d: the least width in pixels. */
 				__( 'The picture students and mentors see beside your offer. A horizontal PNG, JPEG or WebP image, about twice as wide as it is tall, at least %d pixels wide (600 or more looks sharper). SVG is not accepted, so export it as a PNG.', 'wpcredits-program-manager' ),
@@ -393,13 +394,13 @@ final class WPCPM_Sponsor_Logo {
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="%1$s-color">%2$s</label> <input type="file" id="%1$s-color" name="%3$s" accept="image/png,image/jpeg,image/webp" /></p>',
+			'<p class="wpcpm-sponsor__field"><label for="%1$s-color">%2$s</label> <input type="file" id="%1$s-color" name="%3$s" accept="image/png,image/jpeg,image/webp" aria-describedby="%1$s-note" /></p>',
 			esc_attr( $base ),
 			esc_html__( 'Color logo', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_COLOR )
 		);
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="%1$s-white">%2$s</label> <input type="file" id="%1$s-white" name="%3$s" accept="image/png,image/jpeg,image/webp" /></p>',
+			'<p class="wpcpm-sponsor__field"><label for="%1$s-white">%2$s</label> <input type="file" id="%1$s-white" name="%3$s" accept="image/png,image/jpeg,image/webp" aria-describedby="%1$s-note" /></p>',
 			esc_attr( $base ),
 			esc_html__( 'White logo, optional', 'wpcredits-program-manager' ),
 			esc_attr( self::FIELD_WHITE )

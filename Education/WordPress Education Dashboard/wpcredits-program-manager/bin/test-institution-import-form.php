@@ -60,6 +60,10 @@ $GLOBALS['sample_calls'] = array();
 
 function __( $t, $d = null ) { return $t; }
 function esc_html__( $t, $d = null ) { return $t; }
+function esc_attr__( $t, $d = null ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
+function esc_textarea( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
+function _n( $one, $many, $n, $d = null ) { return 1 === (int) $n ? $one : $many; }
+function size_format( $bytes, $decimals = 0 ) { return (string) round( (int) $bytes / 1024 ) . ' KB'; }
 function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function esc_url( $u ) { return $u; }
@@ -199,10 +203,20 @@ class WPCPM_Settings {
 	public static function get() { return array( 'students_table' => 'tblS', 'reports_table' => 'tblR' ); }
 	public static function get_value( $k ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : false; }
 }
+/**
+ * The flash, with a refused form's kept values kept as handed over: what the form keeps and drops is
+ * the form's to decide here, and `bin/test-flash.php` holds the real store to its own rules.
+ */
 class WPCPM_Flash {
+	const KEPT_MAX = 60000;
 	public static function set( $c, $v, $u = 0 ) { $GLOBALS['flash'][ $c ] = $v; }
 	public static function take( $c, $u = 0 ) { $v = isset( $GLOBALS['flash'][ $c ] ) ? $GLOBALS['flash'][ $c ] : null; unset( $GLOBALS['flash'][ $c ] ); return $v; }
+	public static function keep( $form, array $values, array $problems = array() ) { $GLOBALS['flash'][ 'kept:' . $form ] = array( 'values' => $values, 'problems' => $problems ); }
+	public static function kept( $form ) { $v = self::take( 'kept:' . $form ); return is_array( $v ) ? $v : array( 'values' => array(), 'problems' => array() ); }
+	public static function forget( $form ) { self::take( 'kept:' . $form ); }
 }
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 class WPCPM_Request {
 	public static function text( $n, $f = '' ) { return isset( $_GET[ $n ] ) ? (string) $_GET[ $n ] : $f; }
 	// **These two clean differently, and that difference is the point.** The suite used to
@@ -276,7 +290,7 @@ function get_posts( $args ) {
 	return $out;
 }
 function register_post_type( $t, $a ) { return true; }
-class WP_Error { public $c; public $m; public function __construct( $c = '', $m = '' ) { $this->c = $c; $this->m = $m; } public function get_error_message() { return $this->m; } }
+class WP_Error { public $c; public $m; public function __construct( $c = '', $m = '' ) { $this->c = $c; $this->m = $m; } public function get_error_code() { return $this->c; } public function get_error_message() { return $this->m; } }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function get_user_by( $by, $v ) { return false; }
 
@@ -762,7 +776,7 @@ ck( 'the file box\'s hint is followed by "Download a sample list", linking the n
 	false !== strpos( $closed, 'The file is read and never stored.</span><a class="wpcpm-import__sample" href="' . $sample_href . '">Download a sample list</a></p>' ), true );
 ck( 'it is drawn once', substr_count( $closed, 'Download a sample list' ), 1 );
 ck( 'and it is the file box\'s own: after the file input, before the paste box',
-	1 === preg_match( '#name="list" accept="\.csv,text/csv" />.*Download a sample list.*<label for="wpcpm-import-paste">#s', $closed ), true );
+	1 === preg_match( '#name="list" accept="\.csv,text/csv"[^>]*/>.*Download a sample list.*<label for="wpcpm-import-paste">#s', $closed ), true );
 ck( 'the link is made for the institution the form is for and for no other', $GLOBALS['sample_calls'], array( $HERE ) );
 
 // A staged list, or an outcome, replaces the form; the link belongs to the form alone.
@@ -1256,6 +1270,152 @@ foreach ( array( 'an administrator' => true, 'a member' => false ) as $who => $m
 $GLOBALS['manage']   = false;
 $GLOBALS['resolved'] = $HERE;
 $GLOBALS['indexed']  = array();
+
+echo "\n=== A refused check keeps everything, and marks the answer at its field (1.123.58) ===\n";
+
+/** The one-student fields and a list of as many rows as asked, as a school would post them. */
+function full_post( array $over = array(), $rows = 300 ) {
+	$lines = array( 'Name,Email' );
+	for ( $i = 1; $i <= $rows; ++$i ) {
+		$lines[] = sprintf( 'Student %1$d,student-%1$d@institution-3.example', $i );
+	}
+
+	return batch_fields(
+		array_merge(
+			array(
+				'program'        => 'In Sensei',
+				'start'          => gmdate( 'Y-m-d', time() + 400 * DAY_IN_SECONDS ),
+				'end'            => gmdate( 'Y-m-d', time() + 500 * DAY_IN_SECONDS ),
+				'notified'       => '1',
+				'paste'          => implode( "\n", $lines ),
+				'name'           => 'Dora Example',
+				'email'          => 'dora@institution-3.example',
+				'field_of_study' => 'Technology & Engineering',
+			),
+			$over
+		)
+	);
+}
+
+/** The markup of one control, from its opening tag to the end of the tag. */
+function control_of( $html, $id ) {
+	return preg_match( '#<(?:input|select|textarea)\b[^>]*\bid="' . preg_quote( $id, '#' ) . '"[^>]*>#', (string) $html, $found ) ? $found[0] : '';
+}
+
+fresh_world();
+$posted = full_post();
+$status = post_check( $posted );
+$again  = draw_section( $HERE );
+$paste  = preg_match( '#<textarea id="wpcpm-import-paste"[^>]*>(.*?)</textarea>#s', $again, $box ) ? html_entity_decode( $box[1], ENT_QUOTES ) : '';
+
+ck(
+	'a start date a year away keeps the program, the dates, the tick, a pasted list of 300 rows and the one-student fields, and marks the start date',
+	array(
+		$status,
+		false !== strpos( $again, '<option value="In Sensei" selected="selected">' ),
+		false !== strpos( control_of( $again, 'wpcpm-import-start' ), 'value="' . $posted['start'] . '"' ),
+		false !== strpos( control_of( $again, 'wpcpm-import-end' ), 'value="' . $posted['end'] . '"' ),
+		false !== strpos( control_of( $again, 'wpcpm-import-notified' ), 'checked="checked"' ),
+		count( explode( "\n", $paste ) ),
+		$paste === $posted['paste'],
+		false !== strpos( control_of( $again, 'wpcpm-import-name' ), 'value="Dora Example"' ),
+		false !== strpos( control_of( $again, 'wpcpm-import-email' ), 'value="dora@institution-3.example"' ),
+		false !== strpos( $again, '<option value="Technology &amp; Engineering" selected="selected">' ),
+		false !== strpos( control_of( $again, 'wpcpm-import-start' ), 'aria-invalid="true"' ),
+		false !== strpos( $again, '<p class="wpcpm-field__problem" id="wpcpm-import-start-problem">That start date is more than a year away. Check the year.</p>' ),
+		false !== strpos( $again, 'One answer needs a change' ),
+		false !== strpos( control_of( $again, 'wpcpm-import-end' ), 'aria-invalid' ),
+	),
+	array( 'start-far', true, true, true, true, 301, true, true, true, true, true, true, true, false )
+);
+ck( 'the summary is inside the form, over its first field, linking the start date', 1 === preg_match( '#<form class="wpcpm-import__form".*<div class="wpcpm-errors" role="alert" tabindex="-1">.*<a href="\#wpcpm-import-start">Start date</a>.*<label for="wpcpm-import-program">#s', $again ), true );
+ck( 'the refusal at the top is an error in its tone, as an alert, focusable', false !== strpos( $again, '<p class="wpcpm-import__message wpcpm-import__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>That start date is more than a year away. Check the year.</p>' ), true );
+ck( 'and what was kept is drawn once: the next drawing is the empty form', false !== strpos( control_of( draw_section( $HERE ), 'wpcpm-import-start' ), 'value=' ), false );
+
+foreach ( array(
+	'an end date before the start is marked at the end date' => array( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '2020-01-01' ), 'bad-end', 'wpcpm-import-end' ),
+	'the tick left unticked is marked at the tick'             => array( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '', 'notified' => '' ), 'not-notified', 'wpcpm-import-notified' ),
+	'a program this site does not offer is marked at the program' => array( array( 'program' => 'Astronaut Track' ), 'bad-program', 'wpcpm-import-program' ),
+) as $label => $case ) {
+	fresh_world();
+	$status = post_check( full_post( $case[0], 3 ) );
+	$again  = draw_section( $HERE );
+	ck( $label, array( $status, false !== strpos( control_of( $again, $case[2] ), 'aria-invalid="true"' ), substr_count( $again, 'aria-invalid="true"' ) ), array( $case[1], true, 1 ) );
+}
+
+fresh_world();
+$status = post_check( full_post( array( 'start' => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ), 'end' => '', 'paste' => "Name\nAnna Kowalska" ), 0 ) );
+$again  = draw_section( $HERE );
+ck( 'a pasted list the reader cannot read is marked at the paste box', array( $status, false !== strpos( control_of( $again, 'wpcpm-import-paste' ), 'aria-invalid="true"' ), false !== strpos( $again, 'id="wpcpm-import-paste-problem">That list needs a name column and an email column.</p>' ) ), array( 'parse-no_columns', true, true ) );
+
+fresh_world();
+$status = post_check( full_post( array( '__files' => array( 'list' => array( 'name' => 'class.csv', 'tmp_name' => '/tmp/not-an-upload', 'size' => 120, 'error' => UPLOAD_ERR_OK ) ) ), 3 ) );
+$again  = draw_section( $HERE );
+ck( 'a chosen file is asked for again at the file input', array( $status, false !== strpos( $again, '<p class="wpcpm-field__problem" id="wpcpm-import-file-problem">A chosen file cannot be kept when the form comes back. Choose the file again.</p>' ), false !== strpos( control_of( $again, 'wpcpm-import-file' ), 'aria-invalid="true"' ) ), array( 'start-far', true, true ) );
+ck( 'and the summary counts it beside the start date', false !== strpos( $again, 'Two answers need a change' ), true );
+
+$big = tempnam( sys_get_temp_dir(), 'wpcpm-import-' );
+file_put_contents( $big, "Name,Email\n" . str_repeat( "Anna Kowalska,anna@institution-3.example\n", (int) ceil( 300 * 1024 / 41 ) ) );
+fresh_world();
+$status = post_check( batch_fields( array( 'paste' => '', '__files' => array( 'list' => array( 'name' => 'class.csv', 'tmp_name' => $big, 'size' => 300 * 1024, 'error' => UPLOAD_ERR_OK ) ) ) ) );
+$again  = draw_section( $HERE );
+ck( 'a file over the limit is too large, never nothing was sent', array( $status, false !== strpos( $again, 'Nothing was sent' ), false !== strpos( $again, 'id="wpcpm-import-file-problem">That file is too big. Send it in two halves.</p>' ) ), array( 'parse-too_large', false, true ) );
+unlink( $big );
+
+fresh_world();
+$status = post_check( batch_fields( array( 'paste' => '', '__files' => array( 'list' => array( 'name' => 'class.csv', 'tmp_name' => '', 'size' => 0, 'error' => UPLOAD_ERR_INI_SIZE ) ) ) ) );
+ck( 'and a file PHP refused for its size is too large too', $status, 'parse-too_large' );
+fresh_world();
+$status = post_check( batch_fields( array( 'paste' => '', '__files' => array( 'list' => array( 'name' => 'class.csv', 'tmp_name' => '', 'size' => 0, 'error' => UPLOAD_ERR_FORM_SIZE ) ) ) ) );
+ck( 'and so is one over the form\'s own size', $status, 'parse-too_large' );
+
+foreach ( array( 'a partial upload' => UPLOAD_ERR_PARTIAL, 'no temporary directory' => UPLOAD_ERR_NO_TMP_DIR, 'a failed write' => UPLOAD_ERR_CANT_WRITE, 'an extension' => UPLOAD_ERR_EXTENSION, 'a file read as nothing' => UPLOAD_ERR_OK ) as $why => $code ) {
+	fresh_world();
+	$status = post_check( batch_fields( array( '__files' => array( 'list' => array( 'name' => 'class.csv', 'tmp_name' => UPLOAD_ERR_OK === $code ? '/tmp/not-an-upload' : '', 'size' => 0, 'error' => $code ) ) ) ) );
+	$again  = draw_section( $HERE );
+	ck(
+		sprintf( 'a chosen file with a non-size upload error (%s) is refused at the file field and the kept paste is not checked', $why ),
+		array( $status, WPCPM_Institution_Import::active_for( $HERE ), false !== strpos( $again, 'id="wpcpm-import-file-problem">That file could not be read. Choose it again.</p>' ), false !== strpos( control_of( $again, 'wpcpm-import-file' ), 'aria-invalid="true"' ), false !== strpos( $again, 'anna@institution-3.example' ) ),
+		array( 'file-unreadable', 0, true, true, true )
+	);
+}
+
+// Five presses refused for a date in one hour spend none of the five checks an hour allows.
+fresh_world();
+$wrong = array();
+for ( $i = 0; $i < 5; ++$i ) {
+	$wrong[] = post_check( batch_fields( array( 'start' => '2036-09-01' ) ) );
+}
+ck( 'five presses refused for a wrong date in one hour leave the sixth, correct press checked (not too_often)', array( $wrong, post_check( batch_fields() ) ), array( array_fill( 0, 5, 'start-far' ), 'checked' ) );
+
+ck( 'the file input\'s hint says the limit', false !== strpos( $closed, '<span class="wpcpm-field__hint" id="wpcpm-import-file-hint">A CSV file of 256 KB at most. A header row,' ), true );
+
+$lines = array( 'Name,Email' );
+for ( $i = 1; strlen( implode( "\n", $lines ) ) <= WPCPM_Flash::KEPT_MAX; ++$i ) {
+	$lines[] = sprintf( 'Student %1$d,student-%1$d@institution-3.example', $i );
+}
+$long = substr( implode( "\n", $lines ), 0, WPCPM_Flash::KEPT_MAX + 1 );
+fresh_world();
+$status = post_check( batch_fields( array( 'paste' => $long ) ) );
+$kept   = isset( $GLOBALS['flash'][ 'kept:import-batch:' . $HERE ] ) ? $GLOBALS['flash'][ 'kept:import-batch:' . $HERE ] : array();
+$again  = draw_section( $HERE );
+ck( 'a pasted list too long to keep is asked for again at the paste box', array( strlen( $long ), $status, array_key_exists( 'paste', isset( $kept['values'] ) ? $kept['values'] : array( 'paste' => 1 ) ), isset( $kept['problems']['wpcpm-import-paste'] ) ? $kept['problems']['wpcpm-import-paste'] : '', 1 === preg_match( '#<textarea id="wpcpm-import-paste"[^>]*></textarea>#', $again ) ), array( WPCPM_Flash::KEPT_MAX + 1, 'parse-too_many_rows', false, 'The pasted list was too long to keep here: paste it again.', true ) );
+
+// The four forms the card draws in its three states: the form, a waiting list, a list part way through.
+fresh_world();
+$forms = draw_section( $HERE );
+post_check( batch_fields() );
+$forms  .= draw_section( $HERE );
+$running = WPCPM_Institution_Import::active_for( $HERE );
+WPCPM_Institution_Create::claim( $running, 7, 'member' );
+update_post_meta( $running, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
+$forms .= draw_section( $HERE );
+preg_match_all( '#<form\b[^>]*>#', $forms, $tags );
+$busy = array();
+foreach ( $tags[0] as $tag ) {
+	$busy[] = array( false !== strpos( $tag, ' data-wpcpm-once' ), preg_match( '#data-wpcpm-busy="([^"]*)"#', $tag, $word ) ? $word[1] : '' );
+}
+ck( 'the four import forms are guarded with their busy words', $busy, array( array( true, 'Checking the list' ), array( true, 'Creating the records' ), array( true, 'Canceling' ), array( true, 'Creating the records' ) ) );
 
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

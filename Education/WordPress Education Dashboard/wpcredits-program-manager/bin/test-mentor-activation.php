@@ -219,6 +219,9 @@ class WPCPM_Airtable {
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
+// The count check the syncs ask before they take a role (1.123.58), and the count it is given.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-guard.php';
+require_once __DIR__ . '/stubs/user-count-query.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
@@ -399,12 +402,18 @@ function event_back( $id, $back ) {
 	return $events[ count( $events ) - $back ];
 }
 
-/** The mentors sync's revoke phase, run on its own, as a run that started at `$started` reaches it. */
+/**
+ * The mentors sync's revoke phase, run on its own, as a run that started at `$started` reaches it.
+ *
+ * The run read no mentor, which the count check would stop (1.123.58): it is accepted, so the step
+ * reaches the accounts, which is what these checks read.
+ */
 function revoke( $started ) {
 	$state  = array(
-		'mentors' => array(),
-		'stats'   => WPCPM_Mentors_Sync::empty_stats(),
-		'started' => $started,
+		'mentors'  => array(),
+		'stats'    => WPCPM_Mentors_Sync::empty_stats(),
+		'started'  => $started,
+		'accepted' => true,
 	);
 	$method = new ReflectionMethod( 'WPCPM_Mentors_Sync', 'phase_revoke' );
 
@@ -518,6 +527,18 @@ ck( 'a former mentor is made a mentor again on their own account and their own r
 ck( 'and they are sent the invitation with the welcome again', array( $GLOBALS['queue'], $r['invited'] ), array( array( 61 ), true ) );
 ck( 'and the answer says the account they had was linked, not made', $r['linked'], true );
 ck( 'their own record id is trusted first: the table is not searched by the address', $GLOBALS['searched'], array() );
+
+// The row an activation writes is its account's (1.123.58): a match waiting under Needs confirming for
+// that record, on another account, is taken off the list, so Confirm cannot link a second account to it.
+// A new mentor: the account is made with no record, and the row the activation writes is created
+// as recNEWMENTOR00001, so only the row's write can take the match away.
+fresh();
+an_account( 62, 'Lee Login', 'other@example.test', array( 'subscriber' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, array( 'recNEWMENTOR00001' => array( 'name' => 'Ada Example', 'profile' => '', 'user_id' => 62, 'at' => 1 ), 'recOTHERMENTOR001' => array( 'name' => 'Zoe Example', 'profile' => '', 'user_id' => 62, 'at' => 1 ) ) );
+WPCPM_Mentor_Activation::activate( selected_app(), 0 );
+ck( 'the record an activation writes is taken off Needs confirming, leaving the others waiting',
+	array( array_keys( get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ), get_user_meta( 62, 'wpcpm_mentor_record_id', true ) ),
+	array( array( 'recOTHERMENTOR001' ), '' ) );
 
 fresh();
 an_account( 64, 'Eli Example', 'ada@example.test', array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_record_id' => 'recCURRENT0000001', 'wpcpm_mentor_active' => 1 ) );

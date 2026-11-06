@@ -274,6 +274,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, the Settings screen, and the three tools that draw their
 // own settings on their own screens, as the plugin's loader requires them.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
@@ -636,6 +637,11 @@ function names_of( $form ) {
 	$names = array();
 
 	foreach ( $found[1] as $name ) {
+		// The fingerprints of what the form was drawn with (1.123.58) are plumbing, as the nonce is.
+		if ( 0 === strpos( $name, WPCPM_Settings::FIELD_DRAWN . '[' ) || substr( $name, -strlen( WPCPM_Settings::EVERYONE_SUFFIX ) ) === WPCPM_Settings::EVERYONE_SUFFIX ) {
+			continue;
+		}
+
 		$names[ preg_replace( '/\[\]$/', '', $name ) ] = true;
 	}
 
@@ -2091,8 +2097,8 @@ press( $institutions_post );
 
 ck( 'the ticked program managers and the Other addresses line save the comma list the text input saved for the same addresses, lowercased and each once',
     $reviewers_from_boxes, array( WPCPM_Settings::get()['agreement_notify'], WPCPM_Settings::get()['report_notify'] ) );
-ck( 'which is today\'s stored shape, and nobody ticked with an empty line is the empty setting, which writes to every program manager',
-    $reviewers_from_boxes, array( 'board@partner.example,ana@program.example,pat@program.example,second@partner.example', '' ) );
+ck( 'which is today\'s stored shape; and nobody ticked with an empty line would empty a list that names somebody, so that list is refused and stays as stored (SET-02, 1.123.58)',
+    $reviewers_from_boxes, array( 'board@partner.example,ana@program.example,pat@program.example,second@partner.example', $stored_now['report_notify'] ) );
 
 store( $stored_now, $live );
 airtable_answers( true );
@@ -2106,10 +2112,31 @@ store( $stored_now, $live );
 airtable_answers( true );
 $sponsors_post                   = browser_post( form_of( draw_settings( 'sponsors' ) ) );
 $sponsors_post['sponsor_notify'] = array( 'zoe@program.example', 'zoe@program.example, not an address' );
+// The list is empty as stored, so the page is drawn with the box ticked; typing addresses is unticking it.
+unset( $sponsors_post['sponsor_notify' . WPCPM_Settings::EVERYONE_SUFFIX] );
 press( $sponsors_post );
 
-ck( 'the interest mail\'s list is held to the same rule: an address twice is kept once, and what is not an address is dropped',
-    WPCPM_Settings::get()['sponsor_notify'], 'zoe@program.example' );
+ck( 'the interest mail\'s list is held to the same rule: what is not an address refuses the list, which stays as stored',
+    array( WPCPM_Settings::get()['sponsor_notify'], array_keys( WPCPM_Settings::last_refused() ) ), array( $stored_now['sponsor_notify'], array( 'sponsor_notify' ) ) );
+
+store( $stored_now, $live );
+airtable_answers( true );
+$institutions_post = browser_post( form_of( draw_settings( 'institutions' ) ) );
+$institutions_post['report_notify'] = array( 'pat@program.example' );
+$institutions_post['report_notify' . WPCPM_Settings::EVERYONE_SUFFIX] = '1';
+press( $institutions_post );
+
+ck( 'a Save with the box above a list ticked writes the list empty, the people ticked below not read (ruling of 6 November 2026)',
+    array( WPCPM_Settings::get()['report_notify'], WPCPM_Settings::last_refused() ), array( '', array() ) );
+
+store( $stored_now, $live );
+airtable_answers( true );
+$sponsors_post                   = browser_post( form_of( draw_settings( 'sponsors' ) ) );
+$sponsors_post['sponsor_notify'] = array( 'zoe@program.example', 'zoe@program.example' );
+unset( $sponsors_post['sponsor_notify' . WPCPM_Settings::EVERYONE_SUFFIX] );
+press( $sponsors_post );
+
+ck( 'and an address ticked and typed is kept once', WPCPM_Settings::get()['sponsor_notify'], 'zoe@program.example' );
 
 /* ---- a Save that changes nothing writes nothing ------------------------------------ */
 

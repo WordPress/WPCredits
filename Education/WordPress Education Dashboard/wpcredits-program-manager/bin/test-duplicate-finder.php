@@ -216,6 +216,8 @@ class WPCPM_Airtable {
 class WPCPM_Settings {
 	public static function get() { return array( 'base_id' => 'appTEST', 'students_table' => 'tblSTUDENTS', 'reports_table' => 'tblREPORTS', 'feedback_table' => 'tblFEEDBACK', 'duplicate_delete_enabled' => $GLOBALS['switch'] ); }
 	public static function is_connected() { return $GLOBALS['connected']; }
+	// The fingerprints a settings form carries (1.123.58): none here, the screen's own suite reads them.
+	public static function drawn_fields( $scope ) { return ''; }
 }
 class WPCPM_Students_Sync {
 	const EVERY_THREE_HOURS = 'wpcpm_three_hours';
@@ -259,6 +261,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 // The rows the finder's Settings section is drawn with, and the Settings screen whose handler its Save
 // posts to, as the plugin's loader requires them.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';

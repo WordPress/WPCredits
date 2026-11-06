@@ -128,14 +128,29 @@ function lock_name_asked( $how, $k ) {
 		$GLOBALS['lock_option_api'][] = array( $how, $k );
 	}
 }
+// This request's note of the options it knows are not there (`$GLOBALS['notoptions']`), as core keeps
+// it in the object cache: `delete_option()` adds the name, `get_option()` reads it first and answers
+// the default for a name in it, whatever the table holds since, and a write takes the name out.
+$GLOBALS['notoptions'] = array();
 function get_option( $k, $d = false ) {
 	lock_name_asked( 'get', $k );
 	$GLOBALS['option_reads'][ $k ] = ( $GLOBALS['option_reads'][ $k ] ?? 0 ) + 1;
+	if ( isset( $GLOBALS['notoptions'][ $k ] ) ) {
+		return $d;
+	}
 	return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d;
 }
-function update_option( $k, $v, $a = null ) { lock_name_asked( 'update', $k ); $GLOBALS['opts'][ $k ] = $v; return true; }
-function add_option( $k, $v, $dep = '', $a = null ) { lock_name_asked( 'add', $k ); if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }
-function delete_option( $k ) { lock_name_asked( 'delete', $k ); unset( $GLOBALS['opts'][ $k ] ); return true; }
+function update_option( $k, $v, $a = null ) { lock_name_asked( 'update', $k ); unset( $GLOBALS['notoptions'][ $k ] ); $GLOBALS['opts'][ $k ] = $v; return true; }
+function add_option( $k, $v, $dep = '', $a = null ) { lock_name_asked( 'add', $k ); if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } unset( $GLOBALS['notoptions'][ $k ] ); $GLOBALS['opts'][ $k ] = $v; return true; }
+function delete_option( $k ) { lock_name_asked( 'delete', $k ); unset( $GLOBALS['opts'][ $k ] ); $GLOBALS['notoptions'][ $k ] = true; return true; }
+// The object cache, as far as the note of absent options goes: the rest of the cache holds nothing.
+function wp_cache_get( $key, $group = '' ) { return 'notoptions' === $key && 'options' === $group ? $GLOBALS['notoptions'] : false; }
+function wp_cache_set( $key, $value, $group = '' ) {
+	if ( 'notoptions' === $key && 'options' === $group ) {
+		$GLOBALS['notoptions'] = (array) $value;
+	}
+	return true;
+}
 // What a request drops from its object cache, kept so a check can say which entry went, and among a
 // send's events when a check records them.
 function wp_cache_delete( $key, $group = '' ) {
@@ -949,6 +964,90 @@ WPCPM_Mail::drain_queue();
 ck( 'and it drains to empty', array( count( $GLOBALS['invited'] ), WPCPM_Mail::queued() ), array( 25, 0 ) );
 ck( 'everybody drained is stamped as invited',
     array( (int) get_user_meta( 105, 'wpcpm_student_invited', true ) > 0 ), array( true ) );
+
+/* ---- the invitations card's poller (1.123.58) ------------------------------ */
+
+echo "\n=== The invitations card's poller ===\n";
+
+if ( ! function_exists( 'wp_create_nonce' ) ) {
+	function wp_create_nonce( $action = -1 ) { return 'nonce-' . $action; }
+}
+if ( ! function_exists( 'check_ajax_referer' ) ) {
+	function check_ajax_referer( $action = -1, $query = false, $stop = true ) { $GLOBALS['ajax_checked'] = $action; return true; }
+}
+if ( ! function_exists( 'wp_send_json_success' ) ) {
+	function wp_send_json_success( $data = null, $status = null ) { throw new Exception( 'json:' . json_encode( array( 'success' => true, 'data' => $data ) ) ); }
+}
+if ( ! function_exists( 'wp_send_json_error' ) ) {
+	function wp_send_json_error( $data = null, $status = null ) { throw new Exception( 'json:' . (int) $status . ':' . json_encode( array( 'success' => false, 'data' => $data ) ) ); }
+}
+
+/**
+ * Run the poller's AJAX handler and answer what it sent.
+ *
+ * @return string
+ */
+function asked_progress() {
+	try {
+		WPCPM_Mail::handle_progress();
+	} catch ( Exception $e ) {
+		return $e->getMessage();
+	}
+
+	return 'nothing sent';
+}
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+ck( 'with no run, the figures say nothing is sending', WPCPM_Mail::invite_progress(), array( 'running' => false, 'sent' => 0, 'total' => 0, 'waiting' => 0, 'percent' => 0, 'count' => 'Sending: 0 of 0 sent.', 'detail' => '', 'said' => 'Invitations sent: 0 of 0.' ) );
+
+foreach ( range( 1, 25 ) as $i ) {
+	$GLOBALS['users'][ 300 + $i ] = new WP_User( 300 + $i, 'Poll ' . $i, "p$i@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+}
+
+WPCPM_Mail::queue_invites( range( 301, 325 ) );
+WPCPM_Mail::drain_queue();
+$halfway = WPCPM_Mail::invite_progress();
+
+ck( 'one batch in, the figures are the card\'s: ten of 25 sent, fifteen waiting, the bar at 40',
+	array( $halfway['running'], $halfway['sent'], $halfway['total'], $halfway['waiting'], $halfway['percent'], $halfway['count'], $halfway['said'] ),
+	array( true, 10, 25, 15, 40, 'Sending: 10 of 25 sent.', 'Invitations sent: 10 of 25.' ) );
+ck( 'and the line under the bar says how many are left and when the next batch goes', 0 === strpos( $halfway['detail'], '15 still to go. They go out 10 at a time' ), true );
+
+ob_start();
+WPCPM_Mail::render_invite_card( array( 'action' => 'wpcpm_students_bulk_invite', 'pending' => array(), 'noun' => 'students' ) );
+$polled = (string) ob_get_clean();
+
+ck( 'the card no longer reloads the page while a run sends', array( strpos( $polled, 'location.reload' ), strpos( $polled, '<script' ) ), array( false, false ) );
+ck( 'it draws the poller\'s panel instead: the action, its nonce, every ten seconds, the run\'s total, the sentences it stops and finishes with, busy while it sends',
+	1 === preg_match( '#<div class="wpcpm-invites__progress" data-wpcpm-invite-poll data-action="wpcpm_invite_progress" data-nonce="nonce-wpcpm_invite_progress" data-poll="10" data-total="25" data-stopped="The count stopped updating." data-finished="This run has finished: every invitation in it has been sent or passed over." data-cleared="This run was stopped, or cleared in another tab. The count above is where it ended." data-stop-label="Stop and cancel the remaining %d" aria-busy="true">#', $polled ),
+	true );
+ck( 'and the Stop button marked for the poller, which counts it again in those words from each answer (1.123.58, trial T10)',
+	false !== strpos( $polled, '<button type="submit" class="button" data-wpcpm-invite-stop>Stop and cancel the remaining 15</button>' ),
+	true );
+ck( 'with the count, the bar and the line under it marked for the poller, from the same figures',
+	array( false !== strpos( $polled, '<strong data-wpcpm-invite-count>Sending: 10 of 25 sent.</strong>' ), 1 === preg_match( '#role="progressbar" aria-valuenow="40"[^>]*data-wpcpm-invite-bar><span style="width:40%" data-wpcpm-invite-fill></span>#', $polled ), false !== strpos( $polled, 'data-wpcpm-invite-detail>15 still to go.' ) ),
+	array( true, true, true ) );
+ck( 'and a link that loads the page again, for a page with scripts off or a poller that stopped', false !== strpos( $polled, '<p class="wpcpm-invites__refresh" data-wpcpm-invite-refresh>To see the latest count, <a href="">refresh the page</a>.</p>' ), true );
+
+$poll_manage       = $GLOBALS['manage'];
+$GLOBALS['manage'] = false;
+ck( 'the poller is refused without the right to manage the program, with a 403', 0 === strpos( asked_progress(), 'json:403:' ), true );
+$GLOBALS['manage'] = true;
+$answer            = asked_progress();
+ck( 'and answered with the figures under its own nonce', array( $GLOBALS['ajax_checked'] ?? null, $answer ), array( 'wpcpm_invite_progress', 'json:' . json_encode( array( 'success' => true, 'data' => WPCPM_Mail::invite_progress() ) ) ) );
+
+WPCPM_Mail::drain_queue();
+WPCPM_Mail::drain_queue();
+$done = WPCPM_Mail::invite_progress();
+ck( 'once the last batch has gone, the figures say it finished: all 25 sent, nothing waiting, the bar full',
+	array( $done['running'], $done['sent'], $done['waiting'], $done['percent'], $done['said'], $done['detail'] ),
+	array( false, 25, 0, 100, 'Invitations sent: 25 of 25.', '' ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['manage'] = $poll_manage;
 
 /* ---- the queue across a deactivation (1.122.25) ------------------------- */
 
@@ -1911,6 +2010,197 @@ ck( 'each of the four send_invite() hands the account to that rule once its own 
 $GLOBALS['invited'] = $before_lock;
 
 /* ---- an invitation an activation held ----------------------------------- */
+
+echo "\n=== The queue's write, under its own lock (LOG-24, 1.123.58) ===\n";
+
+// Every read-modify-write of the queue option runs under one lock: a drain's write-back of the
+// queue it spliced, written while a sync queued somebody, used to put back the queue it read and
+// lose the one queued meanwhile. Here a drain holds the lock as a queueing arrives: the queueing's
+// first try is refused, the stand-in plays the rest of that drain in the moment before the
+// queueing's take-over, and the queueing's next try reads the drain's write-back.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['wpdb']    = new WPCPM_Test_Options_Wpdb();
+$GLOBALS['invited'] = array();
+foreach ( range( 880, 891 ) as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Queued ' . $id, "q$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+}
+$GLOBALS['users'][77] = new WP_User( 77, 'Queued meanwhile', 'q77@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+update_option( WPCPM_Mail::QUEUE_OPTION, range( 880, 891 ) );
+// The drain has taken the lock and is splicing its batch.
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$GLOBALS['wpdb']->before_takeover          = static function () {
+	// The drain's own lock, let go only once its write-back is done: what it does under it is the
+	// drain_queue() below, which takes the lock again for itself.
+	unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+	WPCPM_Mail::drain_queue();
+};
+WPCPM_Mail::queue_invite( 77 );
+ck( 'a queueing during a drain is not lost: the drain\'s write-back keeps the account queued meanwhile',
+	array( count( $GLOBALS['invited'] ), WPCPM_Mail::queue(), array_key_exists( WPCPM_Mail::QUEUE_LOCK, $GLOBALS['opts'] ), $GLOBALS['wpdb']->unmodeled ),
+	array( WPCPM_Mail::QUEUE_BATCH, array( 890, 891, 77 ), false, array() ) );
+ck( 'the lock is never autoloaded, and every write of the queue was made under it',
+	array( $GLOBALS['wpdb']->autoload[ WPCPM_Mail::QUEUE_LOCK ] ?? 'gone with its row', count( preg_grep( '/^INSERT IGNORE INTO wp_options .*wpcpm_invite_queue_lock/', $GLOBALS['wpdb']->statements ) ) ),
+	array( 'gone with its row', 3 ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['wpdb']    = new WPCPM_Test_Options_Wpdb();
+$GLOBALS['invited'] = array();
+update_option( WPCPM_Mail::QUEUE_OPTION, range( 880, 885 ) );
+$other_drain                               = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = $other_drain;
+WPCPM_Mail::drain_queue();
+ck( 'a drain that cannot take the lock sends nothing this run',
+	array( $GLOBALS['invited'], WPCPM_Mail::queue(), $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] ?? null, count( preg_grep( '/^INSERT IGNORE INTO wp_options .*wpcpm_invite_queue_lock/', $GLOBALS['wpdb']->statements ) ) ),
+	array( array(), range( 880, 885 ), $other_drain, WPCPM_Mail::QUEUE_LOCK_TRIES ) );
+
+WPCPM_Mail::queue_invite( 77 );
+ck( 'and a queueing that cannot take it writes nothing, as an account the queue passed over is left',
+	array( WPCPM_Mail::queue(), WPCPM_Mail::queue_invites( array( 77 ) ) ),
+	array( range( 880, 885 ), 0 ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+
+// The drain emptied the queue in this request, which leaves core's note that the option is not
+// there; another request queued fifty since; a sync tick later in this request queues one more.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['wpdb']    = new WPCPM_Test_Options_Wpdb();
+$GLOBALS['invited'] = array();
+update_option( WPCPM_Mail::QUEUE_OPTION, array( 880 ) );
+WPCPM_Mail::drain_queue();
+$noted_absent                                 = isset( $GLOBALS['notoptions'][ WPCPM_Mail::QUEUE_OPTION ] );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_OPTION ] = range( 1001, 1050 );
+WPCPM_Mail::queue_invite( 77 );
+ck( 'a queueing after this request deleted the empty queue still sees what another request queued since',
+	array( $noted_absent, WPCPM_Mail::queue() ),
+	array( true, array_merge( range( 1001, 1050 ), array( 77 ) ) ) );
+
+WPCPM_Mail::clear_queue();
+update_option( WPCPM_Mail::QUEUE_OPTION, array( 880 ) );
+WPCPM_Mail::drain_queue();
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_OPTION ] = range( 1001, 1050 );
+ck( 'and so does a bulk queueing', array( WPCPM_Mail::queue_invites( array( 77 ) ), WPCPM_Mail::queue() ), array( 1, array_merge( range( 1001, 1050 ), array( 77 ) ) ) );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+// A drain that cannot take the lock books the next drain itself: the request holding the lock may be
+// a queueing that adds nobody, which books none.
+$GLOBALS['wpdb']                           = new WPCPM_Test_Options_Wpdb();
+update_option( WPCPM_Mail::QUEUE_OPTION, range( 880, 885 ) );
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+WPCPM_Mail::drain_queue();
+ck( 'a drain that cannot take the lock books the next drain', array( false !== wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), WPCPM_Mail::queue() ), array( true, range( 880, 885 ) ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+
+echo "\n=== A Stop, under the queue's lock (the fix wave of 1.123.58) ===\n";
+
+if ( ! function_exists( 'wp_get_referer' ) ) {
+	function wp_get_referer() { return 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors'; }
+}
+if ( ! function_exists( 'remove_query_arg' ) ) {
+	function remove_query_arg( $key, $url ) { return $url; }
+}
+
+/**
+ * Press Stop on the invitations card, as an Administrator on the Mentors screen, and answer the
+ * outcome it left on that screen's channel.
+ *
+ * @return string
+ */
+function pressed_stop() {
+	$was_uid  = $GLOBALS['uid'];
+	$was_post = $_POST;
+
+	$GLOBALS['uid']    = 7;
+	$GLOBALS['manage'] = array( 7 );
+	$_POST             = array( WPCPM_Mail::FLASH_FIELD => 'wpcpm_mentors' );
+	unset( $GLOBALS['umeta'][7][ WPCPM_Flash::META ] );
+
+	try {
+		WPCPM_Mail::handle_stop();
+	} catch ( Exception $e ) {
+		unset( $e );
+	}
+
+	$said = $GLOBALS['umeta'][7][ WPCPM_Flash::META ]['wpcpm_mentors'] ?? '';
+
+	$GLOBALS['uid'] = $was_uid;
+	$_POST          = $was_post;
+
+	return (string) $said;
+}
+
+// A drain holds the lock with fifty waiting: it has spliced its ten and is about to write back the
+// forty it did not send. A Stop pressed then used to delete the queue beside it, and the write-back
+// brought the forty back, for the next drains to send while the card said "stopped".
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['wpdb'] = new WPCPM_Test_Options_Wpdb();
+update_option( WPCPM_Mail::QUEUE_OPTION, range( 1001, 1050 ) );
+update_option( WPCPM_Mail::RUN_OPTION, array( 'total' => 50, 'started' => time(), 'finished' => 0, 'unsent' => 0 ) );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$drain_writes_back                         = static function () {
+	update_option( WPCPM_Mail::QUEUE_OPTION, range( 1011, 1050 ), false );
+	unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+};
+$GLOBALS['wpdb']->before_takeover = $drain_writes_back;
+$stopped                          = pressed_stop();
+// The drain finishes after the Stop, when the Stop did not wait for it.
+if ( array_key_exists( WPCPM_Mail::QUEUE_LOCK, $GLOBALS['opts'] ) ) {
+	$drain_writes_back();
+}
+ck( 'Stop clears the queue under the lock, so a drain\'s write-back cannot bring it back',
+	array( $stopped, WPCPM_Mail::queue(), WPCPM_Mail::run(), array_key_exists( WPCPM_Mail::QUEUE_LOCK, $GLOBALS['opts'] ), $GLOBALS['wpdb']->unmodeled ),
+	array( 'invites-stopped', array(), array(), false, array() ) );
+
+// A drain, or anything else, holds the lock through every one of the Stop's tries.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['wpdb']                             = new WPCPM_Test_Options_Wpdb();
+update_option( WPCPM_Mail::QUEUE_OPTION, range( 1001, 1050 ) );
+$held_run                                    = array( 'total' => 50, 'started' => time(), 'finished' => 0, 'unsent' => 0 );
+update_option( WPCPM_Mail::RUN_OPTION, $held_run );
+$GLOBALS['cron'][ WPCPM_Mail::CRON_QUEUE ]   = time() + 60;
+$other_holder                                = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ]   = $other_holder;
+$stopped                                     = pressed_stop();
+ck( 'a Stop that cannot take the lock leaves the run and says to press again',
+	array( $stopped, WPCPM_Mail::queue(), WPCPM_Mail::run(), false !== wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ), $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] ?? null, count( preg_grep( '/^INSERT IGNORE INTO wp_options .*wpcpm_invite_queue_lock/', $GLOBALS['wpdb']->statements ) ) ),
+	array( 'invites-stop-busy', range( 1001, 1050 ), $held_run, true, $other_holder, WPCPM_Mail::CLEAR_LOCK_TRIES ) );
+ck( 'and an uninstall clears the queue all the same, the lock held or not', array( WPCPM_Mail::clear_queue( true ), WPCPM_Mail::queue() ), array( true, array() ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+
+// A queueing the lock refused says so: `queue_invite()` answers `QUEUE_BUSY`, and `queue_was_busy()`
+// tells a bulk queueing's 0 apart from accounts invited before.
+$GLOBALS['wpdb']                           = new WPCPM_Test_Options_Wpdb();
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$busy_one                                  = WPCPM_Mail::queue_invite( 77 );
+$busy_one_said                             = WPCPM_Mail::queue_was_busy();
+$busy_many                                 = WPCPM_Mail::queue_invites( array( 77 ) );
+$busy_many_said                            = WPCPM_Mail::queue_was_busy();
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+$free_one       = WPCPM_Mail::queue_invite( 77 );
+$free_one_said  = WPCPM_Mail::queue_was_busy();
+$again_one      = WPCPM_Mail::queue_invite( 77 );
+$free_many      = WPCPM_Mail::queue_invites( array( 77 ) );
+$free_many_said = WPCPM_Mail::queue_was_busy();
+ck( 'a queueing the lock refused answers that it was busy, distinct from queued and from waiting already',
+	array( $busy_one, $busy_one_said, $busy_many, $busy_many_said, $free_one, $free_one_said, $again_one, $free_many, $free_many_said ),
+	array( WPCPM_Mail::QUEUE_BUSY, true, 0, true, 1, false, 0, 0, false ) );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
 
 echo "\n=== An invitation an activation held ===\n";
 

@@ -49,6 +49,9 @@ class WPCPM_Emails extends WPCPM_Tool {
 	/** The field each of the two forms names its email in: a template's id, or the footer's. */
 	const FIELD = 'wpcpm_email';
 
+	/** The editor's hidden field: the stored edit's `at`, 0 for none, so a save made after another is refused. */
+	const FIELD_EDIT_AT = 'wpcpm_edit_at';
+
 	/**
 	 * The name of the Save form's second button, Send me a test, which posts `test` under it: the
 	 * test is the Save form's own, so whatever is in the boxes reaches the handler.
@@ -393,10 +396,6 @@ class WPCPM_Emails extends WPCPM_Tool {
 	 * names, then the one block every plugin email ends with, in the editor every template has.
 	 */
 	private function render_footer_tab() {
-		if ( WPCPM_Flash::take( 'emails-contact-refused' ) ) {
-			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html__( 'Contact address in emails was not saved: what was typed is not an email address. The one saved before is kept.', 'wpcredits-program-manager' ) );
-		}
-
 		$this->render_settings();
 		$this->render_editor( WPCPM_Mail_Templates::FOOTER );
 	}
@@ -582,6 +581,7 @@ class WPCPM_Emails extends WPCPM_Tool {
 		wp_nonce_field( self::ACTION_SAVE );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD ), esc_attr( $id ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_EDIT_AT ), null === $edit ? 0 : (int) $edit['at'] );
 
 		if ( ! $footer ) {
 			printf(
@@ -812,15 +812,19 @@ class WPCPM_Emails extends WPCPM_Tool {
 	 * @param string $id   The email, or ''.
 	 * @param string $type The notice's kind: success, info or error.
 	 * @param string $text Its sentence.
+	 * @param string $outcome The refusal's name when it has one, such as `email-stale`.
 	 */
-	private function back( $id, $type, $text ) {
-		WPCPM_Flash::set(
-			self::FLASH,
-			array(
-				'type' => $type,
-				'text' => $text,
-			)
+	private function back( $id, $type, $text, $outcome = '' ) {
+		$flash = array(
+			'type' => $type,
+			'text' => $text,
 		);
+
+		if ( '' !== $outcome ) {
+			$flash['outcome'] = $outcome;
+		}
+
+		WPCPM_Flash::set( self::FLASH, $flash );
 
 		wp_safe_redirect( '' === $id ? add_query_arg( 'tab', self::TAB_TEMPLATES, $this->admin_url() ) : $this->editor_url( $id ) );
 		exit;
@@ -852,12 +856,14 @@ class WPCPM_Emails extends WPCPM_Tool {
 			$this->send_test_of( $id, $subject, $body );
 		}
 
-		$saved = WPCPM_Mail_Templates::save( $id, $subject, $body, get_current_user_id() );
+		// The edit the form was drawn from: a form drawn before this field existed posts none and checks nothing.
+		$base_at = WPCPM_Request::posted_text( self::FIELD_EDIT_AT, null );
+		$saved   = WPCPM_Mail_Templates::save( $id, $subject, $body, get_current_user_id(), null === $base_at ? null : (int) $base_at );
 
 		if ( is_wp_error( $saved ) ) {
 			self::keep_typing( $id, $subject, $body );
 
-			$this->back( $id, 'error', $saved->get_error_message() );
+			$this->back( $id, 'error', $saved->get_error_message(), 'wpcpm_edit_stale' === $saved->get_error_code() ? 'email-stale' : '' );
 		}
 
 		if ( WPCPM_Mail_Templates::STATE_SHIPPED === WPCPM_Mail_Templates::state( $id )['state'] ) {

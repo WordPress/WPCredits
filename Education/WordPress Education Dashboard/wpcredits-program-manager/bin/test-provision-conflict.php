@@ -265,6 +265,13 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
+// The count check the syncs ask before they take a role (1.123.58), and the count it is given.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-guard.php';
+require_once __DIR__ . '/stubs/user-count-query.php';
+// The tick lock is a row of the options table the lock writes straight to it (1.123.58): the stand-in
+// runs its statements over `$GLOBALS['opts']`.
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 // The members module is loaded for its two constants and nothing else: the fence names the
 // stamp keys through the class that writes them, and a suite that stubbed them would go on

@@ -14,6 +14,8 @@
  *   hold it: one matches, the other finds the time the first wrote. A row that holds no time reads
  *   as 0 and is taken over, and in a strict SQL session the lock's own digits-only value is read
  *   whole, so nothing is cut short and the take-over still runs.
+ * - **Holding longer.** One UPDATE matching this holder's own token, writing a later time, which
+ *   is the new token; a token the row no longer holds moves nothing.
  * - **Never through the options cache.** The lock asks nothing of get_option() and the rest, so no
  *   cached copy of the row, and no "not there" note in core's notoptions, can answer for it.
  *
@@ -173,17 +175,44 @@ fresh();
 $GLOBALS['opts'][ $N ] = (string) ( time() + 3600 );
 ck( 'a lock that runs to a later time than this request\'s lifetime is still held to that time, as its taker wrote it', array( WPCPM_Lock::take( $N, 600 ), WPCPM_Lock::until( $N ) ), array( '', WPCPM_Test_Options_Wpdb::leading_number( $GLOBALS['opts'][ $N ] ) ) );
 
+echo "\n=== Holding a lock longer ===\n";
+
+// A tick that pages through a long read holds its lock for one more lifetime after every page
+// (`extend()`): one UPDATE that matches only this holder's own token, so a holder whose lock ran out
+// and was taken over moves nobody's time on.
+fresh();
+$held     = WPCPM_Lock::take( $N, 120 );
+$extended = WPCPM_Lock::extend( $N, $held, 120 );
+ck( 'extend() moves a held lock\'s time on and answers the new token, and answers \'\' for a token the row no longer holds',
+	array(
+		'' !== $extended && (int) $extended > (int) $held,
+		$GLOBALS['opts'][ $N ] ?? null,
+		WPCPM_Lock::release( $N, $held ),
+		$GLOBALS['wpdb']->statements[1] ?? '',
+	),
+	array( true, $extended, false, "UPDATE wp_options SET option_value = '" . $extended . "' WHERE option_name = '" . $N . "' AND option_value = '" . $held . "'" ) );
+$GLOBALS['opts'][ $N ] = (string) ( time() + 500 );
+$successor             = $GLOBALS['opts'][ $N ];
+ck( 'a stale token leaves the row as it was', array( WPCPM_Lock::extend( $N, $extended, 120 ), $GLOBALS['opts'][ $N ] ), array( '', $successor ) );
+ck( 'nor does no token, or a lock nobody holds', array( WPCPM_Lock::extend( $N, '', 120 ), WPCPM_Lock::extend( 'wpcpm_invite_lock_8', $extended, 120 ), isset( $GLOBALS['opts']['wpcpm_invite_lock_8'] ) ), array( '', '', false ) );
+fresh();
+$held = WPCPM_Lock::take( $N, 120 );
+$once = WPCPM_Lock::extend( $N, $held, 120 );
+$twice = WPCPM_Lock::extend( $N, $once, 120 );
+ck( 'two extends within one second still each write a later time, so every write changes the row and its count of rows is whatever the client flags', (int) $twice > (int) $once && $GLOBALS['opts'][ $N ] === $twice, true );
+
 echo "\n=== Never through the options cache ===\n";
 
 fresh();
 $t = WPCPM_Lock::take( $N, 600 );
 WPCPM_Lock::take( $N, 600 );
 WPCPM_Lock::until( $N );
+$t = WPCPM_Lock::extend( $N, $t, 600 );
 WPCPM_Lock::release( $N, $t );
 $GLOBALS['opts'][ $N ] = (string) ( time() - 1 );
 WPCPM_Lock::take( $N, 600 );
 
-ck( 'taking, being refused, reading, letting go and taking over ask nothing of the options API', $GLOBALS['option_api'], array() );
+ck( 'taking, being refused, reading, holding longer, letting go and taking over ask nothing of the options API', $GLOBALS['option_api'], array() );
 ck( 'and nothing of the object cache, so no copy and no "not there" note can answer for the row', $GLOBALS['cache_calls'], array() );
 ck( 'every statement is one the database answers alone', $GLOBALS['wpdb']->unmodeled, array() );
 

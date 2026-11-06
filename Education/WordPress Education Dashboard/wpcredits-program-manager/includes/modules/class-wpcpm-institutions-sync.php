@@ -53,6 +53,13 @@ class WPCPM_Institutions_Sync {
 	const LOCK_TIMEOUT = 120;
 
 	/**
+	 * The token of the tick lock this request holds, or '' when it holds none (1.123.58).
+	 *
+	 * @var string
+	 */
+	private static $lock_token = '';
+
+	/**
 	 * Minutes into the three-hour cycle this sync runs at.
 	 *
 	 * Since 1.98.2 every Airtable sync shares one recurrence
@@ -327,10 +334,19 @@ class WPCPM_Institutions_Sync {
 	/**
 	 * Begin a run.
 	 *
+	 * **One run at a time** (1.123.58): a run that is going and has not stalled is refused, and its
+	 * state and its tick lock are left as they were, as `WPCPM_Mentors_Sync::start()` refuses one. A
+	 * restart starts from the beginning and lets go of the lock.
+	 *
 	 * @param bool $run_first_tick Process one slice before returning, for WP-CLI.
-	 * @return true|WP_Error
+	 * @param bool $restart        Start again from the beginning even while a run is going.
+	 * @return true|WP_Error `wpcpm_sync_running` while a run is going and not restarted.
 	 */
-	public static function start( $run_first_tick = false ) {
+	public static function start( $run_first_tick = false, $restart = false ) {
+		if ( ! $restart && self::is_going() ) {
+			return new WP_Error( 'wpcpm_sync_running', __( 'A sync is already running.', 'wpcredits-program-manager' ) );
+		}
+
 		if ( ! WPCPM_Settings::is_connected() ) {
 			$error = new WP_Error( 'wpcpm_not_connected', __( 'Add an Airtable Personal Access Token and Base ID before syncing.', 'wpcredits-program-manager' ) );
 			update_option( self::OPT_ERROR, $error->get_error_message(), false );
@@ -338,7 +354,9 @@ class WPCPM_Institutions_Sync {
 			return $error;
 		}
 
-		delete_option( self::OPT_LOCK );
+		if ( $restart ) {
+			delete_option( self::OPT_LOCK );
+		}
 
 		update_option(
 			self::OPT_STATE,
@@ -386,6 +404,18 @@ class WPCPM_Institutions_Sync {
 		$state = get_option( self::OPT_STATE );
 
 		return is_array( $state ) && ! empty( $state['phase'] ) && 'done' !== $state['phase'];
+	}
+
+	/**
+	 * Whether a run is going and has not stalled (1.123.58): running, and moved on within
+	 * `LOCK_TIMEOUT`, the rule `cron_daily()` leaves a run alone by.
+	 *
+	 * @return bool
+	 */
+	private static function is_going() {
+		$progress = self::progress();
+
+		return ! empty( $progress['running'] ) && empty( $progress['stalled'] );
 	}
 
 	/**
@@ -516,47 +546,66 @@ class WPCPM_Institutions_Sync {
 	}
 
 	/**
-	 * Claim the right to run a tick.
+	 * Claim the right to run a tick (1.123.58: on the atomic lock).
+	 *
+	 * Both the browser poll and cron drive a run, and two ticks at once would process the same
+	 * Airtable page and double-count. `WPCPM_Lock::take()` decides who holds the row in one statement
+	 * the database answers by its unique key, so of two ticks taking it a moment apart one is refused;
+	 * the token it answers is kept for `hold_lock()` and `release_lock()`. A lock left by a tick that
+	 * died runs out after `LOCK_TIMEOUT`, and the next tick takes it over.
 	 *
 	 * @return bool
 	 */
 	private static function acquire_lock() {
-		if ( add_option( self::OPT_LOCK, time(), '', false ) ) {
-			return true;
-		}
+		$token = (string) WPCPM_Lock::take( self::OPT_LOCK, self::LOCK_TIMEOUT );
 
-		$held = (int) get_option( self::OPT_LOCK );
-
-		if ( $held && ( time() - $held ) < self::LOCK_TIMEOUT ) {
+		if ( '' === $token ) {
 			return false;
 		}
 
-		update_option( self::OPT_LOCK, time(), false );
+		self::$lock_token = $token;
 
 		return true;
 	}
 
 	/**
-	 * Release the tick lock.
+	 * Hold the tick lock for one more `LOCK_TIMEOUT`, after a page of a long read (1.123.58).
+	 *
+	 * The budget is checked only between slices, and one slice of a long read can outlast the lock,
+	 * which would let a second tick take it over and read the same pages beside this one. So every
+	 * phase that pages through Airtable calls this after each page. False means the lock ran out and
+	 * another tick took it: this tick stops at once, as one that lost its lock, and writes nothing.
+	 *
+	 * @return bool Whether this tick still holds the lock.
+	 */
+	private static function hold_lock() {
+		self::$lock_token = (string) WPCPM_Lock::extend( self::OPT_LOCK, self::$lock_token, self::LOCK_TIMEOUT );
+
+		return '' !== self::$lock_token;
+	}
+
+	/**
+	 * Release the tick lock: only the row this tick took, so a tick whose lock ran out and was taken
+	 * over never lets go of its successor's.
 	 */
 	private static function release_lock() {
-		delete_option( self::OPT_LOCK );
+		WPCPM_Lock::release( self::OPT_LOCK, self::$lock_token );
+
+		self::$lock_token = '';
 	}
 
 	/**
 	 * Whether a tick holds the run's lock at this moment.
 	 *
-	 * The lock is a row of the options table whose value is the time the tick took it (`acquire_lock()`),
-	 * and it holds for `LOCK_TIMEOUT` at most. The tick is another request, so the row is read in one
-	 * statement straight from the table, as `WPCPM_Lock::until()` reads a row, and never through this
-	 * request's options cache.
+	 * The lock is a row of the options table whose value is the time it runs to (`acquire_lock()`,
+	 * `WPCPM_Lock`), held longer after each page of a long read (`hold_lock()`). The tick is another
+	 * request, so the row is read in one statement straight from the table (`WPCPM_Lock::until()`),
+	 * and never through this request's options cache.
 	 *
 	 * @return bool
 	 */
 	public static function lock_held() {
-		$taken = WPCPM_Lock::until( self::OPT_LOCK );
-
-		return $taken > 0 && time() - $taken < self::LOCK_TIMEOUT;
+		return WPCPM_Lock::until( self::OPT_LOCK ) > time();
 	}
 
 	/**
@@ -623,6 +672,14 @@ class WPCPM_Institutions_Sync {
 					break;
 			}
 
+			// Every slice holds the lock longer before its state is written (`hold_lock()`), whatever its
+			// phase: a tick whose lock was taken over, by a restart or by a tick that found it run out,
+			// or lost under a long read, stops at once, since another tick holds the run now and a state
+			// written here would be written over its work.
+			if ( ! self::hold_lock() ) {
+				return;
+			}
+
 			if ( ! isset( $state['steps'][ $before ] ) ) {
 				$state['steps'][ $before ] = 0;
 			}
@@ -631,8 +688,30 @@ class WPCPM_Institutions_Sync {
 
 			if ( is_wp_error( $result ) ) {
 				update_option( self::OPT_ERROR, $result->get_error_message(), false );
+
+				// A refusal the base takes back is waited out, as the students sync waits one out
+				// (1.123.58): the tick is booked for after the wait, and the run says once that it
+				// waited. One that will not take itself back still stops the run for a person.
+				$delay = WPCPM_Students_Sync::retry_delay( $result );
+
+				if ( $delay > 0 ) {
+					if ( empty( $state['retried'] ) ) {
+						$state['notices'][] = sprintf(
+							/* translators: %s: the error message Airtable, or the HTTP client, returned. */
+							__( 'A read was refused during this run (%s). The run waited and carried on from where it stopped.', 'wpcredits-program-manager' ),
+							$result->get_error_message()
+						);
+					}
+
+					$state['retried'] = ( isset( $state['retried'] ) ? (int) $state['retried'] : 0 ) + 1;
+				}
+
 				update_option( self::OPT_STATE, $state, false );
 				self::release_lock();
+
+				if ( $delay > 0 && ! wp_next_scheduled( self::CRON_TICK ) ) {
+					wp_schedule_single_event( time() + $delay, self::CRON_TICK );
+				}
 
 				return;
 			}
@@ -691,7 +770,7 @@ class WPCPM_Institutions_Sync {
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
 	 * @param array          $settings Plugin settings.
-	 * @return true|WP_Error
+	 * @return bool|WP_Error False when the tick lost its lock (`hold_lock()`).
 	 */
 	private static function phase_records( array &$state, WPCPM_Airtable $airtable, array $settings ) {
 		if ( ! empty( $state['indexed'] ) ) {
@@ -714,6 +793,10 @@ class WPCPM_Institutions_Sync {
 
 		if ( is_wp_error( $page ) ) {
 			return $page;
+		}
+
+		if ( ! self::hold_lock() ) {
+			return false;
 		}
 
 		foreach ( $page['records'] as $record ) {
@@ -1379,9 +1462,11 @@ class WPCPM_Institutions_Sync {
 			false
 		);
 
+		// A run that got here got past whatever refusal it waited out on the way: the report's notice
+		// says so, and the last error is for a run that stopped (1.123.58).
+		delete_option( self::OPT_ERROR );
 		update_option( self::OPT_LAST, time(), false );
 		delete_option( self::OPT_STATE );
-		delete_option( self::OPT_LOCK );
 		wp_clear_scheduled_hook( self::CRON_TICK );
 
 		// Here, and not in the records phase, because the index is whole only once the run is:

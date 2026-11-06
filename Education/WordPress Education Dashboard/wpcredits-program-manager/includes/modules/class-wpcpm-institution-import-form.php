@@ -42,6 +42,20 @@ final class WPCPM_Institution_Import_Form {
 	const FLASH = 'institution_import';
 
 	/**
+	 * What a refused check keeps of the form, one entry per institution, as `WPCPM_Flash::keep()`
+	 * names a form: `import-batch:<institution record>` (1.123.58).
+	 */
+	const KEPT_FORM = 'import-batch:';
+
+	/** The controls a refused check marks, by their ids, which the summary links to. */
+	const FIELD_PROGRAM  = 'wpcpm-import-program';
+	const FIELD_START    = 'wpcpm-import-start';
+	const FIELD_END      = 'wpcpm-import-end';
+	const FIELD_NOTIFIED = 'wpcpm-import-notified';
+	const FIELD_FILE     = 'wpcpm-import-file';
+	const FIELD_PASTE    = 'wpcpm-import-paste';
+
+	/**
 	 * The most bytes accepted from the paste box.
 	 *
 	 * The same ceiling the file route uses, because the two routes produce the same rows and a
@@ -121,6 +135,10 @@ final class WPCPM_Institution_Import_Form {
 		$flash = is_array( $flash ) ? $flash : array();
 		$said  = ! empty( $flash['status'] ) ? (string) $flash['status'] : '';
 
+		// What a refused check kept of the form, taken here whichever branch is drawn, so a list
+		// that is waiting does not leave the typing in the account's meta to fill a later form.
+		$kept = WPCPM_Flash::kept( self::KEPT_FORM . $record );
+
 		echo '<section class="wpcpm-institution__card wpcpm-import" id="wpcpm-import">';
 
 		// **Folded by default, and open when there is something to answer.** Enrolling is an
@@ -150,7 +168,7 @@ final class WPCPM_Institution_Import_Form {
 		} elseif ( $finished > 0 ) {
 			self::render_outcome( $finished, $record );
 		} else {
-			self::render_form( $record );
+			self::render_form( $record, $kept );
 		}
 
 		echo '</div>';
@@ -199,48 +217,83 @@ final class WPCPM_Institution_Import_Form {
 	 * nonce keyed to a different record. A member's own membership places them, and the
 	 * address stays what it was. See `post_url()`.
 	 *
+	 * A refused check comes back with every answer as it was posted (1.123.58): the program, both
+	 * dates, the tick, the one-student fields and the pasted list, and each refused answer marked at
+	 * its own control under a summary over the form. A chosen file is the one answer a browser never
+	 * hands back, so its input asks for it again; a pasted list too long to keep asks for the paste
+	 * again.
+	 *
 	 * @param string $record Institutions record ID.
+	 * @param array  $kept   What `WPCPM_Flash::kept()` handed back for this form.
 	 */
-	private static function render_form( $record ) {
+	private static function render_form( $record, array $kept = array() ) {
+		$typed    = isset( $kept['values'] ) && is_array( $kept['values'] ) ? $kept['values'] : array();
+		$problems = isset( $kept['problems'] ) && is_array( $kept['problems'] ) ? $kept['problems'] : array();
+		$value    = static function ( $field ) use ( $typed ) {
+			return isset( $typed[ $field ] ) && is_scalar( $typed[ $field ] ) ? (string) $typed[ $field ] : '';
+		};
+		$said     = static function ( $id ) use ( $problems ) {
+			return isset( $problems[ $id ] ) && is_string( $problems[ $id ] ) ? $problems[ $id ] : '';
+		};
+
 		printf(
 			'<p class="wpcpm-import__lede">%s</p>',
 			esc_html__( 'Add one student, or a list of them. Nothing is created until you have seen what the list was understood to say.', 'wpcredits-program-manager' )
 		);
 
 		printf(
-			'<form class="wpcpm-import__form" method="post" enctype="multipart/form-data" action="%s">',
-			esc_url( self::post_url( $record ) )
+			'<form class="wpcpm-import__form" method="post" enctype="multipart/form-data" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( self::post_url( $record ) ),
+			esc_attr__( 'Checking the list', 'wpcredits-program-manager' )
 		);
 
 		wp_nonce_field( self::ACTION_CHECK . '_' . $record );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CHECK ) );
 
+		echo WPCPM_Form_Errors::summary( $problems, self::field_map(), array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+
 		echo '<div class="wpcpm-import__batch">';
 
 		printf( '<p class="wpcpm-field"><label for="wpcpm-import-program">%s</label>', esc_html__( 'Program', 'wpcredits-program-manager' ) );
-		echo '<select id="wpcpm-import-program" name="program">';
+		printf(
+			'<select id="wpcpm-import-program" name="program"%s>',
+			WPCPM_Form_Errors::attrs( self::FIELD_PROGRAM, $said( self::FIELD_PROGRAM ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+		);
 
 		// The value is the status the base holds and the label is what a person calls it. The
 		// map is the server's, so a posted value that is not one of these is not a program. A
 		// Track Builder track appears only once its reports automation item is ticked, because a
 		// student on it before that never gets a report row (the design's decision 10).
 		foreach ( WPCPM_Institutions::offered_programs() as $status => $label ) {
-			printf( '<option value="%1$s">%2$s</option>', esc_attr( $status ), esc_html( $label ) );
+			printf(
+				'<option value="%1$s"%3$s>%2$s</option>',
+				esc_attr( $status ),
+				esc_html( $label ),
+				(string) $status === $value( 'program' ) ? ' selected="selected"' : ''
+			);
 		}
 
-		echo '</select></p>';
+		echo '</select>';
+		echo WPCPM_Form_Errors::problem( self::FIELD_PROGRAM, $said( self::FIELD_PROGRAM ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		echo '</p>';
 
 		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-start">%1$s <span class="wpcpm-field__required">%3$s</span></label><input type="date" id="wpcpm-import-start" name="start" required /><span class="wpcpm-field__hint">%2$s</span></p>',
+			'<p class="wpcpm-field"><label for="wpcpm-import-start">%1$s <span class="wpcpm-field__required">%3$s</span></label><input type="date" id="wpcpm-import-start" name="start" required%4$s%5$s />%6$s<span class="wpcpm-field__hint" id="wpcpm-import-start-hint">%2$s</span></p>',
 			esc_html__( 'Start date', 'wpcredits-program-manager' ),
 			esc_html__( 'The term these students begin. A date more than a year either side of today is refused as a typo.', 'wpcredits-program-manager' ),
-			esc_html__( 'Required', 'wpcredits-program-manager' )
+			esc_html__( 'Required', 'wpcredits-program-manager' ),
+			'' === $value( 'start' ) ? '' : ' value="' . esc_attr( $value( 'start' ) ) . '"',
+			WPCPM_Form_Errors::attrs( self::FIELD_START, $said( self::FIELD_START ), 'wpcpm-import-start-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( self::FIELD_START, $said( self::FIELD_START ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 
 		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-end">%1$s</label><input type="date" id="wpcpm-import-end" name="end" /><span class="wpcpm-field__hint">%2$s</span></p>',
+			'<p class="wpcpm-field"><label for="wpcpm-import-end">%1$s</label><input type="date" id="wpcpm-import-end" name="end"%3$s%4$s />%5$s<span class="wpcpm-field__hint" id="wpcpm-import-end-hint">%2$s</span></p>',
 			esc_html__( 'End date, if you know it', 'wpcredits-program-manager' ),
-			esc_html__( 'After the start date, and at most a year after it.', 'wpcredits-program-manager' )
+			esc_html__( 'After the start date, and at most a year after it.', 'wpcredits-program-manager' ),
+			'' === $value( 'end' ) ? '' : ' value="' . esc_attr( $value( 'end' ) ) . '"',
+			WPCPM_Form_Errors::attrs( self::FIELD_END, $said( self::FIELD_END ), 'wpcpm-import-end-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( self::FIELD_END, $said( self::FIELD_END ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 
 		// **Recorded on the batch and never written to a student's record.** The consent that
@@ -256,9 +309,12 @@ final class WPCPM_Institution_Import_Form {
 		// where a bare text node and the mark beside it are two items with a gap between them, so
 		// "Required" was set as a third column instead of ending the sentence.
 		printf(
-			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" name="notified" value="1" required /> <span>%1$s <span class="wpcpm-field__required">%2$s</span></span></label></p>',
-			esc_html__( 'These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program.', 'wpcredits-program-manager' ),
-			esc_html__( 'Required', 'wpcredits-program-manager' )
+			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" id="wpcpm-import-notified" name="notified" value="1" required%3$s%4$s /> <span>%1$s <span class="wpcpm-field__required">%2$s</span></span></label>%5$s</p>',
+			esc_html( self::notified_label() ),
+			esc_html__( 'Required', 'wpcredits-program-manager' ),
+			'1' === $value( 'notified' ) ? ' checked="checked"' : '',
+			WPCPM_Form_Errors::attrs( self::FIELD_NOTIFIED, $said( self::FIELD_NOTIFIED ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( self::FIELD_NOTIFIED, $said( self::FIELD_NOTIFIED ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 
 		echo '</div>';
@@ -277,7 +333,11 @@ final class WPCPM_Institution_Import_Form {
 			$options = self::options_for( $name, $record );
 
 			if ( null === $options ) {
-				printf( '<input type="text" id="wpcpm-import-%1$s" name="%1$s" /></p>', esc_attr( $name ) );
+				printf(
+					'<input type="text" id="wpcpm-import-%1$s" name="%1$s"%2$s /></p>',
+					esc_attr( $name ),
+					'' === $value( $name ) ? '' : ' value="' . esc_attr( $value( $name ) ) . '"'
+				);
 				continue;
 			}
 
@@ -287,7 +347,11 @@ final class WPCPM_Institution_Import_Form {
 			printf( '<option value="">%s</option>', esc_html__( 'Not recorded', 'wpcredits-program-manager' ) );
 
 			foreach ( $options as $option ) {
-				printf( '<option value="%1$s">%1$s</option>', esc_attr( $option ) );
+				printf(
+					'<option value="%1$s"%2$s>%1$s</option>',
+					esc_attr( $option ),
+					'' !== $value( $name ) && (string) $option === $value( $name ) ? ' selected="selected"' : ''
+				);
 			}
 
 			echo '</select>';
@@ -304,16 +368,26 @@ final class WPCPM_Institution_Import_Form {
 
 		printf( '<h3 class="wpcpm-import__subtitle">%s</h3>', esc_html__( 'Or a list', 'wpcredits-program-manager' ) );
 
+		// The limit is said where the file is chosen, so a file over it is a refusal the person was
+		// told about rather than a surprise (1.123.58, IDB-16).
 		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-file">%1$s</label><input type="file" id="wpcpm-import-file" name="list" accept=".csv,text/csv" /><span class="wpcpm-field__hint">%2$s</span>',
+			'<p class="wpcpm-field"><label for="wpcpm-import-file">%1$s</label><input type="file" id="wpcpm-import-file" name="list" accept=".csv,text/csv"%3$s />%4$s<span class="wpcpm-field__hint" id="wpcpm-import-file-hint">%2$s</span>',
 			esc_html__( 'A CSV file', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
+					/* translators: %s: the largest file the import reads, such as 256 KB. */
+					__( 'A CSV file of %s at most.', 'wpcredits-program-manager' ),
+					size_format( self::MAX_BYTES )
+				)
+				. ' '
+				. sprintf(
 					/* translators: %s: the largest number of students one import may carry. */
 					__( 'A header row, then one student per line. Name and email are needed; field of study and tutor are read when they are there. Up to %s students. The file is read and never stored.', 'wpcredits-program-manager' ),
 					number_format_i18n( WPCPM_Institution_Import::MAX_ROWS )
 				)
-			)
+			),
+			WPCPM_Form_Errors::attrs( self::FIELD_FILE, $said( self::FIELD_FILE ), 'wpcpm-import-file-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( self::FIELD_FILE, $said( self::FIELD_FILE ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 
 		// The format, shown rather than only described: a list the export class makes on request, with the
@@ -333,9 +407,12 @@ final class WPCPM_Institution_Import_Form {
 		echo '</p>';
 
 		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-paste">%1$s</label><textarea id="wpcpm-import-paste" name="paste" rows="6"></textarea><span class="wpcpm-field__hint">%2$s</span></p>',
+			'<p class="wpcpm-field"><label for="wpcpm-import-paste">%1$s</label><textarea id="wpcpm-import-paste" name="paste" rows="6"%3$s>%4$s</textarea>%5$s<span class="wpcpm-field__hint" id="wpcpm-import-paste-hint">%2$s</span></p>',
 			esc_html__( 'Or paste the same thing here', 'wpcredits-program-manager' ),
-			esc_html__( 'Useful when the list is in a spreadsheet you would rather not download.', 'wpcredits-program-manager' )
+			esc_html__( 'Useful when the list is in a spreadsheet you would rather not download.', 'wpcredits-program-manager' ),
+			WPCPM_Form_Errors::attrs( self::FIELD_PASTE, $said( self::FIELD_PASTE ), 'wpcpm-import-paste-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			esc_textarea( $value( 'paste' ) ),
+			WPCPM_Form_Errors::problem( self::FIELD_PASTE, $said( self::FIELD_PASTE ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 
 		echo '</div>';
@@ -366,6 +443,42 @@ final class WPCPM_Institution_Import_Form {
 			'field_of_study' => __( 'Field of study', 'wpcredits-program-manager' ),
 			'tutor'          => __( 'Tutor', 'wpcredits-program-manager' ),
 		);
+	}
+
+	/**
+	 * The words of the tick, which is its own label.
+	 *
+	 * @return string
+	 */
+	private static function notified_label() {
+		return __( 'These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The controls a refused check can mark, in the form's order, each with its id and its label,
+	 * for `WPCPM_Form_Errors::summary()` (1.123.58).
+	 *
+	 * @return array<string, array{id: string, label: string}>
+	 */
+	private static function field_map() {
+		$labels = array(
+			self::FIELD_PROGRAM  => __( 'Program', 'wpcredits-program-manager' ),
+			self::FIELD_START    => __( 'Start date', 'wpcredits-program-manager' ),
+			self::FIELD_END      => __( 'End date, if you know it', 'wpcredits-program-manager' ),
+			self::FIELD_NOTIFIED => self::notified_label(),
+			self::FIELD_FILE     => __( 'A CSV file', 'wpcredits-program-manager' ),
+			self::FIELD_PASTE    => __( 'Or paste the same thing here', 'wpcredits-program-manager' ),
+		);
+		$map    = array();
+
+		foreach ( $labels as $id => $label ) {
+			$map[ $id ] = array(
+				'id'    => $id,
+				'label' => $label,
+			);
+		}
+
+		return $map;
 	}
 
 	/**
@@ -468,8 +581,9 @@ final class WPCPM_Institution_Import_Form {
 		self::render_confirm( $batch_id, $batch, $counts['ok'], $record );
 
 		printf(
-			'<form class="wpcpm-import__cancel" method="post" action="%s">',
-			esc_url( self::post_url( $record ) )
+			'<form class="wpcpm-import__cancel" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( self::post_url( $record ) ),
+			esc_attr__( 'Canceling', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( self::ACTION_CANCEL . '_' . (int) $batch_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CANCEL ) );
@@ -514,9 +628,10 @@ final class WPCPM_Institution_Import_Form {
 		);
 
 		printf(
-			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
+			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-confirm="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
 			esc_url( self::post_url( $record ) ),
-			esc_attr( $says )
+			esc_attr( $says ),
+			esc_attr__( 'Creating the records', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( WPCPM_Institution_Create::confirm_action( $batch_id ) );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONFIRM ) );
@@ -565,9 +680,11 @@ final class WPCPM_Institution_Import_Form {
 
 		self::render_exceptions( $batch['rows'] );
 
+		// Continue creates the next records, so it says the words Confirm says while it works.
 		printf(
-			'<form class="wpcpm-import__actions" method="post" action="%s">',
-			esc_url( self::post_url( $record ) )
+			'<form class="wpcpm-import__actions" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( self::post_url( $record ) ),
+			esc_attr__( 'Creating the records', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( WPCPM_Institution_Create::continue_action( $batch['id'] ) );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONTINUE ) );
@@ -850,42 +967,58 @@ final class WPCPM_Institution_Import_Form {
 
 		check_admin_referer( self::ACTION_CHECK . '_' . $institution );
 
+		// What an earlier refusal kept is stale once the form is posted again, whatever this press
+		// comes to (1.123.58).
+		WPCPM_Flash::forget( self::KEPT_FORM . $institution );
+
 		// From here every way out comes back to `$institution`: the one the page resolved and the
 		// nonce above is keyed to, which is what this press acted on whatever else was posted.
+		// Every refusal from here keeps what was posted (`refuse()`), so the form comes back as it
+		// was sent, the refused answer marked at its control.
 		// Staged or being created: either is a list this school already has in hand, and a
 		// second one would put two imports on one roster behind one lock.
 		if ( WPCPM_Institution_Import::active_for( $institution ) > 0 ) {
-			self::bounce( 'already-staged', array(), $institution );
+			self::refuse( 'already-staged', array(), $institution );
+		}
+
+		// The batch-wide answers first: a press refused for a date, the program or the tick costs
+		// none of the checks an hour allows, which only a list that reaches the parse and the base
+		// spends.
+		$batch = self::batch_values();
+
+		if ( '' !== $batch['problem'] ) {
+			self::refuse( $batch['problem'], array(), $institution, $batch['field'] );
 		}
 
 		$allowed = WPCPM_Institution_Import::may_check( $institution );
 
 		if ( empty( $allowed['ok'] ) ) {
-			self::bounce( $allowed['problem'], array(), $institution );
+			self::refuse( $allowed['problem'], array(), $institution );
 		}
 
-		$batch = self::batch_values();
+		$sent = self::submitted_text();
 
-		if ( '' !== $batch['problem'] ) {
-			self::bounce( $batch['problem'], array(), $institution );
+		if ( is_wp_error( $sent ) ) {
+			// A chosen file is the file's answer, too big or unreadable: never a fall through to
+			// the paste box, which may hold a list kept from an earlier refusal, nor "nothing was
+			// sent" over a file that was chosen.
+			self::refuse( (string) $sent->get_error_code(), array(), $institution, self::FIELD_FILE );
 		}
 
-		$text = self::submitted_text();
-
-		if ( '' === $text ) {
-			self::bounce( 'nothing-sent', array(), $institution );
+		if ( '' === $sent['text'] ) {
+			self::refuse( 'nothing-sent', array(), $institution );
 		}
 
-		$parsed = WPCPM_Institution_Import::parse( $text, $batch['values'] );
+		$parsed = WPCPM_Institution_Import::parse( $sent['text'], $batch['values'] );
 
 		if ( empty( $parsed['ok'] ) ) {
-			self::bounce( 'parse-' . $parsed['problem'], $parsed['detail'], $institution );
+			self::refuse( 'parse-' . $parsed['problem'], $parsed['detail'], $institution, $sent['field'] );
 		}
 
 		$claimed = WPCPM_Institution_Import::claim_rows( $institution, count( $parsed['rows'] ) );
 
 		if ( empty( $claimed['ok'] ) ) {
-			self::bounce( $claimed['problem'], array(), $institution );
+			self::refuse( $claimed['problem'], array(), $institution );
 		}
 
 		$rows = WPCPM_Institution_Import::clean_rows( $parsed['rows'] );
@@ -897,13 +1030,13 @@ final class WPCPM_Institution_Import_Form {
 		if ( is_wp_error( $checked ) ) {
 			// The base being unreachable is not a refusal, and saying so keeps a school from
 			// looking for a permissions fault that does not exist.
-			self::bounce( 'unreadable', array(), $institution );
+			self::refuse( 'unreadable', array(), $institution );
 		}
 
 		$staged = WPCPM_Institution_Import::stage( $institution, get_current_user_id(), $batch['values'], $checked, $parsed['unknown'] );
 
 		if ( ! $staged ) {
-			self::bounce( 'not-staged', array(), $institution );
+			self::refuse( 'not-staged', array(), $institution );
 		}
 
 		self::leave( 'checked', array( 'batch' => $staged ), $institution );
@@ -1071,9 +1204,9 @@ final class WPCPM_Institution_Import_Form {
 	}
 
 	/**
-	 * The batch-wide answers, cleaned, or a problem key.
+	 * The batch-wide answers, cleaned, or a problem key and the control it is about.
 	 *
-	 * @return array{values:array,problem:string}
+	 * @return array{values:array,problem:string,field:string}
 	 */
 	private static function batch_values() {
 		$status = WPCPM_Request::posted_text( 'program' );
@@ -1086,6 +1219,7 @@ final class WPCPM_Institution_Import_Form {
 			return array(
 				'values'  => array(),
 				'problem' => 'bad-program',
+				'field'   => self::FIELD_PROGRAM,
 			);
 		}
 
@@ -1095,6 +1229,7 @@ final class WPCPM_Institution_Import_Form {
 			return array(
 				'values'  => array(),
 				'problem' => 'bad-start',
+				'field'   => self::FIELD_START,
 			);
 		}
 
@@ -1108,6 +1243,7 @@ final class WPCPM_Institution_Import_Form {
 			return array(
 				'values'  => array(),
 				'problem' => 'start-far',
+				'field'   => self::FIELD_START,
 			);
 		}
 
@@ -1120,6 +1256,7 @@ final class WPCPM_Institution_Import_Form {
 				return array(
 					'values'  => array(),
 					'problem' => 'bad-end',
+					'field'   => self::FIELD_END,
 				);
 			}
 		}
@@ -1128,6 +1265,7 @@ final class WPCPM_Institution_Import_Form {
 			return array(
 				'values'  => array(),
 				'problem' => 'not-notified',
+				'field'   => self::FIELD_NOTIFIED,
 			);
 		}
 
@@ -1139,6 +1277,7 @@ final class WPCPM_Institution_Import_Form {
 				'notified' => true,
 			),
 			'problem' => '',
+			'field'   => '',
 		);
 	}
 
@@ -1161,58 +1300,120 @@ final class WPCPM_Institution_Import_Form {
 	}
 
 	/**
-	 * The rows the reader sent, as CSV text, from whichever of the three routes was used.
+	 * The rows the reader sent, as CSV text, from whichever of the three routes was used, and the
+	 * control that route is: the file input, the paste box, or '' for the one-student fields.
 	 *
-	 * **The file is read and never stored.** `wp_handle_upload()` would move a list of names
-	 * and addresses into the uploads directory, which this site serves over the web; this reads
-	 * the temporary file and lets PHP discard it. The size is checked before the read, so a
-	 * large file costs the memory of nothing.
+	 * **A chosen file is the file's answer.** Too big for the import, or refused by PHP for its size,
+	 * it is `parse-too_large` at the file input (1.123.58, INS-05); chosen and not readable for any
+	 * other reason, a partial upload, no temporary directory, a failed write, an extension, or nothing
+	 * read from it, it is `file-unreadable` there. The paste box and the one-student fields are read
+	 * only when no file was chosen, so a paste kept from an earlier refusal is never checked in place
+	 * of the file the reader chose.
 	 *
-	 * @return string CSV text, or ''.
+	 * @return array{text:string,field:string}|WP_Error The text and its control, or
+	 *                                                  `parse-too_large` or `file-unreadable`.
 	 */
 	private static function submitted_text() {
-		// The two pieces of the upload this reads, taken one at a time rather than the array
-		// whole: a path and a byte count are the only things wanted, and lifting the rest would
-		// be carrying a browser-supplied filename around for no reason.
-		//
-		// The nonce is checked in `handle_check()`, several steps before this private method is
-		// reached, and it has no other caller. The sniff cannot see across methods, so the
-		// ignore says where to look rather than claiming the check does not matter.
+		// The upload as PHP described it. The nonce is checked in `handle_check()`, several steps
+		// before this private method is reached, and it has no other caller; `uploaded_file()`
+		// reads the two pieces it needs from it and cleans the one that is a string.
 		//
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$path = isset( $_FILES['list']['tmp_name'] ) ? sanitize_text_field( (string) $_FILES['list']['tmp_name'] ) : '';
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$size = isset( $_FILES['list']['size'] ) ? (int) $_FILES['list']['size'] : 0;
+		$file = isset( $_FILES['list'] ) && is_array( $_FILES['list'] ) ? $_FILES['list'] : array();
+		$read = self::uploaded_file( $file );
 
-		// **`is_uploaded_file()` is the check that matters, and it is PHP's own.** It answers
-		// yes only for a path this request's upload handler created, so a posted `tmp_name`
-		// naming `/etc/passwd` reads nothing: the sanitizing above satisfies a linter, this
-		// line is the control.
-		if ( '' !== $path && is_uploaded_file( $path ) ) {
-			// Before the read, so a large file costs the memory of nothing.
-			if ( $size > self::MAX_BYTES ) {
-				return '';
-			}
+		if ( is_wp_error( $read ) ) {
+			return $read;
+		}
 
-			// A PHP upload's temporary file, read once and never moved. WP_Filesystem is for
-			// writing into the site's own directories, which is the thing this deliberately
-			// does not do.
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-			$read = file_get_contents( $path );
+		if ( '' !== trim( $read ) ) {
+			return array(
+				'text'  => $read,
+				'field' => self::FIELD_FILE,
+			);
+		}
 
-			if ( is_string( $read ) && '' !== trim( $read ) ) {
-				return $read;
-			}
+		if ( self::file_chosen() ) {
+			return new WP_Error( 'file-unreadable' );
 		}
 
 		// Lines, not text: the text reader strips them and a CSV becomes one line.
 		$paste = WPCPM_Request::posted_lines( 'paste' );
 
 		if ( '' !== trim( $paste ) ) {
-			return $paste;
+			return array(
+				'text'  => $paste,
+				'field' => self::FIELD_PASTE,
+			);
 		}
 
-		return self::single_row_text();
+		return array(
+			'text'  => self::single_row_text(),
+			'field' => '',
+		);
+	}
+
+	/**
+	 * The text of an uploaded list, '' when there is none to read, or `parse-too_large`.
+	 *
+	 * **The file is read and never stored.** `wp_handle_upload()` would move a list of names and
+	 * addresses into the uploads directory, which this site serves over the web; this reads the
+	 * temporary file and lets PHP discard it. The size is checked before the read, so a large file
+	 * costs the memory of nothing, and a file PHP itself refused for its size (`UPLOAD_ERR_INI_SIZE`,
+	 * `UPLOAD_ERR_FORM_SIZE`), which arrives with no temporary file at all, is too large as well.
+	 *
+	 * Any other upload error is `file-unreadable`.
+	 *
+	 * @param array $file The upload's entry in `$_FILES`.
+	 * @return string|WP_Error
+	 */
+	private static function uploaded_file( array $file ) {
+		$error = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
+
+		if ( in_array( $error, array( UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE ), true ) ) {
+			return new WP_Error( 'parse-too_large' );
+		}
+
+		if ( UPLOAD_ERR_NO_FILE !== $error && UPLOAD_ERR_OK !== $error ) {
+			return new WP_Error( 'file-unreadable' );
+		}
+
+		$size = isset( $file['size'] ) ? (int) $file['size'] : 0;
+
+		// Before the read, and before anything else is asked of the path.
+		if ( $size > self::MAX_BYTES ) {
+			return new WP_Error( 'parse-too_large' );
+		}
+
+		$path = isset( $file['tmp_name'] ) && is_string( $file['tmp_name'] ) ? sanitize_text_field( $file['tmp_name'] ) : '';
+
+		// **`is_uploaded_file()` is the check that matters, and it is PHP's own.** It answers yes
+		// only for a path this request's upload handler created, so a posted `tmp_name` naming
+		// `/etc/passwd` reads nothing: the sanitizing above satisfies a linter, this line is the
+		// control.
+		if ( '' === $path || ! is_uploaded_file( $path ) ) {
+			return '';
+		}
+
+		// A PHP upload's temporary file, read once and never moved. WP_Filesystem is for writing
+		// into the site's own directories, which is the thing this deliberately does not do.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$read = file_get_contents( $path );
+
+		return is_string( $read ) ? $read : '';
+	}
+
+	/**
+	 * Whether the post carried a chosen file, read or not: the one answer a form drawn again cannot
+	 * hold, so its input asks for it again.
+	 *
+	 * @return bool
+	 */
+	private static function file_chosen() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- handle_check() verified the nonce before any refusal reaches here.
+		$error = isset( $_FILES['list']['error'] ) ? (int) $_FILES['list']['error'] : UPLOAD_ERR_NO_FILE;
+
+		return UPLOAD_ERR_NO_FILE !== $error;
 	}
 
 	/**
@@ -1323,6 +1524,64 @@ final class WPCPM_Institution_Import_Form {
 	}
 
 	/**
+	 * Refuse a check that got past the nonce: keep what was posted, then leave the refusal.
+	 *
+	 * @param string $status Why.
+	 * @param array  $detail Anything the sentence needs.
+	 * @param string $record Institutions record ID the press acted on.
+	 * @param string $field  The control the refusal is about, or '' for the form as a whole.
+	 */
+	private static function refuse( $status, array $detail, $record, $field = '' ) {
+		self::keep_posted( $status, $record, $field );
+		self::bounce( $status, $detail, $record );
+	}
+
+	/**
+	 * Keep every answer the check was posted with, and why each refused control was refused, for the
+	 * one time the form is drawn again (1.123.58, INS-02).
+	 *
+	 * One reason a control: the refusal's own sentence at its control; a pasted list over
+	 * `WPCPM_Flash::KEPT_MAX` characters is not kept at all, and its box asks for the paste again; a
+	 * chosen file, which no form can hand back, asks to be chosen again unless the file itself was
+	 * the refusal.
+	 *
+	 * @param string $status The refusal.
+	 * @param string $record Institutions record ID.
+	 * @param string $field  The control the refusal is about, or ''.
+	 */
+	private static function keep_posted( $status, $record, $field ) {
+		$values = array(
+			'program'  => WPCPM_Request::posted_text( 'program' ),
+			'start'    => WPCPM_Request::posted_text( 'start' ),
+			'end'      => WPCPM_Request::posted_text( 'end' ),
+			'notified' => WPCPM_Request::posted_text( 'notified' ),
+			'paste'    => WPCPM_Request::posted_lines( 'paste' ),
+		);
+
+		foreach ( array_keys( self::single_fields() ) as $name ) {
+			$values[ $name ] = WPCPM_Request::posted_text( $name );
+		}
+
+		$said     = self::messages();
+		$problems = array();
+
+		if ( '' !== $field ) {
+			$problems[ $field ] = isset( $said[ $status ] ) ? $said[ $status ] : $said['unknown'];
+		}
+
+		if ( mb_strlen( $values['paste'], 'UTF-8' ) > WPCPM_Flash::KEPT_MAX ) {
+			unset( $values['paste'] );
+			$problems[ self::FIELD_PASTE ] = $said['paste-too-long'];
+		}
+
+		if ( ! isset( $problems[ self::FIELD_FILE ] ) && self::file_chosen() ) {
+			$problems[ self::FIELD_FILE ] = WPCPM_Form_Errors::file_again();
+		}
+
+		WPCPM_Flash::keep( self::KEPT_FORM . $record, $values, $problems );
+	}
+
+	/**
 	 * Leave a refusal and go back.
 	 *
 	 * @param string $status Why.
@@ -1345,19 +1604,47 @@ final class WPCPM_Institution_Import_Form {
 			return;
 		}
 
-		$said = self::messages();
-		$text = isset( $said[ $key ] ) ? $said[ $key ] : $said['unknown'];
-		$sums = self::summary_sentence( $key, isset( $flash['detail'] ) && is_array( $flash['detail'] ) ? $flash['detail'] : array() );
+		$text = self::outcome_sentence( $key, isset( $flash['detail'] ) && is_array( $flash['detail'] ) ? $flash['detail'] : array() );
 
-		if ( '' !== $sums ) {
-			$text = $sums;
+		// Toned, heard and focused as every card's outcome is (1.123.58, IDB-09).
+		echo WPCPM_Dashboard_Card::message( self::tone( $key ), $text, 'wpcpm-import__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+	}
+
+	/**
+	 * The tone an outcome is printed in: done is a success, under way or already so is news, and
+	 * everything else is a refusal.
+	 *
+	 * @param string $key The status.
+	 * @return string `success`, `info` or `error`.
+	 */
+	private static function tone( $key ) {
+		if ( in_array( $key, array( 'checked', 'created', 'cancelled' ), true ) ) {
+			return 'success';
 		}
 
-		printf(
-			'<p class="wpcpm-import__message wpcpm-import__message--%1$s">%2$s</p>',
-			esc_attr( sanitize_html_class( $key ) ),
-			esc_html( $text )
-		);
+		if ( in_array( $key, array( 'progress', 'locked', 'create-unreadable', 'not-staged-now', 'not-creating-now' ), true ) ) {
+			return 'info';
+		}
+
+		return 'error';
+	}
+
+	/**
+	 * What an outcome says: its sentence, or the one that carries its numbers.
+	 *
+	 * @param string $key    The status.
+	 * @param array  $detail What the handler counted.
+	 * @return string
+	 */
+	public static function outcome_sentence( $key, array $detail = array() ) {
+		$said = self::messages();
+		$sums = self::summary_sentence( (string) $key, $detail );
+
+		if ( '' !== $sums ) {
+			return $sums;
+		}
+
+		return isset( $said[ $key ] ) ? $said[ $key ] : $said['unknown'];
 	}
 
 	/**
@@ -1384,6 +1671,23 @@ final class WPCPM_Institution_Import_Form {
 				$count( 'created' ),
 				$count( 'blocked' ),
 				$count( 'failed' )
+			);
+		}
+
+		// The creating stage's own hiccup, apart from the check's `unreadable`: records were
+		// created, and the rest carry on by themselves (1.123.58, INS-09).
+		if ( 'create-unreadable' === $key ) {
+			$created = isset( $detail['created'] ) ? (int) $detail['created'] : 0;
+
+			return sprintf(
+				/* translators: %s: how many student records were created before the program records stopped answering. */
+				_n(
+					'The program records stopped answering partway. %s student record was created, and the rest are created by themselves as soon as the records answer again. Nothing needs to be sent again.',
+					'The program records stopped answering partway. %s student records were created, and the rest are created by themselves as soon as the records answer again. Nothing needs to be sent again.',
+					$created,
+					'wpcredits-program-manager'
+				),
+				number_format_i18n( $created )
 			);
 		}
 
@@ -1443,8 +1747,11 @@ final class WPCPM_Institution_Import_Form {
 			'nothing-sent'         => __( 'Nothing was sent. Fill in one student, choose a file, or paste a list.', 'wpcredits-program-manager' ),
 			'unreadable'           => __( 'The program records could not be reached just now, so the list was not checked. Nothing was created. Try again shortly.', 'wpcredits-program-manager' ),
 			'not-staged'           => __( 'The list was read but could not be kept. Nothing was created.', 'wpcredits-program-manager' ),
+			// Said at the paste box, never as an outcome: a list too long to keep is pasted again.
+			'paste-too-long'       => __( 'The pasted list was too long to keep here: paste it again.', 'wpcredits-program-manager' ),
 			'parse-empty'          => __( 'That list is empty.', 'wpcredits-program-manager' ),
 			'parse-too_large'      => __( 'That file is too big. Send it in two halves.', 'wpcredits-program-manager' ),
+			'file-unreadable'      => __( 'That file could not be read. Choose it again.', 'wpcredits-program-manager' ),
 			'parse-not_utf8'       => __( 'That file is not UTF-8, and converting it would spell somebody\'s name wrong. Export it again as UTF-8 and send it back.', 'wpcredits-program-manager' ),
 			'parse-no_header'      => __( 'That list has no header row.', 'wpcredits-program-manager' ),
 			'parse-no_columns'     => __( 'That list needs a name column and an email column.', 'wpcredits-program-manager' ),

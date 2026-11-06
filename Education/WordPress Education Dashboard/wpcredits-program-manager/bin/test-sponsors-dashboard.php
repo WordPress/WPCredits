@@ -179,6 +179,7 @@ function wp_kses( $s, $allowed ) { return (string) $s; }
 // leaves it, and a stand-in on strip_tags() alone would cut a refusal's sentence at its first "<".
 require_once __DIR__ . '/stubs/cleaners.php';
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 // Core's, as far as the fixtures' names reach it: one accent, on the sponsor the switcher's order is
 // pinned with. The switcher sorts by it.
 function remove_accents( $s, $locale = '' ) { return strtr( (string) $s, array( 'Á' => 'A' ) ); }
@@ -387,6 +388,10 @@ class WPCPM_Flash {
 	public static function take( $k ) { $v = isset( $GLOBALS['flash'][ $k ] ) ? $GLOBALS['flash'][ $k ] : ''; unset( $GLOBALS['flash'][ $k ] ); return $v; }
 	// What a refused form's kept typing sweeps first (`WPCPM_Typed_Text::keep()`): each channel the test picks, cleared unread.
 	public static function sweep( $stale ) { foreach ( (array) ( $GLOBALS['flash'] ?? array() ) as $k => $v ) { if ( $stale( (string) $k, $v ) ) { unset( $GLOBALS['flash'][ $k ] ); } } }
+	// What a refused form keeps (`WPCPM_Flash::keep()`, 1.123.58): its values and the sentence for each refused field, on a channel of its own, taken once.
+	public static function keep( $form, array $values, array $problems = array() ) { $GLOBALS['flash']['kept:' . $form] = array( 'at' => time(), 'values' => $values, 'problems' => $problems ); }
+	public static function kept( $form ) { $entry = self::take( 'kept:' . $form ); return array( 'values' => is_array( $entry ) && isset( $entry['values'] ) ? $entry['values'] : array(), 'problems' => is_array( $entry ) && isset( $entry['problems'] ) ? $entry['problems'] : array() ); }
+	public static function forget( $form ) { self::take( 'kept:' . $form ); }
 }
 class WPCPM_Request {
 	public static function text( $n, $f = '' ) { return isset( $GLOBALS['get'][ $n ] ) ? trim( (string) $GLOBALS['get'][ $n ] ) : $f; }
@@ -441,6 +446,8 @@ function get_users( array $args ) {
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 // The movable modules' shared pieces: the repair of a saved order, one move, the arrows and the printer
 // of one module, real here because the page's markup is what they print.
@@ -566,7 +573,7 @@ if ( $loss_child ) {
 		$_POST = array();
 		$GLOBALS['post'] = array();
 		$page   = $D::render();
-		$notice = preg_match( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--([a-z]+)">(.*?)</p>#s', $page, $found ) ? array( $found[1], html_entity_decode( strip_tags( $found[2] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) : null;
+		$notice = preg_match( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--([a-z]+) is-[a-z]+" role="[a-z]+" tabindex="-1" data-wpcpm-card-message>(.*?)</p>#s', $page, $found ) ? array( $found[1], html_entity_decode( strip_tags( $found[2] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) : null;
 		$box    = preg_match( $press[2], $page, $typed ) ? html_entity_decode( (string) preg_replace( '/^\n/', '', $typed[1] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
 		$seen[ $card ] = array( 'left' => $left, 'notice' => $notice, 'box' => $box );
 	}
@@ -890,20 +897,36 @@ $GLOBALS['get'] = array();
 
 echo "\n=== Messages and leave() ===\n";
 $GLOBALS['uid'] = 5;
-$GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'profile-saved', 'card' => 'profile' );
+try { $D::leave( 'profile-saved', 'profile', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
 $out = $D::render();
 ck( 'a flash prints its sentence with the success tone', false !== strpos( $out, 'wpcpm-dashboard__message--success' ) && false !== strpos( $out, 'Your profile was saved' ), true );
+ck( 'a card\'s outcome is printed at the top of the card it names, drawn open, as a status, and not at the top of the page',
+	array(
+		substr_count( $out, 'data-wpcpm-card-message' ),
+		strpos( $out, 'data-wpcpm-card-message' ) > strpos( $out, 'id="wpcpm-sponsor-profile"' ),
+		false !== strpos( $out, 'role="status" tabindex="-1" data-wpcpm-card-message>Your profile was saved' ),
+		false === strpos( substr( $out, 0, strpos( $out, 'id="wpcpm-sponsor-profile"' ) ), 'data-wpcpm-card-message' ),
+	),
+	array( 1, true, true, true ) );
 ck( 'and opens the card it names', false !== strpos( $out, 'id="wpcpm-sponsor-profile" class="wpcpm-group wpcpm-group__disclosure" open' ), true );
+try { $D::leave( 'profile-saved', 'no-such-card', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
+$said_top = $D::render();
+ck( 'a status a page\'s card does not draw is said at the top, before the identity header',
+	array( substr_count( $said_top, 'data-wpcpm-card-message' ), strpos( $said_top, 'data-wpcpm-card-message' ) < strpos( $said_top, 'wpcpm-sponsor__identity' ) ),
+	array( 1, true ) );
+try { $D::leave( 'refused', 'profile', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
+$refused_in = $D::render();
+ck( 'a refusal is an alert in its card', array( substr_count( $refused_in, 'role="alert"' ), strpos( $refused_in, 'role="alert"' ) > strpos( $refused_in, 'id="wpcpm-sponsor-profile"' ) ), array( 1, true ) );
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'refused', 'card' => '', 'detail' => 'Line 3 repeats line 1.' );
-ck( 'a flash may carry a detail, printed after the sentence', false !== strpos( $D::render(), '<span class="wpcpm-dashboard__detail">Line 3 repeats line 1.</span>' ), true );
+ck( 'a flash may carry a detail, which follows the status\'s sentence in the same message', false !== strpos( $D::render(), '>That is not something your account can do here. Line 3 repeats line 1.</p>' ), true );
 // A refusal for words the cleaner would take has no sentence of its own: the card's whole sentence,
 // which names the box, is the detail, and the notice prints it alone. With neither a sentence nor
 // a detail, nothing is printed.
 $loss_said = WPCPM_Typed_Text::loss_message( WPCPM_Sponsor_Profile::labels()['contact_person'] );
 try { $D::leave( 'profile-loss', 'profile', $A, $loss_said ); } catch ( WPCPM_Test_Redirect $e ) {}
 $loss_page   = $D::render();
-$loss_notice = preg_match( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error">(.*?)</p>#s', $loss_page, $loss_found ) ? $loss_found[1] : null;
-ck( 'a status whose sentence is its detail prints the detail alone, one notice in the error tone, read by a browser as the card\'s sentence naming the box', array( substr_count( $loss_page, '<p class="wpcpm-dashboard__message ' ), null === $loss_notice ? null : 0 === strpos( $loss_notice, '<span class="wpcpm-dashboard__detail">' ), null === $loss_notice ? null : html_entity_decode( strip_tags( $loss_notice ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), array( 1, true, $loss_said ) );
+$loss_notice = preg_match( '#<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>(.*?)</p>#s', $loss_page, $loss_found ) ? $loss_found[1] : null;
+ck( 'a status whose sentence is its detail prints the detail alone, one notice in the error tone, read by a browser as the card\'s sentence naming the box', array( substr_count( $loss_page, '<p class="wpcpm-dashboard__message ' ), null === $loss_notice ? null : false === strpos( $loss_notice, '<span' ), null === $loss_notice ? null : html_entity_decode( strip_tags( $loss_notice ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), array( 1, true, $loss_said ) );
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'profile-loss', 'card' => 'profile', 'detail' => '' );
 ck( 'and with neither a sentence nor a detail, nothing is printed', strpos( $D::render(), 'wpcpm-dashboard__message' ), false );
 // A detail is text, escaped for the page, after a sentence and alone alike: a flash left by an
@@ -911,7 +934,7 @@ ck( 'and with neither a sentence nor a detail, nothing is printed', strpos( $D::
 $detail_markup = array();
 foreach ( array( 'refused', 'profile-loss' ) as $detail_status ) {
 	$GLOBALS['flash'][ $D::FLASH ] = array( 'status' => $detail_status, 'card' => '', 'detail' => 'Line <b>3</b> & "4"' );
-	$detail_markup[]               = false !== strpos( $D::render(), '<span class="wpcpm-dashboard__detail">Line &lt;b&gt;3&lt;/b&gt; &amp; &quot;4&quot;</span></p>' );
+	$detail_markup[]               = false !== strpos( $D::render(), 'Line &lt;b&gt;3&lt;/b&gt; &amp; &quot;4&quot;</p>' );
 }
 ck( 'a detail is printed escaped, after a sentence and alone alike', $detail_markup, array( true, true ) );
 // Every status of the page's cards that a notice could print in silence: a sentence of nothing, whose
@@ -934,7 +957,7 @@ foreach ( $loss_silent as $loss_kind => $loss_statuses ) {
 		$loss_printed[ $loss_status ] = 1 === substr_count( $D::render(), '<p class="wpcpm-dashboard__message ' );
 	}
 }
-ck( 'the page\'s cards hold one status whose sentence is its detail, the profile\'s refusal for lost words, and two whose sentence names values, a start outside the term; each prints a notice', array( $loss_silent, $loss_printed ), array( array( 'empty' => array( 'profile-loss' ), 'named' => array( 'sevent-past-term', 'sevent-before-term' ) ), array( 'profile-loss' => true, 'sevent-past-term' => true, 'sevent-before-term' => true ) ) );
+ck( 'the page\'s cards hold two statuses whose sentence is their detail, the profile\'s refusals for lost words and for a value, and four whose sentence names values, a start outside the term, the hour the planner\'s ceiling lets go and the day an interest was filed; each prints a notice', array( $loss_silent, $loss_printed ), array( array( 'empty' => array( 'profile-loss', 'profile-rejected' ), 'named' => array( 'sevent-past-term', 'sevent-before-term', 'sevent-ceiling-cancel', 'sevent-ceiling', 'mentor-interest-repeat' ) ), array( 'profile-loss' => true, 'profile-rejected' => true, 'sevent-past-term' => true, 'sevent-before-term' => true, 'sevent-ceiling-cancel' => true, 'sevent-ceiling' => true, 'mentor-interest-repeat' => true ) ) );
 $loss_child_out    = array();
 $loss_child_status = null;
 exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' --loss-child 2>&1', $loss_child_out, $loss_child_status );
@@ -947,7 +970,7 @@ ck(
 		array(
 			'profile'   => array( 'left' => 'profile-loss', 'notice' => array( 'error', WPCPM_Typed_Text::loss_message( 'Contact person' ) ), 'box' => 'Ana <ana@example.test>' ),
 			'offers'    => array( 'left' => 'offer-loss', 'notice' => array( 'error', WPCPM_Typed_Text::loss_message( 'Title' ) ), 'box' => 'Kids <12 free, adults >18 pay' ),
-			'empty'     => array( 'offer-loss', 'profile-loss' ),
+			'empty'     => array( 'offer-loss', 'profile-loss', 'profile-rejected' ),
 		),
 	)
 );
@@ -959,7 +982,7 @@ ck( 'leave() stores the detail trimmed to three hundred characters', mb_strlen( 
 try { $D::leave( 'sevent-past-term', 'events', $A, '', array( 'January 31, 2027', 'Europe / Warsaw' ) ); } catch ( WPCPM_Test_Redirect $e ) {}
 ck( 'leave() keeps the values a sentence names beside the status, and only then', $GLOBALS['flash'][ $D::FLASH ], array( 'status' => 'sevent-past-term', 'card' => 'events', 'detail' => '', 'args' => array( 'January 31, 2027', 'Europe / Warsaw' ) ) );
 $named = $D::render();
-ck( 'a flash that carries them prints the sentence with each value where it names it, escaped', false !== strpos( $named, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error">Choose a start on or before January 31, 2027, the last day of your sponsorship term on the site&#039;s clock (Europe / Warsaw).</p>' ), true );
+ck( 'a flash that carries them prints the sentence with each value where it names it, escaped', false !== strpos( $named, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Choose a start on or before January 31, 2027, the last day of your sponsorship term on the site&#039;s clock (Europe / Warsaw).</p>' ), true );
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'sevent-past-term', 'card' => 'events', 'detail' => '' );
 $unnamed = $D::render();
 ck( 'and one that does not, left by an older release or edited by hand, prints no sentence rather than a placeholder', array( strpos( $unnamed, 'wpcpm-dashboard__message' ), strpos( $unnamed, '%1$s' ) ), array( false, false ) );

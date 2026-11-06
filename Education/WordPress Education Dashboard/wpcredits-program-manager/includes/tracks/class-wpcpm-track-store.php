@@ -35,6 +35,13 @@ final class WPCPM_Track_Store {
 	const META_DEFINITION = '_wpcpm_track_definition';
 
 	/**
+	 * The stamp of the last `save()`: `id` (opaque, new for every save), `at` (a Unix timestamp) and
+	 * `by` (a user ID). Only `save()` writes it, so Publish and Take off, which move the post's
+	 * modified date without saving anything, leave it alone.
+	 */
+	const META_STAMP = '_wpcpm_track_stamp';
+
+	/**
 	 * The mark, `builtin`, that a seeded track carried while its hand-written form ran it.
 	 *
 	 * Nothing writes it now, and only the upgrade reads it (`upgrade_seeding()`): a site seeded by
@@ -298,7 +305,76 @@ final class WPCPM_Track_Store {
 			true
 		);
 
-		return is_wp_error( $updated ) ? $updated : $post_id;
+		if ( is_wp_error( $updated ) ) {
+			return $updated;
+		}
+
+		update_post_meta(
+			$post_id,
+			self::META_STAMP,
+			array(
+				'id' => wp_generate_uuid4(),
+				'at' => time(),
+				'by' => get_current_user_id(),
+			)
+		);
+
+		return $post_id;
+	}
+
+	/**
+	 * A track's revision: the opaque value of its last save's stamp. The Track Builder's property
+	 * form is drawn with it and a Save compares it, so a track saved by anybody in between is not
+	 * overwritten by a form drawn before. Publish and Take off do not change it.
+	 *
+	 * @param int $post_id The track.
+	 * @return string The stamp's value; empty for a track never saved since stamps began, and for a
+	 *                post that is not a track.
+	 */
+	public static function revision( $post_id ) {
+		$stamp = self::stamp( $post_id );
+
+		return null === $stamp ? '' : (string) $stamp['id'];
+	}
+
+	/**
+	 * Who last saved a track, as its stamp says.
+	 *
+	 * @param int $post_id The track.
+	 * @return int A user ID; 0 when the track has no stamp.
+	 */
+	public static function saved_by( $post_id ) {
+		$stamp = self::stamp( $post_id );
+
+		return null === $stamp ? 0 : (int) $stamp['by'];
+	}
+
+	/**
+	 * When a track was last saved, as its stamp says.
+	 *
+	 * @param int $post_id The track.
+	 * @return int A Unix timestamp; 0 when the track has no stamp.
+	 */
+	public static function saved_at( $post_id ) {
+		$stamp = self::stamp( $post_id );
+
+		return null === $stamp ? 0 : (int) $stamp['at'];
+	}
+
+	/**
+	 * A track's save stamp.
+	 *
+	 * @param int $post_id The track.
+	 * @return array|null `id`, `at` and `by`; null when there is none.
+	 */
+	private static function stamp( $post_id ) {
+		if ( null === self::track_post( $post_id ) ) {
+			return null;
+		}
+
+		$stamp = get_post_meta( (int) $post_id, self::META_STAMP, true );
+
+		return is_array( $stamp ) && isset( $stamp['id'], $stamp['at'], $stamp['by'] ) ? $stamp : null;
 	}
 
 	/**

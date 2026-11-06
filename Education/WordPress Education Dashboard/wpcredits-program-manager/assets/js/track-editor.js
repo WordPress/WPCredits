@@ -18,8 +18,13 @@
  * a status that is not 2xx; an answer that is not the order the server kept, a redirect the fetch
  * followed among them, reads the same way (the deep check of 1.109.1, BUILDER-4: a refusal
  * answered with a redirect left the row moved and said nothing). The reason is set as text, never
- * as markup. A request that gets no answer at all keeps what is on screen; the next load shows
- * what was kept.
+ * as markup. A request that gets no answer at all (a dropped connection, a timeout) cannot say
+ * whether the move was kept, so it is told as a refusal is: the questions go back to the order
+ * last saved and the page says the move could not be sent (1.123.58).
+ *
+ * The answer to a kept move also carries the track's new revision, which is written into the
+ * property form's hidden field (`#wpcpm-track-revision`): the person's own move is not a change
+ * made elsewhere, so the next Save of the same page is not refused as stale.
  */
 ( function () {
 	'use strict';
@@ -236,6 +241,21 @@
 		}
 
 		/**
+		 * Hand the property form the track's new revision, so that a move made on this page is not
+		 * taken for a change made elsewhere when the form is saved. A page without the form has
+		 * nothing to update.
+		 *
+		 * @param {*} revision The revision the server answered with.
+		 */
+		function stamp( revision ) {
+			var field = document.getElementById( 'wpcpm-track-revision' );
+
+			if ( field && 'string' === typeof revision ) {
+				field.value = revision;
+			}
+		}
+
+		/**
 		 * Take the last refusal's notice away: a new press is about another move.
 		 */
 		function forget() {
@@ -322,6 +342,12 @@
 
 						if ( Array.isArray( order ) ) {
 							kept = order;
+							stamp( json.data.revision );
+
+							// An answer that kept the order takes the "could not be sent" notice of an
+							// older press away: it said the questions were back in an order the page
+							// is no longer in.
+							forget();
 						} else {
 							// Refused: replace what the live region already said.
 							refused( form.getAttribute( 'data-wpcpm-refused' ) || '', reason );
@@ -335,7 +361,18 @@
 						arrange( kept, button );
 					} )
 					.catch( function () {
-						// The page keeps the order on screen; the next load shows what was kept.
+						// A request that got no answer: the page cannot know the move was kept, so
+						// the questions go back to the order last saved and the page says so.
+						if ( ticket <= answered ) {
+							return;
+						}
+
+						answered = ticket;
+						refused( form.getAttribute( 'data-wpcpm-unsent' ) || '', '' );
+
+						if ( ticket === sent ) {
+							arrange( kept, button );
+						}
 					} );
 			} );
 		} );

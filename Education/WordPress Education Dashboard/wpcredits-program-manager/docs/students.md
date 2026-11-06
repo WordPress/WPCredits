@@ -189,6 +189,10 @@ not decide them. Fill in what you have and press **Save my report**; you can com
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save, and the four fields that also appear in *My profile* above update there at the same time.
 
+Since 1.123.58 a report that could not be saved comes back with every answer you typed, and the
+answer that needs a change is marked, with a list of them at the top. Saving your hours keeps you in
+My course and says "Hours saved." there.
+
 ### Feedback forms
 
 Under your report, and nothing to do with it: three short forms asking how the program is going for
@@ -345,6 +349,9 @@ in.
 You can change any answer later: open the form again and your answers are still there. The form's
 title tells you how many of its questions you have answered, and says *all answered* when you have
 finished it - which is also when the next one appears.
+
+Since 1.123.58 a feedback form that could not be sent comes back with your answers, and the form you
+saved opens again with its message inside it.
 
 The count only ever includes the questions you are actually being asked. A follow-up that did not
 apply to you is not a question you have left blank.

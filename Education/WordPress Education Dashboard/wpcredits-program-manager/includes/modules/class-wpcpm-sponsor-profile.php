@@ -119,7 +119,9 @@ final class WPCPM_Sponsor_Profile {
 			'profile-loss'      => array( 'error', '' ),
 			'profile-saved'     => array( 'success', __( 'Your profile was saved.', 'wpcredits-program-manager' ) ),
 			'profile-unchanged' => array( 'info', __( 'Nothing changed.', 'wpcredits-program-manager' ) ),
-			'profile-rejected'  => array( 'error', __( 'One of the values could not be accepted, so nothing was saved: check the website and the contact email.', 'wpcredits-program-manager' ) ),
+			// The sentence after it is the whole message: the one field at fault says what to enter and
+			// that nothing was saved (`refusal()`), at the field, in the summary and here.
+			'profile-rejected'  => array( 'error', '' ),
 			'profile-text-long' => array(
 				'error',
 				sprintf(
@@ -338,7 +340,7 @@ final class WPCPM_Sponsor_Profile {
 	}
 
 	/**
-	 * The form, as `WPCPM_Typed_Text::keep()` names it: one sponsor's profile card.
+	 * The form, as `WPCPM_Flash::keep()` names it: one sponsor's profile card.
 	 *
 	 * @param string $record Sponsor key.
 	 * @return string
@@ -349,21 +351,38 @@ final class WPCPM_Sponsor_Profile {
 
 	/**
 	 * Keep what a refused profile form held for the one time it is drawn again: every field that was
-	 * posted, as typed, each up to the room its box was drawn with (`limit_of()`, and never less than
-	 * the value the box was drawn with, so a text the row holds over its limit comes back whole).
+	 * posted, as typed, and why each refused field was refused (1.123.58, SDB-04). A box over what the
+	 * flash keeps is not kept at all, never kept cut, so the form never shows part of what was typed
+	 * as if it were the whole (`WPCPM_Flash::keep()`).
 	 *
-	 * @param string $record Sponsor key.
-	 * @param array  $typed  Each posted field, as posted and not yet cleaned.
-	 * @param array  $row    The index row the form was drawn from.
+	 * @param string $record   Sponsor key.
+	 * @param array  $typed    Each posted field, as posted and not yet cleaned.
+	 * @param array  $row      The index row the form was drawn from.
+	 * @param array  $problems Each refused field and the one sentence that says why.
 	 */
-	private static function keep_typing( $record, array $typed, array $row ) {
-		$room = array();
+	private static function keep_typing( $record, array $typed, array $row, array $problems = array() ) {
+		unset( $row );
 
-		foreach ( array_keys( $typed ) as $key ) {
-			$room[ $key ] = WPCPM_Typed_Text::kept_room( isset( $row[ $key ] ) ? (string) $row[ $key ] : '', self::limit_of( $key ) );
+		WPCPM_Flash::keep( self::typed_form( $record ), $typed, $problems );
+	}
+
+	/**
+	 * The one sentence a field refused for its value says: what to enter, and that nothing on the
+	 * profile was saved (1.123.58, SDB-04). A field that takes any value has none.
+	 *
+	 * @param string $key A key of `FORM`.
+	 * @return string
+	 */
+	private static function refusal( $key ) {
+		if ( 'website' === $key ) {
+			return __( 'Enter a web address that starts with https://. Nothing on the profile was saved.', 'wpcredits-program-manager' );
 		}
 
-		WPCPM_Typed_Text::keep( self::typed_form( $record ), $typed, $room );
+		if ( 'contact_email' === $key ) {
+			return __( 'Enter one email address, such as name@example.org. Nothing on the profile was saved.', 'wpcredits-program-manager' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -480,7 +499,7 @@ final class WPCPM_Sponsor_Profile {
 		$drawn = array();
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
-		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
+		WPCPM_Flash::forget( self::typed_form( $record ) );
 
 		// What was typed into each field of the form that was posted, before the cleaner has read it.
 		foreach ( self::FORM as $key ) {
@@ -516,8 +535,10 @@ final class WPCPM_Sponsor_Profile {
 			$kind = self::kind_of( $key );
 
 			if ( ! isset( $drawn[ $key ] ) && in_array( $kind, array( 'line', 'text' ), true ) && WPCPM_Typed_Text::cleaner_loses( $value, 'text' === $kind ? 'lines' : 'line' ) ) {
-				self::keep_typing( $record, $typed, $row );
-				self::leave( 'profile-loss', $record, WPCPM_Typed_Text::loss_message( self::labels()[ $key ] ) );
+				$sentence = WPCPM_Typed_Text::loss_message( self::labels()[ $key ] );
+
+				self::keep_typing( $record, $typed, $row, array( $key => $sentence ) );
+				self::leave( 'profile-loss', $record, $sentence );
 			}
 		}
 
@@ -557,19 +578,30 @@ final class WPCPM_Sponsor_Profile {
 
 			// A text box is refused for its length alone, and the flash says so; a line over its
 			// limit is named, with how far over it is (`long_sentence()`). Either is to be shortened,
-			// so the form comes back with what was typed.
+			// so the form comes back with what was typed, the box at fault marked. A website or an
+			// address that cannot be accepted is to be put right too: the form comes back with every
+			// box as typed and the one field at fault says what to enter (1.123.58, SDB-04).
 			if ( ! $cleaned['ok'] ) {
 				if ( 'text' === $spec['kind'] ) {
-					self::keep_typing( $record, $typed, $row );
+					self::keep_typing( $record, $typed, $row, array( $key => self::messages()['profile-text-long'][1] ) );
 					self::leave( 'profile-text-long', $record );
 				}
 
 				if ( isset( $cleaned['over'] ) ) {
-					self::keep_typing( $record, $typed, $row );
-					self::leave( 'profile-long', $record, self::long_sentence( $key, $cleaned['over'] ) );
+					$sentence = self::long_sentence( $key, $cleaned['over'] );
+
+					self::keep_typing( $record, $typed, $row, array( $key => $sentence ) );
+					self::leave( 'profile-long', $record, $sentence );
 				}
 
-				self::leave( 'profile-rejected', $record );
+				$sentence = self::refusal( $key );
+
+				if ( '' === $sentence ) {
+					self::leave( 'profile-failed', $record );
+				}
+
+				self::keep_typing( $record, $typed, $row, array( $key => $sentence ) );
+				self::leave( 'profile-rejected', $record, $sentence );
 			}
 
 			if ( self::unchanged( $spec['kind'], $next, $current ) ) {
@@ -597,7 +629,7 @@ final class WPCPM_Sponsor_Profile {
 			$next = str_replace( array( "\r\n", "\r" ), "\n", sanitize_textarea_field( WPCPM_Request::posted_lines( 'wpcpm_description' ) ) );
 
 			if ( WPCPM_Typed_Text::typed_length( $next ) > self::DESCRIPTION_MAX ) {
-				self::keep_typing( $record, $typed, $row );
+				self::keep_typing( $record, $typed, $row, array( 'description' => self::messages()['profile-too-long'][1] ) );
 				self::leave( 'profile-too-long', $record );
 			}
 
@@ -666,8 +698,10 @@ final class WPCPM_Sponsor_Profile {
 		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
 		$filled = self::filled( $row );
 		$fields = count( self::details() );
-		// A refused save: each field is drawn as it was left, in the room its box had.
-		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record ) );
+		// A refused save: each field is drawn as it was left, and the ones at fault say why.
+		$refused  = WPCPM_Flash::kept( self::typed_form( $record ) );
+		$kept     = $refused['values'];
+		$problems = $refused['problems'];
 
 		WPCPM_Dashboard_Card::open(
 			array(
@@ -712,11 +746,31 @@ final class WPCPM_Sponsor_Profile {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 
+		// Over the form, inside the card: each refused field, linked to its box (1.123.58, SDB-06).
+		$map = array();
+
 		foreach ( self::FORM as $key ) {
-			$spec  = self::FIELDS[ $key ];
-			$id    = 'wpcpm-profile-' . $key;
-			$value = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
-			$typed = isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : null;
+			$map[ $key ] = array(
+				'id'    => 'wpcpm-profile-' . $key,
+				'label' => $labels[ $key ],
+			);
+		}
+
+		$map['description'] = array(
+			'id'    => 'wpcpm-profile-description',
+			'label' => $labels['description'],
+		);
+
+		echo WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+
+		foreach ( self::FORM as $key ) {
+			$spec    = self::FIELDS[ $key ];
+			$id      = 'wpcpm-profile-' . $key;
+			$value   = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
+			$typed   = isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? $kept[ $key ] : null;
+			$problem = isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '';
+			$hint    = 'contact_email' === $key ? $id . '-note' : '';
+			$marks   = WPCPM_Form_Errors::attrs( $id, $problem, $hint );
 
 			echo '<p class="wpcpm-sponsor__field">';
 			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $labels[ $key ] ) );
@@ -726,13 +780,14 @@ final class WPCPM_Sponsor_Profile {
 				// (`WPCPM_Typed_Text`): drawn as stored, the box would show the cleaner's entities. After a
 				// refused save, drawn with what was typed, exactly, in the same room.
 				printf(
-					'<textarea id="%1$s" name="wpcpm_%2$s" rows="4" maxlength="%3$d">%4$s</textarea>',
+					'<textarea id="%1$s" name="wpcpm_%2$s" rows="4" maxlength="%3$d"%5$s>%4$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $key ),
 					(int) WPCPM_Typed_Text::drawn_limit( $value, self::MAX_TEXT ),
 					// The parser drops one line feed right after the opening tag, so a kept typing,
 					// which can begin with a line break, is given one of its own first.
-					null !== $typed ? "\n" . esc_textarea( $typed ) : esc_textarea( WPCPM_Typed_Text::typed_text( $value ) )
+					null !== $typed ? "\n" . esc_textarea( $typed ) : esc_textarea( WPCPM_Typed_Text::typed_text( $value ) ),
+					$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
 				);
 			} else {
 				// A one-line text is drawn as the person typed it, with room for each ">" held as
@@ -761,17 +816,24 @@ final class WPCPM_Sponsor_Profile {
 				$line = 'line' === $spec['kind'];
 
 				printf(
-					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d" />',
+					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d"%6$s />',
 					esc_attr( 'email' === $spec['kind'] ? 'email' : ( 'url' === $spec['kind'] ? 'url' : 'text' ) ),
 					esc_attr( $id ),
 					esc_attr( $key ),
 					esc_attr( $shown ),
-					(int) ( $line ? WPCPM_Typed_Text::drawn_limit( $value, self::MAX_LINE ) : self::MAX_LINE )
+					(int) ( $line ? WPCPM_Typed_Text::drawn_limit( $value, self::MAX_LINE ) : self::MAX_LINE ),
+					$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
 				);
 			}
 
+			echo WPCPM_Form_Errors::problem( $id, $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+
 			if ( 'contact_email' === $key ) {
-				echo '<span class="wpcpm-student__note">' . esc_html__( 'This changes the address the program holds for your company. It does not change who can sign in: ask your program contact for that.', 'wpcredits-program-manager' ) . '</span>';
+				printf(
+					'<span class="wpcpm-student__note" id="%1$s">%2$s</span>',
+					esc_attr( $hint ),
+					esc_html__( 'This changes the address the program holds for your company. It does not change who can sign in: ask your program contact for that.', 'wpcredits-program-manager' )
+				);
 			}
 
 			echo '</p>';
@@ -785,13 +847,16 @@ final class WPCPM_Sponsor_Profile {
 		// the parser drops the one right after the opening tag.
 		if ( self::shows_description( $row ) ) {
 			$described = isset( $kept['description'] ) && is_string( $kept['description'] ) ? $kept['description'] : null;
+			$problem   = isset( $problems['description'] ) ? (string) $problems['description'] : '';
 
 			printf(
-				'<p class="wpcpm-sponsor__field"><label for="wpcpm-profile-description">%1$s</label><textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="%2$d">%3$s</textarea><span class="wpcpm-student__note">%4$s</span></p>',
+				'<p class="wpcpm-sponsor__field"><label for="wpcpm-profile-description">%1$s</label><textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="%2$d"%5$s>%3$s</textarea>%6$s<span class="wpcpm-student__note" id="wpcpm-profile-description-note">%4$s</span></p>',
 				esc_html( $labels['description'] ),
 				(int) WPCPM_Typed_Text::drawn_limit( (string) $row['description'], self::DESCRIPTION_MAX ),
 				null !== $described ? "\n" . esc_textarea( $described ) : esc_textarea( WPCPM_Typed_Text::typed_text( (string) $row['description'] ) ),
-				esc_html__( 'A sentence or two about your company, shown with your logo where the program lists its sponsors. 300 characters at most.', 'wpcredits-program-manager' )
+				esc_html__( 'A sentence or two about your company, shown with your logo where the program lists its sponsors. 300 characters at most.', 'wpcredits-program-manager' ),
+				WPCPM_Form_Errors::attrs( 'wpcpm-profile-description', $problem, 'wpcpm-profile-description-note' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+				WPCPM_Form_Errors::problem( 'wpcpm-profile-description', $problem ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 			);
 		}
 

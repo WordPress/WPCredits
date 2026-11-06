@@ -139,6 +139,13 @@ function update_option( $k, $v, $a = null ) {
 		$GLOBALS['states'][] = $v;
 	}
 
+	// What another request does the moment after this write: fired once, and forgotten (1.123.58).
+	if ( isset( $GLOBALS['after_write'][ $k ] ) && is_callable( $GLOBALS['after_write'][ $k ] ) ) {
+		$then = $GLOBALS['after_write'][ $k ];
+		unset( $GLOBALS['after_write'][ $k ] );
+		$then();
+	}
+
 	return true;
 }
 function add_option( $k, $v, $x = '', $a = null ) { if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }
@@ -238,6 +245,9 @@ function get_users( $args = array() ) {
 	return $out;
 }
 
+// The count the syncs' guard is given (1.123.58), over the accounts' meta below.
+require_once __DIR__ . '/stubs/user-count-query.php';
+
 /**
  * An Airtable that answers from `$GLOBALS['airtable'][ table ]`.
  *
@@ -325,7 +335,16 @@ class WPCPM_Airtable {
 			$callback();
 		}
 
-		return array( 'records' => $out, 'offset' => null );
+		// `$GLOBALS['pages_left'][ table ]` pages the table: the same records on each page, and an
+		// offset to the next while pages are left, so a phase can be shown a long read.
+		$more = false;
+
+		if ( ! empty( $GLOBALS['pages_left'][ $table ] ) ) {
+			--$GLOBALS['pages_left'][ $table ];
+			$more = $GLOBALS['pages_left'][ $table ] > 0;
+		}
+
+		return array( 'records' => $out, 'offset' => $more ? 'page-next' : null );
 	}
 	public function fetch_all( $table, array $args = array() ) {
 		$page = $this->fetch_page( $table, $args );
@@ -371,6 +390,11 @@ require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-guard.php';
+// The tick lock is a row of the options table the lock writes straight to it (1.123.58): the stand-in
+// runs its statements over `$GLOBALS['opts']`.
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
@@ -1319,6 +1343,9 @@ $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] = array(
 	'access'   => array(),
 	'stats'    => array( 'students_seen' => 0, 'mentors_seen' => 0, 'profiles_read' => 0, 'created' => 0, 'linked' => 0, 'updated' => 0, 'invited' => 0, 'assigned' => 0, 'revoked' => 0, 'skipped' => 0, 'conflicts' => 0, 'no_mentor' => 0 ),
 	'notices'  => array(),
+	// It read nobody, which the count check would stop (1.123.58): accepted, so the run reaches its
+	// finish, which is what this block reads.
+	'accepted' => true,
 );
 
 WPCPM_Students_Sync::run_tick( 60 );
@@ -2298,6 +2325,278 @@ ck( 'rows handed back for an ID query are read as the accounts they are: Gil, go
 
 $GLOBALS['users'] = $kept_users;
 $GLOBALS['umeta'] = $kept_umeta;
+
+echo "\n=== The count check before the Student role is taken (LOG-01, 1.123.58) ===\n";
+
+// The provision step's last slice takes the Student role from every linked account the run did not
+// read. A run that read none, or under half as many current students as there are accounts linked to
+// a record and marked active, stops before it: every account is kept, the state waits at the step,
+// and the Students screen's Sync tab offers Run anyway. Past students are read but are not current,
+// so they are not counted.
+$kept_site = array( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] );
+
+/** `$count` accounts holding the Student role, each linked to its record and marked active. */
+function guard_students( $count ) {
+	$GLOBALS['users']   = array();
+	$GLOBALS['umeta']   = array();
+	$GLOBALS['cron']    = array();
+	$GLOBALS['user_counts'] = array();
+	unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ], $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_ERROR ], $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] );
+
+	for ( $n = 1; $n <= $count; $n++ ) {
+		$GLOBALS['users'][ 5000 + $n ] = array( 'login' => 'student-' . $n, 'email' => 'student-' . $n . '@example.test', 'name' => 'Student ' . $n, 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+		$GLOBALS['umeta'][ 5000 + $n ] = array(
+			WPCPM_Students_Sync::META_RECORD_ID => sprintf( 'recSTUDENT%04d', $n ),
+			WPCPM_Students_Sync::META_ACTIVE    => 1,
+		);
+	}
+}
+
+/** How many accounts still hold the Student role. */
+function holding_student_role() {
+	return count( array_filter( $GLOBALS['users'], static function ( $user ) { return in_array( WPCPM_Roles::ROLE_STUDENT, $user['roles'], true ); } ) );
+}
+
+/**
+ * The state of a run at the provision step's last slice, having read the first `$current` linked
+ * students as current and the `$past` after them as past.
+ */
+function provision_end( $current, $past = 0 ) {
+	$students = array();
+
+	for ( $n = 1; $n <= $current + $past; $n++ ) {
+		$students[] = array(
+			'record_id' => sprintf( 'recSTUDENT%04d', $n ),
+			'is_past'   => $n > $current,
+			'email_key' => 'student-' . $n . '@example.test',
+		);
+	}
+
+	return array(
+		'phase'    => 'provision',
+		'offset'   => null,
+		'cursor'   => count( $students ),
+		'started'  => time(),
+		'touched'  => time(),
+		'steps'    => array(),
+		'students' => $students,
+		'stats'    => WPCPM_Students_Sync::empty_stats(),
+		'notices'  => array(),
+	);
+}
+
+$provision_step = new ReflectionMethod( 'WPCPM_Students_Sync', 'phase_provision' );
+if ( PHP_VERSION_ID < 80100 ) {
+	$provision_step->setAccessible( true );
+}
+$student_sentence = WPCPM_Sync_Guard::sentence( 'students', 0, 140 );
+
+guard_students( 140 );
+update_option( WPCPM_Students_Sync::OPT_STATE, provision_end( 0 ) );
+WPCPM_Students_Sync::run_tick( 60 );
+$stopped = get_option( WPCPM_Students_Sync::OPT_STATE );
+ck( 'a run that read nothing while 140 students are linked takes nobody\'s role, keeps its state and stops with both counts',
+	array( holding_student_role(), get_option( WPCPM_Students_Sync::OPT_ERROR ), $stopped['guard'] ?? null, $stopped['phase'] ?? '', $stopped['stats']['revoked'] ?? -1 ),
+	array( 140, $student_sentence, array( 'read' => 0, 'linked' => 140 ), 'provision', 0 ) );
+ck( 'the stop is never retried: no tick is booked for it', wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK ), false );
+ck( 'the count is one query of the accounts holding a record and the active flag, asking for the total alone',
+	array( count( $GLOBALS['user_counts'] ), $GLOBALS['user_counts'][0]['fields'], $GLOBALS['user_counts'][0]['number'], $GLOBALS['user_counts'][0]['count_total'], array_column( array_filter( $GLOBALS['user_counts'][0]['meta_query'], 'is_array' ), 'key' ) ),
+	array( 1, 'ID', 1, true, array( WPCPM_Students_Sync::META_RECORD_ID, WPCPM_Students_Sync::META_ACTIVE ) ) );
+
+$before = get_option( WPCPM_Students_Sync::OPT_STATE );
+WPCPM_Students_Sync::run_tick( 60 );
+ck( 'a stopped run does not run: is_running() is false, is_stopped() true, and run_tick() does nothing',
+	array( WPCPM_Students_Sync::is_running(), WPCPM_Students_Sync::is_stopped(), get_option( WPCPM_Students_Sync::OPT_STATE ) === $before, holding_student_role() ),
+	array( false, true, true, 140 ) );
+
+$progress = WPCPM_Students_Sync::progress();
+ck( 'progress() reports the stop with both counts and its sentence',
+	array( $progress['stopped'], $progress['running'], $progress['guard'], $progress['stalled'] ),
+	array( true, false, array( 'read' => 0, 'linked' => 140, 'sentence' => $student_sentence ), false ) );
+
+WPCPM_Students_Sync::cron_auto();
+ck( 'the recurring start leaves a stopped run alone', get_option( WPCPM_Students_Sync::OPT_STATE ) === $before, true );
+
+$accepted = WPCPM_Students_Sync::accept();
+$state    = get_option( WPCPM_Students_Sync::OPT_STATE );
+ck( 'accept() lets the stopped run go on, for that run, and the next start is without it',
+	array( $accepted, ! empty( $state['accepted'] ), array_key_exists( 'guard', $state ), WPCPM_Students_Sync::is_running(), get_option( WPCPM_Students_Sync::OPT_ERROR ), false !== wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK ) ),
+	array( true, true, false, true, false, true ) );
+WPCPM_Students_Sync::run_tick( 60 );
+ck( 'and the accepted run takes the role of every linked account it did not read, and finishes', array( holding_student_role(), isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ) ), array( 0, false ) );
+WPCPM_Students_Sync::start();
+ck( 'a later start writes a state with no acceptance in it', array_key_exists( 'accepted', get_option( WPCPM_Students_Sync::OPT_STATE ) ), false );
+WPCPM_Students_Sync::cancel();
+WPCPM_Students_Sync::start( false, true );
+ck( 'and a start asked to accept writes one with it', ! empty( get_option( WPCPM_Students_Sync::OPT_STATE )['accepted'] ), true );
+ck( 'accept() on a run the guard did not stop does nothing, and says so', WPCPM_Students_Sync::accept(), false );
+WPCPM_Students_Sync::cancel();
+
+guard_students( 140 );
+$state  = provision_end( 70 );
+$result = $provision_step->invokeArgs( null, array( &$state, WPCPM_Settings::get(), null ) );
+ck( 'the provision step\'s end of a run that read exactly half of the linked students takes the role of the ones it did not read',
+	array( $result, $state['stats']['revoked'], holding_student_role(), array_key_exists( 'guard', $state ), $state['phase'] ),
+	array( true, 70, 70, false, 'done' ) );
+
+guard_students( 140 );
+$state  = provision_end( 69 );
+$result = $provision_step->invokeArgs( null, array( &$state, WPCPM_Settings::get(), null ) );
+ck( 'one under half stops: no role is taken, and the state holds both counts',
+	array( WPCPM_Sync_Guard::is_stop( $result ), holding_student_role(), $state['guard'] ?? null, $state['phase'] ),
+	array( true, 140, array( 'read' => 69, 'linked' => 140 ), 'provision' ) );
+
+guard_students( 140 );
+$state  = provision_end( 60, 20 );
+$result = $provision_step->invokeArgs( null, array( &$state, WPCPM_Settings::get(), null ) );
+ck( 'a past student read is not a current one: 60 current and 20 past of 140 linked stop the run',
+	array( WPCPM_Sync_Guard::is_stop( $result ), $state['guard'] ?? null ),
+	array( true, array( 'read' => 60, 'linked' => 140 ) ) );
+
+$delay = new ReflectionMethod( 'WPCPM_Students_Sync', 'retry_delay' );
+ck( 'retry_delay() answers 0 for the guard\'s two codes, and is public for the other syncs to ask',
+	array( $delay->isPublic(), WPCPM_Students_Sync::retry_delay( WPCPM_Sync_Guard::check( 'students', 0, 9 ) ), WPCPM_Students_Sync::retry_delay( WPCPM_Sync_Guard::check( 'students', 1, 9 ) ), WPCPM_Students_Sync::retry_delay( new WP_Error( 'wpcpm_airtable_error', 'x', array( 'status' => 503 ) ) ) ),
+	array( true, 0, 0, WPCPM_Students_Sync::RETRY_DELAY ) );
+ck( 'and 0 for the setting errors no wait puts right: a read past the page cap, a read with no names, no Countries table set',
+	array_map( static function ( $code ) { return WPCPM_Students_Sync::retry_delay( new WP_Error( $code, 'x' ) ); }, array( 'wpcpm_airtable_capped', 'wpcpm_institutions_no_fields', 'wpcpm_countries_no_table' ) ),
+	array( 0, 0, 0 ) );
+
+guard_students( 140 );
+update_option( WPCPM_Students_Sync::OPT_STATE, provision_end( 0 ) );
+WPCPM_Students_Sync::run_tick( 60 );
+WPCPM_Students_Sync::cancel();
+ck( 'Cancel on a stopped run ends it with its last error, so no stop\'s sentence is left asking for Run anyway',
+	array( isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), get_option( WPCPM_Students_Sync::OPT_ERROR ) ),
+	array( false, false ) );
+
+list( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_site;
+
+echo "\n=== One run at a time, on the atomic lock (LOG-05, LOG-07, 1.123.58) ===\n";
+
+// Sync now pressed during a run used to wipe the run and start again from the first page, and two
+// ticks could both take the lock a moment apart. `start()` now refuses a run that is going and has
+// not stalled (idle past LOCK_TIMEOUT, the rule the recurring start uses), unless asked to restart;
+// the tick lock is the atomic one, held by its token, and a long read holds it longer after each page.
+$kept_site = array( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] );
+
+/** A run part of the way through its Students-table pass, last moved on `$ago` seconds ago. */
+function going_state( $ago ) {
+	return array(
+		'phase'    => 'tutors',
+		'offset'   => 'page-next',
+		'cursor'   => 0,
+		'started'  => time() - $ago - 60,
+		'touched'  => time() - $ago,
+		'steps'    => array( 'reports' => 3 ),
+		'students' => array(),
+		'rows'     => array(),
+		'stats'    => WPCPM_Students_Sync::empty_stats(),
+		'notices'  => array(),
+		'marker'   => 'the run going',
+	);
+}
+
+/** The tick lock's three private steps, as a tick takes them. */
+function students_lock( $method ) {
+	$m = new ReflectionMethod( 'WPCPM_Students_Sync', $method );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$m->setAccessible( true );
+	}
+
+	return $m->invoke( null );
+}
+
+$GLOBALS['cron'] = array();
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_ERROR ] );
+update_option( WPCPM_Students_Sync::OPT_STATE, going_state( 10 ) );
+$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] = (string) ( time() + 100 );
+$lock_before                                     = $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ];
+$refused                                         = WPCPM_Students_Sync::start();
+ck( 'start() refuses while a run is going and has not stalled, and leaves the state and the lock as they were',
+	array( is_wp_error( $refused ) ? $refused->get_error_code() : $refused, get_option( WPCPM_Students_Sync::OPT_STATE ) === going_state( 10 ), $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] ?? null, get_option( WPCPM_Students_Sync::OPT_ERROR ) ),
+	array( 'wpcpm_sync_running', true, $lock_before, false ) );
+
+update_option( WPCPM_Students_Sync::OPT_STATE, going_state( 200 ) );
+$started = WPCPM_Students_Sync::start();
+$fresh   = get_option( WPCPM_Students_Sync::OPT_STATE );
+ck( 'a stalled run may be started again', array( $started, $fresh['phase'], array_key_exists( 'marker', $fresh ) ), array( true, 'reports', false ) );
+
+update_option( WPCPM_Students_Sync::OPT_STATE, going_state( 10 ) );
+$restarted = WPCPM_Students_Sync::start( false, false, true );
+$fresh     = get_option( WPCPM_Students_Sync::OPT_STATE );
+ck( 'start() with restart starts again from the beginning, and lets the lock go with the run it replaced',
+	array( $restarted, $fresh['phase'], array_key_exists( 'marker', $fresh ), isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] ) ),
+	array( true, 'reports', false, false ) );
+WPCPM_Students_Sync::cancel();
+
+$GLOBALS['wpdb'] = new WPCPM_Test_Options_Wpdb();
+$first           = students_lock( 'acquire_lock' );
+$second          = students_lock( 'acquire_lock' );
+ck( 'two ticks taking the lock at once: one gets it', array( $first, $second, count( preg_grep( '/^INSERT IGNORE INTO wp_options .*wpcpm_students_lock/', $GLOBALS['wpdb']->statements ) ) ), array( true, false, 2 ) );
+students_lock( 'release_lock' );
+ck( 'and the one that got it lets it go', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] ), false );
+
+students_lock( 'acquire_lock' );
+// The lock ran out under this tick, and a second tick took it over.
+$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] = (string) ( time() + 500 );
+students_lock( 'release_lock' );
+ck( 'a tick whose lock was taken over does not let go of its successor\'s', WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ), time() + 500 );
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] );
+
+$tutors_step                                = new ReflectionMethod( 'WPCPM_Students_Sync', 'phase_tutors' );
+if ( PHP_VERSION_ID < 80100 ) {
+	$tutors_step->setAccessible( true );
+}
+$students_table                             = WPCPM_Settings::get()['students_table'];
+$GLOBALS['pages_left'][ $students_table ] = 3;
+$state                                      = going_state( 0 );
+$state['offset']                            = null;
+students_lock( 'acquire_lock' );
+$untils = array( WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ) );
+for ( $page = 1; $page <= 3; $page++ ) {
+	$tutors_step->invokeArgs( null, array( &$state, new WPCPM_Airtable(), WPCPM_Settings::get() ) );
+	$untils[] = WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK );
+}
+ck( 'a long read refreshes its lock after every page',
+	array( $untils[1] > $untils[0], $untils[2] > $untils[1], $untils[3] > $untils[2], $state['phase'] ),
+	array( true, true, true, 'provision' ) );
+students_lock( 'release_lock' );
+
+// The lock taken over in the middle of the read: the next page ends the tick at once, as a tick
+// that lost its lock, and nothing of what it read is stored.
+$GLOBALS['pages_left'][ $students_table ] = 3;
+update_option( WPCPM_Students_Sync::OPT_STATE, array_merge( going_state( 0 ), array( 'offset' => null ) ) );
+$GLOBALS['after_read'][ $students_table ] = static function () {
+	$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] = (string) ( time() + 900 );
+};
+$before_lost = get_option( WPCPM_Students_Sync::OPT_STATE );
+WPCPM_Students_Sync::run_tick( 60 );
+ck( 'a tick that lost its lock under a long read stops at once: no further page, no state written, the successor\'s lock left',
+	array( get_option( WPCPM_Students_Sync::OPT_STATE ) === $before_lost, $GLOBALS['pages_left'][ $students_table ], WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ) ),
+	array( true, 2, time() + 900 ) );
+unset( $GLOBALS['pages_left'], $GLOBALS['after_read'] );
+
+// A restart while a tick works a phase that reads no pages: the restart lets the lock go, and the old
+// tick finds it gone when it next holds it, before its next state write, and stops.
+$skipped = array();
+for ( $n = 0; $n < 30; $n++ ) {
+	$skipped[] = array( 'record_id' => '', 'email_key' => '', 'is_past' => false );
+}
+$restarted_run = array_merge( going_state( 0 ), array( 'phase' => 'reports', 'marker' => 'the restarted run' ) );
+update_option( WPCPM_Students_Sync::OPT_STATE, array_merge( going_state( 0 ), array( 'phase' => 'provision', 'offset' => null, 'students' => $skipped ) ) );
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] );
+$GLOBALS['states']                                     = array();
+$GLOBALS['after_write'][ WPCPM_Students_Sync::OPT_STATE ] = static function () use ( $restarted_run ) {
+	$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] = $restarted_run;
+	$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ]  = (string) ( time() + 900 );
+};
+WPCPM_Students_Sync::run_tick( 60 );
+ck( 'a tick whose lock was taken over in a non-paging phase stops before its next state write',
+	array( count( $GLOBALS['states'] ), $GLOBALS['states'][0]['cursor'] ?? null, get_option( WPCPM_Students_Sync::OPT_STATE ) === $restarted_run, WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ) ),
+	array( 1, 15, true, time() + 900 ) );
+unset( $GLOBALS['after_write'] );
+
+list( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_site;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

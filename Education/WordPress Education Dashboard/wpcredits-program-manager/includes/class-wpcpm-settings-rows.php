@@ -24,6 +24,107 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class WPCPM_Settings_Rows {
 
 	/**
+	 * The sentence each marked setting is drawn with, by setting: a refusal's, or the one a setting
+	 * kept as stored because it changed elsewhere since the page was drawn (1.123.58). Set by
+	 * `mark()` for the draw that follows, cleared by `reset_marks()`.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $problems = array();
+
+	/**
+	 * What was typed into each refused setting, by setting, for the row to draw again.
+	 *
+	 * @var array<string, string|string[]>
+	 */
+	private static $values = array();
+
+	/**
+	 * Each setting the draw under way printed a control for: the control's id and the row's label, in
+	 * the order drawn, which the error summary links by (`drawn_labels()`).
+	 *
+	 * @var array<string, array{id: string, label: string}>
+	 */
+	private static $labels = array();
+
+	/**
+	 * Mark settings for the draw that follows: each one's sentence, drawn beside its control and
+	 * summarized above the form (`WPCPM_Form_Errors`), and, for a refused setting, what was typed,
+	 * which its row draws in place of the value saved. A setting kept as stored has a sentence and no
+	 * value. Marks add to those already made, until `reset_marks()`.
+	 *
+	 * @param array<string, string>          $problems Setting => the sentence marked on it.
+	 * @param array<string, string|string[]> $values   Setting => what was typed.
+	 */
+	public static function mark( array $problems, array $values ) {
+		foreach ( $problems as $name => $sentence ) {
+			if ( is_string( $name ) && is_string( $sentence ) && '' !== trim( $sentence ) ) {
+				self::$problems[ $name ] = $sentence;
+			}
+		}
+
+		foreach ( $values as $name => $value ) {
+			if ( is_string( $name ) && ( is_string( $value ) || is_array( $value ) ) ) {
+				self::$values[ $name ] = $value;
+			}
+		}
+	}
+
+	/**
+	 * Forget every mark and every label, so the next form is drawn clean.
+	 */
+	public static function reset_marks() {
+		self::$problems = array();
+		self::$values   = array();
+		self::$labels   = array();
+	}
+
+	/**
+	 * The controls the draw under way printed, by setting, for `WPCPM_Form_Errors::summary()`.
+	 *
+	 * @return array<string, array{id: string, label: string}>
+	 */
+	public static function drawn_labels() {
+		return self::$labels;
+	}
+
+	/**
+	 * Record a setting's control as drawn, and answer for its marks: the attributes the control
+	 * carries and the paragraph that follows it. A row a form draws by hand in this markup calls it
+	 * too, for its own control.
+	 *
+	 * @param string $name  The setting.
+	 * @param string $label The row's label, as text.
+	 * @param string $id    The control's id, or '' for `wpcpm-<setting>`.
+	 * @return array{attrs: string, problem: string, marked: bool} Escaped markup, to print as it is.
+	 */
+	public static function control_notes( $name, $label, $id = '' ) {
+		$id       = '' === (string) $id ? 'wpcpm-' . $name : (string) $id;
+		$sentence = isset( self::$problems[ $name ] ) ? self::$problems[ $name ] : '';
+
+		self::$labels[ $name ] = array(
+			'id'    => $id,
+			'label' => (string) $label,
+		);
+
+		return array(
+			'attrs'   => WPCPM_Form_Errors::attrs( $id, $sentence, '' ),
+			'problem' => WPCPM_Form_Errors::problem( $id, $sentence ),
+			'marked'  => '' !== $sentence,
+		);
+	}
+
+	/**
+	 * What was typed into a refused setting, or null when it was not refused.
+	 *
+	 * @param string $name The setting.
+	 * @return string|string[]|null
+	 */
+	private static function typing( $name ) {
+		return isset( self::$values[ $name ] ) ? self::$values[ $name ] : null;
+	}
+
+	/**
 	 * One number input row on a settings form.
 	 *
 	 * @param string          $name        Field name.
@@ -35,13 +136,18 @@ final class WPCPM_Settings_Rows {
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 */
 	public static function number_row( $name, $label, $value, $min, $max, $description = '', $details = '' ) {
+		$notes = self::control_notes( $name, $label );
+		$typed = self::typing( $name );
+
 		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><input type="number" id="wpcpm-%1$s" name="%1$s" value="%3$d" min="%4$d" max="%5$d" step="1" class="small-text" />',
+			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><input type="number" id="wpcpm-%1$s" name="%1$s" value="%3$s" min="%4$d" max="%5$d" step="1" class="small-text"%6$s />%7$s',
 			esc_attr( $name ),
 			esc_html( $label ),
-			(int) $value,
+			esc_attr( is_string( $typed ) ? $typed : (string) (int) $value ),
 			(int) $min,
-			(int) $max
+			(int) $max,
+			$notes['attrs'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
+			$notes['problem'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 		);
 
 		if ( $description ) {
@@ -64,15 +170,23 @@ final class WPCPM_Settings_Rows {
 	 * @param string          $placeholder Optional example of what to type.
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
+	 * @param string          $before      Optional markup, escaped, opening the row's cell (the box
+	 *                                     above a Who is mailed list).
 	 */
-	public static function text_row( $name, $label, $value, $description = '', $type = 'text', $fallback = '', $placeholder = '', $details = '', $warning = '' ) {
+	public static function text_row( $name, $label, $value, $description = '', $type = 'text', $fallback = '', $placeholder = '', $details = '', $warning = '', $before = '' ) {
+		$notes = self::control_notes( $name, $label );
+		$typed = self::typing( $name );
+
 		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><input type="%3$s" id="wpcpm-%1$s" name="%1$s" value="%4$s" class="regular-text"%5$s autocomplete="off" />',
+			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td>%8$s<input type="%3$s" id="wpcpm-%1$s" name="%1$s" value="%4$s" class="regular-text"%5$s%6$s autocomplete="off" />%7$s',
 			esc_attr( $name ),
 			esc_html( $label ),
 			esc_attr( $type ),
-			esc_attr( $value ),
-			'' === (string) $placeholder ? '' : ' placeholder="' . esc_attr( $placeholder ) . '"'
+			esc_attr( is_string( $typed ) ? $typed : $value ),
+			'' === (string) $placeholder ? '' : ' placeholder="' . esc_attr( $placeholder ) . '"',
+			$notes['attrs'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
+			$notes['problem'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
+			(string) $before // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by its caller.
 		);
 
 		self::row_notes( $description, $fallback, $warning );
@@ -107,10 +221,13 @@ final class WPCPM_Settings_Rows {
 			return;
 		}
 
+		$notes = self::control_notes( $name, $label );
+
 		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><select id="wpcpm-%1$s" name="%1$s">',
+			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><select id="wpcpm-%1$s" name="%1$s"%3$s>',
 			esc_attr( $name ),
-			esc_html( $label )
+			esc_html( $label ),
+			$notes['attrs'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
 		);
 
 		foreach ( $choices as $key => $choice ) {
@@ -138,6 +255,7 @@ final class WPCPM_Settings_Rows {
 		}
 
 		echo '</select>';
+		echo $notes['problem']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 
 		self::row_notes( $description );
 		self::close_row( $label, $details );
@@ -193,17 +311,36 @@ final class WPCPM_Settings_Rows {
 	 *                                     note, drawn once under the group's name, for the locked boxes
 	 *                                     in it that have no note of their own.
 	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
+	 * @param string          $before      Optional markup, escaped, opening the row's cell (the box
+	 *                                     above a Who is mailed list).
 	 */
-	public static function checklist_row( $name, $label, array $ticked, array $choices, $description = '', array $locked = array(), $fallback = '', array $other = array(), $details = '', array $notes = array(), $warning = '' ) {
+	public static function checklist_row( $name, $label, array $ticked, array $choices, $description = '', array $locked = array(), $fallback = '', array $other = array(), $details = '', array $notes = array(), $warning = '', $before = '' ) {
+		$typed = self::typing( $name );
+
+		// A refused list is drawn again as it was typed; a row with an Other addresses line draws its
+		// own typing (`reviewers_row()`).
+		if ( array() === $other && is_array( $typed ) ) {
+			$ticked = array_values( array_filter( $typed, 'is_string' ) );
+		}
+
 		$ticked = array_values( array_map( 'strval', $ticked ) );
 
 		if ( array() === $choices ) {
-			self::textarea_row( $name, $label, $ticked, $description, $fallback, $details, $warning );
+			self::textarea_row( $name, $label, $ticked, $description, $fallback, $details, $warning, $before );
 
 			return;
 		}
 
-		printf( '<tr><th scope="row">%1$s</th><td><fieldset><legend class="screen-reader-text">%1$s</legend>', esc_html( $label ) );
+		// The control a refusal is marked on: the Other addresses line when there is one, else the
+		// group of boxes, which the summary's link reaches by its id.
+		$marks = self::control_notes( $name, $label, array() === $other ? '' : 'wpcpm-' . $name . '-other' );
+		$group = '';
+
+		if ( array() === $other && $marks['marked'] ) {
+			$group = sprintf( ' id="wpcpm-%1$s" aria-describedby="%2$s"', esc_attr( $name ), esc_attr( WPCPM_Form_Errors::problem_id( 'wpcpm-' . $name ) ) );
+		}
+
+		printf( '<tr><th scope="row">%1$s</th><td>%2$s<fieldset%3$s><legend class="screen-reader-text">%1$s</legend>', esc_html( $label ), (string) $before, $group ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $before is escaped by its caller, $group above.
 
 		if ( array() === $other ) {
 			printf( '<input type="hidden" name="%s[]" value="" />', esc_attr( $name ) );
@@ -213,15 +350,17 @@ final class WPCPM_Settings_Rows {
 
 		if ( array() !== $other ) {
 			printf(
-				'<p><label for="wpcpm-%1$s-other">%2$s</label><br /><input type="text" id="wpcpm-%1$s-other" name="%1$s[]" value="%3$s" class="regular-text" placeholder="%4$s" autocomplete="off" /></p>',
+				'<p><label for="wpcpm-%1$s-other">%2$s</label><br /><input type="text" id="wpcpm-%1$s-other" name="%1$s[]" value="%3$s" class="regular-text" placeholder="%4$s" autocomplete="off"%5$s /></p>',
 				esc_attr( $name ),
 				esc_html( isset( $other['label'] ) ? (string) $other['label'] : '' ),
 				esc_attr( isset( $other['value'] ) ? (string) $other['value'] : '' ),
-				esc_attr( isset( $other['placeholder'] ) ? (string) $other['placeholder'] : '' )
+				esc_attr( isset( $other['placeholder'] ) ? (string) $other['placeholder'] : '' ),
+				$marks['attrs'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
 			);
 		}
 
 		echo '</fieldset>';
+		echo $marks['problem']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 
 		self::row_notes( $description, '', $warning );
 		self::close_row( $label, $details );
@@ -249,15 +388,40 @@ final class WPCPM_Settings_Rows {
 	 * @param string          $description Optional help text, one sentence; may contain <code> tags.
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 * @param string          $nobody      Optional sentence said, as a warning, while it names nobody.
+	 * @param bool            $everyone_box Whether the row opens with the box "Mail every Administrator
+	 *                                     account instead of the people below", for the four Who is
+	 *                                     mailed lists (`WPCPM_Settings::NOTIFY_LISTS`): ticked while
+	 *                                     the list saved is empty, and not when the list was refused
+	 *                                     as typed, since that typing left the box unticked.
 	 */
-	public static function reviewers_row( $name, $label, $value, $description = '', $details = '', $nobody = '' ) {
+	public static function reviewers_row( $name, $label, $value, $description = '', $details = '', $nobody = '', $everyone_box = false ) {
 		$value       = (string) $value;
 		$managers    = WPCPM_Settings_Choices::managers();
 		$placeholder = __( 'one@example.org, two@example.org', 'wpcredits-program-manager' );
 		$warning     = '' === trim( $value ) ? (string) $nobody : '';
+		$typed       = self::typing( $name );
+		$before      = '';
+
+		if ( $everyone_box ) {
+			$ticked = '' === trim( $value );
+			$before = self::everyone_box( $name, $ticked && null === $typed );
+		}
+
+		// A refused list is drawn again as it was typed: the entries of the boxes and of the line.
+		$entries = null;
+
+		if ( null !== $typed ) {
+			$entries = array();
+
+			foreach ( (array) $typed as $entry ) {
+				if ( is_string( $entry ) ) {
+					$entries = array_merge( $entries, preg_split( '/[\s,]+/', $entry, -1, PREG_SPLIT_NO_EMPTY ) );
+				}
+			}
+		}
 
 		if ( array() === $managers ) {
-			self::text_row( $name, $label, $value, $description, 'text', self::typed( 'addresses', WPCPM_Settings_Choices::why_empty( 'managers' ) ), $placeholder, $details, $warning );
+			self::text_row( $name, $label, null === $entries ? $value : implode( ', ', $entries ), $description, 'text', self::typed( 'addresses', WPCPM_Settings_Choices::why_empty( 'managers' ) ), $placeholder, $details, $warning, $before );
 
 			return;
 		}
@@ -278,7 +442,7 @@ final class WPCPM_Settings_Rows {
 		$ticked = array();
 		$others = array();
 
-		foreach ( preg_split( '/[\s,]+/', $value, -1, PREG_SPLIT_NO_EMPTY ) as $address ) {
+		foreach ( null === $entries ? preg_split( '/[\s,]+/', $value, -1, PREG_SPLIT_NO_EMPTY ) : $entries as $address ) {
 			if ( isset( $known[ strtolower( $address ) ] ) ) {
 				$ticked[] = $known[ strtolower( $address ) ];
 			} else {
@@ -301,7 +465,26 @@ final class WPCPM_Settings_Rows {
 			),
 			$details,
 			array(),
-			$warning
+			$warning,
+			$before
+		);
+	}
+
+	/**
+	 * The box above a Who is mailed list: "Mail every Administrator account instead of the people
+	 * below", posting `<list>_everyone`, which the save reads as the list written empty
+	 * (`WPCPM_Settings::EVERYONE_SUFFIX`).
+	 *
+	 * @param string $name   The list's setting.
+	 * @param bool   $ticked Whether the box is ticked.
+	 * @return string Escaped markup.
+	 */
+	private static function everyone_box( $name, $ticked ) {
+		return sprintf(
+			'<p><label><input type="checkbox" name="%1$s" value="1"%2$s /> %3$s</label></p>',
+			esc_attr( $name . WPCPM_Settings::EVERYONE_SUFFIX ),
+			$ticked ? ' checked="checked"' : '',
+			esc_html__( 'Mail every Administrator account instead of the people below', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -320,13 +503,18 @@ final class WPCPM_Settings_Rows {
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 */
 	public static function landing_row( $name, $label, $on, $box, $description, $page_url, $details = '' ) {
+		$notes = self::control_notes( $name, $label );
+		$mark  = $notes['marked'] ? sprintf( ' id="wpcpm-%1$s"%2$s', esc_attr( $name ), $notes['attrs'] ) : '';
+
 		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="%2$s" value="1"%3$s> %4$s</label><p class="description">%5$s</p>',
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="%2$s" value="1"%3$s%6$s> %4$s</label>%7$s<p class="description">%5$s</p>',
 			esc_html( $label ),
 			esc_attr( $name ),
 			checked( (bool) $on, true, false ),
 			esc_html( $box ),
-			esc_html( $description )
+			esc_html( $description ),
+			$mark, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above and in WPCPM_Form_Errors::attrs().
+			$notes['problem'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 		);
 
 		self::page_line( $page_url );
@@ -457,14 +645,20 @@ final class WPCPM_Settings_Rows {
 	 *                                     <code> tags.
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 * @param string          $warning     Optional sentence under the help, as a warning (`row_notes()`).
+	 * @param string          $before      Optional markup, escaped, opening the row's cell.
 	 */
-	private static function textarea_row( $name, $label, array $lines, $description = '', $fallback = '', $details = '', $warning = '' ) {
+	private static function textarea_row( $name, $label, array $lines, $description = '', $fallback = '', $details = '', $warning = '', $before = '' ) {
+		$notes = self::control_notes( $name, $label );
+
 		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><textarea id="wpcpm-%1$s" name="%1$s" rows="%3$d" class="regular-text">%4$s</textarea>',
+			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td>%6$s<textarea id="wpcpm-%1$s" name="%1$s" rows="%3$d" class="regular-text"%5$s>%4$s</textarea>%7$s',
 			esc_attr( $name ),
 			esc_html( $label ),
 			(int) max( 3, min( 10, count( $lines ) ) ),
-			esc_textarea( implode( "\n", $lines ) )
+			esc_textarea( implode( "\n", $lines ) ),
+			$notes['attrs'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
+			(string) $before, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by its caller.
+			$notes['problem'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 		);
 
 		self::row_notes( $description, $fallback, $warning );

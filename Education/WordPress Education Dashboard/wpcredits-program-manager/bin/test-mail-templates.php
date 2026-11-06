@@ -114,6 +114,7 @@ function wp_date( $format, $timestamp = null, $zone = null ) { return ( new Date
 function human_time_diff( $from, $to = 0 ) { return round( abs( (int) $to - (int) $from ) / HOUR_IN_SECONDS ) . ' hours'; }
 function switch_to_locale( $locale ) { $GLOBALS['locales'][] = $locale; return true; }
 function restore_previous_locale() { $GLOBALS['locales'][] = 'restored'; return true; }
+function get_user_by( $field, $value ) { return $GLOBALS['stale_users'][ (int) $value ] ?? false; }
 function add_action() {}
 function add_filter() {}
 // What the `wpcpm_mail` filter is handed, kept, so a check can read whether a subject went as plain text.
@@ -1860,6 +1861,25 @@ ck( 'the interest email\'s trigger and its line\'s description name Talk to your
 	wp_date( 'Y-m-d' ) . ' by Ada Okonjo: note: wants to move to Backer',
 ) );
 ck( 'the sponsor\'s invitation asks the company to set its password and check its profile, and no more', array( substr_count( $invite_body, 'Set your password using the link below, then check your company profile.' ), strpos( $invite_body, 'how you would like to support' ) ), array( 1, false ) );
+
+// A stale save (1.123.58): the form posts the `at` of the edit it was drawn from, and a stored edit
+// with another `at` was made or dropped since, so nothing is written.
+echo "\n=== A save from a form drawn before another edit ===\n";
+$GLOBALS['stale_users'] = array( 9 => new WP_User( 9, 'Ida Admin', 'ida@example.test', array( 'administrator' ) ) );
+WPCPM_Mail_Templates::restore( 'invite-student' );
+$GLOBALS['opts'][ WPCPM_Mail_Templates::OPTION ]['templates']['invite-student'] = array( 'subject' => 'Welcome {student_name}', 'body' => "Hi {student_name}.\n\n{set_password_link}", 'by' => 9, 'at' => 1700000000, 'shipped' => WPCPM_Mail_Templates::shipped_fingerprint( 'invite-student' ) );
+$before_stale = WPCPM_Mail_Templates::edit( 'invite-student' );
+$stale        = WPCPM_Mail_Templates::save( 'invite-student', 'Another subject', "Hello.\n\n{set_password_link}", 7, 1699999999 );
+ck( 'save() with a base that is not the stored edit\'s at refuses, and writes nothing', array( $stale instanceof WP_Error ? $stale->get_error_code() : $stale, WPCPM_Mail_Templates::edit( 'invite-student' ) === $before_stale ), array( 'wpcpm_edit_stale', true ) );
+ck( 'and the sentence names who changed the email and when, in the site\'s zone', $stale instanceof WP_Error ? $stale->get_error_message() : '', 'Nothing was saved: Ida Admin changed this email at November 14, 2023 11:13 pm, after you opened it. Your wording is still in the boxes: check it against the email as it is now, and save again.' );
+ck( 'a form drawn for an email with no edit posts 0, and an edit made since is stale', array( WPCPM_Mail_Templates::save( 'invite-student', 'Another subject', "Hello.\n\n{set_password_link}", 7, 0 ) instanceof WP_Error, WPCPM_Mail_Templates::edit( 'invite-student' ) === $before_stale ), array( true, true ) );
+ck( 'save() with the base that is the stored edit\'s at writes', array( WPCPM_Mail_Templates::save( 'invite-student', 'Another subject', "Hello.\n\n{set_password_link}", 7, 1700000000 ), WPCPM_Mail_Templates::edit( 'invite-student' )['subject'] ), array( true, 'Another subject' ) );
+WPCPM_Mail_Templates::restore( 'invite-student' );
+ck( 'an edit dropped since the form was drawn is stale too, and says so without naming anybody', WPCPM_Mail_Templates::save( 'invite-student', 'Another subject', "Hello.\n\n{set_password_link}", 7, 1700000000 )->get_error_message(), 'Nothing was saved: this email was restored to the shipped text after you opened it. Your wording is still in the boxes: check it against the email as it is now, and save again.' );
+ck( 'a form drawn with no edit saves when there is still none, so a first edit is not stale', array( WPCPM_Mail_Templates::save( 'invite-student', 'First subject', "Hello.\n\n{set_password_link}", 7, 0 ), WPCPM_Mail_Templates::edit( 'invite-student' )['subject'] ), array( true, 'First subject' ) );
+WPCPM_Mail_Templates::restore( 'invite-student' );
+ck( 'save() with no base writes as before', array( WPCPM_Mail_Templates::save( 'invite-student', 'Plain subject', "Hello.\n\n{set_password_link}", 7 ), WPCPM_Mail_Templates::edit( 'invite-student' )['subject'] ), array( true, 'Plain subject' ) );
+WPCPM_Mail_Templates::restore( 'invite-student' );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

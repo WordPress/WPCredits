@@ -401,6 +401,11 @@ final class WPCPM_Sponsors_Dashboard {
 
 		WPCPM_Flash::set( self::FLASH, $flash );
 
+		// The page prints the outcome inside the card this goes back to (SDB-01, SDB-02, 1.123.58).
+		if ( '' !== $flash['card'] ) {
+			WPCPM_Dashboard_Card::target( 'wpcpm-sponsor-' . $flash['card'] );
+		}
+
 		$url = self::page_url();
 		$url = '' === $url ? home_url( '/' ) : $url;
 
@@ -494,6 +499,8 @@ final class WPCPM_Sponsors_Dashboard {
 			'viewer'     => $viewer,
 		);
 
+		WPCPM_Dashboard_Card::forget();
+
 		ob_start();
 
 		echo '<div class="wpcpm-dashboard wpcpm-sponsor">';
@@ -512,7 +519,13 @@ final class WPCPM_Sponsors_Dashboard {
 			self::render_switcher( $record );
 		}
 
-		self::render_message( $flash );
+		// The outcome is held for the card the handler named, which prints it at the top of its body; the
+		// slot says it here only when no card did (1.123.58).
+		list( $tone, $text ) = self::message_of( $flash );
+
+		WPCPM_Dashboard_Card::hold( WPCPM_Dashboard_Card::targeted(), $tone, $text );
+		echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
+
 		self::render_identity( $record, $row, $can_manage );
 		self::render_glance( $record, is_array( $stored ) ? $stored : null );
 
@@ -599,7 +612,7 @@ final class WPCPM_Sponsors_Dashboard {
 
 		echo '</div>';
 
-		return (string) ob_get_clean();
+		return WPCPM_Dashboard_Card::settle( (string) ob_get_clean() );
 	}
 
 	/**
@@ -907,7 +920,7 @@ final class WPCPM_Sponsors_Dashboard {
 	}
 
 	/**
-	 * The flash a card's handler left, in the reader's words, with the values it carries put where
+	 * The flash a card's handler left, as a tone and a sentence in the reader's words, with the values it carries put where
 	 * its sentence names them (`filled()`), and the detail after it.
 	 *
 	 * A status whose sentence is empty carries its whole message as the detail: a refusal for words
@@ -919,18 +932,20 @@ final class WPCPM_Sponsors_Dashboard {
 	 * hand-edited flash must not print a blank notice, or a placeholder.
 	 *
 	 * @param array $flash `status`, `card`, `detail` and, when its sentence names values, `args`.
+	 * @return array{0: string, 1: string} The status's tone and the sentence, a space and the detail, or
+	 *                                     the detail alone; two empty strings where nothing is said.
 	 */
-	private static function render_message( array $flash ) {
+	private static function message_of( array $flash ) {
 		$status = isset( $flash['status'] ) ? sanitize_key( (string) $flash['status'] ) : '';
 
 		if ( '' === $status ) {
-			return;
+			return array( '', '' );
 		}
 
 		$messages = self::messages();
 
 		if ( ! isset( $messages[ $status ] ) || ! is_array( $messages[ $status ] ) ) {
-			return;
+			return array( '', '' );
 		}
 
 		$own      = (string) $messages[ $status ][1];
@@ -938,14 +953,12 @@ final class WPCPM_Sponsors_Dashboard {
 		$detail   = isset( $flash['detail'] ) ? trim( (string) $flash['detail'] ) : '';
 
 		if ( '' === $sentence && ( '' !== $own || '' === $detail ) ) {
-			return;
+			return array( '', '' );
 		}
 
-		printf(
-			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s%3$s</p>',
-			esc_attr( (string) $messages[ $status ][0] ),
-			esc_html( $sentence ),
-			'' !== $detail ? ( '' !== $sentence ? ' ' : '' ) . '<span class="wpcpm-dashboard__detail">' . esc_html( $detail ) . '</span>' : ''
+		return array(
+			(string) $messages[ $status ][0],
+			'' !== $detail ? ( '' !== $sentence ? $sentence . ' ' : '' ) . $detail : $sentence,
 		);
 	}
 

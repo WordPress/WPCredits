@@ -140,6 +140,8 @@ function get_user_by( $field, $value ) {
 	}
 	return false;
 }
+/** Core's link to a profile, '' for a reader who may not edit that account: the suite grants `edit_user` by name. */
+function get_edit_user_link( $user_id = 0 ) { return current_user_can( 'edit_user', (int) $user_id ) ? 'https://example.test/wp-admin/user-edit.php?user_id=' . (int) $user_id : ''; }
 function username_exists( $login ) { $u = get_user_by( 'login', $login ); return $u ? $u->ID : false; }
 function wp_generate_password( $l = 12, $s = true, $e = false ) { return str_repeat( 'x', (int) $l ); }
 /** `get_users()` by meta key and value, matching the way MySQL collates: case-insensitively. */
@@ -280,7 +282,15 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	 * assertions are for. It returns how many were actually queued, as the real one does.
 	 */
 	class WPCPM_Mail {
+		/** @var bool Whether the last queueing found the queue's lock held, as the real one says. */
+		public static $busy = false;
 		public static function queue_invites( array $user_ids ) {
+			// The queue's lock, its row in the options table, held by another request: nothing is
+			// queued, and `queue_was_busy()` says so (the fix wave of 1.123.58).
+			self::$busy = isset( $GLOBALS['opts']['wpcpm_invite_queue_lock'] );
+			if ( self::$busy ) {
+				return 0;
+			}
 			$fresh = 0;
 			foreach ( $user_ids as $id ) {
 				// Any of the four stamps, there whatever it holds, as the real one reads them.
@@ -293,6 +303,9 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 				++$fresh;
 			}
 			return $fresh;
+		}
+		public static function queue_was_busy() {
+			return self::$busy;
 		}
 	}
 }
@@ -756,6 +769,23 @@ ck( 'and one invitation is queued for it', $GLOBALS['queued'], array( $fresh->ID
 ck( 'which is the outcome that may claim one', flash_status(), 'added' );
 clear_flash();
 
+// The queue's lock held by another request (the fix wave of 1.123.58): the account is created and
+// attached, nothing is queued, and the card says the queue was busy, not that it was invited before.
+$GLOBALS['inserted']                        = array();
+$GLOBALS['queued']                          = array();
+$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+$_POST                                      = array( 'record' => $B, 'name' => 'Ines Busy', 'email' => 'ines@example.test', 'wpcpm_from' => 'admin' );
+run( 'handle_add_account' );
+unset( $GLOBALS['opts']['wpcpm_invite_queue_lock'] );
+$busy_account = get_user_by( 'email', 'ines@example.test' );
+$busy_said    = render_manager_block( next_manager( 1, 61 ), $B );
+
+$GLOBALS['uid'] = 1;
+ck( 'an account added while the queue\'s lock is held by another request is created and attached, queued nothing, and the card says the queue was busy',
+	array( count( $GLOBALS['inserted'] ), WPCPM_Institution_Members::institution_of( $busy_account->ID ), $GLOBALS['queued'], flash_status(), has( $busy_said, 'The account was added. The invitation could not be queued: the queue was busy. Send it from the account&#039;s row.' ), has( $busy_said, 'already waiting in the queue' ) ),
+	array( 1, $B, array(), 'added-busy', true, false ) );
+clear_flash();
+
 echo "\n=== Add account: what it refuses before it creates anything ===\n";
 
 $GLOBALS['inserted'] = array();
@@ -792,6 +822,44 @@ $GLOBALS['uid'] = 7;
 $_POST          = array( 'record' => $A, 'name' => 'Nobody', 'email' => 'nobody@example.test' );
 ck( 'and a member cannot use the backstop at all', run( 'handle_add_account' ), 'wp_die:You do not have permission to manage the program.' );
 
+echo "\n=== Add account shows its labels, keeps what was typed, and names the account in the way (1.123.58) ===\n";
+
+/**
+ * The next request of a manager who just pressed something: the same user meta under a fresh account,
+ * since the real flash reads each channel once per account and request.
+ */
+function next_manager( $from, $to ) {
+	$GLOBALS['users'][ $to ] = new WP_User( $to, 'Next Manager ' . $to, 'next-' . $to . '@example.test', array( 'administrator' ) );
+	$GLOBALS['manage'][]     = $to;
+	$GLOBALS['umeta'][ $to ] = isset( $GLOBALS['umeta'][ $from ] ) ? $GLOBALS['umeta'][ $from ] : array();
+	return $to;
+}
+
+$drawn = render_manager_block( next_manager( 1, 41 ), $A );
+ck( 'the name and address labels are visible', array( has( $drawn, '<label for="wpcpm-people-name-' . $A . '">Name</label>' ), has( $drawn, '<label for="wpcpm-people-email-' . $A . '">Email address</label>' ), has( $drawn, '<label class="screen-reader-text" for="wpcpm-people-' ) ), array( true, true, false ) );
+ck( 'and the placeholders stay, as examples', array( has( $drawn, 'placeholder="Name"' ), has( $drawn, 'placeholder="Email address"' ) ), array( true, true ) );
+
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'record' => $B, 'name' => 'Nora Typed', 'email' => 'not an address' );
+run( 'handle_add_account' );
+$refused = flash_status();
+$drawn   = render_manager_block( next_manager( 1, 42 ), $B );
+ck( 'a refused address keeps the typed name and address', array( $refused, has( $drawn, 'name="name" value="Nora Typed"' ), has( $drawn, 'name="email" value="not an address"' ) ), array( 'bad-email', true, true ) );
+ck( 'once: the next drawing is the empty form', has( render_manager_block( next_manager( 42, 45 ), $B ), 'value="Nora Typed"' ), false );
+clear_flash();
+
+$GLOBALS['uid']         = 1;
+$GLOBALS['grants'][43]  = array( 'edit_user' );
+$_POST                  = array( 'record' => $A, 'name' => 'Eve Typed', 'email' => 'eve@example.test', 'wpcpm_from' => 'admin' );
+run( 'handle_add_account' );
+next_manager( 1, 44 );
+$admin_view  = render_manager_block( next_manager( 1, 43 ), $A );
+$plain_view  = render_manager_block( 44, $A );
+ck( 'the conflict names the account, linked to its profile for an Administrator', has( $admin_view, 'An account already uses that address: <a href="https://example.test/wp-admin/user-edit.php?user_id=11">Eve Editor</a>. Nothing was created.' ), true );
+ck( 'and by its name alone otherwise', has( $plain_view, 'An account already uses that address: Eve Editor. Nothing was created.' ), true );
+ck( 'and the conflict keeps what was typed too', array( has( $admin_view, 'name="name" value="Eve Typed"' ), has( $admin_view, 'name="email" value="eve@example.test"' ) ), array( true, true ) );
+clear_flash();
+
 echo "\n=== Re-add puts a former member back, and only a former member ===\n";
 
 $GLOBALS['uid']     = 1;
@@ -815,6 +883,20 @@ run( 'handle_readd' );
 
 ck( 'a former member who has been invited before is put back', WPCPM_Institution_Members::institution_of( 13 ), $A );
 ck( 'with no second invitation, and no claim of one', array( flash_status(), $GLOBALS['queued'] ), array( 'readded-known', array() ) );
+clear_flash();
+// And put back while the queue's lock is held by another request: the outcome says the queue was busy.
+WPCPM_Institution_Members::detach( 13, 'removed', 1 );
+$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+$_POST                                      = array( 'member' => 13, 'record' => $A, 'wpcpm_from' => 'admin' );
+run( 'handle_readd' );
+unset( $GLOBALS['opts']['wpcpm_invite_queue_lock'] );
+ck( 'a former member put back while the queue\'s lock is held by another request is put back, and the outcome says the queue was busy',
+	array( WPCPM_Institution_Members::institution_of( 13 ), flash_status(), $GLOBALS['queued'] ), array( $A, 'readded-busy', array() ) );
+$readded_said = render_manager_block( next_manager( 1, 62 ), $A );
+
+$GLOBALS['uid'] = 1;
+ck( 'and the card says the invitation could not be queued, to be sent from the account\'s row',
+	has( $readded_said, 'That former member has access again. The invitation could not be queued: the queue was busy. Send it from the account&#039;s row.' ), true );
 clear_flash();
 // Back to a former member, which is the state the manager block at the foot is written for.
 WPCPM_Institution_Members::detach( 13, 'removed', 1 );

@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // is idempotent by real path, so on a booted site the loader's own line has done the work and
 // this one costs a stat.
 require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
+require_once dirname( __DIR__ ) . '/class-wpcpm-form-errors.php';
 
 /**
  * The form a company fills in to ask to sponsor the program, and everything that guards it.
@@ -25,7 +26,8 @@ require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
  * the form stopped asking in 1.123.12, and since 1.113.0 which tier the company is considering,
  * asked only once the program has announced the tiers. The order the checks run in is the
  * design and is the institution form's: the per-actor ceiling, the nonce, the switch, the
- * honeypot, the dwell token, consent, the fields, requiredness, the two logo files, content
+ * honeypot, the dwell token, the fields, requiredness, consent and the two logo files in that one
+ * pass (1.123.58), content
  * scoring and the site-wide degrade, the duplicate flags, then storage and the two mails. Every
  * check with a number lives in `WPCPM_Form_Guard`, so the two public forms cannot drift apart
  * on what "too many" means.
@@ -335,6 +337,25 @@ class WPCPM_Sponsor_Application {
 	const CRON_PURGE = 'wpcpm_purge_sponsor_applications';
 
 	/**
+	 * The key of the dwell token this request claimed, while its press has stored no row: every
+	 * bounce forgets the token's record (`WPCPM_Form_Guard::bounced()`) and the stored row takes its
+	 * place (`landed()`), so a second press of the token knows what to answer (1.123.58).
+	 *
+	 * @var string
+	 */
+	private static $dwell = '';
+
+	/**
+	 * Whether this request ticked the consent box. A bounce that draws the form again keeps the
+	 * tick with the other answers (1.123.58, trial T2): the person ticked it, and a box drawn empty
+	 * again is refused by the browser itself on the next Send. It is never one of the values a row
+	 * stores; `bounce()` adds it to the stash alone.
+	 *
+	 * @var bool
+	 */
+	private static $ticked = false;
+
+	/**
 	 * Hooks.
 	 *
 	 * The submit handler is registered for logged-out visitors as well, which is the whole
@@ -530,6 +551,17 @@ class WPCPM_Sponsor_Application {
 			return;
 		}
 
+		self::send_no_cache();
+	}
+
+	/**
+	 * Keep the response that draws this form out of every cache: the headers that say so, and the
+	 * constant every page cache reads. Sent from `no_cache()` on the form's own page and from every
+	 * draw of the form, the block's and the shortcode's on any page (1.123.58), since a cached copy
+	 * would hand one visitor another's token, answers or confirmation. `nocache_headers()` sends
+	 * nothing once the headers have gone, so a draw late in a page costs nothing.
+	 */
+	private static function send_no_cache() {
 		nocache_headers();
 
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
@@ -882,6 +914,9 @@ class WPCPM_Sponsor_Application {
 			return '' !== $closed ? self::sentence( $closed ) : self::preview();
 		}
 
+		// The draw is the page's, wherever the block or the shortcode stands: never cached.
+		self::send_no_cache();
+
 		$stash   = self::read_stash();
 		$outcome = isset( $stash['outcome'] ) ? (string) $stash['outcome'] : '';
 
@@ -893,7 +928,7 @@ class WPCPM_Sponsor_Application {
 			self::render_message( $outcome );
 		}
 
-		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy' ), true );
+		$draws = ! in_array( $outcome, array( 'sent', 'sent-quiet', 'busy', 'busy-unkept' ), true );
 
 		if ( '' !== $closed ) {
 			// Every visitor reads the sentence in the form's place, once; the reason is a manager's.
@@ -906,7 +941,7 @@ class WPCPM_Sponsor_Application {
 			}
 		} elseif ( $draws ) {
 			self::render_form(
-				isset( $stash['values'] ) && is_array( $stash['values'] ) ? $stash['values'] : array(),
+				self::values_to_draw( $stash ),
 				isset( $stash['problems'] ) && is_array( $stash['problems'] ) ? $stash['problems'] : array()
 			);
 		}
@@ -922,6 +957,62 @@ class WPCPM_Sponsor_Application {
 			: '';
 
 		return '<div class="wpcpm-application">' . $title . $body . '</div>';
+	}
+
+	/**
+	 * The answers a redrawn form shows: the cleaned ones, and, for an answer typed into a box and
+	 * refused, which so has none, what was typed (1.123.58, FORM-11), escaped where it is drawn as
+	 * every value is.
+	 *
+	 * @param array $stash What the handler left behind.
+	 * @return array Answers keyed by column name.
+	 */
+	private static function values_to_draw( array $stash ) {
+		$values = isset( $stash['values'] ) && is_array( $stash['values'] ) ? $stash['values'] : array();
+		$fields = self::fields();
+
+		if ( isset( $stash['typed'] ) && is_array( $stash['typed'] ) ) {
+			foreach ( $stash['typed'] as $column => $typed ) {
+				if ( isset( $fields[ $column ] ) && self::hands_back_typing( $fields[ $column ] ) && ! isset( $values[ $column ] ) && is_string( $typed ) ) {
+					$values[ $column ] = $typed;
+				}
+			}
+		}
+
+		return $values;
+	}
+
+	/**
+	 * Whether a question's refused answer is handed back as it was typed: every one a person types
+	 * into, a text, an address, a web address and a free text.
+	 *
+	 * @param array $spec The question's spec.
+	 * @return bool
+	 */
+	private static function hands_back_typing( array $spec ) {
+		return in_array( $spec['type'], array( 'text', 'email', 'url', 'textarea' ), true );
+	}
+
+	/**
+	 * Everything typed into the boxes a person types in, as posted: what the per-connection
+	 * ceiling's refusal keeps beside the cleaned values (1.123.58), measured whole by
+	 * `WPCPM_Form_Stash::fits()`, so a post too long to keep is not cut to fit and kept.
+	 *
+	 * @param array $posted The posted answers, keyed by form key, unslashed.
+	 * @return array Column name => what was typed.
+	 */
+	private static function typing( array $posted ) {
+		$typed = array();
+
+		foreach ( self::fields() as $column => $spec ) {
+			$key = self::form_key( $column );
+
+			if ( self::hands_back_typing( $spec ) && isset( $posted[ $key ] ) && is_string( $posted[ $key ] ) && '' !== $posted[ $key ] && mb_check_encoding( $posted[ $key ], 'UTF-8' ) ) {
+				$typed[ $column ] = $posted[ $key ];
+			}
+		}
+
+		return $typed;
 	}
 
 	/**
@@ -1058,19 +1149,23 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The outcomes a redirect can carry, and what each one says.
 	 *
-	 * One map so that every slug the handler stashes has a sentence, which the suite asserts.
+	 * One map so that every slug the handler stashes has a sentence, which the suite asserts. A
+	 * refused send says no sentence of its own since 1.123.58: the form opens with the summary of
+	 * its problems (`WPCPM_Form_Errors::summary()`), the unticked privacy box among them, where
+	 * `again` and `consent` each said one. The per-connection ceiling's three and `stash-gone` are
+	 * every public form's (`WPCPM_Form_Stash::outcomes()`).
 	 *
 	 * @return array<string, array> Slug => `array( level, sentence )`.
 	 */
 	public static function outcomes() {
-		return array(
-			'again'   => array( 'error', __( 'Nothing has been sent yet. Please look at the answers marked below and send the form again.', 'wpcredits-program-manager' ) ),
-			'consent' => array( 'error', __( 'Nothing has been sent yet, and nothing has been stored. The program can only accept an application from a company that confirms the privacy policy, so please tick the last box.', 'wpcredits-program-manager' ) ),
-			'stale'   => array( 'error', __( 'This form had been open for a long time, so it was not sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
-			'expired' => array( 'error', __( 'This form had been open for a while and could not be sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
-			'busy'    => array( 'error', __( 'Several applications have already been sent from here in the last hour, so this one was not. Please try again later.', 'wpcredits-program-manager' ) ),
-			'lost'    => array( 'error', __( 'Something went wrong at our end and the application was not saved. Nothing has been sent. Please try once more.', 'wpcredits-program-manager' ) ),
-			'closed'  => array( 'info', __( 'The program is not taking sponsor applications through this form at the moment.', 'wpcredits-program-manager' ) ),
+		return array_merge(
+			WPCPM_Form_Stash::outcomes(),
+			array(
+				'stale'   => array( 'error', __( 'This form had been open for a long time, so it was not sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
+				'expired' => array( 'error', __( 'This form had been open for a while and could not be sent. Your answers are still here: please send it again.', 'wpcredits-program-manager' ) ),
+				'lost'    => array( 'error', __( 'Something went wrong at our end and the application was not saved. Nothing has been sent. Try once more.', 'wpcredits-program-manager' ) ),
+				'closed'  => array( 'info', __( 'The program is not taking sponsor applications through this form at the moment.', 'wpcredits-program-manager' ) ),
+			)
 		);
 	}
 
@@ -1108,6 +1203,10 @@ class WPCPM_Sponsor_Application {
 			esc_attr__( 'Sending...', 'wpcredits-program-manager' ),
 			esc_attr__( 'Sending your application.', 'wpcredits-program-manager' )
 		);
+
+		// The summary of a refused send, the form's first child: a heading counting the problems and
+		// a link to each field, which assets/js/forms.js moves the focus to (1.123.58, FORM-02).
+		echo self::summary( $problems ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SUBMIT ) );
 
@@ -1147,7 +1246,8 @@ class WPCPM_Sponsor_Application {
 					$column,
 					$spec,
 					isset( $values[ $column ] ) ? $values[ $column ] : null,
-					isset( $problems[ $column ] ) ? (string) $problems[ $column ] : ''
+					isset( $problems[ $column ] ) ? (string) $problems[ $column ] : '',
+					$problems
 				);
 			}
 
@@ -1163,16 +1263,87 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
+	 * The summary a refused send opens with: each problem linked to its question by the question's
+	 * label, in the form's order, the two logo files after the logo question, or '' when nothing was
+	 * refused.
+	 *
+	 * @param array $problems Problem slugs, keyed by column name or logo file field.
+	 * @return string
+	 */
+	private static function summary( array $problems ) {
+		$fields    = array();
+		$sentences = array();
+
+		foreach ( self::fields() as $column => $spec ) {
+			$fields[ $column ] = array(
+				'id'    => self::field_id( $column ),
+				'label' => (string) $spec['label'],
+			);
+
+			if ( isset( $problems[ $column ] ) ) {
+				$sentences[ $column ] = self::problem_text( (string) $problems[ $column ] );
+			}
+
+			if ( 'logos' !== $spec['type'] ) {
+				continue;
+			}
+
+			foreach ( self::logo_inputs() as $field => $input ) {
+				$fields[ $field ] = array(
+					'id'    => $input['id'],
+					'label' => $input['label'],
+				);
+
+				if ( isset( $problems[ $field ] ) ) {
+					$sentences[ $field ] = self::problem_text( (string) $problems[ $field ] );
+				}
+			}
+		}
+
+		return WPCPM_Form_Errors::summary( $sentences, $fields );
+	}
+
+	/**
+	 * The id a question's control is drawn with, which its problem's id and the summary's link are
+	 * made from.
+	 *
+	 * @param string $column Column name (`COL_*`).
+	 * @return string
+	 */
+	private static function field_id( $column ) {
+		return 'wpcpm-sponsor-application-' . self::form_key( $column );
+	}
+
+	/**
+	 * The two file controls, keyed by the field each posts under: its id and its label.
+	 *
+	 * @return array<string, array{id:string,label:string}>
+	 */
+	private static function logo_inputs() {
+		return array(
+			self::FIELD_LOGO_COLOR => array(
+				'id'    => 'wpcpm-sponsor-application-logo-color',
+				'label' => __( 'In color', 'wpcredits-program-manager' ),
+			),
+			self::FIELD_LOGO_WHITE => array(
+				'id'    => 'wpcpm-sponsor-application-logo-white',
+				'label' => __( 'In white, for a dark background', 'wpcredits-program-manager' ),
+			),
+		);
+	}
+
+	/**
 	 * One question.
 	 *
-	 * @param string $column  Column name (`COL_*`).
-	 * @param array  $spec    Its spec.
-	 * @param mixed  $value   Its value from a failed attempt, or null.
-	 * @param string $problem The problem slug from that attempt, or ''.
+	 * @param string $column   Column name (`COL_*`).
+	 * @param array  $spec     Its spec.
+	 * @param mixed  $value    Its value from a failed attempt, or null.
+	 * @param string $problem  The problem slug from that attempt, or ''.
+	 * @param array  $problems Every problem of that attempt, for the two logo files' own.
 	 */
-	private static function render_field( $column, array $spec, $value, $problem ) {
+	private static function render_field( $column, array $spec, $value, $problem, array $problems = array() ) {
 		$key      = self::form_key( $column );
-		$id       = 'wpcpm-sponsor-application-' . $key;
+		$id       = self::field_id( $column );
 		$name     = self::FIELD_ANSWERS . '[' . $key . ']';
 		$type     = $spec['type'];
 		$required = ! empty( $spec['required'] ) ? ' required="required"' : '';
@@ -1206,11 +1377,13 @@ class WPCPM_Sponsor_Application {
 
 		if ( 'consent' === $type ) {
 			printf(
-				'<span class="wpcpm-field__consent"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%4$s /><label for="%1$s">%5$s%6$s</label></span>',
+				'<span class="wpcpm-field__consent"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%4$s%5$s /><label for="%1$s">%6$s%7$s</label></span>',
 				esc_attr( $id ),
 				esc_attr( $name ),
+				// Ticked again only by the sender's own tick, which a bounce keeps (1.123.58, trial T2).
+				checked( true === $value, true, false ),
 				$required, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
-				$describedby, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
+				$invalid . $describedby, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal and the escaped id above.
 				esc_html( $spec['label'] ),
 				$required_mark // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
 			);
@@ -1254,13 +1427,14 @@ class WPCPM_Sponsor_Application {
 				self::level_hint( array() !== $levels, $partners, (string) $spec['help'] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Passed through wp_kses() in level_hint().
 			);
 		} elseif ( 'logos' === $type ) {
-			printf( '<span class="wpcpm-field__label">%s</span>', esc_html( $spec['label'] ) );
+			// The heading carries the question's id, so the summary's link to the question lands on it.
+			printf( '<span class="wpcpm-field__label" id="%1$s">%2$s</span>', esc_attr( $id ), esc_html( $spec['label'] ) );
 
 			// The two file controls are named for the halves and not for the hashed column key:
 			// the logo question posts nothing under its own key, so the key would be a hash in
 			// an id that a support message has to be able to quote. The hint and the problem
 			// keep the hashed id above, which is what `aria-describedby` points at.
-			self::render_logo_inputs( 'wpcpm-sponsor-application', $describedby );
+			self::render_logo_inputs( $says, $problems );
 		} else {
 			printf(
 				'<label for="%1$s">%2$s%3$s</label>',
@@ -1320,30 +1494,27 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The two file controls, one per version, each with its own label.
 	 *
-	 * A file control cannot be refilled from a stash, which is why a refusal's sentence says
-	 * the files have to be chosen again. `accept` narrows the picker; the bytes are what decide.
+	 * A file control cannot be refilled from a stash, so a refused form says at each file that
+	 * was chosen that it has to be chosen again (`WPCPM_Form_Errors::file_again()`, 1.123.58),
+	 * the sentence in a line of its own under the control, which the control names first.
+	 * `accept` narrows the picker; the bytes are what decide.
 	 *
-	 * @param string $id          The question's id stem.
-	 * @param string $describedby The `aria-describedby` attribute, or ''.
+	 * @param string[] $says     The ids the question's hint and problem are printed under.
+	 * @param array    $problems Every problem of the attempt, keyed by column name or file field.
 	 */
-	private static function render_logo_inputs( $id, $describedby ) {
-		$labels = array(
-			'color' => __( 'In color', 'wpcredits-program-manager' ),
-			'white' => __( 'In white, for a dark background', 'wpcredits-program-manager' ),
-		);
-		$names  = array(
-			'color' => self::FIELD_LOGO_COLOR,
-			'white' => self::FIELD_LOGO_WHITE,
-		);
+	private static function render_logo_inputs( array $says, array $problems ) {
+		foreach ( self::logo_inputs() as $field => $input ) {
+			$problem = isset( $problems[ $field ] ) ? self::problem_text( (string) $problems[ $field ] ) : '';
+			$named   = '' !== $problem ? array_merge( array( $input['id'] . '-problem' ), $says ) : $says;
 
-		foreach ( $labels as $half => $label ) {
 			printf(
-				'<p class="wpcpm-field__file"><label for="%1$s-logo-%2$s">%3$s</label><input type="file" id="%1$s-logo-%2$s" name="%4$s" accept="image/png,image/jpeg,image/webp"%5$s /></p>',
-				esc_attr( $id ),
-				esc_attr( $half ),
-				esc_html( $label ),
-				esc_attr( $names[ $half ] ),
-				$describedby // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
+				'<p class="wpcpm-field__file"><label for="%1$s">%2$s</label><input type="file" id="%1$s" name="%3$s" accept="image/png,image/jpeg,image/webp"%4$s%5$s />%6$s</p>',
+				esc_attr( $input['id'] ),
+				esc_html( $input['label'] ),
+				esc_attr( $field ),
+				'' !== $problem ? ' aria-invalid="true"' : '',
+				array() !== $named ? ' aria-describedby="' . esc_attr( implode( ' ', $named ) ) . '"' : '',
+				'' !== $problem ? sprintf( '<span class="wpcpm-field__problem" id="%1$s-problem">%2$s</span>', esc_attr( $input['id'] ), esc_html( $problem ) ) : ''
 			);
 		}
 	}
@@ -1626,7 +1797,7 @@ class WPCPM_Sponsor_Application {
 	 */
 	private static function problem_text( $problem ) {
 		if ( 'required' === $problem ) {
-			return __( 'Please fill this in.', 'wpcredits-program-manager' );
+			return __( 'Fill this in.', 'wpcredits-program-manager' );
 		}
 
 		if ( 'bad_email' === $problem ) {
@@ -1634,7 +1805,16 @@ class WPCPM_Sponsor_Application {
 		}
 
 		if ( 'bad_choice' === $problem ) {
-			return __( 'Please choose one of the options offered.', 'wpcredits-program-manager' );
+			return __( 'Choose one of the options offered.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'consent' === $problem ) {
+			return __( 'Tick this box to send the form.', 'wpcredits-program-manager' );
+		}
+
+		// A file that was chosen, said at its control: the one answer a refused form cannot keep.
+		if ( 'file_again' === $problem ) {
+			return WPCPM_Form_Errors::file_again();
 		}
 
 		$images = array(
@@ -1653,10 +1833,10 @@ class WPCPM_Sponsor_Application {
 			'upload_partial'   => __( 'The upload did not finish.', 'wpcredits-program-manager' ),
 		);
 
+		// The file itself is asked for again at each control that had one (`file_again`), so the
+		// sentence here says what was wrong with it and nothing more (1.123.58, FORM-13).
 		if ( isset( $images[ $problem ] ) || 0 === strpos( $problem, 'image_' ) ) {
-			$said = isset( $images[ $problem ] ) ? $images[ $problem ] : $images['image_missing'];
-
-			return $said . ' ' . __( 'Files have to be chosen again.', 'wpcredits-program-manager' );
+			return isset( $images[ $problem ] ) ? $images[ $problem ] : $images['image_missing'];
 		}
 
 		return __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );
@@ -1718,17 +1898,47 @@ class WPCPM_Sponsor_Application {
 			$posted = wp_unslash( $_POST[ self::FIELD_ANSWERS ] );
 		}
 
+		// The consent tick, which every bounce that draws the form again keeps (`bounce()`).
+		self::$ticked = self::ticked( $posted );
+
 		// 1. The per-actor ceiling, first for a reason that has nothing to do with spam: it is
 		// the only layer that counts a writer with no account, and the refusals below it hand
 		// the sender's writing back through a transient, which is two rows in the options table.
 		// Nothing above this line writes, and the logo bytes are read only after it.
+		//
+		// Its refusal keeps the answers only for a post whose nonce holds, and only when they fit
+		// (1.123.58, FORM-01): a flood with no nonce, or with a body of any size, stays as cheap as
+		// this line makes it and writes nothing more.
+		self::$dwell = '';
+
 		if ( ! WPCPM_Form_Guard::claim_actor( self::actor_key(), WPCPM_Form_Guard::PER_HOUR ) ) {
-			self::bounce( 'busy' );
+			if ( ! wp_verify_nonce( $nonce, self::ACTION_SUBMIT ) ) {
+				self::bounce( 'busy' );
+			}
+
+			$kept = array(
+				'values' => self::clean_all( $posted )['values'],
+				'typed'  => self::typing( $posted ),
+			);
+
+			if ( ! WPCPM_Form_Stash::fits( $kept ) ) {
+				self::bounce( 'busy-unkept' );
+			}
+
+			self::bounce( 'busy-kept', $kept );
 		}
 
 		// 2. The nonce.
 		if ( ! wp_verify_nonce( $nonce, self::ACTION_SUBMIT ) ) {
-			self::bounce( 'expired', array( 'values' => self::clean_all( $posted )['values'] ) );
+			$cleaned = self::clean_all( $posted );
+
+			self::bounce(
+				'expired',
+				array(
+					'values' => $cleaned['values'],
+					'typed'  => $cleaned['typed'],
+				)
+			);
 		}
 
 		// 3. The switch, which a form this site drew cannot post past. The site having no privacy
@@ -1747,12 +1957,32 @@ class WPCPM_Sponsor_Application {
 			$signals[] = 'honeypot';
 		}
 
-		// 5. The dwell token, in its four answers. `stale` bounces; `fast` holds; anything else
-		// that is not `ok` is spam.
-		$dwell = self::check_token( WPCPM_Request::posted_text( self::TOKEN_FIELD ) );
+		// 5. The dwell token, in its five answers. `stale` bounces; `fast` holds; `used` waits for
+		// the first press's row and answers with its confirmation (1.123.58, FORM-04); anything
+		// else that is not `ok` is spam.
+		$token = WPCPM_Request::posted_text( self::TOKEN_FIELD );
+		$dwell = self::check_token( $token );
 
 		if ( WPCPM_Form_Guard::TOKEN_STALE === $dwell ) {
-			self::bounce( 'stale', array( 'values' => self::clean_all( $posted )['values'] ) );
+			$cleaned = self::clean_all( $posted );
+
+			self::bounce(
+				'stale',
+				array(
+					'values' => $cleaned['values'],
+					'typed'  => $cleaned['typed'],
+				)
+			);
+		}
+
+		if ( WPCPM_Form_Guard::TOKEN_USED === $dwell ) {
+			self::answer_second_press( WPCPM_Form_Guard::token_key( self::DWELL_SCOPE, $token ), $posted );
+		}
+
+		if ( WPCPM_Form_Guard::TOKEN_OK === $dwell || WPCPM_Form_Guard::TOKEN_FAST === $dwell ) {
+			// This press claimed the token: from here every bounce forgets its record, and the row
+			// replaces it.
+			self::$dwell = WPCPM_Form_Guard::token_key( self::DWELL_SCOPE, $token );
 		}
 
 		if ( WPCPM_Form_Guard::TOKEN_FAST === $dwell ) {
@@ -1768,35 +1998,49 @@ class WPCPM_Sponsor_Application {
 			$signals[] = 'dwell';
 		}
 
-		// 6. Consent, which is a precondition and not an answer. Nothing is stored without it,
-		// not even as spam.
-		$consent_key = self::form_key( self::COL_CONSENT );
-		$agreed      = self::clean( self::COL_CONSENT, isset( $posted[ $consent_key ] ) ? $posted[ $consent_key ] : '' );
-
-		if ( empty( $agreed['ok'] ) || true !== $agreed['value'] ) {
-			self::bounce( 'consent', array( 'values' => self::clean_all( $posted )['values'] ) );
-		}
-
-		// 7. The answers, walked from `fields()` and never from the request: a key nobody asked
+		// 6. The answers, walked from `fields()` and never from the request: a key nobody asked
 		// about cannot become a cell that way.
 		$cleaned  = self::clean_all( $posted );
 		$values   = $cleaned['values'];
 		$problems = $cleaned['problems'];
 
-		// 8. Requiredness, once, after cleaning. A row already headed for the spam pile skips
-		// it: telling a bot which field it missed is free tuition.
-		if ( ! $spam ) {
-			$problems = self::add_required( $values, $problems );
+		// 7. Requiredness, once, after cleaning. A row already headed for the spam pile skips
+		// it: telling a bot which field it missed is free tuition. A spam row is stored with what
+		// cleaned.
+		$problems = $spam ? array() : self::add_required( $values, $problems );
 
-			if ( ! empty( $problems ) ) {
-				self::bounce(
-					'again',
-					array(
-						'values'   => $values,
-						'problems' => $problems,
-					)
-				);
+		// 8. Consent, which is a precondition and not an answer, in the same pass as the answers
+		// since 1.123.58 (FORM-12), so one bounce marks the box with the rest. Nothing is stored
+		// without it, not even as spam.
+		$consent_key = self::form_key( self::COL_CONSENT );
+		$agreed      = self::clean( self::COL_CONSENT, isset( $posted[ $consent_key ] ) ? $posted[ $consent_key ] : '' );
+
+		if ( empty( $agreed['ok'] ) || true !== $agreed['value'] ) {
+			$problems[ self::COL_CONSENT ] = 'consent';
+		}
+
+		// A refused send's logo files are checked in the same pass, so a file the image handler
+		// refuses is said with the missing answer rather than on the next send (FORM-13). Not for
+		// a row headed for the spam pile, whose files are never read.
+		if ( ! empty( $problems ) ) {
+			if ( ! $spam && self::logo_arrived() ) {
+				$checked = self::accept_logos();
+
+				if ( is_string( $checked ) ) {
+					$problems[ self::COL_LOGO ] = $checked;
+				} else {
+					self::clean_up( $checked );
+				}
 			}
+
+			self::bounce(
+				'again',
+				array(
+					'values'   => $values,
+					'problems' => $problems,
+					'typed'    => $cleaned['typed'],
+				)
+			);
 		}
 
 		// 9. The site-wide ceiling degrades rather than refusing: the row is kept and held, the
@@ -1817,7 +2061,9 @@ class WPCPM_Sponsor_Application {
 
 		// 10. The two logo files, accepted here and stored only after the row exists. After the
 		// ceilings and after requiredness, so no byte of a stranger's file is read for a
-		// submission that was never going to be filed; a spam row reads none at all, because a
+		// submission the day's degrade holds; a refused send's files were checked above, in its
+		// one pass (1.123.58), so its sender hears of a bad file with the missing answer, and
+		// that is bounded by the per-actor ceiling's five an hour. A spam row reads none at all, because a
 		// bot's files are not Media Library material, and neither does a row the day's degrade
 		// is holding. One bad file is a problem on the logo question and refuses the pair.
 		$accepted = array();
@@ -1837,6 +2083,7 @@ class WPCPM_Sponsor_Application {
 					array(
 						'values'   => $values,
 						'problems' => array( self::COL_LOGO => $accepted ),
+						'typed'    => $cleaned['typed'],
 					)
 				);
 			}
@@ -1903,6 +2150,12 @@ class WPCPM_Sponsor_Application {
 			self::mail_managers( $post_id );
 		}
 
+		// The token's record is the row now, for a second press of it to answer with: after the mail
+		// step, so the row already says whether its acknowledgement went (`sent` or `sent-quiet`).
+		WPCPM_Form_Guard::landed( self::$dwell, (int) $post_id );
+
+		self::$dwell = '';
+
 		self::bounce(
 			$suppressed ? 'sent-quiet' : 'sent',
 			array(
@@ -1930,15 +2183,22 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Clean every answer.
 	 *
-	 * Pure: it reads, it decides, it writes nothing. **Consent never comes back**: it is dropped
-	 * from the values here so that no failure path can repopulate a tick.
+	 * Pure: it reads, it decides, it writes nothing. **Consent is never a value**: it is dropped
+	 * from the values here, and a bounce keeps the applicant's own tick in the stash alone
+	 * (`bounce()`, 1.123.58, trial T2), so nothing ticks a box the applicant did not tick.
+	 *
+	 * A refused answer typed into a box comes back as typed (1.123.58, FORM-11): an address
+	 * `is_email()` refuses has no cleaned value to hand back, so what was typed comes back beside
+	 * the values as `typed`, cut to the length of its box, for the form to draw and for nothing
+	 * else.
 	 *
 	 * @param array $posted The posted answers, keyed by form key.
-	 * @return array{values:array,problems:array} Both keyed by column name (`COL_*`).
+	 * @return array{values:array,problems:array,typed:array} Each keyed by column name (`COL_*`).
 	 */
 	private static function clean_all( array $posted ) {
 		$values   = array();
 		$problems = array();
+		$typed    = array();
 
 		foreach ( self::fields() as $column => $spec ) {
 			if ( 'logos' === $spec['type'] ) {
@@ -1952,6 +2212,16 @@ class WPCPM_Sponsor_Application {
 			if ( empty( $clean['ok'] ) ) {
 				$problems[ $column ] = $clean['problem'];
 
+				// An array only a crafted post sends, and text that is not valid UTF-8, are no typing
+				// worth handing back.
+				if ( self::hands_back_typing( $spec ) && is_scalar( $raw ) && mb_check_encoding( (string) $raw, 'UTF-8' ) ) {
+					$kept = mb_substr( (string) $raw, 0, isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : self::MAX_TEXT );
+
+					if ( '' !== $kept ) {
+						$typed[ $column ] = $kept;
+					}
+				}
+
 				continue;
 			}
 
@@ -1963,6 +2233,7 @@ class WPCPM_Sponsor_Application {
 		return array(
 			'values'   => $values,
 			'problems' => $problems,
+			'typed'    => $typed,
 		);
 	}
 
@@ -2165,7 +2436,7 @@ class WPCPM_Sponsor_Application {
 			'name'     => '',
 		);
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- `handle_submit()` verifies the nonce before it calls this.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- `handle_submit()` verifies the nonce before any file is read; a refusal before it reads a file's name alone, to ask for the file again (`bounce()`).
 		if ( ! isset( $_FILES[ $field ] ) || ! is_array( $_FILES[ $field ] ) ) {
 			return $empty;
 		}
@@ -2797,8 +3068,22 @@ class WPCPM_Sponsor_Application {
 			'query_stash'   => self::QUERY_STASH,
 			'prefix'        => self::TRANSIENT_PREFIX,
 			'minutes'       => self::TRANSIENT_MINUTES,
-			'one_shot'      => array( 'sent', 'sent-quiet' ),
+			// A confirmation is read, not taken (1.123.58, FORM-06): a reload or a return through
+			// history within its minutes draws it again, reference included.
+			'one_shot'      => array(),
 		);
+	}
+
+	/**
+	 * Whether the posted answers tick the consent box, read the strict way `clean()` reads it.
+	 *
+	 * @param array $posted The posted answers, unslashed.
+	 * @return bool
+	 */
+	private static function ticked( array $posted ) {
+		$raw = isset( $posted[ self::form_key( self::COL_CONSENT ) ] ) ? $posted[ self::form_key( self::COL_CONSENT ) ] : '';
+
+		return true === self::clean( self::COL_CONSENT, $raw )['value'];
 	}
 
 	/**
@@ -2808,6 +3093,31 @@ class WPCPM_Sponsor_Application {
 	 * @param array  $stash   What the page needs to draw: values, problems, a reference.
 	 */
 	private static function bounce( $outcome, array $stash = array() ) {
+		// A press that claimed its token and stored nothing forgets the token's record, so a second
+		// press of it answers `stale` with its own answers rather than waiting for a row.
+		if ( '' !== self::$dwell ) {
+			WPCPM_Form_Guard::bounced( self::$dwell );
+
+			self::$dwell = '';
+		}
+
+		// A file chosen for a form that comes back is not kept by any browser, so each one chosen is
+		// asked for again at its control, whatever the form came back for (1.123.58, FORM-13). Not
+		// on a refusal that keeps nothing and draws no form, `busy` and `busy-unkept`.
+		if ( in_array( (string) $outcome, array( 'again', 'expired', 'stale', 'busy-kept', 'lost' ), true ) ) {
+			foreach ( self::logo_fields() as $field ) {
+				if ( '' !== self::uploaded( $field )['name'] ) {
+					$stash['problems'][ $field ] = 'file_again';
+				}
+			}
+		}
+
+		// A form drawn again keeps the consent tick its sender gave, with the other answers
+		// (1.123.58, trial T2). Only a stash carrying answers draws the form.
+		if ( self::$ticked && array_key_exists( 'values', $stash ) && is_array( $stash['values'] ) ) {
+			$stash['values'][ self::COL_CONSENT ] = true;
+		}
+
 		WPCPM_Form_Stash::bounce(
 			self::stash_form(),
 			$outcome,
@@ -2815,6 +3125,46 @@ class WPCPM_Sponsor_Application {
 			static function ( $value ) {
 				return self::is_blank( $value );
 			}
+		);
+	}
+
+	/**
+	 * Answer the second press of a token (1.123.58, FORM-04): wait for the row the first press
+	 * stores and bounce to its own confirmation, its reference included, as the first press was
+	 * answered; with no row, the first press bounced, and this one is `stale`, with its answers.
+	 * Nothing is stored for it, and no file of it is read.
+	 *
+	 * @param string $key    The token's key.
+	 * @param array  $posted The posted answers, keyed by form key, unslashed.
+	 */
+	private static function answer_second_press( $key, array $posted ) {
+		// Twelve reads, about six seconds, where the other forms wait six: the first press
+		// re-encodes two images before its row exists.
+		$row  = WPCPM_Form_Guard::wait_for_row( $key, 12 );
+		$post = $row ? get_post( $row ) : null;
+
+		if ( $post instanceof WP_Post && self::POST_TYPE === $post->post_type ) {
+			$fields  = get_post_meta( $row, self::META_FIELDS, true );
+			$signals = self::signals_of( $post );
+			$quiet   = self::STATE_SPAM !== (string) get_post_meta( $row, self::META_STATE, true ) && in_array( 'mail-ceiling', $signals, true );
+
+			self::bounce(
+				$quiet ? 'sent-quiet' : 'sent',
+				array(
+					'reference' => self::reference_of( $post ),
+					'email'     => self::email_of( is_array( $fields ) ? $fields : array() ),
+				)
+			);
+		}
+
+		$cleaned = self::clean_all( $posted );
+
+		self::bounce(
+			'stale',
+			array(
+				'values' => $cleaned['values'],
+				'typed'  => $cleaned['typed'],
+			)
 		);
 	}
 

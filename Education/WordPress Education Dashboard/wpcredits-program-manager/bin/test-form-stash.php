@@ -44,6 +44,7 @@ class WPCPM_Request {
 	public static function key( $name ) { return isset( $GLOBALS['request'][ $name ] ) ? strtolower( (string) $GLOBALS['request'][ $name ] ) : ''; }
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-stash.php';
 
 $fail = 0; $checks = 0;
@@ -103,7 +104,12 @@ ck( 'and a failed attempt is kept for a reload', isset( $GLOBALS['transients'][ 
 $GLOBALS['transients'][ 'wpcpm_x_' . $id ]['v'] = array( 'outcome' => 'sent', 'reference' => 'X-1' );
 ck( 'a one-shot outcome is read once', WPCPM_Form_Stash::read( $form ), array( 'outcome' => 'sent', 'reference' => 'X-1' ) );
 ck( 'and deleted as it is read', isset( $GLOBALS['transients'][ 'wpcpm_x_' . $id ] ), false );
-ck( 'a missing stash falls through to the bare outcome, which must be a slug the form knows', WPCPM_Form_Stash::read( $form ), array() );
+$GLOBALS['request'] = array();
+ck( 'with no id, nothing falls through to a bare outcome the form does not know', WPCPM_Form_Stash::read( $form ), array() );
+$GLOBALS['request'] = array( 'wpcpm_x' => $id );
+$gone               = WPCPM_Form_Stash::read( $form );
+$GLOBALS['request'] = array();
+ck( 'an id whose transient is gone reads as stash-gone, and no id reads as nothing', array( $gone, WPCPM_Form_Stash::read( $form ) ), array( array( 'outcome' => 'stash-gone' ), array() ) );
 $GLOBALS['request'] = array( 'wpcpm_x_said' => 'spam' );
 ck( 'a known bare outcome is answered as itself', WPCPM_Form_Stash::read( $form ), array( 'outcome' => 'spam' ) );
 $GLOBALS['request'] = array( 'wpcpm_x_said' => '<b>hi</b>' );
@@ -127,6 +133,10 @@ ck( 'a form that leaves a key out is read in silence, and an absent one_shot mea
 	$partial_read,
 	isset( $GLOBALS['transients'][ 'wpcpm_x_' . $id ] ),
 ), array( '', array( 'outcome' => 'sent', 'reference' => 'X-2' ), true ) );
+
+echo "\n=== fits ===\n";
+ck( 'fits() says yes at KEPT_MAX characters and no at one more', array( WPCPM_Form_Stash::fits( array( 'values' => array( 'a' => str_repeat( 'x', WPCPM_Flash::KEPT_MAX - 10 ) ), 'typed' => array( 'b' => str_repeat( 'é', 10 ) ) ) ), WPCPM_Form_Stash::fits( array( 'values' => array( 'a' => str_repeat( 'x', WPCPM_Flash::KEPT_MAX - 10 ), 'c' => array( 'y' ) ), 'typed' => array( 'b' => str_repeat( 'é', 10 ) ) ) ) ), array( true, false ) );
+ck( 'and counts nothing outside the values and the typing', WPCPM_Form_Stash::fits( array( 'problems' => array( 'a' => str_repeat( 'x', WPCPM_Flash::KEPT_MAX + 1 ) ) ) ), true );
 
 echo "\n=== keep ===\n";
 ck( 'keep() drops blank values, then blank keys, and leaves the rest', WPCPM_Form_Stash::keep( array( 'values' => array( 'a' => ' ', 'b' => 'x', 'c' => array() ), 'problems' => array(), 'reference' => 'R-1', 'note' => null ), $is_blank ), array( 'values' => array( 'b' => 'x' ), 'reference' => 'R-1' ) );

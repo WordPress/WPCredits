@@ -158,6 +158,8 @@ note** after each call - that is also what keeps them out of the "Need a call" g
 your own notes; notes written by somebody else stay theirs. Once a student's mentoring has finished,
 their notes are kept as a record but no new ones can be added.
 
+Since 1.123.58 a note pressed twice is saved once.
+
 ### Tools from our sponsors
 
 When the program switches the section on for mentors, offers a sponsor opened to mentors appear on your card too, laid out as students see them: *Get my code* beside the offer's *More information* link, and your codes under *Your codes*, each with *Report a problem with this code* beside it. Offers for students only are not shown here.
@@ -253,6 +255,9 @@ students see the series under one heading and can **Join all** in one press, whi
 email with one calendar file that holds every date; each date keeps its own row, so a student can
 still join or leave a single one. Changing or canceling a session touches that session alone, and
 the rest of the series stands.
+
+Since 1.123.58 a session or series that cannot be planned comes back with the planner open and every
+field as you left it, and the date that clashed, or is in the past, is marked.
 
 ### One note for the whole group
 
@@ -785,6 +790,10 @@ not decide them. Fill in what you have and press **Save my report**; you can com
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save, and the four fields that also appear in *My profile* above update there at the same time.
 
+Since 1.123.58 a report that could not be saved comes back with every answer you typed, and the
+answer that needs a change is marked, with a list of them at the top. Saving your hours keeps you in
+My course and says "Hours saved." there.
+
 #### Feedback forms
 
 Under your report, and nothing to do with it: three short forms asking how the program is going for
@@ -941,6 +950,9 @@ in.
 You can change any answer later: open the form again and your answers are still there. The form's
 title tells you how many of its questions you have answered, and says *all answered* when you have
 finished it - which is also when the next one appears.
+
+Since 1.123.58 a feedback form that could not be sent comes back with your answers, and the form you
+saved opens again with its message inside it.
 
 The count only ever includes the questions you are actually being asked. A follow-up that did not
 apply to you is not a question you have left blank.

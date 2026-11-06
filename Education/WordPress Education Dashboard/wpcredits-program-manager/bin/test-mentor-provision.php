@@ -9,10 +9,13 @@
  * - **The sync's rule, as it was.** A new mentor gets an account named after their WordPress.org
  *   username, with the address, the name, the profile as its website and the Mentor role, the three
  *   mentor meta, and the invitation queued and counted under the invitation setting. An account that
- *   exists is found by its record id, its address, then its username, and linked: the Mentor role is
- *   added beside the roles it had (never set), an Administrator keeps hers, an account linked by its
- *   username alone is flagged for a person to confirm, and one already linked to another record is a
- *   conflict, never a second link.
+ *   exists is found by its record id or its address, and linked: the Mentor role is added beside
+ *   the roles it had (never set), an Administrator keeps hers, and one already linked to another
+ *   record is a conflict, never a second link.
+ * - **A login is not a mentor** (1.123.58, LOG-02). An account found by its username alone is given
+ *   nothing: it waits under Needs confirming, with when it was first found, until an Administrator
+ *   confirms it, which links it the way an account found by its address is linked, or until a sync
+ *   finds the mentor by address or record id, which takes the wait away.
  * - **An account the caller found is linked as given**, with how it was found kept: the
  *   username-only notice follows the match kind, and no lookup makes a second account (Review Focus
  *   1). The claimed-record check still applies to it.
@@ -44,12 +47,25 @@ $GLOBALS['queued']    = array();
 $GLOBALS['settings']  = array();
 $GLOBALS['unmodeled'] = array();
 
-/** The invitation queue, at its contract: an account is queued once. */
+/**
+ * The invitation queue, at its contract: an account is queued once, and nothing is queued while
+ * another request holds the queue's lock, its row in the options table, which answers `QUEUE_BUSY`.
+ */
 class WPCPM_Mail {
+	const QUEUE_BUSY = -1;
 	public static function queue_invite( $user_id ) {
-		if ( ! in_array( (int) $user_id, $GLOBALS['queued'], true ) ) {
-			$GLOBALS['queued'][] = (int) $user_id;
+		if ( isset( $GLOBALS['opts']['wpcpm_invite_queue_lock'] ) ) {
+			return self::QUEUE_BUSY;
 		}
+		if ( in_array( (int) $user_id, $GLOBALS['queued'], true ) ) {
+			return 0;
+		}
+		$GLOBALS['queued'][] = (int) $user_id;
+		return 1;
+	}
+	/** An invitation is held where the account carries the hold, whatever it holds. */
+	public static function is_held( $user_id ) {
+		return metadata_exists( 'user', (int) $user_id, WPCPM_Mentor_Provision::USER_INVITE_HELD );
 	}
 }
 
@@ -88,6 +104,7 @@ function fresh( array $settings = array() ) {
 	$GLOBALS['queued']       = array();
 	$GLOBALS['settings']     = $settings;
 	$GLOBALS['insert_error'] = null;
+	$GLOBALS['opts']         = array();
 }
 
 /** The mentor as the sync reads one from the base, or as an application gives one. */
@@ -158,11 +175,93 @@ ck( 'found by its address, an account with no record is linked and gains the Men
 	array( 42, array( 'subscriber', 'wpcpm_mentor' ), 1, array( 'Added the Mentor role to the existing account "someone-else" (Ada Example).' ) ) );
 
 fresh();
-account( 43, 'ada-example', 'other@example.test', array( 'wpcpm_mentor' ) );
+account( 43, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+$report = array();
+$found  = WPCPM_Mentor_Provision::provision( mentor( 'recNEWMENTOR00001' ), $report );
+$wait   = get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED );
+ck( 'a mentor found by login alone is given nothing: no role, no record, no students, and is written to Needs confirming',
+	array( $found, roles( 43 ), meta( 43, 'wpcpm_mentor_record_id' ), meta( 43, 'wpcpm_mentor_active' ), meta( 43, 'wpcpm_mentees' ), array_keys( (array) $wait ), isset( $wait['recNEWMENTOR00001'] ) ? array( $wait['recNEWMENTOR00001']['user_id'], $wait['recNEWMENTOR00001']['name'], $wait['recNEWMENTOR00001']['profile'], $wait['recNEWMENTOR00001']['at'] > 0 ) : null, count( $GLOBALS['users'] ), array_key_exists( 'linked_accounts', $report ) ),
+	array( 0, array( 'wpcpm_student' ), '', '', '', array( 'recNEWMENTOR00001' ), array( 43, 'Ada Example', 'https://profiles.wordpress.org/ada-example/', true ), 1, false ) );
+ck( 'and the run\'s notice says so, naming the account and the username',
+	$report['notices'], array( 'Account 43 has the login of a mentor\'s WordPress.org username (ada-example) and nothing else. Nothing was linked: confirm it under Needs confirming on the Sync tab if it is the mentor\'s account.' ) );
+
+$first_at = $wait['recNEWMENTOR00001']['at'];
+$GLOBALS['opts'][ WPCPM_Mentor_Provision::OPT_UNCONFIRMED ]['recNEWMENTOR00001']['at'] = 1700000000;
 $report = array();
 WPCPM_Mentor_Provision::provision( mentor( 'recNEWMENTOR00001' ), $report );
-ck( 'found by its username alone, it is linked with the notice that asks a person to confirm',
-	$report['notices'], array( 'Linked mentor record to the pre-existing account "ada-example" (Ada Example) by username. Confirm it is the same person.' ) );
+ck( 'the next run finds it waiting still, and keeps when it was first found', array( count( get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ), get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED )['recNEWMENTOR00001']['at'], roles( 43 ) ), array( 1, 1700000000, array( 'wpcpm_student' ) ) );
+
+$GLOBALS['users'][43]->user_email = 'ada@example.test';
+$report = array();
+ck( 'a waiting match whose mentor is found by address is linked as before, and removed from Needs confirming',
+	array( WPCPM_Mentor_Provision::provision( mentor( 'recNEWMENTOR00001' ), $report ), roles( 43 ), meta( 43, 'wpcpm_mentor_record_id' ), get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ),
+	array( 43, array( 'wpcpm_student', 'wpcpm_mentor' ), 'recNEWMENTOR00001', array() ) );
+
+fresh();
+account( 70, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+account( 71, 'ada-linked', 'linked@example.test', array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_record_id' => 'recNEWMENTOR00001' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, array( 'recNEWMENTOR00001' => array( 'name' => 'Ada Example', 'profile' => '', 'user_id' => 70, 'at' => 1 ), 'recOTHERMENTOR001' => array( 'name' => 'Zoe Example', 'profile' => '', 'user_id' => 70, 'at' => 1 ) ) );
+$report = array();
+ck( 'and one whose mentor is found by record id is removed too, leaving the others waiting',
+	array( WPCPM_Mentor_Provision::provision( mentor( 'recNEWMENTOR00001' ), $report ), array_keys( get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ), roles( 70 ) ),
+	array( 71, array( 'recOTHERMENTOR001' ), array( 'wpcpm_student' ) ) );
+
+fresh();
+account( 72, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, array( 'recNEWMENTOR00001' => array( 'name' => 'Ada Example', 'profile' => 'https://profiles.wordpress.org/ada-example/', 'user_id' => 72, 'at' => 1 ) ) );
+$confirmed = WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00001' );
+ck( 'a confirmed match is linked the way a linked account is, holds the Mentor role, and waits no more; with invitation emails off nothing is queued',
+	array( $confirmed['user']->ID, $confirmed['queued'], $GLOBALS['queued'], roles( 72 ), meta( 72, 'wpcpm_mentor_record_id' ), meta( 72, 'wpcpm_mentor_active' ), get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ),
+	array( 72, false, array(), array( 'wpcpm_student', 'wpcpm_mentor' ), 'recNEWMENTOR00001', 1, array() ) );
+ck( 'and a match no longer waiting confirms nothing', WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00001' ), null );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, array( 'recGONEMENTOR0001' => array( 'name' => 'Gone Example', 'profile' => '', 'user_id' => 999, 'at' => 1 ), 'recCLAIMEDMENTOR1' => array( 'name' => 'Ada Example', 'profile' => '', 'user_id' => 72, 'at' => 1 ) ) );
+ck( 'nor one whose account is gone, or now holds another mentor\'s record: nothing is changed',
+	array( WPCPM_Mentor_Provision::confirm_unconfirmed( 'recGONEMENTOR0001' ), WPCPM_Mentor_Provision::confirm_unconfirmed( 'recCLAIMEDMENTOR1' ), meta( 72, 'wpcpm_mentor_record_id' ), count( get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ) ),
+	array( null, null, 'recNEWMENTOR00001', 2 ) );
+
+$waiting_ada = array( 'recNEWMENTOR00002' => array( 'name' => 'Ada Example', 'profile' => '', 'user_id' => 73, 'at' => 1 ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 73, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, $waiting_ada );
+$confirmed = WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00002' );
+ck( 'with invitation emails on, a confirmed match is queued the invitation, as an account linked by its address is',
+	array( $confirmed['queued'], $GLOBALS['queued'] ), array( true, array( 73 ) ) );
+
+// The queue's lock held by another request (the fix wave of 1.123.58): the match is confirmed, nothing
+// is queued, and the answer says the queue refused it rather than that it was queued.
+fresh( array( 'send_welcome_email' => true ) );
+account( 73, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, $waiting_ada );
+$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+$confirmed                                  = WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00002' );
+ck( 'a match confirmed while the queue\'s lock is held by another request is linked, queued nothing, and answered as busy, not as queued',
+	array( $confirmed['queued'], $confirmed['busy'], $GLOBALS['queued'], meta( 73, 'wpcpm_mentor_record_id' ) ), array( false, true, array(), 'recNEWMENTOR00002' ) );
+
+foreach ( array(
+	'an Administrator'                  => array( array( 'administrator' ), array() ),
+	'an active mentor already'          => array( array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_active' => 1 ) ),
+	'an account whose invitation is held' => array( array( 'wpcpm_student' ), array( WPCPM_Mentor_Provision::USER_INVITE_HELD => 'record' ) ),
+) as $what => $kind ) {
+	fresh( array( 'send_welcome_email' => true ) );
+	account( 73, 'ada-example', 'other@example.test', $kind[0], $kind[1] );
+	update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, $waiting_ada );
+	$confirmed = WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00002' );
+	ck( "and none is queued for $what", array( $confirmed['queued'], $GLOBALS['queued'], meta( 73, 'wpcpm_mentor_record_id' ) ), array( false, array(), 'recNEWMENTOR00002' ) );
+}
+fresh( array( 'send_welcome_email' => true ) );
+account( 73, 'ada-example', 'other@example.test', array( 'administrator' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, $waiting_ada );
+WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00002' );
+ck( 'and an Administrator\'s account confirmed keeps its roles, linked all the same', array( roles( 73 ), meta( 73, 'wpcpm_mentor_record_id' ) ), array( array( 'administrator' ), 'recNEWMENTOR00002' ) );
+
+fresh( array( 'send_welcome_email' => true ) );
+account( 73, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
+account( 74, 'ada-activated', 'ada@example.test', array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_record_id' => 'recNEWMENTOR00002' ) );
+update_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED, $waiting_ada );
+ck( 'a record another account holds by now (an activation wrote it) is that account\'s: Confirm links nothing, takes the match off the list, and queues nothing',
+	array( WPCPM_Mentor_Provision::confirm_unconfirmed( 'recNEWMENTOR00002' ), roles( 73 ), meta( 73, 'wpcpm_mentor_record_id' ), get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ), $GLOBALS['queued'] ),
+	array( null, array( 'wpcpm_student' ), '', array(), array() ) );
 
 fresh();
 account( 44, 'ada-example', 'ada@example.test', array( 'administrator' ) );
@@ -239,7 +338,7 @@ fresh( array( 'send_welcome_email' => true ) );
 account( 63, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
 $report = array();
 WPCPM_Mentor_Provision::provision( mentor( 'recLOGINMENTOR001' ), $report );
-ck( 'a match by username alone is reported as one', $report['linked_accounts'], array( array( 'user_id' => 63, 'was_active_mentor' => false, 'how' => 'login' ) ) );
+ck( 'a match by username alone links nothing, so it is no linked account', array_key_exists( 'linked_accounts', $report ) ? $report['linked_accounts'] : array(), array() );
 
 fresh( array( 'send_welcome_email' => true ) );
 account( 64, 'ada-flag-only', 'ada@example.test', array( 'wpcpm_student' ), array( 'wpcpm_mentor_active' => 1 ) );

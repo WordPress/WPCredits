@@ -74,6 +74,7 @@ class WPCPM_Test_Redirect extends Exception {}
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
@@ -301,6 +302,8 @@ class WPCPM_Sponsor_Posts {
 	public static $calls = array();
 	public static function render_tools( $record, $viewer, $name ) { self::$calls[] = array( $record, $name ); echo '<div class="wpcpm-tools__posts"></div>'; }
 }
+// The shell every outcome is printed through, toned, announced and focused (1.123.58, SPA-16).
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
@@ -549,7 +552,7 @@ post( array( 'wpcpm_offer' => $a1 ), array( 'WPCPM_Sponsor_Tools', 'handle_probl
 post( array( 'wpcpm_offer' => $a1 ), array( 'WPCPM_Sponsor_Tools', 'handle_problem' ) );
 ck( 'three reports a day, and the fourth press is told the limit', WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 )['status'], 'problem-limit' );
 post( array( 'wpcpm_offer' => $empty ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
-ck( 'a pool that emptied since the page was drawn says so, not "not open to your account"', WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 )['status'], 'claim-empty' );
+ck( 'a pool that emptied since the page was drawn says so, not "not open to your account"', WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 )['status'], 'tool-empty' );
 $GLOBALS['referer'] = false;
 $r = post( array( 'wpcpm_offer' => $c1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
 ck( 'without a referer the person lands on the site front page, at the section', $r, array( 'redirect', 'https://example.test/#wpcpm-tools' ) );
@@ -631,7 +634,7 @@ $pool_before   = WPCPM_Sponsor_Codes::counts( $c1 );
 $ledger_before = count( WPCPM_Sponsor_Codes::claims( $c1 ) );
 $GLOBALS['uid'] = 30;
 post( array( 'wpcpm_offer' => $c1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
-ck( 'so a claim posted from that stale form burns no code and takes no ledger row', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 30 )['status'], WPCPM_Sponsor_Codes::counts( $c1 ), count( WPCPM_Sponsor_Codes::claims( $c1 ) ), WPCPM_Sponsor_Claims::has_claimed( 30, $c1 ) ), array( 'claim-refused', $pool_before, $ledger_before, false ) );
+ck( 'so a claim posted from that stale form burns no code and takes no ledger row', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 30 )['status'], WPCPM_Sponsor_Codes::counts( $c1 ), count( WPCPM_Sponsor_Codes::claims( $c1 ) ), WPCPM_Sponsor_Claims::has_claimed( 30, $c1 ) ), array( 'tool-off', $pool_before, $ledger_before, false ) );
 $GLOBALS['settings']['tools_students'] = false;
 ck( 'and a student is refused the same way when theirs is switched off', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][22], $offer( $a1 ) ), 'off' );
 $GLOBALS['settings']['tools_students'] = true;
@@ -709,9 +712,9 @@ $pool_before   = WPCPM_Sponsor_Codes::counts( $g1 );
 $ledger_before = count( WPCPM_Sponsor_Codes::claims( $g1 ) );
 $GLOBALS['uid'] = 24;
 post( array( 'wpcpm_offer' => $g1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
-ck( 'so a claim posted from a form drawn before the link burns no code and takes no ledger row', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 24 )['status'], WPCPM_Sponsor_Codes::counts( $g1 ), count( WPCPM_Sponsor_Codes::claims( $g1 ) ), WPCPM_Sponsor_Claims::has_claimed( 24, $g1 ) ), array( 'claim-refused', $pool_before, $ledger_before, false ) );
+ck( 'so a claim posted from a form drawn before the link burns no code and takes no ledger row', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 24 )['status'], WPCPM_Sponsor_Codes::counts( $g1 ), count( WPCPM_Sponsor_Codes::claims( $g1 ) ), WPCPM_Sponsor_Claims::has_claimed( 24, $g1 ) ), array( 'tool-partners', $pool_before, $ledger_before, false ) );
 post( array( 'wpcpm_offer' => $f1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
-ck( 'and a form for B\'s pool that has since run out is refused too, not told the pool ran out: the rule is asked before the pool', array( is_array( $emptied_f ), WPCPM_Sponsor_Codes::counts( $f1 )['available'], WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $f1 ) ), WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 24 )['status'] ), array( true, 0, 'partners', 'claim-refused' ) );
+ck( 'and a form for B\'s pool that has since run out is refused too, not told the pool ran out: the rule is asked before the pool', array( is_array( $emptied_f ), WPCPM_Sponsor_Codes::counts( $f1 )['available'], WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $f1 ) ), WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 24 )['status'] ), array( true, 0, 'partners', 'tool-partners' ) );
 
 $GLOBALS['settings']['sponsor_tiers_live'] = false;
 ck( 'with the switch off the same offer of B\'s is claimable', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][24], $offer( $g1 ) ), '' );
@@ -821,6 +824,47 @@ tools_set_test( $B, false );
 WPCPM_Sponsor_Offers::set_state( $t_mentor_b, 'ended' );
 WPCPM_Sponsor_Offers::set_state( $t_team_b, 'ended' );
 ck( 'cleared, its offers are listed again', in_array( (string) $b1, array_map( static function ( $o ) { return (string) $o['id']; }, WPCPM_Sponsor_Tools::offers_for( 'students', $GLOBALS['users'][20] ) ), true ), true );
+
+echo "\n=== A refusal says its own reason, and the result is announced (1.123.58, SPA-16) ===\n";
+$tool_words = array(
+	'closed'   => 'That offer is closed, so its code cannot be shown.',
+	'off'      => 'That offer is switched off for now.',
+	'test'     => 'That offer is a test, so only the sponsor and Administrators see it.',
+	'partners' => 'That offer is for partners of the program only.',
+	'claimed'  => 'You have already claimed this offer: your code is below.',
+	'empty'    => 'That offer has run out of codes.',
+	'unshared' => 'That offer has no code set yet.',
+);
+$tool_said = array();
+foreach ( array_keys( $tool_words ) as $reason ) {
+	$tool_said[ $reason ] = WPCPM_Sponsor_Tools::messages()[ 'tool-' . $reason ][1] ?? null;
+}
+ck( 'each of the seven reasons is its own sentence', $tool_said, $tool_words );
+ck( 'and the two answers that are about the person stay the one refusal', WPCPM_Sponsor_Tools::messages()['claim-refused'], array( 'error', 'That offer is not open to your account.' ) );
+$GLOBALS['uid'] = 20;
+post( array( 'wpcpm_offer' => $e1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+$tool_closed = WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 )['status'];
+WPCPM_Sponsor_Codes::set_shared( $b1, '' );
+post( array( 'wpcpm_offer' => $b1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+$tool_unshared = WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 )['status'];
+WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?code=WPCREDITS' );
+$GLOBALS['uid'] = 21;
+post( array( 'wpcpm_offer' => $a1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+$tool_kind = WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 21 )['status'];
+ck( 'a refused claim leaves with the reason that refused it: closed and unshared each their own, and a Graduate\'s the one refusal', array( $tool_closed, $tool_unshared, $tool_kind ), array( 'tool-closed', 'tool-unshared', 'claim-refused' ) );
+WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'claimed' ), 20 );
+$tool_shown = section( 'students', 20 );
+WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'tool-empty' ), 20 );
+$tool_alert = section( 'students', 20 );
+WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'claimed-again' ), 20 );
+$tool_info = section( 'students', 20 );
+ck( 'the result is a status, a refusal an alert, focusable', array(
+	1 === substr_count( $tool_shown, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Your code is below.' ),
+	1 === substr_count( $tool_alert, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>That offer has run out of codes.</p>' ),
+	1 === substr_count( $tool_info, 'role="status" tabindex="-1" data-wpcpm-card-message>You already have a code for that offer.' ),
+	false === strpos( $tool_shown . $tool_alert . $tool_info, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success">' ),
+), array( true, true, true, true ) );
+$GLOBALS['uid'] = 20;
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

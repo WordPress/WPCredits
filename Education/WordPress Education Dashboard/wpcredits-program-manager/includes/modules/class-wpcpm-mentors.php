@@ -27,6 +27,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	// shared one is kept under another name for the Accounts tab, as the Institutions module keeps it.
 	use WPCPM_Accounts_Screen {
 		load_screen as private load_accounts_list;
+		notice_sentence as private accounts_notice_sentence;
 	}
 
 	const ACTION_SYNC   = 'wpcpm_mentors_sync';
@@ -36,6 +37,15 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	/** Admin-post action for inviting everybody who has never been invited. */
 	const ACTION_BULK = 'wpcpm_mentors_bulk_invite';
 	const ACTION_TICK   = 'wpcpm_mentors_tick';
+
+	/** Admin-post action for Run anyway, past the count check's stop (1.123.58). */
+	const ACTION_ACCEPT = 'wpcpm_mentors_sync_accept';
+
+	/**
+	 * Admin-post action for Confirm on a match waiting under Needs confirming (1.123.58), its nonce
+	 * keyed to the mentor's record (`confirm_action()`).
+	 */
+	const ACTION_CONFIRM_MATCH = 'wpcpm_mentors_confirm_match';
 
 	/** The screen's tab the accounts are on, which every link and form of the list returns to. */
 	const TAB_ACCOUNTS = 'accounts';
@@ -141,6 +151,8 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
+		add_action( 'admin_post_' . self::ACTION_ACCEPT, array( $this, 'handle_accept' ) );
+		add_action( 'admin_post_' . self::ACTION_CONFIRM_MATCH, array( $this, 'handle_confirm_match' ) );
 		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
 		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
@@ -535,21 +547,21 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			$this->leave( $this->accounts_url(), 'invites-none' );
 		}
 
-		WPCPM_Mail::queue_invites( $pending );
-
-		$this->leave( $this->accounts_url(), 'invites-queued' );
+		$this->leave( $this->accounts_url(), self::queue_bulk( $pending ) );
 	}
 
 	/**
 	 * The Sync tab: the sync's notices, the warning while Airtable is not connected, the warning while
-	 * mentors made from applications wait for their Airtable row (1.122.33), the last run's error, the
-	 * warning while names are still unread, the Airtable sync card and the last run's report.
+	 * mentors made from applications wait for their Airtable row (1.122.33), the last run's error, and
+	 * after it Run anyway while the count check holds the run stopped (1.123.58), the warning while
+	 * names are still unread, the Airtable sync card, the matches waiting under Needs confirming
+	 * (1.123.58) and the last run's report.
 	 */
 	private function render_tab_sync() {
 		$report = get_option( WPCPM_Mentors_Sync::OPT_REPORT );
 		$error  = get_option( WPCPM_Mentors_Sync::OPT_ERROR );
 
-		$this->render_notice_from( self::sync_messages() );
+		$this->render_notice_from( array_merge( self::sync_messages(), self::match_messages() ) );
 		$this->render_not_connected();
 		$this->render_unwritten();
 
@@ -559,6 +571,10 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 				esc_html__( 'Last sync error:', 'wpcredits-program-manager' ),
 				esc_html( $error )
 			);
+		}
+
+		if ( WPCPM_Mentors_Sync::is_stopped() ) {
+			$this->render_run_anyway( __( 'Run the sync anyway? Every linked account it did not read loses the Mentor role.', 'wpcredits-program-manager' ), self::TAB_SYNC );
 		}
 
 		// Student rows are cached in user meta, so institution and team names only appear once a
@@ -572,10 +588,179 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		}
 
 		$this->render_sync_panel( WPCPM_Mentors_Sync::progress(), (int) get_option( WPCPM_Mentors_Sync::OPT_LAST ) );
+		$this->render_unconfirmed();
 
 		if ( is_array( $report ) ) {
 			$this->render_report( $report );
 		}
+	}
+
+	/**
+	 * The outcomes of Confirm on a waiting match (1.123.58), which come back to the Sync tab.
+	 * `match-confirmed` names the account (`notice_sentence()`).
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status => notice type and sentence.
+	 */
+	private static function match_messages() {
+		return array(
+			/* translators: %s: the account's display name. */
+			'match-confirmed' => array( 'success', __( 'Confirmed: %s is linked to the mentor\'s record and holds the Mentor role. The next sync gives the account its students.', 'wpcredits-program-manager' ) ),
+			'match-gone'      => array( 'info', __( 'That match is no longer waiting: a sync found the mentor another way, or the account is gone. Nothing was changed.', 'wpcredits-program-manager' ) ),
+		);
+	}
+
+	/**
+	 * The sentence one outcome prints: `match-confirmed` names the account the press carried, and
+	 * every other outcome is the accounts screen's.
+	 *
+	 * @param string $status   The status being printed.
+	 * @param string $sentence Its sentence from the map.
+	 * @return string
+	 */
+	protected function notice_sentence( $status, $sentence ) {
+		if ( 'match-confirmed' !== (string) $status ) {
+			return $this->accounts_notice_sentence( $status, $sentence );
+		}
+
+		$detail = WPCPM_Flash::take( self::FLASH_DETAIL );
+		$detail = is_array( $detail ) && isset( $detail['status'] ) && 'match-confirmed' === $detail['status'] ? $detail : array();
+		$who    = isset( $detail['who'] ) && '' !== (string) $detail['who'] ? (string) $detail['who'] : __( 'The account', 'wpcredits-program-manager' );
+
+		// An Administrator's account keeps its own roles: the link gives it no Mentor role to hold.
+		if ( ! empty( $detail['admin'] ) ) {
+			/* translators: %s: the account's display name. */
+			$sentence = __( 'Confirmed: %s is linked to the mentor\'s record and keeps its Administrator role. The next sync gives the account its students.', 'wpcredits-program-manager' );
+		}
+
+		$said = sprintf( (string) $sentence, $who );
+
+		if ( ! empty( $detail['busy'] ) ) {
+			$said .= ' ' . __( 'The invitation could not be queued: the queue was busy. Send it from the account\'s row.', 'wpcredits-program-manager' );
+		} elseif ( ! empty( $detail['queued'] ) ) {
+			$said .= ' ' . __( 'An invitation with the welcome is queued.', 'wpcredits-program-manager' );
+		}
+
+		return $said;
+	}
+
+	/**
+	 * The nonce action of Confirm on one waiting match, keyed to the mentor's record so a form for one
+	 * cannot confirm another.
+	 *
+	 * @param string $record_id The mentor's record id.
+	 * @return string
+	 */
+	public static function confirm_action( $record_id ) {
+		return self::ACTION_CONFIRM_MATCH . '_' . (string) $record_id;
+	}
+
+	/**
+	 * Confirm on a match waiting under Needs confirming (1.123.58): the capability, then the nonce
+	 * keyed to the record, then the state, the match still waiting and its account still there. A
+	 * confirmed match is linked the way an account found by its address is linked, holds the Mentor
+	 * role, and waits no more; one that does not wait any more changes nothing.
+	 */
+	public function handle_confirm_match() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$record_id = WPCPM_Request::posted_text( 'record' );
+
+		check_admin_referer( self::confirm_action( $record_id ) );
+
+		$url       = $this->tab_url( self::TAB_SYNC );
+		$confirmed = WPCPM_Mentor_Provision::confirm_unconfirmed( $record_id );
+
+		if ( null === $confirmed ) {
+			$this->leave( $url, 'match-gone' );
+		}
+
+		$user = $confirmed['user'];
+
+		$this->leave(
+			$url,
+			'match-confirmed',
+			array(
+				'who'    => '' !== (string) $user->display_name ? $user->display_name : $user->user_login,
+				'admin'  => in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true ),
+				'queued' => ! empty( $confirmed['queued'] ),
+				'busy'   => ! empty( $confirmed['busy'] ),
+			)
+		);
+	}
+
+	/**
+	 * Needs confirming (1.123.58): the mentors the sync found an account for by their WordPress.org
+	 * username alone, which it gave nothing, each with the account it found and when, and Confirm,
+	 * which asks before it links. A match whose account is gone is not listed: the next sync finds
+	 * the mentor another way, which takes it off the list.
+	 */
+	private function render_unconfirmed() {
+		$rows = array();
+
+		foreach ( WPCPM_Mentor_Provision::unconfirmed() as $record_id => $entry ) {
+			$user = get_userdata( isset( $entry['user_id'] ) ? (int) $entry['user_id'] : 0 );
+
+			if ( $user instanceof WP_User ) {
+				$rows[ (string) $record_id ] = array( $entry, $user );
+			}
+		}
+
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Needs confirming', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p>' . esc_html__( 'The sync found an account whose login is a mentor\'s WordPress.org username, and nothing else ties the two: no address and no record. It gave the account nothing. Confirm a match only when the account is the mentor\'s.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<table class="wpcpm-table"><thead><tr>';
+		printf( '<th scope="col">%s</th>', esc_html__( 'Mentor', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col">%s</th>', esc_html__( 'Account', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col">%s</th>', esc_html__( 'Found', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col"><span class="screen-reader-text">%s</span></th>', esc_html__( 'Confirm', 'wpcredits-program-manager' ) );
+		echo '</tr></thead><tbody>';
+
+		foreach ( $rows as $record_id => $row ) {
+			list( $entry, $user ) = $row;
+
+			$name    = isset( $entry['name'] ) && '' !== (string) $entry['name'] ? (string) $entry['name'] : $record_id;
+			$profile = isset( $entry['profile'] ) ? (string) $entry['profile'] : '';
+			$who     = '' !== (string) $user->display_name ? $user->display_name : $user->user_login;
+
+			echo '<tr>';
+
+			if ( '' !== $profile ) {
+				printf( '<td><a href="%1$s">%2$s</a></td>', esc_url( $profile ), esc_html( $name ) );
+			} else {
+				printf( '<td>%s</td>', esc_html( $name ) );
+			}
+
+			printf( '<td>%1$s<br />%2$s &middot; %3$s</td>', esc_html( $who ), esc_html( $user->user_login ), esc_html( $user->user_email ) );
+			printf( '<td>%s</td>', esc_html( WPCPM_Dates::moment( isset( $entry['at'] ) ? (int) $entry['at'] : 0 ) ) );
+			echo '<td>';
+			printf(
+				'<form method="post" action="%1$s" data-wpcpm-confirm="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr(
+					sprintf(
+						/* translators: %s: the account's display name. */
+						__( 'Make %s a mentor and give the account this mentor\'s students?', 'wpcredits-program-manager' ),
+						$who
+					)
+				)
+			);
+			wp_nonce_field( self::confirm_action( $record_id ) );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONFIRM_MATCH ) );
+			printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record_id ) );
+			$this->tab_field( self::TAB_SYNC );
+			printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Confirm', 'wpcredits-program-manager' ) );
+			echo '</form></td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody></table>';
+		echo '</div>';
 	}
 
 	/**
@@ -719,9 +904,11 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		$percent = isset( $progress['percent'] ) ? (int) $progress['percent'] : 0;
 
 		printf(
-			'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3">',
+			'<div class="wpcpm-progress" data-wpcpm-progress data-action="%1$s" data-nonce="%2$s" data-poll="3" data-finished="%3$s">',
 			esc_attr( self::ACTION_TICK ),
-			esc_attr( wp_create_nonce( self::ACTION_TICK ) )
+			esc_attr( wp_create_nonce( self::ACTION_TICK ) ),
+			// Said by the poller as the run finishes, before it reloads the page (1.123.58).
+			esc_attr__( 'The sync has finished. The page will show its report.', 'wpcredits-program-manager' )
 		);
 
 		echo '<p class="wpcpm-progress__head">';
@@ -758,6 +945,14 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			'<p class="wpcpm-progress__stalled" data-wpcpm-stalled%1$s>%2$s</p>',
 			$progress['stalled'] ? '' : ' hidden',
 			esc_html__( 'No progress for over two minutes. The run may have been interrupted - cancel it and start again.', 'wpcredits-program-manager' )
+		);
+
+		// Printed by the poller when the count check stops the run (1.123.58, trial T5): the check's
+		// sentence, then the way to Run anyway, since the poller reloads nothing. `inline`, so
+		// WordPress's own script leaves it inside the panel.
+		printf(
+			'<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="%s" hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>',
+			esc_attr__( 'Reload this page to choose Run anyway or Cancel.', 'wpcredits-program-manager' )
 		);
 
 		echo '<p class="description">' . esc_html__( 'The sync works in short bursts so it never hits a PHP timeout. Progress above updates every few seconds; you can safely leave this page and come back.', 'wpcredits-program-manager' ) . '</p>';

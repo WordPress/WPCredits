@@ -74,6 +74,12 @@ class WPCPM_Institution_Invite {
 	/** A member invites a colleague. Nonce keyed to the institution. */
 	const ACTION_INVITE = 'wpcpm_invite_member';
 
+	/**
+	 * What a refused invitation keeps of its form, one entry per institution, as
+	 * `WPCPM_Flash::keep()` names a form: `invite:<institution record>` (1.123.58).
+	 */
+	const KEPT_FORM = 'invite:';
+
 	/** The link in the mail. The one action a signed-out request may reach. */
 	const ACTION_ACCEPT = 'wpcpm_accept_invite';
 
@@ -261,6 +267,9 @@ class WPCPM_Institution_Invite {
 	 * one refusal exists to avoid. The decision is `ACT_MANAGE_MEMBERS`, the same one the
 	 * handler makes, so what is drawn and what is allowed cannot drift apart.
 	 *
+	 * The address's label is shown, the placeholder only an example beside it, and a refused press
+	 * comes back with the address as it was typed (1.123.58, INS-14).
+	 *
 	 * @param string $record_id Airtable institution record ID.
 	 * @param string $origin    `WPCPM_Institution_People::RETURN_ADMIN` from the manager
 	 *                          screen, '' from the institution's own dashboard.
@@ -281,6 +290,9 @@ class WPCPM_Institution_Invite {
 			return;
 		}
 
+		$kept  = WPCPM_Flash::kept( self::KEPT_FORM . $record_id );
+		$typed = isset( $kept['values']['email'] ) && is_scalar( $kept['values']['email'] ) ? (string) $kept['values']['email'] : '';
+
 		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Invite a colleague', 'wpcredits-program-manager' ) );
 
 		echo '<form class="wpcpm-people__form wpcpm-people__form--invite" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
@@ -290,14 +302,15 @@ class WPCPM_Institution_Invite {
 		self::render_origin( $origin );
 
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-invite-email-%1$s">%2$s</label>',
+			'<label for="wpcpm-invite-email-%1$s">%2$s</label>',
 			esc_attr( $record_id ),
 			esc_html__( 'Their email address', 'wpcredits-program-manager' )
 		);
 		printf(
-			'<input type="email" id="wpcpm-invite-email-%1$s" name="email" value="" placeholder="%2$s" required />',
+			'<input type="email" id="wpcpm-invite-email-%1$s" name="email" value="%3$s" placeholder="%2$s" required />',
 			esc_attr( $record_id ),
-			esc_attr__( 'Their email address', 'wpcredits-program-manager' )
+			esc_attr__( 'Their email address', 'wpcredits-program-manager' ),
+			esc_attr( $typed )
 		);
 
 		printf(
@@ -587,44 +600,47 @@ class WPCPM_Institution_Invite {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		// What an earlier refusal kept is stale once the form is posted again (1.123.58).
+		WPCPM_Flash::forget( self::KEPT_FORM . $record );
+
 		// An institution the site has never read cannot acquire members: `attach()` would
 		// refuse the acceptance in a fortnight, and the person to tell is the one pressing the
 		// button now.
 		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
-			self::finish( 'invite-unknown', '', $record );
+			self::refuse( 'invite-unknown', '', $record );
 		}
 
 		$email = strtolower( sanitize_email( WPCPM_Request::posted_text( 'email' ) ) );
 
 		if ( ! is_email( $email ) ) {
-			self::finish( 'invite-bad-email', '', $record );
+			self::refuse( 'invite-bad-email', '', $record );
 		}
 
 		// Named before anything is sent, because neither of these is an error the sender made
 		// twice: the address is on the list they are looking at, or a colleague invited it an
 		// hour ago.
 		if ( self::holds_address( WPCPM_Institution_Members::members_of( $record ), $email ) ) {
-			self::finish( 'invite-member', $email, $record );
+			self::refuse( 'invite-member', $email, $record );
 		}
 
 		if ( self::pending_to( $record, $email ) ) {
-			self::finish( 'invite-waiting', $email, $record );
+			self::refuse( 'invite-waiting', $email, $record );
 		}
 
 		if ( count( self::pending_for( $record ) ) >= self::PENDING_MAX ) {
-			self::finish( 'invite-full', '', $record );
+			self::refuse( 'invite-full', '', $record );
 		}
 
 		$actor = get_current_user_id();
 
 		if ( ! WPCPM_Ceiling::claim( self::ceiling_key( $record, $actor ), self::SENDS_PER_DAY, DAY_IN_SECONDS ) ) {
-			self::finish( 'invite-ceiling', '', $record );
+			self::refuse( 'invite-ceiling', '', $record );
 		}
 
 		$post_id = self::create( $record, $email, $actor );
 
 		if ( ! $post_id ) {
-			self::finish( 'invite-error', '', $record );
+			self::refuse( 'invite-error', '', $record );
 		}
 
 		$sent = self::mail_invite( $post_id, self::issue( $post_id ) );
@@ -2037,6 +2053,20 @@ class WPCPM_Institution_Invite {
 		$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
 
 		return '' !== $name ? $name : (string) $record_id;
+	}
+
+	/**
+	 * Refuse an invitation that got past the nonce and the policy: keep the address as it was typed,
+	 * for the one drawing of the form that follows, then leave the refusal (1.123.58, INS-14).
+	 *
+	 * @param string $status Outcome slug, one of the keys `messages()` knows.
+	 * @param string $detail What the message adds.
+	 * @param string $record The institution the form is for.
+	 */
+	private static function refuse( $status, $detail, $record ) {
+		WPCPM_Flash::keep( self::KEPT_FORM . $record, array( 'email' => WPCPM_Request::posted_text( 'email' ) ) );
+
+		self::finish( $status, $detail, $record );
 	}
 
 	/**

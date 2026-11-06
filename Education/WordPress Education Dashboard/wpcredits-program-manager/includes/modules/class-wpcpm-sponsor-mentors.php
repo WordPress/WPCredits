@@ -31,6 +31,20 @@ final class WPCPM_Sponsor_Mentors {
 	const MAIL_CONTEXT           = 'sponsor-mentor-interest';
 
 	/**
+	 * How long an interest in a mentor stands as filed: a second one by the same sponsor in the same
+	 * mentor within it is answered as already sent, writes no row and spends none of the day's
+	 * `PER_DAY` (1.123.58, SDB-08).
+	 */
+	const REPEAT_WINDOW = 30 * DAY_IN_SECONDS;
+
+	/**
+	 * Prefix of the option row an interest is checked and written under, one per sponsor and mentor:
+	 * the sponsor's record, an underscore and the mentor's follow it (1.123.58, SDB-08). Uninstall
+	 * sweeps the rows by it, since a request that dies holding one leaves it behind.
+	 */
+	const INTEREST_LOCK = 'wpcpm_interest_lock_';
+
+	/**
 	 * The handler.
 	 */
 	public static function init() {
@@ -46,7 +60,21 @@ final class WPCPM_Sponsor_Mentors {
 		return array(
 			'mentor-interest-sent'    => array( 'success', __( 'Thank you. Your program contact will get in touch about that mentor.', 'wpcredits-program-manager' ) ),
 			'mentor-interest-unknown' => array( 'error', __( 'That mentor is not on the list.', 'wpcredits-program-manager' ) ),
-			'mentor-interest-ceiling' => array( 'error', __( 'Five a day is the limit. Try again tomorrow.', 'wpcredits-program-manager' ) ),
+			// The count is the ceiling's own (`handle_interest()` claims `PER_DAY`), and the sentence names
+			// what was limited (1.123.58, SDB-23).
+			'mentor-interest-ceiling' => array(
+				'error',
+				sprintf(
+					/* translators: %s: how many mentors a sponsor can tell the program about a day. */
+					_n( 'You can tell the program about %s mentor a day. Try again tomorrow.', 'You can tell the program about %s mentors a day. Try again tomorrow.', self::PER_DAY, 'wpcredits-program-manager' ),
+					number_format_i18n( self::PER_DAY )
+				),
+			),
+			// The interest is on record whoever could be mailed (1.123.58, SDB-08), so nobody to mail is a
+			// warning and not a failure; `mentor-interest-failed` is left to what nothing could record.
+			'mentor-interest-unsent'  => array( 'warning', __( 'Your interest is on record. The program will see it, though nobody could be emailed about it right now.', 'wpcredits-program-manager' ) ),
+			/* translators: 1: the mentor's name, 2: the day the interest was filed, in the site's date format. */
+			'mentor-interest-repeat'  => array( 'info', __( 'You already told the program you would like to sponsor %1$s, on %2$s. It is on record, so there is nothing to send again.', 'wpcredits-program-manager' ) ),
 			'mentor-interest-failed'  => array( 'error', __( 'That could not be sent right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'                 => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
@@ -150,11 +178,6 @@ final class WPCPM_Sponsor_Mentors {
 		$record = $claim['record'];
 		$row    = is_array( $claim['row'] ) ? $claim['row'] : WPCPM_Sponsors_Index::empty_row();
 		$viewer = wp_get_current_user();
-
-		if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( self::CEILING, (string) $viewer->ID ), self::PER_DAY, DAY_IN_SECONDS ) ) {
-			self::leave( 'mentor-interest-ceiling', $record );
-		}
-
 		$asked  = WPCPM_Request::posted_text( 'wpcpm_mentor' );
 		$mentor = null;
 
@@ -163,6 +186,34 @@ final class WPCPM_Sponsor_Mentors {
 				$mentor = $candidate;
 				break;
 			}
+		}
+
+		// The check and the write run under one lock per sponsor and mentor, so two tabs posting within
+		// a second file one interest (1.123.58, SDB-08).
+		$lock  = '';
+		$token = '';
+
+		if ( null !== $mentor ) {
+			$lock  = self::INTEREST_LOCK . $record . '_' . $mentor['record'];
+			$token = WPCPM_Lock::take( $lock, 30 );
+
+			if ( '' === $token ) {
+				self::leave( 'mentor-interest-failed', $record );
+			}
+		}
+
+		// A second interest in the same mentor within the window is already sent: it writes no row
+		// and spends none of the day's count, so it is asked before the ceiling is claimed.
+		$earlier = null === $mentor ? 0 : self::repeat_of( $record, $mentor['record'] );
+
+		if ( $earlier > 0 ) {
+			WPCPM_Lock::release( $lock, $token );
+			self::leave( 'mentor-interest-repeat', $record, '', array( $mentor['name'], WPCPM_Dates::day( $earlier ) ) );
+		}
+
+		if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( self::CEILING, (string) $viewer->ID ), self::PER_DAY, DAY_IN_SECONDS ) ) {
+			WPCPM_Lock::release( $lock, $token );
+			self::leave( 'mentor-interest-ceiling', $record );
 		}
 
 		if ( null === $mentor ) {
@@ -208,7 +259,38 @@ final class WPCPM_Sponsor_Mentors {
 			)
 		);
 
-		self::leave( $mailed > 0 ? 'mentor-interest-sent' : 'mentor-interest-failed', $record );
+		WPCPM_Lock::release( $lock, $token );
+
+		// The row is written whoever could be mailed, so an interest nobody was told about is on record
+		// and says so, in place of a failure (1.123.58, SDB-08).
+		self::leave( $mailed > 0 ? 'mentor-interest-sent' : 'mentor-interest-unsent', $record );
+	}
+
+	/**
+	 * When a sponsor last told the program it would like to sponsor a mentor, if that was within
+	 * `REPEAT_WINDOW`: the newest row of the interest in the audit log (`LOG_KIND`) about the mentor.
+	 *
+	 * @param string $record Sponsor key.
+	 * @param string $mentor The mentor's record.
+	 * @return int A Unix time, or 0 when the sponsor has not told the program within the window.
+	 */
+	private static function repeat_of( string $record, string $mentor ): int {
+		$since = time() - self::REPEAT_WINDOW;
+
+		// Every row, newest first, walked until one is older than the window: other modules write many
+		// sponsor rows, so a fixed count of the newest could miss an interest still inside it. The first
+		// row that names the mentor is the last interest.
+		foreach ( WPCPM_Institution_Audit::entries_for_sponsor( $record, 0 ) as $entry ) {
+			if ( $entry['time'] < $since ) {
+				return 0;
+			}
+
+			if ( self::LOG_KIND === $entry['kind'] && 0 === strcmp( (string) $entry['subject'], $mentor ) ) {
+				return (int) $entry['time'];
+			}
+		}
+
+		return 0;
 	}
 
 	/**
@@ -454,12 +536,14 @@ final class WPCPM_Sponsor_Mentors {
 	/**
 	 * Flash and go back to the dashboard, through the dashboard's own method (see the profile card).
 	 *
-	 * @param string $status A key of `messages()`.
-	 * @param string $record The sponsor, or ''.
+	 * @param string   $status A key of `messages()`.
+	 * @param string   $record The sponsor, or ''.
+	 * @param string   $detail A sentence after the status's own, or ''.
+	 * @param string[] $args   The values the status's sentence names, in its order, or none.
 	 */
-	private static function leave( $status, $record ) {
+	private static function leave( $status, $record, $detail = '', array $args = array() ) {
 		// Every outcome of this class is the interest form's, which lives on the second card.
-		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD_LOOKING, $record );
+		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD_LOOKING, $record, $detail, $args );
 		exit;
 	}
 }

@@ -1265,6 +1265,22 @@ ck( 'and one on the manager screen', has( render_form_as( 1, $A, 'admin' ), 'nam
 ck( 'a member of another institution is drawn nothing at all', render_form_as( 9, $A ), '' );
 ck( 'and a record that is not one draws nothing', render_form_as( 7, 'not-a-record' ), '' );
 
+// 1.123.58, INS-14: the label is shown, and a refused address comes back as it was typed. The next
+// request is a fresh account holding the same meta, since the real flash reads a channel once per
+// account and request.
+ck( 'the name and address labels are visible', array( has( $form, '<label for="wpcpm-invite-email-' . $A . '">Their email address</label>' ), has( $form, 'screen-reader-text' ), has( $form, 'placeholder="Their email address"' ) ), array( true, false, true ) );
+invite_as( 7, $A, 'anna at example' );
+$refused_invite      = flash_status( 7 );
+$GLOBALS['users'][30] = new WP_User( 30, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
+$GLOBALS['umeta'][30] = $GLOBALS['umeta'][7];
+$again                = render_form_as( 30, $A );
+ck( 'a refused address keeps the typed name and address', array( $refused_invite, has( $again, 'name="email" value="anna at example"' ) ), array( 'invite-bad-email', true ) );
+$GLOBALS['users'][31] = new WP_User( 31, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
+$GLOBALS['umeta'][31] = $GLOBALS['umeta'][30];
+ck( 'once: the next drawing is the empty form', has( render_form_as( 31, $A ), 'value="anna at example"' ), false );
+unset( $GLOBALS['users'][30], $GLOBALS['users'][31], $GLOBALS['umeta'][30], $GLOBALS['umeta'][31] );
+unset( $GLOBALS['umeta'][7][ WPCPM_Flash::META ] );
+
 // The gate is the policy's, and it closes this card with everything else.
 $GLOBALS['settled'] = array( $B );
 ck( 'an institution whose agreement is not settled cannot invite anybody', render_form_as( 7, $A ), '' );

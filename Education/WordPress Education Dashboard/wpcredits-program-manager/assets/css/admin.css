@@ -254,6 +254,15 @@ p.wpcpm-settings__intro {
 	display: none;
 }
 
+/* The count check's stop, printed by the poller in the panel (1.123.58, trial T5). */
+.wpcpm-progress__stopped {
+	margin: 12px 0 0;
+}
+
+.wpcpm-progress__stopped[hidden] {
+	display: none;
+}
+
 .wpcpm-list__actions form {
 	display: inline;
 }
@@ -261,6 +270,16 @@ p.wpcpm-settings__intro {
 .wpcpm-list__actions a,
 .wpcpm-list__actions button {
 	margin-right: 10px;
+}
+
+/* A row's action links are a target of at least 24 by 24 CSS pixels (WCAG 2.2 target size, 2.5.8):
+   a line of 13px admin text is about 18px tall, and a word as short as Edit is barely 24px wide. The
+   words are as they were; the box grows around them (1.123.58). */
+.wpcpm-list__actions > a {
+	display: inline-block;
+	line-height: 24px;
+	min-height: 24px;
+	min-width: 24px;
 }
 
 .wpcpm-caps {
@@ -520,6 +539,16 @@ p.wpcpm-settings__intro {
 .wpcpm-invites form {
 	display: inline-block;
 	margin: 0 12px 0 0;
+}
+
+/* A finished run's Dismiss, a submit button drawn as a link, is a target of at least 24 by 24 CSS
+   pixels where the screen is narrow and its neighbors close (WCAG 2.2 target size, 2.5.8; 1.123.58). */
+@media screen and ( max-width: 782px ) {
+
+	.wpcpm-invites .button-link[type="submit"] {
+		min-height: 24px;
+		min-width: 24px;
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -1010,4 +1039,31 @@ p.wpcpm-settings__intro {
 
 .wpcpm-sreport__field label {
 	font-weight: 600;
+}
+
+/*
+ * A refused settings form's summary (`WPCPM_Form_Errors::summary()`, 1.123.58), drawn as core's error
+ * notice: the list keeps its bullets, and the notice is outlined when assets/js/forms.js moves the
+ * focus to it on load, in the admin color scheme's own color.
+ */
+.wpcpm-errors__title {
+	font-size: 14px;
+	margin: 0.75em 0 0.25em;
+}
+
+.wpcpm-errors__list {
+	list-style: disc;
+	margin: 0 0 0.75em;
+	padding-inline-start: 1.25em;
+}
+
+.wpcpm-errors:focus {
+	outline: 2px solid var( --wp-admin-theme-color, #2271b1 );
+	outline-offset: 2px;
+}
+
+.wpcpm-field__problem {
+	color: #d63638;
+	font-weight: 600;
+	margin: 0.3em 0 0;
 }

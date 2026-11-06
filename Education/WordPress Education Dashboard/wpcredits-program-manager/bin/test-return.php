@@ -33,11 +33,18 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function is_multisite() { return false; }
 
+// The flash, as a plain bag: the real one remembers what it took for the rest of a request.
+class WPCPM_Flash {
+	public static function set( $c, $v, $u = 0 ) { $GLOBALS['flash'][ $c ] = $v; }
+	public static function take( $c, $u = 0 ) { $v = isset( $GLOBALS['flash'][ $c ] ) ? $GLOBALS['flash'][ $c ] : ''; unset( $GLOBALS['flash'][ $c ] ); return $v; }
+}
+
 class WPCPM_Administrators_Dashboard {
 	public static function page_url() { return (string) $GLOBALS['admin_page']; }
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
 $fail  = 0;
@@ -81,6 +88,18 @@ ck( 'the Sponsor reports card\'s anchor travels, so a refused Draft now lands ba
 // The Events card's three decisions (1.117.0): each lands back on the card it was pressed on.
 $_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-events' );
 ck( 'the Events card\'s anchor travels, so an approval, a return or a cancel lands back on that card', WPCPM_Return::url( 'https://example.test/' ), 'https://example.test/administrator-dashboard/#wpcpm-sponsor-events' );
+// The outcome is printed inside the card the decision came from (SDB-02, 1.123.58).
+$_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'reports' );
+WPCPM_Return::url( $default );
+ck( 'url() names the card for the outcome when it goes back to the dashboard with an anchor, and names none otherwise', WPCPM_Flash::take( WPCPM_Dashboard_Card::TARGET ), 'wpcpm-reports' );
+$_POST = array( 'wpcpm_return' => 'dashboard' );
+WPCPM_Return::url( $default );
+$none = WPCPM_Flash::take( WPCPM_Dashboard_Card::TARGET );
+$_POST = array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'evil' );
+WPCPM_Return::url( $default );
+$_POST = array( 'wpcpm_return' => 'admin', 'wpcpm_return_to' => 'reports' );
+WPCPM_Return::url( $default );
+ck( 'a dashboard return with no anchor, an unknown one, or a return to the handler\'s own screen names no card', array( $none, WPCPM_Flash::take( WPCPM_Dashboard_Card::TARGET ) ), array( '', '' ) );
 $GLOBALS['admin_page'] = '';
 $_POST = array( 'wpcpm_return' => 'dashboard' );
 ck( 'no page is the default', WPCPM_Return::url( $default ), $default );

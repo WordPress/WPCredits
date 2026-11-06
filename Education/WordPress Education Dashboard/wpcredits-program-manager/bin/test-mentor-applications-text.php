@@ -50,6 +50,7 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 require_once __DIR__ . '/stubs/mentor-applications.php';
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-26.php';
 
@@ -96,6 +97,7 @@ class WPCPM_Administrators_Dashboard {
 	}
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';

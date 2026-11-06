@@ -138,8 +138,14 @@ final class WPCPM_Form_Stash {
 	 * holds only what the sender typed and losing it on a reload is the thing this exists to
 	 * avoid. A bare outcome is answered only when the form knows the slug.
 	 *
+	 * An id in the address whose transient is gone, its minutes past or the database cleared,
+	 * answers `stash-gone` (1.123.58), so the form says its kept answers have expired rather than
+	 * coming back empty without a word; each form knows the outcome and draws itself empty under
+	 * it, marking no field.
+	 *
 	 * @param array $form The form's description.
-	 * @return array The stash, `array( 'outcome' => slug )` for a bare one, or an empty array.
+	 * @return array The stash, `array( 'outcome' => slug )` for a bare one or one whose answers
+	 *               are gone, or an empty array.
 	 */
 	public static function read( array $form ) {
 		$form = wp_parse_args( $form, self::defaults() );
@@ -157,10 +163,117 @@ final class WPCPM_Form_Stash {
 
 				return $stash;
 			}
+
+			return array( 'outcome' => 'stash-gone' );
 		}
 
 		$said = WPCPM_Request::key( (string) $form['query_outcome'] );
 
 		return in_array( $said, (array) $form['outcomes'], true ) ? array( 'outcome' => $said ) : array();
+	}
+
+	/**
+	 * Whether a stash is small enough to keep: the characters of its values and its typing
+	 * together at most `WPCPM_Flash::KEPT_MAX`, the most one kept value of a signed-in form holds.
+	 *
+	 * Asked where a refusal is cheap to make, the per-connection ceiling's (1.123.58, FORM-01): a
+	 * flood the ceiling turns away must not buy two rows of the options table a request of
+	 * whatever size it likes. A list counts each of its strings; anything that is not a string or
+	 * a number counts nothing.
+	 *
+	 * @param array $stash What the handler would keep: `values` and `typed`.
+	 * @return bool
+	 */
+	public static function fits( array $stash ) {
+		$size = 0;
+
+		foreach ( array( 'values', 'typed' ) as $part ) {
+			if ( isset( $stash[ $part ] ) && is_array( $stash[ $part ] ) ) {
+				$size += self::size_of( $stash[ $part ] );
+			}
+		}
+
+		return $size <= self::kept_max();
+	}
+
+	/**
+	 * `WPCPM_Flash::KEPT_MAX`, which the plugin loads before this class. Read through `defined()`
+	 * so a suite that loads a form without the flash, or with a stand-in for it, still has the
+	 * plugin's number rather than a fatal error.
+	 *
+	 * @return int
+	 */
+	private static function kept_max() {
+		return defined( 'WPCPM_Flash::KEPT_MAX' ) ? (int) constant( 'WPCPM_Flash::KEPT_MAX' ) : 60000;
+	}
+
+	/**
+	 * The characters a value holds, a list's strings added up.
+	 *
+	 * @param mixed $value A value.
+	 * @return int
+	 */
+	private static function size_of( $value ) {
+		if ( is_array( $value ) ) {
+			$size = 0;
+
+			foreach ( $value as $one ) {
+				$size += self::size_of( $one );
+			}
+
+			return $size;
+		}
+
+		if ( is_string( $value ) ) {
+			return mb_check_encoding( $value, 'UTF-8' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
+		}
+
+		return is_int( $value ) || is_float( $value ) ? strlen( (string) $value ) : 0;
+	}
+
+	/**
+	 * The outcomes every public form says in the same words (1.123.58): the three answers of the
+	 * per-connection ceiling, each saying when the hour turns and the ceiling lets go
+	 * (`WPCPM_Ceiling::resets_at()`), and the answer for kept answers that have expired. Each form
+	 * adds them to its own map.
+	 *
+	 * `busy` is a refusal whose nonce failed, kept nothing and draws no form; `busy-kept` keeps the
+	 * answers and draws the form under its sentence; `busy-unkept` had answers too long to keep and
+	 * draws no form either.
+	 *
+	 * @return array<string, array> Slug => `array( level, sentence )`.
+	 */
+	public static function outcomes() {
+		// The site's time format, or H:i where it has none, so the sentence never ends "after .".
+		$format = trim( (string) get_option( 'time_format' ) );
+		$at     = wp_date( '' !== $format ? $format : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ) );
+
+		return array(
+			'busy'        => array(
+				'error',
+				sprintf(
+					/* translators: %s: the time the hour turns, in the site's time format. */
+					__( 'Too many attempts were made from this connection in this hour, so this one was not taken. Send the form again after %s.', 'wpcredits-program-manager' ),
+					$at
+				),
+			),
+			'busy-kept'   => array(
+				'error',
+				sprintf(
+					/* translators: %s: the time the hour turns, in the site's time format. */
+					__( 'Too many attempts were made from this connection in this hour, so this one was not taken. Your answers are still here: send the form again after %s.', 'wpcredits-program-manager' ),
+					$at
+				),
+			),
+			'busy-unkept' => array(
+				'error',
+				sprintf(
+					/* translators: %s: the time the hour turns, in the site's time format. */
+					__( 'Too many attempts were made from this connection in this hour, so this one was not taken, and the answers were too long to keep here. Send the form again after %s.', 'wpcredits-program-manager' ),
+					$at
+				),
+			),
+			'stash-gone'  => array( 'info', __( 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.', 'wpcredits-program-manager' ) ),
+		);
 	}
 }

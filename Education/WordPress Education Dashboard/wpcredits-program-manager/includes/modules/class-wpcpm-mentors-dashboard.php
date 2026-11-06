@@ -562,7 +562,7 @@ class WPCPM_Mentors_Dashboard {
 
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
-				__( 'Please log in to see the students assigned to you.', 'wpcredits-program-manager' ),
+				__( 'Log in to see the students assigned to you.', 'wpcredits-program-manager' ),
 				wp_login_url( self::current_url() ),
 				__( 'Log in', 'wpcredits-program-manager' )
 			);

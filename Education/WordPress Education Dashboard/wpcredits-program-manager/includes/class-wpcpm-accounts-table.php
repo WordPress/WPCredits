@@ -863,7 +863,10 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * nobody left to invite for the first time. Every detail carries `resend`; a Resend invite that
 	 * left anybody out for the fifteen minutes carries how many as `recent`, unless that is why none
 	 * was queued, and a press that left out anybody held carries how many as `held`, unless that is
-	 * why none was queued.
+	 * why none was queued. A press the queue's lock refused (the fix wave of 1.123.58) is
+	 * `invites-busy` when it queued nothing, as the bulk presses' is, and otherwise carries how many
+	 * it refused as `busy`, which only a Resend invite can leave, one lock a queueing; pressing it
+	 * again is safe, since an account queued already answers 0 and is not queued twice.
 	 *
 	 * Static, called on the audience's own table (`WPCPM_Students_Table::queue_ticked()`,
 	 * `WPCPM_Mentors_Table::queue_ticked()`), which gives the role and the stamps read here. It checks
@@ -915,6 +918,9 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			}
 		}
 
+		// How many the queue's lock refused (the fix wave of 1.123.58), said as the bulk presses say it.
+		$busy = 0;
+
 		if ( $detail['resend'] ) {
 			$waiting = WPCPM_Mail::queue();
 			$recent  = 0;
@@ -933,7 +939,9 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 					continue;
 				}
 
-				WPCPM_Mail::queue_invite( $id );
+				if ( WPCPM_Mail::QUEUE_BUSY === (int) WPCPM_Mail::queue_invite( $id ) ) {
+					++$busy;
+				}
 			}
 
 			$queued = count( array_diff( WPCPM_Mail::queue(), $waiting ) );
@@ -966,6 +974,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			}
 
 			$queued = empty( $fresh ) ? 0 : WPCPM_Mail::queue_invites( $fresh );
+			$busy   = ! empty( $fresh ) && 0 === (int) $queued && WPCPM_Mail::queue_was_busy() ? count( $fresh ) : 0;
 
 			// Accounts never invited can be waiting already: the card's run sends ten a batch, and the
 			// Never invited view lists each until its invitation goes and stamps it.
@@ -982,8 +991,18 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			$detail['held'] = $held;
 		}
 
+		// Nothing queued because the queue's lock was taken: the outcome the bulk presses leave. With
+		// some queued, the count is said, and the busy sentence after it.
+		if ( 0 === $queued && $busy > 0 ) {
+			return array( 'invites-busy', $detail );
+		}
+
 		if ( 0 === $queued ) {
 			return array( 'invites-none', $detail + array( 'why' => $why ) );
+		}
+
+		if ( $busy > 0 ) {
+			$detail['busy'] = $busy;
 		}
 
 		return array( 'invites-queued', $detail + array( 'queued' => $queued ) );
@@ -998,8 +1017,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * (`queue_ticked()`): the audience's module prints it for the press the list's form made, from
 	 * the detail the press carried back.
 	 *
-	 * @param array $detail `resend`, `queued` or `why`, `recent` and `held`, as `queue_ticked()`
-	 *                      returns them.
+	 * @param array $detail `resend`, `queued` or `why`, `recent`, `held` and `busy`, as
+	 *                      `queue_ticked()` returns them.
 	 * @return string
 	 */
 	public static function selected_sentence( array $detail ) {
@@ -1043,6 +1062,23 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				_n( '%s selected account was left out: its invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', '%s selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', $held, 'wpcredits-program-manager' ),
 				number_format_i18n( $held )
 			);
+		}
+
+		// Some queued and some refused by the queue's lock (the fix wave of 1.123.58): a Resend invite
+		// alone, since `queue_invites()` takes one lock for its whole batch. Pressing again is safe: an
+		// account queued already answers 0 and is not queued twice.
+		if ( ! empty( $detail['busy'] ) ) {
+			$busy = (int) $detail['busy'];
+
+			// One is its own sentence; any other count goes through `_n()` with the count in both
+			// forms, since a language may use its singular form for 21 or 31 as well.
+			$sentence .= ' ' . ( 1 === $busy
+				? __( 'One invitation could not be queued because the queue was busy for a moment. Press the button again for it.', 'wpcredits-program-manager' )
+				: sprintf(
+					/* translators: %s: how many invitations could not be queued because the queue was busy. */
+					_n( '%s invitation could not be queued because the queue was busy for a moment. Press the button again for it.', '%s invitations could not be queued because the queue was busy for a moment. Press the button again for them.', $busy, 'wpcredits-program-manager' ),
+					number_format_i18n( $busy )
+				) );
 		}
 
 		return $sentence;

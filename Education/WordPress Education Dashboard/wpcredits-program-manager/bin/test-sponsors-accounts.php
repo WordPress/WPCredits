@@ -2284,7 +2284,7 @@ $ben_sent = follow( $ben_link, 'handle_invite' );
 
 ck( 'followed, the members class sends Ben his invitation now, the sponsor\'s, core\'s message to him alone, and stamps his account as a sponsor\'s; then the list says the email went',
 	array( $GLOBALS['mails'], array_column( $GLOBALS['sent'], 'subject' ), array_column( $GLOBALS['sent'], 'notify' ), isset( $GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] ) && is_int( $GLOBALS['umeta'][22]['wpcpm_sponsor_invited'] ), link_of( $ben_sent['redirect'] ), notice_now() ),
-	array( array( 22 ), array( '[WPCredits] Your sponsor account is ready' ), array( 'user' ), true, $accounts, '<div class="notice notice-success is-dismissible"><p>Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>' ) );
+	array( array( 22 ), array( '[WPCredits] Your sponsor account is ready' ), array( 'user' ), true, $accounts, '<div class="notice notice-success is-dismissible"><p>Invitation email sent to Ben Okoye. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>' ) );
 ck( 'the press came back by a redirect, so the next draw counts afresh: Ben is among the invited now, offered Resend invite',
 	array( view_counts( html_of( draw( screen() ) ) ), array_keys( actions_in( row_for( html_of( draw( screen() ) ), 22 ) ) ) ),
 	array( array( 'all' => '6', 'invited' => '4', 'never-invited' => '2', 'no-account' => '3' ), array( 'edit', 'view', 'reinvite', 'accounts' ) ) );
@@ -2431,6 +2431,18 @@ $pressed = post_to( 'handle_bulk_invite', 'wpcpm_sponsors_bulk_invite', array( '
 ck( 'pressed, it queues the three and comes back to the Accounts tab, which says so',
 	array( WPCPM_Mail::queue(), link_of( $pressed['redirect'] ), notice_now() ),
 	array( array( 22, 24, 26 ), $accounts, '<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>' ) );
+
+// The same press while another request holds the queue's lock (the fix wave of 1.123.58): nothing is
+// queued, and the Accounts tab says the queue was busy, not that the invitations were queued.
+WPCPM_Mail::clear_queue( true );
+manager( 960 );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$pressed_busy                              = post_to( 'handle_bulk_invite', 'wpcpm_sponsors_bulk_invite', array( 'wpcpm_tab' => 'accounts' ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+
+ck( 'pressed while the queue\'s lock is held by another request, it queues nothing and the Accounts tab says the queue was busy',
+	array( WPCPM_Mail::queue(), link_of( $pressed_busy['redirect'] ), notice_now() ),
+	array( array(), $accounts, '<div class="notice notice-info is-dismissible"><p>The queue was busy for a moment and nothing was queued. Press the button again.</p></div>' ) );
 
 // The button pressed with a forged nonce: by somebody without the program's capability it dies
 // before the nonce is asked about, and by a manager with WordPress's own sentence, its own nonce the

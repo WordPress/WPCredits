@@ -470,3 +470,32 @@
 	gap: 0 1.25em;
 	grid-template-columns: repeat( auto-fill, minmax( 13em, 1fr ) );
 }
+
+/*
+ * A refused form's summary (`WPCPM_Form_Errors::summary()`, 1.123.58): the count of answers to change
+ * and a link to each, bordered on the leading edge as the outcome of an attempt is, and outlined when
+ * assets/js/forms.js moves the focus to it on load. A card's outcome takes the same outline.
+ */
+.wpcpm-errors {
+	border: 1px solid var( --wpcpm-border );
+	border-inline-start-width: 4px;
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 0.75em 1em;
+}
+
+.wpcpm-errors__title {
+	font-size: 16px;
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-errors__list {
+	margin: 0;
+	padding-inline-start: 1.25em;
+}
+
+.wpcpm-errors:focus,
+[data-wpcpm-card-message]:focus {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}

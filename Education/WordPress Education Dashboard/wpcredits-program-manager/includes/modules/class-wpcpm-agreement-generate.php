@@ -238,7 +238,7 @@ class WPCPM_Agreement_Generate {
 	 */
 	public static function generate() {
 		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Please log in to generate the Collaboration Agreement.', 'wpcredits-program-manager' ), 403 );
+			wp_die( esc_html__( 'Log in to generate the Collaboration Agreement.', 'wpcredits-program-manager' ), 403 );
 		}
 
 		$record = self::record_for_request();

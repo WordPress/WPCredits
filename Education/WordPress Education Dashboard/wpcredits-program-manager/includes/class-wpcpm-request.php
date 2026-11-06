@@ -308,9 +308,11 @@ class WPCPM_Request {
 	 * handler has already checked the nonce and the capability, and whatever this returns is
 	 * matched against values the site itself holds rather than trusted.
 	 *
-	 * @param string $name     Field name.
-	 * @param string $fallback Returned when the field is absent.
-	 * @return string
+	 * @param string      $name     Field name.
+	 * @param string|null $fallback Returned when the field is absent; null tells an absent field from an
+	 *                              empty one.
+	 * @return string|null Null only when the field is absent and the fallback is null.
+	 * @phpstan-return ($fallback is null ? string|null : string)
 	 */
 	public static function posted_text( $name, $fallback = '' ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
@@ -334,9 +336,10 @@ class WPCPM_Request {
 	 *
 	 * `sanitize_textarea_field()` is the same cleaning with the line breaks left alone.
 	 *
-	 * @param string $name     Key in `$_POST`.
-	 * @param string $fallback Returned when the key is absent or not a scalar.
-	 * @return string
+	 * @param string      $name     Key in `$_POST`.
+	 * @param string|null $fallback Returned when the key is absent or not a scalar; null tells an absent field from an empty one.
+	 * @return string|null Null only when the field is absent and the fallback is null.
+	 * @phpstan-return ($fallback is null ? string|null : string)
 	 */
 	public static function posted_lines( $name, $fallback = '' ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
@@ -386,9 +389,10 @@ class WPCPM_Request {
 	 * such a value (final review of Phase S2, finding 1). Safe because every caller escapes the
 	 * value on output and never prints it raw.
 	 *
-	 * @param string $name     Key in the posted fields.
-	 * @param string $fallback Fallback when the key is absent.
-	 * @return string
+	 * @param string      $name     Key in the posted fields.
+	 * @param string|null $fallback Fallback when the key is absent; null tells an absent field from an empty one.
+	 * @return string|null Null only when the field is absent and the fallback is null.
+	 * @phpstan-return ($fallback is null ? string|null : string)
 	 */
 	public static function posted_verbatim( $name, $fallback = '' ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.

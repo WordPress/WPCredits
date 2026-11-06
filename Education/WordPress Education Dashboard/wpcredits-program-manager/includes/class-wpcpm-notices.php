@@ -229,6 +229,19 @@ class WPCPM_Notices {
 	}
 
 	/**
+	 * A body as it is stored: filtered through `wp_kses_post()` and trimmed.
+	 *
+	 * The one place the store's cleaning is written, so a screen that compares a posted body with
+	 * the stored one (`WPCPM_Header_Notices::handle_save()`) compares what would be written.
+	 *
+	 * @param string $body Markup, unslashed.
+	 * @return string
+	 */
+	public static function clean( $body ) {
+		return trim( wp_kses_post( (string) $body ) );
+	}
+
+	/**
 	 * Replace the stored notices.
 	 *
 	 * Each body is filtered through `wp_kses_post()` here, so what is stored is already safe
@@ -243,10 +256,38 @@ class WPCPM_Notices {
 		foreach ( array_keys( self::audiences() ) as $slug ) {
 			$body = isset( $input[ $slug ] ) ? (string) $input[ $slug ] : '';
 
-			$out[ $slug ] = trim( wp_kses_post( $body ) );
+			$out[ $slug ] = self::clean( $body );
 		}
 
 		update_option( self::OPT_NAME, $out, true );
+	}
+
+	/**
+	 * Replace one audience's notice and leave the others as stored (1.123.58).
+	 *
+	 * The option is read fresh, one key is replaced and the option is written, so a save from a page
+	 * drawn before another audience's notice changed cannot put that notice back. An audience there
+	 * is not writes nothing.
+	 *
+	 * @param string $audience Audience slug.
+	 * @param string $body     Markup, unslashed.
+	 */
+	public static function save_one( $audience, $body ) {
+		$audience = (string) $audience;
+
+		if ( ! array_key_exists( $audience, self::audiences() ) ) {
+			return;
+		}
+
+		$stored = get_option( self::OPT_NAME, array() );
+
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		$stored[ $audience ] = self::clean( $body );
+
+		update_option( self::OPT_NAME, $stored, true );
 	}
 
 	/**

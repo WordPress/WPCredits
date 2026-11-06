@@ -3667,13 +3667,29 @@ final class WPCPM_Semester_Report_Screen {
 			return;
 		}
 
-		list( $class, $text ) = self::message_for( $flash );
+		// Toned, heard and focused as every card's outcome is (1.123.58, IDB-09). The class
+		// modifier is the tone now; the status's own stays in `message_for()` for its other reader.
+		$text = self::message_for( $flash )[1];
 
-		printf(
-			'<p class="wpcpm-report-card__message wpcpm-report-card__message--%1$s">%2$s</p>',
-			esc_attr( $class ),
-			esc_html( $text )
-		);
+		echo WPCPM_Dashboard_Card::message( self::tone_for( (string) $flash['status'] ), $text, 'wpcpm-report-card__message' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes what it prints.
+	}
+
+	/**
+	 * The tone an outcome is printed in: a thing done is a success, a thing already so or with
+	 * nothing to do is news, and every refusal or failure is an error.
+	 *
+	 * @param string $key The status.
+	 * @return string `success`, `info` or `error`.
+	 */
+	public static function tone_for( $key ) {
+		$success = array( 'generated', 'saved', 'drafted', 'approved', 'reopened', 'restored', 'consent-refreshed', 'asked' );
+		$info    = array( 'already-generated', 'locked', 'draft-exists', 'not-approved', 'ask-nobody' );
+
+		if ( in_array( (string) $key, $success, true ) ) {
+			return 'success';
+		}
+
+		return in_array( (string) $key, $info, true ) ? 'info' : 'error';
 	}
 
 	/**

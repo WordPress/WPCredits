@@ -35,6 +35,7 @@
 	var busy = false;
 	var startedAt = 0;
 	var ticker = null;
+	var quartersSaid = 0;
 
 	/**
 	 * Fill a translated template. Handles %s, %d, positional %1$s / %1$d, and %%.
@@ -128,6 +129,7 @@
 	 * Insert a server-rendered row, replacing any earlier row for the same record.
 	 *
 	 * @param {Object} row Result row with an `html` fragment.
+	 * @return {Element|null} The row now in the table, or null when the fragment held none.
 	 */
 	function upsertRow( row ) {
 		var placeholder = tbody.querySelector( '.wpcpm-checker-empty-row' );
@@ -139,7 +141,7 @@
 		wrapper.innerHTML = row.html;
 		var fresh = wrapper.querySelector( 'tr' );
 		if ( ! fresh ) {
-			return;
+			return null;
 		}
 
 		var existing = row.record_id
@@ -151,6 +153,18 @@
 		} else {
 			tbody.appendChild( fresh );
 		}
+
+		return fresh;
+	}
+
+	/**
+	 * Whether a result row was moved on: promoted in Airtable, or made a mentor on this site.
+	 *
+	 * @param {Object} row Result row.
+	 * @return {boolean}
+	 */
+	function wasPromoted( row ) {
+		return 'promoted' === row.action || 'activated' === row.action;
 	}
 
 	/**
@@ -332,6 +346,29 @@
 	}
 
 	/**
+	 * Say how far the run has come, at each quarter of the mentors checked and not after every batch.
+	 *
+	 * A run of fewer than four mentors says nothing here: the sentence at its end says it all. A
+	 * batch that passes two quarters at once is said once, and the end is left to the sentence that
+	 * closes the run.
+	 *
+	 * @param {number} done  Mentors checked so far.
+	 * @param {number} total Mentors queued.
+	 */
+	function announceQuarter( done, total ) {
+		if ( total < 4 || done >= total ) {
+			return;
+		}
+
+		var quarter = Math.floor( ( done * 4 ) / total );
+
+		if ( quarter > quartersSaid ) {
+			quartersSaid = quarter;
+			announce( sprintf( i18n.progress, [ done, total ] ) );
+		}
+	}
+
+	/**
 	 * Walk the queue one batch at a time until the server reports it is done.
 	 *
 	 * @param {string} runId  Run identifier.
@@ -348,7 +385,7 @@
 			batch.rows.forEach( upsertRow );
 			refreshSummary();
 			paintProgress( batch.next_offset, batch.total, i18n.checking );
-			announce( sprintf( i18n.progress, [ batch.next_offset, batch.total ] ) );
+			announceQuarter( batch.next_offset, batch.total );
 
 			if ( ! batch.done ) {
 				return processBatch( runId, batch.next_offset, batch.total, size );
@@ -374,6 +411,7 @@
 		clearTable();
 		refreshSummary();
 		startedAt = Date.now();
+		quartersSaid = 0;
 		announce( i18n.starting );
 		paintProgress( 0, 0, i18n.starting );
 		showLeftOut( '' );
@@ -437,6 +475,21 @@
 				.then( function ( result ) {
 					result.rows.forEach( upsertRow );
 					paintProgress( pending, pending, i18n.doneLabel );
+
+					var promoted = result.rows.filter( wasPromoted ).length;
+					var firstCell = null;
+
+					result.rows.some( function ( row ) {
+						var live = wasPromoted( row ) ? tbody.querySelector( 'tr[data-record-id="' + row.record_id + '"]' ) : null;
+
+						firstCell = live ? live.querySelector( 'td:first-child' ) : null;
+						return !! firstCell;
+					} );
+					if ( firstCell ) {
+						firstCell.setAttribute( 'tabindex', '-1' );
+						firstCell.focus();
+					}
+					announce( sprintf( 1 === promoted ? i18n.promotedOne : i18n.promotedMany, [ promoted ] ) );
 				} )
 				.catch( function ( error ) {
 					if ( labelEl ) {
@@ -474,7 +527,26 @@
 
 		post( 'wpcpm_checker_promote', { record_id: recordId } )
 			.then( function ( result ) {
-				upsertRow( result.row );
+				var fresh = upsertRow( result.row );
+				var nameCell = fresh ? fresh.querySelector( 'td:first-child' ) : null;
+
+				if ( wasPromoted( result.row ) ) {
+					announce( sprintf( i18n.promotedName, [ result.row.name || ( nameCell ? nameCell.textContent.trim() : '' ) ] ) );
+				} else if ( fresh ) {
+					// Any other outcome is the row's own: the note its action cell prints.
+					var notes = fresh.querySelectorAll( '.wpcpm-checker-note' );
+
+					if ( notes.length ) {
+						announce( notes[ notes.length - 1 ].textContent.trim() );
+					}
+				}
+
+				// The button that was pressed is gone with the old row, so the keyboard goes to the
+				// new row's name cell rather than back to the top of the page.
+				if ( nameCell ) {
+					nameCell.setAttribute( 'tabindex', '-1' );
+					nameCell.focus();
+				}
 			} )
 			.catch( function ( error ) {
 				announce( sprintf( i18n.failed, [ error.message ] ) );

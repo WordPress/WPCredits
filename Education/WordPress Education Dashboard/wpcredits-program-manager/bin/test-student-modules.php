@@ -432,7 +432,7 @@ function page_for( $uid, $caps, array $known = array() ) {
 
 $out = page_for( 0, false );
 ck( 'a visitor who is logged out is sent to log in, and the page enqueued wpcpm-forms before it stopped there',
-	array( false !== strpos( $out, 'Please log in to see your program details.' ), in_array( 'wpcpm-forms', $GLOBALS['enqueued'], true ) ),
+	array( false !== strpos( $out, 'Log in to see your program details.' ), in_array( 'wpcpm-forms', $GLOBALS['enqueued'], true ) ),
 	array( true, true ) );
 
 $out = page_for( 30, false );

@@ -158,6 +158,8 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function get_privacy_policy_url() { return (string) $GLOBALS['policy']; }
 function nocache_headers() { ++$GLOBALS['nocache']; }
+function wp_using_ext_object_cache() { return false; }
+function wp_cache_delete( $k, $g = '' ) { return true; }
 function is_page( $id = 0 ) { return (int) $id === (int) ( $GLOBALS['on_page'] ?? 0 ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
@@ -757,7 +759,7 @@ ck( 'five rendered `required` attributes and five visible marks', array( substr_
 $name_key = WPCPM_Sponsor_Application::form_key( 'Company Name' );
 ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-sponsor-application-' . $name_key . '">Name of your company <span class="wpcpm-field__required">Required</span></label>' ), true );
 ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, 'under it. <span class="wpcpm-field__required">Required</span></label>' ), true );
-ck( 'the logo question and the free text carry no mark', array( false !== strpos( $form, '<span class="wpcpm-field__label">Company logo</span>' ), false !== strpos( $form, "Anything else you&#039;d like to share.</label>" ) ), array( true, true ) );
+ck( 'the logo question and the free text carry no mark', array( false !== strpos( $form, '<span class="wpcpm-field__label" id="wpcpm-sponsor-application-' . WPCPM_Sponsor_Application::form_key( 'Logo' ) . '">Company logo</span>' ), false !== strpos( $form, "Anything else you&#039;d like to share.</label>" ) ), array( true, true ) );
 ck( 'the policy line links a word inside the sentence, WordPress.org\'s policy and not the page this site has set, opening where the form is', array( false !== strpos( $form, '<span class="wpcpm-field__hint">You can read the WordPress.org privacy policy <a href="https://wordpress.org/about/privacy/" rel="noopener">here</a>.</span>' ), strpos( $form, 'href="' . get_privacy_policy_url() . '"' ), substr_count( $form, 'target=' ) ), array( true, false, 0 ) );
 ck( 'the consent box says which policy, in the words of 1.123.24', WPCPM_Sponsor_Application::fields()['Privacy Policy Compliance']['label'], 'I confirm I have read the WordPress.org privacy policy and that the company\'s details can be kept and shown under it.' );
 ck( 'the consent box is not ticked when nothing was posted', strpos( $form, 'checked="checked"' ), false );
@@ -900,7 +902,7 @@ $GLOBALS['settings']['sponsor_tiers_live'] = true;
 $gold = submit( answers( array( 'Tier considered' => 'gold' ) ) );
 ck( 'on, a tier the question does not offer sends the form back with the problem on the question and stores nothing', array( $gold['outcome'], isset( $gold['stash']['problems']['Tier considered'] ) ? $gold['stash']['problems']['Tier considered'] : null, count( stored() ) ), array( 'again', 'bad_choice', 0 ) );
 follow( $gold['url'] );
-ck( 'and the question says to choose one of the options offered', false !== strpos( WPCPM_Sponsor_Application::render(), '<span class="wpcpm-field__problem" id="wpcpm-sponsor-application-' . $tier_key . '-problem">Please choose one of the options offered.</span>' ), true );
+ck( 'and the question says to choose one of the options offered', false !== strpos( WPCPM_Sponsor_Application::render(), '<span class="wpcpm-field__problem" id="wpcpm-sponsor-application-' . $tier_key . '-problem">Choose one of the options offered.</span>' ), true );
 reset_world();
 $GLOBALS['settings']['sponsor_tiers_live'] = true;
 $tier_back = submit( answers( array( 'Company Name' => '', 'Tier considered' => 'champion' ) ) );
@@ -1151,7 +1153,11 @@ ck( 'the redirect carries a random id and nothing else', preg_match( '#^https://
 $_GET[ WPCPM_Sponsor_Application::QUERY_STASH ] = $sent['id'];
 $page = WPCPM_Sponsor_Application::render();
 ck( 'the confirmation names the reference and draws no form', array( false !== strpos( $page, $expected_reference ), strpos( $page, '<form' ) ), array( true, false ) );
-ck( 'and is gone on the next page load, which shows the plain form again', array( strpos( WPCPM_Sponsor_Application::render(), 'SAPP-' ), false !== strpos( WPCPM_Sponsor_Application::render(), '<form' ) ), array( false, true ) );
+// Read, not taken since 1.123.58 (FORM-06): within its thirty minutes a reload draws it again.
+ck( 'a reload of the thank-you within its 30 minutes draws the confirmation again, with the reference', array( WPCPM_Sponsor_Application::render() === $page, false !== strpos( $page, $expected_reference ) ), array( true, true ) );
+$GLOBALS['transients'] = array();
+$gone                  = WPCPM_Sponsor_Application::render();
+ck( 'after the stash is gone, the page draws the empty form under the expired sentence, which says nothing was lost either way', array( false !== strpos( $gone, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $gone, '<form' ), strpos( $gone, 'SAPP-' ) ), array( true, true, false ) );
 
 echo "\n-- the two mails ------------------------------------------------------\n";
 
@@ -1182,7 +1188,7 @@ foreach ( array( 'absent' => null, 'zero' => '0', 'yes' => 'yes', 'empty' => '' 
 	reset_world();
 	$sent = submit( answers( array( 'Privacy Policy Compliance' => $value ) ) );
 
-	ck( "consent $label: the submission is refused, nothing is stored, nobody is mailed", array( $sent['outcome'], count( stored() ), count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ) ), array( 'consent', 0, 0, 0 ) );
+	ck( "consent $label: the submission is refused, marked at the box, nothing is stored, nobody is mailed", array( $sent['outcome'], $sent['stash']['problems'] ?? null, count( stored() ), count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ) ), array( 'again', array( 'Privacy Policy Compliance' => 'consent' ), 0, 0, 0 ) );
 }
 
 reset_world();
@@ -1194,7 +1200,15 @@ $sent = submit( answers( array( 'Privacy Policy Compliance' => '0' ) ) );
 ck( 'a refusal hands back what was typed, and never the tick', array( $sent['stash']['values']['Company Name'], array_key_exists( 'Privacy Policy Compliance', $sent['stash']['values'] ) ), array( 'Gadgetry Inc', false ) );
 follow( $sent['url'] );
 $back = WPCPM_Sponsor_Application::render();
-ck( 'the form comes back with the answers in it, the consent box unticked, and says what to do', array( false !== strpos( $back, 'value="Gadgetry Inc"' ), false !== strpos( $back, 'We make gadgets and would like to help.</textarea>' ), strpos( $back, 'value="1" required="required" checked' ), false !== strpos( $back, 'tick the last box' ) ), array( true, true, false, true ) );
+ck( 'the form comes back with the answers in it, the consent box unticked, and says what to do', array( false !== strpos( $back, 'value="Gadgetry Inc"' ), false !== strpos( $back, 'We make gadgets and would like to help.</textarea>' ), strpos( $back, 'value="1" checked="checked"' ), substr_count( $back, 'Tick this box to send the form.' ) ), array( true, true, false, 2 ) );
+
+// The tick is the sender's own work, kept with the other answers (1.123.58, trial T2): a box drawn
+// empty again is refused by the browser itself on the next Send, before anything is said.
+reset_world();
+$sent = submit( answers( array( 'Company Name' => '' ) ) );
+follow( $sent['url'] );
+$back = WPCPM_Sponsor_Application::render();
+ck( 'a ticked consent box comes back ticked after a refusal for another answer', array( $sent['outcome'], $sent['stash']['problems'] ?? null, $sent['stash']['values']['Privacy Policy Compliance'] ?? null, 1 === preg_match( '#id="wpcpm-sponsor-application-' . WPCPM_Sponsor_Application::form_key( 'Privacy Policy Compliance' ) . '" name="[^"]+" value="1" checked="checked" required="required" />#', $back ), count( stored() ) ), array( 'again', array( 'Company Name' => 'required' ), true, true, 0 ) );
 
 echo "\n-- the honeypot -------------------------------------------------------\n";
 
@@ -1217,7 +1231,7 @@ ck( 'a token minted this instant is too fast to be a person, and says so as itse
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT );
 $token = dwell_token( 45 );
-ck( 'the first use of a token is accepted and the second is not', array( WPCPM_Sponsor_Application::check_token( $token ), WPCPM_Sponsor_Application::check_token( $token ) ), array( 'ok', 'spam' ) );
+ck( 'the first use of a token is accepted and the second is not: it is used, and waits for the first press\'s row', array( WPCPM_Sponsor_Application::check_token( $token ), WPCPM_Sponsor_Application::check_token( $token ) ), array( 'ok', 'used' ) );
 // Well shaped (three parts) and signed with this form's nonce, so the refusal is the scope's, not the shape's.
 ck( 'a token minted for the institution form is a forgery here', WPCPM_Sponsor_Application::check_token( dwell_token( 40, 'wpcpm-application-dwell' ) ), 'spam' );
 reset_world();
@@ -1225,14 +1239,16 @@ $harvested = dwell_token( 60 );
 $first     = submit( answers(), array( 'token' => $harvested ) );
 $second    = submit( answers( array( 'Company Name' => 'Second Co', 'Contact Email' => 'administrator@example.test' ) ), array( 'token' => $harvested ) );
 $rows      = stored();
-ck( 'a harvested token gets one application through and the replay is held as spam', array( get_post_meta( $rows[0]->ID, WPCPM_Sponsor_Application::META_STATE, true ), get_post_meta( $rows[1]->ID, WPCPM_Sponsor_Application::META_STATE, true ), in_array( 'dwell', get_post_meta( $rows[1]->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ) ), array( 'new', 'spam', true ) );
-ck( 'the sender of the replay is told nothing about it, and only the first was mailed about', array( $first['outcome'], $second['outcome'], count( $GLOBALS['mail'] ) ), array( 'sent', 'sent', 1 ) );
+// Since 1.123.58 (FORM-04) the replay is a second press: it stores nothing and is answered with the
+// first press's own confirmation, where it was a spam row whose reference the page then showed.
+ck( 'a harvested token gets one application through and the replay stores nothing', array( get_post_meta( $rows[0]->ID, WPCPM_Sponsor_Application::META_STATE, true ), count( $rows ) ), array( 'new', 1 ) );
+ck( 'the sender of the replay is answered with the first press\'s confirmation, and only the first was mailed about', array( $first['outcome'], $second['outcome'], $second['stash']['reference'] ?? null, count( $GLOBALS['mail'] ) ), array( 'sent', 'sent', $first['stash']['reference'] ?? 'none', 1 ) );
 reset_world();
 $stale = submit( answers(), array( 'token' => dwell_token( 13 * HOUR_IN_SECONDS ) ) );
 ck( 'an overnight tab is asked to send again, nothing is stored, the writing is handed back', array( $stale['outcome'], count( stored() ), $stale['stash']['values']["Anything else you'd like to share."] ), array( 'stale', 0, 'We make gadgets and would like to help.' ) );
 reset_world();
 $expired = submit( answers(), array( 'nonce' => 'nonce-from-last-week' ) );
-ck( 'an expired nonce is a message and not a death screen, and the writing comes back without the tick', array( $expired['outcome'], count( stored() ), $expired['stash']['values']['Contact Person Full Name'], array_key_exists( 'Privacy Policy Compliance', $expired['stash']['values'] ) ), array( 'expired', 0, 'Sam Sponsor', false ) );
+ck( 'an expired nonce is a message and not a death screen, and the writing comes back with the tick it was sent with', array( $expired['outcome'], count( stored() ), $expired['stash']['values']['Contact Person Full Name'], $expired['stash']['values']['Privacy Policy Compliance'] ?? null ), array( 'expired', 0, 'Sam Sponsor', true ) );
 
 echo "\n-- a re-send straight after a bounce (FANON-1) -------------------------\n";
 
@@ -1281,7 +1297,9 @@ for ( $i = 1; $i <= 5; $i++ ) {
 }
 ck( 'five in an hour from one source are taken', count( stored() ), 5 );
 $sixth = submit( answers( array( 'Company Name' => 'Company 6' ) ) );
-ck( 'the sixth is refused outright, stores nothing, and travels as itself', array( $sixth['outcome'], count( stored() ), false !== strpos( $sixth['url'], 'wpcpm_sapp_said=busy' ), count( $GLOBALS['transients'] ) ), array( 'busy', 5, true, 5 ) );
+ck( 'the sixth is refused outright and stores nothing, its answers kept since its nonce holds (1.123.58)', array( $sixth['outcome'], count( stored() ), $sixth['stash']['values']['Company Name'] ?? null ), array( 'busy-kept', 5, 'Company 6' ) );
+$seventh = submit( answers( array( 'Company Name' => 'Company 7' ) ), array( 'nonce' => 'nonce-stale' ) );
+ck( 'and one with no valid nonce travels as itself and writes nothing', array( $seventh['url'], count( stored() ), count( preg_grep( '/^' . WPCPM_Sponsor_Application::TRANSIENT_PREFIX . '/', array_keys( $GLOBALS['transients'] ) ) ) ), array( 'https://example.test/sponsor-application/?wpcpm_sapp_said=busy', 5, 6 ) );
 ck( 'and another source is untouched by it', submit( answers( array( 'Company Name' => 'Elsewhere' ) ), array( 'ip' => '198.51.100.9' ) )['outcome'], 'sent' );
 ck( 'the sponsor form counts under its own keys, not the institution form\'s', array( false !== strpos( $src, "const ACTOR_PREFIX = 'sponsor-apply';" ), false !== strpos( $src, "const SITE_KEY = 'sponsor-apply-site';" ), false !== strpos( $src, "const MAIL_KEY = 'sponsor-apply-mail';" ) ), array( true, true, true ) );
 
@@ -1402,7 +1420,7 @@ post_logos( fake_svg() );
 $bad = submit( answers() );
 ck( 'an SVG named .png is a problem on the logo question: nothing stored, the answers handed back', array( $bad['outcome'], $bad['stash']['problems']['Logo'], count( stored() ), $GLOBALS['attachments'], $bad['stash']['values']['Company Name'] ), array( 'again', 'image_type', 0, array(), 'Gadgetry Inc' ) );
 follow( $bad['url'] );
-ck( 'and the page says what was wrong with the file and that files have to be chosen again', array( false !== strpos( WPCPM_Sponsor_Application::render(), 'not a PNG, JPEG or WebP' ), false !== strpos( WPCPM_Sponsor_Application::render(), 'chosen again' ) ), array( true, true ) );
+ck( 'and the page says what was wrong with the file and that the file has to be chosen again', array( false !== strpos( WPCPM_Sponsor_Application::render(), 'not a PNG, JPEG or WebP' ), false !== strpos( WPCPM_Sponsor_Application::render(), 'Choose the file again.' ) ), array( true, true ) );
 
 reset_world();
 post_logos( png( 199, 80 ) );
@@ -1537,7 +1555,9 @@ echo "\n-- the one page that is never cached ----------------------------------\
 reset_world();
 $GLOBALS['on_page'] = 99;
 WPCPM_Sponsor_Application::no_cache();
-ck( 'a page that is not the form is left alone', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 0, false ) );
+// The headers alone: every draw of the form defines DONOTCACHEPAGE since 1.123.58, and earlier
+// checks have drawn it.
+ck( 'a page that is not the form is left alone', $GLOBALS['nocache'], 0 );
 $GLOBALS['on_page'] = 42;
 WPCPM_Sponsor_Application::no_cache();
 ck( 'the form\'s own page sends the no-cache headers and says so by the name every page cache reads', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE ), array( 1, true ) );
@@ -1580,13 +1600,16 @@ $offsets = array(
 	'closed'     => strpos( $submit, 'self::is_open()' ),
 	'honeypot'   => strpos( $submit, 'WPCPM_Form_Guard::honeypot_filled(' ),
 	'dwell'      => strpos( $submit, 'self::check_token(' ),
-	'consent'    => strpos( $submit, 'self::COL_CONSENT' ),
 	'fields'     => strpos( $submit, '$cleaned  = self::clean_all(' ),
 	'required'   => strpos( $submit, 'self::add_required(' ),
+	'consent'    => strpos( $submit, 'self::COL_CONSENT' ),
+	// A refused send's files are checked in the same pass as its answers (1.123.58, FORM-13), and
+	// never read for a send that is going to be filed until the site-wide degrade has answered.
+	'refused'    => strpos( $submit, '$checked = self::accept_logos(' ),
 	// The site-wide degrade before the files, not after them (FANON-3): no byte of a
 	// stranger's image is re-encoded for a row the day's ceiling is about to hold.
 	'site'       => strpos( $submit, 'WPCPM_Form_Guard::claim_site(' ),
-	'logos'      => strpos( $submit, 'self::accept_logos(' ),
+	'logos'      => strpos( $submit, '$accepted = self::accept_logos(' ),
 	'scoring'    => strpos( $submit, 'self::score(' ),
 	'duplicates' => strpos( $submit, 'self::has_open_duplicate(' ),
 	'store'      => strpos( $submit, 'self::store(' ),
@@ -1605,7 +1628,9 @@ foreach ( explode( "\n", $src ) as $line ) {
 	$code[] = $line;
 }
 $code = implode( "\n", $code );
-ck( 'nothing on the public path calls check_admin_referer(), and the nonce is verified once', array( strpos( method_body( $code, 'handle_submit' ), 'check_admin_referer' ), substr_count( method_body( $code, 'handle_submit' ), 'wp_verify_nonce(' ) ), array( false, 1 ) );
+// Twice since 1.123.58: once where the per-actor ceiling refuses, to decide whether anything is
+// kept (FORM-01), and once as the step after it.
+ck( 'nothing on the public path calls check_admin_referer(), and the nonce is verified twice', array( strpos( method_body( $code, 'handle_submit' ), 'check_admin_referer' ), substr_count( method_body( $code, 'handle_submit' ), 'wp_verify_nonce(' ) ), array( false, 2 ) );
 ck( 'the submit handler reads no query string', substr_count( $submit, 'WPCPM_Request::text(' ) + substr_count( $submit, 'WPCPM_Request::key(' ) + substr_count( $submit, 'WPCPM_Request::id(' ), 0 );
 // Three: the isset, the type test and the read, all inside uploaded(); the docblocks say
 // "the files array" so that the count is the code's.
@@ -1619,7 +1644,8 @@ ck( 'no comment claims a manager\'s test submission carries their name', strpos(
 $slugs = array();
 preg_match_all( "/self::bounce\(\s*'([a-z-]+)'/", $src, $found );
 foreach ( $found[1] as $slug ) {
-	if ( 'sent' !== $slug && 'sent-quiet' !== $slug && ! isset( WPCPM_Sponsor_Application::outcomes()[ $slug ] ) ) {
+	// `again` says no sentence since 1.123.58: the summary of its problems is what it says.
+	if ( 'sent' !== $slug && 'sent-quiet' !== $slug && 'again' !== $slug && ! isset( WPCPM_Sponsor_Application::outcomes()[ $slug ] ) ) {
 		$slugs[] = $slug;
 	}
 }
@@ -1633,6 +1659,193 @@ for ( $i = 0; $i < WPCPM_Form_Guard::MAIL_PER_DAY; $i++ ) {
 }
 $capped = submit( answers() );
 ck( 'past the ceiling the application is still stored and new, the queue is told why, and the applicant is told plainly', array( count( stored() ), get_post_meta( only_row()->ID, WPCPM_Sponsor_Application::META_STATE, true ), in_array( 'mail-ceiling', (array) get_post_meta( only_row()->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ), $capped['outcome'] ), array( 1, 'new', true, 'sent-quiet' ) );
+
+// A cached copy of any page the form is drawn on would hand one visitor another's token, answers or
+// confirmation, so every draw sends the headers, the block's and the shortcode's alike (1.123.58).
+reset_world();
+$GLOBALS['on_page'] = 99;
+$GLOBALS['nocache'] = 0;
+WPCPM_Sponsor_Application::render();
+ck( 'a draw of the form on a page that is not its configured one sends the no-cache headers', array( $GLOBALS['nocache'], defined( 'DONOTCACHEPAGE' ) ), array( 1, true ) );
+unset( $GLOBALS['on_page'] );
+
+echo "\n-- a refusal keeps every answer and says it once (1.123.58) ---------------\n";
+
+/** The page a redirect lands on, drawn. */
+function page_after( array $landed ) {
+	follow( $landed['url'] );
+
+	return WPCPM_Sponsor_Application::render();
+}
+
+/** The transients written under the form's own prefix. */
+function kept_transients() {
+	return array_values( preg_grep( '/^' . WPCPM_Sponsor_Application::TRANSIENT_PREFIX . '/', array_keys( $GLOBALS['transients'] ) ) );
+}
+
+/** The ceiling at its limit for this connection, at 13:20 on the suite's clock, the time shown as H:i. */
+function at_the_limit() {
+	$GLOBALS['opts']['time_format'] = 'H:i';
+	WPCPM_Ceiling::for_tests(
+		function () {
+			return gmmktime( 13, 20, 0, 11, 6, 2026 );
+		}
+	);
+	for ( $i = 0; $i < WPCPM_Form_Guard::PER_HOUR; $i++ ) {
+		WPCPM_Form_Guard::claim_actor( WPCPM_Form_Guard::actor_key( WPCPM_Sponsor_Application::ACTOR_PREFIX ), WPCPM_Form_Guard::PER_HOUR );
+	}
+}
+
+/** The id a question's control is drawn with. */
+function control_id( $column ) {
+	return 'wpcpm-sponsor-application-' . WPCPM_Sponsor_Application::form_key( $column );
+}
+
+reset_world();
+$refused = submit( answers( array( 'Company Name' => '', 'Contact Person Full Name' => '' ) ) );
+$page    = page_after( $refused );
+$summary = strpos( $page, '<div class="wpcpm-errors" role="alert" tabindex="-1"><h2 class="wpcpm-errors__title">Two answers need a change</h2>' );
+$name_at = strpos( $page, '<a href="#' . control_id( 'Company Name' ) . '">Name of your company</a>' );
+$who_at  = strpos( $page, '<a href="#' . control_id( 'Contact Person Full Name' ) . '">Name of the person we should contact</a>' );
+$set_at  = strpos( $page, '<fieldset' );
+ck(
+	'a refused send opens the form with the summary: its heading counts the problems, and each links its field by the field\'s label',
+	array( false !== $summary && $summary < $set_at, false !== $name_at && $summary < $name_at && $name_at < $who_at, false !== $who_at && $who_at < $set_at ),
+	array( true, true, true )
+);
+ck( 'and the old generic sentence is gone', strpos( $page, 'Please look at the answers marked below' ), false );
+
+reset_world();
+$both = submit( answers( array( 'Company Name' => '', 'Privacy Policy Compliance' => null ) ) );
+$page = page_after( $both );
+ck(
+	'consent is checked in the same pass as the other answers: one bounce marks the box and the missing answer together',
+	array( array_keys( $both['stash']['problems'] ?? array() ), false !== strpos( $page, 'Tick this box to send the form.' ), 1 === preg_match( '#id="' . control_id( 'Privacy Policy Compliance' ) . '" name="[^"]+" value="1" required="required" aria-invalid="true"#', $page ), count( stored() ) ),
+	array( array( 'Company Name', 'Privacy Policy Compliance' ), true, true, 0 )
+);
+
+reset_world();
+post_logos( png( 400, 200 ), png( 400, 200 ) );
+$chosen = submit( answers( array( 'Company Name' => '' ) ) );
+post_logos( png( 400, 200 ), png( 400, 200 ) );
+$page   = page_after( $chosen );
+$_FILES = array();
+ck(
+	'a bounce for any reason with chosen logos says at each logo that the file must be chosen again',
+	array(
+		$chosen['stash']['problems'][ WPCPM_Sponsor_Application::FIELD_LOGO_COLOR ] ?? null,
+		$chosen['stash']['problems'][ WPCPM_Sponsor_Application::FIELD_LOGO_WHITE ] ?? null,
+		false !== strpos( $page, 'aria-invalid="true" aria-describedby="wpcpm-sponsor-application-logo-color-problem ' . control_id( 'Logo' ) . '-help" /><span class="wpcpm-field__problem" id="wpcpm-sponsor-application-logo-color-problem">A chosen file cannot be kept when the form comes back. Choose the file again.</span>' ),
+		false !== strpos( $page, '<span class="wpcpm-field__problem" id="wpcpm-sponsor-application-logo-white-problem">A chosen file cannot be kept when the form comes back. Choose the file again.</span>' ),
+		$GLOBALS['attachments'],
+	),
+	array( 'file_again', 'file_again', true, true, array() )
+);
+reset_world();
+post_logos( png( 100, 50 ) );
+$narrow = submit( answers( array( 'Company Name' => '' ) ) );
+ck(
+	'and a too-small logo is found in the same pass as a missing name',
+	array( $narrow['stash']['problems']['Company Name'] ?? null, $narrow['stash']['problems']['Logo'] ?? null, count( stored() ) ),
+	array( 'required', 'image_dimensions', 0 )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers() );
+$page = page_after( $busy );
+ck(
+	'a busy connection with a good nonce keeps the answers and draws the form, with the sentence that says when to try again',
+	array( '' !== $busy['id'], $busy['outcome'], $busy['stash']['values']['Company Name'] ?? null, false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Your answers are still here: send the form again after 14:00.' ), false !== strpos( $page, 'Send this application</button>' ), false !== strpos( $page, 'value="Gadgetry Inc"' ), count( stored() ) ),
+	array( true, 'busy-kept', 'Gadgetry Inc', true, true, true, 0 )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers(), array( 'nonce' => 'nonce-stale' ) );
+$page = page_after( $busy );
+ck(
+	'a busy post with no valid nonce stores no stash',
+	array( kept_transients(), $busy['url'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'https://example.test/sponsor-application/?' . WPCPM_Sponsor_Application::QUERY_OUTCOME . '=busy', true, false )
+);
+
+reset_world();
+at_the_limit();
+$busy = submit( answers( array( "Anything else you'd like to share." => str_repeat( 'a', 60001 ) ) ) );
+$page = page_after( $busy );
+ck(
+	'a busy post too long to keep keeps nothing and says so',
+	array( kept_transients(), $busy['outcome'], false !== strpos( $page, 'Too many attempts were made from this connection in this hour, so this one was not taken, and the answers were too long to keep here. Send the form again after 14:00.' ), strpos( $page, '<form' ) ),
+	array( array(), 'busy-unkept', true, false )
+);
+WPCPM_Ceiling::for_tests( null );
+
+reset_world();
+$typo = submit( answers( array( 'Contact Email' => 'name@campus' ) ) );
+$page = page_after( $typo );
+ck(
+	'a refused address comes back as typed',
+	array( $typo['stash']['problems'] ?? null, 1 === preg_match( '#id="' . control_id( 'Contact Email' ) . '" name="[^"]+" value="name@campus"#', $page ) ),
+	array( array( 'Contact Email' => 'bad_email' ), true )
+);
+
+reset_world();
+$token  = dwell_token( 60 );
+$first  = submit( answers(), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+ck(
+	'a second press with the same token goes to the first press\'s confirmation and stores nothing',
+	array( count( stored() ), $second['outcome'], $second['stash']['reference'] ?? null, $second['stash']['email'] ?? null ),
+	array( 1, 'sent', $first['stash']['reference'] ?? 'none', 'administrator@example.test' )
+);
+
+reset_world();
+$token = dwell_token( 60 );
+$_POST = array( '_wpnonce' => wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT ) );
+WPCPM_Sponsor_Application::check_token( $token );
+$key   = WPCPM_Form_Guard::token_key( WPCPM_Sponsor_Application::DWELL_SCOPE, $token );
+$reads = 0;
+$GLOBALS['filtered']['wpcpm_form_guard_pause'] = function () use ( &$reads, $key ) {
+	return function ( $microseconds ) use ( &$reads, $key ) {
+		if ( 3 === ++$reads ) {
+			// The first press's row, as its store writes the part a confirmation reads.
+			$row = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Application::POST_TYPE, 'post_status' => 'private' ) );
+			update_post_meta( $row, WPCPM_Sponsor_Application::META_STATE, WPCPM_Sponsor_Application::STATE_NEW );
+			update_post_meta( $row, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => 'Gadgetry Inc', 'Contact Email' => 'administrator@example.test' ) );
+			update_post_meta( $row, WPCPM_Sponsor_Application::META_REFERENCE, WPCPM_Sponsor_Application::reference( $row ) );
+			WPCPM_Form_Guard::landed( $key, $row );
+		}
+	};
+};
+$second = submit( answers(), array( 'token' => $token ) );
+$GLOBALS['filtered'] = array();
+ck(
+	'a second press while the first is still in flight waits for its row',
+	array( count( stored() ), $reads, $second['outcome'], $second['stash']['reference'] ?? null, $second['stash']['email'] ?? null ),
+	array( 1, 3, 'sent', stored() ? WPCPM_Sponsor_Application::reference( stored()[0]->ID ) : 'none', 'administrator@example.test' )
+);
+
+reset_world();
+$token  = dwell_token( 60 );
+$first  = submit( answers( array( 'Privacy Policy Compliance' => null ) ), array( 'token' => $token ) );
+$second = submit( answers(), array( 'token' => $token ) );
+ck( 'the sponsor form waits twelve reads for the first press\'s row, which re-encodes two images before it exists', false !== strpos( method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php' ), 'answer_second_press' ), 'WPCPM_Form_Guard::wait_for_row( $key, 12 )' ), true );
+ck(
+	'a used token whose first press bounced bounces stale with the answers',
+	array( $first['outcome'], $second['outcome'], $second['stash']['values']['Company Name'] ?? null, count( stored() ) ),
+	array( 'again', 'stale', 'Gadgetry Inc', 0 )
+);
+
+reset_world();
+$_GET = array( WPCPM_Sponsor_Application::QUERY_STASH => 'answersthathaveexpired' );
+$page = WPCPM_Sponsor_Application::render();
+ck(
+	'a stash id whose answers have expired draws the form empty, with the sentence that says so, and marks no field',
+	array( false !== strpos( $page, 'The answers kept for this page have expired, so the form is empty again. If you sent the form, nothing more is needed; if you did not, fill it in and send it again.' ), false !== strpos( $page, '<form' ), strpos( $page, 'aria-invalid' ), strpos( $page, 'wpcpm-errors' ) ),
+	array( true, true, false, false )
+);
+$_GET = array();
 
 echo "\n-- the editor's preview -----------------------------------------------\n";
 
@@ -1727,6 +1940,7 @@ if ( ! class_exists( 'WPCPM_Sponsor_Approval' ) ) {
 	}
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
 // The Administrator Dashboard's page, which an opened application its card lists links into.

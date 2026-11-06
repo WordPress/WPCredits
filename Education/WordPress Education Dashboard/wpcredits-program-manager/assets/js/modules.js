@@ -276,7 +276,23 @@
 						arrange( kept, button );
 					} )
 					.catch( function () {
-						// The page keeps the order on screen; the next load shows what was kept.
+						// The request never reached the server, or its answer never came back (a
+						// dropped connection, a timeout): nothing was saved, so it is a refusal and
+						// is treated as one (1.123.58, CARD-28). The same stale-ticket rule as the
+						// answer above, the refusal said in place of the move, and the page put
+						// back to the order the server is known to hold.
+						if ( ticket <= answered ) {
+							return;
+						}
+
+						answered = ticket;
+						live.textContent = form.getAttribute( 'data-wpcpm-refused' ) || '';
+
+						if ( ticket !== sent ) {
+							return;
+						}
+
+						arrange( kept, button );
 					} );
 			} );
 		} );

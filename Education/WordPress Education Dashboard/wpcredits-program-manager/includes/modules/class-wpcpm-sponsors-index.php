@@ -204,6 +204,13 @@ final class WPCPM_Sponsors_Index {
 			// form and beside Approve on an application, and by the move onto the site and the
 			// upgrade for a name that starts with the word "TEST" (`is_test_name()`).
 			'test'               => false,
+			// When the row was last written, as a Unix time kept as text, and the ID of the account
+			// that wrote it, or nothing for the site's own run (1.123.58). Stamped by `insert()` and
+			// `patch()` themselves, so no write goes unrecorded: the Edit form posts the stamp it was
+			// drawn with, and a save whose stamp is no longer the row's is refused as stale
+			// (`WPCPM_Sponsors::version()`). A row written before this release holds neither.
+			'modified'           => '',
+			'modified_by'        => '',
 		);
 	}
 
@@ -485,6 +492,7 @@ final class WPCPM_Sponsors_Index {
 		}
 
 		$row['record_id'] = $key;
+		$row              = self::stamped( $row, $row );
 		$row              = self::shape( $row );
 		$id               = self::post_id_of( $key );
 
@@ -592,6 +600,7 @@ final class WPCPM_Sponsors_Index {
 
 		$row['record_id'] = $record;
 		$row['slug']      = $post->post_name;
+		$row              = self::stamped( $row, $fields );
 		$row              = self::shape( $row );
 
 		update_post_meta( $id, self::META_KEY, $record );
@@ -891,6 +900,27 @@ final class WPCPM_Sponsors_Index {
 		if ( class_exists( 'WPCPM_Sponsors_Feed' ) ) {
 			delete_transient( WPCPM_Sponsors_Feed::TRANSIENT );
 		}
+	}
+
+	/**
+	 * A row with the stamp of this write on it: the time and the account, unless the caller named a
+	 * time of its own (1.123.58).
+	 *
+	 * @param array $row   The row to write.
+	 * @param array $named What the caller gave: the fields of a patch, or the row of an insert.
+	 * @return array The row, stamped.
+	 */
+	private static function stamped( array $row, array $named ) {
+		if ( isset( $named['modified'] ) && '' !== (string) $named['modified'] ) {
+			return $row;
+		}
+
+		$user = get_current_user_id();
+
+		$row['modified']    = (string) time();
+		$row['modified_by'] = $user > 0 ? (string) $user : '';
+
+		return $row;
 	}
 
 	/**

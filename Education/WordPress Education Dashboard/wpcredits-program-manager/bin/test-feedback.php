@@ -165,6 +165,11 @@ require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
 require_once __DIR__ . '/../includes/class-wpcpm-airtable.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
 require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+// The dashboards' one outcome printer, which Airtable's refusal is printed through (the fix wave of 1.123.58).
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
+}
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/class-wpcpm-contribution-teams.php';
 require_once __DIR__ . '/../includes/class-wpcpm-wporg-profile.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
@@ -238,7 +243,7 @@ function clean( $raw, array $spec ) {
 	static $method = null;
 
 	if ( null === $method ) {
-		$method = new ReflectionMethod( 'WPCPM_Student_Feedback', 'clean' );
+		$method = new ReflectionMethod( 'WPCPM_Student_Feedback', 'clean_result' );
 
 		// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
 		if ( PHP_VERSION_ID < 80100 ) {
@@ -246,7 +251,9 @@ function clean( $raw, array $spec ) {
 		}
 	}
 
-	return $method->invoke( null, $raw, $spec );
+	$result = $method->invoke( null, $raw, $spec );
+
+	return array( $result['ok'], $result['value'] );
 }
 
 /*
@@ -1099,6 +1106,194 @@ $typed = 'I kept my notes in C:\drafts\wp, two \\\\ in a row, and called it "the
 unset( $GLOBALS['umeta'][ STUDENT ]['wpcpm_report_permissions'] );
 ck( 'a save with the quote goes through', post_form( STUDENT, false, array_merge( $answers, array( $share => wp_slash( $typed ) ) ) ), 'feedback-saved' );
 ck( 'and the stamp keeps it exactly as typed', $GLOBALS['umeta'][ STUDENT ]['wpcpm_report_permissions']['answers'][ $share ] ?? null, $typed );
+
+echo "\n=== A refused form keeps its answers, and a saved one says so inside itself (1.123.58) ===\n";
+
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+
+/**
+ * Send a form as the student, Airtable answering the write with `$code`.
+ *
+ * @param array  $answers Column name => posted value.
+ * @param string $form    Which form.
+ * @param int    $code    What Airtable answers the write with.
+ * @return string Where the handler sent the student.
+ */
+function feedback_post( array $answers, $form, $code ) {
+	$GLOBALS['uid']      = STUDENT;
+	$GLOBALS['caps']     = false;
+	$GLOBALS['sent']     = array();
+	$GLOBALS['redirect'] = '';
+	$GLOBALS['queue']    = array( response( $code, 200 === $code ? array( 'records' => array( array( 'id' => 'recFB0000000000AA' ) ) ) : array( 'error' => array( 'type' => 'INVALID_VALUE_FOR_COLUMN', 'message' => 'Refused.' ) ) ) );
+
+	$GLOBALS['umeta'][ STUDENT ] = array(
+		'wpcpm_student_program'     => program_row(),
+		'wpcpm_student_institution' => HERE,
+		'wpcpm_feedback_record'     => 'recFB0000000000AA',
+		'wpcpm_feedback_record_for' => HERE,
+	);
+
+	$posted = array();
+
+	// Slashed, as WordPress hands a post over.
+	foreach ( $answers as $column => $value ) {
+		$posted[ WPCPM_Student_Feedback::key( $column ) ] = wp_slash( $value );
+	}
+
+	$_POST = array( 'student' => (string) STUDENT, 'form' => $form, 'feedback' => $posted );
+
+	try {
+		WPCPM_Student_Feedback::handle_save();
+	} catch ( Left $e ) {
+		return $e->getMessage();
+	}
+
+	return '';
+}
+
+/**
+ * The section as the next request draws it, from `$stored` on the record: an Administrator's fresh
+ * account holding the student's pending flash, since the flash memoizes per request.
+ *
+ * @param array $stored Column name => the answer on the record.
+ * @return string
+ */
+function feedback_page( array $stored ) {
+	static $next = 900;
+
+	++$next;
+
+	$flash                     = $GLOBALS['umeta'][ STUDENT ]['wpcpm_flash'] ?? null;
+	$GLOBALS['umeta'][ $next ] = null === $flash ? array() : array( 'wpcpm_flash' => $flash );
+	$page                      = render_as( $next, true, $stored );
+
+	return $page;
+}
+
+/** One form's disclosure, opening tag to its close. */
+function disclosure( $html, $key ) {
+	$at = strpos( $html, 'id="wpcpm-feedback-' . $key . '"' );
+
+	if ( false === $at ) {
+		return '';
+	}
+
+	$start = strrpos( substr( $html, 0, $at ), '<details' );
+
+	return substr( $html, $start, strpos( $html, '</details>', $at ) + 10 - $start );
+}
+
+$fifteen = array();
+$n       = 0;
+
+foreach ( $forms['f3']['fields'] as $column => $spec ) {
+	$type = isset( $spec['type'] ) ? $spec['type'] : 'textarea';
+
+	if ( 'checkbox' === $type || ( 'select' === $type && isset( $spec['group'] ) && 'permissions' === $spec['group'] ) ) {
+		continue;
+	}
+
+	++$n;
+
+	if ( 'rating' === $type ) {
+		$fifteen[ $column ] = (string) ( 1 + $n % 5 );
+	} elseif ( 'select' === $type ) {
+		$fifteen[ $column ] = $spec['choices'][ count( $spec['choices'] ) - 1 ];
+	} else {
+		$fifteen[ $column ] = 'Typed answer ' . $n . ', with a "quote" and C:\path.';
+	}
+}
+
+$went = feedback_post( $fifteen, 'f3', 422 );
+$page = feedback_page( $two );
+$f3   = disclosure( $page, 'f3' );
+
+$held = array();
+
+foreach ( $fifteen as $column => $value ) {
+	$key  = WPCPM_Student_Feedback::key( $column );
+	$type = isset( $forms['f3']['fields'][ $column ]['type'] ) ? $forms['f3']['fields'][ $column ]['type'] : 'textarea';
+
+	if ( 'rating' === $type ) {
+		$held[] = 1 === preg_match( '/name="feedback\[' . $key . '\]" value="' . preg_quote( $value, '/' ) . '" checked="checked"/', $f3 );
+	} elseif ( 'select' === $type ) {
+		$held[] = false !== strpos( substr( $f3, (int) strpos( $f3, 'name="feedback[' . $key . ']"' ) ), '<option value="' . esc_attr( $value ) . '" selected="selected">' );
+	} else {
+		$held[] = false !== strpos( $f3, 'name="feedback[' . $key . ']"' ) && false !== strpos( $f3, '>' . esc_textarea( $value ) . '</textarea>' );
+	}
+}
+
+ck( 'a refused feedback form keeps its fifteen answers and comes back open with its status inside',
+	array(
+		count( $fifteen ),
+		array_values( array_unique( $held ) ),
+		substr( $went, -strlen( '#wpcpm-feedback-f3' ) ),
+		1 === preg_match( '/^<details class="wpcpm-report__disclosure wpcpm-feedback" id="wpcpm-feedback-f3" open>/', $f3 ),
+		false !== strpos( $f3, 'Airtable did not take your answers.' ),
+	),
+	array( 15, array( true ), '#wpcpm-feedback-f3', true, true ) );
+
+ck( 'the Airtable refusal says the answers are still in the form',
+	array(
+		false !== strpos( $page, 'Airtable did not take your answers. They are still in the form below: send it again in a moment.' ),
+		strpos( $page, 'Nothing has been lost' ),
+		WPCPM_Student_Feedback::message( 'feedback-refused' )[1],
+	),
+	array( true, false, 'Airtable did not take your answers. They are still in the form below: send it again in a moment.' ) );
+ck( 'and the refusal is an alert in the error tone, carrying data-wpcpm-card-message, so the page moves the focus to it, as the hours box does',
+	array(
+		false !== strpos( $page, '<p class="wpcpm-calls__message wpcpm-calls__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Airtable did not take your answers. They are still in the form below: send it again in a moment.</p>' ),
+		false !== strpos( $page, 'role="status">Airtable did not take your answers.' ),
+	),
+	array( true, false ) );
+
+// Every other error-toned outcome is an alert focused on load too (1.123.58, trial T12): here the one
+// a student whose program record cannot be matched is given. The flash as the handler leaves it.
+$GLOBALS['umeta'][ STUDENT ]['wpcpm_flash'] = array( 'feedback' => 'feedback-failed', 'feedback-form' => 'f3' );
+$failed_page = feedback_page( $two );
+ck( 'an unmatched record\'s outcome is an alert in the error tone, carrying data-wpcpm-card-message, and no status',
+	array(
+		false !== strpos( $failed_page, '<p class="wpcpm-calls__message wpcpm-calls__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Your feedback could not be matched to your program record, so nothing was sent.</p>' ),
+		false !== strpos( $failed_page, 'role="status">Your feedback could not be matched' ),
+	),
+	array( true, false ) );
+
+$overall = 'F3 - Overall experience so far';
+$went    = feedback_post( array( $overall => '9', $proud => 'Kept, beside the refused rating.' ), 'f3', 200 );
+$page    = feedback_page( $two );
+$f3      = disclosure( $page, 'f3' );
+$rating  = WPCPM_Student_Feedback::key( $overall );
+
+ck( 'a rating off the scale is named at its field, the summary links it, and the rest of the form is drawn as sent',
+	array(
+		false !== strpos( $f3, '<h3 class="wpcpm-errors__title">One answer needs a change</h3>' ),
+		false !== strpos( $f3, '<a href="#wpcpm-feedback-' . $rating . '">' ),
+		1 === preg_match( '/<fieldset class="wpcpm-rating" id="wpcpm-feedback-' . $rating . '" role="radiogroup" data-wpcpm-field="' . $rating . '" aria-invalid="true" aria-describedby="wpcpm-feedback-' . $rating . '-problem">/', $f3 ),
+		false !== strpos( $f3, 'Your other answers have been sent. The ones marked below need a change.' ),
+		strpos( $f3, 'Thank you - your answers have been sent.' ),
+		false !== strpos( $f3, '<p class="wpcpm-field__problem" id="wpcpm-feedback-' . $rating . '-problem">Choose a rating from 1 to 5.</p>' ),
+		false !== strpos( $f3, '>Kept, beside the refused rating.</textarea>' ),
+	),
+	array( true, true, true, true, false, true, true ) );
+
+ck( 'a send with a refused answer is its own outcome, and a clean send keeps its own',
+	array( WPCPM_Student_Feedback::message( 'feedback-partly' ), WPCPM_Student_Feedback::message( 'feedback-saved' )[0] ),
+	array( array( 'success', 'Your other answers have been sent. The ones marked below need a change.' ), 'success' ) );
+
+$went = feedback_post( fill( 'f2', $forms ), 'f2', 200 );
+$page = feedback_page( $two );
+$f2   = disclosure( $page, 'f2' );
+$head = substr( $page, 0, (int) strpos( $page, 'wpcpm-feedback__title' ) );
+
+ck( 'a saved form\'s disclosure is drawn open with its status inside it, not above the heading',
+	array(
+		substr( $went, -strlen( '#wpcpm-feedback-f2' ) ),
+		1 === preg_match( '/^<details class="wpcpm-report__disclosure wpcpm-feedback" id="wpcpm-feedback-f2" open>/', $f2 ),
+		false !== strpos( $f2, 'Thank you - your answers have been sent.' ),
+		strpos( $head, 'wpcpm-calls__message' ),
+		1 === preg_match( '/<details class="wpcpm-report__disclosure wpcpm-feedback" id="wpcpm-feedback-f1">/', $page ),
+	),
+	array( '#wpcpm-feedback-f2', true, true, false, true ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

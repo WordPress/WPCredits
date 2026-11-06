@@ -2407,7 +2407,7 @@ $ben_sent = follow( $ben_link, 'handle_invite' );
 
 ck( 'followed, the institutions sync sends Ben his invitation now, the institution\'s, core\'s message to him alone, and stamps his account as an institution\'s, then the list says the email went',
 	array( $GLOBALS['mails'], array_column( $GLOBALS['sent'], 'subject' ), array_column( $GLOBALS['sent'], 'notify' ), isset( $GLOBALS['umeta'][22]['wpcpm_inst_invited'] ) && is_int( $GLOBALS['umeta'][22]['wpcpm_inst_invited'] ), link_of( $ben_sent['redirect'] ), notice_now() ),
-	array( array( 22 ), array( '[WPCredits] Your institution account is ready' ), array( 'user' ), true, $accounts, '<div class="notice notice-success is-dismissible"><p>Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>' ) );
+	array( array( 22 ), array( '[WPCredits] Your institution account is ready' ), array( 'user' ), true, $accounts, '<div class="notice notice-success is-dismissible"><p>Invitation email sent to Ben Okafor. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>' ) );
 
 // The shared stand-in writes core's message when core does: for `user` and `both`, for '' only with
 // the old second argument set, never for `admin`. The administrator's copy, which core sends for
@@ -2529,6 +2529,18 @@ $pressed        = post_to( 'handle_bulk_invite', 'wpcpm_institutions_bulk_invite
 ck( 'pressed, it queues the three and comes back to the Accounts tab, which says so',
 	array( WPCPM_Mail::queue(), link_of( $pressed['redirect'] ), notice_now() ),
 	array( array( 22, 24, 26 ), $accounts, '<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>' ) );
+
+// The same press while another request holds the queue's lock (the fix wave of 1.123.58): nothing is
+// queued, and the Accounts tab says the queue was busy, not that the invitations were queued.
+WPCPM_Mail::clear_queue( true );
+manager( 960 );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$pressed_busy                              = post_to( 'handle_bulk_invite', 'wpcpm_institutions_bulk_invite', array( 'wpcpm_tab' => 'accounts' ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+
+ck( 'pressed while the queue\'s lock is held by another request, it queues nothing and the Accounts tab says the queue was busy',
+	array( WPCPM_Mail::queue(), link_of( $pressed_busy['redirect'] ), notice_now() ),
+	array( array(), $accounts, '<div class="notice notice-info is-dismissible"><p>The queue was busy for a moment and nothing was queued. Press the button again.</p></div>' ) );
 
 the_site();
 manager( 86 );

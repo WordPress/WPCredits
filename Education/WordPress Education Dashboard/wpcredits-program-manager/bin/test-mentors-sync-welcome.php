@@ -13,8 +13,8 @@
  *   own).
  * - **The rules of a created account.** Nothing is queued with invitation emails off, and never for
  *   an Administrator, whose account signs in already.
- * - **The activation's rule for a match by username alone.** That match may be somebody else, so the
- *   invitation is held on the account, with the activation's own notice, and sent from its row.
+ * - **A match by username alone is no link** (1.123.58). The account is given nothing and waits under
+ *   Needs confirming, so it is no candidate for the welcome either.
  * - **The brake.** The candidates of a run are kept in the state, which survives from one request
  *   to the next, and queued once, when the pass over the Mentors table ends; more than
  *   `RELINK_INVITE_MAX` of them in one run are queued for nobody, because many accounts made mentors
@@ -48,12 +48,30 @@ $GLOBALS['settings']  = array();
 $GLOBALS['unmodeled'] = array();
 $GLOBALS['pages']     = array();
 
-/** The invitation queue, at its contract: an account is queued once. */
+/**
+ * The invitation queue, at its contract: an account is queued once, under the queue's lock, taken
+ * through the real lock over the stand-in's options table, and nothing is queued while another
+ * request holds it, which answers `QUEUE_BUSY`. A check can play another request after each queueing
+ * (`$after_queue`).
+ */
 class WPCPM_Mail {
+	const QUEUE_BUSY = -1;
+	/** @var callable|null */
+	public static $after_queue = null;
 	public static function queue_invite( $user_id ) {
-		if ( ! in_array( (int) $user_id, $GLOBALS['queued'], true ) ) {
+		$token = (string) WPCPM_Lock::take( 'wpcpm_invite_queue_lock', 30 );
+		if ( '' === $token ) {
+			return self::QUEUE_BUSY;
+		}
+		$added = ! in_array( (int) $user_id, $GLOBALS['queued'], true );
+		if ( $added ) {
 			$GLOBALS['queued'][] = (int) $user_id;
 		}
+		WPCPM_Lock::release( 'wpcpm_invite_queue_lock', $token );
+		if ( is_callable( self::$after_queue ) ) {
+			call_user_func( self::$after_queue );
+		}
+		return $added ? 1 : 0;
 	}
 	/** An invitation is held where the account carries the hold, whatever it holds. */
 	public static function is_held( $user_id ) {
@@ -91,6 +109,10 @@ class WPCPM_Airtable {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The tick lock is a row of the options table the lock writes straight to it (1.123.58): the stand-in
+// runs its statements over `$GLOBALS['opts']`.
+require_once __DIR__ . '/stubs/options-lock-wpdb.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 
@@ -202,6 +224,14 @@ function pass( $state = null ) {
 	}
 	$state  = null === $state ? state() : $state;
 
+	// The phase pages through the table under the tick's lock and holds it longer after each page
+	// (1.123.58), so the pass takes it as a tick does and lets it go at the end.
+	$lock = new ReflectionMethod( 'WPCPM_Mentors_Sync', 'acquire_lock' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$lock->setAccessible( true );
+	}
+	$lock->invoke( null );
+
 	$GLOBALS['queue_after_page'] = array();
 
 	do {
@@ -217,6 +247,12 @@ function pass( $state = null ) {
 		update_option( WPCPM_Mentors_Sync::OPT_STATE, $state );
 		$state = get_option( WPCPM_Mentors_Sync::OPT_STATE );
 	} while ( 'mentors' === $state['phase'] );
+
+	$release = new ReflectionMethod( 'WPCPM_Mentors_Sync', 'release_lock' );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$release->setAccessible( true );
+	}
+	$release->invoke( null );
 
 	return $state;
 }
@@ -310,21 +346,12 @@ fresh();
 account( 49, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
 $GLOBALS['pages'] = array( array( row( 'recLOGINMATCH0001', 'ada-example', 'ada@example.test' ) ) );
 $state            = pass();
-ck( 'the account is queued for nothing, held as `login`, and linked with the Mentor role',
-	array( $GLOBALS['queued'], meta( 49, WPCPM_Mentor_Provision::USER_INVITE_HELD ), $state['stats']['relinked_invited'], roles( 49 ), meta( 49, 'wpcpm_mentor_active' ) ),
-	array( array(), 'login', 0, array( 'wpcpm_student', 'wpcpm_mentor' ), 1 ) );
-ck( 'and the run says why, in the activation\'s words, after the notices the step wrote',
-	array_slice( $state['notices'], -1 ), array( $welcome_held ) );
-ck( 'with the username notice the step wrote before it, once',
-	array( count( $state['notices'] ), in_array( 'Linked mentor record to the pre-existing account "ada-example" (Mentor ada-example) by username. Confirm it is the same person.', $state['notices'], true ) ),
-	array( 3, true ) );
-
-fresh( array( 'send_welcome_email' => false ) );
-account( 50, 'ada-example', 'other@example.test', array( 'wpcpm_student' ) );
-$GLOBALS['pages'] = array( array( row( 'recLOGINMATCH0002', 'ada-example', 'ada@example.test' ) ) );
-$state            = pass();
-ck( 'with invitation emails off, there is nothing to hold and nothing to say',
-	array( meta( 50, WPCPM_Mentor_Provision::USER_INVITE_HELD ), in_array( $welcome_held, $state['notices'], true ) ), array( '', false ) );
+ck( 'since 1.123.58 the account is given nothing: queued for nothing, held for nothing, and not linked',
+	array( $GLOBALS['queued'], meta( 49, WPCPM_Mentor_Provision::USER_INVITE_HELD ), $state['stats']['relinked_invited'], roles( 49 ), meta( 49, 'wpcpm_mentor_active' ), array_keys( (array) get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ) ),
+	array( array(), '', 0, array( 'wpcpm_student' ), '', array( 'recLOGINMATCH0001' ) ) );
+ck( 'and the run says so once, in the step\'s words, with nothing about a welcome',
+	array( $state['notices'], in_array( $welcome_held, $state['notices'], true ) ),
+	array( array( 'Account 49 has the login of a mentor\'s WordPress.org username (ada-example) and nothing else. Nothing was linked: confirm it under Needs confirming on the Sync tab if it is the mentor\'s account.' ), false ) );
 
 echo "\n=== The brake ===\n";
 fresh();
@@ -363,6 +390,49 @@ ck( 'and only when the pass over the table ended: nothing was queued after the f
 	array( $GLOBALS['queue_after_page'][0], $GLOBALS['queue_after_page'][1], $GLOBALS['queue_after_page'][2] ), array( array(), array(), array( 101, 102, 103, 104, 105 ) ) );
 ck( 'and the run moves on to the revoke phase', $state['phase'], 'revoke' );
 
+// The queue's lock taken by another request (the fix wave of 1.123.58): after the first of three is
+// queued, another request holds it through the other two, which are not counted, and the run's
+// notices say how many to send from the Accounts tab.
+fresh();
+$rows = array();
+for ( $i = 1; $i <= 3; $i++ ) {
+	account( 100 + $i, 'mentor-' . $i, 'mentor-' . $i . '@example.test', array( 'wpcpm_student' ) );
+	$rows[] = row( 'recBUSYQUEUE000' . $i, 'mentor-' . $i, 'mentor-' . $i . '@example.test' );
+}
+$GLOBALS['pages']        = array( $rows );
+WPCPM_Mail::$after_queue = static function () {
+	$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+};
+$state                   = pass();
+WPCPM_Mail::$after_queue = null;
+$busy_said               = array_values( array_filter( $state['notices'], static function ( $n ) { return false !== strpos( $n, 'the queue was busy' ); } ) );
+ck( 'with the queue\'s lock held by another request after the first, the run counts the one it queued and says the other two could not be queued',
+	array( $GLOBALS['queued'], $state['stats']['relinked_invited'], $busy_said ),
+	array( array( 101 ), 1, array( '2 invitations could not be queued: the queue was busy. Send them from the Accounts tab.' ) ) );
+
+fresh();
+account( 101, 'mentor-1', 'mentor-1@example.test', array( 'wpcpm_student' ) );
+$GLOBALS['pages']                           = array( array( row( 'recBUSYQUEUE0001', 'mentor-1', 'mentor-1@example.test' ) ) );
+$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+$state                                      = pass();
+$busy_said                                  = array_values( array_filter( $state['notices'], static function ( $n ) { return false !== strpos( $n, 'the queue was busy' ); } ) );
+ck( 'and with it held throughout, the one is counted under nothing and named in the singular',
+	array( $GLOBALS['queued'], $state['stats']['relinked_invited'], $busy_said ),
+	array( array(), 0, array( '1 invitation could not be queued: the queue was busy. Send it from the Accounts tab.' ) ) );
+
+// A run that has said a hundred things already: the report keeps the first hundred notices, so the
+// busy notice goes first, where it is kept.
+fresh();
+account( 101, 'mentor-1', 'mentor-1@example.test', array( 'wpcpm_student' ) );
+$GLOBALS['pages']                           = array( array( row( 'recBUSYQUEUE0001', 'mentor-1', 'mentor-1@example.test' ) ) );
+$GLOBALS['opts']['wpcpm_invite_queue_lock'] = (string) ( time() + 30 );
+$crowded                                    = state();
+$crowded['notices']                         = array_fill( 0, 100, 'Something the run said before.' );
+$state                                      = pass( $crowded );
+ck( 'with a hundred notices said already, the busy notice is first, inside the hundred the report keeps',
+	array( array_slice( $state['notices'], 0, 1 ), in_array( '1 invitation could not be queued: the queue was busy. Send it from the Accounts tab.', array_slice( $state['notices'], 0, 100 ), true ) ),
+	array( array( '1 invitation could not be queued: the queue was busy. Send it from the Accounts tab.' ), true ) );
+
 fresh();
 $rows = array();
 for ( $i = 1; $i <= 7; $i++ ) {
@@ -388,9 +458,9 @@ $GLOBALS['users'][101]->user_login = 'other-1';
 $GLOBALS['users'][102]->user_login = 'other-2';
 $GLOBALS['pages'] = array( $rows );
 $state            = pass();
-ck( 'an account held for a match by username alone is no candidate: four of the six are queued, the two held are not',
-	array( $GLOBALS['queued'], $state['stats']['relinked_invited'], meta( 101, WPCPM_Mentor_Provision::USER_INVITE_HELD ), meta( 102, WPCPM_Mentor_Provision::USER_INVITE_HELD ), meta( 103, WPCPM_Mentor_Provision::USER_INVITE_HELD ) ),
-	array( array( 103, 104, 105, 106 ), 4, 'login', 'login', '' ) );
+ck( 'an account matched by its username alone is no candidate: four of the six are queued, the two that wait to be confirmed are not, and hold nothing',
+	array( $GLOBALS['queued'], $state['stats']['relinked_invited'], meta( 101, WPCPM_Mentor_Provision::USER_INVITE_HELD ), meta( 102, WPCPM_Mentor_Provision::USER_INVITE_HELD ), meta( 103, WPCPM_Mentor_Provision::USER_INVITE_HELD ), array_keys( (array) get_option( WPCPM_Mentor_Provision::OPT_UNCONFIRMED ) ) ),
+	array( array( 103, 104, 105, 106 ), 4, '', '', '', array( 'recBRAKEHELD0001', 'recBRAKEHELD0002' ) ) );
 
 echo "\n=== The report keeps the brake's notice ===\n";
 fresh();
@@ -473,7 +543,9 @@ $sync = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-w
 ck( 'the sync still hands each mentor to the one provisioning step, and makes no account of its own',
 	array( substr_count( $sync, 'WPCPM_Mentor_Provision::provision(' ), substr_count( $sync, 'insert_user(' ) ), array( 1, 0 ) );
 ck( 'the brake is five', WPCPM_Mentors_Sync::RELINK_INVITE_MAX, 5 );
-ck( 'the candidates of a run wait in its state, which is stored between requests: the sync keeps no static property of its own', ( new ReflectionClass( 'WPCPM_Mentors_Sync' ) )->getStaticProperties(), array() );
+// One static alone, the token of the tick lock this request holds (1.123.58), which is this request's
+// and no run's: it is '' outside a tick.
+ck( 'the candidates of a run wait in its state, which is stored between requests: the sync keeps no static property of its own but the request\'s lock token', ( new ReflectionClass( 'WPCPM_Mentors_Sync' ) )->getStaticProperties(), array( 'lock_token' => '' ) );
 ck( 'and nothing was asked of the stand-ins that they do not model', $GLOBALS['unmodeled'], array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

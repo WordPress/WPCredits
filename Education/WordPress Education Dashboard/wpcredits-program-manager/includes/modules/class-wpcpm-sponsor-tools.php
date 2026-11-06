@@ -58,7 +58,16 @@ final class WPCPM_Sponsor_Tools {
 			'claimed'         => array( 'success', __( 'Your code is below. It is yours to keep, and it stays on this page.', 'wpcredits-program-manager' ) ),
 			'claimed-again'   => array( 'info', __( 'You already have a code for that offer. It is below.', 'wpcredits-program-manager' ) ),
 			'claim-refused'   => array( 'error', __( 'That offer is not open to your account.', 'wpcredits-program-manager' ) ),
-			'claim-empty'     => array( 'error', __( 'That offer has run out of codes. The sponsor has been told.', 'wpcredits-program-manager' ) ),
+			// A refusal says its own reason, one sentence per answer of `may_claim_reason()` that is
+			// about the offer and not the person (1.123.58, SPA-16); `claim-refused` is left to the
+			// answers that are about the person.
+			'tool-closed'     => array( 'error', __( 'That offer is closed, so its code cannot be shown.', 'wpcredits-program-manager' ) ),
+			'tool-off'        => array( 'error', __( 'That offer is switched off for now.', 'wpcredits-program-manager' ) ),
+			'tool-test'       => array( 'error', __( 'That offer is a test, so only the sponsor and Administrators see it.', 'wpcredits-program-manager' ) ),
+			'tool-partners'   => array( 'error', __( 'That offer is for partners of the program only.', 'wpcredits-program-manager' ) ),
+			'tool-claimed'    => array( 'info', __( 'You have already claimed this offer: your code is below.', 'wpcredits-program-manager' ) ),
+			'tool-empty'      => array( 'error', __( 'That offer has run out of codes.', 'wpcredits-program-manager' ) ),
+			'tool-unshared'   => array( 'error', __( 'That offer has no code set yet.', 'wpcredits-program-manager' ) ),
 			'claim-busy'      => array( 'info', __( 'Another request was going through. Reload the page to see your code.', 'wpcredits-program-manager' ) ),
 			'claim-failed'    => array( 'error', __( 'That could not be done right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'problem-sent'    => array( 'success', __( 'Thank you. Your program contact has been told and will get back to you.', 'wpcredits-program-manager' ) ),
@@ -482,7 +491,9 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
-	 * The one flash message on the section, if the channel is holding one.
+	 * The one flash message on the section, if the channel is holding one: toned, announced as a
+	 * status, or as an alert for a refusal, and focused when the page loads (1.123.58, SPA-16), the
+	 * way every dashboard prints an outcome (`WPCPM_Dashboard_Card::message()`).
 	 *
 	 * @param mixed $flash What the channel held.
 	 */
@@ -494,11 +505,7 @@ final class WPCPM_Sponsor_Tools {
 			return;
 		}
 
-		printf(
-			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s</p>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] )
-		);
+		echo WPCPM_Dashboard_Card::message( $messages[ $status ][0], $messages[ $status ][1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Dashboard_Card::message() escapes every value it prints.
 	}
 
 	/**
@@ -728,10 +735,40 @@ final class WPCPM_Sponsor_Tools {
 		$result = WPCPM_Sponsor_Claims::claim( $offer_id, wp_get_current_user() );
 
 		if ( is_wp_error( $result ) ) {
-			self::leave( self::status_for( $result->get_error_code() ) );
+			self::leave( self::refusal_status( $result->get_error_code(), $offer_id ) );
 		}
 
 		self::leave( ! empty( $result['new'] ) ? 'claimed' : 'claimed-again' );
+	}
+
+	/**
+	 * The outcome a refused claim leaves with, worded by the reason (1.123.58, SPA-16): the answer of
+	 * `may_claim_reason()` for the person and the offer as they stand now, when it is about the offer
+	 * (`closed`, `off`, `test`, `partners`, `claimed`, `empty`, `unshared`), else the store's own
+	 * status. An answer about the person (`nobody`, `kind`) stays the one refusal.
+	 *
+	 * @param string $code     A WP_Error code from `WPCPM_Sponsor_Claims::claim()`.
+	 * @param int    $offer_id The offer.
+	 * @return string A key of `messages()`.
+	 */
+	private static function refusal_status( $code, $offer_id ) {
+		if ( 'wpcpm_claim_empty' === (string) $code ) {
+			return 'tool-empty';
+		}
+
+		if ( 'wpcpm_claim_refused' !== (string) $code ) {
+			return self::status_for( $code );
+		}
+
+		$offer = WPCPM_Sponsor_Offers::read( (int) $offer_id );
+
+		if ( null === $offer ) {
+			return 'claim-refused';
+		}
+
+		$why = self::may_claim_reason( wp_get_current_user(), $offer );
+
+		return in_array( $why, array( 'closed', 'off', 'test', 'partners', 'claimed', 'empty', 'unshared' ), true ) ? 'tool-' . $why : 'claim-refused';
 	}
 
 	/**
@@ -763,7 +800,7 @@ final class WPCPM_Sponsor_Tools {
 	private static function status_for( $code ) {
 		$map = array(
 			'wpcpm_claim_refused'   => 'claim-refused',
-			'wpcpm_claim_empty'     => 'claim-empty',
+			'wpcpm_claim_empty'     => 'tool-empty',
 			'wpcpm_claim_busy'      => 'claim-busy',
 			'wpcpm_problem_refused' => 'problem-refused',
 			'wpcpm_problem_limit'   => 'problem-limit',

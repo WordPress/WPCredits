@@ -26,10 +26,18 @@ class WPCPM_CLI {
 	 * [--dry-run]
 	 * : Report what the sync would read without creating or changing any account.
 	 *
+	 * [--accept]
+	 * : Run past the count check: take the Mentor role from every linked account the run did not read, even when Airtable returned under half as many mentors as there are linked accounts. For this run only, once the base has been checked.
+	 *
+	 * [--restart]
+	 * : Start again from the beginning while a sync is already running. Without it the command refuses a sync that is running and has not stalled.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp wpcredits sync_mentors
 	 *     wp wpcredits sync_mentors --dry-run
+	 *     wp wpcredits sync_mentors --accept
+	 *     wp wpcredits sync_mentors --restart
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Associative arguments.
@@ -43,8 +51,13 @@ class WPCPM_CLI {
 			return;
 		}
 
-		// There is no browser here to drive the ticks, so the CLI runs them itself.
-		$started = WPCPM_Mentors_Sync::start( true );
+		// There is no browser here to drive the ticks, so the CLI runs them itself. A run already
+		// going is not started over unless asked (1.123.58): the command says how.
+		$started = WPCPM_Mentors_Sync::start( true, ! empty( $assoc_args['accept'] ), ! empty( $assoc_args['restart'] ) );
+
+		if ( is_wp_error( $started ) && 'wpcpm_sync_running' === $started->get_error_code() ) {
+			WP_CLI::error( __( 'A sync is already running. Run the command with --restart to start it again from the beginning.', 'wpcredits-program-manager' ) );
+		}
 
 		if ( is_wp_error( $started ) ) {
 			WP_CLI::error( $started->get_error_message() );
@@ -74,9 +87,17 @@ class WPCPM_CLI {
 			++$guard;
 
 			$error = get_option( WPCPM_Mentors_Sync::OPT_ERROR );
-			if ( $error ) {
+			if ( $error && ! WPCPM_Mentors_Sync::is_stopped() ) {
 				WP_CLI::error( $error );
 			}
+		}
+
+		// The count check stopped the run before it took anyone's role: said in the command's own
+		// words, which name --accept where the Sync tab names Run anyway (1.123.58).
+		if ( WPCPM_Mentors_Sync::is_stopped() ) {
+			$stop = WPCPM_Mentors_Sync::progress()['guard'];
+
+			WP_CLI::error( WPCPM_Sync_Guard::command_sentence( (int) $stop['read'], (int) $stop['linked'] ) );
 		}
 
 		WP_CLI::log( '[100%] ' . __( 'Finished.', 'wpcredits-program-manager' ) );
@@ -631,6 +652,201 @@ class WPCPM_CLI {
 		}
 
 		WP_CLI\Utils\format_items( $format, $rows, $fields );
+	}
+
+	/**
+	 * Read a setting, or change one the way Settings > Save does, and say what changed.
+	 *
+	 * `get` prints the setting: a switch as on or off, a list as its items joined by a comma and a
+	 * space, an empty Who is mailed list as every Administrator account, a secret (the tokens and
+	 * the Slack webhook) as the screen masks it, never as stored.
+	 *
+	 * `set` writes one setting through the same rules the Settings screen saves by, so a value the
+	 * rule would blank is refused with the sentence the screen gives, and the setting keeps what was
+	 * saved. A switch takes 1, 0, on, off, true or false; a list is comma-separated. For the four Who
+	 * is mailed lists, the value everyone writes the list empty, which mails every Administrator
+	 * account. A status list a track on the live site runs on is left as it was.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <action>
+	 * : get or set.
+	 *
+	 * <key>
+	 * : The setting's key, such as mentor_applications_enabled.
+	 *
+	 * [<value>]
+	 * : With set: the new value.
+	 *
+	 * [--dry-run]
+	 * : With set: say what would change and write nothing.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits setting get mentor_applications_enabled
+	 *     wp wpcredits setting set mentor_lapse_days 120 --dry-run
+	 *     wp wpcredits setting set agreement_notify everyone
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function setting( $args, $assoc_args ) {
+		$action   = isset( $args[0] ) ? (string) $args[0] : '';
+		$key      = isset( $args[1] ) ? (string) $args[1] : '';
+		$defaults = WPCPM_Settings::defaults();
+		$dry      = ! empty( $assoc_args['dry-run'] );
+
+		if ( ! in_array( $action, array( 'get', 'set' ), true ) || '' === $key || ( 'set' === $action && ! isset( $args[2] ) ) ) {
+			WP_CLI::error( 'Use setting get <key>, or setting set <key> <value>.' );
+		}
+
+		if ( ! array_key_exists( $key, $defaults ) ) {
+			WP_CLI::error( sprintf( 'There is no setting called %s.', $key ) );
+		}
+
+		$before = WPCPM_Settings::get_value( $key, $defaults[ $key ] );
+		$was    = $this->setting_shown( $key, $before );
+
+		if ( 'get' === $action ) {
+			WP_CLI::line( $was );
+
+			return;
+		}
+
+		$typed = (string) $args[2];
+
+		if ( 'everyone' === $typed ) {
+			if ( ! in_array( $key, WPCPM_Settings::NOTIFY_LISTS, true ) ) {
+				WP_CLI::error( sprintf( 'everyone is a value only for the four Who is mailed lists: %s.', implode( ', ', WPCPM_Settings::NOTIFY_LISTS ) ) );
+			}
+
+			$value   = '';
+			$changes = array(
+				$key                                   => '',
+				$key . WPCPM_Settings::EVERYONE_SUFFIX => true,
+			);
+		} else {
+			$value   = $this->setting_value( $defaults[ $key ], $typed );
+			$changes = array( $key => $value );
+		}
+
+		if ( $value === $before ) {
+			WP_CLI::log( sprintf( '%1$s is already %2$s. Nothing was written.', $key, $was ) );
+
+			return;
+		}
+
+		$saved   = WPCPM_Settings::patch( $changes, $dry );
+		$refused = WPCPM_Settings::last_refused();
+		$after   = isset( $saved[ $key ] ) ? $saved[ $key ] : $before;
+
+		if ( isset( $refused[ $key ] ) ) {
+			WP_CLI::error( sprintf( '%1$s was not changed: %2$s', $key, $refused[ $key ] ) );
+		}
+
+		// The status lists are left as they were when a live track runs on a status the change would take
+		// out or make past (`WPCPM_Settings::patch()`): the list that comes back is the one that was there.
+		if ( in_array( $key, array( 'student_statuses', 'past_statuses' ), true ) && $after === $before ) {
+			WP_CLI::error( sprintf( '%s was left as it was: a track on the live site runs on a status this change would take out, or would make past. Take the track off the live site in the Track Builder first.', $key ) );
+		}
+
+		if ( $after === $before ) {
+			WP_CLI::log( sprintf( '%1$s is already %2$s. Nothing was written.', $key, $was ) );
+
+			return;
+		}
+
+		if ( $dry ) {
+			// A secret that is not written is masked by the same rule the screen masks a stored one by.
+			WP_CLI::log( sprintf( 'Dry run: %1$s would change from %2$s to %3$s. Nothing was written.', $key, $was, $this->setting_shown( $key, $after, true ) ) );
+
+			return;
+		}
+
+		WP_CLI::success( sprintf( 'Changed %1$s from %2$s to %3$s.', $key, $was, $this->setting_shown( $key, $after ) ) );
+	}
+
+	/**
+	 * A setting's value as a person reads it: a switch as on or off, a list joined, a secret masked.
+	 *
+	 * @param string $key      The setting.
+	 * @param mixed  $value    Its value.
+	 * @param bool   $unsaved  Whether the value is one that was not stored, so a secret's mask is made
+	 *                         from the value itself rather than read from the settings.
+	 * @return string
+	 */
+	private function setting_shown( $key, $value, $unsaved = false ) {
+		$maskers = array(
+			'api_token'             => 'masked_token',
+			'schema_token'          => 'masked_schema_token',
+			'handbook_key'          => 'masked_handbook_key',
+			'checker_slack_webhook' => 'masked_slack_webhook',
+		);
+
+		if ( isset( $maskers[ $key ] ) ) {
+			if ( $unsaved ) {
+				return '' === (string) $value ? '' : str_repeat( '•', 12 ) . substr( (string) $value, -4 );
+			}
+
+			return (string) call_user_func( array( 'WPCPM_Settings', $maskers[ $key ] ) );
+		}
+
+		// An empty Who is mailed list mails every Administrator account, so it is named, not printed
+		// as nothing (1.123.58, trial T7).
+		if ( in_array( $key, WPCPM_Settings::NOTIFY_LISTS, true ) && '' === trim( is_array( $value ) ? implode( '', array_map( 'strval', $value ) ) : (string) $value ) ) {
+			return __( 'every Administrator account', 'wpcredits-program-manager' );
+		}
+
+		if ( is_bool( $value ) ) {
+			return $value ? 'on' : 'off';
+		}
+
+		if ( is_array( $value ) ) {
+			return implode( ', ', array_map( 'strval', $value ) );
+		}
+
+		return (string) $value;
+	}
+
+	/**
+	 * What was typed after `setting set <key>`, read as the setting's own type: 1, 0, on, off, true or
+	 * false for a switch, a comma-separated list for a list, a number for a number.
+	 *
+	 * @param mixed  $fallback The setting's default, whose type says what it holds.
+	 * @param string $typed   What was typed.
+	 * @return mixed
+	 */
+	private function setting_value( $fallback, $typed ) {
+		if ( is_bool( $fallback ) ) {
+			$word = strtolower( trim( $typed ) );
+
+			if ( in_array( $word, array( '1', 'on', 'true' ), true ) ) {
+				return true;
+			}
+
+			if ( in_array( $word, array( '0', 'off', 'false' ), true ) ) {
+				return false;
+			}
+
+			WP_CLI::error( 'A switch takes 1, 0, on, off, true or false.' );
+		}
+
+		if ( is_array( $fallback ) ) {
+			return array_values(
+				array_filter(
+					array_map( 'trim', explode( ',', $typed ) ),
+					static function ( $value ) {
+						return '' !== $value;
+					}
+				)
+			);
+		}
+
+		if ( is_int( $fallback ) && is_numeric( $typed ) ) {
+			return (int) $typed;
+		}
+
+		return $typed;
 	}
 
 	/**

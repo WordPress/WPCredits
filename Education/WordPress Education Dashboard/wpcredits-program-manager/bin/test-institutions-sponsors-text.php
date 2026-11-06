@@ -564,6 +564,13 @@ class WPCPM_Institution_Audit {
 	const EVIDENCE_INDEX      = 'index';
 	public static function record( array $row ) { return 1; }
 	public static function record_sponsor( array $row ) { return 1; }
+	/** The log of an interest, read for a repeat (1.123.58): this suite writes none, so there is none. */
+	public static function entries_for_sponsor( $sponsor, $limit = 50 ) { return array(); }
+}
+/** The lock a check and a write share (`take()` answers a token, or '' while another holds it), kept in a global the checks read. */
+class WPCPM_Lock {
+	public static function take( $name, $ttl ) { if ( ! empty( $GLOBALS['locks'][ $name ] ) ) { return ''; } $GLOBALS['locks'][ $name ] = 'token'; return 'token'; }
+	public static function release( $name, $token ) { if ( '' === (string) $token ) { return false; } unset( $GLOBALS['locks'][ $name ] ); return true; }
 }
 /** The day's ceilings, never reached here. */
 class WPCPM_Ceiling {

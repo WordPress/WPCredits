@@ -318,6 +318,11 @@ final class WPCPM_Institution_Student_Form {
 		// later visit.
 		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record ) );
 
+		// Why each refused box was refused, kept apart from the typing, which waits in the store
+		// above (1.123.58, IDB-13): each sentence at its own control, and the summary over the form.
+		$refused  = WPCPM_Flash::kept( self::kept_form( $record ) );
+		$problems = $refused['problems'];
+
 		// `fields` is null for every ground this module ships, so this narrows nothing today.
 		// It is here for the reason every other renderer in the module has it: a field-scoped
 		// ground added later has to narrow every form without one of them being edited, and
@@ -353,6 +358,21 @@ final class WPCPM_Institution_Student_Form {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record ) );
 
+		$map = array();
+
+		foreach ( self::fields() as $table => $columns ) {
+			foreach ( $columns as $name => $spec ) {
+				if ( array_key_exists( $table . '|' . $name, $drawn ) ) {
+					$map[ self::control_id( $table, $name ) ] = array(
+						'id'    => self::control_id( $table, $name ),
+						'label' => self::label( $table . '|' . $name ),
+					);
+				}
+			}
+		}
+
+		echo WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
+
 		foreach ( self::fields() as $table => $columns ) {
 			foreach ( $columns as $name => $spec ) {
 				$slot = $table . '|' . $name;
@@ -370,7 +390,8 @@ final class WPCPM_Institution_Student_Form {
 					$spec,
 					(string) $drawn[ $slot ],
 					isset( $kept[ $slot ] ) && is_string( $kept[ $slot ] ) ? $kept[ $slot ] : null,
-					'reports' === $table || $settled
+					'reports' === $table || $settled,
+					isset( $problems[ self::control_id( $table, $name ) ] ) ? (string) $problems[ self::control_id( $table, $name ) ] : ''
 				);
 			}
 		}
@@ -402,18 +423,22 @@ final class WPCPM_Institution_Student_Form {
 	 * A box a refused post kept a typing for is drawn with that typing, exactly as it was typed
 	 * (`WPCPM_Typed_Text::kept_attr()`), and every other box with what the caches hold.
 	 *
+	 * A refused box is marked (1.123.58): `aria-invalid` and the sentence that says why, beside it.
+	 *
 	 * @param string      $table   `reports` or `students`.
 	 * @param string      $name    The base's own column name.
 	 * @param array       $spec    The field spec from `fields()`.
 	 * @param string      $value   The current value, as the caches hold it.
 	 * @param string|null $typed   What a refused post kept for this box, or null.
 	 * @param bool        $enabled Whether this control may be used.
+	 * @param string      $problem Why a refused post refused this box, or ''.
 	 */
-	private static function render_field( $table, $name, array $spec, $value, $typed, $enabled ) {
+	private static function render_field( $table, $name, array $spec, $value, $typed, $enabled, $problem = '' ) {
 		$slot   = $table . '|' . $name;
 		$labels = self::labels();
 		$label  = isset( $labels[ $slot ] ) ? $labels[ $slot ] : $name;
-		$id     = 'wpcpm-student-' . self::key( $table, $name );
+		$id     = self::control_id( $table, $name );
+		$marks  = WPCPM_Form_Errors::attrs( $id, $problem );
 		$field  = self::FIELD_GROUP . '[' . self::key( $table, $name ) . ']';
 		$off    = $enabled ? '' : ' disabled="disabled"';
 		$type   = isset( $spec['type'] ) ? (string) $spec['type'] : 'text';
@@ -426,10 +451,11 @@ final class WPCPM_Institution_Student_Form {
 
 		if ( 'select' === $type ) {
 			printf(
-				'<select class="wpcpm-institution__edit-input" id="%1$s" name="%2$s"%3$s>',
+				'<select class="wpcpm-institution__edit-input" id="%1$s" name="%2$s"%3$s%4$s>',
 				esc_attr( $id ),
 				esc_attr( $field ),
-				$off // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
+				$off, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
+				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
 			);
 
 			printf( '<option value="">%s</option>', esc_html__( 'Not set', 'wpcredits-program-manager' ) );
@@ -469,16 +495,18 @@ final class WPCPM_Institution_Student_Form {
 			echo '</select>';
 		} else {
 			printf(
-				'<input class="wpcpm-institution__edit-input" type="%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s />',
+				'<input class="wpcpm-institution__edit-input" type="%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s />',
 				esc_attr( 'date' === $type ? 'date' : 'text' ),
 				esc_attr( $id ),
 				esc_attr( $field ),
 				esc_attr( $shown ),
 				isset( $spec['maxlength'] ) ? ' maxlength="' . esc_attr( (string) (int) $spec['maxlength'] ) . '"' : '',
-				$off // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
+				$off, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two fixed attribute strings above.
+				$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
 			);
 		}
 
+		echo WPCPM_Form_Errors::problem( $id, $problem ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		echo '</p>';
 	}
 
@@ -530,8 +558,10 @@ final class WPCPM_Institution_Student_Form {
 		return array(
 			'student-saved'         => array( 'success', __( 'Saved. The change is in the program records and on your roster.', 'wpcredits-program-manager' ) ),
 			'student-nothing'       => array( 'info', __( 'Nothing changed, so nothing was saved.', 'wpcredits-program-manager' ) ),
-			'student-partly'        => array( 'error', __( 'Saved, except for the following. A date is written as YYYY-MM-DD, an end date has to be after the start date, a placement cannot run longer than a year, and the field of study has to be one of the program\'s own choices.', 'wpcredits-program-manager' ) ),
-			'student-rejected'      => array( 'error', __( 'Nothing was saved. A date is written as YYYY-MM-DD, an end date has to be after the start date, a placement cannot run longer than a year, and the field of study has to be one of the program\'s own choices. What was refused:', 'wpcredits-program-manager' ) ),
+			// The fields only: why each was refused is said at the field itself, under the summary
+			// over the form (1.123.58, IDB-13), not as one sentence listing every rule.
+			'student-partly'        => array( 'error', __( 'Saved, except for the following.', 'wpcredits-program-manager' ) ),
+			'student-rejected'      => array( 'error', __( 'Nothing was saved. What was refused:', 'wpcredits-program-manager' ) ),
 			'student-merge'         => array( 'error', __( 'The name on the Student Report Card was saved. The dates and the field of study were not.', 'wpcredits-program-manager' ) . ' ' . $merge ),
 			'student-merge-only'    => array( 'error', __( 'Nothing was saved.', 'wpcredits-program-manager' ) . ' ' . $merge ),
 			'student-no-row'        => array( 'error', __( 'The name on the Student Report Card was saved. The dates and the field of study were not.', 'wpcredits-program-manager' ) . ' ' . $none ),
@@ -587,6 +617,7 @@ final class WPCPM_Institution_Student_Form {
 		// only once the claim has allowed the post, as the details card forgets only past its policy
 		// check: a post the fence refuses changes nothing for the account that sent it.
 		WPCPM_Typed_Text::forget( self::typed_form( $record ) );
+		WPCPM_Flash::forget( self::kept_form( $record ) );
 
 		// **What the form was drawn from, recomputed here rather than carried in the request.**
 		// `render_form()` fills every control from `current()`, and this is that same call on the
@@ -604,6 +635,7 @@ final class WPCPM_Institution_Student_Form {
 
 		if ( isset( $diff['outcome'] ) ) {
 			self::keep_typing( $record, $shown, array() );
+			self::keep_problems( $record, $diff['rejected'] );
 			self::bounce( $diff['outcome'], self::listing( $diff['rejected'] ), $record );
 		}
 
@@ -617,6 +649,7 @@ final class WPCPM_Institution_Student_Form {
 		$final = self::record_outcome( $record, $claim, $written );
 
 		self::keep_typing( $record, $shown, array_keys( $written['changes'] ) );
+		self::keep_problems( $record, $written['rejected'] );
 		self::bounce( $final['outcome'], $final['listing'], $record );
 	}
 
@@ -1008,7 +1041,7 @@ final class WPCPM_Institution_Student_Form {
 	 * cleaned, not counted and not refused - it simply never exists.
 	 *
 	 * @param array $posted   What the form sent.
-	 * @param array $rejected Collects the labels of values that could not be used.
+	 * @param array $rejected Collects each slot that could not be used, with the sentence saying why.
 	 * @return array
 	 */
 	private static function walk( array $posted, array &$rejected ) {
@@ -1036,7 +1069,7 @@ final class WPCPM_Institution_Student_Form {
 				if ( $result['ok'] ) {
 					$accepted[ $table . '|' . $name ] = $result['value'];
 				} else {
-					$rejected[] = self::label( $table . '|' . $name );
+					$rejected[ $table . '|' . $name ] = self::refusal( $spec );
 				}
 			}
 		}
@@ -1047,10 +1080,16 @@ final class WPCPM_Institution_Student_Form {
 	/**
 	 * The rules that need more than one cell to decide, run with the stored values underneath.
 	 *
-	 * A school changing only the end date is still changing a period, so the rule is applied
-	 * against the start date the record already holds; a school changing both is checked
-	 * against what it just typed. Hence "the accepted cells with the record's current values
-	 * underneath" and not one or the other.
+	 * **A pair is decided as a pair** (1.123.58, IDB-12). The start and the end date are one period:
+	 * when the period they make breaks the rule, an end on or before the start, or longer than a
+	 * year, both dates are refused, each with its own sentence at its field, and neither is written.
+	 * Refusing only the end date wrote a new start date past the stored end, and told the reader the
+	 * unchanged end date was the one at fault.
+	 *
+	 * A school changing only one date is still changing a period, so the rule is applied against
+	 * the other date the record already holds; a school changing both is checked against what it
+	 * just typed. Hence "the accepted cells with the record's current values underneath" and not
+	 * one or the other.
 	 *
 	 * Clearing a date is never refused here. It is the answer to "we do not know yet", the
 	 * base already holds 7 rows with an end date and no start, and a rule about a pair has
@@ -1064,62 +1103,118 @@ final class WPCPM_Institution_Student_Form {
 	 *
 	 * @param array $accepted Cells that passed their own type.
 	 * @param array $before   The live Students row's fields, from the claim.
-	 * @param array $rejected Collects the labels of values that could not be used.
+	 * @param array $rejected Collects each slot that could not be used, with the sentence saying why.
 	 * @return array
 	 */
 	private static function apply_rules( array $accepted, array $before, array &$rejected ) {
 		foreach ( self::fields() as $table => $columns ) {
 			foreach ( $columns as $name => $spec ) {
-				$slot = $table . '|' . $name;
-
-				// `array_key_exists()`, not `isset()`: a cleared date is null, and `isset()`
-				// reads null as absent, so every rule below would silently skip the one shape
-				// it most needs to leave alone.
-				if ( ! isset( $spec['after'] ) || ! array_key_exists( $slot, $accepted ) ) {
+				if ( ! isset( $spec['after'] ) ) {
 					continue;
 				}
 
-				$value = is_string( $accepted[ $slot ] ) ? $accepted[ $slot ] : '';
-
-				if ( '' === $value ) {
-					continue;
-				}
-
+				$slot  = $table . '|' . $name;
 				$other = $table . '|' . $spec['after'];
-				$under = array_key_exists( $other, $accepted )
-					? ( is_string( $accepted[ $other ] ) ? $accepted[ $other ] : '' )
-					: trim( (string) WPCPM_Airtable::flatten( isset( $before[ $spec['after'] ] ) ? $before[ $spec['after'] ] : '' ) );
 
-				// Nothing to compare against is not a failure: a placement whose start the
-				// program has never recorded still has an end date somebody has to be able
-				// to correct.
-				if ( '' === $under ) {
+				// Neither half was posted: the period is not this save's to judge.
+				if ( ! array_key_exists( $slot, $accepted ) && ! array_key_exists( $other, $accepted ) ) {
 					continue;
 				}
 
-				if ( strcmp( $value, $under ) <= 0 ) {
-					unset( $accepted[ $slot ] );
-					$rejected[] = self::label( $slot );
+				$end   = self::pair_value( $accepted, $before, $slot, $name );
+				$start = self::pair_value( $accepted, $before, $other, $spec['after'] );
+
+				// Nothing to compare is not a failure: a placement whose start the program has never
+				// recorded still has an end date somebody has to be able to correct, and a cleared
+				// date is never refused.
+				if ( '' === $end || '' === $start || ! self::pair_fails( $start, $end, $spec ) ) {
 					continue;
 				}
 
-				if ( ! isset( $spec['max_days'] ) ) {
-					continue;
+				unset( $accepted[ $slot ], $accepted[ $other ] );
+
+				// One reason a field: a date already refused for its own shape keeps that reason.
+				if ( ! isset( $rejected[ $other ] ) ) {
+					$rejected[ $other ] = __( 'The start date has to come before the end date, and a placement cannot run longer than a year. Neither date was saved.', 'wpcredits-program-manager' );
 				}
 
-				// Both sides passed `checkdate()`, so both parse. Read as UTC on purpose: a
-				// span measured across a daylight-saving boundary in a local zone is a day
-				// short, and a placement of exactly a year would refuse itself half the year.
-				$span = ( strtotime( $value . ' 00:00:00 UTC' ) - strtotime( $under . ' 00:00:00 UTC' ) ) / DAY_IN_SECONDS;
-
-				if ( $span > (int) $spec['max_days'] ) {
-					unset( $accepted[ $slot ] );
-					$rejected[] = self::label( $slot );
+				if ( ! isset( $rejected[ $slot ] ) ) {
+					$rejected[ $slot ] = __( 'Check this date against the start date. Neither date was saved.', 'wpcredits-program-manager' );
 				}
 			}
 		}
 
 		return $accepted;
+	}
+
+	/**
+	 * One date of a pair as the save would leave it: what was posted when it passed its own type,
+	 * else what the live row holds. '' for a date cleared or never recorded.
+	 *
+	 * `array_key_exists()`, not `isset()`: a cleared date is null, and `isset()` reads null as
+	 * absent, so the stored date would stand in for the one the reader just cleared.
+	 *
+	 * @param array  $accepted Cells that passed their own type.
+	 * @param array  $before   The live Students row's fields.
+	 * @param string $slot     The date's slot.
+	 * @param string $column   The date's column in the live row.
+	 * @return string
+	 */
+	private static function pair_value( array $accepted, array $before, $slot, $column ) {
+		if ( array_key_exists( $slot, $accepted ) ) {
+			return is_string( $accepted[ $slot ] ) ? $accepted[ $slot ] : '';
+		}
+
+		return trim( (string) WPCPM_Airtable::flatten( isset( $before[ $column ] ) ? $before[ $column ] : '' ) );
+	}
+
+	/**
+	 * Whether a period breaks the rule: an end on or before its start, or longer than `max_days`.
+	 *
+	 * Both sides passed `checkdate()`, so both parse. Read as UTC on purpose: a span measured across
+	 * a daylight-saving boundary in a local zone is a day short, and a placement of exactly a year
+	 * would refuse itself half the year.
+	 *
+	 * @param string $start `Y-m-d`.
+	 * @param string $end   `Y-m-d`.
+	 * @param array  $spec  The end date's spec.
+	 * @return bool
+	 */
+	private static function pair_fails( $start, $end, array $spec ) {
+		if ( strcmp( $end, $start ) <= 0 ) {
+			return true;
+		}
+
+		if ( ! isset( $spec['max_days'] ) ) {
+			return false;
+		}
+
+		$span = ( strtotime( $end . ' 00:00:00 UTC' ) - strtotime( $start . ' 00:00:00 UTC' ) ) / DAY_IN_SECONDS;
+
+		return $span > (int) $spec['max_days'];
+	}
+
+	/**
+	 * The sentence a box refused for its own value says, by what the box takes: a date as
+	 * YYYY-MM-DD, a choice one of the program's own. A text box is refused only for a value that is
+	 * no text at all, which only a hand-made request sends, so it is named in the outcome and has
+	 * no sentence of its own.
+	 *
+	 * @param array $spec The field spec from `fields()`.
+	 * @return string
+	 */
+	private static function refusal( array $spec ) {
+		$type = isset( $spec['type'] ) ? (string) $spec['type'] : 'text';
+
+		if ( 'date' === $type ) {
+			return __( 'A date is written as YYYY-MM-DD.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'select' === $type ) {
+			return __( 'The field of study has to be one of the program\'s own choices.', 'wpcredits-program-manager' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -1411,12 +1506,23 @@ final class WPCPM_Institution_Student_Form {
 	}
 
 	/**
-	 * A list of labels as one readable clause, or ''.
+	 * The refused fields' labels as one readable clause, or '': in the form's order, the start date
+	 * before the end date whichever rule refused them.
 	 *
-	 * @param array $labels Field labels.
+	 * @param array $rejected Slot to the sentence it was refused with.
 	 * @return string
 	 */
-	private static function listing( array $labels ) {
+	private static function listing( array $rejected ) {
+		$labels = array();
+
+		foreach ( self::fields() as $table => $columns ) {
+			foreach ( $columns as $name => $spec ) {
+				if ( array_key_exists( $table . '|' . $name, $rejected ) ) {
+					$labels[] = self::label( $table . '|' . $name );
+				}
+			}
+		}
+
 		$labels = array_values( array_unique( array_filter( array_map( 'strval', $labels ), 'strlen' ) ) );
 
 		return empty( $labels ) ? '' : implode( ', ', $labels ) . '.';
@@ -1519,6 +1625,50 @@ final class WPCPM_Institution_Student_Form {
 	 */
 	private static function typed_form( $record ) {
 		return 'student:' . trim( (string) $record );
+	}
+
+	/**
+	 * The form, as `WPCPM_Flash::keep()` names it for the sentences a refused post leaves at its boxes:
+	 * the correction of one student's record (1.123.58). The typing itself waits in `typed_form()`.
+	 *
+	 * @param string $record Students Reports record ID.
+	 * @return string
+	 */
+	private static function kept_form( $record ) {
+		return 'student-fix:' . trim( (string) $record );
+	}
+
+	/**
+	 * The id one box is drawn with, which its problem paragraph and the summary's link name.
+	 *
+	 * @param string $table `reports` or `students`.
+	 * @param string $name  The base's own column name.
+	 * @return string
+	 */
+	private static function control_id( $table, $name ) {
+		return 'wpcpm-student-' . self::key( $table, $name );
+	}
+
+	/**
+	 * Keep why each refused box was refused, by the box's id, for the one drawing that follows.
+	 *
+	 * @param string $record   Students Reports record ID.
+	 * @param array  $rejected Slot to the sentence it was refused with.
+	 */
+	private static function keep_problems( $record, array $rejected ) {
+		$problems = array();
+
+		foreach ( $rejected as $slot => $sentence ) {
+			$parts = explode( '|', (string) $slot, 2 );
+
+			if ( isset( $parts[1] ) && '' !== (string) $sentence ) {
+				$problems[ self::control_id( $parts[0], $parts[1] ) ] = (string) $sentence;
+			}
+		}
+
+		if ( array() !== $problems ) {
+			WPCPM_Flash::keep( self::kept_form( $record ), array(), $problems );
+		}
 	}
 
 	/**

@@ -38,7 +38,7 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_title = '', $post_content = '', $post_type = 'wpcpm_mentor_call', $post_status = 'publish';
+	public $ID = 0, $post_title = '', $post_content = '', $post_type = 'wpcpm_mentor_call', $post_status = 'publish', $post_author = 0, $post_date_gmt = '';
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -107,7 +107,13 @@ function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', 
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
-function get_post_time( $f, $gmt = false, $post = null, $translate = false ) { return time() - DAY_IN_SECONDS; }
+// A post's own time where the store wrote one, as core's reads `post_date_gmt`; a day ago for a post
+// built by hand with none.
+function get_post_time( $f, $gmt = false, $post = null, $translate = false ) {
+	$at = ( $post instanceof WP_Post && '' !== $post->post_date_gmt ) ? strtotime( $post->post_date_gmt . ' UTC' ) : time() - DAY_IN_SECONDS;
+
+	return 'U' === $f ? $at : gmdate( $f, $at );
+}
 function get_post_status( $p = null ) { $post = get_post( is_object( $p ) ? $p->ID : $p ); return $post ? $post->post_status : false; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**
@@ -164,8 +170,17 @@ function wp_insert_post( $a, $error = false ) {
 	// The words unslashed, as core's insert unslashes them.
 	$post->post_title   = stripslashes( (string) ( $a['post_title'] ?? '' ) );
 	$post->post_content = stripslashes( (string) ( $a['post_content'] ?? '' ) );
+
+	// Core's kses on the insert, for somebody without `unfiltered_html`, as far as a note shows it:
+	// an ampersand and a closing angle bracket are stored as their entities.
+	if ( ! empty( $GLOBALS['kses_insert'] ) ) {
+		$post->post_content = str_replace( array( '&', '>' ), array( '&amp;', '&gt;' ), $post->post_content );
+	}
 	$post->post_type    = $a['post_type'] ?? 'post';
 	$post->post_status  = $a['post_status'] ?? 'publish';
+	$post->post_author  = (int) ( $a['post_author'] ?? 0 );
+	// When it was written, as core stamps every post it inserts.
+	$post->post_date_gmt = gmdate( 'Y-m-d H:i:s' );
 	$GLOBALS['posts'][ $post->ID ] = $post;
 	return $post->ID;
 }
@@ -863,6 +878,320 @@ $stranger         = WPCPM_Mentor_Notes::add_for_records( $on_old, 'Somebody else
 ck( 'another mentor may not note a session that is not theirs, nor the session\'s mentor a student who was not on it',
     array( is_wp_error( $not_hers ) ? $not_hers->get_error_code() : 'saved', is_wp_error( $stranger ) ? $stranger->get_error_code() : 'saved' ),
     array( 'wpcpm_note_denied', 'wpcpm_note_denied' ) );
+
+echo "\n=== A refused plan, a refused booking and a note pressed twice (1.123.58) ===\n";
+
+/*
+ * The handlers themselves, run to their redirect: it throws here, so the request ends where it
+ * would. The page is drawn on the next request as a fresh account holding the user meta the person
+ * held, because the flash memoizes per request (bin/test-settings.php's `next_request()`).
+ */
+class WPCPM_Test_Sessions_Left extends Exception {}
+
+function check_admin_referer( $a = -1, $q = '_wpnonce' ) { return true; }
+function wp_die( $m = '', $c = 0 ) { throw new WPCPM_Test_Sessions_Left( 'died: ' . ( is_string( $m ) ? $m : '' ) ); }
+function wp_safe_redirect( $url ) { throw new WPCPM_Test_Sessions_Left( (string) $url ); }
+function wp_get_referer() { return ''; }
+function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
+function wp_parse_str( $q, &$out ) { parse_str( (string) $q, $out ); }
+function wp_unslash( $v ) { return is_array( $v ) ? array_map( 'wp_unslash', $v ) : stripslashes( (string) $v ); }
+function add_query_arg( $k, $v = null, $url = '' ) {
+	$pairs = is_array( $k ) ? $k : array( $k => $v );
+	$url   = is_array( $k ) ? (string) $v : (string) $url;
+
+	return array() === $pairs ? $url : $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $pairs );
+}
+function wp_timezone_string() { return 'UTC'; }
+function wp_timezone() { return new DateTimeZone( 'UTC' ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
+function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+function get_userdata( $id ) { return new WP_User( (int) $id, 'User ' . (int) $id ); }
+function wpautop( $s ) { return '<p>' . $s . '</p>'; }
+function wp_kses_post( $s ) { return $s; }
+function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $echo = true ) {
+	$field = sprintf( '<input type="hidden" name="%s" value="nonce" />', $n );
+
+	if ( $echo ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Test double.
+	}
+
+	return $field;
+}
+function wp_enqueue_script() {} function wp_enqueue_style() {}
+
+if ( ! class_exists( 'WPCPM_Students_Dashboard' ) ) {
+	/** Where the bounce looks for the student's page: none here, so the mentor's is used. */
+	class WPCPM_Students_Dashboard {
+		const MODULE_COURSE = 'course';
+		public static function page_url() { return ''; }
+		public static function is_student( $user = null ) { return false; }
+	}
+}
+
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-request.php';
+require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-availability.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-call-calendar.php';
+
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+$GLOBALS['opts']['time_format'] = 'H:i';
+
+/**
+ * Run a handler as somebody, with a post.
+ *
+ * @param int      $user    Who is signed in.
+ * @param bool     $manager Whether they hold the manage capability.
+ * @param array    $post    The posted fields, slashed as WordPress hands them over.
+ * @param callable $handler The handler.
+ * @return string Where it sent them.
+ */
+function press( $user, $manager, array $post, $handler ) {
+	$GLOBALS['uid']  = $user;
+	$GLOBALS['caps'] = $manager;
+	$_POST           = $post;
+
+	try {
+		call_user_func( $handler );
+	} catch ( WPCPM_Test_Sessions_Left $left ) {
+		return $left->getMessage();
+	}
+
+	return '';
+}
+
+/**
+ * The next request, as a fresh account holding what `$from` held.
+ *
+ * @param int      $from    Whose meta the request carries.
+ * @param bool     $manager Whether the account holds the manage capability.
+ * @param callable $run     What the request does.
+ * @return mixed
+ */
+function next_page( $from, $manager, $run ) {
+	static $next = 900;
+
+	++$next;
+
+	$GLOBALS['umeta'][ $next ] = isset( $GLOBALS['umeta'][ $from ] ) ? $GLOBALS['umeta'][ $from ] : array();
+	$GLOBALS['uid']            = $next;
+	$GLOBALS['caps']           = $manager;
+
+	ob_start();
+	$run();
+
+	return (string) ob_get_clean();
+}
+
+// The planner. A mentor on UTC plans sixteen sessions: eight by the weekly rule, seven in the boxes
+// and one more in the last box that lands on a call already in the diary.
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = array( 'timezone' => 'UTC' );
+
+$first  = ( new DateTimeImmutable( 'today', new DateTimeZone( 'UTC' ) ) )->modify( '+10 days' );
+$dates  = array();
+$extras = array();
+
+for ( $week = 8; $week < 16; ++$week ) {
+	$extras[] = $first->modify( '+' . $week . ' weeks' )->format( 'Y-m-d' );
+}
+
+$clash_day = end( $extras );
+$held_call = wp_insert_post( array( 'post_type' => WPCPM_Mentor_Calls::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Held' ) );
+
+update_post_meta( $held_call, WPCPM_Mentor_Calls::META_START, strtotime( $clash_day . ' 18:30:00 UTC' ) );
+update_post_meta( $held_call, WPCPM_Mentor_Calls::META_END, strtotime( $clash_day . ' 19:00:00 UTC' ) );
+update_post_meta( $held_call, WPCPM_Mentor_Calls::META_MENTOR, 20 );
+
+$plan = array(
+	'mentor'       => '20',
+	'date'         => $first->format( 'Y-m-d' ),
+	'repeat'       => 'week',
+	'repeat_count' => '8',
+	'more_dates'   => $extras,
+	'time'         => '18:00',
+	'minutes'      => '60',
+	'capacity'     => '7',
+	'topic'        => 'Release cycle, \\"the freeze\\" and C:\\\\notes',
+);
+
+$GLOBALS['roles'][20] = array( WPCPM_Roles::ROLE_MENTOR );
+
+$before = count( $GLOBALS['posts'] );
+$went   = press( 20, false, $plan, array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$page   = next_page( 20, true, static function () { WPCPM_Group_Sessions::render_mentor_planner( new WP_User( 20, 'Mia' ) ); } );
+$named  = wp_date( 'F j, Y', strtotime( $clash_day . ' 12:00:00 UTC' ) );
+
+$every_extra = array();
+
+foreach ( $extras as $i => $extra ) {
+	$every_extra[] = 1 === preg_match( '/<input type="date" id="wpcpm-session-more-' . ( $i + 2 ) . '" name="more_dates\[\]" value="' . $extra . '"/', $page );
+}
+
+ck( 'a clash on one of sixteen dates keeps the planner open with every field and every extra date, and marks the date that clashed',
+	array(
+		count( $GLOBALS['posts'] ) - $before,
+		1 === preg_match( '/<details class="wpcpm-sessions__new" open>/', $page ),
+		false !== strpos( $page, 'name="date" value="' . $first->format( 'Y-m-d' ) . '"' ),
+		false !== strpos( $page, '<option value="week" selected="selected">' ),
+		false !== strpos( $page, 'name="repeat_count" min="2" max="16" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat" value="8"' ),
+		array_values( array_unique( $every_extra ) ),
+		false !== strpos( $page, 'name="time" value="18:00"' ),
+		false !== strpos( $page, 'name="minutes" value="60"' ),
+		false !== strpos( $page, 'name="capacity" value="7"' ),
+		false !== strpos( $page, '>Release cycle, &quot;the freeze&quot; and C:\\notes</textarea>' ),
+		1 === preg_match( '/<input type="date" id="wpcpm-session-more-9" name="more_dates\[\]" value="' . $clash_day . '"[^>]* aria-invalid="true" aria-describedby="wpcpm-session-more-9-problem/', $page ),
+		false !== strpos( $page, '<p class="wpcpm-field__problem" id="wpcpm-session-more-9-problem">' . $named . ' clashes with a session you already have. Choose another date or time.</p>' ),
+	),
+	array( 0, true, true, true, true, array( true ), true, true, true, true, true, true ) );
+
+// A date in the past, alone: the first box carries it.
+$past     = ( new DateTimeImmutable( 'today', new DateTimeZone( 'UTC' ) ) )->modify( '-3 days' )->format( 'Y-m-d' );
+$went     = press( 20, false, array( 'mentor' => '20', 'date' => $past, 'time' => '09:00', 'minutes' => '45', 'capacity' => '4', 'topic' => 'Old' ), array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$page     = next_page( 20, true, static function () { WPCPM_Group_Sessions::render_mentor_planner( new WP_User( 20, 'Mia' ) ); } );
+$past_day = wp_date( 'F j, Y', strtotime( $past . ' 12:00:00 UTC' ) );
+
+ck( 'a date in the past is the first box\'s own problem, named, and the rest of the form is as typed',
+	array(
+		1 === preg_match( '/<input type="date" id="wpcpm-session-date" name="date" value="' . $past . '"[^>]* aria-invalid="true"/', $page ),
+		false !== strpos( $page, $past_day . ' is in the past. Choose a date from today on.' ),
+		false !== strpos( $page, 'name="minutes" value="45"' ),
+		false !== strpos( $page, '>Old</textarea>' ),
+	),
+	array( true, true, true, true ) );
+
+// An extra box holding something that is not a date.
+$went = press( 20, false, array( 'mentor' => '20', 'date' => $first->format( 'Y-m-d' ), 'more_dates' => array( '', 'next Tuesday' ), 'time' => '09:00', 'minutes' => '45', 'capacity' => '4', 'topic' => '' ), array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$page = next_page( 20, true, static function () { WPCPM_Group_Sessions::render_mentor_planner( new WP_User( 20, 'Mia' ) ); } );
+
+ck( 'an extra date that cannot be read is named as typed, at its own box',
+	array(
+		1 === preg_match( '/<input type="date" id="wpcpm-session-more-3" name="more_dates\[\]" value="next Tuesday"[^>]* aria-invalid="true"/', $page ),
+		false !== strpos( $page, 'next Tuesday is not a date. Write it as YYYY-MM-DD.' ),
+	),
+	array( true, true ) );
+
+unset( $GLOBALS['umeta'][20][ WPCPM_Flash::META ] );
+$page = next_page( 20, true, static function () { WPCPM_Group_Sessions::render_mentor_planner( new WP_User( 20, 'Mia' ) ); } );
+
+ck( 'and a planner drawn with nothing refused is closed and empty, as before',
+	array( 1 === preg_match( '/<details class="wpcpm-sessions__new">/', $page ), strpos( $page, 'aria-invalid' ), strpos( $page, 'name="date" value=' ) ),
+	array( true, false, false ) );
+
+// A booking whose slot went while the student was typing. Student 50 has mentor 60, who keeps
+// hours on Mondays; the start pressed is one the calendar no longer offers.
+$GLOBALS['umeta'][50][ WPCPM_Students_Sync::META_RECORD_ID ] = 'recSTUDENT5000000';
+$GLOBALS['umeta'][50][ WPCPM_Students_Sync::META_MENTOR ]    = array( 'record_id' => 'recMENTOR6000000A' );
+$GLOBALS['umeta'][60][ WPCPM_Mentors_Sync::META_RECORD_ID ]  = 'recMENTOR6000000A';
+$GLOBALS['umeta'][60][ WPCPM_Mentor_Availability::META ]     = array( 'timezone' => 'UTC', 'weekly' => array( 1 => array( array( 'start' => '09:00', 'end' => '12:00' ) ) ) );
+
+$gone_start = strtotime( $first->format( 'Y-m-d' ) . ' 03:17:00 UTC' );
+$went       = press( 50, false, array( 'start' => (string) $gone_start, 'topic' => 'My plugin\\\'s review, and \\"why\\"' ), array( 'WPCPM_Mentor_Calls', 'handle_book' ) );
+
+$render_day = new ReflectionMethod( 'WPCPM_Call_Calendar', 'render_day' );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	$render_day->setAccessible( true );
+}
+
+$day  = $first->format( 'Y-m-d' );
+$page = next_page(
+	50,
+	false,
+	static function () use ( $render_day, $day ) {
+		$render_day->invoke( null, array( $day => array( array( 'start' => strtotime( $day . ' 09:00:00 UTC' ), 'end' => strtotime( $day . ' 09:30:00 UTC' ) ) ) ), $day, new DateTimeZone( 'UTC' ), new WP_User( 50, 'Sam' ), false );
+	}
+);
+
+ck( 'a booking refused as taken keeps the topic',
+	array(
+		$GLOBALS['umeta'][50][ WPCPM_Flash::META ]['call'] ?? '',
+		false !== strpos( $page, 'name="topic" rows="2" maxlength="' . WPCPM_Mentor_Calls::MAX_TOPIC . '" placeholder="Anything you would like your mentor to prepare.">My plugin&#039;s review, and &quot;why&quot;</textarea>' ),
+	),
+	array( 'taken', true ) );
+
+// The note form and its delete form.
+$GLOBALS['uid']  = 20;
+$GLOBALS['caps'] = true;
+
+$render_form = new ReflectionMethod( 'WPCPM_Mentor_Notes', 'render_form' );
+$render_note = new ReflectionMethod( 'WPCPM_Mentor_Notes', 'render_note' );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	$render_form->setAccessible( true );
+	$render_note->setAccessible( true );
+}
+
+ob_start();
+$render_form->invoke( null, 'recSTUDENT0000001', 'Ana', 20 );
+$note_form = (string) ob_get_clean();
+ob_start();
+$render_note->invoke( null, get_post( (int) $note ), 20 );
+$note_row = (string) ob_get_clean();
+
+ck( 'the note form and its delete form are guarded with their busy words',
+	array(
+		1 === preg_match( '/<form class="wpcpm-notes__form" [^>]*data-wpcpm-once data-wpcpm-busy="Saving the note">/', $note_form ),
+		1 === preg_match( '/<form class="wpcpm-note__delete" [^>]*data-wpcpm-once data-wpcpm-busy="Deleting the note">/', $note_row ),
+	),
+	array( true, true ) );
+
+/** How many notes there are on a student. */
+function notes_on( $record ) {
+	return count(
+		array_filter(
+			$GLOBALS['posts'],
+			static function ( $post ) use ( $record ) {
+				return WPCPM_Mentor_Notes::POST_TYPE === $post->post_type && in_array( $record, (array) get_post_meta( $post->ID, WPCPM_Mentor_Notes::META_STUDENT, false ), true );
+			}
+		)
+	);
+}
+
+$note_post = array( 'student' => 'recSTUDENT0000077', 'student_name' => 'Ana', 'mentor' => '20', 'note' => 'We talked about the \\"release\\".' );
+$one_went  = press( 20, true, $note_post, array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+$one_said  = $GLOBALS['umeta'][20][ WPCPM_Flash::META ]['note'] ?? '';
+$two_went  = press( 20, true, $note_post, array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+$two_said  = $GLOBALS['umeta'][20][ WPCPM_Flash::META ]['note'] ?? '';
+
+ck( 'the same note by the same mentor for the same student within a minute is filed once',
+	array( notes_on( 'recSTUDENT0000077' ), $one_said, $two_said, $one_went === $two_went ),
+	array( 1, 'saved', 'saved', true ) );
+
+foreach ( $GLOBALS['posts'] as $post ) {
+	if ( WPCPM_Mentor_Notes::POST_TYPE === $post->post_type && in_array( 'recSTUDENT0000077', (array) get_post_meta( $post->ID, WPCPM_Mentor_Notes::META_STUDENT, false ), true ) ) {
+		$post->post_date_gmt = gmdate( 'Y-m-d H:i:s', time() - WPCPM_Mentor_Notes::DUPLICATE_WINDOW - 1 );
+	}
+}
+
+press( 20, true, $note_post, array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+
+ck( 'and a minute and a second later it is filed again', notes_on( 'recSTUDENT0000077' ), 2 );
+
+press( 20, true, array( 'note' => 'Different words.' ) + $note_post, array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+
+ck( 'while other words a moment later are a note of their own', notes_on( 'recSTUDENT0000077' ), 3 );
+
+// A mentor has no `unfiltered_html`, so core stores "Q&A" as "Q&amp;A": the second press is still
+// the same note, and a text area's CR LF reads as the LF it was stored with.
+$GLOBALS['kses_insert'] = true;
+$kses_post              = array( 'student' => 'recSTUDENT0000078', 'student_name' => 'Ana', 'mentor' => '20', 'note' => "Q&A went well -> next week.\r\nThen the docs." );
+
+press( 20, true, $kses_post, array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+$kses_stored = '';
+
+foreach ( $GLOBALS['posts'] as $post ) {
+	if ( WPCPM_Mentor_Notes::POST_TYPE === $post->post_type && in_array( 'recSTUDENT0000078', (array) get_post_meta( $post->ID, WPCPM_Mentor_Notes::META_STUDENT, false ), true ) ) {
+		$kses_stored = $post->post_content;
+	}
+}
+
+unset( $GLOBALS['umeta'][20][ WPCPM_Flash::META ] );
+press( 20, true, $kses_post, array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
+$GLOBALS['kses_insert'] = false;
+
+ck( 'a note core stored through kses is still the same note on the second press: one filed, and the second answers saved',
+	array( false !== strpos( $kses_stored, 'Q&amp;A' ), notes_on( 'recSTUDENT0000078' ), $GLOBALS['umeta'][20][ WPCPM_Flash::META ]['note'] ?? '' ),
+	array( true, 1, 'saved' ) );
 
 $GLOBALS['uid'] = 0;
 

@@ -1076,7 +1076,7 @@ $form = disclosure( $page, 'checked' );
 ck( 'a refused ask is sent back to the card', $out, member_back() );
 ck( 'nothing was made, written or sent', array( requests(), $GLOBALS['patched'], $GLOBALS['mail'], audit( A, 'request_raised' ) ), array( array(), array(), array(), array() ) );
 ck( 'the form is open again, holding what was typed, the refused fields included', array( is_open( $form ), box( $form, 'wpcpm_details_name' ), box( $form, 'wpcpm_details_city' ), box( $form, 'wpcpm_details_contact_email' ) ), array( true, 'Valencia University', '', 'not-an-email' ) );
-ck( 'each refused field shows its problem under it, in the application\'s words', array( has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-city-problem">Please fill this in.</span>' ), has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-contact_email-problem">That does not look like an email address.</span>' ), has( $form, 'wpcpm-details-name-problem' ) ), array( true, true, false ) );
+ck( 'each refused field shows its problem under it, in the application\'s words', array( has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-city-problem">Fill this in.</span>' ), has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-contact_email-problem">That does not look like an email address.</span>' ), has( $form, 'wpcpm-details-name-problem' ) ), array( true, true, false ) );
 ck( 'and only those two are marked invalid, so a screen reader is told', substr_count( $form, 'aria-invalid="true"' ), 2 );
 ck( 'the line above says nothing was sent', has( $page, '<p class="wpcpm-details__message is-error" role="status">Nothing was sent' ), true );
 $again = disclosure( draw( 7 ), 'checked' );
@@ -1087,7 +1087,7 @@ $out  = post_as( 7, 'now', array( 'wpcpm_details_contact_role' => '', 'wpcpm_det
 $page = draw( 7 );
 $form = disclosure( $page, 'now' );
 ck( 'a refused save keeps every typed value of the first group too', array( $out, box( $form, 'wpcpm_details_contact_person' ), box( $form, 'wpcpm_details_contact_role' ), ticked( $form ) ), array( member_back(), 'Contact Two', '', array( 'French' ) ) );
-ck( 'with the required role refused under its box, and nothing written', array( has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-contact_role-problem">Please fill this in.</span>' ), $GLOBALS['patched'], $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['mail'], audit( A, 'details_saved' ) ), array( true, array(), 'Head of the international office', array(), array() ) );
+ck( 'with the required role refused under its box, and nothing written', array( has( $form, '<span class="wpcpm-field__problem" id="wpcpm-details-contact_role-problem">Fill this in.</span>' ), $GLOBALS['patched'], $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['mail'], audit( A, 'details_saved' ) ), array( true, array(), 'Head of the international office', array(), array() ) );
 ck( 'the line says nothing was saved', has( $page, 'Nothing was saved' ), true );
 
 fresh();
@@ -1114,7 +1114,7 @@ ck( 'the second form says its refusal in the words of a send', has( draw( 7 ), e
 fresh();
 post_as( 7, 'checked', array( 'wpcpm_details_website' => 'javascript:alert(1)', 'wpcpm_details_country' => 'recXXXXXXXXXXXXXX' ) );
 $form = disclosure( draw( 7 ), 'checked' );
-ck( 'a web address of another scheme and a country the map does not offer are refused with the application\'s sentences', array( has( $form, 'id="wpcpm-details-website-problem"' ), has( $form, 'id="wpcpm-details-country-problem">Please choose one of the options offered.' ), requests() ), array( true, true, array() ) );
+ck( 'a web address of another scheme and a country the map does not offer are refused with the application\'s sentences', array( has( $form, 'id="wpcpm-details-website-problem"' ), has( $form, 'id="wpcpm-details-country-problem">Choose one of the options offered.' ), requests() ), array( true, true, array() ) );
 
 fresh();
 post_as( 7, 'now', array( 'wpcpm_details_name' => 'Smuggled', 'wpcpm_details_contact_role' => 'Dean of Studies' ) );

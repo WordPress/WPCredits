@@ -257,7 +257,9 @@ class WPCPM_Roles {
 }
 class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system'; const EVIDENCE_INDEX = 'index'; const EVIDENCE_CACHE = 'cache';
-	public static function record_sponsor( array $e ) { $GLOBALS['audit'][] = $e; return count( $GLOBALS['audit'] ); }
+	public static function record_sponsor( array $e ) { $GLOBALS['audit'][] = $e; $GLOBALS['audit_log'][] = array_merge( array( 'sponsor' => '', 'subject' => '', 'kind' => '' ), $e, array( 'time' => time() ) ); return count( $GLOBALS['audit'] ); }
+	/** The real reader's answer, newest first: the rows written for one sponsor, each with its `time`. */
+	public static function entries_for_sponsor( $sponsor, $limit = 50 ) { $rows = array_values( array_reverse( array_filter( $GLOBALS['audit_log'] ?? array(), static function ( $row ) use ( $sponsor ) { return $row['sponsor'] === $sponsor; } ) ) ); return $limit > 0 ? array_slice( $rows, 0, (int) $limit ) : $rows; }
 }
 class WPCPM_Request {
 	// Every method reads $_POST directly, exactly as the real class does (includes/class-wpcpm-request.php):
@@ -274,15 +276,10 @@ class WPCPM_Request {
 	// The reader a link is read with: valid UTF-8, control characters dropped, trimmed, and every "%" kept.
 	public static function posted_verbatim( $n, $f = '' ) { return isset( $_POST[ $n ] ) && is_scalar( $_POST[ $n ] ) ? trim( (string) preg_replace( '/[^\P{C}\n\r\t]+/u', '', (string) wp_unslash( $_POST[ $n ] ) ) ) : $f; }
 }
-/**
- * The flash a refused form's typing waits in: one value per user and channel, which `take()` hands
- * back once and clears, or `sweep()` clears unread. The real class also remembers within a request what it handed back, and
- * writes a slashed copy that core's user meta unslashes; bin/test-flash.php pins both on it.
- */
-class WPCPM_Flash {
-	public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][ (int) ( $user_id ?: $GLOBALS['uid'] ) ][ (string) $channel ] = $value; }
-	public static function take( $channel, $user_id = 0 ) { $uid = (int) ( $user_id ?: $GLOBALS['uid'] ); $value = $GLOBALS['flash'][ $uid ][ (string) $channel ] ?? ''; unset( $GLOBALS['flash'][ $uid ][ (string) $channel ] ); return $value; }
-	public static function sweep( $stale, $user_id = 0 ) { $uid = (int) ( $user_id ?: $GLOBALS['uid'] ); foreach ( $GLOBALS['flash'][ $uid ] ?? array() as $channel => $value ) { if ( $stale( (string) $channel, $value ) ) { unset( $GLOBALS['flash'][ $uid ][ $channel ] ); } } }
+/** The lock a check and a write share (`take()` answers a token, or '' while another holds it), kept in a global the checks read. */
+class WPCPM_Lock {
+	public static function take( $name, $ttl ) { if ( ! empty( $GLOBALS['locks'][ $name ] ) ) { return ''; } $GLOBALS['locks'][ $name ] = 'token'; return 'token'; }
+	public static function release( $name, $token ) { if ( '' === (string) $token ) { return false; } unset( $GLOBALS['locks'][ $name ] ); return true; }
 }
 class WPCPM_Settings { public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } }
 
@@ -311,7 +308,7 @@ class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
 	// The sentence after the status's own is kept apart, so every check of where a press landed reads as it did.
-	public static function leave( $status, $card, $record = '', $detail = '' ) { $GLOBALS['left'] = array( $status, $card, $record ); $GLOBALS['left_detail'] = $detail; throw new WPCPM_Test_Redirect( $status ); }
+	public static function leave( $status, $card, $record = '', $detail = '', array $args = array() ) { $GLOBALS['left'] = array( $status, $card, $record ); $GLOBALS['left_detail'] = $detail; $GLOBALS['left_args'] = $args; throw new WPCPM_Test_Redirect( $status ); }
 	/* The real class's own merge loop (class-wpcpm-sponsors-dashboard.php, messages()), scoped to
 	   the one card this file stubs in below: enough to prove the loop finds this card's words
 	   without pulling in every other card's own suite. */
@@ -458,6 +455,12 @@ require_once __DIR__ . '/stubs/posts.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+// The real flash and the real form-error markup (1.123.58): a refused form keeps what was typed and why through
+// `WPCPM_Flash::keep()`, so the suite reads it back the way a page does. The flash remembers within a request what
+// it handed back, so a redraw after a refusal goes through `next_request()` below.
+require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dates.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 // The template registry, which every email's builder fills its words from since 1.122.22.
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
@@ -470,6 +473,9 @@ require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 // The shell every card is drawn in.
 require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-profile.php';
+// The logo block the profile card prints beside its form, whose note is a hint of its two file boxes.
+require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-logo.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-mentors.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tiers.php';
@@ -516,6 +522,44 @@ WPCPM_Sponsor_Event::for_tests( static function () { return (int) strtotime( $GL
 // else would leave that check always false.
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left']; } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
 function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); return ob_get_clean(); }
+/**
+ * Run what the next request does, as a fresh user id holding the user meta the person held, so
+ * `WPCPM_Flash::take()`'s per-request memo does not hide what the request before it left (a handler
+ * redirects and exits, so in production nothing is memoized across the two). What the request took
+ * from the meta is gone for the person's request after it.
+ *
+ * @param callable $run What the next request does.
+ * @return mixed What it returns.
+ */
+function next_request( $run ) {
+	static $next = 900;
+	$from = $GLOBALS['uid'];
+	++$next;
+	$GLOBALS['umeta'][ $next ] = isset( $GLOBALS['umeta'][ $from ] ) ? $GLOBALS['umeta'][ $from ] : array();
+	$GLOBALS['uid']            = $next;
+	$result                    = $run();
+	// What the request took is gone for the person's next one, as in production, where the meta is one row.
+	$GLOBALS['umeta'][ $from ] = $GLOBALS['umeta'][ $next ];
+	unset( $GLOBALS['umeta'][ $next ] );
+	$GLOBALS['uid']            = $from;
+	return $result;
+}
+/**
+ * A member of the fixture's sponsor whose request has read nothing yet: a new user id holding the user meta of another
+ * (user 5 by default), the way a person's next press is a request of its own.
+ *
+ * @param int $from The user whose meta the new one holds.
+ * @return int
+ */
+function fresh_member( $from = 5 ) {
+	static $member = 600;
+	++$member;
+	$GLOBALS['users'][ $member ] = new WP_User( $member, array( 'wpcpm_sponsor' ), 'Rep One', 'administrator@example.test' );
+	$GLOBALS['umeta'][ $member ] = $GLOBALS['umeta'][ $from ];
+	return $member;
+}
+/** The profile card, drawn on the request after a refusal. */
+function redrawn( $class, $record, $context ) { return next_request( static function () use ( $class, $record, $context ) { return card( $class, $record, $context ); } ); }
 /** A sponsor's tier, the last day of its term and its funded line, through the store's own patch(). */
 function set_tier( $record, $tier, $until = '', $funded = '' ) { WPCPM_Sponsors_Index::patch( $record, array( 'tier' => $tier, 'tier_until' => $until, 'funded_line' => $funded ) ); }
 /** The `Y-m-d` day this many days after the fixture's today; a negative count is a day already past. */
@@ -661,9 +705,64 @@ ck( 'and is remembered, so the same text again is no change', $r[0], 'profile-un
 // posted with a value that differs from what is on file and would be saved on its own.
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://x@y', 'wpcpm_anything' => 'Not saved.' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'one rejected field rejects the whole save', array( $r[0], WPCPM_Sponsors_Index::row( $A )['anything'] ), array( 'profile-rejected', 'We can offer licences.' ) );
-// Its sentence names the two boxes a value can be refused in, now that the type of product is not
-// one of the card's (1.123.22).
-ck( 'and says to check the website and the contact email', WPCPM_Sponsor_Profile::messages()['profile-rejected'], array( 'error', 'One of the values could not be accepted, so nothing was saved: check the website and the contact email.' ) );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
+// The sentence is the field's own, which says what to enter and that nothing was saved (1.123.58, SDB-04):
+// the card's message is that sentence, since the map's own is empty.
+ck( 'and the message is the sentence of the one field at fault, in the card and at the field', array( WPCPM_Sponsor_Profile::messages()['profile-rejected'], $GLOBALS['left_detail'] ), array( array( 'error', '' ), 'Enter a web address that starts with https://. Nothing on the profile was saved.' ) );
+
+echo "\n=== Profile: a refused save keeps the typing and marks the field at fault (1.123.58) ===\n";
+// SDB-04, SDB-06: the website is refused, and every other box is kept as typed, the long ones included.
+$GLOBALS['settings']['sponsor_tiers_live'] = true;
+set_tier( $A, 'supporter' );
+unset( $GLOBALS['umeta'][5][ WPCPM_Flash::META ] );
+$fault_form  = 'profile:' . $A;
+$fault_extra = str_repeat( 'We fund cafe visits for students. ', 110 );
+$fault_post  = array(
+	'wpcpm_sponsor'        => $A,
+	'wpcpm_website'        => 'https://x@y',
+	'wpcpm_contact_person' => 'Rep One',
+	'wpcpm_contact_email'  => 'administrator@example.test',
+	'wpcpm_anything'       => $fault_extra,
+	'wpcpm_description'    => 'A new description for the partner page.',
+);
+$r           = post( $fault_post, array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+$fault_meta  = $GLOBALS['umeta'][5][ WPCPM_Flash::META ][ WPCPM_Flash::KEPT_CHANNEL . $fault_form ] ?? array();
+$fault_html  = redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
+ck( 'a refused profile keeps every typed box, the long ones included, and marks the one field at fault', array(
+	$r[0],
+	$fault_meta['values'] ?? null,
+	$fault_meta['problems'] ?? null,
+	1 === preg_match( '#<input type="url" id="wpcpm-profile-website"[^>]*aria-invalid="true"#', $fault_html ),
+	false === strpos( between( $fault_html, 'id="wpcpm-profile-contact_email"', '/>' ), 'aria-invalid' ),
+	substr_count( $fault_html, '<a href="#wpcpm-profile-website">Website</a>: Enter a web address' ),
+	1 === preg_match( '#<h4 class="wpcpm-errors__title">One answer needs a change</h4>#', $fault_html ),
+	preg_replace( '/^\n/', '', (string) text_box( $fault_html, 'wpcpm_anything' ) ) === $fault_extra,
+	description_box( $fault_html ),
+), array(
+	'profile-rejected',
+	array( 'website' => 'https://x@y', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'anything' => $fault_extra, 'description' => 'A new description for the partner page.' ),
+	array( 'website' => 'Enter a web address that starts with https://. Nothing on the profile was saved.' ),
+	true,
+	true,
+	1,
+	true,
+	true,
+	'A new description for the partner page.',
+) );
+ck( 'a refused address is the contact email\'s own sentence, and the website stays unmarked', (function () use ( $A, $context ) {
+	$r    = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_email' => 'not an address' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+	$html = redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
+	return array( $r[0], $GLOBALS['left_detail'], 1 === preg_match( '#<input type="email" id="wpcpm-profile-contact_email"[^>]*aria-invalid="true"#', $html ), false === strpos( between( $html, 'id="wpcpm-profile-website"', '/>' ), 'aria-invalid' ) );
+})(), array( 'profile-rejected', 'Enter one email address, such as name@example.org. Nothing on the profile was saved.', true, true ) );
+// SDB-06: every hint is tied to its control.
+$hints_html = card( 'WPCPM_Sponsor_Profile', $A, $context );
+ck( 'every hint on the profile is tied to its control', array(
+	1 === preg_match( '#<input type="email" id="wpcpm-profile-contact_email"[^>]*aria-describedby="wpcpm-profile-contact_email-note"#', $hints_html ) && false !== strpos( $hints_html, 'id="wpcpm-profile-contact_email-note"' ),
+	1 === preg_match( '#<textarea id="wpcpm-profile-description"[^>]*aria-describedby="wpcpm-profile-description-note"#', $hints_html ) && false !== strpos( $hints_html, 'id="wpcpm-profile-description-note"' ),
+	1 === preg_match( '#<input type="file" id="[^"]*-color"[^>]*aria-describedby="wpcpm-logo-[^"]*-note"#', $hints_html ) && 1 === preg_match( '#<input type="file" id="[^"]*-white"[^>]*aria-describedby="wpcpm-logo-[^"]*-note"#', $hints_html ) && 1 === preg_match( '#<p class="wpcpm-student__note" id="wpcpm-logo-[^"]*-note">The picture students#', $hints_html ),
+), array( true, true, true ) );
+set_tier( $A, '' );
+unset( $GLOBALS['settings']['sponsor_tiers_live'] );
 $GLOBALS['uid'] = 9; $GLOBALS['users'][9] = new WP_User( 9, array( 'subscriber' ), 'Stranger', 'administrator@example.test' );
 $before_website = WPCPM_Sponsors_Index::row( $A )['website'];
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://hijacked.test/' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
@@ -757,7 +856,7 @@ $desc_mentor = card( 'WPCPM_Sponsor_Profile', $A, $context );
 set_tier( $A, 'supporter', day_from_today( -1 ) );
 $desc_lapsed = card( 'WPCPM_Sponsor_Profile', $A, $context );
 ck( 'the description box is drawn for a Supporter while the switch is on, and for nobody while it is off or below Supporter', array(
-	false !== strpos( $desc_on, '<p class="wpcpm-sponsor__field"><label for="wpcpm-profile-description">Description for the partner page</label><textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="300">Mango &amp; friends' . "\n" . 'host students</textarea><span class="wpcpm-student__note">A sentence or two about your company, shown with your logo where the program lists its sponsors. 300 characters at most.</span></p>' ),
+	false !== strpos( $desc_on, '<p class="wpcpm-sponsor__field"><label for="wpcpm-profile-description">Description for the partner page</label><textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="300" aria-describedby="wpcpm-profile-description-note">Mango &amp; friends' . "\n" . 'host students</textarea><span class="wpcpm-student__note" id="wpcpm-profile-description-note">A sentence or two about your company, shown with your logo where the program lists its sponsors. 300 characters at most.</span></p>' ),
 	before( $desc_on, 'name="wpcpm_anything"', 'name="wpcpm_description"' ) && before( $desc_on, 'name="wpcpm_description"', '>Save profile</button>' ),
 	strpos( $desc_off, 'name="wpcpm_description"' ),
 	strpos( $desc_mentor, 'name="wpcpm_description"' ),
@@ -832,7 +931,7 @@ ck( 'a 300-character description holding Kids < 12 learn "blocks" & themes. keep
 ), array( 300, array( 'profile-saved', 'profile', $A ), true, true, true, true, array( 'profile-unchanged', 'profile', $A ), array( true, 0 ), array( 'profile-too-long', 'profile', $A ), true ) );
 ck( 'the refusal names the box and its limit, and says nothing was saved', WPCPM_Sponsor_Profile::messages()['profile-too-long'] ?? null, array( 'error', 'The description for the partner page is longer than 300 characters, so nothing was saved.' ) );
 // The page the refusal for its length lands on draws the typing it kept, once.
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 // The cleaner takes a "<" with the words up to a ">" for a tag, so in "We <3 our <b>team</b> > all"
 // it takes the two tags out and writes the "<" of the "<3" as `&lt;`. Such a typing is refused now
 // (below), and the row holds it as a release before this one stored it. The box shows the ">"
@@ -865,11 +964,11 @@ $held_typed  = str_pad( 'We <3 <b>WordPress</b>: install -> configure -> publish
 WPCPM_Sponsors_Index::patch( $A, array( 'description' => sanitize_textarea_field( $held_typed ) ) );
 $held_html   = card( 'WPCPM_Sponsor_Profile', $A, $context );
 $held_box    = description_box( $held_html );
-$held_max    = preg_match( '#<textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="(\d+)">#', $held_html, $held_m ) ? (int) $held_m[1] : 0;
+$held_max    = preg_match( '#<textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="(\d+)"[^>]*>#', $held_html, $held_m ) ? (int) $held_m[1] : 0;
 $held_again  = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => (string) $held_box ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 $held_count  = WPCPM_Sponsor_Event::typed_length( WPCPM_Sponsors_Index::row( $A )['description'] );
 WPCPM_Sponsors_Index::patch( $A, array( 'description' => 'Nothing held here.' ) );
-$plain_max   = preg_match( '#<textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="(\d+)">#', card( 'WPCPM_Sponsor_Profile', $A, $context ), $plain_m ) ? (int) $plain_m[1] : 0;
+$plain_max   = preg_match( '#<textarea id="wpcpm-profile-description" name="wpcpm_description" rows="3" maxlength="(\d+)"[^>]*>#', card( 'WPCPM_Sponsor_Profile', $A, $context ), $plain_m ) ? (int) $plain_m[1] : 0;
 ck( 'a description box that draws a ">" as `&gt;` raises its maxlength by three for each: stored from 300 characters typed, counted 293 and drawn at 302, it has a maxlength of 309, and posts back unchanged; with nothing held the box keeps 300', array(
 	mb_strlen( $held_typed ),
 	$held_count,
@@ -930,7 +1029,7 @@ ck( 'the box is drawn from Supporter up with what the row holds; a Friend\'s is 
 // is refused before anything is written, the box named, and the card comes back with it as typed,
 // once, for the person who typed it; posted back as drawn it is not asked, and keeps what the row
 // holds. A refusal for its length brings the typing back too.
-$GLOBALS['flash'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
+unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
 WPCPM_Sponsors_Index::patch( $A, array( 'description' => 'Mango Example hosts students.' ) );
 $dl_save  = array( 'WPCPM_Sponsor_Profile', 'handle_save' );
 $dl_row   = WPCPM_Sponsors_Index::row( $A );
@@ -938,23 +1037,30 @@ $dl_typed = "Kids <12 free,\r\nadults >18 pay, and 10%cashback";
 $dl_shown = "Kids <12 free,\nadults >18 pay, and 10%cashback";
 $r        = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => $dl_typed ), $dl_save );
 ck( 'a description the cleaner would take words from, a tag over two lines and a percent octet, is refused before anything is written, the box named', array( $r, $GLOBALS['left_detail'], WPCPM_Sponsors_Index::row( $A ) === $dl_row, $GLOBALS['audit'] ), array( array( 'profile-loss', 'profile', $A ), 'Nothing was saved, because WordPress would remove part of what you typed in "Description for the partner page". To keep every word, put a space after each "<" (or write "less than") and after each "%", then save again.', true, array() ) );
-$dl_first  = description_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
-$dl_second = description_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$dl_first  = description_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$dl_second = description_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'and the card comes back with it as typed, each break one LF, once; drawn again, the box holds the row\'s', array( $dl_first, $dl_second ), array( $dl_shown, 'Mango Example hosts students.' ) );
 post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => $dl_typed ), $dl_save );
 $GLOBALS['uid'] = 1;
 $dl_manager = description_box( card( 'WPCPM_Sponsor_Profile', $A, array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] ) ) );
 $GLOBALS['uid'] = 5;
-$dl_own = description_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$dl_own = description_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'another person never sees it, a manager drawing the same card included', array( $dl_manager, $dl_own ), array( 'Mango Example hosts students.', $dl_shown ) );
 $r       = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => 'Ana <ana@example.test>', 'wpcpm_description' => $dl_typed ), $dl_save );
 $dl_said = $GLOBALS['left_detail'];
-$dl_html = card( 'WPCPM_Sponsor_Profile', $A, $context );
+$dl_html = redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 ck( 'with words lost from the Contact person as well, the Contact person is named, as the form orders its boxes, and the description comes back with it', array( $r[0], $dl_said, cards_contact_box( $dl_html )['shown'] ?? null, description_box( $dl_html ), WPCPM_Sponsors_Index::row( $A ) === $dl_row ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Contact person' ), 'Ana <ana@example.test>', $dl_shown, true ) );
+// The refusal that follows is never drawn, and the save after it forgets it: asked of a member whose request has not
+// read the form's channel before, as in production, where each press is a request of its own (the flash remembers
+// within a request what it handed back, and a forget after that would find nothing to drop).
+$GLOBALS['uid'] = fresh_member();
 post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => $dl_typed ), $dl_save );
+$GLOBALS['uid'] = fresh_member( $GLOBALS['uid'] );
 $dl_spaced = "Kids < 12 free,\r\nadults > 18 pay, and 10% cashback";
 $r         = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => $dl_spaced ), $dl_save );
-ck( '"Kids < 12 free, adults > 18 pay, and 10% cashback" is saved with every word, each break one LF, its box shows it as typed, and the refusal before it, never drawn, left nothing', array( $r[0], WPCPM_Sponsors_Index::row( $A )['description'], end( $GLOBALS['audit'] )['data']['fields'] ?? null, description_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) ), isset( $GLOBALS['flash'][5][ 'typed:profile:' . $A ] ) ), array( 'profile-saved', "Kids < 12 free,\nadults > 18 pay, and 10% cashback", array( 'description' ), "Kids < 12 free,\nadults > 18 pay, and 10% cashback", false ) );
+ck( '"Kids < 12 free, adults > 18 pay, and 10% cashback" is saved with every word, each break one LF, its box shows it as typed, and the refusal before it, never drawn, left nothing', array( $r[0], WPCPM_Sponsors_Index::row( $A )['description'], end( $GLOBALS['audit'] )['data']['fields'] ?? null, description_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) ), isset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ][ WPCPM_Flash::KEPT_CHANNEL . 'profile:' . $A ] ) ), array( 'profile-saved', "Kids < 12 free,\nadults > 18 pay, and 10% cashback", array( 'description' ), "Kids < 12 free,\nadults > 18 pay, and 10% cashback", false ) );
+$GLOBALS['umeta'][5] = $GLOBALS['umeta'][ $GLOBALS['uid'] ];
+$GLOBALS['uid']      = 5;
 // No form of the plugin stores a "%" with two letters after it in the description, but a row
 // written by other means can hold one.
 WPCPM_Sponsors_Index::patch( $A, array( 'description' => "Get 10%cashback\nat the booth." ) );
@@ -964,13 +1070,13 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => str_replace( "\n
 ck( 'a description the row holds with words the cleaner would take, posted back as drawn beside a change of the website, is not asked and keeps what the row holds', array( $dl_box, $r[0], WPCPM_Sponsors_Index::row( $A )['description'], end( $GLOBALS['audit'] )['data']['fields'] ?? null ), array( "Get 10%cashback\nat the booth.", 'profile-saved', "Get 10%cashback\nat the booth.", array( 'website' ) ) );
 $dl_row = WPCPM_Sponsors_Index::row( $A );
 $r      = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => "Get 10%cashback\r\nat the booth, again." ), $dl_save );
-ck( 'edited, it is asked as any typing is, and refused', array( $r[0], description_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) ), WPCPM_Sponsors_Index::row( $A ) === $dl_row ), array( 'profile-loss', "Get 10%cashback\nat the booth, again.", true ) );
+ck( 'edited, it is asked as any typing is, and refused', array( $r[0], description_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) ), WPCPM_Sponsors_Index::row( $A ) === $dl_row ), array( 'profile-loss', "Get 10%cashback\nat the booth, again.", true ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => "\r\n" . $dl_typed ), $dl_save );
-ck( 'a kept description that begins with a line break comes back with it: the box prints a line feed of its own after its opening tag, which the parser drops', array( $r[0], description_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) ) ), array( 'profile-loss', "\n" . $dl_shown ) );
+ck( 'a kept description that begins with a line break comes back with it: the box prints a line feed of its own after its opening tag, which the parser drops', array( $r[0], description_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) ) ), array( 'profile-loss', "\n" . $dl_shown ) );
 $dl_long = 'z' . str_repeat( 'y', 300 );
 $r       = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_description' => $dl_long ), $dl_save );
-$dl_html = card( 'WPCPM_Sponsor_Profile', $A, $context );
-ck( 'a description over its limit is refused as before, nothing written, and the card now comes back with the typing, kept up to the box\'s room of 300', array( $r[0], description_box( $dl_html ), WPCPM_Sponsors_Index::row( $A ) === $dl_row ), array( 'profile-too-long', mb_substr( $dl_long, 0, 300 ), true ) );
+$dl_html = redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
+ck( 'a description over its limit is refused as before, nothing written, and the card comes back with the typing whole, never cut', array( $r[0], description_box( $dl_html ), WPCPM_Sponsors_Index::row( $A ) === $dl_row ), array( 'profile-too-long', $dl_long, true ) );
 set_tier( $A, '' );
 WPCPM_Sponsors_Index::patch( $A, array( 'description' => '' ) );
 $GLOBALS['settings'] = array();
@@ -1013,7 +1119,7 @@ ck( 'the refusal of Anything else names the box and its limit, and says nothing 
 // changes.
 $else_tag_r     = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => 'We <3 our <b>team</b> > all' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 $else_tag_kept  = WPCPM_Sponsors_Index::row( $A )['anything'] === $else_saved;
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 WPCPM_Sponsors_Index::patch( $A, array( 'anything' => 'We &lt;3 our team > all' ) );
 $else_tag_saved = WPCPM_Sponsors_Index::row( $A )['anything'];
 $else_tag_html  = card( 'WPCPM_Sponsor_Profile', $A, $context );
@@ -1709,9 +1815,48 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M1 ), array( 'WPCPM_
 ck( 'a mentor who is not looking cannot be asked for', $r[0], 'mentor-interest-unknown' );
 WPCPM_Sponsors_Index::patch( $A, array( 'manager' => '' ) );
 $GLOBALS['managers_reachable'] = 0;
+// The interests above are another day's: the log starts empty for the next checks (1.123.58, SDB-08).
+$GLOBALS['audit_log'] = array();
+$GLOBALS['audit']     = array();
+$GLOBALS['buckets']   = array();
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
-ck( 'nobody could be told, so the sentence says so', $r[0], 'mentor-interest-failed' );
-ck( 'but the interest is on record either way, with the count', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['mailed'] ), array( 'sponsor_interest_mentor', 0 ) );
+ck( 'an interest no contact could be mailed about is on record, and says so', array( $r[0], count( $GLOBALS['audit'] ), end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['mailed'], WPCPM_Sponsor_Mentors::messages()['mentor-interest-unsent'] ), array( 'mentor-interest-unsent', 1, 'sponsor_interest_mentor', 0, array( 'warning', 'Your interest is on record. The program will see it, though nobody could be emailed about it right now.' ) ) );
+$spent = WPCPM_Ceiling::count( WPCPM_Ceiling::key( WPCPM_Sponsor_Mentors::CEILING, '5' ), DAY_IN_SECONDS );
+$r     = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
+ck( 'a second interest in the same mentor within 30 days is already sent, with no row and nothing spent', array(
+	$r[0],
+	$GLOBALS['left_detail'],
+	count( $GLOBALS['audit'] ),
+	WPCPM_Ceiling::count( WPCPM_Ceiling::key( WPCPM_Sponsor_Mentors::CEILING, '5' ), DAY_IN_SECONDS ) - $spent,
+	WPCPM_Sponsor_Mentors::messages()['mentor-interest-repeat'],
+	WPCPM_Sponsor_Mentors::REPEAT_WINDOW,
+), array( 'mentor-interest-repeat', '', 1, 0, array( 'info', 'You already told the program you would like to sponsor %1$s, on %2$s. It is on record, so there is nothing to send again.' ), 30 * DAY_IN_SECONDS ) );
+ck( 'the repeat names the mentor and the day the first interest was filed, in the site\'s date format', $GLOBALS['left_args'] ?? null, array( 'Ana Looking', wp_date( 'F j, Y', time() ) ) );
+// Other modules write many sponsor rows: 250 of another kind after the interest, and it still stands as filed.
+for ( $i = 0; $i < 250; $i++ ) { $GLOBALS['audit_log'][] = array( 'sponsor' => $A, 'subject' => (string) $i, 'kind' => 'profile_saved', 'time' => time() - 10 * DAY_IN_SECONDS ); }
+$GLOBALS['audit_log'][0]['time'] = time() - 20 * DAY_IN_SECONDS;
+$rows_before = count( $GLOBALS['audit'] );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
+ck( 'with 250 rows of another kind between the two interests it is still a repeat, filed once', array( $r[0], count( $GLOBALS['audit'] ) - $rows_before ), array( 'mentor-interest-repeat', 0 ) );
+$GLOBALS['audit_log'] = array_slice( $GLOBALS['audit_log'], 0, 1 );
+$GLOBALS['locks'][ 'wpcpm_interest_lock_' . $A . '_' . $M3 ] = 'token';
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
+ck( 'a second tab posting while the first holds the sponsor and mentor lock files nothing', array( $r[0], count( $GLOBALS['audit'] ) - $rows_before ), array( 'mentor-interest-failed', 0 ) );
+unset( $GLOBALS['locks'] );
+// 31 days later the first interest is old news, and the same mentor is a new interest.
+$GLOBALS['audit_log'][0]['time'] = time() - 31 * DAY_IN_SECONDS;
+unset( $GLOBALS['managers_reachable'] );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
+ck( 'and after 30 days it is a new interest', array( $r[0], count( $GLOBALS['audit'] ), count( $GLOBALS['audit_log'] ) ), array( 'mentor-interest-sent', 2, 2 ) );
+// SDB-23: the three ceilings name their action and read their constant.
+ck( 'the three ceilings name their action and read their constant', array(
+	vsprintf( WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling'][1], array( number_format_i18n( WPCPM_Sponsor_Event_Planner::PER_HOUR ), '14:00' ) ),
+	WPCPM_Sponsor_Mentors::messages()['mentor-interest-ceiling'][1],
+	WPCPM_Sponsor_Tier_Card::messages()['tier-ceiling'][1],
+	WPCPM_Sponsor_Event_Planner::PER_HOUR,
+	WPCPM_Sponsor_Mentors::PER_DAY,
+	WPCPM_Sponsor_Interests::PER_DAY,
+), array( 'You can plan or change events 10 times an hour. Your plan is still here: send it again after 14:00.', 'You can tell the program about 5 mentors a day. Try again tomorrow.', 'You can send 5 messages a day from the Sponsorship card. Try again tomorrow.', 10, 5, 5 ) );
 unset( $GLOBALS['managers_reachable'] );
 
 echo "\n=== The agreement card (Phase S4) ===\n";
@@ -2029,7 +2174,7 @@ $all = '';
 foreach ( array( 'profile', 'interests', 'mentors' ) as $f ) { $all .= file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-' . $f . '.php' ); }
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $all ), 0 );
 ck( 'every handler claims before it writes: the profile\'s and the Mentors card\'s, the interests answering none of their own', substr_count( $all, 'WPCPM_Sponsor_Roster::claim(' ), 2 );
-ck( 'the messages maps cover every status the handlers flash', array_values( array_diff( array( 'profile-saved', 'profile-unchanged', 'profile-rejected', 'profile-too-long', 'profile-text-long', 'profile-long', 'profile-failed', 'mentor-interest-sent', 'mentor-interest-unknown', 'mentor-interest-ceiling', 'mentor-interest-failed', 'refused' ), array_merge( array_keys( WPCPM_Sponsor_Profile::messages() ), array_keys( WPCPM_Sponsor_Mentors::messages() ) ) ) ), array() );
+ck( 'the messages maps cover every status the handlers flash', array_values( array_diff( array( 'profile-saved', 'profile-unchanged', 'profile-rejected', 'profile-too-long', 'profile-text-long', 'profile-long', 'profile-failed', 'mentor-interest-sent', 'mentor-interest-unknown', 'mentor-interest-ceiling', 'mentor-interest-unsent', 'mentor-interest-repeat', 'mentor-interest-failed', 'refused' ), array_merge( array_keys( WPCPM_Sponsor_Profile::messages() ), array_keys( WPCPM_Sponsor_Mentors::messages() ) ) ) ), array() );
 
 
 $GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '' ) );
@@ -2064,7 +2209,7 @@ function cards_filled( $unit, $limit ) {
 }
 /** The Contact person's box as the card draws it: its markup, what a browser shows in it, and its maxlength. */
 function cards_contact_box( $html ) {
-	if ( ! preg_match( '/<input type="text" id="wpcpm-profile-contact_person" name="wpcpm_contact_person" value="([^"]*)" maxlength="(\d+)" \/>/', $html, $m ) ) {
+	if ( ! preg_match( '/<input type="text" id="wpcpm-profile-contact_person" name="wpcpm_contact_person" value="([^"]*)" maxlength="(\d+)"[^>]*\/>/', $html, $m ) ) {
 		return array();
 	}
 	return array( 'markup' => $m[1], 'shown' => html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'maxlength' => (int) $m[2] );
@@ -2097,7 +2242,7 @@ $GLOBALS['audit'] = array();
 $c_before = WPCPM_Sponsors_Index::row( $A )['contact_person'];
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_person' => $t_team ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a contact person with "<b>team</b>" in it is refused now, because the cleaner would take "<b>" and "</b>", and nothing is written', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['contact_person'] === $c_before ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Contact person' ), array(), true ) );
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 // The form an earlier release stored that typing in, which the row holds still: a "<3" written
 // `&lt;3` and a lone ">" after it, the box below draws it back with the ">" held.
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => $t_team_cl ) );
@@ -2123,7 +2268,7 @@ ck( 'the offer line is not this card\'s: posted here, it is not read', array( $r
 echo "\n=== The profile's two text areas: every line and word, counted, drawn and kept as typed ===\n";
 /** A text area of the profile card as the card draws it: its markup, what a browser shows and posts, and its maxlength. */
 function cards_profile_area( $html, $key ) {
-	if ( ! preg_match( '/<textarea id="wpcpm-profile-' . $key . '" name="wpcpm_' . $key . '" rows="4" maxlength="(\d+)">(.*?)<\/textarea>/s', $html, $m ) ) {
+	if ( ! preg_match( '/<textarea id="wpcpm-profile-' . $key . '" name="wpcpm_' . $key . '" rows="4" maxlength="(\d+)"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
 		return array();
 	}
 	// The parser reads CR LF in the markup as LF, drops the one line feed right after the opening tag,
@@ -2137,7 +2282,7 @@ $GLOBALS['audit'] = array();
 $a_before  = WPCPM_Sponsors_Index::row( $A )['anything'];
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $t_note ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a text with "<b>team</b>" in it is refused now, because the cleaner would take "<b>" and "</b>", and nothing is written', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['anything'] === $a_before ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Anything else you would like to share' ), array(), true ) );
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $t_sent ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a text with line breaks, a "<3", a "<" and the ampersands after one is saved with its lines, as the cleaner leaves it', array( $r[0], WPCPM_Sponsors_Index::row( $A )['anything'], end( $GLOBALS['audit'] )['data']['fields'] ?? null ), array( 'profile-saved', str_replace( "\r\n", "\n", $t_sent_cl ), array( 'anything' ) ) );
 // The form an earlier release stored the typing with the tag in, which the row holds still: the
@@ -2166,8 +2311,8 @@ $p_over   = 'y' . $p_at;
 $p_stored = WPCPM_Sponsors_Index::row( $A )['anything'];
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => $p_over, 'wpcpm_website' => 'https://plugins.mango-example.test/not-saved/' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'one character more refuses the whole save, with a sentence that names the field and its limit', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['website'] === 'https://plugins.mango-example.test/not-saved/' ), array( 'profile-text-long', '', array(), false ) );
-$p_form = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
-ck( 'and the card comes back with the typing: Anything else as the first 4,000 characters typed, each break one LF, the website as typed, and the row as it was', array( $p_form['anything'] === mb_substr( str_replace( "\r\n", "\n", $p_over ), 0, 4000 ), $p_form['anything'] === WPCPM_Typed_Text::typed_text( $p_stored ), $p_form['website'], WPCPM_Sponsors_Index::row( $A )['anything'] === $p_stored ), array( true, false, 'https://plugins.mango-example.test/not-saved/', true ) );
+$p_form = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
+ck( 'and the card comes back with the typing: Anything else whole as typed, never cut, each break one LF, the website as typed, and the row as it was', array( $p_form['anything'] === str_replace( "\r\n", "\n", $p_over ), $p_form['anything'] === WPCPM_Typed_Text::typed_text( $p_stored ), $p_form['website'], WPCPM_Sponsors_Index::row( $A )['anything'] === $p_stored ), array( true, false, 'https://plugins.mango-example.test/not-saved/', true ) );
 // How students use it is the Offers card's instructions on this line, not one of the profile's fields.
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_instructions' => $t_note ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'How students use it is not this card\'s: posted here, it is not read', array( $r[0], array_key_exists( 'instructions', WPCPM_Sponsors_Index::row( $A ) ) ), array( 'profile-unchanged', false ) );
@@ -2190,7 +2335,7 @@ ck( 'a tab and a run of spaces are one space in the history, as a line break is;
 echo "\n=== A value the base holds over its limit does not refuse a save that did not touch it ===\n";
 /** A one-line box of the profile card as the card draws it: what a browser shows and posts, and its maxlength. */
 function cards_line_box( $html, $key ) {
-	if ( ! preg_match( '/<input type="text" id="wpcpm-profile-' . $key . '" name="wpcpm_' . $key . '" value="([^"]*)" maxlength="(\d+)" \/>/', $html, $m ) ) {
+	if ( ! preg_match( '/<input type="text" id="wpcpm-profile-' . $key . '" name="wpcpm_' . $key . '" value="([^"]*)" maxlength="(\d+)"[^>]*\/>/', $html, $m ) ) {
 		return array();
 	}
 	return array( 'shown' => html_entity_decode( $m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'maxlength' => (int) $m[2] );
@@ -2235,7 +2380,7 @@ function cards_profile_post( $record, array $shown, array $change = array() ) {
 	}
 	return array_merge( $post, $change );
 }
-$GLOBALS['uid'] = 5; $GLOBALS['buckets'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['uid'] = 5; $GLOBALS['buckets'] = array(); $GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 unset( $GLOBALS['offers'] );
 $p_save  = array( 'WPCPM_Sponsor_Profile', 'handle_save' );
 $p_row   = WPCPM_Sponsors_Index::row( $A );
@@ -2248,12 +2393,12 @@ $r = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_anything' => $p_note,
 ck( 'an Anything else the cleaner would cut to "Kids 18 pay" is refused, with the sentence that names the box by its label', array( $r, $GLOBALS['left_detail'] ), array( array( 'profile-loss', 'profile', $A ), WPCPM_Typed_Text::loss_message( 'Anything else you would like to share' ) ) );
 ck( 'and nothing is written: the row and the log are as they were, and nothing is spent', array( WPCPM_Sponsors_Index::row( $A ) === $p_row, $GLOBALS['audit'], $GLOBALS['buckets'] ), array( true, array(), array() ) );
 ck( 'the messages map has the refusal, its whole sentence the detail', WPCPM_Sponsor_Profile::messages()['profile-loss'] ?? null, array( 'error', '' ) );
-$p_form = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$p_form = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'the card draws the form again with every field as it was left: Anything else and the website as typed, a line break as the box counts it, the rest as posted', $p_form, array_merge( $p_shown, array( 'anything' => str_replace( "\r\n", "\n", $p_note ), 'website' => $p_site ) ) );
 ck( 'the contact person the row holds over its limit comes back whole: cut to the box\'s limit, the next save would store it short', mb_strlen( (string) $p_form['contact_person'] ), 251 );
 $r      = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => $p_lossy, 'wpcpm_website' => $p_site ) ), $p_save );
 $p_said = $GLOBALS['left_detail'];
-$p_form = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$p_form = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'a contact person the cleaner would cut to "Ana" is refused the same way, named by its label, and the text the row holds over its limit comes back whole', array( $r[0], $p_said, $p_form['contact_person'], $p_form['website'], mb_strlen( (string) $p_form['anything'] ), WPCPM_Sponsors_Index::row( $A ) === $p_row ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Contact person' ), $p_lossy, $p_site, 4050, true ) );
 $r = post( cards_profile_post( $A, $p_form, array( 'wpcpm_contact_person' => 'Ana (ana@example.test)' ) ), $p_save );
 ck( 'posted back with the fix, the save goes through and writes what changed, and not the text the row holds over its limit', array( $r[0], end( $GLOBALS['audit'] )['data']['fields'] ?? null, WPCPM_Sponsors_Index::row( $A )['contact_person'], WPCPM_Sponsors_Index::row( $A )['website'], WPCPM_Sponsors_Index::row( $A )['product_type'], WPCPM_Sponsors_Index::row( $A )['anything'] === $p_row['anything'] ), array( 'profile-saved', array( 'website', 'contact_person' ), 'Ana (ana@example.test)', $p_site, 'Hosting', true ) );
@@ -2261,54 +2406,60 @@ ck( 'posted back with the fix, the save goes through and writes what changed, an
 $p_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => 'Ana, 10%cashback' ) ), $p_save );
 $p_said  = $GLOBALS['left_detail'];
-$p_first = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
-$p_again = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$p_first = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$p_again = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'a contact person with a "%" the cleaner would take, with the two characters after it, is refused the same way, and drawn back as typed only once', array( $r[0], $p_said, $p_first['contact_person'], $p_again['contact_person'] ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Contact person' ), 'Ana, 10%cashback', $p_shown['contact_person'] ) );
 
 $r   = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => 'Q&amp;A <b>x</b>' ) ), $p_save );
-$box = cards_contact_box( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$box = cards_contact_box( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( '"Q&amp;A <b>x</b>" is refused and comes back in the text input exactly as typed, the "&amp;" five characters, in the room the box had', array( $r[0], $box['shown'] ?? null, $box['markup'] ?? null, $box['maxlength'] ?? null ), array( 'profile-loss', 'Q&amp;A <b>x</b>', 'Q&amp;amp;A &lt;b&gt;x&lt;/b&gt;', 200 ) );
 
 $r = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => $p_lossy ) ), $p_save );
 $GLOBALS['uid'] = 1;
 $p_manager = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, array( 'can_manage' => true, 'open' => '', 'viewer' => $GLOBALS['users'][1] ) ) );
 $GLOBALS['uid'] = 5;
-$p_own   = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$p_own   = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'another person never sees it, a manager drawing the same card included', array( $p_manager['contact_person'], $p_own['contact_person'] ), array( $p_shown['contact_person'], $p_lossy ) );
 
 $r      = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => str_repeat( 'x', 205 ), 'wpcpm_website' => $p_site . 'x/' ) ), $p_save );
 $p_said = $GLOBALS['left_detail'];
-$p_form = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
-ck( 'a contact person over its limit is refused as before, and the form now comes back with the typing, kept up to the box\'s limit of 200', array( $r[0], $p_said, $p_form['contact_person'], $p_form['website'] ), array( 'profile-long', '"Contact person" is 5 characters over the limit of 200. Shorten it and save again.', str_repeat( 'x', 200 ), $p_site . 'x/' ) );
+$p_form = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
+ck( 'a contact person over its limit is refused as before, and the form now comes back with the typing whole, never cut', array( $r[0], $p_said, $p_form['contact_person'], $p_form['website'] ), array( 'profile-long', '"Contact person" is 5 characters over the limit of 200. Shorten it and save again.', str_repeat( 'x', 205 ), $p_site . 'x/' ) );
 // This line refuses a text area over its limit with its own sentence, which names the box and its
 // limit (`profile-text-long`); the form comes back with the typing the same way.
 $r      = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_anything' => str_replace( "\n", "\r\n", (string) $p_shown['anything'] ) . 'y' ) ), $p_save );
 $p_said = $GLOBALS['left_detail'];
-$p_form = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
-ck( 'an Anything else the row holds over its limit, edited longer, is refused as before and kept up to what its box was drawn with', array( $r[0], $p_said, $p_form['anything'] ), array( 'profile-text-long', '', $p_shown['anything'] ) );
+$p_form = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
+ck( 'an Anything else the row holds over its limit, edited longer, is refused as before and kept whole, never cut', array( $r[0], $p_said, $p_form['anything'] ), array( 'profile-text-long', '', $p_shown['anything'] . 'y' ) );
 
 $r      = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => "Bad \xC3\x28 bytes", 'wpcpm_website' => $p_site . 'y/' ) ), $p_save );
-$p_form = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
+$p_form = cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) );
 ck( 'a contact person that is not valid UTF-8, which the cleaner empties, is refused as a loss and not kept: its box shows the stored name, the website beside it is kept', array( $r[0], $p_form['contact_person'], $p_form['website'] ), array( 'profile-loss', $p_shown['contact_person'], $p_site . 'y/' ) );
 
+// Each press is a request of its own, a member of its own here (the flash remembers within a request what it
+// handed back, and a forget after that would find nothing to drop).
+$GLOBALS['uid'] = fresh_member();
 $r = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_contact_person' => $p_lossy ) ), $p_save );
+$GLOBALS['uid'] = fresh_member( $GLOBALS['uid'] );
 $r = post( cards_profile_post( $A, $p_shown, array( 'wpcpm_website' => $p_site . 'saved/' ) ), $p_save );
-ck( 'a typing a refusal kept goes when the form is posted again, so a save that went through before the page drew it is drawn as saved', array( $r[0], cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) )['contact_person'], WPCPM_Sponsors_Index::row( $A )['website'] ), array( 'profile-saved', $p_shown['contact_person'], $p_site . 'saved/' ) );
+ck( 'a typing a refusal kept goes when the form is posted again, so a save that went through before the page drew it is drawn as saved', array( $r[0], cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) )['contact_person'], WPCPM_Sponsors_Index::row( $A )['website'] ), array( 'profile-saved', $p_shown['contact_person'], $p_site . 'saved/' ) );
+$GLOBALS['umeta'][5] = $GLOBALS['umeta'][ $GLOBALS['uid'] ];
+$GLOBALS['uid']      = 5;
 $p_keeps = "Ages 8 < 12 welcome, adults > 18 pay.\r\nQ&A: \"blocks\" & themes, it's free, 100% of them, &amp; and &copy; typed out.";
 $r = post( cards_profile_post( $A, cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) ), array( 'wpcpm_contact_person' => 'We <3 WordPress', 'wpcpm_anything' => $p_keeps ) ), $p_save );
-ck( 'a typing the cleaner keeps whole saves as before, each line break one LF, and keeps nothing for the form', array( $r[0], WPCPM_Sponsors_Index::row( $A )['contact_person'], WPCPM_Sponsors_Index::row( $A )['anything'], isset( $GLOBALS['flash'][5][ 'typed:profile:' . $A ] ) ), array( 'profile-saved', 'We &lt;3 WordPress', str_replace( "\r\n", "\n", sanitize_textarea_field( $p_keeps ) ), false ) );
+ck( 'a typing the cleaner keeps whole saves as before, each line break one LF, and keeps nothing for the form', array( $r[0], WPCPM_Sponsors_Index::row( $A )['contact_person'], WPCPM_Sponsors_Index::row( $A )['anything'], isset( $GLOBALS['umeta'][5][ WPCPM_Flash::META ][ WPCPM_Flash::KEPT_CHANNEL . 'profile:' . $A ] ) ), array( 'profile-saved', 'We &lt;3 WordPress', str_replace( "\r\n", "\n", sanitize_textarea_field( $p_keeps ) ), false ) );
 
 echo "\n=== A kept typing that starts with a line break comes back with it ===\n";
 // The parser drops the one line feed right after a text area's opening tag, so a box drawn with a
 // kept typing writes one of its own first.
-$GLOBALS['buckets'] = array(); $GLOBALS['flash'] = array();
+$GLOBALS['buckets'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] );
 $r = post( cards_profile_post( $A, cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) ), array( 'wpcpm_contact_person' => $p_lossy, 'wpcpm_anything' => "\r\nleading break" ) ), $p_save );
-ck( 'on the profile', array( $r[0], cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) )['anything'] ), array( 'profile-loss', "\nleading break" ) );
+ck( 'on the profile', array( $r[0], cards_profile_form( redrawn( 'WPCPM_Sponsor_Profile', $A, $context ) )['anything'] ), array( 'profile-loss', "\nleading break" ) );
 
 echo "\n=== A box posted back as it was drawn is the stored text, whatever the row holds in it ===\n";
 // Brought over from the program records, which no cleaner read: a tag and a percent octet the
 // cleaner would take.
-$GLOBALS['uid'] = 5; $GLOBALS['flash'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['uid'] = 5; unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
 $s_contact = 'Ana <Sales>';
 $s_else    = "Get 10%cashback\nat checkout.";
 $s_site    = 'https://plugins.mango-example.test/stored/';
@@ -2320,10 +2471,10 @@ ck( 'and the two keep their bytes in the row: a box posted back as drawn is neit
 $GLOBALS['audit'] = array();
 $r = post( cards_profile_post( $A, $s_shown, array( 'wpcpm_website' => $s_site, 'wpcpm_contact_person' => 'Ana <Sales> now' ) ), $p_save );
 ck( 'the same box edited to "Ana <Sales> now" is refused, and nothing is written', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['contact_person'] === $s_contact ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Contact person' ), array(), true ) );
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 $r = post( cards_profile_post( $A, $s_shown, array( 'wpcpm_website' => $s_site, 'wpcpm_anything' => "Get 10%cashback\r\nat checkout, now." ) ), $p_save );
 ck( 'and so is Anything else, edited', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['anything'] === $s_else ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Anything else you would like to share' ), array(), true ) );
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 // The unedited test reads what was typed, never what the cleaner makes of it: a typing the cleaner
 // cuts back to the stored text is an edit, and the words it would take are the person's.
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => 'Ana Sales' ) );
@@ -2331,35 +2482,35 @@ $s_plain = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $GLOBALS['audit'] = array(); $GLOBALS['left_detail'] = null;
 $r = post( cards_profile_post( $A, $s_plain, array( 'wpcpm_contact_person' => 'Ana Sales<b></b>' ) ), $p_save );
 ck( 'a stored "Ana Sales" typed as "Ana Sales<b></b>", which the cleaner cuts back to the stored text, is refused, and the stored text is unchanged', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['contact_person'] ), array( 'profile-loss', WPCPM_Typed_Text::loss_message( 'Contact person' ), array(), 'Ana Sales' ) );
-card( 'WPCPM_Sponsor_Profile', $A, $context );
+redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 
 echo "\n=== A stored value with white space at an end, posted back as drawn ===\n";
 // The cleaner trims what it reads. Brought over from the program records, or left by an older
 // card's cut, a stored value can end in a space or begin with a line break, and a box can hand it
 // back without them: a text area drops a line break its text begins with, and a link's box drops
 // the spaces at its ends. A box nobody touched is still the stored value, and is not rewritten.
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => 'Test Sponsor Contact ', 'anything' => 'Use the code at checkout.' ) );
 $w_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $w_shown ), $p_save );
 ck( 'a stored "Test Sponsor Contact " is drawn with its space and, posted back unedited, writes nothing, logs nothing and says nothing changed', array( $w_shown['contact_person'], $r[0], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['contact_person'] ), array( 'Test Sponsor Contact ', 'profile-unchanged', array(), 'Test Sponsor Contact ' ) );
 WPCPM_Sponsors_Index::patch( $A, array( 'anything' => "\nUse the code at checkout." ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $w_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $w_shown ), $p_save );
 ck( 'an Anything else stored with a line break first, which its box drops, posted back unedited: nothing written or logged, nothing changed, the stored text kept', array( $w_shown['anything'], $r[0], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['anything'] ), array( 'Use the code at checkout.', 'profile-unchanged', array(), "\nUse the code at checkout." ) );
 WPCPM_Sponsors_Index::patch( $A, array( 'anything' => "\nGet 10%cashback at checkout." ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $w_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $w_shown ), $p_save );
 ck( 'and the same with a "%" the cleaner would take: not refused for a box the member did not touch', array( $r[0], $GLOBALS['left_detail'], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['anything'] ), array( 'profile-unchanged', '', array(), "\nGet 10%cashback at checkout." ) );
 WPCPM_Sponsors_Index::patch( $A, array( 'website' => 'https://plugins.mango-example.test/ ', 'anything' => 'Use the code at checkout.' ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $w_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $w_post  = cards_profile_post( $A, $w_shown, array( 'wpcpm_website' => trim( (string) $w_shown['website'] ) ) );
 $r       = post( $w_post, $p_save );
 ck( 'a website stored with a space after it, posted back by its box without the space: nothing written or logged, nothing changed', array( $r[0], $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['website'] ), array( 'profile-unchanged', array(), 'https://plugins.mango-example.test/ ' ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $r = post( array_merge( $w_post, array( 'wpcpm_contact_person' => 'Test Sponsor Contact, Sales' ) ), $p_save );
 ck( 'an edit beside them is written as before, and only the edit', array( $r[0], WPCPM_Sponsors_Index::row( $A )['contact_person'], WPCPM_Sponsors_Index::row( $A )['website'], end( $GLOBALS['audit'] )['data']['fields'] ?? null ), array( 'profile-saved', 'Test Sponsor Contact, Sales', 'https://plugins.mango-example.test/ ', array( 'contact_person' ) ) );
 
@@ -2371,7 +2522,7 @@ echo "\n=== The website keeps every percent octet, typed or posted back as drawn
 $l_wiki = 'https://pl.wikipedia.org/wiki/Krak%C3%B3w';
 $l_utm  = 'https://plugins.mango-example.test/?utm_source=wordpress%20education';
 WPCPM_Sponsors_Index::patch( $A, array( 'website' => $l_wiki, 'contact_person' => 'Test Sponsor Contact' ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $l_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $l_shown, array( 'wpcpm_contact_person' => 'Test Sponsor Contact, Sales' ) ), $p_save );
 ck( 'a website stored with percent octets is drawn as stored', $l_shown['website'], $l_wiki );
@@ -2404,7 +2555,7 @@ echo "\n=== A one-line box drawn from a stored value with a line break inside it
 // "Free hostingfor students". On this card the one-line text is the Contact person. The break is
 // drawn as a space, and a box posted back as it was drawn is the stored value, kept byte for byte.
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => "Free hosting\nfor students", 'website' => 'https://plugins.mango-example.test/', 'anything' => '' ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $b_row   = WPCPM_Sponsors_Index::row( $A );
 $b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $b_shown ), $p_save );
@@ -2415,7 +2566,7 @@ $r = post( cards_profile_post( $A, $b_shown, array( 'wpcpm_contact_person' => 'F
 ck( 'edited, the box is written as the person left it, and the one audit line names the Contact person', array( $r[0], WPCPM_Sponsors_Index::row( $A )['contact_person'], end( $GLOBALS['audit'] )['data']['fields'] ?? null ), array( 'profile-saved', 'Free hosting for all students', array( 'contact_person' ) ) );
 
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => "Free hosting\r\nfor students\r\n\r\nnow", 'website' => "https://plugins.mango-example.test/\r\nabout" ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $b_row   = WPCPM_Sponsors_Index::row( $A );
 $b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $b_shown ), $p_save );
@@ -2423,7 +2574,7 @@ ck( 'each break is one space, a CR LF one too, so a contact person on four lines
 ck( 'and posted back unedited, both keep their stored bytes with nothing written or logged', array( $r[0], WPCPM_Sponsors_Index::row( $A ) === $b_row, $GLOBALS['audit'], WPCPM_Sponsors_Index::row( $A )['contact_person'], WPCPM_Sponsors_Index::row( $A )['website'] ), array( 'profile-unchanged', true, array(), "Free hosting\r\nfor students\r\n\r\nnow", "https://plugins.mango-example.test/\r\nabout" ) );
 
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_person' => 'Test Sponsor Contact', 'website' => "https://plugins.mango-example.test/\nabout" ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $b_row   = WPCPM_Sponsors_Index::row( $A );
 $b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $b_shown ), $p_save );
@@ -2433,7 +2584,7 @@ WPCPM_Sponsors_Index::patch( $A, array( 'website' => 'https://plugins.mango-exam
 // before, while a space there would be an address that is not one, which the browser refuses, and
 // with it the whole save until the person found and took the space out.
 WPCPM_Sponsors_Index::patch( $A, array( 'contact_email' => "administrator@\nexample.test" ) );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $b_html  = card( 'WPCPM_Sponsor_Profile', $A, $context );
 $b_shown = cards_profile_form( $b_html );
 $b_value = preg_match( '/name="wpcpm_contact_email" value="([^"]*)"/', $b_html, $b_m ) ? html_entity_decode( $b_m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : null;
@@ -2454,7 +2605,7 @@ $same_row = array(
 	'contact_email'  => 'contact+a&amp;b@example.test',
 );
 WPCPM_Sponsors_Index::patch( $A, $same_row );
-$GLOBALS['audit'] = array(); $GLOBALS['flash'] = array(); $GLOBALS['left_detail'] = null;
+$GLOBALS['audit'] = array(); unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); $GLOBALS['left_detail'] = null;
 $b_row   = WPCPM_Sponsors_Index::row( $A );
 $b_shown = cards_profile_form( card( 'WPCPM_Sponsor_Profile', $A, $context ) );
 $r       = post( cards_profile_post( $A, $b_shown ), $p_save );

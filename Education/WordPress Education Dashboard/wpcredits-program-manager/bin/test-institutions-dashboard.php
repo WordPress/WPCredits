@@ -805,7 +805,7 @@ ck( 'which register_assets() registered for it', isset( $GLOBALS['styles'][ WPCP
 /* ---- logged out ---------------------------------------------------------- */
 
 $out = render_as( 0 );
-ck( 'a logged-out visitor is asked to log in', false !== strpos( $out, 'Please log in' ), true );
+ck( 'a logged-out visitor is asked to log in', false !== strpos( $out, 'Log in to see your institution on this site.' ), true );
 ck( 'and is told about no institution at all', false !== strpos( $out, 'Politechnika Example' ), false );
 
 /* ---- a locked member: the header, the panel, and nothing else ------------ */

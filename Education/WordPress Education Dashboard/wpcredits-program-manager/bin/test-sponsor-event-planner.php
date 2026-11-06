@@ -550,6 +550,8 @@ class WPCPM_Ceiling {
 	public static function claim( $key, $limit, $window, $amount = 1 ) { $n = isset( $GLOBALS['buckets'][ $key ] ) ? $GLOBALS['buckets'][ $key ] : 0; if ( $n + $amount > $limit ) { return false; } $GLOBALS['buckets'][ $key ] = $n + $amount; return true; }
 	public static function count( $key, $window ) { return isset( $GLOBALS['buckets'][ $key ] ) ? $GLOBALS['buckets'][ $key ] : 0; }
 	public static function key( ...$parts ) { return implode( ':', $parts ); }
+	/** When the window the clock is in closes, as the real one counts it: the turn of the bucket. */
+	public static function resets_at( $window ) { $now = isset( $GLOBALS['now'] ) ? (int) $GLOBALS['now'] : time(); return ( intdiv( $now, (int) $window ) + 1 ) * (int) $window; }
 }
 
 /** The sponsors store, for the calls made: the key's shape, a row, Approved, and the assigned manager as the real store answers one. */
@@ -698,6 +700,46 @@ class WPCPM_Flash {
 	}
 	/** A new request: nothing taken yet. */
 	public static function new_request() { self::$taken = array(); }
+	/** The channel a refused form keeps its typing on, as the real one names it. */
+	const KEPT_CHANNEL = 'kept:';
+	/**
+	 * What a refused form keeps (1.123.58), on the stand-in's own channels: each value as a string, or a list of them,
+	 * and the sentence for each refused field, one entry a form. The real keep() drops a value over its limit, which
+	 * bin/test-flash.php pins and this keeps to as well.
+	 */
+	public static function keep( $form, array $values, array $problems = array() ) {
+		$kept = array();
+		foreach ( $values as $field => $value ) {
+			if ( is_array( $value ) ) {
+				$kept[ (string) $field ] = array_values( array_filter( $value, 'is_string' ) );
+				continue;
+			}
+			$value = str_replace( "\r\n", "\n", (string) $value );
+			if ( mb_strlen( $value, 'UTF-8' ) <= WPCPM_Flash_Real::KEPT_MAX ) {
+				$kept[ (string) $field ] = $value;
+			}
+		}
+		$why = array();
+		foreach ( $problems as $field => $sentence ) {
+			if ( is_string( $sentence ) && '' !== trim( $sentence ) ) {
+				$why[ (string) $field ] = $sentence;
+			}
+		}
+		if ( array() === $kept && array() === $why ) {
+			return;
+		}
+		self::set( self::KEPT_CHANNEL . $form, array( 'at' => time(), 'values' => $kept, 'problems' => $why ) );
+	}
+	/** What a refused form kept, taken once; both keys always there. */
+	public static function kept( $form ) {
+		$entry = self::take( self::KEPT_CHANNEL . $form );
+		return array(
+			'values'   => is_array( $entry ) && isset( $entry['values'] ) && is_array( $entry['values'] ) ? $entry['values'] : array(),
+			'problems' => is_array( $entry ) && isset( $entry['problems'] ) && is_array( $entry['problems'] ) ? $entry['problems'] : array(),
+		);
+	}
+	/** Drop what an earlier refusal of the form kept. */
+	public static function forget( $form ) { self::take( self::KEPT_CHANNEL . $form ); }
 }
 
 // The plugin's own flash, loaded through a rewrite under a name of its own. The stand-in above keeps
@@ -743,6 +785,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-report.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tier-card.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
 // The template registry, which every event and term email is filled from since 1.123.9.
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-templates.php';
@@ -1225,7 +1268,7 @@ ck(
 		}
 		return array( array_values( array_unique( $ten ) ), $eleventh, $cancel, $after, $same, $other[0] );
 	},
-	array( array( 'sevent-past-term' ), array( 'sevent-ceiling', 'events', PARTNER, '' ), array( 'sevent-ceiling', 'events', PARTNER, '' ), true, array( 'sevent-fields', 'events', PARTNER, 'The length has to be between 15 and 480 minutes.' ), 'sevent-fields' )
+	array( array( 'sevent-past-term' ), array( 'sevent-ceiling', 'events', PARTNER, '', array( '10', wp_date( '' !== trim( (string) get_option( 'time_format' ) ) ? trim( (string) get_option( 'time_format' ) ) : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), WPCPM_Mentor_Availability::viewer_timezone( PARTNER_REP ) ) ) ), array( 'sevent-ceiling-cancel', 'events', PARTNER, '', array( '10', wp_date( '' !== trim( (string) get_option( 'time_format' ) ) ? trim( (string) get_option( 'time_format' ) ) : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), WPCPM_Mentor_Availability::viewer_timezone( PARTNER_REP ) ) ) ), true, array( 'sevent-fields', 'events', PARTNER, 'The length has to be between 15 and 480 minutes.' ), 'sevent-fields' )
 );
 
 $plan_left = attempt( static function () { return press( 'handle_plan', form( PARTNER ), PARTNER_REP ); } );
@@ -2468,13 +2511,13 @@ ck(
 // description the form draws are the ones kept exactly as typed, which come back cut to the room
 // their box was drawn with, as every kept typing does (`WPCPM_Typed_Text::keep()`).
 ck(
-	'a value longer than its box lets a person type comes back empty while the others come back as typed: the date, the places and the link; the title and the description come back cut to their box',
+	'a value longer than its box lets a person type comes back empty while the others come back as typed: the date, the places and the link; the title and the description come back whole, never cut',
 	static function () use ( $typed_rows ) {
 		press( 'handle_plan', typed_form( TYPED, array( 'wpcpm_sevent_title' => str_repeat( 't', 121 ) ) ), TYPED_REP );
 		$title = rows_of( draw( TYPED, TYPED_REP ), 'wpcpm-sevent-new' );
 		press( 'handle_plan', typed_form( TYPED, array( 'wpcpm_sevent_date' => '2026-12-01' . str_repeat( '9', 11 ), 'wpcpm_sevent_places' => str_repeat( '9', 21 ), 'wpcpm_sevent_description' => str_repeat( 'd', 2001 ), 'wpcpm_sevent_link' => 'https://call.example/' . str_repeat( 'l', 480 ) ) ), TYPED_REP );
 		$rest = rows_of( draw( TYPED, TYPED_REP ), 'wpcpm-sevent-new' );
-		return array( $title === array_merge( $typed_rows, array( 'title' => str_repeat( 't', 120 ) ) ), $rest === array_merge( $typed_rows, array( 'date' => '', 'places' => '', 'description' => "\n" . str_repeat( 'd', 2000 ), 'link' => '' ) ) );
+		return array( $title === array_merge( $typed_rows, array( 'title' => str_repeat( 't', 121 ) ) ), $rest === array_merge( $typed_rows, array( 'date' => '', 'places' => '', 'description' => "\n" . str_repeat( 'd', 2001 ), 'link' => '' ) ) );
 	},
 	array( true, true )
 );
@@ -2723,12 +2766,12 @@ ck(
 	array( true, array( 0, 1 ), array( 1, 0 ), array( 0, 1 ), array( 0, 1 ), 0 )
 );
 ck(
-	'the outcomes that keep what was typed are the ones a person puts right by pressing again: the form\'s refusal, a start outside the term, a start that has passed, a lock held, fewer places than the people on it, and a write that failed; each is one of the planner\'s outcomes',
+	'the outcomes that keep what was typed are the ones a person puts right by pressing again: the form\'s refusal, a start outside the term, a start that has passed, a lock held, fewer places than the people on it, a write that failed, and the ceiling, whose plan is still the person\'s; each is one of the planner\'s outcomes',
 	static function () {
 		$keeps = WPCPM_Sponsor_Event_Planner::KEEPS_TYPED;
 		return array( $keeps, array_values( array_diff( $keeps, array_keys( WPCPM_Sponsor_Event_Planner::messages() ) ) ) );
 	},
-	array( array( 'sevent-fields', 'sevent-past-term', 'sevent-before-term', 'sevent-in-past', 'sevent-busy', 'sevent-shrink', 'sevent-failed' ), array() )
+	array( array( 'sevent-fields', 'sevent-past-term', 'sevent-before-term', 'sevent-in-past', 'sevent-busy', 'sevent-shrink', 'sevent-failed', 'sevent-ceiling' ), array() )
 );
 
 // What comes back is what was typed, through the plugin's own flash over user meta that unslashes
@@ -2780,7 +2823,7 @@ function flash_meta( $uid ) {
 
 /** The typing a flash entry keeps under a form's name, or null. */
 function flash_typed( array $meta, $name ) {
-	return isset( $meta[ 'typed:' . $name ]['typed'] ) ? $meta[ 'typed:' . $name ]['typed'] : null;
+	return isset( $meta[ 'kept:' . $name ]['values'] ) ? $meta[ 'kept:' . $name ]['values'] : null;
 }
 
 ck(
@@ -2795,7 +2838,7 @@ ck(
 			}
 		);
 	},
-	array( 'sevent-fields', true, array( '', '', $slashed_rows['link'] ), array( 'typed:sevent:' . TYPED_OTHER . ':new' ), true )
+	array( 'sevent-fields', true, array( '', '', $slashed_rows['link'] ), array( 'kept:sevent:' . TYPED_OTHER . ':new' ), true )
 );
 ck(
 	'and so does the Change form of the sponsor\'s event still to take place, its title and description boxes holding the event\'s own',
@@ -2808,7 +2851,7 @@ ck(
 				$rows   = rows_of( draw( TYPED, KEPT_CHANGE_REP ), 'wpcpm-sevent-' . $event );
 				$meta   = flash_meta( KEPT_CHANGE_REP );
 				$post   = get_post( $event );
-				return array( $event > 0, $left[0], array( $rows['title'], $rows['description'], $rows['link'] ), $post instanceof WP_Post ? array( $post->post_title, $post->post_content ) : null, array_keys( $meta ) === array( 'typed:sevent:' . TYPED . ':' . $event ), flash_typed( $meta, 'sevent:' . TYPED . ':' . $event ) === $slashed_boxes );
+				return array( $event > 0, $left[0], array( $rows['title'], $rows['description'], $rows['link'] ), $post instanceof WP_Post ? array( $post->post_title, $post->post_content ) : null, array_keys( $meta ) === array( 'kept:sevent:' . TYPED . ':' . $event ), flash_typed( $meta, 'sevent:' . TYPED . ':' . $event ) === $slashed_boxes );
 			}
 		);
 	},
@@ -3196,7 +3239,7 @@ ck(
 // refused title or description is kept as long as the box it was typed into let it be, its drawn
 // limit, and one character more, which no browser posts into that box, is kept as nothing.
 ck(
-	'a title or a description over its limit is kept for the person as long as its box let them type it: the held title, its three `-&gt;` written "then" and the box filled to its 129, is refused, kept whole and drawn back as typed; the description the same at its 2,009; one character more is kept as nothing',
+	'a title or a description over its limit is kept for the person whole: the held title, its three `-&gt;` written "then" and the box filled to its 129, is refused, kept and drawn back as typed; the description the same at its 2,009; one character more is drawn back as typed too, never cut, and the channel keeps nothing of it',
 	static function () {
 		return wpcpm_stub_with_member_kses(
 			static function () {
@@ -3234,8 +3277,8 @@ ck(
 		);
 	},
 	array(
-		'title'       => array( 122, 129, array( array( 'sevent-fields', 129, true ), array( 'sevent-fields', 0, false ) ) ),
-		'description' => array( 2002, 2009, array( array( 'sevent-fields', 2009, true ), array( 'sevent-fields', 0, false ) ) ),
+		'title'       => array( 122, 129, array( array( 'sevent-fields', 129, true ), array( 'sevent-fields', 0, true ) ) ),
+		'description' => array( 2002, 2009, array( array( 'sevent-fields', 2009, true ), array( 'sevent-fields', 0, true ) ) ),
 	)
 );
 ck(
@@ -3404,7 +3447,7 @@ function loss_change( $record, $event_id, $uid, array $over = array() ) {
 function loss_state() { return array( store_state(), $GLOBALS['ics'], $GLOBALS['cron'] ); }
 
 /** Whether a person has a kept typing waiting on any form. */
-function loss_kept( $uid ) { return array() !== preg_grep( '/^typed:/', array_keys( isset( $GLOBALS['flash'][ (int) $uid ] ) ? $GLOBALS['flash'][ (int) $uid ] : array() ) ); }
+function loss_kept( $uid ) { return array() !== preg_grep( '/^kept:/', array_keys( isset( $GLOBALS['flash'][ (int) $uid ] ) ? $GLOBALS['flash'][ (int) $uid ] : array() ) ); }
 
 $loss_plan_title = 'Nothing was planned, because WordPress would remove part of what you typed in "Title". To keep every word, put a space after each "<" (or write "less than") and after each "%", then plan the event again.';
 $loss_save_title = 'Nothing was saved, because WordPress would remove part of what you typed in "Title". To keep every word, put a space after each "<" (or write "less than") and after each "%", then save again.';
@@ -3784,7 +3827,7 @@ ck(
 	},
 	array( 'sevent-busy', '17:00', CASHBACK_TITLE, CASHBACK_STORY, 'sevent-changed', array( CASHBACK_TITLE, CASHBACK_STORY ), true, array( 'Title: ' . CASHBACK_TITLE ), 0 )
 );
-// The exact typing waits `WPCPM_Typed_Text::KEPT_FOR` and no longer, while the planner's channel,
+// The exact typing waits `WPCPM_Flash::KEPT_FOR` and no longer, while the planner's channel,
 // which holds the other rows as the request readers read them, waits for the next draw. A refusal
 // whose page is looked at only after that draws the event's own title and description beside the
 // channel's other rows, never the cleaner's text the channel holds for the two.
@@ -3795,10 +3838,10 @@ ck(
 		$GLOBALS['posts'][ $loss_next ]->post_content = CASHBACK_STORY;
 		$drawn = loss_change( LOSS, $loss_next, LOSS_REP );
 		$first = press( 'handle_change', array_merge( $drawn, array( 'wpcpm_sevent_minutes' => '5' ) ), LOSS_REP );
-		$name  = 'typed:sevent:' . LOSS . ':' . $loss_next;
+		$name  = 'kept:sevent:' . LOSS . ':' . $loss_next;
 		$aged  = isset( $GLOBALS['flash'][ LOSS_REP ][ $name ]['at'] );
 		if ( $aged ) {
-			$GLOBALS['flash'][ LOSS_REP ][ $name ]['at'] = time() - WPCPM_Typed_Text::KEPT_FOR - 1;
+			$GLOBALS['flash'][ LOSS_REP ][ $name ]['at'] = time() - WPCPM_Flash_Real::KEPT_FOR - 1;
 		}
 		$again  = loss_change( LOSS, $loss_next, LOSS_REP );
 		$before = loss_state();
@@ -3811,9 +3854,77 @@ ck(
 
 /* ---- the words ---------------------------------------------------------------- */
 
+echo "\n=== The ceiling keeps the plan, and a refused field is marked (1.123.58, SDB-06, SDB-23) ===\n";
+const MARKED_REP = 16; // A member of the Champion whose Plan form is refused.
+a_user( MARKED_REP, 'Mia Marked', array( 'wpcpm_sponsor' ), array( 'wpcpm_sponsor_record_id' => TYPED_OTHER, 'wpcpm_sponsor_active' => 1 ) );
+
+ck(
+	'the planner\'s ceiling keeps the plan and says when to try again',
+	static function () {
+		$GLOBALS['same_hour'] = true;
+		try {
+			$GLOBALS['buckets'][ WPCPM_Ceiling::key( WPCPM_Sponsor_Event_Planner::CEILING, (string) MARKED_REP ) ] = WPCPM_Sponsor_Event_Planner::PER_HOUR;
+			$left = press( 'handle_plan', typed_form( TYPED_OTHER, array( 'wpcpm_sevent_title' => 'My careful plan' ) ), MARKED_REP );
+		} finally {
+			unset( $GLOBALS['same_hour'] );
+		}
+		$rows     = rows_of( draw( TYPED_OTHER, MARKED_REP ), 'wpcpm-sevent-new' );
+		$sentence = vsprintf( WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling'][1], $left[4] );
+		$time     = wp_date( '' !== trim( (string) get_option( 'time_format' ) ) ? trim( (string) get_option( 'time_format' ) ) : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), WPCPM_Mentor_Availability::viewer_timezone( MARKED_REP ) );
+		return array( $left[0], $rows['title'], $rows['date'], $rows['link'] === esc_attr( 'https://call.example/typed?pwd=a%2Fb&x="><b>bold</b>' ), $left[4][0], 0 === strpos( $sentence, 'You can plan or change events 10 times an hour. Your plan is still here: send it again after ' ), $time === $left[4][1], $time . '.' === substr( $sentence, -strlen( $time ) - 1 ) );
+	},
+	array( 'sevent-ceiling', 'My careful plan', '2026-12-01', true, '10', true, true, true )
+);
+ck(
+	'a cancel past the ceiling says what to try again, not that a plan is kept',
+	static function () {
+		$GLOBALS['same_hour'] = true;
+		try {
+			$GLOBALS['buckets'][ WPCPM_Ceiling::key( WPCPM_Sponsor_Event_Planner::CEILING, (string) MARKED_REP ) ] = WPCPM_Sponsor_Event_Planner::PER_HOUR;
+			$left = press( 'handle_cancel', array( 'wpcpm_sponsor' => TYPED_OTHER, 'wpcpm_sevent_id' => '0' ), MARKED_REP );
+		} finally {
+			unset( $GLOBALS['same_hour'] );
+		}
+		$time = wp_date( '' !== trim( (string) get_option( 'time_format' ) ) ? trim( (string) get_option( 'time_format' ) ) : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), WPCPM_Mentor_Availability::viewer_timezone( MARKED_REP ) );
+		return array( $left[0], vsprintf( WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling-cancel'][1], $left[4] ), $time === $left[4][1] );
+	},
+	array( 'sevent-ceiling-cancel', 'Events can be changed 10 times an hour. Try this cancel again after ' . wp_date( '' !== trim( (string) get_option( 'time_format' ) ) ? trim( (string) get_option( 'time_format' ) ) : 'H:i', WPCPM_Ceiling::resets_at( HOUR_IN_SECONDS ), WPCPM_Mentor_Availability::viewer_timezone( MARKED_REP ) ) . '.', true )
+);
+ck(
+	'a refused field is marked at the field',
+	static function () {
+		press( 'handle_plan', typed_form( TYPED_OTHER, array( 'wpcpm_sevent_title' => '', 'wpcpm_sevent_places' => '25', 'wpcpm_sevent_minutes' => '60' ) ), MARKED_REP );
+		$html = draw( TYPED_OTHER, MARKED_REP );
+		return array(
+			1 === preg_match( '#<input type="text" id="wpcpm-sevent-new-title"[^>]*aria-invalid="true"[^>]*aria-describedby="wpcpm-sevent-new-title-problem"#', $html ),
+			false !== strpos( $html, '<p class="wpcpm-field__problem" id="wpcpm-sevent-new-title-problem">Give your event a title.</p>' ),
+			1 === substr_count( $html, '<a href="#wpcpm-sevent-new-title">Title</a>: Give your event a title.' ),
+			1 === preg_match( '#<h4 class="wpcpm-errors__title">One answer needs a change</h4>#', $html ),
+			false === strpos( (string) between_markup( $html, 'id="wpcpm-sevent-new-places"', '/>' ), 'aria-invalid' ),
+			1 === preg_match( '#id="wpcpm-sevent-new-places"[^>]*aria-describedby="wpcpm-sevent-new-places-note"#', $html ),
+			1 === preg_match( '#id="wpcpm-sevent-new-time"[^>]*aria-describedby="wpcpm-sevent-new-zone"#', $html ),
+			1 === preg_match( '#<textarea id="wpcpm-sevent-new-description"[^>]*aria-describedby="wpcpm-sevent-new-description-note"#', $html ),
+			1 === preg_match( '#id="wpcpm-sevent-new-link"[^>]*aria-describedby="wpcpm-sevent-new-link-note"#', $html ),
+		);
+	},
+	array( true, true, true, true, true, true, true, true, true )
+);
+ck(
+	'a refused field is not marked on a look made once its typing is gone: the form shows the stored values and no summary',
+	static function () {
+		press( 'handle_plan', typed_form( TYPED_OTHER, array( 'wpcpm_sevent_title' => '' ) ), MARKED_REP );
+		draw( TYPED_OTHER, MARKED_REP );
+		$html = draw( TYPED_OTHER, MARKED_REP );
+		return array( false === strpos( $html, 'aria-invalid' ), false === strpos( $html, 'wpcpm-errors' ) );
+	},
+	array( true, true )
+);
+/** The markup between the first `$open` and the next `$close` after it; '' when `$open` is absent. */
+function between_markup( $html, $open, $close ) { $at = strpos( $html, $open ); if ( false === $at ) { return ''; } $rest = substr( $html, $at + strlen( $open ) ); $end = strpos( $rest, $close ); return false === $end ? $rest : substr( $rest, 0, $end ); }
+
 echo "\n=== The words ===\n";
 
-$flashed = array( 'sevent-sent', 'sevent-changed', 'sevent-unchanged', 'sevent-canceled', 'sevent-fields', 'sevent-no-tier', 'sevent-one-open', 'sevent-one-open-term', 'sevent-one-open-more', 'sevent-term-used', 'sevent-term-used-more', 'sevent-past-term', 'sevent-before-term', 'sevent-in-past', 'sevent-busy', 'sevent-was-canceled', 'sevent-past', 'sevent-shrink', 'sevent-failed', 'sevent-ceiling', 'sevent-plan-title-loss', 'sevent-plan-description-loss', 'sevent-change-title-loss', 'sevent-change-description-loss', 'tier-off', 'refused' );
+$flashed = array( 'sevent-sent', 'sevent-changed', 'sevent-unchanged', 'sevent-canceled', 'sevent-fields', 'sevent-no-tier', 'sevent-one-open', 'sevent-one-open-term', 'sevent-one-open-more', 'sevent-term-used', 'sevent-term-used-more', 'sevent-past-term', 'sevent-before-term', 'sevent-in-past', 'sevent-busy', 'sevent-was-canceled', 'sevent-past', 'sevent-shrink', 'sevent-failed', 'sevent-ceiling', 'sevent-ceiling-cancel', 'sevent-plan-title-loss', 'sevent-plan-description-loss', 'sevent-change-title-loss', 'sevent-change-description-loss', 'tier-off', 'refused' );
 
 ck(
 	'a sentence for every status the three presses flash, each a notice class and words, and nothing more',
@@ -3859,9 +3970,9 @@ ck(
 	)
 );
 ck(
-	'the ceiling is said as the Mentors card says its own, "Five a day is the limit. Try again tomorrow.", per hour where that card counts per day',
-	static function () { return WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling']; },
-	array( 'error', 'Ten an hour is the limit. Try again in an hour.' )
+	'the ceiling names its action and reads its count from the constant the press claims: ten times an hour, with the time the hour turns where the plan can be sent again',
+	static function () { return array( WPCPM_Sponsor_Event_Planner::PER_HOUR, WPCPM_Sponsor_Event_Planner::messages()['sevent-ceiling'] ); },
+	array( 10, array( 'error', 'You can plan or change events %1$s times an hour. Your plan is still here: send it again after %2$s.' ) )
 );
 ck(
 	'a change that changes nothing says so, in the words and the notice class the profile card says it in on the same page',

@@ -32,6 +32,39 @@ class WPCPM_Mail {
 	/** Option holding user IDs waiting for an invitation. */
 	const QUEUE_OPTION = 'wpcpm_invite_queue';
 
+	/**
+	 * The option row that holds the queue while one request reads, changes and writes it back
+	 * (`with_queue_lock()`, through `WPCPM_Lock`, 1.123.58), and how long it holds at most, in
+	 * seconds. The row is gone once the lock is let go; uninstall deletes one a request died holding.
+	 */
+	const QUEUE_LOCK     = 'wpcpm_invite_queue_lock';
+	const QUEUE_LOCK_TTL = 30;
+
+	/**
+	 * How many times a queueing and a drain try for the queue's lock, 50 milliseconds apart, and how
+	 * many times a Stop does (`clear_queue()`, the fix wave of 1.123.58): sixty each, three seconds. A
+	 * live request holds the lock for one read and one write, so three seconds outlast any of them,
+	 * and a refusal is left to a lock a request that died left behind, whose row lives
+	 * `QUEUE_LOCK_TTL` seconds at most; the person who pressed is then told the queue was busy, or,
+	 * for a Stop, to press again.
+	 */
+	const QUEUE_LOCK_TRIES = 60;
+	const CLEAR_LOCK_TRIES = 60;
+
+	/**
+	 * What `queue_invite()` answers when the queue's lock could not be taken, so nothing was queued
+	 * (the fix wave of 1.123.58): distinct from 1, queued, and 0, already waiting or no account named.
+	 */
+	const QUEUE_BUSY = -1;
+
+	/**
+	 * Whether the last queueing (`queue_invite()` or `queue_invites()`) found the queue's lock taken,
+	 * so it queued nothing: read by its caller right after, through `queue_was_busy()`.
+	 *
+	 * @var bool
+	 */
+	private static $queue_busy = false;
+
 	/** Cron hook that drains the invitation queue. */
 	const CRON_QUEUE = 'wpcpm_drain_invite_queue';
 
@@ -99,6 +132,15 @@ class WPCPM_Mail {
 	const ACTION_DISMISS = 'wpcpm_dismiss_invite_run';
 
 	/**
+	 * The AJAX action the invitations card's poller reads a run's progress through every ten seconds,
+	 * in place of the page reload it replaced (ADM-01, LOG-04, 1.123.58), and its nonce's action.
+	 */
+	const ACTION_PROGRESS = 'wpcpm_invite_progress';
+
+	/** How often the poller asks, in seconds. */
+	const PROGRESS_POLL = 10;
+
+	/**
 	 * What is currently being sent, if it is ours: the email's id in `WPCPM_Mail_Catalog`.
 	 *
 	 * Set immediately before handing a message to `wp_mail()` (and, for an invitation, in
@@ -126,6 +168,7 @@ class WPCPM_Mail {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_schedule_drain' ) );
 		add_action( 'admin_post_' . self::ACTION_STOP, array( __CLASS__, 'handle_stop' ) );
 		add_action( 'admin_post_' . self::ACTION_DISMISS, array( __CLASS__, 'handle_dismiss' ) );
+		add_action( 'wp_ajax_' . self::ACTION_PROGRESS, array( __CLASS__, 'handle_progress' ) );
 
 		// Before wpcomsh's own `login_init` callback, which runs at -1. See the method.
 		add_action( 'login_init', array( __CLASS__, 'keep_password_links_working' ), -2 );
@@ -567,27 +610,121 @@ class WPCPM_Mail {
 	 * sends them a batch at a time.
 	 *
 	 * @param int $user_id User ID.
+	 * @return int 1 when the account was queued, 0 when it was waiting already or no account was
+	 *             named, or `QUEUE_BUSY` when the queue's lock could not be taken, so nothing was
+	 *             queued and the caller says so.
 	 */
 	public static function queue_invite( $user_id ) {
-		$user_id = (int) $user_id;
+		$user_id          = (int) $user_id;
+		self::$queue_busy = false;
 
 		if ( ! $user_id ) {
-			return;
+			return 0;
 		}
 
-		$queue = self::queue();
+		$added = false;
 
-		if ( in_array( $user_id, $queue, true ) ) {
-			return;
+		// Under the queue's lock (1.123.58): a queueing that cannot take it writes nothing, and the
+		// account is left as one the queue passed over is, never invited, so the next bulk press
+		// reaches it. The answer says so, for the caller to tell the person who pressed.
+		$took = self::with_queue_lock(
+			static function () use ( $user_id, &$added ) {
+				$queue = self::queue();
+
+				if ( in_array( $user_id, $queue, true ) ) {
+					return;
+				}
+
+				$queue[] = $user_id;
+
+				update_option( self::QUEUE_OPTION, $queue, false );
+
+				$added = true;
+			}
+		);
+
+		if ( ! $took ) {
+			self::$queue_busy = true;
+
+			return self::QUEUE_BUSY;
 		}
 
-		$queue[] = $user_id;
-
-		update_option( self::QUEUE_OPTION, $queue, false );
+		if ( ! $added ) {
+			return 0;
+		}
 
 		// Cron only runs on a request, and the next one may be a while off on a quiet site.
 		// Asking for a run now means the first batch goes out promptly.
 		self::schedule_drain();
+
+		return 1;
+	}
+
+	/**
+	 * Whether the last queueing found the queue's lock taken, so it queued nothing (the fix wave of
+	 * 1.123.58): read right after `queue_invites()`, whose count alone cannot tell a lock refused from
+	 * accounts already invited, or after `queue_invite()`, whose answer says it too.
+	 *
+	 * @return bool
+	 */
+	public static function queue_was_busy() {
+		return self::$queue_busy;
+	}
+
+	/**
+	 * Run one read-modify-write of the queue under its lock (1.123.58).
+	 *
+	 * A sync queueing somebody while a drain wrote back the queue it had spliced lost the one queued
+	 * meanwhile: each wrote what it read. Every change to `QUEUE_OPTION` now runs here, under
+	 * `QUEUE_LOCK`, taken up to `QUEUE_LOCK_TRIES` times 50 milliseconds apart, or as many as the
+	 * caller asks (a Stop asks for more, `clear_queue()`). The queue is read again inside the
+	 * lock, past what this request's object cache holds of it, so the change is made to what the last
+	 * writer left: its copy of the option, and its note that the option is not there (`notoptions`),
+	 * which `delete_option()` leaves when a drain empties the queue and which `get_option()` reads
+	 * first. Left, a sync tick later in that request would read an empty queue, and its write, an
+	 * insert that overwrites the row, would drop everybody another request queued since. Nothing runs
+	 * when the lock cannot be taken.
+	 *
+	 * @param callable $work  The read-modify-write.
+	 * @param int      $tries How many times to try for the lock.
+	 * @return bool Whether the work ran.
+	 */
+	private static function with_queue_lock( callable $work, $tries = self::QUEUE_LOCK_TRIES ) {
+		$token = '';
+		$tries = max( 1, (int) $tries );
+
+		for ( $try = 0; $try < $tries; $try++ ) {
+			if ( $try > 0 ) {
+				usleep( 50000 );
+			}
+
+			$token = (string) WPCPM_Lock::take( self::QUEUE_LOCK, self::QUEUE_LOCK_TTL );
+
+			if ( '' !== $token ) {
+				break;
+			}
+		}
+
+		if ( '' === $token ) {
+			return false;
+		}
+
+		try {
+			wp_cache_delete( self::QUEUE_OPTION, 'options' );
+
+			$absent = wp_cache_get( 'notoptions', 'options' );
+
+			if ( is_array( $absent ) && isset( $absent[ self::QUEUE_OPTION ] ) ) {
+				unset( $absent[ self::QUEUE_OPTION ] );
+				wp_cache_set( 'notoptions', $absent, 'options' );
+			}
+
+			$work();
+		} finally {
+			WPCPM_Lock::release( self::QUEUE_LOCK, $token );
+		}
+
+		return true;
 	}
 
 	/**
@@ -611,11 +748,44 @@ class WPCPM_Mail {
 	 *
 	 * @param int[] $user_ids Users to invite.
 	 * @return int How many were added, after dropping duplicates, anyone queued, anyone sent to, and
-	 *             anyone whose invitation is held.
+	 *             anyone whose invitation is held. 0 too when the queue's lock could not be taken,
+	 *             which `queue_was_busy()` says right after.
 	 */
 	public static function queue_invites( array $user_ids ) {
+		$ids              = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		$fresh            = array();
+		self::$queue_busy = false;
+
+		// Under the queue's lock (1.123.58), as `queue_invite()` writes it: none is queued when the
+		// lock cannot be taken, and `queue_was_busy()` says so to the caller.
+		$took = self::with_queue_lock(
+			static function () use ( $ids, &$fresh ) {
+				$fresh = self::queue_fresh( $ids );
+			}
+		);
+
+		if ( ! $took && ! empty( $ids ) ) {
+			self::$queue_busy = true;
+		}
+
+		if ( empty( $fresh ) ) {
+			return 0;
+		}
+
+		self::schedule_drain();
+
+		return count( $fresh );
+	}
+
+	/**
+	 * The write of `queue_invites()`, made under the queue's lock: who of these accounts is added, and
+	 * the run the screen reports on, counting everybody now waiting.
+	 *
+	 * @param int[] $ids Users to invite, as integers, each once.
+	 * @return int[] The accounts added.
+	 */
+	private static function queue_fresh( array $ids ) {
 		$queue = self::queue();
-		$ids   = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
 		$fresh = array();
 
 		foreach ( array_diff( $ids, $queue ) as $id ) {
@@ -637,7 +807,7 @@ class WPCPM_Mail {
 		}
 
 		if ( empty( $fresh ) ) {
-			return 0;
+			return array();
 		}
 
 		$queue = array_merge( $queue, $fresh );
@@ -658,9 +828,7 @@ class WPCPM_Mail {
 			false
 		);
 
-		self::schedule_drain();
-
-		return count( $fresh );
+		return $fresh;
 	}
 
 	/**
@@ -727,25 +895,44 @@ class WPCPM_Mail {
 	 * message.
 	 */
 	public static function drain_queue() {
-		$queue = self::queue();
+		$batch = array();
+		$left  = 0;
 
-		if ( empty( $queue ) ) {
-			delete_option( self::QUEUE_OPTION );
+		// The splice and its write-back run under the queue's lock (1.123.58), so an account queued
+		// meanwhile is written after them and kept. A drain that cannot take the lock sends nothing
+		// this run and books the next itself: the request holding the lock may be a queueing that adds
+		// nobody, which books none.
+		$took = self::with_queue_lock(
+			static function () use ( &$batch, &$left ) {
+				$queue = self::queue();
+				$batch = array_splice( $queue, 0, self::QUEUE_BATCH );
+				$left  = count( $queue );
+
+				// Written back *before* sending. A batch that dies halfway - a fatal, a timeout, a
+				// mail host refusing the connection - has its names out of the queue and the next run
+				// on the clock, so that run moves on instead of retrying the same ten for ever.
+				if ( empty( $queue ) ) {
+					delete_option( self::QUEUE_OPTION );
+				} else {
+					update_option( self::QUEUE_OPTION, $queue, false );
+				}
+			}
+		);
+
+		if ( ! $took ) {
+			self::schedule_drain();
+
+			return;
+		}
+
+		if ( empty( $batch ) ) {
 			self::finish_run();
 
 			return;
 		}
 
-		$batch = array_splice( $queue, 0, self::QUEUE_BATCH );
-
-		// Written back, and the next run booked, *before* sending. A batch that dies halfway - a fatal,
-		// a timeout, a mail host refusing the connection - has its names out of the queue and the next
-		// run on the clock, so that run moves on instead of retrying the same ten for ever.
-		if ( empty( $queue ) ) {
-			delete_option( self::QUEUE_OPTION );
-		} else {
-			update_option( self::QUEUE_OPTION, $queue, false );
-
+		// The next run is booked before sending too, for the same reason.
+		if ( $left > 0 ) {
 			// With an event on the clock for the whole send, `schedule_drain()` books nothing, so no
 			// second drain starts beside a slow one. The runner took the running event off the clock,
 			// but a request, or a sync queueing somebody, may have booked one a minute out since;
@@ -779,7 +966,7 @@ class WPCPM_Mail {
 		// The last batch books nothing. The run is stamped finished only once that batch has been sent,
 		// not when the queue option was emptied above, which is *before* sending: a screen reading
 		// that moment would say "finished" mid-send.
-		if ( empty( $queue ) ) {
+		if ( 0 === $left ) {
 			self::finish_run();
 		}
 	}
@@ -1101,6 +1288,27 @@ class WPCPM_Mail {
 	}
 
 	/**
+	 * The sentence for an invitation sent: that it went, to whom where the screen knows the person, and
+	 * that it replaces the link in any earlier invitation.
+	 *
+	 * @param string $name The person's display name, or '' for the sentence that names nobody.
+	 * @return string
+	 */
+	public static function invited_sentence( $name = '' ) {
+		$then = __( 'It replaces the link in any earlier invitation, so ask them to use this newest email.', 'wpcredits-program-manager' );
+
+		if ( '' === (string) $name ) {
+			return __( 'Invitation email sent.', 'wpcredits-program-manager' ) . ' ' . $then;
+		}
+
+		return sprintf(
+			/* translators: %s: the display name of the person the invitation went to. */
+			__( 'Invitation email sent to %s.', 'wpcredits-program-manager' ),
+			(string) $name
+		) . ' ' . $then;
+	}
+
+	/**
 	 * The three notices a Resend invite press can leave, worded once for the Students, Mentors,
 	 * Institutions and Sponsors screens: sent, too soon, and refused by the mail host.
 	 *
@@ -1111,7 +1319,7 @@ class WPCPM_Mail {
 	 */
 	public static function invite_notices() {
 		return array(
-			'invited'             => array( 'success', __( 'Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.', 'wpcredits-program-manager' ) ),
+			'invited'             => array( 'success', self::invited_sentence() ),
 			'invite-too-soon'     => array(
 				'warning',
 				sprintf(
@@ -1173,16 +1381,82 @@ class WPCPM_Mail {
 	public static function handle_stop() {
 		self::verify( self::ACTION_STOP );
 
-		self::clear_queue();
-		self::dismiss_run();
+		// A Stop that cannot take the queue's lock leaves the run as it was and says to press again
+		// (the fix wave of 1.123.58): a drain holding the lock would write its rest back after the
+		// delete, and the next drains would send what the person was told had stopped.
+		$stopped = self::clear_queue();
+
+		if ( $stopped ) {
+			self::dismiss_run();
+		}
 
 		$channel = WPCPM_Request::posted_key( self::FLASH_FIELD );
 
 		if ( '' !== $channel ) {
-			WPCPM_Flash::set( $channel, 'invites-stopped' );
+			WPCPM_Flash::set( $channel, $stopped ? 'invites-stopped' : 'invites-stop-busy' );
 		}
 
 		self::back();
+	}
+
+	/**
+	 * Where the bulk invitation run stands, as the card prints it and its poller reads it (1.123.58).
+	 *
+	 * `running` is whether a run is sending; `sent`, `total` and `waiting` are the card's own figures;
+	 * `percent` is the bar's; `count` is the card's count line, `detail` the line under the bar, and
+	 * `said` the sentence a screen reader is told at each quarter and at the finish. Read-only: the request that asks spawns WordPress's
+	 * cron as any page load does, which is what moves the queue, as the reload did.
+	 *
+	 * @return array{running: bool, sent: int, total: int, waiting: int, percent: int, count: string, detail: string, said: string}
+	 */
+	public static function invite_progress() {
+		$run     = self::run();
+		$waiting = self::queued();
+		$total   = empty( $run ) ? 0 : (int) $run['total'];
+		$done    = max( 0, $total - $waiting );
+		$sent    = empty( $run ) ? 0 : max( 0, $done - (int) $run['unsent'] );
+		$running = $waiting > 0 && ! empty( $run );
+
+		if ( ! empty( $run ) && ! $running ) {
+			$sent = max( 0, $total - (int) $run['unsent'] );
+		}
+
+		$next   = $running ? wp_next_scheduled( self::CRON_QUEUE ) : false;
+		$detail = $running ? sprintf(
+			/* translators: 1: how many are left, 2: batch size, 3: human time until the next batch. */
+			__( '%1$d still to go. They go out %2$d at a time, so this finishes on its own - you can leave this page. Next batch %3$s.', 'wpcredits-program-manager' ),
+			$waiting,
+			self::QUEUE_BATCH,
+			$next ? sprintf( /* translators: %s: human time difference. */ __( 'in about %s', 'wpcredits-program-manager' ), human_time_diff( time(), $next ) ) : __( 'shortly', 'wpcredits-program-manager' )
+		) : '';
+
+		return array(
+			'running' => $running,
+			'sent'    => $sent,
+			'total'   => $total,
+			'waiting' => $running ? $waiting : 0,
+			'percent' => $total > 0 ? (int) min( 100, round( ( ( $running ? $done : $total ) / $total ) * 100 ) ) : 0,
+			/* translators: 1: sent so far, 2: total in this run. */
+			'count'   => sprintf( __( 'Sending: %1$d of %2$d sent.', 'wpcredits-program-manager' ), $sent, $total ),
+			'detail'  => $detail,
+			/* translators: 1: invitations sent so far, 2: how many the run sends. */
+			'said'    => sprintf( __( 'Invitations sent: %1$d of %2$d.', 'wpcredits-program-manager' ), $sent, $total ),
+		);
+	}
+
+	/**
+	 * The AJAX answer the invitations card's poller reads (`invite_progress()`): the capability, then
+	 * the nonce, then the figures. A refused request answers 403, which stops the poller with its
+	 * sentence asking for a reload (assets/js/admin.js).
+	 */
+	public static function handle_progress() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_send_json_error( array( 'message' => __( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ) ), 403 );
+		}
+
+		check_ajax_referer( self::ACTION_PROGRESS, 'nonce' );
+
+		wp_send_json_success( self::invite_progress() );
 	}
 
 	/**
@@ -1341,35 +1615,35 @@ class WPCPM_Mail {
 		// A run in progress owns the card. Offering "send" while a send is under way is how the
 		// same people get two emails.
 		if ( $waiting > 0 && ! empty( $run ) ) {
-			$done    = max( 0, $run['total'] - $waiting );
-			$sent    = max( 0, $done - $run['unsent'] );
-			$percent = $run['total'] > 0 ? (int) round( ( $done / $run['total'] ) * 100 ) : 0;
-			$next    = wp_next_scheduled( self::CRON_QUEUE );
+			$progress = self::invite_progress();
+			/* translators: %d: how many are still queued. */
+			$stop_label = __( 'Stop and cancel the remaining %d', 'wpcredits-program-manager' );
 
+			// The poller's panel: assets/js/admin.js reads the figures every PROGRESS_POLL seconds through
+			// ACTION_PROGRESS and moves the count and the bar in place, and tells a screen reader at each
+			// quarter and at the finish; the page is never reloaded under the person (1.123.58).
 			printf(
-				'<p class="wpcpm-invites__count"><strong>%s</strong></p>',
-				esc_html(
-					sprintf(
-						/* translators: 1: sent so far, 2: total in this run. */
-						__( 'Sending: %1$d of %2$d sent.', 'wpcredits-program-manager' ),
-						$sent,
-						$run['total']
-					)
-				)
+				'<div class="wpcpm-invites__progress" data-wpcpm-invite-poll data-action="%1$s" data-nonce="%2$s" data-poll="%3$d" data-total="%4$d" data-stopped="%5$s" data-finished="%6$s" data-cleared="%7$s" data-stop-label="%8$s" aria-busy="true">',
+				esc_attr( self::ACTION_PROGRESS ),
+				esc_attr( wp_create_nonce( self::ACTION_PROGRESS ) ),
+				(int) self::PROGRESS_POLL,
+				(int) $progress['total'],
+				esc_attr__( 'The count stopped updating.', 'wpcredits-program-manager' ),
+				esc_attr__( 'This run has finished: every invitation in it has been sent or passed over.', 'wpcredits-program-manager' ),
+				esc_attr__( 'This run was stopped, or cleared in another tab. The count above is where it ended.', 'wpcredits-program-manager' ),
+				// The Stop button's words, which the poller counts again from each answer (1.123.58, trial T10).
+				esc_attr( $stop_label )
 			);
 
 			printf(
-				'<div class="wpcpm-invites__bar" role="progressbar" aria-valuenow="%1$d" aria-valuemin="0" aria-valuemax="100" aria-label="%3$s"><span style="width:%1$d%%"></span></div><p class="description">%2$s</p>',
-				(int) $percent,
-				esc_html(
-					sprintf(
-						/* translators: 1: how many are left, 2: batch size, 3: human time until the next batch. */
-						__( '%1$d still to go. They go out %2$d at a time, so this finishes on its own - you can leave this page. Next batch %3$s.', 'wpcredits-program-manager' ),
-						$waiting,
-						self::QUEUE_BATCH,
-						$next ? sprintf( /* translators: %s: human time difference. */ __( 'in about %s', 'wpcredits-program-manager' ), human_time_diff( time(), $next ) ) : __( 'shortly', 'wpcredits-program-manager' )
-					)
-				),
+				'<p class="wpcpm-invites__count"><strong data-wpcpm-invite-count>%s</strong></p>',
+				esc_html( $progress['count'] )
+			);
+
+			printf(
+				'<div class="wpcpm-invites__bar" role="progressbar" aria-valuenow="%1$d" aria-valuemin="0" aria-valuemax="100" aria-label="%3$s" data-wpcpm-invite-bar><span style="width:%1$d%%" data-wpcpm-invite-fill></span></div><p class="description" data-wpcpm-invite-detail>%2$s</p>',
+				(int) $progress['percent'],
+				esc_html( $progress['detail'] ),
 				esc_attr__( 'Invitations sent', 'wpcredits-program-manager' )
 			);
 
@@ -1389,20 +1663,22 @@ class WPCPM_Mail {
 			}
 
 			printf(
-				'<button type="submit" class="button">%s</button>',
-				esc_html(
-					sprintf(
-						/* translators: %d: how many are still queued. */
-						__( 'Stop and cancel the remaining %d', 'wpcredits-program-manager' ),
-						$waiting
-					)
-				)
+				'<button type="submit" class="button" data-wpcpm-invite-stop>%s</button>',
+				esc_html( sprintf( $stop_label, $waiting ) )
 			);
 			echo '</form>';
 
-			// Cron runs on requests, so the page has to come back for the count to move. Only
-			// while something is actually in flight - a page that reloads for ever is its own bug.
-			echo '<script>window.setTimeout(function(){window.location.reload();},30000);</script>';
+			// Closes the poller's panel. No reload any more (1.123.58): the poller's request is a request,
+			// which spawns cron as the reload did, and the link is the way to the full card for a page
+			// with scripts off, or one whose poller stopped.
+			printf(
+				'<p class="wpcpm-invites__refresh" data-wpcpm-invite-refresh>%s</p></div>',
+				sprintf(
+					/* translators: %s: a link that loads this page again, its words "refresh the page". */
+					esc_html__( 'To see the latest count, %s.', 'wpcredits-program-manager' ),
+					'<a href="">' . esc_html__( 'refresh the page', 'wpcredits-program-manager' ) . '</a>'
+				)
+			);
 			echo '</div>';
 
 			return;
@@ -1688,11 +1964,30 @@ class WPCPM_Mail {
 	}
 
 	/**
-	 * Drop everybody from the queue.
+	 * Drop everybody from the queue, under the queue's lock (the fix wave of 1.123.58).
+	 *
+	 * A delete made beside a drain that holds the lock was undone by the drain's write-back of the
+	 * queue it spliced. So the delete waits for the lock, `CLEAR_LOCK_TRIES` times 50 milliseconds
+	 * apart, and a clear that cannot take it changes nothing and answers false. Uninstall forces the
+	 * delete (`$force`), without the lock, since nothing of the plugin's may run after it.
+	 *
+	 * @param bool $force Delete the queue whether or not anybody holds its lock.
+	 * @return bool Whether the queue was cleared.
 	 */
-	public static function clear_queue() {
-		delete_option( self::QUEUE_OPTION );
+	public static function clear_queue( $force = false ) {
+		$deleted = static function () {
+			delete_option( self::QUEUE_OPTION );
+		};
+
+		if ( $force ) {
+			$deleted();
+		} elseif ( ! self::with_queue_lock( $deleted, self::CLEAR_LOCK_TRIES ) ) {
+			return false;
+		}
+
 		wp_clear_scheduled_hook( self::CRON_QUEUE );
+
+		return true;
 	}
 
 	/**

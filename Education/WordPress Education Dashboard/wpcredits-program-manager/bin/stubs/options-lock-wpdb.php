@@ -1,7 +1,7 @@
 <?php
 /**
  * A wpdb for the suites, as far as WPCPM_Lock reaches it: the options table each suite already keeps
- * in `$GLOBALS['opts']`, and the four statements the lock sends, each run as one statement, as the
+ * in `$GLOBALS['opts']`, and the five statements the lock sends, each run as one statement, as the
  * database runs it.
  *
  * - `INSERT IGNORE INTO wp_options (option_name, option_value, autoload) VALUES (...)`: writes the
@@ -11,6 +11,8 @@
  *   or earlier, a value that starts with no number reading as 0, as MySQL's and SQLite's CAST read
  *   one; answers 1, or 0. In a strict session (`$strict`) a value the CAST has to cut short fails
  *   the statement, as MySQL's error 1292 does.
+ * - `UPDATE wp_options SET option_value = ... WHERE option_name = ... AND option_value = ...`: moves
+ *   a held lock's time on, rewriting the row only while it holds that value; answers 1, or 0.
  * - `DELETE FROM wp_options WHERE option_name = ... AND option_value = ...`: deletes the row only
  *   while it holds that value; answers 1, or 0.
  * - `SELECT option_value FROM wp_options WHERE option_name = ...`, through `get_var()`: the value, or
@@ -124,6 +126,19 @@ class WPCPM_Test_Options_Wpdb {
 			return 1;
 		}
 
+		if ( preg_match( '/^UPDATE ' . $this->options . ' SET option_value = ' . $q . ' WHERE option_name = ' . $q . ' AND option_value = ' . $q . '$/', $sql, $m ) ) {
+			$this->takeover();
+			$this->sent( 'extend', $sql );
+			$name = stripslashes( $m[2] );
+
+			if ( ! array_key_exists( $name, $GLOBALS['opts'] ) || (string) $GLOBALS['opts'][ $name ] !== stripslashes( $m[3] ) ) {
+				return 0;
+			}
+
+			$GLOBALS['opts'][ $name ] = stripslashes( $m[1] );
+			return 1;
+		}
+
 		if ( preg_match( '/^DELETE FROM ' . $this->options . ' WHERE option_name = ' . $q . ' AND option_value = ' . $q . '$/', $sql, $m ) ) {
 			$this->takeover();
 			$this->sent( 'delete', $sql );
@@ -175,7 +190,7 @@ class WPCPM_Test_Options_Wpdb {
 	/**
 	 * Keep a statement, and its kind among a send's events when a check records them.
 	 *
-	 * @param string $kind insert, update, delete or select.
+	 * @param string $kind insert, update, extend, delete or select.
 	 * @param string $sql  The statement.
 	 */
 	private function sent( $kind, $sql ) {

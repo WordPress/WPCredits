@@ -351,6 +351,12 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					/* translators: %s: the error that stopped the run. */
 					'failed'       => __( 'The run stopped: %s', 'wpcredits-program-manager' ),
 					'promoting'    => __( 'Promoting…', 'wpcredits-program-manager' ),
+					/* translators: %s: the mentor's name. */
+					'promotedName' => __( 'Promoted %s.', 'wpcredits-program-manager' ),
+					/* translators: %s: number of mentors promoted. */
+					'promotedOne'  => _n( 'Promoted %s mentor.', 'Promoted %s mentors.', 1, 'wpcredits-program-manager' ),
+					/* translators: %s: number of mentors promoted. */
+					'promotedMany' => _n( 'Promoted %s mentor.', 'Promoted %s mentors.', 2, 'wpcredits-program-manager' ),
 					'promote'      => __( 'Promote', 'wpcredits-program-manager' ),
 					'confirmApply' => sprintf(
 						/* translators: %s: target status name, e.g. "Active". */
@@ -804,10 +810,6 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Stored results cleared.', 'wpcredits-program-manager' ); ?></p></div>
 			<?php endif; ?>
 
-			<?php if ( WPCPM_Flash::take( 'checker-webhook-refused' ) ) : ?>
-				<div class="notice notice-error"><p><?php esc_html_e( 'The Slack webhook was not saved: only an incoming webhook address starting https://hooks.slack.com/services/ is accepted. The one saved before is kept.', 'wpcredits-program-manager' ); ?></p></div>
-			<?php endif; ?>
-
 			<?php if ( self::standalone_plugin_is_active() ) : ?>
 				<div class="notice notice-warning">
 					<p>
@@ -933,7 +935,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					<span class="wpcpm-checker-progress__label" id="wpcpm-checker-progress-label"></span>
 					<span class="wpcpm-checker-progress__count" id="wpcpm-checker-progress-count"></span>
 				</div>
-				<div class="wpcpm-checker-progress__bar" role="progressbar" id="wpcpm-checker-progress-bar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+				<div class="wpcpm-checker-progress__bar" role="progressbar" id="wpcpm-checker-progress-bar" aria-labelledby="wpcpm-checker-progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
 					<span id="wpcpm-checker-progress-fill"></span>
 				</div>
 				<div class="wpcpm-checker-progress__meta">

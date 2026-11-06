@@ -268,7 +268,7 @@ final class WPCPM_Administrators_Dashboard {
 			// sentence and a way back in, not a dead end nobody without an account can do
 			// anything with.
 			return self::notice(
-				__( 'Please log in to see the Administrator Dashboard.', 'wpcredits-program-manager' ),
+				__( 'Log in to see the Administrator Dashboard.', 'wpcredits-program-manager' ),
 				wp_login_url( get_permalink() ),
 				__( 'Log in', 'wpcredits-program-manager' )
 			);
@@ -282,6 +282,8 @@ final class WPCPM_Administrators_Dashboard {
 
 		$data   = WPCPM_Administrators_Cards::collect();
 		$counts = WPCPM_Administrators_Cards::counts( $data );
+
+		WPCPM_Dashboard_Card::forget();
 
 		ob_start();
 
@@ -302,7 +304,10 @@ final class WPCPM_Administrators_Dashboard {
 		// sheets already dress.
 		printf( '<p class="wpcpm-dashboard__intro">%s</p>', esc_html__( 'Everything waiting for an Administrator, what to watch, and the program\'s numbers, read from the site and Airtable.', 'wpcredits-program-manager' ) );
 
+		// The outcome of a decision is held for the card it came from, which prints it at the top of its
+		// body; the slot says it here, where it was, only when no card did (SDB-02, 1.123.58).
 		self::render_messages();
+		echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
 
 		WPCPM_Administrators_Cards::render_strip( $counts );
 
@@ -334,7 +339,7 @@ final class WPCPM_Administrators_Dashboard {
 
 		echo '</div>';
 
-		return (string) ob_get_clean();
+		return WPCPM_Dashboard_Card::settle( (string) ob_get_clean() );
 	}
 
 	/**
@@ -412,6 +417,8 @@ final class WPCPM_Administrators_Dashboard {
 	 */
 	private static function render_messages() {
 		$status = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+		$card   = WPCPM_Dashboard_Card::targeted();
+		$held   = false;
 
 		if ( '' !== $status ) {
 			$messages = array();
@@ -472,23 +479,25 @@ final class WPCPM_Administrators_Dashboard {
 					$sentence = (string) WPCPM_Sponsor_Application::sentence_for( $status, $sentence );
 				}
 
-				printf(
-					'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s</p>',
-					esc_attr( (string) $messages[ $status ][0] ),
-					esc_html( $sentence )
-				);
+				WPCPM_Dashboard_Card::hold( $card, (string) $messages[ $status ][0], $sentence );
+
+				$held = '' !== trim( $sentence );
 			}
 		}
 
-		self::render_report_message();
+		self::render_report_message( $card, $held );
 	}
 
 	/**
 	 * What a refused Draft now left to say, read on the semester report screen's own flash
 	 * channel and in its own words: `message_for()` is the one place that decides what a
 	 * status there means, and this page must not spell the same refusal differently.
+	 *
+	 * @param string $card The card the handler named, or ''.
+	 * @param bool   $held Whether a status of the dashboard's own channel is held already, which the
+	 *                     refusal is said after.
 	 */
-	private static function render_report_message() {
+	private static function render_report_message( $card, $held ) {
 		if ( ! class_exists( 'WPCPM_Semester_Report_Screen' ) || ! method_exists( 'WPCPM_Semester_Report_Screen', 'message_for' ) ) {
 			return;
 		}
@@ -499,21 +508,22 @@ final class WPCPM_Administrators_Dashboard {
 			return;
 		}
 
-		list( $class, $text ) = WPCPM_Semester_Report_Screen::message_for( $flash );
+		list( , $text ) = WPCPM_Semester_Report_Screen::message_for( $flash );
 
 		if ( '' === $text ) {
 			return;
 		}
 
 		// Only bounce() honors the return field, so every report message that lands here is a
-		// refusal: a successful Draft now opens the new draft in the editor instead. The error
-		// tone is what the theme colors; the status keeps the screen's own modifier for a
-		// rule that wants one sentence in particular.
-		printf(
-			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error wpcpm-dashboard__message--%1$s">%2$s</p>',
-			esc_attr( $class ),
-			esc_html( $text )
-		);
+		// refusal: a successful Draft now opens the new draft in the editor instead. It is held as an
+		// error, for the card it came from, or said after the status of the page's own channel held
+		// already, as both were printed before the outcomes moved into the cards (the fix wave of
+		// 1.123.58).
+		if ( $held ) {
+			WPCPM_Dashboard_Card::also( $card, 'error', $text );
+		} else {
+			WPCPM_Dashboard_Card::hold( $card, 'error', $text );
+		}
 	}
 
 	/**

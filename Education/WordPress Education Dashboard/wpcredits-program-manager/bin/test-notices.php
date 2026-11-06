@@ -86,7 +86,7 @@ function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
-function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
+function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; $GLOBALS['option_writes'][] = $k; return true; }
 function wp_style_is( $h, $l = 'enqueued' ) { return false; }
 function wp_register_style() {} function wp_enqueue_style() {}
 function wp_timezone_string() { return 'UTC'; }
@@ -96,9 +96,15 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function number_format_i18n( $n ) { return (string) $n; }
 function wp_trim_words( $t, $n = 55, $more = null ) { return $t; }
 function wp_strip_all_tags( $t ) { return strip_tags( (string) $t ); }
-function wp_editor() {}
-function submit_button() {}
-function wp_nonce_field() {}
+function wp_editor( $content, $id, $settings = array() ) { echo '<textarea id="' . esc_attr( $id ) . '" name="' . esc_attr( $settings['textarea_name'] ) . '">' . esc_textarea( $content ) . '</textarea>'; }
+function submit_button( $text = null, $type = 'primary', $name = 'submit', $wrap = true, $other = null ) { echo '<button type="submit" id="' . esc_attr( is_array( $other ) && isset( $other['id'] ) ? $other['id'] : $name ) . '" class="button button-primary">' . esc_html( $text ) . '</button>'; }
+function wp_nonce_field( $a = -1, $n = '_wpnonce' ) { echo '<input type="hidden" name="' . esc_attr( $n ) . '" value="nonce-' . esc_attr( $a ) . '" />'; }
+function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['nonce_checked'][] = $a; return true; }
+class WPCPM_Test_Stop extends Exception {}
+function wp_die( $m = '', $c = 0 ) { throw new WPCPM_Test_Stop( 'die ' . $c ); }
+function wp_safe_redirect( $u ) { throw new WPCPM_Test_Stop( 'redirect' ); }
+function wp_slash( $v ) { return $v; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 
 /**
  * Just enough `$wpdb` for the recovery's one query.
@@ -139,6 +145,7 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	}
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-notices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
@@ -194,8 +201,8 @@ function ck( $label, $actual, $expected ) {
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
 	if ( ! $ok ) {
-		echo "       expected: " . implode( ', ', $expected ) . ( $expected ? '' : '(none)' ) . "\n";
-		echo "       actual:   " . implode( ', ', $actual ) . ( $actual ? '' : '(none)' ) . "\n";
+		echo "       expected: " . var_export( $expected, true ) . "\n";
+		echo "       actual:   " . var_export( $actual, true ) . "\n";
 	}
 }
 
@@ -395,7 +402,7 @@ ck( 'the tool mounts the full classic editor with its media button',
     array( true, true, true ) );
 ck( 'the save checks a nonce and the manage capability',
     array(
-        (bool) strpos( $tool_src, 'check_admin_referer( self::NONCE, self::NONCE )' ),
+        (bool) strpos( $tool_src, "check_admin_referer( 'wpcpm_notice_' . \$audience, self::NONCE . '_' . \$audience )" ),
         (bool) strpos( $tool_src, 'current_user_can( WPCPM_Roles::CAP_MANAGE )' ),
     ),
     array( true, true ) );
@@ -403,7 +410,7 @@ ck( 'the save checks a nonce and the manage capability',
 // bar, so reloading the screen reports a save that did not happen.
 ck( 'the outcome is a flash, not a query argument',
     array(
-        (bool) strpos( $tool_src, 'WPCPM_Flash::set( self::FLASH' ),
+        (bool) preg_match( '/WPCPM_Flash::set\(\s+self::FLASH/', $tool_src ),
         (bool) strpos( $tool_src, "add_query_arg( 'saved'" ),
     ),
     array( true, false ) );
@@ -420,6 +427,126 @@ ck( 'notices are placed in the content, not above the header',
 ck( 'the content filter runs once, on the main singular query',
     array( (bool) preg_match( '/\$done \|\| ! is_singular\(\) \|\| ! is_main_query\(\) \|\| ! in_the_loop\(\)/', $pipeline ) ),
     array( true ) );
+
+/* ---- one form and one Save per audience (1.123.58) ---------------------- */
+
+echo "\n=== One form and one Save per audience ===\n";
+
+$GLOBALS['uid'] = 40;
+$full           = array( 'student' => 'Student text', 'mentor' => 'Mentor text', 'institution' => 'Institution text', 'sponsor' => 'Sponsor text', 'admin' => 'Admin text' );
+
+/** The tool's screen, as one request draws it. */
+function draw_notices() {
+	global $tool;
+	ob_start();
+	$tool->render_admin_page();
+	return (string) ob_get_clean();
+}
+
+/** The same person on the next request, so the flash can be read again. */
+function next_request( $run ) {
+	static $next = 900;
+	$from = $GLOBALS['uid'];
+	++$next;
+	$GLOBALS['umeta'][ $next ] = isset( $GLOBALS['umeta'][ $from ] ) ? $GLOBALS['umeta'][ $from ] : array();
+	$GLOBALS['users'][ $next ] = clone $GLOBALS['users'][ $from ];
+	$GLOBALS['users'][ $next ]->ID = $next;
+	$GLOBALS['manage'][] = $next;
+	$GLOBALS['uid']      = $next;
+	$result              = $run();
+	$GLOBALS['uid']      = $from;
+	return $result;
+}
+
+/** Press one audience's Save with a body and the fingerprint the page drew. */
+function press_notice( $audience, $body, $drawn ) {
+	global $tool;
+	$_POST = array( 'wpcpm_audience' => $audience, 'wpcpm_notice_body' => $body, 'wpcpm_drawn_body' => $drawn );
+	$GLOBALS['option_writes']  = array();
+	$GLOBALS['nonce_checked']  = array();
+	try {
+		$tool->handle_save();
+	} catch ( WPCPM_Test_Stop $e ) {
+		return $e->getMessage();
+	}
+	return 'no redirect';
+}
+
+set_notices( $full );
+$page = draw_notices();
+$forms = array();
+preg_match_all( '#<form\b.*?</form>#s', $page, $forms );
+$forms = $forms[0];
+
+ck( 'each audience is a form of its own with its own Save',
+    array( count( $forms ), count( array_filter( $forms, static function ( $f ) { return 1 === substr_count( $f, 'Save this notice' ) && 1 === substr_count( $f, 'name="wpcpm_audience"' ); } ) ) ),
+    array( 5, 5 ) );
+ck( 'and each form carries the audience\'s nonce and the fingerprint of the body as drawn',
+    array( false !== strpos( $forms[0], 'value="nonce-wpcpm_notice_student"' ), false !== strpos( $forms[0], 'name="wpcpm_drawn_body" value="' . WPCPM_Settings::fingerprint( 'Student text' ) . '"' ) ),
+    array( true, true ) );
+
+$drawn_mentor = WPCPM_Settings::fingerprint( 'Mentor text' );
+$drawn_student = WPCPM_Settings::fingerprint( 'Student text' );
+
+ck( 'a Save of the students\' notice leaves the mentors\' notice as stored, whatever the page drew',
+    array( press_notice( 'student', 'Student text, edited', $drawn_student ), WPCPM_Notices::body( 'student' ), WPCPM_Notices::body( 'mentor' ) ),
+    array( 'redirect', 'Student text, edited', 'Mentor text' ) );
+ck( 'its nonce is the audience\'s own',
+    $GLOBALS['nonce_checked'], array( 'wpcpm_notice_student' ) );
+
+set_notices( $full );
+unset( $GLOBALS['umeta'][40] );
+$as_drawn = press_notice( 'mentor', 'Mentor text', $drawn_mentor );
+$as_drawn_outcome = next_request( static function () { return WPCPM_Flash::take( WPCPM_Header_Notices::FLASH ); } );
+ck( 'a body posted back as drawn writes nothing, and says the notice is saved',
+    array( $as_drawn, $GLOBALS['option_writes'], WPCPM_Notices::body( 'mentor' ), $as_drawn_outcome['outcome'] ?? null ),
+    array( 'redirect', array(), 'Mentor text', 'notice-saved' ) );
+
+// The students' stored body changes elsewhere after the page was drawn; the page then posts a new body.
+set_notices( $full );
+unset( $GLOBALS['umeta'][40] );
+$stale_drawn = WPCPM_Settings::fingerprint( 'Student text' );
+set_notices( array_merge( $full, array( 'student' => 'Changed in another tab' ) ) );
+press_notice( 'student', 'My new text', $stale_drawn );
+$kept_after = next_request( static function () { return WPCPM_Flash::kept( 'notice:student' ); } );
+$outcome    = next_request( static function () { return WPCPM_Flash::take( WPCPM_Header_Notices::FLASH ); } );
+
+ck( 'a body changed elsewhere since the page was drawn is not overwritten: the typing is kept and the sentence says so',
+    array( WPCPM_Notices::body( 'student' ), $outcome['outcome'] ?? null, $kept_after['values']['body'] ?? null, $GLOBALS['option_writes'] ),
+    array( 'Changed in another tab', 'notice-stale', 'My new text', array() ) );
+
+$page = next_request( static function () use ( $tool ) {
+	WPCPM_Flash::keep( 'notice:student', array( 'body' => 'My new text' ) );
+	return draw_notices();
+} );
+ck( 'the kept typing is drawn back in that audience\'s editor only',
+    array( false !== strpos( $page, '>My new text</textarea>' ), substr_count( $page, 'My new text' ), false !== strpos( $page, '>Mentor text</textarea>' ) ),
+    array( true, 1, true ) );
+
+preg_match_all( '/ id="([^"]+)"/', $page_all = draw_notices(), $ids );
+ck( 'the five forms repeat no id',
+    array( count( $ids[1] ), count( array_unique( $ids[1] ) ) ), array( count( $ids[1] ), count( $ids[1] ) ) );
+$admin_label = WPCPM_Notices::audiences()['admin'];
+$admin_flash = next_request( static function () {
+	$GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ][ WPCPM_Header_Notices::FLASH ] = array( 'outcome' => 'notice-saved', 'audience' => 'admin' );
+	return draw_notices();
+} );
+ck( 'the saved sentence names the audience as the heading prints it',
+    array( false !== strpos( $admin_flash, '<h2><label for="wpcpm_notice_admin">Administrators</label></h2>' ), false !== strpos( $admin_flash, '<p>The notice for Administrators is saved.</p>' ) ),
+    array( true, true ) );
+
+ck( 'the sentences are the brief\'s',
+    array(
+        false !== strpos( $tool_src, "'The notice for %s is saved.'" ),
+        false !== strpos( $tool_src, "'The notice for %s was not saved: it was changed elsewhere after this page was opened. Your text is still in the box: check it against the notice as it is now, and save again.'" ),
+    ),
+    array( true, true ) );
+
+ck( 'without the capability nothing is read or written',
+    array( ( static function () { $GLOBALS['uid'] = 70; $r = press_notice( 'student', 'x', 'y' ); $GLOBALS['uid'] = 40; return $r; } )(), $GLOBALS['nonce_checked'] ),
+    array( 'die 403', array() ) );
+
+set_notices( $saved );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

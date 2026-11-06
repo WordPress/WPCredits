@@ -248,6 +248,10 @@ class WPCPM_Airtable {
 	/**
 	 * Walk every page of a table. Use only where the record count is known small.
 	 *
+	 * One read stops at a hundred pages, ten thousand rows. A table with more than that still has an
+	 * offset to give, and the rows read so far are a part of it a caller would count as the whole: so
+	 * that read answers `wpcpm_airtable_capped` instead (1.123.58, LOG-23), and nothing is counted.
+	 *
 	 * @param string $table Table ID or name.
 	 * @param array  $args  See fetch_page().
 	 * @return array|WP_Error Flat list of records.
@@ -269,6 +273,17 @@ class WPCPM_Airtable {
 			$offset  = $page['offset'];
 			++$safety;
 		} while ( $offset && $safety < 100 );
+
+		if ( $offset ) {
+			return new WP_Error(
+				'wpcpm_airtable_capped',
+				sprintf(
+					/* translators: %s: the most rows one read takes, as a number. */
+					__( 'Airtable has more than %s rows to give for this read, and one read stops at that many, so nothing was counted.', 'wpcredits-program-manager' ),
+					number_format_i18n( 10000 )
+				)
+			);
+		}
 
 		return $records;
 	}
@@ -308,9 +323,15 @@ class WPCPM_Airtable {
 	 * value into a new choice, so one typo would add an option to the column rather than fail.
 	 * Everything written here is validated against the choices the base already has.
 	 *
+	 * Airtable takes ten records a request, so a longer list is sent in several. A request that fails
+	 * after others went through answers its error with the IDs those created under `created`, beside
+	 * the status the error carried (1.123.58, LOG-13): they are records the base holds now, and a
+	 * caller that retried the list without them would create them twice.
+	 *
 	 * @param string $table   Table ID or name.
 	 * @param array  $records List of `array( 'fields' => array )`.
-	 * @return array|WP_Error List of created record IDs, in order.
+	 * @return array|WP_Error List of created record IDs, in order, or the failing request's error with
+	 *                        the IDs created before it under `created`.
 	 */
 	public function create_records( $table, array $records ) {
 		$guard = $this->guard();
@@ -341,7 +362,10 @@ class WPCPM_Airtable {
 			);
 
 			if ( is_wp_error( $response ) ) {
-				return $response;
+				$data            = (array) $response->get_error_data();
+				$data['created'] = $created;
+
+				return new WP_Error( $response->get_error_code(), $response->get_error_message(), $data );
 			}
 
 			foreach ( ( isset( $response['records'] ) && is_array( $response['records'] ) ) ? $response['records'] : array() as $record ) {

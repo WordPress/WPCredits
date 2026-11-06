@@ -53,6 +53,31 @@ final class WPCPM_Dashboard_Card {
 	const OPENER = 'wpcpm-dashboard-open';
 
 	/**
+	 * The flash channel a handler names the card it goes back to on, by the card's anchor, beside the
+	 * outcome it flashes on its own channel (`target()`, 1.123.58).
+	 */
+	const TARGET = 'card-target';
+
+	/** What a page prints where its outcome used to go, until `settle()` fills or clears it. */
+	const SLOT = '<!-- wpcpm-card-message -->';
+
+	/** The tones a message carries, each with the role a screen reader hears it with. */
+	const TONES = array(
+		'success' => 'status',
+		'info'    => 'status',
+		'warning' => 'status',
+		'error'   => 'alert',
+	);
+
+	/**
+	 * The one outcome the page holds, for the card it names (`hold()`): `anchor`, `tone`, `text`, and
+	 * whether a card printed it yet. Null while the page holds none.
+	 *
+	 * @var array|null
+	 */
+	private static $held = null;
+
+	/**
 	 * What each card opened and not yet closed asked for, the innermost last, so `close()` prints
 	 * the action of the card it closes.
 	 *
@@ -75,6 +100,145 @@ final class WPCPM_Dashboard_Card {
 		}
 
 		wp_enqueue_script( self::OPENER );
+	}
+
+	/**
+	 * Name the card a handler goes back to, for the outcome it flashes (1.123.58): a handler that
+	 * redirects to `#<anchor>` calls this with the anchor, so the page prints the outcome inside that
+	 * card. The Administrator Dashboard's way back calls it for every decision (`WPCPM_Return::url()`),
+	 * and the Sponsor Dashboard's `leave()` for every card.
+	 *
+	 * @param string $anchor The card's anchor, such as `wpcpm-sponsor-offers` or `wpcpm-reports`.
+	 */
+	public static function target( $anchor ) {
+		WPCPM_Flash::set( self::TARGET, sanitize_html_class( (string) $anchor ) );
+	}
+
+	/**
+	 * The card the last handler named, taken once, or ''.
+	 *
+	 * @return string
+	 */
+	public static function targeted() {
+		return sanitize_html_class( (string) WPCPM_Flash::take( self::TARGET ) );
+	}
+
+	/**
+	 * Hold the page's outcome for the card it names: `open()` prints it at the top of that card's body
+	 * and draws the card open; `settle()` prints it where the page's outcome used to go when no card of
+	 * that anchor was drawn, or when it names none.
+	 *
+	 * @param string $anchor The card's anchor, or '' for an outcome with no card.
+	 * @param string $tone   A key of `TONES`; anything else is `info`.
+	 * @param string $text   The sentence, as text.
+	 */
+	public static function hold( $anchor, $tone, $text ) {
+		if ( '' === trim( (string) $text ) ) {
+			self::$held = null;
+
+			return;
+		}
+
+		self::$held = array(
+			'anchor'  => (string) $anchor,
+			'tone'    => isset( self::TONES[ $tone ] ) ? (string) $tone : 'info',
+			'text'    => (string) $text,
+			'printed' => false,
+			'also'    => array(),
+		);
+	}
+
+	/**
+	 * Say a second sentence after the outcome held, in the same place (the fix wave of 1.123.58): a
+	 * refusal from another channel that came back with it, which the page used to print beside it.
+	 * With nothing held it is held itself, for the card named.
+	 *
+	 * @param string $anchor The card's anchor, or '', for when nothing is held.
+	 * @param string $tone   A key of `TONES`; anything else is `info`.
+	 * @param string $text   The sentence, as text.
+	 */
+	public static function also( $anchor, $tone, $text ) {
+		if ( '' === trim( (string) $text ) ) {
+			return;
+		}
+
+		if ( ! is_array( self::$held ) ) {
+			self::hold( $anchor, $tone, $text );
+
+			return;
+		}
+
+		self::$held['also'][] = array( isset( self::TONES[ $tone ] ) ? (string) $tone : 'info', (string) $text );
+	}
+
+	/**
+	 * The markup of the outcome held: its sentence, then each said after it (`also()`).
+	 *
+	 * @return string
+	 */
+	private static function held_markup() {
+		$html = self::message( self::$held['tone'], self::$held['text'] );
+
+		foreach ( self::$held['also'] as $more ) {
+			$html .= self::message( $more[0], $more[1] );
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Forget the outcome held, printed or not: for a page that renders twice in one request.
+	 */
+	public static function forget() {
+		self::$held = null;
+	}
+
+	/**
+	 * One outcome's markup: the dashboards' message classes with the tone, the role its tone is heard
+	 * with, and the mark and `tabindex` assets/js/forms.js moves the focus to on load.
+	 *
+	 * The Institution Dashboard's parts, which are not drawn in this shell, print their outcomes in
+	 * their own message classes through the same markup (`$base`), so every dashboard's outcome is
+	 * toned, heard and focused alike (IDB-09).
+	 *
+	 * @param string $tone A key of `TONES`; anything else is `info`.
+	 * @param string $text The sentence, as text.
+	 * @param string $base The message's own class, its tone after `--`: `wpcpm-dashboard__message`
+	 *                     by default.
+	 * @return string
+	 */
+	public static function message( $tone, $text, $base = 'wpcpm-dashboard__message' ) {
+		$tone = isset( self::TONES[ $tone ] ) ? (string) $tone : 'info';
+		$base = sanitize_html_class( (string) $base );
+
+		return sprintf(
+			'<p class="%1$s %1$s--%2$s is-%2$s" role="%3$s" tabindex="-1" data-wpcpm-card-message>%4$s</p>',
+			esc_attr( $base ),
+			esc_attr( $tone ),
+			esc_attr( self::TONES[ $tone ] ),
+			esc_html( (string) $text )
+		);
+	}
+
+	/**
+	 * Fill the page's slot once every card is drawn: with the outcome held when no card printed it,
+	 * else with nothing.
+	 *
+	 * @param string $html The page as rendered, holding `SLOT` where its outcome used to go.
+	 * @return string
+	 */
+	public static function settle( $html ) {
+		$fill = '';
+
+		if ( is_array( self::$held ) && ! self::$held['printed'] ) {
+			$fill = self::held_markup();
+		}
+
+		self::$held = null;
+
+		$at = strpos( (string) $html, self::SLOT );
+
+		return false === $at ? (string) $html : substr_replace( (string) $html, $fill, $at, strlen( self::SLOT ) );
 	}
 
 	/**
@@ -216,6 +380,12 @@ final class WPCPM_Dashboard_Card {
 		);
 
 		$anchor = (string) $args['prefix'] . (string) $args['key'];
+		$holds  = is_array( self::$held ) && ! self::$held['printed'] && '' !== self::$held['anchor'] && self::$held['anchor'] === $anchor;
+
+		// A card that holds the page's outcome is drawn open, so the outcome is on screen (1.123.58).
+		if ( $holds ) {
+			$args['open'] = true;
+		}
 
 		self::$opened[] = array(
 			'anchor' => $anchor,
@@ -255,6 +425,13 @@ final class WPCPM_Dashboard_Card {
 
 		echo '<span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>';
 		printf( '<div class="%s">', esc_attr( trim( 'wpcpm-group__body ' . (string) $args['body_class'] ) ) );
+
+		// The outcome a handler left for this card opens its body, where the person is (SDB-01, SDB-02).
+		if ( $holds ) {
+			echo self::held_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in message().
+
+			self::$held['printed'] = true;
+		}
 	}
 
 	/**

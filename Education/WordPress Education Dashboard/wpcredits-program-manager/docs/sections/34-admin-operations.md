@@ -59,16 +59,21 @@ sync that makes it real. A message Slack refuses leaves its institution unannoun
 run says it again, and the message is in the site's language whatever language the run was started
 in.
 
-Accounts are matched by the Airtable record the sync stored, then by email address, and, for
-mentors, last by WordPress.org username. **No account is ever deleted by a sync** - the most it will
-do is remove a role.
+Accounts are matched by the Airtable record the sync stored, then by email address. Since 1.123.58 a
+mentor whose WordPress.org username is an account's login, with nothing else to tie the two, is not
+linked: the match waits under **Needs confirming** on the Mentors screen's Sync tab. A match you
+confirm is linked and given the Mentor role, and an Administrator's account keeps its roles; it is
+sent the invitation with the welcome when **Invitation emails** is on. The next completed run
+removes a waiting match whose mentor has left the base. Needs confirming is the sync's path only:
+an application's activation still links an account by the applicant's own username. **No account is
+ever deleted by a sync** - the most it will do is remove a role.
 
 The sync report on each screen says what happened rather than only that it finished: created,
 updated, skipped and why.
 
 Since 1.122.33 the mentors sync makes and links its accounts through the same step that making a
-mentor from an application uses, so there is one way to make a mentor: it matches as above, reports
-an account matched by username alone for an Administrator to confirm is the same person, and makes
+mentor from an application uses, so there is one way to make a mentor: it matches as above, lists
+an account matched by username alone under **Needs confirming**, for an Administrator to confirm, and makes
 an account only when none matches. An application has no record id yet, so its lookup is the
 address, then the username, then the profile an account holds. The sync leaves a mentor made from an
 application alone while that mentor's Mentors row is not written (see *Applications to mentor*): it
@@ -93,6 +98,18 @@ them all in the first notice of its report, so **Send invite** on a row sends th
 ones that should have it. The **Last sync report** counts those it queued under **Invitations sent
 to existing accounts**.
 
+Since 1.123.58 the mentors and students syncs count before they take anyone's role. A run that read
+no records, or fewer than half as many as there are accounts linked to a record, stops before its
+revoke step and keeps every account; the Sync tab says what it read and offers **Run anyway**, and
+`wp wpcredits sync_mentors --accept` does the same on the command line, for that run only. A stopped
+run is not running: the Sync tab stops polling, prints why in the progress panel with a line to
+reload the page for **Run anyway** or **Cancel**, and **Cancel** ends a stopped run too. A
+passing refusal from Airtable makes every sync wait and carry on. Sync now while a run is going
+comes back with "A sync is already running" and the run's progress instead of starting again;
+`wp wpcredits sync_mentors --restart` starts again on purpose. While a run goes, a screen reader
+hears each step, a stall and the finish, and the finished run's counts are said on the Sync tab for
+the mentors and students syncs; the institutions sync says accounts created only.
+
 Two commands go with the Mentors row an activation writes. `wp wpcredits mentor_airtable_row
 <reference>` prints the row an application would write, each cell as its column takes it and what
 would be left out, and writes nothing; it reads Airtable and prints the applicant's answers, so it is
@@ -103,6 +120,13 @@ sync nor the Mentor Status Checker reads, reads it back, deletes it, and says wh
 kept. It deletes only the row it wrote, it changes nothing on the site, and it ends in an error while
 a row may be left behind, which then has to be deleted in Airtable by hand, and while a column did
 not take what the site sends.
+
+Since 1.123.58 `wp wpcredits setting get <key>` prints a setting as the screen shows it, a secret
+masked, and `wp wpcredits setting set <key> <value> [--dry-run]` changes one by the Save's own
+rules: it prints what changed, what it would change with `--dry-run`, or why the value was refused;
+`everyone` is the value that sets a Who is mailed list to every Administrator account. Change a
+live setting one way at a time: a settings tab open in a browser keeps its own view of the page it
+drew.
 
 ### Invitations
 
@@ -405,6 +429,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_institutions_lock` | `WPCPM_Institutions_Sync::OPT_LOCK` |
 | `wpcpm_institutions_report` | `WPCPM_Institutions_Sync::OPT_REPORT` |
 | `wpcpm_institutions_state` | `WPCPM_Institutions_Sync::OPT_STATE` |
+| `wpcpm_invite_queue_lock` | `WPCPM_Mail::QUEUE_LOCK` (a lock row while the invitation queue is written, 30 seconds at most) |
 | `wpcpm_mapp_lock_` | `WPCPM_Mentor_Application::LOCK_PREFIX` (the per-application activation locks) |
 | `wpcpm_mcp_log_sweep` | `WPCPM_MCP::CRON_SWEEP` (cron hook: the daily sweep of the Claude access log, which deletes the calls older than the **Keep the log for** setting, never fewer than 7 days, in batches of 500, oldest first, up to 20 batches (10,000 rows) a run and the rest the next day, whether the switch is on or off; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
 | `wpcpm_mentor_application_counts` | `WPCPM_Mentor_Application::OPT_KEPT` |
@@ -420,6 +445,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_mentors_report` | `WPCPM_Mentors_Sync::OPT_REPORT` |
 | `wpcpm_mentors_sponsorship` | `WPCPM_Mentors_Sync::OPT_SPONSORSHIP` |
 | `wpcpm_mentors_state` | `WPCPM_Mentors_Sync::OPT_STATE` |
+| `wpcpm_mentors_unconfirmed` | `WPCPM_Mentor_Provision::OPT_UNCONFIRMED` (the mentors the sync found by an account's login alone, waiting under Needs confirming; uninstall deletes it) |
 | `wpcpm_notices` | `WPCPM_Notices::OPT_NAME` |
 | `wpcpm_notices_migrated` | `WPCPM_Notices::OPT_MIGRATED` |
 | `wpcpm_notices_plain` | `WPCPM_Notices::OPT_PLAIN` |

@@ -53,6 +53,14 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** Flash channel for this screen's outcomes. */
 	const FLASH = 'track-builder';
 
+	/**
+	 * The property form's hidden field: the track's save stamp (`WPCPM_Track_Store::revision()`) as the form was drawn.
+	 * A Save posts it back, and a track saved by anybody since (Publish and Take off do not count) (the question list's own moves
+	 * excepted, which hand the page the new one) is refused as stale. Its element id is
+	 * `wpcpm-track-revision`, which assets/js/track-editor.js writes a move's answer into.
+	 */
+	const FIELD_REVISION = 'wpcpm_track_revision';
+
 	/** The box a publish that creates columns asks the track's name in (PUBLISH-LEARN-3). */
 	const FIELD_CONFIRM = 'wpcpm_confirm';
 
@@ -290,6 +298,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 
 		return array(
 			'id'                 => $post_id,
+			// When the draft was last written, which the property form carries and a Save compares
+			// (`FIELD_REVISION`).
+			'revision'           => WPCPM_Track_Store::revision( $post_id ),
 			'label'              => isset( $definition['label'] ) ? (string) $definition['label'] : '',
 			'status'             => isset( $definition['status'] ) ? (string) $definition['status'] : '',
 			'key'                => isset( $definition['key'] ) ? (string) $definition['key'] : '',
@@ -707,6 +718,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			);
 		}
 
+		// A track saved by somebody else since this form was drawn is refused before anything is read
+		// from Learn or written, with the typing kept. A form drawn before the field existed posts
+		// none and checks nothing.
+		$drawn_at = WPCPM_Request::posted_text( self::FIELD_REVISION, null );
+
+		if ( null !== $drawn_at && WPCPM_Track_Store::revision( $post_id ) !== $drawn_at ) {
+			$this->refuse( $post_id, array(), self::posted_properties(), self::stale_sentence( $post_id ), 'track-stale' );
+		}
+
 		$definition = self::posted_definition( $stored );
 		$course     = self::resolve_course( $definition, $stored );
 		$warning    = $course['warning'];
@@ -715,13 +735,13 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$errors     = WPCPM_Track_Store::check( $post_id, $definition );
 
 		if ( array() !== $errors ) {
-			$this->refuse( $post_id, (string) $errors[0]['message'], self::posted_properties() );
+			$this->refuse( $post_id, self::problems_of( $errors ), self::posted_properties() );
 		}
 
 		$saved = WPCPM_Track_Store::save( $post_id, $definition );
 
 		if ( is_wp_error( $saved ) ) {
-			$this->refuse( $post_id, $saved->get_error_message(), self::posted_properties() );
+			$this->refuse( $post_id, array(), self::posted_properties(), $saved->get_error_message() );
 		}
 
 		// A link that did not resolve saves all the same (4.2), and the notice says so; so does a
@@ -788,11 +808,14 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$errors = WPCPM_Track_Store::check( 0, $definition );
 
 		if ( array() !== $errors ) {
+			$problems = self::problems_of( $errors );
+
 			$this->redirect_back(
 				array(
-					'status'  => 'error',
-					'message' => (string) $errors[0]['message'],
-					'values'  => $definition,
+					'status'   => 'error',
+					'message'  => (string) reset( $problems ),
+					'problems' => $problems,
+					'values'   => $definition,
 				),
 				array( 'wpcpm_duplicate' => $from )
 			);
@@ -871,11 +894,14 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$errors = WPCPM_Track_Store::check( 0, $definition );
 
 		if ( array() !== $errors ) {
+			$problems = self::problems_of( $errors );
+
 			$this->redirect_back(
 				array(
-					'status'  => 'error',
-					'message' => (string) $errors[0]['message'],
-					'values'  => $definition,
+					'status'   => 'error',
+					'message'  => (string) reset( $problems ),
+					'problems' => $problems,
+					'values'   => $definition,
 				),
 				array( 'wpcpm_new' => 1 )
 			);
@@ -1401,18 +1427,98 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/**
 	 * Back to the form with the refusal and what the person typed, so nothing has to be retyped.
 	 *
-	 * @param int    $post_id The track.
-	 * @param string $message Why it was refused.
-	 * @param array  $typed   The boxes as the person left them (`posted_properties()`).
+	 * @param int    $post_id  The track.
+	 * @param array  $problems Field => the sentence saying why it was refused, every one of
+	 *                         `WPCPM_Track_Store::check()`'s (`problems_of()`); empty for a refusal
+	 *                         of the whole form, which says its `$message` instead.
+	 * @param array  $typed    The boxes as the person left them (`posted_properties()`).
+	 * @param string $message  The refusal in one sentence; the first problem's when empty.
+	 * @param string $outcome  The refusal's name when it has one, such as `track-stale`.
 	 */
-	private function refuse( $post_id, $message, array $typed ) {
-		$this->redirect_back(
-			array(
-				'status'  => 'error',
-				'message' => $message,
-				'values'  => $typed,
-			),
-			array( 'wpcpm_track' => (int) $post_id )
+	private function refuse( $post_id, array $problems, array $typed, $message = '', $outcome = '' ) {
+		$flash = array(
+			'status'   => 'error',
+			'message'  => '' !== $message ? $message : (string) reset( $problems ),
+			'problems' => $problems,
+			'values'   => $typed,
+		);
+
+		if ( '' !== $outcome ) {
+			$flash['outcome'] = $outcome;
+		}
+
+		$this->redirect_back( $flash, array( 'wpcpm_track' => (int) $post_id ) );
+	}
+
+	/**
+	 * Every rule a definition fails, as the problems of the form's fields.
+	 *
+	 * A rule of the track itself (its `where` is empty) belongs to the box it is about, named by the
+	 * start of its code: two rules about one box share its sentence. A rule of a question, or one
+	 * about the track as a whole, belongs to no box this form draws, so it is listed on its own.
+	 *
+	 * @param array[] $errors What `WPCPM_Track_Store::check()` answered.
+	 * @return array<string, string> Field (`label`, `status`, `key`, `course_url`, `hours_target`,
+	 *                               `hue`, `sponsors`, `partners_narrative`, or `other-N`) => sentence.
+	 */
+	public static function problems_of( array $errors ) {
+		$boxes    = array(
+			'label'     => 'label',
+			'status'    => 'status',
+			'key'       => 'key',
+			'course'    => 'course_url',
+			'hours'     => 'hours_target',
+			'hue'       => 'hue',
+			'sponsors'  => 'sponsors',
+			'narrative' => 'partners_narrative',
+		);
+		$problems = array();
+
+		foreach ( $errors as $error ) {
+			$message = isset( $error['message'] ) ? (string) $error['message'] : '';
+
+			if ( '' === $message ) {
+				continue;
+			}
+
+			$code  = isset( $error['code'] ) ? (string) $error['code'] : '';
+			$where = isset( $error['where'] ) ? (string) $error['where'] : '';
+			$field = '';
+
+			foreach ( '' === $where ? $boxes : array() as $prefix => $box ) {
+				if ( $code === $prefix || 0 === strpos( $code, $prefix . '_' ) ) {
+					$field = $box;
+					break;
+				}
+			}
+
+			if ( '' === $field ) {
+				$field = 'other-' . count( $problems );
+			}
+
+			$problems[ $field ] = isset( $problems[ $field ] ) ? $problems[ $field ] . ' ' . $message : $message;
+		}
+
+		return $problems;
+	}
+
+	/**
+	 * The sentence a Save refused as stale says: who saved the track and when, in the site's date
+	 * and time formats. "An Administrator" stands for a saver the stamp does not name.
+	 *
+	 * @param int $post_id The track.
+	 * @return string
+	 */
+	private static function stale_sentence( $post_id ) {
+		$by   = WPCPM_Track_Store::saved_by( $post_id );
+		$user = $by > 0 ? get_userdata( $by ) : false;
+		$at   = WPCPM_Track_Store::saved_at( $post_id );
+
+		return sprintf(
+			/* translators: 1: the display name of the Administrator who saved the track, 2: the date and time of that save. */
+			__( 'Nothing was saved: %1$s saved this track at %2$s, after you opened it. Your changes are still in the form: check them against the track\'s History and save again.', 'wpcredits-program-manager' ),
+			$user ? $user->display_name : __( 'An Administrator', 'wpcredits-program-manager' ),
+			wp_date( get_option( 'date_format', 'F j, Y' ) . ' ' . get_option( 'time_format', 'g:i a' ), $at )
 		);
 	}
 

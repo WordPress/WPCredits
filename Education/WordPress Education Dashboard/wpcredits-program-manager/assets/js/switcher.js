@@ -516,6 +516,15 @@
 		} );
 
 		label.setAttribute( 'for', input.getAttribute( 'id' ) );
+
+		// A browser refuses a form whose hidden required field is empty, without a word, so the
+		// select this hides is no longer required; the field says it is, and the server's own
+		// refusal speaks at the field.
+		if ( select.required ) {
+			select.required = false;
+			input.setAttribute( 'aria-required', 'true' );
+		}
+
 		mark( own() );
 		restore();
 		combo.hidden = false;

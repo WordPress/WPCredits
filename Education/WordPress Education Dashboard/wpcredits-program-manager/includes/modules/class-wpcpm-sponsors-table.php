@@ -988,6 +988,15 @@ class WPCPM_Sponsors_Table extends WPCPM_Accounts_Table {
 			);
 		}
 
+		// Attach account refused by the policy, with the policy's sentence (1.123.58).
+		if ( 'attach-refused' === $status ) {
+			return '' === $reason ? '' : sprintf(
+				/* translators: %s: why the account at the typed address cannot act for the sponsor. */
+				__( 'That account cannot act for this sponsor: %s', 'wpcredits-program-manager' ),
+				$reason
+			);
+		}
+
 		if ( 'provision-failed' === $status && '' !== $reason ) {
 			return sprintf(
 				/* translators: %s: why the account could not be created, as WordPress said it. */

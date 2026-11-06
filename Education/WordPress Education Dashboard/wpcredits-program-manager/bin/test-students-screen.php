@@ -179,6 +179,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
 // The real rule for a test name, the pipeline index the helper reads a record ID in, and the helper (Ruling 21).
@@ -2341,8 +2342,11 @@ ck( 'followed, it sends Bruno his invitation now, as the row\'s form did, and st
 	array( $GLOBALS['mails'], isset( $GLOBALS['umeta'][12]['wpcpm_student_invited'] ) && is_int( $GLOBALS['umeta'][12]['wpcpm_student_invited'] ) ),
 	array( array( 12 ), true ) );
 ck( 'then returns to the Accounts tab, saying the email went',
-	array( link_of( $followed['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent.' ) ),
+	array( link_of( $followed['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent to Bruno Diaz. It replaces the link in any earlier invitation' ) ),
 	array( $accounts, true ) );
+ck( 'a row\'s invitation names the person it went to',
+	0 === strpos( trim( strip_tags( html_of( notice_now() ) ) ), 'Invitation email sent to Bruno Diaz.' ),
+	true );
 
 manager( 31 );
 $ada_link = link_of( actions_in( row_for( $rows, 11 ) )['reinvite'] ?? '' );
@@ -2443,7 +2447,7 @@ $answered = run(
 );
 
 ck( 'a module that answers invite_one() itself is asked in its sync\'s place, once both checks have passed: the account the link names is handed to it, the sync sends nothing, and the list says what it answered',
-	array( $own_invite::$asked, $GLOBALS['nonce_checks'], $GLOBALS['mails'], link_of( $answered['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent.' ) ),
+	array( $own_invite::$asked, $GLOBALS['nonce_checks'], $GLOBALS['mails'], link_of( $answered['redirect'] ), has( html_of( notice_now() ), 'Invitation email sent to Bruno Diaz.' ) ),
 	array( array( 12 ), array( WPCPM_Students::ACTION_INVITE . '_12' ), array(), $accounts, true ) );
 
 // A link to an account nobody holds, as a row left open while the account went: the send fails,
@@ -2487,7 +2491,7 @@ $second_notice  = html_of( notice_now() );
 $GLOBALS['uid'] = 271;
 
 ck( 'two requests following Bruno\'s link at the same moment send him one email: the first says it went, and the second, made while it was on its way, that nothing was sent',
-	array( $GLOBALS['mails'], link_of( $first['redirect'] ), link_of( $meanwhile['redirect'] ?? '' ), has( $first_notice, 'Invitation email sent.' ), has( $second_notice, 'Nothing was sent: this person was sent an invitation less than 15 minutes ago' ) ),
+	array( $GLOBALS['mails'], link_of( $first['redirect'] ), link_of( $meanwhile['redirect'] ?? '' ), has( $first_notice, 'Invitation email sent to Bruno Diaz.' ), has( $second_notice, 'Nothing was sent: this person was sent an invitation less than 15 minutes ago' ) ),
 	array( array( 12 ), $accounts, $accounts, true, true ) );
 
 // The mail host refuses Bruno's invitation: the row's link comes back saying it could not be sent,
@@ -2565,7 +2569,7 @@ ck( 'followed, it sends Hal his invitation and comes back to that page of that l
 	array( array( 42 ), array( 'https://example.test/wp-admin/admin.php', array_merge( array( 'page' => 'wpcpm-students', 'tab' => 'accounts' ), $place ) ) ) );
 ck( 'where the Accounts tab says the email went, above the same list, two now that Hal has left the view, on its second page, Gia\'s',
 	array( shown_tab( $landed ), notices_in( $landed ), displaying( $landed ), row_ids( $landed ) ),
-	array( 'Accounts', '<div class="notice notice-success is-dismissible"><p>Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>', '2 items', array( 41 ) ) );
+	array( 'Accounts', '<div class="notice notice-success is-dismissible"><p>Invitation email sent to Hal Norte. It replaces the link in any earlier invitation, so ask them to use this newest email.</p></div>', '2 items', array( 41 ) ) );
 
 unset( $GLOBALS['umeta'][260]['wpcpm_students_per_page'] );
 
@@ -3090,6 +3094,9 @@ ck( 'Sync students now, pressed on the Sync tab, starts the run and comes back t
 ck( 'the tab drawn there, which says the run started, above the progress it points to',
 	array( shown_tab( $landed ), notices_in( $landed ), has( $landed, 'data-wpcpm-progress' ) ),
 	array( 'Sync', '<div class="notice notice-success is-dismissible"><p>Sync started. Progress is shown below and updates as it runs.</p></div>', true ) );
+ck( 'and the panel holds the notice the poller prints when the count check stops the run, hidden, kept in place, with the way to Run anyway',
+	has( $landed, '<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="Reload this page to choose Run anyway or Cancel." hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>' ),
+	true );
 
 manager( 211 );
 update_option(
@@ -3163,6 +3170,22 @@ ck( 'pressed, it queues those two, not every student never invited, and comes ba
 		array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_institution' => 'Instituto Este & Oeste' ) ),
 		'<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>',
 		'2 items',
+	) );
+
+// The same press while another request holds the queue's lock (the fix wave of 1.123.58): nothing is
+// queued, and the list it comes back to says the queue was busy, not that the invitations were queued.
+manager( 1960 );
+$GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] = (string) ( time() + WPCPM_Mail::QUEUE_LOCK_TTL );
+$card_busy                                 = press_form( $button, array( new WPCPM_Students(), 'handle_bulk_invite' ) );
+unset( $GLOBALS['opts'][ WPCPM_Mail::QUEUE_LOCK ] );
+$landing_busy = link_of( $card_busy['redirect'] );
+
+ck( 'pressed while the queue\'s lock is held by another request, it queues nothing and the list says the queue was busy',
+	array( WPCPM_Mail::queue(), $landing_busy, notices_in( html_of( page_for( $landing_busy[1] ) ) ) ),
+	array(
+		array(),
+		array( 'https://example.test/wp-admin/admin.php', array( 'page' => 'wpcpm-students', 'tab' => 'accounts', 'wpcpm_institution' => 'Instituto Este & Oeste' ) ),
+		'<div class="notice notice-info is-dismissible"><p>The queue was busy for a moment and nothing was queued. Press the button again.</p></div>',
 	) );
 
 $elsewhere = array();
@@ -3500,6 +3523,22 @@ ck( 'a search that finds only a test student lists her, and the views count the 
 	view_counts( $world_of( true, array( 's' => 'tplain' ) ) ),
 	row_ids( $world_of( true, array( 's' => 'tplain' ) ) ),
 ), array( array( 'all' => '9', 'invited' => '0', 'never-invited' => '9' ), array( 22 ) ) );
+
+echo "\n=== The count check's stop, and Run anyway (1.123.58) ===\n";
+
+manager( 900 );
+update_option( WPCPM_Students_Sync::OPT_STATE, array( 'phase' => 'provision', 'started' => time(), 'touched' => time(), 'guard' => array( 'read' => 0, 'linked' => 140 ) ) );
+update_option( WPCPM_Students_Sync::OPT_ERROR, WPCPM_Sync_Guard::sentence( 'students', 0, 140 ) );
+$stopped_sync = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
+delete_option( WPCPM_Students_Sync::OPT_STATE );
+delete_option( WPCPM_Students_Sync::OPT_ERROR );
+manager( 901 );
+$plain_sync = html_of( page_for( screen( array( 'tab' => 'sync' ) ) ) );
+$error_at   = strpos( $stopped_sync, '<strong>Last sync error:</strong> Airtable returned no current students.' );
+$form_at    = strpos( $stopped_sync, 'data-wpcpm-confirm="Run the sync anyway? Every linked account it did not read loses the Student role."' );
+ck( 'the Students Sync tab prints Run anyway, with the Student role in its confirm, after the stop\'s notice, and not otherwise',
+	array( false !== $error_at && false !== $form_at && $error_at < $form_at, has( $stopped_sync, '<input type="hidden" name="action" value="' . WPCPM_Students::ACTION_ACCEPT . '" />' ), has( $stopped_sync, '<button type="submit" class="button">Run anyway</button>' ), has( $plain_sync, 'Run anyway' ) ),
+	array( true, true, true, false ) );
 
 echo "\n";
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );

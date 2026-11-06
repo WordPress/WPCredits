@@ -131,9 +131,9 @@ class WPCPM_Request {
 	// As the real one: the one-line cleaner removes every "%" followed by two hexadecimal digits,
 	// again until none is left, and folds the spaces that leaves, as core's does, so a link read
 	// with it loses its octets, and only posted_verbatim() keeps them.
-	public static function posted_text( $key ) {
+	public static function posted_text( $key, $fallback = '' ) {
 		if ( ! isset( $_POST[ $key ] ) ) {
-			return '';
+			return $fallback;
 		}
 
 		$text  = trim( (string) $_POST[ $key ] );
@@ -307,6 +307,24 @@ class WPCPM_Track_Store {
 		return self::$tracks[ $post_id ]['state'] ?? '';
 	}
 
+	/** The save stamp's value: written by a save alone, empty until one, as the real store's is. */
+	public static function revision( $post_id ) {
+		return isset( self::$tracks[ $post_id ] ) ? (string) ( self::$tracks[ $post_id ]['stamp']['id'] ?? '' ) : '';
+	}
+
+	/** Who the stamp says saved the track: nobody until a save in this run says. */
+	public static function saved_by( $post_id ) {
+		return (int) ( self::$tracks[ $post_id ]['stamp']['by'] ?? 0 );
+	}
+
+	/** When the stamp says the track was saved. */
+	public static function saved_at( $post_id ) {
+		return (int) ( self::$tracks[ $post_id ]['stamp']['at'] ?? 0 );
+	}
+
+	/** The stand-in's clock for the stamp. */
+	public static $clock = 1793000000;
+
 	public static function log_entries( $post_id ) {
 		return self::$tracks[ $post_id ]['log'] ?? array();
 	}
@@ -447,6 +465,7 @@ class WPCPM_Track_Store {
 
 		self::$saved[ (int) $post_id ] = $definition;
 		self::$tracks[ $post_id ]['definition'] = $definition;
+		self::$tracks[ $post_id ]['stamp']      = array( 'id' => 'stamp-' . ( ++self::$clock ), 'at' => self::$clock, 'by' => (int) ( $GLOBALS['saver'] ?? 5 ) );
 
 		return (int) $post_id;
 	}
@@ -604,6 +623,7 @@ class WPCPM_Flash {
 
 // The real rules, not a stand-in: a stand-in for WPCPM_Track_Questions would let a handler pass
 // against a rule the real class does not hold (T2c's stub-drift findings).
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
 require_once __DIR__ . '/../includes/class-wpcpm-learn.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
@@ -766,7 +786,7 @@ echo "\n=== The properties form ===\n";
 // read. Every track is edited here, the four original tracks included.
 ck( 'the form offers the track properties, then its questions and every other track\'s columns',
     array_keys( WPCPM_Track_Builder::form( 13 ) ),
-    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'sponsors', 'partner_choices', 'partners_narrative', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
+    array( 'id', 'revision', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'sponsors', 'partner_choices', 'partners_narrative', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
 ck( 'filled from the definition', array( WPCPM_Track_Builder::form( 13 )['label'], WPCPM_Track_Builder::form( 13 )['status'] ), array( 'Marketing Track', 'Marketing Track' ) );
 
 ob_start();
@@ -4421,7 +4441,7 @@ $partner_page = ob_get_clean();
 
 ck( 'the picker is the row after the key chip color\'s, inside the save form: a group named for screen readers, the hidden empty value first, a box a choice with the note after the name, the two the track names ticked, and no box to type in',
     array(
-        substr_count( $partner_page, 'name="wpcpm_hue" value="blue" /></td></tr><tr><th scope="row">Partners</th><td><fieldset><legend class="screen-reader-text">Partners</legend><input type="hidden" name="wpcpm_sponsors[]" value="" /><label>' ),
+        substr_count( $partner_page, 'name="wpcpm_hue" value="blue" /></td></tr><tr><th scope="row">Partners</th><td><fieldset id="wpcpm-sponsors-group"><legend class="screen-reader-text">Partners</legend><input type="hidden" name="wpcpm_sponsors[]" value="" /><label>' ),
         substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoCCCC0000000001" /> Acme Tools</label><br />' ),
         substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoCCCC0000000002" /> Birch Labs</label><br />' ),
         substr_count( $partner_page, '<label><input type="checkbox" name="wpcpm_sponsors[]" value="spoCCCC0000000005" checked /> Lapsed Co (no longer a Partner)</label><br />' ),
@@ -4881,7 +4901,7 @@ WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::f
 $narrative_again = ob_get_clean();
 
 ck( 'a refused save comes back with the box as it was left, the refusal saying why, and nothing stored',
-    array( $narrative_refused, $narrative_flash['values']['partners_narrative'] ?? 'absent', substr_count( $narrative_again, 'maxlength="5000">Words typed' . "\n" . 'and refused.</textarea>' ), substr_count( $narrative_again, 'The words the track held.' ), $narrative_flash['message'] ?? '', WPCPM_Track_Store::$saved ),
+    array( $narrative_refused, $narrative_flash['values']['partners_narrative'] ?? 'absent', substr_count( $narrative_again, 'maxlength="5000" aria-invalid="true" aria-describedby="wpcpm_partners_narrative-problem">Words typed' . "\n" . 'and refused.</textarea>' ), substr_count( $narrative_again, 'The words the track held.' ), $narrative_flash['message'] ?? '', WPCPM_Track_Store::$saved ),
     array( 'redirect', "Words typed\nand refused.", 1, 0, 'The partners\' narrative must be text of at most 5000 characters.', array() ) );
 
 WPCPM_Track_Store::$errors = array();
@@ -5329,6 +5349,272 @@ ck( 'the setting is not offered on the Hours question, a screenshot or the contr
         substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'Your blog' ) ), 'id="wpcpm_read_only"' ),
     ),
     array( 0, 0, 0, 1, 1 ) );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$saved  = array();
+$GLOBALS['nonce']          = '';
+$_POST                     = array();
+
+echo "\n=== Every problem at its field, a stale save, and a press that runs once (1.123.58) ===\n";
+
+/** The property form for track 13 as it is drawn now, with what a refusal flashed. */
+function property_page( array $flash = array() ) {
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $flash ) );
+
+	return ob_get_clean();
+}
+
+/** The revision the drawn form carries in its hidden field. */
+function drawn_revision( $html ) {
+	return 1 === preg_match( '#<input type="hidden" id="wpcpm-track-revision" name="wpcpm_track_revision" value="([^"]*)" />#', $html, $m ) ? $m[1] : null;
+}
+
+/** What the property form posts for track 13, with these fields changed. */
+function property_post( array $change = array() ) {
+	return $change + array(
+		'track'        => 13,
+		'wpcpm_label'  => 'Marketing Track',
+		'wpcpm_status' => 'Marketing Track',
+		'wpcpm_key'    => 'marketing',
+		'wpcpm_hue'    => 'blue',
+	);
+}
+
+$GLOBALS['users'][9] = 'Ida Admin';
+$GLOBALS['nonce']    = WPCPM_Track_Builder::ACTION_SAVE;
+WPCPM_Track_Store::$tracks       = array( 13 => editable_track() );
+WPCPM_Track_Store::$refuse_save  = null;
+WPCPM_Track_Store::$saved        = array();
+WPCPM_Flash::$set                = array();
+WPCPM_Track_Store::$errors       = array(
+	array( 'code' => 'label_taken', 'where' => '', 'message' => 'Another track already goes by this name.' ),
+	array( 'code' => 'status_taken', 'where' => '', 'message' => 'Another track already has this status.' ),
+	array( 'code' => 'key_taken', 'where' => '', 'message' => 'Another track already has this key.' ),
+);
+$_POST   = property_post( array( 'wpcpm_label' => 'Typed name' ) );
+$three   = outcome( array( $tool, 'handle_save' ) );
+$flashed = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+$marked  = property_page( $flashed );
+
+ck( 'a track with three problems names all three in the summary, each linked, and each field is marked: the flash holds three problems keyed by field',
+    array( $three, $flashed['problems'] ?? null, WPCPM_Track_Store::$saved ),
+    array( 'redirect', array( 'label' => 'Another track already goes by this name.', 'status' => 'Another track already has this status.', 'key' => 'Another track already has this key.' ), array() ) );
+ck( 'and the drawn screen holds the summary, in a notice, linking the three fields, and three marked fields',
+    array(
+        substr_count( $marked, 'Three answers need a change' ),
+        substr_count( $marked, 'class="wpcpm-errors notice notice-error inline"' ),
+        substr_count( $marked, '<a href="#wpcpm_label">Name</a>' ) + substr_count( $marked, '<a href="#wpcpm_status">Airtable status</a>' ) + substr_count( $marked, '<a href="#wpcpm_key">Key</a>' ),
+        substr_count( $marked, 'aria-invalid="true"' ),
+        substr_count( $marked, 'id="wpcpm_label-problem">Another track already goes by this name.</p>' ),
+        false !== strpos( $marked, 'id="wpcpm_label" name="wpcpm_label" value="Typed name" aria-invalid="true" aria-describedby="wpcpm_label-problem"' ),
+        substr_count( $marked, 'class="notice notice-error is-dismissible"' ),
+    ),
+    array( 1, 1, 3, 3, 1, true, 0 ) );
+
+// A rule of a question, or of the track as a whole, has no box on this form: it is listed, unlinked,
+// and two rules about one box share the box's problem.
+$mixed = WPCPM_Track_Builder::problems_of( array(
+	array( 'code' => 'status_taken', 'where' => '', 'message' => 'Taken.' ),
+	array( 'code' => 'status_named', 'where' => '', 'message' => 'Named.' ),
+	array( 'code' => 'type_unknown', 'where' => 'Hours', 'message' => 'Needs a control.' ),
+	array( 'code' => 'label_empty', 'where' => 'Hours', 'message' => 'Needs words.' ),
+	array( 'code' => 'team_twice', 'where' => '', 'message' => 'Once.' ),
+) );
+ck( 'two rules about one box share its sentence, and a question\'s rule or a whole-track rule is a problem of no box', $mixed, array( 'status' => 'Taken. Named.', 'other-1' => 'Needs a control.', 'other-2' => 'Needs words.', 'other-3' => 'Once.' ) );
+
+WPCPM_Track_Store::$errors = array();
+WPCPM_Flash::$set          = array();
+
+// A stale track: the form is drawn, somebody else saves the track, and the first form is posted.
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+$first_page    = property_page();
+$first_form    = drawn_revision( $first_page );
+$GLOBALS['saver'] = 9;
+WPCPM_Track_Store::save( 13, WPCPM_Track_Store::get( 13 ) );
+unset( $GLOBALS['saver'] );
+$other_revision = WPCPM_Track_Store::revision( 13 );
+WPCPM_Track_Store::$saved = array();
+$_POST   = property_post( array( 'wpcpm_track_revision' => $first_form, 'wpcpm_label' => 'Typed over a stale page', 'wpcpm_hours_target' => '90' ) );
+$stale   = outcome( array( $tool, 'handle_save' ) );
+$flashed = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+$sentence = 'Nothing was saved: Ida Admin saved this track at ' . gmdate( 'F j, Y g:i a', WPCPM_Track_Store::saved_at( 13 ) ) . ', after you opened it. Your changes are still in the form: check them against the track\'s History and save again.';
+
+ck( 'a stale track save is refused with the typing kept and who saved it named: nothing written, outcome track-stale',
+    array( $first_form !== $other_revision, $stale, WPCPM_Track_Store::$saved, $flashed['outcome'] ?? '', $flashed['message'] ?? '', $flashed['problems'] ?? null ),
+    array( true, 'redirect', array(), 'track-stale', $sentence, array() ) );
+ck( 'and the kept values equal the posted ones',
+    $flashed['values'] ?? null,
+    array( 'label' => 'Typed over a stale page', 'status' => 'Marketing Track', 'key' => 'marketing', 'course_url' => '', 'hours_target' => '90', 'hue' => 'blue' ) );
+
+$stale_page = property_page( $flashed );
+ck( 'the refused page says it in a notice, without a summary, and holds the typing',
+    array( substr_count( $stale_page, 'class="notice notice-error is-dismissible"><p>' . htmlspecialchars( $sentence, ENT_QUOTES ) ), substr_count( $stale_page, 'wpcpm-errors' ), false !== strpos( $stale_page, 'id="wpcpm_label" name="wpcpm_label" value="Typed over a stale page"' ), drawn_revision( $stale_page ) ),
+    array( 1, 0, true, $other_revision ) );
+
+// The page's next Save carries the revision it was just drawn with, so it is not stale.
+$_POST   = property_post( array( 'wpcpm_track_revision' => drawn_revision( $stale_page ), 'wpcpm_label' => 'Typed over a stale page' ) );
+$again   = outcome( array( $tool, 'handle_save' ) );
+ck( 'saving again from the page the refusal drew writes it', array( $again, WPCPM_Track_Store::$saved[13]['label'] ?? null ), array( 'redirect', 'Typed over a stale page' ) );
+
+// A person's own question move is not a change made elsewhere.
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$saved  = array();
+$drawn     = drawn_revision( property_page() );
+$GLOBALS['nonce'] = WPCPM_Track_Editor::ACTION_MOVE;
+$mover     = press_editor( 'handle_move', array( 'track' => 13, 'wpcpm_question' => 'Your blog', 'wpcpm_direction' => 'up', 'wpcpm_async' => '1' ) );
+$moved_at  = WPCPM_Track_Store::revision( 13 );
+$GLOBALS['nonce'] = WPCPM_Track_Builder::ACTION_SAVE;
+WPCPM_Track_Store::$saved = array();
+WPCPM_Flash::$set         = array();
+$_POST     = property_post( array( 'wpcpm_track_revision' => $mover[1]['data']['revision'] ?? '', 'wpcpm_label' => 'Renamed after a move' ) );
+$after     = outcome( array( $tool, 'handle_save' ) );
+$landed    = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+ck( 'a move then a Save on the same page is not stale: the move\'s answer carries the new revision, and the property is written',
+    array( $drawn !== ( $mover[1]['data']['revision'] ?? null ), $mover[1]['data']['revision'] ?? null, $after, WPCPM_Track_Store::$saved[13]['label'] ?? null, $landed['status'] ?? '', $landed['outcome'] ?? 'none' ),
+    array( true, $moved_at, 'redirect', 'Renamed after a move', 'success', 'none' ) );
+
+// The same Save with the revision the page was drawn with, before the move, is stale.
+WPCPM_Track_Store::$saved = array();
+$_POST  = property_post( array( 'wpcpm_track_revision' => $drawn, 'wpcpm_label' => 'Renamed before the move' ) );
+outcome( array( $tool, 'handle_save' ) );
+ck( 'while a form drawn before a move on another page is refused', array( WPCPM_Track_Store::$saved, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['outcome'] ?? '' ), array( array(), 'track-stale' ) );
+
+// A fresh save writes as before, and a form that posts no revision checks nothing.
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$saved  = array();
+WPCPM_Flash::$set          = array();
+$_POST = property_post( array( 'wpcpm_track_revision' => drawn_revision( property_page() ), 'wpcpm_label' => 'Fresh name' ) );
+$fresh = outcome( array( $tool, 'handle_save' ) );
+ck( 'a fresh save writes as before', array( $fresh, WPCPM_Track_Store::$saved[13]['label'] ?? null, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ?? '' ), array( 'redirect', 'Fresh name', 'success' ) );
+
+WPCPM_Track_Store::$saved = array();
+$_POST = property_post( array( 'wpcpm_label' => 'Name from an old form' ) );
+outcome( array( $tool, 'handle_save' ) );
+ck( 'and a form drawn before the field existed posts none, and is not refused for it', WPCPM_Track_Store::$saved[13]['label'] ?? null, 'Name from an old form' );
+
+// A Publish or a Take off from elsewhere moves the post's modified date and saves nothing: an open
+// property form is still current, and its Save leaves the track as published as it found it.
+foreach ( array( 'Publish' => array( 'draft', 'published' ), 'Take off' => array( 'published', 'draft' ) ) as $press => $states ) {
+	WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+	WPCPM_Track_Store::save( 13, WPCPM_Track_Store::get( 13 ) );
+	WPCPM_Track_Store::$tracks[13]['state'] = $states[0];
+	$open_form = drawn_revision( property_page() );
+	WPCPM_Track_Store::$tracks[13]['state'] = $states[1]; // Another Administrator pressed it; the stamp is not theirs to move.
+	WPCPM_Track_Store::$saved = array();
+	WPCPM_Flash::$set         = array();
+	$GLOBALS['nonce']         = WPCPM_Track_Builder::ACTION_SAVE;
+	$_POST   = property_post( array( 'wpcpm_track_revision' => $open_form, 'wpcpm_label' => 'Saved after a ' . $press ) );
+	$landed  = outcome( array( $tool, 'handle_save' ) );
+	$flash   = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+	ck( 'Publish' === $press
+		? 'a Publish from elsewhere does not make an open property form stale, and the Save leaves the track published'
+		: 'a Take off from elsewhere does not make an open property form stale',
+	    array( '' !== $open_form, $landed, WPCPM_Track_Store::$saved[13]['label'] ?? null, $flash['status'] ?? '', $flash['outcome'] ?? 'none', WPCPM_Track_Store::state( 13 ) ),
+	    array( true, 'redirect', 'Saved after a ' . $press, 'success', 'none', $states[1] ) );
+}
+
+// Both learn-course rules belong to the Learn course box.
+ck( 'a Learn course rule that is about the ID is listed at the Learn course box too',
+    array_keys( WPCPM_Track_Builder::problems_of( array( array( 'code' => 'course_id', 'where' => '', 'message' => 'The Learn course ID must be a whole number.' ) ) ) ),
+    array( 'course_url' ) );
+
+// New track and Copy carry every problem too.
+WPCPM_Track_Store::$errors = array(
+	array( 'code' => 'status_taken', 'where' => '', 'message' => 'Another track already has this status.' ),
+	array( 'code' => 'key_taken', 'where' => '', 'message' => 'Another track already has this key.' ),
+);
+$GLOBALS['nonce'] = WPCPM_Track_Builder::ACTION_NEW;
+$_POST = array( 'wpcpm_label' => 'A new track', 'wpcpm_status' => 'Taken', 'wpcpm_key' => 'taken' );
+outcome( array( $tool, 'handle_new' ) );
+$new_flash = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+ob_start();
+WPCPM_Track_Builder_Screen::render_new( array( 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $new_flash ) );
+$new_page = ob_get_clean();
+ck( 'a refused New track carries both problems, and its form marks both fields',
+    array( array_keys( $new_flash['problems'] ?? array() ), substr_count( $new_page, 'Two answers need a change' ), substr_count( $new_page, 'aria-invalid="true"' ), false !== strpos( $new_page, 'name="wpcpm_label" value="A new track"' ) ),
+    array( array( 'status', 'key' ), 1, 2, true ) );
+
+$GLOBALS['nonce'] = WPCPM_Track_Builder::ACTION_DUPLICATE;
+$_POST = array( 'track' => 13, 'wpcpm_label' => 'A copy', 'wpcpm_status' => 'Taken', 'wpcpm_key' => 'taken' );
+outcome( array( $tool, 'handle_duplicate' ) );
+$copy_flash = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+ob_start();
+WPCPM_Track_Builder_Screen::render_duplicate( array( 'form' => WPCPM_Track_Builder::duplicate_form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $copy_flash ) );
+$copy_page = ob_get_clean();
+ck( 'and so does a refused Copy',
+    array( array_keys( $copy_flash['problems'] ?? array() ), substr_count( $copy_page, 'Two answers need a change' ), substr_count( $copy_page, 'aria-invalid="true"' ) ),
+    array( array( 'status', 'key' ), 1, 2 ) );
+WPCPM_Track_Store::$errors = array();
+
+// Publish, Check and Take off run once.
+$live_flight = $nothing_flight;
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish( array( 'track' => 13, 'label' => 'Marketing Track', 'state' => 'changed', 'preflight' => $live_flight, 'checklist' => array(), 'can_make' => true, 'url' => '', 'flash' => array() ) );
+$live_page = ob_get_clean();
+$guarded   = function ( $action, $busy ) use ( $live_page ) {
+	return 1 === preg_match( '#<form method="post" action="[^"]*" data-wpcpm-once data-wpcpm-busy="' . preg_quote( $busy, '#' ) . '">(?:(?!</form>).)*name="action" value="' . $action . '"#s', $live_page );
+};
+ck( 'Publish, Check and Take off are guarded with their busy words',
+    array( $guarded( 'wpcpm_track_publish', 'Publishing' ), $guarded( 'wpcpm_track_verify', 'Checking' ), $guarded( 'wpcpm_track_unpublish', 'Taking it off' ) ),
+    array( true, true, true ) );
+ck( 'and so is the Publish that asks for the track\'s name first',
+    substr_count( $asks, 'class="wpcpm-tracks__confirm" data-wpcpm-once data-wpcpm-busy="Publishing"' ),
+    1 );
+ck( 'and the mover tells the script what to say when its request cannot be sent',
+    substr_count( question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) ) . property_page(), 'data-wpcpm-unsent="The move could not be sent. The questions are back in the order last saved."' ) > 0,
+    true );
+
+echo "\n=== The question list's script, run by node ===\n";
+$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+
+if ( '' === $node ) {
+	echo "skip the script was not run: node is not on the path\n";
+} else {
+	$process = proc_open(
+		escapeshellarg( $node ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'bin/js/track-editor-move.js' ) . ' ' . escapeshellarg( WPCPM_PLUGIN_DIR . 'assets/js/track-editor.js' ) . ' 2>&1',
+		array( 1 => array( 'pipe', 'w' ) ),
+		$pipes
+	);
+
+	$out = explode( "\n", rtrim( (string) stream_get_contents( $pipes[1] ) ) );
+
+	fclose( $pipes[1] );
+
+	$status = proc_close( $process );
+
+	// As bin/test-student-modules.php reads its harness: each scenario line is counted here, the
+	// summary is checked against the lines shown, and anything else is shown as it came.
+	$ran     = 0;
+	$differ  = 0;
+	$summary = null;
+
+	foreach ( $out as $line ) {
+		if ( 0 === strpos( $line, 'ok   ' ) ) {
+			++$ran;
+			++$total;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, 'FAIL ' ) ) {
+			++$ran;
+			++$total;
+			++$differ;
+			++$fail;
+			echo $line . "\n";
+		} elseif ( 0 === strpos( $line, '       ' ) ) {
+			echo $line . "\n";
+		} elseif ( '' !== trim( $line ) ) {
+			if ( preg_match( '/^(\d+) scenarios, (\d+) differ$/', trim( $line ), $counts ) ) {
+				$summary = array( (int) $counts[1], (int) $counts[2] );
+			}
+
+			echo '     ' . $line . "\n";
+		}
+	}
+
+	ck( 'the script ran scenarios', $ran > 0, true );
+	ck( 'and its own summary counts the scenarios and the failures shown above', $summary, array( $ran, $differ ) );
+	ck( 'and node ended with a status of 0, or of 1 when a scenario differed', $status, $differ ? 1 : 0 );
+}
 
 WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
 WPCPM_Track_Store::$saved  = array();

@@ -1724,7 +1724,18 @@ final class WPCPM_Sponsor_Offers {
 			'offer-saved'             => array( 'success', __( 'Your offer was saved.', 'wpcredits-program-manager' ) ),
 			'offer-rejected'          => array( 'error', __( 'The offer could not be saved.', 'wpcredits-program-manager' ) ),
 			'offer-failed'            => array( 'error', __( 'The offer could not be saved right now. Try again later.', 'wpcredits-program-manager' ) ),
-			'offer-state-saved'       => array( 'success', __( 'The offer was switched.', 'wpcredits-program-manager' ) ),
+			// The moves of an offer each say their own sentence and name the offer (1.123.58, SDB-21),
+			// the program's own Switch on of a draft among them.
+			/* translators: %s: the offer's title. */
+			'offer-paused'            => array( 'success', __( 'Paused: %s is hidden until you resume it.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the offer's title. */
+			'offer-resumed'           => array( 'success', __( 'Resumed: %s is offered again.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the offer's title. */
+			'offer-taken-back'        => array( 'success', __( 'Taken back: %s is a draft again, and nobody can claim it.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the offer's title. */
+			'offer-ended'             => array( 'success', __( 'Ended: %s is closed for good, and its codes stay in the usage report.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the offer's title. */
+			'offer-switched-on'       => array( 'success', __( 'Switched on: %s is live.', 'wpcredits-program-manager' ) ),
 			'offer-empty'             => array( 'error', __( 'The offer cannot be switched on yet.', 'wpcredits-program-manager' ) ),
 			'offer-transition'        => array( 'error', __( 'The offer cannot move to that state from where it is.', 'wpcredits-program-manager' ) ),
 			// The pool's own lock can be held by another request for a
@@ -1756,7 +1767,7 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * The form a posted offer was typed into, as `WPCPM_Typed_Text::keep()` names it: a sponsor's
+	 * The form a posted offer was typed into, as `WPCPM_Flash::keep()` names it: a sponsor's
 	 * new-offer form, or one offer's edit form.
 	 *
 	 * @param string $record   Sponsor record ID.
@@ -1801,33 +1812,50 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * Keep what a refused offer form held for the one time it is drawn again: every box as typed,
-	 * each up to the room it was drawn with, and the kind and the audience as chosen.
+	 * Keep what a refused offer form held for the one time it is drawn again: every box as typed, the
+	 * kind and the audience as chosen, and why each refused field was refused (1.123.58, SDB-05,
+	 * SDB-06). A box over what the flash keeps is not kept at all, never kept cut
+	 * (`WPCPM_Flash::keep()`).
 	 *
 	 * The shared code and pasted codes are not kept. The pool holds a code sealed, and a flash would
-	 * hold it in the clear; a list of codes can run to a megabyte.
+	 * hold it in the clear; a list of codes can run to a megabyte. A refusal of either keeps its
+	 * sentence, for the box to say.
 	 *
 	 * @param string     $form     The form, as `typed_form()` names it.
 	 * @param array      $typed    What was typed, as `typed_post()` read it.
 	 * @param array      $raw      The posted values `handle_save()` hands `clean()`.
 	 * @param array|null $existing The offer being edited, or null for a new one.
+	 * @param array      $problems Each refused field and the one sentence that says why.
 	 */
-	private static function keep_typing( $form, array $typed, array $raw, $existing ) {
-		$stored = is_array( $existing ) ? $existing : self::empty_offer();
-		$room   = array();
-
-		foreach ( self::typed_boxes() as $key => $limit ) {
-			$room[ $key ] = WPCPM_Typed_Text::kept_room( (string) $stored[ $key ], $limit );
-		}
+	private static function keep_typing( $form, array $typed, array $raw, $existing, array $problems = array() ) {
+		unset( $existing );
 
 		if ( isset( $raw['kind'] ) && in_array( $raw['kind'], self::kinds(), true ) ) {
 			$typed['kind'] = $raw['kind'];
-			$room['kind']  = strlen( $raw['kind'] );
 		}
 
 		$typed['audience'] = array_values( array_intersect( self::AUDIENCES, (array) $raw['audience'] ) );
 
-		WPCPM_Typed_Text::keep( $form, $typed, $room );
+		WPCPM_Flash::keep( $form, $typed, $problems );
+	}
+
+	/**
+	 * The field of the offer form a `clean()` reason refuses, or '' for a reason no one box owns.
+	 *
+	 * @param string $reason A reason of `clean()`.
+	 * @return string
+	 */
+	private static function field_of( $reason ) {
+		$fields = array(
+			'title'             => 'title',
+			'title_long'        => 'title',
+			'text_long'         => 'text',
+			'instructions_long' => 'instructions',
+			'url'               => 'url',
+			'expires'           => 'expires',
+		);
+
+		return isset( $fields[ $reason ] ) ? $fields[ $reason ] : '';
 	}
 
 	/**
@@ -1877,9 +1905,9 @@ final class WPCPM_Sponsor_Offers {
 
 		$sentences = array(
 			'title'   => __( 'Give the offer a title.', 'wpcredits-program-manager' ),
-			'url'     => __( 'The link could not be accepted: check it has no name or password in it.', 'wpcredits-program-manager' ),
+			'url'     => __( 'Give the link without a user name or password in it.', 'wpcredits-program-manager' ),
 			'kind'    => __( 'The kind cannot change once the offer holds codes or claims.', 'wpcredits-program-manager' ),
-			'expires' => __( 'The last day must be a real date, written year-month-day.', 'wpcredits-program-manager' ),
+			'expires' => __( 'Write the last day as YYYY-MM-DD.', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $sentences[ $reason ] ) ? $sentences[ $reason ] : '';
@@ -1940,7 +1968,7 @@ final class WPCPM_Sponsor_Offers {
 		$form     = self::typed_form( $record, null === $existing ? 0 : $existing['id'] );
 
 		// What an earlier refusal of this form kept is stale once the form is posted again.
-		WPCPM_Typed_Text::forget( $form );
+		WPCPM_Flash::forget( $form );
 
 		$typed = self::typed_post();
 		$raw   = array(
@@ -1997,20 +2025,23 @@ final class WPCPM_Sponsor_Offers {
 			'instructions' => 'lines',
 		) as $key => $kind ) {
 			if ( ! in_array( $key, $drawn, true ) && WPCPM_Typed_Text::cleaner_loses( $typed[ $key ], $kind ) ) {
-				self::keep_typing( $form, $typed, $raw, $existing );
-				self::leave( 'offer-loss', $record, WPCPM_Typed_Text::loss_message( self::labels()[ $key ] ) );
+				$sentence = WPCPM_Typed_Text::loss_message( self::labels()[ $key ] );
+
+				self::keep_typing( $form, $typed, $raw, $existing, array( $key => $sentence ) );
+				self::leave( 'offer-loss', $record, $sentence );
 			}
 		}
 
 		$cleaned = self::clean( $raw, $existing, $drawn );
 
 		if ( ! $cleaned['ok'] ) {
-			// A box over its limit is to be shortened, so the form comes back with what was typed.
-			if ( in_array( $cleaned['reason'], array( 'title_long', 'text_long', 'instructions_long' ), true ) ) {
-				self::keep_typing( $form, $typed, $raw, $existing );
-			}
+			// Whatever the reason, the form comes back with what was typed (1.123.58, SDB-05), the
+			// box at fault saying why.
+			$sentence = self::reason_sentence( $cleaned['reason'], $cleaned['over'] );
+			$field    = self::field_of( $cleaned['reason'] );
 
-			self::leave( 'offer-rejected', $record, self::reason_sentence( $cleaned['reason'], $cleaned['over'] ) );
+			self::keep_typing( $form, $typed, $raw, $existing, '' !== $field && '' !== $sentence ? array( $field => $sentence ) : array() );
+			self::leave( 'offer-rejected', $record, $sentence );
 		}
 
 		// The shared code is checked before the offer is written, so a refusal here leaves
@@ -2026,13 +2057,19 @@ final class WPCPM_Sponsor_Offers {
 
 			if ( mb_strlen( $shared ) > WPCPM_Sponsor_Codes::LINE_MAX ) {
 				/* translators: %d: the longest code or link allowed. */
-				self::leave( 'offer-rejected', $record, sprintf( __( 'The shared code or link is longer than %d characters.', 'wpcredits-program-manager' ), WPCPM_Sponsor_Codes::LINE_MAX ) );
+				$sentence = sprintf( __( 'The shared code or link is longer than %d characters.', 'wpcredits-program-manager' ), WPCPM_Sponsor_Codes::LINE_MAX );
+
+				self::keep_typing( $form, $typed, $raw, $existing, array( 'shared' => $sentence ) );
+				self::leave( 'offer-rejected', $record, $sentence );
 			}
 
 			// set_state() refuses going live empty; nothing refused emptying one that is already
 			// live, which left students a card with no button and no explanation (finding 8).
 			if ( '' === $shared && null !== $existing && self::STATE_LIVE === $existing['state'] ) {
-				self::leave( 'offer-rejected', $record, __( 'Pause the offer before removing its code: students see it right now.', 'wpcredits-program-manager' ) );
+				$sentence = __( 'Pause the offer before removing its code: students see it right now.', 'wpcredits-program-manager' );
+
+				self::keep_typing( $form, $typed, $raw, $existing, array( 'shared' => $sentence ) );
+				self::leave( 'offer-rejected', $record, $sentence );
 			}
 		}
 
@@ -2049,14 +2086,20 @@ final class WPCPM_Sponsor_Offers {
 			$codes_text = self::codes_text();
 
 			if ( is_wp_error( $codes_text ) ) {
-				self::leave( 'offer-rejected', $record, self::codes_refusal_detail( $codes_text ) );
+				$sentence = mb_substr( sanitize_text_field( self::codes_refusal_detail( $codes_text ) ), 0, 300 );
+
+				self::keep_typing( $form, $typed, $raw, $existing, array( 'codes' => $sentence ) );
+				self::leave( 'offer-rejected', $record, $sentence );
 			}
 
 			if ( '' !== $codes_text ) {
 				$parsed = WPCPM_Sponsor_Codes::parse( $codes_text );
 
 				if ( ! empty( $parsed['errors'] ) ) {
-					self::leave( 'offer-rejected', $record, self::codes_refusal_detail( WPCPM_Sponsor_Codes::refusal( $parsed ) ) );
+					$sentence = mb_substr( sanitize_text_field( self::codes_refusal_detail( WPCPM_Sponsor_Codes::refusal( $parsed ) ) ), 0, 300 );
+
+					self::keep_typing( $form, $typed, $raw, $existing, array( 'codes' => $sentence ) );
+					self::leave( 'offer-rejected', $record, $sentence );
 				}
 			}
 		}
@@ -2259,7 +2302,24 @@ final class WPCPM_Sponsor_Offers {
 			)
 		);
 
-		self::leave( $send ? 'offer-sent' : 'offer-state-saved', $record );
+		// Each move says its own sentence and names the offer (1.123.58, SDB-21).
+		$said = array(
+			self::STATE_PAUSED => 'offer-paused',
+			self::STATE_ENDED  => 'offer-ended',
+			self::STATE_DRAFT  => 'offer-taken-back',
+		);
+
+		if ( self::STATE_LIVE === $state && self::STATE_PAUSED === $offer['state'] ) {
+			$status = 'offer-resumed';
+		} else {
+			$status = isset( $said[ $state ] ) ? $said[ $state ] : 'offer-switched-on';
+		}
+
+		if ( $send ) {
+			self::leave( 'offer-sent', $record );
+		}
+
+		self::leave( $status, $record, '', array( (string) $offer['title'] ) );
 	}
 
 	/**
@@ -2582,9 +2642,12 @@ final class WPCPM_Sponsor_Offers {
 		$pill   = self::STATE_LIVE === $offer['state'] && self::is_past( $offer ) ? __( 'Expired', 'wpcredits-program-manager' ) : self::state_label( $offer['state'] );
 		// A refused save of this offer's form: the offer and its form are drawn open, so the typing
 		// is where the person left it.
-		$kept = WPCPM_Typed_Text::kept( self::typed_form( $record, $offer['id'] ) );
+		$refused  = WPCPM_Flash::kept( self::typed_form( $record, $offer['id'] ) );
+		$kept     = $refused['values'];
+		$problems = $refused['problems'];
+		$came     = array() !== $kept || array() !== $problems;
 
-		printf( '<details class="wpcpm-offer wpcpm-offer--%1$s" id="wpcpm-offer-%2$d"%3$s><summary class="wpcpm-offer__summary">', esc_attr( $offer['state'] ), (int) $offer['id'], empty( $kept ) ? '' : ' open' );
+		printf( '<details class="wpcpm-offer wpcpm-offer--%1$s" id="wpcpm-offer-%2$d"%3$s><summary class="wpcpm-offer__summary">', esc_attr( $offer['state'] ), (int) $offer['id'], $came ? ' open' : '' );
 		printf(
 			'<h4 class="wpcpm-offer__title">%1$s <span class="wpcpm-offer__state">%2$s</span>%3$s</h4>',
 			esc_html( $offer['title'] ),
@@ -2628,8 +2691,8 @@ final class WPCPM_Sponsor_Offers {
 		// reveals the form; the state moves under a title of their own; the codes last.
 		self::render_details( $offer );
 		self::render_changes( $offer, $record, self::KIND_CODES === $offer['kind'] ? WPCPM_Sponsor_Codes::held_count( $offer['id'] ) : 0 );
-		printf( '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-%1$d"%3$s><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offer__edit-toggle">%2$s</summary>', (int) $offer['id'], esc_html__( 'Edit this offer', 'wpcredits-program-manager' ), empty( $kept ) ? '' : ' open' );
-		self::render_edit_form( self::as_drawn( $offer ), $record, $fixed, $kept );
+		printf( '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-%1$d"%3$s><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offer__edit-toggle">%2$s</summary>', (int) $offer['id'], esc_html__( 'Edit this offer', 'wpcredits-program-manager' ), $came ? ' open' : '' );
+		self::render_edit_form( self::as_drawn( $offer ), $record, $fixed, $kept, $problems );
 		echo '</details>';
 		self::render_state_block( $offer, $record, $staff );
 
@@ -2649,9 +2712,10 @@ final class WPCPM_Sponsor_Offers {
 	 * @param array|null $offer  The offer, or null for the new-offer form.
 	 * @param string     $record Sponsor key.
 	 * @param bool       $fixed  Whether the kind may no longer change.
-	 * @param array      $kept   What a refused save of this form kept (`WPCPM_Typed_Text::kept()`).
+	 * @param array      $kept     What a refused save of this form kept (`WPCPM_Flash::kept()`).
+	 * @param array      $problems Why the save refused each box it refused, by field.
 	 */
-	private static function render_fields( $offer, $record, $fixed, array $kept = array() ) {
+	private static function render_fields( $offer, $record, $fixed, array $kept = array(), array $problems = array() ) {
 		$is_new = null === $offer;
 		$offer  = $is_new ? self::empty_offer() : $offer;
 		$id     = $is_new ? 'new' : (string) $offer['id'];
@@ -2673,19 +2737,63 @@ final class WPCPM_Sponsor_Offers {
 		};
 		// The parser drops one line feed right after a text area's opening tag, so a kept typing, which
 		// can begin with a line break, is given one of its own first.
-		$area  = static function ( $key, $drawn ) use ( $kept ) {
+		$area = static function ( $key, $drawn ) use ( $kept ) {
 			return isset( $kept[ $key ] ) && is_string( $kept[ $key ] ) ? "\n" . esc_textarea( $kept[ $key ] ) : esc_textarea( $drawn );
 		};
-		$field = static function ( $key, $label, $control, $required = false ) use ( $id ) {
+		// A refused box is marked (1.123.58, SDB-06): `aria-invalid` on the control, and the sentence that
+		// says why right after it, tied to it by `aria-describedby`.
+		$marks = static function ( $key ) use ( $id, $problems ) {
+			return WPCPM_Form_Errors::attrs( 'wpcpm-offer-' . $id . '-' . $key, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '' );
+		};
+		$field = static function ( $key, $label, $control, $required = false ) use ( $id, $problems ) {
 			printf(
-				'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-%2$s">%3$s%4$s</label>%5$s</p>',
+				'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-%2$s">%3$s%4$s</label>%5$s%6$s</p>',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				esc_html( $label ),
 				$required ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '',
-				$control // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by the caller.
+				$control, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by the caller.
+				WPCPM_Form_Errors::problem( 'wpcpm-offer-' . $id . '-' . $key, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 			);
 		};
+
+		// Over the form, inside the card: each refused box, linked to it.
+		$map = array(
+			'title'        => array(
+				'id'    => 'wpcpm-offer-' . $id . '-title',
+				'label' => $labels['title'],
+			),
+			'text'         => array(
+				'id'    => 'wpcpm-offer-' . $id . '-text',
+				'label' => $labels['text'],
+			),
+			'instructions' => array(
+				'id'    => 'wpcpm-offer-' . $id . '-instructions',
+				'label' => $labels['instructions'],
+			),
+			'url'          => array(
+				'id'    => 'wpcpm-offer-' . $id . '-url',
+				'label' => __( 'Link with more information, or where to redeem', 'wpcredits-program-manager' ),
+			),
+			'shared'       => array(
+				'id'    => 'wpcpm-offer-' . $id . '-shared',
+				'label' => __( 'The shared code or link', 'wpcredits-program-manager' ),
+			),
+			'codes'        => array(
+				'id'    => 'wpcpm-offer-' . $id . '-codes',
+				'label' => __( 'The codes', 'wpcredits-program-manager' ),
+			),
+			'low'          => array(
+				'id'    => 'wpcpm-offer-' . $id . '-low',
+				'label' => __( 'Warn me when fewer than this many codes are left', 'wpcredits-program-manager' ),
+			),
+			'expires'      => array(
+				'id'    => 'wpcpm-offer-' . $id . '-expires',
+				'label' => __( 'Last day (optional)', 'wpcredits-program-manager' ),
+			),
+		);
+
+		echo WPCPM_Form_Errors::summary( $problems, $map, array( 'level' => 4 ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::summary() escapes every value it prints.
 
 		// The boxes draw the text a person typed, not the form it is stored in: a text input through
 		// `esc_attr( attr_text() )` and a text area through `esc_textarea( typed_text() )`, each with
@@ -2693,10 +2801,10 @@ final class WPCPM_Sponsor_Offers {
 		// line break the stored title holds as a space (`one_line()`), which the box would otherwise
 		// drop, joining the words on either side. A box drawn with what a refused save kept keeps the
 		// same room: it is the room the person typed in.
-		$field( 'title', $labels['title'], sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), $input( 'title', WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $offer['title'] ) ) ), (int) WPCPM_Typed_Text::drawn_limit( $offer['title'], self::MAX_TITLE ) ), true );
-		$field( 'text', $labels['text'], sprintf( '<textarea id="wpcpm-offer-%1$s-text" name="wpcpm_text" rows="2" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['text'], self::MAX_OFFER ), $area( 'text', WPCPM_Typed_Text::typed_text( $offer['text'] ) ) ) );
-		$field( 'instructions', $labels['instructions'], sprintf( '<textarea id="wpcpm-offer-%1$s-instructions" name="wpcpm_instructions" rows="4" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['instructions'], self::MAX_TEXT ), $area( 'instructions', WPCPM_Typed_Text::typed_text( $offer['instructions'] ) ) ) );
-		$field( 'url', __( 'Link with more information, or where to redeem', 'wpcredits-program-manager' ), sprintf( '<input type="url" id="wpcpm-offer-%1$s-url" name="wpcpm_url" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), $input( 'url', $offer['url'] ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );
+		$field( 'title', $labels['title'], sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required%4$s />', esc_attr( $id ), $input( 'title', WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $offer['title'] ) ) ), (int) WPCPM_Typed_Text::drawn_limit( $offer['title'], self::MAX_TITLE ), $marks( 'title' ) ), true );
+		$field( 'text', $labels['text'], sprintf( '<textarea id="wpcpm-offer-%1$s-text" name="wpcpm_text" rows="2" maxlength="%2$d"%4$s>%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['text'], self::MAX_OFFER ), $area( 'text', WPCPM_Typed_Text::typed_text( $offer['text'] ) ), $marks( 'text' ) ) );
+		$field( 'instructions', $labels['instructions'], sprintf( '<textarea id="wpcpm-offer-%1$s-instructions" name="wpcpm_instructions" rows="4" maxlength="%2$d"%4$s>%3$s</textarea>', esc_attr( $id ), (int) WPCPM_Typed_Text::drawn_limit( $offer['instructions'], self::MAX_TEXT ), $area( 'instructions', WPCPM_Typed_Text::typed_text( $offer['instructions'] ) ), $marks( 'instructions' ) ) );
+		$field( 'url', __( 'Link with more information, or where to redeem', 'wpcredits-program-manager' ), sprintf( '<input type="url" id="wpcpm-offer-%1$s-url" name="wpcpm_url" value="%2$s" maxlength="%3$d"%4$s />', esc_attr( $id ), $input( 'url', $offer['url'] ), (int) WPCPM_Sponsor_Codes::LINE_MAX, $marks( 'url' ) ) );
 
 		if ( $fixed ) {
 			// The kind shown here is a static value, not a control, so the note stays a plain
@@ -2727,13 +2835,13 @@ final class WPCPM_Sponsor_Offers {
 		// to the kind posted, so a filled-in wrong box is ignored rather than stored.
 		if ( $is_new ) {
 			echo '<div class="wpcpm-offer__for" data-wpcpm-shows-for="codes">';
-			self::render_codes_box( 'new', __( 'The codes', 'wpcredits-program-manager' ) );
+			self::render_codes_box( 'new', __( 'The codes', 'wpcredits-program-manager' ), isset( $problems['codes'] ) ? (string) $problems['codes'] : '' );
 			echo '</div>';
 		}
 
 		if ( $is_new || self::KIND_SHARED === $offer['kind'] ) {
 			echo '<div class="wpcpm-offer__for" data-wpcpm-shows-for="shared">';
-			$field( 'shared', __( 'The shared code or link', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-shared" name="wpcpm_shared" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), esc_attr( $is_new ? '' : WPCPM_Sponsor_Codes::shared( $offer['id'] ) ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );
+			$field( 'shared', __( 'The shared code or link', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-shared" name="wpcpm_shared" value="%2$s" maxlength="%3$d"%4$s />', esc_attr( $id ), esc_attr( $is_new ? '' : WPCPM_Sponsor_Codes::shared( $offer['id'] ) ), (int) WPCPM_Sponsor_Codes::LINE_MAX, $marks( 'shared' ) ) );
 			echo '</div>';
 		}
 
@@ -2742,8 +2850,8 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<label><input type="checkbox" name="wpcpm_audience[]" value="managers"%s /> %s</label>', checked( in_array( 'managers', $offer['audience'], true ), true, false ), esc_html__( 'The program team', 'wpcredits-program-manager' ) );
 		echo '<span class="wpcpm-student__note">' . esc_html__( 'Current students are always in.', 'wpcredits-program-manager' ) . '</span></fieldset>';
 
-		$field( 'low', __( 'Warn me when fewer than this many codes are left', 'wpcredits-program-manager' ), sprintf( '<input type="number" id="wpcpm-offer-%1$s-low" name="wpcpm_low" value="%2$s" min="1" max="1000" />', esc_attr( $id ), $input( 'low', (string) (int) $offer['low'] ) ) );
-		$field( 'expires', __( 'Last day (optional)', 'wpcredits-program-manager' ), sprintf( '<input type="date" id="wpcpm-offer-%1$s-expires" name="wpcpm_expires" value="%2$s" />', esc_attr( $id ), $input( 'expires', $offer['expires'] ) ) );
+		$field( 'low', __( 'Warn me when fewer than this many codes are left', 'wpcredits-program-manager' ), sprintf( '<input type="number" id="wpcpm-offer-%1$s-low" name="wpcpm_low" value="%2$s" min="1" max="1000"%3$s />', esc_attr( $id ), $input( 'low', (string) (int) $offer['low'] ), $marks( 'low' ) ) );
+		$field( 'expires', __( 'Last day (optional)', 'wpcredits-program-manager' ), sprintf( '<input type="date" id="wpcpm-offer-%1$s-expires" name="wpcpm_expires" value="%2$s"%3$s />', esc_attr( $id ), $input( 'expires', $offer['expires'] ), $marks( 'expires' ) ) );
 	}
 
 	/**
@@ -2933,9 +3041,10 @@ final class WPCPM_Sponsor_Offers {
 	 * @param array  $offer  The offer.
 	 * @param string $record Sponsor key.
 	 * @param bool   $fixed  Whether the kind may no longer change.
-	 * @param array  $kept   What a refused save of this form kept (`WPCPM_Typed_Text::kept()`).
+	 * @param array  $kept     What a refused save of this form kept (`WPCPM_Flash::kept()`).
+	 * @param array  $problems Why the save refused each box it refused, by field.
 	 */
-	private static function render_edit_form( array $offer, $record, $fixed, array $kept = array() ) {
+	private static function render_edit_form( array $offer, $record, $fixed, array $kept = array(), array $problems = array() ) {
 		printf(
 			'<form method="post" action="%1$s" id="wpcpm-offer-form-%3$d" class="wpcpm-sponsor__form wpcpm-offer__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -2946,7 +3055,7 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-		self::render_fields( $offer, $record, $fixed, $kept );
+		self::render_fields( $offer, $record, $fixed, $kept, $problems );
 		printf( '<p class="wpcpm-offer__actions"><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save offer', 'wpcredits-program-manager' ) );
 		echo '</form>';
 	}
@@ -3026,12 +3135,13 @@ final class WPCPM_Sponsor_Offers {
 	 * The two ways codes come in, side by side: a box to paste into and a file to upload. One
 	 * routine for the new-offer form and the pool's own form, so the two never drift apart.
 	 *
-	 * @param string $id    'new', or the offer's ID, for the control IDs.
-	 * @param string $label The paste box's label.
+	 * @param string $id      'new', or the offer's ID, for the control IDs.
+	 * @param string $label   The paste box's label.
+	 * @param string $problem Why a refused save refused the list, or ''.
 	 */
-	private static function render_codes_box( $id, $label ) {
+	private static function render_codes_box( $id, $label, $problem = '' ) {
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-codes">%2$s</label><textarea id="wpcpm-offer-%1$s-codes" name="wpcpm_codes" rows="6" placeholder="%3$s" aria-describedby="wpcpm-offer-%1$s-codes-hint"></textarea><span class="wpcpm-student__note" id="wpcpm-offer-%1$s-codes-hint">%4$s</span></p>',
+			'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-codes">%2$s</label><textarea id="wpcpm-offer-%1$s-codes" name="wpcpm_codes" rows="6" placeholder="%3$s"%5$s></textarea>%6$s<span class="wpcpm-student__note" id="wpcpm-offer-%1$s-codes-hint">%4$s</span></p>',
 			esc_attr( $id ),
 			esc_html( $label ),
 			esc_attr__( 'Paste codes here, one per line', 'wpcredits-program-manager' ),
@@ -3045,7 +3155,9 @@ final class WPCPM_Sponsor_Offers {
 				// Said here because the refusal for it arrives after the paste, and the counts on
 				// the card read 0 available, which makes the rule look like a fault (FOFFR-4).
 				. ' ' . __( 'A voided code cannot be added to the same offer again.', 'wpcredits-program-manager' )
-			)
+			),
+			WPCPM_Form_Errors::attrs( 'wpcpm-offer-' . $id . '-codes', $problem, 'wpcpm-offer-' . $id . '-codes-hint' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+			WPCPM_Form_Errors::problem( 'wpcpm-offer-' . $id . '-codes', $problem ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);
 		printf(
 			'<p class="wpcpm-sponsor__field wpcpm-offer__file"><label for="wpcpm-offer-%1$s-codes-file">%2$s</label><input type="file" id="wpcpm-offer-%1$s-codes-file" name="wpcpm_codes_file" accept=".txt,.csv,text/plain,text/csv" aria-describedby="wpcpm-offer-%1$s-codes-file-hint" /><span class="wpcpm-student__note" id="wpcpm-offer-%1$s-codes-file-hint">%3$s</span></p>',
@@ -3133,7 +3245,9 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		echo '<input type="hidden" name="wpcpm_offer" value="0" />';
-		self::render_fields( null, $record, false, WPCPM_Typed_Text::kept( self::typed_form( $record, 0 ) ) );
+		$refused = WPCPM_Flash::kept( self::typed_form( $record, 0 ) );
+
+		self::render_fields( null, $record, false, $refused['values'], $refused['problems'] );
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Create offer', 'wpcredits-program-manager' ) );
 		echo '</form>';
 	}
@@ -3143,12 +3257,13 @@ final class WPCPM_Sponsor_Offers {
 	 * (bin/check-references.php would otherwise flag a call to a method declared in another
 	 * task of the same release).
 	 *
-	 * @param string $status A key of messages(), or 'refused'.
-	 * @param string $record The sponsor, for the manager switcher; '' to land on the page as is.
-	 * @param string $detail A sentence printed after the status's own, or ''.
+	 * @param string   $status A key of messages(), or 'refused'.
+	 * @param string   $record The sponsor, for the manager switcher; '' to land on the page as is.
+	 * @param string   $detail A sentence printed after the status's own, or ''.
+	 * @param string[] $args   The values the status's sentence names, in its order, or none.
 	 */
-	private static function leave( $status, $record, $detail = '' ) {
-		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record, $detail );
+	private static function leave( $status, $record, $detail = '', array $args = array() ) {
+		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record, $detail, $args );
 		exit;
 	}
 

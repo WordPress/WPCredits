@@ -563,6 +563,9 @@ final class WPCPM_Mentor_Activation {
 
 		if ( ! empty( $row['ok'] ) ) {
 			update_user_meta( (int) $user_id, WPCPM_Mentors_Sync::META_RECORD_ID, (string) $row['record'] );
+			// The record is this account's now, so a match waiting for it under Needs confirming is not
+			// another account's to confirm (1.123.58).
+			WPCPM_Mentor_Provision::forget_unconfirmed( (string) $row['record'] );
 			// Stamped now, before the wait ends: a mentors sync run that started before this write read
 			// the table without this row, or with its Status not yet set back, and its revoke passes by
 			// an account stamped at or after its start. Stamped at the activation alone, a row written

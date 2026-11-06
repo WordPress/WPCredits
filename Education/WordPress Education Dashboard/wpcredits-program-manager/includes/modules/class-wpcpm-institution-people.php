@@ -60,6 +60,12 @@ class WPCPM_Institution_People {
 	 */
 	const FLASH = 'institution_people';
 
+	/**
+	 * What a refused Add account keeps of its form, one entry per institution, as
+	 * `WPCPM_Flash::keep()` names a form: `people-add:<institution record>` (1.123.58).
+	 */
+	const KEPT_ADD = 'people-add:';
+
 	/** Where a handler returns to, as a posted flag and never as a posted URL. */
 	const RETURN_ADMIN = 'admin';
 
@@ -718,9 +724,17 @@ class WPCPM_Institution_People {
 	 * mentor. Anything else is somebody's account to explain, and adopting it would hand a
 	 * school a person who never agreed to act for them.
 	 *
+	 * Both labels are shown, the placeholders only examples beside them, and a refused press comes
+	 * back with the name and the address as they were typed (1.123.58, INS-14).
+	 *
 	 * @param string $record_id Airtable institution record ID.
 	 */
 	private static function render_add_form( $record_id ) {
+		$kept  = WPCPM_Flash::kept( self::KEPT_ADD . $record_id );
+		$typed = static function ( $field ) use ( $kept ) {
+			return isset( $kept['values'][ $field ] ) && is_scalar( $kept['values'][ $field ] ) ? (string) $kept['values'][ $field ] : '';
+		};
+
 		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Add an account', 'wpcredits-program-manager' ) );
 
 		echo '<form class="wpcpm-people__form wpcpm-people__form--add" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
@@ -730,25 +744,27 @@ class WPCPM_Institution_People {
 		self::render_return_field();
 
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-people-name-%1$s">%2$s</label>',
+			'<label for="wpcpm-people-name-%1$s">%2$s</label>',
 			esc_attr( $record_id ),
 			esc_html__( 'Name', 'wpcredits-program-manager' )
 		);
 		printf(
-			'<input type="text" id="wpcpm-people-name-%1$s" name="name" value="" placeholder="%2$s" />',
+			'<input type="text" id="wpcpm-people-name-%1$s" name="name" value="%3$s" placeholder="%2$s" />',
 			esc_attr( $record_id ),
-			esc_attr__( 'Name', 'wpcredits-program-manager' )
+			esc_attr__( 'Name', 'wpcredits-program-manager' ),
+			esc_attr( $typed( 'name' ) )
 		);
 
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-people-email-%1$s">%2$s</label>',
+			'<label for="wpcpm-people-email-%1$s">%2$s</label>',
 			esc_attr( $record_id ),
 			esc_html__( 'Email address', 'wpcredits-program-manager' )
 		);
 		printf(
-			'<input type="email" id="wpcpm-people-email-%1$s" name="email" value="" placeholder="%2$s" required />',
+			'<input type="email" id="wpcpm-people-email-%1$s" name="email" value="%3$s" placeholder="%2$s" required />',
 			esc_attr( $record_id ),
-			esc_attr__( 'Email address', 'wpcredits-program-manager' )
+			esc_attr__( 'Email address', 'wpcredits-program-manager' ),
+			esc_attr( $typed( 'email' ) )
 		);
 
 		printf(
@@ -887,17 +903,20 @@ class WPCPM_Institution_People {
 			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
 		}
 
+		// What an earlier refusal kept is stale once the form is posted again (1.123.58).
+		WPCPM_Flash::forget( self::KEPT_ADD . $record );
+
 		// An institution the site has never read cannot acquire members. `attach()` refuses it
 		// too; saying it here names the sync as the fix rather than leaving a generic error.
 		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
-			self::finish( 'unknown-record', '', $record );
+			self::refuse_add( 'unknown-record', '', $record );
 		}
 
 		$email = sanitize_email( WPCPM_Request::posted_text( 'email' ) );
 		$name  = WPCPM_Request::posted_text( 'name' );
 
 		if ( ! is_email( $email ) ) {
-			self::finish( 'bad-email', '', $record );
+			self::refuse_add( 'bad-email', '', $record );
 		}
 
 		$existing = get_user_by( 'email', $email );
@@ -908,14 +927,14 @@ class WPCPM_Institution_People {
 			// that is already on the list above deserves to be told that, not told their
 			// colleague's account is a stranger's.
 			if ( self::is_member( $existing, $record ) ) {
-				self::finish( 'already', '', $record );
+				self::refuse_add( 'already', '', $record );
 			}
 
 			$adoptable = self::was_member( $existing, $record )
 				|| WPCPM_Roles::user_has_role( $existing, WPCPM_Roles::ROLE_MENTOR );
 
 			if ( ! $adoptable ) {
-				self::finish( 'conflict', $existing->user_login, $record );
+				self::refuse_add( 'conflict', $existing->user_login, $record );
 			}
 
 			$user_id = (int) $existing->ID;
@@ -933,7 +952,7 @@ class WPCPM_Institution_People {
 			);
 
 			if ( is_wp_error( $created ) ) {
-				self::finish( 'error', $created->get_error_message(), $record );
+				self::refuse_add( 'error', $created->get_error_message(), $record );
 			}
 
 			$user_id = (int) $created;
@@ -942,7 +961,7 @@ class WPCPM_Institution_People {
 		$attached = WPCPM_Institution_Members::attach( $user_id, $record, WPCPM_Institution_Members::HOW_MANAGER, get_current_user_id() );
 
 		if ( is_wp_error( $attached ) ) {
-			self::finish( 'error', $attached->get_error_message(), $record );
+			self::refuse_add( 'error', $attached->get_error_message(), $record );
 		}
 
 		// Queued rather than sent, like every other invitation: the queue is what the mail log
@@ -951,9 +970,11 @@ class WPCPM_Institution_People {
 		// drops anybody already carrying an invited stamp and `attach()` never clears one. The
 		// message says which of the two happened rather than promising mail that will not be
 		// sent; see `render_message()` for why the stamp is not cleared to force one.
+		// And 0 when the queue's lock was taken by another request, which `queue_was_busy()` tells
+		// apart (the fix wave of 1.123.58): the message then says nothing was queued.
 		$invited = (int) WPCPM_Mail::queue_invites( array( $user_id ) );
 
-		self::finish( $invited ? 'added' : 'added-known', $email, $record );
+		self::finish( $invited ? 'added' : ( WPCPM_Mail::queue_was_busy() ? 'added-busy' : 'added-known' ), $email, $record );
 	}
 
 	/**
@@ -1009,9 +1030,10 @@ class WPCPM_Institution_People {
 
 		// 0 for anybody who has been invited before, which a former member almost always has:
 		// their password still works and nothing is sent. The message says so.
+		// Or 0 when the queue's lock was taken, which the message says too (the fix wave of 1.123.58).
 		$invited = (int) WPCPM_Mail::queue_invites( array( $member_id ) );
 
-		self::finish( $invited ? 'readded' : 'readded-known', $member->user_email, $record );
+		self::finish( $invited ? 'readded' : ( WPCPM_Mail::queue_was_busy() ? 'readded-busy' : 'readded-known' ), $member->user_email, $record );
 	}
 
 	/*
@@ -1259,8 +1281,15 @@ class WPCPM_Institution_People {
 			'added-known'    => array( 'success', __( 'The account was added. No new invitation was queued: it has either been invited before or is already waiting in the queue.', 'wpcredits-program-manager' ) ),
 			'readded'        => array( 'success', __( 'That former member has access again, and an invitation is queued.', 'wpcredits-program-manager' ) ),
 			'readded-known'  => array( 'success', __( 'That former member has access again. No new invitation was queued: their account has either been invited before or is already waiting in the queue.', 'wpcredits-program-manager' ) ),
+			// The queue's lock was taken by another request, so nothing was queued (the fix wave of 1.123.58).
+			'added-busy'     => array( 'success', __( 'The account was added.', 'wpcredits-program-manager' ) . ' ' . __( 'The invitation could not be queued: the queue was busy. Send it from the account\'s row.', 'wpcredits-program-manager' ) ),
+			'readded-busy'   => array( 'success', __( 'That former member has access again.', 'wpcredits-program-manager' ) . ' ' . __( 'The invitation could not be queued: the queue was busy. Send it from the account\'s row.', 'wpcredits-program-manager' ) ),
 			'already'        => array( 'error', __( 'That account is already a member of this institution. It is on the list above.', 'wpcredits-program-manager' ) ),
-			'conflict'       => array( 'error', __( 'That address already has an account here that is neither a former member of this institution nor a mentor, so it was not adopted. A hand-made account is somebody\'s to explain.', 'wpcredits-program-manager' ) ),
+			'conflict'       => array(
+				'error',
+				/* translators: %s: the name of the account that already uses the address, linked to its profile for an Administrator. */
+				__( 'An account already uses that address: %s. Nothing was created.', 'wpcredits-program-manager' ),
+			),
 			'bad-email'      => array( 'error', __( 'That is not an address WordPress can create an account with.', 'wpcredits-program-manager' ) ),
 			'unknown-record' => array( 'error', __( 'That institution is not in the pipeline index. Run the institutions sync, then try again.', 'wpcredits-program-manager' ) ),
 			'not-former'     => array( 'error', __( 'That account is not a former member of this institution, so there is nothing to put back.', 'wpcredits-program-manager' ) ),
@@ -1271,12 +1300,64 @@ class WPCPM_Institution_People {
 			return;
 		}
 
+		// The conflict names the account inside its sentence (1.123.58, INS-14): linked to its
+		// profile for an Administrator, its name alone for anybody else.
+		if ( 'conflict' === $status ) {
+			printf(
+				'<p class="wpcpm-people__message is-%1$s" role="status">%2$s</p>',
+				esc_attr( $messages[ $status ][0] ),
+				sprintf( esc_html( $messages[ $status ][1] ), self::account_named( $detail ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The sentence is escaped here, and account_named() escapes what it returns.
+			);
+
+			return;
+		}
+
 		printf(
 			'<p class="wpcpm-people__message is-%1$s" role="status">%2$s%3$s</p>',
 			esc_attr( $messages[ $status ][0] ),
 			esc_html( $messages[ $status ][1] ),
 			'' === $detail ? '' : ' ' . esc_html( $detail )
 		);
+	}
+
+	/**
+	 * The account a refusal is about, by its name, as HTML: a link to its profile when the reader
+	 * may edit it (`get_edit_user_link()` answers '' for anybody else), the name alone otherwise.
+	 *
+	 * @param string $login The account's login, as the refusal recorded it.
+	 * @return string Escaped HTML.
+	 */
+	private static function account_named( $login ) {
+		$user = get_user_by( 'login', (string) $login );
+
+		if ( ! $user instanceof WP_User ) {
+			return esc_html( (string) $login );
+		}
+
+		$name = '' !== trim( (string) $user->display_name ) ? (string) $user->display_name : (string) $user->user_login;
+		$link = (string) get_edit_user_link( (int) $user->ID );
+
+		return '' === $link ? esc_html( $name ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( $link ), esc_html( $name ) );
+	}
+
+	/**
+	 * Refuse an Add account that got past the nonce and the policy: keep the name and the address as
+	 * they were typed, for the one drawing of the form that follows, then leave the refusal.
+	 *
+	 * @param string $status Outcome slug.
+	 * @param string $detail What the message adds.
+	 * @param string $record The institution the form is for.
+	 */
+	private static function refuse_add( $status, $detail, $record ) {
+		WPCPM_Flash::keep(
+			self::KEPT_ADD . $record,
+			array(
+				'name'  => WPCPM_Request::posted_text( 'name' ),
+				'email' => WPCPM_Request::posted_text( 'email' ),
+			)
+		);
+
+		self::finish( $status, $detail, $record );
 	}
 
 	/**

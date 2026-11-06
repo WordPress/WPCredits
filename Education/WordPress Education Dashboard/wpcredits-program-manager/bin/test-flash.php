@@ -189,6 +189,59 @@ WPCPM_Flash::sweep(
 );
 ck( 'a guest has nothing to sweep, and nothing is written', isset( $GLOBALS['umeta'][0] ), false );
 
+// A refused form's values and problems wait once for its redraw (1.123.58). Each scenario keeps
+// under a form name of its own, since `take()` memoizes per request.
+$GLOBALS['uid'] = 7;
+WPCPM_Flash::keep(
+	'sponsor-edit:42',
+	array(
+		'name'    => 'Ada\'s "Studio" \\ C:\drafts',
+		'website' => 'htp://example.test',
+		'notes'   => "Line one\r\nLine two",
+		'levels'  => array( 'gold', 7, 'silver' ),
+	),
+	array( 'website' => 'Enter a web address that starts with https://.' )
+);
+$kept = WPCPM_Flash::kept( 'sponsor-edit:42' );
+ck( 'keep() and kept(): the typed values come back as typed, a CRLF read as one LF, a list kept as its strings', $kept['values'], array( 'name' => 'Ada\'s "Studio" \\ C:\drafts', 'website' => 'htp://example.test', 'notes' => "Line one\nLine two", 'levels' => array( 'gold', 'silver' ) ) );
+ck( 'and the problem comes back beside them, keyed by its field', $kept['problems'], array( 'website' => 'Enter a web address that starts with https://.' ) );
+ck( 'kept() asked twice in one request gives the same answer', WPCPM_Flash::kept( 'sponsor-edit:42' ), $kept );
+ck( 'and the entry is gone from storage', isset( $GLOBALS['umeta'][7]['wpcpm_flash'] ), false );
+ck( 'a form never kept hands back both keys, empty', WPCPM_Flash::kept( 'sponsor-edit:never' ), array( 'values' => array(), 'problems' => array() ) );
+
+WPCPM_Flash::keep( 'kept-empty', array( 'bad' => "\xC3\x28", 'flag' => true, 'obj' => new stdClass() ), array( 'x' => '' ) );
+ck( 'nothing worth keeping (invalid UTF-8, a boolean, an object, a blank sentence) stores nothing', isset( $GLOBALS['umeta'][7]['wpcpm_flash'] ), false );
+
+WPCPM_Flash::keep( 'kept-problems-only', array(), array( 'consent' => 'Tick the box to go on.' ) );
+ck( 'problems alone are kept, for a form whose typing waits in another store', WPCPM_Flash::kept( 'kept-problems-only' ), array( 'values' => array(), 'problems' => array( 'consent' => 'Tick the box to go on.' ) ) );
+
+WPCPM_Flash::keep( 'kept-long', array( 'list' => str_repeat( 'a', WPCPM_Flash::KEPT_MAX + 1 ), 'boxes' => array( 'gold', str_repeat( 'b', WPCPM_Flash::KEPT_MAX + 1 ) ), 'full' => str_repeat( 'c', WPCPM_Flash::KEPT_MAX ), 'name' => 'Ada' ) );
+$long = WPCPM_Flash::kept( 'kept-long' );
+ck( 'a value over KEPT_MAX is not kept at all, and the rest of the form is', array( array_key_exists( 'list', $long['values'] ), $long['values']['boxes'], mb_strlen( $long['values']['full'] ), $long['values']['name'] ), array( false, array( 'gold' ), WPCPM_Flash::KEPT_MAX, 'Ada' ) );
+
+$GLOBALS['umeta'][7]['wpcpm_flash'] = array( 'kept:kept-stale' => array( 'at' => time() - WPCPM_Flash::KEPT_FOR - 1, 'values' => array( 'a' => 'old' ), 'problems' => array() ) );
+ck( 'an entry older than KEPT_FOR hands back nothing', WPCPM_Flash::kept( 'kept-stale' ), array( 'values' => array(), 'problems' => array() ) );
+ck( 'and is cleared all the same', isset( $GLOBALS['umeta'][7]['wpcpm_flash'] ), false );
+
+$GLOBALS['umeta'][7]['wpcpm_flash'] = array(
+	'kept:kept-left-behind' => array( 'at' => time() - WPCPM_Flash::KEPT_FOR - 1, 'values' => array( 'email' => 'ada@example.test' ), 'problems' => array() ),
+	'kept:kept-not-an-entry' => 'a string',
+	'typed:offer:1'          => array( 'at' => time() - 9999, 'typed' => array( 'title' => 'T' ) ),
+	'note'                   => 'deleted',
+);
+WPCPM_Flash::keep( 'kept-fresh', array( 'a' => 'b' ) );
+ck( 'every keep sweeps the kept entries left behind, and leaves the other stores and channels alone', array_keys( $GLOBALS['umeta'][7]['wpcpm_flash'] ), array( 'typed:offer:1', 'note', 'kept:kept-fresh' ) );
+
+WPCPM_Flash::keep( 'kept-forget', array( 'a' => 'b' ) );
+WPCPM_Flash::forget( 'kept-forget' );
+ck( 'forget() drops the entry unread', array_key_exists( 'kept:kept-forget', $GLOBALS['umeta'][7]['wpcpm_flash'] ), false );
+
+$GLOBALS['uid'] = 8;
+ck( 'another user is handed nothing of it', WPCPM_Flash::kept( 'kept-fresh' ), array( 'values' => array(), 'problems' => array() ) );
+$GLOBALS['uid'] = 7;
+ck( 'and its owner still is', WPCPM_Flash::kept( 'kept-fresh' )['values'], array( 'a' => 'b' ) );
+unset( $GLOBALS['umeta'][7]['wpcpm_flash'] );
+
 // No status is left in the redirect URLs any more. Each file is asserted to be there first:
 // a check that reads a module which no longer exists passes on an empty string and warns on
 // every run, which is what the student profile row here did until the deep check of

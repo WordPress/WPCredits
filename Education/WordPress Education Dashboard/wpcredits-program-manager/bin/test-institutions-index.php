@@ -518,7 +518,8 @@ WPCPM_Institutions_Index::write( $rows, $read_at );
 $GLOBALS['events']    = null;
 $recurring            = array( 'at' => time() + 7200, 'hook' => WPCPM_Institutions_Sync::CRON_DAILY, 'args' => array() );
 $GLOBALS['scheduled'] = array( $recurring );
-$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time();
+// The sync's lock row holds the time it runs to (1.123.58, `WPCPM_Lock`): one a tick took just now.
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = (string) ( time() + WPCPM_Institutions_Sync::LOCK_TIMEOUT );
 WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Heredia' ) );
 $again = array_values( array_filter( $GLOBALS['scheduled'], static function ( $event ) use ( $recurring ) { return $event !== $recurring; } ) );
 ck( 'a patch while the sync holds its lock asks for one run of the sync, on its run hook, a few minutes later', array(
@@ -538,7 +539,7 @@ $no_sync = $GLOBALS['scheduled'];
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time() - WPCPM_Institutions_Sync::LOCK_TIMEOUT - 5;
 WPCPM_Institutions_Index::patch( 'recSEED0000000008', array( 'city' => 'Alajuela' ) );
 $stale_sync = $GLOBALS['scheduled'];
-$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time();
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = (string) ( time() + WPCPM_Institutions_Sync::LOCK_TIMEOUT );
 WPCPM_Institutions_Index::patch( 'recNOPE0000000000', array( 'city' => 'Nowhere' ) );
 ck( 'no run is asked for when no tick holds the lock, when its lock has run out, or when nothing was patched', array( $no_sync, $stale_sync, $GLOBALS['scheduled'] ), array( array( $recurring ), array( $recurring ), array( $recurring ) ) );
 unset( $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] );

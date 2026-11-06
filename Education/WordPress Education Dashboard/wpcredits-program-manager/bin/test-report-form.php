@@ -194,14 +194,16 @@ function clean( $raw, array $spec ) {
 	static $method = null;
 
 	if ( null === $method ) {
-		$method = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'clean' );
+		$method = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'clean_result' );
 
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}
 	}
 
-	return $method->invoke( null, $raw, $spec );
+	$result = $method->invoke( null, $raw, $spec );
+
+	return array( $result['ok'], $result['value'] );
 }
 
 echo "=== The two field sets, exactly as the program specified them ===\n";
@@ -1495,8 +1497,8 @@ echo "\n=== The preview: the same loop, empty values, no form (1.106.0) ===\n";
 // this pins that nothing a student sees moved with them. A markup change that is meant updates
 // these three hashes knowingly (1.122.29: the text boxes lost `inputmode="url"`, so the
 // editable hash moved and the two read-only renders did not).
-ck( 'render_body() draws what it drew before the loop moved out',
-	array( md5( $read ), md5( $edit ), md5( body_50h() ) ),
+ck( 'render_body() draws what it drew before the loop moved out, the form\'s own wpcpm_from apart (1.123.58)',
+	array( md5( $read ), md5( str_replace( '<input type="hidden" name="wpcpm_from" value="form" />', '', $edit ) ), md5( body_50h() ) ),
 	array( '9ac719628c91cf7302c39d246d191e31', '57ea1db38a98bc090acfef5b1d5db9c6', '8e7234816827737bb6e374d6737fa154' ) );
 
 // A body drawn from a record with nothing in it, so its fieldsets can be held against the
@@ -1798,6 +1800,252 @@ ck( 'the preview draws the question\'s words and its help as a row, with no cont
 	),
 	array( true, 0, false ) );
 ck( 'beside a question that is still a box', false !== strpos( $program_preview, 'name="report[' . WPCPM_Student_Report_Form::key( 'Closing post URL' ) . ']"' ), true );
+
+echo "\n=== A refused save keeps what was typed, and names the answer at its field (1.123.58) ===\n";
+
+/*
+ * The real `handle_save()` over the real Airtable client, answered from a queue, and the page drawn
+ * on the next request. The handler ends at its redirect, which throws here, so the request ends
+ * where it would. The page is drawn by an Administrator holding the student's pending flash: the
+ * flash memoizes per request, so the next request is a fresh account with the user meta copied
+ * across (bin/test-settings.php's `next_request()`), and only a manager or the student may draw
+ * the student's form.
+ */
+class WPCPM_Test_Report_Left extends Exception {}
+
+function wp_safe_redirect( $url ) { throw new WPCPM_Test_Report_Left( (string) $url ); }
+function check_admin_referer( $a = -1, $q = '_wpnonce' ) { return true; }
+function wp_die( $m = '', $c = 0 ) { throw new WPCPM_Test_Report_Left( 'died: ' . ( is_string( $m ) ? $m : '' ) ); }
+function wp_unslash( $v ) { return is_array( $v ) ? array_map( 'wp_unslash', $v ) : stripslashes( (string) $v ); }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
+function wp_remote_request( $url, $args = array() ) {
+	$GLOBALS['report_sent'][] = array( 'url' => $url, 'args' => $args );
+
+	return array_shift( $GLOBALS['report_queue'] );
+}
+function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) ? ( $r['response']['code'] ?? 200 ) : 0; }
+function wp_remote_retrieve_body( $r ) { return is_array( $r ) ? ( $r['body'] ?? '' ) : ''; }
+function wp_remote_retrieve_header( $r, $h ) { return ''; }
+// Core's, for the class the card's outcome paragraph is given.
+function sanitize_html_class( $class ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $class ); }
+
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'api_token' => 'test-token', 'base_id' => 'appTest', 'reports_table' => 'tblReports' );
+
+$rf_sid    = 40;
+$rf_record = 'recSTUDENT0000001';
+$rf_grade  = WPCPM_Student_Report_Form::key( 'Open source basics and WordPress - final grade' );
+$rf_slack  = WPCPM_Student_Report_Form::key( 'Slack Name' );
+$rf_summ   = WPCPM_Student_Report_Form::key( 'Contribution Project Summary' );
+$rf_hours  = WPCPM_Student_Report_Form::key( 'Hours' );
+$rf_prog   = array( 'program' => WPCPM_Program::STATUS_150H, 'record_id' => $rf_record );
+
+/**
+ * Post the report form as the student, Airtable answering with `$code`.
+ *
+ * @param array  $report The answers, form key => value.
+ * @param string $from   The posted `wpcpm_from`, or '' for none.
+ * @param int    $code   What Airtable answers the write with; 0 when no write is expected.
+ * @return string Where the handler sent the student.
+ */
+function report_post( array $report, $from = '', $code = 200 ) {
+	global $rf_sid, $rf_record, $rf_prog;
+
+	$GLOBALS['uid']          = $rf_sid;
+	$GLOBALS['caps']         = false;
+	$GLOBALS['report_sent']  = array();
+	$GLOBALS['report_queue'] = $code ? array( array( 'response' => array( 'code' => $code ), 'headers' => array(), 'body' => json_encode( 200 === $code ? array( 'records' => array( array( 'id' => $rf_record, 'fields' => array() ) ) ) : array( 'error' => array( 'type' => 'INVALID_VALUE_FOR_COLUMN', 'message' => 'Refused.' ) ) ) ) ) : array();
+
+	$GLOBALS['umeta'][ $rf_sid ][ WPCPM_Students_Sync::META_RECORD_ID ] = $rf_record;
+	$GLOBALS['umeta'][ $rf_sid ][ WPCPM_Students_Sync::META_PROGRAM ]   = $rf_prog;
+	unset( $GLOBALS['umeta'][ $rf_sid ][ WPCPM_Flash::META ] );
+
+	set_transient( 'wpcpm_report_' . md5( $rf_record ), array( 'Slack Name' => 'stored-slack', 'Hours' => 5, 'Open source basics and WordPress - final grade' => 70 ) );
+
+	$_POST  = array( 'student' => (string) $rf_sid, 'report' => $report );
+	$_FILES = array();
+
+	if ( '' !== $from ) {
+		$_POST['wpcpm_from'] = $from;
+	}
+
+	try {
+		WPCPM_Student_Report_Form::handle_save();
+	} catch ( WPCPM_Test_Report_Left $left ) {
+		return $left->getMessage();
+	}
+
+	return '';
+}
+
+/**
+ * The next request, as an Administrator holding what the student's last request left.
+ *
+ * @param callable $run What the next request does.
+ * @return mixed What it returns.
+ */
+function report_next( $run ) {
+	static $next = 900;
+
+	global $rf_sid;
+
+	++$next;
+
+	$GLOBALS['umeta'][ $next ] = isset( $GLOBALS['umeta'][ $rf_sid ] ) ? $GLOBALS['umeta'][ $rf_sid ] : array();
+	$GLOBALS['uid']            = $next;
+	$GLOBALS['caps']           = true;
+	$result                    = $run();
+	$GLOBALS['uid']            = $rf_sid;
+	$GLOBALS['caps']           = false;
+
+	return $result;
+}
+
+/**
+ * The student's page as the next request draws it: the hours box, then the report form. The record
+ * is read from the cache, seeded as Airtable holds it, since a save that went through cleared it.
+ */
+function report_page() {
+	global $rf_sid, $rf_prog, $rf_record;
+
+	set_transient( 'wpcpm_report_' . md5( $rf_record ), array( 'Slack Name' => 'stored-slack', 'Hours' => 5, 'Open source basics and WordPress - final grade' => 70 ) );
+
+	return report_next(
+		static function () use ( $rf_sid, $rf_prog ) {
+			ob_start();
+			echo '<div id="hours-box">';
+			WPCPM_Student_Report_Form::render_hours( new WP_User( $rf_sid ), $rf_prog );
+			echo '</div>';
+			WPCPM_Student_Report_Form::render( new WP_User( $rf_sid ), $rf_prog );
+
+			return (string) ob_get_clean();
+		}
+	);
+}
+
+/** The opening tag of a control, found by its form key. */
+function report_control( $html, $key ) {
+	return preg_match( '/<(?:input|textarea|select)(?![^>]*type="hidden")[^>]*name="report\[' . preg_quote( $key, '/' ) . '\][^"]*"[^>]*>/', $html, $m ) ? $m[0] : '';
+}
+
+$typed = array(
+	$rf_slack => 'typed-slack',
+	$rf_summ  => "I fixed the docs.\nThen I fixed more.",
+	$rf_grade => '91',
+);
+
+$went = report_post( $typed, '', 422 );
+$page = report_page();
+
+ck( 'an Airtable refusal keeps every answer typed and draws the form from them, open',
+	array(
+		substr( $went, -strlen( '#wpcpm-report-form' ) ),
+		false !== strpos( report_control( $page, $rf_slack ), 'value="typed-slack"' ),
+		false !== strpos( $page, '>I fixed the docs.' . "\n" . 'Then I fixed more.</textarea>' ),
+		false !== strpos( report_control( $page, $rf_grade ), 'value="91"' ),
+		1 === preg_match( '/<details class="wpcpm-report__disclosure" open>/', $page ),
+		false !== strpos( $page, 'Airtable did not take your report. Your answers are still in the form below: save it again in a moment.' ),
+		strpos( $page, 'stored-slack' ),
+	),
+	array( '#wpcpm-report-form', true, true, true, true, true, false ) );
+ck( 'and the refusal is an alert in the error tone, carrying data-wpcpm-card-message, so the page moves the focus to it, as the hours box does',
+	array(
+		false !== strpos( $page, '<p class="wpcpm-calls__message wpcpm-calls__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Airtable did not take your report. Your answers are still in the form below: save it again in a moment.</p>' ),
+		false !== strpos( $page, 'role="status">Airtable did not take your report.' ),
+	),
+	array( true, false ) );
+
+// Every other error-toned outcome is an alert focused on load too (1.123.58, trial T12): here the one
+// a student whose record cannot be found is given. The flash as the handler leaves it.
+$GLOBALS['umeta'][ $rf_sid ]['wpcpm_flash'] = array( 'report' => 'report-no-record', 'report-from' => WPCPM_Student_Report_Form::FROM_FORM );
+$no_record_page = report_page();
+ck( 'a record that cannot be found is said as an alert in the error tone, carrying data-wpcpm-card-message, and no status',
+	array(
+		false !== strpos( $no_record_page, '<p class="wpcpm-calls__message wpcpm-calls__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Your record could not be found in the program data, so there is nothing to save to.</p>' ),
+		false !== strpos( $no_record_page, 'role="status">Your record could not be found' ),
+	),
+	array( true, false ) );
+
+report_post( array( $rf_grade => '85%', $rf_slack => 'typed-slack' ) );
+$kept_entry = report_next( static function () use ( $rf_record ) { return WPCPM_Flash::kept( 'report-form:' . $rf_record ); } );
+
+report_post( array( $rf_grade => '85%', $rf_slack => 'typed-slack' ) );
+$page = report_page();
+
+ck( 'a rejected grade is named at its field, aria-invalid, its sentence beside it, and the summary links it',
+	array(
+		$kept_entry['problems'],
+		$kept_entry['values'][ $rf_grade ] ?? null,
+		false !== strpos( report_control( $page, $rf_grade ), 'aria-invalid="true"' ),
+		false !== strpos( report_control( $page, $rf_grade ), 'value="85%"' ),
+		false !== strpos( $page, '<p class="wpcpm-field__problem" id="wpcpm-report-' . $rf_grade . '-problem">Write the number only, such as 85.</p>' ),
+		false !== strpos( $page, '<h3 class="wpcpm-errors__title">One answer needs a change</h3>' ),
+		false !== strpos( $page, '<a href="#wpcpm-report-' . $rf_grade . '">Open source basics and WordPress</a>' ),
+	),
+	array( array( $rf_grade => 'Write the number only, such as 85.' ), '85%', true, true, true, true, true ) );
+
+$went = report_post( array( $rf_hours => '12' ), 'hours' );
+$page = report_page();
+$box  = substr( $page, 0, (int) strpos( $page, '<details' ) );
+
+ck( 'the hours box saves back to My course with Hours saved inside it, and does not open the report form',
+	array(
+		substr( $went, -strlen( '#wpcpm-module-course' ) ),
+		false !== strpos( $box, '<p class="wpcpm-hours__message wpcpm-hours__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Hours saved.</p>' ),
+		1 === preg_match( '/<details class="wpcpm-report__disclosure">/', $page ),
+		strpos( $page, 'Your report form is saved' ),
+	),
+	array( '#wpcpm-module-course', true, true, false ) );
+
+$went = report_post( array( $rf_hours => 'twelve' ), 'hours', 0 );
+$page = report_page();
+$box  = substr( $page, 0, (int) strpos( $page, '<details' ) );
+
+ck( 'a refused hours count keeps the typing and says so in the hours box',
+	array(
+		substr( $went, -strlen( '#wpcpm-module-course' ) ),
+		false !== strpos( report_control( $box, $rf_hours ), 'value="twelve"' ),
+		false !== strpos( report_control( $box, $rf_hours ), 'aria-invalid="true"' ),
+		false !== strpos( $box, '<p id="wpcpm-hours-message" class="wpcpm-hours__message wpcpm-hours__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>The hours were not saved. Write the number of hours only, such as 12.</p>' ),
+		false !== strpos( report_control( $box, $rf_hours ), 'aria-describedby="wpcpm-hours-message wpcpm-report-' . $rf_hours . '-hint"' ),
+		1 === preg_match( '/<details class="wpcpm-report__disclosure">/', $page ),
+		strpos( $page, 'wpcpm-errors' ),
+	),
+	array( '#wpcpm-module-course', true, true, true, true, true, false ) );
+
+report_post( array( $rf_hours => '14' ), 'hours', 503 );
+$page = report_page();
+$box  = substr( $page, 0, (int) strpos( $page, '<details' ) );
+
+ck( 'an Airtable refusal from the hours box says so in the box, with the count still in it, and leaves the form shut',
+	array(
+		false !== strpos( $box, 'role="alert" tabindex="-1" data-wpcpm-card-message>Airtable did not take your hours. They are still in the box: save them again in a moment.</p>' ),
+		false !== strpos( report_control( $box, $rf_hours ), 'value="14"' ),
+		strpos( $page, 'still in the form below' ),
+		1 === preg_match( '/<details class="wpcpm-report__disclosure">/', $page ),
+	),
+	array( true, true, false, true ) );
+
+ck( 'the two outcomes of a save with a refused answer point at the marked answers, in one sentence each',
+	array( WPCPM_Student_Report_Form::message( 'report-partly' ), WPCPM_Student_Report_Form::message( 'report-rejected' ) ),
+	array( array( 'error', 'The rest was saved. The answers marked below need a change.' ), array( 'error', 'Nothing was saved. The answers marked below need a change.' ) ) );
+
+report_post( array( $rf_summ => str_repeat( 'a', WPCPM_Flash::KEPT_MAX + 1 ), $rf_slack => 'typed-slack' ), '', 422 );
+$long_kept = report_next( static function () use ( $rf_record ) { return WPCPM_Flash::kept( 'report-form:' . $rf_record ); } );
+
+ck( 'an answer longer than the store keeps is not kept at all, never kept cut, and the rest is',
+	array( array_key_exists( $rf_summ, $long_kept['values'] ), $long_kept['values'][ $rf_slack ] ?? null ),
+	array( false, 'typed-slack' ) );
+
+report_post( array( $rf_slack => 'saved-slack' ) );
+report_post( array( $rf_slack => 'second-slack' ) );
+$page = report_page();
+
+ck( 'a save that goes through draws the form from the record, with nothing kept from before',
+	array( strpos( $page, 'wpcpm-errors' ), strpos( $page, 'aria-invalid' ) ),
+	array( false, false ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

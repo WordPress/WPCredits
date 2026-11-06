@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - `take( $name, $ttl )` answers a token when this request now holds the lock, and '' when another
  *   request holds it. A lock holds until it is let go or until `$ttl` seconds have passed, whichever
  *   comes first; after that the next request to ask takes it over.
+ * - `extend( $name, $token, $ttl )` holds the lock for `$ttl` seconds more, and answers the new token,
+ *   only while its row still holds that token; '' tells a holder whose lock was taken over.
  * - `release( $name, $token )` lets the lock go only while its row still holds that token, so a
  *   request whose lock ran out and was taken over never lets go of its successor's.
  * - `until( $name )` says when a held lock runs out, for a caller that tells somebody how long to
@@ -27,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - The name is the caller's: its own prefix, so uninstall can sweep the rows by it, and what it
  *   locks.
  *
- * **Three statements, and no options API.** Each step is one SQL statement that the database
+ * **Four statements, and no options API.** Each step is one SQL statement that the database
  * answers by the unique key on `option_name`, written straight to the options table and never read
  * through the object cache:
  *
@@ -36,6 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - take over: one `UPDATE` matching only a row whose time has passed, so of two requests taking over
  *   one lock that ran out at the same moment, the second finds the time the first wrote and matches
  *   nothing;
+ * - hold longer: one `UPDATE` matching this request's own value, writing a later one;
  * - let go: one `DELETE` matching this request's own value.
  *
  * Every write changes the row's value or leaves no row, so what the database reports is the same
@@ -83,6 +86,39 @@ final class WPCPM_Lock {
 		}
 
 		return 1 === (int) $taken ? $token : '';
+	}
+
+	/**
+	 * Hold the lock on a name longer, if its row still holds this request's token: for a holder whose
+	 * work outlasts one lifetime, such as a sync tick paging through a long read.
+	 *
+	 * One `UPDATE` matching this holder's own value, writing now and the lifetime, or one second past
+	 * the token when that is later, so the row's value always changes and what the database reports
+	 * is the same whatever client flags the connection was opened with. The value written is the new
+	 * token. A holder whose lock ran out and was taken over holds a token no row has, matches nothing
+	 * and is answered '', so it moves nobody's time on and knows it no longer holds the lock.
+	 *
+	 * @param string $name  The option row's name, as it was taken.
+	 * @param string $token What `take()`, or the last `extend()`, answered.
+	 * @param int    $ttl   How long the lock holds from now at most, in seconds; one at the least.
+	 * @return string The new token, which `release()` and the next `extend()` take, or '' when the row
+	 *                no longer holds this token.
+	 */
+	public static function extend( $name, $token, $ttl ) {
+		global $wpdb;
+
+		$token = (string) $token;
+
+		if ( '' === $token ) {
+			return '';
+		}
+
+		$next = (string) max( time() + max( 1, (int) $ttl ), (int) $token + 1 );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- A test-and-set the options cache must not answer: only the row holding this token is moved on.
+		$moved = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", $next, (string) $name, $token ) );
+
+		return 1 === (int) $moved ? $next : '';
 	}
 
 	/**

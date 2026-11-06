@@ -65,11 +65,26 @@ class WPCPM_Mentor_Provision {
 	const USER_INVITE_HELD = 'wpcpm_mentor_invite_held';
 
 	/**
+	 * Option: the mentors the sync found an account for by their WordPress.org username alone
+	 * (1.123.58, LOG-02), keyed by the mentor's record id, each `name` and `profile` as the base has
+	 * them, the account's `user_id` and when the match was first found (`at`, a Unix time).
+	 *
+	 * Anyone may hold a login, so a login is not a mentor: such an account is given nothing, no role,
+	 * no record and no students, and waits here, listed under Needs confirming on the Mentors screen's
+	 * Sync tab, until an Administrator confirms it (`confirm_unconfirmed()`) or a sync finds the mentor
+	 * by address or record id (`forget_unconfirmed()`). Uninstall deletes it.
+	 */
+	const OPT_UNCONFIRMED = 'wpcpm_mentors_unconfirmed';
+
+	/**
 	 * Create or link the account for one mentor.
 	 *
 	 * Identifies the account in order of reliability: the record ID the sync stored itself, then the
-	 * email address, then the username (anything else risks writing a mentor's data onto a
-	 * stranger's account); an account the caller found is taken as it is, and no lookup is made.
+	 * email address (anything else risks writing a mentor's data onto a stranger's account); an
+	 * account the caller found is taken as it is, and no lookup is made. An account this step finds by
+	 * the username alone, for a mentor with a record id, is given nothing and written to Needs
+	 * confirming (1.123.58, `OPT_UNCONFIRMED`); one found by its record id or address, or created,
+	 * takes the mentor off that list.
 	 *
 	 * @param array      $mentor Mentor data: `record_id` (a string, `''` when the mentor has no row
 	 *                           yet), `name`, `profile` and `email`.
@@ -119,7 +134,9 @@ class WPCPM_Mentor_Provision {
 			return 0;
 		}
 
-		if ( is_array( $found ) && isset( $found['user'] ) && $found['user'] instanceof WP_User ) {
+		$given = is_array( $found ) && isset( $found['user'] ) && $found['user'] instanceof WP_User;
+
+		if ( $given ) {
 			$user = $found['user'];
 			$how  = isset( $found['how'] ) ? (string) $found['how'] : '';
 		} else {
@@ -150,12 +167,168 @@ class WPCPM_Mentor_Provision {
 				return 0;
 			}
 
+			// A login is not a mentor (1.123.58): nothing but the username ties this account to the
+			// mentor, so it is given nothing until an Administrator confirms the match. The caller's
+			// own finding is the caller's to judge, and a mentor with no record has nothing to wait on.
+			if ( 'login' === $how && ! $given && '' !== $mentor['record_id'] ) {
+				self::wait_unconfirmed( $user, $mentor, $login, $report );
+
+				return 0;
+			}
+
+			self::forget_unconfirmed( $mentor['record_id'] );
 			self::link_existing_user( $user, $mentor, $how, $report );
 
 			return (int) $user->ID;
 		}
 
+		self::forget_unconfirmed( $mentor['record_id'] );
+
 		return self::create_mentor_user( $login, $email, $mentor, $report );
+	}
+
+	/**
+	 * Write a match by username alone to Needs confirming, and say so in the run's notices.
+	 *
+	 * A match found again keeps the time it was first found, so the list says how long it has waited.
+	 *
+	 * @param WP_User $user   The account whose login is the mentor's username.
+	 * @param array   $mentor Mentor data.
+	 * @param string  $login  The mentor's WordPress.org username.
+	 * @param array   $report The report, by reference.
+	 */
+	private static function wait_unconfirmed( WP_User $user, array $mentor, $login, array &$report ) {
+		$waiting = self::unconfirmed();
+		$record  = (string) $mentor['record_id'];
+		$kept    = isset( $waiting[ $record ] ) && (int) $waiting[ $record ]['user_id'] === (int) $user->ID ? (int) $waiting[ $record ]['at'] : 0;
+
+		$waiting[ $record ] = array(
+			'name'    => (string) $mentor['name'],
+			'profile' => (string) $mentor['profile'],
+			'user_id' => (int) $user->ID,
+			'at'      => $kept > 0 ? $kept : time(),
+		);
+
+		update_option( self::OPT_UNCONFIRMED, $waiting, false );
+
+		$report['notices'][] = sprintf(
+			/* translators: 1: the account's display name, 2: the mentor's WordPress.org username. */
+			__( '%1$s has the login of a mentor\'s WordPress.org username (%2$s) and nothing else. Nothing was linked: confirm it under Needs confirming on the Sync tab if it is the mentor\'s account.', 'wpcredits-program-manager' ),
+			'' !== (string) $user->display_name ? $user->display_name : $user->user_login,
+			$login
+		);
+	}
+
+	/**
+	 * The matches waiting under Needs confirming, keyed by the mentor's record id.
+	 *
+	 * @return array<string, array{name: string, profile: string, user_id: int, at: int}>
+	 */
+	public static function unconfirmed() {
+		$waiting = get_option( self::OPT_UNCONFIRMED, array() );
+
+		return is_array( $waiting ) ? $waiting : array();
+	}
+
+	/**
+	 * Take a mentor off Needs confirming: a sync found them by address or record id, or an
+	 * Administrator confirmed the match. A mentor not on the list changes nothing.
+	 *
+	 * @param string $record_id The mentor's record id.
+	 */
+	public static function forget_unconfirmed( $record_id ) {
+		$waiting = self::unconfirmed();
+
+		if ( '' === (string) $record_id || ! isset( $waiting[ (string) $record_id ] ) ) {
+			return;
+		}
+
+		unset( $waiting[ (string) $record_id ] );
+
+		update_option( self::OPT_UNCONFIRMED, $waiting, false );
+	}
+
+	/**
+	 * Confirm a match waiting under Needs confirming: link the account to the mentor's record and give
+	 * it the Mentor role, the step an account found by its address takes (`link_existing_user()`), and
+	 * take the match off the list. The next sync gives the account its students.
+	 *
+	 * Nothing is changed for a match no longer waiting, for an account that is gone, or for one linked
+	 * meanwhile to another mentor's record, which two people cannot share. A record another account
+	 * holds by now (an activation wrote it) is that account's: the match is taken off the list and
+	 * nothing else is changed.
+	 *
+	 * The welcome follows the rule of an account linked by its address (`queue_relinked()`), for this
+	 * one account and with no brake: with invitation emails on, it is queued unless the account was an
+	 * active mentor already, is an Administrator's, or holds an invitation already held.
+	 *
+	 * @param string $record_id The mentor's record id.
+	 * @return array{user: WP_User, queued: bool, busy: bool}|null The account linked, whether its
+	 *                                                 invitation was queued, and whether the queue's
+	 *                                                 lock refused it, or null when nothing was linked.
+	 */
+	public static function confirm_unconfirmed( $record_id ) {
+		$record_id = (string) $record_id;
+		$waiting   = self::unconfirmed();
+
+		if ( '' === $record_id || ! isset( $waiting[ $record_id ] ) ) {
+			return null;
+		}
+
+		$entry = $waiting[ $record_id ];
+		$user  = get_userdata( isset( $entry['user_id'] ) ? (int) $entry['user_id'] : 0 );
+
+		if ( ! $user instanceof WP_User ) {
+			return null;
+		}
+
+		$claimed = (string) get_user_meta( $user->ID, WPCPM_Mentors_Sync::META_RECORD_ID, true );
+
+		if ( '' !== $claimed && $claimed !== $record_id ) {
+			return null;
+		}
+
+		$holder = self::find_by_record_id( $record_id );
+
+		if ( $holder instanceof WP_User && (int) $holder->ID !== (int) $user->ID ) {
+			self::forget_unconfirmed( $record_id );
+
+			return null;
+		}
+
+		$report = array(
+			'notices' => array(),
+			'stats'   => WPCPM_Mentors_Sync::empty_stats(),
+		);
+
+		self::link_existing_user(
+			$user,
+			array(
+				'record_id' => $record_id,
+				'name'      => isset( $entry['name'] ) ? (string) $entry['name'] : '',
+				'profile'   => isset( $entry['profile'] ) ? (string) $entry['profile'] : '',
+			),
+			'confirmed',
+			$report
+		);
+
+		self::forget_unconfirmed( $record_id );
+
+		$was     = isset( $report['linked_accounts'][0]['was_active_mentor'] ) && $report['linked_accounts'][0]['was_active_mentor'];
+		$welcome = WPCPM_Settings::get_value( 'send_welcome_email' )
+			&& ! $was
+			&& ! in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true )
+			&& ! WPCPM_Mail::is_held( $user->ID );
+
+		// Said from what the queue answered (the fix wave of 1.123.58): an invitation waiting already
+		// is queued, and one the queue's lock refused is not.
+		$answer = $welcome ? (int) WPCPM_Mail::queue_invite( $user->ID ) : 0;
+
+		return array(
+			'user'   => $user,
+			'queued' => $welcome && WPCPM_Mail::QUEUE_BUSY !== $answer,
+			'busy'   => $welcome && WPCPM_Mail::QUEUE_BUSY === $answer,
+		);
 	}
 
 	/**
@@ -248,7 +421,8 @@ class WPCPM_Mentor_Provision {
 	 *
 	 * @param WP_User $user   Existing user.
 	 * @param array   $mentor Mentor data.
-	 * @param string  $how    How the user was matched: record, email, login or profile.
+	 * @param string  $how    How the user was matched: record, email, login, profile, or confirmed (an
+	 *                        Administrator confirmed a match by username alone, 1.123.58).
 	 * @param array   $report The report, by reference.
 	 */
 	private static function link_existing_user( WP_User $user, array $mentor, $how, array &$report ) {

@@ -345,6 +345,12 @@ class WPCPM_Settings_Screen {
 			exit;
 		}
 
+		// What an earlier Save left for a page that was never drawn is gone before this one leaves its own:
+		// a refusal kept for this scope, and a warning about settings kept as stored, would otherwise
+		// surface on the page this Save lands on, beside a notice that says it saved (1.123.58).
+		WPCPM_Flash::forget( self::kept_form( $scope ) );
+		WPCPM_Flash::take( self::kept_channel( $scope ) );
+
 		// Derived from the defaults, through the scope's list, rather than hand-listed. The
 		// hand-written list was a standing invitation to add a field to the form, add its sanitizer
 		// to `WPCPM_Settings::save()`, and forget the third place - at which point the field
@@ -387,6 +393,19 @@ class WPCPM_Settings_Screen {
 			$input[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] = wp_unslash( $_POST[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in WPCPM_Settings::student_statuses_from().
 		}
 
+		// The box above each Who is mailed list of the scope, which is no setting either (1.123.58).
+		foreach ( array_intersect( WPCPM_Settings::NOTIFY_LISTS, $keys ) as $list ) {
+			if ( ! empty( $_POST[ $list . WPCPM_Settings::EVERYONE_SUFFIX ] ) ) {
+				$input[ $list . WPCPM_Settings::EVERYONE_SUFFIX ] = true;
+			}
+		}
+
+		// What the page was drawn with, a fingerprint a setting (1.123.58): the save writes only the
+		// settings the person changed, and keeps one that changed elsewhere since.
+		if ( isset( $_POST[ WPCPM_Settings::FIELD_DRAWN ] ) ) {
+			$input[ WPCPM_Settings::FIELD_DRAWN ] = WPCPM_Settings::drawn_from( wp_unslash( $_POST[ WPCPM_Settings::FIELD_DRAWN ] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each key checked against the defaults and each value against a fingerprint's shape in drawn_from().
+		}
+
 		// A change to the list that would take the status of a track the site runs from its
 		// definition out of it is not made: the next students sync would take the Student role from
 		// everybody on the track, and the status leaves once the track is off the live site (the
@@ -414,6 +433,23 @@ class WPCPM_Settings_Screen {
 
 		$saved = WPCPM_Settings::save( $input, $scope );
 
+		// What the save did not write, for the page it goes back to (1.123.58): each refused setting's
+		// typing and its sentence, drawn again in its row and summarized at the top of the tab
+		// (`WPCPM_Form_Errors`), and the settings kept as stored because they changed elsewhere since
+		// the page was drawn, named in a warning.
+		$refused = WPCPM_Settings::last_refused();
+
+		if ( array() !== $refused ) {
+			// A secret refused is never kept to be drawn again: the row shows its mask, as always.
+			$secrets = array( 'api_token', 'schema_token', 'handbook_key', 'checker_slack_webhook' );
+
+			WPCPM_Flash::keep( self::kept_form( $scope ), array_diff_key( array_intersect_key( $input, $refused ), array_flip( $secrets ) ), $refused );
+		}
+
+		if ( array() !== WPCPM_Settings::last_kept() ) {
+			WPCPM_Flash::set( self::kept_channel( $scope ), WPCPM_Settings::last_kept() );
+		}
+
 		// "Currently mentoring" and the past statuses are rules every published track was compiled
 		// against, so a save that changes them would otherwise leave the live tracks, and the list
 		// of what the last compile left out, answering for the settings as they were (decision 14).
@@ -437,11 +473,35 @@ class WPCPM_Settings_Screen {
 		}
 
 		// Back to where the form was drawn, a tab or a tool's own screen, with a notice naming what
-		// was saved.
-		self::flash_outcome( 'saved', $scope );
+		// was saved, or, when a setting was refused, a warning that says the rest was.
+		self::flash_outcome( array() === $refused ? 'saved' : 'saved-except', $scope );
 
 		wp_safe_redirect( self::return_url( $scope ) );
 		exit;
+	}
+
+	/**
+	 * The name a settings form's refused typing is kept under (`WPCPM_Flash::keep()`): one per scope,
+	 * so a tab's refusal comes back on that tab and a tool's on that tool's screen (1.123.58).
+	 *
+	 * @param string $scope A key of `WPCPM_Settings::scopes()`.
+	 * @return string
+	 */
+	public static function kept_form( $scope ) {
+		return 'settings:' . (string) $scope;
+	}
+
+	/**
+	 * The flash channel a Save's warning about settings kept as stored waits on, keyed by the scope
+	 * it saved (the fix wave of 1.123.58): set and taken by that tab, or that tool's Settings section,
+	 * alone, so a warning is never printed on a page whose fields it does not name, and a Save of one
+	 * scope leaves another's warning waiting.
+	 *
+	 * @param string $scope A key of `WPCPM_Settings::scopes()`.
+	 * @return string
+	 */
+	public static function kept_channel( $scope ) {
+		return 'settings-kept:' . (string) $scope;
 	}
 
 	/**
@@ -619,10 +679,11 @@ class WPCPM_Settings_Screen {
 		}
 
 		return array(
-			'saved'       => array( 'success', $saved ),
-			'refused'     => array( 'error', __( 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.', 'wpcredits-program-manager' ) ),
-			'log-cleared' => array( 'success', __( 'The mail log is empty.', 'wpcredits-program-manager' ) ),
-			'lists-read'  => array( 'success', __( 'The lists were read again.', 'wpcredits-program-manager' ) ),
+			'saved'        => array( 'success', $saved ),
+			'saved-except' => array( 'warning', __( 'The settings marked below were not saved. Everything else was saved.', 'wpcredits-program-manager' ) ),
+			'refused'      => array( 'error', __( 'Nothing was saved: the form asked to save settings this screen does not have. Reload the page and save again.', 'wpcredits-program-manager' ) ),
+			'log-cleared'  => array( 'success', __( 'The mail log is empty.', 'wpcredits-program-manager' ) ),
+			'lists-read'   => array( 'success', __( 'The lists were read again.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
@@ -717,20 +778,43 @@ class WPCPM_Settings_Screen {
 	}
 
 	/**
-	 * The method that draws each tab's sections, by the tab's slug: every tab of `settings_tabs()` but
-	 * Mail, which saves nothing and is drawn on its own.
+	 * The slugs of the tabs that have sections to draw: every tab of `settings_tabs()` but Mail, which
+	 * saves nothing and is drawn on its own. `draw_tab_sections()` draws each of them.
 	 *
-	 * @return array<string, string> Slug => the method.
+	 * @return string[] The slugs.
 	 */
-	private static function tab_sections() {
-		return array(
-			'connection'   => 'render_tab_connection',
-			'people'       => 'render_tab_people',
-			'institutions' => 'render_institution_settings',
-			'sponsors'     => 'render_sponsor_settings',
-			'security'     => 'render_tab_security',
-			'advanced'     => 'render_tab_advanced',
-		);
+	private static function tab_section_slugs() {
+		return array( 'connection', 'people', 'institutions', 'sponsors', 'security', 'advanced' );
+	}
+
+	/**
+	 * Draw one tab's sections, by the tab's slug, from the methods named here so each is called where
+	 * it can be found.
+	 *
+	 * @param string $tab      A slug of `tab_section_slugs()`.
+	 * @param array  $settings Current settings.
+	 */
+	private function draw_tab_sections( $tab, array $settings ) {
+		switch ( $tab ) {
+			case 'connection':
+				$this->render_tab_connection( $settings );
+				break;
+			case 'people':
+				$this->render_tab_people( $settings );
+				break;
+			case 'institutions':
+				$this->render_institution_settings( $settings );
+				break;
+			case 'sponsors':
+				$this->render_sponsor_settings( $settings );
+				break;
+			case 'security':
+				$this->render_tab_security( $settings );
+				break;
+			case 'advanced':
+				$this->render_tab_advanced( $settings );
+				break;
+		}
 	}
 
 	/**
@@ -747,9 +831,7 @@ class WPCPM_Settings_Screen {
 	 * @param array  $settings Current settings.
 	 */
 	private function render_tab_form( $tab, array $settings ) {
-		$sections = self::tab_sections();
-
-		if ( ! isset( $sections[ $tab ] ) ) {
+		if ( ! in_array( $tab, self::tab_section_slugs(), true ) ) {
 			printf(
 				'<div class="notice notice-error inline"><p>%s</p></div>',
 				esc_html__( 'This tab has nothing to show yet, so it has nothing to save.', 'wpcredits-program-manager' )
@@ -758,10 +840,8 @@ class WPCPM_Settings_Screen {
 			return;
 		}
 
-		$draw = $sections[ $tab ];
-
 		self::open_settings_form( $tab );
-		$this->$draw( $settings );
+		self::draw_marked( $tab, array( $this, 'draw_tab_sections' ), array( $tab, $settings ) );
 		$this->close_settings_form();
 
 		if ( 'connection' === $tab ) {
@@ -811,6 +891,59 @@ class WPCPM_Settings_Screen {
 			esc_attr( self::SETTINGS_TAB_FIELD ),
 			esc_attr( $scope )
 		);
+
+		// The fingerprint of every value the form is drawn with, so its Save writes only what the
+		// person changed (`WPCPM_Settings::save()`, 1.123.58).
+		echo WPCPM_Settings::drawn_fields( $scope ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hidden inputs, every attribute escaped in drawn_fields().
+	}
+
+	/**
+	 * Draw the sections of a settings form with what its last Save did not write marked on them
+	 * (1.123.58): the refused settings, drawn again from what was typed with their sentence at the
+	 * field, and the settings kept as stored because they changed elsewhere since the page was drawn,
+	 * with theirs. The summaries go first, inside the form (`WPCPM_Form_Errors::summary()`), the
+	 * refusals as an error and the kept settings as a warning, and the sections after them.
+	 *
+	 * @param string   $scope     A key of `WPCPM_Settings::scopes()`.
+	 * @param callable $draw      Prints the form's sections.
+	 * @param array    $draw_args What it is handed.
+	 */
+	public static function draw_marked( $scope, $draw, array $draw_args = array() ) {
+		$kept     = WPCPM_Flash::kept( self::kept_form( $scope ) );
+		$changed  = WPCPM_Flash::take( self::kept_channel( $scope ) );
+		$changed  = is_array( $changed ) ? array_values( array_filter( $changed, 'is_string' ) ) : array();
+		$sentence = __( 'Changed elsewhere after this page was opened, so the value saved then is shown and yours was not saved. Check it, and save again if yours should win.', 'wpcredits-program-manager' );
+		$warnings = array_fill_keys( $changed, $sentence );
+
+		WPCPM_Settings_Rows::reset_marks();
+		WPCPM_Settings_Rows::mark( $kept['problems'], $kept['values'] );
+		WPCPM_Settings_Rows::mark( $warnings, array() );
+
+		ob_start();
+		call_user_func_array( $draw, $draw_args );
+		$sections = ob_get_clean();
+
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::summary().
+		echo WPCPM_Form_Errors::summary( $kept['problems'], WPCPM_Settings_Rows::drawn_labels(), array( 'class' => WPCPM_Form_Errors::ADMIN_CLASS ) );
+		echo WPCPM_Form_Errors::summary(
+			$warnings,
+			WPCPM_Settings_Rows::drawn_labels(),
+			array(
+				// Kept where it is printed, as the error summary is (`WPCPM_Form_Errors::ADMIN_CLASS`).
+				'class'   => 'notice notice-warning inline',
+				'heading' => sprintf(
+					/* translators: %s: how many settings, spelled out under ten, such as Two. */
+					_n( '%s setting changed since you opened this page', '%s settings changed since you opened this page', count( $warnings ), 'wpcredits-program-manager' ),
+					WPCPM_Form_Errors::count_words( count( $warnings ) )
+				),
+			)
+		);
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The sections escape their own output.
+		echo $sections;
+
+		WPCPM_Settings_Rows::reset_marks();
 	}
 
 	/**
@@ -1379,7 +1512,9 @@ class WPCPM_Settings_Screen {
 			__( 'Who is mailed', 'wpcredits-program-manager' ),
 			isset( $settings['mentor_notify'] ) ? (string) $settings['mentor_notify'] : '',
 			__( 'Addresses told of each new mentor application; with none here, every Administrator is written to.', 'wpcredits-program-manager' ),
-			__( 'The email names the applicant and their WordPress.org profile and links the Waiting for review tab. It carries none of their other answers, which are read on the tab.', 'wpcredits-program-manager' )
+			__( 'The email names the applicant and their WordPress.org profile and links the Waiting for review tab. It carries none of their other answers, which are read on the tab.', 'wpcredits-program-manager' ),
+			'',
+			true
 		);
 
 		WPCPM_Settings_Rows::text_row(
@@ -1554,17 +1689,21 @@ class WPCPM_Settings_Screen {
 				__( 'They are: a new application from an institution, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, and an institution\'s last member leaving.', 'wpcredits-program-manager' ),
 				__( 'Every Administrator account means every account with the WordPress Administrator role, technical ones too, so name somebody.', 'wpcredits-program-manager' ),
 			),
-			__( 'Nobody is named, so every Administrator account gets these emails.', 'wpcredits-program-manager' )
+			__( 'Nobody is named, so every Administrator account gets these emails.', 'wpcredits-program-manager' ),
+			true
 		);
 
 		$wording = __( 'The agreement wording', 'wpcredits-program-manager' );
+		$notes   = WPCPM_Settings_Rows::control_notes( 'agreement_doc_url', $wording );
 
 		printf(
-			'<tr><th scope="row">%1$s</th><td><input type="url" class="regular-text" name="agreement_doc_url" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p>',
+			'<tr><th scope="row">%1$s</th><td><input type="url" class="regular-text" id="wpcpm-agreement_doc_url" name="agreement_doc_url" value="%2$s" placeholder="%3$s"%5$s>%6$s<p class="description">%4$s</p>',
 			esc_html( $wording ),
 			esc_attr( (string) $settings['agreement_doc_url'] ),
 			esc_attr__( 'https://docs.google.com/document/d/...', 'wpcredits-program-manager' ),
-			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement came from, linked from the Institutions screen\'s Agreement template card; Google addresses only.', 'wpcredits-program-manager' )
+			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement came from, linked from the Institutions screen\'s Agreement template card; Google addresses only.', 'wpcredits-program-manager' ),
+			$notes['attrs'], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::attrs().
+			$notes['problem'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Form_Errors::problem().
 		);
 		WPCPM_Settings_Rows::close_row( $wording, __( 'Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin\'s source is public.', 'wpcredits-program-manager' ) );
 
@@ -1596,7 +1735,10 @@ class WPCPM_Settings_Screen {
 			'report_notify',
 			__( 'Who reviews reports', 'wpcredits-program-manager' ),
 			(string) $settings['report_notify'],
-			__( 'Addresses told when the job drafts a report; with none, every Administrator is written to.', 'wpcredits-program-manager' )
+			__( 'Addresses told when the job drafts a report; with none, every Administrator is written to.', 'wpcredits-program-manager' ),
+			'',
+			'',
+			true
 		);
 
 		$this->close_section();
@@ -1698,7 +1840,9 @@ class WPCPM_Settings_Screen {
 			__( 'Who is mailed', 'wpcredits-program-manager' ),
 			isset( $settings['sponsor_notify'] ) ? (string) $settings['sponsor_notify'] : '',
 			__( 'Addresses mailed in place of a sponsor\'s Administrator when it has none; with none here, every Administrator is written to.', 'wpcredits-program-manager' ),
-			__( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes, a warning that its codes are running low, the mail thirty days before its term ends and the mails about the events it plans, changes or cancels go to its assigned Administrator, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no Administrator yet.', 'wpcredits-program-manager' )
+			__( 'A sponsor\'s interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes, a warning that its codes are running low, the mail thirty days before its term ends and the mails about the events it plans, changes or cancels go to its assigned Administrator, and to these addresses when it has none. Every new sponsor application comes here too, since a new application has no Administrator yet.', 'wpcredits-program-manager' ),
+			'',
+			true
 		);
 
 		$this->close_section();
