@@ -686,6 +686,10 @@ ck(
 reset_world();
 $thanked = submit( answers() );
 $good    = only_row();
+$_GET         = array( WPCPM_Mentor_Application_Form::QUERY_STASH => substr( $thanked['url'], strpos( $thanked['url'], '=' ) + 1 ) );
+$thanked_page = WPCPM_Mentor_Application_Form::render();
+ck( 'the thank-you page speaks plainly: no sentence starts with Please (1.123.59)', array( false !== strpos( $thanked_page, 'Quote it if you write to us about this application.' ), false !== strpos( $thanked_page, 'with a link that confirms the address. Follow it: the program writes to you about your application only once the address is confirmed.' ), substr_count( $thanked_page, 'Please' ) ), array( true, true, 0 ) );
+$_GET         = array();
 $state   = function ( $row ) {
 	return array( WPCPM_Mentor_Application::state_of( $row ), WPCPM_Mentor_Application::fields_of( $row ), array_column( WPCPM_Mentor_Application::events( (int) $row->ID ), 'event' ), WPCPM_Mentor_Application::reference_of( $row ), get_post_meta( $row->ID, WPCPM_Mentor_Application::META_EMAIL, true ), get_post_meta( $row->ID, WPCPM_Mentor_Application::META_CONSENT, true )['sentence'] ?? null );
 };

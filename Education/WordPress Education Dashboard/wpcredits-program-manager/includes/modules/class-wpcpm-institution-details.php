@@ -455,7 +455,7 @@ class WPCPM_Institution_Details {
 			// saved nothing. After an Airtable change they cannot be undone with it, so the change
 			// stands and the record is the next correction's to fill.
 			if ( ! $kept && empty( $prepared['cells'] ) ) {
-				return new WP_Error( 'wpcpm_details_record', __( 'The details could not be kept on the site, so nothing was saved. Please try again in a while.', 'wpcredits-program-manager' ) );
+				return new WP_Error( 'wpcpm_details_record', __( 'The details could not be kept on the site, so nothing was saved. Try again in a while.', 'wpcredits-program-manager' ) );
 			}
 		}
 

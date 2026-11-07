@@ -1547,7 +1547,15 @@ class WPCPM_Student_Report_Form {
 		} elseif ( 'url' === $type ) {
 			// Airtable's url columns hold schemeless addresses ("example.org/me"), and `esc_url()`
 			// alone leaves one relative - a link that stays inside this site instead of leaving it.
-			$html = sprintf( '<span class="wpcpm-field__value"><a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></span>', esc_url( WPCPM_Field_Value::clean_url( $text ) ), esc_html( $text ) );
+			// A stored value that is not a web address ("my site") answers '' from `clean_url()`
+			// (1.123.59): it links nothing, because `<a href="">` would point at the page itself.
+			$href = WPCPM_Field_Value::clean_url( $text );
+
+			if ( '' === $href ) {
+				$html = '<span class="wpcpm-field__value">' . esc_html( $text ) . '</span>';
+			} else {
+				$html = sprintf( '<span class="wpcpm-field__value"><a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></span>', esc_url( $href ), esc_html( $text ) );
+			}
 		} elseif ( 'richtext' === $type ) {
 			// The one richtext field holds what the student typed into a textarea, not markup: its
 			// paragraphs are newlines, so `wp_kses_post()` alone - which keeps the tags a rich value
@@ -1928,6 +1936,11 @@ class WPCPM_Student_Report_Form {
 
 		if ( 'bad_date' === $problem ) {
 			return __( 'Write the date as YYYY-MM-DD.', 'wpcredits-program-manager' );
+		}
+
+		// A web address that is not one: another scheme, a space, a host with no dot (1.123.59).
+		if ( 'bad_url' === $problem ) {
+			return WPCPM_Field_Value::bad_url_text();
 		}
 
 		return __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );
@@ -2370,7 +2383,7 @@ class WPCPM_Student_Report_Form {
 			),
 			'report-image-removed' => array( 'success', __( 'That screenshot is removed, here and from the program records.', 'wpcredits-program-manager' ) ),
 			'report-image-partly'  => array( 'error', __( 'That screenshot is removed from the program records, but this site could not delete its own copy, so it is still shown here. Press Remove again.', 'wpcredits-program-manager' ) ),
-			'report-image-kept'    => array( 'error', __( 'The screenshot was left in place: the program records could not be told to drop it. Please try again.', 'wpcredits-program-manager' ) ),
+			'report-image-kept'    => array( 'error', __( 'The screenshot was left in place: the program records could not be told to drop it. Try again.', 'wpcredits-program-manager' ) ),
 			'report-image-none'    => array( 'error', __( 'There is no screenshot of yours on that question, so there was nothing to remove.', 'wpcredits-program-manager' ) ),
 		);
 

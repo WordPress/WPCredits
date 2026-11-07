@@ -107,9 +107,9 @@ class WPCPM_Institution_Details_Card {
 			'asked'           => array( 'success', __( 'Sent: an Administrator checks the change, and you will see it here once it is decided.', 'wpcredits-program-manager' ) ),
 			'nothing'         => array( 'info', __( 'Nothing was changed.', 'wpcredits-program-manager' ) ),
 			// The page never names the base to a school: the records the program keeps are what could not be updated.
-			'airtable'        => array( 'error', __( 'The program records could not be updated, so nothing was saved. Please try again in a while.', 'wpcredits-program-manager' ) ),
-			'refused-now'     => array( 'error', __( 'Nothing was saved. Please correct what is marked below and save again.', 'wpcredits-program-manager' ) ),
-			'refused-checked' => array( 'error', __( 'Nothing was sent. Please correct what is marked below and send it again.', 'wpcredits-program-manager' ) ),
+			'airtable'        => array( 'error', __( 'The program records could not be updated, so nothing was saved. Try again in a while.', 'wpcredits-program-manager' ) ),
+			'refused-now'     => array( 'error', __( 'Nothing was saved. Correct what is marked below and save again.', 'wpcredits-program-manager' ) ),
+			'refused-checked' => array( 'error', __( 'Nothing was sent. Correct what is marked below and send it again.', 'wpcredits-program-manager' ) ),
 			// A save at once that found the school's lock held: the store's words for a raise that found it so.
 			'saving-busy'     => array( 'error', WPCPM_Institution_Request::saving_message() ),
 		);

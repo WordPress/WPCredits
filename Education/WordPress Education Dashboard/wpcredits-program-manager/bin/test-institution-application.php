@@ -1939,12 +1939,13 @@ $script  = submit( answers( array( 'credits_page' => 'javascript:alert(1)' ) ) )
 $page_id = 'wpcpm-application-' . WPCPM_Institution_Application::form_key( 'credits_page' );
 
 ck( 'a page address with a javascript: scheme is refused, and nothing is stored', array( $script['outcome'], $script['stash']['problems'] ?? null, count( stored() ) ), array( 'again', array( 'credits_page' => 'bad_url' ), 0 ) );
+ck( 'a website of words, or with no dot in its host, is refused the same way, never emptied on the quiet (1.123.59)', array( WPCPM_Institution_Application::clean( 'Website', 'not a site' )['problem'], WPCPM_Institution_Application::clean( 'Website', 'example' )['problem'], WPCPM_Institution_Application::clean( 'credits_page', 'our page' )['problem'] ), array( 'bad_url', 'bad_url', 'bad_url' ) );
 
 follow( $script['url'] );
 $again = WPCPM_Institution_Application::render();
 
 ck( 'and the form handed back says what to give, the address back in its box as typed and escaped (1.123.58)', array(
-	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $page_id . '-problem">Give a web address starting with https://, or just the domain.</span>' ),
+	false !== strpos( $again, '<span class="wpcpm-field__problem" id="' . $page_id . '-problem">Enter a web address such as example.com.</span>' ),
 	false !== strpos( $again, 'id="' . $page_id . '" name="wpcpm_application[' . WPCPM_Institution_Application::form_key( 'credits_page' ) . ']" value="javascript:alert(1)"' ),
 	substr_count( $again, 'javascript:' ),
 ), array( true, true, 1 ) );
@@ -2758,8 +2759,9 @@ follow( $applied['url'] );
 $done = WPCPM_Institution_Application::render();
 
 ck( 'and the page after sending says the same need where it speaks of the email', array(
-	false !== strpos( $done, 'with a link that confirms the address. Please follow it: we cannot take your application further until you do.' ),
+	false !== strpos( $done, 'with a link that confirms the address. Follow it: we cannot take your application further until you do.' ),
 ), array( true ) );
+ck( 'and no sentence on it starts with Please (1.123.59)', substr_count( $done, 'Please' ), 0 );
 
 // A cached copy of any page the form is drawn on would hand one visitor another's token, answers or
 // confirmation, so every draw sends the headers, the block's and the shortcode's alike (1.123.58).
@@ -2861,7 +2863,7 @@ $typo = submit( answers( array( 'Contact Email' => 'name@campus', 'credits_page'
 $page = page_after( $typo );
 ck(
 	'a refused address and a refused web address come back as typed, and bad_url has its own sentence',
-	array( $typo['stash']['problems'] ?? null, 1 === preg_match( '#id="' . control_id( 'Contact Email' ) . '" name="[^"]+" value="name@campus"#', $page ), 1 === preg_match( '#id="' . control_id( 'credits_page' ) . '" name="[^"]+" value="ftp://example.test"#', $page ), false !== strpos( $page, 'Give a web address starting with https://, or just the domain.' ) ),
+	array( $typo['stash']['problems'] ?? null, 1 === preg_match( '#id="' . control_id( 'Contact Email' ) . '" name="[^"]+" value="name@campus"#', $page ), 1 === preg_match( '#id="' . control_id( 'credits_page' ) . '" name="[^"]+" value="ftp://example.test"#', $page ), false !== strpos( $page, 'Enter a web address such as example.com.' ) ),
 	array( array( 'Contact Email' => 'bad_email', 'credits_page' => 'bad_url' ), true, true, true )
 );
 

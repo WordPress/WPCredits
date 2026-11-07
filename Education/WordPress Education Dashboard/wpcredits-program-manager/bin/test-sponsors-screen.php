@@ -6911,7 +6911,8 @@ function refused_edit_page( array $r, $key ) {
 
 // A website that is not a web address is named alone, at its field.
 $clean = WPCPM_Sponsors::clean_fields( array( 'name' => 'Stale Example', 'website' => 'https://ana%20b@loss.example/' ), (array) WPCPM_Sponsors_Index::row( $GS ) );
-ck( 'a refused website names the website alone, at its field: clean_fields() answers its sentence', array( $clean['ok'], $clean['problems'] ), array( false, array( 'website' => 'Enter a web address that starts with https://.' ) ) );
+ck( 'a refused website names the website alone, at its field: clean_fields() answers its sentence', array( $clean['ok'], $clean['problems'] ), array( false, array( 'website' => 'Enter a web address such as example.com.' ) ) );
+ck( 'a website of words is refused the same way, never kept as https://not%20a%20site (1.123.59)', WPCPM_Sponsors::clean_fields( array( 'name' => 'Stale Example', 'website' => 'not a site' ), (array) WPCPM_Sponsors_Index::row( $GS ) )['problems'], array( 'website' => 'Enter a web address such as example.com.' ) );
 $typed = array_merge( edit_posts( $GS ), array( 'wpcpm_website' => 'https://ana%20b@loss.example/', 'wpcpm_notes' => 'Kept with it.' ) );
 $r     = post( $typed, array( $module, 'handle_edit' ) );
 $page  = refused_edit_page( $r, $GS );
@@ -6919,10 +6920,10 @@ $site_id = 'wpcpm-edit-website';
 ck( 'and the screen holds the summary linking the field, the notice that sends the manager to the marked fields, and the field marked', array(
 	isset( $r[2] ) ? $r[2] : $r,
 	false !== strpos( $page, '<div class="wpcpm-errors notice notice-error inline" role="alert" tabindex="-1">' ),
-	false !== strpos( $page, '<a href="#' . $site_id . '">Website</a>: Enter a web address that starts with https://.' ),
+	false !== strpos( $page, '<a href="#' . $site_id . '">Website</a>: Enter a web address such as example.com.' ),
 	false !== strpos( $page, 'Nothing was saved. The fields marked below need a change.' ),
 	false !== strpos( $page, 'id="' . $site_id . '" name="wpcpm_website" value="https://ana%20b@loss.example/" aria-invalid="true" aria-describedby="' . $site_id . '-problem" />' ),
-	false !== strpos( $page, '<p class="wpcpm-field__problem" id="' . $site_id . '-problem">Enter a web address that starts with https://.</p>' ),
+	false !== strpos( $page, '<p class="wpcpm-field__problem" id="' . $site_id . '-problem">Enter a web address such as example.com.</p>' ),
 	substr_count( $page, 'aria-invalid="true"' ),
 	false !== strpos( $page, 'One answer needs a change' ),
 	false !== strpos( $page, 'Kept with it.' ),
@@ -6934,12 +6935,12 @@ $r     = post( $typed, array( $module, 'handle_edit' ) );
 $page  = refused_edit_page( $r, $GS );
 ck( 'two refused fields are two sentences, each at its field', array(
 	false !== strpos( $page, 'Two answers need a change' ),
-	false !== strpos( $page, '<a href="#wpcpm-edit-website">Website</a>: Enter a web address that starts with https://.' ),
+	false !== strpos( $page, '<a href="#wpcpm-edit-website">Website</a>: Enter a web address such as example.com.' ),
 	false !== strpos( $page, '<a href="#wpcpm-edit-contact-email">Contact email</a>: Enter one email address, such as name@example.org.' ),
 	substr_count( $page, 'class="wpcpm-field__problem"' ),
 ), array( true, true, true, 2 ) );
 $clean = WPCPM_Sponsors::clean_fields( array( 'website' => 'https://ana%20b@loss.example/', 'contact_email' => 'two@@example' ), (array) WPCPM_Sponsors_Index::row( $GS ) );
-ck( 'clean_fields() answers both, in the forms\' order', $clean['problems'], array( 'website' => 'Enter a web address that starts with https://.', 'contact_email' => 'Enter one email address, such as name@example.org.' ) );
+ck( 'clean_fields() answers both, in the forms\' order', $clean['problems'], array( 'website' => 'Enter a web address such as example.com.', 'contact_email' => 'Enter one email address, such as name@example.org.' ) );
 
 // Add: a missing name, and a number over the limit is the Edit form's alone.
 $r    = post( array_merge( add_posts(), array( 'wpcpm_name' => '', 'wpcpm_website' => 'https://ana%20b@loss.example/' ) ), array( $module, 'handle_add' ) );
@@ -6948,7 +6949,7 @@ $page = render_tab( 'sponsors' );
 ck( 'the Add form names its missing name and its website the same way, under its own form', array(
 	isset( $r[2] ) ? $r[2] : $r,
 	false !== strpos( $page, '<a href="#wpcpm-add-name">Name</a>: Give the sponsor a name.' ),
-	false !== strpos( $page, '<a href="#wpcpm-add-website">Website</a>: Enter a web address that starts with https://.' ),
+	false !== strpos( $page, '<a href="#wpcpm-add-website">Website</a>: Enter a web address such as example.com.' ),
 	false !== strpos( $page, 'value="https://ana%20b@loss.example/" aria-invalid="true"' ),
 ), array( 'sponsor-rejected', true, true, true ) );
 

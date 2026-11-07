@@ -1129,7 +1129,7 @@ $page                = draw( 7 );
 $form                = disclosure( $page, 'now' );
 ck( 'the member is sent back to the card', $out, member_back() );
 ck( 'what the base answered is not said to the school', has( $page, 'Airtable said 422' ), false );
-ck( 'the sentence says so', has( $page, '<p class="wpcpm-details__message is-error" role="status">The program records could not be updated, so nothing was saved. Please try again in a while.</p>' ), true );
+ck( 'the sentence says so', has( $page, '<p class="wpcpm-details__message is-error" role="status">The program records could not be updated, so nothing was saved. Try again in a while.</p>' ), true );
 ck( 'nothing was written on the site: not the index, not the record', array( $GLOBALS['index'][ A ]['contact_person'], $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['records'][ A ]['student_languages'], in_array( 'index', $GLOBALS['events'], true ), in_array( 'record', $GLOBALS['events'], true ) ), array( 'Contact One', 'Head of the international office', array( 'Spanish', 'English' ), false, false ) );
 ck( 'no history row and no email', array( audit( A, 'details_saved' ), $GLOBALS['mail'] ), array( array(), array() ) );
 ck( 'every typed value comes back, the ones that were not Airtable\'s too', array( has( $form, ' open' ), box( $form, 'wpcpm_details_contact_person' ), box( $form, 'wpcpm_details_contact_role' ), ticked( $form ) ), array( true, 'Contact Two', 'Dean of Studies', array( 'French', 'Spanish' ) ) );
@@ -1138,7 +1138,7 @@ ck( 'and the lists above still read what the program has', array( rows( $page )[
 fresh();
 $GLOBALS['airtable'] = array();
 post_as( 7, 'now', array( 'wpcpm_details_contact_person' => 'Contact Two' ) );
-ck( 'an answer of nothing written is a refusal too', array( has( draw( 7 ), 'The program records could not be updated, so nothing was saved. Please try again in a while.' ), $GLOBALS['index'][ A ]['contact_person'], $GLOBALS['mail'] ), array( true, 'Contact One', array() ) );
+ck( 'an answer of nothing written is a refusal too', array( has( draw( 7 ), 'The program records could not be updated, so nothing was saved. Try again in a while.' ), $GLOBALS['index'][ A ]['contact_person'], $GLOBALS['mail'] ), array( true, 'Contact One', array() ) );
 
 fresh();
 $GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'Airtable said 422' );
@@ -1329,7 +1329,7 @@ ck( 'the outcome sentences are the plan\'s', array( $words['saved'], $words['ask
 	array( 'success', 'Your institution\'s details are saved.' ),
 	array( 'success', 'Sent: an Administrator checks the change, and you will see it here once it is decided.' ),
 	array( 'info', 'Nothing was changed.' ),
-	array( 'error', 'The program records could not be updated, so nothing was saved. Please try again in a while.' ),
+	array( 'error', 'The program records could not be updated, so nothing was saved. Try again in a while.' ),
 ) );
 ck( 'and none of them holds a dash', preg_match( '/[\x{2013}\x{2014}]/u', json_encode( $words, JSON_UNESCAPED_UNICODE ) ), 0 );
 
@@ -1352,7 +1352,7 @@ foreach ( array_merge( WPCPM_Institution_Details_Card::messages(), WPCPM_Institu
 }
 words_in( $decide );
 ck( 'the card holds none of them, in any state this suite draws it in or any sentence it can say', array_values( $GLOBALS['base_words'] ), array() );
-ck( 'and the refusal a school reads when the base turns a save down names the program\'s records instead', WPCPM_Institution_Details_Card::messages()['airtable'], array( 'error', 'The program records could not be updated, so nothing was saved. Please try again in a while.' ) );
+ck( 'and the refusal a school reads when the base turns a save down names the program\'s records instead', WPCPM_Institution_Details_Card::messages()['airtable'], array( 'error', 'The program records could not be updated, so nothing was saved. Try again in a while.' ) );
 
 // The Institution Dashboard's suite holds this card to its rule by running this suite once more and reading the
 // last line it prints (`bin/test-institutions-dashboard.php`).

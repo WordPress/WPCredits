@@ -1169,9 +1169,9 @@ class WPCPM_Students_Dashboard {
 	 * Whether this user should be routed to their report card.
 	 *
 	 * Recognized the same way the toolbar link recognizes them, then narrowed twice: not a
-	 * program manager, not anyone who can write posts. Those two exclusions are also what
-	 * makes it safe to start from `is_student()`, which counts somebody linked to an Airtable
-	 * record without holding the role.
+	 * program manager, not anyone who can edit others' posts (an editor or an administrator).
+	 * Those two exclusions are also what makes it safe to start from `is_student()`, which
+	 * counts somebody linked to an Airtable record without holding the role.
 	 *
 	 * @param int|WP_User|null $user Optional user.
 	 * @return bool
@@ -1203,7 +1203,10 @@ class WPCPM_Students_Dashboard {
 			return false;
 		}
 
-		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_posts' ) ) {
+		// `edit_others_posts`, not `edit_posts`: the clause means "this account works in wp-admin",
+		// and a participant who can write posts (a contributor, or a sponsor's representative)
+		// still belongs on their dashboard (WordPress/WPCredits#295, 1.123.59).
+		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_others_posts' ) ) {
 			return false;
 		}
 

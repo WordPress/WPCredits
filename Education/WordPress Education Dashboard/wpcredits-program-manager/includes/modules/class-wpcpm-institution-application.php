@@ -1452,7 +1452,7 @@ class WPCPM_Institution_Application {
 				esc_html(
 					sprintf(
 						/* translators: %s: the application reference, e.g. APP-2026-0007. */
-						__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
+						__( 'Your reference is %s. Quote it if you write to us about this application.', 'wpcredits-program-manager' ),
 						$reference
 					)
 				)
@@ -1466,7 +1466,7 @@ class WPCPM_Institution_Application {
 					$acknowledged
 						? sprintf(
 							/* translators: %s: the contact email address the applicant gave. */
-							__( 'We have sent an acknowledgement to %s with a link that confirms the address. Please follow it: we cannot take your application further until you do. An Administrator reads every application by hand, so a reply takes a few working days.', 'wpcredits-program-manager' ),
+							__( 'We have sent an acknowledgement to %s with a link that confirms the address. Follow it: we cannot take your application further until you do. An Administrator reads every application by hand, so a reply takes a few working days.', 'wpcredits-program-manager' ),
 							$email
 						)
 						: sprintf(
@@ -1898,7 +1898,8 @@ class WPCPM_Institution_Application {
 			return __( 'Choose one of the options offered.', 'wpcredits-program-manager' );
 		}
 
-		// A web address naming another scheme, `ftp://` or `mailto:` (1.123.58, FORM-11).
+		// A web address naming another scheme, `ftp://` or `mailto:` (1.123.58, FORM-11), or with a
+		// space in it or a host with no dot (1.123.59).
 		if ( 'bad_url' === $problem ) {
 			return WPCPM_Field_Value::bad_url_text();
 		}
@@ -1907,7 +1908,7 @@ class WPCPM_Institution_Application {
 			return __( 'Tick this box to send the form.', 'wpcredits-program-manager' );
 		}
 
-		return __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );
+		return __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );
 	}
 
 	/*

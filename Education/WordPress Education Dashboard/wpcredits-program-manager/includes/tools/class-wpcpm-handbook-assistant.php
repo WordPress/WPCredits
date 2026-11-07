@@ -359,7 +359,7 @@ class WPCPM_Handbook_Assistant {
 		}
 
 		if ( ! is_user_logged_in() ) {
-			return self::notice( __( 'This is for people on the program. Please log in.', 'wpcredits-program-manager' ) );
+			return self::notice( __( 'This is for people on the program. Log in to use it.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( ! self::user_can_ask() ) {

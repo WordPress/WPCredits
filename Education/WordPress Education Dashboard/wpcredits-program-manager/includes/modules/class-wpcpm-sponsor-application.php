@@ -1117,7 +1117,7 @@ class WPCPM_Sponsor_Application {
 				esc_html(
 					sprintf(
 						/* translators: %s: the application reference, e.g. SAPP-2026-0007. */
-						__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
+						__( 'Your reference is %s. Quote it if you write to us about this application.', 'wpcredits-program-manager' ),
 						$reference
 					)
 				)
@@ -1808,6 +1808,11 @@ class WPCPM_Sponsor_Application {
 			return __( 'Choose one of the options offered.', 'wpcredits-program-manager' );
 		}
 
+		// A web address that is not one: another scheme, a space, a host with no dot (1.123.59).
+		if ( 'bad_url' === $problem ) {
+			return WPCPM_Field_Value::bad_url_text();
+		}
+
 		if ( 'consent' === $problem ) {
 			return __( 'Tick this box to send the form.', 'wpcredits-program-manager' );
 		}
@@ -1839,7 +1844,7 @@ class WPCPM_Sponsor_Application {
 			return isset( $images[ $problem ] ) ? $images[ $problem ] : $images['image_missing'];
 		}
 
-		return __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );
+		return __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );
 	}
 
 	/*

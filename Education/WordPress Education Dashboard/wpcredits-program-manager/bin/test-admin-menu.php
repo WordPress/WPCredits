@@ -874,9 +874,9 @@ ck( 'the first group\'s details are kept in two places, and the guide says which
     array(
 		1 === preg_match( "/'contact_person'\\s*=> array\\(\\s*'group'\\s*=> self::GROUP_NOW,\\s*'label'\\s*=> __\\( 'Contact person'.*?'source'\\s*=> 'airtable'/s", $details_src ),
 		1 === preg_match( "/'contact_role'\\s*=> array\\(\\s*'group'\\s*=> self::GROUP_NOW,\\s*'label'\\s*=> __\\( 'Their role'.*?'source'\\s*=> 'record'/s", $details_src ),
-		false !== strpos( $details_src, "The details could not be kept on the site, so nothing was saved. Please try again in a while." ),
+		false !== strpos( $details_src, "The details could not be kept on the site, so nothing was saved. Try again in a while." ),
 		false !== strpos( $institution_said['sections/52-institution-details.md'], 'The contact person is written to the program\'s records and the other details are kept on this site, straight away' ),
-		false !== strpos( $institution_said['sections/52-institution-details.md'], 'The details could not be kept on the site, so nothing was saved. Please try again in a while.' ),
+		false !== strpos( $institution_said['sections/52-institution-details.md'], 'The details could not be kept on the site, so nothing was saved. Try again in a while.' ),
 	),
     array( true, true, true, true, true ) );
 

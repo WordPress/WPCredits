@@ -468,7 +468,7 @@ class WPCPM_Content_Access {
 	private static function notice( $level ) {
 		$message = is_user_logged_in()
 			? self::denial_message( $level )
-			: __( 'This content is for program members. Please log in to continue.', 'wpcredits-program-manager' );
+			: __( 'This content is for program members. Log in to continue.', 'wpcredits-program-manager' );
 
 		$html = '<p class="wpcpm-restricted">' . esc_html( $message ) . '</p>';
 

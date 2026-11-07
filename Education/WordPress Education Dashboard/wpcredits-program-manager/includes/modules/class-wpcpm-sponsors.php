@@ -1958,7 +1958,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			case 'name':
 				return __( 'Give the sponsor a name.', 'wpcredits-program-manager' );
 			case 'website':
-				return __( 'Enter a web address that starts with https://.', 'wpcredits-program-manager' );
+				return WPCPM_Field_Value::bad_url_text();
 			case 'contact_email':
 				return __( 'Enter one email address, such as name@example.org.', 'wpcredits-program-manager' );
 		}

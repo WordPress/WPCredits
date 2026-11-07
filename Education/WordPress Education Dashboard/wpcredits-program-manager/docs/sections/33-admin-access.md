@@ -111,7 +111,7 @@ it was drawn is not a change, even one the program holds in a form the applicati
 refused post gives back what was typed, with the problem under the field that has one, and a text that
 WordPress would take words from is refused whole, as on the application. If Airtable refuses the contact
 person's save, nothing is saved on this site either, the typed values come back, and the card says
-"The program records could not be updated, so nothing was saved. Please try again in a while." The card
+"The program records could not be updated, so nothing was saved. Try again in a while." The card
 never names Airtable to the institution.
 
 A save at once is made under a lock of the institution's own, the option

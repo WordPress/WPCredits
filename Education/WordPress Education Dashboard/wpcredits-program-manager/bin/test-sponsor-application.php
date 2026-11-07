@@ -694,6 +694,7 @@ ck( 'a name is trimmed and kept', array( $clean['ok'], $clean['value'] ), array(
 ck( 'and cut to the column\'s length rather than refused', mb_strlen( WPCPM_Sponsor_Application::clean( 'Company Name', str_repeat( 'a', 300 ) )['value'] ), 200 );
 ck( 'an address that is not one is refused by name', WPCPM_Sponsor_Application::clean( 'Contact Email', 'sam at gadgetry' )['problem'], 'bad_email' );
 ck( 'a scheme-less website gets the scheme rather than a telling-off', WPCPM_Sponsor_Application::clean( 'Website', 'gadgetry.example' )['value'], 'https://gadgetry.example' );
+ck( 'a website of words, or with no dot in its host, is refused by name rather than emptied (1.123.59)', array( WPCPM_Sponsor_Application::clean( 'Website', 'not a site' )['problem'], WPCPM_Sponsor_Application::clean( 'Website', 'example' )['problem'] ), array( 'bad_url', 'bad_url' ) );
 ck( 'a support answer is no answer clean() takes now, whatever it says: the form does not ask the question', array( WPCPM_Sponsor_Application::clean( 'Sponsorship options', 'Sponsor one or multiple mentors' )['problem'], WPCPM_Sponsor_Application::clean( 'Sponsorship options', '' )['problem'] ), array( 'unknown_field', 'unknown_field' ) );
 ck( 'consent: "1" and "true" are ticks, "yes" and "0" are not', array( WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', '1' )['value'], WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', 'true' )['value'], WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', 'yes' )['value'], WPCPM_Sponsor_Application::clean( 'Privacy Policy Compliance', '0' )['value'] ), array( true, true, false, false ) );
 ck( 'the logo is not an answer clean() takes', WPCPM_Sponsor_Application::clean( 'Logo', 'anything' )['problem'], 'unknown_field' );
@@ -1153,6 +1154,7 @@ ck( 'the redirect carries a random id and nothing else', preg_match( '#^https://
 $_GET[ WPCPM_Sponsor_Application::QUERY_STASH ] = $sent['id'];
 $page = WPCPM_Sponsor_Application::render();
 ck( 'the confirmation names the reference and draws no form', array( false !== strpos( $page, $expected_reference ), strpos( $page, '<form' ) ), array( true, false ) );
+ck( 'and it speaks plainly: the reference sentence asks without Please, and no sentence on the page starts with it (1.123.59)', array( false !== strpos( $page, 'Quote it if you write to us about this application.' ), substr_count( $page, 'Please' ) ), array( true, 0 ) );
 // Read, not taken since 1.123.58 (FORM-06): within its thirty minutes a reload draws it again.
 ck( 'a reload of the thank-you within its 30 minutes draws the confirmation again, with the reference', array( WPCPM_Sponsor_Application::render() === $page, false !== strpos( $page, $expected_reference ) ), array( true, true ) );
 $GLOBALS['transients'] = array();
@@ -1358,6 +1360,10 @@ $missing = submit( answers( array( 'Company Name' => '', 'Website' => '   ' ) ) 
 ck( 'a missing answer is a message naming each field, storing nothing', array( $missing['outcome'], $missing['stash']['problems']['Company Name'], $missing['stash']['problems']['Website'], count( stored() ) ), array( 'again', 'required', 'required', 0 ) );
 reset_world();
 ck( 'a refused answer keeps its own reason rather than being called missing', submit( answers( array( 'Contact Email' => 'sam at gadgetry' ) ) )['stash']['problems']['Contact Email'], 'bad_email' );
+$words = submit( answers( array( 'Website' => 'not a site' ) ) );
+follow( $words['url'] );
+$words_back = WPCPM_Sponsor_Application::render();
+ck( 'a website of words is sent back with its own reason, the typing kept and drawn back in its box under the sentence, nothing stored (1.123.59)', array( $words['outcome'], $words['stash']['problems']['Website'] ?? null, $words['stash']['typed']['Website'] ?? null, count( stored() ), false !== strpos( $words_back, 'Enter a web address such as example.com.' ), 1 === preg_match( '#name="wpcpm_sponsor_application\[[^"]+\]" value="not a site"#', $words_back ) ), array( 'again', 'bad_url', 'not a site', 0, true, true ) );
 // The support question is no longer asked (1.123.12), so nothing can require it: the good
 // application above carries no answer to it and is taken. A form drawn before the update and sent
 // after it still posts the old radio under its key: that is taken too, and the answer is not kept,

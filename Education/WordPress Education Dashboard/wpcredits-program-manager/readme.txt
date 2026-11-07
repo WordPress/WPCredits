@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.58
+Stable tag: 1.123.59
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,14 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.59 =
+
+Routing, web addresses and plain sentences.
+
+* A student or an institution member who can write posts lands on their own page after signing in, the Student Report Card or the Institution Dashboard, as mentors and sponsors already did; only an editor or an administrator stays in wp-admin.
+* A website that is not a web address is refused at its field with the typing kept, on the sponsor and institution application forms, the Sponsor Dashboard's profile, the Sponsors screen's Add and Edit forms and the Student Report Card: one with a space in it, or whose host has no dot, or with a user name before the host. The field says "Enter a web address such as example.com." Before, "not a site" was saved as https://not%20a%20site.
+* No sentence of the plugin's own starts with "Please": the thank-you pages of the three application forms, the Institution Dashboard's details card, the mentor calls' refusals and the forms' one-line refusals say the same things in the plain voice. The emails edited in Tools > Emails are untouched.
 
 = 1.123.58 =
 

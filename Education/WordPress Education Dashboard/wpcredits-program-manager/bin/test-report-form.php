@@ -432,7 +432,9 @@ ck( 'an empty box clears it', clean( '', $url ), array( true, '' ) );
 
 // The reason `WPCPM_Field_Value::clean_url()` exists rather than trusting the browser: a javascript: URL must not
 // survive, and prefixing it with https would be worse than dropping it.
-ck( 'a javascript: URL does not survive', clean( 'javascript:alert(1)', $url ), array( true, '' ) );
+ck( 'a javascript: URL does not survive: refused, not emptied on the quiet (1.123.59)', clean( 'javascript:alert(1)', $url ), array( false, null ) );
+ck( 'words with a space, or a host with no dot, are not an address: refused, the typing kept for the student to fix (1.123.59)', array( clean( 'my site', $url ), clean( 'mysite', $url ) ), array( array( false, null ), array( false, null ) ) );
+ck( 'and the field says what to give', WPCPM_Student_Report_Form::problem_text( 'bad_url', $url ), 'Enter a web address such as example.com.' );
 
 echo "\n=== Form keys ===\n";
 
@@ -1388,6 +1390,17 @@ echo "\n=== A read-only URL links out with a scheme ===\n";
 // `Personal Website URL` above is seeded with exactly that shape, so this proves the read-only
 // card's link branch runs it through `WPCPM_Field_Value::clean_url()` first.
 ck( 'a schemeless address stored by Airtable links out with a scheme, and shows as it was typed', preg_match( '#<span class="wpcpm-field__value"><a href="https://example\.org/me" target="_blank" rel="noopener noreferrer">example\.org/me</a></span>#', $read ) === 1, true );
+
+// A stored value that is not an address (1.123.59) links nothing: `clean_url()` answers '' for it, and
+// an anchor with `href=""` would point at the page itself.
+$seeded = get_transient( 'wpcpm_report_' . md5( $record ) );
+set_transient( 'wpcpm_report_' . md5( $record ), array_merge( $seeded, array( 'Personal Website URL' => 'my site' ) ) );
+$read_bad = body( true, true );
+set_transient( 'wpcpm_report_' . md5( $record ), $seeded );
+ck( 'a stored website that is not an address is drawn as text, never as a link to the page itself (1.123.59)', array(
+    1 === preg_match( '#<span class="wpcpm-field__value">my site</span>#', $read_bad ),
+    false !== strpos( $read_bad, 'href=""' ),
+), array( true, false ) );
 
 echo "\n=== The Track Builder's rules accept the four original tracks' forms (1.100.0) ===\n";
 

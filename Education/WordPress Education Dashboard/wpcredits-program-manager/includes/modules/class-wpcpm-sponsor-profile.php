@@ -375,7 +375,7 @@ final class WPCPM_Sponsor_Profile {
 	 */
 	private static function refusal( $key ) {
 		if ( 'website' === $key ) {
-			return __( 'Enter a web address that starts with https://. Nothing on the profile was saved.', 'wpcredits-program-manager' );
+			return __( 'Enter a web address such as example.com. Nothing on the profile was saved.', 'wpcredits-program-manager' );
 		}
 
 		if ( 'contact_email' === $key ) {
@@ -815,14 +815,21 @@ final class WPCPM_Sponsor_Profile {
 
 				$line = 'line' === $spec['kind'];
 
+				// `type="text"` for the web address, never `type="url"`: that would make the browser
+				// refuse a scheme-less address ("example.com") before the site can add the scheme or
+				// say its one sentence. `inputmode="url"` asks for the web-address keyboard instead,
+				// on this kind alone.
+				$mode = 'url' === $spec['kind'] ? ' inputmode="url"' : '';
+
 				printf(
-					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d"%6$s />',
-					esc_attr( 'email' === $spec['kind'] ? 'email' : ( 'url' === $spec['kind'] ? 'url' : 'text' ) ),
+					'<input type="%1$s" id="%2$s" name="wpcpm_%3$s" value="%4$s" maxlength="%5$d"%7$s%6$s />',
+					esc_attr( 'email' === $spec['kind'] ? 'email' : 'text' ),
 					esc_attr( $id ),
 					esc_attr( $key ),
 					esc_attr( $shown ),
 					(int) ( $line ? WPCPM_Typed_Text::drawn_limit( $value, self::MAX_LINE ) : self::MAX_LINE ),
-					$marks // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+					$marks, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
+					$mode // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
 				);
 			}
 

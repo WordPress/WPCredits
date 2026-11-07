@@ -14,6 +14,8 @@ The details are:
 - **Anything else you would like to share**, which is optional.
 - **Description for the partner page**, from Supporter up, as the next part describes.
 
+Since 1.123.59 a website needs a dot in its address, such as example.com: words with a space in them, or a name with no dot, are refused at the field with what you typed kept, under "Enter a web address such as example.com.".
+
 Press **Save profile**. Once your company has an offer, the card adds that the offer's text, instructions and link are edited on the **Offers and codes** card.
 
 Under **Your logo**, a logo in color and one in white for a dark background are shown wherever the program names you, beside your offer among them. Logos look alike side by side when they share a shape, so upload a horizontal one, about twice as wide as it is tall, at least 300 pixels wide (600 or more looks sharper), as a PNG, JPEG or WebP image, transparent where possible. SVG is not accepted, so export the logo as a PNG. Choose a **Color logo**, a **White logo, optional**, or both, and press **Save the logo**; **Remove it** takes the logo you uploaded off again.

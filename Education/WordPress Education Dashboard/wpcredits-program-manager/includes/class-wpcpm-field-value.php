@@ -24,7 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * A refusal names its reason with a short key rather than a sentence, because the caller decides
  * how to say it: a form lists the rejected fields on its flash, an import lists them per row.
  * The keys are `not_scalar`, `not_a_number`, `below_min`, `above_max`, `bad_email`,
- * `bad_choice`, `bad_date` and `out_of_range`.
+ * `bad_choice`, `bad_date`, `bad_url` and `out_of_range`. `bad_url` is a typed web address that
+ * is not one (since 1.123.59, for a space in it or a host with no dot too).
  */
 final class WPCPM_Field_Value {
 
@@ -138,7 +139,15 @@ final class WPCPM_Field_Value {
 		}
 
 		if ( 'url' === $type ) {
-			return self::accept( self::clean_url( $raw ) );
+			$url = self::clean_url( $raw );
+
+			// A box with something in it that is not an address is refused, never emptied on the
+			// quiet: "not a site" used to be stored as https://not%20a%20site (1.123.59).
+			if ( '' === $url && '' !== $raw ) {
+				return self::refuse( 'bad_url' );
+			}
+
+			return self::accept( $url );
 		}
 
 		if ( 'rating' === $type ) {
@@ -208,14 +217,16 @@ final class WPCPM_Field_Value {
 	}
 
 	/**
-	 * What a form says about a web address it refuses for naming a scheme other than http or
-	 * https, its `bad_url` (1.123.58, FORM-11): `clean_url()` gives a scheme-less address one, so
-	 * the one thing to ask for is an address that starts with https://, or the domain alone.
+	 * What a form says about a web address it refuses, its `bad_url`: one naming a scheme other
+	 * than http or https (1.123.58, FORM-11) and, since 1.123.59, one with a space in it or a host
+	 * with no dot. `clean_url()` gives a scheme-less address one, so the one thing to ask for is
+	 * an address with a domain in it; the Sponsors screen and the Sponsor Dashboard's profile say
+	 * the same sentence.
 	 *
 	 * @return string
 	 */
 	public static function bad_url_text() {
-		return __( 'Give a web address starting with https://, or just the domain.', 'wpcredits-program-manager' );
+		return __( 'Enter a web address such as example.com.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -224,11 +235,37 @@ final class WPCPM_Field_Value {
 	 * Airtable's url columns are full of scheme-less values, and a student retyping one the same
 	 * way should not be told off for it.
 	 *
+	 * It answers '' for what it refuses: a value with a space or any other separator in it, a
+	 * scheme other than http or https, a userinfo part, and a host with no dot with something on
+	 * both sides. The readers of stored links treat '' as no link, and the forms say
+	 * `bad_url_text()` for a typed value that came to nothing.
+	 *
 	 * @param string $raw Posted value.
 	 * @return string
 	 */
 	public static function clean_url( $raw ) {
+		$raw = trim( (string) $raw );
+
 		if ( '' === $raw ) {
+			return '';
+		}
+
+		// A space anywhere is a typo, not an address: `esc_url_raw()` would keep it as `%20`
+		// and the site would store https://not%20a%20site (1.123.59). `\p{Z}` takes the Unicode
+		// spaces pasted text carries, a no-break space among them.
+		// A Unicode space at either end is the paste's, not the address's: "example.com" copied
+		// with a trailing no-break space is still example.com. `trim()` leaves it; a null answer
+		// (malformed UTF-8) falls back to the trimmed value, which the test below refuses.
+		$edge = preg_replace( '/^[\s\p{Z}]+|[\s\p{Z}]+$/u', '', $raw );
+		$raw  = null === $edge ? $raw : $edge;
+
+		if ( '' === $raw ) {
+			return '';
+		}
+
+		// `preg_match()` answers false on invalid UTF-8, so only a plain 0 means "no space": a
+		// malformed value is refused too rather than read as clean.
+		if ( 0 !== preg_match( '/[\s\p{Z}]/u', $raw ) ) {
 			return '';
 		}
 
@@ -238,7 +275,24 @@ final class WPCPM_Field_Value {
 
 		$url = esc_url_raw( $raw, array( 'http', 'https' ) );
 
-		return $url ? $url : '';
+		if ( ! $url ) {
+			return '';
+		}
+
+		// A userinfo part (`user@` or `user:pass@` before the host) is refused: it reads as one host
+		// to a person and can point the request at another (1.123.59).
+		if ( preg_match( '#^https?://[^/?\#]*@#i', $url ) ) {
+			return '';
+		}
+
+		// The host needs a dot with something on both sides: "example" and "https://example" are
+		// not web addresses the program can follow (1.123.59). With no userinfo part left, the host
+		// is what sits between the scheme and the first slash, question mark, hash or port.
+		if ( ! preg_match( '#^https?://[^/?\#:.]+\.[^/?\#:.][^/?\#:]*#i', $url ) ) {
+			return '';
+		}
+
+		return $url;
 	}
 
 	/**

@@ -675,7 +675,7 @@ $GLOBALS['uid'] = 0;
 $rendered = WPCPM_Handbook_Assistant::render();
 ck( 'and the shortcode refuses to draw for a visitor',
     array(
-        false !== strpos( $rendered, 'Please log in' ),
+        false !== strpos( $rendered, 'Log in to use it' ),
         false !== strpos( $rendered, 'wpcpm-handbook__form' ),
     ),
     array( true, false ) );

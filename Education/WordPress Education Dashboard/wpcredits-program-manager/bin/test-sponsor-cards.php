@@ -673,6 +673,7 @@ ck( 'and the support choices are the six it offered, in its order', WPCPM_Sponso
 ck( 'a URL without a scheme is completed', WPCPM_Sponsor_Profile::clean( 'website', 'plugins.mango-example.test' ), array( 'ok' => true, 'value' => 'https://plugins.mango-example.test' ) );
 ck( 'a URL with a user is refused', WPCPM_Sponsor_Profile::clean( 'website', 'https://name@host.test' )['ok'], false );
 ck( 'and a URL with a password too', WPCPM_Sponsor_Profile::clean( 'website', 'https://user:pw@host.test/x' )['ok'], false );
+ck( 'a website of words, or with no dot in its host, is refused rather than kept as https://not%20a%20site (1.123.59)', array( WPCPM_Sponsor_Profile::clean( 'website', 'not a site' )['ok'], WPCPM_Sponsor_Profile::clean( 'website', 'example' )['ok'] ), array( false, false ) );
 ck( 'a choice spelled another way is refused', WPCPM_Sponsor_Profile::clean( 'product_type', 'hosting' )['ok'], false );
 ck( 'an empty choice clears the cell', WPCPM_Sponsor_Profile::clean( 'product_type', '' ), array( 'ok' => true, 'value' => null ) );
 ck( 'text is kept to MAX_TEXT as typed: 4,000 characters are kept whole, and one more is refused, never cut', array( WPCPM_Sponsor_Profile::clean( 'anything', str_repeat( 'x', 4000 ) ), WPCPM_Sponsor_Profile::clean( 'anything', str_repeat( 'x', 4001 ) )['ok'] ), array( array( 'ok' => true, 'value' => str_repeat( 'x', 4000 ) ), false ) );
@@ -708,7 +709,7 @@ ck( 'one rejected field rejects the whole save', array( $r[0], WPCPM_Sponsors_In
 redrawn( 'WPCPM_Sponsor_Profile', $A, $context );
 // The sentence is the field's own, which says what to enter and that nothing was saved (1.123.58, SDB-04):
 // the card's message is that sentence, since the map's own is empty.
-ck( 'and the message is the sentence of the one field at fault, in the card and at the field', array( WPCPM_Sponsor_Profile::messages()['profile-rejected'], $GLOBALS['left_detail'] ), array( array( 'error', '' ), 'Enter a web address that starts with https://. Nothing on the profile was saved.' ) );
+ck( 'and the message is the sentence of the one field at fault, in the card and at the field', array( WPCPM_Sponsor_Profile::messages()['profile-rejected'], $GLOBALS['left_detail'] ), array( array( 'error', '' ), 'Enter a web address such as example.com. Nothing on the profile was saved.' ) );
 
 echo "\n=== Profile: a refused save keeps the typing and marks the field at fault (1.123.58) ===\n";
 // SDB-04, SDB-06: the website is refused, and every other box is kept as typed, the long ones included.
@@ -732,7 +733,7 @@ ck( 'a refused profile keeps every typed box, the long ones included, and marks 
 	$r[0],
 	$fault_meta['values'] ?? null,
 	$fault_meta['problems'] ?? null,
-	1 === preg_match( '#<input type="url" id="wpcpm-profile-website"[^>]*aria-invalid="true"#', $fault_html ),
+	1 === preg_match( '#<input type="text" id="wpcpm-profile-website"[^>]*aria-invalid="true"#', $fault_html ),
 	false === strpos( between( $fault_html, 'id="wpcpm-profile-contact_email"', '/>' ), 'aria-invalid' ),
 	substr_count( $fault_html, '<a href="#wpcpm-profile-website">Website</a>: Enter a web address' ),
 	1 === preg_match( '#<h4 class="wpcpm-errors__title">One answer needs a change</h4>#', $fault_html ),
@@ -741,7 +742,7 @@ ck( 'a refused profile keeps every typed box, the long ones included, and marks 
 ), array(
 	'profile-rejected',
 	array( 'website' => 'https://x@y', 'contact_person' => 'Rep One', 'contact_email' => 'administrator@example.test', 'anything' => $fault_extra, 'description' => 'A new description for the partner page.' ),
-	array( 'website' => 'Enter a web address that starts with https://. Nothing on the profile was saved.' ),
+	array( 'website' => 'Enter a web address such as example.com. Nothing on the profile was saved.' ),
 	true,
 	true,
 	1,
@@ -749,6 +750,10 @@ ck( 'a refused profile keeps every typed box, the long ones included, and marks 
 	true,
 	'A new description for the partner page.',
 ) );
+ck( 'the website box is plain text with the web-address keyboard, so the browser cannot refuse a scheme-less address; the contact email box stays an email box (1.123.59)', array(
+	1 === preg_match( '#<input type="text" id="wpcpm-profile-website"[^>]*inputmode="url"#', $fault_html ),
+	1 === preg_match( '#<input type="email" id="wpcpm-profile-contact_email"#', $fault_html ),
+), array( true, true ) );
 ck( 'a refused address is the contact email\'s own sentence, and the website stays unmarked', (function () use ( $A, $context ) {
 	$r    = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_contact_email' => 'not an address' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 	$html = redrawn( 'WPCPM_Sponsor_Profile', $A, $context );

@@ -81,6 +81,7 @@ $GLOBALS['users']   = array();
 $GLOBALS['posts']   = array();
 $GLOBALS['manage']  = array();
 $GLOBALS['editors'] = array();
+$GLOBALS['edit_others'] = array();
 $GLOBALS['uid']     = 0;
 $GLOBALS['calls']   = array();
 $GLOBALS['styles']  = array();
@@ -220,6 +221,7 @@ function get_users( $args = array() ) { return array_values( $GLOBALS['users'] )
 function user_can( $u, $c ) {
 	$id = is_object( $u ) ? $u->ID : (int) $u;
 	if ( 'edit_posts' === $c ) { return in_array( $id, $GLOBALS['editors'], true ); }
+	if ( 'edit_others_posts' === $c ) { return in_array( $id, $GLOBALS['edit_others'], true ); }
 	return in_array( $id, $GLOBALS['manage'], true );
 }
 function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
@@ -1143,6 +1145,20 @@ ck(
 	WPCPM_Institutions_Dashboard::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][2] ),
 	'https://example.test/institution-dashboard/'
 );
+$GLOBALS['editors'][] = 2;
+ck(
+	'a member who can write posts still goes to their dashboard (WordPress/WPCredits#295)',
+	WPCPM_Institutions_Dashboard::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][2] ),
+	'https://example.test/institution-dashboard/'
+);
+$GLOBALS['edit_others'][] = 2;
+ck(
+	'a member who can edit others\' posts, an editor, is left where WordPress sends them (1.123.59)',
+	WPCPM_Institutions_Dashboard::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][2] ),
+	'https://example.test/wp-admin/'
+);
+$GLOBALS['edit_others'] = array();
+$GLOBALS['editors'] = array_values( array_diff( $GLOBALS['editors'], array( 2 ) ) );
 ck(
 	'a member who asked for somewhere in particular is taken there',
 	WPCPM_Institutions_Dashboard::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/guides/getting-started/', $GLOBALS['users'][2] ),

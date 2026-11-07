@@ -1084,7 +1084,7 @@ final class WPCPM_Mentor_Application_Form {
 				esc_html(
 					sprintf(
 						/* translators: %s: the application reference, e.g. MAPP-2026-0007. */
-						__( 'Your reference is %s. Please quote it if you write to us about this application.', 'wpcredits-program-manager' ),
+						__( 'Your reference is %s. Quote it if you write to us about this application.', 'wpcredits-program-manager' ),
 						$reference
 					)
 				)
@@ -1098,7 +1098,7 @@ final class WPCPM_Mentor_Application_Form {
 					$acknowledged
 						? sprintf(
 							/* translators: %s: the address the applicant gave. */
-							__( 'We have sent an acknowledgement to %s with a link that confirms the address. Please follow it: the program writes to you about your application only once the address is confirmed. Every application is read by hand, and a reply can take several weeks.', 'wpcredits-program-manager' ),
+							__( 'We have sent an acknowledgement to %s with a link that confirms the address. Follow it: the program writes to you about your application only once the address is confirmed. Every application is read by hand, and a reply can take several weeks.', 'wpcredits-program-manager' ),
 							$email
 						)
 						: sprintf(
@@ -1449,7 +1449,7 @@ final class WPCPM_Mentor_Application_Form {
 			'consent'        => __( 'Tick this box to send the form.', 'wpcredits-program-manager' ),
 		);
 
-		return isset( $said[ $problem ] ) ? $said[ $problem ] : __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );
+		return isset( $said[ $problem ] ) ? $said[ $problem ] : __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );
 	}
 
 	/*

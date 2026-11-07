@@ -1426,7 +1426,7 @@ final class WPCPM_Student_Registration_Form {
 			'consent'              => __( 'Tick this box to send the form.', 'wpcredits-program-manager' ),
 		);
 
-		return isset( $said[ $problem ] ) ? $said[ $problem ] : __( 'That answer could not be read. Please try it again.', 'wpcredits-program-manager' );
+		return isset( $said[ $problem ] ) ? $said[ $problem ] : __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );
 	}
 
 	/*

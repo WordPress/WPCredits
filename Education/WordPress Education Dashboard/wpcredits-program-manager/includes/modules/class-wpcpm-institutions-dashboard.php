@@ -199,8 +199,8 @@ class WPCPM_Institutions_Dashboard {
 	 * `is_member()` already requires a well-formed stamp *and* the active flag: revocation
 	 * moves the stamp and zeroes the flag, so an ex-member fails this on the first line.
 	 *
-	 * Program managers are excluded - they need wp-admin - and so is anyone who can write
-	 * posts, for the reason the mentor page gives: bouncing an editor out of the admin is
+	 * Program managers are excluded - they need wp-admin - and so is anyone who can edit
+	 * others' posts (an editor or an administrator), for the reason the mentor page gives: bouncing an editor out of the admin is
 	 * worse than the problem being solved. Mentors are excluded too, and that one is a
 	 * decision rather than a safety valve: open question 12 settles that an account that
 	 * both mentors and acts for an institution lands on the Mentor Report Card, because
@@ -225,7 +225,10 @@ class WPCPM_Institutions_Dashboard {
 			return false;
 		}
 
-		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_posts' ) ) {
+		// `edit_others_posts`, not `edit_posts`: the clause means "this account works in wp-admin",
+		// and a participant who can write posts (a contributor, or a sponsor's representative)
+		// still belongs on their dashboard (WordPress/WPCredits#295, 1.123.59).
+		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_others_posts' ) ) {
 			return false;
 		}
 

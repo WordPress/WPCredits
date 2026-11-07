@@ -469,6 +469,10 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
+<p>Since 1.123.59 a website that is not a web address is refused at its field, with the typing kept: one with a space in it, or whose host has no dot, or with a user name before the host, such as "not a site" or "example". The field says "Enter a web address such as example.com.", the sentence the Sponsor Dashboard's profile and the two application forms say too. Before, such a value was saved as https://not%20a%20site.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
 <p><strong>Accounts</strong> holds the <strong>Invitations</strong> card, whose button invites every sponsor account never invited, except one that also mentors and whose invitation was held when an application made it a mentor (the card says how many it left out, and only that account's own row sends it), and the <strong>Sponsor accounts</strong> list, under a warning naming any sponsor account locked out of changes for the rest of the day, a lock that lifts by itself the next day. The card and the list's <strong>Send invite</strong> and <strong>Resend invite</strong> are new for sponsor accounts in 1.122.0: before, a sponsor account was sent only the invitation queued when it was created or attached. The list works as the <strong>Student accounts</strong> list does: every sponsor account, a page at a time, with no email address printed, though the search finds one. <strong>Search sponsor accounts</strong> finds an account by name, username, email address or the name of the sponsor it acts for. The <strong>All</strong>, <strong>Invited</strong> and <strong>Never invited</strong> views split the list by whether an account has been sent an invitation, each with its count. <strong>Sponsor</strong> names the sponsor each account acts for, with the sponsor's status after it in parentheses when it is not Approved, since such a sponsor keeps its accounts until they are removed. The list opens sorted by name, A to Z, so a first press on the <strong>Name</strong> heading turns it Z to A; <strong>Username</strong> and <strong>Sponsor</strong> sort it A to Z, <strong>Member since</strong> by the day the membership began, the earliest first, and <strong>Status</strong> puts <strong>Active</strong> before <strong>Membership ended</strong>, either followed by <em>locked today</em> for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. <strong>Screen Options</strong> sets how many rows a page holds, 20 by default, and which columns are shown; the <strong>Name</strong> column cannot be hidden, because each row's actions sit under it.</p>
 <!-- /wp:paragraph -->
 
@@ -654,10 +658,14 @@
 <li><strong>Mentor landing page</strong> - <strong>Use the Mentor Report Card page as the mentor dashboard</strong>, on by default: mentors go to their Mentor Report Card when they log in and in place of the wp-admin Dashboard, and get a "Mentor Report Card" link in the toolbar. Its fold: they keep their own profile screen, a mentor who followed a link somewhere specific still lands there, and administrators are unaffected.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Student landing page</strong> - <strong>Use the Student Report Card page as the student dashboard</strong>, on by default: the same arrangement for students, with a "Student Report Card" link in the toolbar and the same exceptions: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone.</li>
+<li><strong>Student landing page</strong> - <strong>Use the Student Report Card page as the student dashboard</strong>, on by default: the same arrangement for students, with a "Student Report Card" link in the toolbar and the same exceptions: a requested destination wins, their own profile screen stays reachable, and anyone who can edit others' posts, an editor or an administrator, is left alone.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Since 1.123.59 a student who can write posts, a contributor or an author, still goes to the Student Report Card: only an account that can edit others' posts, an editor or an administrator, is left where WordPress sends it, which is what the Mentor and Sponsor landing pages already did. Before, such a student landed in wp-admin.</p>
+<!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"student-registrations"} -->
 <h4 class="wp-block-heading" id="student-registrations">Student registrations</h4>
@@ -743,6 +751,10 @@
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Since 1.123.59 the same holds here: an institution account that can write posts still goes to the Institution Dashboard, and only an editor or an administrator stays in wp-admin.</p>
+<!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"when-an-institution-leaves-the-pipeline"} -->
 <h4 class="wp-block-heading" id="when-an-institution-leaves-the-pipeline">When an institution leaves the pipeline</h4>
@@ -1891,7 +1903,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>A form posted with nothing changed says "Nothing was changed." and sends no email; a value posted back as it was drawn is not a change, even one the program holds in a form the application would not accept. A refused post gives back what was typed, with the problem under the field that has one, and a text that WordPress would take words from is refused whole, as on the application. If Airtable refuses the contact person's save, nothing is saved on this site either, the typed values come back, and the card says "The program records could not be updated, so nothing was saved. Please try again in a while." The card never names Airtable to the institution.</p>
+<p>A form posted with nothing changed says "Nothing was changed." and sends no email; a value posted back as it was drawn is not a change, even one the program holds in a form the application would not accept. A refused post gives back what was typed, with the problem under the field that has one, and a text that WordPress would take words from is refused whole, as on the application. If Airtable refuses the contact person's save, nothing is saved on this site either, the typed values come back, and the card says "The program records could not be updated, so nothing was saved. Try again in a while." The card never names Airtable to the institution.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -2205,6 +2217,10 @@
 
 <!-- wp:paragraph -->
 <p><strong>The application form (1.97.0).</strong> A company applies to sponsor the program on this site, at /sponsor-application/, instead of in the Airtable form: the same eight questions in the same order (company name, website, contact person and address, how it would like to support the program, a logo in color and in white, anything else, and the confirmation that the company has read the WordPress.org privacy policy, which the form links since 1.123.24), guarded exactly as the institution form is (a hidden field, a signed token, five submissions an hour per address, forty a day for the whole site before the rest are held, consent as a precondition with what was agreed to recorded, links counted, and a ceiling on acknowledgements). The form is off until "Applications from sponsors" is switched on in the settings. Every submission is a private row: the applicant gets an acknowledgement with a reference (SAPP-2026-0007), the Administrators named by the "Interest mail" setting (or every Administrator) get the facts and a link, and the <strong>Sponsor applications</strong> card on the Sponsors screen's <strong>Waiting for review</strong> tab lists what is waiting, oldest first, with a mark for a row the checks held, for another open application naming the same company or address, and for a company the sponsors index already holds under the same name or website. Under that list, <em>Recently decided</em> lists the applications somebody has already decided (marked as spam, rejected or approved), newest decision first, so a genuine application the checks filed as spam, or a rejection somebody pressed by mistake, can be opened and put back in the queue rather than waiting for the retention run to delete it. The logo files an applicant sends are kept in the Media Library as private files under a generated name until the application is approved, so nothing a stranger uploaded is listed or reachable before somebody has looked at it; approval publishes both halves and hands them to the sponsor's account. Open one to read the answers, the logo files, what was agreed to and what the sponsors index already holds. The decisions are the six the institution queue has: Approve, Send this question (mailed with your address to reply to), Reject (a short acknowledgement with no reason; your note stays on this site), Reject as spam (nothing is sent), Put back in the queue, Delete for good. An open application is decided on the Administrator Dashboard's own <strong>Sponsor applications</strong> card, and the dashboard's strip counts the queue; since 1.122.0 the Sponsors screen keeps the record-keeping on a decided application, <strong>Put back in the queue</strong> and <strong>Delete for good</strong>, and every decision on an open one past the fifty oldest that card lists. Approve creates the sponsor's record on the site with status Approved, the website, the contact, the sponsorship option, the free text and the two logo files, then in the same press the account (through the same path Create account uses), the company's category, the logo record and the first offer in draft, and queues the welcome unless that account was invited before. If a press got as far as the sponsor's record and then stopped, the row is marked <em>approval half done</em> wherever it is drawn, and Reject, Reject as spam and Put back in the queue are refused on it: pressing Approve again finishes whatever is left. A company the sponsors index already holds is never merged: reject the application and use <strong>Create account</strong> on the Sponsors screen's <strong>Accounts</strong> tab instead. The retention settings for institution applications govern this form too, the same three settings by the same names on both (spam after 30 days, rejected after a year, approved never, by default), and a held application is now purged on the rejected window on both forms alike. A spam, held or rejected sponsor application's logo files are deleted with it - the institution form keeps no logo files to delete - and an approved one's are the sponsor's logo and stay. After go-live, one manual step: change the form link on the handbook page to /sponsor-application/.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Since 1.123.59 the Website question of both application forms, and the page about the program on the institution form, refuse an answer with a space in it or whose host has no dot, or with a user name before the host, at the field with the typing kept, under "Enter a web address such as example.com."; before, such an answer was stored as https://not%20a%20site.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->

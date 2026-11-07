@@ -28,6 +28,7 @@ function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_email( $s ) { return trim( preg_replace( '/[^a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~@\-]/', '', (string) $s ) ); }
 function is_email( $s ) { return (bool) filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
+function __( $text, $domain = null ) { return $text; }
 
 /**
  * Honors the protocol allow-list, so the URL assertions are not vacuous.
@@ -212,10 +213,22 @@ ck( 'whatever its case', fv( 'HTTPS://Example.org', $url ), accepted( 'HTTPS://E
 ck( 'leading slashes do not double up', fv( '//example.org', $url ), accepted( 'https://example.org' ) );
 ck( 'whitespace around it is not part of it', fv( '  example.org  ', $url ), accepted( 'https://example.org' ) );
 ck( 'an emptied box clears the column', fv( '', $url ), accepted( '' ) );
-ck( 'a javascript: URL does not survive', fv( 'javascript:alert(1)', $url ), accepted( '' ) );
+ck( 'a javascript: URL does not survive: refused, not emptied on the quiet (1.123.59)', fv( 'javascript:alert(1)', $url ), refused( 'bad_url' ) );
 ck( 'clean_url() is the same rule on its own', WPCPM_Field_Value::clean_url( 'example.org' ), 'https://example.org' );
 ck( 'clean_url() refuses javascript: on its own too', WPCPM_Field_Value::clean_url( 'javascript:alert(1)' ), '' );
 ck( 'clean_url() passes an empty string through', WPCPM_Field_Value::clean_url( '' ), '' );
+ck( 'a value with a space in it is not an address (1.123.59): refused, never stored as https://not%20a%20site', fv( 'not a site', $url ), refused( 'bad_url' ) );
+ck( 'a host with no dot is not an address either', array( fv( 'example', $url ), fv( 'https://example', $url ), fv( 'https://example/path', $url ) ), array( refused( 'bad_url' ), refused( 'bad_url' ), refused( 'bad_url' ) ) );
+ck( 'a space anywhere, in the path too, refuses the whole value', fv( 'example.com/a b', $url ), refused( 'bad_url' ) );
+ck( 'a host with a dot, a path and a query is an address', fv( 'sub.example.org/path?q=1', $url ), accepted( 'https://sub.example.org/path?q=1' ) );
+ck( 'a port after the host does not hide the dot', fv( 'https://example.org:8443/x', $url ), accepted( 'https://example.org:8443/x' ) );
+ck( 'clean_url() on its own answers nothing for them, as the readers of stored links expect', array( WPCPM_Field_Value::clean_url( 'not a site' ), WPCPM_Field_Value::clean_url( 'example' ), WPCPM_Field_Value::clean_url( 'example.org' ) ), array( '', '', 'https://example.org' ) );
+ck( 'a userinfo part is refused, a dot before the @ is not a host with a dot (1.123.59)', array( fv( 'https://ana.b@loss.example/', $url ), fv( 'https://user:pw@example.org/x', $url ) ), array( refused( 'bad_url' ), refused( 'bad_url' ) ) );
+ck( 'clean_url() on its own answers nothing for a userinfo part', WPCPM_Field_Value::clean_url( 'https://ana.b@loss.example/' ), '' );
+ck( 'a no-break space is a space too, whatever pasted it', fv( "example.com/a\xC2\xA0b", $url ), refused( 'bad_url' ) );
+ck( 'a malformed value is refused too, not read as having no space (1.123.59)', fv( "example.com/\xC3", $url ), refused( 'bad_url' ) );
+ck( 'a trailing no-break space pasted after an address is trimmed, one inside it still refuses', array( fv( "example.com\xC2\xA0", $url ), fv( "example.com/a\xC2\xA0b", $url ) ), array( accepted( 'https://example.com' ), refused( 'bad_url' ) ) );
+ck( 'the one sentence every form says for a refused address', WPCPM_Field_Value::bad_url_text(), 'Enter a web address such as example.com.' );
 ck( 'an array is refused', fv( array( 'example.org' ), $url ), refused( 'not_scalar' ) );
 
 echo "\n=== text: one line, capped by maxlength, then by the caller, then by the class ===\n";

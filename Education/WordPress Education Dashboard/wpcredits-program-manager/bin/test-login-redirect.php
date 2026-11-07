@@ -243,6 +243,9 @@ echo "=== A plain login, as core presents it ===\n";
 
 ck( 'a mentor lands on the Mentor Report Card', array( plain_login( 'mentor', $mentor ) ), array( MENTOR_PAGE ) );
 ck( 'a student lands on the Student Report Card', array( plain_login( 'student', $student ) ), array( STUDENT_PAGE ) );
+$GLOBALS['edit'][] = $student->ID;
+ck( 'a student who can write posts still lands on the Student Report Card (WordPress/WPCredits#295)', array( plain_login( 'student', $student ) ), array( STUDENT_PAGE ) );
+$GLOBALS['edit'] = array_values( array_diff( $GLOBALS['edit'], array( $student->ID ) ) );
 
 // The admin root with no trailing slash is the same place.
 ck( 'the admin root counts as "nowhere in particular", slash or no slash',

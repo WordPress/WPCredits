@@ -176,7 +176,12 @@ when the page is missing, a sentence saying that re-activating the plugin recrea
 - **Student landing page** - **Use the Student Report Card page as the student dashboard**, on by
   default: the same arrangement for students, with a "Student Report Card" link in the toolbar and
   the same exceptions: a requested destination wins, their own profile screen stays reachable, and
-  anyone who can write posts is left alone.
+  anyone who can edit others' posts, an editor or an administrator, is left alone.
+
+Since 1.123.59 a student who can write posts, a contributor or an author, still goes to the Student
+Report Card: only an account that can edit others' posts, an editor or an administrator, is left
+where WordPress sends it, which is what the Mentor and Sponsor landing pages already did. Before,
+such a student landed in wp-admin.
 
 #### Student registrations
 
@@ -285,6 +290,9 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   dashboard**, on by default: institution accounts go to their Institution Dashboard when they log in
   and in place of the wp-admin Dashboard, and get an "Institution Dashboard" link in the toolbar, with
   the same exceptions as for mentors and students. The page's address is under the switch.
+
+Since 1.123.59 the same holds here: an institution account that can write posts still goes to the
+Institution Dashboard, and only an editor or an administrator stays in wp-admin.
 
 #### When an institution leaves the pipeline
 

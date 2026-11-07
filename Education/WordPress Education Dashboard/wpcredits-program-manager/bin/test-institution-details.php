@@ -569,7 +569,9 @@ ck(
 $refused = WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'Universidad', 'website' => 'javascript:alert(1)', 'city' => 'Heredia', 'country' => COSTA, 'contact_email' => 'ana@example.test' ) );
 
 ck( 'a web address naming a scheme of its own is refused', array_keys( $refused['problems'] ), array( 'website' ) );
-ck( 'and says what to give, in the form\'s own sentence for it (1.123.58)', $refused['problems']['website'], 'Give a web address starting with https://, or just the domain.' );
+ck( 'and says what to give, in the form\'s own sentence for it (1.123.58)', $refused['problems']['website'], 'Enter a web address such as example.com.' );
+$words = WPCPM_Institution_Details::clean( 'checked', array( 'name' => 'Universidad', 'website' => 'not a site', 'city' => 'Heredia', 'country' => COSTA, 'contact_email' => 'ana@example.test' ) );
+ck( 'a website of words is refused with the same sentence, never kept as https://not%20a%20site (1.123.59)', $words['problems'], array( 'website' => 'Enter a web address such as example.com.' ) );
 
 $long = 'https://ejemplo.edu/' . str_repeat( 'a', 200 );
 
@@ -946,7 +948,7 @@ echo "\n-- write(): a stored change is cleaned again, as a typed one is --------
 
 foreach (
 	array(
-		'a web address naming a scheme of its own' => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'javascript:alert(1)' ) ), 'Website: Give a web address starting with https://, or just the domain. Nothing was changed.' ),
+		'a web address naming a scheme of its own' => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'javascript:alert(1)' ) ), 'Website: Enter a web address such as example.com. Nothing was changed.' ),
 		'a web address over 200 characters'        => array( array( 'website' => array( 'from' => 'https://ejemplo.edu', 'to' => 'https://ejemplo.edu/' . str_repeat( 'a', 200 ) ) ), 'Website: Keep this to 200 characters or fewer. Nothing was changed.' ),
 		'a page address over 200 characters'       => array( array( 'credits_page' => array( 'from' => '', 'to' => 'https://ejemplo.edu/' . str_repeat( 'a', 200 ) ) ), 'Page about WordPress Credits: Keep this to 200 characters or fewer. Nothing was changed.' ),
 		'an email that is not one'                 => array( array( 'contact_email' => array( 'from' => 'ana@example.test', 'to' => 'ana at example dot test' ) ), 'Contact\'s email: That does not look like an email address. Nothing was changed.' ),
@@ -989,7 +991,7 @@ foreach ( array( 'post' => 'WordPress would not make the record\'s post', 'meta'
 
 	$result = WPCPM_Institution_Details::write( OTHER, array( 'contact_role' => array( 'from' => '', 'to' => 'Registrar' ) ), 7, 'member' );
 
-	ck( sprintf( 'when %s, a correction of the record\'s answers alone is an error with the plugin\'s sentence', $why ), array( is_wp_error( $result ) ? $result->get_error_code() : $result, is_wp_error( $result ) ? $result->get_error_message() : '' ), array( 'wpcpm_details_record', 'The details could not be kept on the site, so nothing was saved. Please try again in a while.' ) );
+	ck( sprintf( 'when %s, a correction of the record\'s answers alone is an error with the plugin\'s sentence', $why ), array( is_wp_error( $result ) ? $result->get_error_code() : $result, is_wp_error( $result ) ? $result->get_error_message() : '' ), array( 'wpcpm_details_record', 'The details could not be kept on the site, so nothing was saved. Try again in a while.' ) );
 	ck( sprintf( 'and when %s, it wrote no row of history and called Airtable and the index not at all', $why ), array( audit_rows( OTHER ), $GLOBALS['journal'], $GLOBALS['patched'] ), array( array(), array(), array() ) );
 }
 
