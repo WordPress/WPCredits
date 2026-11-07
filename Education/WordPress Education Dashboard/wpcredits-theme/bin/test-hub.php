@@ -28,6 +28,8 @@ if ( ! function_exists( 'get_post_field' ) ) {
 }
 
 require_once WPCREDITS_THEME_DIR . 'inc/partners.php';
+// The Get involved rows' helpers: the sign-in block asks the student registration form's address through them (theme 1.32.13).
+require_once WPCREDITS_THEME_DIR . 'inc/get-involved.php';
 
 $fail  = 0;
 $total = 0;
@@ -2434,8 +2436,17 @@ $sign_in_without_plugin = is_file( WPCREDITS_THEME_DIR . 'blocks/sign-in/render.
 if ( ! class_exists( 'WPCPM_Mentors_Dashboard' ) ) {
 	/** Present, so the plugin reads as active; its page as the plugin reports it: '' while it is not published. */
 	class WPCPM_Mentors_Dashboard {
-		public static $url = '';
+		public static $url    = '';
+		public static $mentor = false;
 		public static function page_url() { return self::$url; }
+		public static function is_mentor( $user = null ) { return self::$mentor; }
+	}
+
+	/** The plugin's roles class, there so the theme's capability test runs; the reader's capabilities are the stub's. */
+	class WPCPM_Roles {
+		const CAP_MANAGE  = 'wpcpm_manage_program';
+		const ROLE_MENTOR = 'wpcpm_mentor';
+		public static function user_has_role( $user, $role ) { return false; }
 	}
 }
 
@@ -2768,21 +2779,82 @@ $sign_in_only_mentors         = sign_in_block();
 if ( ! class_exists( 'WPCPM_Students_Dashboard' ) ) {
 	/** The Student Report Card's page, as the plugin reports it. */
 	class WPCPM_Students_Dashboard {
-		public static $url = '';
+		public static $url     = '';
+		public static $student = false;
 		public static function page_url() { return self::$url; }
+		public static function is_student( $user = null ) { return self::$student; }
 	}
 
-	/** The Institution Dashboard's page. */
+	/** The Institution Dashboard's page, and whether the reader acts for an institution. */
 	class WPCPM_Institutions_Dashboard {
-		public static $url = '';
+		public static $url    = '';
+		public static $member = false;
 		public static function page_url() { return self::$url; }
+		public static function is_member( $user = null ) { return self::$member; }
 	}
 
-	/** The Sponsor Dashboard's page. */
+	/** The Sponsor Dashboard's page, and whether the reader acts for a sponsor. */
 	class WPCPM_Sponsors_Dashboard {
-		public static $url = '';
+		public static $url    = '';
+		public static $member = false;
+		public static function page_url() { return self::$url; }
+		public static function is_member( $user = null ) { return self::$member; }
+	}
+}
+
+// The student registration form and the Partners page's launch switch, as the signed-in cards ask them
+// (theme 1.32.13): the form closed and the switch off unless a check sets them.
+if ( ! class_exists( 'WPCPM_Student_Registration_Form' ) ) {
+	/** The plugin's student registration form: open or not, and its page. */
+	class WPCPM_Student_Registration_Form {
+		public static $open = false;
+		public static $url  = 'https://wordpresseducation.org/student-registration/';
+		public static function is_open() { return self::$open; }
 		public static function page_url() { return self::$url; }
 	}
+}
+
+if ( ! class_exists( 'WPCPM_Sponsor_Tiers' ) ) {
+	/** The plugin's launch switch for the partnership levels and the Partners page. */
+	class WPCPM_Sponsor_Tiers {
+		public static $live = false;
+		public static function live() { return self::$live; }
+	}
+}
+
+/**
+ * Who the signed-in reader is, for the sign-in block: a student, a mentor, an institution's member, a
+ * sponsor's member, an Administrator (the plugin's manage capability), any of them or none.
+ *
+ * @param string[] $who Any of `student`, `mentor`, `institution`, `sponsor`, `manage`.
+ */
+function sign_in_as( array $who ) {
+	WPCPM_Students_Dashboard::$student    = in_array( 'student', $who, true );
+	WPCPM_Mentors_Dashboard::$mentor      = in_array( 'mentor', $who, true );
+	WPCPM_Institutions_Dashboard::$member = in_array( 'institution', $who, true );
+	WPCPM_Sponsors_Dashboard::$member     = in_array( 'sponsor', $who, true );
+	$GLOBALS['caps']                      = in_array( 'manage', $who, true ) ? array( WPCPM_Roles::CAP_MANAGE ) : array();
+}
+
+/**
+ * What the signed-in block says, card by card: the eyebrow and the heading, then each card's eyebrow, its
+ * link's words, its address and its whole name, and how many cards the grid says it holds.
+ *
+ * @param string $html The block's markup.
+ * @return array
+ */
+function sign_in_said( $html ) {
+	$xpath = dom_of( $html );
+
+	return array(
+		found( $xpath, '/html/body/section/div[1]/p' ),
+		found( $xpath, '//h2' ),
+		found( $xpath, '//div[@class="wpc-hub-sign-in__grid"]/div/p[1]' ),
+		found( $xpath, '//p[@class="wpc-hub-door__go"]/a/text()' ),
+		found( $xpath, '//p[@class="wpc-hub-door__go"]/a', 'href' ),
+		found( $xpath, '//p[@class="wpc-hub-door__go"]/a', 'aria-label' ),
+		found( $xpath, '//div[@class="wpc-hub-sign-in__grid"]', 'style' ),
+	);
 }
 
 $sign_pages = array(
@@ -2879,11 +2951,12 @@ ck( 'the sign-in addresses written out: the login page, and after it each card\'
 	) );
 
 $GLOBALS['logged_in'] = true;
+sign_in_as( array( 'manage' ) );
 
 $signed_in = sign_in_block();
 $sign_in   = dom_of( $signed_in );
 
-ck( 'signed in, the same four cards in the same order, the heading "Open your page", each link the page itself and reading "Open", named by one whole sentence that starts with that word and names its page, and described by nothing',
+ck( 'signed in as an Administrator, who opens every page: the same four cards in the same order, the heading "Open your page", each link the page itself and reading "Open", named by one whole sentence that starts with that word and names its page, and described by nothing',
 	array(
 		found( $sign_in, '//h2' ),
 		sign_in_cards( $signed_in ),
@@ -2907,7 +2980,71 @@ ck( 'signed in, the same four cards in the same order, the heading "Open your pa
 		array_fill( 0, 4, true ),
 	) );
 
+// Theme 1.32.13 (WordPress/WPCredits#294): signed in, a card says "Open" only for a page the reader can open,
+// and the other cards lead to the public way in for that role, or are left out when there is none.
+$sign_in_who = array();
+
+foreach ( array( array(), array( 'mentor' ), array( 'student', 'institution' ), array( 'sponsor' ) ) as $sign_who ) {
+	sign_in_as( $sign_who );
+	$sign_in_who[] = sign_in_said( sign_in_block() );
+}
+
+WPCPM_Student_Registration_Form::$open = true;
+WPCPM_Sponsor_Tiers::$live             = true;
+sign_in_as( array() );
+$sign_in_who[] = sign_in_said( sign_in_block() );
+sign_in_as( array( 'mentor' ) );
+$sign_in_who[] = sign_in_said( sign_in_block() );
+WPCPM_Student_Registration_Form::$open = false;
+WPCPM_Sponsor_Tiers::$live             = false;
+sign_in_as( array() );
+
+$sign_apply = array(
+	'students'     => array( 'Register', 'https://wordpresseducation.org/student-registration/', 'Register as a student' ),
+	'mentors'      => array( 'Apply', 'https://site.example/become-a-mentor/', 'Apply to mentor students' ),
+	'institutions' => array( 'Apply', 'https://wordpresseducation.org/apply/', 'Apply to partner as an institution' ),
+	'sponsors'     => array( 'Apply', 'https://wordpresseducation.org/sponsor-application/', 'Apply to become a sponsor' ),
+);
+$sign_open  = array(
+	'students'     => array( 'Open', $sign_pages['students'], 'Open your Student Report Card' ),
+	'mentors'      => array( 'Open', $sign_pages['mentors'], 'Open your Mentor Report Card' ),
+	'institutions' => array( 'Open', $sign_pages['institutions'], 'Open your Institution Dashboard' ),
+	'sponsors'     => array( 'Open', $sign_pages['sponsors'], 'Open your Sponsor Dashboard' ),
+);
+$sign_cards = static function ( $eyebrow, $heading, array $cards ) use ( $sign_apply, $sign_open ) {
+	$links = array_map( static function ( $card ) use ( $sign_apply, $sign_open ) { return 'open' === $card[1] ? $sign_open[ $card[0] ] : $sign_apply[ $card[0] ]; }, $cards );
+	$eyes  = array( 'students' => 'Students', 'mentors' => 'Mentors', 'institutions' => 'Institutions', 'sponsors' => 'Sponsors' );
+
+	return array( array( $eyebrow ), array( $heading ), array_map( static function ( $card ) use ( $eyes ) { return $eyes[ $card[0] ]; }, $cards ), array_column( $links, 0 ), array_column( $links, 1 ), array_column( $links, 2 ), array( '--wpc-cards:' . count( $cards ) ) );
+};
+
+ck( 'signed in, a card reads "Open" only for a page the reader can open, and the other cards lead to that role\'s public way in, or are left out when there is none (theme 1.32.13): a reader who is nothing, with registration closed and the Partners page not live, gets Apply for mentors and institutions and no student or sponsor card, under "Not in a program yet?" and "Get involved"; a mentor opens the Mentor Report Card under "Open your page" and is offered the other two; a student who also acts for an institution opens both; a sponsor\'s member opens the Sponsor Dashboard; with registration open and the Partners page live the nothing reader gets all four ways in, and the mentor three',
+	$sign_in_who,
+	array(
+		$sign_cards( 'Not in a program yet?', 'Get involved', array( array( 'mentors', 'apply' ), array( 'institutions', 'apply' ) ) ),
+		$sign_cards( 'Already in a program?', 'Open your page', array( array( 'mentors', 'open' ), array( 'institutions', 'apply' ) ) ),
+		$sign_cards( 'Already in a program?', 'Open your page', array( array( 'students', 'open' ), array( 'mentors', 'apply' ), array( 'institutions', 'open' ) ) ),
+		$sign_cards( 'Already in a program?', 'Open your page', array( array( 'mentors', 'apply' ), array( 'institutions', 'apply' ), array( 'sponsors', 'open' ) ) ),
+		$sign_cards( 'Not in a program yet?', 'Get involved', array( array( 'students', 'apply' ), array( 'mentors', 'apply' ), array( 'institutions', 'apply' ), array( 'sponsors', 'apply' ) ) ),
+		$sign_cards( 'Already in a program?', 'Open your page', array( array( 'students', 'apply' ), array( 'mentors', 'open' ), array( 'institutions', 'apply' ), array( 'sponsors', 'apply' ) ) ),
+	) );
+
+ck( 'and every way-in link is a plain link to a page of this site or the plugin\'s, in a new tab for nobody, its name starting with the words it shows',
+	(static function () {
+		WPCPM_Student_Registration_Form::$open = true;
+		WPCPM_Sponsor_Tiers::$live             = true;
+		sign_in_as( array() );
+		$html = sign_in_block();
+		WPCPM_Student_Registration_Form::$open = false;
+		WPCPM_Sponsor_Tiers::$live             = false;
+		$xp = dom_of( $html );
+
+		return array( count( $xp->query( '//a[@target]' ) ), count( $xp->query( '//a' ) ), array_map( static function ( $label, $words ) { return 0 === strpos( $label, $words ); }, found( $xp, '//p[@class="wpc-hub-door__go"]/a', 'aria-label' ), found( $xp, '//p[@class="wpc-hub-door__go"]/a/text()' ) ) );
+	})(),
+	array( 0, 4, array_fill( 0, 4, true ) ) );
+
 $GLOBALS['logged_in'] = false;
+sign_in_as( array( 'manage' ) );
 
 $sign_some = array();
 

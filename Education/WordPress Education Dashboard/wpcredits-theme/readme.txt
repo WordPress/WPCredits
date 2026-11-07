@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.12
+Stable tag: 1.32.13
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -216,6 +216,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.13 =
+
+* The homepage's "Open your page" section shows a signed-in reader "Open" only for the pages they can open, as the plugin answers it: a student their Student Report Card, a mentor their Mentor Report Card, an institution's or a sponsor's member their dashboard, an Administrator every page. The other cards lead to that role's way in, the student registration form while it is open, the mentor application, the institution application and, while the Partners page is live, the sponsor application, reading "Register" or "Apply"; a role with no way in right now has no card. A reader in no program reads "Not in a program yet?" over "Get involved". Until now every card said "Open" to everyone signed in, and three of them led a mentor to the access notice (WordPress/WPCredits#294).
+* For developers: the hub suite's plugin stand-ins answer membership (`is_student()`, `is_member()`, `is_mentor()`) and the two stubs share one `current_user_can()`; the selectors check reads the plugin's message builder for the dashboards' message tones, and keeps the Sponsor Dashboard's detail rule for a plugin rolled back to 1.123.57.
 
 = 1.32.12 =
 

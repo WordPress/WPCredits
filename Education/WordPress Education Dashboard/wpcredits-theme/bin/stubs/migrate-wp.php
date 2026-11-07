@@ -531,7 +531,9 @@ function update_option( $key, $value, $autoload = null ) {
 }
 
 function get_current_user_id() { return (int) $GLOBALS['user']['id']; }
-function current_user_can( $capability ) { return in_array( $capability, $GLOBALS['user']['caps'], true ); }
+if ( ! function_exists( 'current_user_can' ) ) {
+	function current_user_can( $capability ) { return in_array( $capability, $GLOBALS['user']['caps'], true ); }
+}
 function get_user_meta( $user, $key, $single = false ) { return isset( $GLOBALS['user_meta'][ $user ][ $key ] ) ? $GLOBALS['user_meta'][ $user ][ $key ] : ''; }
 function update_user_meta( $user, $key, $value ) { $GLOBALS['user_meta'][ $user ][ $key ] = $value; return true; }
 function get_current_screen() { return (object) array( 'id' => $GLOBALS['screen'] ); }

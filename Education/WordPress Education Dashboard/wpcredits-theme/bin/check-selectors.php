@@ -261,7 +261,30 @@ $kept = array(
 	'wpcpm-sponsor__group'       => '1.123.37',
 	'wpcpm-sponsor__group-title' => '1.123.37',
 	'wpcpm-sponsor__group-lead'  => '1.123.37',
+	// The Sponsor Dashboard's outcome detail line went into the card's own message in plugin 1.123.58
+	// (every dashboard outcome inside the card it came from), so 1.123.57 was the last to print it.
+	'wpcpm-dashboard__detail'    => '1.123.57',
 );
+
+// Since plugin 1.123.58 every dashboard outcome is printed by one builder, `WPCPM_Dashboard_Card::message()`,
+// as `<base> <base>--<tone> is-<tone>`: the stem with its `--` is no longer written anywhere, so the rule below
+// for a modifier assembled at run time cannot see these. The bases are the builder's default and every literal
+// third argument a call passes it; the tones are the keys of its `TONES`. Both are read from the plugin's
+// source, so a tone or a base added to the plugin is seen here without a list to keep (theme 1.32.13).
+$message_bases = array();
+$message_tones = array();
+
+if ( preg_match( '/function message\(\s*\$tone,\s*\$text,\s*\$base = \'([a-z0-9_-]+)\'/', $corpus, $found ) ) {
+	$message_bases[] = $found[1];
+}
+
+if ( preg_match_all( '/Dashboard_Card::message\(\s*[^;]*?,\s*\'([a-z0-9_-]+__message[a-z0-9_-]*)\'\s*\)/', $corpus, $found ) ) {
+	$message_bases = array_merge( $message_bases, $found[1] );
+}
+
+if ( preg_match( '/const TONES = array\((.*?)\);/s', $corpus, $found ) && preg_match_all( '/\'([a-z]+)\'\s*=>/', $found[1], $keys ) ) {
+	$message_tones = $keys[1];
+}
 
 $misses = 0;
 $built  = 0;
@@ -285,6 +308,13 @@ foreach ( $dressed as $class => $where ) {
 	if ( false !== $at ) {
 		$stem     = substr( $class, 0, $at + 2 );
 		$modifier = substr( $class, $at + 2 );
+
+		// A dashboard outcome's tone, built by the plugin's one message builder (above).
+		if ( in_array( substr( $class, 0, $at ), $message_bases, true ) && in_array( $modifier, $message_tones, true ) ) {
+			++$built;
+			printf( "  built  .%-44s WPCPM_Dashboard_Card::message()'s tone '%s'  (%s)\n", $class, $modifier, implode( ', ', $where ) );
+			continue;
+		}
 
 		if ( wpcredits_printed( $corpus, $stem ) && preg_match( '/[\'"]' . preg_quote( $modifier, '/' ) . '[\'"]/', $corpus ) ) {
 			++$built;

@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.32.12\n"
+"Project-Id-Version: WPCredits 1.32.13\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-05T15:52:20+00:00\n"
+"POT-Creation-Date: 2026-11-06T15:52:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -281,112 +281,159 @@ msgstr[1] ""
 msgid "Filter programs by audience"
 msgstr ""
 
-#: blocks/sign-in/render.php:59
+#: blocks/sign-in/render.php:65
 #: inc/hub-content.php:229
 #: patterns/audiences.php:20
 msgid "Students"
 msgstr ""
 
-#: blocks/sign-in/render.php:60
+#: blocks/sign-in/render.php:66
 #: blocks/viewer-chip/render.php:60
 msgid "Student Report Card"
 msgstr ""
 
-#: blocks/sign-in/render.php:63
+#: blocks/sign-in/render.php:69
 #: inc/hub-content.php:237
 #: patterns/audiences.php:26
 msgid "Mentors"
 msgstr ""
 
-#: blocks/sign-in/render.php:64
+#: blocks/sign-in/render.php:70
 #: blocks/viewer-chip/render.php:70
 #: blocks/viewer-chip/index.js:24
 msgid "Mentor Report Card"
 msgstr ""
 
-#: blocks/sign-in/render.php:67
+#: blocks/sign-in/render.php:73
 #: inc/hub-content.php:244
 #: patterns/audiences.php:32
 msgid "Institutions"
 msgstr ""
 
-#: blocks/sign-in/render.php:68
+#: blocks/sign-in/render.php:74
 msgid "Institution Dashboard"
 msgstr ""
 
-#: blocks/sign-in/render.php:71
+#: blocks/sign-in/render.php:77
 #: blocks/sponsor-card/render.php:32
 msgid "Sponsors"
 msgstr ""
 
-#: blocks/sign-in/render.php:72
+#: blocks/sign-in/render.php:78
 msgid "Sponsor Dashboard"
 msgstr ""
 
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:127
+msgid "Sign in to your Student Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:129
+msgid "Sign in to your Mentor Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:131
+msgid "Sign in to your Institution Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:133
+msgid "Sign in to your Sponsor Dashboard"
+msgstr ""
+
 #. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
-#: blocks/sign-in/render.php:81
+#: blocks/sign-in/render.php:140
 msgid "Open your Student Report Card"
 msgstr ""
 
 #. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
-#: blocks/sign-in/render.php:83
+#: blocks/sign-in/render.php:142
 #: inc/login.php:120
 #: patterns/cta.php:43
 msgid "Open your Mentor Report Card"
 msgstr ""
 
 #. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
-#: blocks/sign-in/render.php:85
+#: blocks/sign-in/render.php:144
 msgid "Open your Institution Dashboard"
 msgstr ""
 
 #. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
-#: blocks/sign-in/render.php:87
+#: blocks/sign-in/render.php:146
 msgid "Open your Sponsor Dashboard"
 msgstr ""
 
-#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
-#: blocks/sign-in/render.php:91
-msgid "Sign in to your Student Report Card"
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Register").
+#: blocks/sign-in/render.php:153
+#: inc/get-involved.php:117
+msgid "Register as a student"
 msgstr ""
 
-#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
-#: blocks/sign-in/render.php:93
-msgid "Sign in to your Mentor Report Card"
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:155
+msgid "Apply to mentor students"
 msgstr ""
 
-#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
-#: blocks/sign-in/render.php:95
-msgid "Sign in to your Institution Dashboard"
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:157
+msgid "Apply to partner as an institution"
 msgstr ""
 
-#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
-#: blocks/sign-in/render.php:97
-msgid "Sign in to your Sponsor Dashboard"
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:159
+msgid "Apply to become a sponsor"
 msgstr ""
 
-#: blocks/sign-in/render.php:109
+#: blocks/sign-in/render.php:166
+#: blocks/sign-in/render.php:169
 msgid "Already in a program?"
 msgstr ""
 
-#: blocks/sign-in/render.php:110
-msgid "Open your page"
-msgstr ""
-
-#: blocks/sign-in/render.php:110
+#: blocks/sign-in/render.php:167
 msgid "Sign in to your page"
 msgstr ""
 
+#: blocks/sign-in/render.php:170
+msgid "Open your page"
+msgstr ""
+
+#: blocks/sign-in/render.php:172
+msgid "Not in a program yet?"
+msgstr ""
+
+#. translators: The header's button that opens the list of ways to take part in the program.
+#. translators: The heading over the ways to take part in the program, at the top of the menu on a phone.
+#: blocks/sign-in/render.php:173
+#: inc/get-involved.php:179
+#: inc/get-involved.php:205
+#: inc/hub-content.php:271
+msgid "Get involved"
+msgstr ""
+
+#. translators: A card's link when the reader is signed out: a verb, it goes to the login screen and then to the page the card names.
+#: blocks/sign-in/render.php:196
+msgctxt "a card's link to the page it names"
+msgid "Sign in"
+msgstr ""
+
 #. translators: A card's link when the reader is signed in: a verb, it opens the page the card names.
-#: blocks/sign-in/render.php:120
+#: blocks/sign-in/render.php:201
 msgctxt "a card's link to the page it names"
 msgid "Open"
 msgstr ""
 
-#. translators: A card's link when the reader is signed out: a verb, it goes to the login screen and then to the page the card names.
-#: blocks/sign-in/render.php:124
-msgctxt "a card's link to the page it names"
-msgid "Sign in"
+#. translators: The Students card's link for a signed-in reader who is not a student: a verb, it goes to the student registration form.
+#: blocks/sign-in/render.php:207
+msgctxt "a card's link to the way into the program it names"
+msgid "Register"
+msgstr ""
+
+#. translators: A card's link for a signed-in reader who is not in that role: a verb, it goes to that role's application form.
+#: blocks/sign-in/render.php:209
+msgctxt "a card's link to the way into the program it names"
+msgid "Apply"
 msgstr ""
 
 #: blocks/sponsor-card/render.php:33
@@ -461,20 +508,8 @@ msgstr ""
 msgid "Fund mentors and student work"
 msgstr ""
 
-#: inc/get-involved.php:117
-msgid "Register as a student"
-msgstr ""
-
 #: inc/get-involved.php:118
 msgid "Join the WordPress Credits Program"
-msgstr ""
-
-#. translators: The header's button that opens the list of ways to take part in the program.
-#. translators: The heading over the ways to take part in the program, at the top of the menu on a phone.
-#: inc/get-involved.php:177
-#: inc/get-involved.php:203
-#: inc/hub-content.php:271
-msgid "Get involved"
 msgstr ""
 
 #. translators: The label of the button that opens the site menu on narrow screens.
@@ -1320,7 +1355,7 @@ msgstr ""
 
 #: inc/migrate-1-32-0.php:778
 #: inc/migrate-1-32-1.php:524
-#: inc/migrate-1-32-12.php:413
+#: inc/migrate-1-32-12.php:420
 msgid "the update could not be saved"
 msgstr ""
 
@@ -1339,19 +1374,19 @@ msgstr ""
 
 #: inc/migrate-1-32-0.php:798
 #: inc/migrate-1-32-1.php:558
-#: inc/migrate-1-32-12.php:392
+#: inc/migrate-1-32-12.php:399
 msgid "What was saved differs from what the update wrote, so compare the template with its revisions."
 msgstr ""
 
 #: inc/migrate-1-32-0.php:801
 #: inc/migrate-1-32-1.php:566
-#: inc/migrate-1-32-12.php:400
+#: inc/migrate-1-32-12.php:407
 msgid "The template as it was before is kept in the theme's migration record."
 msgstr ""
 
 #: inc/migrate-1-32-0.php:801
 #: inc/migrate-1-32-1.php:566
-#: inc/migrate-1-32-12.php:400
+#: inc/migrate-1-32-12.php:407
 msgid "The template as it was before is kept in its revisions."
 msgstr ""
 
@@ -1438,7 +1473,7 @@ msgid "Its partnership levels could not be read from its Custom HTML block, so t
 msgstr ""
 
 #: inc/migrate-1-32-1.php:564
-#: inc/migrate-1-32-12.php:398
+#: inc/migrate-1-32-12.php:405
 msgid "The template as it was before could not be kept, in its revisions or in the theme's migration record."
 msgstr ""
 
@@ -1446,41 +1481,41 @@ msgstr ""
 msgid "The theme's update to 1.32.1 could not finish updating the saved Partners and Education Hub templates; a template it did not reach is as it was."
 msgstr ""
 
-#: inc/migrate-1-32-12.php:389
+#: inc/migrate-1-32-12.php:396
 msgid "The theme's update to 1.32.12 changed the saved homepage template: the \"Who this is for\" section is now the band of ways to take part, directly under the hero, its sponsors' card shown while the Partners page is public."
 msgstr ""
 
-#: inc/migrate-1-32-12.php:409
+#: inc/migrate-1-32-12.php:416
 msgid "its \"Who this is for\" section was changed in the Site Editor, so the band of ways to take part was not put in its place"
 msgstr ""
 
-#: inc/migrate-1-32-12.php:410
+#: inc/migrate-1-32-12.php:417
 msgid "it holds no \"Who this is for\" section to put the band of ways to take part in place of"
 msgstr ""
 
-#: inc/migrate-1-32-12.php:411
+#: inc/migrate-1-32-12.php:418
 msgid "it holds no hero to put the band of ways to take part under"
 msgstr ""
 
-#: inc/migrate-1-32-12.php:412
+#: inc/migrate-1-32-12.php:419
 msgid "it already holds the band of ways to take part"
 msgstr ""
 
 #. translators: %s: why the update left the template as it was.
-#: inc/migrate-1-32-12.php:422
+#: inc/migrate-1-32-12.php:429
 #, php-format
 msgid "The theme's update to 1.32.12 left the saved homepage template as it was: %s."
 msgstr ""
 
-#: inc/migrate-1-32-12.php:425
+#: inc/migrate-1-32-12.php:432
 msgid "To show it, insert the \"Ways to take part\" pattern under the hero and remove the section."
 msgstr ""
 
-#: inc/migrate-1-32-12.php:427
+#: inc/migrate-1-32-12.php:434
 msgid "To show it, insert the \"Ways to take part\" pattern where it should stand."
 msgstr ""
 
-#: inc/migrate-1-32-12.php:434
+#: inc/migrate-1-32-12.php:441
 msgid "The theme's update to 1.32.12 could not finish updating the saved homepage template; a template it did not reach is as it was."
 msgstr ""
 
@@ -2909,7 +2944,7 @@ msgstr ""
 
 #: blocks/sign-in/block.json
 msgctxt "block description"
-msgid "A card each for the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard: signed out, each signs in and lands on its page; signed in, each opens it. A page that is not published leaves its card out, and with none the block shows nothing."
+msgid "A card each for the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard: signed out, each signs in and lands on its page; signed in, a card opens its page for a reader who can open it and leads the rest to that role's way in. A page that is not published leaves its card out, and with none the block shows nothing."
 msgstr ""
 
 #: blocks/sign-in/block.json

@@ -5,7 +5,7 @@
 	"title": "Sign in",
 	"category": "theme",
 	"icon": "admin-users",
-	"description": "A card each for the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard: signed out, each signs in and lands on its page; signed in, each opens it. A page that is not published leaves its card out, and with none the block shows nothing.",
+	"description": "A card each for the Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard: signed out, each signs in and lands on its page; signed in, a card opens its page for a reader who can open it and leads the rest to that role's way in. A page that is not published leaves its card out, and with none the block shows nothing.",
 	"keywords": [ "sign in", "login", "account", "hub" ],
 	"textdomain": "wpcredits-theme",
 	"supports": {

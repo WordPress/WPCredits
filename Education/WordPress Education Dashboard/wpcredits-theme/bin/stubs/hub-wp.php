@@ -79,6 +79,7 @@ $GLOBALS['request']       = array(
 $GLOBALS['marked']        = false;
 $GLOBALS['translated']    = array();
 $GLOBALS['logged_in']     = false;
+$GLOBALS['caps']          = array();
 $GLOBALS['said']          = 0;
 $GLOBALS['is_admin']      = false;
 $GLOBALS['hooks']         = array();
@@ -201,6 +202,17 @@ function get_page_template_slug( $post = null ) {
 	return isset( $GLOBALS['request']['templates'][ $id ] ) ? (string) $GLOBALS['request']['templates'][ $id ] : '';
 }
 function is_user_logged_in() { return ! empty( $GLOBALS['logged_in'] ); }
+// The signed-in reader's capabilities, `$GLOBALS['caps']`, none by default: the sign-in block asks for the
+// plugin's manage capability, which opens every page (theme 1.32.13). The migration stub declares the same
+// function from `$GLOBALS['user']['caps']`, and the two stubs are loaded together by the migration suites, so
+// each declares it only when the other has not, and this one reads both globals.
+if ( ! function_exists( 'current_user_can' ) ) {
+	function current_user_can( $capability ) {
+		$caps = array_merge( isset( $GLOBALS['caps'] ) ? (array) $GLOBALS['caps'] : array(), isset( $GLOBALS['user']['caps'] ) ? (array) $GLOBALS['user']['caps'] : array() );
+
+		return in_array( $capability, $caps, true );
+	}
+}
 
 /**
  * Core's wp_login_url(): the login page, with the address to return to, percent-encoded, only when
