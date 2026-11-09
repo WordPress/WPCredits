@@ -334,6 +334,9 @@ ck(
 		'student-registration-received',
 		'student-registration-account',
 		'student-registration-already',
+		'student-quiet-student',
+		'student-quiet-mentor',
+		'student-quiet-weekly',
 	)
 );
 
@@ -581,6 +584,11 @@ $shape = array(
 	'student-registration-received' => array( "\n", array(), array( 'student_name' ) ),
 	'student-registration-account'  => array( "\n", array( 'login_link', 'lost_password_link' ), array() ),
 	'student-registration-already'  => array( "\n", array(), array() ),
+	// The Quiet students (1.123.60): the booking link and the dashboard link each needed in the student's
+	// reminder, the mentor's list in the body alone, the Administrator's list the same.
+	'student-quiet-student'         => array( "\n", array( 'booking_link', 'dashboard_link' ), array() ),
+	'student-quiet-mentor'          => array( "\n", array( 'students_list', 'dashboard_link' ), array( 'students_list' ) ),
+	'student-quiet-weekly'          => array( "\n", array( 'count', 'students_list', 'card_link' ), array( 'students_list' ) ),
 );
 $want_whole = array();
 foreach ( $shape as $id => $want ) {

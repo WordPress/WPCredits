@@ -1397,6 +1397,7 @@ class WPCPM_Settings_Screen {
 		$this->close_section();
 
 		$this->render_student_registration_settings( $settings );
+		$this->render_quiet_students_settings( $settings );
 		$this->render_mentor_application_settings( $settings );
 	}
 
@@ -1458,6 +1459,47 @@ class WPCPM_Settings_Screen {
 			WPCPM_Settings_Rows::typed( 'stages', $why ),
 			array(),
 			__( 'With none ticked, or no institution at a ticked stage, the form says registrations are closed. A new partner appears after the next institutions sync, every three hours.', 'wpcredits-program-manager' )
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * The Students and mentors tab's quiet students section: the switch for the daily list of
+	 * students with no activity for a while, and how many days of quiet put a student on it.
+	 *
+	 * Off by default; Preview shows Administrators the list on the dashboard and mails nobody, so a
+	 * person can see who the line would reach before it reaches anyone.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_quiet_students_settings( array $settings ) {
+		$this->open_section(
+			__( 'Quiet students', 'wpcredits-program-manager' ),
+			__( 'Whether the site keeps a daily list of students who have gone quiet, and after how many days.', 'wpcredits-program-manager' ),
+			'quiet-students'
+		);
+
+		WPCPM_Settings_Rows::select_row(
+			'student_flags_mode',
+			__( 'Daily list', 'wpcredits-program-manager' ),
+			isset( $settings['student_flags_mode'] ) ? (string) $settings['student_flags_mode'] : 'off',
+			array(
+				'off'     => __( 'Off', 'wpcredits-program-manager' ),
+				'preview' => __( 'Preview: Administrators see the card, nothing is mailed', 'wpcredits-program-manager' ),
+				'on'      => __( 'On', 'wpcredits-program-manager' ),
+			),
+			__( 'Off keeps no list; Preview keeps it for Administrators and mails nobody.', 'wpcredits-program-manager' ),
+			'off'
+		);
+
+		WPCPM_Settings_Rows::number_row(
+			'student_quiet_days',
+			__( 'Days of quiet', 'wpcredits-program-manager' ),
+			isset( $settings['student_quiet_days'] ) ? (int) $settings['student_quiet_days'] : 14,
+			7,
+			60,
+			__( 'A student with no sign-in, visit, call or report for this many days, from 7 to 60, is quiet.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();

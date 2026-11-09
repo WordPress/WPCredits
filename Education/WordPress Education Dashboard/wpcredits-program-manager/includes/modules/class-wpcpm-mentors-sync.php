@@ -243,6 +243,9 @@ class WPCPM_Mentors_Sync {
 				// cell is absent rather than 0, which is a student nobody has logged for yet
 				// and not a student who has done nothing.
 				'report_hours'               => 'Hours',
+				// Airtable's own Last modified time over the columns students fill, so an edit made
+				// through an outside form counts as activity, which the site's own save stamp misses.
+				'report_edited'              => 'Student report last edited',
 				'report_link'                => 'Personal link',
 				'report_link_50h'            => '50h personal link',
 				'report_link_dev'            => 'Dev Track ONLY personal link',

@@ -1820,6 +1820,9 @@ class WPCPM_Student_Report_Form {
 			self::bounce( 'report-refused', $from );
 		}
 
+		// Airtable accepted the write, so this is a report save the student made: activity.
+		WPCPM_Student_Activity::stamp_report( $student_id );
+
 		// The cache holds what Airtable had a moment ago, which is now wrong.
 		self::forget( $record );
 

@@ -170,6 +170,12 @@ class WPCPM_Settings {
 			'student_registrations_enabled' => false,
 			'student_registration_stages'   => array( 'Confirmed' ),
 
+			// Quiet students: a daily list of students with no activity for a while. `off` computes
+			// nothing, `preview` shows Administrators the list and mails nobody, `on` also sends the
+			// reminders. Off until a person says otherwise; two weeks is the quiet that starts the list.
+			'student_flags_mode'            => 'off',
+			'student_quiet_days'            => 14,
+
 			// Institutions module. The countries table is read for the same reason as
 			// the three lookup tables above: an institution's country arrives as a bare
 			// record ID, and it is the country that says which manager looks after it.
@@ -360,6 +366,8 @@ class WPCPM_Settings {
 				'mentor_lapse_days',
 				'student_registrations_enabled',
 				'student_registration_stages',
+				'student_flags_mode',
+				'student_quiet_days',
 			),
 			'institutions'               => array(
 				'applications_enabled',
@@ -872,6 +880,13 @@ class WPCPM_Settings {
 			$clean['handbook_access'] = in_array( $access, array( 'mentor', 'program', 'any', 'manage' ), true ) ? $access : 'mentor';
 		}
 
+		// Off, preview or on; anything else, off, so a typo never starts the mailing.
+		if ( isset( $input['student_flags_mode'] ) ) {
+			$flags_mode = sanitize_key( $input['student_flags_mode'] );
+
+			$clean['student_flags_mode'] = in_array( $flags_mode, array( 'off', 'preview', 'on' ), true ) ? $flags_mode : 'off';
+		}
+
 		if ( isset( $input['handbook_limit'] ) ) {
 			$clean['handbook_limit'] = max( 0, min( 200, (int) $input['handbook_limit'] ) );
 		}
@@ -1082,6 +1097,8 @@ class WPCPM_Settings {
 			'report_autodraft_grace_days'   => array( 7, 365 ),
 			// Two weeks' floor keeps a typo from lapsing tonight everybody selected this month.
 			'mentor_lapse_days'             => array( 14, 365 ),
+			// A week's floor keeps a typo from calling every student quiet; two months is the longest wait.
+			'student_quiet_days'            => array( 7, 60 ),
 			// Claude access. One is the least a ceiling can be and still answer: a zero would refuse every
 			// question and read as a broken site. A week is the least the log is kept, so a typo cannot
 			// empty today's record tonight.

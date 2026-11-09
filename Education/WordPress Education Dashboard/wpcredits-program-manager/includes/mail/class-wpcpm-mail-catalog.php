@@ -37,6 +37,7 @@ final class WPCPM_Mail_Catalog {
 	const MODULE_EVENTS       = 'events';
 	const MODULE_MENTOR_APPS  = 'mentor-applications';
 	const MODULE_STUDENT_REGS = 'student-registrations';
+	const MODULE_STUDENTS     = 'students';
 	const MODULE_WORDPRESS    = 'wordpress';
 	const MODULE_TWO_FACTOR   = 'two-factor';
 	const MODULE_OTHER        = 'other';
@@ -67,6 +68,7 @@ final class WPCPM_Mail_Catalog {
 			self::MODULE_EVENTS       => __( 'Sponsor events', 'wpcredits-program-manager' ),
 			self::MODULE_MENTOR_APPS  => __( 'Mentor applications', 'wpcredits-program-manager' ),
 			self::MODULE_STUDENT_REGS => __( 'Student registrations', 'wpcredits-program-manager' ),
+			self::MODULE_STUDENTS     => __( 'Quiet students', 'wpcredits-program-manager' ),
 			self::MODULE_WORDPRESS    => __( 'WordPress', 'wpcredits-program-manager' ),
 			self::MODULE_TWO_FACTOR   => __( 'Two Factor', 'wpcredits-program-manager' ),
 			self::MODULE_OTHER        => __( 'Other', 'wpcredits-program-manager' ),
@@ -111,6 +113,7 @@ final class WPCPM_Mail_Catalog {
 		$e = self::MODULE_EVENTS;
 		$m = self::MODULE_MENTOR_APPS;
 		$g = self::MODULE_STUDENT_REGS;
+		$q = self::MODULE_STUDENTS;
 		$w = self::MODULE_WORDPRESS;
 
 		$list = array(
@@ -257,6 +260,10 @@ final class WPCPM_Mail_Catalog {
 			'student-registration-received'      => array( __( 'Student registration received, to the student', 'wpcredits-program-manager' ), $g, self::TYPE_APPLICANT ),
 			'student-registration-account'       => array( __( 'Student registration from an address with an account', 'wpcredits-program-manager' ), $g, self::TYPE_APPLICANT ),
 			'student-registration-already'       => array( __( 'Student registration from an address already registered', 'wpcredits-program-manager' ), $g, self::TYPE_APPLICANT ),
+			// Quiet students (1.123.60): the daily job's reminder, its mentor digest and the Monday list.
+			'student-quiet-student'              => array( __( 'Quiet student reminder, to the student', 'wpcredits-program-manager' ), $q, self::TYPE_STUDENT ),
+			'student-quiet-mentor'               => array( __( 'Quiet students, to the mentor', 'wpcredits-program-manager' ), $q, self::TYPE_MENTOR ),
+			'student-quiet-weekly'               => array( __( 'Quiet students this week, to the Administrator', 'wpcredits-program-manager' ), $q, self::TYPE_ADMIN ),
 			// WordPress's own.
 			'wp-password-reset'                  => array( __( 'Password reset', 'wpcredits-program-manager' ), $w, '' ),
 			'wp-password-changed'                => array( __( 'Password changed', 'wpcredits-program-manager' ), $w, '' ),

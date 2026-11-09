@@ -1121,3 +1121,17 @@ button.wpcpm-tools__code {
 	font-weight: 600;
 	margin: 0.3em 0 0;
 }
+
+/* A student who has gone quiet: one paragraph, then the button "We've already talked", above what
+   the section holds. The form takes no margin of its own. */
+.wpcpm-quiet__notice {
+	margin: 0 0 1em;
+}
+
+.wpcpm-quiet__notice p {
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-quiet__notice .wpcpm-quiet__talked {
+	margin: 0;
+}

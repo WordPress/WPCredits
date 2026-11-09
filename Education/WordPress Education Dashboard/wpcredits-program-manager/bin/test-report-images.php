@@ -222,6 +222,7 @@ require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-student-activity.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
 
 // The program map and the Designer Track's form are the compiled tracks' (bin/stubs/compiled-seeds.php).

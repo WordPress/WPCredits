@@ -326,7 +326,7 @@ $rep_choices  = isset( $reports['choices'] ) ? (array) $reports['choices'] : arr
 
 ck( 'the fixture loaded', isset( $reports['table'] ) && 'tbljYkkVGbeoaWEtY' === $reports['table'], true );
 ck( 'and was read on a date', isset( $reports['read'] ) && 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $reports['read'] ), true );
-ck( 'the table has 73 fields: the 52 it held and the 21 the Designer Track added', count( $rep_fields ), 73 );
+ck( 'the table has 74 fields: the 52 it held, the 21 the Designer Track added and the 1 the quiet-student clock reads', count( $rep_fields ), 74 );
 ck( 'listed once each, in byte order', in_byte_order( $rep_fields ), true );
 ck( 'keeps the trailing space on "Company "', in_array( 'Company ', $rep_fields, true ), true );
 

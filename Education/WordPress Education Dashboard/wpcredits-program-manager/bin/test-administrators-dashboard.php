@@ -439,7 +439,7 @@ class WPCPM_Settings {
 		// while it is, the Events card among them (1.117.0). Automatic sync is on, as the
 		// setting is by default, unless a check turns it off. Every read is recorded, by key.
 		$GLOBALS['settings_read'][] = $key;
-		$known = array( 'agreement_review_days' => 3, 'institution_active_stages' => array( 'Confirmed', 'Student' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'sponsor_tiers_live' => ! empty( $GLOBALS['tiers_live'] ), 'auto_sync' => empty( $GLOBALS['auto_sync_off'] ) );
+		$known = array( 'agreement_review_days' => 3, 'institution_active_stages' => array( 'Confirmed', 'Student' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'sponsor_tiers_live' => ! empty( $GLOBALS['tiers_live'] ), 'auto_sync' => empty( $GLOBALS['auto_sync_off'] ), 'student_flags_mode' => isset( $GLOBALS['flags_mode'] ) ? $GLOBALS['flags_mode'] : 'off', 'student_quiet_days' => 14 );
 		return isset( $known[ $key ] ) ? $known[ $key ] : $fallback;
 	}
 	public static function is_connected() { return true; }
@@ -455,7 +455,7 @@ class WPCPM_Flash {
 	public static function take( $c, $u = 0 ) { $v = isset( $GLOBALS['flash'][ $c ] ) ? $GLOBALS['flash'][ $c ] : ''; unset( $GLOBALS['flash'][ $c ] ); return $v; }
 }
 class WPCPM_Students_Dashboard {
-	public static function page_url() { return ''; }
+	public static function page_url() { return isset( $GLOBALS['student_page'] ) ? $GLOBALS['student_page'] : ''; }
 	public static function is_student() { return false; }
 }
 class WPCPM_Mentors_Dashboard {
@@ -1001,6 +1001,7 @@ eval( $wpcpm_test_institutions_source );
 // in a longer process reads a stale input.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-sign-ins.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-engagement.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-flags.php';
 WPCPM_Mentor_Engagement::for_tests( array( 'accounts' => array(), 'notes' => array(), 'calls' => array() ) );
 
 // The program map is the compiled tracks' (bin/stubs/compiled-seeds.php), through the five filters
@@ -2244,6 +2245,111 @@ ck( 'the card wears the shell: its badge the active mentors, its way to the Ment
 	has( $me, 'wpcpm-administrator__read' ),
 ), array( 9, true, array( null, null ), false ) );
 
+/* ---- the Students gone quiet card (student automation, first line) ------- */
+
+echo "=== The Students gone quiet card ===\n";
+
+$qT = 1800000000;
+$qD = DAY_IN_SECONDS;
+foreach ( array( 3 => 'Manager Three', 71 => 'Adam Manager', 72 => 'Zoe Manager', 74 => 'Mia Mentor' ) as $qid => $qname ) {
+	$GLOBALS['users'][ $qid ] = new WP_User( $qid, $qname, 'q' . $qid . '@example.test' );
+}
+$q_row = static function ( $id, $name, $days, $manager, array $more = array() ) use ( $qT, $qD ) {
+	return array_merge( array(
+		'user_id' => $id, 'record' => 'recQ' . $id, 'name' => $name, 'days' => $days, 'last_at' => $qT - $days * $qD, 'last_kind' => 'sign_in',
+		'mentor_id' => 0, 'manager_id' => $manager, 'test' => false, 'reminded_at' => 0, 'would_remind' => false,
+	), $more );
+};
+$q_snapshot = array(
+	'at'   => $qT,
+	'rows' => array(
+		$q_row( 901, 'Ann Student', 40, 3, array( 'would_remind' => true ) ),
+		$q_row( 902, 'Ben Student', 30, 72, array( 'mentor_id' => 74, 'reminded_at' => $qT - 5 * $qD ) ),
+		$q_row( 903, 'Cat Student', 20, 71, array( 'last_kind' => 'call' ) ),
+		$q_row( 904, 'Dan Student', 15, 0, array( 'last_kind' => 'start' ) ),
+		$q_row( 905, 'TEST Tess', 16, 3, array( 'test' => true ) ),
+	),
+);
+$GLOBALS['uid']          = 3;
+$GLOBALS['student_page'] = 'https://example.test/student-report-card/';
+
+$GLOBALS['flags_mode'] = 'off';
+ck( 'quiet_card_hidden_when_off: the switch off draws nothing at all, whatever the snapshot holds', capture( static function () use ( $q_snapshot ) { WPCPM_Administrators_Cards::render_quiet_students( $q_snapshot ); } ), '' );
+
+$GLOBALS['flags_mode'] = 'preview';
+$qc = capture( static function () use ( $q_snapshot ) { WPCPM_Administrators_Cards::render_quiet_students( $q_snapshot ); } );
+ck( 'the card is a section at its anchor, the canonical disclosure inside, folded', array( has( $qc, '<section class="wpcpm-administrator__card" id="wpcpm-quiet-students">' ), has( $qc, 'wpcpm-group__disclosure' ), card_row( $qc )['open'] ), array( true, true, false ) );
+ck( 'quiet_card_test_marked_not_counted: the badge counts the four real students, the test one is listed with its mark and left out', array( card_badge( $qc ), has( $qc, 'TEST Tess' ), has( $qc, WPCPM_Test_Institutions::MARK_DASHBOARD ), substr_count( $qc, WPCPM_Test_Institutions::MARK_DASHBOARD ) ), array( 4, true, true, 1 ) );
+ck( 'the phrase says the count, the threshold and when the list was made', card_row( $qc )['state'], '4 students quiet for 14 days or more, as of 15 January 2027' );
+$q_names = static function ( $html ) { preg_match_all( '#<th scope="row"><a href="[^"]*">([^<]+)</a>|<th scope="row">([^<]+)<#', $html, $m ); return array_map( static function ( $a, $b ) { return '' !== $a ? $a : $b; }, $m[1], $m[2] ); };
+$q_heads = static function ( $html ) { preg_match_all( '#<th colspan="\d+" scope="colgroup">([^<]+)</th>#', $html, $m ); return $m[1]; };
+ck( 'quiet_card_groups_by_manager: the viewer\'s own students first, then each program manager by display name, then no program manager', $q_heads( $qc ), array( 'Your students', 'Adam Manager', 'Zoe Manager', 'No Administrator assigned' ) );
+ck( 'and each group lists its students, most quiet first', $q_names( $qc ), array( 'Ann Student', 'TEST Tess', 'Cat Student', 'Ben Student', 'Dan Student' ) );
+ck( 'quiet_card_row_facts: the name links to that student on the Student Report Card', has( $qc, '<a href="https://example.test/student-report-card/?wpcpm_student_view=901">Ann Student</a>' ), true );
+ck( 'the days, the last activity\'s kind and date, the mentor or none', array(
+	has( $qc, '<td class="wpcpm-admin-table__n">40</td>' ),
+	has( $qc, 'Signed in, ' . gmdate( 'j F Y', $qT - 40 * $qD ) ),
+	has( $qc, 'Mentor call, ' . gmdate( 'j F Y', $qT - 20 * $qD ) ),
+	has( $qc, 'Joined the program, ' . gmdate( 'j F Y', $qT - 15 * $qD ) ),
+	has( $qc, '<td>Mia Mentor</td>' ),
+	has( $qc, '<td>No mentor</td>' ),
+), array( true, true, true, true, true, true ) );
+ck( 'in preview a row that would be reminded says so, and one reminded before says when, with no reply', array( has( $qc, 'Would remind' ), has( $qc, 'Reminded ' . gmdate( 'j F Y', $qT - 5 * $qD ) . ', no reply' ) ), array( true, true ) );
+ck( 'each row carries the talked form to the student, returning to this card', array(
+	substr_count( $qc, 'name="action" value="wpcpm_student_talked"' ),
+	has( $qc, 'name="student" value="901"' ),
+	has( $qc, 'nonce-wpcpm_student_talked_901' ),
+	has( $qc, 'name="wpcpm_return_to" value="quiet-students"' ),
+), array( 5, true, true, true ) );
+$GLOBALS['flags_mode'] = 'on';
+$qc_on = capture( static function () use ( $q_snapshot ) { WPCPM_Administrators_Cards::render_quiet_students( $q_snapshot ); } );
+ck( 'in on mode "Would remind" is never drawn and the reminded row says so', array( has( $qc_on, 'Would remind' ), has( $qc_on, 'Reminded ' ) ), array( false, true ) );
+$q_stale = array( 'at' => $qT, 'rows' => array( $q_row( 906, 'Eve Student', 25, 3, array( 'reminded_at' => 0, 'would_remind' => true ) ) ) );
+$q_old   = array( 'at' => $qT, 'rows' => array( $q_row( 907, 'Fay Student', 25, 3, array( 'reminded_at' => 0, 'would_remind' => false ) ) ) );
+$q_draw  = static function ( $snap ) { return capture( static function () use ( $snap ) { WPCPM_Administrators_Cards::render_quiet_students( $snap ); } ); };
+$GLOBALS['flags_mode'] = 'preview';
+$q_prev_stale = $q_draw( $q_stale );
+$q_prev_sent  = $q_draw( array( 'at' => $qT, 'rows' => array( $q_row( 908, 'Gus Student', 25, 3, array( 'reminded_at' => $qT - 3 * $qD, 'would_remind' => false ) ) ) ) );
+$GLOBALS['flags_mode'] = 'on';
+$q_on_stale = $q_draw( $q_stale );
+$q_on_none  = $q_draw( $q_old );
+ck( 'one rule for the reminder cell: Reminded when reminded_at is set, in either mode; Would remind only in preview; nothing for a reminder of an earlier spell', array(
+	has( $q_prev_stale, 'Reminded' ), has( $q_prev_stale, 'Would remind' ),
+	has( $q_prev_sent, 'Reminded ' . gmdate( 'j F Y', $qT - 3 * $qD ) . ', no reply' ), has( $q_prev_sent, 'Would remind' ),
+	has( $q_on_stale, 'Reminded' ), has( $q_on_stale, 'Would remind' ), has( $q_on_none, 'Reminded' ),
+), array( false, true, true, false, false, false, false ) );
+// Final review, Minor 3: in On a row that will never be mailed says why, rather than a blank cell.
+$q_cell = static function ( $html, $id ) { return preg_match( '#wpcpm_student_view=' . $id . '">[^<]+</a>.*?</th><td class="wpcpm-admin-table__n">\d+</td><td>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>#s', $html, $m ) ? $m[1] : null; };
+$GLOBALS['opts'][ WPCPM_Student_Flags::OPT_ON_SINCE ] = $qT - 10 * $qD;
+$GLOBALS['flags_mode'] = 'on';
+$q_why_on = $q_draw( $q_snapshot );
+$GLOBALS['flags_mode'] = 'preview';
+$q_why_preview = $q_draw( $q_snapshot );
+unset( $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_ON_SINCE ] );
+ck( 'quiet_card_says_why_not_mailed: in On a stretch already past the threshold when the switch went On says so, a test institution\'s row says so, a reminded row keeps its date, and a row still to be mailed says nothing', array(
+	$q_cell( $q_why_on, 901 ), $q_cell( $q_why_on, 905 ), $q_cell( $q_why_on, 902 ), $q_cell( $q_why_on, 903 ), $q_cell( $q_why_on, 904 ),
+), array( 'Not mailed: quiet before the switch went On', 'Not mailed: test institution', 'Reminded ' . gmdate( 'j F Y', $qT - 5 * $qD ) . ', no reply', '', '' ) );
+ck( 'in Preview the switch\'s time is not read: the row that would be reminded says so, and the test institution\'s row says why it would not', array( $q_cell( $q_why_preview, 901 ), $q_cell( $q_why_preview, 905 ), has( $q_why_preview, 'quiet before the switch' ) ), array( 'Would remind', 'Not mailed: test institution', false ) );
+
+$GLOBALS['flags_mode'] = 'preview';
+$qc_empty = capture( static function () use ( $qT ) { WPCPM_Administrators_Cards::render_quiet_students( array( 'at' => $qT, 'rows' => array() ) ); } );
+$qc_never = capture( static function () { WPCPM_Administrators_Cards::render_quiet_students( array( 'at' => 0, 'rows' => array() ) ); } );
+ck( 'with no quiet student the card says so in a line of its own; before the first check it says that', array( has( $qc_empty, 'wpcpm-administrator__empty' ), card_badge( $qc_empty ), card_row( $qc_empty )['state'], card_row( $qc_never )['state'] ), array( true, 0, '0 students quiet for 14 days or more, as of 15 January 2027', 'Not checked yet, the first check runs overnight' ) );
+ck( 'a viewer who manages none of them gets no "Your students" group', $q_heads( ( function () use ( $q_snapshot ) { $GLOBALS['uid'] = 9; $html = capture( static function () use ( $q_snapshot ) { WPCPM_Administrators_Cards::render_quiet_students( $q_snapshot ); } ); $GLOBALS['uid'] = 3; return $html; } )() ), array( 'Adam Manager', 'Manager Three', 'Zoe Manager', 'No Administrator assigned' ) );
+
+// The tile and the page.
+$GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ] = $q_snapshot;
+$q_data   = WPCPM_Administrators_Cards::collect();
+$q_counts = WPCPM_Administrators_Cards::counts( $q_data );
+ck( 'collect() holds the stored snapshot under quiet_students, and counts() draws the tile for the real rows only, after the watch tiles', array(
+	isset( $q_data['quiet_students']['rows'] ) ? count( $q_data['quiet_students']['rows'] ) : null,
+	isset( $q_counts['quiet_students'] ) ? $q_counts['quiet_students'] : null,
+	array_search( 'quiet_students', array_keys( $q_counts ), true ) > array_search( 'duplicates', array_keys( WPCPM_Administrators_Cards::counts( array_merge( $q_data, array( 'duplicates' => array( 'addresses' => 2 ) ) ) ) ), true ),
+), array( 5, array( 'label' => 'Students gone quiet', 'n' => 4, 'card' => 'quiet-students' ), true ) );
+$GLOBALS['flags_mode'] = 'off';
+ck( 'quiet_tile_counts_real: with the switch off the snapshot is empty and there is no tile', array( count( WPCPM_Administrators_Cards::collect()['quiet_students']['rows'] ), isset( WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() )['quiet_students'] ) ), array( 0, false ) );
+unset( $GLOBALS['flags_mode'], $GLOBALS['student_page'], $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ]);
+
 $health = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] ); } );
 ck( 'three syncs with their state', substr_count( $health, 'wpcpm-health__sync' ), 3 );
 ck( 'the students and mentors syncs open their screens at the Sync tab, where the run is started and followed',
@@ -2603,7 +2709,7 @@ ck( 'every card is drawn, in the approved order of the three groups, the Tools s
 // screens and every decision's way back land, and the page's class on the disclosure before the
 // shared two. None in the Sponsor Dashboard's, whose anchor is on the disclosure. The strip is no
 // card, and the Events card is not drawn while Sponsor tiers is off.
-$page_cards = array_values( array_diff( WPCPM_Return::ANCHORS, array( 'attention', 'sponsor-events' ) ) );
+$page_cards = array_values( array_diff( WPCPM_Return::ANCHORS, array( 'attention', 'sponsor-events', 'quiet-students' ) ) );
 $shaped     = array();
 foreach ( $page_cards as $anchor ) {
 	$shaped[ $anchor ] = substr_count( $out, '<section class="wpcpm-administrator__card" id="wpcpm-' . $anchor . '"><details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"' );
@@ -2798,6 +2904,20 @@ ck( 'the page is three groups in the approved order, each holding its cards in t
 	true,
 	true,
 ) );
+// The Students gone quiet card (student automation): the Watch group's last, after Syncs and health,
+// drawn only while the switch is not off.
+$GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ] = $q_snapshot;
+$GLOBALS['student_page']                              = 'https://example.test/student-report-card/';
+$GLOBALS['flags_mode'] = 'preview';
+$GLOBALS['uid']        = 3;
+$q_page = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'on the page the card is the Watch group\'s last, after Syncs and health, and the tile leads to it', array(
+	page_groups( $q_page )['watch'],
+	has( $q_page, 'href="#wpcpm-quiet-students"' ),
+), array( array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health', 'quiet-students' ), true ) );
+$GLOBALS['flags_mode'] = 'off';
+ck( 'with the switch off the page draws no such card and no tile', array( has( WPCPM_Administrators_Dashboard::render( array() ), 'wpcpm-quiet-students' ) ), array( false ) );
+unset( $GLOBALS['flags_mode'], $GLOBALS['student_page'], $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ] );
 // The groups' headings are h2, so the Tools section's and the resources' h3 headings would read as
 // the Reference group's in an outline: the two sit under one h2 of their own, for a screen reader
 // alone, as the Sponsor Dashboard's resources do. Printed only over something: with neither section
@@ -3501,10 +3621,10 @@ foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_P
 		$boxed_sites += preg_match_all( '/self::scroll_open\( [^;]+ \);\s*echo \'<table class="wpcpm-admin-table/', $source );
 	}
 }
-// Ten on this line: main's five, the line's own four (Sponsor terms ending, and Sponsor reports' three)
-// and a school's details request's table of what it asks (Institutions release 2), which the page's
+// Eleven on this line: main's five, the line's own four (Sponsor terms ending, and Sponsor reports' three),
+// the Students gone quiet card's one and a school's details request's table of what it asks (Institutions release 2), which the page's
 // fixtures draw none of, so the page above still holds nine boxes.
-ck( 'in the source, the ten column tables are all in the cards, each opens right after its box, and the cards open no other box', array( $table_sites, $boxed_sites, $box_calls ), array( array( 'class-wpcpm-administrators-cards.php' => 10 ), 10, 10 ) );
+ck( 'in the source, the eleven column tables are all in the cards, each opens right after its box, and the cards open no other box', array( $table_sites, $boxed_sites, $box_calls ), array( array( 'class-wpcpm-administrators-cards.php' => 11 ), 11, 11 ) );
 
 $admin_rules = scroll_css_rules( $css );
 $phone_box   = array();

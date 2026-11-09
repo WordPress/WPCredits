@@ -152,6 +152,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 // The refusal message for a screenshot quotes the shared image rules by name.
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-student-activity.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
 
 // The four original tracks as the site runs them, compiled from their seeds: every form below is
@@ -1963,6 +1964,9 @@ ck( 'an Airtable refusal keeps every answer typed and draws the form from them, 
 		strpos( $page, 'stored-slack' ),
 	),
 	array( '#wpcpm-report-form', true, true, true, true, true, false ) );
+
+ck( 'an Airtable refusal stamps no report save: nothing was written',
+	isset( $GLOBALS['umeta'][ $rf_sid ][ WPCPM_Student_Activity::META_REPORT ] ), false );
 ck( 'and the refusal is an alert in the error tone, carrying data-wpcpm-card-message, so the page moves the focus to it, as the hours box does',
 	array(
 		false !== strpos( $page, '<p class="wpcpm-calls__message wpcpm-calls__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Airtable did not take your report. Your answers are still in the form below: save it again in a moment.</p>' ),
@@ -2011,6 +2015,9 @@ ck( 'the hours box saves back to My course with Hours saved inside it, and does 
 		strpos( $page, 'Your report form is saved' ),
 	),
 	array( '#wpcpm-module-course', true, true, false ) );
+
+ck( 'a save Airtable accepted stamps the report save as activity',
+	isset( $GLOBALS['umeta'][ $rf_sid ][ WPCPM_Student_Activity::META_REPORT ] ) && (int) $GLOBALS['umeta'][ $rf_sid ][ WPCPM_Student_Activity::META_REPORT ] > 0, true );
 
 $went = report_post( array( $rf_hours => 'twelve' ), 'hours', 0 );
 $page = report_page();

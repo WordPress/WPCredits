@@ -1547,7 +1547,7 @@ echo "\n--- The three emails, word for word ---\n";
 
 $all = WPCPM_Mail_Templates::all();
 
-ck( 'the registry holds the three, after the Mentor applications\'', array_slice( array_keys( $all ), -3 ), array( 'student-registration-received', 'student-registration-account', 'student-registration-already' ) );
+ck( 'the registry holds the three, after the Mentor applications\' and before the Quiet students\'', array_slice( array_keys( $all ), -6, 3 ), array( 'student-registration-received', 'student-registration-account', 'student-registration-already' ) );
 ck( 'the subjects are the design\'s',
 	array( $all['student-registration-received']['subject'], $all['student-registration-account']['subject'], $all['student-registration-already']['subject'] ),
 	array( 'Registration received - WordPress Credits Program', 'You already have an account - WordPress Credits Program', 'You are already registered - WordPress Credits Program' ) );

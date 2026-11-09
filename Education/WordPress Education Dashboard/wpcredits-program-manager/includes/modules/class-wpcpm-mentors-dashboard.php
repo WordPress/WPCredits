@@ -1163,6 +1163,11 @@ class WPCPM_Mentors_Dashboard {
 
 		echo '<div class="wpcpm-mentee__body">';
 
+		// A student who has gone quiet: a line, and the button "We've already talked".
+		if ( class_exists( 'WPCPM_Student_Flags' ) ) {
+			echo WPCPM_Student_Flags::mentee_line( $student instanceof WP_User ? (int) $student->ID : 0 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by mentee_line(), which escapes every value it prints.
+		}
+
 		// The track the Program row names: the status's, or for a student waiting to graduate the
 		// one they took, which the Hours row's question and target follow too.
 		$course = WPCPM_Program::course_status( $status, $student instanceof WP_User ? $student->ID : 0 );

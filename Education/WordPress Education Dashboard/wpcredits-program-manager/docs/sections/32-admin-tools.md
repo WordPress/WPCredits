@@ -39,7 +39,7 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 #### Templates
 
-The plugin's emails, grouped by area, each area in a table of its own. There are eight:
+The plugin's emails, grouped by area, each area in a table of its own. There are nine:
 
 - **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
   is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
@@ -97,6 +97,13 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   reset link), and the address is already registered. Each goes to the address the student gave,
   once, and carries the program's contact address as its Reply-To when **Contact address in
   emails** is set, so an answer reaches the program.
+- **Quiet students** (since 1.123.60): the three emails of the daily list of quiet students, sent
+  only while the **Daily list** setting is On. The student gets a friendly note once for each
+  stretch of quiet, with the days, the mentor's name, a link to book a call and a link to the Student
+  Report Card, where **We've already talked** is. The mentor gets one email a day with the students
+  just reminded. Each Administrator who is the contact for a country gets one email on Monday with
+  the quiet students of that country, most quiet first, and a link to the *Students gone quiet* card.
+  None says anything about a penalty.
 
 Where an email is two, as the mentor's confirmations with and without a meeting link and the others
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
@@ -266,7 +273,7 @@ account's email address as it is now; an account with no program role links to i
 a row with no account is plain text. Then the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
 area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
-events, Mentor applications, Student registrations, WordPress, Two Factor or Other); which email it was; its subject; and
+events, Mentor applications, Student registrations, Quiet students, WordPress, Two Factor or Other); which email it was; its subject; and
 its status. The status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the

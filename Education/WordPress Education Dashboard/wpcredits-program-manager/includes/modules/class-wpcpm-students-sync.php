@@ -892,6 +892,9 @@ class WPCPM_Students_Sync {
 						$fields['report_link'],
 						$fields['report_link_50h'],
 						$fields['report_link_dev'],
+						// The time Airtable last saw the student's report edited; read into user meta
+						// when the account is provisioned (WPCPM_Student_Activity::META_EDITED).
+						$fields['report_edited'],
 					),
 					// The Designer Track's screenshot columns. Airtable returns only the fields
 					// a request lists, so a column left out arrives as an absent cell rather
@@ -976,6 +979,9 @@ class WPCPM_Students_Sync {
 				// Stripped before the row becomes `wpcpm_student_program`, like `mentor_id`
 				// and `institution_id` above it.
 				'created'        => isset( $record['createdTime'] ) ? (string) $record['createdTime'] : '',
+				// The "Student report last edited" cell (ISO 8601, UTC). Written to user meta by the
+				// provision step and stripped before the row becomes `wpcpm_student_program`.
+				'report_edited'  => $read( 'report_edited' ),
 				// How many files each screenshot column holds, and nothing else about them.
 				// The Student Report Card shows this site's own copy of a screenshot and says
 				// "1 file on record in Airtable" when it has none; the base's own attachment
@@ -1426,7 +1432,7 @@ class WPCPM_Students_Sync {
 			}
 
 			$program = $student;
-			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'], $program['created'] );
+			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'], $program['created'], $program['report_edited'] );
 
 			// Whose word the stamp below is on, beside the resolved name the cards print.
 			$program['institution_source'] = $join['source'];
@@ -1438,6 +1444,17 @@ class WPCPM_Students_Sync {
 			update_user_meta( $user_id, self::META_RECORD_ID, $student['record_id'] );
 			update_user_meta( $user_id, self::META_ACTIVE, $student['is_past'] ? 0 : 1 );
 			update_user_meta( $user_id, self::META_PROGRAM, wp_slash( $program ) );
+
+			// Students edit their report through outside forms too, so Airtable's own edit time is
+			// activity the site could not otherwise see. A cell that does not parse leaves the meta as it was,
+			// and so does a row read by a run that began before the column was asked for (one crossing
+			// the deploy carries rows with no such key).
+			$cell   = isset( $student['report_edited'] ) ? (string) $student['report_edited'] : '';
+			$edited = '' === $cell ? false : strtotime( $cell );
+
+			if ( false !== $edited && $edited > 0 ) {
+				update_user_meta( $user_id, WPCPM_Student_Activity::META_EDITED, $edited );
+			}
 
 			self::remember_course( $user_id, $student['program'], ! empty( $student['is_past'] ), $replaced );
 

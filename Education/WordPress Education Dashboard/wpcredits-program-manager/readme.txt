@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.59
+Stable tag: 1.123.60
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,17 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.60 =
+
+Quiet students: flags, reminders and we've already talked, switched off.
+
+* A daily list of the students who have gone quiet: a student on a track with no sign-in, visit, call, report save, Airtable edit or "We've already talked" for 14 days (7 to 60 in Settings, Students and mentors, Quiet students) is listed once a day at 06:00 UTC. The switch ships Off; Preview shows the list to Administrators and mails nobody; On sends the reminders.
+* The Administrator Dashboard gains the Students gone quiet card, grouped by the Administrator who is the contact for the student's country, with the days, what was last seen, the mentor and whether a reminder went or Would remind. A test institution's students are listed with the Test mark and not counted.
+* While the switch is On, the Student Report Card says how long it has been, with a Book a call link, and the Mentor Report Card shows a line on the student's card. Both have the We've already talked button, which counts as activity and takes the student off the list at once.
+* Three emails in Tools > Emails, area Quiet students: one friendly note to the student for each stretch of quiet, one email a day to the mentor listing the students just reminded, and one on Mondays to each Administrator who is a country contact. A stretch of quiet already past the set days when the switch moves to On, from Off or Preview, is never mailed, so neither the launch nor an On after Off sends a wave; a student who goes quiet after it is reminded on reaching the set days, and a test institution's student never is.
+* A student with a call or group session booked ahead is not quiet, and the days count from the track's start date or the account's creation when that is later than the last activity, so nobody is listed before their track begins. Saving the switch Off clears the list, and the card says why a row is not mailed: a test institution, or quiet before the switch went On.
+* The report form's save time and the Airtable column "Student report last edited" are recorded as activity. Uninstall removes the list, the time the switch last went On, the lock, the daily job and the new user meta.
 
 = 1.123.59 =
 

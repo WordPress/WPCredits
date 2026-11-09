@@ -680,6 +680,10 @@ $named_options = array(
 	'wpcpm_guide_page_moved',              // WPCPM_Settings_Screen::OPT_GUIDE_MOVED, the one-time move of the Administrator guide's page (1.123.41).
 	'wpcpm_sign_ins_version',              // WPCPM_Sign_Ins::OPT_VERSION.
 	'wpcpm_sign_ins_since',                // WPCPM_Sign_Ins::OPT_SINCE.
+	'wpcpm_student_flags',                 // WPCPM_Student_Flags::OPT_SNAPSHOT.
+	'wpcpm_student_flags_on_since',        // WPCPM_Student_Flags::OPT_ON_SINCE.
+	'wpcpm_student_flags_weekly',          // WPCPM_Student_Flags::OPT_WEEKLY.
+	'wpcpm_student_flags_lock',            // WPCPM_Student_Flags::LOCK: a run that died holding it.
 	'wpcpm_airtable_backoff',              // WPCPM_Airtable::BACKOFF_OPTION.
 	'wpcpm_outcome_figures',               // WPCPM_Outcome_Figures::OPTION.
 	'wpcpm_outcome_figures_run',           // WPCPM_Outcome_Figures::RUN_OPTION.
@@ -901,6 +905,7 @@ $student = a_user(
 		'_wpcpm_report_images'      => array( 12 ),         // WPCPM_Student_Report_Form::META_IMAGES.
 		'wpcpm_last_sign_in'        => 1792000000,          // WPCPM_Sign_Ins::META_SIGN_IN.
 		'wpcpm_last_visit'          => 1792000000,          // WPCPM_Sign_Ins::META_VISIT.
+		'wpcpm_student_reminded'    => array( 'for' => 1792000000, 'at' => 1792100000 ), // WPCPM_Student_Flags::META_REMINDED.
 		'nickname'                  => 'student-one',
 	)
 );
@@ -951,7 +956,7 @@ $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_s
 // move onto the site completes, and the Sponsors module's uninstall clears them through the names
 // the migration keeps (1.111.0).
 $sync_hooks  = array( 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick' );
-$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly' ), $sync_hooks );
+$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly', 'wpcpm_student_flags_daily' ), $sync_hooks );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -1327,6 +1332,12 @@ $names = array(
 	'WPCPM_Student_Registration::LOCK_PREFIX'       => 'wpcpm_sreg_lock_',
 	'WPCPM_Sponsor_Mentors::INTEREST_LOCK'          => 'wpcpm_interest_lock_',
 	'WPCPM_Student_Registration_Process::CRON_HOURLY' => 'wpcpm_student_registrations_hourly',
+	'WPCPM_Student_Flags::CRON_DAILY'               => 'wpcpm_student_flags_daily',
+	'WPCPM_Student_Flags::OPT_SNAPSHOT'             => 'wpcpm_student_flags',
+	'WPCPM_Student_Flags::OPT_ON_SINCE'             => 'wpcpm_student_flags_on_since',
+	'WPCPM_Student_Flags::OPT_WEEKLY'               => 'wpcpm_student_flags_weekly',
+	'WPCPM_Student_Flags::LOCK'                     => 'wpcpm_student_flags_lock',
+	'WPCPM_Student_Flags::META_REMINDED'            => 'wpcpm_student_reminded',
 );
 
 ck( 'the names seeded above are the ones the classes declare', array_map( 'declared', array_keys( $names ) ), array_values( $names ) );

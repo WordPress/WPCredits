@@ -246,6 +246,9 @@ final class WPCPM_Administrators_Cards {
 			// the class the Engagement tab and the command read too.
 			'mentor_engagement'    => class_exists( 'WPCPM_Mentor_Engagement' ) ? WPCPM_Mentor_Engagement::report()['summary'] : array(),
 			'health'               => self::health(),
+			// The students gone quiet (student automation): the daily job's stored snapshot, one option
+			// read, never worked out here. Empty while the switch is off.
+			'quiet_students'       => class_exists( 'WPCPM_Student_Flags' ) ? WPCPM_Student_Flags::snapshot() : array(),
 		);
 	}
 
@@ -440,6 +443,13 @@ final class WPCPM_Administrators_Cards {
 				'label' => __( 'Locked accounts', 'wpcredits-program-manager' ),
 				'n'     => WPCPM_Test_Institutions::count_real_accounts( (array) $data['locked'] ),
 				'card'  => 'health',
+			),
+			// The students quiet for the set number of days, real ones only: a test institution's
+			// student is listed on the card and left out of its number.
+			'quiet_students'     => array(
+				'label' => __( 'Students gone quiet', 'wpcredits-program-manager' ),
+				'n'     => self::quiet_real( isset( $data['quiet_students'] ) ? (array) $data['quiet_students'] : array() ),
+				'card'  => 'quiet-students',
 			),
 		);
 
@@ -2887,6 +2897,201 @@ final class WPCPM_Administrators_Cards {
 		);
 
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * The students who have gone quiet, from the daily snapshot: the viewer's own students first, then
+	 * each other program manager's by name, then the students with no program manager. Each row says
+	 * how long, what was last seen and when, the mentor, whether a reminder went (or would go, in
+	 * Preview) or why none will (a test institution, or in On a stretch already past the threshold
+	 * when the switch went On), and the button "We've already talked", which takes the row off at once.
+	 *
+	 * Nothing is drawn while the switch is off. A test institution's student is listed with the test
+	 * mark and left out of the card's number and the tile's.
+	 *
+	 * @param array $snapshot What `WPCPM_Student_Flags::snapshot()` returned: `at`, `rows`.
+	 */
+	public static function render_quiet_students( array $snapshot ) {
+		if ( ! class_exists( 'WPCPM_Student_Flags' ) || WPCPM_Student_Flags::MODE_OFF === WPCPM_Student_Flags::mode() ) {
+			return;
+		}
+
+		$rows   = isset( $snapshot['rows'] ) ? (array) $snapshot['rows'] : array();
+		$at     = isset( $snapshot['at'] ) ? (int) $snapshot['at'] : 0;
+		$real   = self::quiet_real( $snapshot );
+		$days   = WPCPM_Student_Flags::threshold();
+		$viewer = (int) get_current_user_id();
+		$on     = WPCPM_Student_Flags::MODE_ON === WPCPM_Student_Flags::mode();
+
+		WPCPM_Dashboard_Card::open(
+			array_merge(
+				self::SHELL,
+				array(
+					'key'    => 'quiet-students',
+					'title'  => __( 'Students gone quiet', 'wpcredits-program-manager' ),
+					'count'  => $real,
+					'open'   => false,
+					'state'  => self::quiet_phrase( $real, $days, $at ),
+					'action' => null,
+				)
+			)
+		);
+
+		if ( empty( $rows ) ) {
+			self::empty_line( __( 'No student has been quiet that long.', 'wpcredits-program-manager' ) );
+			WPCPM_Dashboard_Card::close();
+			return;
+		}
+
+		printf(
+			'<p class="wpcpm-administrator__quiet">%s</p>',
+			esc_html__( 'Students on a track who have not signed in, visited, had a call or saved their report. Pressing We\'ve already talked records that somebody has been in touch.', 'wpcredits-program-manager' )
+		);
+
+		// Own students, then the other program managers by name, then nobody's.
+		$groups = array();
+
+		foreach ( $rows as $row ) {
+			$manager = isset( $row['manager_id'] ) ? (int) $row['manager_id'] : 0;
+
+			if ( $manager > 0 && $manager === $viewer ) {
+				$key   = '0';
+				$title = __( 'Your students', 'wpcredits-program-manager' );
+			} elseif ( $manager > 0 ) {
+				$user  = get_userdata( $manager );
+				$title = $user ? (string) $user->display_name : '#' . $manager;
+				$key   = '1' . strtolower( $title ) . '|' . $manager;
+			} else {
+				$key   = '2';
+				$title = __( 'No Administrator assigned', 'wpcredits-program-manager' );
+			}
+
+			if ( ! isset( $groups[ $key ] ) ) {
+				$groups[ $key ] = array(
+					'title' => $title,
+					'rows'  => array(),
+				);
+			}
+
+			$groups[ $key ]['rows'][] = $row;
+		}
+
+		ksort( $groups, SORT_STRING );
+
+		self::scroll_open( array( self::title_id( 'quiet-students' ) ) );
+		echo '<table class="wpcpm-admin-table wpcpm-quiet__table"><thead><tr>';
+		printf( '<th scope="col">%s</th>', esc_html__( 'Student', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'Days quiet', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col">%s</th>', esc_html__( 'Last seen', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col">%s</th>', esc_html__( 'Mentor', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col">%s</th>', esc_html__( 'Reminder', 'wpcredits-program-manager' ) );
+		printf( '<th scope="col"><span class="screen-reader-text">%s</span></th>', esc_html__( 'Action', 'wpcredits-program-manager' ) );
+		echo '</tr></thead>';
+
+		foreach ( $groups as $group ) {
+			printf( '<tbody><tr class="wpcpm-quiet__group"><th colspan="6" scope="colgroup">%s</th></tr>', esc_html( $group['title'] ) );
+
+			foreach ( $group['rows'] as $row ) {
+				$id     = (int) $row['user_id'];
+				$name   = (string) $row['name'];
+				$page   = (string) WPCPM_Students_Dashboard::page_url();
+				$link   = '' === $page ? esc_html( $name ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( 'wpcpm_student_view', $id, $page ) ), esc_html( $name ) );
+				$mentor = ! empty( $row['mentor_id'] ) ? get_userdata( (int) $row['mentor_id'] ) : false;
+				$last   = sprintf( /* translators: 1: what was last seen, such as "Signed in", 2: the date. */ __( '%1$s, %2$s', 'wpcredits-program-manager' ), self::quiet_kind( (string) $row['last_kind'] ), wp_date( get_option( 'date_format' ), (int) $row['last_at'] ) );
+
+				// A row that will never be mailed says why, rather than leaving the cell blank. Preview
+				// does not read the switch's time, so only On says "quiet before the switch went On".
+				if ( ! empty( $row['reminded_at'] ) ) {
+					$reminder = sprintf( /* translators: %s: a date. */ __( 'Reminded %s, no reply', 'wpcredits-program-manager' ), wp_date( get_option( 'date_format' ), (int) $row['reminded_at'] ) );
+				} elseif ( ! empty( $row['test'] ) ) {
+					$reminder = __( 'Not mailed: test institution', 'wpcredits-program-manager' );
+				} elseif ( ! $on && ! empty( $row['would_remind'] ) ) {
+					$reminder = __( 'Would remind', 'wpcredits-program-manager' );
+				} elseif ( $on && ! WPCPM_Student_Flags::reached_since_on( (int) $row['last_at'] ) ) {
+					$reminder = __( 'Not mailed: quiet before the switch went On', 'wpcredits-program-manager' );
+				} else {
+					$reminder = '';
+				}
+
+				printf(
+					'<tr><th scope="row">%1$s%2$s</th><td class="wpcpm-admin-table__n">%3$d</td><td>%4$s</td><td>%5$s</td><td>%6$s</td><td>%7$s</td></tr>',
+					$link, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above with esc_html() and esc_url().
+					! empty( $row['test'] ) ? WPCPM_Test_Institutions::badge( WPCPM_Test_Institutions::MARK_DASHBOARD ) : '', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- badge() escapes its classes, title and word.
+					(int) $row['days'],
+					esc_html( $last ),
+					esc_html( $mentor ? (string) $mentor->display_name : __( 'No mentor', 'wpcredits-program-manager' ) ),
+					esc_html( $reminder ),
+					WPCPM_Student_Flags::talked_form( $id, '', 'quiet-students' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- talked_form() returns escaped markup.
+				);
+			}
+
+			echo '</tbody>';
+		}
+
+		echo '</table></div>';
+
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * The quiet students that count: real ones, a test institution's left out.
+	 *
+	 * @param array $snapshot The snapshot: `rows`.
+	 * @return int
+	 */
+	private static function quiet_real( array $snapshot ) {
+		$n = 0;
+
+		foreach ( isset( $snapshot['rows'] ) ? (array) $snapshot['rows'] : array() as $row ) {
+			if ( empty( $row['test'] ) ) {
+				++$n;
+			}
+		}
+
+		return $n;
+	}
+
+	/**
+	 * The phrase on the Students gone quiet card's row: how many, since how long, and when the list
+	 * was made. Its first number is the badge's.
+	 *
+	 * @param int $n    Real quiet students.
+	 * @param int $days The threshold.
+	 * @param int $at   Unix time of the snapshot; 0 when none has been made.
+	 * @return string
+	 */
+	private static function quiet_phrase( $n, $days, $at ) {
+		if ( $at <= 0 ) {
+			return __( 'Not checked yet, the first check runs overnight', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: 1: a number of students, 2: the days, 3: a date. */
+			_n( '%1$s student quiet for %2$s days or more, as of %3$s', '%1$s students quiet for %2$s days or more, as of %3$s', $n, 'wpcredits-program-manager' ),
+			number_format_i18n( $n ),
+			number_format_i18n( $days ),
+			wp_date( get_option( 'date_format' ), $at )
+		);
+	}
+
+	/**
+	 * What a last-activity kind of `WPCPM_Student_Activity::last()` reads as.
+	 *
+	 * @param string $kind sign_in, visit, call, report, edited, talked or start.
+	 * @return string
+	 */
+	private static function quiet_kind( $kind ) {
+		$words = array(
+			'sign_in' => __( 'Signed in', 'wpcredits-program-manager' ),
+			'visit'   => __( 'Visited the site', 'wpcredits-program-manager' ),
+			'call'    => __( 'Mentor call', 'wpcredits-program-manager' ),
+			'report'  => __( 'Saved the report', 'wpcredits-program-manager' ),
+			'edited'  => __( 'Edited the report', 'wpcredits-program-manager' ),
+			'talked'  => __( 'Talked with the program', 'wpcredits-program-manager' ),
+			'start'   => __( 'Joined the program', 'wpcredits-program-manager' ),
+		);
+
+		return isset( $words[ $kind ] ) ? $words[ $kind ] : __( 'Unknown', 'wpcredits-program-manager' );
 	}
 
 	/**

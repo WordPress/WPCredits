@@ -99,6 +99,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-report-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-feedback.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-activity.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-flags.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-airtable-row.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration-process.php';
@@ -261,6 +263,19 @@ delete_option( WPCPM_Settings_Screen::OPT_GUIDE_MOVED );
 // flipped go with their modules above.
 delete_option( WPCPM_Privacy_Guard::OPT_VERSION );
 
+// A student's last report save, last Airtable edit and "we've already talked" stamp.
+delete_metadata( 'user', 0, WPCPM_Student_Activity::META_REPORT, '', true );
+delete_metadata( 'user', 0, WPCPM_Student_Activity::META_EDITED, '', true );
+delete_metadata( 'user', 0, WPCPM_Student_Activity::META_TALKED, '', true );
+// The quiet students' daily list, the time the switch last went On, the week of the last Monday
+// email, the run's lock and each student's last reminder. The students module clears them too; a
+// plugin can be deleted from a state where that never ran.
+delete_option( WPCPM_Student_Flags::OPT_SNAPSHOT );
+delete_option( WPCPM_Student_Flags::OPT_ON_SINCE );
+delete_option( WPCPM_Student_Flags::OPT_WEEKLY );
+delete_option( WPCPM_Student_Flags::LOCK );
+delete_metadata( 'user', 0, WPCPM_Student_Flags::META_REMINDED, '', true );
+
 // When each account last signed in and visited (1.122.26), and the seed's two options.
 delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_SIGN_IN, '', true );
 delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_VISIT, '', true );
@@ -370,6 +385,7 @@ wp_clear_scheduled_hook( WPCPM_Mentors_Sync::CRON_DAILY );
 wp_clear_scheduled_hook( WPCPM_Mentors_Sync::CRON_TICK );
 wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_AUTO );
 wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_TICK );
+wp_clear_scheduled_hook( WPCPM_Student_Flags::CRON_DAILY );
 wp_clear_scheduled_hook( WPCPM_Mentor_Calls::CRON_REMINDERS );
 wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
 wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY );

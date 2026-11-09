@@ -403,6 +403,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 // The surveys own the Feedback table, the row a Pending graduation student's course is seeded from.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-feedback.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-activity.php';
 // The name order the reconciliation lists its status disagreements in is the switchers' own.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 // A test institution's students are left out of the reconciliation's numbers: the real index, the real
@@ -615,7 +616,11 @@ for ( $i = 9; $i <= 10; $i++ ) {
 		$fields['student_import_key'] => 'batch-1:9',
 	) : array() );
 	// Nine has logged zero hours, which is an answer somebody recorded and not a blank cell.
-	$ids[ "rk$i" ] = report_row( "Reference Pending $i", $email, 'Pending graduation', $reference, 9 === $i ? array( $fields['report_hours'] => 0 ) : array() );
+	$ids[ "rk$i" ] = report_row( "Reference Pending $i", $email, 'Pending graduation', $reference, 9 === $i ? array(
+		$fields['report_hours']  => 0,
+		// Airtable's Last modified time column, as the API sends it (ISO 8601, UTC).
+		$fields['report_edited'] => '2026-11-08T10:15:00.000Z',
+	) : array( $fields['report_edited'] => 'not a date' ) );
 }
 for ( $i = 11; $i <= 15; $i++ ) {
 	$ids[ "k$i" ] = student_row( "Reference Applicant $i", "reference-nmf-$i@example.test", 'Not moving forward', $reference, '2026-02-16' );
@@ -1173,6 +1178,22 @@ ck( 'a graduate with a report but no account still lists the report',
 	array( $k2['reports'], $k2['user_id'] ), array( array( $ids['rk2'] ), 0 ) );
 ck( 'and the graduate whose account exists is pointed at it',
 	$roster['rows'][ $ids['k1'] ]['user_id'], 100 );
+
+echo "\n=== The report's last edit reaches user meta ===\n";
+
+ck( 'the reports pass asks Airtable for the report-edited column',
+	in_array( $fields['report_edited'], $reports_fetch[0]['fields'], true ), true );
+ck( sprintf( "'%s' is a column of the Students Reports table, byte for byte", $fields['report_edited'] ),
+	in_array( $fields['report_edited'], $reports_fields['fields'], true ), true );
+
+$edited_user = user_id_for( 'reference-pending-9@example.test' );
+ck( 'an ISO 8601 cell is written as a Unix time',
+	$GLOBALS['umeta'][ $edited_user ][ WPCPM_Student_Activity::META_EDITED ] ?? null, strtotime( '2026-11-08T10:15:00.000Z' ) );
+$unparsed_user = user_id_for( 'reference-pending-10@example.test' );
+ck( 'a cell that does not parse leaves the meta as it was (absent)',
+	isset( $GLOBALS['umeta'][ $unparsed_user ] ) && array_key_exists( WPCPM_Student_Activity::META_EDITED, $GLOBALS['umeta'][ $unparsed_user ] ), false );
+ck( 'and the edit time is not kept in the program row',
+	isset( $GLOBALS['umeta'][ $edited_user ][ WPCPM_Students_Sync::META_PROGRAM ]['report_edited'] ), false );
 ck( 'a row without a report has neither',
 	array( $roster['rows'][ $ids['k11'] ]['reports'], $roster['rows'][ $ids['k11'] ]['user_id'] ), array( array(), 0 ) );
 
@@ -2595,6 +2616,33 @@ ck( 'a tick whose lock was taken over in a non-paging phase stops before its nex
 	array( count( $GLOBALS['states'] ), $GLOBALS['states'][0]['cursor'] ?? null, get_option( WPCPM_Students_Sync::OPT_STATE ) === $restarted_run, WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ) ),
 	array( 1, 15, true, time() + 900 ) );
 unset( $GLOBALS['after_write'] );
+
+echo "\n=== A run that crosses the deploy (final review, Minor 4) ===\n";
+
+// A run started under 1.123.59 holds student rows read before the report-edited column was asked
+// for, with no `report_edited` key; the provision step finishing it under 1.123.60 must read them
+// without a warning. The rows are the first provision step's of the reference run above.
+list( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_site;
+$crossing           = $mid;
+$crossing['cursor'] = 0;
+$crossing_edited    = 0;
+foreach ( $crossing['students'] as $n => $crossing_row ) {
+	$crossing_edited += isset( $crossing_row['report_edited'] ) && '' !== (string) $crossing_row['report_edited'] ? 1 : 0;
+	unset( $crossing['students'][ $n ]['report_edited'] );
+}
+$crossing_warnings = array();
+set_error_handler(
+	static function ( $number, $message ) use ( &$crossing_warnings ) {
+		$crossing_warnings[] = $message;
+
+		return true;
+	}
+);
+$crossing_result = $provision_step->invokeArgs( null, array( &$crossing, WPCPM_Settings::get(), null ) );
+restore_error_handler();
+ck( 'report_edited_absent_no_warning: rows with no report-edited key are provisioned without a warning about it',
+	array( $crossing_edited > 0, true === $crossing_result, $crossing['cursor'] > 0, array_values( preg_grep( '/report_edited/', $crossing_warnings ) ) ),
+	array( true, true, true, array() ) );
 
 list( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_site;
 

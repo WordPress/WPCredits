@@ -543,6 +543,9 @@ $probe = array(
 	'mentor_course_link'            => 'https://learn.example.test/course/probe/?group=PROBE',
 	'mentor_lapse_days'             => '120',
 	'student_registration_stages'   => array( 'Confirmed', 'Student' ),
+	// Quiet students: the switch, and the days, which the probe sets off their defaults.
+	'student_flags_mode'            => 'preview',
+	'student_quiet_days'            => '21',
 	// The Emails tool's contact address (1.122.19).
 	'mail_contact'                  => 'programs@example.test',
 );
@@ -1197,7 +1200,37 @@ foreach ( array_keys( WPCPM_Settings::scopes() ) as $scope_name ) {
 ck( 'both are in the Students and mentors tab\'s scope and in no other', $registration_scopes,
 	array( 'student_registrations_enabled' => array( 'people' ), 'student_registration_stages' => array( 'people' ) ) );
 ck( 'and they follow the mentor lapse days there',
-	array_slice( WPCPM_Settings::scope_keys( 'people' ), -3 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages' ) );
+	array_slice( WPCPM_Settings::scope_keys( 'people' ), -5 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_flags_mode', 'student_quiet_days' ) );
+
+// Quiet students: the switch is off and the quiet is two weeks until a person says otherwise, both live
+// on the Students and mentors tab, and the save holds the mode to its three words and the days to 7..60.
+ck( 'quiet students are off, at 14 days, until a person says otherwise', array( $defaults['student_flags_mode'], $defaults['student_quiet_days'] ), array( 'off', 14 ) );
+
+$flag_scopes = array();
+
+foreach ( array_keys( WPCPM_Settings::scopes() ) as $scope_name ) {
+	foreach ( array( 'student_flags_mode', 'student_quiet_days' ) as $flag_key ) {
+		if ( in_array( $flag_key, WPCPM_Settings::scope_keys( $scope_name ), true ) ) {
+			$flag_scopes[ $flag_key ][] = $scope_name;
+		}
+	}
+}
+
+ck( 'settings_clean: both are in the Students and mentors tab\'s scope and in no other', $flag_scopes, array( 'student_flags_mode' => array( 'people' ), 'student_quiet_days' => array( 'people' ) ) );
+
+$mode_of = static function ( $mode ) {
+	return WPCPM_Settings::save( array( 'student_flags_mode' => $mode ), 'people' )['student_flags_mode'];
+};
+$days_of = static function ( $days ) {
+	return WPCPM_Settings::save( array( 'student_quiet_days' => $days ), 'people' )['student_quiet_days'];
+};
+
+ck( 'settings_clean: the mode keeps off, preview and on, and turns anything else into off', array( $mode_of( 'off' ), $mode_of( 'preview' ), $mode_of( 'on' ), $mode_of( 'loud' ), $mode_of( 'ON ' ) ), array( 'off', 'preview', 'on', 'off', 'on' ) );
+ck( 'and the days are held to 7 to 60', array( $days_of( 3 ), $days_of( 99 ), $days_of( '20' ), $days_of( 7 ), $days_of( 60 ) ), array( 7, 60, 20, 7, 60 ) );
+
+store_settings( array_merge( $defaults, array( 'student_flags_mode' => 'preview' ) ) );
+ck( 'a save of another tab leaves the mode as stored', WPCPM_Settings::save( array(), 'sponsors' )['student_flags_mode'], 'preview' );
+store_settings( $defaults );
 
 $ticked   = WPCPM_Settings::save( array( 'student_registrations_enabled' => '1' ), 'people' )['student_registrations_enabled'];
 $unticked = WPCPM_Settings::save( array(), 'people' )['student_registrations_enabled'];
@@ -1820,7 +1853,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // row gives them.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_flags_mode', 'student_quiet_days' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
@@ -3181,6 +3214,7 @@ $design_sections = array(
 		'Accounts'              => 'accounts',
 		'Landing pages'         => 'landing-pages',
 		'Student registrations' => 'student-registrations',
+		'Quiet students'        => 'quiet-students',
 		'Mentor applications'   => 'mentor-applications',
 	),
 	'institutions' => array(
@@ -3278,8 +3312,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 27 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 27, 0, 27 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 28 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 28, 0, 28 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -3570,11 +3604,12 @@ foreach ( array( 'text_row', 'select_row', 'checklist_row', 'reviewers_row' ) as
 }
 
 $chosen = array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field', 'mentor_status', 'checker_source_status', 'checker_target_status', 'institution_new_stage' );
-$offered_by_select = array_merge( $chosen, array( 'handbook_model' ) );
+// The quiet students switch (Off, Preview, On) is a select of its own, a list of three, not a choice from Airtable.
+$offered_by_select = array_merge( $chosen, array( 'handbook_model', 'student_flags_mode' ) );
 sort( $chosen );
 sort( $offered_by_select );
 
-ck( 'the base, the eight tables, the three name columns, the three statuses and the starting stage are each one choice of a select, and the model too once the provider lists models to choose from',
+ck( 'the base, the eight tables, the three name columns, the three statuses and the starting stage are each one choice of a select, and the quiet students switch, and the model too once the provider lists models to choose from',
     $drawn_by['select_row'], $offered_by_select );
 
 // The provider lists no models, so the only list there could be is the default beside the model

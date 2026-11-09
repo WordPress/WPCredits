@@ -382,6 +382,7 @@ final class WPCPM_Administrators_Dashboard {
 					WPCPM_Administrators_Cards::render_interests( isset( $data['interests'] ) ? (array) $data['interests'] : array() );
 					WPCPM_Administrators_Cards::render_tiers_ending( isset( $data['tiers_ending'] ) ? (array) $data['tiers_ending'] : array() );
 					WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] );
+					WPCPM_Administrators_Cards::render_quiet_students( isset( $data['quiet_students'] ) ? (array) $data['quiet_students'] : array() );
 				},
 			),
 			array(

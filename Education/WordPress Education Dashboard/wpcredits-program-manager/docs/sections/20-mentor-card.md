@@ -21,6 +21,22 @@ at the top double as filters:
 A student falls into the first group they match, so somebody who needs a call is never filed under
 "ending soon" instead. Within each group they are ordered by internship end date, soonest first.
 
+### Students who have gone quiet
+
+When the program's daily list of quiet students is switched on, a student of yours who has not signed
+in, visited, booked a call or saved their report for the set number of days (14 unless the program
+changed it) shows a line on their card, "Not seen on the site for" that many days, with a button,
+**We've already talked**. A student with a call or a group session booked for a later date is not
+quiet, and the days are counted from the start of the student's track when it comes after their last
+activity. Press the button when you have spoken with the student: it counts as activity, the line goes
+away at once and the program stops following that stretch of quiet. Nothing is sent when you press
+it, and a student with no recent activity is not a mark against you.
+
+The student is sent one friendly email for each stretch of quiet. Once a day at most, you are sent an
+email listing the students of yours who were just reminded, so you can reach out too. That email is
+only about students who have you as their mentor: a student with no mentor gets the reminder alone.
+The line and the emails appear only while the program has the list switched on.
+
 ### Students waiting to graduate
 
 A student who has finished the work and whose graduation is not recorded yet is marked **Pending

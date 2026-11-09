@@ -575,7 +575,12 @@ class WPCPM_Students_Dashboard {
 
 			case self::MODULE_CALLS:
 				// Spanning the card: a month calendar wants more width than half a card gives it,
-				// and it splits into its own two columns, booked calls beside the picker.
+				// and it splits into its own two columns, booked calls beside the picker. A student who
+				// has gone quiet reads one paragraph first, with the button "We've already talked".
+				if ( class_exists( 'WPCPM_Student_Flags' ) ) {
+					echo WPCPM_Student_Flags::student_notice( $student, (int) $viewer->ID ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by student_notice(), which escapes every value it prints.
+				}
+
 				WPCPM_Call_Calendar::render_student( $student, $can_manage );
 				break;
 

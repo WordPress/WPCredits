@@ -410,16 +410,16 @@ ck( 'a close() with nothing open still ends the markup, with no action',
 );
 
 echo "\n=== Every card is drawn in the shell ===\n";
-// The Sponsor Dashboard's twelve cards and the Administrator Dashboard's eighteen, by the file that
+// The Sponsor Dashboard's twelve cards and the Administrator Dashboard's nineteen, by the file that
 // draws them and how many it draws: the tier card draws Sponsorship and Events, the mentors class its
 // two cards, the Sponsor Dashboard its People card, and the Administrator Dashboard's cards class all
-// eighteen of that page, Sponsor offers to review among them since 1.123.18. Each opens the shell once per card, closes it wherever a card ends, and
+// nineteen of that page, Sponsor offers to review among them since 1.123.18. Each opens the shell once per card, closes it wherever a card ends, and
 // prints no piece of the shell by hand, so a change to the row reaches every card on both pages at
 // once. Some cards end early: Usage when there is no offer, and on the Administrator Dashboard
-// Offers running low, Sponsor terms ending and Sponsor reports when they hold nothing.
+// Offers running low, Sponsor terms ending, Sponsor reports and Students gone quiet when they hold nothing.
 $early    = array(
 	'class-wpcpm-sponsor-usage.php'        => 1,
-	'class-wpcpm-administrators-cards.php' => 3,
+	'class-wpcpm-administrators-cards.php' => 4,
 );
 $drawers  = array(
 	'class-wpcpm-sponsor-tier-card.php'      => 2,
@@ -432,7 +432,7 @@ $drawers  = array(
 	'class-wpcpm-sponsor-profile.php'        => 1,
 	'class-wpcpm-sponsors-dashboard.php'     => 1,
 	'class-wpcpm-sponsor-agreement-card.php' => 1,
-	'class-wpcpm-administrators-cards.php'   => 18,
+	'class-wpcpm-administrators-cards.php'   => 19,
 );
 $drawn    = array();
 $expected = array();
@@ -449,7 +449,7 @@ foreach ( $drawers as $file => $cards ) {
 		'by hand' => 0,
 	);
 }
-ck( 'the thirty cards of both pages open and close the shell, and none prints a piece of it by hand', $drawn, $expected );
+ck( 'the thirty-one cards of both pages open and close the shell, and none prints a piece of it by hand', $drawn, $expected );
 // Offer more, the interests card, left the Sponsor Dashboard in 1.123.22: its class draws no card.
 ck( 'the interests class draws no card any more', substr_count( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php' ), 'WPCPM_Dashboard_Card::' ), 0 );
 $administrator_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-cards.php' );

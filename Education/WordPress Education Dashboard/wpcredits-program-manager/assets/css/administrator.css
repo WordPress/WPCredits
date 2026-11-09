@@ -362,6 +362,17 @@
 	opacity: 0.72;
 }
 
+/* Students gone quiet: the group's heading row sits in the table's own rhythm, and the row's
+   button form takes no margin of its own. */
+.wpcpm-quiet__group th {
+	font-weight: 600;
+	padding-top: 1em;
+}
+
+.wpcpm-quiet__talked {
+	margin: 0;
+}
+
 .wpcpm-programs__tiles {
 	display: grid;
 	gap: 12px;

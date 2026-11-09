@@ -93,6 +93,21 @@ institution sees the same page.
 A card at the top of the page may invite you to set up a code for signing in, or tell you the
 program asks for one: *Signing in*, at the start of this guide, covers it.
 
+### If the program has not seen you for a while
+
+While the program has its list of quiet students switched on, a note may appear at the top of your
+**My mentor call** block when you have not signed in, visited, booked a call or changed your report
+for the set number of days, 14 unless the program changed it. A change to your report counts whether
+you saved it here or edited it through another of the program's forms. The note says how many days it
+has been since you were last here, with a **Book a call** link. A call you have booked for a later
+date counts as being in touch, and the days are counted from your track's start date when it comes
+after your last visit, so nobody is quiet before their track begins. It is a nudge, never a penalty.
+The site may also send you one friendly email about it for each stretch of quiet.
+
+If you have already talked with your mentor or with the program, press **We've already talked**
+under the note. That counts as being in touch, the note goes away and no more is sent about that
+stretch. Your mentor and the program's Administrators can press it for you.
+
 ### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the

@@ -203,6 +203,50 @@ The form students register through, since 1.123.54. Its address is under the swi
   institutions sync, every three hours. When Airtable cannot list the stages, the row is typed, one
   stage a line, as the pipeline stages are.
 
+#### Quiet students
+
+A daily list of the students who have gone quiet, and the reminders that go with it. It is on the
+**Students and mentors** tab, in the section **Quiet students**, and it ships Off.
+
+- **Daily list** - a switch with three positions. **Off** keeps no list: nothing runs, no card is
+  drawn and nothing is mailed. **Preview** keeps the list for Administrators only: the *Students
+  gone quiet* card on the Administrator Dashboard shows it, marks the students who **Would
+  remind**, and mails nobody; the Student Report Card and the Mentor Report Card say nothing yet.
+  **On** keeps the list and sends the reminders described below. Moving from Off to Preview is the
+  safe way to see who the list would hold before anyone is written to.
+- **Days of quiet** - how many days without activity make a student quiet, from 7 to 60. It ships
+  at 14. A value outside the range is brought back into it when you save.
+
+A student is followed when they are in progress on a track. A student who is paused, waiting to
+graduate or past the program is never followed. A student counts as active on any of these:
+signing in, visiting the site, booking a call or a group session (or the call being held), saving
+the report form on the site, an edit to the report in Airtable (the **Student report last edited**
+column), or somebody pressing **We've already talked**. The days are counted from the latest of them,
+or from the later of two dates when that is later still: the day the account was made and the track's
+start date. So nobody is quiet before they have started, and a student back on an old account for a
+new track counts from the new start. A student with a call or a group session booked for a later date
+is not quiet, however long ago it was booked.
+
+The list is made once a day, at 06:00 UTC, and the card says when. Saving the switch as **Off** clears
+the list, so moving back to Preview or On shows no list until the next run makes a fresh one. Once the
+switch is **On**, a quiet student gets one friendly email for each stretch of quiet, and the stretch
+ends the moment they are active again.
+
+The first reminders go only for stretches that reach the days of quiet after the switch moves to
+**On**, from Off or Preview. A stretch already past them at that moment is never mailed, so turning
+the switch on, or back on after Off, does not write to everyone who is already quiet, and the card
+marks such a student **Not mailed: quiet before the switch went On**. A student who reaches the days
+of quiet later is reminded on the first run that finds them there: with 14 days, a student last
+active 10 days before the switch went On is reminded 4 days after it. A save that leaves the switch
+On changes none of this.
+
+A student of a test institution is listed with the Test mark and **Not mailed: test institution**,
+left out of the counts and never mailed. The mentor gets one email a day listing the students just
+reminded, and only about students who have a mentor. Each Administrator who is the contact for a
+country gets one email on the first run of a Monday, in the site's time zone, listing that country's
+quiet students who are not of a test institution, and only when there is at least one. The three
+emails are edited in **Tools > Emails**, under the area **Quiet students**.
+
 #### Mentor applications
 
 The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
