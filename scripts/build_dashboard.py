@@ -563,6 +563,81 @@ def fetch_translation_stats(wp_username):
             "total": total, "partial": partial, "failed": False}
 
 
+# Statuses that do NOT count as a participant. Everything else does.
+#
+# This used to be an allowlist of the four in-programme statuses, which
+# silently under-counts every time a track is added: the status field encodes
+# WHICH track a student is on (see WPCPM_Program::track()), so "Developer
+# Track" and "Designer Track" were both missing and 20 real students were
+# dropped from the public figures. More tracks are coming, and Track Builder
+# (1.100.0) lets a manager add one with no code change at all.
+#
+# A denylist is the polarity that survives that: a new track is automatically
+# "not one of these" and counts from day one. The states below are stable —
+# they are stages and outcomes, not programmes — and ACTIVE_STATUSES_SEEN
+# below logs every status actually counted as a participant, so a genuinely
+# new *outcome* (which a denylist would silently count) shows up in the build
+# log as a named line instead of an unexplained jump. That log is the only
+# thing standing behind this polarity: a new non-participant outcome needs
+# adding here by hand, and the log is where it becomes visible.
+#
+# NOTE: keep in sync with `nonParticipantStatuses` in scripts/template.html.
+NON_PARTICIPANT_STATUSES = {
+    "Interested",          # never started
+    "Dropped out",
+    "Not moving forward",
+    "Paused",              # still the mentor's student, but not progressing
+    "Fail",
+    "SPAM",
+}
+GRADUATE_STATUS = "Graduate"
+NON_PARTICIPANT_STATUS_KEYS = {status_key(s) for s in NON_PARTICIPANT_STATUSES}
+# The in-programme statuses known to this build. Every one of these is a
+# participant; the list exists only so that a status which is in NEITHER
+# list can be detected, because such a status is unclassifiable: the build
+# cannot tell a new TRACK (should count) from a new OUTCOME (should not).
+#
+# Getting that wrong silently is what this whole area has already cost
+# once — an allowlist dropped two tracks and under-counted the public
+# figures by 20 for weeks.
+#
+# An unclassifiable status is therefore assumed to be a NEW TRACK and
+# counted as a participant, and the build WARNS loudly rather than failing
+# (see UNKNOWN_STATUSES below). That is a deliberate choice: the numbers
+# stay fresh and a new track needs no code change to be counted, at the
+# cost of a genuinely new *outcome* being over-counted until someone adds
+# it to NON_PARTICIPANT_STATUSES. The warning is what makes that visible.
+#
+# ADDING A TRACK: nothing here is required for it to count. Adding its
+# status below only silences the warning, which is worth doing so the
+# warning keeps meaning "something new appeared".
+PARTICIPANT_STATUSES = {
+    "In Sensei",
+    "In Sensei Self-onboarding",
+    "In Sensei 50h",
+    "Pending graduation",
+    "Developer Track",
+    "Designer Track",
+    "Intro to Contribution",
+    "Foundations Track",
+    "Foundations Track Haaga-Helia",
+}
+PARTICIPANT_STATUS_KEYS = {status_key(s) for s in PARTICIPANT_STATUSES}
+
+# Statuses of students who never started the program. Everyone else with a
+# status has joined — including those who later dropped out, paused or failed.
+# This single predicate feeds both "Students who have joined to date" and the
+# growth chart, so the two can no longer disagree (they did: the chart kept an
+# allowlist that missed the newer tracks, and read 893 against the card's 1034).
+NEVER_STARTED_STATUSES = {"Interested", "Not moving forward", "SPAM"}
+NEVER_STARTED_STATUS_KEYS = {status_key(s) for s in NEVER_STARTED_STATUSES}
+
+
+def has_joined(status_n):
+    """True when a normalized status (see status_key) means the student started."""
+    return bool(status_n) and status_n not in NEVER_STARTED_STATUS_KEYS
+
+
 def main():
     """Build the dashboard data blob."""
     pat = get_airtable_pat()
@@ -669,63 +744,6 @@ def main():
         if email:
             students_by_email[email.strip().lower()] = rec
 
-    # Statuses that do NOT count as a participant. Everything else does.
-    #
-    # This used to be an allowlist of the four in-programme statuses, which
-    # silently under-counts every time a track is added: the status field encodes
-    # WHICH track a student is on (see WPCPM_Program::track()), so "Developer
-    # Track" and "Designer Track" were both missing and 20 real students were
-    # dropped from the public figures. More tracks are coming, and Track Builder
-    # (1.100.0) lets a manager add one with no code change at all.
-    #
-    # A denylist is the polarity that survives that: a new track is automatically
-    # "not one of these" and counts from day one. The states below are stable —
-    # they are stages and outcomes, not programmes — and ACTIVE_STATUSES_SEEN
-    # below logs every status actually counted as a participant, so a genuinely
-    # new *outcome* (which a denylist would silently count) shows up in the build
-    # log as a named line instead of an unexplained jump. That log is the only
-    # thing standing behind this polarity: a new non-participant outcome needs
-    # adding here by hand, and the log is where it becomes visible.
-    #
-    # NOTE: keep in sync with `nonParticipantStatuses` in scripts/template.html.
-    NON_PARTICIPANT_STATUSES = {
-        "Interested",          # never started
-        "Dropped out",
-        "Not moving forward",
-        "Paused",              # still the mentor's student, but not progressing
-        "Fail",
-        "SPAM",
-    }
-    GRADUATE_STATUS = "Graduate"
-    NON_PARTICIPANT_STATUS_KEYS = {status_key(s) for s in NON_PARTICIPANT_STATUSES}
-    # The in-programme statuses known to this build. Every one of these is a
-    # participant; the list exists only so that a status which is in NEITHER
-    # list can be detected, because such a status is unclassifiable: the build
-    # cannot tell a new TRACK (should count) from a new OUTCOME (should not).
-    #
-    # Getting that wrong silently is what this whole area has already cost
-    # once — an allowlist dropped two tracks and under-counted the public
-    # figures by 20 for weeks.
-    #
-    # An unclassifiable status is therefore assumed to be a NEW TRACK and
-    # counted as a participant, and the build WARNS loudly rather than failing
-    # (see UNKNOWN_STATUSES below). That is a deliberate choice: the numbers
-    # stay fresh and a new track needs no code change to be counted, at the
-    # cost of a genuinely new *outcome* being over-counted until someone adds
-    # it to NON_PARTICIPANT_STATUSES. The warning is what makes that visible.
-    #
-    # ADDING A TRACK: nothing here is required for it to count. Adding its
-    # status below only silences the warning, which is worth doing so the
-    # warning keeps meaning "something new appeared".
-    PARTICIPANT_STATUSES = {
-        "In Sensei",
-        "In Sensei Self-onboarding",
-        "In Sensei 50h",
-        "Pending graduation",
-        "Developer Track",
-        "Designer Track",
-    }
-    PARTICIPANT_STATUS_KEYS = {status_key(s) for s in PARTICIPANT_STATUSES}
     # Statuses held by a real student that match neither list, nor Graduate.
     # Populated in the loop and reported after it. A status choice that merely
     # EXISTS in Airtable with no students on it never fires this: the trigger
@@ -755,6 +773,7 @@ def main():
     active_count = 0
     graduate_count = 0
     dropout_count = 0
+    joined_count = 0  # every student who started, whatever happened after
     not_moving_forward_count = 0
     total_hours = 0
     field_of_study_stats = {}
@@ -798,6 +817,8 @@ def main():
         #  - "Dropped out" = student started the program and then left (a true dropout).
         #  - "Not moving forward" = expressed interest or was added by a teacher but
         #    never actually started; NOT a dropout.
+        if has_joined(status_n):
+            joined_count += 1
         if status_n == DROPOUT_KEY:
             dropout_count += 1
         elif status_n == NOT_MOVING_FORWARD_KEY:
@@ -1159,20 +1180,14 @@ def main():
             if d:
                 form3_date_by_lesson[rec["id"]] = d
 
-    # Statuses that count as having actually started (joined) the program.
-    JOINED_STATUS_KEYS = {
-        status_key(s) for s in [
-            "In Sensei", "In Sensei Self-onboarding", "In Sensei 50h",
-            "Pending graduation", "Graduate", "Dropped out", "Paused", "Fail",
-        ]
-    }
     current_month = month_key(date.today())
 
     joined_by_month = {}
     graduated_by_month = {}
     for rec in students_reports_records:
         status_n = status_key(get_field_value(rec, FIELDS["students_reports"]["status"]))
-        if status_n not in JOINED_STATUS_KEYS:
+        # Same predicate as the "Students who have joined to date" card.
+        if not has_joined(status_n):
             continue
         created = parse_iso_date(rec.get("createdTime"))
 
@@ -1225,6 +1240,19 @@ def main():
             growth["cumulativeJoined"].append(cum)
             m = m + 1 if m < 12 else 1
             y = y if m != 1 else y + 1
+
+    # The chart's running total and the card count the same students; the only
+    # legitimate difference is a record dated before PROGRAM_START_MONTH or in
+    # the future, which the chart leaves out. Anything larger means the two
+    # definitions have drifted apart again.
+    _chart_total = growth["cumulativeJoined"][-1] if growth["cumulativeJoined"] else 0
+    if _chart_total != joined_count:
+        print(
+            f"::warning title=Joined-to-date mismatch::card says {joined_count}, "
+            f"growth chart total is {_chart_total}. Expect only records dated "
+            f"before {PROGRAM_START_MONTH} or in the future to differ.",
+            file=sys.stderr,
+        )
 
     # --- Partner network growth (cumulative confirmed institutions by month) ---
     # Uses each institution's real "Confirmed on" date (falling back to the
@@ -1338,6 +1366,7 @@ def main():
     # Build global stats
     global_stats = {
         "activeStudents": active_count,
+        "studentsJoined": joined_count,
         "avgMonthlyGrowth": avg_monthly_growth,
         "graduates": graduate_count,
         "dropouts": dropout_count,

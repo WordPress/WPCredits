@@ -80,5 +80,33 @@ class MapPageTest(unittest.TestCase):
             self.assertIn('crossorigin="anonymous"', tag)
 
 
+class JoinedStudentsTest(unittest.TestCase):
+    """The card and the growth chart must count the same students."""
+
+    def test_every_track_and_outcome_counts_as_joined(self):
+        k = build_dashboard.status_key
+        for status in build_dashboard.PARTICIPANT_STATUSES | {
+            build_dashboard.GRADUATE_STATUS, "Dropped out", "Paused", "Fail",
+            "A Track Added Tomorrow",
+        }:
+            self.assertTrue(build_dashboard.has_joined(k(status)), status)
+
+    def test_never_started_does_not_count(self):
+        k = build_dashboard.status_key
+        for status in ["Interested", "Not moving forward", "SPAM", " spam ", "", None]:
+            self.assertFalse(build_dashboard.has_joined(k(status)), repr(status))
+
+    def test_growth_chart_has_no_status_allowlist(self):
+        # The chart once kept its own list of "joined" statuses and missed every
+        # track added later (893 on the chart against 1034 on the card).
+        src = (SCRIPTS / "build_dashboard.py").read_text()
+        self.assertNotIn("JOINED_STATUS_KEYS", src)
+        self.assertIn("if not has_joined(status_n):", src)
+
+    def test_card_reads_the_build_figure(self):
+        text = (SCRIPTS / "template.html").read_text()
+        self.assertIn("started = g.studentsJoined", text)
+
+
 if __name__ == "__main__":
     unittest.main()
