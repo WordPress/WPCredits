@@ -217,11 +217,11 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   // Graduation rate is completion among students who actually reached an outcome
   // (graduated or dropped out) — students still in the program are not counted as
   // failures. "Not moving forward" (never enrolled) is excluded from every denominator.
-  // `act` (students currently in the program) has no card of its own on the
-  // dashboard, but it is still read from the live data and counted into
-  // `started` — "Students who have joined to date" depends on it.
-  const grad = g.graduates || 0, drop = g.dropouts || 0, act = g.activeStudents || 0;
-  const finished = grad + drop, started = grad + drop + act;
+  // "Students who have joined to date" comes straight from the build
+  // (`studentsJoined`, see has_joined() in build_dashboard.py), the same
+  // predicate the growth chart uses, so the card and the chart always agree.
+  const grad = g.graduates || 0, drop = g.dropouts || 0;
+  const finished = grad + drop, started = g.studentsJoined || 0;
   const completionRate = finished > 0 ? Math.round(grad / finished * 100) : null;
   // Experience signals from the feedback aggregate (may be absent on a fresh build).
   const fb = D.feedback || {};
