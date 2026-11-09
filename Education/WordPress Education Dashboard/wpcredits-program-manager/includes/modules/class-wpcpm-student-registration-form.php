@@ -1085,6 +1085,17 @@ final class WPCPM_Student_Registration_Form {
 
 		echo '<div class="wpcpm-application__done">';
 		echo '<h3>' . esc_html( '' !== $thanks ? $thanks : __( 'Thank you. We have received your registration and will email you at the address you gave.', 'wpcredits-program-manager' ) ) . '</h3>';
+
+		// While you wait: the Team Matcher page, when it is published.
+		$matcher = WPCPM_Start_Pages::matcher_url();
+
+		if ( '' !== $matcher ) {
+			echo '<p>' . sprintf(
+				/* translators: %s: a link to the Team Matcher page, reading "Team Matcher". */
+				esc_html__( 'While you wait, try the %s to find the contribution team that fits you.', 'wpcredits-program-manager' ),
+				'<a href="' . esc_url( $matcher ) . '">' . esc_html__( 'Team Matcher', 'wpcredits-program-manager' ) . '</a>'
+			) . '</p>';
+		}
 		echo '</div>';
 	}
 

@@ -366,6 +366,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 // with itself.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-start-pages.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 // The account key an activation of a mentor application holds an invitation by, which the queue reads.
@@ -2339,6 +2340,30 @@ ck( 'both say that only the newest of several emails works',
     array( true, true ) );
 ck( 'the two audiences are told different things',
     array( $student['message'] === $mentor['message'] ), array( false ) );
+
+// The Start here page (student automation, Release B): the student's invitation names it above the
+// Student Report Card line while the page is published, and is the invitation it was when there is none.
+// The page answers through the option and these two lookups, for this block alone.
+if ( ! function_exists( 'get_post_status' ) ) {
+	function get_post_status( $id ) { return 'publish' === ( $GLOBALS['start_page_status'] ?? '' ) ? 'publish' : false; }
+	function get_permalink( $id ) { return 321 === (int) $id ? 'https://example.test/start-here/' : 'https://example.test/student-report-card/'; }
+}
+$GLOBALS['start_page_status']              = 'publish';
+$GLOBALS['opts']['wpcpm_student_page_id'] = 322;
+unset( $GLOBALS['opts']['wpcpm_start_here_page_id'] );
+$without_start = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][30], 'WordPress Education Dashboard' );
+$GLOBALS['opts']['wpcpm_start_here_page_id'] = 321;
+$with_start                                  = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][30], 'WordPress Education Dashboard' );
+$mentor_start                                = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][20], 'WordPress Education Dashboard' );
+unset( $GLOBALS['opts']['wpcpm_start_here_page_id'], $GLOBALS['opts']['wpcpm_student_page_id'] );
+$GLOBALS['start_page_status'] = '';
+
+ck( 'welcome_has_start_link: the student\'s invitation names the Start here page above the Student Report Card line',
+    array( false !== strpos( $with_start['message'], "Your first week, step by step:\r\nhttps://example.test/start-here/\r\n" ), strpos( $with_start['message'], 'step by step:' ) < strpos( $with_start['message'], 'Your Student Report Card:' ) ), array( true, true ) );
+ck( 'welcome_without_page_unchanged: with no published page the line and its label are both left out',
+    array( false !== strpos( $without_start['message'], 'step by step' ), false !== strpos( $without_start['message'], 'start-here' ), false !== strpos( $without_start['message'], "newest.\r\n\r\nYour Student Report Card:" ) ), array( false, false, true ) );
+ck( 'and no other audience is given the line',
+    array( false !== strpos( $mentor_start['message'], 'step by step' ), false !== strpos( $mentor_start['message'], 'start-here' ) ), array( false, false ) );
 
 // WordPress 7.1 dropped the username line and the login page from its email, and the sentence
 // that named "the two addresses above" was left naming one (a mentor's screenshot, 14 September

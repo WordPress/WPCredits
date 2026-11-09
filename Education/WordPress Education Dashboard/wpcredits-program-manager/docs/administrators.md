@@ -810,9 +810,26 @@ new track counts from the new start. A student with a call or a group session bo
 is not quiet, however long ago it was booked.
 
 The list is made once a day, at 06:00 UTC, and the card says when. Saving the switch as **Off** clears
-the list, so moving back to Preview or On shows no list until the next run makes a fresh one. Once the
-switch is **On**, a quiet student gets one friendly email for each stretch of quiet, and the stretch
-ends the moment they are active again.
+the list, so moving back to Preview or On shows no list until the next run makes a fresh one. A run
+that is sending when Off is saved stops at its next email: nothing more goes out, and the list Off
+cleared is not written back. Once the switch is **On**, a quiet student gets one friendly email for
+each stretch of quiet, and the stretch ends the moment they are active again. A student who was
+reminded is reminded again only when they are active after the reminder went and then quiet for the
+days of quiet once more: an activity the site learns of late, such as an edit to the report in
+Airtable made before the reminder went, does not start a new stretch, and the card keeps the row's
+reminder: **Reminded** on that date, **no reply**.
+
+While the switch is On, the Student Report Card shows the student a note in the **My mentor call**
+block, and the Mentor Report Card a line at the top of the student's card. Both are checked again for
+that student each time the page is drawn, so a student who saved their report, had or booked a call,
+or was marked **We've already talked** since the morning's list shows neither. On the student's own
+card the sign-in and the visit that bring them to it do not count, so the note and its button are
+there when the reminder sends them to it; for the mentor and for an Administrator they do. The
+**Book a call** link is the student's alone: an Administrator viewing the card as the student reads
+the note without it. It is offered only where there is a call to book, with a mentor or on the booking
+page of the Administrator for the student's country; a student with neither is offered none, and their
+reminder names the address in **Contact address in emails** instead, while it holds one. After a press of **We've already talked**, the page it was pressed on says so
+where the button was.
 
 The first reminders go only for stretches that reach the days of quiet after the switch moves to
 **On**, from Off or Preview. A stretch already past them at that moment is never mailed, so turning
@@ -820,14 +837,80 @@ the switch on, or back on after Off, does not write to everyone who is already q
 marks such a student **Not mailed: quiet before the switch went On**. A student who reaches the days
 of quiet later is reminded on the first run that finds them there: with 14 days, a student last
 active 10 days before the switch went On is reminded 4 days after it. A save that leaves the switch
-On changes none of this.
+On keeps the moment it went On, and a new number of days of quiet is measured from that moment: after
+a raise, a student who was past the old number then but not the new one is reminded on reaching the
+new one; after a cut, a stretch that by the new number was already past it at that moment is never
+mailed.
 
 A student of a test institution is listed with the Test mark and **Not mailed: test institution**,
 left out of the counts and never mailed. The mentor gets one email a day listing the students just
-reminded, and only about students who have a mentor. Each Administrator who is the contact for a
-country gets one email on the first run of a Monday, in the site's time zone, listing that country's
-quiet students who are not of a test institution, and only when there is at least one. The three
-emails are edited in **Tools > Emails**, under the area **Quiet students**.
+reminded, and only about students who have a mentor and whose reminder went out; a student whose
+program record names their own account as their mentor counts as having none. Each Administrator who
+is the contact for a country gets one email on the first run of a Monday, in the site's time zone,
+listing that country's quiet students who are not of a test institution, and only when there is at
+least one. The three emails are edited in **Tools > Emails**, under the area **Quiet students**.
+
+#### New students
+
+The first-week checklist, a card called *Your first weeks* on the Student Report Card for new students
+(since 1.123.61). It is on the **Students and mentors** tab, in the section **New students**, and it
+ships Off.
+
+- **First-week checklist** - one box, *Show new students the "Your first weeks" card*. Ticked, new
+  students see the card. Unticked, nobody does, and the pages below are left as they are.
+
+**Who counts as new.** The first time the box is saved ticked, the site writes down that moment and keeps
+it. A student is new when their account was made after that moment, or when their track started in the
+28 days before it. So the students already on the program for longer never see the card, and everyone
+who joins after it does. Saving the box unticked and ticked again keeps the first moment.
+
+**The eight items and who ticks each.** The site ticks five of them by itself, as soon as it can see
+them: the WordPress.org profile is on record, the student signed in to the site, the student started
+the report form (a save on the site, or an edit to the report in Airtable), a first call is booked (any
+call or group session that has not been canceled), and a contribution team is chosen. The student ticks
+the other three with **Mark as done**, because the site cannot see them: joining the Making WordPress
+Slack, joining the #wpcredits channel, and enrolling in the Learn course. The student's ticks are kept
+on the account. The student, or an Administrator looking at the card as the student, may press them; a
+tick cannot be undone. The Learn item moves to the site's own sight when the Learn Link module arrives. The
+team item links the Team Matcher page while that page exists, and the Learn item links the student's
+course.
+
+**When all are done.** The card folds to one line, "All done. You have everything on the list.", with
+**Show the list** under it. Until then it reads how many are done out of eight. The card gates nothing:
+no block, form, call or email waits on any item.
+
+**The two pages.** Turning the box on makes any page that is missing, as a public page, and the command `wp wpcredits start_pages` makes them on demand, on a site where the box is
+already on or where the Find Your Team plugin was installed later:
+
+- **Start here**, at /start-here/: the eight steps in order, where things are, and who to ask.
+- **Team Matcher**, at /find-your-team/: a short introduction and the Find Your Team plugin's quiz
+  block. It is made only while that plugin's quiz block is available. The command says when it is not
+  and can be run again once the plugin is active. A Start here page made before the Team Matcher page
+  keeps its fallback team step, which sends the student to their mentor or an Administrator, because
+  pages are not rewritten once made.
+
+Neither page is gated, because the students they are for may not be signed in yet. A page that already
+exists at either address, or the one stored for it, is used as it is, and a page in the trash is made
+again. An Administrator who wants other wording edits the page in the editor: the site never rewrites
+a page it has made. Both pages stay on the site when the plugin is deleted, as every page the plugin
+makes does.
+
+**Putting the copy in first.** The pages are made published, so the moment the box is turned on, or
+the command runs, the welcome email, the Student Report Card and the registration form's confirmation
+link them. To have the program lead's copy in place before that, run `wp wpcredits start_pages` while
+the box is still off, set both pages to Draft in the editor straight away, put the copy in, publish
+them, and only then turn the box on. A Draft page at the address is used as it is, and a page is linked
+only while it is published, so nothing points at a Draft page: the Student Report Card leaves its
+link out, the welcome email leaves its line out, and the confirmation leaves out the Team Matcher
+mention.
+
+**Where the pages are linked.** The Student Report Card shows *New here? Start here for your first
+week.* under its resources while the Start here page is published. The student welcome email carries
+a line with the page's address, *Your first week, step by step:*, through the optional placeholder
+`{start_here_link}` (see **Tools > Emails**); the line is left out while the page is not published. The
+registration form's confirmation mentions the Team Matcher page while it is published. An email an
+Administrator had edited before keeps its text, and the shipped text shows as changed in Tools >
+Emails.
 
 #### Mentor applications
 
@@ -1342,7 +1425,10 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 The plugin's emails, grouped by area, each area in a table of its own. There are nine:
 
-- **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
+- **Invitations**: the student's, which since 1.123.61 can carry a line *Your first week, step by step:*
+  with the address of the Start here page, through the optional placeholder `{start_here_link}`, left
+  out together with its label while that page is not published (an email already edited keeps its
+  text, and shows as changed in the shipped text until it is reset), the mentor's, which since 1.122.33 carries the welcome a new mentor
   is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
   Collaboration Agreement is not on file yet and one for an institution whose agreement is on file.
 - **Mentor calls**: what the mentor and the students are told about one-to-one calls, group sessions
@@ -1400,11 +1486,17 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   emails** is set, so an answer reaches the program.
 - **Quiet students** (since 1.123.60): the three emails of the daily list of quiet students, sent
   only while the **Daily list** setting is On. The student gets a friendly note once for each
-  stretch of quiet, with the days, the mentor's name, a link to book a call and a link to the Student
-  Report Card, where **We've already talked** is. The mentor gets one email a day with the students
-  just reminded. Each Administrator who is the contact for a country gets one email on Monday with
-  the quiet students of that country, most quiet first, and a link to the *Students gone quiet* card.
-  None says anything about a penalty.
+  stretch of quiet: how many days since they were last seen, or, for a student not seen since their
+  track started or their account was made, how many days ago that was, each in a sentence of its own
+  with its own placeholder; the mentor's name and the name of the Administrator for their country,
+  each in a sentence left out for a student who has none; a link to book a call, or, for a student with
+  no mentor and no booking page for their country, who has nothing to book, the address in **Contact
+  address in emails**; and a link to the Student Report Card, where **We've already talked** is. The mentor gets one email a day with the
+  students just reminded whose reminder went out, and its subject and first line give their number,
+  so one student reads as right as several. Each Administrator who is the contact for a country gets
+  one email on Monday with the quiet students of that country, most quiet first, and a link to the
+  *Students gone quiet* card. Each list is written in the language of the person it goes to. None
+  says anything about a penalty.
 
 Where an email is two, as the mentor's confirmations with and without a meeting link and the others
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an
@@ -2529,6 +2621,13 @@ rules: it prints what changed, what it would change with `--dry-run`, or why the
 live setting one way at a time: a settings tab open in a browser keeps its own view of the page it
 drew.
 
+Since 1.123.61 `wp wpcredits start_pages` makes the Start here page (/start-here/) and the Team Matcher
+page (/find-your-team/) the way the first-week checklist's switch does, and prints each page's ID and
+address. A page that already exists, at its address or in its stored ID, is kept as it is. The Team
+Matcher page is made only while the Find Your Team plugin's quiz block is available; the command says
+so when it is not, and can be run again once the plugin is active. Run it on a site where the switch
+was turned on before the Find Your Team plugin was active.
+
 ### Invitations
 
 An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
@@ -2636,7 +2735,7 @@ with what deleted ones counted for the public feed of their figures, the sponsor
 locks, forgetting the PDF each report held, the sponsor events with the people on them and their
 locks, and the institution records that keep the five answers an application gave which Airtable has
 no column for, and the student registrations with their answers and consent evidence, their locks and the page's ID.
-It also deletes the quiet students' daily list, the time the switch last went On, the week of the last Monday email, the run's lock and its place on the clock, and from every account the stamps of the last report save, the last edit seen in Airtable, "We've already talked" and the last reminder.
+It also deletes the first-week checklist's start time and each student's own ticks, and the IDs of the Start here and Team Matcher pages (the pages themselves stay, as every page the plugin makes does), and the quiet students' daily list, the time the switch last went On, the week of the last Monday email, the run's lock and its place on the clock, and from every account the stamps of the last report save, the last edit seen in Airtable, "We've already talked" and the last reminder.
 **Accounts are never deleted**, and their program details are untouched.
 
 ### When something is wrong
@@ -2674,7 +2773,7 @@ The Administrator Dashboard at /administrator-dashboard/ is the page to start th
 
 **Waiting for you** holds what needs an Administrator's decision: *Institution applications*, *Collaboration Agreements*, *Semester reports*, *Requests from institutions*, *Sponsor applications*, *Sponsor posts to review*, *Sponsor offers to review*, *Events* while Sponsor tiers is on, *Sponsor Collaboration Agreements* and *Sponsor reports*. Each is open while it holds something, and folded with nothing, its line then saying "0 waiting". **Watch** holds what to keep an eye on this week, each card folded whatever it holds: *Offers running low*, *Duplicated students*, *New interests*, *Sponsor terms ending*, *Syncs and health* and, while the **Daily list** setting is Preview or On, *Students gone quiet*. *Syncs and health* counts the syncs that need a look: while Automatic sync is on, an audience's sync whose last run left an error or that has finished no run in the last six hours; while it is off, an audience's sync whose last run left an error, under the words "Automatic sync is off"; and, the switch on or off, the outcome figures' weekly read when its last read was held or failed, or when the read has stopped and the figures stored are more than 29 days old, so the homepage shows none. With nothing else to look at, the row says which: "The outcome figures are held for a look", "The outcome figures' last read failed" or "The outcome figures are no longer shown on the homepage"; with nothing to look at, "Every audience's sync ran in the last six hours". With the switch off, the row begins "Automatic sync is off;" before the first three, and says only "Automatic sync is off" when nothing needs a look. **Reference** holds the program's numbers, folded too: *Sponsors*, *Programs running* and *Mentor engagement*.
 
-**Students gone quiet.** The card (since 1.123.60) lists the students on a track who have not been active for the number of days set under **Quiet students** in Settings (14 unless changed). Activity is a sign-in, a visit, a call or group session booked or held, a report saved on the site or edited in Airtable, or **We've already talked**; the settings guide has the whole rule and the three positions of the switch. The card is drawn only while the switch is Preview or On, and it is folded. Its line says how many students are quiet and when the list was made, which is once a day at 06:00 UTC. Students are grouped by the Administrator who is the contact for the student's country: **Your students** first, then each other Administrator by name, then **No Administrator assigned**. A row gives the student (linked to their Student Report Card), the days quiet, what they last did and when, their mentor (a student may have none), and the reminder: **Would remind** in Preview, or the date a reminder went and that nobody has answered it; a row that will never be mailed says why, **Not mailed: test institution**, or in On **Not mailed: quiet before the switch went On** for a stretch already past the days of quiet when the switch moved to On. A student of a test institution is listed with the Test mark and is left out of the card's count. **We've already talked** on a row records that somebody has been in touch: it counts as activity, takes the student off the list at once and may be pressed by the student, their mentor or any Administrator. The student sees the same button on their Student Report Card and the mentor on the student's card on the Mentor Report Card, and only while the switch is On.
+**Students gone quiet.** The card (since 1.123.60) lists the students on a track who have not been active for the number of days set under **Quiet students** in Settings (14 unless changed). Activity is a sign-in, a visit, a call or group session booked or held, a report saved on the site or edited in Airtable, or **We've already talked**; the settings guide has the whole rule and the three positions of the switch. The card is drawn only while the switch is Preview or On, and it is folded. Its line says how many students are quiet and when the list was made, which is once a day at 06:00 UTC. Students are grouped by the Administrator who is the contact for the student's country: **Your students** first, then each other Administrator by name, then **No Administrator assigned**. A row gives the student (linked to their Student Report Card), the days quiet, what they last did and when, their mentor (a student may have none), and the reminder: **Would remind** in Preview, or **Reminded** on the date a reminder went, **no reply**, while the student has done nothing since it went; a row that will never be mailed says why, **Not mailed: test institution**, or in On **Not mailed: quiet before the switch went On** for a stretch already past the days of quiet when the switch moved to On. A student not seen since their clock started reads **Track started** or **Account made** with the date, whichever the days are counted from (a list made by version 1.123.60 reads **Counting from** the date until the next daily run). A student of a test institution is listed with the Test mark and is left out of the card's count. **We've already talked** on a row records that somebody has been in touch: it counts as activity, takes the student off the list at once and may be pressed by the student, their mentor or any Administrator; the card then opens with a line saying it was noted. The student sees the same button on their Student Report Card and the mentor on the student's card on the Mentor Report Card, and only while the switch is On.
 
 The queues are decided on this page, all but the mentor applications, which are decided on the Mentors screen. An open institution application, a signed Collaboration Agreement and a mentor request are decided here (a school has no way to make a mentor request now, so only one already on record is open): the Institutions screen's **Waiting for review** tab lists them to be read, each with a link to its card here, and keeps the record-keeping on a closed application and the four decisions on an open application past the fifty oldest this page's card lists, which no card here reaches. The sponsor queues are decided here the same way: an open sponsor application; a sponsor post, published with *Publish* or returned with *Return it with this note*, under *Return with a note*; a sponsor offer, or a change to what students see of a live one, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; a sponsor's planned event, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; and a sponsor's signed agreement, accepted with *Accept it* or returned with *Return it with this note*, while an agreement out of force is put back with *Reinstate*, under *Out of force* in the same card. *Accept it* and *Reinstate* ask before they act, since each records a new state for the agreement and emails everybody at the company. The Sponsors screen lists them to be read on its **Waiting for review** tab, each application, post, offer, event and document with a link to its own item here, and keeps the record-keeping on a decided application and every decision on an open one past the fifty oldest this page's card lists; its **Agreements** tab reinstates an agreement past the fifty oldest out of force that this page lists. *Reinstate* on an institution's Collaboration Agreement is offered on this page alone, and revoking one is offered on the Institutions screen's **Agreements** tab alone, with **Revoke this agreement**. A decision a wp-admin screen offers too is the same decision there, posted to the same handler with the same safeguards, and every decision lands back on the page with its card open (Draft now opens the new draft in the editor, and a refusal comes back to the page). A Collaboration Agreement is decided in the same words whoever signed it, an institution or a sponsor: *Accept it*, *Return it with this note* and, once it is out of force, *Reinstate*. What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or create an account by hand, beyond the one an approved sponsor application makes in the same press; those stay in wp-admin, where the rows of *Syncs and health* and the resources lead.
 
@@ -2815,6 +2914,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_application_page_moved` | `WPCPM_Institution_Application::OPT_MOVED` (the one-time move of the application form's page to its new address, 1.123.27) |
 | `wpcpm_badge_rewrite` | `WPCPM_Sponsor_Badge::OPT_REWRITE` (the badge route's rewrite rule, flushed once per site) |
 | `wpcpm_booking_url` | `WPCPM_Manager_Booking::META` (user meta: an Administrator's own booking link) |
+| `wpcpm_checklist_ticks` | `WPCPM_Student_Checklist::META_TICKS` (user meta: the items of the first-week checklist a student ticked themself, a list of keys among `slack`, `channel` and `learn`) |
 | `wpcpm_claim_` | `WPCPM_Sponsor_Codes::LOCK_PREFIX` |
 | `wpcpm_claims` | `WPCPM_Sponsor_Claims::META_CLAIMS` |
 | `wpcpm_codes_` | `WPCPM_Sponsor_Codes::OPT_PREFIX` |
@@ -2896,6 +2996,8 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_sponsors_page_id` | `WPCPM_Sponsors_Page::OPT_PAGE` |
 | `wpcpm_sreg_lock_` | `WPCPM_Student_Registration::LOCK_PREFIX` (the per-address locks a registration's write takes, and the hourly job's own lock, `wpcpm_sreg_lock_run`) |
 | `wpcpm_sreport_lock_` | `WPCPM_Sponsor_Report::LOCK_PREFIX` (the per-sponsor locks a sponsor report's draft takes, so the daily run and an Administrator's draft cannot store two reports for one term) |
+| `wpcpm_start_here_page_id` | `WPCPM_Start_Pages::OPT_START` (the Start here page, at /start-here/; the page stays when the plugin is deleted) |
+| `wpcpm_student_checklist_on_since` | `WPCPM_Student_Checklist::OPT_ON_SINCE` (the time the first-week checklist's switch was first saved on; a student is new when the account was made after it or the track started in the 28 days before it) |
 | `wpcpm_student_flags` | `WPCPM_Student_Flags::OPT_SNAPSHOT` (the daily list of quiet students the card reads; not autoloaded) |
 | `wpcpm_student_flags_daily` | `WPCPM_Student_Flags::CRON_DAILY` (cron hook: the daily run that makes the list and sends the reminders, at 06:00 UTC; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
 | `wpcpm_student_flags_lock` | `WPCPM_Student_Flags::LOCK` (held while the daily run works, ten minutes at most) |
@@ -2910,6 +3012,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_students_lock` | `WPCPM_Students_Sync::OPT_LOCK` |
 | `wpcpm_students_report` | `WPCPM_Students_Sync::OPT_REPORT` |
 | `wpcpm_students_state` | `WPCPM_Students_Sync::OPT_STATE` |
+| `wpcpm_team_matcher_page_id` | `WPCPM_Start_Pages::OPT_MATCHER` (the Team Matcher page, at /find-your-team/; made only while the Find Your Team plugin's quiz block is available; the page stays when the plugin is deleted) |
 | `wpcpm_test_institutions` | `WPCPM_Test_Institutions::OPTION` (the record IDs of the test institutions the institutions sync found, remembered after their rows leave Airtable) |
 
 ## The feedback surveys
@@ -3016,17 +3119,20 @@ A student falls into the first group they match, so somebody who needs a call is
 
 When the program's daily list of quiet students is switched on, a student of yours who has not signed
 in, visited, booked a call or saved their report for the set number of days (14 unless the program
-changed it) shows a line on their card, "Not seen on the site for" that many days, with a button,
-**We've already talked**. A student with a call or a group session booked for a later date is not
-quiet, and the days are counted from the start of the student's track when it comes after their last
-activity. Press the button when you have spoken with the student: it counts as activity, the line goes
-away at once and the program stops following that stretch of quiet. Nothing is sent when you press
-it, and a student with no recent activity is not a mark against you.
+changed it) shows a line at the top of their card, above their details, "Not seen on the site for"
+that many days, with a button, **We've already talked**. The line goes as soon as the student is
+active again: a sign-in, a saved report or a booked call takes it away at once, not at the next daily
+list. A student with a call or a group session booked for a later date is not quiet, and the days are
+counted from the start of the student's track when it comes after their last activity. Press the
+button when you have spoken with the student: it counts as activity, the student's card opens with a
+line saying it was noted, and the program stops following that stretch of quiet. Nothing is sent when
+you press it, and a student with no recent activity is not a mark against you.
 
 The student is sent one friendly email for each stretch of quiet. Once a day at most, you are sent an
 email listing the students of yours who were just reminded, so you can reach out too. That email is
-only about students who have you as their mentor: a student with no mentor gets the reminder alone.
-The line and the emails appear only while the program has the list switched on.
+only about students who have you as their mentor and whose reminder went out: a student with no mentor
+gets the reminder alone, and so does a student whose program record names their own account as their
+mentor. The line and the emails appear only while the program has the list switched on.
 
 ### Students waiting to graduate
 
@@ -3607,20 +3713,47 @@ is not behind on anything. Please do not chase them.
 A card at the top of the page may invite you to set up a code for signing in, or tell you the
 program asks for one: *Signing in*, at the start of this guide, covers it.
 
+### Your first weeks
+
+If you are new to the program, and the program has switched the checklist on, a block called
+**Your first weeks** (first on a new page, and movable like the others) holds eight small steps for the start. The site ticks five of them by itself
+when it sees them done: your WordPress.org profile is on record, you signed in here, you started your
+report form, you booked your first call, and you chose your contribution team. You tick the other
+three yourself with **Mark as done**, because the site cannot see them: joining the Making WordPress
+Slack, joining the #wpcredits channel, and enrolling in the Learn course. A step that has a page to go
+to, such as the Team Matcher or your course, is a link. Nothing waits on the list: you can do the steps
+in any order, or leave some for later, and the rest of your page works as usual. When every step is
+done, the block folds to one line, "All done. You have everything on the list.", and **Show the list**
+opens it again. A tick you make cannot be undone, so press **Mark as done** when it is true.
+
+The program also keeps two public pages for newcomers, which you can open without signing in. **Start
+here** (the address ends /start-here/) lists the same eight steps in order, says where things are and
+who to ask. The **Team Matcher** (/find-your-team/) asks a few short questions and suggests the
+contribution teams that fit you; until it exists, the Start here page tells you to ask your mentor or
+an Administrator instead. Your welcome email links to Start here, the page you see after registering links to the Team Matcher, and
+under **Resources** at the foot of your page a line says *New here? Start here for your first week.*
+
 ### If the program has not seen you for a while
 
-While the program has its list of quiet students switched on, a note may appear at the top of your
-**My mentor call** block when you have not signed in, visited, booked a call or changed your report
-for the set number of days, 14 unless the program changed it. A change to your report counts whether
-you saved it here or edited it through another of the program's forms. The note says how many days it
-has been since you were last here, with a **Book a call** link. A call you have booked for a later
-date counts as being in touch, and the days are counted from your track's start date when it comes
-after your last visit, so nobody is quiet before their track begins. It is a nudge, never a penalty.
-The site may also send you one friendly email about it for each stretch of quiet.
+While the program has its list of quiet students switched on, a note may appear in your **My mentor
+call** block, under its heading, when you have not signed in, visited, booked a call or changed your
+report for the set number of days, 14 unless the program changed it. A change to your report counts
+whether you saved it here or edited it through another of the program's forms. The note says how many
+days it has been since you were last here, or, when we have not seen you since your track started or
+your account was made, how many days ago that was, and, when you have a call to book, a **Book a call**
+link; where you have no mentor and there is no booking page for your country, the link is left out and the
+email names the program's contact address instead. A call you have booked for a later date counts as being in touch, and the days are counted from
+your track's start date when it comes after your last visit, so nobody is quiet before their track
+begins. It is a nudge, never a
+penalty. The site may also send you one friendly email about it for each stretch of quiet, and the
+email brings you to this note. Signing in to read it does not take the note away, so its button is
+there when you arrive; saving your report or booking a call takes it away at once.
 
 If you have already talked with your mentor or with the program, press **We've already talked**
-under the note. That counts as being in touch, the note goes away and no more is sent about that
-stretch. Your mentor and the program's Administrators can press it for you.
+under the note. That counts as being in touch: the note gives way to a line saying it was noted, and
+no more is sent about that stretch. Your mentor and the program's Administrators can press it for
+you. A new stretch of quiet, and with it one more email, starts only once you have been active again
+after the email went.
 
 ### Arranging your Student Report Card
 

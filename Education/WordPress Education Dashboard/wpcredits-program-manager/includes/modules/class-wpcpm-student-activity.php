@@ -53,6 +53,20 @@ final class WPCPM_Student_Activity {
 	 * @return array{at:int,kind:string} Kind: sign_in, visit, call, report, edited, talked or start.
 	 */
 	public static function last( $user_id, $now = 0 ) {
+		return self::last_of( $user_id, self::times( $user_id, $now ) );
+	}
+
+	/**
+	 * Each kind of activity of a student, at its own latest time: the stamps `last()` folds into one
+	 * answer, handed out one by one for a caller that has to leave one kind out, as the Student Report
+	 * Card's notice leaves out the sign-in and the visit of the return that brought the student to it.
+	 *
+	 * @param int $user_id The student's account.
+	 * @param int $now     Unix time to read calls against; 0 for the current time.
+	 * @return array<string,int> sign_in, visit, report, edited, talked and call, in that order; 0 for
+	 *                           a kind with none.
+	 */
+	public static function times( $user_id, $now = 0 ) {
 		$user_id = (int) $user_id;
 		$now     = $now > 0 ? (int) $now : time();
 		$found   = array();
@@ -67,17 +81,29 @@ final class WPCPM_Student_Activity {
 		$found['talked'] = ( is_array( $talked ) && isset( $talked['at'] ) && is_numeric( $talked['at'] ) ) ? (int) $talked['at'] : 0;
 		$found['call']   = self::latest_call( $user_id, $now );
 
+		return $found;
+	}
+
+	/**
+	 * The one answer from each kind's time (`times()`): the latest of them, or the clock start when
+	 * that is later.
+	 *
+	 * @param int   $user_id The student's account, whose clock start is read.
+	 * @param array $times   Kind => Unix time, as `times()` gives them; a kind left at 0 is none.
+	 * @return array{at:int,kind:string}
+	 */
+	public static function last_of( $user_id, array $times ) {
 		// Ties go to the first kind listed, so the answer is stable.
 		$best = array(
 			'at'   => 0,
 			'kind' => '',
 		);
 
-		foreach ( $found as $kind => $at ) {
-			if ( $at > $best['at'] ) {
+		foreach ( $times as $kind => $at ) {
+			if ( (int) $at > $best['at'] ) {
 				$best = array(
 					'at'   => (int) $at,
-					'kind' => $kind,
+					'kind' => (string) $kind,
 				);
 			}
 		}
@@ -126,6 +152,31 @@ final class WPCPM_Student_Activity {
 		}
 
 		return $at;
+	}
+
+	/**
+	 * Which of the two dates the clock start is (`clock_start()`): the track's start when it parses and
+	 * is the later, the account's registration otherwise, a tie included. So a card can say "Track
+	 * started" or "Account made" for a student never seen since, rather than naming one date for both.
+	 *
+	 * @param int $user_id The student's account.
+	 * @return string 'track' or 'account'.
+	 */
+	public static function clock_start_from( $user_id ) {
+		$user_id    = (int) $user_id;
+		$user       = get_userdata( $user_id );
+		$registered = 0;
+
+		if ( $user && ! empty( $user->user_registered ) ) {
+			$parsed     = strtotime( $user->user_registered . ' UTC' );
+			$registered = false === $parsed ? 0 : (int) $parsed;
+		}
+
+		$program = WPCPM_Students_Sync::get_program( $user_id );
+		$start   = ( is_array( $program ) && isset( $program['start'] ) ) ? trim( (string) $program['start'] ) : '';
+		$parsed  = '' !== $start ? strtotime( $start . ' UTC' ) : false;
+
+		return ( false !== $parsed && (int) $parsed > $registered ) ? 'track' : 'account';
 	}
 
 	/**

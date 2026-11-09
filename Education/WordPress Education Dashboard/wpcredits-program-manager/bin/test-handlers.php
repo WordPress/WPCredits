@@ -2242,6 +2242,15 @@ ob_start();
 WPCPM_Call_Calendar::render_student( $GLOBALS['users'][30], true );
 $managed_page = ob_get_clean();
 $booked_col   = (string) strstr( $managed_page, 'wpcpm-calls__col--pick', true );
+// What the Student Report Card hands the section to say first, the quiet notice (Release B, the trial's
+// F1): printed inside the section under its heading, so it has the section's inset and the module's
+// arrows, which sit on the heading's line, are not over it.
+ob_start();
+WPCPM_Call_Calendar::render_student( $GLOBALS['users'][30], true, '<div class="wpcpm-quiet__notice">LEAD</div>' );
+$with_lead = (string) ob_get_clean();
+check( 'calls_section_prints_lead_under_heading: the lead is inside the calls section, right under its heading and before the columns',
+	array( substr_count( $with_lead, 'LEAD' ), 1 === preg_match( '#^<section class="wpcpm-student__section wpcpm-calls" id="wpcpm-calls"><h3 class="wpcpm-student__heading">My mentor call</h3><div class="wpcpm-quiet__notice">LEAD</div>#', $with_lead ), strpos( $with_lead, 'LEAD' ) < strpos( $with_lead, 'wpcpm-calls__cols' ) ),
+	array( 1, true, true ) );
 $sessions_col = (string) strstr( $managed_page, 'wpcpm-sessions--student' );
 
 check( 'on a student\'s page a manager sees no session in the booked column, and Leave for the student in the sessions list',

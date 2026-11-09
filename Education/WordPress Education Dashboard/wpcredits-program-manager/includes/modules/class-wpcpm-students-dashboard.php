@@ -59,6 +59,7 @@ class WPCPM_Students_Dashboard {
 	const FIELD_ASYNC     = 'wpcpm_async';
 
 	/** The modules. The constants are the keys the order is saved by, so they never change. */
+	const MODULE_START   = 'start';
 	const MODULE_UPDATES = 'updates';
 	const MODULE_COURSE  = 'course';
 	const MODULE_FORMS   = 'forms';
@@ -407,6 +408,7 @@ class WPCPM_Students_Dashboard {
 	 */
 	public static function modules() {
 		return array(
+			self::MODULE_START   => __( 'Your first weeks', 'wpcredits-program-manager' ),
 			self::MODULE_UPDATES => __( 'Program updates and resources', 'wpcredits-program-manager' ),
 			self::MODULE_COURSE  => __( 'My course', 'wpcredits-program-manager' ),
 			self::MODULE_FORMS   => __( 'Report form and feedback forms', 'wpcredits-program-manager' ),
@@ -557,6 +559,14 @@ class WPCPM_Students_Dashboard {
 		$name = '';
 
 		switch ( $key ) {
+			case self::MODULE_START:
+				// The first-week checklist: only for a new student while its switch is on, else nothing
+				// is printed and the module is left out.
+				if ( class_exists( 'WPCPM_Student_Checklist' ) ) {
+					echo WPCPM_Student_Checklist::render( $student, $viewer ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render(), which escapes every value it interpolates.
+				}
+				break;
+
 			case self::MODULE_COURSE:
 				// The course and the hours: what a student opens this page to reach. With no course
 				// the module is the hours alone, and its mover says so (TRACKS-3). A track's partners
@@ -576,12 +586,14 @@ class WPCPM_Students_Dashboard {
 			case self::MODULE_CALLS:
 				// Spanning the card: a month calendar wants more width than half a card gives it,
 				// and it splits into its own two columns, booked calls beside the picker. A student who
-				// has gone quiet reads one paragraph first, with the button "We've already talked".
-				if ( class_exists( 'WPCPM_Student_Flags' ) ) {
-					echo WPCPM_Student_Flags::student_notice( $student, (int) $viewer->ID ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by student_notice(), which escapes every value it prints.
-				}
-
-				WPCPM_Call_Calendar::render_student( $student, $can_manage );
+				// has gone quiet reads one paragraph first, with the button "We've already talked",
+				// inside the section under its heading, where it has the section's inset and the
+				// module's arrows are not over it (Release B, the trial's F1).
+				WPCPM_Call_Calendar::render_student(
+					$student,
+					$can_manage,
+					class_exists( 'WPCPM_Student_Flags' ) ? WPCPM_Student_Flags::student_notice( $student, (int) $viewer->ID ) : ''
+				);
 				break;
 
 			case self::MODULE_UPDATES:
@@ -592,7 +604,13 @@ class WPCPM_Students_Dashboard {
 				// on the student's own page while the student never would.
 				// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
 				// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
-				echo WPCPM_Handbook_Assistant::render_resources( 'student' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
+				// The Start here page's link rides under the buttons while that page is published.
+				$start_url = WPCPM_Start_Pages::start_url();
+				$extra     = '' !== $start_url
+					? '<p class="wpcpm-student__note"><a href="' . esc_url( $start_url ) . '">' . esc_html__( 'New here? Start here for your first week.', 'wpcredits-program-manager' ) . '</a></p>'
+					: '';
+
+				echo WPCPM_Handbook_Assistant::render_resources( 'student', $extra ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates; the extra is escaped above.
 				break;
 
 			case self::MODULE_TOOLS:

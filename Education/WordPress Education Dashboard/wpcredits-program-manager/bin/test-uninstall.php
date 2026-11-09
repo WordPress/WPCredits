@@ -684,6 +684,9 @@ $named_options = array(
 	'wpcpm_student_flags_on_since',        // WPCPM_Student_Flags::OPT_ON_SINCE.
 	'wpcpm_student_flags_weekly',          // WPCPM_Student_Flags::OPT_WEEKLY.
 	'wpcpm_student_flags_lock',            // WPCPM_Student_Flags::LOCK: a run that died holding it.
+	'wpcpm_student_checklist_on_since',    // WPCPM_Student_Checklist::OPT_ON_SINCE.
+	'wpcpm_start_here_page_id',            // WPCPM_Start_Pages::OPT_START.
+	'wpcpm_team_matcher_page_id',          // WPCPM_Start_Pages::OPT_MATCHER.
 	'wpcpm_airtable_backoff',              // WPCPM_Airtable::BACKOFF_OPTION.
 	'wpcpm_outcome_figures',               // WPCPM_Outcome_Figures::OPTION.
 	'wpcpm_outcome_figures_run',           // WPCPM_Outcome_Figures::RUN_OPTION.
@@ -1337,10 +1340,41 @@ $names = array(
 	'WPCPM_Student_Flags::OPT_ON_SINCE'             => 'wpcpm_student_flags_on_since',
 	'WPCPM_Student_Flags::OPT_WEEKLY'               => 'wpcpm_student_flags_weekly',
 	'WPCPM_Student_Flags::LOCK'                     => 'wpcpm_student_flags_lock',
+	'WPCPM_Student_Checklist::OPT_ON_SINCE'         => 'wpcpm_student_checklist_on_since',
+	'WPCPM_Start_Pages::OPT_START'                  => 'wpcpm_start_here_page_id',
+	'WPCPM_Start_Pages::OPT_MATCHER'                => 'wpcpm_team_matcher_page_id',
 	'WPCPM_Student_Flags::META_REMINDED'            => 'wpcpm_student_reminded',
+	'WPCPM_Student_Activity::META_REPORT'           => 'wpcpm_last_report_save',
+	'WPCPM_Student_Activity::META_EDITED'           => 'wpcpm_report_edited',
+	'WPCPM_Student_Activity::META_TALKED'           => 'wpcpm_student_talked',
 );
 
 ck( 'the names seeded above are the ones the classes declare', array_map( 'declared', array_keys( $names ) ), array_values( $names ) );
+
+echo "\n=== The Students module's own clean-up (Release B, the release review's 5) ===\n";
+
+// `WPCPM_Students::uninstall()` runs whenever the module's data is cleared, not only as part of the
+// file above, which removes these keys itself; so the module's own list is pinned apart. A student
+// with every key the student automation keeps, then the module's clean-up alone.
+$GLOBALS['umeta'][ $student ] = array(
+	'wpcpm_last_report_save' => 1792000000,                                         // WPCPM_Student_Activity::META_REPORT.
+	'wpcpm_report_edited'    => 1792000000,                                         // WPCPM_Student_Activity::META_EDITED.
+	'wpcpm_student_talked'   => array( 'at' => 1792000000, 'by' => $admin ),       // WPCPM_Student_Activity::META_TALKED.
+	'wpcpm_student_reminded' => array( 'for' => 1792000000, 'at' => 1792100000 ), // WPCPM_Student_Flags::META_REMINDED.
+	'nickname'               => 'student-one',
+);
+$GLOBALS['umeta'][ $student ]['wpcpm_checklist_ticks'] = array( 'welcome' => 1792000000 ); // WPCPM_Student_Checklist::META_TICKS.
+$GLOBALS['opts']['wpcpm_student_checklist_on_since'] = 1792000000;                         // WPCPM_Student_Checklist::OPT_ON_SINCE.
+$GLOBALS['opts']['wpcpm_start_here_page_id']         = 41;                                 // WPCPM_Start_Pages::OPT_START.
+$GLOBALS['opts']['wpcpm_team_matcher_page_id']       = 42;                                 // WPCPM_Start_Pages::OPT_MATCHER.
+( new WPCPM_Students() )->uninstall();
+ck( 'module_uninstall_removes_checklist_data: the module\'s clean-up removes the checklist switch time, both start page IDs and each student\'s ticks', array(
+	isset( $GLOBALS['opts']['wpcpm_student_checklist_on_since'] ),
+	isset( $GLOBALS['opts']['wpcpm_start_here_page_id'] ),
+	isset( $GLOBALS['opts']['wpcpm_team_matcher_page_id'] ),
+	isset( $GLOBALS['umeta'][ $student ]['wpcpm_checklist_ticks'] ),
+), array( false, false, false, false ) );
+ck( 'module_uninstall_removes_activity_records: the module\'s clean-up removes the report save, the Airtable edit, the talked stamp with who pressed it, and the reminder, and the account\'s own row stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
 
 // The Learn copies have no constant: the class builds each name where it reads and writes it.
 $learn = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-wpcpm-learn.php' );

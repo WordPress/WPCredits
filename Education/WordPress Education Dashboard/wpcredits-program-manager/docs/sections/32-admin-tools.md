@@ -41,7 +41,10 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 The plugin's emails, grouped by area, each area in a table of its own. There are nine:
 
-- **Invitations**: the student's, the mentor's, which since 1.122.33 carries the welcome a new mentor
+- **Invitations**: the student's, which since 1.123.61 can carry a line *Your first week, step by step:*
+  with the address of the Start here page, through the optional placeholder `{start_here_link}`, left
+  out together with its label while that page is not published (an email already edited keeps its
+  text, and shows as changed in the shipped text until it is reset), the mentor's, which since 1.122.33 carries the welcome a new mentor
   is sent, and the sponsor's invitation, and the institution's two, one for an institution whose
   Collaboration Agreement is not on file yet and one for an institution whose agreement is on file.
 - **Mentor calls**: what the mentor and the students are told about one-to-one calls, group sessions
@@ -99,11 +102,17 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   emails** is set, so an answer reaches the program.
 - **Quiet students** (since 1.123.60): the three emails of the daily list of quiet students, sent
   only while the **Daily list** setting is On. The student gets a friendly note once for each
-  stretch of quiet, with the days, the mentor's name, a link to book a call and a link to the Student
-  Report Card, where **We've already talked** is. The mentor gets one email a day with the students
-  just reminded. Each Administrator who is the contact for a country gets one email on Monday with
-  the quiet students of that country, most quiet first, and a link to the *Students gone quiet* card.
-  None says anything about a penalty.
+  stretch of quiet: how many days since they were last seen, or, for a student not seen since their
+  track started or their account was made, how many days ago that was, each in a sentence of its own
+  with its own placeholder; the mentor's name and the name of the Administrator for their country,
+  each in a sentence left out for a student who has none; a link to book a call, or, for a student with
+  no mentor and no booking page for their country, who has nothing to book, the address in **Contact
+  address in emails**; and a link to the Student Report Card, where **We've already talked** is. The mentor gets one email a day with the
+  students just reminded whose reminder went out, and its subject and first line give their number,
+  so one student reads as right as several. Each Administrator who is the contact for a country gets
+  one email on Monday with the quiet students of that country, most quiet first, and a link to the
+  *Students gone quiet* card. Each list is written in the language of the person it goes to. None
+  says anything about a penalty.
 
 Where an email is two, as the mentor's confirmations with and without a meeting link and the others
 above are, each of the two is edited on its own: an edit of one leaves the other as shipped. So an

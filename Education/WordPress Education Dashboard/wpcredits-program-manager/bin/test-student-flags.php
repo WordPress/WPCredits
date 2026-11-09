@@ -23,6 +23,10 @@
  * - "We've already talked" drops one student's row from the snapshot at once.
  * - The press is allowed for the student, their mentor and an Administrator, refused for any
  *   other mentor and for a bad nonce; it writes the talked stamp and drops the snapshot row.
+ * - Release B: a row's reminder is its stretch's while no activity came after the reminder went; a
+ *   student who is their own mentor has none; a never-seen row says where its clock started; a press
+ *   leaves a one-shot line for its page; the form prints its nonce without core's repeated id; and
+ *   the three senders are private, reached through the daily job.
  *
  * Run from the plugin root:  php bin/test-student-flags.php
  */
@@ -77,12 +81,29 @@ function wp_schedule_event( $at, $recurrence, $hook ) { $GLOBALS['cron'][ $hook 
 function wp_clear_scheduled_hook( $hook ) { unset( $GLOBALS['cron'][ $hook ] ); }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function current_user_can( $cap ) { return isset( $GLOBALS['users'][ $GLOBALS['uid'] ] ) && user_can( $GLOBALS['users'][ $GLOBALS['uid'] ], $cap ); }
-function check_admin_referer( $action ) { if ( empty( $GLOBALS['nonce_ok'] ) || $GLOBALS['nonce_ok'] !== $action ) { throw new Exception( 'nonce' ); } }
+// As core's: the nonce is read from $_REQUEST, which WordPress builds as GET merged with POST. The press() helper below
+// sets a flag instead and compares the action, which is all most checks here need.
+function check_admin_referer( $action ) {
+	if ( ! empty( $GLOBALS['nonce_from_request'] ) ) {
+		if ( ! isset( $_REQUEST['_wpnonce'] ) || wp_create_nonce( $action ) !== $_REQUEST['_wpnonce'] ) {
+			throw new Exception( 'nonce' );
+		}
+		return 1;
+	}
+	if ( empty( $GLOBALS['nonce_ok'] ) || $GLOBALS['nonce_ok'] !== $action ) { throw new Exception( 'nonce' ); }
+}
+function add_query_arg( $key, $value, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . $value; }
 function wp_die( $message = '', $code = 0 ) { throw new Exception( 'die' . $code ); }
 function wp_safe_redirect( $url ) { throw new Exception( 'redirect:' . $url ); }
 function home_url( $path = '' ) { return 'https://example.test' . $path; }
 function admin_url( $path = '' ) { return 'https://example.test/wp-admin/' . $path; }
-function wp_nonce_field( $action ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . $action . '" />'; }
+// As core prints them: the nonce field carries an id, the same on every form of a page, and a referer field.
+function wp_nonce_field( $action ) { echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="nonce-' . $action . '" /><input type="hidden" name="_wp_http_referer" value="/here/" />'; }
+function wp_create_nonce( $action ) { return 'nonce-' . $action; }
+function wp_referer_field( $display = true ) { $field = '<input type="hidden" name="_wp_http_referer" value="/here/" />'; if ( $display ) { echo $field; } return $field; }
+function wp_cache_delete( $key, $group = '' ) { return true; }
+function wp_cache_set_posts_last_changed() {}
+function maybe_unserialize( $data ) { return is_string( $data ) && preg_match( '/^(a|s|i|b|d|N):/', $data ) ? unserialize( $data ) : $data; }
 function __( $s ) { return $s; }
 function esc_html__( $s ) { return htmlspecialchars( $s ); }
 function esc_attr__( $s ) { return htmlspecialchars( $s ); }
@@ -93,6 +114,10 @@ function wp_date( $format, $timestamp = null ) { return gmdate( $format, (int) $
 function wp_mail() { $GLOBALS['mails'][] = func_get_args(); return true; }
 
 // Stand-ins for the classes whose answers the flags read.
+class WPCPM_Flash {
+	public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][ $channel ] = $value; }
+	public static function take( $channel, $user_id = 0 ) { return isset( $GLOBALS['flash'][ $channel ] ) ? $GLOBALS['flash'][ $channel ] : ''; }
+}
 class WPCPM_Lock {
 	public static function take( $name, $ttl ) { return '123'; }
 	public static function release( $name, $token ) { return true; }
@@ -161,7 +186,7 @@ class WPCPM_Countries {
 		if ( empty( $GLOBALS['seed_countries'][ $id ]['has_email'] ) ) {
 			return null;
 		}
-		return array( 'name' => $GLOBALS['seed_countries'][ $id ]['name'], 'manager' => '', 'email' => 'contact-' . $id . '@example.test', 'calendly' => '' );
+		return array( 'name' => $GLOBALS['seed_countries'][ $id ]['name'], 'manager' => '', 'email' => 'contact-' . $id . '@example.test', 'calendly' => isset( $GLOBALS['calendly'] ) ? $GLOBALS['calendly'] : '' );
 	}
 }
 class WPCPM_Test_Institutions {
@@ -200,6 +225,8 @@ function reset_all() {
 	$GLOBALS['mails']      = array();
 	$GLOBALS['uid']        = 0;
 	$GLOBALS['nonce_ok']   = '';
+	$GLOBALS['flash']      = array();
+	unset( $GLOBALS['calendly'] );
 	unset( $GLOBALS['referer'] );
 	$_POST = array();
 }
@@ -367,7 +394,7 @@ ck( 'a student already reminded for this spell would not', array( $by_id[3]['wou
 ck( 'a student reminded for an earlier spell would be again', $by_id[4]['would_remind'], true );
 ck( 'and nothing is mailed', $GLOBALS['mails'], array() );
 ck( 'the row has exactly the shape the card and the mail read', array_keys( $by_id[1] ),
-	array( 'user_id', 'record', 'name', 'days', 'last_at', 'last_kind', 'mentor_id', 'manager_id', 'test', 'reminded_at', 'would_remind' ) );
+	array( 'user_id', 'record', 'name', 'days', 'last_at', 'last_kind', 'mentor_id', 'manager_id', 'test', 'reminded_at', 'would_remind', 'start_from' ) );
 
 reset_all();
 $GLOBALS['settings']['student_flags_mode'] = 'on';
@@ -396,6 +423,65 @@ student( 1, 30 );
 $GLOBALS['umeta'][1][ WPCPM_Student_Flags::META_REMINDED ] = array( 'for' => $T - 30 * $D + 3600, 'at' => $T - 20 * $D );
 ck( 'would_remind is false when last activity moved back before the reminded spell (same stretch)', WPCPM_Student_Flags::rows( $T )[0]['would_remind'], false );
 ck( 'reminded_after_activity_moved_back: and the row still says when that reminder went, by the rule the sending skips by', WPCPM_Student_Flags::rows( $T )[0]['reminded_at'], $T - 20 * $D );
+
+echo "\n=== A new stretch needs activity after the reminder went (Release B, the release review's 4) ===\n";
+reset_all();
+student( 1, 30 ); // Last active 30 days ago.
+// Reminded 25 days ago for a stretch from 40 days ago: the activity learned since (30 days ago) is
+// older than the reminder, so it is the same stretch.
+$GLOBALS['umeta'][1][ WPCPM_Student_Flags::META_REMINDED ] = array( 'for' => $T - 40 * $D, 'at' => $T - 25 * $D );
+$late = WPCPM_Student_Flags::rows( $T )[0];
+ck( 'reminded_rule_uses_sent_time: activity older than the reminder, though newer than the stretch it was for, keeps the reminder on the row and would remind nobody', array( $late['reminded_at'], $late['would_remind'] ), array( $T - 25 * $D, false ) );
+$GLOBALS['umeta'][1][ WPCPM_Student_Flags::META_REMINDED ] = array( 'for' => $T - 40 * $D, 'at' => $T - 35 * $D );
+$fresh = WPCPM_Student_Flags::rows( $T )[0];
+ck( 'and activity after the reminder went is a new stretch: no reminder on the row, one would go', array( $fresh['reminded_at'], $fresh['would_remind'] ), array( 0, true ) );
+
+echo "\n=== A student who is their own mentor has no mentor (Release B, the trial's F3) ===\n";
+reset_all();
+student( 1, 30 );
+$GLOBALS['users'][1]->roles[] = 'wpcpm_mentor';
+$GLOBALS['mentors'][1]        = 1; // Their student row names their own mentor record.
+ck( 'self_mentor_is_no_mentor: the row names no mentor', WPCPM_Student_Flags::rows( $T )[0]['mentor_id'], 0 );
+
+echo "\n=== Where a student can book a call (fix round 1) ===\n";
+reset_all();
+student( 1, 30, 'In Sensei', $real_inst ); // A mentor.
+person( 77 );
+$GLOBALS['mentors'][1] = 77;
+student( 2, 30, 'In Sensei', $real_inst ); // No mentor; the country's booking page, once set below.
+student( 3, 30, 'In Sensei', $real_inst ); // No mentor, and no booking page.
+$none_yet             = method_exists( 'WPCPM_Student_Flags', 'can_book' ) ? array( WPCPM_Student_Flags::can_book( 2 ), WPCPM_Student_Flags::booking_link( 2 ) ) : 'missing';
+$GLOBALS['calendly'] = 'https://calendly.test/admin';
+ck( 'can_book_three_cases: with a mentor the calls section, with the country\'s booking page only that page, with neither nothing to book, and the link falls back to the Student Report Card, which offers none', method_exists( 'WPCPM_Student_Flags', 'can_book' ) ? array(
+	array( WPCPM_Student_Flags::can_book( 1 ), WPCPM_Student_Flags::booking_link( 1 ) ),
+	array( WPCPM_Student_Flags::can_book( 2 ), WPCPM_Student_Flags::booking_link( 2 ) ),
+	$none_yet,
+) : 'missing', array(
+	array( true, 'https://example.test/student/#wpcpm-module-calls' ),
+	array( true, 'https://calendly.test/admin' ),
+	array( false, 'https://example.test/student/' ),
+) );
+
+echo "\n=== Where a never-seen student's clock started (Release B, the trial's F6) ===\n";
+reset_all();
+student( 1, 30 );
+unset( $GLOBALS['umeta'][1][ WPCPM_Sign_Ins::META_SIGN_IN ] );
+$GLOBALS['users'][1]->user_registered = gmdate( 'Y-m-d H:i:s', $T - 40 * $D );
+$GLOBALS['programs'][1]['start']      = gmdate( 'Y-m-d', $T - 20 * $D ); // The track began after the account.
+student( 2, 30 );
+unset( $GLOBALS['umeta'][2][ WPCPM_Sign_Ins::META_SIGN_IN ] );
+$GLOBALS['users'][2]->user_registered = gmdate( 'Y-m-d H:i:s', $T - 40 * $D );
+$GLOBALS['programs'][2]['start']      = gmdate( 'Y-m-d', $T - 60 * $D ); // The account was made after the track began.
+student( 3, 30 ); // Seen: signed in 30 days ago.
+$by_id = array();
+foreach ( WPCPM_Student_Flags::rows( $T ) as $row ) {
+	$by_id[ $row['user_id'] ] = $row;
+}
+ck( 'start_from_on_row: a never-seen student\'s row says whether the clock started with the track or the account, and a seen one\'s says nothing', array(
+	isset( $by_id[1]['start_from'] ) ? array( $by_id[1]['last_kind'], $by_id[1]['start_from'] ) : 'missing',
+	isset( $by_id[2]['start_from'] ) ? array( $by_id[2]['last_kind'], $by_id[2]['start_from'] ) : 'missing',
+	isset( $by_id[3]['start_from'] ) ? array( $by_id[3]['last_kind'], $by_id[3]['start_from'] ) : 'missing',
+), array( array( 'start', 'track' ), array( 'start', 'account' ), array( 'sign_in', '' ) ) );
 
 echo "\n=== The on-since time: the latest move into On (final review ruling) ===\n";
 reset_all();
@@ -484,6 +570,11 @@ talked_setup();
 ck( 'talked_by_student: the student presses for themself and goes back to the Student Report Card', press( 1, 1 ), 'redirect:https://example.test/student/' );
 ck( 'and the press writes the talked stamp with who pressed it', array( array_keys( $GLOBALS['umeta'][1]['wpcpm_student_talked'] ), $GLOBALS['umeta'][1]['wpcpm_student_talked']['by'] ), array( array( 'at', 'by' ), 1 ) );
 ck( 'and drops the student\'s snapshot row at once, leaving the other', ids_of( WPCPM_Student_Flags::snapshot()['rows'] ), array( 2 ) );
+$said = isset( $GLOBALS['flash']['student-talked'] ) ? $GLOBALS['flash']['student-talked'] : null;
+ck( 'talked_press_leaves_a_line: the press leaves a one-shot note for the page it lands on, naming the student it was made for', is_array( $said ) ? array( $said['student'], $said['name'], is_int( $said['at'] ) ) : 'missing', array( 1, 'Student 1', true ) );
+talked_setup();
+press( 51, 1 );
+ck( 'and a refused press leaves none', isset( $GLOBALS['flash']['student-talked'] ), false );
 
 talked_setup();
 ck( 'talked_by_mentor: the student\'s mentor may', press( 50, 1 ), 'redirect:https://example.test/student/' );
@@ -511,6 +602,48 @@ talked_setup();
 ck( 'from the Administrator Dashboard\'s card it lands on that card', press( 60, 1, true, array( 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'quiet-students' ) ), 'redirect:https://example.test/admin/#wpcpm-quiet-students' );
 ck( 'init hangs the handler on admin-post', ( function () { reset_all(); $GLOBALS['hooks'] = array(); WPCPM_Student_Flags::init(); return isset( $GLOBALS['hooks']['admin_post_wpcpm_student_talked'] ); } )(), true );
 
+// The Administrator Dashboard card's one form (Release B, the final review): each row's button carries that
+// row's nonce in its formaction address and the student in its value, and a press posts the form with the
+// button's formaction. WordPress builds $_REQUEST as GET merged with POST, so the stand-in is built the same way,
+// from the markup the button really prints.
+function card_press( $as, $button_markup, $student_override = null ) {
+	preg_match( '/value="(\d+)" formaction="([^"]*)"/', $button_markup, $found );
+	parse_str( (string) parse_url( $found[2], PHP_URL_QUERY ), $get );
+	$GLOBALS['uid']                = $as;
+	$GLOBALS['nonce_from_request'] = true;
+	$_GET                          = $get;
+	$_POST                         = array( 'action' => WPCPM_Student_Flags::ACTION_TALKED, 'student' => null === $student_override ? (int) $found[1] : $student_override, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'quiet-students' );
+	$_REQUEST                      = array_merge( $_GET, $_POST );
+	$outcome                       = 'returned';
+	try {
+		WPCPM_Student_Flags::handle_talked();
+	} catch ( Exception $e ) {
+		$outcome = $e->getMessage();
+	}
+	$GLOBALS['nonce_from_request'] = false;
+	$_GET = $_POST = $_REQUEST = array();
+	return $outcome;
+}
+talked_setup();
+$button_one = WPCPM_Student_Flags::talked_button( 1, 'Student 1' );
+$button_two = WPCPM_Student_Flags::talked_button( 2, 'Student 2' );
+ck( 'talked_card_form_button: a row\'s button posts the student in its value and that student\'s nonce in its formaction address', array(
+	false !== strpos( $button_one, 'name="student" value="1"' ),
+	false !== strpos( $button_one, 'formaction="https://example.test/wp-admin/admin-post.php?_wpnonce=nonce-wpcpm_student_talked_1"' ),
+), array( true, true ) );
+ck( 'and the card\'s one form carries the action and the way back, with no nonce or student of its own', array(
+	false !== strpos( WPCPM_Student_Flags::talked_card_form( 'quiet-students' ), 'name="action" value="wpcpm_student_talked"' ),
+	false !== strpos( WPCPM_Student_Flags::talked_card_form( 'quiet-students' ), '_wpnonce' ),
+	false !== strpos( WPCPM_Student_Flags::talked_card_form( 'quiet-students' ), 'name="student"' ),
+), array( true, false, false ) );
+ck( 'talked_card_press: a press of student 1\'s button is accepted for student 1 and lands on the card', card_press( 60, $button_one ), 'redirect:https://example.test/admin/#wpcpm-quiet-students' );
+ck( 'and writes the stamp for student 1 only, and drops that row', array( isset( $GLOBALS['umeta'][1]['wpcpm_student_talked'] ), isset( $GLOBALS['umeta'][2]['wpcpm_student_talked'] ), ids_of( WPCPM_Student_Flags::snapshot()['rows'] ) ), array( true, false, array( 2 ) ) );
+talked_setup();
+ck( 'talked_card_wrong_student: student 1\'s nonce with student 2 in the POST is refused', card_press( 60, $button_one, 2 ), 'nonce' );
+ck( 'and student 2\'s nonce with student 1 in the POST is refused as well', card_press( 60, $button_two, 1 ), 'nonce' );
+ck( 'and nothing was written or dropped', array( isset( $GLOBALS['umeta'][1]['wpcpm_student_talked'] ), isset( $GLOBALS['umeta'][2]['wpcpm_student_talked'] ), ids_of( WPCPM_Student_Flags::snapshot()['rows'] ) ), array( false, false, array( 2, 1 ) ) );
+ck( 'a press with no nonce in the address is refused', ( function () use ( $button_one ) { return card_press( 60, str_replace( '?_wpnonce=nonce-wpcpm_student_talked_1', '', $button_one ) ); } )(), 'nonce' );
+
 reset_all();
 person( 1 );
 $form = WPCPM_Student_Flags::talked_form( 1 );
@@ -523,6 +656,19 @@ ck( 'talked_form posts admin-post with the action, the student, the nonce and th
 ), array( true, true, true, true, true ) );
 ck( 'a given label is used and escaped; no card means no return fields', array( false !== strpos( WPCPM_Student_Flags::talked_form( 1, 'Talked <b>' ), 'Talked &lt;b&gt;' ), false === strpos( $form, 'wpcpm_return' ) ), array( true, true ) );
 ck( 'a card key adds the dashboard return fields', false !== strpos( WPCPM_Student_Flags::talked_form( 1, '', 'quiet-students' ), 'name="wpcpm_return_to" value="quiet-students"' ), true );
+ck( 'talked_form_no_repeated_id: the nonce goes without the id core gives it, which every such form on a page would repeat, and the way back stays', array(
+	substr_count( $form, 'id="_wpnonce"' ),
+	substr_count( $form, 'name="_wpnonce" value="nonce-wpcpm_student_talked_1"' ),
+	substr_count( $form, 'name="_wp_http_referer"' ),
+), array( 0, 1, 1 ) );
+
+echo "\n=== Only the daily job sends (Release B, parked item 14) ===\n";
+$senders = array();
+foreach ( array( 'remind', 'digest', 'weekly' ) as $sender ) {
+	$method              = new ReflectionMethod( 'WPCPM_Student_Flags', $sender );
+	$senders[ $sender ] = array( $method->isPrivate(), array_map( static function ( $p ) { return $p->getName(); }, $method->getParameters() ) );
+}
+ck( 'senders_private: the three senders are the class\'s own, reached through the daily job alone, and the digest takes no time it does not read', array( $senders['remind'][0], $senders['digest'][0], $senders['weekly'][0], in_array( 'now', $senders['digest'][1], true ) ), array( true, true, true, false ) );
 
 echo "\n=== The settings, as the flags read them ===\n";
 reset_all();

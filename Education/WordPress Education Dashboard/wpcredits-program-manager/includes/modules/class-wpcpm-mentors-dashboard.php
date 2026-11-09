@@ -684,6 +684,11 @@ class WPCPM_Mentors_Dashboard {
 				);
 			}
 
+			// Whether the reader may press "We've already talked" on this page's quiet lines: one
+			// answer for the page, which lists this mentor's own students, rather than a lookup of each
+			// quiet student's mentor (Release B).
+			$may_say = class_exists( 'WPCPM_Student_Flags' ) && WPCPM_Student_Flags::may_say_talked_as_mentor( (int) $mentor->ID );
+
 			// Current students.
 			echo '<section class="wpcpm-group">';
 			printf(
@@ -695,7 +700,7 @@ class WPCPM_Mentors_Dashboard {
 			if ( empty( $current ) ) {
 				echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No students are assigned to you at the moment.', 'wpcredits-program-manager' ) . '</p>';
 			} else {
-				self::render_mentee_list( $current, $mentor->ID );
+				self::render_mentee_list( $current, $mentor->ID, $may_say );
 			}
 			echo '</section>';
 
@@ -719,7 +724,7 @@ class WPCPM_Mentors_Dashboard {
 					'<p class="wpcpm-dashboard__empty">%s</p>',
 					esc_html__( 'Mentoring for these students has finished. Their details and your notes are kept for reference.', 'wpcredits-program-manager' )
 				);
-				self::render_mentee_list( $past, $mentor->ID );
+				self::render_mentee_list( $past, $mentor->ID, $may_say );
 				echo '</div>';
 				echo '</details>';
 				echo '</section>';
@@ -957,12 +962,13 @@ class WPCPM_Mentors_Dashboard {
 	 *
 	 * @param array[] $mentees   Student rows.
 	 * @param int     $mentor_id Mentor whose page is being viewed.
+	 * @param bool    $may_say   Whether the reader may press "We've already talked" here.
 	 */
-	private static function render_mentee_list( array $mentees, $mentor_id ) {
+	private static function render_mentee_list( array $mentees, $mentor_id, $may_say = false ) {
 		echo '<div class="wpcpm-mentees">';
 
 		foreach ( $mentees as $mentee ) {
-			self::render_mentee( $mentee, count( $mentees ), $mentor_id );
+			self::render_mentee( $mentee, count( $mentees ), $mentor_id, $may_say );
 		}
 
 		echo '</div>';
@@ -1071,8 +1077,10 @@ class WPCPM_Mentors_Dashboard {
 	 *                         can be shown already open.
 	 * @param int   $mentor_id Whose page this is, so a note saved by a program
 	 *                         manager returns to the mentor they were inspecting.
+	 * @param bool  $may_say   The page's one answer to whether the reader may press "We've
+	 *                         already talked" on a quiet student's line.
 	 */
-	private static function render_mentee( array $mentee, $total = 0, $mentor_id = 0 ) {
+	private static function render_mentee( array $mentee, $total = 0, $mentor_id = 0, $may_say = false ) {
 		$get = static function ( $key ) use ( $mentee ) {
 			return isset( $mentee[ $key ] ) ? (string) $mentee[ $key ] : '';
 		};
@@ -1098,15 +1106,26 @@ class WPCPM_Mentors_Dashboard {
 			( '' !== $record ) ? ' id="' . esc_attr( WPCPM_Mentor_Notes::anchor( $record ) ) . '"' : ''
 		);
 
+		// A student who has gone quiet: a line, and the button "We've already talked"; right after a
+		// press for them, the line saying it was noted.
+		$quiet = '';
+		$said  = false;
+
+		if ( class_exists( 'WPCPM_Student_Flags' ) && $student instanceof WP_User ) {
+			$quiet = WPCPM_Student_Flags::mentee_line( (int) $student->ID, (bool) $may_say );
+			$said  = WPCPM_Student_Flags::said_for( (int) $student->ID );
+		}
+
 		// A native <details> rather than a scripted toggle: it collapses without
 		// JavaScript, is keyboard operable and screen-reader announced for free, and
 		// a mentor with sixty students gets a list they can actually scan. Opened by
 		// default only when there is a single student, where collapsing helps nobody,
-		// or when a note was just saved against this one - a fragment never reaches
-		// the server, so returning to a closed card would hide the result.
+		// when a note was just saved against this one - a fragment never reaches
+		// the server, so returning to a closed card would hide the result - or when
+		// "We've already talked" was just pressed for them, for the same reason.
 		printf(
 			'<details class="wpcpm-mentee__disclosure"%s>',
-			( 1 === (int) $total || $focused ) ? ' open' : ''
+			( 1 === (int) $total || $focused || $said ) ? ' open' : ''
 		);
 
 		echo '<summary class="wpcpm-mentee__summary">';
@@ -1161,12 +1180,15 @@ class WPCPM_Mentors_Dashboard {
 		echo '<span class="wpcpm-mentee__toggle" aria-hidden="true"></span>';
 		echo '</summary>';
 
-		echo '<div class="wpcpm-mentee__body">';
-
-		// A student who has gone quiet: a line, and the button "We've already talked".
-		if ( class_exists( 'WPCPM_Student_Flags' ) ) {
-			echo WPCPM_Student_Flags::mentee_line( $student instanceof WP_User ? (int) $student->ID : 0 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by mentee_line(), which escapes every value it prints.
+		// The quiet line in a band of its own at the top of the card, above the details: inside the
+		// body it was a cell of the body's two-column grid, and at desktop widths it fell under the
+		// details table (Release B, the trial's F2). The band wears the body's class, for the body's
+		// insets wherever a stylesheet sets them, and its own, which stands the grid down.
+		if ( '' !== $quiet ) {
+			echo '<div class="wpcpm-mentee__body wpcpm-mentee__quiet">' . $quiet . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by mentee_line(), which escapes every value it prints.
 		}
+
+		echo '<div class="wpcpm-mentee__body">';
 
 		// The track the Program row names: the status's, or for a student waiting to graduate the
 		// one they took, which the Hours row's question and target follow too.

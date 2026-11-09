@@ -1398,6 +1398,7 @@ class WPCPM_Settings_Screen {
 
 		$this->render_student_registration_settings( $settings );
 		$this->render_quiet_students_settings( $settings );
+		$this->render_new_students_settings( $settings );
 		$this->render_mentor_application_settings( $settings );
 	}
 
@@ -1501,6 +1502,33 @@ class WPCPM_Settings_Screen {
 			60,
 			__( 'A student with no sign-in, visit, call or report for this many days, from 7 to 60, is quiet.', 'wpcredits-program-manager' )
 		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * The Students and mentors tab's new students section: the switch for the first-week checklist
+	 * card on the Student Report Card. Off by default; the time it first goes on decides who is new.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_new_students_settings( array $settings ) {
+		$this->open_section(
+			__( 'New students', 'wpcredits-program-manager' ),
+			__( 'Whether new students see a first-week checklist on their Student Report Card.', 'wpcredits-program-manager' ),
+			'new-students'
+		);
+
+		$label = __( 'First-week checklist', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="student_checklist_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $label ),
+			checked( ! empty( $settings['student_checklist_enabled'] ), true, false ),
+			esc_html__( 'Show new students the "Your first weeks" card', 'wpcredits-program-manager' ),
+			esc_html__( 'A card of the first things to do, shown only to new students.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $label, array( __( 'Students whose track began in the four weeks before this was turned on, and everyone who joins after, see it. It gates nothing.', 'wpcredits-program-manager' ) ) );
 
 		$this->close_section();
 	}

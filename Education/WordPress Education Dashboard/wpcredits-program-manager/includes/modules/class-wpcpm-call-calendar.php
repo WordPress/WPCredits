@@ -101,8 +101,12 @@ class WPCPM_Call_Calendar {
 	 *
 	 * @param WP_User $student    The student whose page this is.
 	 * @param bool    $can_manage Whether the viewer manages the program.
+	 * @param string  $lead       Escaped markup the section says first, right under its heading: the
+	 *                            Student Report Card's quiet notice. Inside the section it takes the
+	 *                            section's inset, and under the heading it is clear of the module's
+	 *                            arrows, which sit on the heading's line (Release B, the trial's F1).
 	 */
-	public static function render_student( WP_User $student, $can_manage ) {
+	public static function render_student( WP_User $student, $can_manage, $lead = '' ) {
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
 
@@ -127,6 +131,8 @@ class WPCPM_Call_Calendar {
 			'<h3 class="wpcpm-student__heading">%s</h3>',
 			esc_html__( 'My mentor call', 'wpcredits-program-manager' )
 		);
+
+		echo $lead; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by its builder, WPCPM_Student_Flags::student_notice().
 
 		// Above the columns: it reports on the last action, which could have come from
 		// either of them.

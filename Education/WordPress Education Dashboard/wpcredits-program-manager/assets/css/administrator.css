@@ -369,6 +369,9 @@
 	padding-top: 1em;
 }
 
+/* The card's one form around its table (Release B), and the button's own form on the Student Report
+   Card and the Mentor Report Card. */
+.wpcpm-quiet__form,
 .wpcpm-quiet__talked {
 	margin: 0;
 }

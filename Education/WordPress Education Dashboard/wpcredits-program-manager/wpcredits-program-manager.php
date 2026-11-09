@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.123.60
+ * Version:           1.123.61
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.123.60' );
+define( 'WPCPM_VERSION', '1.123.61' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -94,6 +94,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-for
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-feedback.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-activity.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-flags.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-start-pages.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-checklist.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-airtable-row.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration-process.php';

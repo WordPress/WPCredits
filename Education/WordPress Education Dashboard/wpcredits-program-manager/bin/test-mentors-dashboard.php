@@ -160,6 +160,18 @@ class WPCPM_Mentor_Notes {
 	public static function render( $record, $name, $mentor_id ) {}
 }
 
+/**
+ * The quiet students' line (its words are bin/test-student-reminders.php's): a marker for each student
+ * a check names in `$GLOBALS['quiet']`, the decision about the button it was handed, and whether a press
+ * for a student was just made (`$GLOBALS['said']`).
+ */
+class WPCPM_Student_Flags {
+	public static $asked = array(), $lines = array();
+	public static function may_say_talked_as_mentor( $mentor_id ) { self::$asked[] = (int) $mentor_id; return (int) $GLOBALS['uid'] === (int) $mentor_id || current_user_can( 'wpcpm_manage_program' ); }
+	public static function mentee_line( $student_id, $may_say = null, $now = 0 ) { self::$lines[] = array( (int) $student_id, $may_say ); return empty( $GLOBALS['quiet'][ $student_id ] ) ? '' : '<div class="wpcpm-quiet__notice"><!-- quiet ' . (int) $student_id . ' --></div>'; }
+	public static function said_for( $student_id ) { return isset( $GLOBALS['said'] ) && (int) $GLOBALS['said'] === (int) $student_id; }
+}
+
 /** The accounts behind the records: record ID => user ID, from `$GLOBALS['accounts']`. */
 class WPCPM_Students_Sync {
 	const META_PROGRAM = 'wpcpm_student_program';
@@ -418,6 +430,34 @@ $escaped = page_for( 30 );
 ck( 'a value carrying markup is escaped, not rendered', array( strpos( $escaped, '<b>7</b>' ), false !== strpos( $escaped, '&lt;b&gt;7&lt;/b&gt;' ) ), array( false, true ) );
 
 $GLOBALS['umeta'][30][ WPCPM_Mentors_Sync::META_MENTEES ][1]['hours'] = '7.5';
+
+echo "\n=== A quiet student's line, at the top of their card (Release B, the trial's F2, parked items 11 and 16) ===\n";
+
+$GLOBALS['quiet']          = array( 41 => true );
+WPCPM_Student_Flags::$asked = array();
+WPCPM_Student_Flags::$lines = array();
+$quiet_page                = page_for( 30 );
+$ada_card                  = '';
+foreach ( explode( '<article class="wpcpm-mentee"', $quiet_page ) as $card ) {
+	if ( false !== strpos( $card, '<h3 class="wpcpm-mentee__name">Ada Example</h3>' ) ) {
+		$ada_card = $card;
+	}
+}
+ck( 'quiet_line_above_details: the line is the card\'s first content, in a band of its own above the body, out of the two-column grid that put it under the details table', array(
+	1 === preg_match( '#</summary><div class="wpcpm-mentee__body wpcpm-mentee__quiet"><div class="wpcpm-quiet__notice"><!-- quiet 41 --></div></div><div class="wpcpm-mentee__body">#', $ada_card ),
+	substr_count( $quiet_page, 'wpcpm-mentee__quiet' ),
+) , array( true, 1 ) );
+ck( 'one_talked_decision_per_page: the button is decided once for the page, and every quiet line is handed that answer', array( WPCPM_Student_Flags::$asked, WPCPM_Student_Flags::$lines ), array( array( 30 ), array( array( 41, true ) ) ) );
+ck( 'a closed card stays closed with a quiet line', 1 === preg_match( '#<details class="wpcpm-mentee__disclosure">#', $ada_card ), true );
+$GLOBALS['said'] = 41;
+$said_page = page_for( 30 );
+foreach ( explode( '<article class="wpcpm-mentee"', $said_page ) as $card ) {
+	if ( false !== strpos( $card, '<h3 class="wpcpm-mentee__name">Ada Example</h3>' ) ) {
+		$ada_card = $card;
+	}
+}
+ck( 'talked_opens_card: after a press for a student their card is drawn open, so the line saying it was noted is on screen where the press was made', 1 === preg_match( '#<details class="wpcpm-mentee__disclosure" open>#', $ada_card ), true );
+unset( $GLOBALS['said'], $GLOBALS['quiet'] );
 
 echo "\n=== Only the mentor's own students ===\n";
 

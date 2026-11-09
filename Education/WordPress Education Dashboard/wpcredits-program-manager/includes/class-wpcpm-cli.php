@@ -413,6 +413,41 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * Make the Start here page and the Team Matcher page, as the first-week checklist's switch does.
+	 *
+	 * A page that already exists, at its slug or in its option, is kept as it is. The Team Matcher page
+	 * is made only while the Find Your Team plugin is active.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits start_pages
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function start_pages( $args, $assoc_args ) {
+		$ids     = WPCPM_Start_Pages::ensure_pages();
+		$start   = WPCPM_Start_Pages::start_url();
+		$matcher = WPCPM_Start_Pages::matcher_url();
+
+		if ( 0 < $ids['start'] ) {
+			WP_CLI::log( sprintf( 'Start here: page %1$d, %2$s', $ids['start'], $start ? $start : 'not published' ) );
+		} else {
+			WP_CLI::warning( 'The Start here page could not be made.' );
+		}
+
+		if ( 0 < $ids['matcher'] ) {
+			WP_CLI::log( sprintf( 'Team Matcher: page %1$d, %2$s', $ids['matcher'], $matcher ? $matcher : 'not published' ) );
+		} else {
+			WP_CLI::log( 'Team Matcher: no page, because the Find Your Team plugin is not active. Run this again once it is.' );
+		}
+
+		if ( 0 < $ids['start'] ) {
+			WP_CLI::success( 'The start pages are in place.' );
+		}
+	}
+
+	/**
 	 * The stored set, what the homepage may show of it, and the last attempt.
 	 */
 	private function outcome_figures_stored() {

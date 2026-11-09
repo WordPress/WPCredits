@@ -228,9 +228,26 @@ new track counts from the new start. A student with a call or a group session bo
 is not quiet, however long ago it was booked.
 
 The list is made once a day, at 06:00 UTC, and the card says when. Saving the switch as **Off** clears
-the list, so moving back to Preview or On shows no list until the next run makes a fresh one. Once the
-switch is **On**, a quiet student gets one friendly email for each stretch of quiet, and the stretch
-ends the moment they are active again.
+the list, so moving back to Preview or On shows no list until the next run makes a fresh one. A run
+that is sending when Off is saved stops at its next email: nothing more goes out, and the list Off
+cleared is not written back. Once the switch is **On**, a quiet student gets one friendly email for
+each stretch of quiet, and the stretch ends the moment they are active again. A student who was
+reminded is reminded again only when they are active after the reminder went and then quiet for the
+days of quiet once more: an activity the site learns of late, such as an edit to the report in
+Airtable made before the reminder went, does not start a new stretch, and the card keeps the row's
+reminder: **Reminded** on that date, **no reply**.
+
+While the switch is On, the Student Report Card shows the student a note in the **My mentor call**
+block, and the Mentor Report Card a line at the top of the student's card. Both are checked again for
+that student each time the page is drawn, so a student who saved their report, had or booked a call,
+or was marked **We've already talked** since the morning's list shows neither. On the student's own
+card the sign-in and the visit that bring them to it do not count, so the note and its button are
+there when the reminder sends them to it; for the mentor and for an Administrator they do. The
+**Book a call** link is the student's alone: an Administrator viewing the card as the student reads
+the note without it. It is offered only where there is a call to book, with a mentor or on the booking
+page of the Administrator for the student's country; a student with neither is offered none, and their
+reminder names the address in **Contact address in emails** instead, while it holds one. After a press of **We've already talked**, the page it was pressed on says so
+where the button was.
 
 The first reminders go only for stretches that reach the days of quiet after the switch moves to
 **On**, from Off or Preview. A stretch already past them at that moment is never mailed, so turning
@@ -238,14 +255,80 @@ the switch on, or back on after Off, does not write to everyone who is already q
 marks such a student **Not mailed: quiet before the switch went On**. A student who reaches the days
 of quiet later is reminded on the first run that finds them there: with 14 days, a student last
 active 10 days before the switch went On is reminded 4 days after it. A save that leaves the switch
-On changes none of this.
+On keeps the moment it went On, and a new number of days of quiet is measured from that moment: after
+a raise, a student who was past the old number then but not the new one is reminded on reaching the
+new one; after a cut, a stretch that by the new number was already past it at that moment is never
+mailed.
 
 A student of a test institution is listed with the Test mark and **Not mailed: test institution**,
 left out of the counts and never mailed. The mentor gets one email a day listing the students just
-reminded, and only about students who have a mentor. Each Administrator who is the contact for a
-country gets one email on the first run of a Monday, in the site's time zone, listing that country's
-quiet students who are not of a test institution, and only when there is at least one. The three
-emails are edited in **Tools > Emails**, under the area **Quiet students**.
+reminded, and only about students who have a mentor and whose reminder went out; a student whose
+program record names their own account as their mentor counts as having none. Each Administrator who
+is the contact for a country gets one email on the first run of a Monday, in the site's time zone,
+listing that country's quiet students who are not of a test institution, and only when there is at
+least one. The three emails are edited in **Tools > Emails**, under the area **Quiet students**.
+
+#### New students
+
+The first-week checklist, a card called *Your first weeks* on the Student Report Card for new students
+(since 1.123.61). It is on the **Students and mentors** tab, in the section **New students**, and it
+ships Off.
+
+- **First-week checklist** - one box, *Show new students the "Your first weeks" card*. Ticked, new
+  students see the card. Unticked, nobody does, and the pages below are left as they are.
+
+**Who counts as new.** The first time the box is saved ticked, the site writes down that moment and keeps
+it. A student is new when their account was made after that moment, or when their track started in the
+28 days before it. So the students already on the program for longer never see the card, and everyone
+who joins after it does. Saving the box unticked and ticked again keeps the first moment.
+
+**The eight items and who ticks each.** The site ticks five of them by itself, as soon as it can see
+them: the WordPress.org profile is on record, the student signed in to the site, the student started
+the report form (a save on the site, or an edit to the report in Airtable), a first call is booked (any
+call or group session that has not been canceled), and a contribution team is chosen. The student ticks
+the other three with **Mark as done**, because the site cannot see them: joining the Making WordPress
+Slack, joining the #wpcredits channel, and enrolling in the Learn course. The student's ticks are kept
+on the account. The student, or an Administrator looking at the card as the student, may press them; a
+tick cannot be undone. The Learn item moves to the site's own sight when the Learn Link module arrives. The
+team item links the Team Matcher page while that page exists, and the Learn item links the student's
+course.
+
+**When all are done.** The card folds to one line, "All done. You have everything on the list.", with
+**Show the list** under it. Until then it reads how many are done out of eight. The card gates nothing:
+no block, form, call or email waits on any item.
+
+**The two pages.** Turning the box on makes any page that is missing, as a public page, and the command `wp wpcredits start_pages` makes them on demand, on a site where the box is
+already on or where the Find Your Team plugin was installed later:
+
+- **Start here**, at /start-here/: the eight steps in order, where things are, and who to ask.
+- **Team Matcher**, at /find-your-team/: a short introduction and the Find Your Team plugin's quiz
+  block. It is made only while that plugin's quiz block is available. The command says when it is not
+  and can be run again once the plugin is active. A Start here page made before the Team Matcher page
+  keeps its fallback team step, which sends the student to their mentor or an Administrator, because
+  pages are not rewritten once made.
+
+Neither page is gated, because the students they are for may not be signed in yet. A page that already
+exists at either address, or the one stored for it, is used as it is, and a page in the trash is made
+again. An Administrator who wants other wording edits the page in the editor: the site never rewrites
+a page it has made. Both pages stay on the site when the plugin is deleted, as every page the plugin
+makes does.
+
+**Putting the copy in first.** The pages are made published, so the moment the box is turned on, or
+the command runs, the welcome email, the Student Report Card and the registration form's confirmation
+link them. To have the program lead's copy in place before that, run `wp wpcredits start_pages` while
+the box is still off, set both pages to Draft in the editor straight away, put the copy in, publish
+them, and only then turn the box on. A Draft page at the address is used as it is, and a page is linked
+only while it is published, so nothing points at a Draft page: the Student Report Card leaves its
+link out, the welcome email leaves its line out, and the confirmation leaves out the Team Matcher
+mention.
+
+**Where the pages are linked.** The Student Report Card shows *New here? Start here for your first
+week.* under its resources while the Start here page is published. The student welcome email carries
+a line with the page's address, *Your first week, step by step:*, through the optional placeholder
+`{start_here_link}` (see **Tools > Emails**); the line is left out while the page is not published. The
+registration form's confirmation mentions the Team Matcher page while it is published. An email an
+Administrator had edited before keeps its text, and the shipped text shows as changed in Tools >
+Emails.
 
 #### Mentor applications
 

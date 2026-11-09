@@ -598,7 +598,7 @@ $loaders = array(
 	'calendar'                => array(
 		'the pages that draw the call calendar, the Student Report Card and the Mentor Report Card, whose calendar script names it as a dependency',
 		array(
-			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function render_student( WP_User $student, $can_manage )', 'wp_enqueue_script( self::SCRIPT );', 'before the first return' ),
+			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function render_student( WP_User $student, $can_manage, $lead = \'\' )', 'wp_enqueue_script( self::SCRIPT );', 'before the first return' ),
 			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function render_mentor( WP_User $mentor )', 'wp_enqueue_script( self::SCRIPT );', 'before the first return' ),
 			array( 'includes/modules/class-wpcpm-call-calendar.php', 'public static function register_assets()', "array( 'wpcpm-forms' ),", 'anywhere' ),
 		),

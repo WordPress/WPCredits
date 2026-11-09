@@ -84,34 +84,32 @@ $wpcpm_placeholders = static function ( $audience ) {
  * @param string $opening What the account is.
  * @param string $next    What to do first.
  * @param string $label   The line above the dashboard's address.
+ * @param array  $before  Lines to put before that label, such as a label and its placeholder.
  * @return string
  */
-$wpcpm_body = static function ( $opening, $next, $label ) {
-	return implode(
-		"\n",
-		array(
-			$opening,
-			'',
-			$next,
-			'',
-			'{set_password_link}',
-			'',
-			/* translators: A sentence of its own. End it with a full stop: the site reads a full stop followed by a space as the end of a sentence, and leaves the sentence after it, the username's, out on its own when there is no username to give. */
-			__( 'The link above sets your password and stops working after a day.', 'wpcredits-program-manager' ) . ' ' . sprintf(
-				/* translators: %s: the WordPress username. A sentence of its own, ending in a full stop, after the one on the link: the site leaves it out when the username is not needed, and keeps the sentence before it. */
-				__( 'Your username is %s.', 'wpcredits-program-manager' ),
-				'{username}'
-			),
-			'',
-			__( 'After that, sign in at the login page. If the password link has expired, open the login page, choose "Lost your password?" and enter your username or email address to get a fresh one.', 'wpcredits-program-manager' ),
-			'{login_url}',
-			'',
-			__( 'Each new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.', 'wpcredits-program-manager' ),
-			'',
-			$label,
-			'{dashboard_link}',
-		)
-	) . "\n";
+$wpcpm_body = static function ( $opening, $next, $label, array $before = array() ) {
+	$lines = array(
+		$opening,
+		'',
+		$next,
+		'',
+		'{set_password_link}',
+		'',
+		/* translators: A sentence of its own. End it with a full stop: the site reads a full stop followed by a space as the end of a sentence, and leaves the sentence after it, the username's, out on its own when there is no username to give. */
+		__( 'The link above sets your password and stops working after a day.', 'wpcredits-program-manager' ) . ' ' . sprintf(
+			/* translators: %s: the WordPress username. A sentence of its own, ending in a full stop, after the one on the link: the site leaves it out when the username is not needed, and keeps the sentence before it. */
+			__( 'Your username is %s.', 'wpcredits-program-manager' ),
+			'{username}'
+		),
+		'',
+		__( 'After that, sign in at the login page. If the password link has expired, open the login page, choose "Lost your password?" and enter your username or email address to get a fresh one.', 'wpcredits-program-manager' ),
+		'{login_url}',
+		'',
+		__( 'Each new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.', 'wpcredits-program-manager' ),
+		'',
+	);
+
+	return implode( "\n", array_merge( $lines, $before, array( $label, '{dashboard_link}' ) ) ) . "\n";
 };
 
 // The welcome a new mentor is sent, after the mentor's invitation's own lines: each paragraph, each
@@ -192,10 +190,24 @@ return array(
 			__( 'You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there.', 'wpcredits-program-manager' ),
 			__( 'Set your password using the link below, then check your details and book your first call with your mentor.', 'wpcredits-program-manager' ),
 			/* translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it. */
-			__( 'Your Student Report Card:', 'wpcredits-program-manager' )
+			__( 'Your Student Report Card:', 'wpcredits-program-manager' ),
+			array(
+				/* translators: The line above the address of the page that tells a new student what to do in the first week. Keep the colon at the end; the site leaves this line out with the address under it while the page does not exist. */
+				__( 'Your first week, step by step:', 'wpcredits-program-manager' ),
+				'{start_here_link}',
+				'',
+			)
 		),
 		'eol'          => "\r\n",
-		'placeholders' => $wpcpm_placeholders( WPCPM_Mail_Catalog::TYPE_STUDENT ),
+		'placeholders' => $wpcpm_placeholders( WPCPM_Mail_Catalog::TYPE_STUDENT ) + array(
+			'start_here_link' => array(
+				'means'    => __( 'The Start here page, while it is published. Empty leaves its line out.', 'wpcredits-program-manager' ),
+				'example'  => static function () {
+					return class_exists( 'WPCPM_Start_Pages' ) && '' !== WPCPM_Start_Pages::start_url() ? WPCPM_Start_Pages::start_url() : home_url( '/start-here/' );
+				},
+				'required' => false,
+			),
+		),
 	),
 	'invite-mentor'              => array(
 		'trigger'      => __( 'When a mentor is sent the invitation to their account: when an application to mentor is activated, from the Mentors screen, or as the sync creates the account, or makes an existing account an active mentor, with invitation emails on.', 'wpcredits-program-manager' ),

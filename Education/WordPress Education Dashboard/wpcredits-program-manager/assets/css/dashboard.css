@@ -1123,7 +1123,8 @@ button.wpcpm-tools__code {
 }
 
 /* A student who has gone quiet: one paragraph, then the button "We've already talked", above what
-   the section holds. The form takes no margin of its own. */
+   the section holds. The form takes no margin of its own. The Student Report Card draws the notice
+   too, under this sheet, which its own depends on, so the rules are here once (Release B). */
 .wpcpm-quiet__notice {
 	margin: 0 0 1em;
 }
@@ -1134,4 +1135,24 @@ button.wpcpm-tools__code {
 
 .wpcpm-quiet__notice .wpcpm-quiet__talked {
 	margin: 0;
+}
+
+/* Right after a press, the line saying it was noted stands where the notice was, in the outcome's own
+   look; the notice's margin gives it its room. */
+.wpcpm-quiet__notice .wpcpm-notes__message {
+	margin: 0;
+}
+
+/* On the Mentor Report Card the line is a band of its own at the top of a student's card, above the
+   details (Release B, the trial's F2): as the body's first cell it fell under the details table in
+   the two-column grid. The band wears the body's class, so it keeps the body's insets wherever a
+   stylesheet sets them, and stands down the grid and the bottom padding, so the body below it starts
+   one body inset under it. */
+.wpcpm-mentee__body.wpcpm-mentee__quiet {
+	display: block;
+	padding-bottom: 0;
+}
+
+.wpcpm-mentee__quiet > .wpcpm-quiet__notice {
+	margin-bottom: 0;
 }

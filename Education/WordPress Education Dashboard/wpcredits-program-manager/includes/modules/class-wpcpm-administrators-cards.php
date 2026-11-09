@@ -2909,6 +2909,12 @@ final class WPCPM_Administrators_Cards {
 	 * Nothing is drawn while the switch is off. A test institution's student is listed with the test
 	 * mark and left out of the card's number and the tile's.
 	 *
+	 * The card is one form, posting every press back to this card, and each row one button naming its
+	 * student, that student's own nonce in the address the button posts to (Release B, the trial's F5):
+	 * a form a row, each with its nonce field, its referer and its way back, made a card of 490 rows
+	 * weigh nearly half a megabyte and repeated core's `id="_wpnonce"` on every row. After a press the
+	 * card is drawn open, its body starting with the line that says it was noted.
+	 *
 	 * @param array $snapshot What `WPCPM_Student_Flags::snapshot()` returned: `at`, `rows`.
 	 */
 	public static function render_quiet_students( array $snapshot ) {
@@ -2922,6 +2928,12 @@ final class WPCPM_Administrators_Cards {
 		$days   = WPCPM_Student_Flags::threshold();
 		$viewer = (int) get_current_user_id();
 		$on     = WPCPM_Student_Flags::MODE_ON === WPCPM_Student_Flags::mode();
+		$said   = WPCPM_Student_Flags::said();
+
+		// The press this person just made here: the card opens, its body starting with the line.
+		if ( null !== $said ) {
+			WPCPM_Dashboard_Card::hold( 'wpcpm-quiet-students', 'success', WPCPM_Student_Flags::said_sentence( $said['name'], false ) );
+		}
 
 		WPCPM_Dashboard_Card::open(
 			array_merge(
@@ -2978,6 +2990,8 @@ final class WPCPM_Administrators_Cards {
 
 		ksort( $groups, SORT_STRING );
 
+		// One form around the table's box, so the table still opens right after the box does.
+		echo WPCPM_Student_Flags::talked_card_form( 'quiet-students' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- talked_card_form() returns escaped markup.
 		self::scroll_open( array( self::title_id( 'quiet-students' ) ) );
 		echo '<table class="wpcpm-admin-table wpcpm-quiet__table"><thead><tr>';
 		printf( '<th scope="col">%s</th>', esc_html__( 'Student', 'wpcredits-program-manager' ) );
@@ -2997,7 +3011,7 @@ final class WPCPM_Administrators_Cards {
 				$page   = (string) WPCPM_Students_Dashboard::page_url();
 				$link   = '' === $page ? esc_html( $name ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( 'wpcpm_student_view', $id, $page ) ), esc_html( $name ) );
 				$mentor = ! empty( $row['mentor_id'] ) ? get_userdata( (int) $row['mentor_id'] ) : false;
-				$last   = sprintf( /* translators: 1: what was last seen, such as "Signed in", 2: the date. */ __( '%1$s, %2$s', 'wpcredits-program-manager' ), self::quiet_kind( (string) $row['last_kind'] ), wp_date( get_option( 'date_format' ), (int) $row['last_at'] ) );
+				$last   = self::quiet_last( $row );
 
 				// A row that will never be mailed says why, rather than leaving the cell blank. Preview
 				// does not read the switch's time, so only On says "quiet before the switch went On".
@@ -3021,14 +3035,14 @@ final class WPCPM_Administrators_Cards {
 					esc_html( $last ),
 					esc_html( $mentor ? (string) $mentor->display_name : __( 'No mentor', 'wpcredits-program-manager' ) ),
 					esc_html( $reminder ),
-					WPCPM_Student_Flags::talked_form( $id, '', 'quiet-students' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- talked_form() returns escaped markup.
+					WPCPM_Student_Flags::talked_button( $id, $name ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- talked_button() returns escaped markup.
 				);
 			}
 
 			echo '</tbody>';
 		}
 
-		echo '</table></div>';
+		echo '</table></div></form>';
 
 		WPCPM_Dashboard_Card::close();
 	}
@@ -3075,9 +3089,33 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * What a last-activity kind of `WPCPM_Student_Activity::last()` reads as.
+	 * A row's Last seen cell: what was last seen and when. A student never seen counts from the track's
+	 * start or from the account's, and the cell says which, "Track started" or "Account made" (Release
+	 * B, the trial's F6: "Joined the program" named the account's date for a student whose track began
+	 * before it). A row stored before the list said which reads "Counting from" the date.
 	 *
-	 * @param string $kind sign_in, visit, call, report, edited, talked or start.
+	 * @param array $row A snapshot row: `last_kind`, `last_at`, and `start_from` for kind `start`.
+	 * @return string
+	 */
+	private static function quiet_last( array $row ) {
+		$kind = isset( $row['last_kind'] ) ? (string) $row['last_kind'] : '';
+		$date = wp_date( get_option( 'date_format' ), isset( $row['last_at'] ) ? (int) $row['last_at'] : 0 );
+		$from = isset( $row['start_from'] ) ? (string) $row['start_from'] : '';
+
+		if ( 'start' === $kind && 'track' !== $from && 'account' !== $from ) {
+			/* translators: %s: a date. */
+			return sprintf( __( 'Counting from %s', 'wpcredits-program-manager' ), $date );
+		}
+
+		/* translators: 1: what was last seen, such as "Signed in", 2: the date. */
+		return sprintf( __( '%1$s, %2$s', 'wpcredits-program-manager' ), self::quiet_kind( 'start' === $kind ? $from : $kind ), $date );
+	}
+
+	/**
+	 * What a last-activity kind of `WPCPM_Student_Activity::last()` reads as, a kind `start` by where
+	 * its clock started (`WPCPM_Student_Activity::clock_start_from()`).
+	 *
+	 * @param string $kind sign_in, visit, call, report, edited or talked; track or account for a start.
 	 * @return string
 	 */
 	private static function quiet_kind( $kind ) {
@@ -3088,7 +3126,8 @@ final class WPCPM_Administrators_Cards {
 			'report'  => __( 'Saved the report', 'wpcredits-program-manager' ),
 			'edited'  => __( 'Edited the report', 'wpcredits-program-manager' ),
 			'talked'  => __( 'Talked with the program', 'wpcredits-program-manager' ),
-			'start'   => __( 'Joined the program', 'wpcredits-program-manager' ),
+			'track'   => __( 'Track started', 'wpcredits-program-manager' ),
+			'account' => __( 'Account made', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $words[ $kind ] ) ? $words[ $kind ] : __( 'Unknown', 'wpcredits-program-manager' );

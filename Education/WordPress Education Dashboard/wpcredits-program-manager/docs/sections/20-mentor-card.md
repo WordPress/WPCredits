@@ -25,17 +25,20 @@ A student falls into the first group they match, so somebody who needs a call is
 
 When the program's daily list of quiet students is switched on, a student of yours who has not signed
 in, visited, booked a call or saved their report for the set number of days (14 unless the program
-changed it) shows a line on their card, "Not seen on the site for" that many days, with a button,
-**We've already talked**. A student with a call or a group session booked for a later date is not
-quiet, and the days are counted from the start of the student's track when it comes after their last
-activity. Press the button when you have spoken with the student: it counts as activity, the line goes
-away at once and the program stops following that stretch of quiet. Nothing is sent when you press
-it, and a student with no recent activity is not a mark against you.
+changed it) shows a line at the top of their card, above their details, "Not seen on the site for"
+that many days, with a button, **We've already talked**. The line goes as soon as the student is
+active again: a sign-in, a saved report or a booked call takes it away at once, not at the next daily
+list. A student with a call or a group session booked for a later date is not quiet, and the days are
+counted from the start of the student's track when it comes after their last activity. Press the
+button when you have spoken with the student: it counts as activity, the student's card opens with a
+line saying it was noted, and the program stops following that stretch of quiet. Nothing is sent when
+you press it, and a student with no recent activity is not a mark against you.
 
 The student is sent one friendly email for each stretch of quiet. Once a day at most, you are sent an
 email listing the students of yours who were just reminded, so you can reach out too. That email is
-only about students who have you as their mentor: a student with no mentor gets the reminder alone.
-The line and the emails appear only while the program has the list switched on.
+only about students who have you as their mentor and whose reminder went out: a student with no mentor
+gets the reminder alone, and so does a student whose program record names their own account as their
+mentor. The line and the emails appear only while the program has the list switched on.
 
 ### Students waiting to graduate
 

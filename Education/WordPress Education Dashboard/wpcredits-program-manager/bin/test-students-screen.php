@@ -165,6 +165,12 @@ class WPCPM_Student_Flags {
 	public static function schedule() {}
 	public static function unschedule() {}
 }
+class WPCPM_Start_Pages {
+	public static function init() {}
+}
+class WPCPM_Student_Checklist {
+	public static function init() {}
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 // The Registrations tab, which the module boots and draws; it reads the registration record stood in above.

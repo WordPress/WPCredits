@@ -402,6 +402,9 @@ if ( ! function_exists( 'wp_timezone' ) ) {
 if ( ! function_exists( 'wp_nonce_field' ) ) {
 	function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) { echo '<input type="hidden" name="' . esc_attr( $name ) . '" value="nonce-' . esc_attr( $action ) . '" />'; }
 }
+if ( ! function_exists( 'wp_create_nonce' ) ) {
+	function wp_create_nonce( $action = -1 ) { $GLOBALS['nonces_made'][] = $action; return 'nonce-' . $action; }
+}
 
 function seed_post( $id, $type, $title, $meta = array(), $date = '2026-09-01 10:00:00' ) {
 	$post                    = new WP_Post();
@@ -2266,7 +2269,7 @@ $q_snapshot = array(
 		$q_row( 901, 'Ann Student', 40, 3, array( 'would_remind' => true ) ),
 		$q_row( 902, 'Ben Student', 30, 72, array( 'mentor_id' => 74, 'reminded_at' => $qT - 5 * $qD ) ),
 		$q_row( 903, 'Cat Student', 20, 71, array( 'last_kind' => 'call' ) ),
-		$q_row( 904, 'Dan Student', 15, 0, array( 'last_kind' => 'start' ) ),
+		$q_row( 904, 'Dan Student', 15, 0, array( 'last_kind' => 'start', 'start_from' => 'track' ) ),
 		$q_row( 905, 'TEST Tess', 16, 3, array( 'test' => true ) ),
 	),
 );
@@ -2290,17 +2293,22 @@ ck( 'the days, the last activity\'s kind and date, the mentor or none', array(
 	has( $qc, '<td class="wpcpm-admin-table__n">40</td>' ),
 	has( $qc, 'Signed in, ' . gmdate( 'j F Y', $qT - 40 * $qD ) ),
 	has( $qc, 'Mentor call, ' . gmdate( 'j F Y', $qT - 20 * $qD ) ),
-	has( $qc, 'Joined the program, ' . gmdate( 'j F Y', $qT - 15 * $qD ) ),
+	has( $qc, 'Track started, ' . gmdate( 'j F Y', $qT - 15 * $qD ) ),
 	has( $qc, '<td>Mia Mentor</td>' ),
 	has( $qc, '<td>No mentor</td>' ),
 ), array( true, true, true, true, true, true ) );
 ck( 'in preview a row that would be reminded says so, and one reminded before says when, with no reply', array( has( $qc, 'Would remind' ), has( $qc, 'Reminded ' . gmdate( 'j F Y', $qT - 5 * $qD ) . ', no reply' ) ), array( true, true ) );
-ck( 'each row carries the talked form to the student, returning to this card', array(
+ck( 'quiet_card_one_form: the card is one form posting the press back to this card, and each row one button naming its student, its own nonce in the address it posts to', array(
+	substr_count( $qc, '<form' ),
 	substr_count( $qc, 'name="action" value="wpcpm_student_talked"' ),
-	has( $qc, 'name="student" value="901"' ),
-	has( $qc, 'nonce-wpcpm_student_talked_901' ),
-	has( $qc, 'name="wpcpm_return_to" value="quiet-students"' ),
-), array( 5, true, true, true ) );
+	substr_count( $qc, 'name="wpcpm_return_to" value="quiet-students"' ),
+	has( $qc, '<button type="submit" class="wpcpm-button wpcpm-button--secondary" name="student" value="901" formaction="https://example.test/wp-admin/admin-post.php?_wpnonce=nonce-wpcpm_student_talked_901">' ),
+	substr_count( $qc, 'formaction=' ),
+	substr_count( $qc, 'name="_wpnonce"' ),
+), array( 1, 1, 1, true, 5, 0 ) );
+// A row's weight: the row's own markup, the student's button included, from its <tr> to the next.
+preg_match( '#<tr><th scope="row"><a href="[^"]*wpcpm_student_view=901">.*?</tr>#s', $qc, $q_one );
+ck( 'quiet_card_row_light: and a row stays light, under 600 bytes with its button, where a form of its own made it over 800 here and nearly 1 KB on the trial copy', isset( $q_one[0] ) ? strlen( $q_one[0] ) < 600 : 'missing', true );
 $GLOBALS['flags_mode'] = 'on';
 $qc_on = capture( static function () use ( $q_snapshot ) { WPCPM_Administrators_Cards::render_quiet_students( $q_snapshot ); } );
 ck( 'in on mode "Would remind" is never drawn and the reminded row says so', array( has( $qc_on, 'Would remind' ), has( $qc_on, 'Reminded ' ) ), array( false, true ) );
@@ -2330,6 +2338,33 @@ ck( 'quiet_card_says_why_not_mailed: in On a stretch already past the threshold 
 	$q_cell( $q_why_on, 901 ), $q_cell( $q_why_on, 905 ), $q_cell( $q_why_on, 902 ), $q_cell( $q_why_on, 903 ), $q_cell( $q_why_on, 904 ),
 ), array( 'Not mailed: quiet before the switch went On', 'Not mailed: test institution', 'Reminded ' . gmdate( 'j F Y', $qT - 5 * $qD ) . ', no reply', '', '' ) );
 ck( 'in Preview the switch\'s time is not read: the row that would be reminded says so, and the test institution\'s row says why it would not', array( $q_cell( $q_why_preview, 901 ), $q_cell( $q_why_preview, 905 ), has( $q_why_preview, 'quiet before the switch' ) ), array( 'Would remind', 'Not mailed: test institution', false ) );
+
+// "Joined the program" named the account's date for a student whose track began before it (the trial's F6).
+$GLOBALS['flags_mode'] = 'preview';
+$q_kinds = $q_draw( array( 'at' => $qT, 'rows' => array(
+	$q_row( 911, 'Ida Student', 20, 3, array( 'last_kind' => 'start', 'start_from' => 'account' ) ),
+	$q_row( 912, 'Jo Student', 21, 3, array( 'last_kind' => 'start', 'start_from' => 'track' ) ),
+	$q_row( 913, 'Kim Student', 22, 3, array( 'last_kind' => 'start' ) ),
+) ) );
+ck( 'quiet_card_start_says_which: a never-seen student\'s clock reads "Track started" when it came from the track and "Account made" otherwise, and a list stored before the row said which reads "Counting from"', array(
+	has( $q_kinds, 'Account made, ' . gmdate( 'j F Y', $qT - 20 * $qD ) ),
+	has( $q_kinds, 'Track started, ' . gmdate( 'j F Y', $qT - 21 * $qD ) ),
+	has( $q_kinds, 'Counting from ' . gmdate( 'j F Y', $qT - 22 * $qD ) ),
+	has( $q_kinds, 'Joined the program' ),
+), array( true, true, true, false ) );
+
+// After a press on the card the page lands back on it: the card opens, saying so at its top.
+$GLOBALS['flash']['student-talked'] = array( 'student' => 902, 'name' => 'Ben Student', 'at' => time() );
+$q_said = $q_draw( array( 'at' => $qT, 'rows' => array( $q_row( 901, 'Ann Student', 40, 3 ) ) ) );
+ck( 'quiet_card_says_noted: after a press the card is drawn open, its body starting with the line that says so', array(
+	card_row( $q_said )['open'],
+	has( $q_said, '<div class="wpcpm-group__body"><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Noted. Ben Student is off the list until they go quiet again.</p>' ),
+	isset( $GLOBALS['flash']['student-talked'] ),
+), array( true, true, false ) );
+WPCPM_Dashboard_Card::forget();
+$GLOBALS['flash']['student-talked'] = array( 'student' => 902, 'name' => 'Ben Student', 'at' => time() - 3600 );
+ck( 'and a note an hour old opens nothing', card_row( $q_draw( array( 'at' => $qT, 'rows' => array( $q_row( 901, 'Ann Student', 40, 3 ) ) ) ) )['open'], false );
+unset( $GLOBALS['flash']['student-talked'] );
 
 $GLOBALS['flags_mode'] = 'preview';
 $qc_empty = capture( static function () use ( $qT ) { WPCPM_Administrators_Cards::render_quiet_students( array( 'at' => $qT, 'rows' => array() ) ); } );

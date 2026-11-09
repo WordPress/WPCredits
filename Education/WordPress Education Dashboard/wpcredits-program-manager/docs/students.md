@@ -93,20 +93,47 @@ institution sees the same page.
 A card at the top of the page may invite you to set up a code for signing in, or tell you the
 program asks for one: *Signing in*, at the start of this guide, covers it.
 
+### Your first weeks
+
+If you are new to the program, and the program has switched the checklist on, a block called
+**Your first weeks** (first on a new page, and movable like the others) holds eight small steps for the start. The site ticks five of them by itself
+when it sees them done: your WordPress.org profile is on record, you signed in here, you started your
+report form, you booked your first call, and you chose your contribution team. You tick the other
+three yourself with **Mark as done**, because the site cannot see them: joining the Making WordPress
+Slack, joining the #wpcredits channel, and enrolling in the Learn course. A step that has a page to go
+to, such as the Team Matcher or your course, is a link. Nothing waits on the list: you can do the steps
+in any order, or leave some for later, and the rest of your page works as usual. When every step is
+done, the block folds to one line, "All done. You have everything on the list.", and **Show the list**
+opens it again. A tick you make cannot be undone, so press **Mark as done** when it is true.
+
+The program also keeps two public pages for newcomers, which you can open without signing in. **Start
+here** (the address ends /start-here/) lists the same eight steps in order, says where things are and
+who to ask. The **Team Matcher** (/find-your-team/) asks a few short questions and suggests the
+contribution teams that fit you; until it exists, the Start here page tells you to ask your mentor or
+an Administrator instead. Your welcome email links to Start here, the page you see after registering links to the Team Matcher, and
+under **Resources** at the foot of your page a line says *New here? Start here for your first week.*
+
 ### If the program has not seen you for a while
 
-While the program has its list of quiet students switched on, a note may appear at the top of your
-**My mentor call** block when you have not signed in, visited, booked a call or changed your report
-for the set number of days, 14 unless the program changed it. A change to your report counts whether
-you saved it here or edited it through another of the program's forms. The note says how many days it
-has been since you were last here, with a **Book a call** link. A call you have booked for a later
-date counts as being in touch, and the days are counted from your track's start date when it comes
-after your last visit, so nobody is quiet before their track begins. It is a nudge, never a penalty.
-The site may also send you one friendly email about it for each stretch of quiet.
+While the program has its list of quiet students switched on, a note may appear in your **My mentor
+call** block, under its heading, when you have not signed in, visited, booked a call or changed your
+report for the set number of days, 14 unless the program changed it. A change to your report counts
+whether you saved it here or edited it through another of the program's forms. The note says how many
+days it has been since you were last here, or, when we have not seen you since your track started or
+your account was made, how many days ago that was, and, when you have a call to book, a **Book a call**
+link; where you have no mentor and there is no booking page for your country, the link is left out and the
+email names the program's contact address instead. A call you have booked for a later date counts as being in touch, and the days are counted from
+your track's start date when it comes after your last visit, so nobody is quiet before their track
+begins. It is a nudge, never a
+penalty. The site may also send you one friendly email about it for each stretch of quiet, and the
+email brings you to this note. Signing in to read it does not take the note away, so its button is
+there when you arrive; saving your report or booking a call takes it away at once.
 
 If you have already talked with your mentor or with the program, press **We've already talked**
-under the note. That counts as being in touch, the note goes away and no more is sent about that
-stretch. Your mentor and the program's Administrators can press it for you.
+under the note. That counts as being in touch: the note gives way to a line saying it was noted, and
+no more is sent about that stretch. Your mentor and the program's Administrators can press it for
+you. A new stretch of quiet, and with it one more email, starts only once you have been active again
+after the email went.
 
 ### Arranging your Student Report Card
 

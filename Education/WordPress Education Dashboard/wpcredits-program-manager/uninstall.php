@@ -101,6 +101,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-feedback.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-activity.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-flags.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-start-pages.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-checklist.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-airtable-row.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration-process.php';
@@ -275,6 +277,12 @@ delete_option( WPCPM_Student_Flags::OPT_ON_SINCE );
 delete_option( WPCPM_Student_Flags::OPT_WEEKLY );
 delete_option( WPCPM_Student_Flags::LOCK );
 delete_metadata( 'user', 0, WPCPM_Student_Flags::META_REMINDED, '', true );
+// The first-week checklist: the time the switch first went on and each student's own ticks.
+delete_option( WPCPM_Student_Checklist::OPT_ON_SINCE );
+delete_metadata( 'user', 0, WPCPM_Student_Checklist::META_TICKS, '', true );
+// The Start here and Team Matcher pages' IDs. The pages stay: they are content an Administrator may have edited.
+delete_option( WPCPM_Start_Pages::OPT_START );
+delete_option( WPCPM_Start_Pages::OPT_MATCHER );
 
 // When each account last signed in and visited (1.122.26), and the seed's two options.
 delete_metadata( 'user', 0, WPCPM_Sign_Ins::META_SIGN_IN, '', true );

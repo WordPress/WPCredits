@@ -176,6 +176,10 @@ class WPCPM_Settings {
 			'student_flags_mode'            => 'off',
 			'student_quiet_days'            => 14,
 
+			// New students: the first-week checklist card on the Student Report Card. Off until a person
+			// turns it on; the time it first goes on decides who counts as new.
+			'student_checklist_enabled'     => false,
+
 			// Institutions module. The countries table is read for the same reason as
 			// the three lookup tables above: an institution's country arrives as a bare
 			// record ID, and it is the country that says which manager looks after it.
@@ -368,6 +372,7 @@ class WPCPM_Settings {
 				'student_registration_stages',
 				'student_flags_mode',
 				'student_quiet_days',
+				'student_checklist_enabled',
 			),
 			'institutions'               => array(
 				'applications_enabled',
@@ -1024,7 +1029,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'mcp_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_checklist_enabled', 'mcp_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

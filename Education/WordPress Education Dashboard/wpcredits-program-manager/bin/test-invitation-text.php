@@ -88,6 +88,7 @@ function user_can( $user, $cap ) { return false; }
 require_once __DIR__ . '/stubs/specialchars.php';
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-start-pages.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 // The template registry the invitations are built from since 1.122.19, and the catalog that names them.
 require_once __DIR__ . '/../includes/mail/class-wpcpm-mail-catalog.php';

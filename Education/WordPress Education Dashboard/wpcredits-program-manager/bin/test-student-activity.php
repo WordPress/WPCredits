@@ -156,6 +156,47 @@ ck( 'days_since counts whole days, and 0 for a time at or after now', array(
 	WPCPM_Student_Activity::days_since( $T + 3 * $D, $T ),
 ), array( 14, 0, 0, 0 ) );
 
+echo "\n=== Each kind's time, and the answer from them (Release B, the notice's recheck) ===\n";
+// The Student Report Card's notice asks the same question for one student with the sign-in and the visit of
+// this very return left out, so the kinds are handed out one by one and folded by the one rule.
+reset_all();
+$GLOBALS['users'][1] = gmdate( 'Y-m-d H:i:s', $T - 400 * $D );
+$GLOBALS['umeta'][1] = array(
+	WPCPM_Sign_Ins::META_SIGN_IN        => (string) ( $T - 1 * $D ),
+	WPCPM_Sign_Ins::META_VISIT          => (string) ( $T - 1 * $D ),
+	WPCPM_Student_Activity::META_REPORT => (string) ( $T - 20 * $D ),
+);
+$GLOBALS['calls'][1] = array( call( $T - 30 * $D, $T - 25 * $D ) );
+$has_times = method_exists( 'WPCPM_Student_Activity', 'times' ) && method_exists( 'WPCPM_Student_Activity', 'last_of' );
+ck( 'times_lists_each_kind: every kind of activity, each at its own time, 0 for none', $has_times ? WPCPM_Student_Activity::times( 1, $T ) : 'missing', array(
+	'sign_in' => $T - 1 * $D,
+	'visit'   => $T - 1 * $D,
+	'report'  => $T - 20 * $D,
+	'edited'  => 0,
+	'talked'  => 0,
+	'call'    => $T - 25 * $D,
+) );
+ck( 'last_of_is_last: folded by the one rule they give what last() gives, and without the sign-in and the visit, the next latest', $has_times ? array(
+	WPCPM_Student_Activity::last_of( 1, WPCPM_Student_Activity::times( 1, $T ) ) === WPCPM_Student_Activity::last( 1, $T ),
+	WPCPM_Student_Activity::last_of( 1, array_merge( WPCPM_Student_Activity::times( 1, $T ), array( 'sign_in' => 0, 'visit' => 0 ) ) ),
+) : 'missing', array( true, array( 'at' => $T - 20 * $D, 'kind' => 'report' ) ) );
+
+echo "\n=== Where the clock start came from (Release B, the card's label) ===\n";
+reset_all();
+$GLOBALS['users'][1]    = gmdate( 'Y-m-d H:i:s', $T - 40 * $D );
+$GLOBALS['programs'][1] = array( 'start' => gmdate( 'Y-m-d', $T - 20 * $D ) );
+$GLOBALS['users'][2]    = gmdate( 'Y-m-d H:i:s', $T - 40 * $D );
+$GLOBALS['programs'][2] = array( 'start' => gmdate( 'Y-m-d', $T - 60 * $D ) );
+$GLOBALS['users'][3]    = gmdate( 'Y-m-d H:i:s', $T - 40 * $D );
+$GLOBALS['programs'][3] = array( 'start' => 'soon' );
+$GLOBALS['users'][4]    = gmdate( 'Y-m-d H:i:s', $T - 40 * $D );
+ck( 'start_from: the track when its start is the later date, the account otherwise (an earlier start, an unparsable one, none)', method_exists( 'WPCPM_Student_Activity', 'clock_start_from' ) ? array(
+	WPCPM_Student_Activity::clock_start_from( 1 ),
+	WPCPM_Student_Activity::clock_start_from( 2 ),
+	WPCPM_Student_Activity::clock_start_from( 3 ),
+	WPCPM_Student_Activity::clock_start_from( 4 ),
+) : 'missing', array( 'track', 'account', 'account', 'account' ) );
+
 echo "\n=== Whole days, and the stamp ===\n";
 reset_all();
 $GLOBALS['umeta'][1][ WPCPM_Sign_Ins::META_SIGN_IN ] = (string) ( $T - 14 * $D - HOUR_IN_SECONDS );

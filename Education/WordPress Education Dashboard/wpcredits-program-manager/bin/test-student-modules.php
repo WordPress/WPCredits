@@ -177,7 +177,10 @@ class WPCPM_Student_Report_Form {
 	public static function render_hours( $s, $p ) { echo empty( $p['no_hours'] ) ? '<!-- hours -->' : ''; }
 }
 class WPCPM_Student_Feedback { public static function render( $s, $p ) { echo '<!-- feedback -->'; } }
-class WPCPM_Call_Calendar { public static function render_student( $s, $m ) { echo '<section class="wpcpm-student__section wpcpm-calls"><!-- calendar --></section>'; } }
+// The calls section as the real one draws its head: the heading, then what it is handed to say first.
+class WPCPM_Call_Calendar { public static function render_student( $s, $m, $lead = '' ) { echo '<section class="wpcpm-student__section wpcpm-calls"><h3 class="wpcpm-student__heading">My mentor call</h3>' . $lead . '<!-- calendar --></section>'; } }
+// The quiet notice, for whoever reads the page (its own suite, bin/test-student-reminders.php, holds what it says).
+class WPCPM_Student_Flags { public static function student_notice( $student, $viewer, $now = 0 ) { return '<div class="wpcpm-quiet__notice"><!-- quiet --></div>'; } }
 class WPCPM_Handbook_Assistant { public static function render_resources( $a ) { return '<section class="wpcpm-student__section wpcpm-resources--split"><!-- resources --></section>'; } }
 class WPCPM_Sponsor_Tools {
 	const AUDIENCE_STUDENTS = 'students';
@@ -187,6 +190,7 @@ class WPCPM_Sponsor_Tools {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-start-pages.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 
 $GLOBALS['users'][1]  = new WP_User( 1, 'Program Manager', array( 'administrator' ) );
@@ -225,15 +229,17 @@ function module_ids( $html ) {
 
 echo "=== The order ===\n";
 $default = array( 'updates', 'course', 'forms', 'calls', 'tools' );
-ck( 'nothing saved: the default order, the updates first', WPCPM_Students_Dashboard::module_order( 30 ), $default );
+// The first-weeks card leads the default order (Release B); a saved order that does not know it gets it at the end.
+$fresh = array_merge( array( 'start' ), $default );
+ck( 'nothing saved: the default order, the first weeks, then the updates', WPCPM_Students_Dashboard::module_order( 30 ), $fresh );
 $GLOBALS['umeta'][30]['wpcpm_student_modules'] = array( 'calls', 'course' );
-ck( 'a partial order: the rest joins at the end in default order', WPCPM_Students_Dashboard::module_order( 30 ), array( 'calls', 'course', 'updates', 'forms', 'tools' ) );
+ck( 'a partial order: the rest joins at the end in default order', WPCPM_Students_Dashboard::module_order( 30 ), array( 'calls', 'course', 'start', 'updates', 'forms', 'tools' ) );
 $GLOBALS['umeta'][30]['wpcpm_student_modules'] = array( 'forms', 'bogus', 'forms', 7, 'updates', 'course', 'calls', 'tools' );
-ck( 'unknown keys and duplicates are dropped', WPCPM_Students_Dashboard::module_order( 30 ), array( 'forms', 'updates', 'course', 'calls', 'tools' ) );
+ck( 'unknown keys and duplicates are dropped', WPCPM_Students_Dashboard::module_order( 30 ), array( 'forms', 'updates', 'course', 'calls', 'tools', 'start' ) );
 $GLOBALS['umeta'][30]['wpcpm_student_modules'] = 'course,forms';
-ck( 'a value that is not a list is the default', WPCPM_Students_Dashboard::module_order( 30 ), $default );
+ck( 'a value that is not a list is the default', WPCPM_Students_Dashboard::module_order( 30 ), $fresh );
 unset( $GLOBALS['umeta'][30]['wpcpm_student_modules'] );
-ck( 'another student\'s order is not this one\'s', WPCPM_Students_Dashboard::module_order( 31 ), $default );
+ck( 'another student\'s order is not this one\'s', WPCPM_Students_Dashboard::module_order( 31 ), $fresh );
 
 echo "\n=== One move ===\n";
 ck( 'up at the top moves nothing', WPCPM_Students_Dashboard::moved( $default, 'updates', 'up' ), $default );
@@ -315,15 +321,15 @@ ck( 'and nothing was written', isset( $GLOBALS['umeta'][30]['wpcpm_student_modul
 $GLOBALS['uid'] = 30;
 $_POST          = array( 'wpcpm_module' => 'course', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
 ck( 'a student arranges their own page whatever the form says, and lands back on it at the module', ran( 'handle_move' ), 'redirect|https://example.test/student-dashboard/#wpcpm-module-course' );
-ck( 'their own order is saved, and the other student\'s is untouched', array( $GLOBALS['umeta'][30]['wpcpm_student_modules'], isset( $GLOBALS['umeta'][31]['wpcpm_student_modules'] ) ), array( array( 'course', 'updates', 'forms', 'calls', 'tools' ), false ) );
+ck( 'their own order is saved, and the other student\'s is untouched', array( $GLOBALS['umeta'][30]['wpcpm_student_modules'], isset( $GLOBALS['umeta'][31]['wpcpm_student_modules'] ) ), array( array( 'start', 'course', 'updates', 'forms', 'calls', 'tools' ), false ) );
 $_POST = array( 'wpcpm_module' => 'tools', 'wpcpm_direction' => 'up', 'wpcpm_student' => '30', 'wpcpm_async' => '1' );
-ck( 'the script gets the kept order back as JSON instead of a redirect', ran( 'handle_move' ), 'json|{"order":["course","updates","forms","tools","calls"]}' );
+ck( 'the script gets the kept order back as JSON instead of a redirect', ran( 'handle_move' ), 'json|{"order":["start","course","updates","forms","tools","calls"]}' );
 
 $GLOBALS['uid']  = 1;
 $GLOBALS['caps'] = true;
 $_POST           = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
 ck( 'a manager arranges the student the form names, and lands on that student', ran( 'handle_move' ), 'redirect|https://example.test/student-dashboard/?wpcpm_student_view=31#wpcpm-module-calls' );
-ck( 'saved on that student', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'updates', 'course', 'calls', 'forms', 'tools' ) );
+ck( 'saved on that student', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'start', 'updates', 'course', 'calls', 'forms', 'tools' ) );
 $_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '999' );
 ck( 'a manager naming nobody who is a student, and being none themself, is refused', ran( 'handle_move' ), 'die|403' );
 $saved = $GLOBALS['umeta'][31]['wpcpm_student_modules'];
@@ -339,14 +345,14 @@ ck( 'an unknown direction saves nothing', $GLOBALS['umeta'][31]['wpcpm_student_m
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
 $_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31', 'wpcpm_drawn' => 'updates,calls,tools' );
 ran( 'handle_move' );
-ck( 'a move passes the modules the page does not draw: My mentor call goes above Program updates and resources, and the two hidden ones keep their places', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'calls', 'course', 'forms', 'updates', 'tools' ) );
+ck( 'a move passes the modules the page does not draw: My mentor call goes above Program updates and resources, and the two hidden ones keep their places', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'calls', 'course', 'forms', 'updates', 'tools', 'start' ) );
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
 $_POST = array( 'wpcpm_module' => 'updates', 'wpcpm_direction' => 'down', 'wpcpm_student' => '31', 'wpcpm_drawn' => 'updates,calls,tools', 'wpcpm_async' => '1' );
-ck( 'and the script gets that order back', ran( 'handle_move' ), 'json|{"order":["calls","course","forms","updates","tools"]}' );
+ck( 'and the script gets that order back', ran( 'handle_move' ), 'json|{"order":["calls","course","forms","updates","tools","start"]}' );
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $default;
 $_POST = array( 'wpcpm_module' => 'calls', 'wpcpm_direction' => 'up', 'wpcpm_student' => '31' );
 ran( 'handle_move' );
-ck( 'a form that says nothing of what was drawn (a page an older version drew, left open in a tab) is moved through the whole order, as before', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'updates', 'course', 'calls', 'forms', 'tools' ) );
+ck( 'a form that says nothing of what was drawn (a page an older version drew, left open in a tab) is moved through the whole order, as before', $GLOBALS['umeta'][31]['wpcpm_student_modules'], array( 'updates', 'course', 'calls', 'forms', 'tools', 'start' ) );
 $GLOBALS['umeta'][31]['wpcpm_student_modules'] = $saved;
 $_POST = array();
 
@@ -380,6 +386,9 @@ ck( 'the updates module holds the resources and nothing else', array( substr_cou
 ck( 'on a manager\'s view the tools module is the count line', 1 === preg_match( '/id="wpcpm-module-tools">.*?<!-- tools-count -->/s', $html ), true );
 ck( 'the forms module holds the report and the feedback forms', 1 === preg_match( '/id="wpcpm-module-forms">.*?<!-- report-form -->.*?<!-- feedback -->/s', $html ), true );
 ck( 'the "last updated" line stays after the modules', strpos( $html, 'wpcpm-dashboard__updated' ) > strrpos( $html, 'id="wpcpm-module-' ), true );
+$calls = substr( $html, strpos( $html, 'id="wpcpm-module-calls">' ) );
+$calls = substr( $calls, 0, strpos( $calls, '<!-- calendar -->' ) );
+ck( 'quiet_notice_inside_calls_section: the quiet notice is inside the calls section, under its heading, so it takes the section\'s inset and sits below the arrows, not over them', array( substr_count( $calls, '<div class="wpcpm-quiet__notice">' ), 1 === preg_match( '#<section class="wpcpm-student__section wpcpm-calls"><h3 class="wpcpm-student__heading">My mentor call</h3><div class="wpcpm-quiet__notice">#', $calls ) ), array( 1, true ) );
 
 $GLOBALS['uid']      = 30;
 $GLOBALS['caps']     = false;

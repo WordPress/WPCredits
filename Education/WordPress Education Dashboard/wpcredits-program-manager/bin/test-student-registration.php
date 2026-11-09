@@ -1593,6 +1593,7 @@ ck( 'and the triggers say when each is sent',
 
 echo "\n=== The form ===\n";
 
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-start-pages.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration-form.php';
 
 /** The institutions the site holds, in the stages the form's setting names and out of them. */

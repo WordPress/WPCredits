@@ -110,6 +110,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		WPCPM_Student_Registration::init();
 		WPCPM_Student_Registration_Process::init();
 		WPCPM_Student_Flags::init();
+		WPCPM_Student_Checklist::init();
+		WPCPM_Start_Pages::init();
 		WPCPM_Student_Registration_Form::init();
 		WPCPM_Student_Registrations_Tab::init();
 
@@ -162,6 +164,10 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Student_Flags::OPT_ON_SINCE );
 		delete_option( WPCPM_Student_Flags::OPT_WEEKLY );
 		delete_option( WPCPM_Student_Flags::LOCK );
+		// The first-week checklist's switch time, and the Start here and Team Matcher pages' IDs (the pages stay: they are content).
+		delete_option( WPCPM_Student_Checklist::OPT_ON_SINCE );
+		delete_option( WPCPM_Start_Pages::OPT_START );
+		delete_option( WPCPM_Start_Pages::OPT_MATCHER );
 
 		WPCPM_WPorg_Profile::flush_cache();
 
@@ -176,6 +182,12 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			WPCPM_Student_Feedback::META_RECORD_PLACEMENT,
 			'wpcpm_student_invited',
 			WPCPM_Student_Flags::META_REMINDED,
+			// The student automation's activity records, as uninstall.php removes them (Release B).
+			WPCPM_Student_Activity::META_REPORT,
+			WPCPM_Student_Activity::META_EDITED,
+			WPCPM_Student_Activity::META_TALKED,
+			// Each student's own checklist ticks.
+			WPCPM_Student_Checklist::META_TICKS,
 			// A manager's rows-per-page choice for the Student accounts, which core keeps as user meta.
 			self::PER_PAGE_OPTION,
 		) as $meta_key ) {

@@ -514,7 +514,7 @@ ck(
 	)
 );
 preg_match_all( '#<tr><td><code>\{([a-z_]+)\}</code>( <span class="wpcpm-emails__required">Required</span>)?</td><td>([^<]*)</td><td>([^<]*)</td></tr>#', $editor, $placeholders, PREG_SET_ORDER );
-ck( 'its placeholders are listed with what each means and its example, the set-password link marked required', array_map( function ( $row ) { return array( $row[1], '' !== $row[2] ); }, $placeholders ), array( array( 'site_name', false ), array( 'set_password_link', true ), array( 'username', false ), array( 'login_url', false ), array( 'dashboard_link', false ) ) );
+ck( 'its placeholders are listed with what each means and its example, the set-password link marked required', array_map( function ( $row ) { return array( $row[1], '' !== $row[2] ); }, $placeholders ), array( array( 'site_name', false ), array( 'set_password_link', true ), array( 'username', false ), array( 'login_url', false ), array( 'dashboard_link', false ), array( 'start_here_link', false ) ) );
 ck( 'each example on one line, the empty ones said to be empty', array( html_entity_decode( $placeholders[1][4] ?? '', ENT_QUOTES ), html_entity_decode( $placeholders[4][4] ?? '', ENT_QUOTES ) ), array( 'To set your password, visit the following address:  https://example.test/wp-login.php?login=ada.example&key=EXAMPLE-KEY-NOT-A-REAL-LINK&action=rp', 'https://example.test/student-report-card/' ) );
 preg_match( '#<div class="wpcpm-emails__preview"><p><strong>Subject:</strong> ([^<]*)</p><pre class="wpcpm-emails__text">(.*?)</pre></div>#s', $editor, $preview );
 ck( 'the preview is the email filled with the examples, ending with the footer as a student\'s does, the site\'s address on its line (1.123.24) and the Student Report Card\'s address named once, in the body', array( html_entity_decode( $preview[1] ?? '', ENT_QUOTES ), false !== strpos( $preview[2] ?? '', 'key=EXAMPLE-KEY-NOT-A-REAL-LINK' ), substr( html_entity_decode( $preview[2] ?? '', ENT_QUOTES ), -strlen( "https://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n" ) ), substr_count( $preview[2] ?? '', 'https://example.test/student-report-card/' ) ), array( '[WordPress Credits] Welcome to the WordPress Credits Program', true, "https://example.test/student-report-card/\r\n\r\n-- \r\nWordPress Credits, WordPress Education\r\nhttps://example.test/\r\nThis email comes from the WordPress Credits program.\r\n", 1 ) );
@@ -781,6 +781,12 @@ $wants = array();
 // An event that waits for approval has nobody on it, so the four emails about one give the people who
 // joined no example, and a preview or a test leaves that line out, as the email does.
 $waiting = array( 'event-planned', 'event-planned-for', 'event-changed-waiting', 'event-changed-waiting-for' );
+// The quiet student's reminder opens with one of three sentences, each with its own count (Release B):
+// its preview is of a student seen before, with a call to book, so the two counts of a student never
+// seen since their track started or their account was made, and the contact address a student with
+// nothing to book is given instead of a booking link, have no example, and those sentences are left
+// out, as the email leaves them out for such a student.
+$unseen = array( 'student-quiet-student' => array( 'days_since_track', 'days_since_account', 'contact_address' ) );
 $plain = function ( $text ) {
 	return str_replace( array( "\r\n", "\r" ), "\n", html_entity_decode( (string) $text, ENT_QUOTES ) );
 };
@@ -875,7 +881,7 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 		),
 	);
 	$wants[ $id ] = array(
-		'bare'    => in_array( $id, $waiting, true ) ? array( 'joined' ) : array(),
+		'bare'    => in_array( $id, $waiting, true ) ? array( 'joined' ) : ( isset( $unseen[ $id ] ) ? $unseen[ $id ] : array() ),
 		'editor'  => true,
 		'preview' => array( 'left' => array(), 'gone' => array(), 'footer' => $shown_footer[1] ),
 		'test'    => array(
@@ -894,7 +900,7 @@ foreach ( WPCPM_Mail_Templates::all() as $id => $template ) {
 		$drafted_shipped = array( $plain( $shown_body[1] ?? '' ), str_replace( "\r\n", "\n", $test[0]['body'] ?? '' ) );
 	}
 }
-ck( 'every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors opens in the editor, with Save and Send me a test, every placeholder of its text given an example, but the people who joined in the four emails about an event that waits, which has nobody on it, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, with no header, no Reply-To among them, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
+ck( 'every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors opens in the editor, with Save and Send me a test, every placeholder of its text given an example, but the people who joined in the four emails about an event that waits, which has nobody on it, and the counts of a quiet student never seen and the contact address of one with nothing to book, its preview filled with them; and its test, pressed as drawn, is one email, to the presser alone, with no header, no Reply-To among them, marked [Test] and Test, under its own id, with no brace left and each example in it where its text puts the placeholder', $works, $wants );
 ck(
 	'a series\' test names its three weekly sessions on the presser\'s clock, one to a line',
 	false !== strpos(

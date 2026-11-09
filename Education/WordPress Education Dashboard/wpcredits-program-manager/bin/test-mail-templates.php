@@ -586,8 +586,9 @@ $shape = array(
 	'student-registration-already'  => array( "\n", array(), array() ),
 	// The Quiet students (1.123.60): the booking link and the dashboard link each needed in the student's
 	// reminder, the mentor's list in the body alone, the Administrator's list the same.
-	'student-quiet-student'         => array( "\n", array( 'booking_link', 'dashboard_link' ), array() ),
-	'student-quiet-mentor'          => array( "\n", array( 'students_list', 'dashboard_link' ), array( 'students_list' ) ),
+	// The booking link is empty for a student with nothing to book, and its sentence goes (fix round 1 of Release B).
+	'student-quiet-student'         => array( "\n", array( 'dashboard_link' ), array() ),
+	'student-quiet-mentor'          => array( "\n", array( 'count', 'students_list', 'dashboard_link' ), array( 'students_list' ) ),
 	'student-quiet-weekly'          => array( "\n", array( 'count', 'students_list', 'card_link' ), array( 'students_list' ) ),
 );
 $want_whole = array();

@@ -2159,6 +2159,8 @@ class WPCPM_Mail {
 				'username'          => preg_match( '/^Username: /m', $body ) ? '' : $user->user_login,
 				'login_url'         => $login,
 				'dashboard_link'    => $page,
+				// Only the student's invitation has the placeholder; a value for the others is never read.
+				'start_here_link'   => 'student' === $kind ? WPCPM_Start_Pages::start_url() : '',
 			)
 		);
 

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.60
+Stable tag: 1.123.61
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,16 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.61 =
+
+New students: the first-week checklist, Start here and the Team Matcher page, switched off.
+
+* A card on the Student Report Card, "Your first weeks", for new students: eight items, five ticked by the site when it sees them (a WordPress.org profile on record, a sign-in, the report form started, a first call booked, a contribution team chosen) and three the student ticks (the Making WordPress Slack, the #wpcredits channel, the Learn course). It folds to one line when all are done and gates nothing. A student is new when the account was made after the switch first went on, or the track started in the 28 days before it. One box, in Settings, Students and mentors, New students, ships Off.
+* Two public pages, Start here at /start-here/ and the Team Matcher at /find-your-team/, made when the box is first turned on or by `wp wpcredits start_pages`. The Team Matcher page is made only while the Find Your Team plugin's quiz block is available. A page that exists is never rewritten; an Administrator edits it in the editor. They are linked from the Student Report Card's resources, the student welcome email (the optional start_here_link placeholder in Tools > Emails) and the registration form's confirmation. Both pages stay on the site when the plugin is deleted.
+* Quiet students, fixed: switching the mode Off stops a run within one email; a "We've already talked" press during a run stays; a student is reminded again only after activity later than the reminder; the Student Report Card's note ends as soon as the student is active again or books a call, yet a student arriving from the reminder still finds the button; and the mentor email lists only the students actually mailed.
+* Quiet students, on the screens: the note sits under the heading of the My mentor call block, and the Mentor Report Card's line at the top of the student's card; the card is one form, with a short line confirming a press; a row reads "Track started" or "Account made". A student who is their own mentor counts as having none, and a student with no mentor and no booking page for their country is pointed at the program's contact address instead of a booking link.
+* Uninstall removes the checklist's start time and ticks and the two page IDs; the pages themselves stay, as every page the plugin makes does.
 
 = 1.123.60 =
 
