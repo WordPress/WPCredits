@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.17
+Stable tag: 1.32.18
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -220,6 +220,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.18 =
+
+* The Full width page template sets its content across the whole 1240px column, as the homepage and the landing pages do. It stopped at 1120px, so the Student impact page was narrower than the others.
+* Every page and post drawn by the plain templates is set as the form pages are since 1.32.16 and 1.32.17: on white, with no box around the content, in the homepage's typefaces and on the header's margin. A boxed page held its text 40px inside the column the other pages fill. The guides keep their layout.
 
 = 1.32.17 =
 

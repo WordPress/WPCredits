@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.17
+Version: 1.32.18
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -1381,10 +1381,10 @@ p.is-style-pill {
 	padding: 40px;
 }
 
-/* The homepage's two typefaces, for the form pages below (theme 1.32.17): EB Garamond for the
+/* The homepage's two typefaces, for the plain pages below (theme 1.32.17): EB Garamond for the
    page's title and Inter for its text, the files hub.css names for the homepage and the landing
    pages. Declared here too because hub.css loads on those templates alone; a browser fetches a
-   face only where a rule uses it, so no other page downloads them. */
+   face only where a rule uses it, so a dashboard or a guide does not download them. */
 @font-face {
 	font-display: swap;
 	font-family: "EB Garamond";
@@ -1421,21 +1421,21 @@ p.is-style-pill {
 	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* A page that holds one of the plugin's public forms (the mentor, institution and sponsor
-   applications, the student registration) is read by people who are not signed in, so it is drawn
-   as the homepage and the landing pages are: on the page's own white, with no box around the
-   content, which then lines up with the header. The form's groups keep their own hairline. */
-.wpc-main--content:has( .wpcpm-application ) {
+/* A page or a post drawn by the plain templates (page.html, single.html), the form pages among
+   them, is drawn as the homepage and the landing pages are (theme 1.32.18; the form pages since
+   1.32.16): on the page's own white, with no box around the content, which then fills the same
+   1240px column and lines up with the header. The guides (`wpc-main--doc`) keep their two boxes. */
+.wpc-main--content:not( .wpc-main--doc ) {
 	background: var( --wpc-surface );
 }
 
-.wpc-main--content:has( .wpcpm-application ) .wpc-article {
+.wpc-main--content:not( .wpc-main--doc ) > .wpc-article {
 	--wpc-font: Inter, var( --wp--preset--font-family--system );
 	font-family: var( --wpc-font );
 }
 
 /* Its title as a landing page's section heading is set: the serif, regular weight. */
-.wpc-article:has( .wpcpm-application ) .wp-block-post-title {
+.wpc-main--content:not( .wpc-main--doc ) > .wpc-article .wp-block-post-title {
 	font-family: "EB Garamond", Georgia, "Times New Roman", serif;
 	font-size: clamp( 30px, 3.4vw, 44px );
 	font-weight: 400;
@@ -1443,7 +1443,7 @@ p.is-style-pill {
 	line-height: 1.08;
 }
 
-.wpc-article:has( .wpcpm-application ) {
+.wpc-main--content:not( .wpc-main--doc ) > .wpc-article {
 	background: transparent;
 	border: 0;
 	border-radius: 0;
@@ -1469,9 +1469,9 @@ p.is-style-pill {
 	}
 }
 
-/* A form page has no box, so its content keeps the header's own margin at every width (40px, and
-   20px on a phone): the token the header is set by. */
-.wpc-main--content:has( .wpcpm-application ) {
+/* With no box, the content keeps the header's own margin at every width (40px, and 20px on a
+   phone): the token the header is set by. */
+.wpc-main--content:not( .wpc-main--doc ) {
 	padding-left: var( --wpc-chrome-gutter );
 	padding-right: var( --wpc-chrome-gutter );
 }
