@@ -2591,6 +2591,19 @@ them all in the first notice of its report, so **Send invite** on a row sends th
 ones that should have it. The **Last sync report** counts those it queued under **Invitations sent
 to existing accounts**.
 
+Since 1.123.62 the mentors sync also keeps the public list of active mentors on the site. For each
+active mentor it stores the name, the WordPress.org profile, the country, the languages and whether
+the mentor is sponsored, and no address. In the base Country and Languages are links to tables of
+their own, so the sync reads those tables' names as well. The list is replaced only by a run that
+read the whole Mentors table and could name every country and language: a run that stops halfway,
+or cannot read one of the linked tables, leaves the last list as it is and says so in a notice of
+the **Last sync report**. Who sponsors a mentor is not stored with the list. It is read from the
+sponsors' own records, the mentors each Approved sponsor holds on the **Sponsors** screen, never a
+test sponsor's, so a change there shows at once. The Credits Program Mentors plugin, which draws
+the directory on the mentors' page, reads this list (the filter `wpcpm_public_mentors`) and reads
+no Airtable of its own. The list is as fresh as the last finished run: a mentor made Active in
+Airtable appears on the page after the next one.
+
 Since 1.123.58 the mentors and students syncs count before they take anyone's role. A run that read
 no records, or fewer than half as many as there are accounts linked to a record, stops before its
 revoke step and keeps every account; the Sync tab says what it read and offers **Run anyway**, and
@@ -2720,6 +2733,11 @@ the status and the modified date are not touched, and no save runs), and /progra
 script writes the page by its ID, so a release does not care which address it has.
 
 The student registration form's page is at /student-registration/ since 1.123.54, with the same Welcome text the Airtable form opened with, the program's address and the form. Activation makes it, and so can a person, with the same address: a published page at that address is used as it is, and nothing on it is changed. The page is not gated, because the students who use it have no account yet, and it is not cached.
+
+Since 1.123.63 the registration form's line for a student whose institution is not on the list
+leads to the institution application page on this site while it is published, and says to get in
+touch otherwise. It used to lead to the Students Interest Form, which is kept on Airtable; the site's
+public pages now link to no form there.
 
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.

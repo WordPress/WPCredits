@@ -1824,7 +1824,7 @@ ck( 'the names it goes by',
 		WPCPM_Student_Registration_Form::TRANSIENT_PREFIX, WPCPM_Student_Registration_Form::TRANSIENT_MINUTES, WPCPM_Student_Registration_Form::PER_HOUR,
 		WPCPM_Student_Registration_Form::QUERY_STASH, WPCPM_Student_Registration_Form::QUERY_OUTCOME, WPCPM_Student_Registration_Form::FIELD_ANSWERS,
 		WPCPM_Student_Registration_Form::HONEYPOT, WPCPM_Student_Registration_Form::TOKEN_FIELD, WPCPM_Student_Registration_Form::CONTACT,
-		WPCPM_Student_Registration_Form::INTEREST_URL, WPCPM_Student_Registration_Form::MAX_TEXT,
+		WPCPM_Student_Registration_Form::MAX_TEXT,
 	),
 	array(
 		'wpcpm_student_registration', 'wpcpm/student-registration', 'wpcpm_student_registration_page_id', 'student-registration',
@@ -1832,7 +1832,7 @@ ck( 'the names it goes by',
 		'wpcpm_sreg_', 30, 30,
 		'wpcpm_sreg', 'wpcpm_sreg_said', 'wpcpm_student_registration',
 		'wpcpm_confirm_campus', 'wpcpm_student_registration_token', 'education@wordpressfoundation.org',
-		'https://airtable.com/appIzQKfwTn5dyPVp/shr6Gf1mMMEAxevw4', 2000,
+		2000,
 	) );
 
 $block_json = json_decode( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/student-registration/block.json' ), true );
@@ -1875,7 +1875,14 @@ ck( 'the two boxes\' words, the policy\'s address its link', array( $fields['eng
 	'By clicking this checkbox, you understand that your information will be used in accordance with our Privacy Policy (<a href="https://wordpress.org/about/privacy/">https://wordpress.org/about/privacy/</a>).',
 ) );
 ck( 'the institution\'s line under its field, the hours\' bounds', array( $fields['institution']['note'], $fields['hours']['min'], $fields['hours']['max'] ),
-	array( 'Is your institution not on the list? Ask a faculty member or your administration office to contact us, or fill in the <a href="https://airtable.com/appIzQKfwTn5dyPVp/shr6Gf1mMMEAxevw4">student interest form</a>.', 1, 2000 ) );
+	array( 'Is your institution not on the list? Ask a faculty member or your administration office to contact us.', 1, 2000 ) );
+ck( 'with the institution application published the line leads to it, on this site, and no line leads to a form on Airtable (1.123.63)',
+	array(
+		WPCPM_Student_Registration_Form::institution_note( 'https://example.test/institution-application/' ),
+		defined( 'WPCPM_Student_Registration_Form::INTEREST_URL' ),
+		substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration-form.php' ), 'airtable.com' ),
+	),
+	array( 'Is your institution not on the list? Ask a faculty member or your administration office to fill in the <a href="https://example.test/institution-application/">institution application</a>.', false, 0 ) );
 ck( 'the Airtable form\'s date format line is not there', array_key_exists( 'help', $fields['start'] ) || array_key_exists( 'help', $fields['end'] ), false );
 
 echo "\n--- The lists the site holds ---\n";
@@ -2012,8 +2019,8 @@ ck( 'the institution is the one field to type and pick: its label marked Require
 		array( false !== strpos( $page, 'Pipeline Institute' ), false !== strpos( $page, 'Agreement Institute' ), false !== strpos( $page, 'TEST - Example institution' ) ),
 	),
 	array( true, true, true, true, array( false, false, false ) ) );
-ck( 'and the line for a student whose institution is not listed sits under it, with the interest form linked',
-	array( strpos( $page, 'student interest form</a>.</span>' ) > strpos( $page, 'wpcpm-student-registration-institution-list' ), false !== strpos( $page, '<span class="wpcpm-field__hint" id="wpcpm-student-registration-institution-note">Is your institution not on the list? Ask a faculty member or your administration office to contact us, or fill in the <a href="https://airtable.com/appIzQKfwTn5dyPVp/shr6Gf1mMMEAxevw4">student interest form</a>.</span>' ) ),
+ck( 'and the line for a student whose institution is not listed sits under it',
+	array( strpos( $page, 'to contact us.</span>' ) > strpos( $page, 'wpcpm-student-registration-institution-list' ), false !== strpos( $page, '<span class="wpcpm-field__hint" id="wpcpm-student-registration-institution-note">Is your institution not on the list? Ask a faculty member or your administration office to contact us.</span>' ) ),
 	array( true, true ) );
 ck( 'the preferred language is the other combobox, over the copy\'s names',
 	array( false !== strpos( $page, '<label for="wpcpm-student-registration-preferred" id="wpcpm-student-registration-preferred-label">Preferred Language <span class="wpcpm-field__required">Required</span></label>' ), false !== strpos( $page, '<option value="" selected=\'selected\'>Choose a language</option><option value="English">English</option><option value="Polish">Polish</option><option value="Spanish">Spanish</option></select>' ), substr_count( $page, 'role="combobox"' ) ),

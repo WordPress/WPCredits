@@ -109,8 +109,6 @@ final class WPCPM_Student_Registration_Form {
 	/** The program's public address, which the page's introduction gives. */
 	const CONTACT = 'education@wordpressfoundation.org';
 
-	/** The Students Interest Form, which stays on Airtable: for a student whose institution is not listed. */
-	const INTEREST_URL = 'https://airtable.com/appIzQKfwTn5dyPVp/shr6Gf1mMMEAxevw4';
 
 	/** Longest free-text answer kept, in characters. */
 	const MAX_TEXT = 2000;
@@ -419,6 +417,27 @@ final class WPCPM_Student_Registration_Form {
 		return array_values( array_unique( array_map( 'strval', WPCPM_Student_Airtable_Row::languages() ) ) );
 	}
 
+
+	/**
+	 * The line under the institution field, for a student whose institution is not on the list: it
+	 * leads to the institution application on this site while that page is published, and says to
+	 * get in touch otherwise. Since 1.123.63 it no longer leads to a form kept on Airtable.
+	 *
+	 * @param string $application The institution application page's address, or '' with none published.
+	 * @return string The sentence, its link built here and its words translated.
+	 */
+	public static function institution_note( $application ) {
+		if ( '' === (string) $application ) {
+			return __( 'Is your institution not on the list? Ask a faculty member or your administration office to contact us.', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: 1: an opening link tag to the institution application page, 2: its closing tag. */
+			__( 'Is your institution not on the list? Ask a faculty member or your administration office to fill in the %1$sinstitution application%2$s.', 'wpcredits-program-manager' ),
+			'<a href="' . esc_url( $application ) . '">',
+			'</a>'
+		);
+	}
 	/**
 	 * The questions, keyed by the site field each answer is kept under: the Airtable form's fourteen, in
 	 * its order and with its labels and help, as the design gives them (section 3).
@@ -452,12 +471,7 @@ final class WPCPM_Student_Registration_Form {
 				'label'    => __( 'Educational Institution', 'wpcredits-program-manager' ),
 				'type'     => 'institution',
 				'required' => true,
-				'note'     => sprintf(
-					/* translators: 1: an opening link tag to the Students Interest Form, 2: its closing tag. */
-					__( 'Is your institution not on the list? Ask a faculty member or your administration office to contact us, or fill in the %1$sstudent interest form%2$s.', 'wpcredits-program-manager' ),
-					'<a href="' . esc_url( self::INTEREST_URL ) . '">',
-					'</a>'
-				),
+				'note'     => self::institution_note( class_exists( 'WPCPM_Institution_Application' ) ? WPCPM_Institution_Application::page_url() : '' ),
 			),
 			'study'       => array(
 				'label'    => __( 'Department / Area of Study', 'wpcredits-program-manager' ),
