@@ -2943,6 +2943,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_mentor_application_page_id` | `WPCPM_Mentor_Application_Form::OPT_PAGE` |
 | `wpcpm_mentor_page_id` | `WPCPM_Mentors_Dashboard::OPT_PAGE` |
 | `wpcpm_mentor_page_title_fixed` | `WPCPM_Mentors_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_mentors_directory` | `WPCPM_Mentor_Directory::OPTION` (the public list of active mentors: name, WordPress.org profile, country, languages, sponsored or not; written by the mentors sync, read through the filter `wpcpm_public_mentors`) |
 | `wpcpm_mentors_field_meta` | `WPCPM_Mentors_Sync::OPT_FIELDS` |
 | `wpcpm_mentors_last_error` | `WPCPM_Mentors_Sync::OPT_ERROR` |
 | `wpcpm_mentors_last_sync` | `WPCPM_Mentors_Sync::OPT_LAST` |

@@ -332,6 +332,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sync-guard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-lock.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
+require_once __DIR__ . '/../includes/tools/class-wpcpm-mentor-checker-profile.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-directory.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-cli.php';
 

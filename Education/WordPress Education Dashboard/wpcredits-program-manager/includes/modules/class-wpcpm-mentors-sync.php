@@ -455,6 +455,7 @@ class WPCPM_Mentors_Sync {
 			'steps'       => array(),
 			'mentors'     => array(),
 			'sponsorship' => array(),
+			'directory'   => array(),
 			// The accounts that already existed and that this run made active mentors, whose welcome
 			// is queued when the pass over the Mentors table ends (`queue_relinked()`).
 			'relink_ids'  => array(),
@@ -945,6 +946,9 @@ class WPCPM_Mentors_Sync {
 					'reports'   => $reports,
 					'students'  => $students,
 					'primaries' => $primaries,
+					// The tables the Mentors table's Country and Languages columns link to, whose
+					// names the lookups phase reads for the public list of mentors (1.123.62).
+					'directory' => WPCPM_Mentor_Directory::linked_tables( $schema, $settings['mentors_table'], self::fields() ),
 					'read'      => time(),
 				),
 				false
@@ -1048,6 +1052,50 @@ class WPCPM_Mentors_Sync {
 			update_option( self::OPT_LOOKUPS, $stored, false );
 
 			// One table per slice, so the progress bar moves between them.
+			return true;
+		}
+
+		// The names behind the Mentors table's Country and Languages links, for the public list of
+		// mentors (1.123.62): record ID to name, one table per slice like the two above. They stay
+		// in the run's state, which is all that reads them. A table that cannot be read stops
+		// nothing: its entry is false, the run says so, and the list of the last whole read stands.
+		$stored_fields = get_option( self::OPT_FIELDS );
+		$linked        = ( is_array( $stored_fields ) && isset( $stored_fields['directory'] ) && is_array( $stored_fields['directory'] ) ) ? $stored_fields['directory'] : array();
+
+		foreach ( $linked as $answer => $table ) {
+			$key = 'directory_' . $answer;
+
+			if ( isset( $state['lookups'][ $key ] ) ) {
+				continue;
+			}
+
+			$name_field = ! empty( $primaries[ $table ] ) ? $primaries[ $table ] : '';
+			$records    = '' === $name_field ? new WP_Error( 'wpcpm_directory_no_primary', __( 'its first column is not known', 'wpcredits-program-manager' ) ) : $airtable->fetch_all( $table, array( 'fields' => array( $name_field ) ) );
+
+			if ( is_wp_error( $records ) ) {
+				$state['lookups'][ $key ] = false;
+				$state['notices'][]       = sprintf(
+					/* translators: 1: Airtable table ID, 2: error message. */
+					__( 'The public list of mentors was not updated: the names in the linked table %1$s could not be read (%2$s).', 'wpcredits-program-manager' ),
+					$table,
+					$records->get_error_message()
+				);
+
+				return true;
+			}
+
+			$map = array();
+
+			foreach ( $records as $record ) {
+				$name = ( isset( $record['id'], $record['fields'][ $name_field ] ) ) ? trim( WPCPM_Airtable::flatten( $record['fields'][ $name_field ] ) ) : '';
+
+				if ( '' !== $name ) {
+					$map[ (string) $record['id'] ] = $name;
+				}
+			}
+
+			$state['lookups'][ $key ] = $map;
+
 			return true;
 		}
 
@@ -1399,7 +1447,7 @@ class WPCPM_Mentors_Sync {
 			$settings['mentors_table'],
 			array(
 				'formula' => $airtable->formula_in( $fields['mentor_status'], array( $settings['mentor_status'] ) ),
-				'fields'  => array( $fields['mentor_name'], $fields['mentor_profile'], $fields['mentor_email'], $fields['mentor_status'], $fields['mentor_sponsored'], $fields['mentor_wants_sponsor'], $fields['mentor_expertise'] ),
+				'fields'  => array( $fields['mentor_name'], $fields['mentor_profile'], $fields['mentor_email'], $fields['mentor_status'], $fields['mentor_sponsored'], $fields['mentor_wants_sponsor'], $fields['mentor_expertise'], $fields['mentor_country'], $fields['mentor_languages'] ),
 				'offset'  => $state['offset'],
 			)
 		);
@@ -1436,6 +1484,16 @@ class WPCPM_Mentors_Sync {
 			);
 
 			$state['sponsorship'][ $mentor['record_id'] ] = self::sponsorship_row( $cells, $fields, $user_id, $settings['mentor_status'] );
+
+			// The mentor's public facts, for the directory's list (1.123.62).
+			$state['directory'][ $mentor['record_id'] ] = WPCPM_Mentor_Directory::row(
+				$cells,
+				$fields,
+				array(
+					'country'   => isset( $state['lookups']['directory_country'] ) ? $state['lookups']['directory_country'] : null,
+					'languages' => isset( $state['lookups']['directory_languages'] ) ? $state['lookups']['directory_languages'] : null,
+				)
+			);
 		}
 
 		$state['offset'] = $page['offset'];
@@ -1450,6 +1508,20 @@ class WPCPM_Mentors_Sync {
 				),
 				false
 			);
+
+			// The public list of active mentors, whole or not at all: stored only here, once the
+			// table is read to its end, so a run that stops halfway leaves the last list standing.
+			// A list with a country or a language it could not name is not stored either, nor one
+			// that misses a mentor the run read: a run begun under an older version and carried on
+			// under this one holds no row for the pages the older version read.
+			$directory = isset( $state['directory'] ) && is_array( $state['directory'] ) ? $state['directory'] : array();
+			$read      = isset( $state['mentors'] ) && is_array( $state['mentors'] ) ? $state['mentors'] : array();
+
+			if ( array() === array_diff_key( $read, $directory ) && WPCPM_Mentor_Directory::complete( $directory ) ) {
+				WPCPM_Mentor_Directory::store( $directory );
+			}
+
+			unset( $state['directory'] );
 
 			// The whole table is read, so the run knows how many welcomes it would send.
 			self::queue_relinked( $state );

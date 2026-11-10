@@ -143,6 +143,8 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		WPCPM_Mentor_Application_Form::init();
 		WPCPM_Mentor_Application_Queue::init();
 		WPCPM_Mentor_Application_Feed::init();
+		// The public list of active mentors a directory reads (1.123.62).
+		WPCPM_Mentor_Directory::init();
 
 		// The hourly call reminders, put back on the clock whenever they are missing, as the
 		// sync above does for its own job: the activation hook is the only other caller and
@@ -212,6 +214,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Mentors_Sync::OPT_FIELDS );
 		delete_option( WPCPM_Mentors_Sync::OPT_LOOKUPS );
 		delete_option( WPCPM_Mentors_Sync::OPT_SPONSORSHIP );
+		delete_option( WPCPM_Mentor_Directory::OPTION );
 		delete_option( WPCPM_Mentors_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Mentors_Dashboard::OPT_TITLE_FIXED );
 

@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.61\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.62\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-09T10:54:15+00:00\n"
+"POT-Creation-Date: 2026-11-10T02:02:50+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -68,7 +68,7 @@ msgstr ""
 
 #: includes/class-wpcpm-abilities.php:192
 #: includes/modules/class-wpcpm-administrators-cards.php:3167
-#: includes/modules/class-wpcpm-mentors.php:445
+#: includes/modules/class-wpcpm-mentors.php:448
 msgid "Mentor engagement"
 msgstr ""
 
@@ -809,7 +809,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-request.php:1287
 #: includes/modules/class-wpcpm-institution-request.php:1385
 #: includes/modules/class-wpcpm-mentor-application-queue.php:287
-#: includes/modules/class-wpcpm-mentors.php:665
+#: includes/modules/class-wpcpm-mentors.php:668
 #: includes/modules/class-wpcpm-module.php:136
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1050
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1148
@@ -1471,8 +1471,8 @@ msgid "This run was stopped, or cleared in another tab. The count above is where
 msgstr ""
 
 #: includes/class-wpcpm-mail.php:1647
-#: includes/modules/class-wpcpm-mentors.php:980
-#: includes/modules/class-wpcpm-students.php:635
+#: includes/modules/class-wpcpm-mentors.php:983
+#: includes/modules/class-wpcpm-students.php:641
 msgid "Invitations sent"
 msgstr ""
 
@@ -1827,8 +1827,8 @@ msgstr ""
 
 #: includes/class-wpcpm-overview.php:220
 #: includes/modules/class-wpcpm-administrators-cards.php:3223
-#: includes/modules/class-wpcpm-mentors.php:395
-#: includes/modules/class-wpcpm-students.php:205
+#: includes/modules/class-wpcpm-mentors.php:398
+#: includes/modules/class-wpcpm-students.php:211
 #: includes/modules/trait-wpcpm-accounts-screen.php:599
 msgid "Sync"
 msgstr ""
@@ -2047,7 +2047,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-view.php:518
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:92
 #: includes/modules/class-wpcpm-mentors-table.php:94
-#: includes/modules/class-wpcpm-mentors.php:718
+#: includes/modules/class-wpcpm-mentors.php:721
 #: includes/modules/class-wpcpm-sponsor-report-files.php:714
 #: includes/modules/class-wpcpm-students-table.php:118
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
@@ -2543,10 +2543,10 @@ msgstr ""
 #: includes/class-wpcpm-settings-screen.php:1326
 #: includes/modules/class-wpcpm-administrators.php:241
 #: includes/modules/class-wpcpm-institutions.php:2688
-#: includes/modules/class-wpcpm-mentors.php:393
+#: includes/modules/class-wpcpm-mentors.php:396
 #: includes/modules/class-wpcpm-sponsors.php:2834
 #: includes/modules/class-wpcpm-sponsors.php:4705
-#: includes/modules/class-wpcpm-students.php:203
+#: includes/modules/class-wpcpm-students.php:209
 #: includes/modules/trait-wpcpm-accounts-screen.php:598
 msgid "Accounts"
 msgstr ""
@@ -7657,7 +7657,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:599
 #: includes/modules/class-wpcpm-institutions.php:2686
 #: includes/modules/class-wpcpm-institutions.php:3218
-#: includes/modules/class-wpcpm-mentors.php:392
+#: includes/modules/class-wpcpm-mentors.php:395
 #: includes/modules/class-wpcpm-sponsor-offers.php:1870
 #: includes/modules/class-wpcpm-sponsor-posts.php:1209
 #: includes/modules/class-wpcpm-sponsors.php:2832
@@ -11978,7 +11978,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-people.php:1285
 #: includes/modules/class-wpcpm-institution-people.php:1286
-#: includes/modules/class-wpcpm-mentors.php:638
+#: includes/modules/class-wpcpm-mentors.php:641
 msgid "The invitation could not be queued: the queue was busy. Send it from the account's row."
 msgstr ""
 
@@ -12989,7 +12989,7 @@ msgstr ""
 
 #. translators: 1: current phase number, 2: total number of phases.
 #: includes/modules/class-wpcpm-institutions-sync.php:462
-#: includes/modules/class-wpcpm-mentors-sync.php:614
+#: includes/modules/class-wpcpm-mentors-sync.php:615
 #: includes/modules/class-wpcpm-students-sync.php:559
 #: includes/tools/class-wpcpm-duplicates-scan.php:357
 #, php-format
@@ -13020,7 +13020,7 @@ msgstr ""
 
 #. translators: %s: the error message Airtable, or the HTTP client, returned.
 #: includes/modules/class-wpcpm-institutions-sync.php:701
-#: includes/modules/class-wpcpm-mentors-sync.php:871
+#: includes/modules/class-wpcpm-mentors-sync.php:872
 #: includes/modules/class-wpcpm-students-sync.php:776
 #, php-format
 msgid "A read was refused during this run (%s). The run waited and carried on from where it stopped."
@@ -13079,7 +13079,7 @@ msgid "The Contact Email already belongs to an account on this site, which is a 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-sync.php:1297
-#: includes/modules/class-wpcpm-mentors-sync.php:2214
+#: includes/modules/class-wpcpm-mentors-sync.php:2286
 #: includes/modules/class-wpcpm-sponsor-members.php:563
 #: includes/modules/class-wpcpm-students-sync.php:3304
 msgid "That user does not exist."
@@ -13180,7 +13180,7 @@ msgid "Contact"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-table.php:902
-#: includes/modules/class-wpcpm-mentors.php:719
+#: includes/modules/class-wpcpm-mentors.php:722
 #: includes/modules/class-wpcpm-sponsors-table.php:878
 msgid "Account"
 msgstr ""
@@ -13608,8 +13608,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/modules/class-wpcpm-institutions.php:3037
-#: includes/modules/class-wpcpm-mentors.php:571
-#: includes/modules/class-wpcpm-students.php:389
+#: includes/modules/class-wpcpm-mentors.php:574
+#: includes/modules/class-wpcpm-students.php:395
 msgid "Last sync error:"
 msgstr ""
 
@@ -13628,8 +13628,8 @@ msgid "Each was refused more claims than the daily ceiling allows: %s. The insti
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3106
-#: includes/modules/class-wpcpm-mentors.php:837
-#: includes/modules/class-wpcpm-students.php:533
+#: includes/modules/class-wpcpm-mentors.php:840
+#: includes/modules/class-wpcpm-students.php:539
 msgid "Airtable sync"
 msgstr ""
 
@@ -13638,22 +13638,22 @@ msgid "Reads the Countries table, then each institution's name, stage, country, 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3116
-#: includes/modules/class-wpcpm-mentors.php:911
-#: includes/modules/class-wpcpm-students.php:543
+#: includes/modules/class-wpcpm-mentors.php:914
+#: includes/modules/class-wpcpm-students.php:549
 msgid "The sync has finished. The page will show its report."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3129
-#: includes/modules/class-wpcpm-mentors.php:925
-#: includes/modules/class-wpcpm-students.php:554
+#: includes/modules/class-wpcpm-mentors.php:928
+#: includes/modules/class-wpcpm-students.php:560
 msgid "Sync progress"
 msgstr ""
 
 #. translators: %s: elapsed time as a clock value.
 #. translators: %s: elapsed time as a clock value, e.g. "2:05".
 #: includes/modules/class-wpcpm-institutions.php:3136
-#: includes/modules/class-wpcpm-mentors.php:934
-#: includes/modules/class-wpcpm-students.php:561
+#: includes/modules/class-wpcpm-mentors.php:937
+#: includes/modules/class-wpcpm-students.php:567
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:509
 #, php-format
 msgid "running for %s"
@@ -13664,8 +13664,8 @@ msgid "No progress for over two minutes. The run may have been interrupted: canc
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3157
-#: includes/modules/class-wpcpm-mentors.php:846
-#: includes/modules/class-wpcpm-students.php:590
+#: includes/modules/class-wpcpm-mentors.php:849
+#: includes/modules/class-wpcpm-students.php:596
 msgid "Cancel sync"
 msgstr ""
 
@@ -13676,8 +13676,8 @@ msgid "Last completed %1$s (%2$s ago)."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3173
-#: includes/modules/class-wpcpm-mentors.php:861
-#: includes/modules/class-wpcpm-students.php:605
+#: includes/modules/class-wpcpm-mentors.php:864
+#: includes/modules/class-wpcpm-students.php:611
 msgid "No sync has run yet."
 msgstr ""
 
@@ -16740,7 +16740,7 @@ msgid "On track"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:428
-#: includes/modules/class-wpcpm-students.php:287
+#: includes/modules/class-wpcpm-students.php:293
 msgid "Search students"
 msgstr ""
 
@@ -16979,120 +16979,130 @@ msgstr ""
 msgid "Assigning students to mentors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:679
+#: includes/modules/class-wpcpm-mentors-sync.php:680
 msgid "Reading each column's description…"
 msgstr ""
 
 #. translators: %s: number of linked names read.
-#: includes/modules/class-wpcpm-mentors-sync.php:684
+#: includes/modules/class-wpcpm-mentors-sync.php:685
 #, php-format
 msgid "%s institution and team names read"
 msgstr ""
 
 #. translators: 1: mentors read, 2: accounts created, 3: accounts linked.
-#: includes/modules/class-wpcpm-mentors-sync.php:691
+#: includes/modules/class-wpcpm-mentors-sync.php:692
 #, php-format
 msgid "%1$s mentors read · %2$s created · %3$s linked"
 msgstr ""
 
 #. translators: %s: number of mentors whose role was revoked.
-#: includes/modules/class-wpcpm-mentors-sync.php:700
+#: includes/modules/class-wpcpm-mentors-sync.php:701
 #, php-format
 msgid "%s no longer active"
 msgstr ""
 
 #. translators: %s: number of student reports read.
-#: includes/modules/class-wpcpm-mentors-sync.php:707
+#: includes/modules/class-wpcpm-mentors-sync.php:708
 #, php-format
 msgid "%s student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:712
+#: includes/modules/class-wpcpm-mentors-sync.php:713
 msgid "Joining tutors to students by email…"
 msgstr ""
 
 #. translators: 1: assignments written, 2: mentors with students.
-#: includes/modules/class-wpcpm-mentors-sync.php:717
+#: includes/modules/class-wpcpm-mentors-sync.php:718
 #, php-format
 msgid "%1$s assignments across %2$s mentors"
 msgstr ""
 
 #. translators: %s: error message from Airtable.
-#: includes/modules/class-wpcpm-mentors-sync.php:926
+#: includes/modules/class-wpcpm-mentors-sync.php:927
 #, php-format
 msgid "Could not read field descriptions from Airtable, so the built-in descriptions are being shown instead. Add the \"schema.bases:read\" scope to the token to use the descriptions written in Airtable. (%s)"
 msgstr ""
 
 #. translators: 1: Airtable field name, 2: Airtable table ID.
-#: includes/modules/class-wpcpm-mentors-sync.php:1031
+#: includes/modules/class-wpcpm-mentors-sync.php:1035
 #, php-format
 msgid "Read %2$s but found no names in the column \"%1$s\". Check the name field setting for that table."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1276
+#: includes/modules/class-wpcpm-mentors-sync.php:1073
+msgid "its first column is not known"
+msgstr ""
+
+#. translators: 1: Airtable table ID, 2: error message.
+#: includes/modules/class-wpcpm-mentors-sync.php:1079
+#, php-format
+msgid "The public list of mentors was not updated: the names in the linked table %1$s could not be read (%2$s)."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentors-sync.php:1324
 msgid "No current student status is set, so a sync would read every row of the Students Reports table as a current student. Add at least one under \"Currently mentoring\" on the Settings screen before syncing."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1280
+#: includes/modules/class-wpcpm-mentors-sync.php:1328
 msgid "The mentor status to sync is blank, so a sync would give every row of the mentors table a Mentor account whatever its status. Set it on the Settings screen before syncing."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1365
+#: includes/modules/class-wpcpm-mentors-sync.php:1413
 msgid "Where the student currently is in the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1366
+#: includes/modules/class-wpcpm-mentors-sync.php:1414
 msgid "The student's email address, as recorded in the program. Also what their tutor is matched on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1368
+#: includes/modules/class-wpcpm-mentors-sync.php:1416
 msgid "When the student's internship starts and finishes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1369
+#: includes/modules/class-wpcpm-mentors-sync.php:1417
 msgid "When the student's internship finishes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1370
+#: includes/modules/class-wpcpm-mentors-sync.php:1418
 msgid "The teacher at the student's institution who supervises their internship."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1371
+#: includes/modules/class-wpcpm-mentors-sync.php:1419
 msgid "The school or university the student comes from."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1372
+#: includes/modules/class-wpcpm-mentors-sync.php:1420
 msgid "The student's profile on WordPress.org, where their contributions are recorded."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1373
+#: includes/modules/class-wpcpm-mentors-sync.php:1421
 msgid "The student's handle in the Making WordPress Slack, for contacting them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1374
+#: includes/modules/class-wpcpm-mentors-sync.php:1422
 msgid "The WordPress contributor team the student's project belongs to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1375
+#: includes/modules/class-wpcpm-mentors-sync.php:1423
 msgid "The website the student built during the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1376
+#: includes/modules/class-wpcpm-mentors-sync.php:1424
 msgid "The student's reporting form, prefilled for their record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:1377
+#: includes/modules/class-wpcpm-mentors-sync.php:1425
 msgid "The reporting form for the 50-hour track, prefilled for their record."
 msgstr ""
 
 #. translators: %s: WordPress username.
-#: includes/modules/class-wpcpm-mentors-sync.php:1534
+#: includes/modules/class-wpcpm-mentors-sync.php:1606
 #, php-format
 msgid "No invitation was sent to %s: its invitation is held. Send invite or Resend invite on its row in the Mentors screen's Accounts tab sends it."
 msgstr ""
 
 #. translators: 1: how many mentors whose accounts already existed became active in one run, 2: their WordPress usernames, separated by commas.
-#: includes/modules/class-wpcpm-mentors-sync.php:1593
+#: includes/modules/class-wpcpm-mentors-sync.php:1665
 #, php-format
 msgid "%1$s mentor whose account already existed became active in one run, so none was sent the welcome: %2$s. Its invitation waits in the Mentors screen's Accounts tab, where Send invite or Resend invite on its row sends it."
 msgid_plural "%1$s mentors whose accounts already existed became active in one run, so none was sent the welcome: %2$s. Their invitations wait in the Mentors screen's Accounts tab, where Send invite or Resend invite on each row sends it."
@@ -17100,14 +17110,14 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: how many invitations could not be queued.
-#: includes/modules/class-wpcpm-mentors-sync.php:1633
+#: includes/modules/class-wpcpm-mentors-sync.php:1705
 #, php-format
 msgid "%s invitation could not be queued: the queue was busy. Send it from the Accounts tab."
 msgid_plural "%s invitations could not be queued: the queue was busy. Send them from the Accounts tab."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-mentors-sync.php:2218
+#: includes/modules/class-wpcpm-mentors-sync.php:2290
 msgid "That account does not hold the Mentor role."
 msgstr ""
 
@@ -17143,145 +17153,145 @@ msgstr ""
 msgid "Mentor accounts are created from the Airtable Mentors table, using each mentor's WordPress.org username. Every mentor gets a Mentor-level page listing the students assigned to them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:276
+#: includes/modules/class-wpcpm-mentors.php:279
 msgid "Filter mentor accounts list"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:277
+#: includes/modules/class-wpcpm-mentors.php:280
 msgid "Mentor accounts list navigation"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:278
+#: includes/modules/class-wpcpm-mentors.php:281
 msgid "Mentor accounts list"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:279
+#: includes/modules/class-wpcpm-mentors.php:282
 msgid "Airtable is not connected yet, so no mentors can be synced."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:280
+#: includes/modules/class-wpcpm-mentors.php:283
 msgid "Mentor accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:281
+#: includes/modules/class-wpcpm-mentors.php:284
 msgid "Mentor Report Card:"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:282
+#: includes/modules/class-wpcpm-mentors.php:285
 msgid "The mentor page is missing. Re-activate the plugin to recreate it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:283
-#: includes/modules/class-wpcpm-mentors.php:467
+#: includes/modules/class-wpcpm-mentors.php:286
+#: includes/modules/class-wpcpm-mentors.php:470
 msgid "Search mentors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:284
+#: includes/modules/class-wpcpm-mentors.php:287
 msgid "Accounts are created with a random password and no email. \"Send invite\" emails that mentor a password-reset link so they can set their own."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:328
+#: includes/modules/class-wpcpm-mentors.php:331
 msgid "Filter mentor engagement list"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:329
+#: includes/modules/class-wpcpm-mentors.php:332
 msgid "Mentor engagement list navigation"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:330
+#: includes/modules/class-wpcpm-mentors.php:333
 msgid "Mentor engagement list"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:394
+#: includes/modules/class-wpcpm-mentors.php:397
 msgid "Engagement"
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-mentors.php:478
+#: includes/modules/class-wpcpm-mentors.php:481
 #, php-format
 msgid "Sign-ins before %s are approximate: they were read from the site's sessions, Two Factor and the activity log on the day of the release."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:479
+#: includes/modules/class-wpcpm-mentors.php:482
 msgid "Sign-ins are recorded from this release on; earlier ones are read once, the first time an Administrator opens wp-admin after the update."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:577
+#: includes/modules/class-wpcpm-mentors.php:580
 msgid "Run the sync anyway? Every linked account it did not read loses the Mentor role."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:585
+#: includes/modules/class-wpcpm-mentors.php:588
 msgid "Institution and team names have not been read yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:586
+#: includes/modules/class-wpcpm-mentors.php:589
 msgid "Airtable sends those two fields as record IDs, which the sync turns into names. Run a sync to fill them in - until then the mentor page leaves them blank rather than showing an ID."
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/modules/class-wpcpm-mentors.php:607
+#: includes/modules/class-wpcpm-mentors.php:610
 #, php-format
 msgid "Confirmed: %s is linked to the mentor's record and holds the Mentor role. The next sync gives the account its students."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:608
+#: includes/modules/class-wpcpm-mentors.php:611
 msgid "That match is no longer waiting: a sync found the mentor another way, or the account is gone. Nothing was changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:627
+#: includes/modules/class-wpcpm-mentors.php:630
 msgid "The account"
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/modules/class-wpcpm-mentors.php:632
+#: includes/modules/class-wpcpm-mentors.php:635
 #, php-format
 msgid "Confirmed: %s is linked to the mentor's record and keeps its Administrator role. The next sync gives the account its students."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:640
+#: includes/modules/class-wpcpm-mentors.php:643
 msgid "An invitation with the welcome is queued."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:715
+#: includes/modules/class-wpcpm-mentors.php:718
 msgid "Needs confirming"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:716
+#: includes/modules/class-wpcpm-mentors.php:719
 msgid "The sync found an account whose login is a mentor's WordPress.org username, and nothing else ties the two: no address and no record. It gave the account nothing. Confirm a match only when the account is the mentor's."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:720
+#: includes/modules/class-wpcpm-mentors.php:723
 msgid "Found"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:721
-#: includes/modules/class-wpcpm-mentors.php:757
+#: includes/modules/class-wpcpm-mentors.php:724
+#: includes/modules/class-wpcpm-mentors.php:760
 msgid "Confirm"
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/modules/class-wpcpm-mentors.php:748
+#: includes/modules/class-wpcpm-mentors.php:751
 #, php-format
 msgid "Make %s a mentor and give the account this mentor's students?"
 msgstr ""
 
 #. translators: %s: how many mentors made from applications have no Airtable row yet.
-#: includes/modules/class-wpcpm-mentors.php:784
+#: includes/modules/class-wpcpm-mentors.php:787
 #, php-format
 msgid "%s mentor made from an application has no Airtable row yet."
 msgid_plural "%s mentors made from applications have no Airtable row yet."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-mentors.php:789
+#: includes/modules/class-wpcpm-mentors.php:792
 msgid "Write the Airtable row again is on each, under Activated on the Waiting for review tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:817
+#: includes/modules/class-wpcpm-mentors.php:820
 msgid "No mentor has an account on the site yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:818
+#: includes/modules/class-wpcpm-mentors.php:821
 #: includes/modules/class-wpcpm-sponsor-offer-review.php:139
 #: includes/modules/class-wpcpm-sponsor-offers.php:2887
 #: includes/modules/class-wpcpm-sponsor-tools.php:587
@@ -17289,7 +17299,7 @@ msgid "mentors"
 msgstr ""
 
 #. translators: %s: how many mentors.
-#: includes/modules/class-wpcpm-mentors.php:820
+#: includes/modules/class-wpcpm-mentors.php:823
 #, php-format
 msgid "Invite %s mentor who has never been invited"
 msgid_plural "Invite %s mentors who have never been invited"
@@ -17297,101 +17307,101 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: human-readable time difference.
-#: includes/modules/class-wpcpm-mentors.php:855
-#: includes/modules/class-wpcpm-students.php:599
+#: includes/modules/class-wpcpm-mentors.php:858
+#: includes/modules/class-wpcpm-students.php:605
 #, php-format
 msgid "Last completed %s ago."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:868
+#: includes/modules/class-wpcpm-mentors.php:871
 msgid "Sync mentors now"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:947
-#: includes/modules/class-wpcpm-students.php:572
+#: includes/modules/class-wpcpm-mentors.php:950
+#: includes/modules/class-wpcpm-students.php:578
 msgid "No progress for over two minutes. The run may have been interrupted - cancel it and start again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:955
-#: includes/modules/class-wpcpm-students.php:580
+#: includes/modules/class-wpcpm-mentors.php:958
+#: includes/modules/class-wpcpm-students.php:586
 msgid "Reload this page to choose Run anyway or Cancel."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:958
+#: includes/modules/class-wpcpm-mentors.php:961
 msgid "The sync works in short bursts so it never hits a PHP timeout. Progress above updates every few seconds; you can safely leave this page and come back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:960
+#: includes/modules/class-wpcpm-mentors.php:963
 msgid "JavaScript is off, so this page reloads every 15 seconds to show progress. The sync itself continues either way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:975
+#: includes/modules/class-wpcpm-mentors.php:978
 msgid "Field descriptions read from Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:976
+#: includes/modules/class-wpcpm-mentors.php:979
 msgid "Active mentors in Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:977
-#: includes/modules/class-wpcpm-students.php:631
+#: includes/modules/class-wpcpm-mentors.php:980
+#: includes/modules/class-wpcpm-students.php:637
 msgid "Accounts created"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:978
-#: includes/modules/class-wpcpm-students.php:632
+#: includes/modules/class-wpcpm-mentors.php:981
+#: includes/modules/class-wpcpm-students.php:638
 msgid "Existing accounts linked"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:979
-#: includes/modules/class-wpcpm-students.php:633
+#: includes/modules/class-wpcpm-mentors.php:982
+#: includes/modules/class-wpcpm-students.php:639
 msgid "Accounts refreshed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:981
+#: includes/modules/class-wpcpm-mentors.php:984
 msgid "Invitations sent to existing accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:982
+#: includes/modules/class-wpcpm-mentors.php:985
 msgid "Mentor role revoked (no longer active)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:983
+#: includes/modules/class-wpcpm-mentors.php:986
 msgid "Current student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:984
+#: includes/modules/class-wpcpm-mentors.php:987
 msgid "Past student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:985
+#: includes/modules/class-wpcpm-mentors.php:988
 msgid "Student assignments written"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:986
+#: includes/modules/class-wpcpm-mentors.php:989
 msgid "Students with no mentor in Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:987
+#: includes/modules/class-wpcpm-mentors.php:990
 msgid "Students assigned to a non-active mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:988
+#: includes/modules/class-wpcpm-mentors.php:991
 msgid "Mentors skipped (missing data)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:989
-#: includes/modules/class-wpcpm-students.php:639
+#: includes/modules/class-wpcpm-mentors.php:992
+#: includes/modules/class-wpcpm-students.php:645
 msgid "Account conflicts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:993
-#: includes/modules/class-wpcpm-students.php:643
+#: includes/modules/class-wpcpm-mentors.php:996
+#: includes/modules/class-wpcpm-students.php:649
 msgid "Last sync report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1013
-#: includes/modules/class-wpcpm-students.php:663
+#: includes/modules/class-wpcpm-mentors.php:1016
+#: includes/modules/class-wpcpm-students.php:669
 msgid "Warnings"
 msgstr ""
 
@@ -22004,7 +22014,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/modules/class-wpcpm-sponsor-tools.php:586
-#: includes/modules/class-wpcpm-students.php:480
+#: includes/modules/class-wpcpm-students.php:486
 msgid "students"
 msgstr ""
 
@@ -24697,52 +24707,52 @@ msgstr ""
 msgid "Student accounts are created from the Airtable Students Reports table. Every student gets a Student-level page with their program details and the mentor assigned to them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:204
+#: includes/modules/class-wpcpm-students.php:210
 msgid "Registrations"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:280
+#: includes/modules/class-wpcpm-students.php:286
 msgid "Filter student accounts list"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:281
+#: includes/modules/class-wpcpm-students.php:287
 msgid "Student accounts list navigation"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:282
+#: includes/modules/class-wpcpm-students.php:288
 msgid "Student accounts list"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:283
+#: includes/modules/class-wpcpm-students.php:289
 msgid "Airtable is not connected yet, so no students can be synced."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:284
+#: includes/modules/class-wpcpm-students.php:290
 msgid "Student accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:285
+#: includes/modules/class-wpcpm-students.php:291
 msgid "Student Report Card:"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:286
+#: includes/modules/class-wpcpm-students.php:292
 msgid "The student page is missing. Re-activate the plugin to recreate it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:288
+#: includes/modules/class-wpcpm-students.php:294
 msgid "Accounts are created with a random password and no email. Usernames come from the student's WordPress.org profile where Airtable has one, and from their email address otherwise."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:395
+#: includes/modules/class-wpcpm-students.php:401
 msgid "Run the sync anyway? Every linked account it did not read loses the Student role."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:481
+#: includes/modules/class-wpcpm-students.php:487
 msgid "There are no students."
 msgstr ""
 
 #. translators: %s: how many students.
-#: includes/modules/class-wpcpm-students.php:483
+#: includes/modules/class-wpcpm-students.php:489
 #, php-format
 msgid "Invite %s student who has never been invited"
 msgid_plural "Invite %s students who have never been invited"
@@ -24750,19 +24760,19 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: institution name.
-#: includes/modules/class-wpcpm-students.php:491
+#: includes/modules/class-wpcpm-students.php:497
 #, php-format
 msgid "students at %s"
 msgstr ""
 
 #. translators: %s: institution name.
-#: includes/modules/class-wpcpm-students.php:493
+#: includes/modules/class-wpcpm-students.php:499
 #, php-format
 msgid "There are no students at %s."
 msgstr ""
 
 #. translators: 1: how many students, 2: institution name.
-#: includes/modules/class-wpcpm-students.php:495
+#: includes/modules/class-wpcpm-students.php:501
 #, php-format
 msgid "Invite %1$s student at %2$s who has never been invited"
 msgid_plural "Invite %1$s students at %2$s who have never been invited"
@@ -24770,19 +24780,19 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a student status, such as Paused.
-#: includes/modules/class-wpcpm-students.php:503
+#: includes/modules/class-wpcpm-students.php:509
 #, php-format
 msgid "students with the status %s"
 msgstr ""
 
 #. translators: %s: a student status, such as Paused.
-#: includes/modules/class-wpcpm-students.php:505
+#: includes/modules/class-wpcpm-students.php:511
 #, php-format
 msgid "There are no students with the status %s."
 msgstr ""
 
 #. translators: 1: how many students, 2: a student status, such as Paused.
-#: includes/modules/class-wpcpm-students.php:507
+#: includes/modules/class-wpcpm-students.php:513
 #, php-format
 msgid "Invite %1$s student with the status %2$s who has never been invited"
 msgid_plural "Invite %1$s students with the status %2$s who have never been invited"
@@ -24790,58 +24800,58 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: institution name, 2: a student status, such as Paused.
-#: includes/modules/class-wpcpm-students.php:514
+#: includes/modules/class-wpcpm-students.php:520
 #, php-format
 msgid "students at %1$s with the status %2$s"
 msgstr ""
 
 #. translators: 1: institution name, 2: a student status, such as Paused.
-#: includes/modules/class-wpcpm-students.php:516
+#: includes/modules/class-wpcpm-students.php:522
 #, php-format
 msgid "There are no students at %1$s with the status %2$s."
 msgstr ""
 
 #. translators: 1: how many students, 2: institution name, 3: a student status, such as Paused.
-#: includes/modules/class-wpcpm-students.php:518
+#: includes/modules/class-wpcpm-students.php:524
 #, php-format
 msgid "Invite %1$s student at %2$s with the status %3$s who has never been invited"
 msgid_plural "Invite %1$s students at %2$s with the status %3$s who have never been invited"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-students.php:535
+#: includes/modules/class-wpcpm-students.php:541
 msgid "Reads each student's program details, then their mentor's contact details - partly from Airtable, and the rest from the mentor's WordPress.org profile. Profile reads are cached for twelve hours."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:612
+#: includes/modules/class-wpcpm-students.php:618
 msgid "Sync students now"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:628
+#: includes/modules/class-wpcpm-students.php:634
 msgid "Student records read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:629
+#: includes/modules/class-wpcpm-students.php:635
 msgid "Mentors read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:630
+#: includes/modules/class-wpcpm-students.php:636
 msgid "WordPress.org profiles read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:634
+#: includes/modules/class-wpcpm-students.php:640
 msgid "Program details written"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:636
+#: includes/modules/class-wpcpm-students.php:642
 msgid "Student role revoked (no longer in the program)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:637
+#: includes/modules/class-wpcpm-students.php:643
 msgid "Students with no mentor assigned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students.php:638
+#: includes/modules/class-wpcpm-students.php:644
 msgid "Students skipped (missing data)"
 msgstr ""
 

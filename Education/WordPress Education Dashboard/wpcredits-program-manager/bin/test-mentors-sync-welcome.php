@@ -79,6 +79,21 @@ class WPCPM_Mail {
 	}
 }
 
+/**
+ * The sponsors the site holds, as far as the public list of mentors reads them: the Approved ones a
+ * check gave in `$approved`, each with its `name`, its `mentors` (record IDs) and `test`.
+ */
+class WPCPM_Sponsors_Index {
+	/** @var array[] */
+	public static $approved = array();
+	public static function approved() {
+		return self::$approved;
+	}
+	public static function is_test( $row ) {
+		return is_array( $row ) && ! empty( $row['test'] );
+	}
+}
+
 /** The settings the pass reads, as a check sets them. */
 class WPCPM_Settings {
 	public static function get_value( $key, $fallback = null ) {
@@ -103,6 +118,10 @@ class WPCPM_Airtable {
 			'offset'  => $next,
 		);
 	}
+	/** A linked table's rows, as a check gave them in `$GLOBALS['linked_tables']`, or the error it gave. */
+	public function fetch_all( $table, array $args ) {
+		return isset( $GLOBALS['linked_tables'][ $table ] ) ? $GLOBALS['linked_tables'][ $table ] : array();
+	}
 	public static function flatten( $value ) {
 		return is_array( $value ) ? implode( ', ', array_map( 'strval', $value ) ) : (string) $value;
 	}
@@ -114,6 +133,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/stubs/options-lock-wpdb.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+// The public list of active mentors the pass writes when it has read the table (1.123.62), and the
+// reading of a profile cell it uses.
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker-profile.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-directory.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.php';
 
 $fails = 0;
@@ -537,6 +560,129 @@ $GLOBALS['between_pages'] = static function ( $pages_read ) {
 $state = pass();
 ck( 'and six of them are held for nothing and noted for nothing when it is off by then',
 	array( $GLOBALS['queued'], welcome_notices( $state ), meta( 101, WPCPM_Mentor_Provision::USER_INVITE_HELD ) ), array( array(), array(), '' ) );
+
+echo "\n=== The public list of active mentors (1.123.62) ===\n";
+fresh();
+ck( 'before any run there is no list, and the filter gives back what it was given', array( WPCPM_Mentor_Directory::rows(), WPCPM_Mentor_Directory::answer( null ), WPCPM_Mentor_Directory::answer( 'theirs' ) ), array( null, null, 'theirs' ) );
+account( 101, 'ines-example', 'ines@example.test', array( 'wpcpm_mentor' ) );
+account( 102, 'sam-example', 'sam@example.test', array( 'wpcpm_mentor' ) );
+$ines                           = row( 'recDIRECTORY00001', 'ines-example', 'ines@example.test' );
+$ines['fields']['Country']      = 'Portugal';
+$ines['fields']['Languages']    = array( 'Portuguese', 'English', ' ', 'English' );
+$ines['fields']['Sponsored']    = 'Yes';
+$sam                            = row( 'recDIRECTORY00002', 'sam-example', 'sam@example.test' );
+$sam['fields']['Country']       = array( 'Kenya' );
+$sam['fields']['Languages']     = 'Swahili, English';
+$sam['fields']['WordPress profile'] = '@Sam-Example';
+$nameless                       = row( 'recDIRECTORY00003', 'nobody', 'nobody@example.test' );
+$nameless['fields']['Full Name'] = '';
+$GLOBALS['pages']               = array( array( $ines ), array( $sam, $nameless ) );
+$GLOBALS['between_pages']       = static function ( $read ) {
+	if ( 1 === $read ) {
+		$GLOBALS['list_after_first_page'] = WPCPM_Mentor_Directory::rows();
+	}
+};
+$state                          = pass();
+unset( $GLOBALS['between_pages'] );
+ck( 'a run over two pages stores nothing after the first: the list is whole or it is the last one', $GLOBALS['list_after_first_page'], null );
+ck( 'and once the table is read, each named mentor\'s public facts: the profile as its address whatever the cell held, one country, the languages once each',
+	WPCPM_Mentor_Directory::rows(),
+	array(
+		array( 'name' => 'Mentor ines-example', 'profile' => 'https://profiles.wordpress.org/ines-example/', 'country' => 'Portugal', 'languages' => array( 'Portuguese', 'English' ), 'sponsored' => true, 'sponsors' => array() ),
+		array( 'name' => 'Mentor sam-example', 'profile' => 'https://profiles.wordpress.org/sam-example/', 'country' => 'Kenya', 'languages' => array( 'Swahili', 'English' ), 'sponsored' => false, 'sponsors' => array() ),
+	)
+);
+// Who sponsors a mentor is the site's record, read as the list is asked for.
+WPCPM_Sponsors_Index::$approved = array(
+	'spA' => array( 'name' => 'Zeta Hosting', 'mentors' => array( 'recDIRECTORY00002', 'recGONE0000000001' ), 'test' => false ),
+	'spB' => array( 'name' => 'alpha Agency', 'mentors' => array( 'recDIRECTORY00002' ), 'test' => false ),
+	'spC' => array( 'name' => 'TEST Sponsor', 'mentors' => array( 'recDIRECTORY00001', 'recDIRECTORY00002' ), 'test' => true ),
+	'spD' => array( 'name' => ' ', 'mentors' => array( 'recDIRECTORY00001' ), 'test' => false ),
+);
+$with_sponsors                  = WPCPM_Mentor_Directory::rows();
+ck( 'a mentor an Approved sponsor\'s record holds is sponsored by it, named A to Z, whatever the table\'s own column says; a test sponsor and a nameless one are never named',
+	array( $with_sponsors[0]['sponsors'], $with_sponsors[0]['sponsored'], $with_sponsors[1]['sponsors'], $with_sponsors[1]['sponsored'] ),
+	array( array(), true, array( 'alpha Agency', 'Zeta Hosting' ), true ) );
+ck( 'and no record ID is given out with the list', false !== strpos( (string) wp_json_encode( $with_sponsors ), 'rec' ), false );
+WPCPM_Sponsors_Index::$approved = array();
+ck( 'the list holds no address', false !== strpos( (string) wp_json_encode( get_option( WPCPM_Mentor_Directory::OPTION ) ), '@' ), false );
+ck( 'the filter answers with the list now', WPCPM_Mentor_Directory::answer( null ), WPCPM_Mentor_Directory::rows() );
+ck( 'and the run\'s state carries the rows no further than the pass', array_key_exists( 'directory', $state ), false );
+$GLOBALS['pages'] = array( array() );
+pass();
+ck( 'a table with no active mentor is an empty list, not a missing one', WPCPM_Mentor_Directory::rows(), array() );
+// A run an older version began: its state holds the first page's mentors and no row for them.
+fresh();
+account( 101, 'ines-example', 'ines@example.test', array( 'wpcpm_mentor' ) );
+account( 102, 'sam-example', 'sam@example.test', array( 'wpcpm_mentor' ) );
+$GLOBALS['pages']   = array( array(), array( row( 'recDIRECTORY00002', 'sam-example', 'sam@example.test' ) ) );
+$carried            = state();
+$carried['offset']  = '1';
+$carried['mentors'] = array( 'recDIRECTORY00001' => array( 'user_id' => 101, 'name' => 'Mentor ines-example' ) );
+pass( $carried );
+ck( 'a run begun before this version and finished under it stores no list: it holds no row for the mentors the older version read', WPCPM_Mentor_Directory::rows(), null );
+
+// In the base the two columns are links: a record gives record IDs, and the lookups phase's names
+// read them.
+fresh();
+account( 101, 'ines-example', 'ines@example.test', array( 'wpcpm_mentor' ) );
+$linked                        = row( 'recDIRECTORY00004', 'ines-example', 'ines@example.test' );
+$linked['fields']['Country']   = array( 'recCOUNTRY0000001' );
+$linked['fields']['Languages'] = array( 'recLANGUAGE000001', 'recLANGUAGE000009', 'recLANGUAGE000002' );
+$GLOBALS['pages']              = array( array( $linked ) );
+$with_names                    = state();
+$with_names['lookups']         = array(
+	'directory_country'   => array( 'recCOUNTRY0000001' => 'Portugal' ),
+	'directory_languages' => array( 'recLANGUAGE000001' => 'Portuguese', 'recLANGUAGE000002' => 'English' ),
+);
+pass( $with_names );
+ck( 'linked cells are stored as names, and a link to a row the table no longer holds is left out',
+	WPCPM_Mentor_Directory::rows(),
+	array( array( 'name' => 'Mentor ines-example', 'profile' => 'https://profiles.wordpress.org/ines-example/', 'country' => 'Portugal', 'languages' => array( 'Portuguese', 'English' ), 'sponsored' => false, 'sponsors' => array() ) ) );
+$linked['fields']['Full Name'] = 'Somebody Else';
+$GLOBALS['pages']              = array( array( $linked ) );
+$half                          = state();
+$half['lookups']               = array( 'directory_country' => array( 'recCOUNTRY0000001' => 'Portugal' ), 'directory_languages' => false );
+pass( $half );
+ck( 'a run that could not read a linked table\'s names stores nothing: the last whole list stands', WPCPM_Mentor_Directory::rows()[0]['name'], 'Mentor ines-example' );
+ck( 'no linked record\'s ID is stored in a row, and none is given out', array( false !== strpos( (string) wp_json_encode( array_values( get_option( WPCPM_Mentor_Directory::OPTION )['rows'] ) ), 'rec' ), false !== strpos( (string) wp_json_encode( WPCPM_Mentor_Directory::rows() ), 'rec' ) ), array( false, false ) );
+$mf     = WPCPM_Mentors_Sync::fields();
+$schema = array(
+	'tblOTHER000000001' => array( 'name' => 'Students', 'columns' => array( 'Country' => array( 'type' => 'multipleRecordLinks', 'options' => array( 'linkedTableId' => 'tblWRONG000000001' ) ) ) ),
+	'tblMENTORS0000001' => array(
+		'name'    => 'Mentors',
+		'columns' => array(
+			$mf['mentor_country']   => array( 'type' => 'multipleRecordLinks', 'options' => array( 'linkedTableId' => 'tblCOUNTRIES00001' ) ),
+			$mf['mentor_languages'] => array( 'type' => 'multipleSelects', 'options' => array() ),
+		),
+	),
+);
+ck( 'the schema says which table a linked column names its values from, by the Mentors table\'s ID or its name, and a column that is no link has none',
+	array( WPCPM_Mentor_Directory::linked_tables( $schema, 'tblMENTORS0000001', $mf ), WPCPM_Mentor_Directory::linked_tables( $schema, 'Mentors', $mf ), WPCPM_Mentor_Directory::linked_tables( $schema, 'tblNONE0000000001', $mf ) ),
+	array( array( 'country' => 'tblCOUNTRIES00001' ), array( 'country' => 'tblCOUNTRIES00001' ), array() ) );
+// The lookups phase reads those names, one linked table a request, into the run's state.
+fresh();
+update_option( WPCPM_Mentors_Sync::OPT_FIELDS, array( 'primaries' => array( 'tblCOUNTRIES00001' => 'Name', 'tblLANGUAGES00001' => 'Language' ), 'directory' => array( 'country' => 'tblCOUNTRIES00001', 'languages' => 'tblLANGUAGES00001' ) ) );
+$GLOBALS['linked_tables'] = array(
+	'tblCOUNTRIES00001' => array( array( 'id' => 'recCOUNTRY0000001', 'fields' => array( 'Name' => ' Portugal ' ) ), array( 'id' => 'recCOUNTRY0000002', 'fields' => array() ) ),
+	'tblLANGUAGES00001' => new WP_Error( 'wpcpm_airtable_http', 'Airtable answered 503' ),
+);
+$lookups           = new ReflectionMethod( 'WPCPM_Mentors_Sync', 'phase_lookups' );
+if ( PHP_VERSION_ID < 80100 ) {
+	$lookups->setAccessible( true );
+}
+$run            = state();
+$run['phase']   = 'lookups';
+$run['lookups'] = array( 'institutions' => array(), 'teams' => array() );
+$lookup_settings = array( 'institutions_table' => 'tblINST', 'institutions_name_field' => 'Name', 'teams_table' => 'tblTEAMS', 'teams_name_field' => 'Name' );
+$lookups->invokeArgs( null, array( &$run, new WPCPM_Airtable(), $lookup_settings ) );
+ck( 'the first request reads the countries\' names and stays in the phase', array( $run['lookups']['directory_country'], isset( $run['lookups']['directory_languages'] ), $run['phase'] ), array( array( 'recCOUNTRY0000001' => 'Portugal' ), false, 'lookups' ) );
+$lookups->invokeArgs( null, array( &$run, new WPCPM_Airtable(), $lookup_settings ) );
+ck( 'a linked table that cannot be read is marked so and said once, and the run goes on', array( $run['lookups']['directory_languages'], count( $run['notices'] ), false !== strpos( $run['notices'][0], 'tblLANGUAGES00001' ) && false !== strpos( $run['notices'][0], '503' ) ), array( false, 1, true ) );
+$lookups->invokeArgs( null, array( &$run, new WPCPM_Airtable(), $lookup_settings ) );
+ck( 'and the third request, with nothing left to read, moves on to the mentors', array( $run['phase'], count( $run['notices'] ) ), array( 'mentors', 1 ) );
+unset( $GLOBALS['linked_tables'] );
+ck( 'the option and the filter by name', array( WPCPM_Mentor_Directory::OPTION, WPCPM_Mentor_Directory::FILTER ), array( 'wpcpm_mentors_directory', 'wpcpm_public_mentors' ) );
 
 echo "\n=== The sync's own code ===\n";
 $sync = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php' );

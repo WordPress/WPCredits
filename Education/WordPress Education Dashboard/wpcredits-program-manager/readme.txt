@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.61
+Stable tag: 1.123.62
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,9 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.62 =
+* The site keeps the public list of active mentors. The mentors sync now also reads each mentor's country and languages and stores them with the name, the WordPress.org profile and whether the mentor is sponsored (option `wpcpm_mentors_directory`, written when a run has read the whole Mentors table). A plugin that draws a mentor directory asks for the list through the filter `wpcpm_public_mentors` and makes no Airtable request of its own. Each mentor comes with the names of the sponsors whose record on the site holds them (Approved sponsors only, never a test sponsor). The list holds no address.
 
 = 1.123.61 =
 
