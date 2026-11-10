@@ -3,7 +3,7 @@ Contributors: gomp, francescodicandia, celigaroe, peiraisotta
 Tags: contributor, quiz, make wordpress, onboarding, community
 Requires at least: 5.8
 Tested up to: 7.0
-Stable tag: 1.0.13
+Stable tag: 1.0.14
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,11 @@ They are left out on purpose, the same way the contributor orientation tool on m
 No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 
 == Changelog ==
+
+= 1.0.14 =
+* New look for the quiz, in the style of WordPress.org: flat white cards with thin borders and small corners, one blue for actions, and no gradients or shadows.
+* The quiz now uses your theme's typeface and fills the width your theme gives it, with the answers in columns on wide screens.
+* Clearer keyboard focus outlines, and the animations are switched off for visitors who ask for reduced motion.
 
 = 1.0.13 =
 * Added the missing PHP documentation comments, so the plugin now passes the WordPress Coding Standards with no errors. The code itself is unchanged, so the quiz and its settings work exactly as before.
@@ -124,6 +129,9 @@ No. The frontend is written in vanilla JavaScript with no jQuery dependency.
 * Accessible: ARIA labels, keyboard navigation, focus management, `role="radiogroup"` / `role="group"` on answer lists.
 
 == Upgrade Notice ==
+
+= 1.0.14 =
+A new, flatter look for the quiz that follows your theme's typeface and width. The questions and results are unchanged.
 
 = 1.0.13 =
 Code documentation only. Nothing changes for site owners or quiz takers.

@@ -1,95 +1,93 @@
 /* ==========================================================================
-   Contributor Team Matcher — Plugin Styles
+   Contributor Team Matcher - Plugin Styles
+
+   A flat WordPress.org look: one blue for action, white cards on 1px
+   hairlines, 2px corners, no gradients and no shadows. The quiz takes the
+   theme's typeface and fills the width the theme gives it.
    ========================================================================== */
 
 :root {
-	--ctm-blue:        #0073aa;
-	--ctm-blue-dark:   #005177;
-	--ctm-blue-light:  #e8f4fa;
-	--ctm-accent:      #3858e9;
-	--ctm-accent-dark: #2145d6;
-	--ctm-green:       #00ba88;
-	--ctm-text:        #1e1e1e;
-	--ctm-muted:       #6b7280;
-	--ctm-border:      #dde1e7;
-	--ctm-bg:          #f9fafb;
-	--ctm-white:       #ffffff;
-	--ctm-radius:      12px;
-	--ctm-radius-sm:   8px;
-	--ctm-shadow:      0 4px 24px rgba(0,0,0,.07);
-	--ctm-shadow-lg:   0 8px 40px rgba(0,0,0,.12);
-	--ctm-transition:  0.2s ease;
+	--ctm-accent:        #3858e9;
+	--ctm-accent-dark:   #213fd4;
+	--ctm-accent-tint:   #eff2ff;
+	--ctm-text:          #1e1e1e;
+	--ctm-muted:         #656a71;
+	--ctm-border:        #e4e4e4;
+	--ctm-track:         #e6e6e6;
+	--ctm-control:       #8d8d8d;
+	--ctm-white:         #ffffff;
+	--ctm-error-tint:    #fff6f5;
+	--ctm-error-border:  #daa39b;
+	--ctm-radius:        2px;
+	--ctm-transition:    0.15s ease;
 }
 
 /* ---------- Container ---------- */
 
 .ctm-quiz {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, sans-serif;
+	font-family: inherit;
 	color: var(--ctm-text);
-	max-width: 720px;
-	margin: 0 auto;
-	padding: 0 16px 48px;
+	padding: 0 0 48px;
+}
+
+.ctm-quiz *,
+.ctm-quiz *::before,
+.ctm-quiz *::after {
+	box-sizing: border-box;
+}
+
+/* The buttons set their own display, so the hidden attribute needs saying again. */
+.ctm-quiz [hidden] {
+	display: none !important;
 }
 
 /* ---------- Intro Screen ---------- */
 
-.ctm-intro {
-	text-align: center;
-	padding: 56px 24px;
-	background: linear-gradient(135deg, #f0f4ff 0%, #e8f4fa 100%);
-	border-radius: var(--ctm-radius);
-	border: 1px solid var(--ctm-border);
-}
-
 .ctm-intro__badge {
-	display: inline-block;
-	background: var(--ctm-accent);
-	color: var(--ctm-white);
+	color: var(--ctm-muted);
 	font-size: 12px;
-	font-weight: 600;
-	letter-spacing: .08em;
+	font-weight: 500;
+	letter-spacing: .12em;
+	line-height: 1.5;
 	text-transform: uppercase;
-	padding: 4px 12px;
-	border-radius: 20px;
-	margin-bottom: 20px;
+	margin-bottom: 12px;
 }
 
 .ctm-intro__heading {
-	font-size: clamp(1.6rem, 4vw, 2.4rem);
+	font-size: clamp(1.375rem, 3vw, 1.625rem);
 	font-weight: 700;
-	margin: 0 0 16px;
+	letter-spacing: -.01em;
+	margin: 0 0 12px;
 	color: var(--ctm-text);
-	line-height: 1.2;
+	line-height: 1.23;
 }
 
 .ctm-intro__description {
-	font-size: 1.05rem;
-	color: var(--ctm-muted);
-	max-width: 480px;
-	margin: 0 auto 32px;
+	font-size: 1rem;
+	color: var(--ctm-text);
+	margin: 0 0 24px;
 	line-height: 1.6;
 }
 
 /* ---------- Progress ---------- */
 
 .ctm-progress {
-	height: 6px;
-	background: var(--ctm-border);
-	border-radius: 3px;
+	height: 4px;
+	background: var(--ctm-track);
+	border-radius: var(--ctm-radius);
 	overflow: hidden;
 	margin-bottom: 8px;
 }
 
 .ctm-progress__bar {
 	height: 100%;
-	background: linear-gradient(90deg, var(--ctm-accent), var(--ctm-green));
-	border-radius: 3px;
-	transition: width 0.4s ease;
+	background: var(--ctm-accent);
+	transition: width 0.3s ease;
 	width: 0%;
 }
 
 .ctm-progress__label {
-	font-size: 13px;
+	font-size: 14px;
 	color: var(--ctm-muted);
 	margin: 0 0 24px;
 	text-align: right;
@@ -97,15 +95,11 @@
 
 /* ---------- Question ---------- */
 
-.ctm-quiz__body {
-	padding-top: 32px;
-}
-
 .ctm-question__text {
-	font-size: clamp(1.1rem, 3vw, 1.35rem);
+	font-size: 1.25rem;
 	font-weight: 600;
-	margin: 0 0 24px;
-	line-height: 1.4;
+	margin: 0 0 16px;
+	line-height: 1.3;
 }
 
 /* ---------- Answer List ---------- */
@@ -115,24 +109,26 @@
 	margin: 0;
 	padding: 0;
 	display: grid;
-	gap: 10px;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+	gap: 12px;
 }
 
 .ctm-answer {
 	display: block;
 	position: relative;
+	margin: 0;
 }
 
 /* ---------- Hint text ---------- */
 
 .ctm-question__hint {
-	font-size: 0.85rem;
+	font-size: 14px;
 	color: var(--ctm-muted);
-	margin: -16px 0 18px;
-	font-style: italic;
+	margin: -8px 0 16px;
+	line-height: 1.5;
 }
 
-/* ---------- Answer inputs (checkbox + radio) — hidden, inside label ---------- */
+/* ---------- Answer inputs (checkbox + radio) - hidden, inside label ---------- */
 
 .ctm-answer__label input[type="checkbox"],
 .ctm-answer__label input[type="radio"] {
@@ -146,42 +142,40 @@
 .ctm-answer__label {
 	display: flex;
 	align-items: center;
-	gap: 14px;
-	padding: 14px 18px;
+	gap: 12px;
+	height: 100%;
+	padding: 14px 16px;
 	background: var(--ctm-white);
-	border: 2px solid var(--ctm-border);
-	border-radius: var(--ctm-radius-sm);
+	border: 1px solid var(--ctm-border);
+	border-radius: var(--ctm-radius);
 	cursor: pointer;
 	font-size: 1rem;
-	transition: border-color var(--ctm-transition), background var(--ctm-transition), box-shadow var(--ctm-transition);
+	transition: border-color var(--ctm-transition), background var(--ctm-transition);
 	line-height: 1.4;
 }
 
 .ctm-answer__label:hover {
 	border-color: var(--ctm-accent);
-	background: #f5f7ff;
 }
 
 .ctm-answer__label:has(input:checked) {
 	border-color: var(--ctm-accent);
-	background: #eef1fd;
-	box-shadow: 0 0 0 3px rgba(56, 88, 233, .15);
+	background: var(--ctm-accent-tint);
 }
 
 .ctm-answer__label:has(input:focus-visible) {
-	outline: 3px solid var(--ctm-accent);
+	outline: 2px solid var(--ctm-accent);
 	outline-offset: 2px;
 }
 
 /* Disabled state when 3 options are already selected */
 .ctm-answer__label--disabled {
-	opacity: 0.4;
+	opacity: 0.5;
 	cursor: not-allowed;
 }
 
 .ctm-answer__label--disabled:hover {
 	border-color: var(--ctm-border);
-	background: var(--ctm-white);
 }
 
 /* ---------- Custom indicator dot (checkbox = square, radio = circle) ---------- */
@@ -190,8 +184,8 @@
 	flex-shrink: 0;
 	width: 20px;
 	height: 20px;
-	border: 2px solid var(--ctm-border);
-	border-radius: 4px;
+	border: 1px solid var(--ctm-control);
+	border-radius: var(--ctm-radius);
 	background: var(--ctm-white);
 	display: flex;
 	align-items: center;
@@ -213,8 +207,8 @@
 .ctm-answer__label:has(input[type="checkbox"]:checked) .ctm-answer__dot::after {
 	content: '';
 	display: block;
-	width: 5px;
-	height: 9px;
+	width: 6px;
+	height: 10px;
 	border: 2px solid var(--ctm-white);
 	border-top: none;
 	border-left: none;
@@ -237,63 +231,80 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-top: 28px;
+	margin-top: 24px;
 	gap: 12px;
+}
+
+/* A lone Next button stays at the end of the row. */
+.ctm-quiz__nav .ctm-btn--primary {
+	margin-left: auto;
 }
 
 /* ---------- Buttons ---------- */
 
-.ctm-btn {
+.ctm-btn,
+.ctm-card__cta {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	padding: 12px 28px;
-	border-radius: var(--ctm-radius-sm);
-	font-size: 1rem;
+	padding: 10px 20px;
+	border: 1px solid transparent;
+	border-radius: var(--ctm-radius);
+	font-family: inherit;
+	font-size: 14px;
 	font-weight: 600;
+	line-height: 1.54;
 	cursor: pointer;
-	border: 2px solid transparent;
-	transition: background var(--ctm-transition), color var(--ctm-transition), border-color var(--ctm-transition), opacity var(--ctm-transition);
 	text-decoration: none;
-	line-height: 1;
+	transition: background var(--ctm-transition), color var(--ctm-transition), border-color var(--ctm-transition);
 }
 
-.ctm-btn--primary {
+.ctm-btn:focus-visible,
+.ctm-card__cta:focus-visible,
+.ctm-card--small:focus-visible {
+	outline: 2px solid var(--ctm-accent);
+	outline-offset: 2px;
+}
+
+.ctm-btn--primary,
+.ctm-card__cta {
 	background: var(--ctm-accent);
 	color: var(--ctm-white);
 	border-color: var(--ctm-accent);
 }
 
-.ctm-btn--primary:hover {
+.ctm-btn--primary:hover,
+.ctm-card__cta:hover {
 	background: var(--ctm-accent-dark);
 	border-color: var(--ctm-accent-dark);
+	color: var(--ctm-white);
+	text-decoration: none;
 }
 
 .ctm-btn--primary:disabled {
-	opacity: .45;
+	opacity: .5;
 	cursor: not-allowed;
 }
 
-.ctm-btn--ghost {
-	background: transparent;
-	color: var(--ctm-accent);
+.ctm-btn--primary:disabled:hover {
+	background: var(--ctm-accent);
 	border-color: var(--ctm-accent);
 }
 
-.ctm-btn--ghost:hover {
-	background: var(--ctm-blue-light);
-}
-
+.ctm-btn--ghost,
 .ctm-btn--outline {
-	background: transparent;
-	color: var(--ctm-text);
-	border-color: var(--ctm-border);
+	background: var(--ctm-white);
+	color: var(--ctm-accent);
+	border-color: var(--ctm-accent);
 }
 
+.ctm-btn--ghost:hover,
 .ctm-btn--outline:hover {
-	border-color: var(--ctm-accent);
-	color: var(--ctm-accent);
+	background: var(--ctm-accent-dark);
+	border-color: var(--ctm-accent-dark);
+	color: var(--ctm-white);
+	text-decoration: none;
 }
 
 /* ---------- Loading ---------- */
@@ -302,14 +313,14 @@
 	text-align: center;
 	padding: 48px 24px;
 	color: var(--ctm-muted);
-	font-size: 1.1rem;
+	font-size: 1rem;
 }
 
 .ctm-loading__spinner {
 	display: inline-block;
-	width: 36px;
-	height: 36px;
-	border: 4px solid var(--ctm-border);
+	width: 32px;
+	height: 32px;
+	border: 3px solid var(--ctm-track);
 	border-top-color: var(--ctm-accent);
 	border-radius: 50%;
 	animation: ctm-spin 0.7s linear infinite;
@@ -322,74 +333,53 @@
 
 /* ---------- Results ---------- */
 
-.ctm-results {
-	padding-top: 12px;
-}
-
-.ctm-results__heading {
-	font-size: 1.1rem;
-	font-weight: 600;
+.ctm-results__heading,
+.ctm-others__heading {
+	font-size: 12px;
+	font-weight: 500;
 	color: var(--ctm-muted);
 	text-transform: uppercase;
-	letter-spacing: .06em;
+	letter-spacing: .12em;
+	line-height: 1.5;
 	margin: 0 0 12px;
 }
 
 /* Top match card */
 
 .ctm-card--top {
-	background: linear-gradient(135deg, #eef1fd 0%, #e8f4fa 100%);
-	border: 2px solid var(--ctm-accent);
+	background: var(--ctm-white);
+	border: 1px solid var(--ctm-accent);
 	border-radius: var(--ctm-radius);
-	padding: 28px 28px 24px;
+	padding: 24px;
 	margin-bottom: 32px;
-	box-shadow: var(--ctm-shadow-lg);
-	animation: ctm-fade-up 0.4s ease both;
+	animation: ctm-fade-up 0.3s ease both;
 }
 
 @keyframes ctm-fade-up {
-	from { opacity: 0; transform: translateY(16px); }
+	from { opacity: 0; transform: translateY(8px); }
 	to   { opacity: 1; transform: translateY(0); }
 }
 
 .ctm-card__icon {
-	font-size: 3rem;
+	font-size: 2.5rem;
 	line-height: 1;
 	margin-bottom: 12px;
 	display: block;
 }
 
 .ctm-card__name {
-	font-size: 1.6rem;
+	font-size: 1.625rem;
 	font-weight: 700;
-	margin: 0 0 10px;
+	letter-spacing: -.01em;
+	line-height: 1.23;
+	margin: 0 0 8px;
 }
 
 .ctm-card__description {
 	font-size: 1rem;
-	color: var(--ctm-muted);
-	line-height: 1.65;
+	color: var(--ctm-text);
+	line-height: 1.6;
 	margin: 0 0 20px;
-}
-
-.ctm-card__cta {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	background: var(--ctm-accent);
-	color: var(--ctm-white);
-	padding: 10px 22px;
-	border-radius: var(--ctm-radius-sm);
-	font-weight: 600;
-	text-decoration: none;
-	font-size: .95rem;
-	transition: background var(--ctm-transition);
-}
-
-.ctm-card__cta:hover {
-	background: var(--ctm-accent-dark);
-	color: var(--ctm-white);
-	text-decoration: none;
 }
 
 .ctm-card__cta svg {
@@ -398,59 +388,50 @@
 
 /* Other teams grid */
 
-.ctm-others__heading {
-	font-size: 1rem;
-	font-weight: 600;
-	color: var(--ctm-muted);
-	text-transform: uppercase;
-	letter-spacing: .06em;
-	margin: 0 0 14px;
-}
-
 .ctm-others__grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-	gap: 12px;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: 16px;
 	margin-bottom: 32px;
 }
 
 .ctm-card--small {
 	background: var(--ctm-white);
-	border: 1.5px solid var(--ctm-border);
-	border-radius: var(--ctm-radius-sm);
-	padding: 16px;
+	border: 1px solid var(--ctm-border);
+	border-radius: var(--ctm-radius);
+	padding: 24px;
 	text-decoration: none;
 	color: var(--ctm-text);
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
-	transition: border-color var(--ctm-transition), box-shadow var(--ctm-transition);
-	animation: ctm-fade-up 0.4s ease both;
+	gap: 8px;
+	transition: border-color var(--ctm-transition);
+	animation: ctm-fade-up 0.3s ease both;
 }
-
-.ctm-card--small:nth-child(2) { animation-delay: .05s; }
-.ctm-card--small:nth-child(3) { animation-delay: .1s; }
-.ctm-card--small:nth-child(4) { animation-delay: .15s; }
 
 .ctm-card--small:hover {
 	border-color: var(--ctm-accent);
-	box-shadow: var(--ctm-shadow);
 	text-decoration: none;
 	color: var(--ctm-text);
 }
 
 .ctm-card--small .ctm-card__icon {
-	font-size: 1.8rem;
+	font-size: 1.75rem;
 	margin-bottom: 0;
 }
 
 .ctm-card--small .ctm-card__name {
-	font-size: 1rem;
+	font-size: 1.125rem;
+	font-weight: 600;
+	letter-spacing: 0;
+	line-height: 1.3;
 	margin: 0;
 }
 
 .ctm-card--small .ctm-card__description {
-	font-size: .85rem;
+	font-size: 14px;
+	color: var(--ctm-muted);
+	line-height: 1.5;
 	margin: 0;
 	-webkit-line-clamp: 2;
 	display: -webkit-box;
@@ -466,29 +447,44 @@
 	gap: 12px;
 	align-items: center;
 	justify-content: space-between;
-	padding-top: 4px;
 }
 
 /* ---------- Error ---------- */
 
 .ctm-error {
-	background: #fff5f5;
-	border: 1.5px solid #fca5a5;
-	border-radius: var(--ctm-radius-sm);
-	padding: 16px;
-	color: #b91c1c;
-	font-size: .95rem;
+	background: var(--ctm-error-tint);
+	border: 1px solid var(--ctm-error-border);
+	border-radius: var(--ctm-radius);
+	padding: 12px 16px;
+	margin-top: 16px;
+	color: var(--ctm-text);
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+	.ctm-card--top,
+	.ctm-card--small {
+		animation: none;
+	}
+
+	.ctm-progress__bar,
+	.ctm-answer__label,
+	.ctm-answer__dot,
+	.ctm-btn,
+	.ctm-card__cta,
+	.ctm-card--small {
+		transition: none;
+	}
 }
 
 /* ---------- Responsive ---------- */
 
 @media (max-width: 480px) {
-	.ctm-intro {
-		padding: 40px 16px;
-	}
-
 	.ctm-card--top {
-		padding: 20px 18px;
+		padding: 20px;
 	}
 
 	.ctm-quiz__nav {
@@ -497,9 +493,5 @@
 
 	.ctm-btn {
 		width: 100%;
-	}
-
-	.ctm-others__grid {
-		grid-template-columns: 1fr 1fr;
 	}
 }
