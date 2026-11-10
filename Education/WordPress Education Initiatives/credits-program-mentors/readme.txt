@@ -4,7 +4,7 @@ Tags: mentors, airtable, directory, shortcode, block
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.2
+Stable tag: 1.7.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,11 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 
 == Changelog ==
 
+= 1.7.3 =
+* The cards, the map, the notices and the chips have the Education Directory's
+  own corner: 2px, as the homepage's cards, chips and tags. They were 8px, 4px
+  and fully round.
+
 = 1.7.2 =
 * Privacy: the directory asks Airtable for the public fields only (Full Name,
   Country, Languages, WordPress profile, Sponsor Company Name, and Status to
@@ -304,6 +309,9 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
   preview) — both offering grid and table layouts.
 
 == Upgrade Notice ==
+
+= 1.7.3 =
+Looks only: 2px corners on cards and chips, to match the Education Directory.
 
 = 1.7.2 =
 Privacy fix: only a mentor's public fields are fetched from Airtable and shown.

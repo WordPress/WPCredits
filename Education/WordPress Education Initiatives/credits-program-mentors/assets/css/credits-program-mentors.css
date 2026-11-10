@@ -25,8 +25,10 @@
 	--credprme-surface: #ffffff;
 	--credprme-band: #f4f4f4;
 	--credprme-radius-control: 2px;
-	--credprme-radius-panel: 4px;
-	--credprme-radius-card: 8px;
+	/* One corner for everything on a public page, as the homepage's own cards, chips and tags
+	   have it: 2px on a 1px hairline, no shadow. */
+	--credprme-radius-panel: 2px;
+	--credprme-radius-card: 2px;
 	--credprme-columns: 3;
 
 	box-sizing: border-box;
@@ -300,8 +302,8 @@
 /* Country: a quiet gray chip. */
 .credprme-badge {
 	display: inline-block;
-	padding: 2px 10px;
-	border-radius: 999px;
+	padding: 2px 8px;
+	border-radius: var(--credprme-radius-control);
 	background: var(--credprme-band);
 	color: var(--credprme-ink);
 	font-size: 12px;
@@ -319,9 +321,9 @@
 /* Languages and other lists: outlined chips. */
 .credprme-tag {
 	display: inline-block;
-	padding: 1px 10px;
+	padding: 1px 8px;
 	border: 1px solid var(--credprme-line-strong);
-	border-radius: 999px;
+	border-radius: var(--credprme-radius-control);
 	background: var(--credprme-surface);
 	color: var(--credprme-ink-secondary);
 	font-size: 12px;
@@ -332,7 +334,7 @@
 
 /* Sponsored: the one chip in the brand tint, and it says the word. */
 .credprme-badge--sponsored {
-	padding: 1px 10px;
+	padding: 1px 8px;
 	border: 1px solid var(--credprme-primary-border);
 	background: var(--credprme-primary-tint);
 	color: var(--credprme-ink);
