@@ -71,6 +71,21 @@ class CREDPRME_Shortcode {
 	private $assets_registered = false;
 
 	/**
+	 * Whether the placement being rendered shows sponsorship (the Sponsored
+	 * chip, the sponsor fields and the Sponsorship filter).
+	 *
+	 * @var bool
+	 */
+	private $show_sponsorship = true;
+
+	/**
+	 * Running count of rendered placements, for unique element ids.
+	 *
+	 * @var int
+	 */
+	private static $instance = 0;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
@@ -121,18 +136,19 @@ class CREDPRME_Shortcode {
 	public function render( $atts ) {
 		$atts = shortcode_atts(
 			array(
-				'layout'     => 'grid',
-				'limit'      => 0,
-				'columns'    => 3,
-				'country'    => '',
-				'language'   => '',
-				'search'     => '',
-				'fields'     => '',
-				'view'       => '',
-				'photos'     => 'yes',
-				'photo_size' => 116,
-				'filters'    => 'yes',
-				'map'        => '', // Empty = inherit the "Country map" setting.
+				'layout'      => 'grid',
+				'limit'       => 0,
+				'columns'     => 3,
+				'country'     => '',
+				'language'    => '',
+				'search'      => '',
+				'fields'      => '',
+				'view'        => '',
+				'photos'      => 'yes',
+				'photo_size'  => 80,
+				'filters'     => 'yes',
+				'sponsorship' => 'yes',
+				'map'         => '', // Empty = inherit the "Country map" setting.
 			),
 			$atts,
 			'credits_program_mentors'
@@ -141,6 +157,10 @@ class CREDPRME_Shortcode {
 		$show_photos  = filter_var( $atts['photos'], FILTER_VALIDATE_BOOLEAN );
 		$photo_size   = max( 24, min( 512, (int) $atts['photo_size'] ) );
 		$show_filters = filter_var( $atts['filters'], FILTER_VALIDATE_BOOLEAN );
+
+		// With sponsorship="no" the placement says nothing about who is sponsored.
+		$this->show_sponsorship = filter_var( $atts['sponsorship'], FILTER_VALIDATE_BOOLEAN );
+		++self::$instance;
 
 		// Make sure the stylesheet is available even for late-registered contexts.
 		if ( ! wp_style_is( 'credits-program-mentors', 'registered' ) ) {
@@ -160,6 +180,17 @@ class CREDPRME_Shortcode {
 		if ( empty( $requested_fields ) ) {
 			// Restrict to the curated field set by default.
 			$requested_fields = apply_filters( 'credprme_default_fields', self::DEFAULT_FIELDS );
+		}
+
+		if ( ! $this->show_sponsorship ) {
+			$requested_fields = array_values(
+				array_filter(
+					$requested_fields,
+					function ( $name ) {
+						return false === stripos( $name, 'sponsor' );
+					}
+				)
+			);
 		}
 
 		// Fetch every field (not just the displayed ones) so we can filter on
@@ -222,6 +253,7 @@ class CREDPRME_Shortcode {
 
 		if ( $show_filters ) {
 			$inner .= $this->render_filter_bar( $records );
+			$inner .= $this->render_count( count( $records ) );
 			$inner .= $list;
 			$inner .= '<p class="credprme-mentors__noresults" hidden>' . esc_html__( 'No mentors match the selected filters.', 'credits-program-mentors' ) . '</p>';
 		} else {
@@ -263,7 +295,7 @@ class CREDPRME_Shortcode {
 	 * @return bool
 	 */
 	private function is_sponsored( array $fields ) {
-		if ( ! isset( $fields[ self::SPONSOR_FIELD ] ) ) {
+		if ( ! $this->show_sponsorship || ! isset( $fields[ self::SPONSOR_FIELD ] ) ) {
 			return false;
 		}
 		$value = $fields[ self::SPONSOR_FIELD ];
@@ -279,7 +311,7 @@ class CREDPRME_Shortcode {
 	 * @return string
 	 */
 	private function sponsored_badge() {
-		return '<span class="credprme-badge credprme-badge--sponsored"><span class="credprme-badge__dot" aria-hidden="true"></span>' . esc_html__( 'Sponsored', 'credits-program-mentors' ) . '</span>';
+		return '<span class="credprme-badge credprme-badge--sponsored">' . esc_html__( 'Sponsored', 'credits-program-mentors' ) . '</span>';
 	}
 
 	/**
@@ -359,8 +391,8 @@ class CREDPRME_Shortcode {
 	 * @return string
 	 */
 	private function render_filter_bar( array $records ) {
-		$countries    = array();
-		$languages    = array();
+		$countries     = array();
+		$languages     = array();
 		$has_sponsored = false;
 		$has_plain     = false;
 
@@ -424,6 +456,27 @@ class CREDPRME_Shortcode {
 	}
 
 	/**
+	 * The line saying how many mentors the list shows. The filter script
+	 * rewrites it as the visitor filters, and screen readers hear the change.
+	 *
+	 * @param int $count Mentors in the list.
+	 * @return string
+	 */
+	private function render_count( $count ) {
+		/* translators: %d: number of mentors. */
+		$one = __( '%d mentor', 'credits-program-mentors' );
+		/* translators: %d: number of mentors. */
+		$many = __( '%d mentors', 'credits-program-mentors' );
+
+		return sprintf(
+			'<p class="credprme-mentors__count" role="status" aria-live="polite" data-one="%1$s" data-many="%2$s">%3$s</p>',
+			esc_attr( $one ),
+			esc_attr( $many ),
+			esc_html( sprintf( 1 === $count ? $one : $many, $count ) )
+		);
+	}
+
+	/**
 	 * Render one labelled filter <select>.
 	 *
 	 * @param string $key     Filter key (sponsored|language|country).
@@ -432,8 +485,10 @@ class CREDPRME_Shortcode {
 	 * @return string
 	 */
 	private function filter_select( $key, $label, array $options ) {
-		$id   = 'credprme-filter-' . $key;
-		$html = '<div class="credprme-filters__field"><label class="credprme-filters__label" for="' . esc_attr( $id ) . '">' . esc_html( $label ) . '</label>';
+		// The id carries the placement's number, so two directories on a page
+		// never share one and each label reaches its own select.
+		$id    = 'credprme-filter-' . $key . ( self::$instance > 1 ? '-' . self::$instance : '' );
+		$html  = '<div class="credprme-filters__field"><label class="credprme-filters__label" for="' . esc_attr( $id ) . '">' . esc_html( $label ) . '</label>';
 		$html .= '<select class="credprme-filters__select" id="' . esc_attr( $id ) . '" data-credprme-filter="' . esc_attr( $key ) . '">';
 		foreach ( $options as $value => $text ) {
 			$html .= '<option value="' . esc_attr( $value ) . '">' . esc_html( $text ) . '</option>';
@@ -533,14 +588,15 @@ class CREDPRME_Shortcode {
 	 * @param int   $columns     Column count (1-6).
 	 * @return string
 	 */
-	private function render_grid( array $records, array $field_order, $columns, $show_photos = true, $photo_size = 116 ) {
+	private function render_grid( array $records, array $field_order, $columns, $show_photos = true, $photo_size = 80 ) {
 		$columns = min( 6, max( 1, (int) $columns ) );
 
 		// Every card renders the same fixed set of vertical slots — one per
-		// field (empty placeholder when a value is missing), plus a photo slot
-		// and a sponsored-badge slot — so CSS subgrid can line the fields up
-		// on shared row tracks across the cards in each row.
-		$rows = count( $field_order ) + 1; // Fields + sponsored-badge slot.
+		// field (empty placeholder when a value is missing), plus a photo slot,
+		// so CSS subgrid can line the fields up on shared row tracks across
+		// the cards in each row. The Sponsored chip sits beside the name, in
+		// the name's own slot.
+		$rows = count( $field_order );
 		if ( $show_photos ) {
 			$rows++;
 		}
@@ -549,6 +605,7 @@ class CREDPRME_Shortcode {
 		foreach ( $records as $record ) {
 			$fields    = isset( $record['fields'] ) ? $record['fields'] : array();
 			$sponsored = $this->is_sponsored( $fields );
+			$mentor    = $this->find_name( $fields );
 			$html     .= '<article class="credprme-card' . ( $sponsored ? ' credprme-card--sponsored' : '' ) . '" style="--credprme-rows:' . esc_attr( $rows ) . ';" ' . $this->filter_data_attrs( $fields, $sponsored ) . '>';
 
 			if ( $show_photos ) {
@@ -561,17 +618,10 @@ class CREDPRME_Shortcode {
 
 				if ( '' === $value || array() === $value ) {
 					$html .= '<div class="credprme-card__row credprme-card__row--empty" aria-hidden="true"></div>';
+				} elseif ( 'title' === $role ) {
+					$html .= '<div class="credprme-card__head"><h3 class="credprme-card__title">' . esc_html( $this->stringify( $value ) ) . '</h3>' . ( $sponsored ? $this->sponsored_badge() : '' ) . '</div>';
 				} else {
-					$html .= $this->render_card_field( $name, $value, $role );
-				}
-
-				// Reserve a slot for the "Sponsored" badge under the name in
-				// every card (empty when the mentor isn't sponsored) so the
-				// following fields stay aligned across cards.
-				if ( 'title' === $role ) {
-					$html .= $sponsored
-						? '<div class="credprme-card__row credprme-card__row--sponsored">' . $this->sponsored_badge() . '</div>'
-						: '<div class="credprme-card__row credprme-card__row--empty" aria-hidden="true"></div>';
+					$html .= $this->render_card_field( $name, $value, $role, $mentor );
 				}
 			}
 
@@ -587,10 +637,11 @@ class CREDPRME_Shortcode {
 	 *
 	 * @param string       $name  Field name.
 	 * @param string|array $value Field value.
-	 * @param string       $role  Field role.
+	 * @param string       $role   Field role.
+	 * @param string       $mentor The mentor's name, for a link's accessible name.
 	 * @return string
 	 */
-	private function render_card_field( $name, $value, $role ) {
+	private function render_card_field( $name, $value, $role, $mentor = '' ) {
 		switch ( $role ) {
 			case 'title':
 				return '<h3 class="credprme-card__title">' . esc_html( $this->stringify( $value ) ) . '</h3>';
@@ -607,7 +658,14 @@ class CREDPRME_Shortcode {
 					// Keep a slot so subgrid alignment stays consistent.
 					return '<div class="credprme-card__row credprme-card__row--empty" aria-hidden="true"></div>';
 				}
-				return '<div class="credprme-card__row credprme-card__row--link"><a class="credprme-card__link" href="' . $url . '" target="_blank" rel="noopener noreferrer">' . esc_html( $name ) . ' <span aria-hidden="true">↗</span></a></div>';
+				// Every card's link reads the same ("WordPress profile"), so its
+				// accessible name adds whose it is and that it opens a new tab.
+				$label = '' !== $mentor
+					/* translators: 1: field name, e.g. "WordPress profile". 2: mentor name. */
+					? sprintf( __( '%1$s of %2$s (opens in a new tab)', 'credits-program-mentors' ), $name, $mentor )
+					/* translators: %s: field name, e.g. "WordPress profile". */
+					: sprintf( __( '%s (opens in a new tab)', 'credits-program-mentors' ), $name );
+				return '<div class="credprme-card__row credprme-card__row--link"><a class="credprme-card__link" href="' . $url . '" target="_blank" rel="noopener noreferrer" aria-label="' . esc_attr( $label ) . '">' . esc_html( $name ) . ' <span aria-hidden="true">↗</span></a></div>';
 
 			default:
 				return '<div class="credprme-card__row"><span class="credprme-card__label">' . esc_html( $name ) . '</span><span class="credprme-card__value">' . esc_html( $this->stringify( $value ) ) . '</span></div>';
@@ -758,7 +816,7 @@ class CREDPRME_Shortcode {
 	 * @param array $field_order Ordered field names.
 	 * @return string
 	 */
-	private function render_table( array $records, array $field_order, $show_photos = true, $photo_size = 116 ) {
+	private function render_table( array $records, array $field_order, $show_photos = true, $photo_size = 80 ) {
 		$html  = '<div class="credprme-mentors credprme-mentors--table-wrap">';
 		$html .= '<table class="credprme-table">';
 		$html .= '<thead><tr>';

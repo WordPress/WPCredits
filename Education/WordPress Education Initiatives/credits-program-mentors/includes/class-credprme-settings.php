@@ -306,8 +306,9 @@ class CREDPRME_Settings {
 				<li><code>language="English"</code> — <?php echo esc_html__( 'only mentors who speak a given language.', 'credits-program-mentors' ); ?></li>
 				<li><code>fields="Full Name,Country"</code> — <?php echo esc_html__( 'restrict which fields are shown, in order.', 'credits-program-mentors' ); ?></li>
 				<li><code>photos="yes|no"</code> — <?php echo esc_html__( 'show each mentor’s WordPress.org profile photo (default yes).', 'credits-program-mentors' ); ?></li>
-				<li><code>photo_size="160"</code> — <?php echo esc_html__( 'profile photo size in pixels.', 'credits-program-mentors' ); ?></li>
+				<li><code>photo_size="80"</code> — <?php echo esc_html__( 'profile photo size in pixels.', 'credits-program-mentors' ); ?></li>
 				<li><code>filters="yes|no"</code> — <?php echo esc_html__( 'show the front-end filter bar (Sponsorship, Language, Country). Default yes.', 'credits-program-mentors' ); ?></li>
+				<li><code>sponsorship="yes|no"</code> - <?php echo esc_html__( 'show who is sponsored: the Sponsored chip, the sponsor fields and the Sponsorship filter. Default yes.', 'credits-program-mentors' ); ?></li>
 				<li><code>map="yes|no"</code> — <?php echo esc_html__( 'show the country map. Defaults to the Country map setting above.', 'credits-program-mentors' ); ?></li>
 			</ul>
 			<p><em><?php echo esc_html__( 'Example:', 'credits-program-mentors' ); ?></em> <code>[credits_program_mentors layout="grid" columns="3" language="Spanish"]</code></p>

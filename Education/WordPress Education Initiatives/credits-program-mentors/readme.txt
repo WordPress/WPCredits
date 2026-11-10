@@ -4,7 +4,7 @@ Tags: mentors, airtable, directory, shortcode, block
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.2
+Stable tag: 1.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -144,8 +144,8 @@ attribute.
 = What shortcode attributes are available? =
 
 `layout` (grid|table), `limit`, `columns`, `country`, `language`, `search`,
-`fields`, `view`, `photos` (yes|no), `photo_size`, `filters` (yes|no), and
-`map` (yes|no; defaults to the setting).
+`fields`, `view`, `photos` (yes|no), `photo_size`, `filters` (yes|no),
+`sponsorship` (yes|no) and `map` (yes|no; defaults to the setting).
 Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 
 == Screenshots ==
@@ -159,6 +159,31 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 5. The optional country map highlighting mentor countries above the list.
 
 == Changelog ==
+
+= 1.6.2 =
+* The name and the details are centered under the photo, so a whole card reads
+  on one axis.
+
+= 1.6.1 =
+* The profile photo sits in the middle of its card. The name and the details
+  under it stay left-aligned.
+
+= 1.6.0 =
+* The directory is drawn in the WordPress.org Education look, as on the
+  Education Directory (wordpresseducation.org): flat white cards on hairlines
+  with 8px corners, in the font of the page they sit on; chips in
+  place of the pills; filters with a label over a 40px select; no gradients,
+  shadows, purple or movement on hover.
+* New `sponsorship="yes|no"` attribute and block toggle. With `no`, a placement
+  shows no Sponsored chip, no sponsor fields and no Sponsorship filter.
+* A line above the list says how many mentors it shows, and follows the filters.
+* Accessibility: every link and select shows a focus ring, each profile link
+  names its mentor and says it opens a new tab, no text is under 12px, and two
+  directories on one page no longer share filter ids.
+* The Sponsored chip sits beside the mentor's name, so a row of cards with no
+  sponsored mentor keeps no empty line for it.
+* The default profile photo is 80px (was 116px). Set `photo_size` to change it.
+* The map is 320px tall on phones.
 
 = 1.5.2 =
 * The country map draws on OpenStreetMap's standard tiles instead of CARTO's
@@ -247,6 +272,16 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
   preview) — both offering grid and table layouts.
 
 == Upgrade Notice ==
+
+= 1.6.2 =
+Cards are centered: photo, name and details.
+
+= 1.6.1 =
+The profile photo is centered in its card.
+
+= 1.6.0 =
+The directory takes the WordPress.org Education look and the default photo is
+80px. Add sponsorship="no" to a placement that should not show who is sponsored.
 
 = 1.5.2 =
 The country map's basemap is now OpenStreetMap's standard tiles. CARTO stopped

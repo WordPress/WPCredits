@@ -1,29 +1,39 @@
 /**
  * Credits Program Mentors front-end styles.
  *
- * Visually aligned with the Education Student Stories plugin so both read as
- * part of the same site design (shared palette, card treatment, and chips).
+ * Drawn in the WordPress.org Education look (the Education Directory at
+ * wordpresseducation.org): flat white cards on hairlines, one blue for action,
+ * small square-ish corners, and the type of the page the directory sits on.
+ * The values are that design system's tokens, kept here as custom properties so
+ * a theme can restate any of them on .credprme-mentors-wrap.
  * Prefixed with .credprme- to avoid clashing with theme styles.
  */
 
 .credprme-mentors-wrap,
 .credprme-mentors {
 	--credprme-primary: #3858e9;
-	--credprme-primary-600: #213fd4;
-	--credprme-accent: #7c3aed;
-	--credprme-navy: #10182b;
-	--credprme-ink: #1e293b;
-	--credprme-muted: #64748b;
-	--credprme-line: #e5e9f2;
+	--credprme-primary-hover: #213fd4;
+	--credprme-primary-tint: #eff2ff;
+	--credprme-primary-border: #c7d1ff;
+	--credprme-ink: #1e1e1e;
+	--credprme-ink-secondary: #40464d;
+	--credprme-muted: #656a71;
+	--credprme-line: #e6e6e6;
+	--credprme-line-card: #e4e4e4;
+	--credprme-line-strong: #dbdbdb;
+	--credprme-control-border: #8d8d8d;
 	--credprme-surface: #ffffff;
-	--credprme-surface-2: #f4f6fb;
-	--credprme-radius: 14px;
+	--credprme-band: #f4f4f4;
+	--credprme-radius-control: 2px;
+	--credprme-radius-panel: 4px;
+	--credprme-radius-card: 8px;
 	--credprme-columns: 3;
 
 	box-sizing: border-box;
-	margin: 1.5em 0;
 	color: var(--credprme-ink);
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+	font-family: inherit;
+	font-size: 16px;
+	line-height: 1.6;
 }
 
 .credprme-mentors-wrap *,
@@ -36,129 +46,147 @@
 	display: none !important;
 }
 
+/* Every link and control shows the same ring when reached by keyboard. */
+.credprme-mentors-wrap a:focus-visible,
+.credprme-mentors a:focus-visible,
+.credprme-filters__select:focus-visible {
+	outline: 2px solid var(--credprme-primary);
+	outline-offset: 2px;
+}
+
 /* ---------- Country map (Leaflet, matched to Education Programs Map) ---------- */
 .credprme-map {
-	margin: 0 0 1.5rem;
+	margin: 0 0 24px;
 }
 
 .credprme-map__canvas {
 	width: 100%;
-	border: 1px solid var(--credprme-line);
-	border-radius: var(--credprme-radius);
-	box-shadow: 0 1px 2px rgba(16, 24, 43, 0.04), 0 1px 3px rgba(16, 24, 43, 0.06);
+	border: 1px solid var(--credprme-line-card);
+	border-radius: var(--credprme-radius-card);
 	z-index: 0;
 }
 
-/* Leaflet popup content, styled to match the site cards. */
+/* Leaflet popup content. */
 .credprme-map .leaflet-popup-content {
 	font-family: inherit;
-	font-size: 13px;
-	line-height: 1.6;
-	color: var(--credprme-ink);
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--credprme-ink-secondary);
 }
 
 .credprme-map .leaflet-popup-content strong {
 	display: block;
 	font-size: 14px;
-	color: var(--credprme-primary);
+	font-weight: 600;
+	color: var(--credprme-ink);
 	border-bottom: 1px solid var(--credprme-line);
 	padding-bottom: 4px;
 	margin-bottom: 4px;
+}
+
+.credprme-map .leaflet-popup-content-wrapper {
+	border-radius: var(--credprme-radius-panel);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
 }
 
 /* ---------- Filter bar ---------- */
 .credprme-filters {
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: center;
-	gap: 0.75rem 1rem;
-	margin: 0 auto 1.5rem;
-	max-width: 60rem;
+	align-items: flex-end;
+	gap: 14px 16px;
+	margin: 0 0 16px;
 }
 
 .credprme-filters__field {
 	display: flex;
 	flex-direction: column;
-	gap: 0.3rem;
-	min-width: 160px;
+	gap: 6px;
+	min-width: 200px;
 }
 
 .credprme-filters__label {
-	font-size: 0.72rem;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	color: var(--credprme-muted);
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.5;
+	color: var(--credprme-ink);
 }
 
 .credprme-filters__select {
-	padding: 0.5rem 0.9rem;
-	border: 1px solid var(--credprme-line);
-	border-radius: 999px;
-	background: var(--credprme-surface);
+	height: 40px;
+	margin: 0;
+	padding: 0 12px;
+	border: 1px solid var(--credprme-control-border);
+	border-radius: var(--credprme-radius-control);
+	background-color: var(--credprme-surface);
 	color: var(--credprme-ink);
-	font-size: 0.9rem;
-	font-weight: 600;
 	font-family: inherit;
-	line-height: 1.2;
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 1.5;
 	cursor: pointer;
-	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .credprme-filters__select:hover {
-	border-color: var(--credprme-primary);
+	border-color: var(--credprme-ink);
 }
 
-.credprme-filters__select:focus {
-	outline: none;
-	border-color: var(--credprme-primary);
-	box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.15);
+/* How many mentors the list shows now; the filter script keeps it current. */
+.credprme-mentors__count {
+	margin: 0 0 12px;
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--credprme-muted);
 }
 
 .credprme-mentors__noresults {
-	text-align: center;
-	color: var(--credprme-muted);
-	margin: 1.5rem 0 0;
+	margin: 0;
+	padding: 16px;
+	border: 1px solid var(--credprme-line-card);
+	border-radius: var(--credprme-radius-panel);
+	color: var(--credprme-ink-secondary);
+	font-size: 14px;
 }
 
 /* ---------- Grid ---------- */
 .credprme-mentors--grid {
 	display: grid;
 	grid-template-columns: repeat(var(--credprme-columns), minmax(0, 1fr));
-	gap: 1.1rem;
+	gap: 16px;
+	margin: 0;
 }
 
 .credprme-card {
-	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	text-align: center;
-	gap: 0.6rem;
-	padding: 1.5rem 1.25rem 1.25rem;
-	border: 1px solid var(--credprme-line);
-	border-radius: var(--credprme-radius);
+	min-width: 0;
+	padding: 24px;
+	border: 1px solid var(--credprme-line-card);
+	border-radius: var(--credprme-radius-card);
 	background: var(--credprme-surface);
-	box-shadow: 0 1px 2px rgba(16, 24, 43, 0.04);
-	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+	text-align: center;
 }
 
-.credprme-card:hover {
-	transform: translateY(-3px);
-	box-shadow: 0 12px 28px rgba(16, 24, 43, 0.1);
-	border-color: #d5ddf5;
+/* 12px between the parts of a card. A margin, not a row gap, so a slot left
+   empty to keep the rows level takes no room at all. */
+.credprme-card > * {
+	margin: 0;
+	max-width: 100%;
 }
 
-/* Sponsored mentors get the subtle highlight the ESS "medal" cards use. */
-.credprme-card--sponsored {
-	border-color: rgba(56, 88, 233, 0.35);
-	background: linear-gradient(180deg, #f7f9ff 0%, #ffffff 55%);
+.credprme-card > * + * {
+	margin-top: 12px;
+}
+
+.credprme-card > .credprme-card__row--empty {
+	margin-top: 0;
 }
 
 /*
  * Where subgrid is supported, lay each card onto shared row tracks so the same
- * detail field (Country, Languages, sponsor, link…) sits at the same level in
- * every card of a row. Falls back to the plain flex column above otherwise.
+ * detail field (Country, Languages, link…) sits at the same level in every card
+ * of a row. Falls back to the plain flex column above otherwise.
  */
 @supports (grid-template-rows: subgrid) {
 	.credprme-mentors--grid {
@@ -170,12 +198,11 @@
 		grid-template-rows: subgrid;
 		grid-row: span var(--credprme-rows, 1);
 		justify-items: center;
-		row-gap: 0.6rem;
+		row-gap: 0;
 	}
 
 	.credprme-card > * {
 		align-self: start;
-		margin: 0;
 	}
 
 	/* Empty slots must stay in flow so they occupy their subgrid track. */
@@ -190,37 +217,53 @@
 	display: none;
 }
 
+/* Everything in a card is centered: the photo, the name and the details. */
 .credprme-card__photo {
 	line-height: 0;
 }
 
-.credprme-photo {
-	border-radius: 50%;
-	object-fit: cover;
-	background: var(--credprme-surface-2);
+/* Two classes deep, so a theme's rule for images in prose (rounded corners,
+   margins) never squares the circle. */
+.credprme-mentors .credprme-photo {
 	display: block;
+	margin: 0;
 	max-width: 100%;
-	border: 3px solid #fff;
-	box-shadow: 0 0 0 1px var(--credprme-line);
+	border: 1px solid var(--credprme-line-card);
+	border-radius: 50%;
+	background: var(--credprme-band);
+	object-fit: cover;
 }
 
-.credprme-photo--placeholder {
+.credprme-mentors .credprme-photo--placeholder {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	color: #fff;
-	font-weight: 700;
+	border-color: var(--credprme-primary-border);
+	background: var(--credprme-primary-tint);
+	color: var(--credprme-primary-hover);
+	font-weight: 600;
 	line-height: 1;
 	text-transform: uppercase;
-	background: linear-gradient(135deg, var(--credprme-primary), var(--credprme-accent));
 }
 
-.credprme-card__title {
-	margin: 0.85rem 0 0.15rem;
-	font-size: 1.12rem;
-	font-weight: 700;
-	line-height: 1.25;
-	color: var(--credprme-navy);
+/* The name, with the Sponsored chip beside it when there is one. */
+.credprme-card__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 6px 8px;
+}
+
+.credprme-card .credprme-card__title {
+	margin: 0;
+	color: var(--credprme-ink);
+	font-family: inherit;
+	font-size: 20px;
+	font-weight: 600;
+	letter-spacing: 0;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
 }
 
 .credprme-card__row {
@@ -228,133 +271,119 @@
 	flex-wrap: wrap;
 	align-items: baseline;
 	justify-content: center;
-	gap: 0.4rem;
-	font-size: 0.85rem;
+	gap: 6px;
+	font-size: 14px;
+	line-height: 1.5;
 }
 
-/* Tag rows (Languages, Sponsor…) stack the label above its pills. */
+/* Tag rows (Languages, Sponsor…) stack the label above its chips. */
 .credprme-card__row--tags {
 	flex-direction: column;
 	align-items: center;
-	gap: 0.35rem;
+	gap: 6px;
 }
 
 .credprme-card__label {
 	color: var(--credprme-muted);
-	font-size: 0.68rem;
+	font-size: 13px;
 	font-weight: 600;
+	letter-spacing: 0.06em;
+	line-height: 1.4;
 	text-transform: uppercase;
-	letter-spacing: 0.03em;
 }
 
 .credprme-card__value {
 	color: var(--credprme-ink);
 }
 
-.credprme-card__row--link {
-	margin-top: 0.15rem;
-}
-
-/* ---------- Badges & tags ---------- */
-/* Country badge — soft primary pill. */
+/* ---------- Chips ---------- */
+/* Country: a quiet gray chip. */
 .credprme-badge {
 	display: inline-block;
-	padding: 0.15rem 0.6rem;
+	padding: 2px 10px;
 	border-radius: 999px;
-	background: rgba(56, 88, 233, 0.1);
-	font-size: 0.72rem;
-	font-weight: 600;
-	letter-spacing: 0.02em;
-	color: var(--credprme-primary-600);
+	background: var(--credprme-band);
+	color: var(--credprme-ink);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.5;
 }
 
 .credprme-tags {
 	display: inline-flex;
 	flex-wrap: wrap;
 	justify-content: center;
-	gap: 0.35rem;
+	gap: 6px;
 }
 
+/* Languages and other lists: outlined chips. */
 .credprme-tag {
 	display: inline-block;
-	padding: 0.12rem 0.55rem;
+	padding: 1px 10px;
+	border: 1px solid var(--credprme-line-strong);
 	border-radius: 999px;
-	background: var(--credprme-surface-2);
-	border: 1px solid var(--credprme-line);
-	font-size: 0.75rem;
-	color: var(--credprme-ink);
+	background: var(--credprme-surface);
+	color: var(--credprme-ink-secondary);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.5;
 	white-space: nowrap;
 }
 
-/* Sponsored badge — accent pill with a dot. */
+/* Sponsored: the one chip in the brand tint, and it says the word. */
 .credprme-badge--sponsored {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4em;
-	padding: 0.15rem 0.6rem;
-	background: rgba(124, 58, 237, 0.1);
-	color: var(--credprme-accent);
-	font-size: 0.72rem;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-}
-
-.credprme-badge__dot {
-	width: 0.45em;
-	height: 0.45em;
-	border-radius: 50%;
-	background: currentColor;
-}
-
-.credprme-card__row--sponsored {
-	margin-top: -0.1rem;
+	padding: 1px 10px;
+	border: 1px solid var(--credprme-primary-border);
+	background: var(--credprme-primary-tint);
+	color: var(--credprme-ink);
 }
 
 .credprme-table .credprme-badge--sponsored {
-	margin-left: 0.4em;
+	margin-left: 6px;
 	vertical-align: middle;
 }
 
 /* ---------- Links ---------- */
-.credprme-card__link {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25rem;
-	font-weight: 600;
+.credprme-card__link,
+.credprme-table a {
 	color: var(--credprme-primary);
-	text-decoration: none;
+	font-size: 14px;
+	font-weight: 500;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
 }
 
 .credprme-card__link:hover,
-.credprme-card__link:focus {
-	color: var(--credprme-primary-600);
-	text-decoration: underline;
+.credprme-table a:hover {
+	color: var(--credprme-primary-hover);
 }
 
 /* ---------- Table ---------- */
 .credprme-mentors--table-wrap {
+	margin: 0;
 	overflow-x: auto;
 }
 
 .credprme-table {
 	width: 100%;
 	border-collapse: collapse;
-	font-size: 0.9rem;
+	font-size: 14px;
+	line-height: 1.5;
 }
 
 .credprme-table th,
 .credprme-table td {
-	padding: 0.65rem 0.85rem;
-	text-align: left;
+	padding: 12px 16px;
 	border-bottom: 1px solid var(--credprme-line);
-	vertical-align: top;
+	text-align: left;
+	vertical-align: middle;
 }
 
 .credprme-table th {
-	font-weight: 700;
-	color: var(--credprme-navy);
-	background: var(--credprme-surface-2);
+	background: var(--credprme-band);
+	color: var(--credprme-ink);
+	font-weight: 600;
 	white-space: nowrap;
 }
 
@@ -375,20 +404,26 @@
 }
 
 /* ---------- States ---------- */
+/* Shown to Administrators only: something to fix, in the warning tone. */
 .credprme-mentors--error {
-	padding: 0.75rem 1rem;
-	border: 1px solid #f0c33c;
-	background: #fcf3d6;
-	border-radius: var(--credprme-radius);
-	color: #55450a;
+	padding: 12px 16px;
+	border: 1px solid #d0b481;
+	border-radius: var(--credprme-radius-panel);
+	background: #fff7e1;
+	color: var(--credprme-ink);
+	font-size: 14px;
 }
 
 .credprme-mentors--empty {
-	padding: 1rem 1.25rem;
-	border: 1px dashed var(--credprme-line);
-	border-radius: var(--credprme-radius);
-	color: var(--credprme-muted);
-	text-align: center;
+	padding: 16px;
+	border: 1px solid var(--credprme-line-card);
+	border-radius: var(--credprme-radius-panel);
+	color: var(--credprme-ink-secondary);
+	font-size: 14px;
+}
+
+.credprme-mentors--empty p {
+	margin: 0;
 }
 
 /* ---------- Responsive ---------- */
@@ -401,6 +436,16 @@
 @media (max-width: 600px) {
 	.credprme-mentors--grid {
 		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* The map's height is set inline; a phone gets a shorter one. */
+	.credprme-map__canvas {
+		height: 320px !important;
+	}
+
+	.credprme-filters__field {
+		flex: 1 1 100%;
+		min-width: 0;
 	}
 
 	.credprme-table thead {
@@ -416,9 +461,9 @@
 	}
 
 	.credprme-table tr {
-		margin-bottom: 1rem;
-		border: 1px solid var(--credprme-line);
-		border-radius: 8px;
+		margin-bottom: 16px;
+		border: 1px solid var(--credprme-line-card);
+		border-radius: var(--credprme-radius-card);
 		overflow: hidden;
 	}
 
@@ -428,11 +473,15 @@
 		position: relative;
 	}
 
+	.credprme-table tr td:last-child {
+		border-bottom: 0;
+	}
+
 	.credprme-table td::before {
 		content: attr(data-label);
 		position: absolute;
-		left: 0.85rem;
-		top: 0.65rem;
+		left: 16px;
+		top: 12px;
 		width: 35%;
 		font-weight: 600;
 		color: var(--credprme-muted);

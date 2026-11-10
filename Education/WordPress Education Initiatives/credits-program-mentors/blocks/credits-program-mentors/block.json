@@ -2,7 +2,7 @@
 	"$schema": "https://schemas.wp.org/trunk/block.json",
 	"apiVersion": 3,
 	"name": "credits-program-mentors/mentors",
-	"version": "1.5.2",
+	"version": "1.6.2",
 	"title": "Credits Program Mentors",
 	"category": "widgets",
 	"icon": "groups",
@@ -23,8 +23,9 @@
 		"fields": { "type": "string", "default": "" },
 		"view": { "type": "string", "default": "" },
 		"photos": { "type": "boolean", "default": true },
-		"photoSize": { "type": "number", "default": 116 },
-		"filters": { "type": "boolean", "default": true }
+		"photoSize": { "type": "number", "default": 80 },
+		"filters": { "type": "boolean", "default": true },
+		"sponsorship": { "type": "boolean", "default": true }
 	},
 	"editorScript": "credits-program-mentors-block",
 	"style": "credits-program-mentors",

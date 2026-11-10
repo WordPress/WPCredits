@@ -41,8 +41,9 @@
 			fields: { type: 'string', default: '' },
 			view: { type: 'string', default: '' },
 			photos: { type: 'boolean', default: true },
-			photoSize: { type: 'number', default: 116 },
-			filters: { type: 'boolean', default: true }
+			photoSize: { type: 'number', default: 80 },
+			filters: { type: 'boolean', default: true },
+			sponsorship: { type: 'boolean', default: true }
 		},
 
 		edit: function ( props ) {
@@ -93,6 +94,11 @@
 					label: __( 'Show filter bar (Sponsorship / Language / Country)', 'credits-program-mentors' ),
 					checked: a.filters,
 					onChange: function ( v ) { setA( { filters: v } ); }
+				} ),
+				el( c.ToggleControl, {
+					label: __( 'Show sponsorship (Sponsored chip, sponsor names and the Sponsorship filter)', 'credits-program-mentors' ),
+					checked: a.sponsorship,
+					onChange: function ( v ) { setA( { sponsorship: v } ); }
 				} )
 			);
 

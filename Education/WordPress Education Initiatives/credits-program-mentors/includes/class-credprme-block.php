@@ -79,17 +79,18 @@ class CREDPRME_Block {
 	 */
 	public function render( $attributes ) {
 		$atts = array(
-			'layout'   => isset( $attributes['layout'] ) ? $attributes['layout'] : 'grid',
-			'columns'  => isset( $attributes['columns'] ) ? (int) $attributes['columns'] : 3,
-			'limit'    => isset( $attributes['limit'] ) ? (int) $attributes['limit'] : 0,
-			'country'  => isset( $attributes['country'] ) ? $attributes['country'] : '',
-			'language' => isset( $attributes['language'] ) ? $attributes['language'] : '',
-			'search'   => isset( $attributes['search'] ) ? $attributes['search'] : '',
-			'fields'     => isset( $attributes['fields'] ) ? $attributes['fields'] : '',
-			'view'       => isset( $attributes['view'] ) ? $attributes['view'] : '',
-			'photos'     => ( ! isset( $attributes['photos'] ) || $attributes['photos'] ) ? 'yes' : 'no',
-			'photo_size' => isset( $attributes['photoSize'] ) ? (int) $attributes['photoSize'] : 116,
-			'filters'    => ( ! isset( $attributes['filters'] ) || $attributes['filters'] ) ? 'yes' : 'no',
+			'layout'      => isset( $attributes['layout'] ) ? $attributes['layout'] : 'grid',
+			'columns'     => isset( $attributes['columns'] ) ? (int) $attributes['columns'] : 3,
+			'limit'       => isset( $attributes['limit'] ) ? (int) $attributes['limit'] : 0,
+			'country'     => isset( $attributes['country'] ) ? $attributes['country'] : '',
+			'language'    => isset( $attributes['language'] ) ? $attributes['language'] : '',
+			'search'      => isset( $attributes['search'] ) ? $attributes['search'] : '',
+			'fields'      => isset( $attributes['fields'] ) ? $attributes['fields'] : '',
+			'view'        => isset( $attributes['view'] ) ? $attributes['view'] : '',
+			'photos'      => ( ! isset( $attributes['photos'] ) || $attributes['photos'] ) ? 'yes' : 'no',
+			'photo_size'  => isset( $attributes['photoSize'] ) ? (int) $attributes['photoSize'] : 80,
+			'filters'     => ( ! isset( $attributes['filters'] ) || $attributes['filters'] ) ? 'yes' : 'no',
+			'sponsorship' => ( ! isset( $attributes['sponsorship'] ) || $attributes['sponsorship'] ) ? 'yes' : 'no',
 		);
 
 		$output = $this->shortcode->render( $atts );

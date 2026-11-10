@@ -12,6 +12,7 @@
 		var selects       = wrap.querySelectorAll( '[data-credprme-filter]' );
 		var items         = wrap.querySelectorAll( '.credprme-card, .credprme-table tbody tr' );
 		var noResults     = wrap.querySelector( '.credprme-mentors__noresults' );
+		var countLine     = wrap.querySelector( '.credprme-mentors__count' );
 		var countrySelect = wrap.querySelector( '[data-credprme-filter="country"]' );
 		var mapCountry    = ''; // Used when there is no country select.
 
@@ -44,6 +45,14 @@
 
 			if ( noResults ) {
 				noResults.hidden = visible !== 0;
+			}
+
+			// Say how many mentors are left; hidden at zero, where the
+			// "no mentors match" line speaks instead.
+			if ( countLine ) {
+				var pattern = countLine.getAttribute( 1 === visible ? 'data-one' : 'data-many' ) || '%d';
+				countLine.textContent = pattern.replace( '%d', visible );
+				countLine.hidden = 0 === visible;
 			}
 		}
 
