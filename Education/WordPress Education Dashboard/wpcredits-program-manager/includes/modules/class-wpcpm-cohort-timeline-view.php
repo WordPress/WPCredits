@@ -163,34 +163,31 @@ final class WPCPM_Cohort_Timeline_View {
 	 */
 
 	/**
-	 * The whole timeline: the way back, the header, the figures, the outlook, the chart, the month
-	 * table, the intakes and the notes on how the numbers are made.
+	 * The whole timeline: the head, the figures, the outlook, the chart, the month table, the intakes and
+	 * the notes on how the numbers are made.
 	 *
-	 * @param array $report What `WPCPM_Cohort_Timeline::report()` returned.
+	 * The head is the frame's, the one the Reference view opens with: the page's name, then the view's
+	 * in the serif. It has no way back of its own (1.123.70): the menu beside it is the way back, and a
+	 * link naming the Administrator Dashboard a third time was one name too many (the owner, 11 November
+	 * 2026: "Duplicated").
+	 *
+	 * @param array  $report  What `WPCPM_Cohort_Timeline::report()` returned.
+	 * @param string $eyebrow The page's name, as the dashboard prints it, or '' for none. Markup.
 	 */
-	public static function render_view( array $report ) {
-		$back = WPCPM_Administrators_Dashboard::page_url();
-
+	public static function render_view( array $report, $eyebrow = '' ) {
 		echo '<div class="wpcpm-timeline-view">';
 
-		if ( '' !== $back ) {
-			printf(
-				'<p class="wpcpm-timeline-view__back"><a href="%1$s"><span aria-hidden="true">&larr;</span> %2$s</a></p>',
-				esc_url( $back ),
-				esc_html__( 'Administrator Dashboard', 'wpcredits-program-manager' )
-			);
-		}
-
-		echo '<header class="wpcpm-timeline-view__header">';
-		printf( '<h2 class="wpcpm-timeline-view__title">%s</h2>', esc_html__( 'Cohort timeline', 'wpcredits-program-manager' ) );
+		echo '<header class="wpcpm-head wpcpm-timeline-view__header"><div class="wpcpm-head__copy">';
+		echo $eyebrow; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped where it is built, WPCPM_Administrators_Dashboard::page_name().
+		printf( '<h2 class="wpcpm-head__title">%s</h2>', esc_html__( 'Cohort timeline', 'wpcredits-program-manager' ) );
 		printf(
-			'<p class="wpcpm-dashboard__intro">%s</p>',
+			'<p class="wpcpm-head__lede">%s</p>',
 			esc_html__( 'Who is on the program each month for the next twelve, who is new, and whether the active mentors have the places for them.', 'wpcredits-program-manager' )
 		);
 
 		if ( ! empty( $report['read'] ) ) {
 			printf(
-				'<p class="wpcpm-timeline-view__read">%s</p>',
+				'<p class="wpcpm-head__facts">%s</p>',
 				esc_html(
 					sprintf(
 						/* translators: %s: a date and time. */
@@ -201,7 +198,7 @@ final class WPCPM_Cohort_Timeline_View {
 			);
 		}
 
-		echo '</header>';
+		echo '</div></header>';
 
 		if ( empty( $report['months'] ) || empty( $report['read'] ) ) {
 			printf( '<p>%s</p>', esc_html__( 'Nothing to show yet: the students sync has not read the Students table.', 'wpcredits-program-manager' ) );

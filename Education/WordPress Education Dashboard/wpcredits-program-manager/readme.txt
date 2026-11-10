@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.69
+Stable tag: 1.123.70
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,12 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.70 =
+
+* Administrator Dashboard: the page names itself once, in its head. The menu no longer opens with "Dashboard, Administrator Dashboard", and the cohort timeline has no link back of its own: the menu is the way back. The timeline opens with the same head as the Reference view, its name in the serif.
+* The Administrator guide opens in the Administrator Dashboard's frame, with the same menu and its counts, the guide marked as where you are. Its sections are listed down the right of the page: the section you are reading is marked and shows its parts, and the list stays in view as you scroll. On a narrow screen the list sits under the guide's title, folded behind **On this page**. Needs the WPCredits theme 1.32.23; under another theme the guide is drawn as before.
+* The Administrator guide no longer shows a working Mentor Application form and Student Interest Form in its text: the guides name the two shortcodes, and the published page ran them. The guides now write a shortcode's bracket so it reads the same and runs nothing.
 
 = 1.123.69 =
 

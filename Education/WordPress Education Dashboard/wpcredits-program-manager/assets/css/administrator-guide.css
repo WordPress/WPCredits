@@ -1,0 +1,332 @@
+/**
+ * The Administrator guide in the frame (1.123.70).
+ *
+ * The page's serif head, then the guide, with the list of its sections in a column of its own beside it:
+ * a quiet list of links, the guide's sections and, under the one being read, its parts, the part being
+ * read marked the way the menu marks where the reader is. The column stays in view while the guide
+ * scrolls; a list taller than the window scrolls inside itself, so its last entries can always be reached.
+ * Where the main area is too narrow for the column, the list sits above the guide, folded behind its
+ * heading.
+ *
+ * Every value is the frame's (dashboard-frame.css): its tokens, its 2px corners, its small heading.
+ */
+
+.wpcpm-guide {
+	--wpcpm-guide-column: 248px;
+	--wpcpm-guide-stick: calc( var( --wpcpm-f-top ) + 32px );
+	/* Read by the script: 1 while the list is folded above the guide. */
+	--wpcpm-guide-fold: 0;
+
+	column-gap: 56px;
+	display: grid;
+	grid-template-areas:
+		"head contents"
+		"body contents";
+	grid-template-columns: minmax( 0, 1fr ) var( --wpcpm-guide-column );
+	grid-template-rows: auto 1fr;
+	min-width: 0;
+	row-gap: 32px;
+}
+
+.wpcpm-guide__head {
+	grid-area: head;
+}
+
+/* ---------- The list of sections ---------- */
+
+.wpcpm-guide__contents {
+	align-self: start;
+	grid-area: contents;
+	inset-block-start: var( --wpcpm-guide-stick );
+	max-height: calc( 100vh - var( --wpcpm-guide-stick ) - 24px );
+	max-height: calc( 100dvh - var( --wpcpm-guide-stick ) - 24px );
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	position: sticky;
+	scrollbar-width: thin;
+}
+
+.wpcpm-frame .wpcpm-guide__contents-title {
+	color: var( --wpcpm-f-muted );
+	font-family: var( --wpcpm-f-sans );
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	line-height: 1.4;
+	margin: 0;
+	padding: 6px 10px 8px;
+	text-transform: uppercase;
+}
+
+.wpcpm-guide__contents-toggle {
+	align-items: center;
+	background: none;
+	border: 0;
+	border-radius: 2px;
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	gap: 8px;
+	justify-content: space-between;
+	letter-spacing: inherit;
+	margin: 0;
+	min-height: 40px;
+	padding: 0;
+	text-transform: inherit;
+	width: 100%;
+}
+
+.wpcpm-guide__contents-toggle[hidden] {
+	display: none;
+}
+
+.wpcpm-guide__contents-toggle svg {
+	color: var( --wpcpm-f-icon );
+	flex: none;
+}
+
+.wpcpm-guide__contents-toggle[aria-expanded="true"] svg {
+	transform: rotate( 180deg );
+}
+
+.wpcpm-guide__list,
+.wpcpm-guide__parts {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-guide__parts {
+	margin-block: 2px 6px;
+}
+
+/* Once the script runs, only the section being read shows its parts. */
+.wpcpm-guide__contents[data-ready] .wpcpm-guide__entry:not( .is-open ) > .wpcpm-guide__parts {
+	display: none;
+}
+
+.wpcpm-frame .wpcpm-guide__link {
+	border-radius: 2px;
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font-size: 14px;
+	line-height: 20px;
+	overflow-wrap: break-word;
+	padding: 6px 10px;
+	text-decoration: none;
+}
+
+.wpcpm-frame .wpcpm-guide__link--part {
+	font-size: 13px;
+	line-height: 18px;
+	padding-block: 5px;
+	padding-inline-start: 22px;
+}
+
+.wpcpm-frame .wpcpm-guide__link:hover {
+	color: var( --wpcpm-f-ink );
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+/* The section being read, and the part of it: the section's name in ink, the part itself the way the
+   menu marks the page the reader is on. */
+.wpcpm-frame .wpcpm-guide__entry.is-open > .wpcpm-guide__link {
+	color: var( --wpcpm-f-ink );
+	font-weight: 600;
+}
+
+.wpcpm-frame .wpcpm-guide__link[aria-current] {
+	background: var( --wpcpm-f-brand-tint );
+	color: var( --wpcpm-f-brand );
+	font-weight: 600;
+}
+
+/* ---------- The guide ---------- */
+
+.wpcpm-guide__body {
+	color: var( --wpcpm-f-ink );
+	font-size: 16px;
+	grid-area: body;
+	line-height: 1.65;
+	min-width: 0;
+}
+
+.wpcpm-guide__body > :first-child {
+	margin-top: 0;
+}
+
+.wpcpm-frame .wpcpm-guide__body :is( p, ul, ol, figure, table, blockquote ) {
+	margin-block: 0 16px;
+}
+
+.wpcpm-frame .wpcpm-guide__body :is( ul, ol ) {
+	padding-inline-start: 24px;
+}
+
+.wpcpm-frame .wpcpm-guide__body li + li {
+	margin-top: 6px;
+}
+
+.wpcpm-frame .wpcpm-guide__body :is( h2, h3, h4 ) {
+	color: var( --wpcpm-f-ink );
+	font-family: var( --wpcpm-f-sans );
+	scroll-margin-top: var( --wpcpm-guide-stick );
+}
+
+/* Each of the guide's sections opens under a hairline, so a long guide reads as its parts. */
+.wpcpm-frame .wpcpm-guide__body h2 {
+	border-top: 1px solid var( --wpcpm-f-line );
+	font-size: 26px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.25;
+	margin: 48px 0 16px;
+	padding-top: 40px;
+}
+
+.wpcpm-frame .wpcpm-guide__body > h2:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.wpcpm-frame .wpcpm-guide__body h3 {
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 1.3;
+	margin: 36px 0 12px;
+}
+
+.wpcpm-frame .wpcpm-guide__body h4 {
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.4;
+	margin: 28px 0 8px;
+}
+
+.wpcpm-frame .wpcpm-guide__body a {
+	color: var( --wpcpm-f-brand );
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.wpcpm-frame .wpcpm-guide__body img {
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	height: auto;
+	max-width: 100%;
+}
+
+/* The screenshots are captioned with the italic line under them that bin/build-docs.php writes. */
+.wpcpm-frame .wpcpm-guide__body img + em,
+.wpcpm-frame .wpcpm-guide__body figcaption {
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font-size: 13px;
+	line-height: 1.5;
+	margin-top: 8px;
+}
+
+.wpcpm-frame .wpcpm-guide__body table {
+	border-collapse: collapse;
+	font-size: 14px;
+	line-height: 1.5;
+	width: 100%;
+}
+
+.wpcpm-frame .wpcpm-guide__body :is( th, td ) {
+	border: 1px solid var( --wpcpm-f-line );
+	padding: 8px 12px;
+	text-align: start;
+	vertical-align: top;
+}
+
+.wpcpm-frame .wpcpm-guide__body th {
+	background: var( --wpcpm-f-band );
+	font-weight: 600;
+}
+
+/* An option's or a constant's name is one long word, and would push the page, or a table, sideways: it
+   breaks anywhere instead, in a table's cells too, so the guide's tables fit their column. One that still
+   does not fit scrolls inside its own box, core's figure, which the script makes a stop for the keyboard. */
+/* DESIGN.md's mono, IBM Plex Mono at 13px, where the reader has it, and the theme's mono preset, the
+   system's own, where not. */
+.wpcpm-frame .wpcpm-guide__body :is( code, kbd ) {
+	background: var( --wpcpm-f-band );
+	border-radius: 2px;
+	font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+	font-size: 13px;
+	overflow-wrap: anywhere;
+	padding: 1px 5px;
+}
+
+/* Core draws a 3px rule under a table's head and over its foot; in the frame every line is a hairline. */
+.wpcpm-frame .wpcpm-guide__body :is( thead, tfoot ) {
+	border: 0;
+}
+
+.wpcpm-frame .wpcpm-guide__body blockquote {
+	border-inline-start: 2px solid var( --wpcpm-f-line );
+	color: var( --wpcpm-f-ink-2 );
+	margin-inline: 0;
+	padding-inline-start: 16px;
+}
+
+/* ---------- Too narrow for the column ---------- */
+
+/* The list above the guide, one column, not held in view. The script folds it behind its heading. */
+@container wpcpm-main ( max-width: 959px ) {
+	.wpcpm-guide {
+		--wpcpm-guide-fold: 1;
+
+		grid-template-areas:
+			"head"
+			"contents"
+			"body";
+		grid-template-columns: minmax( 0, 1fr );
+		grid-template-rows: auto;
+		row-gap: 24px;
+	}
+
+	.wpcpm-guide__contents {
+		border-block: 1px solid var( --wpcpm-f-line );
+		max-height: none;
+		overflow: visible;
+		padding-block: 4px;
+		position: static;
+	}
+
+	.wpcpm-guide__contents[data-fold] .wpcpm-guide__contents-label {
+		display: none;
+	}
+
+	.wpcpm-frame .wpcpm-guide__contents[data-fold] .wpcpm-guide__contents-title {
+		padding-block: 0;
+	}
+
+	.wpcpm-guide__contents[data-fold] .wpcpm-guide__list {
+		padding-block-end: 8px;
+	}
+
+	/* Folded, the list is the sections alone: their parts are a scroll away once a section is open. */
+	.wpcpm-guide__contents[data-fold] .wpcpm-guide__parts {
+		display: none;
+	}
+
+	.wpcpm-frame .wpcpm-guide__body h2 {
+		font-size: 23px;
+		margin-top: 40px;
+		padding-top: 32px;
+	}
+}
+
+@media print {
+	.wpcpm-guide {
+		display: block;
+	}
+
+	.wpcpm-guide__contents {
+		display: none;
+	}
+}

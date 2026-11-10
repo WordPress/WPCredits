@@ -215,6 +215,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-adminis
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-cohort-timeline.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-cohort-timeline-view.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-dashboard.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrator-guide-view.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-tool.php';

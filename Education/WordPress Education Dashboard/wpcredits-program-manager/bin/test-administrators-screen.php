@@ -89,6 +89,11 @@ class WPCPM_Administrators_Dashboard {
 	public static function init() {}
 	public static function ensure_page() {}
 }
+// The Administrator guide's view (1.123.70), which the module starts beside the dashboard; its hooks are
+// its own suite's, test-administrator-guide.php.
+class WPCPM_Administrator_Guide_View {
+	public static function init() {}
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';

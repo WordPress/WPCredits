@@ -267,6 +267,18 @@ $report['read'] = strtotime( $today . ' 06:00:00 UTC' );
 
 $view = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_view( $report ); } );
 ck( 'the view has its title, chart, table and intakes', array( substr_count( $view, 'Cohort timeline</h2>' ), substr_count( $view, '<figure class="wpcpm-timeline"' ), substr_count( $view, '<table>' ), substr_count( $view, 'wpcpm-timeline-intakes__item' ) ), array( 1, 1, 1, 2 ) );
+// The head is the frame's, the Reference view's (1.123.70): the page's name as the dashboard hands it in,
+// the view's in the serif, the lede and when the records were read; and no way back of its own, which
+// named the Administrator Dashboard a third time (the owner, 11 November 2026: "Duplicated").
+$named = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_view( $report, '<h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1>' ); } );
+ck( 'the view opens with the frame\'s head, the page\'s name in it once when the dashboard passes it and not at all otherwise, and no link back',
+	array(
+		0 === strpos( $named, '<div class="wpcpm-timeline-view"><header class="wpcpm-head wpcpm-timeline-view__header"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1><h2 class="wpcpm-head__title">Cohort timeline</h2><p class="wpcpm-head__lede">Who is on the program each month' ),
+		1 === preg_match( '#<p class="wpcpm-head__facts">Read from the program records on [^<]+\.</p></div></header>#', $named ),
+		array( substr_count( $named, 'Administrator Dashboard' ), substr_count( $view, 'Administrator Dashboard' ) ),
+		array( substr_count( $named, 'wpcpm-timeline-view__back' ), substr_count( $named, '&larr;' ) ),
+	),
+	array( true, true, array( 1, 0 ), array( 0, 0 ) ) );
 ck( 'twelve columns, each a tab stop with a name', array( substr_count( $view, 'class="wpcpm-timeline__month ' ), substr_count( $view, 'tabindex="0" aria-label="' ) ), array( 12, 12 ) );
 ck( 'twelve rows in the month table', substr_count( $view, '<tr><th scope="row">' ), 12 );
 ck( 'an institution\'s name is escaped', array( false !== strpos( $view, '<b>Evil</b>' ), false !== strpos( $view, '&lt;b&gt;Evil&lt;/b&gt; &amp; Co' ) ), array( false, true ) );

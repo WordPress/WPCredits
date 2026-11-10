@@ -42,6 +42,8 @@ final class WPCPM_Administrators_Dashboard {
 	const VIEW_ARG = 'wpcpm_view';
 	/** The Reference view (1.123.69): the program's numbers, the Tools from our sponsors and the resources. */
 	const VIEW_REFERENCE = 'reference';
+	/** What the menu marks as current on the Administrator guide (1.123.70), which is a page of its own, not a view. */
+	const VIEW_GUIDE = 'guide';
 	/**
 	 * What this page's groups ask of the dashboards' group printer, `WPCPM_Dashboard_Card::group()`,
 	 * besides their own id, heading, sentence and cards: the page's classes, which the theme's
@@ -320,8 +322,7 @@ final class WPCPM_Administrators_Dashboard {
 		}
 
 		if ( 'cohort-timeline' === $view ) {
-			self::page_name();
-			WPCPM_Cohort_Timeline_View::render_view( ! empty( $data['cohort_timeline'] ) ? (array) $data['cohort_timeline'] : WPCPM_Cohort_Timeline::report() );
+			WPCPM_Cohort_Timeline_View::render_view( ! empty( $data['cohort_timeline'] ) ? (array) $data['cohort_timeline'] : WPCPM_Cohort_Timeline::report(), self::page_name() );
 		} elseif ( self::VIEW_REFERENCE === $view ) {
 			self::render_reference( $data, $viewer );
 		} else {
@@ -615,7 +616,7 @@ final class WPCPM_Administrators_Dashboard {
 	 * The menu: the Overview with the decisions that wait, Watch, the cohort timeline and Reference; the
 	 * screens in wp-admin; and the help for Administrators.
 	 *
-	 * @param string $view   The view drawn.
+	 * @param string $view   The view drawn, or `VIEW_GUIDE` on the Administrator guide.
 	 * @param array  $wait   What `waiting()` returned.
 	 * @param array  $counts What `WPCPM_Administrators_Cards::counts()` returned.
 	 * @return array What `WPCPM_Dashboard_Frame::open()` takes.
@@ -677,20 +678,18 @@ final class WPCPM_Administrators_Dashboard {
 		$guide = get_page_by_path( 'administrator-guide' );
 
 		if ( $guide instanceof WP_Post && 'publish' === $guide->post_status ) {
-			$help[] = WPCPM_Dashboard_Frame::item( __( 'Administrator guide', 'wpcredits-program-manager' ), (string) get_permalink( $guide ), 'book' );
+			$help[] = WPCPM_Dashboard_Frame::item( __( 'Administrator guide', 'wpcredits-program-manager' ), (string) get_permalink( $guide ), 'book', array( 'current' => self::VIEW_GUIDE === $view ) );
 		}
 
 		$help[] = WPCPM_Dashboard_Frame::item( __( 'WordPress Credits handbook', 'wpcredits-program-manager' ), 'https://make.wordpress.org/community/handbook/education/credits/', 'file' );
 		$help[] = WPCPM_Dashboard_Frame::item( __( '#wpcredits on Slack', 'wpcredits-program-manager' ), 'https://wordpress.slack.com/archives/C0959D2M3T8', 'slack' );
 
+		// No `context`: it named the page again above the menu, under the page's own H1 (the owner, 11
+		// November 2026: "Duplicated"). The menu's label still names it for a screen reader.
 		return array(
-			'page'    => 'administrator',
-			'label'   => self::title(),
-			'context' => array(
-				'label' => __( 'Dashboard', 'wpcredits-program-manager' ),
-				'title' => self::title(),
-			),
-			'groups'  => array(
+			'page'   => self::VIEW_GUIDE === $view ? WPCPM_Administrator_Guide_View::FRAME_PAGE : 'administrator',
+			'label'  => self::title(),
+			'groups' => array(
 				array(
 					'heading' => '',
 					'items'   => $items,
@@ -700,18 +699,36 @@ final class WPCPM_Administrators_Dashboard {
 					'items'   => $admin,
 				),
 			),
-			'help'    => $help,
+			'help'   => $help,
 		);
 	}
 
 	/**
+	 * The menu as the Administrator guide draws it (1.123.70): the same items and the same counts as the
+	 * page's own, read the same way, with the guide marked as where the reader is.
+	 *
+	 * @return array What `WPCPM_Dashboard_Frame::open()` takes.
+	 */
+	public static function guide_frame_args() {
+		$data   = WPCPM_Administrators_Cards::collect();
+		$counts = WPCPM_Administrators_Cards::counts( $data );
+
+		return self::frame_args( self::VIEW_GUIDE, self::waiting( $data, $counts ), $counts );
+	}
+
+	/**
 	 * The page's name, the page's one H1, when the theme leaves the page to the frame; the theme's own
-	 * template prints it otherwise.
+	 * template prints it otherwise. It is the one place the page names itself (1.123.70): the menu no
+	 * longer opens with the name too, nor the cohort timeline with a link back to it.
+	 *
+	 * @return string Markup, escaped, or ''.
 	 */
 	private static function page_name() {
-		if ( WPCPM_Dashboard_Frame::owns_page( 'administrator' ) ) {
-			printf( '<h1 class="wpcpm-head__eyebrow">%s</h1>', esc_html( self::title() ) );
+		if ( ! WPCPM_Dashboard_Frame::owns_page( 'administrator' ) ) {
+			return '';
 		}
+
+		return sprintf( '<h1 class="wpcpm-head__eyebrow">%s</h1>', esc_html( self::title() ) );
 	}
 
 	/**
@@ -792,7 +809,7 @@ final class WPCPM_Administrators_Dashboard {
 
 		echo '<header class="wpcpm-head"><div class="wpcpm-head__copy">';
 
-		self::page_name();
+		echo self::page_name(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in page_name().
 
 		if ( 0 === $total ) {
 			printf( '<p class="wpcpm-head__title">%s</p>', esc_html__( 'Nothing waits for you today', 'wpcredits-program-manager' ) );
@@ -1021,7 +1038,7 @@ final class WPCPM_Administrators_Dashboard {
 	 */
 	private static function render_reference( array $data, $viewer ) {
 		echo '<header class="wpcpm-head"><div class="wpcpm-head__copy">';
-		self::page_name();
+		echo self::page_name(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in page_name().
 		printf( '<p class="wpcpm-head__title">%s</p>', esc_html__( 'Reference', 'wpcredits-program-manager' ) );
 		printf( '<p class="wpcpm-head__lede">%s</p>', esc_html__( 'The sponsors, the programs running and how the mentors use the site, then the tools from our sponsors and the resources.', 'wpcredits-program-manager' ) );
 		echo '</div></header>';

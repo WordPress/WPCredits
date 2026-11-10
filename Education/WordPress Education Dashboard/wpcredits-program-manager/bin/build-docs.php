@@ -483,6 +483,12 @@ function wpcpm_docs_inline( $text ) {
 		$text
 	);
 
+	// **A bracket left now is one to read (1.123.70).** The guides name shortcodes, `[wpcpm_mentor_application]`
+	// and `[wpcpm_student_interest]`, and WordPress ran every name it found on the published page: the
+	// Administrator guide drew a working Mentor Application form and a Student Interest Form in the middle
+	// of its text. As `&#91;` it reads the same and runs nothing.
+	$text = str_replace( '[', '&#91;', $text );
+
 	$text = preg_replace( '/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text );
 	$text = preg_replace( '/(?<![*\w])\*([^*]+)\*(?!\*)/', '<em>$1</em>', $text );
 	$text = preg_replace( '/`([^`]+)`/', '<code>$1</code>', $text );

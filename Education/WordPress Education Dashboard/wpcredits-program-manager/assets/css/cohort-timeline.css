@@ -46,36 +46,11 @@
 /* The view's frame                                                                              */
 /* -------------------------------------------------------------------------------------------- */
 
-.wpcpm-timeline-view__back {
-	font-size: 14px;
-	margin: 0 0 12px;
-}
-
-.wpcpm-timeline-view__back a {
-	color: var( --wpcpm-tl-ink-70 );
-	text-decoration: none;
-}
-
-.wpcpm-timeline-view__back a:hover,
-.wpcpm-timeline-view__back a:focus {
-	color: var( --wpcpm-tl-starting );
-	text-decoration: underline;
-}
-
+/* The head is the frame's own (`.wpcpm-head`, dashboard-frame.css), as the Reference view's is: the
+   page's name, the view's in the serif, the lede and when the records were read (1.123.70). It has no
+   way back of its own any more; the menu is the way back. */
 .wpcpm-timeline-view__header {
-	margin-bottom: 24px;
-}
-
-.wpcpm-timeline-view__title {
-	font-size: 2em;
-	line-height: 1.2;
-	margin: 0 0 8px;
-}
-
-.wpcpm-timeline-view__read {
-	color: var( --wpcpm-tl-ink-60 );
-	font-size: 13px;
-	margin: 4px 0 0;
+	margin-bottom: 28px;
 }
 
 .wpcpm-timeline-view__section {
@@ -901,10 +876,6 @@
 	.wpcpm-timeline {
 		--wpcpm-tl-height: 200px;
 		padding: 12px 10px 8px;
-	}
-
-	.wpcpm-timeline-view__title {
-		font-size: 1.6em;
 	}
 
 	.wpcpm-timeline-stats {

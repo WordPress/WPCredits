@@ -108,6 +108,7 @@ class WPCPM_Administrators extends WPCPM_Module {
 	 */
 	public function boot() {
 		WPCPM_Administrators_Dashboard::init();
+		WPCPM_Administrator_Guide_View::init();
 
 		// The screen's own load hook, once the menu exists, and its rows-per-page save.
 		$this->boot_screen();

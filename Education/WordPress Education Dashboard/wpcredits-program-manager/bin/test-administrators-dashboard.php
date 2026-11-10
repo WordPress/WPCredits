@@ -267,7 +267,7 @@ function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (
 function metadata_exists( $type, $id, $k ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; $GLOBALS['calls'][] = array( 'update_post_meta', (int) $id, $k, $v ); return true; }
 
-function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
+function get_post( $id ) { return $id instanceof WP_Post ? $id : ( $GLOBALS['posts'][ (int) $id ] ?? null ); }
 function get_post_status( $id ) { $p = get_post( $id ); return $p instanceof WP_Post ? $p->post_status : false; }
 function get_permalink( $id = 0 ) { $p = get_post( $id ); return $p instanceof WP_Post ? 'https://example.test/' . $p->post_name . '/' : false; }
 function get_page_by_path( $slug, $output = null, $type = 'page' ) {
@@ -3036,6 +3036,13 @@ ck( 'while the theme leaves the page to the frame, the frame draws its top bar a
 	array( substr_count( $owned, '<h1' ), substr_count( $owned_ref, '<h1' ) ),
 	array( has( $out, '<h1' ), has( $out_ref, '<h1' ), has( $out, '<div class="wpcpm-frame__bar wpcpm-frame__bar--slim"><button class="wpcpm-frame__menu-button"' ) ),
 ), array( true, true, true, array( 1, 1 ), array( false, false, true ) ) );
+// The page names itself once (1.123.70): the menu no longer opens with the page's name, which the head's
+// H1 says (the owner, 11 November 2026: "Duplicated"). The menu's label still names it to a screen reader.
+ck( 'the page names itself once: no name above the menu, on either theme, and on the bare canvas the H1 is the only place the words are shown; the menu keeps the name as its label', array(
+	array( has( $out, 'wpcpm-frame__context' ), has( $owned, 'wpcpm-frame__context' ), has( $owned_ref, 'wpcpm-frame__context' ) ),
+	array( substr_count( $owned, '>Administrator Dashboard<' ), substr_count( $owned_ref, '>Administrator Dashboard<' ) ),
+	has( $owned, '<nav class="wpcpm-frame__menu" id="wpcpm-frame-menu" aria-label="Administrator Dashboard">' ),
+), array( array( false, false, false ), array( 1, 1 ), true ) );
 
 // A refused Draft now flashes on the semester report screen's own channel, not the queue's
 // (final review, Important 2); render_messages() has to read that channel too and print it in
@@ -5334,6 +5341,35 @@ foreach ( $kept as $key => $value ) {
 	$GLOBALS[ $key ] = $value;
 }
 unset( $GLOBALS['facts'][811], $GLOBALS['facts'][812], $GLOBALS['posts'][531], $GLOBALS['posts'][611], $GLOBALS['posts'][711], $GLOBALS['posts'][712] );
+
+// The Administrator guide draws the page's own menu (1.123.70): the same items and counts, read the same
+// way at the same moment, with the guide marked as where the reader is and nothing else, under its own key.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrator-guide-view.php';
+$guide_page              = new WP_Post();
+$guide_page->ID          = 99560;
+$guide_page->post_name   = 'administrator-guide';
+$guide_page->post_title  = 'Administrator guide';
+$GLOBALS['posts'][99560] = $guide_page;
+$on_page                 = menu_items( WPCPM_Administrators_Dashboard::render( array() ) );
+$guide_args              = WPCPM_Administrators_Dashboard::guide_frame_args();
+unset( $GLOBALS['posts'][99560] );
+$guide_items = array();
+foreach ( array_merge( array_merge( ...array_column( $guide_args['groups'], 'items' ) ), $guide_args['help'] ) as $item ) {
+	$guide_items[ $item['label'] ] = $item;
+}
+ck( 'the guide\'s menu is the page\'s: the same items in the same order to the same addresses with the same counts, the guide marked current and nothing else, no name above it, under the guide\'s own key', array(
+	array_keys( $guide_items ),
+	array_column( $guide_items, 'url', 'label' ),
+	array_filter( array_column( $guide_items, 'badge', 'label' ) ),
+	array_keys( array_filter( array_column( $guide_items, 'current', 'label' ) ) ),
+	array( $guide_args['page'], isset( $guide_args['context'] ) ),
+), array(
+	array_keys( $on_page ),
+	array_column( $on_page, 'url' ) ? array_combine( array_keys( $on_page ), array_column( $on_page, 'url' ) ) : array(),
+	array_filter( array_combine( array_keys( $on_page ), array_column( $on_page, 'badge' ) ) ),
+	array( 'Administrator guide' ),
+	array( 'administrator-guide', false ),
+) );
 
 // Back to reading the site: the seam was set for this run only.
 WPCPM_Mentor_Engagement::for_tests( null );

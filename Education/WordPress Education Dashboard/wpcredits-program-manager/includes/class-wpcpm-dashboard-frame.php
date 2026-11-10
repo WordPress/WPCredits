@@ -87,7 +87,10 @@ final class WPCPM_Dashboard_Frame {
 	 *     @type string $page    The page's key, after `--` in the frame's class: `administrator` and so on.
 	 *     @type string $label   The menu's name for a screen reader, the dashboard's full name.
 	 *     @type array  $context What the viewer is looking at, first in the menu: `label`, the small heading,
-	 *                           `title`, the words, and optionally `sub`, a line under them.
+	 *                           `title`, the words, and optionally `sub`, a line under them. Only for what
+	 *                           the page's own head does not already say, such as whose record a page is
+	 *                           when one person may hold several: the Administrator Dashboard passes none
+	 *                           (1.123.70), since it named the page a second time under the page's H1.
 	 *     @type array  $groups  Each `heading` ('' for none) and `items`.
 	 *     @type array  $help    The help items, under the heading Help.
 	 * }
