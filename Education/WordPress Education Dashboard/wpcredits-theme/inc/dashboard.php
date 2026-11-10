@@ -102,6 +102,13 @@ function wpcredits_dashboard_assets() {
 		WPCREDITS_VERSION
 	);
 
+	// A dashboard in the plugin's frame is set in the homepage's two typefaces, Inter and EB Garamond for
+	// its head and figures (the version 3 concepts of 10 November 2026). Their faces are declared in the
+	// hub's sheet, whose every other rule is scoped to the hub's own classes.
+	if ( wpcredits_is_frame_page() ) {
+		wp_enqueue_style( 'wpcredits-hub' );
+	}
+
 	wp_enqueue_style(
 		'wpcredits-dashboard-print',
 		get_theme_file_uri( 'assets/css/print.css' ),
@@ -176,4 +183,17 @@ function wpcredits_handbook_available() {
 	}
 
 	return (bool) WPCPM_Handbook_Assistant::is_available();
+}
+
+/**
+ * Whether the page being viewed is a dashboard the plugin draws in its frame, on this theme's bare
+ * canvas: the pages `add_theme_support( 'wpcpm-dashboard-frame' )` names in functions.php.
+ *
+ * @return bool
+ */
+function wpcredits_is_frame_page() {
+	$support = get_theme_support( 'wpcpm-dashboard-frame' );
+	$pages   = is_array( $support ) && isset( $support[0] ) ? (array) $support[0] : array();
+
+	return in_array( 'administrator', $pages, true ) && wpcredits_is_administrator_page();
 }

@@ -68,6 +68,11 @@ function wpcredits_setup() {
 	add_theme_support( 'responsive-embeds' );
 	add_theme_support( 'html5', array( 'search-form', 'gallery', 'caption', 'style', 'script' ) );
 
+	// The dashboards the plugin draws in its own frame, a top bar, a menu down the side and a main area
+	// as wide as the window (WPCredits Program Manager 1.123.69): their templates are a bare canvas
+	// under the WordPress.org bar, and the plugin prints the page's top bar and its one H1 itself.
+	add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator' ) );
+
 	// The chrome's own styles apply inside the editor, so the Site Editor shows
 	// the sticky bar and the landing sections as the front end renders them.
 	add_editor_style( array( 'style.css', 'assets/css/editor.css' ) );

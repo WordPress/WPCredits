@@ -5608,3 +5608,188 @@
 	background: none;
 }
 
+
+/* ==========================================================================
+   The dashboards in the plugin's frame (theme 1.32.22, WPCredits Program Manager 1.123.69)
+
+   The version 3 concepts of 10 November 2026: a bare canvas under the WordPress.org bar, on which
+   the plugin draws its own top bar, a menu down the side a reader starts from, and a main area as
+   wide as the window. The theme adds no width, inset, card or band of its own here; the frame's
+   sheet (the plugin's dashboard-frame.css) holds the whole look. The page's own cards keep every
+   rule above, which key on the page's body class and the plugin's classes, and are set in Inter,
+   the homepage's text face, whose files the hub's sheet declares.
+   ========================================================================== */
+
+.wpc-main--app {
+	background: var( --wpc-surface );
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-main--app .wpc-app__content {
+	margin: 0;
+	max-width: none;
+}
+
+.wpc-main--app .wpc-app__content > * {
+	margin-block: 0;
+	max-width: none;
+}
+
+.wpc-dashboard-page .wpc-main--app .wpcpm-dashboard {
+	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
+}
+
+/* Inside the frame the Administrator Dashboard's cards are the homepage's program cards: no inset of their
+   own, no hairline over a group (the main area's 28px keeps the groups apart), a plain 1px box with 2px
+   corners, and in the Waiting group the age of its oldest item as the homepage's red status tag (the plugin's
+   `wpcpm-status`, no colored edge: the owner's choice of 10 November 2026) and the Review cue the plugin
+   prints in the row. The rules above stay for the page outside the frame. */
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group {
+	border-top: 0;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group-title,
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group-lead {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group-title {
+	font: 600 13px/1.4 var( --wpc-hub-sans, var( --wpc-font ) );
+	letter-spacing: .08em;
+	margin: 0 0 4px;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group-lead {
+	color: var( --wpc-ink-60 );
+	margin: 0 0 14px;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__card {
+	margin: 0;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__card + .wpcpm-administrator__card,
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group-lead + .wpcpm-administrator__card {
+	margin-top: 10px;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__group-lead + .wpcpm-administrator__card {
+	margin-top: 0;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__card > .wpcpm-group__disclosure,
+.wpc-administrator-page .wpc-main--app .wpcpm-overview__row {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-radius: var( --wpc-radius-control );
+}
+
+/* The box is the disclosure's; the row inside it draws no border or fill of its own, or the two outlines
+   show side by side, doubled at the corners and grey inside the red edge. */
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	padding: 14px 16px;
+}
+
+/* What ends a row, the age, the cue and the arrow, sits at the row's end whatever the row holds before it:
+   the first of them takes the free room, the ones after it follow. */
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary > .wpcpm-card__age,
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary > .wpcpm-card__cue,
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary > .wpcpm-mentee__toggle {
+	margin-inline-start: auto;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary > .wpcpm-card__age ~ .wpcpm-card__cue,
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary > .wpcpm-card__age ~ .wpcpm-mentee__toggle,
+.wpc-administrator-page .wpc-main--app .wpcpm-group__summary > .wpcpm-card__cue ~ .wpcpm-mentee__toggle {
+	margin-inline-start: 0;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-group__disclosure[open] > .wpcpm-group__summary {
+	border-bottom: 1px solid var( --wpc-line );
+}
+
+/* The open card's body is inside the same box: no border or rounded corners of its own, or a second
+   outline shows inside the first at the card's foot. */
+.wpc-administrator-page .wpc-main--app .wpcpm-group__disclosure > .wpcpm-group__body {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-group__title {
+	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-card__cue {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-brand );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-brand );
+	font: 600 14px/20px var( --wpc-hub-sans, var( --wpc-font ) );
+	padding: 6px 14px;
+	white-space: nowrap;
+}
+
+/* The buttons and fields inside an open card are the frame's: Inter, and the 2px corners DESIGN.md gives
+   every button and control, at the cards' own 34px, the size of the row's Review cue. The page outside
+   the frame keeps its rounder ones. */
+.wpc-dashboard-page .wpc-main--app .wpcpm-administrator :is( .wpcpm-button, .button, button, input[type="submit"], input[type="button"] ) {
+	border-radius: var( --wpc-radius-control );
+	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
+}
+
+.wpc-dashboard-page .wpc-main--app .wpcpm-administrator :is( input:not( [type="checkbox"] ):not( [type="radio"] ), select, textarea ) {
+	border-radius: var( --wpc-radius-control );
+	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-group__disclosure[open] .wpcpm-card__cue {
+	display: none;
+}
+
+/* A row opens in place when pressed; the screens in wp-admin the rows' actions led to are in the menu and
+   in the sentence under the Waiting rows, so the Overview's rows draw no action beside or under them. */
+.wpc-administrator-page .wpc-main--app .wpcpm-overview .wpcpm-sponsor__row-action {
+	display: none;
+}
+
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__card:has( > .wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure:not([open]) > .wpcpm-group__summary {
+	padding-right: 16px;
+}
+
+/* Elsewhere in the frame (the Reference view) a card's action is drawn under its box, in the flow. */
+.wpc-administrator-page .wpc-main--app .wpcpm-sponsor__row-action {
+	margin: 8px 0 0;
+	position: static;
+}
+
+/* The whole page in Inter, the homepage's text face. The dashboards' sheets set the system face on many of
+   their own elements, the tables, notes, links and the Tools and Resources sections among them; inside the
+   frame each takes Inter instead, except the head's and the figures' serif and anything set as code. */
+.wpc-dashboard-page .wpc-main--app .wpcpm-administrator *:not( .wpcpm-head__title ):not( .wpcpm-figure__value ):not( .wpcpm-figure__value * ):not( code ):not( kbd ):not( pre ):not( samp ):not( .dashicons ) {
+	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
+}
+
+/* Tiles inside a box take the box's 2px corners: the programs' tiles and the cohort timeline's. */
+.wpc-administrator-page .wpc-main--app .wpcpm-programs__tile {
+	border-radius: var( --wpc-radius-control );
+}
+
+.wpc-main--app :is( .wpcpm-timeline, .wpcpm-timeline-stats, .wpcpm-timeline-outlook, .wpcpm-timeline-intakes, .wpcpm-timeline-chip, .wpcpm-timeline-table ) {
+	--wpcpm-tl-radius: var( --wpc-radius-control );
+}
+
+.wpc-administrator-page .wpc-main--app :is( .wpcpm-tools__offer, .wpcpm-tools__logo, .wpcpm-timeline-notes ) {
+	border-radius: var( --wpc-radius-control );
+}
