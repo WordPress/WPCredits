@@ -187,7 +187,8 @@ add_filter( 'the_content', 'wpcredits_guide_anchor_ids', 9 );
  * nothing else on the site has one.
  */
 function wpcredits_guide_assets() {
-	if ( ! wpcredits_is_guide_page() ) {
+	// The Administrator guide in the plugin's frame is dressed by the plugin's own sheet.
+	if ( ! wpcredits_is_guide_page() || wpcredits_is_guide_frame_page() ) {
 		return;
 	}
 

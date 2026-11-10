@@ -46,8 +46,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function wpcredits_dashboard_assets() {
 	// Styles dress the shell both pages share; the script only has work to do on
-	// the mentor page, whose list it regroups.
-	if ( ! wpcredits_is_dashboard_page() ) {
+	// the mentor page, whose list it regroups. The Administrator guide in the frame is no dashboard,
+	// but its bare canvas is dressed by the frame's section of this sheet, and set in the same faces.
+	if ( ! wpcredits_is_dashboard_page() && ! wpcredits_is_frame_page() ) {
 		return;
 	}
 
@@ -186,14 +187,63 @@ function wpcredits_handbook_available() {
 }
 
 /**
- * Whether the page being viewed is a dashboard the plugin draws in its frame, on this theme's bare
- * canvas: the pages `add_theme_support( 'wpcpm-dashboard-frame' )` names in functions.php.
+ * Whether the page being viewed is one the plugin draws in its frame, on this theme's bare canvas: the
+ * pages `add_theme_support( 'wpcpm-dashboard-frame' )` names in functions.php.
  *
  * @return bool
  */
 function wpcredits_is_frame_page() {
+	return ( wpcredits_frame_names( 'administrator' ) && wpcredits_is_administrator_page() )
+		|| wpcredits_is_guide_frame_page();
+}
+
+/**
+ * Whether functions.php names a page as one the plugin draws in its frame.
+ *
+ * @param string $page The page's key: `administrator`, `administrator-guide`.
+ * @return bool
+ */
+function wpcredits_frame_names( $page ) {
 	$support = get_theme_support( 'wpcpm-dashboard-frame' );
 	$pages   = is_array( $support ) && isset( $support[0] ) ? (array) $support[0] : array();
 
-	return in_array( 'administrator', $pages, true ) && wpcredits_is_administrator_page();
+	return in_array( $page, $pages, true );
 }
+
+/**
+ * Whether the page being viewed is the Administrator guide, drawn in the Administrator Dashboard's frame
+ * (plugin 1.123.70): only while a plugin that can draw it is active, so a site without one keeps the
+ * guide on the Documentation template the page names.
+ *
+ * @return bool
+ */
+function wpcredits_is_guide_frame_page() {
+	if ( ! is_page() || ! class_exists( 'WPCPM_Administrator_Guide_View' ) || ! wpcredits_frame_names( 'administrator-guide' ) ) {
+		return false;
+	}
+
+	return WPCPM_Administrator_Guide_View::is_guide( get_queried_object() );
+}
+
+/**
+ * Draw the Administrator guide on its bare canvas, `page-administrator-guide`, ahead of the Documentation
+ * template the page itself names. The page keeps naming it, so the day the plugin cannot draw the frame
+ * the guide is a Documentation page again, with nothing to change on it.
+ *
+ * @param string[] $templates The page's templates, the first found wins.
+ * @return string[]
+ */
+function wpcredits_guide_frame_template( $templates ) {
+	if ( ! wpcredits_is_guide_frame_page() ) {
+		return $templates;
+	}
+
+	// Moved, not added: the page's slug already puts `page-administrator-guide.php` in the list, after the
+	// stored template, and core orders block templates by `array_flip()` of the list, where the last of
+	// two equal entries wins. A second copy at the front would lose to the stored template.
+	$templates = array_values( array_diff( $templates, array( 'page-administrator-guide.php' ) ) );
+	array_unshift( $templates, 'page-administrator-guide.php' );
+
+	return $templates;
+}
+add_filter( 'page_template_hierarchy', 'wpcredits_guide_frame_template' );
