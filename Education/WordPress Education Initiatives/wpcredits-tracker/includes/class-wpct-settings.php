@@ -64,6 +64,15 @@ class WPCT_Settings {
 				'sanitize_callback' => array( $this, 'sanitize' ),
 			)
 		);
+		// The students' quotes, saved by the same form.
+		register_setting(
+			self::GROUP,
+			WPCT_Voices::OPTION,
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( 'WPCT_Voices', 'sanitize' ),
+			)
+		);
 	}
 
 	/**
@@ -212,19 +221,36 @@ class WPCT_Settings {
 					<?php foreach ( WPCT_Sync::profile_warnings( $profiles ) as $warning ) : ?>
 						<div class="notice notice-warning inline"><p><?php echo esc_html( $warning ); ?></p></div>
 					<?php endforeach; ?>
-					<?php if ( ! empty( $g['mapSkipped'] ) && is_array( $g['mapSkipped'] ) ) : ?>
-						<div class="notice notice-warning inline"><p>
-							<?php
-							echo esc_html(
-								sprintf(
-									/* translators: %s: a list of places, each "City, Country". */
-									__( 'Not on the partner map, because the plugin has no coordinates for the place or the record names no city: %s. Fix the city on the institution\'s record, or add the place to data/city-coords.json (or the wpct_city_coords filter).', 'wpcredits-tracker' ),
-									implode( '; ', array_map( 'strval', $g['mapSkipped'] ) )
-								)
-							);
-							?>
-						</p></div>
-					<?php endif; ?>
+				<?php endif; ?>
+				<?php if ( ! empty( $g['unknownStatuses'] ) && is_array( $g['unknownStatuses'] ) ) : ?>
+					<div class="notice notice-warning inline"><p>
+						<?php
+						$unknown = array();
+						foreach ( $g['unknownStatuses'] as $status_name => $status_count ) {
+							$unknown[] = $status_name . ' (' . (int) $status_count . ')';
+						}
+						echo esc_html(
+							sprintf(
+								/* translators: %s: a list of status names, each with the number of students. */
+								__( 'Counted as in the program, though this version does not know the status: %s. A new track needs nothing more. If one of these is an outcome and not a track, its students should not count: add it with the wpct_non_participant_statuses filter.', 'wpcredits-tracker' ),
+								implode( '; ', $unknown )
+							)
+						);
+						?>
+					</p></div>
+				<?php endif; ?>
+				<?php if ( ! empty( $g['mapSkipped'] ) && is_array( $g['mapSkipped'] ) ) : ?>
+					<div class="notice notice-warning inline"><p>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %s: a list of places, each "City, Country". */
+								__( 'Not on the partner map, because the plugin has no coordinates for the place or the record names no city: %s. Fix the city on the institution\'s record, or add the place to data/city-coords.json (or the wpct_city_coords filter).', 'wpcredits-tracker' ),
+								implode( '; ', array_map( 'strval', $g['mapSkipped'] ) )
+							)
+						);
+						?>
+					</p></div>
 				<?php endif; ?>
 				<p style="margin:.2em 0;">
 					<strong><?php esc_html_e( 'Last synced:', 'wpcredits-tracker' ); ?></strong>
@@ -284,6 +310,56 @@ class WPCT_Settings {
 						</td>
 					</tr>
 				</table>
+
+				<h2><?php esc_html_e( 'What students say', 'wpcredits-tracker' ); ?></h2>
+				<p class="description" style="max-width:820px;">
+					<?php esc_html_e( 'The quotes shown under "What students say". Publish a quote only when the student has agreed to it. Clear a quote\'s text to remove it; with every quote removed, the six the plugin ships with are shown again. At most twelve.', 'wpcredits-tracker' ); ?>
+				</p>
+				<?php
+				$voices = WPCT_Voices::get();
+				$slots  = min( WPCT_Voices::MAX, count( $voices ) + 2 );
+				for ( $i = 0; $i < $slots; $i++ ) :
+					$voice = isset( $voices[ $i ] ) ? $voices[ $i ] : array( 'q' => '', 'who' => '', 'country' => '', 'cc' => '', 'lang' => '' );
+					$name  = WPCT_Voices::OPTION . '[' . $i . ']';
+					$id    = 'wpct_voice_' . $i;
+					?>
+					<fieldset style="border:1px solid #c3c4c7;border-radius:4px;margin:0 0 16px;max-width:820px;padding:12px 16px 16px;">
+						<legend style="font-weight:600;padding:0 6px;">
+							<?php
+							echo esc_html(
+								isset( $voices[ $i ] )
+									/* translators: %d: the quote's place in the list. */
+									? sprintf( __( 'Quote %d', 'wpcredits-tracker' ), $i + 1 )
+									: __( 'A new quote', 'wpcredits-tracker' )
+							);
+							?>
+						</legend>
+						<p style="margin:0 0 12px;">
+							<label for="<?php echo esc_attr( $id ); ?>_q" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Quote', 'wpcredits-tracker' ); ?></label>
+							<textarea id="<?php echo esc_attr( $id ); ?>_q" name="<?php echo esc_attr( $name ); ?>[q]" rows="4" class="large-text"><?php echo esc_textarea( $voice['q'] ); ?></textarea>
+						</p>
+						<p style="margin:0 0 12px;">
+							<label for="<?php echo esc_attr( $id ); ?>_who" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Who said it', 'wpcredits-tracker' ); ?></label>
+							<input type="text" id="<?php echo esc_attr( $id ); ?>_who" name="<?php echo esc_attr( $name ); ?>[who]" value="<?php echo esc_attr( $voice['who'] ); ?>" class="large-text" aria-describedby="<?php echo esc_attr( $id ); ?>_who_hint" />
+							<span class="description" id="<?php echo esc_attr( $id ); ?>_who_hint"><?php esc_html_e( 'As the student agreed to be named, for example a first name and the institution.', 'wpcredits-tracker' ); ?></span>
+						</p>
+						<p style="display:flex;flex-wrap:wrap;gap:16px;margin:0;">
+							<span>
+								<label for="<?php echo esc_attr( $id ); ?>_country" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Country', 'wpcredits-tracker' ); ?></label>
+								<input type="text" id="<?php echo esc_attr( $id ); ?>_country" name="<?php echo esc_attr( $name ); ?>[country]" value="<?php echo esc_attr( $voice['country'] ); ?>" class="regular-text" />
+							</span>
+							<span>
+								<label for="<?php echo esc_attr( $id ); ?>_cc" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Country code, for the flag (optional)', 'wpcredits-tracker' ); ?></label>
+								<input type="text" id="<?php echo esc_attr( $id ); ?>_cc" name="<?php echo esc_attr( $name ); ?>[cc]" value="<?php echo esc_attr( $voice['cc'] ); ?>" size="4" maxlength="2" placeholder="PL" />
+							</span>
+							<span>
+								<label for="<?php echo esc_attr( $id ); ?>_lang" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Language of the quote, if not English (optional)', 'wpcredits-tracker' ); ?></label>
+								<input type="text" id="<?php echo esc_attr( $id ); ?>_lang" name="<?php echo esc_attr( $name ); ?>[lang]" value="<?php echo esc_attr( $voice['lang'] ); ?>" size="6" maxlength="12" placeholder="es" />
+							</span>
+						</p>
+					</fieldset>
+				<?php endfor; ?>
+
 				<?php submit_button( __( 'Save settings', 'wpcredits-tracker' ) ); ?>
 			</form>
 

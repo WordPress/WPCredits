@@ -121,9 +121,27 @@ class WPCT_Render {
 		$inlined = true;
 
 		$markers = self::markers( $data );
-		$inline  = 'window.WPCT_DATA=' . wp_json_encode( $data ) . ';'
-			. 'window.WPCT_MARKERS=' . wp_json_encode( $markers ) . ';';
+		$inline  = 'window.WPCT_DATA=' . wp_json_encode( self::public_data( $data ) ) . ';'
+			. 'window.WPCT_MARKERS=' . wp_json_encode( $markers ) . ';'
+			. 'window.WPCT_VOICES=' . wp_json_encode( WPCT_Voices::get() ) . ';';
 		wp_add_inline_script( 'wpct-dashboard', $inline, 'before' );
+	}
+
+	/**
+	 * The data blob as the page may carry it. The stored blob also holds what the sync and the
+	 * admin screen need and a visitor should not be handed in the page source: the count of
+	 * approved sponsors (not public while sponsorship is on hold), the places left off the map,
+	 * the statuses nobody has declared, and the markers, which the page gets once as WPCT_MARKERS.
+	 *
+	 * @param array $data The stored blob.
+	 * @return array
+	 */
+	public static function public_data( $data ) {
+		if ( ! is_array( $data ) || ! isset( $data['global'] ) || ! is_array( $data['global'] ) ) {
+			return $data;
+		}
+		unset( $data['global']['sponsorCount'], $data['global']['mapSkipped'], $data['global']['unknownStatuses'], $data['global']['partnerMarkers'] );
+		return $data;
 	}
 
 	/**

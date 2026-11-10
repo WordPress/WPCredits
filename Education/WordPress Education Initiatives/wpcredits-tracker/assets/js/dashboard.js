@@ -119,18 +119,14 @@
 		// it, since some platforms (Windows) draw no flag emoji, and a screen reader
 		// is told to skip it.
 		var flag = function ( cc ) { return cc.replace( /./g, function ( ch ) { return String.fromCodePoint( 0x1F1E6 + ch.charCodeAt( 0 ) - 65 ); } ); };
-		var voices = [
-			{ q: "My time in the WordPress Credits Internship program was enlightening. This was my first time actively contributing to a real open-source project, and my first internship. I learned a lot about my own skills, about open-source software, and about the WordPress Foundation and WordPress software. Additionally, I would like to think that my contribution will have a lasting impact on the local WordPress community.", who: "Carolyn · Central New Mexico Community College", cc: "US", country: "United States" },
-			{ q: "This program was a great learning experience for me. I learned how to build and customize websites using WordPress, and also gained basic knowledge of HTML, CSS, and PHP. The mentors were very supportive and guided us throughout the journey. This course helped me gain confidence and real-world experience. I would highly recommend it to anyone interested in starting a career in WordPress and web development.", who: "Saad · Ahmad's Education", cc: "BD", country: "Bangladesh" },
-			{ q: "WordPress Credits was a great experience for me. I could see how a global project works and I helped translate over 1,200 phrases. Sometimes you need patience, but the results give a lot of satisfaction. If you want to learn new technical skills and build your own portfolio, you should definitely join this program.", who: "Wiktoria · Krakow University of Economics", cc: "PL", country: "Poland" },
-			{ q: "El curso ha estado genial y la experiencia ha sido muy positiva. Me ha gustado mucho integrarme en la comunidad de WordPress y ver cómo se trabaja en un proyecto real de código abierto. Ha estado muy bien organizado y me ha servido para aprender un montón sobre la localización y traducción de software. Muy recomendable.", who: "Juan Manuel · IES Azarquiel", cc: "ES", lang: "es", country: "Spain" },
-			{ q: "Podría decir que no tengan miedo y se metan con todo menos con miedo a este programa, porque es una experiencia muy bonita, aprendes muchísimas cosas, sales de tu rutina diaria, te hace crecer personalmente y profesionalmente.", who: "Rossana · Universidad Privada Franz Tamayo", cc: "BO", lang: "es", country: "Bolivia" },
-			{ q: "Mi experiencia en WPCredits fue muy positiva ya que aprendí sobre WordPress, la colaboración en comunidades de código abierto y la importancia de compartir conocimientos. Aunque al inicio fue un reto familiarizarme con las diferentes plataformas, con el tiempo logré adaptarme y desarrollar nuevas habilidades. Recomiendo esta experiencia a otros estudiantes porque permite aprender herramientas útiles y participar en una comunidad tecnológica.", who: "Teresa · Universidad Fidélitas", cc: "CR", lang: "es", country: "Costa Rica" }
-		];
+		// The quotes come from the site (the WPCredits-Tracker admin screen, or the six the
+		// plugin ships with): see WPCT_Voices.
+		var voices = Array.isArray( window.WPCT_VOICES ) ? window.WPCT_VOICES : [];
+		if ( ! voices.length ) { return ''; }
 		// These are literals above, but escaping them keeps one rule for the whole
 		// file (nothing reaches innerHTML unescaped), so wiring them to the
 		// synced blob later cannot reintroduce an injection.
-		var voicesHtml = voices.map( function ( v ) { return '<figure class="voice"><blockquote class="voice-q"' + ( v.lang ? ' lang="' + esc( v.lang ) + '"' : '' ) + '>“' + esc( v.q ) + '”</blockquote><figcaption class="voice-meta"><span>' + esc( v.who ) + '</span><span class="voice-tag"><span class="voice-flag" aria-hidden="true">' + flag( v.cc ) + '</span>' + esc( v.country ) + '</span></figcaption></figure>'; } ).join( '' );
+		var voicesHtml = voices.map( function ( v ) { return '<figure class="voice"><blockquote class="voice-q"' + ( v.lang ? ' lang="' + esc( v.lang ) + '"' : '' ) + '>“' + esc( v.q ) + '”</blockquote><figcaption class="voice-meta"><span>' + esc( v.who ) + '</span>' + ( v.country ? '<span class="voice-tag">' + ( /^[A-Z]{2}$/.test( v.cc || '' ) ? '<span class="voice-flag" aria-hidden="true">' + flag( v.cc ) + '</span>' : '' ) + esc( v.country ) + '</span>' : '' ) + '</figcaption></figure>'; } ).join( '' );
 		return '<h3>What students say</h3>'
 			+ '<p class="voices-sub">In students’ own words, shared with their consent.</p>'
 			+ '<div class="voices-grid">' + voicesHtml + '</div>';

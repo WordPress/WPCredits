@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.7.2
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,11 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.8.0 =
+* A track made tomorrow is counted the day its first student has it. The figures now follow the upstream dashboard's rule: every student counts except those whose Status is Interested, Dropped out, Not moving forward, Paused, Fail or SPAM (or empty), instead of a list of the statuses that count, which went stale each time a track was added. A status this version does not know by name is counted and named on the WPCredits-Tracker admin screen, so an outcome counted by mistake does not stay unseen; the `wpct_non_participant_statuses` filter adds one. With today's records the figures do not change.
+* The students' quotes can be edited on the WPCredits-Tracker admin screen: the quote, who said it, the country, a country code for the flag and the quote's language. The six that ship with the plugin are shown until a site saves its own. Nothing is read from Airtable for them: publish a quote only when the student has agreed.
+* The page no longer carries the count of approved sponsors in its source. It was never shown, but it was in the data every visitor's browser received.
 
 = 1.7.2 =
 * The heading over the students' quotes reads "What students say" instead of "Voices from the program".

@@ -143,10 +143,36 @@ class WPCT_Sync {
 	}
 
 	/**
-	 * The Status values of a student who is in the program now: the original program's statuses
-	 * and one per track. Upstream's builder knew only the first four, which left every student on
-	 * a track out of the figures. Overridable via the `wpct_active_statuses` filter, for a track
-	 * added after this release.
+	 * The Status values that do NOT make a student a participant. Everything else does.
+	 *
+	 * The same rule as the upstream builder (NON_PARTICIPANT_STATUSES): the Status field says
+	 * which track a student is on, so a list of the statuses that count goes stale the day a
+	 * track is added, and its students drop out of the public figures without a word (it
+	 * happened twice). These are stages and outcomes, which do not change with the tracks.
+	 * Overridable via the `wpct_non_participant_statuses` filter, for a new outcome.
+	 *
+	 * @return string[]
+	 */
+	public static function non_participant_statuses() {
+		$statuses = apply_filters( 'wpct_non_participant_statuses', array( 'Interested', 'Dropped out', 'Not moving forward', 'Paused', 'Fail', 'SPAM' ) );
+		return is_array( $statuses ) ? array_values( array_filter( $statuses, 'is_string' ) ) : array();
+	}
+
+	/**
+	 * The Status values of a student who never started. Everyone else with a status has joined,
+	 * those who later dropped out, paused or failed included (upstream's NEVER_STARTED_STATUSES).
+	 *
+	 * @return string[]
+	 */
+	public static function never_started_statuses() {
+		return array( 'Interested', 'Not moving forward', 'SPAM' );
+	}
+
+	/**
+	 * The participant statuses this release knows by name. A student with any other status that
+	 * is not a non-participant one still counts (it is taken for a new track); this list only
+	 * lets the admin screen say that a status nobody has declared is being counted.
+	 * Overridable via the `wpct_active_statuses` filter.
 	 *
 	 * @return string[]
 	 */
@@ -169,13 +195,67 @@ class WPCT_Sync {
 	}
 
 	/**
-	 * The Status values of a student who started the program, whatever came of it: everyone in
-	 * it now, plus those who graduated, dropped out, paused or failed.
+	 * A status name as the lists are compared: lower case, trimmed; '' for anything else.
 	 *
-	 * @return string[]
+	 * @param mixed $status A status name.
+	 * @return string
 	 */
-	public static function joined_statuses() {
-		return array_merge( self::active_statuses(), array( 'Graduate', 'Dropped out', 'Paused', 'Fail' ) );
+	private static function fold_status( $status ) {
+		return is_string( $status ) ? strtolower( trim( $status ) ) : '';
+	}
+
+	/**
+	 * Whether a folded status is in a list of status names.
+	 *
+	 * @param string   $key  What fold_status() returned.
+	 * @param string[] $list Status names.
+	 * @return bool
+	 */
+	private static function status_in( $key, array $list ) {
+		return in_array( $key, array_map( array( __CLASS__, 'fold_status' ), $list ), true );
+	}
+
+	/**
+	 * Whether a student with this status counts toward the figures: in the program now, or a graduate.
+	 *
+	 * @param mixed $status The Status name.
+	 * @return bool
+	 */
+	public static function is_counted( $status ) {
+		$key = self::fold_status( $status );
+		return '' !== $key && ! self::status_in( $key, self::non_participant_statuses() );
+	}
+
+	/**
+	 * Whether a student with this status is in the program now.
+	 *
+	 * @param mixed $status The Status name.
+	 * @return bool
+	 */
+	public static function is_active( $status ) {
+		return self::is_counted( $status ) && 'graduate' !== self::fold_status( $status );
+	}
+
+	/**
+	 * Whether a student with this status started the program, whatever came of it.
+	 *
+	 * @param mixed $status The Status name.
+	 * @return bool
+	 */
+	public static function has_joined( $status ) {
+		$key = self::fold_status( $status );
+		return '' !== $key && ! self::status_in( $key, self::never_started_statuses() );
+	}
+
+	/**
+	 * Whether this release knows the status by name, as a participant status, an outcome or Graduate.
+	 *
+	 * @param mixed $status The Status name.
+	 * @return bool
+	 */
+	public static function is_known( $status ) {
+		$key = self::fold_status( $status );
+		return 'graduate' === $key || self::status_in( $key, self::active_statuses() ) || self::status_in( $key, self::non_participant_statuses() );
 	}
 
 	/**
@@ -392,11 +472,7 @@ class WPCT_Sync {
 		}
 
 		// ---- Status sets (keep in sync with the upstream builder) ---------
-		$active_statuses = self::active_statuses();
-		$included_keys   = array();
-		foreach ( array_merge( $active_statuses, array( 'Graduate' ) ) as $s ) {
-			$included_keys[ self::status_key( $s ) ] = true;
-		}
+		$unknown_statuses = array();
 		$graduate_key    = self::status_key( 'Graduate' );
 		$dropout_key     = self::status_key( 'Dropped out' );
 		$not_forward_key = self::status_key( 'Not moving forward' );
@@ -493,8 +569,15 @@ class WPCT_Sync {
 			}
 
 			// Only active + graduate students continue into the showcase aggregates.
-			if ( ! isset( $included_keys[ $status_n ] ) ) {
+			if ( ! self::is_counted( $status_n ) ) {
 				continue;
+			}
+			// A status nobody has declared is taken for a new track and counted; the admin
+			// screen names it, so a new outcome counted by mistake does not stay unseen.
+			if ( ! self::is_known( $status_n ) ) {
+				$status_label = self::select_name( self::fv( $rec, $F['students_reports']['status'] ) );
+				$status_label = is_string( $status_label ) ? trim( $status_label ) : $status_n;
+				$unknown_statuses[ $status_label ] = isset( $unknown_statuses[ $status_label ] ) ? $unknown_statuses[ $status_label ] + 1 : 1;
 			}
 
 			$is_graduate = ( $status_n === $graduate_key );
@@ -684,6 +767,7 @@ class WPCT_Sync {
 			'repeatSchools'       => $repeat_schools,
 			'partnerMarkers'      => $partner_map['markers'],
 			'mapSkipped'          => $partner_map['skipped'],
+			'unknownStatuses'     => $unknown_statuses,
 		);
 
 		return array(
@@ -728,18 +812,13 @@ class WPCT_Sync {
 			}
 		}
 
-		$joined_statuses = self::joined_statuses();
-		$joined_keys     = array();
-		foreach ( $joined_statuses as $s ) {
-			$joined_keys[ self::status_key( $s ) ] = true;
-		}
 		$current_month = gmdate( 'Y-m' );
 
 		$joined_by_month    = array();
 		$graduated_by_month = array();
 		foreach ( $reports as $rec ) {
 			$status_n = self::status_key( self::fv( $rec, $F['students_reports']['status'] ) );
-			if ( ! isset( $joined_keys[ $status_n ] ) ) {
+			if ( ! self::has_joined( $status_n ) ) {
 				continue;
 			}
 			$created = self::parse_iso_date( isset( $rec['createdTime'] ) ? $rec['createdTime'] : null );
