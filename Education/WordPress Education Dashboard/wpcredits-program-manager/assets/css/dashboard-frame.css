@@ -1,0 +1,897 @@
+/**
+ * The dashboards' frame (WPCPM_Dashboard_Frame, 1.123.69): the top bar, the menu down the side a reader
+ * starts from, the main area, and the blocks every dashboard's Overview opens with: the head and the
+ * figures band. The version 3 concepts of 10 November 2026, value for value.
+ *
+ * Start and end only, never left and right: in a right-to-left language the browser puts the menu on the
+ * right, and the few things it cannot turn around (the icons that point, the red edge drawn as a shadow)
+ * are turned at the end of this sheet.
+ *
+ * Widths: above 1,100px the full menu, 256px, which can fold to its icons; 783px to 1,100px the icons
+ * alone; 782px and below, wp-admin's own breakpoint, a drawer behind the Menu button.
+ */
+
+.wpcpm-frame {
+	--wpcpm-f-brand: var( --wpc-brand, #3858e9 );
+	--wpcpm-f-brand-tint: var( --wpc-brand-tint, #eff2ff );
+	--wpcpm-f-brand-border: var( --wpc-brand-border, #c7d1ff );
+	--wpcpm-f-ink: var( --wpc-ink, #1e1e1e );
+	--wpcpm-f-ink-2: var( --wpc-ink-70, #40464d );
+	--wpcpm-f-muted: var( --wpc-ink-60, #656a71 );
+	--wpcpm-f-icon: #979aa1;
+	--wpcpm-f-line: var( --wpc-line, #e6e6e6 );
+	--wpcpm-f-line-soft: #ededed;
+	--wpcpm-f-control: #8d8d8d;
+	--wpcpm-f-surface: var( --wpc-surface, #ffffff );
+	--wpcpm-f-band: var( --wpc-surface-band, #f4f4f4 );
+	--wpcpm-f-red: var( --wpc-red, #cc1818 );
+	--wpcpm-f-red-tint: var( --wpc-red-tint, #fff6f5 );
+	--wpcpm-f-red-border: var( --wpc-red-border, #daa39b );
+	--wpcpm-f-amber: var( --wpc-amber, #926300 );
+	--wpcpm-f-amber-tint: var( --wpc-amber-tint, #fff7e1 );
+	--wpcpm-f-amber-border: var( --wpc-amber-border, #d0b481 );
+	--wpcpm-f-green: var( --wpc-green, #008030 );
+	--wpcpm-f-green-tint: var( --wpc-green-tint, #ebffed );
+	--wpcpm-f-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	--wpcpm-f-serif: "EB Garamond", Georgia, "Times New Roman", serif;
+	--wpcpm-f-menu: 256px;
+	--wpcpm-f-rail: 64px;
+	--wpcpm-f-top: var( --wp-admin--admin-bar--height, 0px );
+
+	background: var( --wpcpm-f-surface );
+	color: var( --wpcpm-f-ink );
+	font-family: var( --wpcpm-f-sans );
+	font-size: 16px;
+	line-height: 1.5;
+}
+
+.wpcpm-frame *,
+.wpcpm-frame *::before,
+.wpcpm-frame *::after {
+	box-sizing: border-box;
+}
+
+.wpcpm-frame .wpcpm-icon {
+	flex: none;
+}
+
+.wpcpm-frame :focus-visible {
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
+}
+
+/* ---------- The top bar ---------- */
+
+.wpcpm-frame__bar {
+	align-items: center;
+	border-bottom: 1px solid var( --wpcpm-f-line );
+	display: flex;
+	gap: 16px;
+	justify-content: space-between;
+	min-height: 60px;
+}
+
+.wpcpm-frame__bar--slim {
+	border-bottom: 0;
+	display: none;
+	min-height: 0;
+}
+
+.wpcpm-frame__brand {
+	color: var( --wpcpm-f-ink-2 );
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 20px;
+	letter-spacing: -0.01em;
+	padding-inline: 24px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpcpm-frame__brand b {
+	color: var( --wpcpm-f-brand );
+	font-weight: 600;
+}
+
+/* The Ask box heads the menu (the owner, 10 November 2026); on the icon strip it is one icon, a link to
+   the assistant's page. */
+.wpcpm-frame__ask {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-control );
+	border-radius: 2px;
+	color: var( --wpcpm-f-muted );
+	display: flex;
+	gap: 8px;
+	margin: 0;
+	min-height: 38px;
+	padding-inline: 10px;
+	width: 100%;
+}
+
+.wpcpm-frame__item.wpcpm-frame__ask-link {
+	display: none;
+}
+
+.wpcpm-frame__group > .wpcpm-frame__ask {
+	margin-bottom: 8px;
+}
+
+/* A hairline over Help sets the help apart from the views and screens above it, as the one over Collapse
+   menu sets the menu's own control apart (the owner, 10 November 2026). */
+.wpcpm-frame__group--help {
+	border-top: 1px solid var( --wpcpm-f-line );
+	padding-top: 16px;
+}
+
+.wpcpm-frame__ask .wpcpm-icon {
+	color: var( --wpcpm-f-ink-2 );
+}
+
+.wpcpm-frame__ask input {
+	background: transparent;
+	border: 0;
+	color: var( --wpcpm-f-ink );
+	flex: 1 1 auto;
+	font: inherit;
+	font-size: 14px;
+	min-height: 34px;
+	min-width: 0;
+	padding: 0;
+}
+
+.wpcpm-frame__ask input::placeholder {
+	color: var( --wpcpm-f-muted );
+	opacity: 1;
+}
+
+.wpcpm-frame__ask input:focus {
+	outline: none;
+}
+
+.wpcpm-frame__ask:focus-within {
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
+}
+
+.wpcpm-frame__nav {
+	align-items: center;
+	display: flex;
+	font-size: 14px;
+	gap: 20px;
+	padding-inline-end: 32px;
+}
+
+.wpcpm-frame__home {
+	align-items: center;
+	color: var( --wpcpm-f-ink );
+	display: inline-flex;
+	min-height: 36px;
+	text-decoration: none;
+}
+
+.wpcpm-frame__home:hover {
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-frame__account {
+	position: relative;
+}
+
+.wpcpm-frame__account summary {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	gap: 8px;
+	list-style: none;
+	min-height: 36px;
+}
+
+.wpcpm-frame__account summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-frame__account .wpcpm-icon {
+	color: var( --wpcpm-f-ink-2 );
+}
+
+.wpcpm-frame__avatar {
+	border-radius: 999px;
+	box-shadow: 0 0 0 1px var( --wpcpm-f-line );
+	display: block;
+	height: 28px;
+	width: 28px;
+}
+
+.wpcpm-frame__account-menu {
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 4px;
+	box-shadow: 0 4px 14px rgba( 0, 0, 0, 0.07 );
+	inset-block-start: calc( 100% + 6px );
+	inset-inline-end: 0;
+	min-width: 160px;
+	padding: 6px;
+	position: absolute;
+	z-index: 5;
+}
+
+.wpcpm-frame__account-menu a {
+	border-radius: 2px;
+	color: var( --wpcpm-f-ink );
+	display: block;
+	padding: 8px 10px;
+	text-decoration: none;
+}
+
+.wpcpm-frame__account-menu a:hover {
+	background: var( --wpcpm-f-band );
+}
+
+.wpcpm-frame__menu-button {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-control );
+	border-radius: 2px;
+	color: var( --wpcpm-f-ink );
+	cursor: pointer;
+	display: none;
+	flex: none;
+	font: 500 14px/1.2 var( --wpcpm-f-sans );
+	gap: 6px;
+	min-height: 36px;
+	padding-inline: 8px 10px;
+}
+
+/* ---------- The body: the menu and the main area ---------- */
+
+.wpcpm-frame__body {
+	display: grid;
+	grid-template-columns: var( --wpcpm-f-menu ) minmax( 0, 1fr );
+	position: relative;
+}
+
+.wpcpm-frame__menu {
+	background: var( --wpcpm-f-surface );
+	border-inline-end: 1px solid var( --wpcpm-f-line );
+	min-width: 0;
+}
+
+.wpcpm-frame__menu-in {
+	display: grid;
+	gap: 22px;
+	inset-block-start: var( --wpcpm-f-top );
+	padding: 20px 12px 16px;
+	position: sticky;
+}
+
+.wpcpm-frame__close {
+	display: none;
+}
+
+.wpcpm-frame__heading {
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	line-height: 1.4;
+	padding: 0 12px 6px;
+	text-transform: uppercase;
+}
+
+.wpcpm-frame__context {
+	display: grid;
+}
+
+.wpcpm-frame__context-title {
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1.35;
+	padding-inline: 12px;
+}
+
+.wpcpm-frame__context-sub {
+	color: var( --wpcpm-f-muted );
+	font-size: 13px;
+	line-height: 1.4;
+	padding-inline: 12px;
+}
+
+.wpcpm-frame__list {
+	display: grid;
+	gap: 2px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-frame__item {
+	align-items: center;
+	background: none;
+	border: 0;
+	border-radius: 4px;
+	color: var( --wpcpm-f-ink );
+	cursor: pointer;
+	display: flex;
+	font: 500 14px/1.3 var( --wpcpm-f-sans );
+	gap: 12px;
+	min-height: 40px;
+	padding-block: 6px;
+	padding-inline: 12px 10px;
+	position: relative;
+	text-align: start;
+	text-decoration: none;
+	width: 100%;
+}
+
+.wpcpm-frame__item:hover {
+	background: var( --wpcpm-f-band );
+	color: var( --wpcpm-f-ink );
+}
+
+.wpcpm-frame__item > .wpcpm-icon {
+	color: var( --wpcpm-f-ink-2 );
+}
+
+.wpcpm-frame__item.is-current {
+	background: var( --wpcpm-f-brand-tint );
+	color: var( --wpcpm-f-brand );
+	font-weight: 600;
+}
+
+.wpcpm-frame__item.is-current > .wpcpm-icon {
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-frame__label {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.wpcpm-frame__item > .wpcpm-icon--external {
+	color: var( --wpcpm-f-icon );
+}
+
+/* A menu item's count is the status tag the page draws (`.wpcpm-status`, below), value for value: the same
+   2px corners, 12px uppercase words and tones, so "2 wait" in the menu and "67 days waiting" on a row read as
+   one mark (the owner, 10 November 2026: "Not consistent styling"). */
+.wpcpm-frame__badge {
+	background: var( --wpcpm-f-band );
+	border: 1px solid transparent;
+	border-radius: 2px;
+	color: var( --wpcpm-f-ink-2 );
+	flex: none;
+	font: 500 12px/18px var( --wpcpm-f-sans );
+	letter-spacing: 0.06em;
+	padding: 1px 8px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.wpcpm-frame__badge--red {
+	background: var( --wpcpm-f-red-tint );
+	border-color: var( --wpcpm-f-red-border );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-frame__badge--amber {
+	background: var( --wpcpm-f-amber-tint );
+	border-color: var( --wpcpm-f-amber-border );
+	color: var( --wpcpm-f-amber );
+}
+
+.wpcpm-frame__badge--blue {
+	background: var( --wpcpm-f-brand-tint );
+	border-color: var( --wpcpm-f-brand-border );
+	color: var( --wpcpm-f-ink );
+}
+
+.wpcpm-frame__foot {
+	border-top: 1px solid var( --wpcpm-f-line );
+	padding-top: 12px;
+}
+
+.wpcpm-frame__foot .wpcpm-frame__item {
+	color: var( --wpcpm-f-ink-2 );
+	font-weight: 400;
+}
+
+.wpcpm-frame__main {
+	container: wpcpm-main / inline-size;
+	display: grid;
+	gap: 28px;
+	grid-template-columns: minmax( 0, 1fr );
+	min-width: 0;
+	padding: 32px;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.wpcpm-frame__body {
+		transition: grid-template-columns 0.15s ease;
+	}
+}
+
+/* ---------- Folded, and on a tablet: the icons alone ---------- */
+
+@media ( min-width: 1101px ) {
+	.wpcpm-frame[data-folded] {
+		--wpcpm-f-menu: var( --wpcpm-f-rail );
+	}
+
+}
+
+@media ( min-width: 783px ) and ( max-width: 1100px ) {
+	.wpcpm-frame {
+		--wpcpm-f-menu: var( --wpcpm-f-rail );
+	}
+
+	.wpcpm-frame__fold {
+		display: none;
+	}
+
+	.wpcpm-frame__foot {
+		display: none;
+	}
+}
+
+/* What the icon strip shares, folded on a wide window or on a tablet. */
+@media ( min-width: 783px ) and ( max-width: 1100px ) {
+	.wpcpm-frame__brand { padding-inline: 20px 0; }
+	.wpcpm-frame__ask { display: none; }
+	.wpcpm-frame__item.wpcpm-frame__ask-link { display: flex; }
+	.wpcpm-frame__menu-in { gap: 14px; padding-inline: 8px; }
+	.wpcpm-frame__context,
+	.wpcpm-frame__heading { display: none; }
+	.wpcpm-frame__item { justify-content: center; padding-inline: 0; }
+	.wpcpm-frame__item > .wpcpm-icon--external,
+	.wpcpm-frame__badge { display: none; }
+
+	.wpcpm-frame__label {
+		background: var( --wpcpm-f-ink );
+		border-radius: 2px;
+		color: var( --wpcpm-f-surface );
+		font-size: 13px;
+		font-weight: 500;
+		inset-inline-start: calc( 100% + 8px );
+		opacity: 0;
+		padding: 4px 8px;
+		pointer-events: none;
+		position: absolute;
+		white-space: nowrap;
+		z-index: 6;
+	}
+
+	.wpcpm-frame__item:hover .wpcpm-frame__label,
+	.wpcpm-frame__item:focus-visible .wpcpm-frame__label {
+		opacity: 1;
+	}
+
+	.wpcpm-frame__badge--red,
+	.wpcpm-frame__badge--amber {
+		border: 0;
+		border-radius: 999px;
+		display: block;
+		height: 8px;
+		inset-block-start: 7px;
+		inset-inline-end: 9px;
+		overflow: hidden;
+		padding: 0;
+		position: absolute;
+		text-indent: 100%;
+		width: 8px;
+	}
+
+	.wpcpm-frame__badge--red { background: var( --wpcpm-f-red ); }
+	.wpcpm-frame__badge--amber { background: var( --wpcpm-f-amber ); }
+}
+
+@media ( min-width: 1101px ) {
+	.wpcpm-frame[data-folded] .wpcpm-frame__brand { padding-inline: 20px 0; }
+	.wpcpm-frame[data-folded] .wpcpm-frame__ask { display: none; }
+	.wpcpm-frame[data-folded] .wpcpm-frame__item.wpcpm-frame__ask-link { display: flex; }
+	.wpcpm-frame[data-folded] .wpcpm-frame__menu-in { gap: 14px; padding-inline: 8px; }
+	.wpcpm-frame[data-folded] .wpcpm-frame__context,
+	.wpcpm-frame[data-folded] .wpcpm-frame__heading { display: none; }
+	.wpcpm-frame[data-folded] .wpcpm-frame__item { justify-content: center; padding-inline: 0; }
+	.wpcpm-frame[data-folded] .wpcpm-frame__item > .wpcpm-icon--external,
+	.wpcpm-frame[data-folded] .wpcpm-frame__badge { display: none; }
+
+	.wpcpm-frame[data-folded] .wpcpm-frame__label {
+		background: var( --wpcpm-f-ink );
+		border-radius: 2px;
+		color: var( --wpcpm-f-surface );
+		font-size: 13px;
+		font-weight: 500;
+		inset-inline-start: calc( 100% + 8px );
+		opacity: 0;
+		padding: 4px 8px;
+		pointer-events: none;
+		position: absolute;
+		white-space: nowrap;
+		z-index: 6;
+	}
+
+	.wpcpm-frame[data-folded] .wpcpm-frame__item:hover .wpcpm-frame__label,
+	.wpcpm-frame[data-folded] .wpcpm-frame__item:focus-visible .wpcpm-frame__label {
+		opacity: 1;
+	}
+
+	.wpcpm-frame[data-folded] .wpcpm-frame__badge--red,
+	.wpcpm-frame[data-folded] .wpcpm-frame__badge--amber {
+		border: 0;
+		border-radius: 999px;
+		display: block;
+		height: 8px;
+		inset-block-start: 7px;
+		inset-inline-end: 9px;
+		overflow: hidden;
+		padding: 0;
+		position: absolute;
+		text-indent: 100%;
+		width: 8px;
+	}
+
+	.wpcpm-frame[data-folded] .wpcpm-frame__badge--red { background: var( --wpcpm-f-red ); }
+	.wpcpm-frame[data-folded] .wpcpm-frame__badge--amber { background: var( --wpcpm-f-amber ); }
+
+	/* Folded, the foot's button says Expand menu by pointing the other way. */
+	.wpcpm-frame[data-folded] .wpcpm-frame__fold .wpcpm-icon { transform: scaleX( -1 ); }
+}
+
+/* ---------- Phones: a Menu button, and the menu as a drawer ---------- */
+
+@media ( max-width: 782px ) {
+	.wpcpm-frame__bar,
+	.wpcpm-frame__bar--slim {
+		align-items: center;
+		display: flex;
+		gap: 10px;
+		min-height: 56px;
+		padding: 10px 12px;
+	}
+
+	.wpcpm-frame__bar--slim {
+		border-bottom: 1px solid var( --wpcpm-f-line );
+	}
+
+	.wpcpm-frame__brand {
+		font-size: 18px;
+		padding: 0;
+	}
+
+	.wpcpm-frame__menu-button {
+		display: inline-flex;
+	}
+
+	/* The homepage link and the name step out of a phone's bar; the photo stays, so Log out is always one
+	   press away. */
+	.wpcpm-frame__nav {
+		gap: 0;
+		margin-inline-start: auto;
+		padding-inline-end: 0;
+	}
+
+	.wpcpm-frame__home,
+	.wpcpm-frame__account-name {
+		display: none;
+	}
+
+	.wpcpm-frame__body {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-frame__menu {
+		display: none;
+	}
+
+	.wpcpm-frame__foot {
+		display: none;
+	}
+
+	.wpcpm-frame__main {
+		gap: 24px;
+		padding: 24px 16px;
+	}
+
+	.wpcpm-frame.is-open .wpcpm-frame__menu {
+		border-inline-end: 1px solid var( --wpcpm-f-line );
+		box-shadow: 0 4px 14px rgba( 0, 0, 0, 0.07 );
+		display: block;
+		inset-block: 0;
+		inset-inline-start: 0;
+		overflow-y: auto;
+		position: fixed;
+		width: min( 304px, 86% );
+		z-index: 100000;
+	}
+
+	.wpcpm-frame.is-open::after {
+		background: rgba( 30, 30, 30, 0.4 );
+		content: "";
+		inset: 0;
+		position: fixed;
+		z-index: 99999;
+	}
+
+	.wpcpm-frame.is-open .wpcpm-frame__menu-in {
+		position: static;
+	}
+
+	.wpcpm-frame.is-open .wpcpm-frame__close {
+		align-items: center;
+		background: none;
+		border: 0;
+		color: var( --wpcpm-f-ink-2 );
+		cursor: pointer;
+		display: flex;
+		font: 400 14px/1.3 var( --wpcpm-f-sans );
+		gap: 12px;
+		min-height: 40px;
+		padding-inline: 12px;
+	}
+}
+
+/* Without the script, a phone shows the menu as a plain list of links above the page. */
+@media ( max-width: 782px ) {
+	.wpcpm-frame:not( [data-frame-ready] ) .wpcpm-frame__menu {
+		border-bottom: 1px solid var( --wpcpm-f-line );
+		border-inline-end: 0;
+		display: block;
+	}
+
+	.wpcpm-frame:not( [data-frame-ready] ) .wpcpm-frame__menu-in {
+		position: static;
+	}
+
+	.wpcpm-frame:not( [data-frame-ready] ) .wpcpm-frame__menu-button {
+		display: none;
+	}
+}
+
+/* ---------- The head every Overview opens with ---------- */
+
+.wpcpm-head {
+	align-items: center;
+	display: grid;
+	gap: 32px;
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+.wpcpm-head--photo {
+	grid-template-columns: 96px minmax( 0, 1fr );
+	gap: 28px;
+}
+
+.wpcpm-head--logo {
+	grid-template-columns: 88px minmax( 0, 1fr );
+	gap: 24px;
+}
+
+.wpcpm-head__copy {
+	display: grid;
+	gap: 10px;
+	min-width: 0;
+}
+
+.wpcpm-head__eyebrow {
+	color: var( --wpcpm-f-muted );
+	font-family: var( --wpcpm-f-sans );
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	line-height: 1.4;
+	margin: 0;
+	text-transform: uppercase;
+}
+
+.wpcpm-head__title {
+	color: var( --wpcpm-f-ink );
+	font-family: var( --wpcpm-f-serif );
+	font-size: 46px;
+	font-weight: 400;
+	letter-spacing: -0.01em;
+	line-height: 1.06;
+	margin: 0;
+	text-wrap: balance;
+}
+
+.wpcpm-head__lede {
+	color: var( --wpcpm-f-ink-2 );
+	font-size: 18px;
+	line-height: 1.55;
+	margin: 0;
+}
+
+.wpcpm-head__facts {
+	color: var( --wpcpm-f-muted );
+	font-size: 14px;
+	margin: 0;
+}
+
+.wpcpm-head__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.wpcpm-frame .wpcpm-btn {
+	align-items: center;
+	background: var( --wpcpm-f-brand );
+	border: 1px solid var( --wpcpm-f-brand );
+	border-radius: 2px;
+	color: #ffffff;
+	display: inline-flex;
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	gap: 6px;
+	padding: 9px 16px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpcpm-frame .wpcpm-btn:hover {
+	background: var( --wpc-brand-dark, #213fd4 );
+	border-color: var( --wpc-brand-dark, #213fd4 );
+	color: #ffffff;
+}
+
+.wpcpm-frame .wpcpm-btn--secondary {
+	background: var( --wpcpm-f-surface );
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-frame .wpcpm-btn--secondary:hover {
+	background: var( --wpcpm-f-brand-tint );
+	color: var( --wpc-brand-dark, #213fd4 );
+}
+
+/* ---------- The status tag: the homepage's program-card tag, the one way the frame marks what waits ----------
+
+   What waits is a plain card with this tag in words, "67 days waiting", in the status's tint, border and ink:
+   never a colored edge, and never the color alone (the owner, 10 November 2026). The homepage's "Live" and
+   "In development" tags, value for value. */
+
+.wpcpm-status {
+	background: var( --wpcpm-f-band );
+	border: 1px solid transparent;
+	border-radius: 2px;
+	color: var( --wpcpm-f-ink-2 );
+	display: inline-block;
+	font: 500 12px/18px var( --wpcpm-f-sans );
+	letter-spacing: 0.06em;
+	padding: 1px 8px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.wpcpm-status--red {
+	background: var( --wpcpm-f-red-tint );
+	border-color: var( --wpcpm-f-red-border );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-status--amber {
+	background: var( --wpcpm-f-amber-tint );
+	border-color: var( --wpcpm-f-amber-border );
+	color: var( --wpcpm-f-amber );
+}
+
+.wpcpm-status--green {
+	background: var( --wpcpm-f-green-tint );
+	color: var( --wpcpm-f-green );
+}
+
+/* ---------- The figures band: hairlines from the 1px gap over a line-colored grid ---------- */
+
+.wpcpm-figures {
+	background: var( --wpcpm-f-line );
+	border-block: 1px solid var( --wpcpm-f-line );
+	display: grid;
+	gap: 1px;
+	grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	margin: 0;
+}
+
+.wpcpm-figures--1 {
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+.wpcpm-figures--2 {
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+.wpcpm-figures--3 {
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+}
+
+.wpcpm-figure {
+	background: var( --wpcpm-f-surface );
+	margin: 0;
+	min-width: 0;
+	padding: 20px 24px 18px;
+}
+
+.wpcpm-figure:first-child {
+	padding-inline-start: 0;
+}
+
+
+.wpcpm-figure__value {
+	font-family: var( --wpcpm-f-serif );
+	font-size: 46px;
+	font-variant-numeric: tabular-nums lining-nums;
+	letter-spacing: -0.01em;
+	line-height: 1;
+	margin: 0 0 8px;
+}
+
+.wpcpm-figure__value small {
+	color: var( --wpcpm-f-muted );
+	font-size: 24px;
+}
+
+.wpcpm-figure__label {
+	color: var( --wpcpm-f-ink-2 );
+	font-size: 14px;
+	line-height: 1.45;
+	margin: 0;
+}
+
+.wpcpm-figure__base {
+	color: var( --wpcpm-f-muted );
+	font-size: 12px;
+	line-height: 1.5;
+	margin: 4px 0 0;
+}
+
+.wpcpm-figures__source {
+	background: var( --wpcpm-f-surface );
+	color: var( --wpcpm-f-muted );
+	font-size: 12px;
+	grid-column: 1 / -1;
+	margin: 0;
+	padding: 10px 0;
+}
+
+@container wpcpm-main ( max-width: 760px ) {
+	.wpcpm-head,
+	.wpcpm-head--photo,
+	.wpcpm-head--logo {
+		gap: 16px 20px;
+	}
+
+	.wpcpm-head--photo,
+	.wpcpm-head--logo {
+		grid-template-columns: 64px minmax( 0, 1fr );
+	}
+
+	.wpcpm-head__title { font-size: 36px; }
+	.wpcpm-head__lede { font-size: 17px; }
+	.wpcpm-head__actions .wpcpm-btn { flex: 1 1 auto; justify-content: center; }
+
+	.wpcpm-figures,
+	.wpcpm-figures--2,
+	.wpcpm-figures--3 {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-figure { padding: 16px 0; }
+}
+
+/* ---------- Right to left: what the browser cannot turn around on its own ---------- */
+
+[dir="rtl"] .wpcpm-frame .wpcpm-icon--external,
+[dir="rtl"] .wpcpm-frame .wpcpm-icon--collapse {
+	transform: scaleX( -1 );
+}
+
+[dir="rtl"] .wpcpm-frame[data-folded] .wpcpm-frame__fold .wpcpm-icon {
+	transform: none;
+}
+
+[dir="rtl"] .wpcpm-figure__value {
+	direction: ltr;
+	text-align: right;
+}

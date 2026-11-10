@@ -38,17 +38,38 @@ class WPCPM_Icons {
 	private static function shapes() {
 		return array(
 			// An envelope: the body, then the flap as a single fold.
-			'email'    => '<rect x="3" y="5.25" width="18" height="13.5" rx="2"/><path d="M3.6 7.2 12 13l8.4-5.8"/>',
+			'email'        => '<rect x="3" y="5.25" width="18" height="13.5" rx="2"/><path d="M3.6 7.2 12 13l8.4-5.8"/>',
 			// A channel hash. Recognizable for Slack without being Slack's mark.
-			'slack'    => '<path d="M9.3 4.5 7.8 19.5M16.2 4.5l-1.5 15M4.5 9.3h15M4.5 15h15"/>',
+			'slack'        => '<path d="M9.3 4.5 7.8 19.5M16.2 4.5l-1.5 15M4.5 9.3h15M4.5 15h15"/>',
 			// A person, because the row links to somebody's profile page.
-			'profile'  => '<circle cx="12" cy="8.5" r="3.75"/><path d="M5.25 19.5c0-3.2 3-5.75 6.75-5.75s6.75 2.55 6.75 5.75"/>',
+			'profile'      => '<circle cx="12" cy="8.5" r="3.75"/><path d="M5.25 19.5c0-3.2 3-5.75 6.75-5.75s6.75 2.55 6.75 5.75"/>',
 			// A globe.
-			'website'  => '<circle cx="12" cy="12" r="8.25"/><path d="M3.75 12h16.5M12 3.75c2.4 2.5 2.4 14 0 16.5M12 3.75c-2.4 2.5-2.4 14 0 16.5"/>',
+			'website'      => '<circle cx="12" cy="12" r="8.25"/><path d="M3.75 12h16.5M12 3.75c2.4 2.5 2.4 14 0 16.5M12 3.75c-2.4 2.5-2.4 14 0 16.5"/>',
 			// Code brackets.
-			'code'     => '<path d="M9.6 8.4 6 12l3.6 3.6M14.4 8.4 18 12l-3.6 3.6"/>',
+			'code'         => '<path d="M9.6 8.4 6 12l3.6 3.6M14.4 8.4 18 12l-3.6 3.6"/>',
 			// A calendar, for the internship dates.
-			'calendar' => '<rect x="3.75" y="5.25" width="16.5" height="14.25" rx="2"/><path d="M3.75 9.75h16.5M8.25 3.75v3M15.75 3.75v3"/>',
+			'calendar'     => '<rect x="3.75" y="5.25" width="16.5" height="14.25" rx="2"/><path d="M3.75 9.75h16.5M8.25 3.75v3M15.75 3.75v3"/>',
+			// The dashboards' menu (WPCPM_Dashboard_Frame, 1.123.69): one thin line for each view or screen,
+			// and the frame's own controls. `external` and `collapse` point to the reading start and are
+			// turned around for a right-to-left language by the frame's stylesheet.
+			'home'         => '<path d="M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4z"/>',
+			'inbox'        => '<path d="M4 13.5 6.5 5h11l2.5 8.5V19H4z"/><path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20"/>',
+			'eye'          => '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+			'timeline'     => '<path d="M4 4v16h16"/><path d="M8 16v-3M12 16V9M16 16v-6"/><path d="M7 8.5l5-3 5 2.5" />',
+			'chart'        => '<path d="M4 4v16h16M8.5 16v-4M13 16V8M17.5 16v-6"/>',
+			'users'        => '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 3-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.4c2.3.1 4 1.6 4.5 4.1"/>',
+			'building'     => '<path d="M4.5 20V8.5L12 4.5l7.5 4V20M3 20h18M9.5 20v-4.5h5V20M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
+			'tag'          => '<path d="M3.5 12.5v-8h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.3"/>',
+			'route'        => '<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7.5a3 3 0 0 0 0-6h-7a3 3 0 0 1 0-6H16"/>',
+			'file'         => '<path d="M6.5 3.5H14l4 4v13H6.5z"/><path d="M13.5 3.5V8H18M9.5 13h5M9.5 16.5h5"/>',
+			'sliders'      => '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+			'book'         => '<path d="M4 5.5C6.5 4 9.5 4 12 5.5V19c-2.5-1.5-5.5-1.5-8 0z"/><path d="M20 5.5C17.5 4 14.5 4 12 5.5V19c2.5-1.5 5.5-1.5 8 0z"/>',
+			'external'     => '<path d="M14 4.5h5.5V10M19.5 4.5 11 13M17.5 14v5.5h-13v-13H10"/>',
+			'collapse'     => '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M9 4.5v15M15.5 9.5 13 12l2.5 2.5"/>',
+			'chevron-down' => '<path d="m7 10 5 5 5-5"/>',
+			'menu'         => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+			'close'        => '<path d="M6 6l12 12M18 6 6 18"/>',
+			'search'       => '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
 		);
 	}
 

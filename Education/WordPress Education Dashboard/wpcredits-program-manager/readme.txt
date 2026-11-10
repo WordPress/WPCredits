@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.67
+Stable tag: 1.123.69
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,17 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.69 =
+
+* Administrator Dashboard, a new look (the version 3 concepts): the page is drawn in a frame, a top bar with the site's name, the homepage and your photo with Log out behind it, a menu down the side, and a main area as wide as the window. The menu holds **Overview** with the number of decisions waiting, **Watch**, the **Cohort timeline** and a new **Reference** view, then the screens in wp-admin, then Help with the Ask box. It folds to its icons with **Collapse menu**, shows its icons alone on a tablet, opens from a **Menu** button on a phone, and sits on the right in a right-to-left language.
+* The Overview opens with how many decisions wait and how long the oldest has waited, in the homepage's serif, with **Review the oldest**, and the program's figures with the homepage's definitions. Each queue with something in it is one row, its age a red status tag and **Review** opening it in place; the empty queues are named in one sentence, each a link to its screen in wp-admin. **Watch** stands beside the rows, each card one row. The sponsors, the programs running, mentor engagement, the Tools from our sponsors and the resources are on the Reference view.
+* What waits is marked by the homepage's status tag in words, in the menu, on the rows and on the cohort timeline's tiles, flags and outlook, never by a colored edge. The cohort chart's flag over its tallest month is no longer cut off, and the page is set in Inter, its head and figures in EB Garamond. The full-width page needs theme 1.32.22; with an older theme the frame is drawn inside the theme's column.
+
+= 1.123.68 =
+
+* Cohort timeline: plan mentors ahead of an intake. A new card on the Administrator Dashboard, **Upcoming cohorts** (first in Watch), counts the students starting in the next six months and says the first month the program runs short of mentors, with four figures and a six-month chart. **Open the cohort timeline** opens the whole view on the same page: the next twelve months under the half-year bands, each month a column of the students already on the program, the confirmed students starting and the registrations in review, against one line for the mentor places (active mentors times students per mentor). Each month says Covered, Tight (over only with the registrations in review) or Short (over with the confirmed students alone), with how many start and finish; a table holds every number, and Intakes lists each month's starts by institution and track. Interested leads, past statuses and test institutions are left out. The chart is HTML and CSS only, readable by keyboard and screen reader, and the review layer is hatched so it is never told apart by color alone.
+* Settings > Students and mentors > **Cohort planning**: **Students per mentor**, 1 to 20, 3 by default, which the cohort timeline's places are counted with.
 
 = 1.123.67 =
 

@@ -245,6 +245,7 @@ final class WPCPM_Administrators_Cards {
 			// How the mentors use the site (1.122.26): the figures only, never the rows, read through
 			// the class the Engagement tab and the command read too.
 			'mentor_engagement'    => class_exists( 'WPCPM_Mentor_Engagement' ) ? WPCPM_Mentor_Engagement::report()['summary'] : array(),
+			'cohort_timeline'      => class_exists( 'WPCPM_Cohort_Timeline' ) ? WPCPM_Cohort_Timeline::report() : array(),
 			'health'               => self::health(),
 			// The students gone quiet (student automation): the daily job's stored snapshot, one option
 			// read, never worked out here. Empty while the switch is off.

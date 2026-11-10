@@ -1,0 +1,917 @@
+/*
+ * The cohort timeline (1.123.68): the Administrator Dashboard's Upcoming cohorts card and the
+ * timeline view it opens. Over administrator.css.
+ *
+ * The chart's three layers were run through the dataviz palette validator against the dashboard's
+ * surface: the brand blue (confirmed, starting) and the teal (in review) pass every check in light
+ * mode, and the gray is the de-emphasis slot for the students already on the program. The review
+ * layer also carries a 45-degree hatch, so it never rests on color alone; the legend names all three
+ * and the month table holds every number. The state colors are the theme's status tokens, always with
+ * an icon and a word. Every color falls back to its value, so the page reads on any theme.
+ */
+
+.wpcpm-timeline-view,
+.wpcpm-timeline,
+.wpcpm-timeline-stats,
+.wpcpm-timeline-outlook,
+.wpcpm-timeline-intakes,
+.wpcpm-timeline-chip,
+.wpcpm-timeline-table {
+	--wpcpm-tl-ink: var( --wpc-ink, #1e1e1e );
+	--wpcpm-tl-ink-70: var( --wpc-ink-70, #40464d );
+	--wpcpm-tl-ink-60: var( --wpc-ink-60, #656a71 );
+	--wpcpm-tl-line: var( --wpc-line, #e6e6e6 );
+	--wpcpm-tl-surface: var( --wpc-surface, #fff );
+	--wpcpm-tl-soft: var( --wpc-surface-soft, #fcfcfc );
+	--wpcpm-tl-band: var( --wpc-surface-band, #f4f4f4 );
+	--wpcpm-tl-continuing: #8c8f94;
+	--wpcpm-tl-starting: var( --wpc-brand, #3858e9 );
+	--wpcpm-tl-review: #0d9488;
+	--wpcpm-tl-review-hatch: #5fbfb5;
+	/* The review teal as text: #0d9488 is 3.7:1 on white, too light for 12px words; this is 5.5:1. */
+	--wpcpm-tl-review-ink: #0f766e;
+	--wpcpm-tl-ok: var( --wpc-green, #008030 );
+	--wpcpm-tl-ok-tint: var( --wpc-green-tint, #ebffed );
+	--wpcpm-tl-ok-border: var( --wpc-green-border, #8ac894 );
+	--wpcpm-tl-tight: var( --wpc-amber, #926300 );
+	--wpcpm-tl-tight-tint: var( --wpc-amber-tint, #fff7e1 );
+	--wpcpm-tl-tight-border: var( --wpc-amber-border, #d0b481 );
+	--wpcpm-tl-short: var( --wpc-red, #cc1818 );
+	--wpcpm-tl-short-tint: var( --wpc-red-tint, #fff6f5 );
+	--wpcpm-tl-short-border: var( --wpc-red-border, #daa39b );
+	--wpcpm-tl-radius: var( --wpc-radius-card, 8px );
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The view's frame                                                                              */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline-view__back {
+	font-size: 14px;
+	margin: 0 0 12px;
+}
+
+.wpcpm-timeline-view__back a {
+	color: var( --wpcpm-tl-ink-70 );
+	text-decoration: none;
+}
+
+.wpcpm-timeline-view__back a:hover,
+.wpcpm-timeline-view__back a:focus {
+	color: var( --wpcpm-tl-starting );
+	text-decoration: underline;
+}
+
+.wpcpm-timeline-view__header {
+	margin-bottom: 24px;
+}
+
+.wpcpm-timeline-view__title {
+	font-size: 2em;
+	line-height: 1.2;
+	margin: 0 0 8px;
+}
+
+.wpcpm-timeline-view__read {
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 13px;
+	margin: 4px 0 0;
+}
+
+.wpcpm-timeline-view__section {
+	margin: 32px 0 0;
+}
+
+.wpcpm-timeline-view__heading {
+	font-size: 1.125em;
+	line-height: 1.4;
+	margin: 0 0 12px;
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The four figures                                                                              */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline-stats {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat( auto-fit, minmax( 170px, 1fr ) );
+	list-style: none;
+	margin: 0 0 20px;
+	padding: 0;
+}
+
+.wpcpm-timeline-stats__item {
+	background: var( --wpcpm-tl-surface );
+	border: 1px solid var( --wpcpm-tl-line );
+	border-radius: var( --wpcpm-tl-radius );
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 16px 18px;
+}
+
+/* The state is a tag in words beside the figure, the homepage's status tag, on a plain tile: never a colored
+   edge (the owner, 10 November 2026). */
+.wpcpm-timeline-stats__tag {
+	border: 1px solid transparent;
+	border-radius: 2px;
+	display: inline-block;
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	line-height: 18px;
+	margin-inline-start: 8px;
+	padding: 1px 8px;
+	text-transform: uppercase;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.wpcpm-timeline-stats__tag--ok {
+	background: var( --wpcpm-tl-ok-tint );
+	color: var( --wpcpm-tl-ok );
+}
+
+.wpcpm-timeline-stats__tag--tight {
+	background: var( --wpcpm-tl-tight-tint );
+	border-color: var( --wpcpm-tl-tight-border );
+	color: var( --wpcpm-tl-tight );
+}
+
+.wpcpm-timeline-stats__tag--short {
+	background: var( --wpcpm-tl-short-tint );
+	border-color: var( --wpcpm-tl-short-border );
+	color: var( --wpcpm-tl-short );
+}
+
+.wpcpm-timeline-stats__label {
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 13px;
+	line-height: 18px;
+}
+
+.wpcpm-timeline-stats__value {
+	color: var( --wpcpm-tl-ink );
+	font-size: 2em;
+	font-weight: 600;
+	line-height: 1.15;
+}
+
+.wpcpm-timeline-stats__note {
+	color: var( --wpcpm-tl-ink-70 );
+	font-size: 13px;
+	line-height: 18px;
+}
+
+.wpcpm-timeline-stats--compact .wpcpm-timeline-stats__item {
+	padding: 12px 14px;
+}
+
+.wpcpm-timeline-stats--compact .wpcpm-timeline-stats__value {
+	font-size: 1.5em;
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The outlook                                                                                   */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline-outlook {
+	align-items: flex-start;
+	border: 1px solid;
+	border-radius: var( --wpcpm-tl-radius );
+	display: flex;
+	gap: 12px;
+	margin: 0 0 8px;
+	padding: 14px 16px;
+}
+
+.wpcpm-timeline-outlook p {
+	margin: 0;
+}
+
+.wpcpm-timeline-outlook .wpcpm-timeline-icon {
+	flex: none;
+	margin-top: 1px;
+}
+
+.wpcpm-timeline-outlook--ok {
+	background: var( --wpcpm-tl-ok-tint );
+	border-color: var( --wpcpm-tl-ok-border );
+}
+
+.wpcpm-timeline-outlook--ok .wpcpm-timeline-icon {
+	color: var( --wpcpm-tl-ok );
+}
+
+.wpcpm-timeline-outlook--tight {
+	background: var( --wpcpm-tl-tight-tint );
+	border-color: var( --wpcpm-tl-tight-border );
+}
+
+.wpcpm-timeline-outlook--tight .wpcpm-timeline-icon {
+	color: var( --wpcpm-tl-tight );
+}
+
+.wpcpm-timeline-outlook--short {
+	background: var( --wpcpm-tl-short-tint );
+	border-color: var( --wpcpm-tl-short-border );
+}
+
+.wpcpm-timeline-outlook--short .wpcpm-timeline-icon {
+	color: var( --wpcpm-tl-short );
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The chart                                                                                     */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline {
+	--wpcpm-tl-height: 240px;
+	--wpcpm-tl-gutter: 36px;
+	background: var( --wpcpm-tl-surface );
+	border: 1px solid var( --wpcpm-tl-line );
+	border-radius: var( --wpcpm-tl-radius );
+	margin: 0;
+	padding: 16px 16px 12px;
+}
+
+.wpcpm-timeline--compact {
+	--wpcpm-tl-height: 110px;
+	--wpcpm-tl-gutter: 0px;
+	margin-bottom: 12px;
+	padding: 12px 12px 8px;
+}
+
+/* The legend: always present, above the plot, in text ink with a swatch beside each name. */
+.wpcpm-timeline__legend {
+	color: var( --wpcpm-tl-ink-70 );
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 13px;
+	gap: 6px 18px;
+	line-height: 18px;
+	list-style: none;
+	margin: 0 0 14px;
+	padding: 0;
+}
+
+.wpcpm-timeline__legend li {
+	align-items: center;
+	display: inline-flex;
+	gap: 6px;
+}
+
+.wpcpm-timeline__key {
+	border-radius: 3px;
+	display: inline-block;
+	height: 12px;
+	width: 12px;
+}
+
+.wpcpm-timeline__key--places {
+	background: var( --wpcpm-tl-ink );
+	border-radius: 1px;
+	height: 2px;
+	width: 16px;
+}
+
+/* A phone scrolls the plot sideways rather than squeezing twelve months into it. */
+.wpcpm-timeline__scroll {
+	overflow-x: auto;
+	padding-bottom: 2px;
+	position: relative;
+}
+
+.wpcpm-timeline__scroll:focus-visible {
+	outline: 2px solid var( --wpcpm-tl-starting );
+	outline-offset: 2px;
+}
+
+.wpcpm-timeline__plot {
+	min-width: calc( var( --wpcpm-timeline-months, 12 ) * 44px + var( --wpcpm-tl-gutter ) );
+	padding-left: var( --wpcpm-tl-gutter );
+	position: relative;
+}
+
+.wpcpm-timeline--compact .wpcpm-timeline__plot {
+	min-width: 0;
+}
+
+/* The scroll box clips what rises above it, so the flag over the tallest month gets the room it needs above
+   the columns: its 20px and the 6px under it (1.123.69). */
+.wpcpm-timeline__scroll {
+	padding-top: 28px;
+}
+
+/* The half-year bands: one tinted row over the months each spans. */
+.wpcpm-timeline__bands {
+	display: grid;
+	gap: 0 4px;
+	grid-template-columns: repeat( var( --wpcpm-timeline-months, 12 ), 1fr );
+	margin-bottom: 10px;
+}
+
+.wpcpm-timeline__band {
+	border-bottom: 2px solid var( --wpcpm-tl-line );
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	line-height: 16px;
+	overflow: hidden;
+	padding: 0 4px 6px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wpcpm-timeline__band--even {
+	border-bottom-color: var( --wpcpm-tl-ink-60 );
+}
+
+.wpcpm-timeline__area {
+	position: relative;
+}
+
+/* The overlay: exactly the bars' height, so its percentages are the segments' scale. */
+.wpcpm-timeline__overlay {
+	height: var( --wpcpm-tl-height );
+	left: 0;
+	pointer-events: none;
+	position: absolute;
+	right: 0;
+	top: 0;
+}
+
+/* Behind the columns: the gridlines. In front of them: the places line. */
+.wpcpm-timeline__overlay--grid {
+	z-index: 0;
+}
+
+.wpcpm-timeline__overlay--places {
+	z-index: 4;
+}
+
+/* Gridlines: hairline, solid, recessive; the tick values ride the left gutter. */
+.wpcpm-timeline__axis {
+	bottom: 0;
+	left: calc( -1 * var( --wpcpm-tl-gutter ) );
+	position: absolute;
+	right: 0;
+	top: 0;
+}
+
+.wpcpm-timeline__tick {
+	border-top: 1px solid var( --wpcpm-tl-band );
+	left: var( --wpcpm-tl-gutter );
+	position: absolute;
+	right: 0;
+}
+
+.wpcpm-timeline__tick span {
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	left: calc( -1 * var( --wpcpm-tl-gutter ) );
+	line-height: 1;
+	position: absolute;
+	text-align: right;
+	top: -6px;
+	width: calc( var( --wpcpm-tl-gutter ) - 8px );
+}
+
+/* The places: one 2px line across the plot, its value at the right end. */
+.wpcpm-timeline__places {
+	border-top: 2px solid var( --wpcpm-tl-ink );
+	left: 0;
+	margin-bottom: -1px;
+	position: absolute;
+	right: 0;
+}
+
+.wpcpm-timeline__places-label {
+	background: var( --wpcpm-tl-surface );
+	border-radius: 3px;
+	color: var( --wpcpm-tl-ink );
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1;
+	padding: 2px 4px;
+	position: absolute;
+	right: 0;
+	top: -18px;
+}
+
+/* The card's columns are too close for the label beside a flag; its legend says the places. */
+.wpcpm-timeline--compact .wpcpm-timeline__places-label {
+	display: none;
+}
+
+.wpcpm-timeline__months {
+	display: grid;
+	gap: 0 4px;
+	grid-template-columns: repeat( var( --wpcpm-timeline-months, 12 ), 1fr );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	position: relative;
+}
+
+.wpcpm-timeline__month {
+	border-radius: 6px;
+	cursor: default;
+	display: grid;
+	grid-template-rows: var( --wpcpm-tl-height ) auto auto;
+	margin: 0;
+	outline: none;
+	position: relative;
+}
+
+.wpcpm-timeline__month:hover,
+.wpcpm-timeline__month:focus-visible {
+	background: rgba( 56, 88, 233, 0.05 );
+}
+
+.wpcpm-timeline__month:focus-visible {
+	box-shadow: 0 0 0 2px var( --wpcpm-tl-starting );
+}
+
+/* The column: grows from one baseline, 24px at most, its 4px rounded end at the top. */
+.wpcpm-timeline__bar {
+	border-bottom: 1px solid var( --wpcpm-tl-ink-60 );
+	display: flex;
+	justify-content: center;
+	position: relative;
+}
+
+.wpcpm-timeline__stack {
+	align-items: stretch;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 2px;
+	height: 100%;
+	justify-content: flex-start;
+	max-width: 24px;
+	width: 56%;
+}
+
+.wpcpm-timeline--compact .wpcpm-timeline__stack {
+	max-width: 20px;
+}
+
+.wpcpm-timeline__seg {
+	display: block;
+	flex: none;
+	min-height: 2px;
+}
+
+/* The topmost segment carries the rounded data end; the baseline stays square. */
+.wpcpm-timeline__stack > .wpcpm-timeline__seg:last-child {
+	border-radius: 4px 4px 0 0;
+}
+
+.wpcpm-timeline__seg--continuing {
+	background: var( --wpcpm-tl-continuing );
+}
+
+.wpcpm-timeline__seg--starting {
+	background: var( --wpcpm-tl-starting );
+}
+
+.wpcpm-timeline__seg--review {
+	background-color: var( --wpcpm-tl-review );
+	background-image: repeating-linear-gradient( 45deg, var( --wpcpm-tl-review-hatch ) 0, var( --wpcpm-tl-review-hatch ) 2px, transparent 2px, transparent 6px );
+}
+
+/* The flag over a month that is over its places: an icon and a count, in the state's color. */
+/* The flag and the Outlook chip are the status tag every dashboard in the frame draws, the homepage's: 2px
+   corners, 12px words with 0.06em tracking, the state's tint, border and ink, and no icon (the owner,
+   10 November 2026: "Inconsistency"). The icon stays in the markup for a page without this sheet. */
+.wpcpm-timeline__flag {
+	align-items: center;
+	border: 1px solid transparent;
+	border-radius: 2px;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 500;
+	gap: 0;
+	left: 50%;
+	letter-spacing: 0.06em;
+	line-height: 18px;
+	margin-bottom: 6px;
+	padding: 1px 8px;
+	position: absolute;
+	transform: translateX( -50% );
+	white-space: nowrap;
+	z-index: 3;
+}
+
+.wpcpm-timeline__month--short .wpcpm-timeline__flag {
+	background: var( --wpcpm-tl-short-tint );
+	border: 1px solid var( --wpcpm-tl-short-border );
+	color: var( --wpcpm-tl-short );
+}
+
+.wpcpm-timeline__month--tight .wpcpm-timeline__flag {
+	background: var( --wpcpm-tl-tight-tint );
+	border: 1px solid var( --wpcpm-tl-tight-border );
+	color: var( --wpcpm-tl-tight );
+}
+
+.wpcpm-timeline__flag > svg,
+.wpcpm-timeline-chip > svg {
+	display: none;
+}
+
+.wpcpm-timeline--compact .wpcpm-timeline__flag {
+	padding: 1px 4px;
+}
+
+.wpcpm-timeline__label {
+	display: flex;
+	flex-direction: column;
+	padding-top: 6px;
+	text-align: center;
+}
+
+.wpcpm-timeline__mon {
+	color: var( --wpcpm-tl-ink-70 );
+	font-size: 12px;
+	line-height: 16px;
+}
+
+.wpcpm-timeline__year {
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 14px;
+}
+
+/* Starts and finishes under each month: + in the starting blue's ink, - in muted ink. */
+.wpcpm-timeline__flow {
+	display: flex;
+	flex-direction: column;
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+	gap: 1px;
+	line-height: 14px;
+	padding: 6px 0 4px;
+	text-align: center;
+}
+
+.wpcpm-timeline__in {
+	color: var( --wpc-brand-dark, #213fd4 );
+	font-weight: 600;
+}
+
+.wpcpm-timeline__out {
+	color: var( --wpcpm-tl-ink-60 );
+}
+
+.wpcpm-timeline__flow .is-zero {
+	color: var( --wpcpm-tl-line );
+}
+
+/* The tooltip: on hover and on keyboard focus, at the top of the plot over its column, flipped at
+   the edges. Inside the plot rather than above it, because the plot's sideways scroll box clips
+   whatever leaves it. */
+.wpcpm-timeline__tip {
+	background: var( --wpcpm-tl-ink );
+	border-radius: 6px;
+	top: 4px;
+	box-shadow: var( --wpc-shadow-float, 0 4px 14px rgba( 0, 0, 0, 0.07 ) );
+	color: #fff;
+	display: flex;
+	flex-direction: column;
+	font-size: 12px;
+	gap: 2px;
+	left: 50%;
+	line-height: 17px;
+	opacity: 0;
+	padding: 8px 10px;
+	pointer-events: none;
+	position: absolute;
+	transform: translate( -50%, 4px );
+	transition: opacity 0.12s ease, transform 0.12s ease;
+	visibility: hidden;
+	white-space: nowrap;
+	z-index: 10;
+}
+
+.wpcpm-timeline__tip strong {
+	font-size: 13px;
+	margin-bottom: 2px;
+}
+
+.wpcpm-timeline__month--start .wpcpm-timeline__tip {
+	left: 0;
+	transform: translate( 0, 4px );
+}
+
+.wpcpm-timeline__month--end .wpcpm-timeline__tip {
+	left: auto;
+	right: 0;
+	transform: translate( 0, 4px );
+}
+
+.wpcpm-timeline__month:hover .wpcpm-timeline__tip,
+.wpcpm-timeline__month:focus-visible .wpcpm-timeline__tip {
+	opacity: 1;
+	transform: translate( -50%, 0 );
+	visibility: visible;
+}
+
+.wpcpm-timeline__month--start:hover .wpcpm-timeline__tip,
+.wpcpm-timeline__month--start:focus-visible .wpcpm-timeline__tip,
+.wpcpm-timeline__month--end:hover .wpcpm-timeline__tip,
+.wpcpm-timeline__month--end:focus-visible .wpcpm-timeline__tip {
+	transform: translate( 0, 0 );
+}
+
+.wpcpm-timeline--compact .wpcpm-timeline__tip {
+	font-size: 12px;
+	line-height: 15px;
+	top: 0;
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+
+	.wpcpm-timeline__tip {
+		transition: none;
+	}
+}
+
+/* Forced colors: the fills become system colors, and the hatch is what tells review apart. */
+@media ( forced-colors: active ) {
+
+	.wpcpm-timeline__seg--continuing,
+	.wpcpm-timeline__seg--starting {
+		background: CanvasText;
+	}
+
+	.wpcpm-timeline__seg--review {
+		background: repeating-linear-gradient( 45deg, CanvasText 0, CanvasText 2px, Canvas 2px, Canvas 6px );
+	}
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The month table                                                                               */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline-table {
+	overflow-x: auto;
+	position: relative;
+}
+
+.wpcpm-timeline-table:focus-visible {
+	outline: 2px solid var( --wpcpm-tl-starting );
+	outline-offset: 2px;
+}
+
+.wpcpm-timeline-table table {
+	border-collapse: collapse;
+	min-width: 720px;
+	width: 100%;
+}
+
+.wpcpm-timeline-table th,
+.wpcpm-timeline-table td {
+	border-bottom: 1px solid var( --wpcpm-tl-line );
+	font-size: 14px;
+	padding: 10px 12px;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.wpcpm-timeline-table thead th {
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.wpcpm-timeline-table tbody th {
+	font-weight: 600;
+}
+
+.wpcpm-timeline-table .is-num {
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.wpcpm-timeline-table thead th:nth-child( n + 2 ):nth-child( -n + 7 ) {
+	text-align: right;
+}
+
+.wpcpm-timeline-table__more {
+	color: var( --wpcpm-tl-review-ink );
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.wpcpm-timeline-table__balance--short {
+	color: var( --wpcpm-tl-short );
+	font-weight: 600;
+}
+
+.wpcpm-timeline-table__balance--tight {
+	color: var( --wpcpm-tl-tight );
+	font-weight: 600;
+}
+
+.wpcpm-timeline-chip {
+	align-items: center;
+	border: 1px solid transparent;
+	border-radius: 2px;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 500;
+	gap: 0;
+	letter-spacing: 0.06em;
+	line-height: 18px;
+	padding: 1px 8px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.wpcpm-timeline-chip--ok {
+	background: var( --wpcpm-tl-ok-tint );
+	border-color: transparent;
+	color: var( --wpcpm-tl-ok );
+}
+
+.wpcpm-timeline-chip--tight {
+	background: var( --wpcpm-tl-tight-tint );
+	border-color: var( --wpcpm-tl-tight-border );
+	color: var( --wpcpm-tl-tight );
+}
+
+.wpcpm-timeline-chip--short {
+	background: var( --wpcpm-tl-short-tint );
+	border-color: var( --wpcpm-tl-short-border );
+	color: var( --wpcpm-tl-short );
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The intakes                                                                                   */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline-intakes {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat( auto-fill, minmax( 260px, 1fr ) );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-timeline-intakes__item {
+	background: var( --wpcpm-tl-surface );
+	border: 1px solid var( --wpcpm-tl-line );
+	border-radius: var( --wpcpm-tl-radius );
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin: 0;
+	padding: 16px;
+}
+
+.wpcpm-timeline-intakes__item p {
+	margin: 0;
+}
+
+.wpcpm-timeline-intakes__when {
+	align-items: baseline;
+	display: flex;
+	gap: 8px;
+	justify-content: space-between;
+}
+
+.wpcpm-timeline-intakes__month {
+	font-size: 1.0625em;
+	font-weight: 600;
+}
+
+.wpcpm-timeline-intakes__n {
+	color: var( --wpcpm-tl-ink-70 );
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+
+.wpcpm-timeline-intakes__split {
+	color: var( --wpcpm-tl-ink-60 );
+	display: flex;
+	flex-direction: column;
+	font-size: 12px;
+	gap: 6px;
+}
+
+/* The split as a thin segmented bar: 8px, fully rounded, a 2px gap between the parts. */
+.wpcpm-timeline-intakes__bar {
+	border-radius: 999px;
+	display: flex;
+	gap: 2px;
+	height: 8px;
+	overflow: hidden;
+}
+
+.wpcpm-timeline-intakes__bar > span {
+	display: block;
+	height: 100%;
+}
+
+.wpcpm-timeline-intakes__bar > span[style^="width: 0%"] {
+	display: none;
+}
+
+.wpcpm-timeline-intakes__group {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.wpcpm-timeline-intakes__label {
+	color: var( --wpcpm-tl-ink-60 );
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.wpcpm-timeline-intakes__chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-timeline-intakes__chip {
+	background: var( --wpcpm-tl-band );
+	border-radius: 999px;
+	color: var( --wpcpm-tl-ink );
+	font-size: 13px;
+	line-height: 18px;
+	margin: 0;
+	padding: 3px 10px;
+}
+
+.wpcpm-timeline-intakes__chip span {
+	color: var( --wpcpm-tl-ink-60 );
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	margin-inline-start: 2px;
+}
+
+.wpcpm-timeline-intakes__chip.is-unknown {
+	background: transparent;
+	border: 1px dashed var( --wpcpm-tl-ink-60 );
+	color: var( --wpcpm-tl-ink-70 );
+	padding: 2px 9px;
+}
+
+/* -------------------------------------------------------------------------------------------- */
+/* The notes                                                                                     */
+/* -------------------------------------------------------------------------------------------- */
+
+.wpcpm-timeline-notes {
+	background: var( --wpcpm-tl-soft );
+	border: 1px solid var( --wpcpm-tl-line );
+	border-radius: var( --wpcpm-tl-radius );
+	color: var( --wpcpm-tl-ink-70 );
+	font-size: 14px;
+	margin-top: 32px;
+	padding: 16px 20px;
+}
+
+.wpcpm-timeline-notes .wpcpm-timeline-view__heading {
+	font-size: 1em;
+	margin-bottom: 8px;
+}
+
+.wpcpm-timeline-notes ul {
+	margin: 0;
+	padding-inline-start: 1.25em;
+}
+
+.wpcpm-timeline-notes li + li {
+	margin-top: 4px;
+}
+
+@media ( max-width: 600px ) {
+
+	.wpcpm-timeline {
+		--wpcpm-tl-height: 200px;
+		padding: 12px 10px 8px;
+	}
+
+	.wpcpm-timeline-view__title {
+		font-size: 1.6em;
+	}
+
+	.wpcpm-timeline-stats {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-timeline-stats__value {
+		font-size: 1.6em;
+	}
+}

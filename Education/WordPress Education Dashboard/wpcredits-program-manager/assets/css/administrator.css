@@ -433,3 +433,56 @@
 	outline: 2px solid currentColor;
 	outline-offset: 2px;
 }
+
+/* ==========================================================================
+   The Overview in the frame (1.123.69, the version 3 concepts): the page's blocks follow each
+   other on the main area's rhythm, and what waits stands beside what to watch once the main area
+   is wide enough for both.
+   ========================================================================== */
+
+.wpcpm-frame .wpcpm-administrator {
+	display: grid;
+	gap: 28px;
+	grid-template-columns: minmax( 0, 1fr );
+	min-width: 0;
+}
+
+.wpcpm-overview {
+	align-items: start;
+	display: grid;
+	gap: 28px;
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+@container wpcpm-main ( min-width: 1000px ) {
+	.wpcpm-overview {
+		grid-template-columns: minmax( 0, 2fr ) minmax( 0, 1fr );
+	}
+}
+
+.wpcpm-overview__col {
+	min-width: 0;
+}
+
+.wpcpm-overview__quiet {
+	color: var( --wpc-ink-60, #656a71 );
+	font-size: 14px;
+	line-height: 1.55;
+	margin: 12px 0 0;
+}
+
+.wpcpm-overview__row-in {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	padding: 12px 16px;
+}
+
+.wpcpm-overview__row-in .wpcpm-group__title {
+	margin: 0;
+}
+
+.wpcpm-overview__row-in .wpcpm-button {
+	margin-inline-start: auto;
+}

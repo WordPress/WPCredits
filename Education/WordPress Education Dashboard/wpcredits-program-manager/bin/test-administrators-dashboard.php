@@ -7,7 +7,10 @@
  *
  * - **Every card reads through the owning class.** The collaborators are stubbed to their
  *   contracts and record what was asked; the cards never query posts themselves.
- * - **At a glance shows what needs a manager, in the cards' own numbers.** Each tile's count comes
+ * - **At a glance shows what needs a manager, in the cards' own numbers.** The page itself no longer
+ *   prints the strip (1.123.69): the counts it printed, `WPCPM_Administrators_Cards::counts()`, are what
+ *   the page's head and its menu's badges read, and the Sponsor Dashboard's At a glance strip still
+ *   prints them through `render_strip()`, which these checks draw directly. Each tile's count comes
  *   from the same arrays the cards draw, so a tile and its card cannot disagree. A tile is drawn
  *   only for a count above zero, in the order of the cards the tiles link to, each a link to a
  *   card the page draws; a card's part of its own queue folds into its tile (the requests from institutions
@@ -62,15 +65,25 @@
  *   names of the people on an event and the call link are shown to the manager; each decision is a
  *   form keyed to its event and bound for this card; an event whose sponsor no longer offers events
  *   says so, and waiting it has Return alone, whose fold makes no promise that it can plan again.
- * - **The page is three groups** (the design the owner approved on 28 September 2026): Waiting for
- *   you, Watch and Reference, in that order, each a heading and one sentence over its cards, the
- *   strip above them and the Tools section and the resources below; a group none of whose cards
- *   draws is not printed at all, and the Events card has no place in its group while
- *   Sponsor tiers is off. The group printer is the dashboards' shell's, and its rule for a group
- *   over nothing is pinned in bin/test-dashboard-card.php.
- * - **Each card's row says what it holds.** A card waiting for a decision is open while it holds
- *   something and folded with nothing; a card to watch and a card of the program's numbers are
- *   drawn folded whatever they hold. Each row carries one phrase, the badge beside the title is the
+ * - **The page is three groups** (the design the owner approved on 28 September 2026), laid out as
+ *   the version 3 concepts have them (1.123.69): the page is drawn in the dashboards' frame, a menu down
+ *   the side holding the page's views with a count beside what waits, the screens in wp-admin and the
+ *   help, the view drawn marked current. The views are asked for by `?wpcpm_view=`. The Overview, the
+ *   default, opens with its head, how many decisions wait and the oldest queue, then the program's
+ *   figures and the last decision's words, then two columns: Waiting for you, where only a queue with
+ *   something in it is drawn as a card, the mentor applications as a row, and one sentence names every
+ *   empty queue with a link to its screen, and Watch. The Reference view is the third group, the
+ *   program's numbers, then the Tools section and the resources. Each group is a heading and one
+ *   sentence over its cards; a group none of whose cards draws is not printed at all, and the Events
+ *   card is no queue and has no place in its group while Sponsor tiers is off. The group printer is
+ *   the dashboards' shell's, and its rule for a group over nothing is pinned in
+ *   bin/test-dashboard-card.php, with its fold and its age.
+ * - **Each card's row says what it holds.** A card waiting for a decision, drawn alone, is open while
+ *   it holds something and folded with nothing; a card to watch and a card of the program's numbers are
+ *   drawn folded whatever they hold. On the Overview every card is drawn folded, one row each, a queue's
+ *   with a Review cue and how long its oldest item has waited, unless it holds the outcome of the
+ *   decision just taken, which is drawn open even when its queue is now empty. Each row carries one
+ *   phrase, the badge beside the title is the
  *   first number the phrase says, and the cards whose work has one home in wp-admin link to it
  *   after the fold, at the tab of the Institutions or the Sponsors screen that holds their items
  *   and at their own card on that tab where it has one, in the words "Open on the Institutions
@@ -94,13 +107,16 @@
  *   last read was held or failed or the figures stored are past the 29 days. Each sync's row links
  *   its own screen at the tab where that sync is run. This page's own sheet dresses the row as the
  *   Sponsor Dashboard's does, since the page loads none of that sheet.
- * - **One sentence under the title says what the page is** (the design the owner approved on 28
- *   September 2026), before the last decision's words and the strip, and never on the notice a
- *   visitor who cannot use the page gets; the welcome, what the page is for and where to ask are
- *   the program manager guide's. The Tools section and the resources after the cards sit under one
- *   heading for a screen reader, printed only over something, so their headings do not read as the
- *   Reference group's. The Resources column's way into wp-admin is
- *   pinned in bin/test-handbook.php, which draws the real section; its room above it, here.
+ * - **The head says what waits** (the version 3 concepts, where one sentence under the title said
+ *   what the page is), the page's name its one H1 only while the theme leaves the page to the frame,
+ *   and never on the notice a visitor who cannot use the page gets, which is drawn outside the frame;
+ *   the welcome, what the page is for and where to ask are the program manager guide's. The outcome a
+ *   decision leaves with no card to hold it is said where the head's view puts it, after the figures
+ *   on the Overview and after the head on the Reference view. The Tools section and the resources
+ *   after the Reference view's cards sit under one heading for a screen reader, printed only over
+ *   something, so their headings do not read as the Reference group's. The Resources column's way
+ *   into wp-admin is pinned in bin/test-handbook.php, which draws the real section; its room above
+ *   it, here.
  * - **The block's description names the three groups and every card the page draws in each**, each
  *   card as a whole entry of its group's list.
  * - **Every item a wp-admin screen links to carries an id of its own**, an institution or a
@@ -822,6 +838,9 @@ class WPCPM_Sponsor_Application {
 /** The mentor applications waiting for a decision (1.122.31): their number, all the cards read of them. */
 class WPCPM_Mentor_Application {
 	public static function waiting_count() { return isset( $GLOBALS['mentor_waiting'] ) ? (int) $GLOBALS['mentor_waiting'] : 0; }
+	public static function open_states() { return array( 'new', 'confirmed' ); }
+	// The open applications as posts, which the page reads only while some wait, for the oldest's age.
+	public static function applications( array $states, $limit = 0 ) { return isset( $GLOBALS['mentor_open_posts'] ) ? (array) $GLOBALS['mentor_open_posts'] : array(); }
 }
 class WPCPM_Sponsor_Offers {
 	const KIND_CODES  = 'codes';
@@ -973,6 +992,34 @@ if ( file_exists( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-event
 
 // The dashboards' one shell, which every card on the page is drawn in.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+// The frame of the version 3 concepts the page is drawn in (1.123.69): the top bar, the menu and the main
+// area, with the few WordPress functions it asks that the page did not ask before.
+if ( ! class_exists( 'WPCPM_Icons' ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-frame.php';
+if ( ! function_exists( 'get_theme_support' ) ) {
+	function get_theme_support( $feature ) { return $GLOBALS['theme_support'][ $feature ] ?? false; }
+}
+if ( ! function_exists( 'get_avatar' ) ) {
+	function get_avatar( $id, $size = 96, $default = '', $alt = '', $args = array() ) { return '<img class="' . ( $args['class'] ?? 'avatar' ) . '" alt="" width="' . (int) $size . '" height="' . (int) $size . '">'; }
+}
+if ( ! function_exists( 'wp_logout_url' ) ) {
+	function wp_logout_url( $redirect = '' ) { return 'https://example.test/wp-login.php?action=logout'; }
+}
+if ( ! function_exists( 'wp_sprintf' ) ) {
+	function wp_sprintf( $pattern, ...$args ) {
+		if ( '%l' !== $pattern ) {
+			return vsprintf( $pattern, $args );
+		}
+		$list = array_values( (array) $args[0] );
+		if ( count( $list ) < 3 ) {
+			return implode( ' and ', $list );
+		}
+		$last = array_pop( $list );
+		return implode( ', ', $list ) . ', and ' . $last;
+	}
+}
 // The Sponsors screen's class, the real one: the ceiling its posts and agreements cards count to
 // and the one printer of their counts, which the sponsor posts and agreements cards and tiles here
 // print through, so this page prints those counts in that screen's form; and the one builder of
@@ -2683,7 +2730,10 @@ ck( 'register() registers administrator.css itself, the sheet the page and the S
 ck( 'administrator.css is registered on the mentors\' stylesheet, where the Tools section is laid out', array( false !== strpos( $admin_style['src'], 'administrator.css' ), in_array( WPCPM_Mentors_Dashboard::STYLE, $admin_style['deps'], true ) ), array( true, true ) );
 // The Sponsor Dashboard's At a glance strip wears this page's attention tiles, so its sheet depends on
 // this one and has this class register it, the way it has the mentor sheet registered: on its own,
-// with the mentors' sheet under it, and nothing else of the page's, no shortcode and no block.
+// with the mentors' sheet under it, and nothing else of the page's, no shortcode and no block. Since
+// the version 3 concepts (1.123.69) the page is drawn in the dashboards' frame, whose sheet the frame
+// registers here too, after this page's; the cohort timeline's sheet is registered only while its
+// class is loaded, and this suite loads none of it.
 $registered_before = array( $GLOBALS['styles'], $GLOBALS['calls'] );
 $GLOBALS['styles'] = array();
 $GLOBALS['calls']  = array();
@@ -2691,7 +2741,7 @@ $assets_alone      = method_exists( 'WPCPM_Administrators_Dashboard', 'register_
 if ( $assets_alone ) {
 	WPCPM_Administrators_Dashboard::register_assets();
 }
-ck( 'register_assets() registers administrator.css on its own, on the mentors\' stylesheet, and nothing else: the Sponsor Dashboard\'s sheet depends on it', array( $assets_alone, array_keys( $GLOBALS['styles'] ), isset( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ] ) ? $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ] : null, $GLOBALS['calls'] ), array( true, array( WPCPM_Mentors_Dashboard::STYLE, WPCPM_Administrators_Dashboard::STYLE ), $admin_style, array() ) );
+ck( 'register_assets() registers administrator.css on its own, on the mentors\' stylesheet, then the frame\'s sheet the page is drawn in, and nothing else: the Sponsor Dashboard\'s sheet depends on it', array( $assets_alone, array_keys( $GLOBALS['styles'] ), isset( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ] ) ? $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ] : null, isset( $GLOBALS['styles'][ WPCPM_Dashboard_Frame::STYLE ]['src'] ) ? $GLOBALS['styles'][ WPCPM_Dashboard_Frame::STYLE ]['src'] : null, $GLOBALS['calls'] ), array( true, array( WPCPM_Mentors_Dashboard::STYLE, WPCPM_Administrators_Dashboard::STYLE, WPCPM_Dashboard_Frame::STYLE ), $admin_style, WPCPM_PLUGIN_URL . 'assets/css/dashboard-frame.css', array() ) );
 list( $GLOBALS['styles'], $GLOBALS['calls'] ) = $registered_before;
 
 $GLOBALS['uid']    = 0;
@@ -2699,17 +2749,18 @@ $GLOBALS['uid']    = 0;
 // same contract bin/test-institutions-dashboard.php's stub uses.
 $GLOBALS['manage'] = array();
 $out = WPCPM_Administrators_Dashboard::render( array() );
-ck( 'logged out: a notice and no card', has( $out, 'wpcpm-dashboard--notice' ) && ! has( $out, 'wpcpm-attention' ), true );
+ck( 'logged out: a notice and no card', has( $out, 'wpcpm-dashboard--notice' ) && ! has( $out, 'wpcpm-administrator__card' ), true );
 // Same shape as WPCPM_Institutions_Dashboard::render() for a logged-out visitor (final
 // review, 7j): a sentence and a Log in button, not a dead end.
 ck( 'and it offers a way to sign in, not a dead end', has( $out, 'wp-login.php' ) && has( $out, '>Log in<' ), true );
-ck( 'and none of the page\'s own sentence: the notice is all a visitor who cannot use the page reads', has( $out, 'wpcpm-dashboard__intro' ), false );
+// The notice is printed before the frame opens: no menu, no head, nothing of the page around it.
+ck( 'and none of the page\'s frame or head: the notice is all a visitor who cannot use the page reads', array( has( $out, 'wpcpm-frame' ), has( $out, 'wpcpm-head' ) ), array( false, false ) );
 
 $GLOBALS['uid']    = 21;
 $GLOBALS['manage'] = array();
 $out = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a signed-in non-manager gets the refusal and no form', has( $out, 'cannot manage the program' ) && ! has( $out, '<form' ), true );
-ck( 'and none of the page\'s own sentence either', has( $out, 'wpcpm-dashboard__intro' ), false );
+ck( 'and none of the page\'s frame or head either', array( has( $out, 'wpcpm-frame' ), has( $out, 'wpcpm-head' ) ), array( false, false ) );
 
 $GLOBALS['uid']       = 3;
 $GLOBALS['manage']    = array( 3 );
@@ -2719,37 +2770,171 @@ $GLOBALS['resources'] = array();
 $GLOBALS['tools']     = array();
 $GLOBALS['reviews']   = array();
 $out = WPCPM_Administrators_Dashboard::render( array( 'title' => 'Today' ) );
-ck( 'the manager gets the page with the title', has( $out, 'class="wpcpm-dashboard wpcpm-administrator"' ) && has( $out, '<h2 class="wpcpm-dashboard__title">Today</h2>' ), true );
-// One sentence under the title says what the page is (the design the owner approved on 28 September
-// 2026), in the class the other dashboards give their header's own line: the welcome, what the page
-// is for and where to ask moved to the program manager guide. It comes before the last decision's
-// words and the strip, and nowhere else.
-$intro = '<p class="wpcpm-dashboard__intro">Everything waiting for an Administrator, what to watch, and the program&#039;s numbers, read from the site and Airtable.</p>';
-ck( 'one sentence under the title says what the page is, before the last decision\'s words and the strip, once', array(
-	has( $out, '<h2 class="wpcpm-dashboard__title">Today</h2>' . $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>' ),
-	before_in( $out, $intro, 'id="wpcpm-attention"' ),
-	substr_count( $out, 'wpcpm-dashboard__intro' ),
-), array( true, true, 1 ) );
+// What the Overview asked of the collaborators while it was drawn, kept before the Reference view and
+// the Overview with every queue holding something are drawn below; and what counts() gives for the
+// same state, which the head and the menu read.
+$overview_asked = array(
+	'tools'     => $GLOBALS['tools'],
+	'resources' => $GLOBALS['resources'],
+	'reviews'   => $GLOBALS['reviews'],
+);
+$out_counts     = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
+// The page is drawn in the dashboards' frame (the version 3 concepts, 1.123.69): the page's own wrapper,
+// with its view after `--`, sits inside the frame's main area, so every rule the cards were dressed by
+// still reaches them.
+ck( 'the manager gets the page with the title, in the Overview\'s wrapper, inside the frame\'s main area', array(
+	0 === strpos( $out, '<div class="wpcpm-frame wpcpm-frame--administrator" data-wpcpm-frame>' ),
+	has( $out, '<div class="wpcpm-frame__main"><div class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--overview"><h2 class="wpcpm-dashboard__title">Today</h2>' ),
+), array( true, true ) );
+// The page opens with its head, where one sentence under the title said what the page was and the
+// attention strip followed it: how many decisions wait, in the serif, the oldest queue in words and
+// the one button that opens its card. The figures follow, then the last decision's words, where the
+// page's outcome is said when no card holds it (`WPCPM_Dashboard_Card::SLOT`), then the two columns.
+// The head counts the queues waiting for a decision as counts() gives them, the mentor applications
+// among them: the semester reports' row says when it came in, and it is the oldest of the fixture's.
+$waiting_keys = array( 'applications', 'agreements', 'reports', 'requests', 'mentor_applications', 'sponsor_applications', 'sponsor_posts', 'sponsor_offers', 'sponsor_events', 'sponsor_agreements', 'sponsor_reports' );
+$waiting_of   = static function ( array $counts ) use ( $waiting_keys ) {
+	$sum = 0;
+	foreach ( $waiting_keys as $key ) {
+		$sum += isset( $counts[ $key ]['n'] ) ? (int) $counts[ $key ]['n'] : 0;
+	}
+	return $sum;
+};
+$out_waiting  = $waiting_of( $out_counts );
+$reports_days = (int) floor( ( time() - (int) $data['reports']['queue'][0]['generated'] ) / DAY_IN_SECONDS );
+ck( 'under the title the page opens with its head, no longer a sentence and the strip: the decisions that wait in the serif, the oldest queue and how long it has waited, and the button to its card; then the figures, the last decision\'s words and the two columns, each once', array(
+	has( $out, '<h2 class="wpcpm-dashboard__title">Today</h2><header class="wpcpm-head"><div class="wpcpm-head__copy"><p class="wpcpm-head__title">' . $out_waiting . ' decisions wait for you</p><p class="wpcpm-head__lede">The oldest has waited ' . $reports_days . ' days, in Semester reports.</p><div class="wpcpm-head__actions"><a class="wpcpm-btn" href="#wpcpm-reports">Review the oldest</a></div></div></header><section class="wpcpm-figures wpcpm-figures--2" aria-label="The program&#039;s numbers">' ),
+	has( $out, '</p></section><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The application is approved.</p><div class="wpcpm-overview">' ),
+	array( substr_count( $out, '<header class="wpcpm-head">' ), substr_count( $out, '<section class="wpcpm-figures' ), substr_count( $out, 'data-wpcpm-card-message' ), substr_count( $out, '<div class="wpcpm-overview">' ) ),
+	array( has( $out, 'wpcpm-dashboard__intro' ), has( $out, 'id="wpcpm-attention"' ), has( $out, 'wpcpm-attention__tile' ) ),
+), array( true, true, array( 1, 1, 1, 1 ), array( false, false, false ) ) );
+ck( 'the head\'s count is the sum of what counts() gives the queues waiting for a decision, the mentor applications among them and the cards to watch not, and the menu says the same number beside Overview', array( $out_waiting, menu_items( $out )['Overview']['badge'] ?? null ), array( 16, '16 wait' ) );
+// The figures the homepage draws, as far as the fixture holds them: no shares are published here, so
+// the band holds the active mentors and the programs running, and its line says they are today's.
+ck( 'the figures band holds what the site can say: with no shares published, the active mentors with how many signed in lately, the programs running with the institutions they run at, and one line saying when they were read', has( $out, '<section class="wpcpm-figures wpcpm-figures--2" aria-label="The program&#039;s numbers"><div class="wpcpm-figure"><p class="wpcpm-figure__value">0</p><p class="wpcpm-figure__label">active mentors</p><p class="wpcpm-figure__base">0 signed in during the last 30 days</p></div><div class="wpcpm-figure"><p class="wpcpm-figure__value">3</p><p class="wpcpm-figure__label">programs running</p><p class="wpcpm-figure__base">at 1 institution</p></div><p class="wpcpm-figures__source">Mentors and programs as of today, from the program&#039;s records.</p></section>' ), true );
 ck( 'the two-factor prompt is for the viewer', $GLOBALS['prompted'], array( 3 ) );
 ck( 'the flash on the institutions channel is drawn in the queue\'s words', has( $out, 'The application is approved.' ) && has( $out, 'wpcpm-dashboard__message--success' ), true );
 ck( 'and taken, so it shows once', isset( $GLOBALS['flash']['institutions'] ), false );
-$positions = array();
-foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-agreements"', 'id="wpcpm-sponsor-reports"', 'id="wpcpm-offers-low"', 'id="wpcpm-duplicates"', 'id="wpcpm-interests"', 'id="wpcpm-tiers-ending"', 'id="wpcpm-health"', 'id="wpcpm-sponsors"', 'id="wpcpm-programs"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
-	$positions[] = strpos( $out, $needle );
+// The Reference view, at the page's own address with ?wpcpm_view=reference, and the Overview with every
+// queue holding something but the Events card's, which is no queue while Sponsor tiers is off: the one
+// sponsor offer waiting for review the fixture read above is put back for it.
+$GLOBALS['tools']     = array();
+$GLOBALS['resources'] = array();
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
+$out_ref              = WPCPM_Administrators_Dashboard::render( array() );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+$reference_asked      = array(
+	'tools'     => $GLOBALS['tools'],
+	'resources' => $GLOBALS['resources'],
+);
+$GLOBALS['offer_reviews'] = array( array( 'id' => 931, 'record' => 'recSPN00000000001', 'company' => 'TEST Sponsor', 'title' => 'A year of hosting', 'change' => 'new', 'by' => 'Member One', 'at' => time() - 600, 'fields' => array() ) );
+$out_full                 = WPCPM_Administrators_Dashboard::render( array() );
+unset( $GLOBALS['offer_reviews'] );
+/**
+ * Whether every needle is in the text, in the order given.
+ *
+ * @param string   $html    The text.
+ * @param string[] $needles What it holds, in order.
+ * @return bool
+ */
+function in_order( $html, array $needles ) {
+	$positions = array();
+	foreach ( $needles as $needle ) {
+		$positions[] = strpos( (string) $html, $needle );
+	}
+	$sorted = $positions;
+	sort( $sorted );
+	return ! in_array( false, $positions, true ) && $positions === $sorted;
 }
-$sorted = $positions;
-sort( $sorted );
-ck( 'every card is drawn, in the approved order of the three groups, the Tools section and the resources last', ! in_array( false, $positions, true ) && $positions === $sorted, true );
+/**
+ * The frame's menu as a page draws it, by each item's words, in order: its address, whether it is
+ * marked current by its class (`marked`) and by `aria-current="page"` (`current`), the words of its
+ * badge ('' for none) and their tone ('' for a plain count), and whether it leaves the dashboard for
+ * wp-admin.
+ *
+ * @param string $html The page.
+ * @return array[]
+ */
+function menu_items( $html ) {
+	$nav = (string) strstr( (string) strstr( (string) $html, '<nav class="wpcpm-frame__menu"' ), '</nav>', true );
+	preg_match_all( '#<li><a class="wpcpm-frame__item( is-current)?" href="([^"]*)"( aria-current="page")?>.*?<span class="wpcpm-frame__label">([^<]*)(?:<span class="screen-reader-text">, [^<]*</span>)?</span>(?:<span aria-hidden="true" class="wpcpm-frame__badge( wpcpm-frame__badge--[a-z]+)?">([^<]*)</span>)?(.*?)</a></li>#s', $nav, $found, PREG_SET_ORDER );
+	$items = array();
+	foreach ( $found as $item ) {
+		$items[ html_entity_decode( $item[4], ENT_QUOTES ) ] = array(
+			'url'      => $item[2],
+			'marked'   => '' !== $item[1],
+			'current'  => '' !== $item[3],
+			'badge'    => isset( $item[6] ) ? $item[6] : '',
+			'tone'     => isset( $item[5] ) && '' !== $item[5] ? substr( $item[5], strlen( ' wpcpm-frame__badge--' ) ) : '',
+			'external' => isset( $item[7] ) && false !== strpos( $item[7], '(in wp-admin)' ),
+		);
+	}
+	return $items;
+}
+/**
+ * The queues the Overview's one sentence names as empty, by name, each with the address its name
+ * links: their screens in wp-admin. Empty when the page prints no such sentence.
+ *
+ * @param string $html The page.
+ * @return array<string, string>
+ */
+function quiet_links( $html ) {
+	if ( 1 !== preg_match( '#<p class="wpcpm-overview__quiet">(.*?)</p>#s', (string) $html, $quiet ) ) {
+		return array();
+	}
+	preg_match_all( '#<a href="([^"]*)">([^<]*)</a>#', $quiet[1], $links, PREG_SET_ORDER );
+	$named = array();
+	foreach ( $links as $link ) {
+		$named[ html_entity_decode( $link[2], ENT_QUOTES ) ] = $link[1];
+	}
+	return $named;
+}
+/**
+ * What each card's row on a page carries besides its title, count and phrase, by the card's anchor:
+ * whether its disclosure is drawn open, how long its oldest item has waited (`age`) and the cue a
+ * folded row shows (`cue`), each null when the row has none.
+ *
+ * @param string $html The page.
+ * @return array[]
+ */
+function row_marks( $html ) {
+	preg_match_all( '#<section class="wpcpm-administrator__card" id="wpcpm-([a-z-]+)"><details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"( open)?><summary class="wpcpm-group__summary">(.*?)</summary>#s', (string) $html, $rows, PREG_SET_ORDER );
+	$marks = array();
+	foreach ( $rows as $row ) {
+		$marks[ $row[1] ] = array(
+			'open' => '' !== $row[2],
+			'age'  => 1 === preg_match( '#<span class="wpcpm-card__age wpcpm-status wpcpm-status--red">([^<]*)</span>#', $row[3], $age ) ? $age[1] : null,
+			'cue'  => 1 === preg_match( '#<span class="wpcpm-card__cue" aria-hidden="true">([^<]*)</span>#', $row[3], $cue ) ? $cue[1] : null,
+		);
+	}
+	return $marks;
+}
+/**
+ * The cards counts() leads to, in its order, one for each count that names a card: what the strip's
+ * tiles linked to, and what the head and the menu read now.
+ *
+ * @param array $counts What `WPCPM_Administrators_Cards::counts()` returned.
+ * @return string[]
+ */
+function count_cards( array $counts ) {
+	return array_values( array_filter( array_map( static function ( $tile ) { return isset( $tile['card'] ) ? (string) $tile['card'] : ''; }, $counts ) ) );
+}
+ck( 'every card is drawn in the approved order: on the Overview the head, the figures, the queues waiting for a decision, the mentor applications\' row among them, then the cards to watch; on the Reference view its head, the cards of the program\'s numbers, then the Tools section and the resources last', array(
+	in_order( $out_full, array( '<header class="wpcpm-head">', '<section class="wpcpm-figures', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-mentor-applications"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-offers-review"', 'id="wpcpm-sponsor-agreements"', 'id="wpcpm-sponsor-reports"', 'id="wpcpm-watch"', 'id="wpcpm-offers-low"', 'id="wpcpm-duplicates"', 'id="wpcpm-interests"', 'id="wpcpm-tiers-ending"', 'id="wpcpm-health"' ) ),
+	in_order( $out_ref, array( '<header class="wpcpm-head">', 'id="wpcpm-sponsors"', 'id="wpcpm-programs"', 'id="wpcpm-mentor-engagement"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) ),
+), array( true, true ) );
 // Each card once, in this page's shape: its anchor on its section, where the mails, the wp-admin
 // screens and every decision's way back land, and the page's class on the disclosure before the
-// shared two. None in the Sponsor Dashboard's, whose anchor is on the disclosure. The strip is no
-// card, and the Events card is not drawn while Sponsor tiers is off.
+// shared two. None in the Sponsor Dashboard's, whose anchor is on the disclosure. The Overview draws
+// the queues' cards and the cards to watch, the Reference view the cards of the program's numbers, so
+// the two together draw every card; the strip is no card and is not drawn, the Events card is not
+// drawn while Sponsor tiers is off, and Students gone quiet only while its switch is on.
 $page_cards = array_values( array_diff( WPCPM_Return::ANCHORS, array( 'attention', 'sponsor-events', 'quiet-students' ) ) );
 $shaped     = array();
 foreach ( $page_cards as $anchor ) {
-	$shaped[ $anchor ] = substr_count( $out, '<section class="wpcpm-administrator__card" id="wpcpm-' . $anchor . '"><details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"' );
+	$shaped[ $anchor ] = substr_count( $out_full . $out_ref, '<section class="wpcpm-administrator__card" id="wpcpm-' . $anchor . '"><details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"' );
 }
-ck( 'every card on the page is drawn once in this page\'s shape, its anchor on its section, and none in the Sponsor Dashboard\'s', array( $shaped, substr_count( $out, '<details id=' ), substr_count( $out, 'wpcpm-sponsor__card' ) ), array( array_fill_keys( $page_cards, 1 ), 0, 0 ) );
+ck( 'every card is drawn once across the Overview, with every queue holding something, and the Reference view, in this page\'s shape, its anchor on its section, and none in the Sponsor Dashboard\'s', array( $shaped, substr_count( $out_full . $out_ref, '<details id=' ), substr_count( $out_full . $out_ref, 'wpcpm-sponsor__card' ) ), array( array_fill_keys( $page_cards, 1 ), 0, 0 ) );
 // A dedicated check, not just a spot in the list above: this one also pins the table, so a
 // terms-ending card that rendered as an empty line (no rows read) would still be caught.
 ck(
@@ -2772,9 +2957,10 @@ ck(
 	),
 	array( true, true, true )
 );
-ck( 'the Tools section is drawn for the manager viewing, as the managers audience', $GLOBALS['tools'], array( array( 'managers', $GLOBALS['uid'] ) ) );
-ck( 'the resources are the administrator audience', $GLOBALS['resources'], array( 'administrator' ) );
-ck( 'the agreement reviews were drawn once each', $GLOBALS['reviews'], array( 601, 602 ) );
+// The Tools section and the resources moved to the Reference view: the Overview asks for neither.
+ck( 'the Tools section is drawn on the Reference view alone, for the manager viewing, as the managers audience', array( $overview_asked['tools'], $reference_asked['tools'] ), array( array(), array( array( 'managers', $GLOBALS['uid'] ) ) ) );
+ck( 'and so are the resources, the administrator audience', array( $overview_asked['resources'], $reference_asked['resources'] ), array( array(), array( 'administrator' ) ) );
+ck( 'the agreement reviews were drawn once each', $overview_asked['reviews'], array( 601, 602 ) );
 ck( 'the stylesheet is registered from assets/css/administrator.css', isset( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ] ) && false !== strpos( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ]['src'], 'assets/css/administrator.css' ), true );
 ck( 'and render() switched it on', ! empty( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ]['on'] ), true );
 ck( 'the dashboard arms the double-submit guard its forms carry', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ), true );
@@ -2782,6 +2968,74 @@ ck( 'the dashboard arms the double-submit guard its forms carry', in_array( 'wpc
 // cards use opens it, a tile's, a mail's or a decision's way back. The page asks the dashboards' shell
 // for it, and how the shell registers it is pinned in bin/test-dashboard-card.php.
 ck( 'and the dashboards\' opener, enqueued through the shell both pages share', in_array( 'wpcpm-dashboard-open', $GLOBALS['scripts'], true ), true );
+
+// The views (1.123.69): the Overview by default, the cohort timeline and the Reference view, each at the
+// page's own address with ?wpcpm_view=. This suite loads no cohort timeline, so its view is not asked.
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = 'no-such-view';
+$out_unknown = WPCPM_Administrators_Dashboard::render( array() );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+$admin_page_url = WPCPM_Administrators_Dashboard::page_url();
+ck( 'the views are asked for by ?wpcpm_view=: none, or one the page does not know, is the Overview, and reference the Reference view, each in a wrapper class of its own, and view_url() writes each view\'s address', array(
+	has( $out, 'class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--overview"' ) && has( $out, '<div class="wpcpm-overview">' ),
+	has( $out_unknown, 'class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--overview"' ) && has( $out_unknown, '<div class="wpcpm-overview">' ),
+	has( $out_ref, 'class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--reference"' ) && has( $out_ref, '<div class="wpcpm-reference">' ),
+	array( has( $out_ref, '<div class="wpcpm-overview">' ), has( $out, '<div class="wpcpm-reference">' ) ),
+	array( WPCPM_Administrators_Dashboard::view_url(), WPCPM_Administrators_Dashboard::view_url( 'reference' ) ),
+), array( true, true, true, array( false, false ), array( $admin_page_url, $admin_page_url . '?wpcpm_view=reference' ) ) );
+ck( 'the Reference view opens with a head of its own, its name in the serif and one line saying what it holds, then its group, and draws no figures and none of the Overview\'s cards', array(
+	has( $out_ref, '<div class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--reference"><header class="wpcpm-head"><div class="wpcpm-head__copy"><p class="wpcpm-head__title">Reference</p><p class="wpcpm-head__lede">The sponsors, the programs running and how the mentors use the site, then the tools from our sponsors and the resources.</p></div></header><div class="wpcpm-reference"><div class="wpcpm-administrator__group wpcpm-administrator__group--reference">' ),
+	has( $out_ref, 'wpcpm-figures' ),
+	array_values( array_intersect( page_cards( $out_ref ), page_cards( $out_full ) ) ),
+), array( true, false, array() ) );
+// The menu down the side: the page's views, then the screens in wp-admin, then the help. Each item that
+// leaves the dashboard says so to a screen reader and carries the external icon.
+$menu     = menu_items( $out );
+$ref_menu = menu_items( $out_ref );
+ck( 'the menu lists the page\'s views, Overview, Watch and Reference, then the screens in wp-admin, each marked as leaving the dashboard, then the help', array(
+	array_keys( $menu ),
+	array_keys( array_filter( $menu, static function ( $item ) { return $item['external']; } ) ),
+), array(
+	array( 'Overview', 'Watch', 'Reference', 'Students', 'Mentors', 'Institutions', 'Sponsors and offers', 'Tracks', 'Tools', 'Settings', 'WordPress Credits handbook', '#wpcredits on Slack' ),
+	array( 'Students', 'Mentors', 'Institutions', 'Sponsors and offers', 'Tracks', 'Tools', 'Settings' ),
+) );
+$current_of = static function ( array $items, $key ) {
+	return array_keys( array_filter( $items, static function ( $item ) use ( $key ) { return $item[ $key ]; } ) );
+};
+ck( 'each view is at the page\'s own address, Watch at the Overview\'s Watch column; the view drawn is the one item marked current, by its class and by aria-current="page", on the Overview and on the Reference view alike', array(
+	array( $menu['Overview']['url'], $menu['Watch']['url'], $menu['Reference']['url'] ),
+	array( $current_of( $menu, 'current' ), $current_of( $menu, 'marked' ), substr_count( $out, 'aria-current=' ) ),
+	array( $current_of( $ref_menu, 'current' ), $current_of( $ref_menu, 'marked' ), substr_count( $out_ref, 'aria-current=' ) ),
+	has( $out, 'id="wpcpm-watch"' ),
+), array(
+	array( $admin_page_url, $admin_page_url . '#wpcpm-watch', $admin_page_url . '?wpcpm_view=reference' ),
+	array( array( 'Overview' ), array( 'Overview' ), 1 ),
+	array( array( 'Reference' ), array( 'Reference' ), 1 ),
+	true,
+) );
+// Beside what waits, a count in words, in a tone of its own; part of the item's name for a screen
+// reader, so it hears "Overview, 16 wait".
+ck( 'beside what waits the menu says how much: the decisions waiting beside Overview in red, the number the head says, how many cards to watch have something to look at beside Watch in amber, Syncs and health once for its syncs and its locked accounts, and the mentor applications waiting beside Mentors, plain; no other item carries a badge', array(
+	array_filter( array_map( static function ( $item ) { return '' === $item['badge'] ? '' : $item['badge'] . ( '' !== $item['tone'] ? ' (' . $item['tone'] . ')' : '' ); }, $menu ) ),
+	has( $out, '<span class="wpcpm-frame__label">Overview<span class="screen-reader-text">, 16 wait</span></span>' ),
+), array(
+	array( 'Overview' => '16 wait (red)', 'Watch' => '3 (amber)', 'Mentors' => '4' ),
+	true,
+) );
+// The page's name is its one H1 only while the theme draws the page as a bare canvas for the frame
+// (`add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator' ) )`); otherwise the theme's own
+// template prints the title, and the frame's bar holds the Menu button alone.
+$GLOBALS['theme_support'] = array( WPCPM_Dashboard_Frame::THEME_SUPPORT => array( array( 'administrator' ) ) );
+$owned                    = WPCPM_Administrators_Dashboard::render( array() );
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
+$owned_ref = WPCPM_Administrators_Dashboard::render( array() );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ], $GLOBALS['theme_support'] );
+ck( 'while the theme leaves the page to the frame, the frame draws its top bar and the head opens with the page\'s name as the page\'s one H1, on either view; otherwise the frame\'s bar is slim and the page prints no H1', array(
+	has( $owned, '<div class="wpcpm-frame__bar"><button class="wpcpm-frame__menu-button"' ),
+	has( $owned, '<header class="wpcpm-head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1><p class="wpcpm-head__title">' ),
+	has( $owned_ref, '<header class="wpcpm-head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1><p class="wpcpm-head__title">Reference</p>' ),
+	array( substr_count( $owned, '<h1' ), substr_count( $owned_ref, '<h1' ) ),
+	array( has( $out, '<h1' ), has( $out_ref, '<h1' ), has( $out, '<div class="wpcpm-frame__bar wpcpm-frame__bar--slim"><button class="wpcpm-frame__menu-button"' ) ),
+), array( true, true, true, array( 1, 1 ), array( false, false, true ) ) );
 
 // A refused Draft now flashes on the semester report screen's own channel, not the queue's
 // (final review, Important 2); render_messages() has to read that channel too and print it in
@@ -2792,7 +3046,10 @@ $GLOBALS['flash'] = array( 'institution_report' => array( 'status' => 'refused' 
 $out_report_flash = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'render_messages() also prints a refusal flashed on the report screen\'s channel, with its class', has( $out_report_flash, 'That is not something you can do here.' ) && has( $out_report_flash, 'wpcpm-dashboard__message--error is-error" role="alert"' ), true );
 ck( 'and that channel is taken too, so it shows once', isset( $GLOBALS['flash']['institution_report'] ), false );
-ck( 'with no title the sentence opens the page, the refusal right under it', has( $out_report_flash, '<div class="wpcpm-dashboard wpcpm-administrator">' . $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' ), true );
+ck( 'with no title the head opens the page, and the refusal is said where the page\'s outcome goes when no card holds it, after the figures and before the two columns', array(
+	has( $out_report_flash, '<div class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--overview"><header class="wpcpm-head">' ),
+	has( $out_report_flash, '</section><p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>That is not something you can do here.</p><div class="wpcpm-overview">' ),
+), array( true, true ) );
 // A refused Draft now on the Sponsor reports card (1.115.0) comes back here on the institutions
 // channel, and prints in the Sponsors screen's own words for it, in the error tone.
 $GLOBALS['flash']      = array( 'institutions' => 'sreport-exists' );
@@ -2921,66 +3178,155 @@ function sheet_rules( $sheet ) {
 	return $rules;
 }
 
-// The page as the manager above got it, Sponsor tiers off: the strip, then the three groups in the
-// order the owner approved on 28 September 2026, then the Tools section and the resources under
-// their heading for a screen reader.
-ck( 'the page is three groups in the approved order, each holding its cards in the approved order, with the strip above them and the Tools section and the resources below', array(
-	page_groups( $out ),
-	before_in( $out, 'id="wpcpm-attention"', '<div class="wpcpm-administrator__group ' ),
-	has( $out, '</section></div><h2 class="screen-reader-text">Tools and resources</h2><section class="wpcpm-student__section wpcpm-tools" id="wpcpm-tools">' ),
-	strpos( $out, 'wpcpm-handbook__resources' ) > strrpos( $out, '<div class="wpcpm-administrator__group ' ),
+// The groups the owner approved on 28 September 2026, laid out as the version 3 concepts have them
+// (1.123.69): the Overview, with every queue holding something and Sponsor tiers off, is two columns
+// under the head and the figures, Waiting for you beside Watch; the Reference view is the program's
+// numbers, then the Tools section and the resources under their heading for a screen reader.
+ck( 'the Overview is two groups side by side under the head and the figures, Waiting for you in the first column and Watch in the second, each holding its cards in the approved order; the Reference view is the third group, with the Tools section and the resources below it', array(
+	page_groups( $out_full ),
+	page_groups( $out_ref ),
+	before_in( $out_full, '<section class="wpcpm-figures', '<div class="wpcpm-overview">' ),
+	has( $out_full, '<div class="wpcpm-overview"><div class="wpcpm-overview__col wpcpm-overview__col--wait"><div class="wpcpm-administrator__group wpcpm-administrator__group--waiting">' ),
+	has( $out_full, '</div></div><div class="wpcpm-overview__col wpcpm-overview__col--watch" id="wpcpm-watch"><div class="wpcpm-administrator__group wpcpm-administrator__group--watch">' ),
+	has( $out_ref, '</section></div></div><h2 class="screen-reader-text">Tools and resources</h2><section class="wpcpm-student__section wpcpm-tools" id="wpcpm-tools">' ),
+	strpos( $out_ref, 'wpcpm-handbook__resources' ) > strrpos( $out_ref, '<div class="wpcpm-administrator__group ' ),
 ), array(
 	array(
-		'waiting'   => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
-		'watch'     => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
+		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
+		'watch'   => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
+	),
+	array(
 		'reference' => array( 'sponsors', 'programs', 'mentor-engagement' ),
 	),
 	true,
 	true,
 	true,
+	true,
+	true,
 ) );
+// One row a card on the Overview, so each column reads as a list (the concepts' inbox): every card is
+// drawn folded, whatever its own rule asks. A queue's row ends with the Review cue, the words the toggle
+// shows, and says how long the oldest of its items has waited, as the homepage's red status tag, when
+// the rows say when they came in; the sponsor reports' rows wait from the day the term ended (the release's
+// review, 1.123.69). A card to watch has neither.
+$full_marks   = row_marks( $out_full );
+$full_groups  = page_groups( $out_full );
+$marks_of     = static function ( array $anchors, $key ) use ( $full_marks ) {
+	$of = array();
+	foreach ( $anchors as $anchor ) {
+		$of[ $anchor ] = isset( $full_marks[ $anchor ] ) ? $full_marks[ $anchor ][ $key ] : 'not drawn';
+	}
+	return $of;
+};
+$dated_queues = $full_groups['waiting'];
+ck( 'on the Overview every card is drawn folded, one row each: each queue\'s with the Review cue and, where its rows say when they came in, how long the oldest has waited, as a red tag, the semester reports as long as the head says; each card to watch with neither', array(
+	array_values( array_unique( array_column( $full_marks, 'open' ) ) ),
+	array_values( array_unique( $marks_of( $full_groups['waiting'], 'cue' ) ) ),
+	array_values( array_unique( $marks_of( $full_groups['watch'], 'cue' ) ) ),
+	array_keys( array_filter( $marks_of( $dated_queues, 'age' ), static function ( $age ) { return ! is_string( $age ) || 1 !== preg_match( '/^(?:[0-9]+ days? waiting|Waiting since today)$/', $age ); } ) ),
+	array( $full_marks['reports']['age'], $full_marks['sponsor-posts']['age'], $full_marks['sponsor-offers-review']['age'], 1 === preg_match( '/^[0-9]+ days? waiting$/', (string) $full_marks['sponsor-reports']['age'] ) ),
+	array_values( array_unique( $marks_of( $full_groups['watch'], 'age' ) ) ),
+), array(
+	array( false ),
+	array( 'Review' ),
+	array( null ),
+	array(),
+	array( $reports_days . ' days waiting', 'Waiting since today', 'Waiting since today', true ),
+	array( null ),
+) );
+// The mentor applications are decided on the Mentors screen, so they have no card: a row of their own in
+// the Waiting group, between the institutions' queues and the sponsors', as their count stood between
+// those tiles, saying how many wait, and a Review that opens their screen.
+ck( 'the mentor applications are a row in the Waiting group, between the requests from institutions and the sponsor applications, saying how many wait, with a Review that opens the Mentors screen\'s queue and says so to a screen reader', array(
+	has( $out_full, '<section class="wpcpm-administrator__card wpcpm-overview__row" id="wpcpm-mentor-applications"><div class="wpcpm-overview__row-in"><h3 class="wpcpm-group__title">Mentor applications <span class="wpcpm-group__count">4</span></h3><span class="wpcpm-sponsor__state">4 waiting</span><a class="wpcpm-button wpcpm-button--secondary" href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue">Review<span class="screen-reader-text"> on the Mentors screen</span></a></div></section>' ),
+	in_order( $out_full, array( 'id="wpcpm-requests"', 'id="wpcpm-mentor-applications"', 'id="wpcpm-sponsor-applications"' ) ),
+	substr_count( $out_full, 'id="wpcpm-mentor-applications"' ),
+), array( true, true, 1 ) );
+// A queue with nothing in it is not drawn as a card: one sentence after the Waiting group's cards names
+// every empty queue once, each name a link to its screen in wp-admin, so nothing seems to have gone.
+// Drawn here with the mentor applications and the sponsors' queues empty, and Sponsor tiers on, so the
+// Events card is a queue too; then with every queue holding something.
+$kept_quiet = array( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['sponsor_apps'], $GLOBALS['mentor_waiting'], isset( $GLOBALS['tiers_live'] ) ? $GLOBALS['tiers_live'] : null );
+$GLOBALS['sponsor_posts']  = array();
+$GLOBALS['agr_review']     = array();
+$GLOBALS['sponsor_apps']   = array();
+$GLOBALS['mentor_waiting'] = 0;
+$GLOBALS['tiers_live']     = true;
+$quiet_page                = WPCPM_Administrators_Dashboard::render( array() );
+list( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['sponsor_apps'], $GLOBALS['mentor_waiting'], $GLOBALS['tiers_live'] ) = $kept_quiet;
+$sponsors_queue = static function ( $card ) {
+	return tab_url( 'wpcpm-sponsors', 'queue', 'wpcpm-' . $card );
+};
+ck( 'a queue with nothing in it is not drawn: one sentence after the Waiting group\'s cards names every empty queue once, in the queues\' order, each name a link to its screen in wp-admin', array(
+	quiet_links( $quiet_page ),
+	array_values( array_intersect( page_cards( $quiet_page ), array( 'mentor-applications', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements' ) ) ),
+	has( $quiet_page, 'id="wpcpm-mentor-applications"' ),
+	substr_count( $quiet_page, '<p class="wpcpm-overview__quiet">' ),
+	has( $quiet_page, '</section><p class="wpcpm-overview__quiet">Nothing waits in the 6 other queues: <a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue">Mentor applications</a>, <a href="' . $sponsors_queue( 'sponsor-applications' ) . '">Sponsor applications</a>, ' ),
+	has( $quiet_page, ', and <a href="' . $sponsors_queue( 'sponsor-agreements' ) . '">Sponsor Collaboration Agreements</a>. Each name opens its screen in wp-admin.</p></div></div><div class="wpcpm-overview__col wpcpm-overview__col--watch" id="wpcpm-watch">' ),
+), array(
+	array(
+		'Mentor applications'              => 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue',
+		'Sponsor applications'             => $sponsors_queue( 'sponsor-applications' ),
+		'Sponsor posts to review'          => $sponsors_queue( 'sponsor-posts' ),
+		'Sponsor offers to review'         => $sponsors_queue( 'sponsor-offers-review' ),
+		'Events'                           => $sponsors_queue( 'sponsor-events' ),
+		'Sponsor Collaboration Agreements' => $sponsors_queue( 'sponsor-agreements' ),
+	),
+	array(),
+	false,
+	1,
+	true,
+	true,
+) );
+ck( 'and the queues that hold something are drawn as before, in their order, the head counting them alone', array(
+	page_groups( $quiet_page )['waiting'],
+	has( $quiet_page, '<p class="wpcpm-head__title">9 decisions wait for you</p>' ),
+), array( array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-reports' ), true ) );
 // The Students gone quiet card (student automation): the Watch group's last, after Syncs and health,
 // drawn only while the switch is not off.
 $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ] = $q_snapshot;
 $GLOBALS['student_page']                              = 'https://example.test/student-report-card/';
 $GLOBALS['flags_mode'] = 'preview';
 $GLOBALS['uid']        = 3;
-$q_page = WPCPM_Administrators_Dashboard::render( array() );
-ck( 'on the page the card is the Watch group\'s last, after Syncs and health, and the tile leads to it', array(
+$q_page   = WPCPM_Administrators_Dashboard::render( array() );
+$q_counts = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
+ck( 'on the page the card is the Watch group\'s last, after Syncs and health; its count leads to it, and the menu\'s Watch badge counts it among the counts to watch above zero', array(
 	page_groups( $q_page )['watch'],
-	has( $q_page, 'href="#wpcpm-quiet-students"' ),
-), array( array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health', 'quiet-students' ), true ) );
+	isset( $q_counts['quiet_students']['card'] ) ? $q_counts['quiet_students']['card'] : null,
+	menu_items( $q_page )['Watch']['badge'] ?? null,
+), array( array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health', 'quiet-students' ), 'quiet-students', '4' ) );
 $GLOBALS['flags_mode'] = 'off';
-ck( 'with the switch off the page draws no such card and no tile', array( has( WPCPM_Administrators_Dashboard::render( array() ), 'wpcpm-quiet-students' ) ), array( false ) );
+$q_off                 = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'with the switch off the page draws no such card, counts() gives it no count, and the Watch badge is one fewer', array(
+	has( $q_off, 'wpcpm-quiet-students' ),
+	array_key_exists( 'quiet_students', WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() ) ),
+	menu_items( $q_off )['Watch']['badge'] ?? null,
+), array( false, false, '3' ) );
 unset( $GLOBALS['flags_mode'], $GLOBALS['student_page'], $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ] );
 // The groups' headings are h2, so the Tools section's and the resources' h3 headings would read as
 // the Reference group's in an outline: the two sit under one h2 of their own, for a screen reader
-// alone, as the Sponsor Dashboard's resources do. Printed only over something: with neither section
-// drawn there is no heading over nothing, and with the resources alone it heads them.
+// alone, as the Sponsor Dashboard's resources do, on the Reference view, the one view that draws
+// them. Printed only over something: with neither section drawn there is no heading over nothing, and
+// with the resources alone it heads them.
 $GLOBALS['tools_quiet']     = true;
 $GLOBALS['resources_quiet'] = true;
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
 $out_nothing_after          = WPCPM_Administrators_Dashboard::render( array() );
 $GLOBALS['resources_quiet'] = false;
 $out_resources_alone        = WPCPM_Administrators_Dashboard::render( array() );
-unset( $GLOBALS['tools_quiet'], $GLOBALS['resources_quiet'] );
-ck( 'the Tools section and the resources sit under one heading for a screen reader, Tools and resources, printed once and only over something', array(
-	substr_count( $out, '<h2 class="screen-reader-text">Tools and resources</h2>' ),
-	before_in( $out, '<h2 class="screen-reader-text">Tools and resources</h2>', 'wpcpm-handbook__resources' ),
+unset( $GLOBALS['tools_quiet'], $GLOBALS['resources_quiet'], $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+// With nothing after the cards the view ends with its last card, its group, the Reference view's box
+// and the page's wrapper, then the frame's main area, its body and the frame.
+$frame_close = '</div></div></div>';
+ck( 'on the Reference view the Tools section and the resources sit under one heading for a screen reader, Tools and resources, printed once and only over something; the Overview prints neither, nor the heading', array(
+	substr_count( $out_ref, '<h2 class="screen-reader-text">Tools and resources</h2>' ),
+	before_in( $out_ref, '<h2 class="screen-reader-text">Tools and resources</h2>', 'wpcpm-handbook__resources' ),
 	has( $out_nothing_after, 'Tools and resources' ),
-	substr( $out_nothing_after, -strlen( '</section></div></div>' ) ),
-	has( $out_resources_alone, '</section></div><h2 class="screen-reader-text">Tools and resources</h2><section class="wpcpm-handbook__resources" data-audience="administrator"></section></div>' ),
-), array( 1, true, false, '</section></div></div>', true ) );
-/**
- * The cards a page's strip links to, in the order the strip draws its tiles.
- *
- * @param string $html The page.
- * @return string[]
- */
-function strip_links( $html ) {
-	$strip = (string) strstr( (string) strstr( (string) $html, '<section class="wpcpm-administrator__card wpcpm-attention" id="wpcpm-attention"' ), '</section>', true );
-	preg_match_all( '#<a class="wpcpm-attention__link" href="\#wpcpm-([a-z-]+)">#', $strip, $links );
-	return $links[1];
-}
+	ends_with( $out_nothing_after, '</section></div></div></div>' . $frame_close ),
+	has( $out_resources_alone, '</section></div></div><h2 class="screen-reader-text">Tools and resources</h2><section class="wpcpm-handbook__resources" data-audience="administrator"></section></div>' . $frame_close ),
+	array( has( $out, 'Tools and resources' ), has( $out, 'id="wpcpm-tools"' ), has( $out, 'wpcpm-handbook__resources' ) ),
+), array( 1, true, false, true, true, array( false, false, false ) ) );
 
 /**
  * The cards a page draws, in the order it draws them.
@@ -2992,14 +3338,15 @@ function page_cards( $html ) {
 	preg_match_all( '/<section class="wpcpm-administrator__card" id="wpcpm-([a-z-]+)">/', (string) $html, $cards );
 	return $cards[1];
 }
-// The strip reads the page top to bottom: each tile a link to a card the page draws, in the order
-// the cards are drawn, so a manager pressing along the strip moves down the page. One tile a card,
-// but Syncs and health's two, side by side: the syncs that need a look and the locked accounts.
-ck( 'on the page every tile links to a card the page draws, in the order the page draws the cards, one tile a card but Syncs and health, which has two side by side', array(
-	strip_links( $out ),
-	array_values( array_diff( strip_links( $out ), page_cards( $out ) ) ),
-	array_values( array_intersect( page_cards( $out ), strip_links( $out ) ) ) === array_values( array_unique( strip_links( $out ) ) ),
-	array_keys( array_filter( array_count_values( strip_links( $out ) ), static function ( $tiles ) { return $tiles > 1; } ) ),
+// The strip is no longer drawn on this page; the counts its tiles printed are what the head and the menu
+// read, and the Sponsor Dashboard's At a glance strip still wears them. They read the Overview top to
+// bottom: each count that names a card names one the Overview draws, in the order it draws the cards.
+// One count a card, but Syncs and health's two: the syncs that need a look and the locked accounts.
+ck( 'every count counts() gives leads to a card the Overview draws, in the order the Overview draws the cards, one count a card but Syncs and health, which has two', array(
+	count_cards( $out_counts ),
+	array_values( array_diff( count_cards( $out_counts ), page_cards( $out ) ) ),
+	array_values( array_intersect( page_cards( $out ), count_cards( $out_counts ) ) ) === array_values( array_unique( count_cards( $out_counts ) ) ),
+	array_keys( array_filter( array_count_values( count_cards( $out_counts ) ), static function ( $tiles ) { return $tiles > 1; } ) ),
 ), array(
 	array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'sponsor-reports', 'offers-low', 'duplicates', 'health', 'health' ),
 	array(),
@@ -3012,13 +3359,19 @@ ck( 'on the page every tile links to a card the page draws, in the order the pag
 $group_opening = static function ( $id, $title, $lead, $first ) {
 	return '<div class="wpcpm-administrator__group wpcpm-administrator__group--' . $id . '"><h2 class="wpcpm-student__heading wpcpm-administrator__group-title">' . $title . '</h2><p class="wpcpm-student__note wpcpm-administrator__group-lead">' . $lead . '</p><section class="wpcpm-administrator__card" id="wpcpm-' . $first . '">';
 };
-ck( 'each group opens with its heading and its one sentence, its first card right after them, and closes right after its last card', array(
-	has( $out, $group_opening( 'waiting', 'Waiting for you', 'What needs an Administrator&#039;s decision.', 'applications' ) ),
+// The Waiting group closes after the sentence that names its empty queues, which follows its cards, and
+// its column right after it; the Watch group closes right after its last card, then its column, the two
+// columns and the page's wrapper, then the frame; the Reference group right after its last card, then
+// the Reference view's box, then the heading over the Tools section and the resources.
+ck( 'each group opens with its heading and its one sentence, its first card right after them, and closes right after its last card, the Waiting group after the sentence that names its empty queues', array(
+	has( $out, $group_opening( 'waiting', 'Waiting for you', 'What needs an Administrator&#039;s decision, oldest first in each.', 'applications' ) ),
 	has( $out, $group_opening( 'watch', 'Watch', 'What to keep an eye on this week.', 'offers-low' ) ),
-	has( $out, $group_opening( 'reference', 'Reference', 'The program&#039;s numbers.', 'sponsors' ) ),
-	substr_count( $out, '</section></div><div class="wpcpm-administrator__group wpcpm-administrator__group--' ),
-	substr_count( $out, '<p class="wpcpm-student__note wpcpm-administrator__group-lead">' ),
-), array( true, true, true, 2, 3 ) );
+	has( $out_ref, $group_opening( 'reference', 'The program&#039;s numbers', 'Read from the site and Airtable.', 'sponsors' ) ),
+	1 === preg_match( '#</section><p class="wpcpm-overview__quiet">(?:(?!</p>).)*</p></div></div><div class="wpcpm-overview__col wpcpm-overview__col--watch" id="wpcpm-watch"><div class="wpcpm-administrator__group wpcpm-administrator__group--watch">#s', $out ),
+	ends_with( $out, '</section></div></div></div></div>' . $frame_close ),
+	has( $out_ref, '</section></div></div><h2 class="screen-reader-text">Tools and resources</h2>' ),
+	array( substr_count( $out, '<p class="wpcpm-student__note wpcpm-administrator__group-lead">' ), substr_count( $out_ref, '<p class="wpcpm-student__note wpcpm-administrator__group-lead">' ) ),
+), array( true, true, true, true, true, true, array( 2, 1 ) ) );
 // Every card of this page draws something, so no real group here is ever empty: a group whose cards
 // print nothing, or nothing but white space, is not printed at all by the dashboards' group printer,
 // which this page draws its groups through, and that rule is pinned where the printer lives, in
@@ -3360,13 +3713,20 @@ ck( 'a card of the program\'s numbers never opens itself, whatever it counts, it
 		'mentor-engagement' => array( 'open' => false, 'state' => '0 active mentors, 0 seen in the last 30 days', 'action' => $to_engagement_row ),
 	),
 ) );
-// The strip holds what needs an Administrator today, and Mentor engagement holds the program's
-// numbers: no tile leads to it. The page is read for the strip it draws, where the summary is
-// zeros and every tile is drawn only above zero, and counts() is read again with the summary
-// above zero in the figures a tile would count, which a tile for the card would draw.
-$strip_part          = (string) strstr( $out, '<div class="wpcpm-administrator__group ', true );
+// The head and the menu say what needs an Administrator today, and Mentor engagement holds the
+// program's numbers, on the Reference view: no count leads to it. The Overview is read above its
+// groups, where the head, the figures and the menu are and the summary is zeros, and counts() is read
+// again with the summary above zero in the figures a count would count, which a count for the card
+// would give.
+$head_part           = (string) strstr( $out, '<div class="wpcpm-administrator__group ', true );
 $counts_with_engaged = WPCPM_Administrators_Cards::counts( array_merge( $data, array( 'mentor_engagement' => $me_summary ) ) );
-ck( 'the strip has no tile for Mentor engagement, on the page it draws or with the summary above zero', array( has( $strip_part, 'id="wpcpm-attention"' ), has( $strip_part, 'wpcpm-mentor-engagement' ), array_keys( $counts_with_engaged ) === array_keys( WPCPM_Administrators_Cards::counts( $data ) ), in_array( 'mentor-engagement', array_column( $counts_with_engaged, 'card' ), true ) ), array( true, false, true, false ) );
+ck( 'no count leads to Mentor engagement: the menu, the head and the figures above the Overview\'s groups name no such card, counts() gives it none with the summary above zero, and the card is drawn on the Reference view and not on the Overview', array(
+	has( $head_part, '<header class="wpcpm-head">' ),
+	has( $head_part, 'wpcpm-mentor-engagement' ),
+	array_keys( $counts_with_engaged ) === array_keys( WPCPM_Administrators_Cards::counts( $data ) ),
+	in_array( 'mentor-engagement', array_column( $counts_with_engaged, 'card' ), true ),
+	array( has( $out, 'id="wpcpm-mentor-engagement"' ), has( $out_ref, 'id="wpcpm-mentor-engagement"' ) ),
+), array( true, false, true, false, array( false, true ) ) );
 // A row is read as one statement, its title, its number and its phrase: the number beside the title
 // is the first number the phrase says, or zero beside a phrase that says none.
 $mismatched = static function ( $html ) {
@@ -3374,12 +3734,15 @@ $mismatched = static function ( $html ) {
 		return null !== $row['phrase'] && $row['badge'] !== ( 1 === preg_match( '/[0-9]+/', $row['phrase'], $number ) ? (int) $number[0] : 0 );
 	} );
 };
-ck( 'on every card of the page the badge is the first number its phrase says, so a row never says two numbers: the syncs that need a look beside Syncs and health, whatever the locked accounts, the programs running beside Programs running and the active mentors beside Mentor engagement', array(
-	count( page_rows( $out ) ),
-	$mismatched( $out ),
-	isset( page_rows( $out )['health'] ) ? page_rows( $out )['health'] : null,
-	isset( page_rows( $out )['programs'] ) ? page_rows( $out )['programs'] : null,
-	isset( page_rows( $out )['mentor-engagement'] ) ? page_rows( $out )['mentor-engagement'] : null,
+// Read across the Overview, with every queue holding something, and the Reference view, which together
+// draw every card.
+$all_rows = page_rows( $out_full . $out_ref );
+ck( 'on every card of the two views the badge is the first number its phrase says, so a row never says two numbers: the syncs that need a look beside Syncs and health, whatever the locked accounts, the programs running beside Programs running and the active mentors beside Mentor engagement', array(
+	count( $all_rows ),
+	$mismatched( $out_full . $out_ref ),
+	isset( $all_rows['health'] ) ? $all_rows['health'] : null,
+	isset( $all_rows['programs'] ) ? $all_rows['programs'] : null,
+	isset( $all_rows['mentor-engagement'] ) ? $all_rows['mentor-engagement'] : null,
 	card_badge( capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_programs( array( 'tracks' => array( '150h' => array( 'in_progress' => 4, 'signed_up' => 0 ), '50h' => array( 'in_progress' => 0, 'signed_up' => 2 ) ), 'finished' => 0, 'rows' => array( $data['programs']['rows'][0], $data['programs']['rows'][0] ), 'quiet' => 0, 'read' => 0, 'semester' => '' ) ); } ) ),
 ), array(
 	17,
@@ -3624,21 +3987,30 @@ ck( 'the box is printed as the table\'s parent and closed after it, the heading 
 ), array( true, true, true, true, true ) );
 
 // The whole page, drawn here for the manager rather than read from whatever an earlier block
-// last drew: every column table it draws is in a box, every box names itself, and no id a name
-// points at is printed twice, or a name could read another card's heading.
+// last drew, on both its views of cards, the Overview and the Reference view: every column table
+// either draws is in a box, every box names itself, and no id a name points at is printed twice on
+// a view, or a name could read another card's heading.
 $GLOBALS['uid']    = 3;
 $GLOBALS['manage'] = array( 3 );
 $GLOBALS['flash']  = array();
 $scroll_page       = WPCPM_Administrators_Dashboard::render( array() );
-$page_regions      = scroll_regions( $scroll_page );
-$page_ids          = preg_match_all( '/\bid="(wpcpm-[a-z0-9-]+-title)"/', $scroll_page, $page_id_found ) ? array_count_values( $page_id_found[1] ) : array();
-// Nine on this line, main's five and the line's own four, each drawn by the page's fixture.
-ck( 'on the whole page every column table is in a named box, and every id a name reads is printed once', array(
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
+$scroll_ref        = WPCPM_Administrators_Dashboard::render( array() );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+$page_regions      = array_merge( scroll_regions( $scroll_page ), scroll_regions( $scroll_ref ) );
+$ids_of            = static function ( $html ) {
+	return preg_match_all( '/\bid="(wpcpm-[a-z0-9-]+-title)"/', $html, $found ) ? array_count_values( $found[1] ) : array();
+};
+$page_ids          = array_merge( array_filter( $ids_of( $scroll_page ), static function ( $n ) { return 1 !== $n; } ), array_filter( $ids_of( $scroll_ref ), static function ( $n ) { return 1 !== $n; } ) );
+// Nine on this line, main's five and the line's own four, each drawn by the page's fixture: Programs
+// running's on the Reference view, the other eight on the Overview.
+ck( 'on both views every column table is in a named box, and every id a name reads is printed once on its view', array(
 	count( $page_regions ),
+	array( count( scroll_regions( $scroll_page ) ), count( scroll_regions( $scroll_ref ) ) ),
 	array_values( array_unique( array_map( static function ( $r ) { return $r['box'] . ' ' . $r['tabindex'] . ' ' . $r['role'] . ' ' . ( $r['alone'] ? 'alone' : 'shared' ); }, $page_regions ) ) ),
 	array_values( array_filter( array_column( $page_regions, 'name' ), static function ( $name ) { return '' === $name || false !== strpos( $name, ' elements with the id ' ); } ) ),
-	array_keys( array_filter( $page_ids, static function ( $n ) { return 1 !== $n; } ) ),
-), array( 9, array( 'div.wpcpm-administrator__scroll 0 region alone' ), array(), array() ) );
+	array_keys( $page_ids ),
+), array( 9, array( 8, 1 ), array( 'div.wpcpm-administrator__scroll 0 region alone' ), array(), array() ) );
 
 // Read off the source too, for a table no fixture above reaches: every column table any file of
 // the plugin prints opens right after the box does, and the cards open no box around anything
@@ -3806,7 +4178,41 @@ ck( 'a refused Draft now is said beside a held decision',
 $_POST            = array();
 $GLOBALS['flash'] = array( 'institutions' => 'sevent-approved' );
 $no_card          = WPCPM_Administrators_Dashboard::render( array() );
-ck( 'an outcome with no card is said under the intro line, where it was', has( $no_card, $intro . '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status"' ), true );
+$GLOBALS['flash'] = array( 'institutions' => 'sevent-approved' );
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
+$no_card_ref      = WPCPM_Administrators_Dashboard::render( array() );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+// Where the intro line was, the outcome with no card is said where the slot now is: on the Overview
+// after the figures and before the two columns, on the Reference view after its head and before its group.
+ck( 'an outcome with no card is said where the page\'s outcome goes, once: on the Overview after the figures and before the two columns, and on the Reference view after its head and before its group', array(
+	has( $no_card, '</section><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The event is approved.</p><div class="wpcpm-overview">' ),
+	has( $no_card_ref, '</header><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The event is approved.</p><div class="wpcpm-reference">' ),
+	array( substr_count( $no_card, 'data-wpcpm-card-message' ), substr_count( $no_card_ref, 'data-wpcpm-card-message' ), substr_count( $no_card . $no_card_ref, WPCPM_Dashboard_Card::SLOT ) ),
+), array( true, true, array( 1, 1, 0 ) ) );
+// A card whose queue is empty is not drawn on the Overview, but the card a decision just came back to
+// is, open, with its outcome at the top of its body, though what it decided emptied its queue: the
+// sponsor offers' queue is empty here, and the one offer it held was just approved. The other queues'
+// cards stay folded, and the sentence that names the empty queues does not name that one.
+$_POST = array( WPCPM_Return::FIELD => 'dashboard', WPCPM_Return::ANCHOR_FIELD => 'sponsor-offers-review' );
+WPCPM_Return::url( 'https://example.test/wp-admin/' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'offer-approved' );
+$held_empty = WPCPM_Administrators_Dashboard::render( array() );
+$_POST      = array();
+ck( 'the card a decision just came back to is drawn though its queue is now empty: open, its outcome at the top of its body, the other queues\' cards folded, and not named among the empty queues', array(
+	page_cards( $held_empty ),
+	isset( row_marks( $held_empty )['sponsor-offers-review'] ) ? row_marks( $held_empty )['sponsor-offers-review']['open'] : null,
+	has( $card_of( $held_empty, 'wpcpm-sponsor-offers-review' ), '<div class="wpcpm-group__body"><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>Approved. Students and mentors the offer is open to see it as it now reads.</p>' ),
+	substr_count( $held_empty, 'data-wpcpm-card-message' ),
+	row_marks( $held_empty )['applications']['open'],
+	array_key_exists( 'Sponsor offers to review', quiet_links( $held_empty ) ),
+), array(
+	array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports', 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
+	true,
+	true,
+	1,
+	false,
+	false,
+) );
 $GLOBALS['flash'] = array();
 
 // this page posts flashes on the Institutions screen's channel. Merged under one key, the map the
@@ -4305,17 +4711,31 @@ ck( 'and the card ends with the same link as a line, after all the queue class d
 	ends_with( $se_empty, $sponsors_line( 'queue', 'wpcpm-sponsor-events' ) ),
 ), array( true, true ) );
 
-$GLOBALS['flash'] = array();
-$se_page          = WPCPM_Administrators_Dashboard::render( array() );
+// The Overview switched on and off, each with what counts() gives in the same state, which the head and
+// the menu read; the same two with every queue holding something, the one sponsor offer waiting for
+// review put back; and the Reference view, switched on.
+$GLOBALS['flash']      = array();
+$se_page               = WPCPM_Administrators_Dashboard::render( array() );
+$se_page_counts        = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
 $GLOBALS['tiers_live'] = false;
 $se_page_off           = WPCPM_Administrators_Dashboard::render( array() );
+$se_page_off_counts    = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
 $GLOBALS['tiers_live'] = true;
-ck( 'on the page, switched on, every tile links to a card the page draws, in the order the page draws them, the Events waiting tile between the sponsor posts\' and the Sponsor Collaboration Agreements\', and Syncs and health\'s two side by side; switched off, no tile links to that card and every tile to a card drawn', array(
-	strip_links( $se_page ),
-	array_values( array_diff( strip_links( $se_page ), page_cards( $se_page ) ) ),
-	array_values( array_intersect( page_cards( $se_page ), strip_links( $se_page ) ) ) === array_values( array_unique( strip_links( $se_page ) ) ),
-	in_array( 'sponsor-events', strip_links( $se_page_off ), true ),
-	array_values( array_diff( strip_links( $se_page_off ), page_cards( $se_page_off ) ) ),
+$GLOBALS['offer_reviews'] = array( array( 'id' => 931, 'record' => 'recSPN00000000001', 'company' => 'TEST Sponsor', 'title' => 'A year of hosting', 'change' => 'new', 'by' => 'Member One', 'at' => time() - 600, 'fields' => array() ) );
+$se_full                  = WPCPM_Administrators_Dashboard::render( array() );
+$GLOBALS['tiers_live']    = false;
+$se_full_off              = WPCPM_Administrators_Dashboard::render( array() );
+$GLOBALS['tiers_live']    = true;
+unset( $GLOBALS['offer_reviews'] );
+$_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
+$se_ref = WPCPM_Administrators_Dashboard::render( array() );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+ck( 'switched on, every count counts() gives leads to a card the Overview draws, in the order the Overview draws them, the Events count between the sponsor posts\' and the Sponsor Collaboration Agreements\', and Syncs and health\'s two side by side; switched off, no count leads to that card and every count to a card drawn', array(
+	count_cards( $se_page_counts ),
+	array_values( array_diff( count_cards( $se_page_counts ), page_cards( $se_page ) ) ),
+	array_values( array_intersect( page_cards( $se_page ), count_cards( $se_page_counts ) ) ) === array_values( array_unique( count_cards( $se_page_counts ) ) ),
+	in_array( 'sponsor-events', count_cards( $se_page_off_counts ), true ),
+	array_values( array_diff( count_cards( $se_page_off_counts ), page_cards( $se_page_off ) ) ),
 ), array(
 	array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports', 'offers-low', 'duplicates', 'health', 'health' ),
 	array(),
@@ -4335,24 +4755,30 @@ function card_titles( $html ) {
 }
 
 /**
- * Each tile on a page's strip, in the strip's order: the card it leads to and its words.
+ * Each count counts() gives that leads to a card, in its order: the card and the count's words, which
+ * this page's strip printed and the Sponsor Dashboard's At a glance strip still prints.
  *
- * @param string $html The page.
+ * @param array $counts What `WPCPM_Administrators_Cards::counts()` returned.
  * @return string[][]
  */
-function strip_words( $html ) {
-	$strip = (string) strstr( (string) strstr( (string) $html, '<section class="wpcpm-administrator__card wpcpm-attention" id="wpcpm-attention"' ), '</section>', true );
-	preg_match_all( '#<a class="wpcpm-attention__link" href="\#wpcpm-([a-z-]+)"><span class="wpcpm-attention__n">[^<]*</span><span class="wpcpm-attention__l">([^<]*)</span>#', $strip, $words, PREG_SET_ORDER );
-	return array_map( static function ( $tile ) { return array( $tile[1], $tile[2] ); }, $words );
+function count_words( array $counts ) {
+	$words = array();
+	foreach ( $counts as $tile ) {
+		if ( isset( $tile['card'] ) ) {
+			$words[] = array( (string) $tile['card'], (string) $tile['label'] );
+		}
+	}
+	return $words;
 }
-// A tile read out of the strip says what it counts, in the words wp-admin names the queue by: the
-// title of the card it leads to, then what the count is. Syncs and health is the one card whose two
-// tiles each count a part of what it holds, so each begins with what it counts: the syncs that need a
-// look, and the locked accounts it lists.
-$se_titles = card_titles( $se_page );
-ck( 'on the page each tile\'s words begin with the title of the card it leads to, the two tiles of Syncs and health alone excepted', array(
-	strip_words( $se_page ),
-	array_values( array_map( static function ( $tile ) { return $tile[1]; }, array_filter( strip_words( $se_page ), static function ( $tile ) use ( $se_titles ) { return ! isset( $se_titles[ $tile[0] ] ) || 0 !== strpos( $tile[1], $se_titles[ $tile[0] ] ); } ) ) ),
+// A count says what it counts, in the words wp-admin names the queue by: the title of the card it
+// leads to, as the page draws that card, then what the count is. Syncs and health is the one card whose
+// two counts each count a part of what it holds, so each begins with what it counts: the syncs that
+// need a look, and the locked accounts it lists. The titles are read off both views, which together
+// draw every card.
+$se_titles = card_titles( $se_full . $se_ref );
+ck( 'each count\'s words begin with the title of the card it leads to, as the page draws it, the two counts of Syncs and health alone excepted', array(
+	count_words( $se_page_counts ),
+	array_values( array_map( static function ( $tile ) { return $tile[1]; }, array_filter( count_words( $se_page_counts ), static function ( $tile ) use ( $se_titles ) { return ! isset( $se_titles[ $tile[0] ] ) || 0 !== strpos( $tile[1], $se_titles[ $tile[0] ] ); } ) ) ),
 ), array(
 	array(
 		array( 'applications', 'Institution applications waiting' ),
@@ -4372,7 +4798,8 @@ ck( 'on the page each tile\'s words begin with the title of the card it leads to
 	array( 'Syncs need a look', 'Locked accounts' ),
 ) );
 // The block's description, which the block inserter shows, names the three groups and every card
-// the page draws in each, by the card's title: a card added, moved or renamed without it fails. A
+// the page draws in each, by the card's title, the Overview's two and the Reference view's one, read
+// with every queue holding something: a card added, moved or renamed without it fails. A
 // title counts only as a whole entry of its group's list, between two of the list's separators (its
 // start or end, a comma, a comma and "and", or "and"), so a title found only inside a longer one,
 // Collaboration Agreements inside Sponsor Collaboration Agreements, does not name its card.
@@ -4382,7 +4809,8 @@ $named     = array(
 	'watch'     => 'Watch',
 	'reference' => 'Reference',
 );
-foreach ( page_groups( $se_page ) as $group => $anchors ) {
+$se_groups = array_merge( page_groups( $se_full ), page_groups( $se_ref ) );
+foreach ( $se_groups as $group => $anchors ) {
 	$held = isset( $named[ $group ] ) && 1 === preg_match( '/\b' . preg_quote( $named[ $group ], '/' ) . ' \(([^)]*)\)/', (string) $block['description'], $in_group ) ? strtolower( $in_group[1] ) : '';
 	foreach ( $anchors as $anchor ) {
 		$described[ $group ][ $anchor ] = isset( $se_titles[ $anchor ] ) && '' !== $held && 1 === preg_match( '/(?:^|, (?:and )?| and )' . preg_quote( strtolower( html_entity_decode( $se_titles[ $anchor ], ENT_QUOTES ) ), '/' ) . '(?=$|,| and )/', $held );
@@ -4393,29 +4821,42 @@ ck( 'the block\'s description names the three groups in the page\'s order and, i
 	$described,
 	false !== strpos( $block_words, 'Waiting for you (' ) && strpos( $block_words, 'Waiting for you (' ) < (int) strpos( $block_words, 'Watch (' ) && strpos( $block_words, 'Watch (' ) < (int) strpos( $block_words, 'Reference (' ),
 ), array(
-	array_map( static function ( $anchors ) { return array_fill_keys( $anchors, true ); }, page_groups( $se_page ) ),
+	array_map( static function ( $anchors ) { return array_fill_keys( $anchors, true ); }, $se_groups ),
 	true,
 ) );
-ck( 'on the page the card is drawn right after Sponsor posts and before the Sponsor Collaboration Agreements, and not at all while Sponsor tiers is off', array(
-	before_in( $se_page, 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-events"' ),
-	before_in( $se_page, 'id="wpcpm-sponsor-events"', 'id="wpcpm-sponsor-agreements"' ),
+ck( 'on the Overview the card is drawn after Sponsor posts and Sponsor offers to review, and before the Sponsor Collaboration Agreements', in_order( $se_full, array( 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-offers-review"', 'id="wpcpm-sponsor-events"', 'id="wpcpm-sponsor-agreements"' ) ), true );
+// The Events card is a queue only while Sponsor tiers is on (`queues()`): while it is off the page says
+// nothing of it, neither a card nor a count nor a name among the empty queues, with every other queue
+// holding something or one of them empty.
+ck( 'and not at all while Sponsor tiers is off: no card, no count, and the sentence that names the empty queues does not name it', array(
+	has( $se_full_off, 'wpcpm-sponsor-events' ),
 	has( $se_page_off, 'wpcpm-sponsor-events' ),
-	has( $se_page_off, 'Events waiting' ),
-), array( true, true, false, false ) );
-ck( 'its place is in Waiting for you, between Sponsor posts and the Sponsor Collaboration Agreements, while Sponsor tiers is on, and the group has no entry for it while it is off, its other cards as they are', array(
-	page_groups( $se_page ),
-	page_groups( $se_page_off ),
+	array_key_exists( 'sponsor_events', $se_page_off_counts ),
+	array_key_exists( 'Events', quiet_links( $se_page_off ) ),
+), array( false, false, false, false ) );
+ck( 'its place is in Waiting for you, between Sponsor offers to review and the Sponsor Collaboration Agreements, while Sponsor tiers is on, and the group has no card for it while it is off, its other cards as they are', array(
+	page_groups( $se_full ),
+	page_groups( $se_full_off ),
 ), array(
 	array(
-		'waiting'   => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports' ),
-		'watch'     => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
-		'reference' => array( 'sponsors', 'programs', 'mentor-engagement' ),
+		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports' ),
+		'watch'   => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
 	),
 	array(
-		'waiting'   => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
-		'watch'     => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
-		'reference' => array( 'sponsors', 'programs', 'mentor-engagement' ),
+		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
+		'watch'   => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
 	),
+) );
+// Switched on, with every queue holding something the Waiting group ends with its last card; with the
+// sponsor offers' queue alone empty, the sentence names that one queue, in the singular.
+ck( 'switched on, with every queue holding something no sentence names an empty queue, and with one queue empty the sentence names it alone, in the singular, its name a link to its card on the Sponsors screen', array(
+	has( $se_full, 'wpcpm-overview__quiet' ),
+	1 === preg_match( '#<p class="wpcpm-overview__quiet">.*?</p>#s', $se_page, $se_one ) ? $se_one[0] : '',
+	page_cards( $se_page ) === array_values( array_diff( page_cards( $se_full ), array( 'sponsor-offers-review' ) ) ),
+), array(
+	false,
+	'<p class="wpcpm-overview__quiet">Nothing waits in the 1 other queue: <a href="' . tab_url( 'wpcpm-sponsors', 'queue', 'wpcpm-sponsor-offers-review' ) . '">Sponsor offers to review</a>. Its name opens its screen in wp-admin.</p>',
+	true,
 ) );
 
 $GLOBALS['flash'] = array( 'institutions' => 'sevent-approved' );
@@ -4478,9 +4919,10 @@ echo "\n=== Each sponsor card and its tile count what waits ===\n";
 
 // A sponsor queue is read twice: the rows its card draws, the oldest LIMIT, and how many wait, read
 // as the Sponsors screen counts the same queue: the posts and the signed agreements one more than
-// its ceiling, the applications in full. The tile, the number beside the card's title, the words
-// after it and the line under a cut list come from the second, the rows from the first. Every check
-// reads the three queues apart, through the page a manager opens, as a manager sees it (`seen()`).
+// its ceiling, the applications in full. The count counts() gives the queue, which the head and the
+// menu read and the strip's tile printed, the number beside the card's title, the words after it and
+// the line under a cut list come from the second, the rows from the first. Every check reads the three
+// queues apart, through the Overview a manager opens, as a manager sees it (`seen()`).
 $limit        = WPCPM_Administrators_Cards::LIMIT;
 $ceiling      = WPCPM_Sponsors::COUNT_MAX;
 $saved_queues = array( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['agr_facts'], $GLOBALS['sponsor_apps'] );
@@ -4508,27 +4950,31 @@ $sponsor_queues = static function ( $posts, $agreements = null, $applications = 
 	}
 };
 
-// Each sponsor card as the page draws it for a manager, as a manager sees it, with the number on its
-// tile in the strip: '' while the strip draws the card no tile, as it draws none for a count at zero.
+// Each sponsor card as the Overview draws it for a manager, as a manager sees it, '' while it draws
+// none, as it draws none for an empty queue; the count counts() gives its queue in the same state, in
+// the words the strip's tile printed it in, '' while it gives none, as it gives none at zero; and the
+// queues the Overview names as empty, each with its link.
 $sponsor_cards = static function () {
 	$GLOBALS['uid']    = 3;
 	$GLOBALS['manage'] = array( 3 );
 	$page              = seen( WPCPM_Administrators_Dashboard::render( array() ) );
+	$counts            = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
 	$drawn             = array();
 
 	foreach ( array( 'posts' => 'sponsor-posts', 'agreements' => 'sponsor-agreements', 'applications' => 'sponsor-applications' ) as $queue => $id ) {
 		preg_match( '#<section class="wpcpm-administrator__card" id="wpcpm-' . $id . '">.*?</section>#s', $page, $card );
-		preg_match( '#<a class="wpcpm-attention__link" href="\#wpcpm-' . $id . '"><span class="wpcpm-attention__n">([^<]*)</span>#', $page, $tile );
+		$tile            = isset( $counts[ 'sponsor_' . $queue ] ) ? $counts[ 'sponsor_' . $queue ] : null;
 		$drawn[ $queue ] = array(
-			'card' => isset( $card[0] ) ? $card[0] : '',
-			'tile' => isset( $tile[1] ) ? $tile[1] : '',
+			'card'  => isset( $card[0] ) ? $card[0] : '',
+			'tile'  => null === $tile ? '' : ( isset( $tile['shown'] ) ? (string) $tile['shown'] : number_format_i18n( (int) $tile['n'] ) ),
+			'quiet' => quiet_links( $page ),
 		);
 	}
 
 	return $drawn;
 };
 
-// What each sponsor card counts: its tile's number, the number beside its title, the words after
+// What each sponsor card counts: its queue's count, the number beside its title, the words after
 // it on its row, and how many of its queue's items it lists.
 $sponsor_counts = static function () use ( $sponsor_cards ) {
 	$item = array(
@@ -4569,36 +5015,73 @@ $alike = static function ( array $said ) {
 };
 
 // Each card drawn from its rows alone, the way the page drew it before its count was read apart:
-// the agreements card with the one agreement out of force the fixture holds.
-$sponsor_alone = static function () {
+// the agreements card with the one agreement out of force the fixture holds. Drawn as the Overview
+// draws a queue's card, folded with the Review cue, and with the age its row on the page says, which
+// the checks of the Overview's rows read against the fixture's own dates.
+$sponsor_alone = static function ( array $ages = array() ) {
 	$review = array();
 
 	foreach ( $GLOBALS['agr_review'] as $id ) {
 		$review[] = $GLOBALS['agr_facts'][ $id ];
 	}
 
+	$as_row = static function ( $anchor, $draw ) use ( $ages ) {
+		WPCPM_Dashboard_Card::fold( true, 'Review' );
+		WPCPM_Dashboard_Card::age( $anchor, isset( $ages[ $anchor ] ) ? (string) $ages[ $anchor ] : '' );
+		$card = capture( $draw );
+		WPCPM_Dashboard_Card::age( $anchor, '' );
+		WPCPM_Dashboard_Card::fold( false );
+		return $card;
+	};
+
 	return array(
-		'posts'        => capture( static function () { WPCPM_Administrators_Cards::render_sponsor_posts( $GLOBALS['sponsor_posts'] ); } ),
-		'agreements'   => capture( static function () use ( $review ) { WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => $review, 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) ); } ),
-		'applications' => capture( static function () { WPCPM_Administrators_Cards::render_sponsor_applications( $GLOBALS['sponsor_apps'] ); } ),
+		'posts'        => $as_row( 'wpcpm-sponsor-posts', static function () { WPCPM_Administrators_Cards::render_sponsor_posts( $GLOBALS['sponsor_posts'] ); } ),
+		'agreements'   => $as_row( 'wpcpm-sponsor-agreements', static function () use ( $review ) { WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => $review, 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) ); } ),
+		'applications' => $as_row( 'wpcpm-sponsor-applications', static function () { WPCPM_Administrators_Cards::render_sponsor_applications( $GLOBALS['sponsor_apps'] ); } ),
 	);
+};
+// The age each card's row on the page says, by its anchor.
+$ages_on = static function ( array $cards ) {
+	$ages = array();
+
+	foreach ( $cards as $card ) {
+		$marks = row_marks( $card );
+
+		foreach ( $marks as $anchor => $row ) {
+			$ages[ 'wpcpm-' . $anchor ] = (string) $row['age'];
+		}
+	}
+
+	return $ages;
 };
 
 $sponsor_queues( 0 );
+$none_drawn  = $sponsor_cards();
 $none_counts = $sponsor_counts();
 $none_lines  = $sponsor_lines();
-$none_page   = array_map( static function ( $drawn ) { return $drawn['card']; }, $sponsor_cards() );
-$none_alone  = $sponsor_alone();
+$none_page   = array_map( static function ( $drawn ) { return $drawn['card']; }, $none_drawn );
 $sponsor_queues( 3 );
 $three_counts = $sponsor_counts();
 $three_lines  = $sponsor_lines();
 $three_page   = array_map( static function ( $drawn ) { return $drawn['card']; }, $sponsor_cards() );
-$three_alone  = $sponsor_alone();
-ck( 'with nothing waiting, and with three waiting and three listed, each card, its row\'s words and its tile count what the card lists, as before: no tile at zero',
-	array( $none_counts, $three_counts ),
-	array( $alike( array( '', '0', '0 waiting', 0 ) ), $alike( array( '3', '3', '3 waiting', 3 ) ) ) );
+$three_alone  = $sponsor_alone( $ages_on( $three_page ) );
+ck( 'with nothing waiting no sponsor card is drawn and no count is given, the sentence that names the empty queues naming each of the three with the way to its card on the Sponsors screen; with three waiting and three listed, each card, its row\'s words and its count say what the card lists, as before',
+	array( $none_counts, array_intersect_key( $none_drawn['posts']['quiet'], array_flip( array( 'Sponsor applications', 'Sponsor posts to review', 'Sponsor Collaboration Agreements' ) ) ), $three_counts ),
+	array(
+		$alike( array( '', '', '', 0 ) ),
+		array(
+			'Sponsor applications'             => tab_url( 'wpcpm-sponsors', 'queue', 'wpcpm-sponsor-applications' ),
+			'Sponsor posts to review'          => tab_url( 'wpcpm-sponsors', 'queue', 'wpcpm-sponsor-posts' ),
+			'Sponsor Collaboration Agreements' => tab_url( 'wpcpm-sponsors', 'queue', 'wpcpm-sponsor-agreements' ),
+		),
+		$alike( array( '3', '3', '3 waiting', 3 ) ),
+	) );
 ck( 'and no card says any more under its list', array( $none_lines, $three_lines ), array( $alike( array() ), $alike( array() ) ) );
-ck( 'and each card is drawn byte for byte as it is drawn from its rows alone', array( $none_page === $none_alone, $three_page === $three_alone ), array( true, true ) );
+ck( 'and each card the Overview draws is byte for byte the card drawn from its rows alone, folded with the Review cue and the age its row says, which each of the three says; with nothing waiting it draws none', array(
+	$none_page,
+	$three_page === $three_alone,
+	array_keys( array_filter( $ages_on( $three_page ), static function ( $age ) { return '' === $age; } ) ),
+), array( array_fill_keys( array( 'posts', 'agreements', 'applications' ), '' ), true, array() ) );
 
 $sponsor_queues( $limit + 7 );
 ck( 'with seven more waiting than a card lists, each card lists the oldest LIMIT, and its tile, the number beside its title and the words after it count every one waiting',

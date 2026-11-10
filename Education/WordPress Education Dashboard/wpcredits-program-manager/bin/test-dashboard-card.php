@@ -66,10 +66,17 @@
  *   enqueues it; none of the three registers the script itself. The Institution Dashboard's folded
  *   parts are drawn by their own cards, not by the shell, in the same shape (a section whose first
  *   child is the disclosure), which is all the opener reads.
+ * - **A run of cards drawn folded, and how long one has waited** (1.123.69): after `fold( true )`
+ *   every card is drawn folded, whatever it asks, with the cue it was given in its row, until
+ *   `fold( false )`; a card that holds the page's outcome is drawn open all the same, so the outcome
+ *   is on screen. `age()` names a card by its anchor and puts how long its oldest item has waited in
+ *   that card's row, after the phrase, as the homepage's red status tag, escaped; no words take it
+ *   back, and `forget()` clears every age, the fold and its cue.
  * - **One group of cards, one shape for both pages**: `group()` prints a group's wrapper, its
  *   heading and its one sentence over its cards, in the Sponsor Dashboard's classes unless a page
  *   asks for its own, every value escaped, and nothing at all for a group whose cards print nothing
- *   or nothing but white space; both dashboards print every group through it.
+ *   or nothing but white space; the Administrator Dashboard prints each of its three groups through
+ *   it, and neither dashboard prints a group by hand.
  * - **The plugin loads the class** among its shared classes, before any card drawn in it, and
  *   uninstall.php loads it too.
  *
@@ -97,6 +104,8 @@ function esc_url( $url ) {
 	$url = (string) preg_replace( '|[^a-z0-9-~+_.?#=!&;,/:%@$\|*\'()\[\]\\x80-\\xff]|i', '', $url );
 	return str_replace( array( '&', "'" ), array( '&#038;', '&#039;' ), $url );
 }
+// Core's, for the outcome a card holds (`hold()`), whose message prints its class through it.
+function sanitize_html_class( $c ) { return (string) preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 // With the thousands separator core's English locale prints, so a count that skipped it shows.
 function number_format_i18n( $n, $d = 0 ) { return number_format( (float) $n, (int) $d ); }
 // The script registry, as the two dashboards' suites stand it in: a handle registered once, with
@@ -407,6 +416,90 @@ ck( 'a close() with nothing open still ends the markup, with no action',
 		}
 	),
 	'</div></details></section>'
+);
+
+echo "\n=== A run of cards drawn folded, and how long one has waited ===\n";
+// The Administrator Dashboard's Overview draws each card as one row (1.123.69): the queues' cards
+// folded with a Review cue, the cards to watch folded with none. A card asks to be open by its own
+// rule, the queues' above zero, and fold() outweighs it until it is switched off. Each call is made
+// only while the shell has it, so before it does these checks fail as checks.
+$fold         = static function ( $on, $cue = '' ) {
+	if ( is_callable( array( 'WPCPM_Dashboard_Card', 'fold' ) ) ) {
+		WPCPM_Dashboard_Card::fold( $on, $cue );
+	}
+};
+$age          = static function ( $anchor, $words ) {
+	if ( is_callable( array( 'WPCPM_Dashboard_Card', 'age' ) ) ) {
+		WPCPM_Dashboard_Card::age( $anchor, $words );
+	}
+};
+$cue          = '<span class="wpcpm-card__cue" aria-hidden="true">Re&lt;b&gt;view&lt;/b&gt;</span>';
+$admin_toggle = '<span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>';
+$fold( true, 'Re<b>view</b>' );
+$folded_open   = administrator_card( 'applications', 'Institution applications', 2 );
+$folded_phrase = administrator_card( 'health', 'Syncs and health', 3, array( 'state' => '3 syncs need a look', 'open' => true ) );
+$fold( false );
+$unfolded = administrator_card( 'applications', 'Institution applications', 2 );
+ck( 'after fold( true ) a card is drawn folded though its own rule asks for it open, the cue it was given in its row before the toggle, hidden from a screen reader and escaped; after fold( false ) the same card is drawn open again, byte for byte as before, with no cue',
+	array( $folded_open, $unfolded ),
+	array(
+		'<section class="wpcpm-administrator__card" id="wpcpm-applications"><details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Institution applications <span class="wpcpm-group__count">2</span></h3>' . $cue . $admin_toggle . '<div class="wpcpm-group__body"><p>Body.</p></div></details></section>',
+		$administrator_today['open, with its count'],
+	)
+);
+ck( 'a card that asks to be open by name is folded too, and its cue comes after its phrase',
+	array( strpos( $folded_phrase, ' open>' ), false !== strpos( $folded_phrase, '<span class="wpcpm-sponsor__state">3 syncs need a look</span>' . $cue . $admin_toggle ) ),
+	array( false, true )
+);
+$fold( true );
+$no_cue = administrator_card( 'reports', 'Semester reports', 1 );
+$fold( false, 'Review' );
+$after_off = administrator_card( 'reports', 'Semester reports', 1 );
+ck( 'fold( true ) with no cue folds the card and prints no cue, and fold( false ) prints none whatever words it is given',
+	array( strpos( $no_cue, ' open>' ), strpos( $no_cue, 'wpcpm-card__cue' ), false !== strpos( $after_off, ' open>' ), strpos( $after_off, 'wpcpm-card__cue' ) ),
+	array( false, false, true, false )
+);
+// The outcome of a decision is printed in the card it came back to, and a folded card would hide it.
+WPCPM_Dashboard_Card::hold( 'wpcpm-reports', 'success', 'The report is approved.' );
+$fold( true, 'Review' );
+$holding = administrator_card( 'reports', 'Semester reports', 0 );
+$next    = administrator_card( 'applications', 'Institution applications', 2 );
+$fold( false );
+WPCPM_Dashboard_Card::forget();
+ck( 'while fold( true ) is on, the card that holds the page\'s outcome is drawn open, though it counts nothing, the outcome at the top of its body, and the next card is folded again with nothing held',
+	array(
+		0 === strpos( $holding, '<section class="wpcpm-administrator__card" id="wpcpm-reports"><details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure" open><summary ' ),
+		false !== strpos( $holding, '<div class="wpcpm-group__body"><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The report is approved.</p><p>Body.</p></div>' ),
+		strpos( $next, ' open>' ),
+		strpos( $next, 'data-wpcpm-card-message' ),
+	),
+	array( true, true, false, false )
+);
+$age_tag = '<span class="wpcpm-card__age wpcpm-status wpcpm-status--red">65 days &lt;b&gt;waiting&lt;/b&gt;</span>';
+$age( 'wpcpm-applications', '65 days <b>waiting</b>' );
+$aged  = administrator_card( 'applications', 'Institution applications', 2, array( 'state' => '2 waiting' ) );
+$other = administrator_card( 'health', 'Syncs and health', 0, array( 'state' => '0 syncs need a look' ) );
+$fold( true, 'Review' );
+$aged_cued = administrator_card( 'applications', 'Institution applications', 2, array( 'state' => '2 waiting' ) );
+$fold( false );
+ck( 'age() puts how long the oldest item waited in the row of the card whose anchor it names, after the phrase and before the cue and the toggle, as the homepage\'s red status tag, escaped; a card it does not name prints none',
+	array(
+		false !== strpos( $aged, '<span class="wpcpm-sponsor__state">2 waiting</span>' . $age_tag . $admin_toggle ),
+		false !== strpos( $aged_cued, '<span class="wpcpm-sponsor__state">2 waiting</span>' . $age_tag . '<span class="wpcpm-card__cue" aria-hidden="true">Review</span>' . $admin_toggle ),
+		strpos( $other, 'wpcpm-card__age' ),
+		strpos( $aged . $aged_cued, '<b>' ),
+	),
+	array( true, true, false, false )
+);
+$age( 'wpcpm-applications', '' );
+$taken_back = administrator_card( 'applications', 'Institution applications', 2 );
+$age( 'wpcpm-applications', '3 days waiting' );
+$fold( true, 'Review' );
+WPCPM_Dashboard_Card::forget();
+$forgotten = administrator_card( 'applications', 'Institution applications', 2 );
+ck( 'age() with no words takes the age back, and forget() clears every age, the fold and its cue, so a page drawn twice in one request draws the second time as the first',
+	array( $taken_back, $forgotten ),
+	array( $administrator_today['open, with its count'], $administrator_today['open, with its count'] )
 );
 
 echo "\n=== Every card is drawn in the shell ===\n";
@@ -752,16 +845,22 @@ ck( 'and one whose cards print something is its wrapper, its heading in the eyeb
 );
 // The Sponsor Dashboard's four sections stopped being groups when they became movable modules
 // (Institutions release 3): it draws them through the printer both dashboards draw a module with, and
-// the Administrator Dashboard is the shell's one caller left, asking for its own classes.
-ck( 'the Administrator Dashboard prints every group through the shell, asking for its own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as modules',
+// the Administrator Dashboard is the shell's one caller left, asking for its own classes. Since the
+// version 3 concepts (1.123.69) it calls the printer once for each of its three groups, Waiting for you
+// and Watch on the Overview and Reference on its own view, where it called it once in a loop: each call
+// merges the page's classes into what it asks. Calls are read where a statement starts, so the class's
+// own docblock, which names the printer, is not one.
+preg_match_all( '/WPCPM_Dashboard_Card::group\(\s*array_merge\(\s*self::GROUP,\s*array\(\s*\'id\'\s*=>\s*\'([a-z-]+)\'/', $admin_page, $admin_groups );
+ck( 'the Administrator Dashboard prints each of its three groups through the shell, Waiting for you, Watch and Reference, each asking for the page\'s own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as modules',
 	array(
 		substr_count( $sponsors_page, 'WPCPM_Dashboard_Card::group(' ),
 		substr_count( $sponsors_page, "WPCPM_Module_Order::render_module(\n" ),
-		substr_count( $admin_page, 'WPCPM_Dashboard_Card::group( array_merge( self::GROUP, $group ) );' ),
-		substr_count( $sponsors_page . $admin_page, '__group--%' ) + substr_count( $sponsors_page . $admin_page, '__group-lead">%' ),
+		preg_match_all( '/^\s*WPCPM_Dashboard_Card::group\(/m', $admin_page ),
+		$admin_groups[1],
+		substr_count( $sponsors_page . $admin_page, '__group--%' ) + substr_count( $sponsors_page . $admin_page, '__group-lead">%' ) + substr_count( $sponsors_page . $admin_page, '__group-title">%' ),
 		strpos( $admin_page, 'function render_group(' ),
 	),
-	array( 0, 1, 1, 0, false )
+	array( 0, 1, 3, array( 'waiting', 'watch', 'reference' ), 0, false )
 );
 
 echo "\n=== Wiring and house rules ===\n";

@@ -6,7 +6,7 @@
 	"title": "Administrator Dashboard",
 	"category": "widgets",
 	"icon": "dashboard",
-	"description": "Shows Administrators what needs them, then the cards in three groups: Waiting for you (institution applications, Collaboration Agreements, semester reports, requests from institutions, sponsor applications, sponsor posts to review, sponsor offers to review, events, Sponsor Collaboration Agreements and sponsor reports), Watch (offers running low, duplicated students, new interests, sponsor terms ending, and syncs and health) and Reference (sponsors, programs running and mentor engagement).",
+	"description": "Shows Administrators what needs them, then the cards in three groups: Waiting for you (institution applications, Collaboration Agreements, semester reports, requests from institutions, sponsor applications, sponsor posts to review, sponsor offers to review, events, Sponsor Collaboration Agreements and sponsor reports), Watch (upcoming cohorts, offers running low, duplicated students, new interests, sponsor terms ending, and syncs and health) and Reference (sponsors, programs running and mentor engagement).",
 	"keywords": [ "administrator", "manager", "wpcredits", "program" ],
 	"textdomain": "wpcredits-program-manager",
 	"attributes": {

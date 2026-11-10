@@ -92,9 +92,9 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 
 ### The Students and mentors tab
 
-Nine sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
-pages**, **Student registrations**, **Interest from students**, **Quiet students**, **New students**
-and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
+Ten sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
+pages**, **Student registrations**, **Interest from students**, **Quiet students**, **New students**,
+**Cohort planning** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
 
 #### Who is on the program
 
@@ -353,6 +353,15 @@ a line with the page's address, *Your first week, step by step:*, through the op
 registration form's confirmation mentions the Team Matcher page while it is published. An email an
 Administrator had edited before keeps its text, and the shipped text shows as changed in Tools >
 Emails.
+
+#### Cohort planning
+
+How many students one mentor takes (since 1.123.68), on the **Students and mentors** tab, in the
+section **Cohort planning**.
+
+- **Students per mentor** - a number from 1 to 20, 3 unless changed. The cohort timeline on the
+  Administrator Dashboard counts this many places for each active mentor, and says a month is short
+  when its students are more than the places.
 
 #### Mentor applications
 
@@ -667,7 +676,7 @@ records, read-only, through the MCP Adapter plugin. The section is saved with th
   engagement, the moment it counts as of). **Program counts** gives the figures the Administrator
   Dashboard counts for the current semester: students per track, mentors, institutions per stage,
   sponsors per tier, mentor applications and the outcome figures. **What waits for an Administrator**
-  lists the tiles of the dashboard's attention strip, with how many wait and where to open each, and
+  lists what waits, the counts the Administrator Dashboard reads, with how many wait and where to open each, and
   when each sync last ran and runs next and whether the Syncs and health card counts it among those
   that need a look. **Mentor engagement** says how many active mentors signed in, were seen, acted
   or stayed idle, as the Engagement tab counts them, as of a day. **One institution** is found by

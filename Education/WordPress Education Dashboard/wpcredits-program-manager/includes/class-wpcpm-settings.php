@@ -184,6 +184,10 @@ class WPCPM_Settings {
 			'student_flags_mode'            => 'off',
 			'student_quiet_days'            => 14,
 
+			// Cohort planning: how many students one mentor takes, for the cohort timeline's places
+			// (1.123.68). Three by default.
+			'students_per_mentor'           => 3,
+
 			// New students: the first-week checklist card on the Student Report Card. Off until a person
 			// turns it on; the time it first goes on decides who counts as new.
 			'student_checklist_enabled'     => false,
@@ -383,6 +387,7 @@ class WPCPM_Settings {
 				'student_flags_mode',
 				'student_quiet_days',
 				'student_checklist_enabled',
+				'students_per_mentor',
 			),
 			'institutions'               => array(
 				'applications_enabled',
@@ -1114,6 +1119,8 @@ class WPCPM_Settings {
 			'mentor_lapse_days'             => array( 14, 365 ),
 			// A week's floor keeps a typo from calling every student quiet; two months is the longest wait.
 			'student_quiet_days'            => array( 7, 60 ),
+			// One student a mentor is the least that plans anything; twenty is more than anybody mentors.
+			'students_per_mentor'           => array( 1, 20 ),
 			// Claude access. One is the least a ceiling can be and still answer: a zero would refuse every
 			// question and read as a broken site. A week is the least the log is kept, so a typo cannot
 			// empty today's record tonight.

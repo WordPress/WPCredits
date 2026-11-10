@@ -765,8 +765,8 @@ $call    = strpos( $mentors, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::
 ck( 'the Mentor Report Card draws it after the past students, as the last section, for the mentor themself (the updates and resources lead the page since 1.95.14)', $call > strpos( $mentors, "esc_html__( 'Past students', 'wpcredits-program-manager' )" ) && $call > strpos( $mentors, "WPCPM_Handbook_Assistant::render_resources( 'mentor' )" ) && strpos( $mentors, "WPCPM_Handbook_Assistant::render_resources( 'mentor' )" ) < strpos( $mentors, 'WPCPM_Call_Calendar::render_mentor( $mentor )' ) && false !== strpos( $mentors, '$viewer->ID === $mentor->ID' ), true );
 $admin = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-dashboard.php' );
 $acall = strpos( $admin, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MANAGERS, \$viewer )" );
-$agroups = strpos( $admin, 'WPCPM_Dashboard_Card::group( array_merge( self::GROUP, $group ) );' );
-ck( 'the Administrator Dashboard draws it after the cards, in their groups, and before the help', false !== $agroups && $acall > $agroups && $acall < strpos( $admin, 'self::render_help();' ), true );
+$agroups = strpos( $admin, "'id'    => 'reference'," );
+ck( 'the Administrator Dashboard draws it on its Reference view, after that view\'s cards in their group, and before the help (1.123.69)', false !== $agroups && $acall > $agroups && $acall < strpos( $admin, 'self::render_help();' ), true );
 ck( 'every call site is guarded by class_exists(), so a dashboard renders without the Sponsors module', array( substr_count( $students, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1, substr_count( $mentors, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1, substr_count( $admin, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1 ), array( true, true, true ) );
 
 echo "\n=== House rules ===\n";

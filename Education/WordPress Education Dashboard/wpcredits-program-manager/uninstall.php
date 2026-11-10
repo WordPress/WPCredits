@@ -79,6 +79,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-pdf-check.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-guard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-stash.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-dashboard-card.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-dashboard-frame.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-screen-tabs.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-palette.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-columns.php';
@@ -211,6 +212,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-posts.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-cards.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-cohort-timeline.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-cohort-timeline-view.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';

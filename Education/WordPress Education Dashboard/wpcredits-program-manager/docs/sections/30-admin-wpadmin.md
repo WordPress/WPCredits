@@ -40,10 +40,9 @@ reads and links; it decides nothing.
 
 If Airtable is not connected yet, this screen says so and links straight to the setting.
 
-**Waiting for a decision** lists each queue with something in it, in the order of the Administrator
-Dashboard's strip of counts, each as the strip reads its tile: the count first, set apart, then the
-strip's name for the queue, such as "2 Collaboration Agreements to review, 1 overdue". The count is
-the strip's own, so past 200 the sponsor posts and Sponsor Collaboration Agreements to review read
+**Waiting for a decision** lists each queue with something in it, in the order the Administrator
+Dashboard counts them, each in one line: the count first, set apart, then the queue's name, such as
+"2 Collaboration Agreements to review, 1 overdue". The count is the dashboard's own, so past 200 the sponsor posts and Sponsor Collaboration Agreements to review read
 200+. Each is a link to where its queue is listed: the institution applications, agreements and
 requests from institutions open the **Waiting for review** tab of the **Institutions** screen, the semester
 reports to review and the semesters due for drafting its **Semester reports** tab, and the locked
@@ -52,8 +51,8 @@ accounts its **Accounts** tab; the mentor applications open the **Waiting for re
 **Waiting for review** tab of the **Sponsors** screen, each at the card that lists it, the sponsor
 reports to finish its **Reports** tab, and the offers running low its **Offers and codes** tab; the
 duplicated students open the **Student Duplicate Finder**; and the syncs that need a look open this
-screen's own **Syncs** card. The dashboard's strip draws a tile only for a count above zero, and
-this card likewise leaves out a queue with nothing in it; when nothing is waiting it says "Nothing
+screen's own **Syncs** card. As the dashboard's Waiting rows do, this card leaves out a queue with
+nothing in it; when nothing is waiting it says "Nothing
 is waiting for an Administrator right now." At the foot of the card, **Decide on the Administrator Dashboard** opens that
 page, where the decisions are made, except those on the mentor applications, which are made on the
 Mentors screen; while the page is missing, the card says so in the button's place and asks you to
@@ -223,7 +222,7 @@ selected and the day it lapses; for an activated one, the day it was made a ment
 one, the day it was declined or filed as spam), its marks (**held**, **possible duplicate**,
 **already a mentor**, **address not confirmed** and **acknowledgement not sent**), every answer, its
 history (each decision with its day, who took it and their note) and the decisions its state allows.
-The Administrator Dashboard's strip counts the applications waiting, and its tile opens this tab.
+The Administrator Dashboard counts the applications waiting beside **Mentors** in its menu and in a row under **Waiting for you**, whose **Review** opens this tab.
 
 Since 1.123.67 an applicant who answers Yes to **Are you a teacher from a WordPress Credits
 participating institution?** is asked **Which institution do you teach at?**, and picks it from the

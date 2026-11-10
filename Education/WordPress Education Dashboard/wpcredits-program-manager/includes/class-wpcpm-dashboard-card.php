@@ -86,6 +86,30 @@ final class WPCPM_Dashboard_Card {
 	private static $opened = array();
 
 	/**
+	 * How long the oldest item of a card has waited, by the card's anchor, which the card's row prints
+	 * after its phrase: the Administrator Dashboard's Waiting group sets it from what it read (`age()`,
+	 * 1.123.69).
+	 *
+	 * @var array<string, string>
+	 */
+	private static $ages = array();
+
+	/**
+	 * Whether `fold()` is on: every card drawn then is drawn folded unless it holds the page's outcome (the
+	 * Administrator Dashboard's Overview, 1.123.69).
+	 *
+	 * @var bool
+	 */
+	private static $folded = false;
+
+	/**
+	 * The words a folded card's row shows as its cue while `fold()` is on, such as "Review"; '' for none.
+	 *
+	 * @var string
+	 */
+	private static $cue = '';
+
+	/**
 	 * The opener, for a page that draws its cards in this shell: a browser that follows a link to a
 	 * closed card leaves it closed, and the opener opens the card a tile, a row's action, a link in a
 	 * mail or a decision's way back lands on, on either page. The Institution Dashboard asks for it
@@ -112,6 +136,16 @@ final class WPCPM_Dashboard_Card {
 	 */
 	public static function target( $anchor ) {
 		WPCPM_Flash::set( self::TARGET, sanitize_html_class( (string) $anchor ) );
+	}
+
+	/**
+	 * The anchor of the card the page's outcome is held for, while it is not printed yet, or '' (1.123.69):
+	 * a page that draws only some of its cards draws this one too, so the outcome is said on it.
+	 *
+	 * @return string
+	 */
+	public static function held_anchor() {
+		return is_array( self::$held ) && empty( self::$held['printed'] ) && isset( self::$held['anchor'] ) ? (string) self::$held['anchor'] : '';
 	}
 
 	/**
@@ -190,7 +224,39 @@ final class WPCPM_Dashboard_Card {
 	 * Forget the outcome held, printed or not: for a page that renders twice in one request.
 	 */
 	public static function forget() {
-		self::$held = null;
+		self::$held   = null;
+		self::$ages   = array();
+		self::$folded = false;
+		self::$cue    = '';
+	}
+
+	/**
+	 * Draw the cards that follow folded, until called again with false. A card that holds the page's
+	 * outcome is drawn open whatever this says, so the outcome is on screen.
+	 *
+	 * @param bool   $on  Whether to fold the cards that follow.
+	 * @param string $cue Words each folded row shows as its cue, such as "Review"; '' for none.
+	 */
+	public static function fold( $on, $cue = '' ) {
+		self::$folded = (bool) $on;
+		self::$cue    = self::$folded ? (string) $cue : '';
+	}
+
+	/**
+	 * Say on a card's row how long its oldest item has waited, such as "65 days waiting", printed in
+	 * the row after the phrase. Set before the card is drawn; '' takes it back.
+	 *
+	 * @param string $anchor The card's anchor, its prefix and its key.
+	 * @param string $words  The words, as text.
+	 */
+	public static function age( $anchor, $words ) {
+		if ( '' === (string) $words ) {
+			unset( self::$ages[ (string) $anchor ] );
+
+			return;
+		}
+
+		self::$ages[ (string) $anchor ] = (string) $words;
 	}
 
 	/**
@@ -382,7 +448,12 @@ final class WPCPM_Dashboard_Card {
 		$anchor = (string) $args['prefix'] . (string) $args['key'];
 		$holds  = is_array( self::$held ) && ! self::$held['printed'] && '' !== self::$held['anchor'] && self::$held['anchor'] === $anchor;
 
-		// A card that holds the page's outcome is drawn open, so the outcome is on screen (1.123.58).
+		// Folded while `fold()` is on (1.123.69); a card that holds the page's outcome is drawn open, so the
+		// outcome is on screen (1.123.58).
+		if ( self::$folded ) {
+			$args['open'] = false;
+		}
+
 		if ( $holds ) {
 			$args['open'] = true;
 		}
@@ -421,6 +492,17 @@ final class WPCPM_Dashboard_Card {
 		// counts sits in its own summary on the Offers card.
 		if ( '' !== (string) $args['state'] ) {
 			printf( '<span class="wpcpm-sponsor__state">%s</span>', esc_html( (string) $args['state'] ) );
+		}
+
+		if ( isset( self::$ages[ $anchor ] ) ) {
+			// The homepage's status tag, in red: what waits says so in words on a plain card, never by a colored
+			// edge (the owner's choice, 10 November 2026).
+			printf( '<span class="wpcpm-card__age wpcpm-status wpcpm-status--red">%s</span>', esc_html( self::$ages[ $anchor ] ) );
+		}
+
+		// The cue is words in the toggle, not a second control inside it: pressing the row opens the card.
+		if ( '' !== self::$cue ) {
+			printf( '<span class="wpcpm-card__cue" aria-hidden="true">%s</span>', esc_html( self::$cue ) );
 		}
 
 		echo '<span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>';

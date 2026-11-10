@@ -548,6 +548,8 @@ $probe = array(
 	// Quiet students: the switch, and the days, which the probe sets off their defaults.
 	'student_flags_mode'            => 'preview',
 	'student_quiet_days'            => '21',
+	// Cohort planning (1.123.68): students per mentor, off its default of 3.
+	'students_per_mentor'           => '4',
 	// The Emails tool's contact address (1.122.19).
 	'mail_contact'                  => 'programs@example.test',
 );
@@ -1201,8 +1203,15 @@ foreach ( array_keys( WPCPM_Settings::scopes() ) as $scope_name ) {
 
 ck( 'both are in the Students and mentors tab\'s scope and in no other', $registration_scopes,
 	array( 'student_registrations_enabled' => array( 'people' ), 'student_registration_stages' => array( 'people' ) ) );
-ck( 'and they follow the mentor lapse days there, the two settings of the interest from students after them since 1.123.64',
-	array_slice( WPCPM_Settings::scope_keys( 'people' ), -8 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled' ) );
+ck( 'and they follow the mentor lapse days there, the two settings of the interest from students after them since 1.123.64, students per mentor last since 1.123.68',
+	array_slice( WPCPM_Settings::scope_keys( 'people' ), -9 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled', 'students_per_mentor' ) );
+
+$ratio_of = static function ( $ratio ) {
+	return WPCPM_Settings::save( array( 'students_per_mentor' => $ratio ), 'people' )['students_per_mentor'];
+};
+ck( 'students per mentor is 3 until a person says otherwise, and in the Students and mentors tab alone', array( $defaults['students_per_mentor'], array_keys( array_filter( array( 'people' => in_array( 'students_per_mentor', WPCPM_Settings::scope_keys( 'people' ), true ), 'institutions' => in_array( 'students_per_mentor', WPCPM_Settings::scope_keys( 'institutions' ), true ), 'advanced' => in_array( 'students_per_mentor', WPCPM_Settings::scope_keys( 'advanced' ), true ) ) ) ) ), array( 3, array( 'people' ) ) );
+ck( 'and it is held to 1 to 20', array( $ratio_of( 0 ), $ratio_of( 99 ), $ratio_of( '5' ), $ratio_of( 1 ), $ratio_of( 20 ) ), array( 1, 20, 5, 1, 20 ) );
+store_settings( $defaults );
 
 // Quiet students: the switch is off and the quiet is two weeks until a person says otherwise, both live
 // on the Students and mentors tab, and the save holds the mode to its three words and the days to 7..60.
@@ -1856,7 +1865,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // row gives them.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled', 'students_per_mentor' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
@@ -3220,6 +3229,7 @@ $design_sections = array(
 		'Interest from students' => 'interest-from-students',
 		'Quiet students'        => 'quiet-students',
 		'New students'          => 'new-students',
+		'Cohort planning'       => 'cohort-planning',
 		'Mentor applications'   => 'mentor-applications',
 	),
 	'institutions' => array(
@@ -3317,8 +3327,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 30 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 30, 0, 30 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 31 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 31, 0, 31 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.

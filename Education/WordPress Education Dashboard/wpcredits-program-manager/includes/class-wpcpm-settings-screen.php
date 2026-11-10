@@ -1400,6 +1400,7 @@ class WPCPM_Settings_Screen {
 		$this->render_student_interest_settings( $settings );
 		$this->render_quiet_students_settings( $settings );
 		$this->render_new_students_settings( $settings );
+		$this->render_cohort_planning_settings( $settings );
 		$this->render_mentor_application_settings( $settings );
 	}
 
@@ -1554,6 +1555,31 @@ class WPCPM_Settings_Screen {
 			7,
 			60,
 			__( 'A student with no sign-in, visit, call or report for this many days, from 7 to 60, is quiet.', 'wpcredits-program-manager' )
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * The Students and mentors tab's cohort planning section: how many students one mentor takes, which
+	 * the cohort timeline on the Administrator Dashboard multiplies the active mentors by (1.123.68).
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_cohort_planning_settings( array $settings ) {
+		$this->open_section(
+			__( 'Cohort planning', 'wpcredits-program-manager' ),
+			__( 'How many students one mentor takes, for the mentor places on the cohort timeline.', 'wpcredits-program-manager' ),
+			'cohort-planning'
+		);
+
+		WPCPM_Settings_Rows::number_row(
+			'students_per_mentor',
+			__( 'Students per mentor', 'wpcredits-program-manager' ),
+			isset( $settings['students_per_mentor'] ) ? (int) $settings['students_per_mentor'] : 3,
+			1,
+			20,
+			__( 'The cohort timeline counts this many places for each active mentor, from 1 to 20.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
