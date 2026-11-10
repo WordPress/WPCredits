@@ -213,10 +213,9 @@
 	function initFos( scope, D ) {
 		var fosEl = scope.querySelector( '.wpct-fos' );
 		if ( ! fosEl ) { return; }
-		var activeStatuses = { 'in sensei': 1, 'in sensei self-onboarding': 1, 'in sensei 50h': 1, 'pending graduation': 1 };
 		var fosMap = {};
 		( D.students || [] ).forEach( function ( s ) {
-			if ( ! s.is_graduate && ! activeStatuses[ ( s.status || '' ).trim().toLowerCase() ] ) { return; }
+			// Every student in the data is in the program or a graduate: the sync decides who counts.
 			var fos = s.fieldOfStudy || 'Unspecified';
 			if ( ! fosMap[ fos ] ) { fosMap[ fos ] = { active: 0, graduated: 0 }; }
 			if ( s.is_graduate ) { fosMap[ fos ].graduated++; } else { fosMap[ fos ].active++; }

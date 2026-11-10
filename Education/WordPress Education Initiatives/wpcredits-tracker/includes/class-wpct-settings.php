@@ -212,6 +212,19 @@ class WPCT_Settings {
 					<?php foreach ( WPCT_Sync::profile_warnings( $profiles ) as $warning ) : ?>
 						<div class="notice notice-warning inline"><p><?php echo esc_html( $warning ); ?></p></div>
 					<?php endforeach; ?>
+					<?php if ( ! empty( $g['mapSkipped'] ) && is_array( $g['mapSkipped'] ) ) : ?>
+						<div class="notice notice-warning inline"><p>
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %s: a list of places, each "City, Country". */
+									__( 'Not on the partner map, because the plugin has no coordinates for the place or the record names no city: %s. Fix the city on the institution\'s record, or add the place to data/city-coords.json (or the wpct_city_coords filter).', 'wpcredits-tracker' ),
+									implode( '; ', array_map( 'strval', $g['mapSkipped'] ) )
+								)
+							);
+							?>
+						</p></div>
+					<?php endif; ?>
 				<?php endif; ?>
 				<p style="margin:.2em 0;">
 					<strong><?php esc_html_e( 'Last synced:', 'wpcredits-tracker' ); ?></strong>

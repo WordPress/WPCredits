@@ -143,6 +143,42 @@ class WPCT_Sync {
 	}
 
 	/**
+	 * The Status values of a student who is in the program now: the original program's statuses
+	 * and one per track. Upstream's builder knew only the first four, which left every student on
+	 * a track out of the figures. Overridable via the `wpct_active_statuses` filter, for a track
+	 * added after this release.
+	 *
+	 * @return string[]
+	 */
+	public static function active_statuses() {
+		$statuses = apply_filters(
+			'wpct_active_statuses',
+			array(
+				'In Sensei',
+				'In Sensei Self-onboarding',
+				'In Sensei 50h',
+				'Pending graduation',
+				'Intro to Contribution',
+				'Developer Track',
+				'Designer Track',
+				'Foundations Track',
+				'Foundations Track Haaga-Helia',
+			)
+		);
+		return is_array( $statuses ) ? array_values( array_filter( $statuses, 'is_string' ) ) : array();
+	}
+
+	/**
+	 * The Status values of a student who started the program, whatever came of it: everyone in
+	 * it now, plus those who graduated, dropped out, paused or failed.
+	 *
+	 * @return string[]
+	 */
+	public static function joined_statuses() {
+		return array_merge( self::active_statuses(), array( 'Graduate', 'Dropped out', 'Paused', 'Fail' ) );
+	}
+
+	/**
 	 * The approved sponsors' count from the feed, or the last known count when the feed failed.
 	 *
 	 * @param array|WP_Error $feed          What WPCT_Feed::fetch() answered.
@@ -356,7 +392,7 @@ class WPCT_Sync {
 		}
 
 		// ---- Status sets (keep in sync with the upstream builder) ---------
-		$active_statuses = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Pending graduation' );
+		$active_statuses = self::active_statuses();
 		$included_keys   = array();
 		foreach ( array_merge( $active_statuses, array( 'Graduate' ) ) as $s ) {
 			$included_keys[ self::status_key( $s ) ] = true;
@@ -550,12 +586,30 @@ class WPCT_Sync {
 
 		// ---- Confirmed partner institutions by country --------------------
 		$inst_countries = array();
+		$marker_rows    = array();
 		foreach ( $institutions as $rec ) {
 			if ( self::status_key( self::fv( $rec, $F['institutions']['current_stage'] ) ) !== 'confirmed' ) {
 				continue;
 			}
 			$country_ids = self::fv( $rec, $F['institutions']['country'] );
 			$country_ids = is_array( $country_ids ) ? $country_ids : array();
+
+			// The partner map: the institution under its city (1.7.0). Confirmed institutions
+			// only, the same ones the country count is made of.
+			$marker_name    = self::fv( $rec, $F['institutions']['name'] );
+			$marker_city    = self::fv( $rec, $F['institutions']['city'] );
+			$marker_country = '';
+			foreach ( $country_ids as $cid ) {
+				if ( isset( $countries_lookup[ $cid ] ) ) {
+					$marker_country = $countries_lookup[ $cid ];
+					break;
+				}
+			}
+			$marker_rows[] = array(
+				'name'    => is_string( $marker_name ) ? self::title_case( $marker_name ) : '',
+				'city'    => is_string( $marker_city ) ? $marker_city : '',
+				'country' => $marker_country,
+			);
 			foreach ( $country_ids as $cid ) {
 				if ( isset( $countries_lookup[ $cid ] ) ) {
 					$cname = $countries_lookup[ $cid ];
@@ -607,6 +661,8 @@ class WPCT_Sync {
 			$total_courses += (int) $s['courses'];
 		}
 
+		$partner_map = WPCT_Markers::build( $marker_rows, WPCT_Markers::coords() );
+
 		$global = array(
 			'activeStudents'      => $active_count,
 			'graduates'           => $graduate_count,
@@ -626,6 +682,8 @@ class WPCT_Sync {
 			'eventParticipants'   => $event_parts,
 			'sitesCreated'        => $sites_created,
 			'repeatSchools'       => $repeat_schools,
+			'partnerMarkers'      => $partner_map['markers'],
+			'mapSkipped'          => $partner_map['skipped'],
 		);
 
 		return array(
@@ -670,7 +728,7 @@ class WPCT_Sync {
 			}
 		}
 
-		$joined_statuses = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Pending graduation', 'Graduate', 'Dropped out', 'Paused', 'Fail' );
+		$joined_statuses = self::joined_statuses();
 		$joined_keys     = array();
 		foreach ( $joined_statuses as $s ) {
 			$joined_keys[ self::status_key( $s ) ] = true;

@@ -1,0 +1,267 @@
+{
+ "a coruna|spain": {
+  "city": "A Coruña",
+  "lat": 43.3466,
+  "lng": -8.4127
+ },
+ "albuquerque|united states": {
+  "city": "Albuquerque",
+  "lat": 35.0841,
+  "lng": -106.651
+ },
+ "athens|greece": {
+  "city": "Athens",
+  "lat": 37.9838,
+  "lng": 23.7275
+ },
+ "bandung|indonesia": {
+  "city": "Bandung",
+  "lat": -6.9175,
+  "lng": 107.6191
+ },
+ "bari|italy": {
+  "city": "Bari",
+  "lat": 41.1171,
+  "lng": 16.8719
+ },
+ "bialystok|poland": {
+  "city": "Białystok",
+  "lat": 53.1325,
+  "lng": 23.1688
+ },
+ "bogura|bangladesh": {
+  "city": "Bogura",
+  "lat": 24.8481,
+  "lng": 89.373
+ },
+ "bologna|italy": {
+  "city": "Bologna",
+  "lat": 44.4949,
+  "lng": 11.3426
+ },
+ "brooklyn|united states": {
+  "city": "Brooklyn",
+  "lat": 40.6782,
+  "lng": -73.9442
+ },
+ "bucharest|romania": {
+  "city": "Bucharest",
+  "lat": 44.4268,
+  "lng": 26.1025
+ },
+ "cagayan de oro city|philippines": {
+  "city": "Cagayan de Oro",
+  "lat": 8.4542,
+  "lng": 124.6319
+ },
+ "cagayan de oro|philippines": {
+  "city": "Cagayan de Oro",
+  "lat": 8.4542,
+  "lng": 124.6319
+ },
+ "cartago|costa rica": {
+  "city": "Cartago",
+  "lat": 9.8157,
+  "lng": -83.6944
+ },
+ "chicago|united states": {
+  "city": "Chicago",
+  "lat": 41.8781,
+  "lng": -87.6298
+ },
+ "cochabamba|bolivia": {
+  "city": "Cochabamba",
+  "lat": -17.4012,
+  "lng": -66.1676
+ },
+ "dhaka|bangladesh": {
+  "city": "Dhaka",
+  "lat": 23.7644,
+  "lng": 90.389
+ },
+ "estepona|spain": {
+  "city": "Estepona",
+  "lat": 36.4268,
+  "lng": -5.1468
+ },
+ "ferrara|italy": {
+  "city": "Ferrara",
+  "lat": 44.8381,
+  "lng": 11.6198
+ },
+ "genoa|italy": {
+  "city": "Genoa",
+  "lat": 44.4056,
+  "lng": 8.9463
+ },
+ "genova|italy": {
+  "city": "Genoa",
+  "lat": 44.4056,
+  "lng": 8.9463
+ },
+ "granada|spain": {
+  "city": "Granada",
+  "lat": 37.1773,
+  "lng": -3.5986
+ },
+ "helsinki|finland": {
+  "city": "Helsinki",
+  "lat": 60.1666,
+  "lng": 24.9435
+ },
+ "huesca|spain": {
+  "city": "Huesca",
+  "lat": 42.1361,
+  "lng": -0.0298
+ },
+ "kampala|uganda": {
+  "city": "Kampala",
+  "lat": 0.3177,
+  "lng": 32.5814
+ },
+ "kathmandu|nepal": {
+  "city": "Kathmandu",
+  "lat": 27.7172,
+  "lng": 85.324
+ },
+ "katowice|poland": {
+  "city": "Katowice",
+  "lat": 50.2649,
+  "lng": 19.0238
+ },
+ "kishoreganj|bangladesh": {
+  "city": "Kishoreganj",
+  "lat": 24.426,
+  "lng": 90.7829
+ },
+ "kolhapur|india": {
+  "city": "Kolhapur",
+  "lat": 16.7028,
+  "lng": 74.2405
+ },
+ "kolkata|india": {
+  "city": "Kolkata",
+  "lat": 22.5726,
+  "lng": 88.3639
+ },
+ "krakow|poland": {
+  "city": "Kraków",
+  "lat": 50.0619,
+  "lng": 19.9369
+ },
+ "kundapura|india": {
+  "city": "Kundapura",
+  "lat": 13.6316,
+  "lng": 74.69
+ },
+ "l'hospitalet de llobregat|spain": {
+  "city": "L'Hospitalet de Llobregat",
+  "lat": 41.3662,
+  "lng": 2.1169
+ },
+ "madison|united states": {
+  "city": "Madison",
+  "lat": 40.7598,
+  "lng": -74.4171
+ },
+ "madrid|spain": {
+  "city": "Madrid",
+  "lat": 40.4168,
+  "lng": -3.7035
+ },
+ "managua|nicaragua": {
+  "city": "Managua",
+  "lat": 12.115,
+  "lng": -86.2362
+ },
+ "new york city|united states": {
+  "city": "New York City",
+  "lat": 40.7128,
+  "lng": -74.006
+ },
+ "pisa|italy": {
+  "city": "Pisa",
+  "lat": 43.4715,
+  "lng": 10.6798
+ },
+ "pula|croatia": {
+  "city": "Pula",
+  "lat": 44.8702,
+  "lng": 13.8455
+ },
+ "purwokerto|indonesia": {
+  "city": "Purwokerto",
+  "lat": -7.4214,
+  "lng": 109.2343
+ },
+ "riga|latvia": {
+  "city": "Riga",
+  "lat": 56.9494,
+  "lng": 24.1052
+ },
+ "roma|italy": {
+  "city": "Rome",
+  "lat": 41.9028,
+  "lng": 12.4964
+ },
+ "rome|italy": {
+  "city": "Rome",
+  "lat": 41.9028,
+  "lng": 12.4964
+ },
+ "salamanca|spain": {
+  "city": "Salamanca",
+  "lat": 40.9652,
+  "lng": -5.664
+ },
+ "san jose|costa rica": {
+  "city": "San José",
+  "lat": 9.9328,
+  "lng": -84.0796
+ },
+ "santa cruz de la sierra|bolivia": {
+  "city": "Santa Cruz de la Sierra",
+  "lat": -17.7834,
+  "lng": -63.1821
+ },
+ "santa cruz|bolivia": {
+  "city": "Santa Cruz de la Sierra",
+  "lat": -17.7834,
+  "lng": -63.1821
+ },
+ "serang|indonesia": {
+  "city": "Serang",
+  "lat": -6.12,
+  "lng": 106.1503
+ },
+ "tangerang selatan|indonesia": {
+  "city": "Tangerang Selatan",
+  "lat": -6.2886,
+  "lng": 106.7179
+ },
+ "toledo|spain": {
+  "city": "Toledo",
+  "lat": 39.8559,
+  "lng": -4.0243
+ },
+ "trento|italy": {
+  "city": "Trento",
+  "lat": 46.0748,
+  "lng": 11.1217
+ },
+ "udupi|india": {
+  "city": "Udupi",
+  "lat": 13.3409,
+  "lng": 74.7421
+ },
+ "valencia|spain": {
+  "city": "Valencia",
+  "lat": 39.4699,
+  "lng": -0.3763
+ },
+ "zaragoza|spain": {
+  "city": "Zaragoza",
+  "lat": 41.6916,
+  "lng": -0.9101
+ }
+}

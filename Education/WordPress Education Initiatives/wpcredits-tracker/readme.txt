@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.6.3
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,14 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.7.1 =
+* Białystok is on the partner map: its entry in the coordinates list was filed under a spelling WordPress never produces, so 1.7.0 left that one city off.
+
+= 1.7.0 =
+* Students on a track are counted. The figures knew only the original program's statuses (In Sensei, In Sensei Self-onboarding, In Sensei 50h, Pending graduation), so a student whose Status is Intro to Contribution, Developer Track, Designer Track, Foundations Track or Foundations Track Haaga-Helia was in neither "Students currently in the program" nor "Students who have joined to date", nor in the growth chart or the field-of-study ring. The `wpct_active_statuses` filter adds a track made after this release.
+* The partner map is built at each sync from the confirmed institutions, instead of a list of 22 markers shipped with the plugin. Coordinates come from `data/city-coords.json` (one entry per city; the `wpct_city_coords` filter adds more); nothing is looked up from an outside service. A confirmed institution whose city the list does not know, or whose record names no city, is left off the map and named on the WPCredits-Tracker admin screen. Until the first sync under this version the old list is shown.
+* The figures change with the next sync, not with the update.
 
 = 1.6.3 =
 * Fixed 1.6.2's sync: it asked Airtable without the base ID and stopped with "HTTP 404". Nothing was stored by the failed runs; the figures on the page were untouched.

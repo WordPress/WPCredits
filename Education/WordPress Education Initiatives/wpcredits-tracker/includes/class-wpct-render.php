@@ -120,21 +120,26 @@ class WPCT_Render {
 		}
 		$inlined = true;
 
-		$markers = self::markers();
+		$markers = self::markers( $data );
 		$inline  = 'window.WPCT_DATA=' . wp_json_encode( $data ) . ';'
 			. 'window.WPCT_MARKERS=' . wp_json_encode( $markers ) . ';';
 		wp_add_inline_script( 'wpct-dashboard', $inline, 'before' );
 	}
 
 	/**
-	 * Partner map markers (bundled JSON, filterable).
+	 * Partner map markers: the ones the last sync built from the confirmed institutions (1.7.0),
+	 * or, for data from before that (the bundled snapshot, an older sync), the bundled list.
+	 * Filterable.
 	 *
+	 * @param array $data The public data blob.
 	 * @return array
 	 */
-	private static function markers() {
+	private static function markers( $data = array() ) {
 		$markers = array();
 		$file    = WPCT_DIR . 'data/inst-markers.json';
-		if ( is_readable( $file ) ) {
+		if ( isset( $data['global']['partnerMarkers'] ) && is_array( $data['global']['partnerMarkers'] ) && $data['global']['partnerMarkers'] ) {
+			$markers = $data['global']['partnerMarkers'];
+		} elseif ( is_readable( $file ) ) {
 			$decoded = json_decode( file_get_contents( $file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			if ( is_array( $decoded ) ) {
 				$markers = $decoded;
