@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,9 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.7.2 =
+* The heading over the students' quotes reads "What students say" instead of "Voices from the program".
 
 = 1.7.1 =
 * Białystok is on the partner map: its entry in the coordinates list was filed under a spelling WordPress never produces, so 1.7.0 left that one city off.

@@ -131,7 +131,7 @@
 		// file (nothing reaches innerHTML unescaped), so wiring them to the
 		// synced blob later cannot reintroduce an injection.
 		var voicesHtml = voices.map( function ( v ) { return '<figure class="voice"><blockquote class="voice-q"' + ( v.lang ? ' lang="' + esc( v.lang ) + '"' : '' ) + '>“' + esc( v.q ) + '”</blockquote><figcaption class="voice-meta"><span>' + esc( v.who ) + '</span><span class="voice-tag"><span class="voice-flag" aria-hidden="true">' + flag( v.cc ) + '</span>' + esc( v.country ) + '</span></figcaption></figure>'; } ).join( '' );
-		return '<h3>Voices from the program</h3>'
+		return '<h3>What students say</h3>'
 			+ '<p class="voices-sub">In students’ own words, shared with their consent.</p>'
 			+ '<div class="voices-grid">' + voicesHtml + '</div>';
 	}
