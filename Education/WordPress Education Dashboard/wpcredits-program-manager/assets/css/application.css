@@ -250,13 +250,6 @@
 	margin: 0;
 }
 
-/* A form with no group boxes (the student registration) is 24px from its last question to the
-   button, as a group box's margin makes it on the mentor form. The margins collapse, so this is
-   the gap, not an addition to the question's 20px. */
-.wpcpm-application__send--flat {
-	margin-top: 1.5em;
-}
-
 /* The introduction above the student registration form: a long address breaks inside the
    column instead of running past it on a phone. */
 .wpcpm-application-intro {

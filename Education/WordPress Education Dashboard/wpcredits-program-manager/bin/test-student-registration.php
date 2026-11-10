@@ -2063,7 +2063,13 @@ ck( 'open, the form asks every question in order, under the site\'s keys', array
 ck( 'it posts to its handler with a nonce, a token and the honeypot, its button and its busy words',
 	array( false !== strpos( $page, 'name="action" value="wpcpm_student_register"' ), false !== strpos( $page, 'name="_wpnonce" value="nonce-wpcpm_student_register"' ), false !== strpos( $page, 'name="wpcpm_student_registration_token"' ), false !== strpos( $page, 'name="wpcpm_confirm_campus"' ), false !== strpos( $page, 'data-wpcpm-busy="Sending..." data-wpcpm-status="Sending your registration."' ), false !== strpos( $page, '>Send this registration</button>' ), false !== strpos( $page, 'data-wpcpm-once' ) ),
 	array( true, true, true, true, true, true, true ) );
-ck( 'the stylesheet is the mentor form\'s, and no legend groups the questions', array( in_array( WPCPM_Mentor_Application_Form::STYLE, $GLOBALS['enqueued'], true ), in_array( 'wpcpm-forms', $GLOBALS['enqueued'], true ), false !== strpos( $page, '<legend' ) ), array( true, true, false ) );
+ck( 'the stylesheet is the mentor form\'s, and five legends group the questions, in the form\'s order (1.123.66)',
+	array( in_array( WPCPM_Mentor_Application_Form::STYLE, $GLOBALS['enqueued'], true ), in_array( 'wpcpm-forms', $GLOBALS['enqueued'], true ), ( preg_match_all( '#<legend>([^<]+)</legend>#', $page, $legends ) ? $legends[1] : array() ), array_keys( WPCPM_Student_Registration_Form::groups() ) ),
+	array( true, true, array( 'About you', 'Your institution', 'Dates and hours', 'Languages and access', 'Before you send this' ), array( 'about', 'institution', 'time', 'languages', 'last' ) ) );
+$drawn_order = preg_match_all( '#(?:id|for)="wpcpm-student-registration-([a-z_]+)"#', $page, $drawn ) ? array_values( array_unique( $drawn[1] ) ) : array();
+ck( 'every question names a group there is, and the questions are drawn in the order they had',
+	array( array_diff( array_column( WPCPM_Student_Registration_Form::fields(), 'group' ), array_keys( WPCPM_Student_Registration_Form::groups() ) ), array_values( array_intersect( $drawn_order, array_keys( WPCPM_Student_Registration_Form::fields() ) ) ) ),
+	array( array(), array_keys( WPCPM_Student_Registration_Form::fields() ) ) );
 ck( 'the institution is the one field to type and pick: its label marked Required, the list from an empty first entry, the offered institutions A to Z, the field that takes typing beside it',
 	array(
 		false !== strpos( $page, '<label for="wpcpm-student-registration-institution" id="wpcpm-student-registration-institution-label">Educational Institution <span class="wpcpm-field__required">Required</span></label>' ),
@@ -2076,15 +2082,15 @@ ck( 'the institution is the one field to type and pick: its label marked Require
 ck( 'and the line for a student whose institution is not listed sits under it',
 	array( strpos( $page, 'to contact us.</span>' ) > strpos( $page, 'wpcpm-student-registration-institution-list' ), false !== strpos( $page, '<span class="wpcpm-field__hint" id="wpcpm-student-registration-institution-note">Is your institution not on the list? Ask a faculty member or your administration office to contact us.</span>' ) ),
 	array( true, true ) );
-ck( 'the questions sit in one box that sets the short answers two to a row where there is room, closed before the button, and the two questions about the tutor each take a whole row (1.123.64)',
+ck( 'each group\'s questions sit in a box that sets the short answers two to a row where there is room, the last closed before the button, and the two questions about the tutor each take a whole row (1.123.64, grouped in 1.123.66)',
 	array(
 		substr_count( $page, '<div class="wpcpm-application__columns">' ),
-		false !== strpos( $page, '</div><p class="wpcpm-application__send wpcpm-application__send--flat">' ),
+		false !== strpos( $page, '</div></fieldset><p class="wpcpm-application__send">' ),
 		substr_count( $page, 'wpcpm-field--wide' ),
 		false !== strpos( $page, '<p class="wpcpm-field wpcpm-field--text wpcpm-field--wide"><label for="wpcpm-student-registration-tutor">' ),
 		false !== strpos( $page, '<p class="wpcpm-field wpcpm-field--email wpcpm-field--wide"><label for="wpcpm-student-registration-tutor_email">' ),
 	),
-	array( 1, true, 2, true, true ) );
+	array( 5, true, 2, true, true ) );
 ck( 'the preferred language is the other combobox, over the copy\'s names',
 	array( false !== strpos( $page, '<label for="wpcpm-student-registration-preferred" id="wpcpm-student-registration-preferred-label">Preferred Language <span class="wpcpm-field__required">Required</span></label>' ), false !== strpos( $page, '<option value="" selected=\'selected\'>Choose a language</option><option value="English">English</option><option value="Polish">Polish</option><option value="Spanish">Spanish</option></select>' ), substr_count( $page, 'role="combobox"' ) ),
 	array( true, true, 2 ) );
@@ -2851,11 +2857,11 @@ ck( 'and a page it makes is three paragraph blocks, the Airtable form\'s introdu
 	get_post( $made )->post_content,
 	"<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">Welcome!</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">Fill out this short form to express your interest in joining the program. It only takes a few minutes and helps us better understand your background and availability.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"className\":\"wpcpm-application-intro\"} -->\n<p class=\"wpcpm-application-intro\">If you have any questions before submitting your interest, feel free to contact us at <a href=\"mailto:education@wordpressfoundation.org\">education@wordpressfoundation.org</a></p>\n<!-- /wp:paragraph -->\n\n<!-- wp:wpcpm/student-registration /-->" );
 $student_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/application.css' );
-ck( 'the stylesheet lets the consent label and the introduction break a long word, and gives the button 24 px under a flat form',
+ck( 'the stylesheet lets the consent label and the introduction break a long word, and no longer holds the flat form\'s button rule, the form being grouped (1.123.66)',
 	array(
 		1 === preg_match( '#\.wpcpm-field__consent label \{[^}]*overflow-wrap: anywhere;#', $student_css ),
 		1 === preg_match( '#\.wpcpm-application-intro \{[^}]*overflow-wrap: anywhere;#', $student_css ),
-		1 === preg_match( '#\.wpcpm-application__send--flat \{[^}]*margin-top: 1\.5em;#', $student_css ),
+		false === strpos( $student_css, 'wpcpm-application__send--flat' ),
 		false !== strpos( $student_css, '.wpcpm-application__send {' ),
 	),
 	array( true, true, true, true ) );

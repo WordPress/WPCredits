@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.65
+Stable tag: 1.123.66
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,9 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.66 =
+* Student registration form: its questions are drawn in five groups, each in a box under its heading (About you, Your institution, Dates and hours, Languages and access, Before you send this), as the mentor, institution and sponsor applications and the student interest form draw theirs. The questions, their order and what is stored are unchanged.
 
 = 1.123.65 =
 * Student interest form: a page that only writes about the form's shortcode, as the Administrator guide does, is no longer taken for the form's page. In 1.123.64 the guide was, so the student registration form's line for a student whose institution is not listed led to the guide until the form's own page was published.

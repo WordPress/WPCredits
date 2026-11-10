@@ -453,6 +453,23 @@ final class WPCPM_Student_Registration_Form {
 		);
 	}
 	/**
+	 * The groups the questions are drawn in, each a fieldset under its heading, in the form's order,
+	 * as the mentor, institution and sponsor applications and the student interest form draw theirs
+	 * (1.123.66). The questions keep the order they had.
+	 *
+	 * @return array<string, string> Key => heading.
+	 */
+	public static function groups() {
+		return array(
+			'about'       => __( 'About you', 'wpcredits-program-manager' ),
+			'institution' => __( 'Your institution', 'wpcredits-program-manager' ),
+			'time'        => __( 'Dates and hours', 'wpcredits-program-manager' ),
+			'languages'   => __( 'Languages and access', 'wpcredits-program-manager' ),
+			'last'        => __( 'Before you send this', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
 	 * The questions, keyed by the site field each answer is kept under: the Airtable form's fourteen, in
 	 * its order and with its labels and help, as the design gives them (section 3).
 	 *
@@ -460,14 +477,17 @@ final class WPCPM_Student_Registration_Form {
 	 * compliance declaration's and the privacy policy's are the Airtable form's sentences, the policy's
 	 * linked by its address.
 	 *
-	 * @return array<string, array> Key => spec: `label`, `type`, `required`, and per type `maxlength`,
-	 *                              `auto`, `help`, `note`, `min`, `max`, `box`.
+	 * Each question names the group it is drawn in (`group`, a key of `groups()`), since 1.123.66.
+	 *
+	 * @return array<string, array> Key => spec: `label`, `type`, `required`, `group`, and per type
+	 *                              `maxlength`, `auto`, `help`, `note`, `min`, `max`, `box`.
 	 */
 	public static function fields() {
 		$policy = WPCPM_Form_Guard::policy_url();
 
 		return array(
 			'name'        => array(
+				'group'    => 'about',
 				'label'     => __( 'Full Name', 'wpcredits-program-manager' ),
 				'type'      => 'text',
 				'required'  => true,
@@ -475,6 +495,7 @@ final class WPCPM_Student_Registration_Form {
 				'auto'      => 'name',
 			),
 			'email'       => array(
+				'group'    => 'about',
 				'label'     => __( 'Email', 'wpcredits-program-manager' ),
 				'type'      => 'email',
 				'required'  => true,
@@ -482,6 +503,7 @@ final class WPCPM_Student_Registration_Form {
 				'auto'      => 'email',
 			),
 			'institution' => array(
+				'group'    => 'institution',
 				'label'    => __( 'Educational Institution', 'wpcredits-program-manager' ),
 				'type'     => 'institution',
 				'required' => true,
@@ -491,11 +513,13 @@ final class WPCPM_Student_Registration_Form {
 				),
 			),
 			'study'       => array(
+				'group'    => 'institution',
 				'label'    => __( 'Department / Area of Study', 'wpcredits-program-manager' ),
 				'type'     => 'study',
 				'required' => true,
 			),
 			'tutor'       => array(
+				'group'    => 'institution',
 				'label'     => __( 'Tutor Name - The professor or main contact person at your educational institution', 'wpcredits-program-manager' ),
 				'type'      => 'text',
 				// A whole row of the form (1.123.64): its label is two lines long in half of one, which
@@ -506,6 +530,7 @@ final class WPCPM_Student_Registration_Form {
 				'help'      => __( 'If your educational institution doesn\'t require you to indicate a tutor, you can skip this question.', 'wpcredits-program-manager' ),
 			),
 			'tutor_email' => array(
+				'group'    => 'institution',
 				'label'     => __( 'Your tutor\'s email address', 'wpcredits-program-manager' ),
 				'type'      => 'email',
 				'wide'      => true,
@@ -513,16 +538,19 @@ final class WPCPM_Student_Registration_Form {
 				'maxlength' => 254,
 			),
 			'start'       => array(
+				'group'    => 'time',
 				'label'    => __( 'Preferred Start Date', 'wpcredits-program-manager' ),
 				'type'     => 'date',
 				'required' => true,
 			),
 			'end'         => array(
+				'group'    => 'time',
 				'label'    => __( 'Estimated End Date', 'wpcredits-program-manager' ),
 				'type'     => 'date',
 				'required' => true,
 			),
 			'hours'       => array(
+				'group'    => 'time',
 				'label'    => __( 'Total Expected Hours (Approximate)', 'wpcredits-program-manager' ),
 				'type'     => 'number',
 				'required' => true,
@@ -531,30 +559,35 @@ final class WPCPM_Student_Registration_Form {
 				'help'     => __( 'Format: Decimal', 'wpcredits-program-manager' ),
 			),
 			'languages'   => array(
+				'group'    => 'languages',
 				'label'    => __( 'Languages You Speak', 'wpcredits-program-manager' ),
 				'type'     => 'languages',
 				'required' => true,
 				'help'     => __( 'Select as many as you speak.', 'wpcredits-program-manager' ),
 			),
 			'preferred'   => array(
+				'group'    => 'languages',
 				'label'    => __( 'Preferred Language', 'wpcredits-program-manager' ),
 				'type'     => 'preferred',
 				'required' => true,
 				'help'     => __( 'Select only one.', 'wpcredits-program-manager' ),
 			),
 			'access'      => array(
+				'group'    => 'languages',
 				'label'    => __( 'Do you have any accessibility needs we should be aware of?', 'wpcredits-program-manager' ),
 				'type'     => 'textarea',
 				'required' => false,
 				'help'     => __( 'Optional - Leave blank if none.', 'wpcredits-program-manager' ),
 			),
 			'english'     => array(
+				'group'    => 'last',
 				'label'    => __( 'Compliance declaration', 'wpcredits-program-manager' ),
 				'type'     => 'statement',
 				'required' => true,
 				'box'      => __( 'I understand that the course is conducted in English, requires written communication, and involves proactive, independent remote work.', 'wpcredits-program-manager' ),
 			),
 			'consent'     => array(
+				'group'    => 'last',
 				'label'    => __( 'Privacy Policy Compliance', 'wpcredits-program-manager' ),
 				'type'     => 'consent',
 				'required' => true,
@@ -1200,18 +1233,29 @@ final class WPCPM_Student_Registration_Form {
 
 		WPCPM_Form_Guard::render_honeypot( self::HONEYPOT );
 
-		// One box around every question, which sets the short answers two to a row where there is
-		// room (application.css, 1.123.64): this form has no groups of its own.
-		echo '<div class="wpcpm-application__columns">';
+		// A fieldset for each group, and inside it a box that sets the short answers two to a row
+		// where there is room (application.css, 1.123.64), as the other forms of the site are drawn
+		// (1.123.66). A question that names no group, or one that is not a group, joins the last.
+		$fields = self::fields();
+		$groups = self::groups();
+		$last   = (string) array_key_last( $groups );
 
-		foreach ( self::fields() as $key => $spec ) {
-			self::render_field( $key, $spec, isset( $values[ $key ] ) ? $values[ $key ] : null, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '' );
+		foreach ( $groups as $group => $heading ) {
+			printf( '<fieldset class="wpcpm-application__group"><legend>%s</legend><div class="wpcpm-application__columns">', esc_html( $heading ) );
+
+			foreach ( $fields as $key => $spec ) {
+				$in = isset( $spec['group'], $groups[ $spec['group'] ] ) ? (string) $spec['group'] : $last;
+
+				if ( $in === $group ) {
+					self::render_field( $key, $spec, isset( $values[ $key ] ) ? $values[ $key ] : null, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '' );
+				}
+			}
+
+			echo '</div></fieldset>';
 		}
 
-		echo '</div>';
-
 		printf(
-			'<p class="wpcpm-application__send wpcpm-application__send--flat"><button type="submit" class="wpcpm-button">%s</button><span class="wpcpm-application__busy" data-wpcpm-busy-status role="status"></span></p>',
+			'<p class="wpcpm-application__send"><button type="submit" class="wpcpm-button">%s</button><span class="wpcpm-application__busy" data-wpcpm-busy-status role="status"></span></p>',
 			esc_html__( 'Send this registration', 'wpcredits-program-manager' )
 		);
 
