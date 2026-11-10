@@ -33,7 +33,7 @@ The first release of the suite is tracked in these issues:
 | [`credits-program-mentors`](./credits-program-mentors) | **Credits Program Mentors** | 1.7.3 | Displays the directory of active mentors (from the site's own list, or from Airtable) via the `[credits_program_mentors]` shortcode. |
 | [`education-programs-map`](./education-programs-map) | **Education Programs Map** | 2.5.1 | A world map with city-level markers for WPCC, WPCredits, and Student Club activity, plus a dashboard screen for managing institutions. Implements [wordpress.org#584](https://github.com/WordPress/wordpress.org/issues/584). |
 | [`student-impact`](./student-impact) | **Student Impact** | 1.6.1 | Showcases the top graduating students ranked by their WordPress.org contribution impact, contributions and logged hours (synced live from Airtable + profiles.wordpress.org). Provides "Student Stories" and "Graduate Stats" blocks/shortcodes. |
-| [`wpcredits-tracker`](./wpcredits-tracker) | **WPCredits-Tracker** | 1.8.1 | A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, student voices), no iframe. Synced weekly from Airtable + profiles.wordpress.org; rendered via a block or the `[wpcredits_tracker]` shortcode. |
+| [`wpcredits-tracker`](./wpcredits-tracker) | **WPCredits-Tracker** | 1.8.2 | A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, student voices), no iframe. Synced weekly from Airtable + profiles.wordpress.org; rendered via a block or the `[wpcredits_tracker]` shortcode. |
 
 ## How the pieces fit together
 

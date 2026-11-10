@@ -517,6 +517,18 @@
 	padding: 24px 0;
 }
 
+/* Section blocks placed one after another on a page: a block that opens a new group (its own
+   eyebrow or heading) stands 32px from the block before it, where the page's own gap between
+   blocks of one group is smaller. Two classes deep, over the block layout's own gap rule
+   (`:root :where( .is-layout-flow ) > *`). */
+[class*="wp-block-wpcredits-tracker-"] + .wp-block-wpcredits-tracker-produce,
+[class*="wp-block-wpcredits-tracker-"] + .wp-block-wpcredits-tracker-skills,
+[class*="wp-block-wpcredits-tracker-"] + .wp-block-wpcredits-tracker-outcomes,
+[class*="wp-block-wpcredits-tracker-"] + .wp-block-wpcredits-tracker-scale,
+[class*="wp-block-wpcredits-tracker-"] + .wp-block-wpcredits-tracker-voices {
+	margin-block-start: 32px;
+}
+
 /* "Figures last updated on <date>." */
 .wpct-updated {
 	color: var( --wpct-ink-muted );

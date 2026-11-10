@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.8.1
+Stable tag: 1.8.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,9 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.8.2 =
+* Section blocks placed one after another keep 32px before a block that opens a new group (What students produce, Skills, What students say), on any page template, instead of leaving that to the page's own styles.
 
 = 1.8.1 =
 * The boxes match the Education Directory's own cards: 2px corners on a 1px hairline, no shadow. The skills and the country tags are 2px tags instead of pills, and the highlighted figure is marked by a blue hairline instead of a tinted panel.
