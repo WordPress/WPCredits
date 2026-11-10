@@ -3,7 +3,8 @@
  *
  * The look is WordPress.org's own, as the Education Directory (wordpresseducation.org) wears it:
  * headings and figures in EB Garamond at regular weight, everything else in Inter, one blue
- * (Blueberry) for what matters, white cards on 1px hairlines, flat. Every selector is scoped under
+ * (Blueberry) for what matters, white cards on 1px hairlines with 2px corners and no shadow,
+ * as the homepage's own cards are. Every selector is scoped under
  * .wpct-dashboard (or is the plugin's own .wpct-updated), so the widget never leaks into the theme.
  *
  * Sizes: 16px prose, 14px labels and hints, 13px uppercase eyebrows, 12px chips; nothing smaller.
@@ -59,8 +60,7 @@
 	--wpct-surface: #fff;
 	--wpct-line: #e6e6e6;
 	--wpct-line-card: #e4e4e4;
-	--wpct-radius-card: 8px;
-	--wpct-shadow-card: 0 1px 3px rgba( 0, 0, 0, .06 );
+	--wpct-radius: 2px;
 	--wpct-sans: Inter, -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 	--wpct-serif: "EB Garamond", Georgia, "Times New Roman", serif;
 }
@@ -156,14 +156,13 @@
 	text-transform: uppercase;
 }
 
-/* The cards: white on a hairline, flat but for the one soft shadow. */
+/* The cards: white on a 1px hairline, 2px corners, no shadow. */
 .wpct-dashboard .card,
 .wpct-dashboard .chart-container,
 .wpct-dashboard .voice {
 	background: var( --wpct-surface );
 	border: 1px solid var( --wpct-line-card );
-	border-radius: var( --wpct-radius-card );
-	box-shadow: var( --wpct-shadow-card );
+	border-radius: var( --wpct-radius );
 	padding: 24px;
 }
 
@@ -217,11 +216,9 @@
 	margin-top: 4px;
 }
 
-/* The one card that matters most in its group. */
+/* The one card that matters most in its group: the brand hairline, no tinted panel. */
 .wpct-dashboard .card.hl {
-	background: var( --wpct-brand-tint );
-	border-color: var( --wpct-brand-border );
-	box-shadow: none;
+	border-color: var( --wpct-brand );
 }
 
 .wpct-dashboard .card.hl .num {
@@ -390,22 +387,19 @@
 
 .wpct-dashboard .skill,
 .wpct-dashboard .voice-tag {
-	border-radius: 999px;
+	border: 1px solid var( --wpct-line-card );
+	border-radius: var( --wpct-radius );
 	color: var( --wpct-ink );
 	font-size: 12px;
 	font-weight: 500;
-	line-height: 1.5;
-	padding: 2px 10px;
-}
-
-.wpct-dashboard .skill {
-	background: var( --wpct-brand-tint );
+	line-height: 18px;
+	padding: 1px 8px;
 }
 
 /* The partner map. */
 .wpct-dashboard .wpct-map {
 	border: 1px solid var( --wpct-line-card );
-	border-radius: 4px;
+	border-radius: var( --wpct-radius );
 	height: 460px;
 	width: 100%;
 	z-index: 1;
@@ -436,7 +430,7 @@
 }
 
 .wpct-dashboard .leaflet-popup-content-wrapper {
-	border-radius: 4px;
+	border-radius: var( --wpct-radius );
 	box-shadow: 0 4px 14px rgba( 0, 0, 0, .07 );
 }
 
@@ -508,7 +502,6 @@
 
 .wpct-dashboard .voice-tag {
 	align-items: center;
-	border: 1px solid var( --wpct-line-card );
 	display: inline-flex;
 	gap: 6px;
 	white-space: nowrap;

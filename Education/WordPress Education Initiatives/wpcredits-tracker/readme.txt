@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,9 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.8.1 =
+* The boxes match the Education Directory's own cards: 2px corners on a 1px hairline, no shadow. The skills and the country tags are 2px tags instead of pills, and the highlighted figure is marked by a blue hairline instead of a tinted panel.
 
 = 1.8.0 =
 * A track made tomorrow is counted the day its first student has it. The figures now follow the upstream dashboard's rule: every student counts except those whose Status is Interested, Dropped out, Not moving forward, Paused, Fail or SPAM (or empty), instead of a list of the statuses that count, which went stale each time a track was added. A status this version does not know by name is counted and named on the WPCredits-Tracker admin screen, so an outcome counted by mistake does not stay unseen; the `wpct_non_participant_statuses` filter adds one. With today's records the figures do not change.
