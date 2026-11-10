@@ -46,6 +46,7 @@ require_once get_theme_file_path( 'inc/hub.php' );
 require_once get_theme_file_path( 'inc/hub-content.php' );
 require_once get_theme_file_path( 'inc/header.php' );
 require_once get_theme_file_path( 'inc/get-involved.php' );
+require_once get_theme_file_path( 'inc/site-menu.php' );
 require_once get_theme_file_path( 'inc/partners.php' );
 require_once get_theme_file_path( 'inc/migrate-1-32-0.php' );
 require_once get_theme_file_path( 'inc/migrate-1-32-1.php' );

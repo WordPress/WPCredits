@@ -606,14 +606,14 @@ $filtered_nav         = apply_filters( 'render_block_core/navigation', $visitor_
 $nx                   = dom_of( $filtered_nav );
 $plain_nav            = wpcredits_test_navigation( array( $partners_link ) );
 
-ck( 'a visitor\'s navigation that holds the menu gets the list too, first in the navigation\'s content, before its list of items, so it opens the phone\'s panel; the menu stays the list\'s last item; a navigation without the menu is left as the lone count leaves it',
+ck( 'a visitor\'s navigation that holds the menu gets the list too, in the navigation\'s content after its list of items (theme 1.32.20: the open menu reads as the bar does, the site\'s links first), so it is in the phone\'s panel; the menu stays the list\'s last item; a navigation without the menu is left as the lone count leaves it',
 	array(
 		found( $nx, '//*[' . has( 'wp-block-navigation__responsive-container-content' ) . ']/*', 'class' ),
 		found( $nx, '//ul[' . has( 'wp-block-navigation__container' ) . ']/li', 'class' ),
 		apply_filters( 'render_block_core/navigation', $plain_nav ) === wpcredits_lone_nav_item( $plain_nav ),
 	),
 	array(
-		array( 'wpc-involve-list', 'wp-block-navigation__container is-responsive items-justified-center wpc-nav wp-block-navigation' ),
+		array( 'wp-block-navigation__container is-responsive items-justified-center wpc-nav wp-block-navigation', 'wpc-involve-list' ),
 		array( 'wp-block-navigation-item wp-block-navigation-link', 'wp-block-navigation-item wpc-involve' ),
 		true,
 	) );

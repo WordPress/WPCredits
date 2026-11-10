@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.19
+Stable tag: 1.32.20
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -220,6 +220,13 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.20 =
+
+* The header's menu leads to the site's pages: Students and Mentors, to their landing pages; Institutions, to the institution application (for a visitor); and Impact, which opens Student impact and The program in numbers. Get involved keeps the forms, and Log in stays last. A link is shown only while its page is published.
+* On a phone the open menu reads as the bar does: those links first, then Get involved.
+* Without JavaScript a submenu of the header's menu opens under the pointer and while the focus is in it.
+* For developers: `inc/site-menu.php` adds the links as navigation blocks through `block_core_navigation_render_fallback`, so a navigation that names a menu or holds its own items is left as it is.
 
 = 1.32.19 =
 

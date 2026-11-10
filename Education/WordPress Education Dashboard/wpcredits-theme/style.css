@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.19
+Version: 1.32.20
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -661,6 +661,23 @@ body .skip-link.screen-reader-text:focus {
 .wpc-header .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded="true"] ~ .wp-block-navigation__submenu-container {
 	display: flex;
 	opacity: 1;
+	visibility: visible;
+	width: 240px;
+}
+
+/* Without JavaScript the button cannot say it is expanded, so a submenu opens under the pointer and
+   while the focus is in it, as the Get involved panel does: its links are always reached
+   (theme 1.32.20, when the menu got its first submenu, Impact). One class deeper than the rule
+   that hides a submenu and no deeper, so a signed-in reader's menu layout, which runs under
+   `.wpc-js` alone, still outranks every rule outside it. */
+html:not( .wpc-js ) .wpc-nav .has-child:hover > .wp-block-navigation__submenu-container,
+html:not( .wpc-js ) .wpc-nav .has-child:focus-within > .wp-block-navigation__submenu-container {
+	display: flex;
+	/* Core keeps a click-opened submenu at no height and clipped until its button says it is
+	   expanded, which no script is there to say. */
+	height: auto;
+	opacity: 1;
+	overflow: visible;
 	visibility: visible;
 	width: 240px;
 }

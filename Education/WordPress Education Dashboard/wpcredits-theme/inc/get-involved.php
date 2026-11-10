@@ -247,6 +247,18 @@ function wpcredits_involve_navigation( $content ) {
 
 	$rows = wpcredits_involve_list_html();
 
-	return '' === $rows ? $content : substr_replace( $content, $rows, $list[0][1], 0 );
+	if ( '' === $rows ) {
+		return $content;
+	}
+
+	// Since theme 1.32.20 the menu holds the site's own links (inc/site-menu.php), and the open menu
+	// reads as the bar does: those links first, then Get involved. The list of items is the last list
+	// the navigation holds, a submenu's being inside it, so its end is the last `</ul>`. A navigation
+	// whose list does not close is left with the rows first, as they were.
+	$end = strrpos( $content, '</ul>' );
+
+	return ( false === $end || $end < $list[0][1] )
+		? substr_replace( $content, $rows, $list[0][1], 0 )
+		: substr_replace( $content, $rows, $end + 5, 0 );
 }
 add_filter( 'render_block_core/navigation', 'wpcredits_involve_navigation', 11 );
