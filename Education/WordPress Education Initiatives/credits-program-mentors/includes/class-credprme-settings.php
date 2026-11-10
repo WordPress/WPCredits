@@ -47,6 +47,7 @@ class CREDPRME_Settings {
 	 */
 	public static function defaults() {
 		return array(
+			'source'    => 'auto',
 			'api_token' => '',
 			'base_id'   => 'appIzQKfwTn5dyPVp',
 			'table_id'  => 'tblJmEYgBWYxVuzUw',
@@ -95,6 +96,25 @@ class CREDPRME_Settings {
 				'type'              => 'array',
 				'sanitize_callback' => array( $this, 'sanitize' ),
 				'default'           => self::defaults(),
+			)
+		);
+
+		add_settings_section(
+			'credprme_source_section',
+			__( 'Mentor source', 'credits-program-mentors' ),
+			array( $this, 'render_source_intro' ),
+			'credits-program-mentors'
+		);
+
+		add_settings_field(
+			'credprme_field_source',
+			__( 'Read mentors from', 'credits-program-mentors' ),
+			array( $this, 'render_field' ),
+			'credits-program-mentors',
+			'credprme_source_section',
+			array(
+				'key'       => 'source',
+				'label_for' => 'credprme_field_source',
 			)
 		);
 
@@ -148,11 +168,32 @@ class CREDPRME_Settings {
 	}
 
 	/**
+	 * The source section: what the directory reads right now.
+	 */
+	public function render_source_intro() {
+		$list = CREDPRME_Source::site_list();
+
+		if ( 'site' === CREDPRME_Source::current( self::get() ) && null !== $list ) {
+			$now = sprintf(
+				/* translators: %d: number of mentors. */
+				_n( 'The directory reads this site\'s own list now: %d active mentor. It makes no Airtable request.', 'The directory reads this site\'s own list now: %d active mentors. It makes no Airtable request.', count( $list ), 'credits-program-mentors' ),
+				count( $list )
+			);
+		} elseif ( null === $list ) {
+			$now = __( 'This site offers no list of mentors, so the directory reads Airtable. A site running WPCredits Program Manager 1.123.62 or later offers one after its next mentors sync.', 'credits-program-mentors' );
+		} else {
+			$now = __( 'This site offers a list of mentors, and the directory is set to read Airtable instead.', 'credits-program-mentors' );
+		}
+
+		echo '<p>' . esc_html( $now ) . '</p>';
+	}
+
+	/**
 	 * Section description.
 	 */
 	public function render_section_intro() {
 		echo '<p>' . wp_kses_post(
-			__( 'Create a read-only <strong>Personal Access Token</strong> at <a href="https://airtable.com/create/tokens" target="_blank" rel="noopener">airtable.com/create/tokens</a> with the <code>data.records:read</code> scope and access to this base, then paste it below. The Base and Table IDs are already filled in for the Sponsored mentors base.', 'credits-program-mentors' )
+			__( 'Only needed while the directory reads Airtable. Create a read-only <strong>Personal Access Token</strong> at <a href="https://airtable.com/create/tokens" target="_blank" rel="noopener">airtable.com/create/tokens</a> with the <code>data.records:read</code> scope and access to this base, then paste it below. The Base and Table IDs are already filled in for the Sponsored mentors base.', 'credits-program-mentors' )
 		) . '</p>';
 	}
 
@@ -169,6 +210,19 @@ class CREDPRME_Settings {
 		$id       = 'credprme_field_' . $key;
 
 		switch ( $key ) {
+			case 'source':
+				$choices = array(
+					'auto'     => __( 'Automatic: this site\'s list when there is one, Airtable otherwise', 'credits-program-mentors' ),
+					'site'     => __( 'This site\'s list only, never Airtable', 'credits-program-mentors' ),
+					'airtable' => __( 'Airtable only', 'credits-program-mentors' ),
+				);
+				printf( '<select id="%1$s" name="%2$s">', esc_attr( $id ), esc_attr( $name ) );
+				foreach ( $choices as $choice => $label ) {
+					printf( '<option value="%1$s" %2$s>%3$s</option>', esc_attr( $choice ), selected( $value, $choice, false ), esc_html( $label ) );
+				}
+				echo '</select>';
+				break;
+
 			case 'api_token':
 				// Never rendered back into the page: a type="password" field still
 				// carries its value in the markup, where view-source, the browser
@@ -194,6 +248,13 @@ class CREDPRME_Settings {
 				}
 				echo '<br />' . esc_html__( 'Use a token scoped to read-only access.', 'credits-program-mentors' )
 					. '</p>';
+				if ( '' !== $mask ) {
+					printf(
+						'<p><label for="credprme_field_forget_token"><input type="checkbox" id="credprme_field_forget_token" name="%1$s" value="1" /> %2$s</label></p>',
+						esc_attr( self::OPTION_KEY . '[forget_token]' ),
+						esc_html__( 'Remove the stored token. A directory that reads this site\'s list does not need one.', 'credits-program-mentors' )
+					);
+				}
 				break;
 
 			case 'cache_ttl':
@@ -246,6 +307,10 @@ class CREDPRME_Settings {
 		$clean['api_token'] = ( '' !== $submitted_token && false === strpos( $submitted_token, '•' ) )
 			? $submitted_token
 			: ( isset( $existing['api_token'] ) ? $existing['api_token'] : '' );
+		if ( ! empty( $input['forget_token'] ) && '' === $submitted_token ) {
+			$clean['api_token'] = '';
+		}
+		$clean['source']    = ( isset( $input['source'] ) && in_array( $input['source'], array( 'auto', 'site', 'airtable' ), true ) ) ? $input['source'] : 'auto';
 		$clean['base_id']   = isset( $input['base_id'] ) ? trim( sanitize_text_field( wp_unslash( $input['base_id'] ) ) ) : $defaults['base_id'];
 		$clean['table_id']  = isset( $input['table_id'] ) ? trim( sanitize_text_field( wp_unslash( $input['table_id'] ) ) ) : $defaults['table_id'];
 		$clean['view_id']   = isset( $input['view_id'] ) ? trim( sanitize_text_field( wp_unslash( $input['view_id'] ) ) ) : '';

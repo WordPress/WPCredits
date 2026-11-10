@@ -4,7 +4,7 @@ Tags: mentors, airtable, directory, shortcode, block
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.2
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,12 +57,13 @@ data you configure; it does not transmit personal data about your site visitors
 beyond what any embedded remote image would.
 
 **1. Airtable API (api.airtable.com)**
-Used to fetch the mentor records that the plugin displays. When a page with the
+Not contacted at all while the directory reads the site's own list of mentors
+(see the "Mentor source" setting). Otherwise it is used to fetch the mentor
+records that the plugin displays. When a page with the
 shortcode/block is rendered (and periodically in the background), the plugin
 sends a request to Airtable containing your configured Base ID, Table ID,
 optional View, and your Airtable Personal Access Token (as a Bearer credential
-for authentication). No site-visitor data is sent. This is required for the
-plugin to function.
+for authentication). No site-visitor data is sent.
 Airtable: https://airtable.com/ — Terms: https://www.airtable.com/company/tos — Privacy: https://www.airtable.com/company/privacy
 
 **2. WordPress.org avatar redirect (wordpress.org)**
@@ -159,6 +160,20 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 5. The optional country map highlighting mentor countries above the list.
 
 == Changelog ==
+
+= 1.7.0 =
+* The directory can read the site's own list of mentors instead of Airtable. A
+  site that runs WPCredits Program Manager 1.123.62 or later offers its active
+  mentors through the filter `wpcpm_public_mentors`; when the list is there the
+  directory reads it and makes no Airtable request, so it needs no token.
+* New "Mentor source" setting: Automatic (the site's list when there is one,
+  Airtable otherwise), this site's list only, or Airtable only. The settings
+  screen says which one is read now, and how many mentors the site's list holds.
+* A checkbox removes the stored Airtable token.
+* The site's list holds a mentor's name, WordPress.org profile, country,
+  languages, whether they are sponsored and the names of their sponsors, and
+  nothing else, so the `fields` attribute cannot show any other column of a
+  mentor's record from it.
 
 = 1.6.2 =
 * The name and the details are centered under the photo, so a whole card reads
@@ -272,6 +287,11 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
   preview) — both offering grid and table layouts.
 
 == Upgrade Notice ==
+
+= 1.7.0 =
+On a site with WPCredits Program Manager 1.123.62 or later the directory reads
+the site's own list of mentors and stops calling Airtable. Other sites are
+unchanged.
 
 = 1.6.2 =
 Cards are centered: photo, name and details.

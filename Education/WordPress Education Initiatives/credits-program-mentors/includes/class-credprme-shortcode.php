@@ -174,7 +174,6 @@ class CREDPRME_Shortcode {
 		$show_map = '' === trim( (string) $atts['map'] )
 			? ! empty( $settings['show_map'] )
 			: filter_var( $atts['map'], FILTER_VALIDATE_BOOLEAN );
-		$client   = new CREDPRME_Airtable_Client( $settings );
 
 		$requested_fields = $this->parse_list( $atts['fields'] );
 		if ( empty( $requested_fields ) ) {
@@ -195,7 +194,8 @@ class CREDPRME_Shortcode {
 
 		// Fetch every field (not just the displayed ones) so we can filter on
 		// Status and detect sponsorship regardless of which fields are shown.
-		$records = $client->get_records(
+		$records = CREDPRME_Source::get_records(
+			$settings,
 			array(
 				'view'        => sanitize_text_field( $atts['view'] ),
 				'max_records' => 0, // Filter locally, then apply the limit.
@@ -295,7 +295,14 @@ class CREDPRME_Shortcode {
 	 * @return bool
 	 */
 	private function is_sponsored( array $fields ) {
-		if ( ! $this->show_sponsorship || ! isset( $fields[ self::SPONSOR_FIELD ] ) ) {
+		if ( ! $this->show_sponsorship ) {
+			return false;
+		}
+		// A record from the site's own list says so itself; it names no company.
+		if ( ! empty( $fields[ CREDPRME_Source::SPONSORED_KEY ] ) ) {
+			return true;
+		}
+		if ( ! isset( $fields[ self::SPONSOR_FIELD ] ) ) {
 			return false;
 		}
 		$value = $fields[ self::SPONSOR_FIELD ];
