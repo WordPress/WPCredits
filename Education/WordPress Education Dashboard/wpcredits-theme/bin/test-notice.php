@@ -490,6 +490,62 @@ ck( 'the pages\' picture follows the hero\'s own rule: its column is the hero\'s
 		array( 1, 1 ),
 	) );
 
+echo "\n=== The Landing page template and the mentors' mountain (theme 1.32.14) ===\n";
+
+$landing = theme_file( 'templates/page-landing.html' );
+
+ck( 'the Landing page template is the hub\'s main around the page\'s own content, between the site\'s headers and footer, with no title and no pattern of its own',
+	array(
+		substr_count( $landing, '<main class="wp-block-group wpc-main wpc-hub wpc-landing">' ),
+		substr_count( $landing, '<!-- wp:post-content {"align":"wide","className":"wpc-landing__content","layout":{"type":"default"}} /-->' ),
+		substr_count( $landing, 'wp:post-title' ) + substr_count( $landing, 'wp:pattern' ),
+		substr_count( $landing, '"slug":"wporg-header"' ) + substr_count( $landing, '"slug":"header"' ) + substr_count( $landing, '"slug":"wporg-footer"' ),
+	),
+	array( 1, 1, 0, 3 ) );
+
+ck( 'the hub\'s stylesheet loads on a page it draws, and on no post that stores its name',
+	array(
+		hub_styled( array( 'singular' => 'page', 'id' => 8, 'templates' => array( 8 => 'page-landing' ) ) ),
+		hub_styled( array( 'singular' => 'post', 'id' => 8, 'templates' => array( 8 => 'page-landing' ) ) ),
+		substr_count( $hub_php, "'page-landing'" ),
+	),
+	array( true, false, 1 ) );
+
+$team      = (string) theme_call( 'wpcredits_hub_mountain_team_svg' );
+$mentors   = pattern( 'mentors-mountain.php' );
+$with_team = (string) theme_call( 'wpcredits_hub_mountain_svg', $team );
+
+ck( 'the mentors\' mountain is the hero\'s own with a party on its trail: the same drawing to its last shape, then a rope, three students, a guide and two labels, inside the one svg',
+	array(
+		0 === strpos( $with_team, substr( $mountain, 0, -6 ) ),
+		'</svg>' === substr( $with_team, -6 ) && substr( $mountain, 0, -6 ) . $team . '</svg>' === $with_team,
+		substr_count( $team, 'wpc-hub-art__person--student' ),
+		substr_count( $team, 'wpc-hub-art__person--guide' ),
+		substr_count( $team, 'class="wpc-hub-art__rope"' ),
+		substr_count( $team, '>You, the guide</text>' ) + substr_count( $team, '>Your students</text>' ),
+		1 === substr_count( $mentors, $with_team ),
+	),
+	array( true, true, 3, 1, 1, 2, true ) );
+
+ck( 'and its pattern is a Custom HTML block hidden from screen readers, with nothing to focus, as the pages\' mountain is',
+	array(
+		substr_count( $mentors, '<div class="wpc-hub-art" aria-hidden="true">' ),
+		substr_count( $mentors, '<!-- wp:html -->' ),
+		preg_match( '/<a\b|<button\b|tabindex/', $mentors ),
+	),
+	array( 1, 1, 0 ) );
+
+$hub_css = theme_file( 'assets/css/hub.css' );
+
+ck( 'hub.css dresses every class the party is drawn with',
+	array_map(
+		static function ( $class ) use ( $hub_css ) {
+			return false !== strpos( $hub_css, '.' . $class );
+		},
+		array( 'wpc-hub-art__rope', 'wpc-hub-art__person--student', 'wpc-hub-art__person--guide', 'wpc-hub-art__badge', 'wpc-hub-art__tag', 'wpc-hub-art__tag--guide' )
+	),
+	array( true, true, true, true, true, true ) );
+
 echo "\n=== The words ===\n";
 
 $sources = theme_file( 'templates/page-notice.html' ) . theme_file( 'templates/404.html' ) . theme_file( 'patterns/hub-back-soon.php' ) . theme_file( 'patterns/hub-not-found.php' ) . theme_file( 'patterns/hub-mountain.php' ) . theme_file( 'blocks/notice-forward/render.php' ) . theme_file( 'blocks/notice-forward/view.js' );

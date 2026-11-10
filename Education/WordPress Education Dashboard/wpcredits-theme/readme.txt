@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.13
+Stable tag: 1.32.14
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -106,6 +106,10 @@ traveling sees the same grouping as the program manager looking at the same list
   homepage after 5 seconds, with a link to go now and a button to stay.
   A new page is offered the "Back soon notice" pattern to start with. Without
   JavaScript nothing forwards and the page keeps its buttons.
+* Landing page - a page template that sets the page's own content in the homepage's
+  look, for a page that speaks to one audience, such as the mentors' page. The page
+  writes its own title; the pattern "Mountain with a guide and students" is the
+  picture for its first section.
 * Page, single, index, search and 404. The 404 page is drawn in the same hero layout,
   with the mountain and no forward, and keeps WordPress's 404 status.
 
@@ -216,6 +220,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.14 =
+
+* A new page template, Landing page, sets a page's own content in the homepage's look: its typefaces, its section heads, its cards and its buttons, for a page that speaks to one audience. The page writes its own title, in its first section.
+* A new pattern, Mountain with a guide and students, is the homepage hero's mountain with a guide leading three students up its trail, for the picture's column of the mentors' page. It is decoration, hidden from screen readers, and not shown below 900px, as the hero's picture is.
+* For developers: `WPCREDITS_LANDING_TEMPLATE` (`page-landing`) joins the templates the hub's stylesheet loads for and the page-hierarchy guard; `wpcredits_hub_mountain_svg()` takes markup to draw over the mountain, and `wpcredits_hub_mountain_team_svg()` is the party; on a landing page the content's sections take no block gap, cards in columns end on one line and a card's h3 is set in the serif.
 
 = 1.32.13 =
 

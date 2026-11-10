@@ -27,6 +27,12 @@ const WPCREDITS_HUB_TEMPLATE = 'page-education-hub';
 const WPCREDITS_NOTICE_TEMPLATE = 'page-notice';
 
 /**
+ * The Landing page template's slug (theme 1.32.14): a page in the hub's look, the homepage's type and
+ * stylesheet around the page's own content, for a page that speaks to one audience (the mentors' page).
+ */
+const WPCREDITS_LANDING_TEMPLATE = 'page-landing';
+
+/**
  * Register the hub's stylesheet.
  *
  * Registered rather than enqueued: the hub template enqueues it on the requests it draws, and the
@@ -67,7 +73,7 @@ function wpcredits_is_hub_page( $template = WPCREDITS_HUB_TEMPLATE ) {
  * homepage hero's layout.
  */
 function wpcredits_hub_assets() {
-	if ( wpcredits_is_hub_page() || wpcredits_is_hub_page( WPCREDITS_NOTICE_TEMPLATE ) || is_404() ) {
+	if ( wpcredits_is_hub_page() || wpcredits_is_hub_page( WPCREDITS_NOTICE_TEMPLATE ) || is_404() || wpcredits_is_hub_page( WPCREDITS_LANDING_TEMPLATE ) ) {
 		wp_enqueue_style( 'wpcredits-hub' );
 	}
 }
@@ -130,7 +136,7 @@ add_filter( 'frontpage_template_hierarchy', 'wpcredits_hub_front_page' );
 function wpcredits_hub_page_hierarchy( $templates ) {
 	$dropped = array();
 
-	foreach ( array( WPCREDITS_HUB_TEMPLATE, WPCREDITS_NOTICE_TEMPLATE ) as $template ) {
+	foreach ( array( WPCREDITS_HUB_TEMPLATE, WPCREDITS_NOTICE_TEMPLATE, WPCREDITS_LANDING_TEMPLATE ) as $template ) {
 		if ( ! wpcredits_is_hub_page( $template ) ) {
 			$dropped[] = $template . '.php';
 		}

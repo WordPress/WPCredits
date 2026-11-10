@@ -462,6 +462,13 @@
 			"postTypes": [
 				"page"
 			]
+		},
+		{
+			"name": "page-landing",
+			"title": "Landing page",
+			"postTypes": [
+				"page"
+			]
 		}
 	]
 }

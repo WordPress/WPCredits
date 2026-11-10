@@ -131,6 +131,28 @@
 	margin-block-start: 0;
 }
 
+/* A page the Landing page template draws (theme 1.32.14): the hub's main around the page's own content.
+   The content's sections take the hub's rhythm, their own 48px paddings and no block gap between them,
+   as the homepage's do one level up. Three classes deep, over the flow layout's margins. */
+.wpc-main.wpc-landing > .wpc-landing__content > * {
+	margin-block-start: 0;
+}
+
+/* Cards side by side in columns end on one line, whatever each holds. */
+.wpc-landing .wp-block-column > .wp-block-group.is-style-card {
+	height: 100%;
+}
+
+/* A landing page's cards name what they hold in the serif, as a program's card does. */
+.wpc-landing .wp-block-group.is-style-card h3 {
+	color: var( --wpc-ink );
+	font-family: var( --wpc-hub-serif );
+	font-size: 26px;
+	font-weight: 400;
+	letter-spacing: -.01em;
+	line-height: 1.15;
+}
+
 /* An anchored section or heading lands below the sticky header. */
 .wpc-hub-anchored {
 	scroll-margin-top: var( --wpc-landing-offset );
@@ -384,6 +406,55 @@
 .wpc-hub-art__pole {
 	stroke: var( --wpc-ink );
 	stroke-width: 1.5;
+}
+
+/* A guide and three students on the trail, for the mentors' page (theme 1.32.14): the students dark on
+   white badges, the guide white on the brand blue and larger, a rope between them and a label beside each
+   party. Every badge covers the mountain's words under it, so a figure reads at a glance. */
+.wpc-hub-art__rope {
+	fill: none;
+	stroke: var( --wpc-ink );
+	stroke-width: 2;
+}
+
+.wpc-hub-art__person--student {
+	fill: var( --wpc-ink );
+}
+
+.wpc-hub-art__person--student .wpc-hub-art__badge {
+	fill: var( --wpc-surface );
+	stroke: var( --wpc-ink );
+	stroke-width: 1.5;
+}
+
+.wpc-hub-art__person--guide {
+	fill: var( --wpc-surface );
+}
+
+.wpc-hub-art__person--guide .wpc-hub-art__badge {
+	fill: var( --wpc-brand );
+	stroke: var( --wpc-surface );
+	stroke-width: 3;
+}
+
+.wpc-hub-art__tag rect {
+	fill: var( --wpc-surface );
+	stroke: var( --wpc-ink );
+}
+
+.wpc-hub-art__tag text {
+	fill: var( --wpc-ink );
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.wpc-hub-art__tag--guide rect {
+	fill: var( --wpc-brand );
+	stroke: var( --wpc-brand );
+}
+
+.wpc-hub-art__tag--guide text {
+	fill: var( --wpc-surface );
 }
 
 .wpc-hub-art__frame {

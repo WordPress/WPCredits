@@ -500,9 +500,9 @@ echo "=== The template, and the front page ===\n";
 
 $theme_json = json_decode( theme_file( 'theme.json' ), true );
 
-ck( 'theme.json registers "Education Hub home" for pages, after the two page templates it had, and the Notice template after it (theme 1.32.12, bin/test-notice.php)',
+ck( 'theme.json registers "Education Hub home" for pages, after the two page templates it had, the Notice template after it (theme 1.32.12, bin/test-notice.php) and the Landing page template last (theme 1.32.14)',
 	array_column( $theme_json['customTemplates'], 'title', 'name' ),
-	array( 'page-full-width' => 'Full width page', 'page-documentation' => 'Documentation', 'page-education-hub' => 'Education Hub home', 'page-notice' => 'Notice' ) );
+	array( 'page-full-width' => 'Full width page', 'page-documentation' => 'Documentation', 'page-education-hub' => 'Education Hub home', 'page-notice' => 'Notice', 'page-landing' => 'Landing page' ) );
 
 ck( 'for pages alone',
 	end( $theme_json['customTemplates'] )['postTypes'], array( 'page' ) );

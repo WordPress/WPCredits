@@ -170,9 +170,12 @@ function wpcredits_mentor_application_url() {
  * the Notice and 404 pages draw it alone (patterns/hub-mountain.php, theme 1.32.12), so it is written
  * once. Its IDs are fixed: a page draws it once.
  *
+ * @param string $extra Svg markup to draw over the mountain, in its space, already escaped (theme
+ *                      1.32.14: the mentors' page puts a guide and students on the trail); '' for
+ *                      the mountain alone.
  * @return string
  */
-function wpcredits_hub_mountain_svg() {
+function wpcredits_hub_mountain_svg( $extra = '' ) {
 	$names = array_column( wpcredits_hub_steps(), 'name' );
 	$rows  = '';
 
@@ -205,7 +208,43 @@ function wpcredits_hub_mountain_svg() {
 		. '<mask id="wpc-hub-mountain-body" ' . $area . '><path d="' . esc_attr( $mountain ) . '" fill="#fff"/><path d="' . esc_attr( $cap ) . '" fill="#000"/>' . $gap . '</mask>'
 		. '<mask id="wpc-hub-mountain-cap" ' . $area . '><path d="' . esc_attr( $mountain ) . '" fill="#fff"/><path d="M-10 -104 H530 V390 H-10 Z ' . esc_attr( $cap ) . '" fill="#000" fill-rule="evenodd"/>' . $gap . '</mask></defs>'
 		. '<use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-mountain-body)"/><use href="#wpc-hub-mountain-words" class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-mountain-cap)"/>'
-		. '<path class="wpc-hub-art__route" d="' . esc_attr( $trail ) . '"/><path class="wpc-hub-art__pole" d="M390 -70 V-98"/><path class="wpc-hub-art__pennant" d="M390 -98 L414 -90 L390 -82 Z"/></svg>';
+		. '<path class="wpc-hub-art__route" d="' . esc_attr( $trail ) . '"/><path class="wpc-hub-art__pole" d="M390 -70 V-98"/><path class="wpc-hub-art__pennant" d="M390 -98 L414 -90 L390 -82 Z"/>' . $extra . '</svg>';
+}
+
+/**
+ * A guide and three students on the mountain's trail (theme 1.32.14), for the mentors' page: svg markup
+ * that `wpcredits_hub_mountain_svg()` takes as its `$extra` and draws over the mountain, in its space.
+ *
+ * Four people on the trail's second stretch, roped together: the students as dark figures on white
+ * badges, the guide ahead of them, larger, white on the brand blue, and a label beside each party. The
+ * labels are the only words, and the picture is decoration all the same (the pattern hides it from
+ * screen readers), so each label's box is sized from its length: the mountain's type is monospaced.
+ *
+ * @return string
+ */
+function wpcredits_hub_mountain_team_svg() {
+	$person = static function ( $cx, $cy, $scale, $modifier ) {
+		$head = 3.2 * $scale;
+		$half = 6 * $scale;
+
+		return '<g class="wpc-hub-art__person ' . esc_attr( $modifier ) . '"><circle class="wpc-hub-art__badge" cx="' . $cx . '" cy="' . $cy . '" r="' . round( 12.5 * $scale, 1 ) . '"/>'
+			. '<circle cx="' . $cx . '" cy="' . round( $cy - 4 * $scale, 1 ) . '" r="' . round( $head, 1 ) . '"/>'
+			. '<path d="M' . round( $cx - $half, 1 ) . ' ' . round( $cy + 7 * $scale, 1 ) . ' a' . round( $half, 1 ) . ' ' . round( $half, 1 ) . ' 0 0 1 ' . round( 2 * $half, 1 ) . ' 0 Z"/></g>';
+	};
+
+	$tag = static function ( $x, $y, $label, $modifier ) {
+		$width = (int) ceil( 7.3 * mb_strlen( $label ) + 20 );
+
+		return '<g class="wpc-hub-art__tag ' . esc_attr( $modifier ) . '"><rect x="' . $x . '" y="' . $y . '" width="' . $width . '" height="26" rx="2"/><text x="' . ( $x + 10 ) . '" y="' . ( $y + 17.5 ) . '">' . esc_html( $label ) . '</text></g>';
+	};
+
+	return '<path class="wpc-hub-art__rope" d="M72 178.5 L193.5 101.6"/>'
+		. $person( 72, 178.5, 1.4, 'wpc-hub-art__person--student' )
+		. $person( 107, 156, 1.4, 'wpc-hub-art__person--student' )
+		. $person( 143, 134, 1.4, 'wpc-hub-art__person--student' )
+		. $person( 193.5, 101.6, 2, 'wpc-hub-art__person--guide' )
+		. $tag( 226, 100, __( 'You, the guide', 'wpcredits-theme' ), 'wpc-hub-art__tag--guide' )
+		. $tag( 150, 164, __( 'Your students', 'wpcredits-theme' ), 'wpc-hub-art__tag--students' );
 }
 
 /**
