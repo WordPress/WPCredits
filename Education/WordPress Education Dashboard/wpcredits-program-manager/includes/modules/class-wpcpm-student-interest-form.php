@@ -204,6 +204,10 @@ final class WPCPM_Student_Interest_Form {
 			return true;
 		}
 
+		// A shortcode a page shows in a code or a pre element is one it writes about, as the
+		// Administrator guide does: that page is not the form's (1.123.65).
+		$content = (string) preg_replace( '#<(code|pre)\b[^>]*>.*?</\1>#is', '', $content );
+
 		// The shortcode as WordPress would run it: a whole tag, and not one written in doubled
 		// brackets, which is how a page shows the shortcode as an example without running it.
 		if ( preg_match_all( '/(\[?)\[' . preg_quote( self::SHORTCODE, '/' ) . '(?![\w-])[^\]]*\](\]?)/', $content, $tags, PREG_SET_ORDER ) ) {

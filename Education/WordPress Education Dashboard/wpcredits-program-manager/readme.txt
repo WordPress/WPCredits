@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.64
+Stable tag: 1.123.65
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,9 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.65 =
+* Student interest form: a page that only writes about the form's shortcode, as the Administrator guide does, is no longer taken for the form's page. In 1.123.64 the guide was, so the student registration form's line for a student whose institution is not listed led to the guide until the form's own page was published.
 
 = 1.123.64 =
 * Student interest form: a student whose institution is not in the program yet says so on the site, through the Student Interest Form block or the [wpcpm_student_interest] shortcode on a page of your choosing, and names a representative of the institution who agreed to be contacted. It takes the place of the form kept on Airtable, with the same questions, is guarded as the student registration form is, and writes nothing to Airtable. The student is sent an acknowledgement; the representative is never emailed by the site. The form may sit anywhere on a longer page: after it is sent, the thank-you or what to correct is shown at the form, not at the page's top.

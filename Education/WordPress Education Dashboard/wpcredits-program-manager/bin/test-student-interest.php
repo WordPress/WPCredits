@@ -970,6 +970,13 @@ ck( 'a page holds the form when it has the block or a whole shortcode tag WordPr
 		WPCPM_Student_Interest_Form::content_holds_form( '<!-- wp:wpcpm/student-interest /-->' ),
 	),
 	array( true, false, false, true, true ) );
+ck( 'a page that writes about the shortcode in a code or a pre element, as the Administrator guide does, is not the form\'s page; one that also holds the shortcode outside it is',
+	array(
+		WPCPM_Student_Interest_Form::content_holds_form( '<p>Add the <code>[wpcpm_student_interest]</code> shortcode to a page.</p>' ),
+		WPCPM_Student_Interest_Form::content_holds_form( "<pre class=\"x\">\n[wpcpm_student_interest]\n</pre>" ),
+		WPCPM_Student_Interest_Form::content_holds_form( '<p><code>[wpcpm_student_interest]</code></p>[wpcpm_student_interest]' ),
+	),
+	array( false, false, true ) );
 
 ck( 'the option follows the page the form is on: set by the first page that holds the block or the shortcode, kept through its saves and a draft of it, never taken by a second page, and untouched by any other save',
 	$steps,
