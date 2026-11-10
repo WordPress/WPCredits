@@ -164,6 +164,67 @@ function wpcredits_mentor_application_url() {
 }
 
 /**
+ * The field of words a hub picture is cut from: 42 rows 12px apart, from 96px above the picture to 4px
+ * under it, as svg text. Each row is the pathway's step names in the hub's order, begun three names
+ * further on than the row above and set further left, so no two rows line up, and repeated until it is
+ * 130 characters long, wider than the picture from any of its starting points. The mountain is cut
+ * from it, and since theme 1.32.15 the students' graduation cap.
+ *
+ * @return string
+ */
+function wpcredits_hub_word_rows() {
+	$names = array_column( wpcredits_hub_steps(), 'name' );
+	$rows  = '';
+
+	for ( $row = 0; $row < 42; $row++ ) {
+		$from  = ( $row * 3 ) % count( $names );
+		$cycle = implode( ' // ', array_merge( array_slice( $names, $from ), array_slice( $names, 0, $from ) ) );
+		$line  = $cycle;
+
+		while ( mb_strlen( $line ) < 130 ) {
+			$line .= ' // ' . $cycle;
+		}
+
+		$rows .= '<text x="' . ( -14 - $row * 23 % 64 ) . '" y="' . ( -96 + 12 * $row ) . '">' . esc_html( $line ) . '</text>';
+	}
+
+	return $rows;
+}
+
+/**
+ * A person in a hub picture: a head and shoulders on a round badge, as svg markup.
+ *
+ * @param float  $cx       The badge's center, x.
+ * @param float  $cy       The badge's center, y.
+ * @param float  $scale    1 is a 25px badge.
+ * @param string $modifier The class that colors it: `wpc-hub-art__person--student` or `--guide`.
+ * @return string
+ */
+function wpcredits_hub_art_person( $cx, $cy, $scale, $modifier ) {
+	$head = 3.2 * $scale;
+	$half = 6 * $scale;
+
+	return '<g class="wpc-hub-art__person ' . esc_attr( $modifier ) . '"><circle class="wpc-hub-art__badge" cx="' . $cx . '" cy="' . $cy . '" r="' . round( 12.5 * $scale, 1 ) . '"/>'
+		. '<circle cx="' . $cx . '" cy="' . round( $cy - 4 * $scale, 1 ) . '" r="' . round( $head, 1 ) . '"/>'
+		. '<path d="M' . round( $cx - $half, 1 ) . ' ' . round( $cy + 7 * $scale, 1 ) . ' a' . round( $half, 1 ) . ' ' . round( $half, 1 ) . ' 0 0 1 ' . round( 2 * $half, 1 ) . ' 0 Z"/></g>';
+}
+
+/**
+ * A label in a hub picture: a box sized from the label's length, the picture's type being monospaced.
+ *
+ * @param float  $x        The box's left edge.
+ * @param float  $y        The box's top edge.
+ * @param string $label    The words.
+ * @param string $modifier A class for the box: `wpc-hub-art__tag--guide` fills it in the brand blue.
+ * @return string
+ */
+function wpcredits_hub_art_tag( $x, $y, $label, $modifier ) {
+	$width = (int) ceil( 7.3 * mb_strlen( $label ) + 20 );
+
+	return '<g class="wpc-hub-art__tag ' . esc_attr( $modifier ) . '"><rect x="' . $x . '" y="' . $y . '" width="' . $width . '" height="26" rx="2"/><text x="' . ( $x + 10 ) . '" y="' . ( $y + 17.5 ) . '">' . esc_html( $label ) . '</text></g>';
+}
+
+/**
  * The hero's mountain of words, as an inline svg: rows of the pathway's step names, in the picture's own
  * 520 by 380px space, cut to two peaks by a mask, a switchback trail up to a flag on the higher one, and
  * its snow cap in the brand blue. The hero draws it behind its editor pieces (patterns/hub-hero.php), and
@@ -176,24 +237,7 @@ function wpcredits_mentor_application_url() {
  * @return string
  */
 function wpcredits_hub_mountain_svg( $extra = '' ) {
-	$names = array_column( wpcredits_hub_steps(), 'name' );
-	$rows  = '';
-
-	// The mountain's words: 42 rows 12px apart, from 96px above the picture to 4px under it. Each row is
-	// the step names in the hub's order, begun three names further on than the row above and set further
-	// left, so no two rows line up, and repeated until it is 130 characters long, wider than the mountain
-	// from any of its starting points.
-	for ( $row = 0; $row < 42; $row++ ) {
-		$from  = ( $row * 3 ) % count( $names );
-		$cycle = implode( ' // ', array_merge( array_slice( $names, $from ), array_slice( $names, 0, $from ) ) );
-		$line  = $cycle;
-
-		while ( mb_strlen( $line ) < 130 ) {
-			$line .= ' // ' . $cycle;
-		}
-
-		$rows .= '<text x="' . ( -14 - $row * 23 % 64 ) . '" y="' . ( -96 + 12 * $row ) . '">' . esc_html( $line ) . '</text>';
-	}
+	$rows = wpcredits_hub_word_rows();
 
 	// The mountain's shape in the same space: the higher peak above the hero's chart, the lower one above
 	// its toolbar, and the notch between them in the gap over the selected block; the trail from the foot
@@ -223,28 +267,42 @@ function wpcredits_hub_mountain_svg( $extra = '' ) {
  * @return string
  */
 function wpcredits_hub_mountain_team_svg() {
-	$person = static function ( $cx, $cy, $scale, $modifier ) {
-		$head = 3.2 * $scale;
-		$half = 6 * $scale;
-
-		return '<g class="wpc-hub-art__person ' . esc_attr( $modifier ) . '"><circle class="wpc-hub-art__badge" cx="' . $cx . '" cy="' . $cy . '" r="' . round( 12.5 * $scale, 1 ) . '"/>'
-			. '<circle cx="' . $cx . '" cy="' . round( $cy - 4 * $scale, 1 ) . '" r="' . round( $head, 1 ) . '"/>'
-			. '<path d="M' . round( $cx - $half, 1 ) . ' ' . round( $cy + 7 * $scale, 1 ) . ' a' . round( $half, 1 ) . ' ' . round( $half, 1 ) . ' 0 0 1 ' . round( 2 * $half, 1 ) . ' 0 Z"/></g>';
-	};
-
-	$tag = static function ( $x, $y, $label, $modifier ) {
-		$width = (int) ceil( 7.3 * mb_strlen( $label ) + 20 );
-
-		return '<g class="wpc-hub-art__tag ' . esc_attr( $modifier ) . '"><rect x="' . $x . '" y="' . $y . '" width="' . $width . '" height="26" rx="2"/><text x="' . ( $x + 10 ) . '" y="' . ( $y + 17.5 ) . '">' . esc_html( $label ) . '</text></g>';
-	};
-
 	return '<path class="wpc-hub-art__rope" d="M72 178.5 L193.5 101.6"/>'
-		. $person( 72, 178.5, 1.4, 'wpc-hub-art__person--student' )
-		. $person( 107, 156, 1.4, 'wpc-hub-art__person--student' )
-		. $person( 143, 134, 1.4, 'wpc-hub-art__person--student' )
-		. $person( 193.5, 101.6, 2, 'wpc-hub-art__person--guide' )
-		. $tag( 226, 100, __( 'You, the guide', 'wpcredits-theme' ), 'wpc-hub-art__tag--guide' )
-		. $tag( 150, 164, __( 'Your students', 'wpcredits-theme' ), 'wpc-hub-art__tag--students' );
+		. wpcredits_hub_art_person( 72, 178.5, 1.4, 'wpc-hub-art__person--student' )
+		. wpcredits_hub_art_person( 107, 156, 1.4, 'wpc-hub-art__person--student' )
+		. wpcredits_hub_art_person( 143, 134, 1.4, 'wpc-hub-art__person--student' )
+		. wpcredits_hub_art_person( 193.5, 101.6, 2, 'wpc-hub-art__person--guide' )
+		. wpcredits_hub_art_tag( 226, 100, __( 'You, the guide', 'wpcredits-theme' ), 'wpc-hub-art__tag--guide' )
+		. wpcredits_hub_art_tag( 150, 164, __( 'Your students', 'wpcredits-theme' ), 'wpc-hub-art__tag--students' );
+}
+
+/**
+ * The students' picture (theme 1.32.15): a graduation cap cut from the hub's field of words. The
+ * board on top is set in the brand blue, the cap under it in the picture's gray, and a dashed tassel
+ * runs from the board's middle to its corner and hangs down to a tuft. One label names what a student
+ * earns. It is drawn in the mountain's space and with its classes, so hub.css dresses both alike; its
+ * IDs are its own, so a page may hold it beside the mountain. It is decoration all the same.
+ *
+ * @return string
+ */
+function wpcredits_hub_graduation_svg() {
+	$rows = wpcredits_hub_word_rows();
+
+	// The board, a flat diamond seen from above its front corner; the cap, hanging under the board's
+	// two front edges with a rounded foot; the tassel, from the button to the right corner and down.
+	$board  = 'M260 20 L490 120 L260 220 L30 120 Z';
+	$under  = 'M126 176 L260 234 L394 176 V272 Q260 344 126 272 Z';
+	$tassel = 'M260 120 L446 132 L446 288';
+	$area   = 'maskUnits="userSpaceOnUse" x="-10" y="-104" width="540" height="494"';
+	$gap    = '<path d="' . $tassel . '" fill="none" stroke="#000" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>';
+
+	return '<svg class="wpc-hub-art__mountain wpc-hub-art__graduation" viewBox="-10 -104 540 494" focusable="false"><defs><g id="wpc-hub-graduation-words">' . $rows . '</g>'
+		. '<mask id="wpc-hub-graduation-under" ' . $area . '><path d="' . esc_attr( $under ) . '" fill="#fff"/></mask>'
+		. '<mask id="wpc-hub-graduation-board" ' . $area . '><path d="' . esc_attr( $board ) . '" fill="#fff"/>' . $gap . '</mask></defs>'
+		. '<use href="#wpc-hub-graduation-words" class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-graduation-under)"/><use href="#wpc-hub-graduation-words" class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-graduation-board)"/>'
+		. '<path class="wpc-hub-art__route" d="' . esc_attr( $tassel ) . '"/><circle class="wpc-hub-art__button" cx="260" cy="120" r="6"/><path class="wpc-hub-art__pennant" d="M438 288 H454 L460 334 H432 Z"/>'
+		. wpcredits_hub_art_tag( 286, 330, __( 'Academic credit', 'wpcredits-theme' ), 'wpc-hub-art__tag--credit' )
+		. '</svg>';
 }
 
 /**

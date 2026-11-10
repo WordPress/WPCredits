@@ -408,6 +408,14 @@
 	stroke-width: 1.5;
 }
 
+/* The students' graduation cap (theme 1.32.15) is drawn in the mountain's box and with its classes: the
+   board in the brand blue as the snow cap is, the tassel the dashed route. Its button is a blue dot. */
+.wpc-hub-art__button {
+	fill: var( --wpc-brand );
+	stroke: var( --wpc-surface );
+	stroke-width: 2;
+}
+
 /* A guide and three students on the trail, for the mentors' page (theme 1.32.14): the students dark on
    white badges, the guide white on the brand blue and larger, a rope between them and a label beside each
    party. Every badge covers the mountain's words under it, so a figure reads at a glance. */

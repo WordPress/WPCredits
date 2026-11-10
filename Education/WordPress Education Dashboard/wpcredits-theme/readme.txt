@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.14
+Stable tag: 1.32.15
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -108,8 +108,8 @@ traveling sees the same grouping as the program manager looking at the same list
   JavaScript nothing forwards and the page keeps its buttons.
 * Landing page - a page template that sets the page's own content in the homepage's
   look, for a page that speaks to one audience, such as the mentors' page. The page
-  writes its own title; the pattern "Mountain with a guide and students" is the
-  picture for its first section.
+  writes its own title; the patterns "Mountain with a guide and students" and
+  "Graduation cap of words" are pictures for its first section.
 * Page, single, index, search and 404. The 404 page is drawn in the same hero layout,
   with the mountain and no forward, and keeps WordPress's 404 status.
 
@@ -220,6 +220,12 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.15 =
+
+* A new pattern, Graduation cap of words, is the picture for the students' page: a graduation cap cut from the homepage's field of role words, its board in the brand blue, with a dashed tassel and one label, Academic credit. It is decoration, hidden from screen readers, and not shown below 900px, as the hero's picture is.
+* For developers: `wpcredits_hub_graduation_svg()` draws it in the mountain's space and with its classes; `wpcredits_hub_word_rows()` is the field of words both are cut from, and `wpcredits_hub_art_person()` and `wpcredits_hub_art_tag()` the people and labels a hub picture carries. The mountain's own markup is unchanged.
+* A page that holds one of the plugin's public forms draws its box as the homepage's card: 2px corners on the hairline and no shadow.
 
 = 1.32.14 =
 

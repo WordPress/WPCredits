@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.32.14\n"
+"Project-Id-Version: WPCredits 1.32.15\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-10T03:38:38+00:00\n"
+"POT-Creation-Date: 2026-11-10T04:13:53+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -282,7 +282,7 @@ msgid "Filter programs by audience"
 msgstr ""
 
 #: blocks/sign-in/render.php:65
-#: inc/hub-content.php:265
+#: inc/hub-content.php:326
 #: patterns/audiences.php:20
 msgid "Students"
 msgstr ""
@@ -293,7 +293,7 @@ msgid "Student Report Card"
 msgstr ""
 
 #: blocks/sign-in/render.php:69
-#: inc/hub-content.php:273
+#: inc/hub-content.php:334
 #: patterns/audiences.php:26
 msgid "Mentors"
 msgstr ""
@@ -305,7 +305,7 @@ msgid "Mentor Report Card"
 msgstr ""
 
 #: blocks/sign-in/render.php:73
-#: inc/hub-content.php:280
+#: inc/hub-content.php:341
 #: patterns/audiences.php:32
 msgid "Institutions"
 msgstr ""
@@ -408,7 +408,7 @@ msgstr ""
 #: blocks/sign-in/render.php:173
 #: inc/get-involved.php:179
 #: inc/get-involved.php:205
-#: inc/hub-content.php:307
+#: inc/hub-content.php:368
 msgid "Get involved"
 msgstr ""
 
@@ -495,7 +495,7 @@ msgid "Guide a student's first contribution"
 msgstr ""
 
 #: inc/get-involved.php:95
-#: inc/hub-content.php:609
+#: inc/hub-content.php:670
 #: patterns/hub-cta.php:62
 msgid "Partner as an institution"
 msgstr ""
@@ -517,790 +517,794 @@ msgstr ""
 msgid "Menu"
 msgstr ""
 
-#: inc/hub-content.php:243
+#: inc/hub-content.php:275
 msgid "You, the guide"
 msgstr ""
 
-#: inc/hub-content.php:244
+#: inc/hub-content.php:276
 msgid "Your students"
 msgstr ""
 
-#: inc/hub-content.php:266
+#: inc/hub-content.php:304
+msgid "Academic credit"
+msgstr ""
+
+#: inc/hub-content.php:327
 msgid "Earn credit by contributing"
 msgstr ""
 
-#: inc/hub-content.php:267
+#: inc/hub-content.php:328
 #: patterns/hub-back-soon.php:45
 #: patterns/hub-hero.php:42
 #: patterns/hub-not-found.php:39
 msgid "Find where to start"
 msgstr ""
 
-#: inc/hub-content.php:274
+#: inc/hub-content.php:335
 msgid "A few hours a week, a real impact"
 msgstr ""
 
-#: inc/hub-content.php:275
+#: inc/hub-content.php:336
 #: patterns/hero.php:41
 msgid "Become a mentor"
 msgstr ""
 
-#: inc/hub-content.php:281
+#: inc/hub-content.php:342
 msgid "Bring the program to campus"
 msgstr ""
 
-#: inc/hub-content.php:282
+#: inc/hub-content.php:343
 msgid "Partner with us"
 msgstr ""
 
-#: inc/hub-content.php:325
+#: inc/hub-content.php:386
 msgid "Campus Connect"
 msgstr ""
 
-#: inc/hub-content.php:328
+#: inc/hub-content.php:389
 msgid "A half or full-day hands-on WordPress workshop on campus. No experience needed, and anyone connected to the institution can organize one."
 msgstr ""
 
-#: inc/hub-content.php:329
+#: inc/hub-content.php:390
 msgid "Half or full day"
 msgstr ""
 
-#: inc/hub-content.php:331
-#: inc/hub-content.php:487
+#: inc/hub-content.php:392
+#: inc/hub-content.php:548
 msgid "Certificate of participation"
 msgstr ""
 
-#: inc/hub-content.php:334
+#: inc/hub-content.php:395
 msgid "Find or host an event"
 msgstr ""
 
-#: inc/hub-content.php:339
+#: inc/hub-content.php:400
 msgid "WordPress Credits"
 msgstr ""
 
-#: inc/hub-content.php:342
+#: inc/hub-content.php:403
 msgid "Mentored work on the WordPress open source project, matched to your field of study. Ends with a presentation and a Foundation certificate."
 msgstr ""
 
-#: inc/hub-content.php:343
+#: inc/hub-content.php:404
 msgid "50h or 150h+, about a semester"
 msgstr ""
 
-#: inc/hub-content.php:345
+#: inc/hub-content.php:406
 msgid "Certificate"
 msgstr ""
 
 #. translators: A benefit a program gives, a noun: a digital badge.
-#: inc/hub-content.php:347
+#: inc/hub-content.php:408
 msgid "Badge"
 msgstr ""
 
-#: inc/hub-content.php:348
+#: inc/hub-content.php:409
 msgid "Hours transcript"
 msgstr ""
 
-#: inc/hub-content.php:349
+#: inc/hub-content.php:410
 msgctxt "academic credit a program gives, a noun, as in credit toward a degree"
 msgid "Credit"
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:361
+#: inc/hub-content.php:422
 msgid "Intro to Contribution"
 msgstr ""
 
 #. translators: The line above a course's name: how long it takes.
-#: inc/hub-content.php:363
+#: inc/hub-content.php:424
 msgid "50 hours"
 msgstr ""
 
-#: inc/hub-content.php:364
+#: inc/hub-content.php:425
 msgid "One guided contribution project: a first look at open source, for a shorter course or an elective."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress, its base course; not foundations as organizations.
-#: inc/hub-content.php:369
+#: inc/hub-content.php:430
 msgid "Foundations"
 msgstr ""
 
 #. translators: The line above a course's name: how long it takes.
-#: inc/hub-content.php:371
+#: inc/hub-content.php:432
 msgid "150 hours or more"
 msgstr ""
 
-#: inc/hub-content.php:372
+#: inc/hub-content.php:433
 msgid "Your own site and a contribution that ships, for an internship, a capstone, or a full semester."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:377
+#: inc/hub-content.php:438
 msgid "Developer track"
 msgstr ""
 
 #. translators: The line above a course's name: who it is for.
-#: inc/hub-content.php:379
+#: inc/hub-content.php:440
 msgid "For developers"
 msgstr ""
 
-#: inc/hub-content.php:380
+#: inc/hub-content.php:441
 msgid "WordPress developer training and patch testing practice, toward a contribution that ships."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:385
+#: inc/hub-content.php:446
 msgid "Designer track"
 msgstr ""
 
 #. translators: The line above a course's name: who it is for.
-#: inc/hub-content.php:387
+#: inc/hub-content.php:448
 msgid "For designers"
 msgstr ""
 
-#: inc/hub-content.php:388
+#: inc/hub-content.php:449
 msgid "A portfolio, Figma and the Site Editor's design tools, and a block pattern of your own."
 msgstr ""
 
 #. translators: The name of a WordPress Credits course on Learn WordPress.
-#: inc/hub-content.php:393
+#: inc/hub-content.php:454
 msgid "Translation track"
 msgstr ""
 
 #. translators: The line above a course's name: who it is for.
-#: inc/hub-content.php:395
+#: inc/hub-content.php:456
 msgid "For translators"
 msgstr ""
 
-#: inc/hub-content.php:396
+#: inc/hub-content.php:457
 msgid "Translation skills and real work with the Polyglots team: translate.wordpress.org and GlotPress, locale glossaries, software strings, and Learn WordPress lessons."
 msgstr ""
 
-#: inc/hub-content.php:401
+#: inc/hub-content.php:462
 msgid "Compare the five courses"
 msgstr ""
 
-#: inc/hub-content.php:402
+#: inc/hub-content.php:463
 msgid "About the program"
 msgstr ""
 
-#: inc/hub-content.php:403
+#: inc/hub-content.php:464
 msgid "Impact dashboard"
 msgstr ""
 
-#: inc/hub-content.php:408
+#: inc/hub-content.php:469
 msgid "Facilitator Training"
 msgstr ""
 
-#: inc/hub-content.php:411
+#: inc/hub-content.php:472
 msgid "Free, self-guided courses plus step-by-step facilitation guides with timed agendas and activity sheets, so faculty can teach WordPress themselves."
 msgstr ""
 
-#: inc/hub-content.php:412
-#: inc/hub-content.php:428
+#: inc/hub-content.php:473
+#: inc/hub-content.php:489
 msgid "Self-paced"
 msgstr ""
 
-#: inc/hub-content.php:414
+#: inc/hub-content.php:475
 msgid "Ready-to-run sessions"
 msgstr ""
 
-#: inc/hub-content.php:415
+#: inc/hub-content.php:476
 msgid "Facilitator listing"
 msgstr ""
 
-#: inc/hub-content.php:418
+#: inc/hub-content.php:479
 msgid "Facilitation guides"
 msgstr ""
 
-#: inc/hub-content.php:419
+#: inc/hub-content.php:480
 msgid "Courses"
 msgstr ""
 
-#: inc/hub-content.php:424
+#: inc/hub-content.php:485
 msgid "Learn WordPress"
 msgstr ""
 
-#: inc/hub-content.php:427
+#: inc/hub-content.php:488
 msgid "Free courses, lessons, and online workshops for every skill level, from building a first site to developing blocks."
 msgstr ""
 
-#: inc/hub-content.php:430
+#: inc/hub-content.php:491
 msgid "Course completions on your profile"
 msgstr ""
 
-#: inc/hub-content.php:433
+#: inc/hub-content.php:494
 msgid "Browse courses"
 msgstr ""
 
-#: inc/hub-content.php:438
+#: inc/hub-content.php:499
 msgid "AI Leaders"
 msgstr ""
 
-#: inc/hub-content.php:441
+#: inc/hub-content.php:502
 msgid "The first Foundation-backed micro-credential. Piloted in 2026 with students from Illinois and Louisiana."
 msgstr ""
 
-#: inc/hub-content.php:442
+#: inc/hub-content.php:503
 msgid "Cohort-based"
 msgstr ""
 
-#: inc/hub-content.php:444
+#: inc/hub-content.php:505
 msgid "Micro-credential"
 msgstr ""
 
 #. translators: The amount is in US dollars.
-#: inc/hub-content.php:446
+#: inc/hub-content.php:507
 msgid "$1,000 for completers"
 msgstr ""
 
-#: inc/hub-content.php:449
-#: inc/hub-content.php:465
+#: inc/hub-content.php:510
+#: inc/hub-content.php:526
 msgid "Learn more"
 msgstr ""
 
-#: inc/hub-content.php:454
+#: inc/hub-content.php:515
 msgid "WordPress Builder Certification"
 msgstr ""
 
-#: inc/hub-content.php:457
+#: inc/hub-content.php:518
 msgid "A certification exam validating the skills to build and run a personal or company website on WordPress."
 msgstr ""
 
 #. translators: A program's time on its card, a noun: an exam to sit, not a course to attend.
-#: inc/hub-content.php:459
+#: inc/hub-content.php:520
 msgid "Exam"
 msgstr ""
 
-#: inc/hub-content.php:462
+#: inc/hub-content.php:523
 msgid "Industry certification"
 msgstr ""
 
-#: inc/hub-content.php:482
+#: inc/hub-content.php:543
 msgid "Attendee"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:484
+#: inc/hub-content.php:545
 msgid "Attend a Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:485
+#: inc/hub-content.php:546
 msgid "Attend a Campus Connect event."
 msgstr ""
 
-#: inc/hub-content.php:488
+#: inc/hub-content.php:549
 msgid "A seeded WordPress.org profile"
 msgstr ""
 
-#: inc/hub-content.php:489
-#: inc/hub-content.php:501
-#: inc/hub-content.php:559
+#: inc/hub-content.php:550
+#: inc/hub-content.php:562
+#: inc/hub-content.php:620
 msgid "A profile badge"
 msgstr ""
 
-#: inc/hub-content.php:491
+#: inc/hub-content.php:552
 msgid "Recognized co-curricular activity or event credit, where the school offers it."
 msgstr ""
 
-#: inc/hub-content.php:492
+#: inc/hub-content.php:553
 msgid "Find a Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:495
+#: inc/hub-content.php:556
 msgid "Builder"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:497
+#: inc/hub-content.php:558
 msgid "Launch a live site with real content"
 msgstr ""
 
-#: inc/hub-content.php:498
+#: inc/hub-content.php:559
 msgid "Launch a live site with real content."
 msgstr ""
 
-#: inc/hub-content.php:500
-#: inc/hub-content.php:572
+#: inc/hub-content.php:561
+#: inc/hub-content.php:633
 msgid "Showcase eligibility"
 msgstr ""
 
-#: inc/hub-content.php:503
+#: inc/hub-content.php:564
 msgid "A portfolio piece that can be assessed within an existing course."
 msgstr ""
 
-#: inc/hub-content.php:504
+#: inc/hub-content.php:565
 msgid "Learn to build a site"
 msgstr ""
 
-#: inc/hub-content.php:507
+#: inc/hub-content.php:568
 msgid "Contributor"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:509
+#: inc/hub-content.php:570
 msgid "Get your first contribution accepted"
 msgstr ""
 
-#: inc/hub-content.php:510
+#: inc/hub-content.php:571
 msgid "Get your first contribution accepted."
 msgstr ""
 
-#: inc/hub-content.php:512
+#: inc/hub-content.php:573
 msgid "Contribution badge"
 msgstr ""
 
-#: inc/hub-content.php:513
+#: inc/hub-content.php:574
 msgid "Make team channels"
 msgstr ""
 
-#: inc/hub-content.php:514
+#: inc/hub-content.php:575
 msgid "Mentor matching"
 msgstr ""
 
-#: inc/hub-content.php:515
+#: inc/hub-content.php:576
 msgid "Retention support starts here"
 msgstr ""
 
-#: inc/hub-content.php:517
+#: inc/hub-content.php:578
 msgid "Open source work logged toward course or program requirements."
 msgstr ""
 
-#: inc/hub-content.php:518
+#: inc/hub-content.php:579
 msgid "Start WordPress Credits"
 msgstr ""
 
-#: inc/hub-content.php:521
+#: inc/hub-content.php:582
 msgctxt "a step on the student pathway, a noun: someone who has completed a track"
 msgid "Graduate"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:523
+#: inc/hub-content.php:584
 msgid "Complete a WordPress Credits track"
 msgstr ""
 
-#: inc/hub-content.php:524
+#: inc/hub-content.php:585
 msgid "Complete a WordPress Credits track."
 msgstr ""
 
-#: inc/hub-content.php:526
+#: inc/hub-content.php:587
 msgid "Foundation certificate"
 msgstr ""
 
-#: inc/hub-content.php:527
+#: inc/hub-content.php:588
 msgid "Digital badge"
 msgstr ""
 
-#: inc/hub-content.php:528
+#: inc/hub-content.php:589
 msgid "Verified hours transcript"
 msgstr ""
 
-#: inc/hub-content.php:529
+#: inc/hub-content.php:590
 msgid "Alumni directory listing"
 msgstr ""
 
-#: inc/hub-content.php:530
+#: inc/hub-content.php:591
 msgid "WordCamp ticket support"
 msgstr ""
 
-#: inc/hub-content.php:532
+#: inc/hub-content.php:593
 msgid "Credit-bearing."
 msgstr ""
 
-#: inc/hub-content.php:533
+#: inc/hub-content.php:594
 msgid "See the courses"
 msgstr ""
 
-#: inc/hub-content.php:536
+#: inc/hub-content.php:597
 msgid "Specialist"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:538
+#: inc/hub-content.php:599
 msgid "Complete a second or third program"
 msgstr ""
 
-#: inc/hub-content.php:539
+#: inc/hub-content.php:600
 msgid "Complete a second or third program."
 msgstr ""
 
-#: inc/hub-content.php:541
+#: inc/hub-content.php:602
 msgid "Deeper specialization"
 msgstr ""
 
-#: inc/hub-content.php:542
+#: inc/hub-content.php:603
 msgid "Scoped project work"
 msgstr ""
 
-#: inc/hub-content.php:543
+#: inc/hub-content.php:604
 msgid "Priority mentor matching"
 msgstr ""
 
-#: inc/hub-content.php:544
+#: inc/hub-content.php:605
 msgid "A specialist badge"
 msgstr ""
 
-#: inc/hub-content.php:546
+#: inc/hub-content.php:607
 msgid "Credit-bearing as an advanced elective, independent study, practicum, or capstone."
 msgstr ""
 
-#: inc/hub-content.php:547
+#: inc/hub-content.php:608
 msgid "Explore programs"
 msgstr ""
 
-#: inc/hub-content.php:550
+#: inc/hub-content.php:611
 msgid "Community Leader"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:552
+#: inc/hub-content.php:613
 msgid "Facilitate, mentor, organize, or speak"
 msgstr ""
 
-#: inc/hub-content.php:553
+#: inc/hub-content.php:614
 msgid "Facilitate, mentor, organize, or speak."
 msgstr ""
 
-#: inc/hub-content.php:555
+#: inc/hub-content.php:616
 msgid "Listing in the facilitator and speaker directory"
 msgstr ""
 
-#: inc/hub-content.php:556
+#: inc/hub-content.php:617
 msgid "Discounted or free WordCamp access"
 msgstr ""
 
-#: inc/hub-content.php:557
+#: inc/hub-content.php:618
 msgid "Priority on paid teaching leads"
 msgstr ""
 
-#: inc/hub-content.php:558
+#: inc/hub-content.php:619
 msgid "Organizing support"
 msgstr ""
 
-#: inc/hub-content.php:561
+#: inc/hub-content.php:622
 msgid "A role the school already records: teaching assistant, peer mentor, or student organization leader."
 msgstr ""
 
-#: inc/hub-content.php:562
-#: inc/hub-content.php:621
+#: inc/hub-content.php:623
+#: inc/hub-content.php:682
 msgid "Try Facilitator Training"
 msgstr ""
 
-#: inc/hub-content.php:565
+#: inc/hub-content.php:626
 msgid "Credentialed"
 msgstr ""
 
 #. translators: What earns a step, as the staircase prints it under the step's name.
-#: inc/hub-content.php:567
+#: inc/hub-content.php:628
 msgid "Earn a micro-credential"
 msgstr ""
 
-#: inc/hub-content.php:568
+#: inc/hub-content.php:629
 msgid "Earn a micro-credential."
 msgstr ""
 
-#: inc/hub-content.php:570
+#: inc/hub-content.php:631
 msgid "An Open to Work listing on jobs.wordpress.net"
 msgstr ""
 
-#: inc/hub-content.php:571
+#: inc/hub-content.php:632
 msgid "Credentials shown on your profile"
 msgstr ""
 
-#: inc/hub-content.php:574
+#: inc/hub-content.php:635
 msgid "A stackable credential accepted toward a degree, certificate, or transcript notation."
 msgstr ""
 
-#: inc/hub-content.php:575
+#: inc/hub-content.php:636
 msgid "Where this leads: WordPress Jobs"
 msgstr ""
 
-#: inc/hub-content.php:589
+#: inc/hub-content.php:650
 msgid "Participating"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:591
+#: inc/hub-content.php:652
 msgid "Host one Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:592
+#: inc/hub-content.php:653
 msgid "Host one Campus Connect event."
 msgstr ""
 
-#: inc/hub-content.php:594
+#: inc/hub-content.php:655
 msgid "A listing on the WordPress education page"
 msgstr ""
 
-#: inc/hub-content.php:595
+#: inc/hub-content.php:656
 msgid "A logo kit"
 msgstr ""
 
-#: inc/hub-content.php:597
+#: inc/hub-content.php:658
 msgid "Request a Campus Connect event"
 msgstr ""
 
-#: inc/hub-content.php:600
+#: inc/hub-content.php:661
 msgctxt "a level on the institution pathway, a noun: an institution that has signed a partnership agreement"
 msgid "Partner"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:602
+#: inc/hub-content.php:663
 msgid "Sign a partnership agreement and complete one WordPress Credits group"
 msgstr ""
 
-#: inc/hub-content.php:603
+#: inc/hub-content.php:664
 msgid "Sign a partnership agreement and complete one WordPress Credits group."
 msgstr ""
 
-#: inc/hub-content.php:605
+#: inc/hub-content.php:666
 msgid "A partner badge for your site"
 msgstr ""
 
-#: inc/hub-content.php:606
+#: inc/hub-content.php:667
 msgid "An Institution Dashboard"
 msgstr ""
 
-#: inc/hub-content.php:607
+#: inc/hub-content.php:668
 msgid "An auto-generated impact report each semester"
 msgstr ""
 
-#: inc/hub-content.php:612
+#: inc/hub-content.php:673
 msgid "Established"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:614
+#: inc/hub-content.php:675
 msgid "Run recurring groups with growing student numbers, at least one trained faculty facilitator, and students sitting certification exams"
 msgstr ""
 
-#: inc/hub-content.php:615
+#: inc/hub-content.php:676
 msgid "Run recurring groups with growing student numbers, at least one trained faculty facilitator, and students sitting certification exams."
 msgstr ""
 
-#: inc/hub-content.php:617
+#: inc/hub-content.php:678
 msgid "Named regional support"
 msgstr ""
 
-#: inc/hub-content.php:618
+#: inc/hub-content.php:679
 msgid "A WordCamp speaking slot"
 msgstr ""
 
-#: inc/hub-content.php:619
+#: inc/hub-content.php:680
 msgid "Co-marketing"
 msgstr ""
 
-#: inc/hub-content.php:624
+#: inc/hub-content.php:685
 msgid "Flagship"
 msgstr ""
 
 #. translators: What reaches a level, as the staircase prints it under the level's name.
-#: inc/hub-content.php:626
+#: inc/hub-content.php:687
 msgid "Integrate WordPress into the curriculum, with faculty mentoring across institutions and sustained numbers of certified students"
 msgstr ""
 
-#: inc/hub-content.php:627
+#: inc/hub-content.php:688
 msgid "Integrate WordPress into the curriculum, with faculty mentoring across institutions and sustained numbers of certified students."
 msgstr ""
 
-#: inc/hub-content.php:629
+#: inc/hub-content.php:690
 msgid "A case study"
 msgstr ""
 
-#: inc/hub-content.php:630
+#: inc/hub-content.php:691
 msgid "A Foundation announcement"
 msgstr ""
 
-#: inc/hub-content.php:631
+#: inc/hub-content.php:692
 msgid "Input on the program's direction"
 msgstr ""
 
-#: inc/hub-content.php:632
+#: inc/hub-content.php:693
 msgid "Event hosting"
 msgstr ""
 
-#: inc/hub-content.php:634
+#: inc/hub-content.php:695
 msgid "Talk to the program team"
 msgstr ""
 
-#: inc/hub-content.php:660
-#: inc/hub-content.php:684
+#: inc/hub-content.php:721
+#: inc/hub-content.php:745
 msgctxt "a benefit not offered yet"
 msgid "(planned)"
 msgstr ""
 
-#: inc/hub-content.php:1083
+#: inc/hub-content.php:1144
 msgid "Choosing a course"
 msgstr ""
 
-#: inc/hub-content.php:1084
+#: inc/hub-content.php:1145
 msgid "Which WordPress Credits course?"
 msgstr ""
 
-#: inc/hub-content.php:1085
+#: inc/hub-content.php:1146
 msgid "What each asks of a student, so a school and its students can choose. Access to each course comes through the student's institution."
 msgstr ""
 
-#: inc/hub-content.php:1111
+#: inc/hub-content.php:1172
 msgid "Computer science, engineering"
 msgstr ""
 
-#: inc/hub-content.php:1113
+#: inc/hub-content.php:1174
 msgctxt "a WordPress team a student joins"
 msgid "Core"
 msgstr ""
 
-#: inc/hub-content.php:1114
+#: inc/hub-content.php:1175
 msgctxt "a WordPress team a student joins"
 msgid "Plugins"
 msgstr ""
 
-#: inc/hub-content.php:1115
-#: inc/hub-content.php:1165
+#: inc/hub-content.php:1176
+#: inc/hub-content.php:1226
 msgctxt "a WordPress team a student joins"
 msgid "Testing"
 msgstr ""
 
-#: inc/hub-content.php:1116
-#: inc/hub-content.php:1164
+#: inc/hub-content.php:1177
+#: inc/hub-content.php:1225
 msgctxt "a WordPress team a student joins"
 msgid "Accessibility"
 msgstr ""
 
-#: inc/hub-content.php:1118
+#: inc/hub-content.php:1179
 msgid "Merged code and reviewed patches"
 msgstr ""
 
-#: inc/hub-content.php:1121
+#: inc/hub-content.php:1182
 msgid "Design, arts, UX"
 msgstr ""
 
-#: inc/hub-content.php:1123
+#: inc/hub-content.php:1184
 msgctxt "a WordPress team a student joins"
 msgid "Design"
 msgstr ""
 
-#: inc/hub-content.php:1124
+#: inc/hub-content.php:1185
 msgctxt "a WordPress team a student joins"
 msgid "Block patterns"
 msgstr ""
 
-#: inc/hub-content.php:1125
+#: inc/hub-content.php:1186
 msgctxt "a WordPress team a student joins"
 msgid "Themes"
 msgstr ""
 
-#: inc/hub-content.php:1127
+#: inc/hub-content.php:1188
 msgid "Visual work in use on real sites"
 msgstr ""
 
-#: inc/hub-content.php:1130
+#: inc/hub-content.php:1191
 msgid "Communications, journalism, marketing"
 msgstr ""
 
-#: inc/hub-content.php:1132
+#: inc/hub-content.php:1193
 msgctxt "a WordPress team a student joins"
 msgid "Documentation"
 msgstr ""
 
-#: inc/hub-content.php:1133
+#: inc/hub-content.php:1194
 msgctxt "a WordPress team a student joins"
 msgid "Learn WordPress"
 msgstr ""
 
-#: inc/hub-content.php:1134
+#: inc/hub-content.php:1195
 msgctxt "a WordPress team a student joins"
 msgid "Marketing"
 msgstr ""
 
-#: inc/hub-content.php:1136
+#: inc/hub-content.php:1197
 msgid "Published work with a byline"
 msgstr ""
 
-#: inc/hub-content.php:1139
+#: inc/hub-content.php:1200
 msgid "Translation, languages"
 msgstr ""
 
-#: inc/hub-content.php:1141
+#: inc/hub-content.php:1202
 msgctxt "a WordPress team a student joins"
 msgid "Polyglots"
 msgstr ""
 
-#: inc/hub-content.php:1143
+#: inc/hub-content.php:1204
 msgid "Published translations"
 msgstr ""
 
-#: inc/hub-content.php:1146
+#: inc/hub-content.php:1207
 msgid "Business, events, tourism"
 msgstr ""
 
-#: inc/hub-content.php:1148
+#: inc/hub-content.php:1209
 msgctxt "a WordPress team a student joins"
 msgid "Community"
 msgstr ""
 
-#: inc/hub-content.php:1149
+#: inc/hub-content.php:1210
 msgctxt "a WordPress team a student joins"
 msgid "WordCamps"
 msgstr ""
 
-#: inc/hub-content.php:1151
+#: inc/hub-content.php:1212
 msgid "An event you ran, with attendance numbers"
 msgstr ""
 
-#: inc/hub-content.php:1154
+#: inc/hub-content.php:1215
 msgctxt "a field of study"
 msgid "Education"
 msgstr ""
 
-#: inc/hub-content.php:1156
+#: inc/hub-content.php:1217
 msgctxt "a WordPress team a student joins"
 msgid "Learn WordPress lesson plans"
 msgstr ""
 
-#: inc/hub-content.php:1157
+#: inc/hub-content.php:1218
 msgctxt "a WordPress team a student joins"
 msgid "Training"
 msgstr ""
 
-#: inc/hub-content.php:1159
+#: inc/hub-content.php:1220
 msgid "Course material in public use"
 msgstr ""
 
-#: inc/hub-content.php:1162
+#: inc/hub-content.php:1223
 msgid "Accessibility, social work"
 msgstr ""
 
-#: inc/hub-content.php:1167
+#: inc/hub-content.php:1228
 msgid "Audit work on a global platform"
 msgstr ""
 
-#: inc/hub-content.php:1180
+#: inc/hub-content.php:1241
 #: blocks/fit-list/index.js:94
 #: blocks/fit-list/index.js:96
 msgid "Your field of study"
 msgstr ""
 
-#: inc/hub-content.php:1181
+#: inc/hub-content.php:1242
 #: blocks/fit-list/index.js:102
 #: blocks/fit-list/index.js:104
 msgid "The team you join"
 msgstr ""
 
-#: inc/hub-content.php:1182
+#: inc/hub-content.php:1243
 #: blocks/fit-list/index.js:110
 #: blocks/fit-list/index.js:112
 msgid "What you'll have to show"
 msgstr ""
 
 #. translators: Read by screen readers before the teams a field of study joins; the header line above the rows shows "The team you join" to the eye.
-#: inc/hub-content.php:1184
+#: inc/hub-content.php:1245
 #: blocks/fit-list/index.js:71
 msgid "The team you join:"
 msgstr ""
 
 #. translators: Read by screen readers before what a student will have to show for a field of study; the header line above the rows shows "What you'll have to show" to the eye.
-#: inc/hub-content.php:1186
+#: inc/hub-content.php:1247
 #: blocks/fit-list/index.js:78
 msgid "What you'll have to show:"
 msgstr ""
@@ -2311,6 +2315,16 @@ msgstr ""
 
 #: patterns/steps.php:40
 msgid "Read the handbook"
+msgstr ""
+
+#: patterns/students-graduation.php
+msgctxt "Pattern title"
+msgid "Graduation cap of words"
+msgstr ""
+
+#: patterns/students-graduation.php
+msgctxt "Pattern description"
+msgid "A graduation cap cut from the homepage's field of role words, its board in the brand blue and a dashed tassel hanging from it, for the picture's column of the students' page."
 msgstr ""
 
 #: blocks/course-band/index.js:52

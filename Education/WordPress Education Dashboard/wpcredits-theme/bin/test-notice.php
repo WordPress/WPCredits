@@ -535,6 +535,24 @@ ck( 'and its pattern is a Custom HTML block hidden from screen readers, with not
 	),
 	array( 1, 1, 0 ) );
 
+$graduation         = (string) theme_call( 'wpcredits_hub_graduation_svg' );
+$graduation_pattern = pattern( 'students-graduation.php' );
+
+ck( 'the students\' graduation cap (theme 1.32.15) is cut from the mountain\'s own field of words, with IDs of its own, a tassel, a button and a tuft, no person and one label, and its pattern is a Custom HTML block hidden from screen readers with nothing to focus',
+	array(
+		1 === substr_count( $graduation, (string) theme_call( 'wpcredits_hub_word_rows' ) ) && 1 === substr_count( $mountain, (string) theme_call( 'wpcredits_hub_word_rows' ) ),
+		substr_count( $graduation, 'id="wpc-hub-graduation-' ),
+		substr_count( $graduation, 'wpc-hub-mountain-' ),
+		substr_count( $graduation, 'class="wpc-hub-art__route"' ) + substr_count( $graduation, 'class="wpc-hub-art__button"' ) + substr_count( $graduation, 'class="wpc-hub-art__pennant"' ),
+		substr_count( $graduation, 'wpc-hub-art__person ' ),
+		substr_count( $graduation, 'class="wpc-hub-art__tag ' ),
+		substr_count( $graduation, '>Academic credit</text>' ),
+		1 === substr_count( $graduation_pattern, $graduation ),
+		substr_count( $graduation_pattern, '<div class="wpc-hub-art" aria-hidden="true">' ),
+		preg_match( '/<a\b|<button\b|tabindex/', $graduation_pattern ),
+	),
+	array( true, 3, 0, 3, 0, 1, 1, true, 1, 0 ) );
+
 $hub_css = theme_file( 'assets/css/hub.css' );
 
 ck( 'hub.css dresses every class the party is drawn with',
@@ -542,9 +560,9 @@ ck( 'hub.css dresses every class the party is drawn with',
 		static function ( $class ) use ( $hub_css ) {
 			return false !== strpos( $hub_css, '.' . $class );
 		},
-		array( 'wpc-hub-art__rope', 'wpc-hub-art__person--student', 'wpc-hub-art__person--guide', 'wpc-hub-art__badge', 'wpc-hub-art__tag', 'wpc-hub-art__tag--guide' )
+		array( 'wpc-hub-art__rope', 'wpc-hub-art__person--student', 'wpc-hub-art__person--guide', 'wpc-hub-art__badge', 'wpc-hub-art__tag', 'wpc-hub-art__tag--guide', 'wpc-hub-art__button' )
 	),
-	array( true, true, true, true, true, true ) );
+	array( true, true, true, true, true, true, true ) );
 
 echo "\n=== The words ===\n";
 
