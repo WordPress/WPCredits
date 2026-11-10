@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "Mentor Report Card" template that dresses the plugin's own page as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.32.15
+Version: 1.32.16
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -1382,11 +1382,20 @@ p.is-style-pill {
 }
 
 /* A page that holds one of the plugin's public forms (the mentor, institution and sponsor
-   applications, the student registration) is read by people who are not signed in, so its box is
-   the homepage's card and not a dashboard's: 2px corners on the hairline, no shadow. */
+   applications, the student registration) is read by people who are not signed in, so it is drawn
+   as the homepage and the landing pages are: on the page's own white, with no box around the
+   content, which then lines up with the header. The form's groups keep their own hairline. */
+.wpc-main--content:has( .wpcpm-application ) {
+	background: var( --wpc-surface );
+}
+
 .wpc-article:has( .wpcpm-application ) {
-	border-radius: var( --wpc-radius-control );
+	background: transparent;
+	border: 0;
+	border-radius: 0;
 	box-shadow: none;
+	padding-left: 0;
+	padding-right: 0;
 }
 
 @media ( max-width: 782px ) {
@@ -1403,6 +1412,12 @@ p.is-style-pill {
 		border-radius: 0;
 		border-right: 0;
 		padding: 28px 20px;
+	}
+
+	/* A form page has no box, so its content takes the header's 20px margin on a phone. */
+	.wpc-main--content:has( .wpcpm-application ) {
+		padding-left: 20px;
+		padding-right: 20px;
 	}
 }
 
