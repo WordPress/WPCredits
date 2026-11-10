@@ -543,6 +543,8 @@ $probe = array(
 	'mentor_course_link'            => 'https://learn.example.test/course/probe/?group=PROBE',
 	'mentor_lapse_days'             => '120',
 	'student_registration_stages'   => array( 'Confirmed', 'Student' ),
+	// Interest from students (1.123.64): who is told of a new one.
+	'student_interest_notify'       => 'probe-one@example.test,probe-two@example.test',
 	// Quiet students: the switch, and the days, which the probe sets off their defaults.
 	'student_flags_mode'            => 'preview',
 	'student_quiet_days'            => '21',
@@ -1199,8 +1201,8 @@ foreach ( array_keys( WPCPM_Settings::scopes() ) as $scope_name ) {
 
 ck( 'both are in the Students and mentors tab\'s scope and in no other', $registration_scopes,
 	array( 'student_registrations_enabled' => array( 'people' ), 'student_registration_stages' => array( 'people' ) ) );
-ck( 'and they follow the mentor lapse days there',
-	array_slice( WPCPM_Settings::scope_keys( 'people' ), -6 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled' ) );
+ck( 'and they follow the mentor lapse days there, the two settings of the interest from students after them since 1.123.64',
+	array_slice( WPCPM_Settings::scope_keys( 'people' ), -8 ), array( 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled' ) );
 
 // Quiet students: the switch is off and the quiet is two weeks until a person says otherwise, both live
 // on the Students and mentors tab, and the save holds the mode to its three words and the days to 7..60.
@@ -1854,7 +1856,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // row gives them.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
@@ -3215,6 +3217,7 @@ $design_sections = array(
 		'Accounts'              => 'accounts',
 		'Landing pages'         => 'landing-pages',
 		'Student registrations' => 'student-registrations',
+		'Interest from students' => 'interest-from-students',
 		'Quiet students'        => 'quiet-students',
 		'New students'          => 'new-students',
 		'Mentor applications'   => 'mentor-applications',
@@ -3314,8 +3317,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 29 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 29, 0, 29 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 30 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 30, 0, 30 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -3626,8 +3629,8 @@ ck( 'the model is typed while the provider lists no models, the field holding th
     array( true, 0 ) );
 ck( 'the two status lists and the pipeline stages are checkbox lists',
     $drawn_by['checklist_row'], array( 'institution_active_stages', 'past_statuses', 'student_registration_stages', 'student_statuses' ) );
-ck( 'the four reviewer lists are the program managers to tick, with a line for other addresses',
-    $drawn_by['reviewers_row'], array( 'agreement_notify', 'mentor_notify', 'report_notify', 'sponsor_notify' ) );
+ck( 'the five reviewer lists, the interest from students\' since 1.123.64, are the program managers to tick, with a line for other addresses',
+    $drawn_by['reviewers_row'], array( 'agreement_notify', 'mentor_notify', 'report_notify', 'sponsor_notify', 'student_interest_notify' ) );
 // The reviewer lists are drawn by the two helpers every other field is, not by markup of their own:
 // the program managers through the checkbox list, and with nobody to list, the text input.
 $rows_source      = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php' );
@@ -4356,12 +4359,14 @@ ck( 'and with its page missing, each says so in the same words',
 
 // The same words because the same code: the four landing pages are drawn by one row, and each row that
 // prints a page, the four and the four application forms (the students' since 1.123.54), prints its address, or the sentence saying
-// it is missing, through one line of the rows class.
+// it is missing, through one line of the rows class. The student interest form's row (1.123.64) prints
+// its page's address through the same line, the fifth call the screen makes of it, and says a sentence
+// of its own with no page, since an editor places that form and no activation makes it a page.
 preg_match_all( "/WPCPM_Settings_Rows::landing_row\(\s*'([a-z_]+)'/", $screen_source, $landing_drawn );
 
 ck( 'the four landing pages are drawn by the one landing row, and the sentence saying a page is missing is written once, in the rows\' page line',
     array( $landing_drawn[1], substr_count( $screen_source . $rows_file_source, 'The page is missing: re-activate the plugin to recreate it.' ), substr_count( $screen_source, 'WPCPM_Settings_Rows::page_line( ' ) ),
-    array( array( 'mentor_home', 'student_home', 'institution_home', 'sponsor_home' ), 1, 4 ) );
+    array( array( 'mentor_home', 'student_home', 'institution_home', 'sponsor_home' ), 1, 5 ) );
 
 // The student's page is the Student Report Card, as the toolbar names it for the student; the name
 // it had before, My Program, is one the page no longer carries.

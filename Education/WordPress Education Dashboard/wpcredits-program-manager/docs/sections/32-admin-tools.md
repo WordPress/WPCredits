@@ -100,6 +100,13 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   reset link), and the address is already registered. Each goes to the address the student gave,
   once, and carries the program's contact address as its Reply-To when **Contact address in
   emails** is set, so an answer reaches the program.
+- **Student interests** (since 1.123.64): the two emails of the student interest form. The first
+  tells a student that their interest was received, that the program will get in touch with the
+  representative they named and that nothing else is needed from them; it goes to the address the
+  student gave, once, for an interest stored as new or held, and carries the program's contact
+  address as its Reply-To when **Contact address in emails** is set. The second tells Administrators
+  of a new interest, with the institution's name and country and a link to the **Interests** tab. No
+  email of this area goes to the representative.
 - **Quiet students** (since 1.123.60): the three emails of the daily list of quiet students, sent
   only while the **Daily list** setting is On. The student gets a friendly note once for each
   stretch of quiet: how many days since they were last seen, or, for a student not seen since their
@@ -282,7 +289,7 @@ account's email address as it is now; an account with no program role links to i
 a row with no account is plain text. Then the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
 area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
-events, Mentor applications, Student registrations, Quiet students, WordPress, Two Factor or Other); which email it was; its subject; and
+events, Mentor applications, Student registrations, Student interests, Quiet students, WordPress, Two Factor or Other); which email it was; its subject; and
 its status. The status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the

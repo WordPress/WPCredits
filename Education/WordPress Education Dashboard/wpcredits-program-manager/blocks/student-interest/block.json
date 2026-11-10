@@ -1,0 +1,28 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/student-interest",
+	"version": "1.123.64",
+	"title": "Student Interest Form",
+	"category": "widgets",
+	"icon": "megaphone",
+	"description": "The public form a student whose institution is not in the program yet fills in to say they would like to take part.",
+	"keywords": [ "student", "interest", "institution", "wpcredits" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		},
+		"thanks": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

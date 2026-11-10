@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, and, since 1.123.54, the 3 Student registrations emails, and, since 1.123.60, the 3 Quiet students emails, 116', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 116 );
+ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, and, since 1.123.54, the 3 Student registrations emails, and, since 1.123.60, the 3 Quiet students emails, and, since 1.123.64, the 2 Student interests emails, 118', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 118 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -274,6 +274,27 @@ ck(
 	)
 );
 
+// The Student interests area (1.123.64): the acknowledgement to a student who sent the student
+// interest form, who has no account, and the Administrators' notice of a new interest.
+ck(
+	'the Student interests area names its two emails, each with who receives it',
+	array_map(
+		function ( $e ) {
+			return $e['label'] . ' / ' . $e['audience'];
+		},
+		array_filter(
+			$emails,
+			function ( $e ) {
+				return 'student-interests' === $e['module'];
+			}
+		)
+	),
+	array(
+		'student-interest-received' => 'Student interest received, to the student / applicant',
+		'student-interest-notice'   => 'New student interest, to Administrators / administrator',
+	)
+);
+
 // The Quiet students area (1.123.60): the reminder to the student, the digest to the mentor, the Monday
 // list to the Administrator.
 ck(
@@ -296,7 +317,7 @@ ck(
 	)
 );
 
-ck( 'the areas are the ones the Log lists, in its order, the Sponsor events after the Sponsors, the Mentor applications after them, the Student registrations after those and the Quiet students after them', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'Student registrations', 'Quiet students', 'WordPress', 'Two Factor', 'Other' ) );
+ck( 'the areas are the ones the Log lists, in its order, the Sponsor events after the Sponsors, the Mentor applications after them, the Student registrations after those, the Student interests after them (1.123.64) and the Quiet students after them', array_values( WPCPM_Mail_Catalog::modules() ), array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'Student registrations', 'Student interests', 'Quiet students', 'WordPress', 'Two Factor', 'Other' ) );
 
 // Every context the plugin hands the mail layer, read from the source: a literal, or a constant the
 // same file declares, as the second argument of send(), send_to() and mail_members(), the first of
@@ -329,7 +350,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 40 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31, the offer returned with a note since 1.123.18 and the three Quiet students emails since 1.123.60; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 40 );
+ck( 'and the scan found all 42 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31, the offer returned with a note since 1.123.18, the three Quiet students emails since 1.123.60 and the student interest form\'s two since 1.123.64; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 42 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,

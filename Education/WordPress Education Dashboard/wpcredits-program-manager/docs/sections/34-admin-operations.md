@@ -246,6 +246,19 @@ leads to the institution application page on this site while it is published, an
 touch otherwise. It used to lead to the Students Interest Form, which is kept on Airtable; the site's
 public pages now link to no form there.
 
+Since 1.123.64 the site has a student interest form, for a student whose institution is not in
+the program yet. The plugin makes no page for it: an editor adds the **Student Interest Form** block,
+or the `[wpcpm_student_interest]` shortcode, to a page, and the site remembers that page as pages
+are saved. The page is not gated and not cached. Each interest is kept on the site as one private
+record: the student's answers, the representative's name and address, the two sentences the student
+agreed to with the policy's address, what the form's checks noticed, and who last changed its state
+and when. Nothing is written to Airtable. A spam interest is deleted 30 days after it was filed and
+a closed one 365 days after it was closed, by a daily job; the others stay until an Administrator
+moves them. Deleting the plugin removes every interest, the page's ID and the daily job, and leaves
+the page. While the form is open and its page is published, the registration form's line for a
+student whose institution is not on the list leads to it, and to the institution application
+otherwise.
+
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
 The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
@@ -503,6 +516,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_sevent_reminder_edge` | `WPCPM_Sponsor_Event::OPT_REMINDER_EDGE` (where the last complete window of the sponsor events' reminders stopped, a timestamp: the next run's window starts there when that is sooner than 12 hours on) |
 | `wpcpm_sign_ins_since` | `WPCPM_Sign_Ins::OPT_SINCE` (when the sign-ins from before 1.122.26 were read; the Engagement tab's note names it) |
 | `wpcpm_sign_ins_version` | `WPCPM_Sign_Ins::OPT_VERSION` |
+| `wpcpm_sint_lock_<ID>` | `WPCPM_Student_Interest::LOCK_PREFIX` and the interest's ID (held while one interest's state is changed or it is deleted, 30 seconds at most, and let go after; uninstall removes any left behind) |
 | `wpcpm_sponsor_agr_` | `WPCPM_Sponsor_Agreement::OPT_PREFIX` (the per-sponsor transition locks) |
 | `wpcpm_sponsor_application_log` | `WPCPM_Sponsor_Application::OPT_LOG` |
 | `wpcpm_sponsor_application_page_id` | `WPCPM_Sponsor_Application::OPT_PAGE` |
@@ -529,6 +543,9 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_student_flags_lock` | `WPCPM_Student_Flags::LOCK` (held while the daily run works, ten minutes at most) |
 | `wpcpm_student_flags_on_since` | `WPCPM_Student_Flags::OPT_ON_SINCE` (the time of the switch's latest move into On; a quiet stretch already past the days of quiet at that time is never mailed) |
 | `wpcpm_student_flags_weekly` | `WPCPM_Student_Flags::OPT_WEEKLY` (the ISO week the Monday email last went out for) |
+| `wpcpm_student_int` | `WPCPM_Student_Interest::POST_TYPE` (one private post per interest a student sent through the student interest form; its meta keys start `_wpcpm_sint_`) |
+| `wpcpm_student_interest_page_id` | `WPCPM_Student_Interest_Form::OPT_PAGE` (the page an editor placed the student interest form on, kept as pages are saved; the page stays when the plugin is deleted) |
+| `wpcpm_student_interests_daily` | `WPCPM_Student_Interest::CRON_DAILY` (cron hook: the daily run that deletes a spam interest after 30 days and a closed one after 365; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
 | `wpcpm_student_languages` | `WPCPM_Student_Airtable_Row::LANGUAGES_OPTION` (the site's copy of the Airtable Languages table, record ID to name, read at most once a day, which the registration form's two language questions and the row written to Airtable use) |
 | `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
 | `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |

@@ -92,7 +92,7 @@ warning that says why, in the tool's own words.
 
 | Screen | What it does |
 | --- | --- |
-| **Students** | Three tabs: **Accounts**, the invitations and every Student account in one list, **Registrations**, the students who registered through the form on the site, and **Sync**, the students sync and its last report. |
+| **Students** | Four tabs: **Accounts**, the invitations and every Student account in one list, **Registrations**, the students who registered through the form on the site, **Interests**, the students whose institution is not in the program yet and who said through the student interest form that they would like to take part, and **Sync**, the students sync and its last report. |
 | **Mentors** | Four tabs: **Waiting for review**, the applications to mentor that came through the form on the site, read and decided here, with the applicants made mentors under **Activated**, the tab the screen opens on while any wait; **Accounts**, the invitations and every Mentor account in one list; **Engagement**, how each mentor uses the site; and **Sync**, the mentors sync, a warning while mentors made from applications wait for their Airtable row, and its last report. |
 | **Institutions** | Six tabs: **Waiting for review**, the applications, signed agreements and requests from institutions waiting, read here and decided on the Administrator Dashboard; **Pipeline**, every institution record by stage and the consent report; **Accounts**, the invitations, every institution account in one list, the Confirmed institutions with no account yet, and each institution's members; **Semester reports**, every semester report and the semesters due for drafting; **Agreements**, the agreements to record as on file, the agreements in force with the form to revoke each, the ones Airtable disagrees with, and the plugin's copy of the Collaboration Agreement; and **Sync and storage**, the institutions sync, the reconciliation of Students with Students Reports, and the check of how the host serves the private files. |
 | **Sponsors** | Eight tabs: **Waiting for review**, the sponsor applications, sponsor posts, sponsor offers and the changes to them, sponsor events while they are on, and signed agreements waiting, read here and decided on the Administrator Dashboard; **Sponsors**, the box that finishes the move of the sponsor records onto the site while it is incomplete, then every sponsor with its status, tier, product, program contact, accounts and logo, **Edit** and **Manage accounts** on each row, and the form that adds a sponsor; **Accounts**, the invitations, every sponsor account in one list, the Approved sponsors with no account yet, where their accounts are created, and each sponsor's accounts; **Offers and codes**, every offer with its codes and claims; **Interests**, what sponsors said they would like to support; **Reports**, each sponsor's report and the editor it is written in; **Agreements**, the standing state of every Approved sponsor's agreement; and **Handbook listing**, the sponsors' listing for the handbook, in the bar only while the sponsor tiers are announced. |
@@ -117,6 +117,32 @@ and the bar move on their own every ten seconds, a screen reader hears how many 
 quarter and at the end, and the card says when the run has finished; a search, a filter or a ticked
 row stays as it was. A run stopped or cleared in another tab ends the card with the count where it
 ended and says so. The card also links to the page itself, to see the whole card again.
+
+Since 1.123.64 the Students screen has a fourth tab, **Interests**, after **Registrations**. It lists the interest students sent through the student interest form: a student whose institution is not in the program yet says they would like to take part, and names a representative of the institution who agreed to be contacted. The form takes the place of the one the program kept on Airtable, with the same questions. Nothing on this tab is written to Airtable, and nothing is made from an interest: no account, no row and no institution. You follow each one up by hand.
+
+The card's heading counts the new interests. The list is newest first, 50 to a page, with **Newer** and **Older** above and under it when a view holds more, so every interest is reached; it comes in five views each with its count:
+
+- **New**, the view the tab opens on: an interest that passed every check. Administrators were emailed about it.
+- **Held**: an interest that looks like spam and is kept for you to judge. The student was sent the acknowledgement; Administrators were not emailed.
+- **Contacted**: you wrote to the representative.
+- **Closed**: nothing more to do. A closed interest is deleted 365 days after it was closed.
+- **Spam**: what the form's checks filed, or you marked. A spam interest is deleted 30 days after it was filed.
+
+Each interest shows the student's name and email address, the date it was received and its reference, such as `SINT-2026-0503`; where it stands, with who last changed it and when; and what the form's checks noticed, each in a sentence, such as that the same student sent an interest for the same institution in the 30 days before, or that the student was sent no acknowledgement because the day's limit on emails was reached. Under that is a table: **Institution**, with its name, city and country and its website as a link; **Department**; **Representative**, with the name and the email address as a link; **Internships or practices**, the student's choices; and **Anything else**, what the student wrote. **Consent**, folded under it, holds the two sentences the student agreed to, when, from which shortened address and in which browser.
+
+The site never emails the representative. Write to them yourself, from the address on the row, then press **Mark contacted**.
+
+Five presses work on an interest, each for the states it takes:
+
+- **Mark contacted**, on a new or a held interest.
+- **Close**, on a new, a held or a contacted interest.
+- **Mark as spam**, on a new or a held interest.
+- **Put back to New**, on a held, a spam or a closed interest. Nobody is emailed again.
+- **Delete**, on a spam or a closed interest: it asks first and removes the interest for good.
+
+Each comes back to the view it was pressed on and says what it did. A press on an interest that another Administrator has moved in the meantime changes nothing and says so.
+
+WordPress's **Export Personal Data** and **Erase Personal Data** tools find an interest by the student's address and by the representative's. A student is handed everything they sent and what the site keeps as evidence of the two boxes they ticked: the sentences, the policy's address, the time, and the address and browser the form was sent from. A representative is handed the institution's details and their own name and address, and not who named them. An erasure deletes the whole interest, for either address, and says so when WordPress would not delete one, which is then still on the tab to delete by hand.
 
 In 1.119.0 the Mentors screen became two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on while no application to mentor waits (see *Applications to mentor*), holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds, since 1.122.33, a warning while mentors made from applications have no Airtable row yet, with the way to where each is written, the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 

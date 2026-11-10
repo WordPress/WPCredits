@@ -40,17 +40,21 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	/** The screen's tab the students' registrations are on (1.123.54). */
 	const TAB_REGISTRATIONS = 'registrations';
 
+	/** The screen's tab the interest students sent through the student interest form is on (1.123.64). */
+	const TAB_INTERESTS = 'interests';
+
 	/** The screen's tab the Airtable sync is on, which the sync's forms return to. */
 	const TAB_SYNC = 'sync';
 
 	/**
 	 * The screen's tabs, slug => label, in the bar's order: the accounts, the tab the screen opens
-	 * on, then the registrations and the sync. English, as a constant has to hold them;
+	 * on, then the registrations, the interests and the sync. English, as a constant has to hold them;
 	 * `tab_labels()` translates them.
 	 */
 	const TABS = array(
 		self::TAB_ACCOUNTS      => 'Accounts',
 		self::TAB_REGISTRATIONS => 'Registrations',
+		self::TAB_INTERESTS     => 'Interests',
 		self::TAB_SYNC          => 'Sync',
 	);
 
@@ -114,6 +118,9 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		WPCPM_Start_Pages::init();
 		WPCPM_Student_Registration_Form::init();
 		WPCPM_Student_Registrations_Tab::init();
+		WPCPM_Student_Interest::init();
+		WPCPM_Student_Interest_Form::init();
+		WPCPM_Student_Interests_Tab::init();
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
@@ -132,6 +139,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	public function activate() {
 		WPCPM_Students_Sync::schedule();
 		WPCPM_Student_Registration_Process::schedule();
+		WPCPM_Student_Interest::schedule();
 		WPCPM_Student_Flags::schedule();
 		WPCPM_Students_Dashboard::ensure_page();
 		// The registration form's page, and deliberately not gated: see its `ensure_page()`.
@@ -144,6 +152,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 	public function deactivate() {
 		WPCPM_Students_Sync::unschedule();
 		WPCPM_Student_Registration_Process::unschedule();
+		WPCPM_Student_Interest::unschedule();
 		WPCPM_Student_Flags::unschedule();
 	}
 
@@ -159,6 +168,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Students_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Students_Dashboard::OPT_TITLE_FIXED );
 		delete_option( WPCPM_Student_Registration_Form::OPT_PAGE );
+		// The page an editor placed the student interest form on (the page stays: it is content).
+		delete_option( WPCPM_Student_Interest_Form::OPT_PAGE );
 		delete_option( WPCPM_Student_Airtable_Row::LANGUAGES_OPTION );
 		delete_option( WPCPM_Student_Flags::OPT_SNAPSHOT );
 		delete_option( WPCPM_Student_Flags::OPT_ON_SINCE );
@@ -196,6 +207,9 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 		WPCPM_Student_Registration::delete_all();
 		WPCPM_Student_Registration_Process::unschedule();
+		// Every interest a student sent through the student interest form, and its daily job.
+		WPCPM_Student_Interest::delete_all();
+		WPCPM_Student_Interest::unschedule();
 		WPCPM_Student_Flags::unschedule();
 	}
 
@@ -208,6 +222,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		$translated = array(
 			self::TAB_ACCOUNTS      => __( 'Accounts', 'wpcredits-program-manager' ),
 			self::TAB_REGISTRATIONS => __( 'Registrations', 'wpcredits-program-manager' ),
+			self::TAB_INTERESTS     => __( 'Interests', 'wpcredits-program-manager' ),
 			self::TAB_SYNC          => __( 'Sync', 'wpcredits-program-manager' ),
 		);
 
@@ -230,6 +245,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			$this->render_tab_sync();
 		} elseif ( self::TAB_REGISTRATIONS === $tab ) {
 			$this->render_tab_registrations();
+		} elseif ( self::TAB_INTERESTS === $tab ) {
+			$this->render_tab_interests();
 		} else {
 			$this->render_tab_accounts();
 		}
@@ -245,6 +262,16 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		$this->render_notice_from( WPCPM_Student_Registrations_Tab::messages() );
 
 		WPCPM_Student_Registrations_Tab::render();
+	}
+
+	/**
+	 * The Interests tab: what the last press on it did, then the interest students sent through the
+	 * student interest form (`WPCPM_Student_Interests_Tab`).
+	 */
+	private function render_tab_interests() {
+		$this->render_notice_from( WPCPM_Student_Interests_Tab::messages() );
+
+		WPCPM_Student_Interests_Tab::render();
 	}
 
 	/**

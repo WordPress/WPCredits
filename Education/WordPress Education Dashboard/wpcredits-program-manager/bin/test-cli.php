@@ -231,7 +231,7 @@ class WPCPM_Airtable {
 $GLOBALS['mentor_rows'] = array();
 /** The connection, for the commands that read or write Airtable: configured, unless a check says not. */
 class WPCPM_Settings {
-	const NOTIFY_LISTS    = array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify' );
+	const NOTIFY_LISTS    = array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify', 'student_interest_notify' );
 	const EVERYONE_SUFFIX = '_everyone';
 	public static $connected = true;
 	/** Setting => the sentence this stand-in refuses it with, and the settings it leaves as stored as a live track would. */
@@ -1338,7 +1338,7 @@ ck( 'and refuses a key there is none of with the sentence',
     array( cli_lines( 'setting', array( 'get', 'no_such_setting' ) ), cli_lines( 'setting', array( 'set', 'no_such_setting', '1' ) ), WPCPM_Settings::$patched ),
     array( array( 'error: There is no setting called no_such_setting.' ), array( 'error: There is no setting called no_such_setting.' ), array() ) );
 
-// Everyone: the four Who is mailed lists, written empty through patch() with the box.
+// Everyone: the five Who is mailed lists, written empty through patch() with the box.
 $lines = cli_lines( 'setting', array( 'set', 'agreement_notify', 'everyone' ) );
 ck( 'setting set <key> everyone writes the list empty through patch() with the box, and says from what to what',
     array( $lines, WPCPM_Settings::$patched, WPCPM_Settings::get()['agreement_notify'] ),
@@ -1353,9 +1353,9 @@ ck( 'and everyone for a list already empty writes nothing',
 ck( 'and get names a list that mails every Administrator account rather than printing nothing',
     cli_lines( 'setting', array( 'get', 'agreement_notify' ) ),
     array( 'line: every Administrator account' ) );
-ck( 'while everyone for any other key is refused with the sentence that lists the four, and writes nothing',
+ck( 'while everyone for any other key is refused with the sentence that lists the five (the students\' interest list since 1.123.64), and writes nothing',
     array( cli_lines( 'setting', array( 'set', 'mentor_lapse_days', 'everyone' ) ), count( WPCPM_Settings::$patched ) ),
-    array( array( 'error: everyone is a value only for the four Who is mailed lists: agreement_notify, report_notify, sponsor_notify, mentor_notify.' ), 1 ) );
+    array( array( 'error: everyone is a value only for the five Who is mailed lists: agreement_notify, report_notify, sponsor_notify, mentor_notify, student_interest_notify.' ), 1 ) );
 
 // A write.
 WPCPM_Settings::$patched = array();

@@ -155,6 +155,33 @@ class WPCPM_Student_Registration_Form {
 	public static function init() {}
 	public static function ensure_page() {}
 }
+/** The interest students sent through the student interest form (1.123.64), as the module boots it and its tab reads it: none. */
+class WPCPM_Student_Interest {
+	const STATE_NEW       = 'new';
+	const STATE_HELD      = 'held';
+	const STATE_SPAM      = 'spam';
+	const STATE_CONTACTED = 'contacted';
+	const STATE_CLOSED    = 'closed';
+	public static function init() {}
+	public static function schedule() {}
+	public static function unschedule() {}
+	public static function delete_all() {}
+	public static function count_in( array $states ) { return 0; }
+	public static function count_new() { return 0; }
+	public static function in_states( array $states, $limit = 0, $order = 'DESC' ) { return array(); }
+	// One page of a view, as the tab reads it since its list is paged (1.123.64): none here.
+	public static function page_of( array $states, $page, $per_page ) {
+		return array(
+			'rows'  => array(),
+			'total' => 0,
+			'pages' => 1,
+			'page'  => 1,
+		);
+	}
+}
+class WPCPM_Student_Interest_Form {
+	public static function init() {}
+}
 class WPCPM_Student_Registration_Process {
 	public static function init() {}
 	public static function schedule() {}
@@ -175,6 +202,8 @@ class WPCPM_Student_Checklist {
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 // The Registrations tab, which the module boots and draws; it reads the registration record stood in above.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registrations-tab.php';
+// The Interests tab (1.123.64), which the module boots and draws; it reads the record stood in above.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-interests-tab.php';
 // The record ID pattern, and the roster index a Students record ID is looked up in.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
@@ -2766,7 +2795,7 @@ ck( 'a count a press on the ticked accounts left unprinted is not shown under th
 	array( WPCPM_Mail::queue(), html_of( notice_now() ) ),
 	array( array( 12, 13 ), '<div class="notice notice-success is-dismissible"><p>Invitations queued. They go out in the background - the progress is shown below.</p></div>' ) );
 
-echo "\n=== The screen in three tabs, Accounts, Registrations and Sync, in the Settings screen's bar ===\n";
+echo "\n=== The screen in four tabs, Accounts, Registrations, Interests and Sync, in the Settings screen's bar ===\n";
 
 three_students();
 manager( 200 );
@@ -2778,6 +2807,7 @@ $two_tabs = function ( $shown ) use ( $home ) {
 		array(
 			array( $home . '&tab=accounts', 'Accounts', 'accounts' === $shown, 'accounts' === $shown ),
 			array( $home . '&tab=registrations', 'Registrations', 'registrations' === $shown, 'registrations' === $shown ),
+			array( $home . '&tab=interests', 'Interests', 'interests' === $shown, 'interests' === $shown ),
 			array( $home . '&tab=sync', 'Sync', 'sync' === $shown, 'sync' === $shown ),
 		),
 	);
@@ -2789,6 +2819,7 @@ foreach ( array(
 	'from the menu'                    => array( 'page' => 'wpcpm-students' ),
 	'asked for Accounts'               => screen(),
 	'asked for Registrations'          => screen( array( 'tab' => 'registrations' ) ),
+	'asked for Interests'              => screen( array( 'tab' => 'interests' ) ),
 	'asked for Sync'                   => screen( array( 'tab' => 'sync' ) ),
 	'asked for a tab it does not have' => screen( array( 'tab' => 'nope' ) ),
 ) as $case => $query ) {
@@ -2801,12 +2832,13 @@ foreach ( array(
 	);
 }
 
-ck( 'the bar holds three tabs, Accounts, Registrations, then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Registrations and Sync when asked for, marked for the eye and for a screen reader',
+ck( 'the bar holds four tabs, Accounts, Registrations, Interests (1.123.64), then Sync, each at the screen\'s address with its tab; Accounts is the tab shown from the menu, when asked for and for a tab the screen does not have, and Registrations, Interests and Sync when asked for, marked for the eye and for a screen reader',
 	$bars,
 	array(
 		'from the menu'                    => $two_tabs( 'accounts' ),
 		'asked for Accounts'               => $two_tabs( 'accounts' ),
 		'asked for Registrations'          => $two_tabs( 'registrations' ),
+		'asked for Interests'              => $two_tabs( 'interests' ),
 		'asked for Sync'                   => $two_tabs( 'sync' ),
 		'asked for a tab it does not have' => $two_tabs( 'accounts' ),
 	) );
@@ -2850,6 +2882,7 @@ ck( 'the bar is the Settings screen\'s, tag for tag: the same named region holdi
 $GLOBALS['l10n'] = array(
 	'Accounts'       => 'Cuentas',
 	'Registrations'  => 'Registros',
+	'Interests'      => 'Intereses',
 	'Sync'           => 'Sincronización',
 	'Secondary menu' => 'Menú secundario',
 );
@@ -2865,7 +2898,7 @@ ck( 'the labels are translated where the bar prints them, and so is the name the
 			return null === $bar ? null : array( $bar[0], array_column( $bar[1], 1 ) );
 		}
 	),
-	array( 'Menú secundario', array( 'Cuentas', 'Registros', 'Sincronización' ) ) );
+	array( 'Menú secundario', array( 'Cuentas', 'Registros', 'Intereses', 'Sincronización' ) ) );
 
 $names = run(
 	function () {
@@ -2884,6 +2917,7 @@ ck( 'the tabs are the module\'s own list, Accounts first, and a form names its t
 		array(
 			'accounts'      => 'Accounts',
 			'registrations' => 'Registrations',
+			'interests'     => 'Interests',
 			'sync'          => 'Sync',
 		),
 		'accounts',
@@ -2897,6 +2931,7 @@ foreach ( array(
 	'none'     => null,
 	'accounts'      => 'accounts',
 	'registrations' => 'registrations',
+	'interests'     => 'interests',
 	'sync'          => 'sync',
 	'unknown'       => 'nope',
 	'empty'         => '',
@@ -2920,6 +2955,7 @@ ck( 'the tab shown is the one the address names, and Accounts when it names none
 		'none'          => 'accounts',
 		'accounts'      => 'accounts',
 		'registrations' => 'registrations',
+		'interests'     => 'interests',
 		'sync'          => 'sync',
 		'unknown'       => 'accounts',
 		'empty'         => 'accounts',
@@ -2992,6 +3028,30 @@ ck( 'the Registrations tab holds the Student registrations card, with its senten
 		$registrations_reads,
 	),
 	array( true, true, true, true, false, false, false, false, false, array() ) );
+
+manager( 204 );
+WPCPM_Settings::$connected = false;
+update_option( WPCPM_Students_Sync::OPT_ERROR, 'Airtable answered 401.' );
+WPCPM_Flash::set( 'students_admin', 'sint-contacted' );
+$interests_page            = html_of( page_for( screen( array( 'tab' => 'interests' ) ) ) );
+$interests_reads           = $GLOBALS['queries'];
+WPCPM_Settings::$connected = true;
+
+ck( 'the Interests tab (1.123.64) holds the Interest from students card, with the count of new ones, its sentence and its five views, and the notice of the press made on it; none of the other tabs\' cards, nor the warning about Airtable, and no account is read',
+	array(
+		has( $interests_page, '<h2>Interest from students <span class="wpcpm-count">0</span></h2>' ),
+		has( $interests_page, 'the site sends the representative nothing, so write to them yourself, then mark the interest as contacted.' ),
+		preg_match_all( '#<li class="(new|held|contacted|closed|spam)"><a href="[^"]*tab=interests[^"]*"#', $interests_page ),
+		has( $interests_page, '<div class="notice notice-success is-dismissible"><p>The interest is marked as contacted.</p></div>' ),
+		has( $interests_page, '<h2>Student registrations <span class="wpcpm-count">' ),
+		has( $interests_page, '<div class="wpcpm-card wpcpm-invites">' ),
+		has( $interests_page, '<h2>Student accounts <span class="wpcpm-count">' ),
+		has( $interests_page, '<h2>Airtable sync</h2>' ),
+		has( $interests_page, 'Airtable is not connected yet' ),
+		has( $interests_page, 'Last sync error' ),
+		$interests_reads,
+	),
+	array( true, true, 5, true, false, false, false, false, false, false, array() ) );
 
 // Each tab's parts in the order a manager reads them: what the last press did, then why no more
 // accounts arrive while Airtable is not connected, then the tab's own cards.

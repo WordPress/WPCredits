@@ -646,6 +646,8 @@ $surfaces = array(
 	// read only and prints none (bin/test-report-images.php draws it).
 	'includes/modules/class-wpcpm-student-report-form.php'               => array( 'student-report-card' ),
 	'includes/modules/class-wpcpm-student-registrations-tab.php'         => array( 'admin' ),
+	// The Interests tab's Delete asks its question on the Students screen (1.123.64).
+	'includes/modules/class-wpcpm-student-interests-tab.php'             => array( 'admin' ),
 	'includes/tools/class-wpcpm-emails.php'                              => array( 'admin' ),
 	'includes/tools/class-wpcpm-track-builder-screen.php'                => array( 'admin' ),
 	'includes/tools/class-wpcpm-track-editor-screen.php'                 => array( 'admin' ),

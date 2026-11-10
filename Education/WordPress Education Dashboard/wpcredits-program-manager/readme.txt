@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.63
+Stable tag: 1.123.64
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.64 =
+* Student interest form: a student whose institution is not in the program yet says so on the site, through the Student Interest Form block or the [wpcpm_student_interest] shortcode on a page of your choosing, and names a representative of the institution who agreed to be contacted. It takes the place of the form kept on Airtable, with the same questions, is guarded as the student registration form is, and writes nothing to Airtable. The student is sent an acknowledgement; the representative is never emailed by the site. The form may sit anywhere on a longer page: after it is sent, the thank-you or what to correct is shown at the form, not at the page's top.
+* Students screen: a new Interests tab lists every interest, newest first and 50 to a page, in the views New, Held, Contacted, Closed and Spam, with Mark contacted, Close, Mark as spam, Put back to New and Delete. Administrators are emailed about each new one: Settings > Students and mentors > Interest from students holds the form's switch, on by default, and Who hears of a new interest. Spam is deleted after 30 days and a closed interest after 365, and the privacy tools export and erase an interest by the student's or the representative's address, the student's export with the consent the site keeps.
+* Student registration form: the line for a student whose institution is not on the list leads to the student interest form while it is open and on a published page, and to the institution application otherwise, as before.
+* Every form of the site (the mentor, institution and sponsor applications, the student registration and the student interest form) sets its short answers two to a row where the page is wide enough, in place of one answer stretched across it; a list to choose from, a long text, a file and a box to tick keep the whole row, and a narrow page or a phone has one answer to a row, as before. The student interest form's questions are drawn in five groups under their headings, in the old form's order.
+* Every form of the site takes the Education Directory's 2px corner on its groups, notices, buttons, the level tag and the picker's list, as the homepage's cards have it. They were rounder, as the dashboards' cards are.
 
 = 1.123.63 =
 * Student registration form: the line for a student whose institution is not on the list leads to the institution application page on this site while it is published, and says to get in touch otherwise. It led to the Students Interest Form on Airtable; no public page of the site links to a form there now.

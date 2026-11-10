@@ -1547,7 +1547,7 @@ echo "\n--- The three emails, word for word ---\n";
 
 $all = WPCPM_Mail_Templates::all();
 
-ck( 'the registry holds the three, after the Mentor applications\' and before the Quiet students\'', array_slice( array_keys( $all ), -6, 3 ), array( 'student-registration-received', 'student-registration-account', 'student-registration-already' ) );
+ck( 'the registry holds the three, after the Mentor applications\' and before the Student interests\' two (1.123.64) and the Quiet students\'', array_slice( array_keys( $all ), -8, 3 ), array( 'student-registration-received', 'student-registration-account', 'student-registration-already' ) );
 ck( 'the subjects are the design\'s',
 	array( $all['student-registration-received']['subject'], $all['student-registration-account']['subject'], $all['student-registration-already']['subject'] ),
 	array( 'Registration received - WordPress Credits Program', 'You already have an account - WordPress Credits Program', 'You are already registered - WordPress Credits Program' ) );
@@ -1883,6 +1883,60 @@ ck( 'with the institution application published the line leads to it, on this si
 		substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration-form.php' ), 'airtable.com' ),
 	),
 	array( 'Is your institution not on the list? Ask a faculty member or your administration office to fill in the <a href="https://example.test/institution-application/">institution application</a>.', false, 0 ) );
+
+// Since 1.123.64 the line leads to the student interest form first, while that form is open and on a
+// published page; the addresses are passed in, and `fields()` passes the two the site has.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-interest.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-interest-form.php';
+
+ck( 'with the student interest form\'s address the line leads to it, whether or not the institution application is published, its address escaped',
+	array(
+		WPCPM_Student_Registration_Form::institution_note( 'https://example.test/institution-application/', 'https://example.test/student-interest/' ),
+		WPCPM_Student_Registration_Form::institution_note( '', 'https://example.test/student-interest/?a=1&b=2' ),
+	),
+	array(
+		'Is your institution not on the list? Fill in the <a href="https://example.test/student-interest/">student interest form</a> and we will get in touch with your institution.',
+		'Is your institution not on the list? Fill in the <a href="https://example.test/student-interest/?a=1&#038;b=2">student interest form</a> and we will get in touch with your institution.',
+	) );
+ck( 'with no address for it the line is what it was: the institution application\'s link, or the sentence to get in touch',
+	array(
+		WPCPM_Student_Registration_Form::institution_note( 'https://example.test/institution-application/', '' ),
+		WPCPM_Student_Registration_Form::institution_note( '', '' ),
+		WPCPM_Student_Registration_Form::institution_note( '' ),
+	),
+	array(
+		'Is your institution not on the list? Ask a faculty member or your administration office to fill in the <a href="https://example.test/institution-application/">institution application</a>.',
+		'Is your institution not on the list? Ask a faculty member or your administration office to contact us.',
+		'Is your institution not on the list? Ask a faculty member or your administration office to contact us.',
+	) );
+
+$interest_page              = new WP_Post();
+$interest_page->ID          = 77;
+$interest_page->post_type   = 'page';
+$interest_page->post_status = 'publish';
+
+$GLOBALS['posts'][77] = $interest_page;
+$GLOBALS['slugs'][77] = 'student-interest';
+$GLOBALS['opts'][ WPCPM_Student_Interest_Form::OPT_PAGE ] = 77;
+
+$hint_open = WPCPM_Student_Registration_Form::fields()['institution']['note'];
+
+$GLOBALS['settings']['student_interest_open'] = false;
+$hint_closed = WPCPM_Student_Registration_Form::fields()['institution']['note'];
+
+unset( $GLOBALS['settings']['student_interest_open'] );
+$interest_page->post_status = 'draft';
+$hint_draft = WPCPM_Student_Registration_Form::fields()['institution']['note'];
+
+unset( $GLOBALS['posts'][77], $GLOBALS['slugs'][77], $GLOBALS['opts'][ WPCPM_Student_Interest_Form::OPT_PAGE ] );
+
+ck( 'the form passes the student interest form\'s address while that form is open and its page published, and none while it is closed or its page is a draft',
+	array( $hint_open, $hint_closed, $hint_draft ),
+	array(
+		'Is your institution not on the list? Fill in the <a href="https://example.test/student-interest/">student interest form</a> and we will get in touch with your institution.',
+		'Is your institution not on the list? Ask a faculty member or your administration office to contact us.',
+		'Is your institution not on the list? Ask a faculty member or your administration office to contact us.',
+	) );
 ck( 'the Airtable form\'s date format line is not there', array_key_exists( 'help', $fields['start'] ) || array_key_exists( 'help', $fields['end'] ), false );
 
 echo "\n--- The lists the site holds ---\n";
@@ -2022,6 +2076,15 @@ ck( 'the institution is the one field to type and pick: its label marked Require
 ck( 'and the line for a student whose institution is not listed sits under it',
 	array( strpos( $page, 'to contact us.</span>' ) > strpos( $page, 'wpcpm-student-registration-institution-list' ), false !== strpos( $page, '<span class="wpcpm-field__hint" id="wpcpm-student-registration-institution-note">Is your institution not on the list? Ask a faculty member or your administration office to contact us.</span>' ) ),
 	array( true, true ) );
+ck( 'the questions sit in one box that sets the short answers two to a row where there is room, closed before the button, and the two questions about the tutor each take a whole row (1.123.64)',
+	array(
+		substr_count( $page, '<div class="wpcpm-application__columns">' ),
+		false !== strpos( $page, '</div><p class="wpcpm-application__send wpcpm-application__send--flat">' ),
+		substr_count( $page, 'wpcpm-field--wide' ),
+		false !== strpos( $page, '<p class="wpcpm-field wpcpm-field--text wpcpm-field--wide"><label for="wpcpm-student-registration-tutor">' ),
+		false !== strpos( $page, '<p class="wpcpm-field wpcpm-field--email wpcpm-field--wide"><label for="wpcpm-student-registration-tutor_email">' ),
+	),
+	array( 1, true, 2, true, true ) );
 ck( 'the preferred language is the other combobox, over the copy\'s names',
 	array( false !== strpos( $page, '<label for="wpcpm-student-registration-preferred" id="wpcpm-student-registration-preferred-label">Preferred Language <span class="wpcpm-field__required">Required</span></label>' ), false !== strpos( $page, '<option value="" selected=\'selected\'>Choose a language</option><option value="English">English</option><option value="Polish">Polish</option><option value="Spanish">Spanish</option></select>' ), substr_count( $page, 'role="combobox"' ) ),
 	array( true, true, 2 ) );

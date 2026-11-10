@@ -482,6 +482,10 @@ function wp_delete_post( $id, $force = false ) {
 	if ( ! isset( $GLOBALS['posts'][ (int) $id ] ) ) {
 		return false;
 	}
+	// A deletion WordPress refuses (a `pre_delete_post` filter, say), as a check plants it.
+	if ( isset( $GLOBALS['undeletable'] ) && in_array( (int) $id, (array) $GLOBALS['undeletable'], true ) ) {
+		return false;
+	}
 	$post = $GLOBALS['posts'][ (int) $id ];
 	unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] );
 	return $post;
@@ -509,6 +513,10 @@ function update_post_meta( $id, $key, $value ) {
 	if ( isset( $GLOBALS['write_log'] ) && is_array( $GLOBALS['write_log'] ) ) {
 		$GLOBALS['write_log'][] = $key;
 	}
+	// A write WordPress refuses, as a check plants it: nothing is written and the answer is false.
+	if ( isset( $GLOBALS['write_refused'] ) && in_array( $key, (array) $GLOBALS['write_refused'], true ) ) {
+		return false;
+	}
 	$GLOBALS['pmeta'][ (int) $id ][ $key ] = array( stripslashes_deep( $value ) );
 	return true;
 }
@@ -534,6 +542,11 @@ function delete_post_meta( $id, $key, $value = '' ) {
  * @return array
  */
 function get_posts( $args = array() ) {
+	// While `$GLOBALS['posts_asked']` is an array, each query is appended to it, so a check can read
+	// what was asked for (1.123.64).
+	if ( isset( $GLOBALS['posts_asked'] ) && is_array( $GLOBALS['posts_asked'] ) ) {
+		$GLOBALS['posts_asked'][] = (array) $args;
+	}
 	$known = array( 'post_type', 'post_status', 'numberposts', 'posts_per_page', 'orderby', 'order', 'fields', 'meta_query', 'meta_key', 'suppress_filters', 'no_found_rows' );
 	foreach ( array_keys( (array) $args ) as $key ) {
 		if ( ! in_array( $key, $known, true ) ) {

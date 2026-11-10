@@ -92,8 +92,9 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 
 ### The Students and mentors tab
 
-Six sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
-pages**, **Student registrations** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
+Nine sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
+pages**, **Student registrations**, **Interest from students**, **Quiet students**, **New students**
+and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
 
 #### Who is on the program
 
@@ -202,6 +203,29 @@ The form students register through, since 1.123.54. Its address is under the swi
   ticked stage, the form says registrations are closed. A new partner appears after the next
   institutions sync, every three hours. When Airtable cannot list the stages, the row is typed, one
   stage a line, as the pipeline stages are.
+
+#### Interest from students
+
+The student interest form, since 1.123.64: a student whose institution is not in the program yet
+says so, and names a representative of the institution. The plugin makes no page for it. Add the
+**Student Interest Form** block, or the `[wpcpm_student_interest]` shortcode, to a page of your
+choosing and publish it; the page's address is then under the switch.
+
+- **Student interest form** - **Take interest from students through the form on this site**. On by
+  default, unlike the other forms: the form writes nothing to Airtable and makes no account, and it
+  is drawn only on a page where you placed it. Every interest is stored for an Administrator to
+  follow up on the **Interests** tab of the Students screen. While this is off, the form shows one
+  sentence saying it is closed, and an Administrator who opens the page a second saying why. As with
+  the other forms, its consent box links to the WordPress.org privacy policy, not to this site's own
+  privacy page, and the row's fold says so. While the switch is on and the page is published, the
+  student registration form's line for a student whose institution is not on the list leads to this
+  form.
+- **Who hears of a new interest** - the addresses told of each new interest, chosen as the Mentor
+  applications section's **Who is mailed** list is; with none here, every Administrator is written
+  to. The email names the institution and its country and links the **Interests** tab; it carries
+  none of the student's answers. An interest that is held or filed as spam sends none. The
+  representative a student names is never emailed by the site. Point it at your own address before
+  you try the form, or every Administrator hears of the test.
 
 #### Quiet students
 

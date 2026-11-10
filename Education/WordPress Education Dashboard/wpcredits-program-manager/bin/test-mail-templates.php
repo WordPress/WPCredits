@@ -228,7 +228,7 @@ echo "=== The registry ===\n";
 $all = WPCPM_Mail_Templates::all();
 
 ck(
-	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications and the Student registrations, in that order',
+	'the registry holds the Invitations, the four invitations and the institution\'s second one, then the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations, the Student interests (1.123.64) and the Quiet students, in that order',
 	array_keys( $all ),
 	array(
 		'invite-student',
@@ -334,6 +334,8 @@ ck(
 		'student-registration-received',
 		'student-registration-account',
 		'student-registration-already',
+		'student-interest-received',
+		'student-interest-notice',
 		'student-quiet-student',
 		'student-quiet-mentor',
 		'student-quiet-weekly',
@@ -584,6 +586,10 @@ $shape = array(
 	'student-registration-received' => array( "\n", array(), array( 'student_name' ) ),
 	'student-registration-account'  => array( "\n", array( 'login_link', 'lost_password_link' ), array() ),
 	'student-registration-already'  => array( "\n", array(), array() ),
+	// The Student interests (1.123.64): the student's name in the body alone, and the notice with
+	// nothing needed, as the mentor applications' notice has nothing.
+	'student-interest-received'     => array( "\n", array(), array( 'student_name' ) ),
+	'student-interest-notice'       => array( "\n", array(), array() ),
 	// The Quiet students (1.123.60): the booking link and the dashboard link each needed in the student's
 	// reminder, the mentor's list in the body alone, the Administrator's list the same.
 	// The booking link is empty for a student with nothing to book, and its sentence goes (fix round 1 of Release B).

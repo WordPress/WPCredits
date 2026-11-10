@@ -108,6 +108,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration-process.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registration-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-registrations-tab.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-interest.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-interest-form.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-interests-tab.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-provision.php';

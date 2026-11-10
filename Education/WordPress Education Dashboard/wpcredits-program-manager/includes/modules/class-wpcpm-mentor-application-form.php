@@ -1184,7 +1184,8 @@ final class WPCPM_Mentor_Application_Form {
 		$fields = self::fields();
 
 		foreach ( self::groups() as $group => $heading ) {
-			printf( '<fieldset class="wpcpm-application__group"><legend>%s</legend>', esc_html( $heading ) );
+			// The box that sets a group's short answers two to a row where there is room (application.css, 1.123.64).
+			printf( '<fieldset class="wpcpm-application__group"><legend>%s</legend><div class="wpcpm-application__columns">', esc_html( $heading ) );
 
 			foreach ( $fields as $key => $spec ) {
 				if ( $spec['group'] === $group ) {
@@ -1192,7 +1193,7 @@ final class WPCPM_Mentor_Application_Form {
 				}
 			}
 
-			echo '</fieldset>';
+			echo '</div></fieldset>';
 		}
 
 		printf(

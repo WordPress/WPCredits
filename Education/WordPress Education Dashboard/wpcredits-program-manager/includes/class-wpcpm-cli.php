@@ -698,7 +698,7 @@ class WPCPM_CLI {
 	 *
 	 * `set` writes one setting through the same rules the Settings screen saves by, so a value the
 	 * rule would blank is refused with the sentence the screen gives, and the setting keeps what was
-	 * saved. A switch takes 1, 0, on, off, true or false; a list is comma-separated. For the four Who
+	 * saved. A switch takes 1, 0, on, off, true or false; a list is comma-separated. For the five Who
 	 * is mailed lists, the value everyone writes the list empty, which mails every Administrator
 	 * account. A status list a track on the live site runs on is left as it was.
 	 *
@@ -752,7 +752,7 @@ class WPCPM_CLI {
 
 		if ( 'everyone' === $typed ) {
 			if ( ! in_array( $key, WPCPM_Settings::NOTIFY_LISTS, true ) ) {
-				WP_CLI::error( sprintf( 'everyone is a value only for the four Who is mailed lists: %s.', implode( ', ', WPCPM_Settings::NOTIFY_LISTS ) ) );
+				WP_CLI::error( sprintf( 'everyone is a value only for the five Who is mailed lists: %s.', implode( ', ', WPCPM_Settings::NOTIFY_LISTS ) ) );
 			}
 
 			$value   = '';

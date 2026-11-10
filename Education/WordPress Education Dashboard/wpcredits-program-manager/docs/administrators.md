@@ -180,7 +180,7 @@ warning that says why, in the tool's own words.
 
 | Screen | What it does |
 | --- | --- |
-| **Students** | Three tabs: **Accounts**, the invitations and every Student account in one list, **Registrations**, the students who registered through the form on the site, and **Sync**, the students sync and its last report. |
+| **Students** | Four tabs: **Accounts**, the invitations and every Student account in one list, **Registrations**, the students who registered through the form on the site, **Interests**, the students whose institution is not in the program yet and who said through the student interest form that they would like to take part, and **Sync**, the students sync and its last report. |
 | **Mentors** | Four tabs: **Waiting for review**, the applications to mentor that came through the form on the site, read and decided here, with the applicants made mentors under **Activated**, the tab the screen opens on while any wait; **Accounts**, the invitations and every Mentor account in one list; **Engagement**, how each mentor uses the site; and **Sync**, the mentors sync, a warning while mentors made from applications wait for their Airtable row, and its last report. |
 | **Institutions** | Six tabs: **Waiting for review**, the applications, signed agreements and requests from institutions waiting, read here and decided on the Administrator Dashboard; **Pipeline**, every institution record by stage and the consent report; **Accounts**, the invitations, every institution account in one list, the Confirmed institutions with no account yet, and each institution's members; **Semester reports**, every semester report and the semesters due for drafting; **Agreements**, the agreements to record as on file, the agreements in force with the form to revoke each, the ones Airtable disagrees with, and the plugin's copy of the Collaboration Agreement; and **Sync and storage**, the institutions sync, the reconciliation of Students with Students Reports, and the check of how the host serves the private files. |
 | **Sponsors** | Eight tabs: **Waiting for review**, the sponsor applications, sponsor posts, sponsor offers and the changes to them, sponsor events while they are on, and signed agreements waiting, read here and decided on the Administrator Dashboard; **Sponsors**, the box that finishes the move of the sponsor records onto the site while it is incomplete, then every sponsor with its status, tier, product, program contact, accounts and logo, **Edit** and **Manage accounts** on each row, and the form that adds a sponsor; **Accounts**, the invitations, every sponsor account in one list, the Approved sponsors with no account yet, where their accounts are created, and each sponsor's accounts; **Offers and codes**, every offer with its codes and claims; **Interests**, what sponsors said they would like to support; **Reports**, each sponsor's report and the editor it is written in; **Agreements**, the standing state of every Approved sponsor's agreement; and **Handbook listing**, the sponsors' listing for the handbook, in the bar only while the sponsor tiers are announced. |
@@ -205,6 +205,32 @@ and the bar move on their own every ten seconds, a screen reader hears how many 
 quarter and at the end, and the card says when the run has finished; a search, a filter or a ticked
 row stays as it was. A run stopped or cleared in another tab ends the card with the count where it
 ended and says so. The card also links to the page itself, to see the whole card again.
+
+Since 1.123.64 the Students screen has a fourth tab, **Interests**, after **Registrations**. It lists the interest students sent through the student interest form: a student whose institution is not in the program yet says they would like to take part, and names a representative of the institution who agreed to be contacted. The form takes the place of the one the program kept on Airtable, with the same questions. Nothing on this tab is written to Airtable, and nothing is made from an interest: no account, no row and no institution. You follow each one up by hand.
+
+The card's heading counts the new interests. The list is newest first, 50 to a page, with **Newer** and **Older** above and under it when a view holds more, so every interest is reached; it comes in five views each with its count:
+
+- **New**, the view the tab opens on: an interest that passed every check. Administrators were emailed about it.
+- **Held**: an interest that looks like spam and is kept for you to judge. The student was sent the acknowledgement; Administrators were not emailed.
+- **Contacted**: you wrote to the representative.
+- **Closed**: nothing more to do. A closed interest is deleted 365 days after it was closed.
+- **Spam**: what the form's checks filed, or you marked. A spam interest is deleted 30 days after it was filed.
+
+Each interest shows the student's name and email address, the date it was received and its reference, such as `SINT-2026-0503`; where it stands, with who last changed it and when; and what the form's checks noticed, each in a sentence, such as that the same student sent an interest for the same institution in the 30 days before, or that the student was sent no acknowledgement because the day's limit on emails was reached. Under that is a table: **Institution**, with its name, city and country and its website as a link; **Department**; **Representative**, with the name and the email address as a link; **Internships or practices**, the student's choices; and **Anything else**, what the student wrote. **Consent**, folded under it, holds the two sentences the student agreed to, when, from which shortened address and in which browser.
+
+The site never emails the representative. Write to them yourself, from the address on the row, then press **Mark contacted**.
+
+Five presses work on an interest, each for the states it takes:
+
+- **Mark contacted**, on a new or a held interest.
+- **Close**, on a new, a held or a contacted interest.
+- **Mark as spam**, on a new or a held interest.
+- **Put back to New**, on a held, a spam or a closed interest. Nobody is emailed again.
+- **Delete**, on a spam or a closed interest: it asks first and removes the interest for good.
+
+Each comes back to the view it was pressed on and says what it did. A press on an interest that another Administrator has moved in the meantime changes nothing and says so.
+
+WordPress's **Export Personal Data** and **Erase Personal Data** tools find an interest by the student's address and by the representative's. A student is handed everything they sent and what the site keeps as evidence of the two boxes they ticked: the sentences, the policy's address, the time, and the address and browser the form was sent from. A representative is handed the institution's details and their own name and address, and not who named them. An erasure deletes the whole interest, for either address, and says so when WordPress would not delete one, which is then still on the tab to delete by hand.
 
 In 1.119.0 the Mentors screen became two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on while no application to mentor waits (see *Applications to mentor*), holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds, since 1.122.33, a warning while mentors made from applications have no Airtable row yet, with the way to where each is written, the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
@@ -674,8 +700,9 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 
 ### The Students and mentors tab
 
-Six sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
-pages**, **Student registrations** and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
+Nine sections: **Who is on the program**, **When someone leaves**, **Accounts**, **Landing
+pages**, **Student registrations**, **Interest from students**, **Quiet students**, **New students**
+and **Mentor applications**. The status lists are shared: a current student is anyone a mentor is currently mentoring.
 
 #### Who is on the program
 
@@ -784,6 +811,29 @@ The form students register through, since 1.123.54. Its address is under the swi
   ticked stage, the form says registrations are closed. A new partner appears after the next
   institutions sync, every three hours. When Airtable cannot list the stages, the row is typed, one
   stage a line, as the pipeline stages are.
+
+#### Interest from students
+
+The student interest form, since 1.123.64: a student whose institution is not in the program yet
+says so, and names a representative of the institution. The plugin makes no page for it. Add the
+**Student Interest Form** block, or the `[wpcpm_student_interest]` shortcode, to a page of your
+choosing and publish it; the page's address is then under the switch.
+
+- **Student interest form** - **Take interest from students through the form on this site**. On by
+  default, unlike the other forms: the form writes nothing to Airtable and makes no account, and it
+  is drawn only on a page where you placed it. Every interest is stored for an Administrator to
+  follow up on the **Interests** tab of the Students screen. While this is off, the form shows one
+  sentence saying it is closed, and an Administrator who opens the page a second saying why. As with
+  the other forms, its consent box links to the WordPress.org privacy policy, not to this site's own
+  privacy page, and the row's fold says so. While the switch is on and the page is published, the
+  student registration form's line for a student whose institution is not on the list leads to this
+  form.
+- **Who hears of a new interest** - the addresses told of each new interest, chosen as the Mentor
+  applications section's **Who is mailed** list is; with none here, every Administrator is written
+  to. The email names the institution and its country and links the **Interests** tab; it carries
+  none of the student's answers. An interest that is held or filed as spam sends none. The
+  representative a student names is never emailed by the site. Point it at your own address before
+  you try the form, or every Administrator hears of the test.
 
 #### Quiet students
 
@@ -1484,6 +1534,13 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   reset link), and the address is already registered. Each goes to the address the student gave,
   once, and carries the program's contact address as its Reply-To when **Contact address in
   emails** is set, so an answer reaches the program.
+- **Student interests** (since 1.123.64): the two emails of the student interest form. The first
+  tells a student that their interest was received, that the program will get in touch with the
+  representative they named and that nothing else is needed from them; it goes to the address the
+  student gave, once, for an interest stored as new or held, and carries the program's contact
+  address as its Reply-To when **Contact address in emails** is set. The second tells Administrators
+  of a new interest, with the institution's name and country and a link to the **Interests** tab. No
+  email of this area goes to the representative.
 - **Quiet students** (since 1.123.60): the three emails of the daily list of quiet students, sent
   only while the **Daily list** setting is On. The student gets a friendly note once for each
   stretch of quiet: how many days since they were last seen, or, for a student not seen since their
@@ -1666,7 +1723,7 @@ account's email address as it is now; an account with no program role links to i
 a row with no account is plain text. Then the recipient type (Student,
 Mentor, Institution member, Sponsor member, Administrator, Applicant (no account) or Other); the
 area that sent it (Invitations, Mentor calls, Institutions, Semester reports, Sponsors, Sponsor
-events, Mentor applications, Student registrations, Quiet students, WordPress, Two Factor or Other); which email it was; its subject; and
+events, Mentor applications, Student registrations, Student interests, Quiet students, WordPress, Two Factor or Other); which email it was; its subject; and
 its status. The status is one of three:
 
 - **Handed to the mail server**: the site passed the email on. This does not prove it reached the
@@ -2739,6 +2796,19 @@ leads to the institution application page on this site while it is published, an
 touch otherwise. It used to lead to the Students Interest Form, which is kept on Airtable; the site's
 public pages now link to no form there.
 
+Since 1.123.64 the site has a student interest form, for a student whose institution is not in
+the program yet. The plugin makes no page for it: an editor adds the **Student Interest Form** block,
+or the `[wpcpm_student_interest]` shortcode, to a page, and the site remembers that page as pages
+are saved. The page is not gated and not cached. Each interest is kept on the site as one private
+record: the student's answers, the representative's name and address, the two sentences the student
+agreed to with the policy's address, what the form's checks noticed, and who last changed its state
+and when. Nothing is written to Airtable. A spam interest is deleted 30 days after it was filed and
+a closed one 365 days after it was closed, by a daily job; the others stay until an Administrator
+moves them. Deleting the plugin removes every interest, the page's ID and the daily job, and leaves
+the page. While the form is open and its page is published, the registration form's line for a
+student whose institution is not on the list leads to it, and to the institution application
+otherwise.
+
 The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
 The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
 The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
@@ -2996,6 +3066,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_sevent_reminder_edge` | `WPCPM_Sponsor_Event::OPT_REMINDER_EDGE` (where the last complete window of the sponsor events' reminders stopped, a timestamp: the next run's window starts there when that is sooner than 12 hours on) |
 | `wpcpm_sign_ins_since` | `WPCPM_Sign_Ins::OPT_SINCE` (when the sign-ins from before 1.122.26 were read; the Engagement tab's note names it) |
 | `wpcpm_sign_ins_version` | `WPCPM_Sign_Ins::OPT_VERSION` |
+| `wpcpm_sint_lock_<ID>` | `WPCPM_Student_Interest::LOCK_PREFIX` and the interest's ID (held while one interest's state is changed or it is deleted, 30 seconds at most, and let go after; uninstall removes any left behind) |
 | `wpcpm_sponsor_agr_` | `WPCPM_Sponsor_Agreement::OPT_PREFIX` (the per-sponsor transition locks) |
 | `wpcpm_sponsor_application_log` | `WPCPM_Sponsor_Application::OPT_LOG` |
 | `wpcpm_sponsor_application_page_id` | `WPCPM_Sponsor_Application::OPT_PAGE` |
@@ -3022,6 +3093,9 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_student_flags_lock` | `WPCPM_Student_Flags::LOCK` (held while the daily run works, ten minutes at most) |
 | `wpcpm_student_flags_on_since` | `WPCPM_Student_Flags::OPT_ON_SINCE` (the time of the switch's latest move into On; a quiet stretch already past the days of quiet at that time is never mailed) |
 | `wpcpm_student_flags_weekly` | `WPCPM_Student_Flags::OPT_WEEKLY` (the ISO week the Monday email last went out for) |
+| `wpcpm_student_int` | `WPCPM_Student_Interest::POST_TYPE` (one private post per interest a student sent through the student interest form; its meta keys start `_wpcpm_sint_`) |
+| `wpcpm_student_interest_page_id` | `WPCPM_Student_Interest_Form::OPT_PAGE` (the page an editor placed the student interest form on, kept as pages are saved; the page stays when the plugin is deleted) |
+| `wpcpm_student_interests_daily` | `WPCPM_Student_Interest::CRON_DAILY` (cron hook: the daily run that deletes a spam interest after 30 days and a closed one after 365; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
 | `wpcpm_student_languages` | `WPCPM_Student_Airtable_Row::LANGUAGES_OPTION` (the site's copy of the Airtable Languages table, record ID to name, read at most once a day, which the registration form's two language questions and the row written to Airtable use) |
 | `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
 | `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |

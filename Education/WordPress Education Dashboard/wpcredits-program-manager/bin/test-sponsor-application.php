@@ -857,7 +857,7 @@ $support = substr( $support, 0, (int) strpos( $support, '</fieldset>' ) );
 preg_match_all( '/name="' . preg_quote( $tier_name, '/' ) . '" value="([^"]*)"([^>]*)\/> <span>([^<]*)<\/span>/', $support, $radios );
 ck( 'on, the support group is drawn, under its heading, and asks the tier question alone, in a wrapper of its own', array(
 	substr_count( $tier_on, '<fieldset' ),
-	false !== strpos( $tier_on, '<fieldset class="wpcpm-application__group"><legend>How you would like to support the program</legend><div class="wpcpm-field wpcpm-field--tier">' ),
+	false !== strpos( $tier_on, '<fieldset class="wpcpm-application__group"><legend>How you would like to support the program</legend><div class="wpcpm-application__columns"><div class="wpcpm-field wpcpm-field--tier">' ),
 	substr_count( $support, 'class="wpcpm-field ' ),
 	strpos( $support, 'How would you like to support WP Credits?' ),
 	strpos( $support, 'two hours a week' ),
@@ -1100,7 +1100,7 @@ ck( 'the section is styled in application.css: the summary something to press, w
 	array( 'margin' => '0 0 0.75em' ),
 	array( 'margin' => '0 0 0.3em' ),
 	array( 'margin' => '0 0 0.3em', 'padding-inline-start' => '1.2em' ),
-	array( 'border' => '1px solid var( --wpcpm-border )', 'border-radius' => '999px', 'display' => 'inline-block', 'font-size' => '0.85em', 'font-weight' => '400', 'padding' => '0 0.6em' ),
+	array( 'border' => '1px solid var( --wpcpm-border )', 'border-radius' => 'var( --wpcpm-radius )', 'display' => 'inline-block', 'font-size' => '0.85em', 'font-weight' => '400', 'padding' => '0 0.6em' ),
 	array( 'clip-path' => 'inset( 50% )', 'height' => '1px', 'overflow' => 'hidden', 'position' => 'absolute', 'white-space' => 'nowrap', 'width' => '1px' ),
 ) );
 // One gate for every `live` question, whatever its type: clean() drops it before any type branch

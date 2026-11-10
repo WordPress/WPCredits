@@ -1562,7 +1562,9 @@ class WPCPM_Institution_Application {
 
 		foreach ( self::groups() as $group => $heading ) {
 			printf(
-				'<fieldset class="wpcpm-application__group"><legend>%s</legend>',
+				// With the box that sets a group's short answers two to a row where there is room
+				// (application.css, 1.123.64).
+				'<fieldset class="wpcpm-application__group"><legend>%s</legend><div class="wpcpm-application__columns">',
 				esc_html( $heading )
 			);
 
@@ -1580,7 +1582,7 @@ class WPCPM_Institution_Application {
 				);
 			}
 
-			echo '</fieldset>';
+			echo '</div></fieldset>';
 		}
 
 		printf(

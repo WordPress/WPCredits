@@ -19,7 +19,9 @@
 .wpcpm-application {
 	--wpcpm-border: color-mix( in srgb, currentColor 18%, transparent );
 	--wpcpm-surface: color-mix( in srgb, currentColor 5%, transparent );
-	--wpcpm-radius: 8px;
+	/* The Education Directory's corner on a public page: 2px, as its homepage's cards, fields and
+	   tags have it. It was 8px, the dashboards' card corner. */
+	--wpcpm-radius: 2px;
 	/* The control edge, as dashboard.css defines it: this form is drawn on pages without the
 	   dashboard root, so the token is declared here too (1.94.4). */
 	--wpcpm-control-border: color-mix( in srgb, currentColor 48%, transparent );
@@ -82,6 +84,47 @@
 .wpcpm-application__group > legend {
 	font-weight: 700;
 	padding-inline: 0.4em;
+}
+
+/*
+ * A group whose short answers sit two to a row (every form of the plugin since 1.123.64: the mentor,
+ * institution and sponsor applications, the student registration and the student interest form).
+ *
+ * A form may fill a wide page, and one answer stretched across 1200px reads badly, so the room is
+ * given to pairs of questions. Each column is at least half the box, so there are never more than
+ * two, and at least 22em, so a narrow box, a phone or a narrow column of a page, has one. A question
+ * still fills its cell: nothing here caps a control's width. A list of boxes, a long text, a box to
+ * tick and a question marked wide take the whole row.
+ */
+.wpcpm-application__columns {
+	align-items: start;
+	column-gap: 1.25em;
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( min( 100%, max( 22em, calc( ( 100% - 1.25em ) / 2 ) ) ), 1fr ) );
+	row-gap: 1.25em;
+}
+
+.wpcpm-application__columns > .wpcpm-field {
+	margin: 0;
+	min-width: 0;
+}
+
+/* What takes a whole row: a question marked wide, every list of boxes or buttons to choose from (the
+   internships, the languages, the teams, a yes or a no, the level a sponsor considers), a long text, a
+   file to add, and a box to tick. Everything else is one line to type, and pairs up. Anything a form
+   puts in the box that is not a question, a note between two of them, takes the row too. */
+.wpcpm-application__columns > :not( .wpcpm-field ),
+.wpcpm-application__columns > .wpcpm-field--wide,
+.wpcpm-application__columns > .wpcpm-field--choices,
+.wpcpm-application__columns > .wpcpm-field--languages,
+.wpcpm-application__columns > .wpcpm-field--teams,
+.wpcpm-application__columns > .wpcpm-field--yesno,
+.wpcpm-application__columns > .wpcpm-field--tier,
+.wpcpm-application__columns > .wpcpm-field--logos,
+.wpcpm-application__columns > .wpcpm-field--textarea,
+.wpcpm-application__columns > .wpcpm-field--statement,
+.wpcpm-application__columns > .wpcpm-field--consent {
+	grid-column: 1 / -1;
 }
 
 /* One question. */
@@ -315,7 +358,7 @@
 
 .wpcpm-field__level-tag {
 	border: 1px solid var( --wpcpm-border );
-	border-radius: 999px;
+	border-radius: var( --wpcpm-radius );
 	display: inline-block;
 	font-size: 0.85em;
 	font-weight: 400;
@@ -391,7 +434,7 @@
 .wpcpm-application .wpcpm-dashboard__switcher-list {
 	background: Canvas;
 	border: 1px solid var( --wpcpm-control-border, rgba( 128, 128, 128, 0.9 ) );
-	border-radius: 4px;
+	border-radius: var( --wpcpm-radius );
 	box-shadow: 0 4px 12px rgba( 0, 0, 0, 0.12 );
 	box-sizing: border-box;
 	color: CanvasText;

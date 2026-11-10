@@ -321,7 +321,7 @@ echo "\n=== The Templates tab ===\n";
 
 preg_match_all( '#<h2 id="wpcpm-emails-area-[a-z-]+">([^<]*)</h2>#', $home, $areas );
 preg_match_all( '#<tr><td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td><td><span class="wpcpm-emails__state wpcpm-emails__state--([a-z-]+)">([^<]*)</span></td><td>([^<]*)</td><td><a href="([^"]*)">Edit<span class="screen-reader-text"> ([^<]*)</span></a></td></tr>#', $home, $rows, PREG_SET_ORDER );
-ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations and the Quiet students', $areas[1], array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'Student registrations', 'Quiet students' ) );
+ck( 'the templates are listed by area, in the catalog\'s order: the Invitations, the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations, the Student interests (1.123.64) and the Quiet students', $areas[1], array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'Student registrations', 'Student interests', 'Quiet students' ) );
 ck(
 	'each row names the email, who receives it, what sends it, its state and who edited it last, and links its editor by its name',
 	array_map( function ( $row ) { return array( html_entity_decode( $row[1], ENT_QUOTES ), $row[2], $row[5], $row[6], $row[7], $row[8] ); }, array_slice( $rows, 0, 5 ) ),
@@ -334,7 +334,7 @@ ck(
 	)
 );
 ck(
-	'and after the invitations, every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations and the Quiet students, each with who receives it, as shipped text, its editor linked by its id',
+	'and after the invitations, every email of the Mentor calls, the Institutions, the Semester reports and the Sponsors, the Sponsor events, the Mentor applications, the Student registrations, the Student interests (1.123.64) and the Quiet students, each with who receives it, as shipped text, its editor linked by its id',
 	array_map( function ( $row ) { return html_entity_decode( $row[1], ENT_QUOTES ) . ' / ' . $row[2] . ' / ' . $row[5] . ' / ' . substr( $row[7], strlen( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-emails&tab=templates&edit=' ) ); }, array_slice( $rows, 5 ) ),
 	array(
 		'Call booked, to the mentor / Mentor / Shipped text / call-booked-mentor',
@@ -435,6 +435,8 @@ ck(
 		'Student registration received, to the student / Applicant (no account) / Shipped text / student-registration-received',
 		'Student registration from an address with an account / Applicant (no account) / Shipped text / student-registration-account',
 		'Student registration from an address already registered / Applicant (no account) / Shipped text / student-registration-already',
+		'Student interest received, to the student / Applicant (no account) / Shipped text / student-interest-received',
+		'New student interest, to Administrators / Administrator / Shipped text / student-interest-notice',
 		'Quiet student reminder, to the student / Student / Shipped text / student-quiet-student',
 		'Quiet students, to the mentor / Mentor / Shipped text / student-quiet-mentor',
 		'Quiet students this week, to the Administrator / Administrator / Shipped text / student-quiet-weekly',
@@ -443,7 +445,7 @@ ck(
 ck( 'and what sends each is the registry\'s sentence', array( html_entity_decode( $rows[0][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[5][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[24][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[49][3] ?? '', ENT_QUOTES ), html_entity_decode( $rows[64][3] ?? '', ENT_QUOTES ) ), array( WPCPM_Mail_Templates::get( 'invite-student' )['trigger'], WPCPM_Mail_Templates::get( 'call-booked-mentor' )['trigger'], WPCPM_Mail_Templates::get( 'institution-applied' )['trigger'], WPCPM_Mail_Templates::get( 'report-consent' )['trigger'], WPCPM_Mail_Templates::get( 'sponsor-post-returned' )['trigger'] ) );
 $templates_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/emails.css' );
 preg_match( '#\.wpcpm-emails__scroll\s*\{([^{}]*)\}#', $templates_css, $scroll_rule );
-ck( 'each of the nine areas, the Sponsor events among them, has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2 id="([a-z-]+)">[^<]*</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="\\1"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 9, 9, true, true ) );
+ck( 'each of the ten areas, the Sponsor events among them and the Student interests since 1.123.64, has a table of its own, printed inside a box that scrolls sideways on a narrow screen, held by a position, so the page does not', array( substr_count( $home, '<table' ), preg_match_all( '#<h2 id="([a-z-]+)">[^<]*</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="\\1"><table class="widefat striped wpcpm-emails__templates">.*?</table></div>#s', $home ), 1 === preg_match( '/(^|;)\s*overflow-x\s*:\s*auto\s*;/', $scroll_rule[1] ?? '' ), 1 === preg_match( '/(^|;)\s*position\s*:\s*relative\s*;/', $scroll_rule[1] ?? '' ) ), array( 10, 10, true, true ) );
 // The eight tables are wider than a phone and scroll sideways in a box each. Until 1.122.36 the box
 // took no focus: a box that scrolls but cannot be focused is out of a keyboard's reach in Safari
 // when it holds no link or button, and a screen reader does not announce it. Each box is now a tab
@@ -459,7 +461,7 @@ $area_box = static function ( $name ) {
 		'name'     => $name,
 	);
 };
-ck( 'each area\'s table sits alone in a box that is a tab stop and a region named by the area\'s heading, every name its own, and no table sits outside a box', scroll_boxes( $home, 'wpcpm-emails__scroll' ), array( 'boxes' => array_map( $area_box, array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'Student registrations', 'Quiet students' ) ), 'loose' => array() ) );
+ck( 'each area\'s table sits alone in a box that is a tab stop and a region named by the area\'s heading, every name its own, and no table sits outside a box', scroll_boxes( $home, 'wpcpm-emails__scroll' ), array( 'boxes' => array_map( $area_box, array( 'Invitations', 'Mentor calls', 'Institutions', 'Semester reports', 'Sponsors', 'Sponsor events', 'Mentor applications', 'Student registrations', 'Student interests', 'Quiet students' ) ), 'loose' => array() ) );
 preg_match_all( '#\sid="([^"]*)"#', $home, $home_ids );
 ck( 'each heading carries the id its box names, drawn as before, and no id of the tab is printed twice', array( false !== strpos( $home, '<h2 id="wpcpm-emails-area-mentor-applications">Mentor applications</h2><div class="wpcpm-emails__scroll" tabindex="0" role="region" aria-labelledby="wpcpm-emails-area-mentor-applications"><table class="widefat striped wpcpm-emails__templates"><thead>' ), array_keys( array_filter( array_count_values( $home_ids[1] ), static function ( $n ) { return 1 !== $n; } ) ) ), array( true, array() ) );
 ck( 'the editor\'s placeholders table is in no box: its cells wrap, so it never scrolls', array( scroll_boxes( screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'templates', 'edit' => 'invite-student' ) ), 'wpcpm-emails__scroll' ), scroll_css_decls( $templates_css, '.wpcpm-emails__placeholders td' ) ), array( array( 'boxes' => array(), 'loose' => array( 'widefat striped wpcpm-emails__placeholders' ) ), array( 'overflow-wrap' => 'anywhere' ) ) );

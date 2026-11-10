@@ -39,10 +39,11 @@ class WPCPM_Settings {
 	const FIELD_DRAWN = 'wpcpm_drawn';
 
 	/**
-	 * The four Who is mailed lists, each of which, left empty, mails every Administrator account
-	 * (`addresses()`'s callers fall back to them).
+	 * The five Who is mailed lists, each of which, left empty, mails every Administrator account
+	 * (`addresses()`'s callers fall back to them). The fifth, since 1.123.64, is who is told of a new
+	 * interest from a student.
 	 */
-	const NOTIFY_LISTS = array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify' );
+	const NOTIFY_LISTS = array( 'agreement_notify', 'report_notify', 'sponsor_notify', 'mentor_notify', 'student_interest_notify' );
 
 	/**
 	 * What a Who is mailed list's box posts under, after the list's own name: ticked, the list is
@@ -169,6 +170,13 @@ class WPCPM_Settings {
 			// institution that is not yet confirmed has no students to register.
 			'student_registrations_enabled' => false,
 			'student_registration_stages'   => array( 'Confirmed' ),
+
+			// Interest from students (1.123.64): whether the student interest form takes anything, and
+			// who is told of a new interest, every Administrator while it is empty. On by default,
+			// unlike the forms above: the form writes nothing to Airtable and makes no account, and it
+			// is drawn only where an editor has placed it on a page.
+			'student_interest_open'         => true,
+			'student_interest_notify'       => '',
 
 			// Quiet students: a daily list of students with no activity for a while. `off` computes
 			// nothing, `preview` shows Administrators the list and mails nobody, `on` also sends the
@@ -370,6 +378,8 @@ class WPCPM_Settings {
 				'mentor_lapse_days',
 				'student_registrations_enabled',
 				'student_registration_stages',
+				'student_interest_open',
+				'student_interest_notify',
 				'student_flags_mode',
 				'student_quiet_days',
 				'student_checklist_enabled',
@@ -1029,7 +1039,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_checklist_enabled', 'mcp_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mcp_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

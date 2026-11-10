@@ -714,6 +714,7 @@ $named_options = array(
 	'wpcpm_mentor_application_page_id',    // WPCPM_Mentor_Application_Form::OPT_PAGE.
 	'wpcpm_mentors_unconfirmed',           // WPCPM_Mentor_Provision::OPT_UNCONFIRMED, the matches waiting under Needs confirming (1.123.58).
 	'wpcpm_student_languages',             // WPCPM_Student_Airtable_Row::LANGUAGES_OPTION, through WPCPM_Students::uninstall().
+	'wpcpm_student_interest_page_id',      // WPCPM_Student_Interest_Form::OPT_PAGE (1.123.64), through WPCPM_Students::uninstall().
 	// Three rows a site may still hold from code that is gone (1.123.27), deleted by name: the
 	// stored check against the agreement Doc, the import's check log and the report vocabulary's
 	// version, through WPCPM_Institutions::uninstall(), WPCPM_Institution_Import::delete_all() and
@@ -809,7 +810,7 @@ set_transient( 'feed_example', 'kept', HOUR_IN_SECONDS );
 
 // One post of every type the clean-up removes, private as the modules keep them; an offer is found
 // through its sponsor, and every offer has one.
-$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_stu_reg' );
+$plugin_types = array( 'wpcpm_notice', 'wpcpm_dup_copy', 'wpcpm_track', 'wpcpm_inst_report', 'wpcpm_inst_request', 'wpcpm_inst_app', 'wpcpm_agreement', 'wpcpm_sponsor_app', 'wpcpm_audit_entry', 'wpcpm_import_batch', 'wpcpm_offer', 'wpcpm_mentor_call', 'wpcpm_mentor_note', 'wpcpm_inst_invite', 'wpcpm_sponsor_agr', 'wpcpm_sponsor_co', 'wpcpm_handbook', 'wpcpm_sponsor_report', 'wpcpm_sponsor_event', 'wpcpm_ment_app', 'wpcpm_inst_record', 'wpcpm_stu_reg', 'wpcpm_student_int' );
 
 foreach ( $plugin_types as $type ) {
 	a_post( $type, 'private', 'wpcpm_offer' === $type ? array( '_wpcpm_offer_sponsor' => 'recSEED0000000003' ) : array() );
@@ -959,7 +960,7 @@ $file_hooks  = array( 'wpcpm_mentors_daily', 'wpcpm_mentors_sync_tick', 'wpcpm_s
 // move onto the site completes, and the Sponsors module's uninstall clears them through the names
 // the migration keeps (1.111.0).
 $sync_hooks  = array( 'wpcpm_sponsors_daily', 'wpcpm_sponsors_sync_tick' );
-$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly', 'wpcpm_student_flags_daily' ), $sync_hooks );
+$other_hooks = array_merge( array( 'wpcpm_ceiling_sweep', 'wpcpm_purge_applications', 'wpcpm_agreement_discard', 'wpcpm_agreement_reminders', 'wpcpm_invite_expire', 'wpcpm_report_ask_queue', 'wpcpm_report_autodraft', 'wpcpm_sponsor_agreement_discard', 'wpcpm_purge_sponsor_applications', 'wpcpm_sponsor_tiers_daily', 'wpcpm_sevent_drain', 'wpcpm_sevent_remind_retry', 'wpcpm_checker_weekly_check', 'wpcpm_checker_slack_retry', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'wpcpm_mail_log_purge', 'wpcpm_mentor_applications_daily', 'wpcpm_student_registrations_hourly', 'wpcpm_student_interests_daily', 'wpcpm_student_flags_daily' ), $sync_hooks );
 
 foreach ( array_merge( $file_hooks, $other_hooks, array( 'wp_version_check' ) ) as $hook ) {
 	$GLOBALS['cron'][] = array(
@@ -1335,6 +1336,9 @@ $names = array(
 	'WPCPM_Student_Registration::LOCK_PREFIX'       => 'wpcpm_sreg_lock_',
 	'WPCPM_Sponsor_Mentors::INTEREST_LOCK'          => 'wpcpm_interest_lock_',
 	'WPCPM_Student_Registration_Process::CRON_HOURLY' => 'wpcpm_student_registrations_hourly',
+	'WPCPM_Student_Interest::POST_TYPE'             => 'wpcpm_student_int',
+	'WPCPM_Student_Interest::CRON_DAILY'            => 'wpcpm_student_interests_daily',
+	'WPCPM_Student_Interest_Form::OPT_PAGE'         => 'wpcpm_student_interest_page_id',
 	'WPCPM_Student_Flags::CRON_DAILY'               => 'wpcpm_student_flags_daily',
 	'WPCPM_Student_Flags::OPT_SNAPSHOT'             => 'wpcpm_student_flags',
 	'WPCPM_Student_Flags::OPT_ON_SINCE'             => 'wpcpm_student_flags_on_since',

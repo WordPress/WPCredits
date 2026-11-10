@@ -419,14 +419,28 @@ final class WPCPM_Student_Registration_Form {
 
 
 	/**
-	 * The line under the institution field, for a student whose institution is not on the list: it
-	 * leads to the institution application on this site while that page is published, and says to
-	 * get in touch otherwise. Since 1.123.63 it no longer leads to a form kept on Airtable.
+	 * The line under the institution field, for a student whose institution is not on the list. Since
+	 * 1.123.64 it leads to the student interest form while that form is open and on a published page
+	 * (`WPCPM_Student_Interest_Form::hint_url()`), which a student can fill in for themselves.
+	 * Otherwise it leads to the institution application on this site while that page is published,
+	 * and says to get in touch with neither. Since 1.123.63 it no longer leads to a form kept on
+	 * Airtable.
 	 *
 	 * @param string $application The institution application page's address, or '' with none published.
+	 * @param string $interest    The student interest form's address, or '' while it is closed or on
+	 *                            no published page.
 	 * @return string The sentence, its link built here and its words translated.
 	 */
-	public static function institution_note( $application ) {
+	public static function institution_note( $application, $interest = '' ) {
+		if ( '' !== (string) $interest ) {
+			return sprintf(
+				/* translators: 1: an opening link tag to the student interest form's page, 2: its closing tag. */
+				__( 'Is your institution not on the list? Fill in the %1$sstudent interest form%2$s and we will get in touch with your institution.', 'wpcredits-program-manager' ),
+				'<a href="' . esc_url( $interest ) . '">',
+				'</a>'
+			);
+		}
+
 		if ( '' === (string) $application ) {
 			return __( 'Is your institution not on the list? Ask a faculty member or your administration office to contact us.', 'wpcredits-program-manager' );
 		}
@@ -471,7 +485,10 @@ final class WPCPM_Student_Registration_Form {
 				'label'    => __( 'Educational Institution', 'wpcredits-program-manager' ),
 				'type'     => 'institution',
 				'required' => true,
-				'note'     => self::institution_note( class_exists( 'WPCPM_Institution_Application' ) ? WPCPM_Institution_Application::page_url() : '' ),
+				'note'     => self::institution_note(
+					class_exists( 'WPCPM_Institution_Application' ) ? WPCPM_Institution_Application::page_url() : '',
+					class_exists( 'WPCPM_Student_Interest_Form' ) ? WPCPM_Student_Interest_Form::hint_url() : ''
+				),
 			),
 			'study'       => array(
 				'label'    => __( 'Department / Area of Study', 'wpcredits-program-manager' ),
@@ -481,6 +498,9 @@ final class WPCPM_Student_Registration_Form {
 			'tutor'       => array(
 				'label'     => __( 'Tutor Name - The professor or main contact person at your educational institution', 'wpcredits-program-manager' ),
 				'type'      => 'text',
+				// A whole row of the form (1.123.64): its label is two lines long in half of one, which
+				// would set its box lower than the one beside it. The tutor's address follows it so.
+				'wide'      => true,
 				'required'  => false,
 				'maxlength' => 120,
 				'help'      => __( 'If your educational institution doesn\'t require you to indicate a tutor, you can skip this question.', 'wpcredits-program-manager' ),
@@ -488,6 +508,7 @@ final class WPCPM_Student_Registration_Form {
 			'tutor_email' => array(
 				'label'     => __( 'Your tutor\'s email address', 'wpcredits-program-manager' ),
 				'type'      => 'email',
+				'wide'      => true,
 				'required'  => false,
 				'maxlength' => 254,
 			),
@@ -1179,9 +1200,15 @@ final class WPCPM_Student_Registration_Form {
 
 		WPCPM_Form_Guard::render_honeypot( self::HONEYPOT );
 
+		// One box around every question, which sets the short answers two to a row where there is
+		// room (application.css, 1.123.64): this form has no groups of its own.
+		echo '<div class="wpcpm-application__columns">';
+
 		foreach ( self::fields() as $key => $spec ) {
 			self::render_field( $key, $spec, isset( $values[ $key ] ) ? $values[ $key ] : null, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '' );
 		}
+
+		echo '</div>';
 
 		printf(
 			'<p class="wpcpm-application__send wpcpm-application__send--flat"><button type="submit" class="wpcpm-button">%s</button><span class="wpcpm-application__busy" data-wpcpm-busy-status role="status"></span></p>',
@@ -1265,7 +1292,7 @@ final class WPCPM_Student_Registration_Form {
 		$describedby = empty( $says ) ? '' : ' aria-describedby="' . esc_attr( implode( ' ', $says ) ) . '"';
 		$wrapper     = $multiple || $combo ? 'div' : 'p';
 
-		printf( '<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s">', esc_attr( $wrapper ), esc_attr( $type ), '' !== $problem ? ' has-problem' : '' );
+		printf( '<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s%4$s">', esc_attr( $wrapper ), esc_attr( $type ), ! empty( $spec['wide'] ) ? ' wpcpm-field--wide' : '', '' !== $problem ? ' has-problem' : '' );
 
 		if ( in_array( $type, array( 'consent', 'statement' ), true ) ) {
 			// The heading, then the box with its words: the policy's link is the only markup those

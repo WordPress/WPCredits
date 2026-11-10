@@ -18,8 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * applicant has no account. The institution form (S1 of the institutions module) and the sponsor
  * form (Sponsors S5) each carried a copy of this; the S5 review asked for one (clean-up 1.98.1).
  * Each form describes itself in an array the caller builds from its own constants: `url`,
- * `outcomes`, `query_outcome`, `query_stash`, `prefix`, `minutes`, `one_shot`. All seven have a
- * default, so a form described in part draws a plain page rather than a notice. Blank detection
+ * `outcomes`, `query_outcome`, `query_stash`, `prefix`, `minutes`, `one_shot`, and since 1.123.64
+ * `fragment`, the id of the element an answer lands on. All eight have a default, so a form
+ * described in part draws a plain page rather than a notice. Blank detection
  * stays the caller's: the two forms agree on it today and are free not to tomorrow.
  */
 final class WPCPM_Form_Stash {
@@ -45,6 +46,9 @@ final class WPCPM_Form_Stash {
 			'prefix'        => 'wpcpm_',
 			'minutes'       => 30,
 			'one_shot'      => array(),
+			// The id of an element of the page for the answer to land on, or '' for the page's top
+			// (1.123.64: the student interest form sits under other sections of a longer page).
+			'fragment'      => '',
 		);
 	}
 
@@ -68,15 +72,20 @@ final class WPCPM_Form_Stash {
 		$url   = '' !== (string) $form['url'] ? (string) $form['url'] : home_url( '/' );
 		$stash = self::keep( $stash, $is_blank );
 
+		// The fragment goes on last, after the query: the address is built whole here, whatever a
+		// fragment already in `$url` would have done to the argument added to it.
+		$fragment = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $form['fragment'] );
+		$fragment = '' === $fragment ? '' : '#' . $fragment;
+
 		if ( empty( $stash ) && in_array( (string) $outcome, (array) $form['outcomes'], true ) ) {
-			wp_safe_redirect( add_query_arg( array( (string) $form['query_outcome'] => (string) $outcome ), $url ) );
+			wp_safe_redirect( add_query_arg( array( (string) $form['query_outcome'] => (string) $outcome ), $url ) . $fragment );
 
 			exit;
 		}
 
 		$stash['outcome'] = (string) $outcome;
 
-		wp_safe_redirect( add_query_arg( array( (string) $form['query_stash'] => self::put( $form, $stash ) ), $url ) );
+		wp_safe_redirect( add_query_arg( array( (string) $form['query_stash'] => self::put( $form, $stash ) ), $url ) . $fragment );
 
 		exit;
 	}

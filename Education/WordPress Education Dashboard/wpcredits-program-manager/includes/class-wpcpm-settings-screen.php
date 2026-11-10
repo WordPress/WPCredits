@@ -1397,6 +1397,7 @@ class WPCPM_Settings_Screen {
 		$this->close_section();
 
 		$this->render_student_registration_settings( $settings );
+		$this->render_student_interest_settings( $settings );
 		$this->render_quiet_students_settings( $settings );
 		$this->render_new_students_settings( $settings );
 		$this->render_mentor_application_settings( $settings );
@@ -1460,6 +1461,58 @@ class WPCPM_Settings_Screen {
 			WPCPM_Settings_Rows::typed( 'stages', $why ),
 			array(),
 			__( 'With none ticked, or no institution at a ticked stage, the form says registrations are closed. A new partner appears after the next institutions sync, every three hours.', 'wpcredits-program-manager' )
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * The Students and mentors tab's section for interest from students (1.123.64): whether the
+	 * student interest form takes anything, and who is told of a new interest.
+	 *
+	 * The switch is drawn as the student registration form's is, with the address of the page an
+	 * editor placed the form on under it, and is on unless an Administrator switches it off. The
+	 * list is drawn as the mentor applications' Who is mailed list is, under a label of its own, since
+	 * a tab's two rows of one name would read alike to a screen reader.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_student_interest_settings( array $settings ) {
+		$this->open_section(
+			__( 'Interest from students', 'wpcredits-program-manager' ),
+			__( 'Whether a student whose institution is not in the program yet can say so through the form on this site, and who is told.', 'wpcredits-program-manager' ),
+			'interest-from-students'
+		);
+
+		$interest_url = class_exists( 'WPCPM_Student_Interest_Form' ) ? (string) WPCPM_Student_Interest_Form::page_url() : '';
+		$interests    = __( 'Student interest form', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="student_interest_open" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $interests ),
+			checked( ! empty( $settings['student_interest_open'] ), true, false ),
+			esc_html__( 'Take interest from students through the form on this site', 'wpcredits-program-manager' ),
+			esc_html__( 'A public page anybody can post to.', 'wpcredits-program-manager' )
+		);
+
+		// The page is an editor's to make, so with none the line says how, where the other forms'
+		// say to re-activate the plugin (`WPCPM_Settings_Rows::page_line()`).
+		if ( '' !== $interest_url ) {
+			WPCPM_Settings_Rows::page_line( $interest_url );
+		} else {
+			printf( '<p class="description wpcpm-warning">%s</p>', esc_html__( 'The form is on no published page yet: add the Student Interest Form block to a page and publish it.', 'wpcredits-program-manager' ) );
+		}
+
+		WPCPM_Settings_Rows::close_row( $interests, array( __( 'The form is the Student Interest Form block, or the [wpcpm_student_interest] shortcode, on a page of your choosing; the plugin makes no page for it. Every interest is stored for an Administrator to follow up on the Interests tab of the Students screen, and the form writes nothing to Airtable. While this is off the form shows one sentence saying it is closed, and an Administrator a second saying why.', 'wpcredits-program-manager' ), self::policy_note() ) );
+
+		WPCPM_Settings_Rows::reviewers_row(
+			'student_interest_notify',
+			__( 'Who hears of a new interest', 'wpcredits-program-manager' ),
+			isset( $settings['student_interest_notify'] ) ? (string) $settings['student_interest_notify'] : '',
+			__( 'Addresses told of each new interest from a student; with none here, every Administrator is written to.', 'wpcredits-program-manager' ),
+			__( 'The email names the institution and its country and links the Interests tab. It carries none of the student\'s answers, which are read on the tab. The representative a student names is never emailed by the site.', 'wpcredits-program-manager' ),
+			'',
+			true
 		);
 
 		$this->close_section();

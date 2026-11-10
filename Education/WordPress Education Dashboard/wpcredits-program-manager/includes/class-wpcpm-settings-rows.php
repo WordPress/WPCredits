@@ -389,7 +389,7 @@ final class WPCPM_Settings_Rows {
 	 * @param string|string[] $details     Optional text for the row's Details fold (`details_after()`).
 	 * @param string          $nobody      Optional sentence said, as a warning, while it names nobody.
 	 * @param bool            $everyone_box Whether the row opens with the box "Mail every Administrator
-	 *                                     account instead of the people below", for the four Who is
+	 *                                     account instead of the people below", for the five Who is
 	 *                                     mailed lists (`WPCPM_Settings::NOTIFY_LISTS`): ticked while
 	 *                                     the list saved is empty, and not when the list was refused
 	 *                                     as typed, since that typing left the box unticked.
