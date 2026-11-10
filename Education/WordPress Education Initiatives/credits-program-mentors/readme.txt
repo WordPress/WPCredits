@@ -4,7 +4,7 @@ Tags: mentors, airtable, directory, shortcode, block
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,19 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 
 == Changelog ==
 
+= 1.7.2 =
+* Privacy: the directory asks Airtable for the public fields only (Full Name,
+  Country, Languages, WordPress profile, Sponsor Company Name, and Status to
+  tell who is active), and the `fields` attribute shows nothing outside that
+  list. Before, every column of a mentor's record was fetched and cached, and
+  whoever could edit a page could print any of them. A site adds a column of
+  its own through the filter `credprme_allowed_fields`.
+* A failed Airtable request is remembered for five minutes, so a page no longer
+  waits on Airtable at every view while it is down.
+* Refresh data and a settings save now clear the cache on a site with an object
+  cache too.
+* The plugin's address in its header is its source on GitHub.
+
 = 1.7.1 =
 * The Sponsored chip always sits under the mentor's name, on a line of its own,
   and never beside it.
@@ -291,6 +304,10 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
   preview) — both offering grid and table layouts.
 
 == Upgrade Notice ==
+
+= 1.7.2 =
+Privacy fix: only a mentor's public fields are fetched from Airtable and shown.
+A placement whose `fields` attribute named another column no longer shows it.
 
 = 1.7.1 =
 The Sponsored chip sits under the mentor's name.

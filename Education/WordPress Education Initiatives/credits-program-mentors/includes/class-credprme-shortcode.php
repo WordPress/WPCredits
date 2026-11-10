@@ -29,6 +29,20 @@ class CREDPRME_Shortcode {
 	);
 
 	/**
+	 * The fields a placement may show, and the only ones asked of Airtable: the public ones. A
+	 * mentor's record holds more (an address among them), and the `fields` attribute is typed by
+	 * whoever edits a page, so anything outside this list is neither fetched nor shown. A site adds
+	 * a column of its own through the filter `credprme_allowed_fields`.
+	 *
+	 * @return string[]
+	 */
+	public static function allowed_fields() {
+		$allowed = apply_filters( 'credprme_allowed_fields', self::DEFAULT_FIELDS );
+
+		return array_values( array_unique( array_filter( array_map( 'strval', (array) $allowed ), 'strlen' ) ) );
+	}
+
+	/**
 	 * Mentors are shown when this field equals STATUS_ACTIVE.
 	 *
 	 * @var string
@@ -181,6 +195,20 @@ class CREDPRME_Shortcode {
 			$requested_fields = apply_filters( 'credprme_default_fields', self::DEFAULT_FIELDS );
 		}
 
+		// Only the public fields, whatever the attribute asks for, in the list's own spelling.
+		$allowed = array();
+		foreach ( self::allowed_fields() as $name ) {
+			$allowed[ strtolower( $name ) ] = $name;
+		}
+		$shown = array();
+		foreach ( $requested_fields as $name ) {
+			$key = strtolower( trim( (string) $name ) );
+			if ( isset( $allowed[ $key ] ) && ! in_array( $allowed[ $key ], $shown, true ) ) {
+				$shown[] = $allowed[ $key ];
+			}
+		}
+		$requested_fields = $shown;
+
 		if ( ! $this->show_sponsorship ) {
 			$requested_fields = array_values(
 				array_filter(
@@ -192,13 +220,15 @@ class CREDPRME_Shortcode {
 			);
 		}
 
-		// Fetch every field (not just the displayed ones) so we can filter on
-		// Status and detect sponsorship regardless of which fields are shown.
+		// Fetch the public fields and Status (not just the displayed ones), so the list can be
+		// filtered on Status and sponsorship told whichever fields are shown, and nothing else:
+		// what is not fetched cannot be cached or shown.
 		$records = CREDPRME_Source::get_records(
 			$settings,
 			array(
 				'view'        => sanitize_text_field( $atts['view'] ),
 				'max_records' => 0, // Filter locally, then apply the limit.
+				'fields'      => array_values( array_unique( array_merge( self::allowed_fields(), array( apply_filters( 'credprme_status_field', self::STATUS_FIELD ) ) ) ) ),
 			)
 		);
 

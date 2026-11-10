@@ -20,6 +20,12 @@ class CREDPRME_Airtable_Client {
 
 	const API_BASE = 'https://api.airtable.com/v0';
 
+	/** How long a failed request is remembered before Airtable is asked again, in seconds. */
+	const ERROR_TTL = 300;
+
+	/** The option holding the cache's salt. */
+	const SALT_OPTION = 'credprme_cache_salt';
+
 	/**
 	 * Plugin settings.
 	 *
@@ -57,16 +63,36 @@ class CREDPRME_Airtable_Client {
 			return new WP_Error( 'credprme_no_base', __( 'The Airtable Base ID or Table ID is missing in the plugin settings.', 'credits-program-mentors' ) );
 		}
 
-		$cache_key = 'credprme_records_' . md5( wp_json_encode( array( $args, $this->settings['base_id'], $this->settings['table_id'], $this->settings['view_id'] ) ) );
+		// The salt changes with every flush, so a flush reaches cached records wherever the site
+		// keeps its transients: with an object cache they are not rows a query could delete.
+		$hash      = md5( wp_json_encode( array( $args, $this->settings['base_id'], $this->settings['table_id'], $this->settings['view_id'], self::salt() ) ) );
+		$cache_key = 'credprme_records_' . $hash;
+		$error_key = 'credprme_error_' . $hash;
 
 		$cached = get_transient( $cache_key );
 		if ( false !== $cached ) {
 			return $cached;
 		}
 
+		// A request that failed a moment ago is not made again on every page view: the page would
+		// wait on Airtable each time. The failure is kept for a few minutes and answered from there.
+		$failed = get_transient( $error_key );
+		if ( is_array( $failed ) && isset( $failed['code'], $failed['message'] ) ) {
+			return new WP_Error( $failed['code'], $failed['message'] );
+		}
+
 		$records = $this->fetch_all( $args );
 
 		if ( is_wp_error( $records ) ) {
+			set_transient(
+				$error_key,
+				array(
+					'code'    => $records->get_error_code(),
+					'message' => $records->get_error_message(),
+				),
+				self::ERROR_TTL
+			);
+
 			return $records;
 		}
 
@@ -222,10 +248,28 @@ class CREDPRME_Airtable_Client {
 	}
 
 	/**
-	 * Delete every cached record set. Called when settings change.
+	 * The cache's salt: part of every cache key, changed by each flush.
+	 *
+	 * @return string
+	 */
+	private static function salt() {
+		return (string) get_option( self::SALT_OPTION, '1' );
+	}
+
+	/**
+	 * Drop every cached record set and remembered failure. Called when settings change and by the
+	 * Refresh data button. A new salt puts every cached entry out of reach at once; the rows a site
+	 * without an object cache keeps in its options table are deleted as well.
 	 */
 	public static function flush_cache() {
 		global $wpdb;
+
+		update_option( self::SALT_OPTION, (string) time() . '-' . wp_rand( 1000, 9999 ), false );
+
+		foreach ( array( '_transient_credprme_error_', '_transient_timeout_credprme_error_' ) as $prefix ) {
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		}
+
 		$like = $wpdb->esc_like( '_transient_credprme_records_' ) . '%';
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$like_timeout = $wpdb->esc_like( '_transient_timeout_credprme_records_' ) . '%';

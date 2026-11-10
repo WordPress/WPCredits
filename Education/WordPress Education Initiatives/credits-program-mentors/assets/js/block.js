@@ -122,7 +122,7 @@
 				} ),
 				el( c.TextControl, {
 					label: __( 'Fields (comma separated)', 'credits-program-mentors' ),
-					help: __( 'Leave blank to show all fields.', 'credits-program-mentors' ),
+					help: __( 'Leave blank for the usual fields. Only a mentor\'s public fields can be shown.', 'credits-program-mentors' ),
 					value: a.fields,
 					onChange: function ( v ) { setA( { fields: v } ); }
 				} ),
