@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.5.3
+Stable tag: 1.6.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,7 @@ Or build it modularly. Each section is its own block (grouped under the **WPCred
 * What Students Produce
 * Outcomes & Quality
 * Voices
+* Last Updated (one line: "Figures last updated on" and the date of the last successful sync; it prints nothing until a sync has succeeded)
 
 The dashboard is designed to sit inside your theme's page, so it has no header of its own.
 
@@ -46,6 +47,7 @@ Translation activity is added up from every page of a profile's timeline, not fr
 
 = Bundled third-party libraries =
 
+* EB Garamond and Inter (SIL Open Font License 1.1, each license in `assets/fonts`) - the headings and figures, and the text.
 * Chart.js 4.4.1 (MIT) - the growth chart.
 * Leaflet 1.9.4 (BSD-2-Clause) - the partner map. Map tiles are loaded at runtime from OpenStreetMap (tile.openstreetmap.org).
 
@@ -65,6 +67,23 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.6.3 =
+* Fixed 1.6.2's sync: it asked Airtable without the base ID and stopped with "HTTP 404". Nothing was stored by the failed runs; the figures on the page were untouched.
+
+= 1.6.2 =
+* On a site that also runs the WPCredits Program Manager, a sync uses that plugin's Airtable token when none is saved here: both read the same base, so the site keeps one token. The token is read when a sync needs it and is never copied into this plugin's settings; a token saved here takes its place. The settings screen says which one is in use. The `wpct_airtable_token` filter can replace it.
+
+= 1.6.1 =
+* The country tags under the voices carry their flag again, beside the country's name. The flag is decoration: a screen reader skips it, and where a system draws no flag emoji the name still says it.
+
+= 1.6.0 =
+* The look is now WordPress.org's own, as the Education Directory (wordpresseducation.org) wears it: headings and figures in EB Garamond at regular weight, text in Inter, one blue for what matters, white cards on hairlines. Both typefaces ship with the plugin, so a page asks no one else for them.
+* Section labels are one quiet uppercase eyebrow instead of four colors; skills are pills in one tint; the growth chart draws in blue, charcoal and gray. No text is smaller than 12px.
+* New block, WPCredits: Last Updated, and the same line under the combined block: "Figures last updated on" and the date of the last successful sync. It prints nothing until a sync has succeeded.
+* The tabs of the combined block are buttons a keyboard reaches, and say which one is selected. The growth chart has a text label, and stands still for a reader who asked for reduced motion. The field-of-study figures are a list.
+* The country tags under the voices no longer carry a flag emoji; the country's name was always there.
+* No change to the data, the sync or the settings.
 
 = 1.5.3 =
 * The partner map draws on OpenStreetMap's standard tiles instead of CARTO's light basemap. CARTO stopped serving anonymous tiles and now stamps "API KEY REQUIRED" across every one of them while still answering with a valid image, so the map kept drawing with the watermark over it and nothing reported an error. The basemap looks different as a result: OpenStreetMap's standard style carries more color than CARTO's near-white one. This was fixed elsewhere in September but the fix never reached this plugin's own copy of the map code.

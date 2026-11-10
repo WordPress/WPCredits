@@ -14,8 +14,8 @@
 					borderRadius: '8px',
 					padding: '28px 24px',
 					textAlign: 'center',
-					background: '#f4f6fb',
-					color: '#1f2733',
+					background: '#f4f4f4',
+					color: '#1e1e1e',
 				},
 			} );
 
@@ -25,8 +25,8 @@
 				el( 'div', { style: { fontSize: '15px', fontWeight: 700 } }, __( 'WPCredits-Tracker', 'wpcredits-tracker' ) ),
 				el(
 					'div',
-					{ style: { fontSize: '13px', color: '#64748b', marginTop: '6px' } },
-					__( 'Overview · Contributions · Voices. Renders with live charts and map on the front end.', 'wpcredits-tracker' )
+					{ style: { fontSize: '13px', color: '#656a71', marginTop: '6px' } },
+					__( 'Overview and Voices. Renders with live charts and map on the front end.', 'wpcredits-tracker' )
 				)
 			);
 		},

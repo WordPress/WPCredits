@@ -41,8 +41,8 @@ class WPCT_Render {
 		?>
 		<div class="wpct-dashboard wpct-dashboard--full">
 			<div class="nav" role="tablist">
-				<div class="nav-item active" data-section="global"><?php esc_html_e( 'Overview', 'wpcredits-tracker' ); ?></div>
-				<div class="nav-item" data-section="feedback"><?php esc_html_e( 'Voices', 'wpcredits-tracker' ); ?></div>
+				<button type="button" role="tab" aria-selected="true" class="nav-item active" data-section="global"><?php esc_html_e( 'Overview', 'wpcredits-tracker' ); ?></button>
+				<button type="button" role="tab" aria-selected="false" class="nav-item" data-section="feedback"><?php esc_html_e( 'Voices', 'wpcredits-tracker' ); ?></button>
 			</div>
 
 			<div class="content">
@@ -51,7 +51,34 @@ class WPCT_Render {
 			</div>
 		</div>
 		<?php
-		return trim( ob_get_clean() );
+		return trim( ob_get_clean() ) . self::updated();
+	}
+
+	/**
+	 * The line that says how fresh the figures are: "Figures last updated on <date>."
+	 *
+	 * Empty until a live sync has succeeded: the bundled snapshot carries no date, and a
+	 * date that is a guess would be worse than none.
+	 *
+	 * @return string HTML, or '' when no sync has succeeded yet.
+	 */
+	public static function updated() {
+		$stamp = get_option( WPCT_OPT_LASTSYNC, 0 );
+		$stamp = is_numeric( $stamp ) ? (int) $stamp : 0;
+		if ( $stamp <= 0 ) {
+			return '';
+		}
+
+		wp_enqueue_style( 'wpct-dashboard' );
+
+		$time = '<time datetime="' . esc_attr( wp_date( 'Y-m-d', $stamp ) ) . '">'
+			. esc_html( wp_date( (string) get_option( 'date_format', 'F j, Y' ), $stamp ) )
+			. '</time>';
+
+		return '<p class="wpct-updated">'
+			/* translators: %s: the date of the last successful sync. */
+			. sprintf( esc_html( __( 'Figures last updated on %s.', 'wpcredits-tracker' ) ), $time )
+			. '</p>';
 	}
 
 	/**

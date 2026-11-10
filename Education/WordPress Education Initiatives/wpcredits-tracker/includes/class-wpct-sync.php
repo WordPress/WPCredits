@@ -246,7 +246,7 @@ class WPCT_Sync {
 	 */
 	public static function run_step() {
 		$settings = wpct_get_settings();
-		if ( empty( $settings['airtable_pat'] ) ) {
+		if ( '' === wpct_airtable_token() ) {
 			self::fail( __( 'No Airtable Personal Access Token configured.', 'wpcredits-tracker' ) );
 			return;
 		}
@@ -1009,7 +1009,7 @@ class WPCT_Sync {
 				$url,
 				array(
 					'timeout' => 20,
-					'headers' => array( 'Authorization' => 'Bearer ' . $settings['airtable_pat'] ),
+					'headers' => array( 'Authorization' => 'Bearer ' . wpct_airtable_token() ),
 				)
 			);
 

@@ -36,6 +36,7 @@ class WPCT_Block {
 			'produce'        => array( __( 'WPCredits: What Students Produce', 'wpcredits-tracker' ), __( 'First contributions, sites created, and teams contributed to.', 'wpcredits-tracker' ), 'hammer' ),
 			'outcomes'       => array( __( 'WPCredits: Outcomes & Quality', 'wpcredits-tracker' ), __( 'Graduation rate, graduates, impact, and recommendation figures.', 'wpcredits-tracker' ), 'yes-alt' ),
 			'voices'         => array( __( 'WPCredits: Voices', 'wpcredits-tracker' ), __( 'Student testimonials, tagged by country.', 'wpcredits-tracker' ), 'format-quote' ),
+			'updated'        => array( __( 'WPCredits: Last Updated', 'wpcredits-tracker' ), __( 'One line saying when the figures were last updated.', 'wpcredits-tracker' ), 'clock' ),
 		);
 	}
 
@@ -137,7 +138,11 @@ class WPCT_Block {
 	 * @return string
 	 */
 	public function render_section( $key ) {
-		$inner   = WPCT_Render::section( $key );
+		// The last-updated line is plain server markup, not a mount the script fills.
+		$inner = 'updated' === $key ? WPCT_Render::updated() : WPCT_Render::section( $key );
+		if ( '' === $inner ) {
+			return '';
+		}
 		$wrapper = function_exists( 'get_block_wrapper_attributes' ) ? get_block_wrapper_attributes() : '';
 		return '<div ' . $wrapper . '>' . $inner . '</div>';
 	}

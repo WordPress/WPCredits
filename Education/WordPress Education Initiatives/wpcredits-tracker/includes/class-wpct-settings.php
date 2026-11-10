@@ -109,8 +109,7 @@ class WPCT_Settings {
 		}
 		check_admin_referer( self::NONCE );
 
-		$settings = wpct_get_settings();
-		if ( empty( $settings['airtable_pat'] ) ) {
+		if ( '' === wpct_airtable_token() ) {
 			$this->redirect_back( 'notoken' );
 		}
 
@@ -249,6 +248,7 @@ class WPCT_Settings {
 							<p class="description">
 								<?php esc_html_e( 'Stored in the database and used server-side only. Leave blank to keep the current token.', 'wpcredits-tracker' ); ?>
 								<?php if ( $pat_mask ) : ?><br /><em><?php echo esc_html( sprintf( /* translators: %s: masked token. */ __( 'Current: %s', 'wpcredits-tracker' ), $pat_mask ) ); ?></em><?php endif; ?>
+								<?php if ( 'manager' === wpct_airtable_token_source() ) : ?><br /><em><?php esc_html_e( 'No token is saved here, so syncs use the WPCredits Program Manager\'s Airtable token. A token saved here takes its place.', 'wpcredits-tracker' ); ?></em><?php endif; ?>
 								<br /><strong><?php esc_html_e( 'Security:', 'wpcredits-tracker' ); ?></strong> <?php esc_html_e( 'use a token scoped to read-only access to just this base.', 'wpcredits-tracker' ); ?>
 							</p>
 						</td>

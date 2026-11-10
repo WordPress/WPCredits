@@ -21,7 +21,8 @@
 		[ 'skills', 'Skills', 'Technical and transferable skills students build.' ],
 		[ 'produce', 'What Students Produce', 'First contributions, sites created, and teams contributed to.' ],
 		[ 'outcomes', 'Outcomes & Quality', 'Graduation rate, graduates, impact, and recommendation figures.' ],
-		[ 'voices', 'Voices', 'Student testimonials, tagged by country.' ]
+		[ 'voices', 'Voices', 'Student testimonials, tagged by country.' ],
+		[ 'updated', 'Last Updated', 'One line saying when the figures were last updated.' ]
 	];
 
 	SECTIONS.forEach( function ( s ) {
@@ -35,16 +36,16 @@
 						borderRadius: '8px',
 						padding: '20px 22px',
 						textAlign: 'center',
-						background: '#f4f6fb',
-						color: '#1f2733'
+						background: '#f4f4f4',
+						color: '#1e1e1e'
 					}
 				} );
 				return el(
 					'div',
 					blockProps,
 					el( 'div', { style: { fontSize: '13px', fontWeight: 700 } }, __( 'WPCredits: ' + s[ 1 ], 'wpcredits-tracker' ) ),
-					el( 'div', { style: { fontSize: '12px', color: '#64748b', marginTop: '4px' } }, s[ 2 ] ),
-					el( 'div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '8px' } }, __( 'Renders on the front end.', 'wpcredits-tracker' ) )
+					el( 'div', { style: { fontSize: '12px', color: '#656a71', marginTop: '4px' } }, s[ 2 ] ),
+					el( 'div', { style: { fontSize: '12px', color: '#656a71', marginTop: '8px' } }, __( 'Renders on the front end.', 'wpcredits-tracker' ) )
 				);
 			},
 			save: function () {

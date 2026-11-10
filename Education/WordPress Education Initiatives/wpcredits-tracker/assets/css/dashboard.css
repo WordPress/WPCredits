@@ -1,122 +1,532 @@
 /*
  * WPCredits-Tracker front-end styles.
- * Ported from the upstream template.html, then restyled to match the
- * Educational Initiatives (Education Hub) FSE theme: system fonts, the theme's
- * cool blue/navy palette, bordered white surfaces, and a transparent container
- * that blends into the theme's page background. Every selector is scoped under
- * .wpct-dashboard so the widget never leaks into (or inherits from) the theme.
+ *
+ * The look is WordPress.org's own, as the Education Directory (wordpresseducation.org) wears it:
+ * headings and figures in EB Garamond at regular weight, everything else in Inter, one blue
+ * (Blueberry) for what matters, white cards on 1px hairlines, flat. Every selector is scoped under
+ * .wpct-dashboard (or is the plugin's own .wpct-updated), so the widget never leaks into the theme.
+ *
+ * Sizes: 16px prose, 14px labels and hints, 13px uppercase eyebrows, 12px chips; nothing smaller.
  */
 
-.wpct-dashboard {
-	/* Palette mapped from the theme's theme.json presets. */
-	--wp-blue: #3858E9;       /* primary */
-	--wp-blue-dark: #213FD4;  /* primary-hover */
-	--accent: #7C3AED;        /* accent (purple) */
-	--wp-green: #2F7D5B;      /* chart series: joined */
-	--wp-orange: #B07A22;     /* chart series: cumulative */
-	--wp-teal: #2A7B8C;       /* "What students produce" accent */
-	--wp-red: #C0492B;
-	--bg: transparent;        /* blend into the theme page background */
-	--card-bg: #ffffff;       /* surface */
-	--surface-2: #f4f6fb;
-	--deep: #10182B;          /* deep navy - big numbers */
-	--text: #1F2733;          /* ink */
-	--text-light: #64748B;    /* muted */
-	--border: #E6E9F0;
-	--blue-ink: #213FD4;
-	--blue-tint: #EEF1FD;
-	--accent-tint: #F2ECFD;
-	--green-tint: #E9F3ED;
-	--sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-	--serif: var(--sans); /* theme uses system sans throughout, no serif */
-	--shadow: 0 1px 2px rgba(16,24,43,.04), 0 1px 3px rgba(16,24,43,.06);
-	--radius: 8px;
+/* The two typefaces ship with the plugin (assets/fonts, each with its SIL Open Font License), so a
+   page asks no one else for them. Latin and Latin Extended, each a variable font over its weights. */
+@font-face {
+	font-display: swap;
+	font-family: "EB Garamond";
+	font-style: normal;
+	font-weight: 400 500;
+	src: url( "../fonts/eb-garamond/eb-garamond-latin.woff2" ) format( "woff2" );
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
-	font-family: var(--sans);
-	background: var(--bg);
-	color: var(--text);
-	line-height: 1.65;
-	-webkit-font-smoothing: antialiased;
+@font-face {
+	font-display: swap;
+	font-family: "EB Garamond";
+	font-style: normal;
+	font-weight: 400 500;
+	src: url( "../fonts/eb-garamond/eb-garamond-latin-ext.woff2" ) format( "woff2" );
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+	font-display: swap;
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 400 700;
+	src: url( "../fonts/inter/inter-latin.woff2" ) format( "woff2" );
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-display: swap;
+	font-family: Inter;
+	font-style: normal;
+	font-weight: 400 700;
+	src: url( "../fonts/inter/inter-latin-ext.woff2" ) format( "woff2" );
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+.wpct-dashboard,
+.wpct-updated {
+	--wpct-brand: #3858e9;
+	--wpct-brand-dark: #213fd4;
+	--wpct-brand-tint: #eff2ff;
+	--wpct-brand-border: #c7d1ff;
+	--wpct-ink: #1e1e1e;
+	--wpct-ink-secondary: #40464d;
+	--wpct-ink-muted: #656a71;
+	--wpct-surface: #fff;
+	--wpct-line: #e6e6e6;
+	--wpct-line-card: #e4e4e4;
+	--wpct-radius-card: 8px;
+	--wpct-shadow-card: 0 1px 3px rgba( 0, 0, 0, .06 );
+	--wpct-sans: Inter, -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+	--wpct-serif: "EB Garamond", Georgia, "Times New Roman", serif;
+}
+
+.wpct-dashboard {
+	color: var( --wpct-ink );
+	font-family: var( --wpct-sans );
+	font-size: 16px;
+	line-height: 1.6;
 }
 
 .wpct-dashboard *,
 .wpct-dashboard *::before,
-.wpct-dashboard *::after { box-sizing: border-box; }
-
-.wpct-dashboard h1,
-.wpct-dashboard h2,
-.wpct-dashboard h3,
-.wpct-dashboard h4 { font-family: var(--sans); font-weight: 700; margin: 0; color: var(--text); letter-spacing: -0.01em; }
-
-/* Tabbed nav */
-.wpct-dashboard .nav { border-bottom: 1px solid var(--border); display: flex; gap: 4px; overflow-x: auto; }
-.wpct-dashboard .nav-item { padding: 12px 16px; font-size: 15px; font-weight: 500; color: var(--text-light); cursor: pointer; border-bottom: 2px solid transparent; user-select: none; transition: color .15s, border-color .15s; white-space: nowrap; }
-.wpct-dashboard .nav-item:hover { color: var(--text); }
-.wpct-dashboard .nav-item.active { color: var(--wp-blue); border-bottom-color: var(--wp-blue); font-weight: 600; }
-
-.wpct-dashboard .content { padding: 18px 0 6px; }
-.wpct-dashboard .section { display: none; }
-.wpct-dashboard .section.active { display: block; }
-
-/* Stat cards */
-.wpct-dashboard .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 16px; margin-bottom: 26px; }
-.wpct-dashboard .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 19px 22px; }
-/* Big stat numbers, matched to the "Student Impact" (Graduate Stats) block in
-   the education-student-stories plugin: fluid size, primary blue, tabular nums. */
-.wpct-dashboard .card .num { font-family: var(--sans); font-size: clamp(2rem, 1.2rem + 2.6vw, 3rem); font-weight: 800; color: var(--wp-blue); line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.wpct-dashboard .card .lbl { font-size: 13px; color: var(--text-light); margin-top: 8px; letter-spacing: .005em; }
-.wpct-dashboard .card .act-sub { font-size: 12px; color: var(--wp-green); margin-top: 6px; font-weight: 500; }
-
-.wpct-dashboard .cards-outcomes { grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 820px) { .wpct-dashboard .cards-outcomes { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px) { .wpct-dashboard .cards-outcomes { grid-template-columns: 1fr; } }
-.wpct-dashboard .cards-outcomes .lbl { font-size: 13px; line-height: 1.45; color: var(--text); }
-/* Outcomes & quality keeps its own restrained deep-navy numbers. */
-.wpct-dashboard .cards-outcomes .card .num { font-size: 32px; color: var(--deep); line-height: 1.05; }
-.wpct-dashboard .card.hl { background: var(--blue-tint); border-color: #D9E0FB; }
-.wpct-dashboard .card.hl .num { color: var(--wp-blue); }
-.wpct-dashboard .card.hl .act-sub { color: var(--wp-blue-dark); }
-
-/* Chart / content panels */
-.wpct-dashboard .chart-container { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 20px; }
-.wpct-dashboard .chart-container h3 { font-size: 18px; margin-bottom: 3px; color: var(--text); }
-.wpct-dashboard .chart-sub { font-size: 13px; color: var(--text-light); margin: 0 0 16px; line-height: 1.45; }
-
-/* Section labels (wayfinding accents, on-palette) */
-.wpct-dashboard .act-label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-light); margin: 30px 0 14px; display: flex; align-items: center; gap: 9px; font-family: var(--sans); }
-.wpct-dashboard .act-label:first-child { margin-top: 6px; }
-.wpct-dashboard .act-label::before { content: ""; width: 22px; height: 3px; border-radius: 2px; background: currentColor; }
-.wpct-dashboard .act-scale { color: var(--wp-blue); }
-.wpct-dashboard .act-outcomes { color: var(--deep); }
-.wpct-dashboard .act-skills { color: var(--accent); }
-.wpct-dashboard .act-produce { color: var(--wp-teal); }
-
-/* Skills */
-.wpct-dashboard .skills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-@media (max-width: 760px) { .wpct-dashboard .skills-grid { grid-template-columns: 1fr; } }
-.wpct-dashboard .skills-head { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-light); margin-bottom: 12px; }
-.wpct-dashboard .skills-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.wpct-dashboard .skill { display: inline-block; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; background: var(--blue-tint); color: var(--blue-ink); }
-.wpct-dashboard .skills-transferable .skill { background: var(--accent-tint); color: #6B28C9; }
-
-/* Map */
-.wpct-dashboard .wpct-map { width: 100%; height: 460px; border-radius: var(--radius); z-index: 1; }
-.wpct-dashboard .leaflet-popup-content { font-family: var(--sans); font-size: 13px; line-height: 1.6; }
-.wpct-dashboard .leaflet-popup-content h4 { margin: 0 0 6px; font-size: 14px; color: var(--wp-blue); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-.wpct-dashboard .leaflet-popup-content ul { margin: 0; padding: 0 0 0 16px; }
-.wpct-dashboard .leaflet-popup-content li { margin: 2px 0; color: var(--text); }
-
-/* Voices */
-.wpct-dashboard .voices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
-@media (max-width: 760px) { .wpct-dashboard .voices-grid { grid-template-columns: 1fr; } }
-.wpct-dashboard .voice { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; }
-.wpct-dashboard .voice-q { font-family: var(--sans); font-size: 16px; line-height: 1.6; color: var(--text); }
-.wpct-dashboard .voice-meta { margin-top: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-light); }
-.wpct-dashboard .voice-tag { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; font-size: 11px; white-space: nowrap; }
-
-@media (max-width: 768px) {
-	.wpct-dashboard .nav-item { padding: 10px 12px; font-size: 14px; }
-	.wpct-dashboard .content { padding: 14px 0 6px; }
+.wpct-dashboard *::after {
+	box-sizing: border-box;
 }
 
-.wpct-dashboard--empty { padding: 24px 0; }
+.wpct-dashboard h3 {
+	color: var( --wpct-ink );
+	font-family: var( --wpct-serif );
+	font-size: 26px;
+	font-weight: 400;
+	letter-spacing: -.01em;
+	line-height: 1.15;
+	margin: 0;
+}
+
+/* The tabs of the combined block. */
+.wpct-dashboard .nav {
+	border-bottom: 1px solid var( --wpct-line );
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+}
+
+.wpct-dashboard .nav-item {
+	appearance: none;
+	background: none;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	color: var( --wpct-ink-muted );
+	cursor: pointer;
+	font: 500 14px/1.5 var( --wpct-sans );
+	padding: 12px 16px;
+	white-space: nowrap;
+}
+
+.wpct-dashboard .nav-item:hover {
+	color: var( --wpct-ink );
+}
+
+.wpct-dashboard .nav-item.active {
+	border-bottom-color: var( --wpct-brand );
+	color: var( --wpct-brand );
+	font-weight: 600;
+}
+
+.wpct-dashboard .nav-item:focus-visible {
+	outline: 2px solid var( --wpct-brand );
+	outline-offset: -2px;
+}
+
+.wpct-dashboard .content {
+	padding: 20px 0 0;
+}
+
+.wpct-dashboard .section {
+	display: none;
+}
+
+.wpct-dashboard .section.active {
+	display: block;
+}
+
+/* In the combined block the sections follow each other; 32px between two that are not each other's. */
+.wpct-dashboard .section > * + .act-label,
+.wpct-dashboard .section > * + .chart-container {
+	margin-top: 32px;
+}
+
+.wpct-dashboard .section > .act-label + * {
+	margin-top: 0;
+}
+
+/* The eyebrow over a group of cards. */
+.wpct-dashboard .act-label,
+.wpct-dashboard .skills-head {
+	color: var( --wpct-ink-muted );
+	font: 600 13px/1.4 var( --wpct-sans );
+	letter-spacing: .12em;
+	margin: 0 0 12px;
+	text-transform: uppercase;
+}
+
+/* The cards: white on a hairline, flat but for the one soft shadow. */
+.wpct-dashboard .card,
+.wpct-dashboard .chart-container,
+.wpct-dashboard .voice {
+	background: var( --wpct-surface );
+	border: 1px solid var( --wpct-line-card );
+	border-radius: var( --wpct-radius-card );
+	box-shadow: var( --wpct-shadow-card );
+	padding: 24px;
+}
+
+.wpct-dashboard .cards {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+}
+
+@media ( max-width: 820px ) {
+	.wpct-dashboard .cards-outcomes {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+@media ( max-width: 600px ) {
+	.wpct-dashboard .cards,
+	.wpct-dashboard .cards-outcomes {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
+/* A figure in the serif, in brand (5.61:1 on white), as the Education Directory prints its own. */
+.wpct-dashboard .card .num {
+	color: var( --wpct-brand );
+	font: 400 clamp( 44px, 4.6vw, 58px )/1 var( --wpct-serif );
+	font-variant-numeric: lining-nums tabular-nums;
+	letter-spacing: -.01em;
+}
+
+.wpct-dashboard .cards-outcomes .card .num {
+	font-size: 44px;
+}
+
+.wpct-dashboard .card .num-of {
+	color: var( --wpct-ink-muted );
+	font-size: 24px;
+}
+
+.wpct-dashboard .card .lbl {
+	color: var( --wpct-ink-secondary );
+	font-size: 14px;
+	line-height: 1.5;
+	margin-top: 8px;
+}
+
+.wpct-dashboard .card .act-sub {
+	color: var( --wpct-ink-muted );
+	font-size: 14px;
+	line-height: 1.5;
+	margin-top: 4px;
+}
+
+/* The one card that matters most in its group. */
+.wpct-dashboard .card.hl {
+	background: var( --wpct-brand-tint );
+	border-color: var( --wpct-brand-border );
+	box-shadow: none;
+}
+
+.wpct-dashboard .card.hl .num {
+	color: var( --wpct-brand-dark );
+}
+
+/* A chart or a panel: its title, a line saying what it holds, then the thing. */
+.wpct-dashboard .chart-sub {
+	color: var( --wpct-ink-muted );
+	font-size: 14px;
+	line-height: 1.5;
+	margin: 4px 0 16px;
+}
+
+.wpct-dashboard .chart-legend {
+	color: var( --wpct-ink-secondary );
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 14px;
+	gap: 8px 16px;
+	line-height: 1.5;
+	margin-bottom: 12px;
+}
+
+.wpct-dashboard .chart-legend span {
+	align-items: center;
+	display: inline-flex;
+	gap: 8px;
+}
+
+.wpct-dashboard .chart-legend i {
+	border-radius: 2px;
+	height: 10px;
+	width: 10px;
+}
+
+.wpct-dashboard .chart-legend i.is-line {
+	height: 2px;
+	width: 16px;
+}
+
+.wpct-dashboard .chart-legend .is-joined { background: var( --wpct-brand ); }
+.wpct-dashboard .chart-legend .is-graduated { background: var( --wpct-ink ); }
+.wpct-dashboard .chart-legend .is-cumulative { background: var( --wpct-ink-muted ); }
+
+.wpct-dashboard .chart-canvas {
+	height: 320px;
+	position: relative;
+}
+
+/* Field of study: the ring and its list. */
+.wpct-dashboard .fos {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 24px 32px;
+}
+
+.wpct-dashboard .fos-ring {
+	flex: none;
+	height: 180px;
+	position: relative;
+	width: 180px;
+}
+
+.wpct-dashboard .fos-ring svg {
+	display: block;
+}
+
+.wpct-dashboard .fos-total {
+	left: 50%;
+	position: absolute;
+	text-align: center;
+	top: 50%;
+	transform: translate( -50%, -50% );
+}
+
+.wpct-dashboard .fos-total b {
+	display: block;
+	font: 400 32px/1 var( --wpct-serif );
+	font-variant-numeric: lining-nums;
+}
+
+.wpct-dashboard .fos-total span {
+	color: var( --wpct-ink-muted );
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpct-dashboard .fos-list {
+	flex: 1;
+	list-style: none;
+	margin: 0;
+	min-width: 220px;
+	padding: 0;
+}
+
+.wpct-dashboard .fos-list li {
+	align-items: baseline;
+	border-bottom: 1px solid var( --wpct-line );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 12px;
+	margin: 0;
+	padding: 8px 0;
+}
+
+.wpct-dashboard .fos-list li:last-child {
+	border-bottom: 0;
+}
+
+.wpct-dashboard .fos-dot {
+	border-radius: 2px;
+	flex: none;
+	height: 12px;
+	width: 12px;
+}
+
+.wpct-dashboard .fos-name {
+	flex: 1 1 10em;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.wpct-dashboard .fos-count {
+	margin-left: auto;
+	font-size: 16px;
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.wpct-dashboard .fos-count small {
+	color: var( --wpct-ink-muted );
+	font-size: 12px;
+	font-weight: 400;
+}
+
+/* Skills: two lists of chips. */
+.wpct-dashboard .skills-grid {
+	display: grid;
+	gap: 24px 32px;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+@media ( max-width: 760px ) {
+	.wpct-dashboard .skills-grid {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
+.wpct-dashboard .skills .chart-sub {
+	color: var( --wpct-ink-secondary );
+	font-size: 16px;
+	line-height: 1.6;
+	margin: 0 0 24px;
+}
+
+.wpct-dashboard .skills-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.wpct-dashboard .skill,
+.wpct-dashboard .voice-tag {
+	border-radius: 999px;
+	color: var( --wpct-ink );
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.5;
+	padding: 2px 10px;
+}
+
+.wpct-dashboard .skill {
+	background: var( --wpct-brand-tint );
+}
+
+/* The partner map. */
+.wpct-dashboard .wpct-map {
+	border: 1px solid var( --wpct-line-card );
+	border-radius: 4px;
+	height: 460px;
+	width: 100%;
+	z-index: 1;
+}
+
+@media ( max-width: 600px ) {
+	.wpct-dashboard .wpct-map {
+		height: 340px;
+	}
+}
+
+.wpct-dashboard .wpct-marker {
+	align-items: center;
+	background: var( --wpct-brand );
+	border: 3px solid #fff;
+	border-radius: 50%;
+	box-shadow: 0 1px 3px rgba( 0, 0, 0, .3 );
+	color: #fff;
+	display: flex;
+	font: 600 14px/1 var( --wpct-sans );
+	height: 100%;
+	justify-content: center;
+	width: 100%;
+}
+
+.wpct-dashboard .leaflet-container {
+	font-family: var( --wpct-sans );
+}
+
+.wpct-dashboard .leaflet-popup-content-wrapper {
+	border-radius: 4px;
+	box-shadow: 0 4px 14px rgba( 0, 0, 0, .07 );
+}
+
+.wpct-dashboard .leaflet-popup-content {
+	color: var( --wpct-ink );
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.wpct-dashboard .leaflet-popup-content h4 {
+	border-bottom: 1px solid var( --wpct-line );
+	font: 600 14px/1.5 var( --wpct-sans );
+	margin: 0 0 8px;
+	padding-bottom: 4px;
+}
+
+.wpct-dashboard .leaflet-popup-content ul {
+	margin: 0;
+	padding: 0 0 0 16px;
+}
+
+.wpct-dashboard .leaflet-popup-content li {
+	margin: 2px 0;
+}
+
+/* Voices. */
+.wpct-dashboard .voices-sub {
+	color: var( --wpct-ink-muted );
+	font-size: 14px;
+	line-height: 1.5;
+	margin: 4px 0 16px;
+}
+
+.wpct-dashboard .voices-grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+@media ( max-width: 760px ) {
+	.wpct-dashboard .voices-grid {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
+.wpct-dashboard .voice {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+}
+
+.wpct-dashboard .voice-q {
+	flex: 1;
+	font-size: 16px;
+	line-height: 1.6;
+	margin: 0;
+}
+
+.wpct-dashboard .voice-meta {
+	align-items: center;
+	color: var( --wpct-ink-muted );
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 14px;
+	gap: 8px;
+	line-height: 1.5;
+	margin-top: 16px;
+}
+
+.wpct-dashboard .voice-tag {
+	align-items: center;
+	border: 1px solid var( --wpct-line-card );
+	display: inline-flex;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+/* The flag is an emoji, so it is drawn by the reader's own system font, a touch larger than the name. */
+.wpct-dashboard .voice-flag {
+	font-size: 14px;
+	line-height: 1;
+}
+
+.wpct-dashboard--empty {
+	padding: 24px 0;
+}
+
+/* "Figures last updated on <date>." */
+.wpct-updated {
+	color: var( --wpct-ink-muted );
+	font: 400 14px/1.5 var( --wpct-sans );
+	margin: 16px 0 0;
+}
