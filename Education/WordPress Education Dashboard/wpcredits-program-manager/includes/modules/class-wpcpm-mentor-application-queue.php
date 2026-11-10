@@ -1819,6 +1819,21 @@ final class WPCPM_Mentor_Application_Queue {
 						(string) $answer
 					)
 				);
+			} elseif ( 'institution' === $spec['type'] && '' !== (string) $answer ) {
+				// The answer is the Airtable record ID the form posted, so the name is read from the
+				// index here: a reviewer reads a school's name, never recXXXXXXXXXXXXXX
+				// (WordPress/WPCredits#302). A record the index no longer holds, a school taken out of
+				// the base after the application, shows the ID with a word saying so rather than
+				// nothing, because the reviewer still has to be able to look it up.
+				$row  = WPCPM_Institutions_Index::row( (string) $answer );
+				$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+				$cell = '' !== $name
+					? esc_html( WPCPM_Test_Institutions::label( $name, $name ) )
+					: sprintf(
+						/* translators: %s: an Airtable record ID. */
+						esc_html__( '%s (not in the institutions the site holds)', 'wpcredits-program-manager' ),
+						'<code>' . esc_html( (string) $answer ) . '</code>'
+					);
 			} elseif ( 'statement' === $spec['type'] ) {
 				$cell = esc_html( true === $answer ? __( 'Agreed', 'wpcredits-program-manager' ) : __( 'Not agreed', 'wpcredits-program-manager' ) );
 			} else {

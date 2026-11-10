@@ -313,6 +313,15 @@ one, the day it was declined or filed as spam), its marks (**held**, **possible 
 history (each decision with its day, who took it and their note) and the decisions its state allows.
 The Administrator Dashboard's strip counts the applications waiting, and its tile opens this tab.
 
+Since 1.123.67 an applicant who answers Yes to **Are you a teacher from a WordPress Credits
+participating institution?** is asked **Which institution do you teach at?**, and picks it from the
+Confirmed institutions the site holds by typing part of its name. The answer is required beside a Yes
+and dropped beside a No; a teacher whose institution is not on the list is told to answer No, since
+it is not in the program yet. Each application names the institution among its answers, and one
+taken out of the base since shows its Airtable record ID and says so. A test institution is offered
+only to an Administrator, so the form can be tried on the live site. The list is the one the student
+registration form offers, read by the same rule.
+
 **Find by reference**, above the views, takes the reference an application carries, such as
 MAPP-2026-0007, the one the applicant saw on the thank-you page and the one Claude gives for an
 applicant in place of a name. It looks among every application the tab lists, in any view: those

@@ -172,6 +172,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-form.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-airtable-row.php';
+// What the answers table reads to name a teacher's institution (WordPress/WPCredits#302).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-application-queue.php';
 
 $fails = 0;
@@ -381,6 +387,18 @@ function last_event( $id ) {
 	$last   = end( $events );
 
 	return array( $last['event'], $last['actor'], $last['note'] );
+}
+
+/** The institutions the site holds, for the answers table's institution row. */
+function an_institutions_index() {
+	$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array(
+		'v'    => WPCPM_Institutions_Index::VERSION,
+		'read' => 1762300000,
+		'rows' => array(
+			'recINST0000000002' => array( 'name' => 'Aalto University', 'stage' => 'Confirmed' ),
+			'recINST0000000004' => array( 'name' => 'TEST - Institution 20', 'stage' => 'Confirmed' ),
+		),
+	);
 }
 
 /** The tab, drawn at a view. */
@@ -1608,6 +1626,27 @@ $GLOBALS['manage'] = array();
 an_application();
 ck( 'and somebody without the capability is shown nothing', tab(), '' );
 ck( 'nothing was asked of WordPress that the stand-ins do not model', array( isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), $GLOBALS['wpdb']->unmodeled ), array( array(), array() ) );
+
+echo "\n=== The institution a teacher named (WordPress/WPCredits#302) ===\n";
+
+reset_world();
+an_institutions_index();
+$teaches = an_application( 'new', true, array( 'teacher' => 'Yes', 'institution' => 'recINST0000000002' ) );
+$tries   = an_application( 'new', true, array( 'teacher' => 'Yes', 'institution' => 'recINST0000000004' ) );
+$gone    = an_application( 'new', true, array( 'teacher' => 'Yes', 'institution' => 'recINST0000000009' ) );
+$waiting = view_part( tab() );
+
+ck( 'the answers table names the institution', false !== strpos( row_for_id( $waiting, $teaches ), 'Aalto University' ), true );
+ck( 'and never the record ID', false !== strpos( row_for_id( $waiting, $teaches ), 'recINST0000000002' ), false );
+ck( 'a test institution is named as one', false !== strpos( row_for_id( $tries ? $waiting : $waiting, $tries ), 'TEST - Institution 20' ), true );
+ck(
+	'an institution the site no longer holds shows its ID with a word saying so, rather than nothing',
+	array(
+		false !== strpos( row_for_id( $waiting, $gone ), 'recINST0000000009' ),
+		false !== strpos( row_for_id( $waiting, $gone ), 'not in the institutions the site holds' ),
+	),
+	array( true, true )
+);
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

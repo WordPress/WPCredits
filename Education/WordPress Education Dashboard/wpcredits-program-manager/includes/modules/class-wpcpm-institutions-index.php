@@ -332,6 +332,78 @@ class WPCPM_Institutions_Index {
 	}
 
 	/**
+	 * The institutions a public form may offer, as record ID => the label to show, A to Z.
+	 *
+	 * One reader for every form that asks a person to name their institution: the student
+	 * registration form since 1.123.54 and the mentor application form since 1.123.67
+	 * (WordPress/WPCredits#302). Two copies of this rule is how one form comes to offer a school
+	 * the other refuses, and the submit checks the posted record against the same list, so the
+	 * rule has to be the one the page drew.
+	 *
+	 * A test institution is offered only when `$with_tests` says so, which the forms pass for an
+	 * Administrator alone, and then it is labeled as one: a live test of a public form needs the
+	 * shared test institution, and nobody else is offered it at any stage.
+	 *
+	 * @param string[] $stages      The stages an institution must be at to be offered.
+	 * @param bool     $with_tests  Whether every test institution the index holds is added, marked.
+	 * @return array<string, string>
+	 */
+	public static function offered_to_forms( array $stages, $with_tests ) {
+		$wanted = array();
+
+		foreach ( $stages as $stage ) {
+			if ( is_scalar( $stage ) && '' !== trim( (string) $stage ) ) {
+				$wanted[] = trim( (string) $stage );
+			}
+		}
+
+		$names = array();
+		$shown = array();
+
+		foreach ( self::rows() as $id => $row ) {
+			if ( ! is_array( $row ) || ! isset( $row['name'], $row['stage'] ) || ! is_scalar( $row['name'] ) || ! is_scalar( $row['stage'] ) ) {
+				continue;
+			}
+
+			$name = trim( (string) $row['name'] );
+
+			if ( '' === $name ) {
+				continue;
+			}
+
+			if ( WPCPM_Test_Institutions::is_test( $name ) ) {
+				// Only an Administrator is offered one, at any stage.
+				if ( ! $with_tests ) {
+					continue;
+				}
+
+				$shown[ (string) $id ] = WPCPM_Test_Institutions::label( $name, $name );
+			} elseif ( in_array( trim( (string) $row['stage'] ), $wanted, true ) ) {
+				$shown[ (string) $id ] = $name;
+			} else {
+				continue;
+			}
+
+			$names[ (string) $id ] = $name;
+		}
+
+		// A to Z without regard to case, the record ID breaking a tie: `array_multisort()` and not a
+		// `usort()` that keeps equal names in whatever order it likes.
+		$ids   = array_map( 'strval', array_keys( $names ) );
+		$lower = array_map( 'mb_strtolower', array_values( $names ) );
+
+		array_multisort( $lower, SORT_ASC, SORT_STRING, $ids, SORT_ASC, SORT_STRING );
+
+		$sorted = array();
+
+		foreach ( $ids as $id ) {
+			$sorted[ $id ] = $shown[ $id ];
+		}
+
+		return $sorted;
+	}
+
+	/**
 	 * The rows grouped by stage, in pipeline order.
 	 *
 	 * The order is the agreement's `STAGE_ORDER` (the path a partnership takes), then the

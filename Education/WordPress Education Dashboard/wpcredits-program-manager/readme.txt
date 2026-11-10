@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.66
+Stable tag: 1.123.67
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.67 =
+
+* The mentor application form asks a teacher which institution they teach at: answer Yes to the teacher question and the form asks **Which institution do you teach at?**, picked from the Confirmed institutions by typing part of the name. It is required beside a Yes and dropped beside a No, and a teacher whose institution is not listed is told to answer No. The application's answers show the institution by name (WordPress/WPCredits#302). The list of institutions a form may offer is now one rule shared with the student registration form, so the two can never offer different schools.
 
 = 1.123.66 =
 * Student registration form: its questions are drawn in five groups, each in a box under its heading (About you, Your institution, Dates and hours, Languages and access, Before you send this), as the mentor, institution and sponsor applications and the student interest form draw theirs. The questions, their order and what is stored are unchanged.

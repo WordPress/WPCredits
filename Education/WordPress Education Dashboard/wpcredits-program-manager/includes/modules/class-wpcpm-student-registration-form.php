@@ -353,58 +353,10 @@ final class WPCPM_Student_Registration_Form {
 	 */
 	private static function offered( $with_tests ) {
 		$stages = WPCPM_Settings::get_value( 'student_registration_stages', array( 'Confirmed' ) );
-		$wanted = array();
 
-		foreach ( is_array( $stages ) ? $stages : array() as $stage ) {
-			if ( is_scalar( $stage ) && '' !== trim( (string) $stage ) ) {
-				$wanted[] = trim( (string) $stage );
-			}
-		}
-
-		$names = array();
-		$shown = array();
-
-		foreach ( WPCPM_Institutions_Index::rows() as $id => $row ) {
-			if ( ! is_array( $row ) || ! isset( $row['name'], $row['stage'] ) || ! is_scalar( $row['name'] ) || ! is_scalar( $row['stage'] ) ) {
-				continue;
-			}
-
-			$name = trim( (string) $row['name'] );
-
-			if ( '' === $name ) {
-				continue;
-			}
-
-			if ( WPCPM_Test_Institutions::is_test( $name ) ) {
-				// Only an Administrator is offered one, at any stage.
-				if ( ! $with_tests ) {
-					continue;
-				}
-
-				$shown[ (string) $id ] = WPCPM_Test_Institutions::label( $name, $name );
-			} elseif ( in_array( trim( (string) $row['stage'] ), $wanted, true ) ) {
-				$shown[ (string) $id ] = $name;
-			} else {
-				continue;
-			}
-
-			$names[ (string) $id ] = $name;
-		}
-
-		// A to Z without regard to case, the record ID breaking a tie: `array_multisort()` and not a
-		// `usort()` that keeps equal names in whatever order it likes.
-		$ids   = array_map( 'strval', array_keys( $names ) );
-		$lower = array_map( 'mb_strtolower', array_values( $names ) );
-
-		array_multisort( $lower, SORT_ASC, SORT_STRING, $ids, SORT_ASC, SORT_STRING );
-
-		$sorted = array();
-
-		foreach ( $ids as $id ) {
-			$sorted[ $id ] = $shown[ $id ];
-		}
-
-		return $sorted;
+		// The rule itself is the index's, shared with the mentor application form since 1.123.67
+		// (WordPress/WPCredits#302); this method keeps the setting that says which stages count here.
+		return WPCPM_Institutions_Index::offered_to_forms( is_array( $stages ) ? $stages : array(), $with_tests );
 	}
 
 	/**

@@ -2151,10 +2151,18 @@ form_sign_in( false );
 ck( 'the public list offers "TESTAMENT College" and not "TEST: Example Campus", the old four unchanged, A to Z',
 	WPCPM_Student_Registration_Form::institutions(),
 	array( 'recINSTITUTION001' => 'Example University', 'recINSTITUTION002' => 'Sample College', 'recINSTITUTION006' => 'test college', 'recINSTITUTION009' => 'TESTAMENT College', 'recINSTITUTION007' => 'Testing Academy' ) );
-$method = new ReflectionMethod( 'WPCPM_Student_Registration_Form', 'offered' );
-$source = implode( '', array_slice( file( $method->getFileName() ), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1 ) );
+$body   = static function ( $class, $name ) {
+	$method = new ReflectionMethod( $class, $name );
+	return implode( '', array_slice( file( $method->getFileName() ), $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1 ) );
+};
+$shared = $body( 'WPCPM_Institutions_Index', 'offered_to_forms' );
+$source = $body( 'WPCPM_Student_Registration_Form', 'offered' );
 
-ck( 'and it asks the one helper, never the name rule itself', array( false !== strpos( $source, 'WPCPM_Test_Institutions::is_test(' ), false !== strpos( $source, 'is_test_name(' ) ), array( true, false ) );
+// The rule moved to the index in 1.123.67, so the mentor application form offers the same
+// institutions this form does (WordPress/WPCredits#302). It still has to ask the one helper, and
+// this form still has to ask the index rather than keep a second copy of the rule.
+ck( 'the one helper is asked, and never the name rule itself', array( false !== strpos( $shared, 'WPCPM_Test_Institutions::is_test(' ), false !== strpos( $shared, 'is_test_name(' ) ), array( true, false ) );
+ck( 'and this form asks the index for the list rather than building its own', array( false !== strpos( $source, 'WPCPM_Institutions_Index::offered_to_forms(' ), false !== strpos( $source, 'WPCPM_Test_Institutions::' ) ), array( true, false ) );
 
 $visitor = form_submit( form_posted( array( 'institution' => 'recINSTITUTION008' ) ) );
 

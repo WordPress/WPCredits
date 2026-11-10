@@ -118,6 +118,15 @@ class WPCPM_Institutions {
 	}
 }
 
+// The name rule the test-institutions helper asks, and the record-ID reader it asks first.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
+// The real index, not a stand-in: the list of institutions a form may offer is its rule since
+// 1.123.67, and a copy of that rule here would be the second copy the student form's suite
+// refuses. Its rows are read from the option the harness already models
+// (WordPress/WPCredits#302).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -191,6 +200,19 @@ function reset_world() {
 	$GLOBALS['posts'][42] = $page;
 	$GLOBALS['slugs'][42] = 'become-a-mentor';
 	$GLOBALS['opts'][ WPCPM_Mentor_Application_Form::OPT_PAGE ] = 42;
+
+	// Four institutions the site holds: two Confirmed, one still being talked to and one a test
+	// institution, so the offered list is read against all three rules (WordPress/WPCredits#302).
+	$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array(
+		'v'    => WPCPM_Institutions_Index::VERSION,
+		'read' => 1762300000,
+		'rows' => array(
+			'recINST0000000001' => array( 'name' => 'Universidad de Prueba', 'stage' => 'Confirmed' ),
+			'recINST0000000002' => array( 'name' => 'Aalto University', 'stage' => 'Confirmed' ),
+			'recINST0000000003' => array( 'name' => 'Still Talking College', 'stage' => 'Under Review' ),
+			'recINST0000000004' => array( 'name' => 'TEST - Institution 20', 'stage' => 'Confirmed' ),
+		),
+	);
 
 	$policy                    = new WP_Post();
 	$policy->ID                = 43;
@@ -331,7 +353,7 @@ ck(
 echo "\n=== The questions ===\n";
 
 ck(
-	'the questions are the Airtable form\'s eleven, in its order, with its labels, under the site\'s own keys, and since 1.123.52 the Mentors table\'s three sponsorship questions after the hours, before the compliance declaration',
+	'the questions are the Airtable form\'s eleven, in its order, with its labels, under the site\'s own keys, with the Mentors table\'s three sponsorship questions after the hours since 1.123.52, and the institution a teacher names after the teacher question since 1.123.67',
 	array_map(
 		function ( $spec ) {
 			return $spec['label'];
@@ -344,6 +366,7 @@ ck(
 		'profile'   => 'WordPress.org profile URL',
 		'country'   => 'Country',
 		'teacher'   => 'Are you a teacher from a WordPress Credits participating institution?',
+		'institution' => 'Which institution do you teach at?',
 		'languages' => 'Languages in which you could mentor students',
 		'expertise' => 'In which WordPress contribution areas do you have expertise?',
 		'hours'     => 'Available hours per week to mentor students',
@@ -643,6 +666,7 @@ ck(
 		'profile'   => 'ada-example',
 		'country'   => 'Poland',
 		'teacher'   => 'No',
+		'institution' => '',
 		'languages' => array( 'English', 'Polish' ),
 		'expertise' => array( 'Polyglots', 'Training' ),
 		'hours'     => '2.5',
@@ -921,7 +945,7 @@ $spam_all = $spam_row ? json_encode( $GLOBALS['pmeta'][ $spam_row->ID ] ) : '';
 ck(
 	'a row filed as spam stores no refused typing: the free text and the profile that were refused are in none of its meta, and the page says sent',
 	array( $filed['outcome'], $spam_row ? WPCPM_Mentor_Application::state_of( $spam_row ) : null, $spam_row ? array_keys( WPCPM_Mentor_Application::fields_of( $spam_row ) ) : null, false !== strpos( $spam_all, 'Navigation' ), false !== strpos( $spam_all, 'Ada Example' ) ),
-	array( 'sent', 'spam', array( 'name', 'email', 'country', 'teacher', 'languages', 'expertise', 'hours', 'sponsored', 'sponsor_company', 'wants_sponsor', 'gpl' ), false, false )
+	array( 'sent', 'spam', array( 'name', 'email', 'country', 'teacher', 'institution', 'languages', 'expertise', 'hours', 'sponsored', 'sponsor_company', 'wants_sponsor', 'gpl' ), false, false )
 );
 
 reset_world();
@@ -1142,6 +1166,62 @@ ck(
 	array( true, true, false, false )
 );
 
+echo "\n=== The institution a teacher names (WordPress/WPCredits#302) ===\n";
+
+reset_world();
+$spec = WPCPM_Mentor_Application_Form::fields();
+
+ck( 'the form asks for an institution', isset( $spec['institution'] ), true );
+ck( 'beside the teacher question', isset( $spec['institution'] ) ? $spec['institution']['group'] : null, 'about' );
+ck( 'as a type of its own, which draws the type-to-pick field', isset( $spec['institution'] ) ? $spec['institution']['type'] : null, 'institution' );
+ck( 'not required on its own, because the teacher answer decides', empty( $spec['institution']['required'] ), true );
+
+$offered = WPCPM_Mentor_Application_Form::institutions();
+
+ck( 'the list offers a Confirmed institution by name', isset( $offered['recINST0000000002'] ) ? $offered['recINST0000000002'] : null, 'Aalto University' );
+ck( 'it leaves out one the program is still talking to', isset( $offered['recINST0000000003'] ), false );
+ck( 'and leaves out a test institution', isset( $offered['recINST0000000004'] ), false );
+ck( 'A to Z, whatever order the index holds', array_values( $offered ), array( 'Aalto University', 'Universidad de Prueba' ) );
+
+reset_world();
+$named = submit( answers( array( 'teacher' => 'Yes', 'institution' => 'recINST0000000002' ) ) );
+ck( 'a teacher who names an offered institution is taken', isset( $named['stash']['problems']['institution'] ), false );
+ck( 'and the record it names is what is kept', WPCPM_Mentor_Application::fields_of( only_row() )['institution'] ?? null, 'recINST0000000002' );
+ck( 'and the application is stored', count( rows() ), 1 );
+
+reset_world();
+$elsewhere = submit( answers( array( 'teacher' => 'Yes', 'institution' => 'recINST0000000003' ) ) );
+ck( 'an institution the form does not offer is refused, and nothing is stored',
+	array( $elsewhere['stash']['problems']['institution'] ?? null, count( rows() ) ),
+	array( 'bad_choice', 0 ) );
+
+reset_world();
+$none = submit( answers( array( 'teacher' => 'Yes' ) ) );
+ck( 'a teacher who names none is asked for one, and nothing is stored',
+	array( $none['stash']['problems']['institution'] ?? null, count( rows() ) ),
+	array( 'institution_needed', 0 ) );
+
+$said_inst = new ReflectionMethod( 'WPCPM_Mentor_Application_Form', 'problem_text' );
+$said_inst->setAccessible( true );
+ck( 'in a sentence of its own', $said_inst->invoke( null, 'institution_needed' ), 'Choose the institution you teach at.' );
+
+reset_world();
+$not_teacher = submit( answers( array( 'teacher' => 'No', 'institution' => 'recINST0000000002' ) ) );
+ck( 'an institution named beside a No is dropped', WPCPM_Mentor_Application::fields_of( only_row() )['institution'] ?? null, '' );
+ck( 'and is no problem, so the application is stored',
+	array( isset( $not_teacher['stash']['problems']['institution'] ), count( rows() ) ),
+	array( false, 1 ) );
+
+reset_world();
+echo "\n=== A No makes the institution irrelevant, its error too (the 1.123.67 review) ===\n";
+
+reset_world();
+$stale = submit( answers( array( 'teacher' => 'No', 'institution' => 'recINST0000000003' ) ) );
+ck( 'an institution the form no longer offers, left behind a No, blocks nothing',
+	array( isset( $stale['stash']['problems']['institution'] ), count( rows() ) ),
+	array( false, 1 ) );
+
+reset_world();
 ck( 'nothing was asked of WordPress that the stand-ins do not model', isset( $GLOBALS['unmodeled'] ) ? $GLOBALS['unmodeled'] : array(), array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );

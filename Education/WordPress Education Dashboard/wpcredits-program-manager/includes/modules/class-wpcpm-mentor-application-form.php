@@ -374,6 +374,24 @@ final class WPCPM_Mentor_Application_Form {
 	}
 
 	/**
+	 * The institutions the form offers a teacher, as record ID => the name to show, A to Z.
+	 *
+	 * The question asks about a **participating** institution, so the list is the Confirmed ones:
+	 * the same set the public pages list and the Slack announcement counts. It is not a setting,
+	 * because no other stage is participating; if that ever changes it becomes one then.
+	 *
+	 * The rule is `WPCPM_Institutions_Index::offered_to_forms()`, which the student registration
+	 * form asks too, so the two forms cannot come to offer different schools. An Administrator is
+	 * offered the test institutions as well, marked, so the form can be tried on the live site
+	 * (1.123.55); nobody else is, at any stage.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function institutions() {
+		return WPCPM_Institutions_Index::offered_to_forms( array( 'Confirmed' ), current_user_can( WPCPM_Roles::CAP_MANAGE ) );
+	}
+
+	/**
 	 * The contribution teams the form offers: the site's own list, the one a student picks a team
 	 * from (`WPCPM_Contribution_Teams::options()`), by name, A to Z. The name is what is stored.
 	 *
@@ -436,6 +454,13 @@ final class WPCPM_Mentor_Application_Form {
 				'label'    => __( 'Are you a teacher from a WordPress Credits participating institution?', 'wpcredits-program-manager' ),
 				'type'     => 'yesno',
 				'required' => true,
+			),
+			'institution' => array(
+				'group'    => 'about',
+				'label'    => __( 'Which institution do you teach at?', 'wpcredits-program-manager' ),
+				'type'     => 'institution',
+				'required' => false,
+				'help'     => __( 'Only if you answered Yes above. If your institution is not on the list it is not in the program yet, so answer No and the program will take it from there.', 'wpcredits-program-manager' ),
 			),
 			'languages' => array(
 				'group'    => 'mentoring',
@@ -578,6 +603,19 @@ final class WPCPM_Mentor_Application_Form {
 			}
 
 			return in_array( $value, self::countries(), true ) ? self::accept( $value ) : self::refuse( 'bad_choice' );
+		}
+
+		// The record ID the combo posts, checked against the list the page drew: a school the form
+		// does not offer is refused the way a country that is not on the list is, so a posted record
+		// cannot name an institution the program has not confirmed (WordPress/WPCredits#302).
+		if ( 'institution' === $type ) {
+			$value = is_scalar( $raw ) ? trim( (string) $raw ) : '';
+
+			if ( '' === $value ) {
+				return self::accept( '' );
+			}
+
+			return isset( self::institutions()[ $value ] ) ? self::accept( $value ) : self::refuse( 'bad_choice' );
 		}
 
 		if ( 'yesno' === $type ) {
@@ -782,6 +820,14 @@ final class WPCPM_Mentor_Application_Form {
 			$values['sponsor_company'] = '';
 		}
 
+		// An institution named beside a No is not where the applicant teaches, for the same reason,
+		// and its refusal goes with it: a school picked and then answered No to, which has since left
+		// the list, must not block an application that no longer asks for one (the 1.123.67 review).
+		if ( isset( $values['teacher'] ) && 'No' === $values['teacher'] ) {
+			$values['institution'] = '';
+			unset( $problems['institution'] );
+		}
+
 		return array(
 			'values'   => $values,
 			'problems' => $problems,
@@ -854,6 +900,10 @@ final class WPCPM_Mentor_Application_Form {
 		// a Yes (1.123.52).
 		if ( isset( $values['sponsored'] ) && 'Yes' === $values['sponsored'] && ! isset( $problems['sponsor_company'] ) && self::is_blank( isset( $values['sponsor_company'] ) ? $values['sponsor_company'] : null ) ) {
 			$problems['sponsor_company'] = 'company_needed';
+		}
+
+		if ( isset( $values['teacher'] ) && 'Yes' === $values['teacher'] && ! isset( $problems['institution'] ) && self::is_blank( isset( $values['institution'] ) ? $values['institution'] : null ) ) {
+			$problems['institution'] = 'institution_needed';
 		}
 
 		return $problems;
@@ -1267,11 +1317,12 @@ final class WPCPM_Mentor_Application_Form {
 		// A required attribute only where one control is the whole answer: a list of boxes has none
 		// that means "at least one", and the country's list is hidden behind its field once the
 		// script runs, where a browser would refuse the form for a control nobody can see.
-		$required    = ! empty( $spec['required'] ) && ! $multiple && 'country' !== $type ? ' required="required"' : '';
+		$combo       = in_array( $type, array( 'country', 'institution' ), true );
+		$required    = ! empty( $spec['required'] ) && ! $multiple && ! $combo ? ' required="required"' : '';
 		$required_at = '' !== $mark ? ' <span class="wpcpm-field__required">' . $mark . '</span>' : '';
 		$invalid     = '' !== $problem ? ' aria-invalid="true"' : '';
 		$describedby = empty( $says ) ? '' : ' aria-describedby="' . esc_attr( implode( ' ', $says ) ) . '"';
-		$wrapper     = $multiple || 'country' === $type ? 'div' : 'p';
+		$wrapper     = $multiple || $combo ? 'div' : 'p';
 
 		printf( '<%1$s class="wpcpm-field wpcpm-field--%2$s%3$s">', esc_attr( $wrapper ), esc_attr( $type ), '' !== $problem ? ' has-problem' : '' );
 
@@ -1325,12 +1376,15 @@ final class WPCPM_Mentor_Application_Form {
 			}
 
 			echo '</span>';
-		} elseif ( 'country' === $type ) {
+		} elseif ( $combo ) {
+			$schools = 'institution' === $type;
 			WPCPM_Dashboards::render_combo(
 				array(
 					'id'          => $id,
 					'name'        => $name,
-					'options'     => array_merge( array( '' => __( 'Choose a country', 'wpcredits-program-manager' ) ), array_combine( self::countries(), self::countries() ) ),
+					'options'     => $schools
+						? array_merge( array( '' => __( 'Choose your institution', 'wpcredits-program-manager' ) ), self::institutions() )
+						: array_merge( array( '' => __( 'Choose a country', 'wpcredits-program-manager' ) ), array_combine( self::countries(), self::countries() ) ),
 					'current'     => is_scalar( $value ) ? (string) $value : '',
 					'label'       => $spec['label'],
 					'mark'        => $mark,
@@ -1338,10 +1392,18 @@ final class WPCPM_Mentor_Application_Form {
 					// A refused post marks the field a person types into, and the select behind it.
 					'invalid'     => '' !== $problem,
 					/* translators: Shown in the empty country field, which takes typing. */
-					'find'        => __( 'Type to find your country', 'wpcredits-program-manager' ),
-					'none'        => __( 'No country has that name.', 'wpcredits-program-manager' ),
-					/* translators: %s: how many countries the list shows, as a number. */
-					'count'       => __( 'Countries in the list: %s', 'wpcredits-program-manager' ),
+					'find'        => $schools
+						/* translators: Shown in the empty institution field, which takes typing. */
+						? __( 'Type to find your institution', 'wpcredits-program-manager' )
+						: __( 'Type to find your country', 'wpcredits-program-manager' ),
+					'none'        => $schools
+						? __( 'No institution in the program has that name.', 'wpcredits-program-manager' )
+						: __( 'No country has that name.', 'wpcredits-program-manager' ),
+					'count'       => $schools
+						/* translators: %s: how many institutions the list shows, as a number. */
+						? __( 'Institutions in the list: %s', 'wpcredits-program-manager' )
+						/* translators: %s: how many countries the list shows, as a number. */
+						: __( 'Countries in the list: %s', 'wpcredits-program-manager' ),
 				)
 			);
 		} else {
@@ -1447,6 +1509,7 @@ final class WPCPM_Mentor_Application_Form {
 			'below_min'    => __( 'Give at least one hour.', 'wpcredits-program-manager' ),
 			'above_max'    => __( 'Give at most forty hours.', 'wpcredits-program-manager' ),
 			'company_needed' => __( 'Name the company that sponsors you.', 'wpcredits-program-manager' ),
+			'institution_needed' => __( 'Choose the institution you teach at.', 'wpcredits-program-manager' ),
 			'consent'        => __( 'Tick this box to send the form.', 'wpcredits-program-manager' ),
 		);
 
