@@ -4,7 +4,7 @@ Tags: mentors, airtable, directory, shortcode, block
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,10 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
 
 == Changelog ==
 
+= 1.7.1 =
+* The Sponsored chip always sits under the mentor's name, on a line of its own,
+  and never beside it.
+
 = 1.7.0 =
 * The directory can read the site's own list of mentors instead of Airtable. A
   site that runs WPCredits Program Manager 1.123.62 or later offers its active
@@ -287,6 +291,9 @@ Example: `[credits_program_mentors layout="grid" columns="3" map="yes"]`
   preview) — both offering grid and table layouts.
 
 == Upgrade Notice ==
+
+= 1.7.1 =
+The Sponsored chip sits under the mentor's name.
 
 = 1.7.0 =
 On a site with WPCredits Program Manager 1.123.62 or later the directory reads

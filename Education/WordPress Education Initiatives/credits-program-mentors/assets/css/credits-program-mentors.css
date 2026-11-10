@@ -246,13 +246,13 @@
 	text-transform: uppercase;
 }
 
-/* The name, with the Sponsored chip beside it when there is one. */
+/* The name, with the Sponsored chip under it when there is one: always on a
+   line of its own, never beside the name. */
 .credprme-card__head {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	align-items: center;
-	justify-content: center;
-	gap: 6px 8px;
+	gap: 6px;
 }
 
 .credprme-card .credprme-card__title {
@@ -338,9 +338,11 @@
 	color: var(--credprme-ink);
 }
 
+/* In the table too the chip takes a line of its own under the name. */
 .credprme-table .credprme-badge--sponsored {
-	margin-left: 6px;
-	vertical-align: middle;
+	display: block;
+	width: fit-content;
+	margin: 4px 0 0;
 }
 
 /* ---------- Links ---------- */
