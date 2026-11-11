@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.72\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.73\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T01:28:34+00:00\n"
+"POT-Creation-Date: 2026-11-11T02:01:16+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -128,8 +128,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-view.php:704
 #: includes/modules/class-wpcpm-start-pages.php:256
 #: includes/modules/class-wpcpm-students-dashboard.php:121
-#: includes/modules/class-wpcpm-students-dashboard.php:1323
-#: includes/modules/class-wpcpm-students-dashboard.php:1359
+#: includes/modules/class-wpcpm-students-dashboard.php:1327
+#: includes/modules/class-wpcpm-students-dashboard.php:1363
 #: blocks/student-dashboard/editor.js:48
 msgid "Student Report Card"
 msgstr ""
@@ -138,7 +138,7 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-templates.php:1109
 #: includes/modules/class-wpcpm-mentors-dashboard.php:104
 #: includes/modules/class-wpcpm-mentors-dashboard.php:252
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1763
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1767
 #: blocks/mentor-dashboard/editor.js:48
 msgid "Mentor Report Card"
 msgstr ""
@@ -363,6 +363,14 @@ msgstr ""
 msgid "The image could not be written to the uploads directory."
 msgstr ""
 
+#: includes/class-wpcpm-language.php:298
+msgid "Language:"
+msgstr ""
+
+#: includes/class-wpcpm-language.php:343
+msgid "Sign in to choose your language."
+msgstr ""
+
 #: includes/class-wpcpm-learn.php:62
 msgid "That is not the address of a Learn WordPress course: it should look like https://learn.wordpress.org/course/its-name/."
 msgstr ""
@@ -507,18 +515,18 @@ msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1270
 #: includes/class-wpcpm-settings.php:1669
-#: includes/modules/class-wpcpm-mentors-dashboard.php:696
+#: includes/modules/class-wpcpm-mentors-dashboard.php:700
 msgid "Currently mentoring"
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1280
-#: includes/modules/class-wpcpm-mentors-dashboard.php:719
+#: includes/modules/class-wpcpm-mentors-dashboard.php:723
 msgid "Past students"
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:2015
 #: includes/modules/class-wpcpm-sponsor-tools.php:420
-#: includes/modules/class-wpcpm-students-dashboard.php:416
+#: includes/modules/class-wpcpm-students-dashboard.php:420
 msgid "Tools from our sponsors"
 msgstr ""
 
@@ -604,6 +612,18 @@ msgstr ""
 msgid "Nothing was saved, because WordPress would remove part of what you typed in \"%s\". To keep every word, put a space after each \"<\" (or write \"less than\") and after each \"%%\", then save again."
 msgstr ""
 
+#: includes/class-wpcpm-updates.php:276
+msgid "Program updates and announcements"
+msgstr ""
+
+#: includes/class-wpcpm-updates.php:284
+msgid "Nothing new right now."
+msgstr ""
+
+#: includes/class-wpcpm-updates.php:321
+msgid "All updates"
+msgstr ""
+
 #: includes/mail/class-wpcpm-mail-catalog.php:65
 #: includes/modules/class-wpcpm-mentor-calls.php:143
 msgid "Mentor calls"
@@ -612,10 +632,10 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-log-table.php:58
 #: includes/mail/class-wpcpm-mail-log.php:512
 #: includes/modules/class-wpcpm-mentor-application-form.php:432
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1242
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1246
 #: includes/modules/class-wpcpm-student-registration-form.php:451
-#: includes/modules/class-wpcpm-students-dashboard.php:789
-#: includes/modules/class-wpcpm-students-dashboard.php:1066
+#: includes/modules/class-wpcpm-students-dashboard.php:793
+#: includes/modules/class-wpcpm-students-dashboard.php:1070
 #: includes/tools/class-wpcpm-emails.php:368
 #: includes/tools/class-wpcpm-emails.php:1067
 msgid "Email"
@@ -1892,7 +1912,7 @@ msgstr ""
 #. translators: 1: the first day of the sponsor's term, 2: its last day, both in the site's date format.
 #: includes/modules/class-wpcpm-administrators-cards.php:2873
 #: includes/modules/class-wpcpm-mentor-calls.php:2346
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1591
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1595
 #: includes/modules/class-wpcpm-sponsor-report-files.php:648
 #, php-format
 msgid "%1$s to %2$s"
@@ -1916,7 +1936,7 @@ msgid "Yes"
 msgstr ""
 
 #: includes/modules/class-wpcpm-call-calendar.php:132
-#: includes/modules/class-wpcpm-students-dashboard.php:415
+#: includes/modules/class-wpcpm-students-dashboard.php:419
 msgid "My mentor call"
 msgstr ""
 
@@ -2045,7 +2065,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-call-calendar.php:867
 #: includes/modules/class-wpcpm-institution-roster-view.php:799
 #: includes/modules/class-wpcpm-institution-student-view.php:286
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1136
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1140
 msgid "Unnamed student"
 msgstr ""
 
@@ -2427,7 +2447,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-profile.php:102
 #: includes/modules/class-wpcpm-sponsors.php:4075
 #: includes/modules/class-wpcpm-sponsors.php:4117
-#: includes/modules/class-wpcpm-students-dashboard.php:1091
+#: includes/modules/class-wpcpm-students-dashboard.php:1095
 msgid "Website"
 msgstr ""
 
@@ -2592,12 +2612,21 @@ msgstr ""
 msgid "That answer could not be read. Write it again."
 msgstr ""
 
+#: includes/modules/class-wpcpm-institution-details-card.php:457
+#: includes/modules/class-wpcpm-semester-report-screen.php:1249
+#: includes/modules/class-wpcpm-sponsor-event-planner.php:547
+#: includes/modules/class-wpcpm-sponsor-mentors.php:523
+#: includes/modules/class-wpcpm-sponsor-tier-card.php:677
+#: includes/modules/class-wpcpm-sponsor-tools.php:660
+msgid "Sending"
+msgstr ""
+
 #: includes/modules/class-wpcpm-institution-export.php:180
 #: includes/modules/class-wpcpm-institution-roster-view.php:262
 #: includes/modules/class-wpcpm-institution-student-view.php:490
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1236
-#: includes/modules/class-wpcpm-students-dashboard.php:782
-#: includes/modules/class-wpcpm-students-dashboard.php:1083
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1240
+#: includes/modules/class-wpcpm-students-dashboard.php:786
+#: includes/modules/class-wpcpm-students-dashboard.php:1087
 #: includes/tools/class-wpcpm-mentor-checker.php:953
 msgid "WordPress.org"
 msgstr ""
@@ -2607,8 +2636,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-roster-view.php:265
 #: includes/modules/class-wpcpm-institution-student-form.php:196
 #: includes/modules/class-wpcpm-institution-student-view.php:482
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1222
-#: includes/modules/class-wpcpm-students-dashboard.php:770
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1226
+#: includes/modules/class-wpcpm-students-dashboard.php:774
 msgid "Field of study"
 msgstr ""
 
@@ -2616,14 +2645,14 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-import-form.php:444
 #: includes/modules/class-wpcpm-institution-roster-view.php:266
 #: includes/modules/class-wpcpm-institution-student-view.php:486
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1226
-#: includes/modules/class-wpcpm-students-dashboard.php:774
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1230
+#: includes/modules/class-wpcpm-students-dashboard.php:778
 msgid "Tutor"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-export.php:185
 #: includes/modules/class-wpcpm-institution-roster-view.php:267
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1210
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1214
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
 msgid "Hours"
 msgstr ""
@@ -2652,28 +2681,28 @@ msgstr ""
 #. translators: %s: student name.
 #: includes/modules/class-wpcpm-institution-roster-view.php:878
 #: includes/modules/class-wpcpm-institution-student-view.php:159
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1293
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1297
 #, php-format
 msgid "Program details for %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:897
 #: includes/modules/class-wpcpm-institution-student-view.php:591
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1669
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1673
 msgid "Field"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:902
 #: includes/modules/class-wpcpm-institution-student-view.php:596
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1674
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1678
 msgid "Value"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-form.php:461
 #: includes/modules/class-wpcpm-institution-student-view.php:601
 #: includes/modules/class-wpcpm-mentor-engagement.php:510
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1679
-#: includes/modules/class-wpcpm-students-dashboard.php:1152
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1683
+#: includes/modules/class-wpcpm-students-dashboard.php:1156
 msgid "Not set"
 msgstr ""
 
@@ -2682,29 +2711,29 @@ msgstr ""
 #. translators: %s: the mentor's name.
 #. translators: %s: mentor name.
 #: includes/modules/class-wpcpm-institution-student-view.php:344
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1461
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1465
 #: includes/modules/class-wpcpm-sponsor-mentors.php:472
-#: includes/modules/class-wpcpm-students-dashboard.php:723
-#: includes/modules/class-wpcpm-students-dashboard.php:1029
+#: includes/modules/class-wpcpm-students-dashboard.php:727
+#: includes/modules/class-wpcpm-students-dashboard.php:1033
 #, php-format
 msgid "Profile photo of %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:471
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1217
-#: includes/modules/class-wpcpm-students-dashboard.php:765
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1221
+#: includes/modules/class-wpcpm-students-dashboard.php:769
 msgid "Internship duration"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:501
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1260
-#: includes/modules/class-wpcpm-students-dashboard.php:810
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1264
+#: includes/modules/class-wpcpm-students-dashboard.php:814
 msgid "Contribution teams"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:508
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1270
-#: includes/modules/class-wpcpm-students-dashboard.php:816
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1274
+#: includes/modules/class-wpcpm-students-dashboard.php:820
 msgid "Personal website"
 msgstr ""
 
@@ -2714,12 +2743,12 @@ msgid "That report could not be loaded just now. Close this and open it again to
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-view.php:705
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1334
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1338
 msgid "Loading…"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-students.php:397
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1294
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1298
 msgid "this student"
 msgstr ""
 
@@ -3538,7 +3567,7 @@ msgid "%1$s of %2$s students match"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:433
-#: includes/modules/class-wpcpm-students-dashboard.php:695
+#: includes/modules/class-wpcpm-students-dashboard.php:699
 msgid "No students match that search."
 msgstr ""
 
@@ -3596,7 +3625,7 @@ msgstr ""
 
 #. translators: %s: internship end date.
 #: includes/modules/class-wpcpm-mentors-dashboard.php:451
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1160
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1164
 #, php-format
 msgid "until %s"
 msgstr ""
@@ -3606,7 +3635,7 @@ msgid "Log in to see the students assigned to you."
 msgstr ""
 
 #. translators: %s: number of students.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:638
+#: includes/modules/class-wpcpm-mentors-dashboard.php:642
 #, php-format
 msgid "%s student currently assigned to you."
 msgid_plural "%s students currently assigned to you."
@@ -3615,68 +3644,68 @@ msgstr[1] ""
 
 #. translators: %s: human-readable time difference, e.g. "2 hours".
 #. translators: %s: human-readable time difference.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:651
-#: includes/modules/class-wpcpm-students-dashboard.php:329
+#: includes/modules/class-wpcpm-mentors-dashboard.php:655
+#: includes/modules/class-wpcpm-students-dashboard.php:333
 #, php-format
 msgid "Last updated %s ago."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:675
+#: includes/modules/class-wpcpm-mentors-dashboard.php:679
 msgid "No students are assigned to you right now. This page updates automatically when the program data changes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:682
+#: includes/modules/class-wpcpm-mentors-dashboard.php:686
 msgid "Expand all"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:683
+#: includes/modules/class-wpcpm-mentors-dashboard.php:687
 msgid "Collapse all"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:701
+#: includes/modules/class-wpcpm-mentors-dashboard.php:705
 msgid "No students are assigned to you at the moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:725
+#: includes/modules/class-wpcpm-mentors-dashboard.php:729
 msgid "Mentoring for these students has finished. Their details and your notes are kept for reference."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:892
+#: includes/modules/class-wpcpm-mentors-dashboard.php:896
 msgid "Viewing as mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:893
+#: includes/modules/class-wpcpm-mentors-dashboard.php:897
 msgid "Find a mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:894
+#: includes/modules/class-wpcpm-mentors-dashboard.php:898
 msgid "No mentors match that search."
 msgstr ""
 
 #. translators: %s: number of notes.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1167
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1171
 #, php-format
 msgid "%s note"
 msgid_plural "%s notes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1230
-#: includes/modules/class-wpcpm-students-dashboard.php:778
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1234
+#: includes/modules/class-wpcpm-students-dashboard.php:782
 msgid "Educational institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1252
-#: includes/modules/class-wpcpm-students-dashboard.php:804
-#: includes/modules/class-wpcpm-students-dashboard.php:1075
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1256
+#: includes/modules/class-wpcpm-students-dashboard.php:808
+#: includes/modules/class-wpcpm-students-dashboard.php:1079
 msgid "Slack"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1278
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1282
 msgid "Accessibility needs"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1281
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1285
 #: includes/modules/class-wpcpm-sponsor-offers.php:2901
 #: includes/modules/class-wpcpm-sponsors.php:4734
 #: includes/tools/class-wpcpm-track-editor-screen.php:415
@@ -3684,16 +3713,16 @@ msgstr ""
 msgid "None"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1333
-#: includes/modules/class-wpcpm-students-dashboard.php:980
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1337
+#: includes/modules/class-wpcpm-students-dashboard.php:984
 msgid "Report form"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1335
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1339
 msgid "This one needs JavaScript: the report is fetched when you open it, so that a page listing sixty students does not read sixty reports nobody asked for."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1411
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1415
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:32
 #: includes/tools/class-wpcpm-track-builder-screen.php:547
 #: includes/tracks/class-wpcpm-track-publish.php:262
@@ -3701,33 +3730,60 @@ msgid "Students Reports"
 msgstr ""
 
 #. translators: 1: Airtable table name, 2: Airtable field name.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1416
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1420
 #, php-format
 msgid "Airtable · %1$s → %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1462
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1466
 msgid "Profile photo"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1466
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1470
 msgid "Photo from their WordPress.org profile"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1467
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1471
 msgid "Photo from Gravatar - no WordPress.org profile recorded"
 msgstr ""
 
 #. translators: %s: start date.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1596
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1600
 #, php-format
 msgid "From %s"
 msgstr ""
 
 #. translators: %s: end date.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1600
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1604
 #, php-format
 msgid "Until %s"
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentors.php:821
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:139
+#: includes/modules/class-wpcpm-sponsor-offers.php:2887
+#: includes/modules/class-wpcpm-sponsor-tools.php:587
+msgid "mentors"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-claims.php:185
+#: includes/modules/class-wpcpm-sponsor-tools.php:60
+msgid "That offer is not open to your account."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-claims.php:259
+#: includes/modules/class-wpcpm-sponsor-tools.php:74
+msgid "You have not claimed that offer."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-claims.php:263
+#: includes/modules/class-wpcpm-sponsor-tools.php:75
+msgid "You have reported three problems today. Try again tomorrow, or write to your program contact."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-event-list.php:117
+#: includes/modules/class-wpcpm-sponsor-tools.php:72
+msgid "That could not be done right now. Try again later."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-logo.php:416
@@ -3735,6 +3791,122 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsors.php:3123
 #: includes/modules/class-wpcpm-student-report-form.php:564
 msgid "Removing"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-offer-review.php:143
+#: includes/modules/class-wpcpm-sponsor-offers.php:2891
+#: includes/modules/class-wpcpm-sponsor-tools.php:588
+msgid "the program team"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-posts.php:2348
+#: includes/modules/class-wpcpm-sponsor-tools.php:532
+msgid "A sponsor"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:58
+msgid "Your code is below. It is yours to keep, and it stays on this page."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:59
+msgid "You already have a code for that offer. It is below."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:64
+msgid "That offer is closed, so its code cannot be shown."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:65
+msgid "That offer is switched off for now."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:66
+msgid "That offer is a test, so only the sponsor and Administrators see it."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:67
+msgid "That offer is for partners of the program only."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:68
+msgid "You have already claimed this offer: your code is below."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:69
+msgid "That offer has run out of codes."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:70
+msgid "That offer has no code set yet."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:71
+msgid "Another request was going through. Reload the page to see your code."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:73
+msgid "Thank you. Your program contact has been told and will get back to you."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:445
+msgid "Press a code, or press Enter or Space on it, to select the whole code."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:450
+msgid "No offer is open to you right now. What you already claimed is below."
+msgstr ""
+
+#. translators: %d: how many tools the student claimed.
+#: includes/modules/class-wpcpm-sponsor-tools.php:489
+#, php-format
+msgid "%d tool claimed"
+msgid_plural "%d tools claimed"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:586
+#: includes/modules/class-wpcpm-students.php:513
+msgid "students"
+msgstr ""
+
+#. translators: %s: the audiences, comma-separated.
+#: includes/modules/class-wpcpm-sponsor-tools.php:599
+#, php-format
+msgid "Open to: %s"
+msgstr ""
+
+#. translators: %s: the day the offer was claimed, as 2026-09-25.
+#: includes/modules/class-wpcpm-sponsor-tools.php:608
+#, php-format
+msgid "Claimed %s. Your code is below, under Your codes."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:611
+msgid "No codes left. The sponsor has been told."
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:625
+msgid "More information"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:638
+msgid "Getting your code"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:645
+msgid "Get my code"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:645
+msgid "Show me the code"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:665
+msgid "Report a problem with this code"
+msgstr ""
+
+#: includes/modules/class-wpcpm-sponsor-tools.php:687
+msgid "Your codes"
 msgstr ""
 
 #: includes/modules/class-wpcpm-start-pages.php:76
@@ -3869,7 +4041,7 @@ msgid "You enrolled in the Learn course"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-checklist.php:220
-#: includes/modules/class-wpcpm-students-dashboard.php:411
+#: includes/modules/class-wpcpm-students-dashboard.php:415
 msgid "Your first weeks"
 msgstr ""
 
@@ -4756,68 +4928,68 @@ msgstr ""
 msgid "Log in to see your program details."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:412
+#: includes/modules/class-wpcpm-students-dashboard.php:416
 msgid "Program updates and resources"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:413
-#: includes/modules/class-wpcpm-students-dashboard.php:910
+#: includes/modules/class-wpcpm-students-dashboard.php:417
+#: includes/modules/class-wpcpm-students-dashboard.php:914
 msgid "My course"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:414
+#: includes/modules/class-wpcpm-students-dashboard.php:418
 msgid "Report form and feedback forms"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:488
+#: includes/modules/class-wpcpm-students-dashboard.php:492
 msgid "Only a student, or an Administrator on their behalf, can arrange a Student Report Card."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:610
+#: includes/modules/class-wpcpm-students-dashboard.php:614
 msgid "New here? Start here for your first week."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:693
+#: includes/modules/class-wpcpm-students-dashboard.php:697
 msgid "Viewing as student"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:694
+#: includes/modules/class-wpcpm-students-dashboard.php:698
 msgid "Find a student"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:824
+#: includes/modules/class-wpcpm-students-dashboard.php:828
 msgid "My profile"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:832
+#: includes/modules/class-wpcpm-students-dashboard.php:836
 msgid "Your program details have not been read from Airtable yet. They appear here after the next sync."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:931
+#: includes/modules/class-wpcpm-students-dashboard.php:935
 msgid "My hours"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:939
+#: includes/modules/class-wpcpm-students-dashboard.php:943
 msgid "Partners of your track"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:965
+#: includes/modules/class-wpcpm-students-dashboard.php:969
 msgid "Open your course"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:1001
+#: includes/modules/class-wpcpm-students-dashboard.php:1005
 msgid "My mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:1008
+#: includes/modules/class-wpcpm-students-dashboard.php:1012
 msgid "No mentor is assigned to you yet. An Administrator will introduce you to one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:1050
+#: includes/modules/class-wpcpm-students-dashboard.php:1054
 msgid "Teams"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:1099
+#: includes/modules/class-wpcpm-students-dashboard.php:1103
 msgid "GitHub"
 msgstr ""
 
