@@ -1,0 +1,25 @@
+# The theme's files whose strings translators are given, one path to a line.
+#
+# translate.wordpress.org is not given the whole theme: most of its strings are the public pages
+# (the hub, the partners pages, the page patterns), which are not being translated yet. These are
+# the pieces around the screens students and mentors work in. The plugin's
+# bin/translators-pot.php cuts languages/wpcredits-theme.pot down to them:
+#
+#   php <plugin>/bin/translators-pot.php <output.pot> \
+#       --source=languages/wpcredits-theme.pot --files=bin/translators-files.txt
+#
+# A file is listed whole. Only what a visitor reads is here: a block's block.json and index.js
+# hold the editor's words, which stay in English.
+
+# Signing in, and what the sign-in page says.
+blocks/sign-in/render.php
+inc/login.php
+
+# The header a signed-in person sees: the menu, the account chip and the Need help? button.
+inc/site-menu.php
+inc/header.php
+blocks/viewer-chip/render.php
+blocks/handbook-launcher/render.php
+
+# The notice page a form sends its sender to.
+blocks/notice-forward/render.php
