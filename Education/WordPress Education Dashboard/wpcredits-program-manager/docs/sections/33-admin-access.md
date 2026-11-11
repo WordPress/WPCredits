@@ -218,7 +218,8 @@ the site's language by itself.
 
 There is no setting. A translation arrives with a version of the plugin, and the language is on the
 list from then on. Dates and WordPress's own words follow too once that language is installed
-under Settings, General, Site Language's list (installing it does not change the site's language).
+under Settings > General, in the Site Language list (installing it does not change the site's
+language).
 A flag is the flag of the country the translation is written for; a language that belongs to no
 one country is listed by its name. Where a system draws no flags (Windows), the country's two
 letters stand in its place.
