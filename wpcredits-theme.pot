@@ -1,0 +1,249 @@
+# Copyright (C) 2026 Maciej Pilarski
+# This file is distributed under the GNU General Public License v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WPCredits 1.32.25\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-11-11T01:28:42+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: wpcredits-theme\n"
+
+#: blocks/handbook-launcher/render.php:30
+#: blocks/handbook-launcher/index.js:21
+msgid "Need help?"
+msgstr ""
+
+#. translators: %s: how many seconds are left before the page goes to the homepage.
+#: blocks/notice-forward/render.php:32
+#, php-format
+msgid "Taking you to the homepage in %s second."
+msgid_plural "Taking you to the homepage in %s seconds."
+msgstr[0] ""
+msgstr[1] ""
+
+#: blocks/notice-forward/render.php:39
+msgid "You're staying on this page."
+msgstr ""
+
+#: blocks/notice-forward/render.php:44
+msgid "Go now"
+msgstr ""
+
+#: blocks/notice-forward/render.php:44
+msgid "Stay on this page"
+msgstr ""
+
+#: blocks/sign-in/render.php:65
+#: inc/hub-content.php:326
+#: inc/site-menu.php:48
+#: patterns/audiences.php:20
+msgid "Students"
+msgstr ""
+
+#: blocks/sign-in/render.php:66
+#: blocks/viewer-chip/render.php:60
+msgid "Student Report Card"
+msgstr ""
+
+#: blocks/sign-in/render.php:69
+#: inc/hub-content.php:334
+#: inc/site-menu.php:49
+#: patterns/audiences.php:26
+msgid "Mentors"
+msgstr ""
+
+#: blocks/sign-in/render.php:70
+#: blocks/viewer-chip/render.php:70
+#: blocks/viewer-chip/index.js:24
+msgid "Mentor Report Card"
+msgstr ""
+
+#: blocks/sign-in/render.php:73
+#: inc/hub-content.php:341
+#: inc/site-menu.php:74
+#: patterns/audiences.php:32
+msgid "Institutions"
+msgstr ""
+
+#: blocks/sign-in/render.php:74
+msgid "Institution Dashboard"
+msgstr ""
+
+#: blocks/sign-in/render.php:77
+#: blocks/sponsor-card/render.php:32
+msgid "Sponsors"
+msgstr ""
+
+#: blocks/sign-in/render.php:78
+msgid "Sponsor Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:127
+msgid "Sign in to your Student Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:129
+msgid "Sign in to your Mentor Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:131
+msgid "Sign in to your Institution Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Sign in").
+#: blocks/sign-in/render.php:133
+msgid "Sign in to your Sponsor Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:140
+msgid "Open your Student Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:142
+#: inc/login.php:120
+#: patterns/cta.php:43
+msgid "Open your Mentor Report Card"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:144
+msgid "Open your Institution Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Open").
+#: blocks/sign-in/render.php:146
+msgid "Open your Sponsor Dashboard"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Register").
+#: blocks/sign-in/render.php:153
+#: inc/get-involved.php:117
+msgid "Register as a student"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:155
+msgid "Apply to mentor students"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:157
+msgid "Apply to partner as an institution"
+msgstr ""
+
+#. translators: A link's name for screen readers. Start it with the words the link shows ("Apply").
+#: blocks/sign-in/render.php:159
+msgid "Apply to become a sponsor"
+msgstr ""
+
+#: blocks/sign-in/render.php:166
+#: blocks/sign-in/render.php:169
+msgid "Already in a program?"
+msgstr ""
+
+#: blocks/sign-in/render.php:167
+msgid "Sign in to your page"
+msgstr ""
+
+#: blocks/sign-in/render.php:170
+msgid "Open your page"
+msgstr ""
+
+#: blocks/sign-in/render.php:172
+msgid "Not in a program yet?"
+msgstr ""
+
+#. translators: The header's button that opens the list of ways to take part in the program.
+#. translators: The heading over the ways to take part in the program, at the top of the menu on a phone.
+#: blocks/sign-in/render.php:173
+#: inc/get-involved.php:179
+#: inc/get-involved.php:205
+#: inc/hub-content.php:368
+msgid "Get involved"
+msgstr ""
+
+#. translators: A card's link when the reader is signed out: a verb, it goes to the login screen and then to the page the card names.
+#: blocks/sign-in/render.php:196
+msgctxt "a card's link to the page it names"
+msgid "Sign in"
+msgstr ""
+
+#. translators: A card's link when the reader is signed in: a verb, it opens the page the card names.
+#: blocks/sign-in/render.php:201
+msgctxt "a card's link to the page it names"
+msgid "Open"
+msgstr ""
+
+#. translators: The Students card's link for a signed-in reader who is not a student: a verb, it goes to the student registration form.
+#: blocks/sign-in/render.php:207
+msgctxt "a card's link to the way into the program it names"
+msgid "Register"
+msgstr ""
+
+#. translators: A card's link for a signed-in reader who is not in that role: a verb, it goes to that role's application form.
+#: blocks/sign-in/render.php:209
+msgctxt "a card's link to the way into the program it names"
+msgid "Apply"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:30
+#: inc/login.php:105
+msgid "Log in"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:75
+#: blocks/viewer-chip/index.js:25
+msgid "Log out"
+msgstr ""
+
+#. translators: %s: the signed-in person's name.
+#: blocks/viewer-chip/render.php:85
+#, php-format
+msgid "Profile photo of %s"
+msgstr ""
+
+#. translators: The label of the button that opens the site menu on narrow screens.
+#: inc/header.php:143
+msgid "Menu"
+msgstr ""
+
+#: inc/login.php:118
+msgid "You are already logged in."
+msgstr ""
+
+#. translators: %s: the "Lost your password?" link text, wrapped for emphasis.
+#: inc/login.php:142
+#, php-format
+msgid "Your account was created by the program. If you have never set a password, use %s with the email address in your Airtable record."
+msgstr ""
+
+#: inc/login.php:143
+msgid "Lost your password?"
+msgstr ""
+
+#: inc/login.php:150
+msgid "Code is poetry."
+msgstr ""
+
+#: inc/site-menu.php:81
+msgid "Student impact"
+msgstr ""
+
+#: inc/site-menu.php:82
+msgid "The program in numbers"
+msgstr ""
+
+#: inc/site-menu.php:100
+msgid "Impact"
+msgstr ""
