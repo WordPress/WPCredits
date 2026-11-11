@@ -203,6 +203,7 @@ class WPCPM_Sponsors_Dashboard {
 }
 /** As above. */
 class WPCPM_Administrators_Dashboard {
+	public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/stubs/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 	public static function page_url() { return 'https://example.test/administrator-dashboard/'; }
 }
 

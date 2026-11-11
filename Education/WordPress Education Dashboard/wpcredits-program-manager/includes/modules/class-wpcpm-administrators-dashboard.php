@@ -40,10 +40,29 @@ final class WPCPM_Administrators_Dashboard {
 	const MODULE = 'administrators';
 	/** The query argument a view is asked for by, which the cohort timeline asks by too. */
 	const VIEW_ARG = 'wpcpm_view';
-	/** The Reference view (1.123.69): the program's numbers, the Tools from our sponsors and the resources. */
+	/**
+	 * The view of the program's numbers and the Tools from our sponsors (1.123.69), called The program on
+	 * the page since 1.123.71 (the owner, 11 November 2026, asking what "Reference" meant). Its address
+	 * keeps `?wpcpm_view=reference`, so a link saved before still opens it.
+	 */
 	const VIEW_REFERENCE = 'reference';
+	/**
+	 * The Watch view (1.123.71): the cards to keep an eye on, at `?wpcpm_view=watch`, apart from the Overview's
+	 * decisions (the owner, 11 November 2026: "Shouldn't be they separate sections with different URLs?").
+	 */
+	const VIEW_WATCH = 'watch';
+	/**
+	 * The cards each view but the Overview holds, by their anchor's key: a link to a card goes to the view
+	 * that draws it (`card_url()`), and every other card is the Overview's.
+	 */
+	const VIEW_CARDS = array(
+		'watch'     => array( 'cohort-timeline', 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health', 'quiet-students' ),
+		'reference' => array( 'sponsors', 'programs', 'mentor-engagement' ),
+	);
 	/** What the menu marks as current on the Administrator guide (1.123.70), which is a page of its own, not a view. */
 	const VIEW_GUIDE = 'guide';
+	/** What the menu marks as current on a program update (1.123.71), each a post of its own. */
+	const VIEW_UPDATES = 'updates';
 	/**
 	 * What this page's groups ask of the dashboards' group printer, `WPCPM_Dashboard_Card::group()`,
 	 * besides their own id, heading, sentence and cards: the page's classes, which the theme's
@@ -325,6 +344,8 @@ final class WPCPM_Administrators_Dashboard {
 			WPCPM_Cohort_Timeline_View::render_view( ! empty( $data['cohort_timeline'] ) ? (array) $data['cohort_timeline'] : WPCPM_Cohort_Timeline::report(), self::page_name() );
 		} elseif ( self::VIEW_REFERENCE === $view ) {
 			self::render_reference( $data, $viewer );
+		} elseif ( self::VIEW_WATCH === $view ) {
+			self::render_watch( $data );
 		} else {
 			self::render_overview( $data, $wait );
 		}
@@ -348,17 +369,15 @@ final class WPCPM_Administrators_Dashboard {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A view to read, which changes nothing.
-		if ( isset( $_GET[ self::VIEW_ARG ] ) && self::VIEW_REFERENCE === sanitize_key( wp_unslash( $_GET[ self::VIEW_ARG ] ) ) ) {
-			return self::VIEW_REFERENCE;
-		}
+		$asked = isset( $_GET[ self::VIEW_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ self::VIEW_ARG ] ) ) : '';
 
-		return 'overview';
+		return in_array( $asked, array( self::VIEW_REFERENCE, self::VIEW_WATCH ), true ) ? $asked : 'overview';
 	}
 
 	/**
 	 * A view's address: the page's own, with `?wpcpm_view=` for any view but the Overview.
 	 *
-	 * @param string $view `overview`, `cohort-timeline` or `reference`.
+	 * @param string $view `overview`, `watch`, `cohort-timeline` or `reference`.
 	 * @return string '' while the page has no address.
 	 */
 	public static function view_url( $view = 'overview' ) {
@@ -373,6 +392,38 @@ final class WPCPM_Administrators_Dashboard {
 		}
 
 		return add_query_arg( self::VIEW_ARG, sanitize_key( (string) $view ), $page );
+	}
+
+	/**
+	 * The view that draws a card: Watch's cards on Watch, The program's on it, every other on the Overview.
+	 *
+	 * @param string $card The card's anchor key, as in `wpcpm-<key>`.
+	 * @return string `overview`, `watch` or `reference`.
+	 */
+	public static function view_of( $card ) {
+		foreach ( self::VIEW_CARDS as $view => $cards ) {
+			if ( in_array( (string) $card, $cards, true ) ) {
+				return $view;
+			}
+		}
+
+		return 'overview';
+	}
+
+	/**
+	 * A link to a card, at the view that draws it (1.123.71): the mails, the wp-admin screens, the assistant's
+	 * answers and every decision's way back land there.
+	 *
+	 * @param string $card The card's anchor key.
+	 * @param string $item An anchor inside the card in place of the card's own, or ''.
+	 * @return string '' while the page has no address.
+	 */
+	public static function card_url( $card, $item = '' ) {
+		if ( '' === self::page_url() ) {
+			return '';
+		}
+
+		return self::view_url( self::view_of( $card ) ) . '#' . ( '' !== (string) $item ? (string) $item : 'wpcpm-' . sanitize_key( (string) $card ) );
 	}
 
 	/**
@@ -637,11 +688,12 @@ final class WPCPM_Administrators_Dashboard {
 			),
 			WPCPM_Dashboard_Frame::item(
 				__( 'Watch', 'wpcredits-program-manager' ),
-				$overview . '#wpcpm-watch',
+				self::view_url( self::VIEW_WATCH ),
 				'eye',
 				array(
-					'badge' => $wait['watch'] > 0 ? number_format_i18n( $wait['watch'] ) : '',
-					'tone'  => 'amber',
+					'current' => self::VIEW_WATCH === $view,
+					'badge'   => $wait['watch'] > 0 ? number_format_i18n( $wait['watch'] ) : '',
+					'tone'    => 'amber',
 				)
 			),
 		);
@@ -650,7 +702,16 @@ final class WPCPM_Administrators_Dashboard {
 			$items[] = WPCPM_Dashboard_Frame::item( __( 'Cohort timeline', 'wpcredits-program-manager' ), self::view_url( 'cohort-timeline' ), 'timeline', array( 'current' => 'cohort-timeline' === $view ) );
 		}
 
-		$items[] = WPCPM_Dashboard_Frame::item( __( 'Reference', 'wpcredits-program-manager' ), self::view_url( self::VIEW_REFERENCE ), 'chart', array( 'current' => self::VIEW_REFERENCE === $view ) );
+		$items[] = WPCPM_Dashboard_Frame::item( __( 'The program', 'wpcredits-program-manager' ), self::view_url( self::VIEW_REFERENCE ), 'chart', array( 'current' => self::VIEW_REFERENCE === $view ) );
+
+		// The program's updates (1.123.71), after The program: the newest an Administrator may read, which opens in the frame
+		// with the others listed beside it (the owner, 11 November 2026: "Move to sidebar, posts should open
+		// like the Administrator guide"). Only while there is one.
+		$newest = class_exists( 'WPCPM_Updates' ) ? WPCPM_Updates::posts( 1, 'administrator' ) : array();
+
+		if ( ! empty( $newest ) ) {
+			$items[] = WPCPM_Dashboard_Frame::item( __( 'Program updates', 'wpcredits-program-manager' ), (string) get_permalink( $newest[0] ), 'inbox', array( 'current' => self::VIEW_UPDATES === $view ) );
+		}
 
 		$mentors = isset( $counts['mentor_applications']['n'] ) ? (int) $counts['mentor_applications']['n'] : 0;
 		$admin   = array(
@@ -686,8 +747,13 @@ final class WPCPM_Administrators_Dashboard {
 
 		// No `context`: it named the page again above the menu, under the page's own H1 (the owner, 11
 		// November 2026: "Duplicated"). The menu's label still names it for a screen reader.
+		$pages = array(
+			self::VIEW_GUIDE   => 'administrator-guide',
+			self::VIEW_UPDATES => 'administrator-updates',
+		);
+
 		return array(
-			'page'   => self::VIEW_GUIDE === $view ? WPCPM_Administrator_Guide_View::FRAME_PAGE : 'administrator',
+			'page'   => isset( $pages[ $view ] ) ? $pages[ $view ] : 'administrator',
 			'label'  => self::title(),
 			'groups' => array(
 				array(
@@ -704,16 +770,18 @@ final class WPCPM_Administrators_Dashboard {
 	}
 
 	/**
-	 * The menu as the Administrator guide draws it (1.123.70): the same items and the same counts as the
-	 * page's own, read the same way, with the guide marked as where the reader is.
+	 * The menu as a page of its own draws it in the frame: the Administrator guide (1.123.70) and each
+	 * program update (1.123.71). The same items and the same counts as the page's own, read the same way,
+	 * with the page marked as where the reader is.
 	 *
+	 * @param string $view `VIEW_GUIDE` or `VIEW_UPDATES`.
 	 * @return array What `WPCPM_Dashboard_Frame::open()` takes.
 	 */
-	public static function guide_frame_args() {
+	public static function menu_args( $view ) {
 		$data   = WPCPM_Administrators_Cards::collect();
 		$counts = WPCPM_Administrators_Cards::counts( $data );
 
-		return self::frame_args( self::VIEW_GUIDE, self::waiting( $data, $counts ), $counts );
+		return self::frame_args( in_array( $view, array( self::VIEW_GUIDE, self::VIEW_UPDATES ), true ) ? $view : self::VIEW_GUIDE, self::waiting( $data, $counts ), $counts );
 	}
 
 	/**
@@ -732,7 +800,8 @@ final class WPCPM_Administrators_Dashboard {
 	}
 
 	/**
-	 * The Overview: the head, the program's figures, then what waits beside what to watch.
+	 * The Overview: the head, the program's figures, then what waits. What to watch is its own view since
+	 * 1.123.71, `render_watch()`.
 	 *
 	 * @param array $data What `WPCPM_Administrators_Cards::collect()` returned.
 	 * @param array $wait What `waiting()` returned.
@@ -746,8 +815,7 @@ final class WPCPM_Administrators_Dashboard {
 		self::render_messages();
 		echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
 
-		echo '<div class="wpcpm-overview">';
-		echo '<div class="wpcpm-overview__col wpcpm-overview__col--wait">';
+		echo '<div class="wpcpm-overview wpcpm-overview--wait">';
 
 		WPCPM_Dashboard_Card::group(
 			array_merge(
@@ -764,17 +832,35 @@ final class WPCPM_Administrators_Dashboard {
 		);
 
 		echo '</div>';
-		echo '<div class="wpcpm-overview__col wpcpm-overview__col--watch" id="wpcpm-watch">';
+	}
+
+	/**
+	 * The Watch view (1.123.71): its head, then the cards to keep an eye on, each one row, folded, so the view
+	 * reads as a list (the concepts).
+	 *
+	 * @param array $data What `WPCPM_Administrators_Cards::collect()` returned.
+	 */
+	private static function render_watch( array $data ) {
+		echo '<header class="wpcpm-head"><div class="wpcpm-head__copy">';
+		echo self::page_name(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in page_name().
+		printf( '<p class="wpcpm-head__title">%s</p>', esc_html__( 'Watch', 'wpcredits-program-manager' ) );
+		printf( '<p class="wpcpm-head__lede">%s</p>', esc_html__( 'What to keep an eye on this week: nothing here waits for a decision.', 'wpcredits-program-manager' ) );
+		echo '</div></header>';
+
+		// A decision on a card here, a sync run or a scan, comes back to this view (`card_url()`).
+		self::render_messages();
+		echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
+
+		echo '<div class="wpcpm-overview wpcpm-overview--watch" id="wpcpm-watch">';
 
 		WPCPM_Dashboard_Card::group(
 			array_merge(
 				self::GROUP,
 				array(
 					'id'    => 'watch',
-					'title' => __( 'Watch', 'wpcredits-program-manager' ),
-					'lead'  => __( 'What to keep an eye on this week.', 'wpcredits-program-manager' ),
+					'title' => __( 'This week', 'wpcredits-program-manager' ),
+					'lead'  => __( 'Each card is one row, folded until you open it.', 'wpcredits-program-manager' ),
 					'cards' => static function () use ( $data ) {
-						// Each card to watch is one row, folded, so the column reads as a list (the concepts).
 						WPCPM_Dashboard_Card::fold( true );
 
 						if ( class_exists( 'WPCPM_Cohort_Timeline_View' ) ) {
@@ -794,7 +880,7 @@ final class WPCPM_Administrators_Dashboard {
 			)
 		);
 
-		echo '</div></div>';
+		echo '</div>';
 	}
 
 	/**
@@ -1039,8 +1125,8 @@ final class WPCPM_Administrators_Dashboard {
 	private static function render_reference( array $data, $viewer ) {
 		echo '<header class="wpcpm-head"><div class="wpcpm-head__copy">';
 		echo self::page_name(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in page_name().
-		printf( '<p class="wpcpm-head__title">%s</p>', esc_html__( 'Reference', 'wpcredits-program-manager' ) );
-		printf( '<p class="wpcpm-head__lede">%s</p>', esc_html__( 'The sponsors, the programs running and how the mentors use the site, then the tools from our sponsors and the resources.', 'wpcredits-program-manager' ) );
+		printf( '<p class="wpcpm-head__title">%s</p>', esc_html__( 'The program', 'wpcredits-program-manager' ) );
+		printf( '<p class="wpcpm-head__lede">%s</p>', esc_html__( 'The sponsors, the programs running and how the mentors use the site, then the tools from our sponsors.', 'wpcredits-program-manager' ) );
 		echo '</div></header>';
 
 		self::render_messages();
@@ -1066,9 +1152,11 @@ final class WPCPM_Administrators_Dashboard {
 
 		echo '</div>';
 
-		// The group's heading is an h2, so the Tools section's and the resources' h3 headings would read as
-		// the group's in an outline: one h2 over both, for a screen reader alone. The two are drawn first,
-		// into a buffer, so the heading is printed only over something.
+		// The group's heading is an h2, so the Tools section's h3 would read as the group's in an outline: an
+		// h2 over it, for a screen reader alone, printed only over something. The Resources column that stood
+		// beside it is gone (1.123.71): its Slack, handbook and Need help? are the menu's Help, its way into
+		// wp-admin the menu's own, and its updates the menu's Program updates (the owner, 11 November 2026:
+		// "Not needed, duplicated").
 		ob_start();
 
 		// Every live offer with its audience, for the program (spec 6.5). No switch for managers.
@@ -1076,13 +1164,11 @@ final class WPCPM_Administrators_Dashboard {
 			WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MANAGERS, $viewer );
 		}
 
-		self::render_help();
-
 		$after = (string) ob_get_clean();
 
 		if ( '' !== trim( $after ) ) {
-			printf( '<h2 class="screen-reader-text">%s</h2>', esc_html__( 'Tools and resources', 'wpcredits-program-manager' ) );
-			echo $after; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The Tools section's and the resources' own markup, each escaping what it prints, held until the page knew it had any.
+			printf( '<h2 class="screen-reader-text">%s</h2>', esc_html__( 'From our sponsors', 'wpcredits-program-manager' ) );
+			echo $after; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The Tools section's own markup, which escapes what it prints, held until the page knew it had any.
 		}
 	}
 
@@ -1213,17 +1299,6 @@ final class WPCPM_Administrators_Dashboard {
 		} else {
 			WPCPM_Dashboard_Card::hold( $card, 'error', $text );
 		}
-	}
-
-	/**
-	 * The Updates column, the program manager guide and the way into wp-admin, last on the page.
-	 */
-	private static function render_help() {
-		if ( ! class_exists( 'WPCPM_Handbook_Assistant' ) || ! method_exists( 'WPCPM_Handbook_Assistant', 'render_resources' ) ) {
-			return;
-		}
-
-		echo WPCPM_Handbook_Assistant::render_resources( 'administrator' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_resources() escapes every value it interpolates.
 	}
 
 	/**

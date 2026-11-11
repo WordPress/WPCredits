@@ -665,6 +665,7 @@ class WPCPM_Institutions {
 
 /** Where the program decides an event. */
 class WPCPM_Administrators_Dashboard {
+	public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/stubs/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 	public static function page_url() { return 'https://site.example/administrator-dashboard/'; }
 }
 

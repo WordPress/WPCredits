@@ -40,6 +40,7 @@ class WPCPM_Flash {
 }
 
 class WPCPM_Administrators_Dashboard {
+	public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/stubs/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 	public static function page_url() { return (string) $GLOBALS['admin_page']; }
 }
 

@@ -3515,6 +3515,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 if ( ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
 	/** The Administrator Dashboard at its contract: the address a decision's way back names. */
 	class WPCPM_Administrators_Dashboard {
+		public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/stubs/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 		/** @return string */
 		public static function page_url() { return 'https://example.test/administrator-dashboard/'; }
 	}

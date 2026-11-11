@@ -162,43 +162,94 @@ class WPCPM_Updates {
 		}
 
 		// More rows than are wanted, because `can_view()` below may drop some: asking for exactly
-		// five and then filtering is how a list of five silently becomes a list of two.
-		$found = get_posts(
-			array(
-				'post_type'           => 'post',
-				'post_status'         => self::statuses_for( $audience ),
-				'cat'                 => $term->term_id,
-				'numberposts'         => $max * 4,
-				'orderby'             => 'date',
-				'order'               => 'DESC',
-				'suppress_filters'    => false,
-				'ignore_sticky_posts' => true,
-			)
-		);
-
+		// five and then filtering is how a list of five silently becomes a list of two. And read on, a
+		// batch at a time, while a whole batch was dropped: the newest four posts at another audience's
+		// level left the Administrator Dashboard's menu with no Program updates (the release's review,
+		// 1.123.71). At most ten batches, so a category of thousands is never read whole.
+		$batch   = $max * 4;
 		$allowed = array();
 
-		foreach ( $found as $post ) {
-			if ( null !== $levels && ! in_array( WPCPM_Content_Access::get_level( $post ), $levels, true ) ) {
-				continue;
+		for ( $page = 0; $page < 10; $page++ ) {
+			$found = get_posts(
+				array(
+					'post_type'           => 'post',
+					'post_status'         => self::statuses_for( $audience ),
+					'cat'                 => $term->term_id,
+					'numberposts'         => $batch,
+					'offset'              => $page * $batch,
+					'orderby'             => 'date',
+					'order'               => 'DESC',
+					'suppress_filters'    => false,
+					'ignore_sticky_posts' => true,
+				)
+			);
+
+			foreach ( $found as $post ) {
+				if ( ! self::passes( $post, $levels ) ) {
+					continue;
+				}
+
+				$allowed[] = $post;
+
+				if ( count( $allowed ) >= $max ) {
+					return $allowed;
+				}
 			}
 
-			if ( ! WPCPM_Content_Access::can_view( $post ) ) {
-				continue;
-			}
-
-			if ( 'private' === $post->post_status && ! current_user_can( 'read_post', $post->ID ) ) {
-				continue;
-			}
-
-			$allowed[] = $post;
-
-			if ( count( $allowed ) >= $max ) {
+			if ( count( $found ) < $batch ) {
 				break;
 			}
 		}
 
 		return $allowed;
+	}
+
+	/**
+	 * Whether a post is one a card lists for this audience and reader: a post in the Updates category,
+	 * at one of the audience's levels, in one of its statuses, that the reader may open. The same tests
+	 * `posts()` puts each row to, for one post (1.123.71, the Administrator Dashboard's frame asks it of
+	 * the post being drawn).
+	 *
+	 * @param mixed  $post     A post, or anything else.
+	 * @param string $audience Whose card.
+	 * @return bool
+	 */
+	public static function lists( $post, $audience = '' ) {
+		$term = self::term();
+
+		if ( ! $post instanceof WP_Post || ! $term || 'post' !== $post->post_type ) {
+			return false;
+		}
+
+		// The category or any under it, as `posts()` reads it: a query by `cat` includes the children (the
+		// release's review, 1.123.71).
+		$terms = array_merge( array( (int) $term->term_id ), array_map( 'intval', (array) get_term_children( (int) $term->term_id, 'category' ) ) );
+
+		if ( ! in_array( $post->post_status, self::statuses_for( $audience ), true ) || ! has_term( $terms, 'category', $post ) ) {
+			return false;
+		}
+
+		return self::passes( $post, self::levels_for( $audience ) );
+	}
+
+	/**
+	 * The gates every listed post passes: its level is one of the card's, the reader may view it, and a
+	 * private one is one they may read.
+	 *
+	 * @param WP_Post       $post   The post.
+	 * @param string[]|null $levels The card's levels, or null for the viewer's.
+	 * @return bool
+	 */
+	private static function passes( WP_Post $post, $levels ) {
+		if ( null !== $levels && ! in_array( WPCPM_Content_Access::get_level( $post ), $levels, true ) ) {
+			return false;
+		}
+
+		if ( ! WPCPM_Content_Access::can_view( $post ) ) {
+			return false;
+		}
+
+		return 'private' !== $post->post_status || current_user_can( 'read_post', $post->ID );
 	}
 
 	/**

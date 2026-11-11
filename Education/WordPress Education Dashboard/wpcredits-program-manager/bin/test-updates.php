@@ -162,16 +162,21 @@ function get_term_by( $field, $value, $taxonomy = 'category' ) {
  * for itself - which is the property worth testing, since it is what still holds when the query
  * filter is bypassed.
  */
+function has_term( $term, $taxonomy = '', $post = null ) { $post = get_post( $post ); return $post instanceof WP_Post && array() !== array_intersect( array_map( 'intval', (array) $term ), $post->cats ); }
+// Category 9 sits under the Updates category, 7, as a child a query by `cat` includes.
+function get_term_children( $term, $taxonomy ) { return 7 === (int) $term ? array( 9 ) : array(); }
 function get_posts( $args = array() ) {
 	$cat      = (int) ( $args['cat'] ?? 0 );
 	$limit    = (int) ( $args['numberposts'] ?? 5 );
+	$offset   = (int) ( $args['offset'] ?? 0 );
+	$cats     = 7 === $cat ? array( 7, 9 ) : array( $cat );
 	$statuses = (array) ( $args['post_status'] ?? 'publish' );
 	$out      = array();
 
 	$GLOBALS['last_statuses'] = $statuses;
 
 	foreach ( $GLOBALS['posts'] as $post ) {
-		if ( ! in_array( $post->post_status, $statuses, true ) || ! in_array( $cat, $post->cats, true ) ) {
+		if ( ! in_array( $post->post_status, $statuses, true ) || array() === array_intersect( $cats, $post->cats ) ) {
 			continue;
 		}
 
@@ -180,7 +185,7 @@ function get_posts( $args = array() ) {
 
 	usort( $out, static function ( $a, $b ) { return strcmp( $b->post_date, $a->post_date ); } );
 
-	return array_slice( $out, 0, $limit );
+	return array_slice( $out, $offset, $limit );
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
@@ -600,6 +605,43 @@ $GLOBALS['posts'][501]->post_author = $people['mentor']['id'];
 $GLOBALS['uid']                     = $people['mentor']['id'];
 ck( 'its author reads their own private post on the administrator card', titles_for( 'administrator' ), array( 'Site update', 'Announcement' ) );
 $GLOBALS['posts'][501]->post_author = 0;
+
+echo "\n=== One post, the list's own tests (1.123.71) ===\n";
+
+// The Administrator Dashboard's frame asks of the post being drawn whether its list holds it: the same
+// gates posts() puts each row to, for one post.
+$GLOBALS['uid'] = 16;
+$listed = array();
+foreach ( array( 500, 501, 502, 503, 504 ) as $id ) {
+	$listed[ $GLOBALS['posts'][ $id ]->post_title ] = WPCPM_Updates::lists( $GLOBALS['posts'][ $id ], 'administrator' );
+}
+ck( 'for an Administrator the administrator list holds the update, the announcement and the private one at the public level; not a post outside the category, nor a draft', $listed, array( 'Announcement' => true, 'Site update' => true, 'Private at the public level' => true, 'Private elsewhere' => false, 'Draft update' => false ) );
+$by_lists = array_keys( array_filter( $listed ) );
+$by_posts = titles_for( 'administrator' );
+sort( $by_lists );
+sort( $by_posts );
+ck( 'and lists() agrees with posts() on every post', $by_lists, $by_posts );
+$page            = new WP_Post();
+$page->post_type = 'page';
+$page->cats      = array( 7 );
+ck( 'a page, or anything not a post, is never an update', array( WPCPM_Updates::lists( $page, 'administrator' ), WPCPM_Updates::lists( null, 'administrator' ), WPCPM_Updates::lists( 'x', 'administrator' ) ), array( false, false, false ) );
+ck( 'the student list holds no private post, for an Administrator too', array( WPCPM_Updates::lists( $GLOBALS['posts'][501], 'student' ), WPCPM_Updates::lists( $GLOBALS['posts'][500], 'student' ) ), array( false, true ) );
+$GLOBALS['uid'] = $people['student']['id'];
+ck( 'and a student reads no Administrators-level update in the administrator list', array( WPCPM_Updates::lists( $GLOBALS['posts'][501], 'administrator' ), WPCPM_Updates::lists( $GLOBALS['posts'][500], 'administrator' ) ), array( false, true ) );
+
+// The release's review (1.123.71): the newest four posts at another audience's level left the menu with no
+// Program updates, since only four rows were read for one; and a post filed under a child of Updates was
+// listed by posts() and refused by lists().
+$GLOBALS['uid']   = 16;
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+foreach ( range( 1, 9 ) as $n ) {
+	seed_post( 600 + $n, 'For students ' . $n, sprintf( '2026-11-%02d 10:00:00', 10 + $n ), WPCPM_Roles::ROLE_STUDENT );
+}
+seed_post( 700, 'Site update, older', '2026-11-01 10:00:00', WPCPM_Roles::ROLE_ADMIN, array( 7 ), 'private' );
+seed_post( 701, 'In a child category', '2026-11-02 10:00:00', WPCPM_Roles::ROLE_ADMIN, array( 9 ), 'private' );
+ck( 'the newest update for Administrators is found under nine newer ones for students, reading on a batch at a time', array_map( static function ( $p ) { return $p->post_title; }, WPCPM_Updates::posts( 1, 'administrator' ) ), array( 'In a child category' ) );
+ck( 'and a post filed under a child of Updates is one the list holds, as posts() reads it', array( WPCPM_Updates::lists( $GLOBALS['posts'][701], 'administrator' ), WPCPM_Updates::lists( $GLOBALS['posts'][700], 'administrator' ) ), array( true, true ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -103,7 +103,11 @@ class WPCPM_Administrator_Guide_View {
 			return false;
 		}
 
-		return self::is_guide( get_post() )
+		// The page the address asked for, not one a Query Loop inside it draws (the updates' review, 1.123.71).
+		$post = get_post();
+
+		return self::is_guide( $post )
+			&& (int) get_queried_object_id() === (int) $post->ID
 			&& WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE )
 			&& is_user_logged_in()
 			&& current_user_can( WPCPM_Roles::CAP_MANAGE );
@@ -146,7 +150,7 @@ class WPCPM_Administrator_Guide_View {
 
 		ob_start();
 
-		WPCPM_Dashboard_Frame::open( WPCPM_Administrators_Dashboard::guide_frame_args() );
+		WPCPM_Dashboard_Frame::open( WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_GUIDE ) );
 
 		// What the script names a table that scrolls sideways, for a screen reader.
 		printf( '<div class="wpcpm-guide" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );

@@ -112,7 +112,7 @@ $wpcpm_placeholders = static function ( $email ) {
 			'example' => static function () {
 				$card = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_ADMIN );
 
-				return '' !== $card ? $card . '#wpcpm-quiet-students' : '';
+				return '' !== $card && class_exists( 'WPCPM_Administrators_Dashboard' ) ? WPCPM_Administrators_Dashboard::card_url( 'quiet-students' ) : '';
 			},
 		),
 	);

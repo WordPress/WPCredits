@@ -343,6 +343,7 @@ class WPCPM_Mentor_Notes {
 	public static function anchor( $record ) { return 'wpcpm-student-' . $record; }
 }
 class WPCPM_Administrators_Dashboard {
+	public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/stubs/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 	public static function page_url() { return 'https://example.test/administrators/'; }
 }
 class WPCPM_Typed_Text {
@@ -737,7 +738,7 @@ student( 4, 50 ); // No institution, no Administrator.
 WPCPM_Student_Flags::run_daily( $M );
 $weekly = sent( 'student-quiet-weekly' );
 ck( 'weekly_on_monday_once: on a Monday, the country\'s Administrator gets one list; the test student and the one with no Administrator are not on it', array( to_of( $weekly ), false !== strpos( $weekly[0]['subject'], 'Students gone quiet this week: 2' ), false !== strpos( $weekly[0]['body'], 'Students gone quiet in your country: 2.' ), false === strpos( $weekly[0]['body'], 'Student 3' ), false === strpos( $weekly[0]['body'], 'Student 4' ) ), array( array( 60 ), true, true, true, true ) );
-ck( 'the lines are most quiet first, each linking to the student on the Student Report Card, and the card is linked', array( strpos( $weekly[0]['body'], 'Student 2, 33 days: https://example.test/student/?wpcpm_student_view=2' ) < strpos( $weekly[0]['body'], 'Student 1, 23 days: https://example.test/student/?wpcpm_student_view=1' ), false !== strpos( $weekly[0]['body'], "https://example.test/administrators/#wpcpm-quiet-students" ) ), array( true, true ) );
+ck( 'the lines are most quiet first, each linking to the student on the Student Report Card, and the card is linked', array( strpos( $weekly[0]['body'], 'Student 2, 33 days: https://example.test/student/?wpcpm_student_view=2' ) < strpos( $weekly[0]['body'], 'Student 1, 23 days: https://example.test/student/?wpcpm_student_view=1' ), false !== strpos( $weekly[0]['body'], "https://example.test/administrators/?wpcpm_view=watch#wpcpm-quiet-students" ) ), array( true, true ) );
 ck( 'the week is noted', $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_WEEKLY ], gmdate( 'o-W', $M ) );
 WPCPM_Student_Flags::run_daily( $M + 3600 );
 ck( 'a second run that Monday sends no second list', count( sent( 'student-quiet-weekly' ) ), 1 );
@@ -974,7 +975,7 @@ ck( 'and the Monday email for one student, in full', $GLOBALS['mails'][2]['body'
 	'Hello,',
 	'Students gone quiet in your country: 1. The list is most quiet first.',
 	'Student 1, 23 days: https://example.test/student/?wpcpm_student_view=1',
-	"The Students gone quiet card of the Administrator Dashboard has the same list, and is where you can say that a student has already talked with us:\nhttps://example.test/administrators/#wpcpm-quiet-students",
+	"The Students gone quiet card of the Administrator Dashboard has the same list, and is where you can say that a student has already talked with us:\nhttps://example.test/administrators/?wpcpm_view=watch#wpcpm-quiet-students",
 ) ) );
 
 echo "\n=== Nothing untrue in the reminder (Release B, parked item 17) ===\n";

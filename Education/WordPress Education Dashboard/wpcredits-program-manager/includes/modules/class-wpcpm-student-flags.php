@@ -986,7 +986,7 @@ final class WPCPM_Student_Flags {
 							'site_name'     => WPCPM_Mail::site_name(),
 							'count'         => (string) count( $list ),
 							'students_list' => implode( "\n", $lines ),
-							'card_link'     => '' !== $admin ? $admin . '#wpcpm-quiet-students' : home_url( '/' ),
+							'card_link'     => '' !== $admin ? WPCPM_Administrators_Dashboard::card_url( 'quiet-students' ) : home_url( '/' ),
 						)
 					);
 				}

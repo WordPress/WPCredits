@@ -766,7 +766,7 @@ ck( 'the Mentor Report Card draws it after the past students, as the last sectio
 $admin = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-dashboard.php' );
 $acall = strpos( $admin, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MANAGERS, \$viewer )" );
 $agroups = strpos( $admin, "'id'    => 'reference'," );
-ck( 'the Administrator Dashboard draws it on its Reference view, after that view\'s cards in their group, and before the help (1.123.69)', false !== $agroups && $acall > $agroups && $acall < strpos( $admin, 'self::render_help();' ), true );
+ck( 'the Administrator Dashboard draws it on its Reference view, after that view\'s cards in their group, last: the Resources column after it is gone (1.123.71)', false !== $agroups && $acall > $agroups && false === strpos( $admin, 'render_resources(' ), true );
 ck( 'every call site is guarded by class_exists(), so a dashboard renders without the Sponsors module', array( substr_count( $students, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1, substr_count( $mentors, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1, substr_count( $admin, "class_exists( 'WPCPM_Sponsor_Tools' )" ) >= 1 ), array( true, true, true ) );
 
 echo "\n=== House rules ===\n";

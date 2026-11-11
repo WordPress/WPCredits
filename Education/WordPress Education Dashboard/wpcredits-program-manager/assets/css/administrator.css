@@ -205,14 +205,6 @@
 	opacity: 0.72;
 }
 
-/* The Resources column's second heading, For administrators, over the way into wp-admin: every
-   heading of the section is set with no room above it, which the column's first heading needs and
-   this one, under the guide's buttons or the note beneath them, does not. 24px, twice the 12px the
-   WPCredits theme keeps under a heading, so the heading reads as its list's and not as the note's. */
-.wpcpm-administrator .wpcpm-resources__col > .wpcpm-student__heading:not( :first-child ) {
-	margin-top: 24px;
-}
-
 .wpcpm-administrator__item {
 	border-top: 1px solid rgba( 0, 0, 0, 0.08 );
 	padding: 1em 0;
@@ -441,6 +433,7 @@
    ========================================================================== */
 
 .wpcpm-frame .wpcpm-administrator {
+	align-content: start;
 	display: grid;
 	gap: 28px;
 	grid-template-columns: minmax( 0, 1fr );
@@ -454,15 +447,6 @@
 	grid-template-columns: minmax( 0, 1fr );
 }
 
-@container wpcpm-main ( min-width: 1000px ) {
-	.wpcpm-overview {
-		grid-template-columns: minmax( 0, 2fr ) minmax( 0, 1fr );
-	}
-}
-
-.wpcpm-overview__col {
-	min-width: 0;
-}
 
 .wpcpm-overview__quiet {
 	color: var( --wpc-ink-60, #656a71 );

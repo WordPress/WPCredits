@@ -37,6 +37,7 @@ function is_singular( $type = '' ) { return req( 'singular' ); }
 function in_the_loop() { return req( 'loop' ); }
 function is_main_query() { return req( 'main' ); }
 function get_post() { return req( 'post' ); }
+function get_queried_object_id() { return isset( $GLOBALS['req']['queried'] ) ? $GLOBALS['req']['queried'] : ( req( 'post' ) instanceof WP_Post ? req( 'post' )->ID : 0 ); }
 function is_user_logged_in() { return req( 'logged_in' ); }
 function current_user_can( $cap ) { return 'wpcpm_manage_program' === $cap && req( 'manager' ); }
 function get_theme_support( $feature ) { return 'wpcpm-dashboard-frame' === $feature ? req( 'support' ) : false; }
@@ -81,7 +82,8 @@ class WPCPM_Dashboard_Frame {
 }
 
 class WPCPM_Administrators_Dashboard {
-	public static function guide_frame_args() { return array( 'page' => 'administrator-guide', 'from' => 'guide_frame_args' ); }
+	const VIEW_GUIDE = 'guide';
+	public static function menu_args( $view ) { return array( 'page' => 'administrator-guide', 'from' => 'menu_args:' . $view ); }
 }
 
 require_once __DIR__ . '/../includes/modules/class-wpcpm-administrator-guide-view.php';
@@ -228,6 +230,7 @@ $cases = array(
 	'another page'                                    => array( 'post' => page( 'mentor-guide' ) ),
 	'a child page at the same slug'                   => array( 'post' => page( 'administrator-guide', 12 ) ),
 	'a post at the same slug'                         => array( 'post' => page( 'administrator-guide', 0, 'post' ) ),
+	'the guide drawn by a Query Loop in another page' => array( 'queried' => 4242 ),
 	'a visitor who is not logged in'                  => array( 'logged_in' => false ),
 	'a reader who is not an Administrator'            => array( 'manager' => false ),
 	'a theme that names only the dashboard'           => array( 'support' => array( array( 'administrator' ) ) ),
@@ -250,7 +253,7 @@ $second = WPCPM_Administrator_Guide_View::filter_content( $guide );
 
 ck( 'once a request: whatever asks for the content after the page has drawn it gets the content as it was', array( count( WPCPM_Dashboard_Frame::$opened ), $second ), array( 1, $guide ) );
 
-ck( 'in the Administrator Dashboard\'s menu, as the dashboard builds it for the guide', WPCPM_Dashboard_Frame::$opened[0], array( 'page' => 'administrator-guide', 'from' => 'guide_frame_args' ) );
+ck( 'in the Administrator Dashboard\'s menu, as the dashboard builds it for the guide', WPCPM_Dashboard_Frame::$opened[0], array( 'page' => 'administrator-guide', 'from' => 'menu_args:guide' ) );
 
 ck( 'the frame, the serif head with the page\'s title as the one H1, the list of sections, then the guide, and the frame closed', array(
 	0 === strpos( $first, '[open]<div class="wpcpm-guide" data-wpcpm-table-label="Table, scrolls sideways"><header class="wpcpm-head wpcpm-guide__head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__title">Administrator guide</h1></div></header><nav class="wpcpm-guide__contents" aria-labelledby="wpcpm-guide-contents-title" data-wpcpm-guide-contents>' ),

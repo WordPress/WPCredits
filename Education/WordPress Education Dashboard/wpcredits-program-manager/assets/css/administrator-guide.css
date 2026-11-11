@@ -1,5 +1,6 @@
 /**
- * The Administrator guide in the frame (1.123.70).
+ * The Administrator guide in the frame (1.123.70), and each program update (1.123.71), which shares its
+ * layout with the list of updates in the column.
  *
  * The page's serif head, then the guide, with the list of its sections in a column of its own beside it:
  * a quiet list of links, the guide's sections and, under the one being read, its parts, the part being
@@ -128,6 +129,25 @@
 	color: var( --wpcpm-f-ink );
 	text-decoration: underline;
 	text-underline-offset: 3px;
+}
+
+/* A program update in the list (1.123.71): its title, and its date under it. */
+.wpcpm-guide__date {
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 18px;
+	margin-top: 2px;
+}
+
+.wpcpm-frame .wpcpm-guide__link--post {
+	color: var( --wpcpm-f-ink-2 );
+	padding-block: 8px;
+}
+
+.wpcpm-frame .wpcpm-guide__link--post[aria-current] .wpcpm-guide__date {
+	color: var( --wpcpm-f-brand );
 }
 
 /* The section being read, and the part of it: the section's name in ink, the part itself the way the

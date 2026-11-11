@@ -91,10 +91,11 @@ final class WPCPM_Return {
 			return $page;
 		}
 
-		// The decision's outcome is printed inside the card it comes back to (SDB-02, 1.123.58).
+		// The decision's outcome is printed inside the card it comes back to (SDB-02, 1.123.58), at the view
+		// that draws the card (1.123.71).
 		WPCPM_Dashboard_Card::target( 'wpcpm-' . $anchor );
 
-		return $page . '#wpcpm-' . $anchor;
+		return WPCPM_Administrators_Dashboard::card_url( $anchor );
 	}
 
 	/**
@@ -132,7 +133,7 @@ final class WPCPM_Return {
 		printf(
 			'<p%1$s><a href="%2$s">%3$s</a></p>',
 			'' !== $css_class ? ' class="' . esc_attr( $css_class ) . '"' : '',
-			esc_url( $page . '#' . ( '' !== (string) $item ? (string) $item : 'wpcpm-' . $card ) ),
+			esc_url( WPCPM_Administrators_Dashboard::card_url( (string) $card, (string) $item ) ),
 			esc_html__( 'Open on the Administrator Dashboard', 'wpcredits-program-manager' )
 		);
 	}

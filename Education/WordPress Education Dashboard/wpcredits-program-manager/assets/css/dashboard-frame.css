@@ -399,6 +399,9 @@
 }
 
 .wpcpm-frame__main {
+	/* Rows packed to the top: a view shorter than the menu beside it (Watch, 1.123.71) is not stretched
+	   to the menu's height, its gaps with it. */
+	align-content: start;
 	container: wpcpm-main / inline-size;
 	display: grid;
 	gap: 28px;

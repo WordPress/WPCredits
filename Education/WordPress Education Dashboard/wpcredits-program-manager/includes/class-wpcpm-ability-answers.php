@@ -244,7 +244,7 @@ class WPCPM_Ability_Answers {
 			if ( ! empty( $tile['url'] ) ) {
 				$open = (string) $tile['url'];
 			} elseif ( '' !== $page && ! empty( $tile['card'] ) ) {
-				$open = $page . '#wpcpm-' . $tile['card'];
+				$open = WPCPM_Administrators_Dashboard::card_url( (string) $tile['card'] );
 			} else {
 				$open = '';
 			}

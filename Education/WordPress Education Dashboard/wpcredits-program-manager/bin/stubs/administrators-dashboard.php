@@ -18,6 +18,7 @@
 if ( ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
 	/** The page's address and the sentence for a missing page. */
 	class WPCPM_Administrators_Dashboard {
+		public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 		public static $url = 'https://example.test/administrator-dashboard/';
 		public static function page_url() { return self::$url; }
 		public static function page_missing() { return 'The dashboard class says its page is missing.'; }

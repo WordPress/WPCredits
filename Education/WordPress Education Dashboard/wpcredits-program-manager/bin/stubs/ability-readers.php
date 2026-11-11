@@ -1017,6 +1017,7 @@ class WPCPM_Administrators_Cards {
 }
 
 class WPCPM_Administrators_Dashboard {
+	public static function card_url( $card, $item = '' ) { require_once __DIR__ . '/card-url.php'; return wpcpm_test_card_url( self::page_url(), $card, $item ); }
 	public static function page_url() { return $GLOBALS['readers']['page_url']; }
 }
 

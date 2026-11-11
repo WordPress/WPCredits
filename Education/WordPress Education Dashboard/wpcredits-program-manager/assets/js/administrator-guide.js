@@ -1,5 +1,6 @@
 /**
- * The Administrator guide's list of sections (1.123.70).
+ * The Administrator guide's list of sections (1.123.70), and the list of program updates beside each one
+ * (1.123.71), which shares its layout: there every link is to another page, and the list only folds.
  *
  * Marks the part of the guide being read, opens only that section's parts, keeps the mark in view inside
  * the list when the list is taller than the window, and folds the list behind its heading when the main
@@ -64,7 +65,7 @@
 		}
 	} );
 
-	if ( ! list || ! targets.length ) {
+	if ( ! list ) {
 		return;
 	}
 
@@ -206,10 +207,14 @@
 		window.addEventListener( 'resize', layout );
 	}
 
-	window.addEventListener( 'scroll', queue, { passive: true } );
-	window.addEventListener( 'resize', queue );
-	window.addEventListener( 'hashchange', queue );
-
 	layout();
-	mark();
+
+	// Marking the part being read is for a list of the page's own headings; a list of other pages has
+	// its own entry marked by the page.
+	if ( targets.length ) {
+		window.addEventListener( 'scroll', queue, { passive: true } );
+		window.addEventListener( 'resize', queue );
+		window.addEventListener( 'hashchange', queue );
+		mark();
+	}
 }() );

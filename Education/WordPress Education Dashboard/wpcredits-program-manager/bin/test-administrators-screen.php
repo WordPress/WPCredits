@@ -94,6 +94,10 @@ class WPCPM_Administrators_Dashboard {
 class WPCPM_Administrator_Guide_View {
 	public static function init() {}
 }
+// The program updates' view (1.123.71), started beside it; its hooks are test-administrator-updates.php's.
+class WPCPM_Administrator_Updates_View {
+	public static function init() {}
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';

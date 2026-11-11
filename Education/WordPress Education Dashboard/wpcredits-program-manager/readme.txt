@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.70
+Stable tag: 1.123.71
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,13 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.71 =
+
+* Administrator Dashboard: the Reference view is called **The program**, which says what it holds: the program's sponsors, programs and mentors, and the tools from our sponsors. Its address is the same, so a saved link still opens it.
+* **Watch** is its own view, at `?wpcpm_view=watch`, with its own head; the Overview keeps the head, the figures and Waiting for you, at full width. The menu marks whichever you are on, and every link to a card to watch, the mails' and the decisions' way back included, opens that view. A link to a card on The program now opens that view too.
+* **Program updates** in the menu, after The program, opens the newest of the program's updates. Each update an Administrator reads opens in the dashboard's frame, with the same menu and Program updates marked, its title and date in the serif head, and the other updates listed down the right of the page, newest first, the one being read marked. Needs the WPCredits theme 1.32.24; anybody else reads the post as before.
+* The program view ends with Tools from our sponsors: its Resources column is gone, since its links are the menu's own and its updates are Program updates.
 
 = 1.123.70 =
 
