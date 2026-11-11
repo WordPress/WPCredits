@@ -1078,5 +1078,126 @@ scenario(
 	}
 );
 
+// The registration form's track question (#304). The institution combo sets its select's chosen
+// option and fires nothing on the select (switcher.js), so a pick is made here as it makes one: the
+// select's value is set, then what the combo does fire (a click on a name, Enter) reaches the form.
+function trackForm( map, picked, drawn ) {
+	const form = mk( 'form', { 'data-wpcpm-tracks': JSON.stringify( map ) } );
+	const select = mk( 'select', { name: 'ans[institution]' } );
+	const wrap = mk( 'fieldset', { 'data-wpcpm-tracks-for': 'ans[institution]', 'data-wpcpm-tracks-name': 'ans[track]', 'data-wpcpm-tracks-not-sure': 'Not sure yet' } );
+	const holder = mk( 'span', { 'data-wpcpm-tracks-choices': '' } );
+
+	select.value = picked;
+	form.elements = { 'ans[institution]': select };
+	wrap.hidden = ! drawn;
+	wrap.disabled = ! drawn;
+
+	( drawn || [] ).forEach( ( [ value, checked ] ) => {
+		const input = mk( 'input', { type: 'radio', name: 'ans[track]', value } );
+
+		input.value = value;
+		input.checked = !! checked;
+		holder.add( input );
+	} );
+
+	wrap.add( holder );
+	form.add( select, wrap );
+
+	return { form, select, wrap, holder, loaded: load( FORMS ) };
+}
+
+// A pick as the combo makes it, then the click on the name that the page sees.
+function comboPick( page, record ) {
+	page.select.value = record;
+	dispatch( page.select, 'click' );
+	flush( page.loaded.log );
+}
+
+const radiosOf = ( page ) => page.holder.querySelectorAll( 'input[type="radio"]' ).map( ( r ) => r.value + ( r.checked ? '*' : '' ) );
+const stateOf = ( page ) => ( { hidden: page.wrap.hidden, disabled: page.wrap.disabled, radios: radiosOf( page ) } );
+const TWO = [ [ 'In Sensei 50h', 'WordPress Credits Program 50h' ], [ 'Developer Track', 'Developer Track' ] ];
+
+scenario(
+	'Track question: closed on a fresh form, open with the institution\'s tracks and Not sure yet after a pick made through the combo',
+	[ { hidden: true, disabled: true, radios: [] }, { hidden: false, disabled: false, radios: [ 'In Sensei 50h', 'Developer Track', 'not-sure' ] } ],
+	() => {
+		const page = trackForm( { recA: TWO }, '', null );
+		const before = stateOf( page );
+
+		comboPick( page, 'recA' );
+
+		return [ before, stateOf( page ) ];
+	}
+);
+
+scenario(
+	'Track question: a pick of an institution that does not ask closes it, empties it and disables it, so nothing posts',
+	{ hidden: true, disabled: true, radios: [] },
+	() => {
+		const page = trackForm( { recA: TWO }, '', null );
+
+		comboPick( page, 'recA' );
+		page.holder.querySelectorAll( 'input[type="radio"]' )[ 1 ].checked = true;
+		comboPick( page, 'recB' );
+
+		return stateOf( page );
+	}
+);
+
+scenario(
+	'Track question: a still valid pick is kept when the pick moves between two institutions that offer it',
+	{ hidden: false, disabled: false, radios: [ 'Designer Track', 'Developer Track*', 'not-sure' ] },
+	() => {
+		const page = trackForm( { recA: TWO, recC: [ [ 'Designer Track', 'Designer Track' ], [ 'Developer Track', 'Developer Track' ] ] }, '', null );
+
+		comboPick( page, 'recA' );
+		page.holder.querySelectorAll( 'input[type="radio"]' )[ 1 ].checked = true;
+		comboPick( page, 'recC' );
+
+		return stateOf( page );
+	}
+);
+
+scenario(
+	'Track question: a pick the new institution does not offer is dropped on a switch',
+	{ hidden: false, disabled: false, radios: [ 'Designer Track', 'Developer Track', 'not-sure' ] },
+	() => {
+		const page = trackForm( { recA: TWO, recC: [ [ 'Designer Track', 'Designer Track' ], [ 'Developer Track', 'Developer Track' ] ] }, '', null );
+
+		comboPick( page, 'recA' );
+		page.holder.querySelectorAll( 'input[type="radio"]' )[ 0 ].checked = true;
+		comboPick( page, 'recC' );
+
+		return stateOf( page );
+	}
+);
+
+scenario(
+	'Track question: the radios the server drew on a redraw are kept, with the posted one checked',
+	{ hidden: false, disabled: false, radios: [ 'In Sensei 50h', 'Developer Track*', 'not-sure' ] },
+	() => {
+		const page = trackForm( { recA: TWO }, 'recA', [ [ 'In Sensei 50h', false ], [ 'Developer Track', true ], [ 'not-sure', false ] ] );
+
+		flush( page.loaded.log );
+		dispatch( page.form, 'keyup', { key: 'Tab' } );
+		flush( page.loaded.log );
+
+		return stateOf( page );
+	}
+);
+
+scenario(
+	'Track question: a select that changes by a plain change event is followed as well',
+	{ hidden: false, disabled: false, radios: [ 'In Sensei 50h', 'Developer Track', 'not-sure' ] },
+	() => {
+		const page = trackForm( { recA: TWO }, '', null );
+
+		page.select.value = 'recA';
+		dispatch( page.select, 'change' );
+
+		return stateOf( page );
+	}
+);
+
 console.log( '\n' + ran + ' scenarios, ' + failed + ' differ' );
 process.exit( failed ? 1 : 0 );

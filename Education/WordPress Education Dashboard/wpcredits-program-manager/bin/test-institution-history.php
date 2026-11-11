@@ -532,7 +532,7 @@ ck(
 
 echo "\n=== Plain sentences ===\n";
 
-// The thirty-one kinds the plugin has written about an institution (the two the retired notes wrote
+// The thirty-two kinds the plugin has written about an institution (the two the retired notes wrote
 // among them), and where each is declared. The source is read below, so a kind renamed there fails here
 // rather than reaching a row unworded.
 $kinds = array(
@@ -567,9 +567,10 @@ $kinds = array(
 	'student_linked',
 	'student-invite-resent',
 	'details_saved',
+	'tracks_saved',
 );
 
-ck( 'thirty-one kinds, each once', array( count( $kinds ), count( array_unique( $kinds ) ) ), array( 31, 31 ) );
+ck( 'thirty-two kinds, each once', array( count( $kinds ), count( array_unique( $kinds ) ) ), array( 32, 32 ) );
 
 $declared = '';
 foreach ( array_merge( glob( __DIR__ . '/../includes/modules/class-wpcpm-institution-*.php' ), array( __DIR__ . '/../includes/modules/class-wpcpm-institutions.php', __DIR__ . '/../includes/modules/class-wpcpm-agreement-generate.php' ) ) as $file ) {
@@ -623,9 +624,10 @@ $stored = array(
 	'student_linked'        => '',
 	'student-invite-resent' => 'Welcome invitation sent from the Institution Dashboard.',
 	'details_saved'         => 'Details were corrected: Website, City.',
+	'tracks_saved'          => 'Tracks offered were set: Designer Track, Developer Track.',
 );
 
-ck( 'the stored messages above cover the same thirty-one kinds', array_keys( $stored ), $kinds );
+ck( 'the stored messages above cover the same thirty-two kinds', array_keys( $stored ), $kinds );
 
 // What may never show: a record ID, a kind slug, or a meta key. The slug is matched as a word, so
 // "extend" does not count against "extended".
@@ -696,8 +698,8 @@ foreach ( $kinds as $kind ) {
 		}
 	}
 }
-ck( 'for all thirty-one kinds, a stored message, an empty one or a leaking one gives a sentence with no ID, slug or key', $problems, array() );
-ck( 'each kind has words of its own', array( count( $worded ), count( array_unique( $worded ) ) ), array( 31, 31 ) );
+ck( 'for all thirty-two kinds, a stored message, an empty one or a leaking one gives a sentence with no ID, slug or key', $problems, array() );
+ck( 'each kind has words of its own', array( count( $worded ), count( array_unique( $worded ) ) ), array( 32, 32 ) );
 ck( 'and a sentence ends with a full stop', array_values( array_filter( $worded, static function ( $sentence ) { return '.' !== substr( $sentence, -1 ); } ) ), array() );
 
 $plain = array_diff( $kinds, array( 'import_stopped', 'student_linked', 'request_resolved', 'agreement_revoke', 'member_added', 'member_removed' ) );
@@ -1209,7 +1211,7 @@ sort( $listed );
 $generic = WPCPM_Institution_History::sentence( array( 'kind' => 'a_kind_nothing_writes', 'message' => '' ) );
 
 ck( 'every call to record( in includes/ is read: none is left whose kind cannot be told, and the calls are found', array( $scan['unresolved'], $scan['calls'] > 25 ), array( array(), true ) );
-ck( 'the source of includes/ passes 29 kinds to record(', count( $written ), 29 );
+ck( 'the source of includes/ passes 30 kinds to record(', count( $written ), 30 );
 ck( 'every kind it passes is in this suite\'s list, so a new one is a line here before it reaches a row', array_values( array_diff( $written, $listed ) ), array() );
 ck( 'and every kind in the list but the two retired ones is passed there, so a kind renamed or dropped fails here', array_values( array_diff( $listed, $written ) ), array() );
 ck(

@@ -57,6 +57,7 @@ final class WPCPM_Student_Airtable_Row {
 		'access'      => 'student_access',
 		'english'     => 'student_english',
 		'privacy'     => 'student_privacy',
+		'track_name'  => 'student_requested_track',
 	);
 
 	/**
@@ -115,6 +116,11 @@ final class WPCPM_Student_Airtable_Row {
 		),
 		'privacy'     => array(
 			'checkbox' => 'box',
+		),
+		// The track's name as the student saw it, or Not sure yet (#304): text, so a new track needs no change in Airtable.
+		'track_name'  => array(
+			'singleLineText' => 'text',
+			'multilineText'  => 'text',
 		),
 	);
 

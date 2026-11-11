@@ -422,8 +422,8 @@ final class WPCPM_Student_Registration_Form {
 	}
 
 	/**
-	 * The questions, keyed by the site field each answer is kept under: the Airtable form's fourteen, in
-	 * its order and with its labels and help, as the design gives them (section 3).
+	 * The questions, keyed by the site field each answer is kept under: the Airtable form's fourteen and the
+	 * track question (#304), in its order and with its labels and help, as the design gives them (section 3).
 	 *
 	 * The two boxes to tick carry a heading (`label`) and the words beside the box (`box`): the
 	 * compliance declaration's and the privacy policy's are the Airtable form's sentences, the policy's
@@ -469,6 +469,15 @@ final class WPCPM_Student_Registration_Form {
 				'label'    => __( 'Department / Area of Study', 'wpcredits-program-manager' ),
 				'type'     => 'study',
 				'required' => true,
+			),
+			// Asked only where the institution offers two or more tracks the site runs (#304): the
+			// requiredness is `clean_all()`'s, which reads the institution's list, so the spec says no.
+			'track'       => array(
+				'group'    => 'institution',
+				'label'    => __( 'Which track would you like to join?', 'wpcredits-program-manager' ),
+				'type'     => 'track',
+				'required' => false,
+				'help'     => __( 'Your institution offers more than one track. If you have not decided yet, choose Not sure yet.', 'wpcredits-program-manager' ),
 			),
 			'tutor'       => array(
 				'group'    => 'institution',
@@ -581,6 +590,12 @@ final class WPCPM_Student_Registration_Form {
 
 		if ( 'languages' === $type ) {
 			return self::accept( self::picked( $raw, self::languages() ) );
+		}
+
+		// The posted key as it came: whether it is one the institution offers is `clean_all()`'s to
+		// say, once the institution is known. A crafted array is no key.
+		if ( 'track' === $type ) {
+			return self::accept( is_scalar( $raw ) ? trim( (string) $raw ) : '' );
 		}
 
 		if ( in_array( $type, array( 'institution', 'preferred' ), true ) ) {
@@ -783,7 +798,11 @@ final class WPCPM_Student_Registration_Form {
 	 * nothing ticks a box the student did not tick.
 	 *
 	 * The institution's name is kept beside its ID (`institution_name`), as the row's receiving email
-	 * names it. Two problems belong to a pair of answers and are found once both are cleaned: an end
+	 * names it. The track is asked after the institution is known (#304): where the institution offers
+	 * two or more tracks the site runs, one of them or Not sure yet is required and kept as `track` (the
+	 * posted key) beside `track_name` (its words); for any other institution a posted track is ignored
+	 * and neither key is kept. The list is read again here, so a track unpublished since the page was
+	 * drawn is refused at the question. Two problems belong to a pair of answers and are found once both are cleaned: an end
 	 * date before the start date, and a preferred language the student did not tick among the ones they
 	 * speak. Each leaves its answer in the box.
 	 *
@@ -802,6 +821,11 @@ final class WPCPM_Student_Registration_Form {
 		$institution = self::institutions();
 
 		foreach ( self::fields() as $key => $spec ) {
+			// Asked below, once the institution is known.
+			if ( 'track' === $spec['type'] ) {
+				continue;
+			}
+
 			$raw   = isset( $posted[ $key ] ) ? $posted[ $key ] : '';
 			$clean = self::clean( $key, $raw );
 
@@ -831,6 +855,20 @@ final class WPCPM_Student_Registration_Form {
 		}
 
 		unset( $values['consent'] );
+
+		$chosen = isset( $values['institution'] ) ? (string) $values['institution'] : '';
+
+		if ( '' !== $chosen && isset( $institution[ $chosen ] ) && WPCPM_Institution_Tracks::asks( $chosen ) ) {
+			$asked = self::clean( 'track', isset( $posted['track'] ) ? $posted['track'] : '' );
+			$text  = WPCPM_Institution_Tracks::answer_text( $chosen, $asked['value'] );
+
+			if ( null === $text ) {
+				$problems['track'] = 'track_needed';
+			} else {
+				$values['track']      = $asked['value'];
+				$values['track_name'] = $text;
+			}
+		}
 
 		if ( ! isset( $problems['start'], $problems['end'] ) && ! empty( $values['start'] ) && ! empty( $values['end'] ) && (string) $values['end'] < (string) $values['start'] ) {
 			$problems['end'] = 'end_before_start';
@@ -1167,11 +1205,25 @@ final class WPCPM_Student_Registration_Form {
 	 * @param array $problems Problem slugs from that attempt, keyed by question key.
 	 */
 	private static function render_form( array $values, array $problems ) {
+		// The tracks of each institution that asks for one, for the script to show the question as an
+		// institution is picked (`assets/js/forms.js`); the page is drawn from the same list the check reads.
+		$tracks = self::tracks_asked();
+		$map    = array();
+
+		foreach ( $tracks as $record_id => $runnable ) {
+			$map[ $record_id ] = array();
+
+			foreach ( $runnable as $status => $name ) {
+				$map[ $record_id ][] = array( (string) $status, (string) $name );
+			}
+		}
+
 		printf(
-			'<form class="wpcpm-application__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-status="%3$s">',
+			'<form class="wpcpm-application__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-status="%3$s"%4$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Sending...', 'wpcredits-program-manager' ),
-			esc_attr__( 'Sending your registration.', 'wpcredits-program-manager' )
+			esc_attr__( 'Sending your registration.', 'wpcredits-program-manager' ),
+			empty( $map ) ? '' : ' data-wpcpm-tracks="' . esc_attr( (string) wp_json_encode( $map ) ) . '"'
 		);
 
 		// The summary of a refused send, the form's first child: a heading counting the problems and
@@ -1198,7 +1250,11 @@ final class WPCPM_Student_Registration_Form {
 			foreach ( $fields as $key => $spec ) {
 				$in = isset( $spec['group'], $groups[ $spec['group'] ] ) ? (string) $spec['group'] : $last;
 
-				if ( $in === $group ) {
+				if ( $in === $group && 'track' === $spec['type'] ) {
+					if ( ! empty( $tracks ) ) {
+						self::render_track( $spec, $values, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '', $tracks );
+					}
+				} elseif ( $in === $group ) {
 					self::render_field( $key, $spec, isset( $values[ $key ] ) ? $values[ $key ] : null, isset( $problems[ $key ] ) ? (string) $problems[ $key ] : '' );
 				}
 			}
@@ -1212,6 +1268,96 @@ final class WPCPM_Student_Registration_Form {
 		);
 
 		echo '</form>';
+	}
+
+	/**
+	 * The institutions the form offers that ask a student for a track, each with the tracks the site
+	 * runs for it: record ID => status => name, in the Track Builder's order.
+	 *
+	 * @return array<string, array<string, string>>
+	 */
+	private static function tracks_asked() {
+		$out = array();
+
+		// One read of every offered institution's record, not one for each.
+		$ids = array_map( 'strval', array_keys( self::institutions() ) );
+
+		foreach ( WPCPM_Institution_Tracks::runnable_among( $ids ) as $record_id => $runnable ) {
+			if ( count( $runnable ) >= 2 ) {
+				$out[ (string) $record_id ] = $runnable;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The track question: a group of radios under its legend, the institution's tracks and Not sure yet.
+	 *
+	 * Drawn hidden, and disabled so that it posts nothing, until the institution picked asks for a track:
+	 * the script opens it when a pick is in `data-wpcpm-tracks` and builds the radios (`forms.js`). A
+	 * form drawn again after a refusal whose institution asks draws it open, with its radios, and the
+	 * posted track checked; with no script that is the only way a student meets it, and a student at a
+	 * school that offers one track or none never does. The wrapper names the institution's select by its
+	 * `name`, which the script follows.
+	 *
+	 * @param array  $spec    The question's spec.
+	 * @param array  $values  The answers of a failed attempt, keyed by question key.
+	 * @param string $problem The problem slug from that attempt, or ''.
+	 * @param array  $tracks  `tracks_asked()`.
+	 */
+	private static function render_track( array $spec, array $values, $problem, array $tracks ) {
+		$id      = self::field_id( 'track' );
+		$name    = self::FIELD_ANSWERS . '[track]';
+		$chosen  = isset( $values['institution'] ) && is_scalar( $values['institution'] ) ? (string) $values['institution'] : '';
+		$choices = isset( $tracks[ $chosen ] ) ? $tracks[ $chosen ] : array();
+		$open    = ! empty( $choices );
+		$picked  = isset( $values['track'] ) && is_scalar( $values['track'] ) ? (string) $values['track'] : '';
+		$says    = array( $id . '-help' );
+
+		if ( '' !== $problem ) {
+			$says[] = $id . '-problem';
+		}
+
+		if ( $open ) {
+			$choices[ WPCPM_Institution_Tracks::NOT_SURE ] = __( 'Not sure yet', 'wpcredits-program-manager' );
+		}
+
+		printf(
+			'<fieldset class="wpcpm-field wpcpm-field--track%1$s" id="%2$s" data-wpcpm-tracks-for="%3$s" data-wpcpm-tracks-not-sure="%4$s" data-wpcpm-tracks-name="%5$s" aria-describedby="%6$s"%7$s>',
+			'' !== $problem ? ' has-problem' : '',
+			esc_attr( $id ),
+			esc_attr( self::FIELD_ANSWERS . '[institution]' ),
+			esc_attr__( 'Not sure yet', 'wpcredits-program-manager' ),
+			esc_attr( $name ),
+			esc_attr( implode( ' ', $says ) ),
+			$open ? '' : ' hidden disabled' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal.
+		);
+		printf(
+			'<legend>%1$s <span class="wpcpm-field__required">%2$s</span></legend>',
+			esc_html( $spec['label'] ),
+			esc_html__( 'Required', 'wpcredits-program-manager' )
+		);
+		echo '<span class="wpcpm-field__choices" data-wpcpm-tracks-choices>';
+
+		foreach ( $choices as $status => $label ) {
+			printf(
+				'<label class="wpcpm-field__check"><input type="radio" name="%1$s" value="%2$s"%3$s required="required" /> <span>%4$s</span></label>',
+				esc_attr( $name ),
+				esc_attr( (string) $status ),
+				checked( $picked === (string) $status, true, false ),
+				esc_html( $label )
+			);
+		}
+
+		echo '</span>';
+		printf( '<span class="wpcpm-field__hint" id="%1$s-help">%2$s</span>', esc_attr( $id ), esc_html( $spec['help'] ) );
+
+		if ( '' !== $problem ) {
+			printf( '<span class="wpcpm-field__problem" id="%1$s-problem">%2$s</span>', esc_attr( $id ), esc_html( self::problem_text( $problem ) ) );
+		}
+
+		echo '</fieldset>';
 	}
 
 	/**
@@ -1472,6 +1618,7 @@ final class WPCPM_Student_Registration_Form {
 			'preferred_not_spoken' => __( 'Your preferred language has to be one of the languages you ticked above.', 'wpcredits-program-manager' ),
 			'unticked'             => __( 'The program can only take students who can say this, so please tick it.', 'wpcredits-program-manager' ),
 			'consent'              => __( 'Tick this box to send the form.', 'wpcredits-program-manager' ),
+			'track_needed'         => __( 'Choose a track, or Not sure yet.', 'wpcredits-program-manager' ),
 		);
 
 		return isset( $said[ $problem ] ) ? $said[ $problem ] : __( 'That answer could not be read. Write it again.', 'wpcredits-program-manager' );

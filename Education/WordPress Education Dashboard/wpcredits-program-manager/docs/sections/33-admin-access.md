@@ -97,6 +97,22 @@ questions, labels and help, and the application's rules:
   that card while the page is published, and a post of that form is refused with the same sentence. The
   first form stays open to everyone allowed.
 
+Since 1.123.76 the card ends with **Tracks offered**: the tracks it offers that the site runs, by
+name, or "None listed yet.". It is set by Administrators alone. An Administrator is drawn a checkbox for
+each track the site runs, **Save tracks**, and the line "Students are asked which track they want when
+two or more are ticked."; an account of the institution reads the list and "The program sets the tracks
+your institution offers. To change them, write to" the program's contact address, with no form. A save
+adds a line to the institution's history: "Tracks offered were set:" and the names, or
+"Tracks offered were cleared.". The list is kept on
+this site and never written to Airtable. A track unpublished in the Track Builder drops out of the list
+and of the question, and comes back, still ticked, when it is published again. With two or more ticked,
+the registration form at `/student-registration/` asks a student of the institution "Which track would
+you like to join?", required, with the ticked tracks and **Not sure yet**; with fewer, it asks nothing.
+The answer is written to the Students table's **Requested track** column (the track's name as the
+student saw it, or "Not sure yet") and shows under **Answers and consent** on the Registrations tab. If
+the column is missing, the row is written without it and the registration says it was left out. The
+answer is a request: an Administrator still assigns the track, and Status stays empty.
+
 While a request waits, every account of the institution reads, under each row it would change, "Waiting
 for an Administrator:", what was asked and the day it was asked, with **Withdraw it**; an Administrator
 reads the same lines without the button, since the request is decided on the Administrator Dashboard. The

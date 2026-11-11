@@ -239,6 +239,7 @@ $written = array(
 	'student_access',
 	'student_english',
 	'student_privacy',
+	'student_requested_track',
 	'student_status',
 );
 
@@ -248,10 +249,10 @@ foreach ( $written as $key ) {
 	$names[ $key ] = isset( $fields[ $key ] ) ? $fields[ $key ] : null;
 }
 
-ck( 'the fixture is there, with the Students table, the day it was read and fifteen columns',
+ck( 'the fixture is there, with the Students table, the day it was read and sixteen columns',
 	array( is_array( $fixture ), isset( $fixture['students_table'] ) ? $fixture['students_table'] : null, isset( $fixture['read'] ) ? $fixture['read'] : null, count( $columns ) ),
-	array( true, 'tbla8GZg5x6NY7aWt', '2026-11-05', 15 ) );
-ck( 'the fifteen keys the row writes are the sync\'s own names, six of them new, the Tutor column with its space and the preferred language with one r',
+	array( true, 'tbla8GZg5x6NY7aWt', '2026-11-05', 16 ) );
+ck( 'the sixteen keys the row writes are the sync\'s own names, seven of them new, the Tutor column with its space and the preferred language with one r',
 	$names,
 	array(
 		'student_record_name'        => 'Full Name',
@@ -268,8 +269,11 @@ ck( 'the fifteen keys the row writes are the sync\'s own names, six of them new,
 		'student_access'             => 'Accessibility needs',
 		'student_english'            => 'English and proactivity acceptance',
 		'student_privacy'            => 'Privacy Policy Compliance',
+		'student_requested_track'    => 'Requested track',
 		'student_status'             => 'Status',
 	) );
+ck( 'the Requested track column the release asks for is single line text, so a new track needs no change in Airtable',
+	isset( $columns['Requested track'] ) ? $columns['Requested track'] : null, 'singleLineText' );
 ck( 'every name the row writes is a column of the fixture, and the fixture holds no other',
 	array( array_diff( array_values( $names ), array_keys( $columns ) ), array_diff( array_keys( $columns ), array_values( $names ) ) ),
 	array( array(), array() ) );
@@ -511,7 +515,7 @@ ck( 'and an unmodeled query was never asked', $GLOBALS['unmodeled'] ?? array(), 
 
 echo "\n=== The row ===\n";
 
-/** The Students table as `fetch_schema()` gives one table, on the fixture's fifteen columns. */
+/** The Students table as `fetch_schema()` gives one table, on the fixture's sixteen columns. */
 function students_table_spec( array $changes = array() ) {
 	global $columns, $fixture;
 
@@ -658,6 +662,27 @@ $row = WPCPM_Student_Airtable_Row::cells_for(
 ck( 'several are said in the order of the row, joined by a space',
 	WPCPM_Student_Airtable_Row::left_out_sentence( $row['left_out'] ),
 	'Your field of study: not in the base: Basket Weaving. Tutor email: the Students table has no such column. Total hours: the column is a rating, which the site does not write. Languages: not in the base: Klingon.' );
+
+$row = WPCPM_Student_Airtable_Row::cells_for( answers( array( 'track' => 'Developer Track', 'track_name' => 'Developer Track' ) ), students_table_spec(), links() );
+
+ck( 'the track a student asked for is written as its name, in the Requested track column, and nothing else changes',
+	array( $row['cells']['Requested track'], count( $row['cells'] ), $row['left_out'] ),
+	array( 'Developer Track', 15, array() ) );
+
+$row = WPCPM_Student_Airtable_Row::cells_for( answers( array( 'track' => 'not-sure', 'track_name' => 'Not sure yet' ) ), students_table_spec(), links() );
+
+ck( 'Not sure yet is written as those words, never the posted key', $row['cells']['Requested track'], 'Not sure yet' );
+
+$row = WPCPM_Student_Airtable_Row::cells_for( answers(), students_table_spec(), links() );
+
+ck( 'a registration with no track asked writes no cell and leaves nothing out', array( array_key_exists( 'Requested track', $row['cells'] ), $row['left_out'] ), array( false, array() ) );
+
+$row = WPCPM_Student_Airtable_Row::cells_for( answers( array( 'track' => 'Developer Track', 'track_name' => 'Developer Track' ) ), students_table_spec( array( 'Requested track' => null ) ), links() );
+$ref = WPCPM_Student_Airtable_Row::cells_for( answers(), students_table_spec( array( 'Requested track' => null ) ), links() );
+
+ck( 'a base without the column gets the row without it, the column named as no-column, and the other cells unchanged',
+	array( array_key_exists( 'Requested track', $row['cells'] ), $row['cells'] === $ref['cells'], $row['left_out'], WPCPM_Student_Airtable_Row::left_out_sentence( $row['left_out'] ) ),
+	array( false, true, array( 'Requested track' => array( 'why' => 'no-column', 'values' => array() ) ), 'Requested track: the Students table has no such column.' ) );
 ck( 'and nothing left out is no sentence', WPCPM_Student_Airtable_Row::left_out_sentence( array() ), '' );
 
 $row = WPCPM_Student_Airtable_Row::cells_for( answers(), students_table_spec( array( 'Tutor email' => array( 'type' => 'singleLineText', 'options' => array() ) ) ), links() );
@@ -1181,6 +1206,29 @@ ck( 'and one email, the received one, to the address, naming the institution and
 ck( 'and nothing else: no PATCH, no DELETE, no invitation, no email to anybody else, no account made',
 	array( requests( 'PATCH' ), requests( 'DELETE' ), count( array_filter( array_column( $GLOBALS['mail'], 'context' ), static function ( $c ) { return 0 === strpos( $c, 'invite-' ); } ) ), $GLOBALS['users'] === $users ),
 	array( 0, 0, 0, true ) );
+// Review Focus 5: the hourly retry writes the name the student saw, not today's label of the status.
+$client = process_world();
+$id     = waiting_reg( array( 'track' => 'In Sensei', 'track_name' => 'Developer Track' ) );
+
+$GLOBALS['filtered']['wpcpm_program_labels'] = static function () {
+	return array( 'In Sensei' => 'Developer Track (2027)' );
+};
+
+$run    = WPCPM_Student_Registration_Process::run_hourly( $T, $client );
+$posted = null;
+
+foreach ( $GLOBALS['sent'] as $request ) {
+	if ( isset( $request['args']['method'] ) && 'POST' === $request['args']['method'] ) {
+		$posted = json_decode( (string) $request['args']['body'], true );
+	}
+}
+
+unset( $GLOBALS['filtered']['wpcpm_program_labels'] );
+
+ck( 'a registration stored with Developer Track, written by the hourly retry after the labels renamed that status, still writes Developer Track',
+	array( reg_state( $id ), $posted['records'][0]['fields']['Requested track'] ?? null ),
+	array( 'written', 'Developer Track' ) );
+
 ck( 'a written registration is not taken again', array( WPCPM_Student_Registration_Process::process( $id, $client, $T ), count( $GLOBALS['mail'] ), requests( 'POST' ) ), array( 'skipped', 1, 1 ) );
 ck( 'nor is a post that is no registration', WPCPM_Student_Registration_Process::process( reg_plain_post(), $client, $T ), 'skipped' );
 
@@ -1595,6 +1643,22 @@ echo "\n=== The form ===\n";
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-start-pages.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration-form.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
+
+/** The institution records' store, stood in: record ID to answers (`$GLOBALS['records']`). */
+class WPCPM_Institution_Record {
+	public static function answers_for( array $ids ) {
+		$GLOBALS['record_reads'][] = $ids;
+
+		return array_intersect_key( isset( $GLOBALS['records'] ) ? $GLOBALS['records'] : array(), array_flip( $ids ) );
+	}
+
+	public static function get( $record_id ) {
+		return isset( $GLOBALS['records'][ $record_id ] ) ? $GLOBALS['records'][ $record_id ] : array();
+	}
+}
+
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tracks.php';
 
 /** The institutions the site holds, in the stages the form's setting names and out of them. */
 function form_institutions() {
@@ -1857,19 +1921,20 @@ echo "\n--- The fourteen questions ---\n";
 
 $fields = WPCPM_Student_Registration_Form::fields();
 
-ck( 'the fourteen questions, in the Airtable form\'s order', array_keys( $fields ),
-	array( 'name', 'email', 'institution', 'study', 'tutor', 'tutor_email', 'start', 'end', 'hours', 'languages', 'preferred', 'access', 'english', 'consent' ) );
+ck( 'the fourteen questions, in the Airtable form\'s order, and the track question (#304) straight after Department / Area of Study', array_keys( $fields ),
+	array( 'name', 'email', 'institution', 'study', 'track', 'tutor', 'tutor_email', 'start', 'end', 'hours', 'languages', 'preferred', 'access', 'english', 'consent' ) );
 ck( 'with its labels, its two en dashes written as hyphens', array_values( array_column( $fields, 'label' ) ),
-	array( 'Full Name', 'Email', 'Educational Institution', 'Department / Area of Study', 'Tutor Name - The professor or main contact person at your educational institution', 'Your tutor\'s email address', 'Preferred Start Date', 'Estimated End Date', 'Total Expected Hours (Approximate)', 'Languages You Speak', 'Preferred Language', 'Do you have any accessibility needs we should be aware of?', 'Compliance declaration', 'Privacy Policy Compliance' ) );
-ck( 'the help of five, in its words, and none under the dates', array_filter( array_map( function ( $spec ) { return isset( $spec['help'] ) ? $spec['help'] : ''; }, $fields ) ), array(
+	array( 'Full Name', 'Email', 'Educational Institution', 'Department / Area of Study', 'Which track would you like to join?', 'Tutor Name - The professor or main contact person at your educational institution', 'Your tutor\'s email address', 'Preferred Start Date', 'Estimated End Date', 'Total Expected Hours (Approximate)', 'Languages You Speak', 'Preferred Language', 'Do you have any accessibility needs we should be aware of?', 'Compliance declaration', 'Privacy Policy Compliance' ) );
+ck( 'the help of five, in its words, the track question\'s among them, and none under the dates', array_filter( array_map( function ( $spec ) { return isset( $spec['help'] ) ? $spec['help'] : ''; }, $fields ) ), array(
+	'track'     => 'Your institution offers more than one track. If you have not decided yet, choose Not sure yet.',
 	'tutor'     => 'If your educational institution doesn\'t require you to indicate a tutor, you can skip this question.',
 	'hours'     => 'Format: Decimal',
 	'languages' => 'Select as many as you speak.',
 	'preferred' => 'Select only one.',
 	'access'    => 'Optional - Leave blank if none.',
 ) );
-ck( 'every one required but the tutor, the tutor\'s address and the accessibility needs',
-	array_keys( array_filter( $fields, function ( $spec ) { return empty( $spec['required'] ); } ) ), array( 'tutor', 'tutor_email', 'access' ) );
+ck( 'every one required but the track (the check decides it), the tutor, the tutor\'s address and the accessibility needs',
+	array_keys( array_filter( $fields, function ( $spec ) { return empty( $spec['required'] ); } ) ), array( 'track', 'tutor', 'tutor_email', 'access' ) );
 ck( 'the two boxes\' words, the policy\'s address its link', array( $fields['english']['box'], $fields['consent']['box'] ), array(
 	'I understand that the course is conducted in English, requires written communication, and involves proactive, independent remote work.',
 	'By clicking this checkbox, you understand that your information will be used in accordance with our Privacy Policy (<a href="https://wordpress.org/about/privacy/">https://wordpress.org/about/privacy/</a>).',
@@ -2059,7 +2124,7 @@ $page = WPCPM_Student_Registration_Form::render();
 
 preg_match_all( '#name="wpcpm_student_registration\[([a-z_]+)\]#', $page, $named );
 
-ck( 'open, the form asks every question in order, under the site\'s keys', array_values( array_unique( $named[1] ) ), array_keys( WPCPM_Student_Registration_Form::fields() ) );
+ck( 'open, the form asks every question in order, under the site\'s keys, but the track question, which is drawn only where an institution offers two tracks', array_values( array_unique( $named[1] ) ), array_values( array_diff( array_keys( WPCPM_Student_Registration_Form::fields() ), array( 'track' ) ) ) );
 ck( 'it posts to its handler with a nonce, a token and the honeypot, its button and its busy words',
 	array( false !== strpos( $page, 'name="action" value="wpcpm_student_register"' ), false !== strpos( $page, 'name="_wpnonce" value="nonce-wpcpm_student_register"' ), false !== strpos( $page, 'name="wpcpm_student_registration_token"' ), false !== strpos( $page, 'name="wpcpm_confirm_campus"' ), false !== strpos( $page, 'data-wpcpm-busy="Sending..." data-wpcpm-status="Sending your registration."' ), false !== strpos( $page, '>Send this registration</button>' ), false !== strpos( $page, 'data-wpcpm-once' ) ),
 	array( true, true, true, true, true, true, true ) );
@@ -2069,7 +2134,7 @@ ck( 'the stylesheet is the mentor form\'s, and five legends group the questions,
 $drawn_order = preg_match_all( '#(?:id|for)="wpcpm-student-registration-([a-z_]+)"#', $page, $drawn ) ? array_values( array_unique( $drawn[1] ) ) : array();
 ck( 'every question names a group there is, and the questions are drawn in the order they had',
 	array( array_diff( array_column( WPCPM_Student_Registration_Form::fields(), 'group' ), array_keys( WPCPM_Student_Registration_Form::groups() ) ), array_values( array_intersect( $drawn_order, array_keys( WPCPM_Student_Registration_Form::fields() ) ) ) ),
-	array( array(), array_keys( WPCPM_Student_Registration_Form::fields() ) ) );
+	array( array(), array_values( array_diff( array_keys( WPCPM_Student_Registration_Form::fields() ), array( 'track' ) ) ) ) );
 ck( 'the institution is the one field to type and pick: its label marked Required, the list from an empty first entry, the offered institutions A to Z, the field that takes typing beside it',
 	array(
 		false !== strpos( $page, '<label for="wpcpm-student-registration-institution" id="wpcpm-student-registration-institution-label">Educational Institution <span class="wpcpm-field__required">Required</span></label>' ),
@@ -2326,6 +2391,181 @@ foreach ( $words as $slug => $sentence ) {
 ck( 'every problem the form raises is worded in the site\'s voice, each as the design words it', array( $wrong, array_keys( array_diff_key( $words, $drawn ) ) ), array( array(), array() ) );
 ck( 'and the markup problem is the plugin\'s own sentence for text the cleaner would cut, naming the box',
 	form_problem_drawn( $again, 'access' ), esc_html( WPCPM_Typed_Text::loss_message( 'Do you have any accessibility needs we should be aware of?', 'send' ) ) );
+
+echo "\n--- The track question (#304) ---\n";
+
+// A has two tracks, B one, C none; the site runs four.
+function track_labels() {
+	return array(
+		'In Sensei'       => 'WordPress Credits Program 150h',
+		'In Sensei 50h'   => 'WordPress Credits Program 50h',
+		'Designer Track'  => 'Designer Track',
+		'Developer Track' => 'Developer Track',
+	);
+}
+
+$GLOBALS['filtered']['wpcpm_program_labels'] = 'track_labels';
+
+function track_world( array $a = array( 'In Sensei 50h', 'Developer Track' ) ) {
+	form_world();
+
+	$GLOBALS['settings']['student_registration_stages'] = array( 'Confirmed', 'Agreement Sent' );
+	$GLOBALS['records'] = array(
+		'recINSTITUTION001' => array( WPCPM_Institution_Tracks::RECORD_KEY => $a ),
+		'recINSTITUTION002' => array( WPCPM_Institution_Tracks::RECORD_KEY => array( 'Developer Track' ) ),
+	);
+}
+
+/** The cleaned answers of a post, without sending it. */
+function track_clean( array $posted ) {
+	$probe = new ReflectionMethod( 'WPCPM_Student_Registration_Form', 'clean_all' );
+	$probe->setAccessible( true );
+
+	return $probe->invoke( null, $posted );
+}
+
+track_world();
+
+$fields = WPCPM_Student_Registration_Form::fields();
+$keys   = array_keys( $fields );
+$at     = array_search( 'study', $keys, true );
+
+ck( 'the track question comes straight after Department / Area of Study, in its group, with its label and help, and is not required by its spec',
+	array( $keys[ $at + 1 ], $fields['track']['group'], $fields['track']['label'], $fields['track']['type'], $fields['track']['required'], $fields['track']['help'] ),
+	array( 'track', 'institution', 'Which track would you like to join?', 'track', false, 'Your institution offers more than one track. If you have not decided yet, choose Not sure yet.' ) );
+
+$no_track = form_submit( form_posted() );
+
+ck( 'a post for an institution that offers two tracks and carries none is refused at the question, every other answer kept, nothing stored',
+	array( $no_track['outcome'], $no_track['stash']['problems'] ?? null, $no_track['stash']['values']['name'] ?? null, $no_track['stash']['values']['institution'] ?? null, isset( $no_track['stash']['values']['track'] ), count( form_regs() ) ),
+	array( 'again', array( 'track' => 'track_needed' ), 'Ada Example', 'recINSTITUTION001', false, 0 ) );
+ck( 'and the refusal reads Choose a track, or Not sure yet.',
+	form_problem_drawn( form_redraw( $no_track ), 'track' ), 'Choose a track, or Not sure yet.' );
+
+$took = form_submit( form_posted( array( 'track' => 'Developer Track' ) ) );
+ck( 'a track the institution offers is taken',
+	array( $took['outcome'], count( form_regs() ) ),
+	array( 'sent', 1 ) );
+
+$taken = track_clean( form_posted( array( 'track' => 'Developer Track' ) ) );
+ck( 'the cleaned values hold the posted track and its name',
+	array( $taken['problems'], $taken['values']['track'] ?? null, $taken['values']['track_name'] ?? null ),
+	array( array(), 'Developer Track', 'Developer Track' ) );
+
+$sure = track_clean( form_posted( array( 'track' => 'not-sure' ) ) );
+ck( 'not-sure is taken, its name Not sure yet', array( $sure['problems'], $sure['values']['track'] ?? null, $sure['values']['track_name'] ?? null ), array( array(), 'not-sure', 'Not sure yet' ) );
+
+$named = track_clean( form_posted( array( 'track' => 'In Sensei 50h' ) ) );
+ck( 'the name is the Track Builder\'s, not the status', $named['values']['track_name'] ?? null, 'WordPress Credits Program 50h' );
+
+$other = track_clean( form_posted( array( 'track' => 'In Sensei' ) ) );
+ck( 'a track the institution does not offer is refused at the question, and none is kept',
+	array( $other['problems'], isset( $other['values']['track'] ), isset( $other['values']['track_name'] ) ),
+	array( array( 'track' => 'track_needed' ), false, false ) );
+
+foreach ( array( 'B' => 'recINSTITUTION002', 'C' => 'recINSTITUTION003' ) as $name => $id ) {
+	$post = track_clean( form_posted( array( 'institution' => $id, 'track' => 'Developer Track' ) ) );
+
+	ck( sprintf( 'a post for an institution that offers fewer than two tracks (%s) with a track is taken, and holds no track and no track name', $name ),
+		array( $post['problems'], isset( $post['values']['track'] ), isset( $post['values']['track_name'] ) ),
+		array( array(), false, false ) );
+}
+
+$bare = track_clean( form_posted( array( 'institution' => 'recINSTITUTION003' ) ) );
+ck( 'and one without a track is taken as well', $bare['problems'], array() );
+
+track_world( array( 'Developer Track', 'Not Run Track' ) );
+$one = track_clean( form_posted() );
+ck( 'an institution with one of its two tracks unpublished asks nothing: a post without a track is taken',
+	array( $one['problems'], isset( $one['values']['track'] ) ), array( array(), false ) );
+
+track_world( array( 'In Sensei 50h', 'Designer Track', 'Developer Track' ) );
+$before = track_clean( form_posted( array( 'track' => 'Developer Track' ) ) );
+$GLOBALS['filtered']['wpcpm_program_labels'] = static function () {
+	return array( 'In Sensei 50h' => 'WordPress Credits Program 50h', 'Designer Track' => 'Designer Track' );
+};
+$gone = track_clean( form_posted( array( 'track' => 'Developer Track' ) ) );
+ck( 'a status the institution held, unpublished by the site since the page was drawn, is refused at the question, never taken stale',
+	array( $before['problems'], $gone['problems'], isset( $gone['values']['track'] ) ), array( array(), array( 'track' => 'track_needed' ), false ) );
+$GLOBALS['filtered']['wpcpm_program_labels'] = 'track_labels';
+
+// The page.
+track_world();
+$page = WPCPM_Student_Registration_Form::render();
+
+ck( 'the form carries the tracks of the institution that asks, as JSON in the Track Builder\'s order, and no other',
+	1 === preg_match( '#<form[^>]* data-wpcpm-tracks="([^"]*)"#', $page, $map ) ? html_entity_decode( $map[1], ENT_QUOTES ) : null,
+	'{"recINSTITUTION001":[["In Sensei 50h","WordPress Credits Program 50h"],["Developer Track","Developer Track"]]}' );
+
+$wrap = 1 === preg_match( '#<fieldset[^>]*wpcpm-field--track[^>]*>#', $page, $found ) ? $found[0] : '';
+
+ck( 'a fresh form draws the question in a wrapper tied to the institution\'s select by name, hidden and disabled so that it posts nothing',
+	array( false !== strpos( $wrap, ' data-wpcpm-tracks-for="wpcpm_student_registration[institution]"' ), false !== strpos( $wrap, ' hidden' ), false !== strpos( $wrap, ' disabled' ) ),
+	array( true, true, true ) );
+ck( 'with its legend, its help tied to the group, and no radio yet',
+	array(
+		false !== strpos( $page, '<legend>Which track would you like to join?' ),
+		false !== strpos( $page, 'id="wpcpm-student-registration-track-help">Your institution offers more than one track. If you have not decided yet, choose Not sure yet.</span>' ),
+		false !== strpos( $wrap, 'aria-describedby="wpcpm-student-registration-track-help"' ),
+		false !== strpos( $page, 'type="radio"' ),
+	),
+	array( true, true, true, false ) );
+ck( 'the wrapper sits straight after the study, before the tutor',
+	1 === preg_match( '#wpcpm-student-registration-study.*?wpcpm-field--track.*?wpcpm-student-registration-tutor#s', $page ), true );
+
+$bounced = form_submit( form_posted( array( 'name' => '', 'track' => 'In Sensei' ) ) );
+$again   = form_redraw( $bounced );
+$wrap    = 1 === preg_match( '#<fieldset[^>]*wpcpm-field--track[^>]*>#', $again, $found ) ? $found[0] : '';
+
+ck( 'a redraw whose institution asks draws the question visible and enabled, with the two tracks and Not sure yet as radios',
+	array(
+		false === strpos( $wrap, ' hidden' ) && false === strpos( $wrap, ' disabled' ),
+		preg_match_all( '#<input type="radio" name="wpcpm_student_registration\[track\]" value="([^"]*)"#', $again, $radios ) ? $radios[1] : array(),
+		preg_match_all( '#<span>([^<]*)</span></label>#', substr( $again, (int) strpos( $again, 'wpcpm-field--track' ), 1500 ), $texts ) ? $texts[1] : array(),
+	),
+	array( true, array( 'In Sensei 50h', 'Developer Track', 'not-sure' ), array( 'WordPress Credits Program 50h', 'Developer Track', 'Not sure yet' ) ) );
+ck( 'and a track the institution does not offer comes back with nothing checked',
+	preg_match_all( '#type="radio"[^>]*? checked#', $again ), 0 );
+
+$bounced = form_submit( form_posted( array( 'name' => '', 'track' => 'not-sure' ) ) );
+$again   = form_redraw( $bounced );
+ck( 'the posted track is checked on the redraw, and no other',
+	preg_match_all( '#<input type="radio" name="wpcpm_student_registration\[track\]" value="([^"]*)"[^>]*? checked#', $again, $checked ) ? $checked[1] : array(),
+	array( 'not-sure' ) );
+
+$bounced = form_submit( form_posted() );
+$again   = form_redraw( $bounced );
+ck( 'a track refused is drawn with its sentence under the radios, the group described by its help and its problem',
+	array(
+		false !== strpos( $again, 'id="wpcpm-student-registration-track-problem">Choose a track, or Not sure yet.</span>' ),
+		1 === preg_match( '#<fieldset[^>]*wpcpm-field--track[^>]*aria-describedby="wpcpm-student-registration-track-help wpcpm-student-registration-track-problem"#', $again ),
+	),
+	array( true, true ) );
+
+$bounced = form_submit( form_posted( array( 'institution' => 'recINSTITUTION002', 'name' => '' ) ) );
+$again   = form_redraw( $bounced );
+$wrap    = 1 === preg_match( '#<fieldset[^>]*wpcpm-field--track[^>]*>#', $again, $found ) ? $found[0] : '';
+ck( 'a redraw whose institution offers one track keeps the question hidden and disabled, with no radio',
+	array( false !== strpos( $wrap, ' hidden' ), false !== strpos( $wrap, ' disabled' ), false !== strpos( $again, 'type="radio" name="wpcpm_student_registration[track]"' ) ),
+	array( true, true, false ) );
+
+track_world();
+$GLOBALS['record_reads'] = array();
+$page = WPCPM_Student_Registration_Form::render();
+ck( 'drawing the form reads the offered institutions\' records in one bulk read, not one for each',
+	array( count( $GLOBALS['record_reads'] ), count( $GLOBALS['record_reads'][0] ?? array() ) > 1 ),
+	array( 1, true ) );
+
+$GLOBALS['records'] = array();
+$page = WPCPM_Student_Registration_Form::render();
+ck( 'with no institution asking, the question is not drawn at all',
+	array( false !== strpos( $page, 'wpcpm-field--track' ), false !== strpos( $page, 'data-wpcpm-tracks' ) ),
+	array( false, false ) );
+
+$js = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/forms.js' );
+ck( 'the forms script documents its track hook in the header list and reads both data attributes',
+	array( 1 === preg_match( '#^ \* - `data-wpcpm-tracks`#m', $js ), false !== strpos( $js, 'data-wpcpm-tracks-for' ) ),
+	array( true, true ) );
 
 echo "\n--- The thank-you, and the page's other words ---\n";
 
@@ -3306,6 +3546,25 @@ ck( 'the answers and the consent are folded under each row: the labels, the answ
 		false !== strpos( $rowof( $written ), 'Agreed to: By clicking this checkbox, you understand that your information will be used in accordance with our Privacy Policy (https://example.test/privacy/). Time: November 15, 2023 12:13 am. Address: 203.0.113.0. Browser: Mozilla/5.0 (test).' ),
 	),
 	array( true, true, true, true, true, true, true ) );
+
+$with_track = tab_reg( 'written', array( 'email' => 'track1@example.test', 'track' => 'In Sensei', 'track_name' => 'Developer Track' ) );
+$no_track   = tab_reg( 'written', array( 'email' => 'track2@example.test' ) );
+$sure_track = tab_reg( 'written', array( 'email' => 'track3@example.test', 'track' => 'not-sure', 'track_name' => 'Not sure yet' ) );
+$page       = tab_html();
+$rowof      = static function ( $id ) use ( $page ) {
+	preg_match( '#<li class="wpcpm-queue-item" id="wpcpm-sreg-' . $id . '">.*?</li>#s', $page, $m );
+
+	return isset( $m[0] ) ? $m[0] : '';
+};
+
+ck( 'the track question is one of the folded answers, under its label: the track\'s name or Not sure yet, and no row (not "no answer") for a registration never asked',
+	array(
+		false !== strpos( $rowof( $with_track ), '<th scope="row">Which track would you like to join?</th><td>Developer Track</td>' ),
+		false !== strpos( $rowof( $sure_track ), '<th scope="row">Which track would you like to join?</th><td>Not sure yet</td>' ),
+		false === strpos( $rowof( $no_track ), 'Which track would you like to join?' ) && '' !== $rowof( $no_track ),
+		false === strpos( $rowof( $with_track ), '>In Sensei<' ),
+	),
+	array( true, true, true, true ) );
 
 echo "\n--- The three presses ---\n";
 

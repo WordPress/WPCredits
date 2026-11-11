@@ -31,8 +31,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * site's record follows the same rule; and a second press of Approve, or the resume of one that
  * stopped partway, asks again and changes nothing. A correction is another thing, and has its own,
  * deliberate way in (Institutions release 2): `set()` overwrites the answers it is given, and a blank
- * one clears its key. Only `WPCPM_Institution_Details::write()` calls it, so a correction is always
- * one that was cleaned, compared and audited.
+ * one clears its key. Only `WPCPM_Institution_Details::write()` and `WPCPM_Institution_Tracks::save()` call it, so a
+ * correction is always one that was cleaned, compared and audited.
  *
  * **Private again whenever it is written.** A record another process trashed, drafted or published,
  * or left as an auto-draft, is still the institution's record, and is found as such. Either method
@@ -129,6 +129,62 @@ class WPCPM_Institution_Record {
 	}
 
 	/**
+	 * The answers of many institutions at once, for a page that draws them all: one query for the
+	 * posts, the meta read in one go, instead of a query for each institution.
+	 *
+	 * This read may be this request's cached copy: it never decides under a school's lock (`get()`
+	 * does that, and is unchanged).
+	 *
+	 * @param string[] $record_ids Airtable record IDs.
+	 * @return array<string, array> Record ID => its answers, for each record that has a post; the
+	 *                              IDs without one are left out.
+	 */
+	public static function answers_for( array $record_ids ) {
+		$wanted = array();
+
+		foreach ( $record_ids as $record_id ) {
+			$clean = self::clean_id( $record_id );
+
+			if ( '' !== $clean ) {
+				$wanted[ $clean ] = true;
+			}
+		}
+
+		if ( empty( $wanted ) ) {
+			return array();
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => self::POST_STATUSES,
+				'fields'           => 'ids',
+				'numberposts'      => -1,
+				'suppress_filters' => true,
+			)
+		);
+
+		if ( empty( $posts ) ) {
+			return array();
+		}
+
+		update_meta_cache( 'post', $posts );
+
+		$out = array();
+
+		foreach ( $posts as $post_id ) {
+			$record_id = (string) get_post_meta( $post_id, self::META_RECORD, true );
+
+			// The first post of a record, as `get()` finds one, and only the ones asked for.
+			if ( isset( $wanted[ $record_id ] ) && ! isset( $out[ $record_id ] ) ) {
+				$out[ $record_id ] = self::answers_of( $post_id );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Drop this request's copy of one institution's answers, so the next read of them is the table's.
 	 *
 	 * WordPress keeps every meta row it has read for the rest of a request. A caller that reads the
@@ -208,7 +264,8 @@ class WPCPM_Institution_Record {
 	/**
 	 * Correct the answers an institution has: overwrite the ones given, clear the ones given blank.
 	 *
-	 * For `WPCPM_Institution_Details::write()` alone, once a correction has been cleaned and compared.
+	 * For `WPCPM_Institution_Details::write()` and `WPCPM_Institution_Tracks::save()` alone, once a correction
+	 * has been cleaned and compared.
 	 * Where `fill_empty()` never lets an answer change, this is how one does: a key the call carries
 	 * takes the call's answer over the record's, a blank answer removes the key (a record holds an
 	 * answer or nothing, never an empty answer), and a key the call does not carry is left as it is.

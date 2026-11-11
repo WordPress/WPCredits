@@ -257,6 +257,8 @@ class WPCPM_Mentors_Sync {
 				// why they arrive through the same email-keyed join the tutor does.
 				'student_study'              => 'Your field of study',
 				'student_access'             => 'Accessibility needs',
+				// The track a student asked for, as its name (#304); the registration's own column.
+				'student_requested_track'    => 'Requested track',
 				// The rest of the Students table the students sync's Students-table pass
 				// reads for the per-institution roster index (design spec section 8.1).
 				// `Educational Institutions` is plural with a capital I, and `Start Date`

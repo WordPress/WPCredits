@@ -21,6 +21,8 @@ it does today. The Airtable migration later moves the rest onto the site.
 1. The form asks exactly the Airtable form's questions: the same thirteen, the same words, the same
    order. Nothing is added. (A track question was considered and dropped: the program manager
    assigns the track, and a requested track would need a new Airtable column.)
+   Reversed on 11 November 2026: a school offering several tracks asks its students for one. See
+   `docs/specs/2026-11-11-registration-track-question-design.md`.
 2. A registration goes straight into Airtable's Students table, as today.
 3. No second Students row. Before writing, the site checks the email; when the address belongs to an
    account on the site, nothing is written and the student is directed to sign in.

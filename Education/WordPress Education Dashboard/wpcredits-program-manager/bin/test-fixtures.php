@@ -256,8 +256,10 @@ ck( 'every column the Students-table pass reads exists', not_offered( $sync_read
 // And the sync's own map, not a copy of it: the fixture exists to catch the two drifting apart.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 $sync_student = array();
+// Columns a release asks Airtable to add: created before the release, and this fixture is refreshed from the live base after.
+$asked_not_read = array( 'student_requested_track' );
 foreach ( WPCPM_Mentors_Sync::fields() as $key => $name ) {
-	if ( 0 === strpos( $key, 'student_' ) ) {
+	if ( 0 === strpos( $key, 'student_' ) && ! in_array( $key, $asked_not_read, true ) ) {
 		$sync_student[] = $name;
 	}
 }

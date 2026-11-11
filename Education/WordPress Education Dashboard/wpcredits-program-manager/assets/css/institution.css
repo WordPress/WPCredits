@@ -1322,6 +1322,7 @@
 
 .wpcpm-details__note {
 	margin: 0 0 1em;
+	overflow-wrap: anywhere;
 }
 
 .wpcpm-details__actions {

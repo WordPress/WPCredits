@@ -4,12 +4,14 @@ The section **Representatives and agreement** says under its title "Who at your 
 
 ### Your institution's details
 
-The card says "What the program has on record." and lists eleven details under two small headings. A detail the program holds nothing for reads **Not given yet**.
+The card says "What the program has on record." and lists eleven details under two small headings, then the tracks your institution offers. A detail the program holds nothing for reads **Not given yet**.
 
 - **Contact and agreement**: **Contact person**, **Their role**, **Signs the agreement**, **Their title**, **Students study in** and **Page about WordPress Credits**.
 - **Name and address**: **Name**, **Website**, **City**, **Country** and **Contact's email**.
 
-Every account of your institution reads the card and may correct it, and the two headings differ in one way. The contact and agreement details are yours to correct at once. The name and address details are asked for, and an Administrator decides. The program reaches your institution by the contact's email, files it by its country and shows its name on a public page, so a person at the program checks a change to any of them first.
+Every account of your institution reads the card and may correct its details, and the two headings differ in one way. The contact and agreement details are yours to correct at once. The name and address details are asked for, and an Administrator decides. The program reaches your institution by the contact's email, files it by its country and shows its name on a public page, so a person at the program checks a change to any of them first.
+
+**Tracks offered** lists the tracks your institution offers. The program sets them, not you: to change them, write to the program. When your institution offers two or more, its students are asked which track they want when they register.
 
 Under each list is a closed section that opens the form for that list alone. The form asks the questions your institution answered when it applied, in the same words and with the same rules, and shows the value the program has: a box for a name, a web address or an email address, a list of ticks for the languages, and for the country one field that takes typing and narrows its list ("Type to find your country").
 

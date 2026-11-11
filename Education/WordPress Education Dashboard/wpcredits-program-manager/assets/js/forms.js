@@ -29,6 +29,15 @@
  * - `data-wpcpm-needs="<name>"` on a control makes it required, and open, only while the form's
  *   one control of that name holds a value (the count of a repeat rule on the planning form);
  *   a name shared by radios is not a control and is left alone;
+ * - `data-wpcpm-tracks` on a form is JSON, institution record ID to a list of `[status, name]`, for the
+ *   institutions that ask a student for a track (the student registration form), and
+ *   `data-wpcpm-tracks-for="<name>"` on the question's wrapper names the institution select it follows.
+ *   While the select holds an ID in the map the wrapper is open, with that institution's tracks and Not
+ *   sure yet as radios (a still valid pick is kept); otherwise it is hidden and disabled and holds no
+ *   radio, so nothing is posted. `data-wpcpm-tracks-name` is the radios' name, `data-wpcpm-tracks-not-sure` the
+ *   words of the Not sure yet choice and `data-wpcpm-tracks-choices` the element the radios are drawn in.
+ *   The institution combo sets its select and sends no `change`, so the
+ *   select is read again after a click, a key or a blur in the form as well as on `change`;
  * - `data-wpcpm-confirm` on a form or on a submit control is a question asked with
  *   `window.confirm()` before the form posts, and a No posts nothing. It is read for any form on
  *   the page when that form is submitted, including one inserted after the page loaded;
@@ -559,6 +568,145 @@
 		target.focus();
 	}
 
+	/**
+	 * Show the registration form's track question for an institution that asks for one.
+	 *
+	 * A convenience, never a control: the server asks again when it checks the post, and with no script
+	 * the question is drawn only after a refusal that names it, so a student at a school that offers one
+	 * track never meets it.
+	 */
+	function trackQuestion() {
+		var forms = document.querySelectorAll( 'form[data-wpcpm-tracks]' );
+		var i;
+
+		for ( i = 0; i < forms.length; i++ ) {
+			bindTrackQuestion( forms[ i ] );
+		}
+	}
+
+	/**
+	 * @param {HTMLFormElement} form A form carrying `data-wpcpm-tracks`.
+	 */
+	function bindTrackQuestion( form ) {
+		var map;
+		var wrap = form.querySelector( '[data-wpcpm-tracks-for]' );
+		var source = wrap ? form.elements[ wrap.getAttribute( 'data-wpcpm-tracks-for' ) ] : null;
+		var holder = wrap ? wrap.querySelector( '[data-wpcpm-tracks-choices]' ) : null;
+		var last = null;
+		var shownFor;
+
+		try {
+			map = JSON.parse( form.getAttribute( 'data-wpcpm-tracks' ) );
+		} catch ( error ) {
+			return;
+		}
+
+		if ( ! map || ! holder || ! source || 'undefined' === typeof source.value || 'function' !== typeof source.addEventListener ) {
+			return;
+		}
+
+		shownFor = wrap.hidden ? null : source.value;
+
+		/**
+		 * One radio, with its words.
+		 *
+		 * @param {string}  value   The status, or the Not sure yet key.
+		 * @param {string}  text    The words beside the radio.
+		 * @param {boolean} checked Whether it is the pick.
+		 * @return {HTMLLabelElement}
+		 */
+		function radio( value, text, checked ) {
+			var label = document.createElement( 'label' );
+			var input = document.createElement( 'input' );
+			var words = document.createElement( 'span' );
+
+			label.className = 'wpcpm-field__check';
+			input.setAttribute( 'type', 'radio' );
+			input.name = wrap.getAttribute( 'data-wpcpm-tracks-name' );
+			input.value = value;
+			input.required = true;
+			input.checked = checked;
+			words.textContent = text;
+			label.appendChild( input );
+			label.appendChild( words );
+
+			return label;
+		}
+
+		function empty() {
+			while ( holder.firstChild ) {
+				holder.removeChild( holder.firstChild );
+			}
+		}
+
+		function apply() {
+			var id = source.value;
+			var list = Object.prototype.hasOwnProperty.call( map, id ) ? map[ id ] : null;
+			var radios = wrap.querySelectorAll( 'input[type="radio"]' );
+			var kept = '';
+			var valid = false;
+			var j;
+
+			for ( j = 0; j < radios.length; j++ ) {
+				kept = radios[ j ].checked ? radios[ j ].value : kept;
+			}
+
+			last = id;
+
+			if ( ! list ) {
+				// Closed and emptied: a disabled group posts nothing, and no radio is left to hold a pick.
+				wrap.hidden = true;
+				wrap.disabled = true;
+				empty();
+				shownFor = null;
+				return;
+			}
+
+			if ( ! wrap.hidden && shownFor === id ) {
+				return;
+			}
+
+			for ( j = 0; j < list.length; j++ ) {
+				valid = valid || list[ j ][ 0 ] === kept;
+			}
+
+			valid = valid || kept === 'not-sure';
+			empty();
+
+			for ( j = 0; j < list.length; j++ ) {
+				holder.appendChild( radio( list[ j ][ 0 ], list[ j ][ 1 ], valid && list[ j ][ 0 ] === kept ) );
+			}
+
+			holder.appendChild( radio( 'not-sure', wrap.getAttribute( 'data-wpcpm-tracks-not-sure' ), valid && 'not-sure' === kept ) );
+			wrap.disabled = false;
+			wrap.hidden = false;
+			shownFor = id;
+		}
+
+		function check() {
+			// Only a change of institution does anything, so a key typed in another box costs a read.
+			if ( source.value !== last ) {
+				apply();
+			}
+		}
+
+		function later() {
+			window.setTimeout( check, 0 );
+		}
+
+		source.addEventListener( 'change', check );
+
+		// The combo sets the select's chosen option itself and fires nothing on it, so what it does
+		// fire (a click on a name, Enter, the blur that follows) is watched on the form, and the select
+		// is read once that has run.
+		form.addEventListener( 'click', later );
+		form.addEventListener( 'keydown', later );
+		form.addEventListener( 'keyup', later );
+		form.addEventListener( 'focusout', later );
+		window.addEventListener( 'pageshow', later );
+		apply();
+	}
+
 	ready( function () {
 		focusOutcome();
 		watchPressed();
@@ -567,5 +715,6 @@
 		selectOnClick();
 		showForKind();
 		requireWith();
+		trackQuestion();
 	} );
 }() );

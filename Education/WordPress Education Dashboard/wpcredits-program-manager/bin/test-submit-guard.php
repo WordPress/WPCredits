@@ -54,8 +54,8 @@ ck( 'forms.js exists and defines the guard, as a handler of the submit event and
         false !== strpos( $js, "querySelectorAll( 'form[data-wpcpm-once]' )" ),
     ),
     array( true, false, false, false ) );
-ck( 'and wires it, with the confirm reader in the one submit listener, after the focus on a refused form\'s summary or a card\'s outcome (1.123.58) and the press tracker, and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*focusOutcome\(\);\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, with the confirm reader in the one submit listener, after the focus on a refused form\'s summary or a card\'s outcome (1.123.58) and the press tracker, and with the bfcache release, the code-selector, the kind switch and the required-with switch and the registration form\'s track question, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*focusOutcome\(\);\s*watchPressed\(\);\s*watchSubmits\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*trackQuestion\(\);\s*\} \);/', $js ) );
 
 // The deep check of 1.109.1, SESSIONS-6: "Cancel the session" and "Leave the session" carried a
 // `data-wpcpm-confirm` sentence that no script read, so one press canceled a session for everybody.

@@ -602,6 +602,7 @@ class WPCPM_Institution_History {
 			'student_linked'        => __( 'A student was linked to this institution.', 'wpcredits-program-manager' ),
 			'student-invite-resent' => __( 'A welcome invitation was sent to a student.', 'wpcredits-program-manager' ),
 			'details_saved'         => __( 'The institution\'s details were corrected.', 'wpcredits-program-manager' ),
+			'tracks_saved'          => __( 'The tracks the institution offers were changed.', 'wpcredits-program-manager' ),
 		);
 	}
 }

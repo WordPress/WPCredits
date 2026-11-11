@@ -77,6 +77,7 @@ $GLOBALS['events']      = array();
 $GLOBALS['combos']      = array();
 $GLOBALS['nonce_ok']    = true;
 $GLOBALS['hooks']       = array();
+$GLOBALS['labels']      = array();
 $GLOBALS['base_words'] = array();
 
 class WP_Error {
@@ -376,6 +377,13 @@ class WPCPM_Institution_Record {
 	/** Contract: this request's copy of the institution's answers is dropped, so the next read is the table's. */
 	public static function forget_cached( $record ) { $GLOBALS['events'][] = 'forget record'; }
 }
+/** The tracks the site runs: the Track Builder's published tracks, status => name, in its order. */
+class WPCPM_Program {
+	public static function labels() { return $GLOBALS['labels']; }
+}
+class WPCPM_Student_Registration_Form {
+	const CONTACT = 'education@wordpressfoundation.org';
+}
 class WPCPM_Administrators_Dashboard {
 	public static $url = 'https://example.test/administrator-dashboard/';
 	public static function page_url() { return self::$url; }
@@ -424,6 +432,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tracks.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details-card.php';
 
 $fail = 0;
@@ -539,6 +548,9 @@ function words_in( $text ) {
 function plain( $html ) { return trim( (string) preg_replace( '/\s+/', ' ', html_entity_decode( strip_tags( str_replace( '<', ' <', (string) $html ) ), ENT_QUOTES ) ) ); }
 /** The rows of the read view, label to value, in the order drawn. */
 function rows( $html ) {
+	// The two groups' rows: the Tracks offered section below them has its own checks.
+	$cut  = strpos( $html, '<h4 class="wpcpm-details__subtitle">Tracks</h4>' );
+	$html = false === $cut ? $html : substr( $html, 0, $cut );
 	preg_match_all( '#<div class="wpcpm-details__row"><dt>(.*?)</dt><dd>(.*?)</dd>#s', $html, $m, PREG_SET_ORDER );
 	$out = array();
 	foreach ( $m as $row ) { $out[ html_entity_decode( $row[1], ENT_QUOTES ) ] = plain( $row[2] ); }
@@ -628,6 +640,7 @@ function post_as( $uid, $group, array $edits = array(), $record = A, array $extr
 	return run( 'now' === $group ? 'handle_save' : 'handle_ask' );
 }
 function member_back() { return 'redirect:https://example.test/institution-dashboard/#wpcpm-details'; }
+function tracks_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '#wpcpm-details-tracks-outcome'; }
 function manager_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '#wpcpm-details'; }
 /** Whether one call comes before another in a method body, with both present (absence is not "before"). */
 function before( $body, $first, $second ) {
@@ -661,7 +674,7 @@ ck( 'two actions, one for each group', array( WPCPM_Institution_Details_Card::AC
 ck( 'the anchor the dashboard and the handlers come back to', WPCPM_Institution_Details_Card::ANCHOR, 'wpcpm-details' );
 
 WPCPM_Institution_Details_Card::init();
-ck( 'both handlers are registered for a signed-in account', $GLOBALS['hooks'], array( 'admin_post_wpcpm_save_details', 'admin_post_wpcpm_ask_details' ) );
+ck( 'both handlers are registered for a signed-in account, and the tracks one after them', $GLOBALS['hooks'], array( 'admin_post_wpcpm_save_details', 'admin_post_wpcpm_ask_details', 'admin_post_wpcpm_institution_tracks_save' ) );
 
 /* ---- the read view ------------------------------------------------------- */
 
@@ -675,7 +688,7 @@ ck( 'a section around an open details group, as the people card draws it', 0 ===
 ck( 'closed again after its body', substr( $html, -strlen( '</div></details></section>' ) ), '</div></details></section>' );
 ck( 'the lead says what the list is', has( $html, '<p class="wpcpm-details__lead">What the program has on record.</p>' ), true );
 preg_match_all( '#<h4 class="wpcpm-details__subtitle">(.*?)</h4>#', $html, $headings );
-ck( 'the two small headings, in order', $headings[1], array( 'Contact and agreement', 'Name and address' ) );
+ck( 'the two small headings, in order, then Tracks', $headings[1], array( 'Contact and agreement', 'Name and address', 'Tracks' ) );
 ck(
 	'the rows follow the details table, with its labels and in its order, the languages joined by a comma',
 	rows( $html ),
@@ -1321,6 +1334,135 @@ ck( 'and writes under the school\'s lock, reading again what is on record first,
 ck( 'the policy it asks is the details action, in the card and in the handler', array( substr_count( $src, 'WPCPM_Institution_Policy::ACT_EDIT_DETAILS' ) >= 2, has( $run, 'ACT_EDIT_DETAILS' ) ), array( true, true ) );
 ck( 'the card writes through the details class and never to Airtable or the posts itself', array( substr_count( $src, '->update_records(' ), substr_count( $src, 'wp_insert_post(' ), substr_count( $src, 'update_post_meta(' ) ), array( 0, 0, 0 ) );
 ck( 'the one email it sends goes through the request class\'s helper for the details emails, which builds it from the template registry', array( substr_count( $src, 'WPCPM_Institution_Request::mail_managers(' ), substr_count( $src, 'WPCPM_Mail::' ), substr_count( $src, 'self::MAIL_SAVED' ) >= 1 ), array( 1, 0, true ) );
+
+
+echo "\n=== Tracks offered: the section and its handler ===\n";
+
+$GLOBALS['labels'] = array(
+	'In Sensei'       => 'WordPress Credits Program 150h',
+	'In Sensei 50h'   => 'WordPress Credits Program 50h',
+	'Designer Track'  => 'Designer Track',
+	'Developer Track' => 'Developer Track',
+);
+const TRACK_FIELD = 'wpcpm_tracks_offered';
+/** The tracks section of a page: from its small heading to the end of the card's body. */
+function tracks_part( $html ) {
+	$at = strpos( $html, '<h4 class="wpcpm-details__subtitle">Tracks</h4>' );
+	return false === $at ? '' : substr( $html, $at );
+}
+/** Post the Tracks offered form as one account. */
+function post_tracks( $uid, array $statuses, $record = A, array $extra = array() ) {
+	$GLOBALS['uid'] = (int) $uid;
+	$_POST          = array_merge( array( 'record' => $record, 'action' => 'wpcpm_institution_tracks_save', TRACK_FIELD => $statuses ), $extra );
+	try {
+		WPCPM_Institution_Tracks::handle_save();
+	} catch ( Exception $e ) {
+		return $e->getMessage();
+	}
+	return '';
+}
+
+ck( 'the actions and the field are named', array( WPCPM_Institution_Tracks::ACTION_SAVE, WPCPM_Institution_Tracks::FIELD ), array( 'wpcpm_institution_tracks_save', 'wpcpm_tracks_offered' ) );
+
+fresh();
+$GLOBALS['records'][ A ]['tracks_offered'] = array( 'Developer Track', 'In Sensei', 'Retired Track' );
+
+$member = tracks_part( draw( 7 ) );
+ck( 'a member reads the names of the runnable tracks, in the Track Builder\'s order, and not one the site stopped running', array( has( $member, 'WordPress Credits Program 150h, Developer Track' ), has( $member, 'Retired Track' ) ), array( true, false ) );
+ck( 'a member is told who sets them, with the program\'s contact address', has( $member, 'The program sets the tracks your institution offers. To change them, write to education@wordpressfoundation.org.' ), true );
+ck( 'and is drawn no form, no checkbox and no action to post', array( has( $member, '<form' ), has( $member, 'checkbox' ), has( $member, 'wpcpm_institution_tracks_save' ), has( $member, TRACK_FIELD ) ), array( false, false, false, false ) );
+$GLOBALS['settings']['mail_contact'] = 'help@example.test';
+ck( 'the contact address is the setting while it holds one', has( tracks_part( draw( 7 ) ), 'write to help@example.test.' ), true );
+$GLOBALS['settings']['mail_contact'] = '';
+
+$GLOBALS['records'][ A ]['tracks_offered'] = array();
+ck( 'a school with none listed reads so', has( tracks_part( draw( 7 ) ), 'None listed yet.' ), true );
+$GLOBALS['records'][ A ]['tracks_offered'] = array( 'Developer Track', 'In Sensei', 'Retired Track' );
+
+$admin = tracks_part( draw( 1 ) );
+ck( 'an Administrator reads the same names', has( $admin, 'WordPress Credits Program 150h, Developer Track' ), true );
+ck( 'and is drawn a form posting to admin-post with the action, the record and a nonce keyed to both', array(
+	has( $admin, '<form class="wpcpm-details__form" method="post" action="https://example.test/wp-admin/admin-post.php"' ),
+	has( $admin, '<input type="hidden" name="action" value="wpcpm_institution_tracks_save" />' ),
+	has( $admin, '<input type="hidden" name="record" value="' . A . '" />' ),
+	has( $admin, 'value="nonce-wpcpm_institution_tracks_save_' . A . '"' ),
+), array( true, true, true, true ) );
+preg_match_all( '#name="wpcpm_tracks_offered\[\]" value="([^"]*)"( checked="checked")?#', $admin, $boxes, PREG_SET_ORDER );
+ck( 'one checkbox per track the site runs, ticked for the runnable stored ones', array_map( static function ( $b ) { return array( html_entity_decode( $b[1], ENT_QUOTES ), ! empty( $b[2] ) ); }, $boxes ), array( array( 'In Sensei', true ), array( 'In Sensei 50h', false ), array( 'Designer Track', false ), array( 'Developer Track', true ) ) );
+ck( 'with each track named, the button and the help line', array( has( $admin, '<span>WordPress Credits Program 50h</span>' ), has( $admin, '>Save tracks</button>' ), has( $admin, 'Students are asked which track they want when two or more are ticked.' ) ), array( true, true, true ) );
+ck( 'the form is not drawn to a reader the policy refuses', draw( 9, A ), '' );
+
+// The value is drawn as the groups above draw theirs: a one-row definition list, and the Administrator's form
+// in a closed disclosure with the card's summary pattern.
+$row_of = static function ( $names ) {
+	return '<dl class="wpcpm-details__list"><div class="wpcpm-details__row"><dt>Tracks offered</dt><dd>' . $names . '</dd></div></dl>';
+};
+ck( 'the tracks are one row of a definition list, as the groups above are drawn, for a member and an Administrator', array( has( $member, $row_of( 'WordPress Credits Program 150h, Developer Track' ) ), has( $admin, $row_of( 'WordPress Credits Program 150h, Developer Track' ) ), has( $member . $admin, 'wpcpm-details__tracks' ) ), array( true, true, false ) );
+$GLOBALS['records'][ A ]['tracks_offered'] = array();
+ck( 'none listed is the row\'s value', array( has( tracks_part( draw( 7 ) ), $row_of( 'None listed yet.' ) ), has( tracks_part( draw( 7 ) ), 'wpcpm-details__note' ) ), array( true, true ) );
+$GLOBALS['records'][ A ]['tracks_offered'] = array( 'Developer Track', 'In Sensei', 'Retired Track' );
+ck( 'the Administrator\'s checkboxes, help line and button sit in a closed disclosure, with a summary in the card\'s voice', array(
+	has( $admin, '<details class="wpcpm-details__more" id="wpcpm-details-tracks"><summary class="wpcpm-details__toggle">Change the tracks</summary><form class="wpcpm-details__form"' ),
+	has( $admin, 'Save tracks</button></p></form></details>' ),
+	has( $admin, 'wpcpm-details__more" id="wpcpm-details-tracks" open' ),
+), array( true, true, false ) );
+
+echo "\n-- the handler --\n";
+
+fresh();
+$GLOBALS['records'][ A ]['tracks_offered'] = array( 'In Sensei', 'Retired Track' );
+$before                                    = $GLOBALS['records'][ A ];
+$refusal                                   = 'wp_die:' . WPCPM_Institution_Policy::refusal()->get_error_message();
+ck( 'a member\'s hand-made post with a valid nonce is refused with the policy\'s 403', post_tracks( 7, array( 'Designer Track' ) ), $refusal );
+ck( 'and nothing was kept or audited', array( $GLOBALS['records'][ A ], count( audit( A, 'tracks_saved' ) ), $GLOBALS['umeta'] ), array( $before, 0, array() ) );
+ck( 'another school\'s member, a stranger, a signed-out post and a bad record are refused alike', array( post_tracks( 9, array( 'Designer Track' ) ), post_tracks( 5, array( 'Designer Track' ) ), post_tracks( 0, array( 'Designer Track' ) ), post_tracks( 1, array( 'Designer Track' ), 'not-a-record' ) ), array( $refusal, $refusal, $refusal, $refusal ) );
+ck( 'still nothing written', $GLOBALS['records'][ A ], $before );
+
+$GLOBALS['nonce_ok'] = false;
+ck( 'a nonce for another record is refused by check_admin_referer, keyed to the posted record', post_tracks( 1, array( 'Designer Track' ), B ), 'nonce:wpcpm_institution_tracks_save_' . B );
+$GLOBALS['nonce_ok'] = true;
+ck( 'and nothing was written', array( $GLOBALS['records'][ A ], isset( $GLOBALS['records'][ B ]['tracks_offered'] ) ), array( $before, false ) );
+
+$GLOBALS['events'] = array();
+ck( 'an Administrator\'s post saves, and goes back to the card on the school they were viewing', post_tracks( 1, array( 'Developer Track', 'In Sensei 50h' ) ), tracks_back( A ) );
+ck( 'the list is kept in the Track Builder\'s order, with the retired track kept', $GLOBALS['records'][ A ]['tracks_offered'], array( 'In Sensei 50h', 'Developer Track', 'Retired Track' ) );
+$flash = flash_of( 1 );
+ck( 'the outcome is flashed on the card\'s channel, for the tracks section', array( $flash['status'], $flash['record'], $flash['section'] ), array( 'tracks-saved', A, 'tracks' ) );
+ck( 'one audit row', count( audit( A, 'tracks_saved' ) ), 1 );
+ck( 'the nonce was checked first, then the policy let it through', $GLOBALS['events'][0], 'nonce wpcpm_institution_tracks_save_' . A );
+$page = draw( 1 );
+ck( 'the outcome line takes the focus: tabindex -1 and the card-message mark, as the dashboard card marks its own', has( $page, '<p class="wpcpm-details__message is-success" role="status" tabindex="-1" id="wpcpm-details-tracks-outcome" data-wpcpm-card-message>The tracks offered are saved.</p>' ), true );
+ck( 'and the form is drawn open after that outcome, so the focus finds it', has( $page, 'wpcpm-details__more" id="wpcpm-details-tracks" open' ), true );
+ck( 'the line is read once, under the Tracks heading and not at the top of the card', array( has( $page, 'The tracks offered are saved.' ), strpos( $page, 'The tracks offered are saved.' ) > strpos( $page, '>Tracks</h4>' ), has( draw( 1 ), 'The tracks offered are saved.' ) ), array( true, true, false ) );
+
+ck( 'the same list again changes nothing, and says so', array( post_tracks( 1, array( 'In Sensei 50h', 'Developer Track' ) ), flash_of( 1 )['status'], count( audit( A, 'tracks_saved' ) ) ), array( tracks_back( A ), 'nothing', 1 ) );
+draw( 1 );
+ck( 'a status the site does not run is not saved', array( post_tracks( 1, array( 'In Sensei 50h', 'Made Up Track' ) ), $GLOBALS['records'][ A ]['tracks_offered'] ), array( tracks_back( A ), array( 'In Sensei 50h', 'Retired Track' ) ) );
+draw( 1 );
+ck( 'no list posted clears the runnable ones', array( post_tracks( 1, array() ), $GLOBALS['records'][ A ]['tracks_offered'] ), array( tracks_back( A ), array( 'Retired Track' ) ) );
+draw( 1 );
+
+// The school's lock: the tracks save is one more writer of the record's whole answers.
+fresh();
+$GLOBALS['records'][ A ]['tracks_offered'] = array( 'In Sensei' );
+$before = $GLOBALS['records'][ A ];
+$token  = WPCPM_Lock::take( 'wpcpm_req_lock_details_' . A, 300 );
+$out    = post_tracks( 1, array( 'In Sensei', 'Developer Track' ) );
+$busy   = flash_of( 1 );
+ck( 'a save that finds the school\'s lock held writes nothing, audits nothing and says someone is saving', array( '' !== $token, $out, $GLOBALS['records'][ A ], count( audit( A, 'tracks_saved' ) ), $busy['status'] ), array( true, tracks_back( A ), $before, 0, 'saving-busy' ) );
+$page = draw( 1 );
+ck( 'and the card reads the busy sentence', has( plain( $page ), WPCPM_Institution_Request::saving_message() ), true );
+WPCPM_Lock::release( 'wpcpm_req_lock_details_' . A, $token );
+ck( 'the lock free, the same post saves', array( post_tracks( 1, array( 'In Sensei', 'Developer Track' ) ), $GLOBALS['records'][ A ]['tracks_offered'], count( audit( A, 'tracks_saved' ) ), WPCPM_Lock::take( 'wpcpm_req_lock_details_' . A, 300 ) !== '' ), array( tracks_back( A ), array( 'In Sensei', 'Developer Track' ), 1, true ) );
+
+$tracks_src                                = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tracks.php' );
+$handler                                   = (string) method_body( $tracks_src, 'handle_save' );
+ck( 'the handler checks the nonce, the record, the policy, the manager ground, and only then saves', array(
+	before( $handler, 'check_admin_referer(', 'is_record_id(' ),
+	before( $handler, 'is_record_id(', 'WPCPM_Institution_Policy::decide(' ),
+	before( $handler, 'WPCPM_Institution_Policy::decide(', 'GROUND_MANAGER' ),
+	before( $handler, 'GROUND_MANAGER', 'self::save(' ),
+), array( true, true, true, true ) );
 
 echo "\n=== The words the plan gives ===\n";
 

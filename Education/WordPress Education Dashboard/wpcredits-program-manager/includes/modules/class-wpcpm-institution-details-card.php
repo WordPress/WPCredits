@@ -90,6 +90,7 @@ class WPCPM_Institution_Details_Card {
 	public static function init() {
 		add_action( 'admin_post_' . self::ACTION_SAVE, array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_' . self::ACTION_ASK, array( __CLASS__, 'handle_ask' ) );
+		add_action( 'admin_post_' . WPCPM_Institution_Tracks::ACTION_SAVE, array( 'WPCPM_Institution_Tracks', 'handle_save' ) );
 	}
 
 	/**
@@ -110,6 +111,7 @@ class WPCPM_Institution_Details_Card {
 			'airtable'        => array( 'error', __( 'The program records could not be updated, so nothing was saved. Try again in a while.', 'wpcredits-program-manager' ) ),
 			'refused-now'     => array( 'error', __( 'Nothing was saved. Correct what is marked below and save again.', 'wpcredits-program-manager' ) ),
 			'refused-checked' => array( 'error', __( 'Nothing was sent. Correct what is marked below and send it again.', 'wpcredits-program-manager' ) ),
+			'tracks-saved'    => array( 'success', __( 'The tracks offered are saved.', 'wpcredits-program-manager' ) ),
 			// A save at once that found the school's lock held: the store's words for a raise that found it so.
 			'saving-busy'     => array( 'error', WPCPM_Institution_Request::saving_message() ),
 		);
@@ -170,7 +172,8 @@ class WPCPM_Institution_Details_Card {
 
 		printf( '<p class="wpcpm-details__lead">%s</p>', esc_html__( 'What the program has on record.', 'wpcredits-program-manager' ) );
 
-		if ( null !== $flash['message'] ) {
+		// An outcome of the Tracks offered form is read under that section's heading.
+		if ( null !== $flash['message'] && 'tracks' !== $flash['section'] ) {
 			printf(
 				'<p class="wpcpm-details__message is-%1$s" role="status">%2$s</p>',
 				esc_attr( $flash['message'][0] ),
@@ -200,6 +203,8 @@ class WPCPM_Institution_Details_Card {
 
 			self::render_form( $record, $group, $current, $kept[ $group ], $group === $flash['group'] ? $flash['problems'] : array(), $checker );
 		}
+
+		WPCPM_Institution_Tracks::render( $record, $checker, 'tracks' === $flash['section'] ? $flash['message'] : null );
 
 		echo '</div></details></section>';
 	}
@@ -619,11 +624,12 @@ class WPCPM_Institution_Details_Card {
 	 * and is read by the card of whoever pressed it.
 	 *
 	 * @param string $record Institutions record ID of the card being drawn.
-	 * @return array{message: array{0: string, 1: string}|null, group: string, problems: array<string, string>}
+	 * @return array{message: array{0: string, 1: string}|null, section: string, group: string, problems: array<string, string>}
 	 */
 	private static function take_flash( $record ) {
 		$out   = array(
 			'message'  => null,
+			'section'  => '',
 			'group'    => '',
 			'problems' => array(),
 		);
@@ -647,6 +653,10 @@ class WPCPM_Institution_Details_Card {
 			$out['message'] = array( 'error', $text );
 		} elseif ( isset( $messages[ $status ] ) ) {
 			$out['message'] = $messages[ $status ];
+		}
+
+		if ( isset( $flash['section'] ) && 'tracks' === $flash['section'] ) {
+			$out['section'] = 'tracks';
 		}
 
 		if ( isset( $flash['group'] ) && is_scalar( $flash['group'] ) ) {
@@ -991,9 +1001,11 @@ class WPCPM_Institution_Details_Card {
 	 *
 	 * @param string $record Institutions record ID the outcome is about.
 	 * @param string $status A key of `messages()`, or `said` with the sentence in `$extra['text']`.
-	 * @param array  $extra  `group` and `problems` of a refused post, or `text`.
+	 * @param array  $extra  `group` and `problems` of a refused post, or `text`; `section` set to `tracks`
+	 *                       for the Tracks offered form, whose outcome is read under its own heading.
+	 * @param string $anchor The id to land on, the card's own by default: the tracks form lands on its outcome line.
 	 */
-	private static function finish( $record, $status, array $extra = array() ) {
+	public static function finish( $record, $status, array $extra = array(), $anchor = '' ) {
 		WPCPM_Flash::set(
 			WPCPM_Institution_Request::FLASH_DETAILS,
 			array_merge(
@@ -1012,7 +1024,7 @@ class WPCPM_Institution_Details_Card {
 			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url );
 		}
 
-		wp_safe_redirect( $url . '#' . self::ANCHOR );
+		wp_safe_redirect( $url . '#' . ( '' !== $anchor ? $anchor : self::ANCHOR ) );
 		exit;
 	}
 }

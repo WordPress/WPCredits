@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.75
+Stable tag: 1.123.76
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.76 =
+
+* An Administrator can set the tracks an institution offers: **Tracks offered**, on the institution's details card in its Institution Dashboard, one tick for each track the site runs. A school that offers two or more now asks its students "Which track would you like to join?" when they register, with the ticked tracks and "Not sure yet"; a school that offers fewer asks nothing, as before.
+* The answer is written to a new Students column, **Requested track**, and shows with the registration on the Students screen. It is a request: an Administrator still assigns the track. A school's own accounts read the tracks and write to the program to change them. (#304)
 
 = 1.123.75 =
 

@@ -624,6 +624,14 @@ class WPCPM_Student_Registrations_Tab {
 					$text = true === $answer ? __( 'Agreed', 'wpcredits-program-manager' ) : __( 'Not agreed', 'wpcredits-program-manager' );
 				} elseif ( 'institution' === $spec['type'] ) {
 					$text = self::institution_of( $fields );
+				} elseif ( 'track' === $spec['type'] ) {
+					// The track's name as the student saw it, never the posted key (a status). A registration
+					// that was never asked has none, and the question is not listed for it.
+					$text = isset( $fields['track_name'] ) ? (string) $fields['track_name'] : '';
+
+					if ( '' === trim( $text ) ) {
+						continue;
+					}
 				} else {
 					$text = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
 				}

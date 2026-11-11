@@ -196,7 +196,9 @@ The form students register through, since 1.123.54. Its address is under the swi
   written to Airtable. The Registrations tab of the Students screen lists every registration. While
   this is off, the page shows one sentence saying registrations are closed, and an Administrator who
   opens it a second saying why. As with the other forms, its consent box links to the WordPress.org
-  privacy policy, not to this site's own privacy page, and the row's fold says so.
+  privacy policy, not to this site's own privacy page, and the row's fold says so. Since 1.123.76 a
+  school offering two or more tracks also asks which one; see *The details card on an institution's
+  page* for **Tracks offered**.
 - **Institutions offered** - a checklist of the stages Airtable lists for an institution's Current
   Stage, with **Confirmed** ticked by default and no other: an institution at a stage that is not
   ticked is not offered on the form. The list may be empty. With none ticked, or no institution at a

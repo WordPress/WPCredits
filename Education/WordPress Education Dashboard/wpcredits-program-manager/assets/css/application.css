@@ -535,3 +535,26 @@
 	outline: 2px solid currentColor;
 	outline-offset: 2px;
 }
+
+/* The registration form's track question: a group of radios in a fieldset. An author `display` beats the
+   browser's `[hidden]`, so the closed state is said again. */
+.wpcpm-application .wpcpm-field--track {
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	padding: 0;
+}
+
+.wpcpm-application .wpcpm-field--track[hidden] {
+	display: none;
+}
+
+.wpcpm-application .wpcpm-field--track legend {
+	font-weight: 600;
+	margin-bottom: 0.3em;
+	padding: 0;
+}
+
+.wpcpm-application__columns > .wpcpm-field--track {
+	grid-column: 1 / -1;
+}

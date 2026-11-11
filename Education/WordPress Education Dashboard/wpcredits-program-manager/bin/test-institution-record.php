@@ -179,7 +179,12 @@ function wp_delete_post( $id, $force = false ) {
 	return true;
 }
 
+function update_meta_cache( $type, $ids ) {
+	$GLOBALS['meta_primed'][] = $ids;
+}
+
 function get_posts( $args = array() ) {
+	$GLOBALS['gp_calls'] = ( isset( $GLOBALS['gp_calls'] ) ? $GLOBALS['gp_calls'] : 0 ) + 1;
 	$GLOBALS['last_get_posts'] = $args;
 	$out                       = array();
 
@@ -777,6 +782,19 @@ function get_posts_args_in( $source, $name ) {
 
 	return substr( $source, $start, $end - $start - 1 );
 }
+
+$one = 'recINSTITUTION004';
+$two = 'recINSTITUTION002';
+WPCPM_Institution_Record::fill_empty( $one, array( 'credits_page' => 'https://example.test/one' ) );
+WPCPM_Institution_Record::fill_empty( $two, array( 'credits_page' => 'https://example.test/two' ) );
+$GLOBALS['gp_calls'] = 0;
+$GLOBALS['meta_primed'] = array();
+$bulk = WPCPM_Institution_Record::answers_for( array( $one, $two, 'recINSTITUTION003', 'not an id' ) );
+$bulk_calls = $GLOBALS['gp_calls'];
+ck( 'answers_for() answers the records that have a post, by record ID, with the answers get() gives',
+	array( array_keys( $bulk ), $bulk[ $one ], $bulk[ $two ] ), array( array( $one, $two ), WPCPM_Institution_Record::get( $one ), WPCPM_Institution_Record::get( $two ) ) );
+ck( 'and it is one query for the posts and one priming of their meta, whatever the number of IDs', array( $bulk_calls, count( $GLOBALS['meta_primed'] ) ), array( 1, 1 ) );
+ck( 'with nothing asked it reads nothing', array( WPCPM_Institution_Record::answers_for( array() ), WPCPM_Institution_Record::answers_for( array( 'x' ) ) ), array( array(), array() ) );
 
 // The lookup decides under the school's lock, so it must see a post another request made a
 // moment ago and not the answer this request's own query cache filled before it took the lock.

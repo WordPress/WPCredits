@@ -82,6 +82,27 @@ class El {
 		return this;
 	}
 
+	appendChild( kid ) {
+		if ( kid.parentNode && kid.parentNode.children ) {
+			kid.parentNode.children = kid.parentNode.children.filter( ( c ) => c !== kid );
+		}
+
+		this.add( kid );
+
+		return kid;
+	}
+
+	removeChild( kid ) {
+		this.children = this.children.filter( ( c ) => c !== kid );
+		kid.parentNode = null;
+
+		return kid;
+	}
+
+	get firstChild() {
+		return this.children[ 0 ] || null;
+	}
+
 	getAttribute( name ) {
 		return Object.prototype.hasOwnProperty.call( this.attrs, name ) ? this.attrs[ name ] : null;
 	}
@@ -182,6 +203,7 @@ const doc = new El( 'document' );
 doc.readyState = 'complete';
 doc.querySelectorAll = ( selector ) => registry.filter( ( e ) => e.matches( selector ) );
 doc.querySelector = ( selector ) => doc.querySelectorAll( selector )[ 0 ] || null;
+doc.createElement = ( tag ) => mk( tag );
 
 // A new element, attached to the document until something adopts it with add().
 function mk( tag, attrs ) {
