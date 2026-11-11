@@ -541,5 +541,51 @@ foreach ( WPCPM_Countries::all() as $row ) {
 	}
 }
 
+echo "\n=== Nothing reads the Countries table's contact any more (Institutions off Airtable, R1) ===\n";
+
+/**
+ * The calls a source tree makes to the three readers of the Countries table's person of contact, read off the
+ * code itself and not off its comments: `WPCPM_Countries::routing(`, `::contact_of(` and `::manager_name_of(`.
+ *
+ * @param string $dir The plugin's includes folder.
+ * @return array<string, string[]> File name => the methods it calls.
+ */
+function countries_contact_calls( $dir ) {
+	$found = array();
+	$files = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ) );
+
+	foreach ( $files as $file ) {
+		if ( 'php' !== $file->getExtension() ) {
+			continue;
+		}
+
+		$tokens = array_values( array_filter( token_get_all( (string) file_get_contents( $file->getPathname() ) ), function ( $t ) { return ! is_array( $t ) || ! in_array( $t[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true ); } ) );
+
+		foreach ( $tokens as $i => $token ) {
+			if ( ! is_array( $token ) || ( T_STRING !== $token[0] && T_NAME_FULLY_QUALIFIED !== $token[0] && T_NAME_QUALIFIED !== $token[0] ) ) {
+				continue;
+			}
+
+			if ( 'WPCPM_Countries' !== ltrim( $token[1], '\\' ) || ! isset( $tokens[ $i + 3 ] ) || T_DOUBLE_COLON !== $tokens[ $i + 1 ][0] ) {
+				continue;
+			}
+
+			if ( in_array( $tokens[ $i + 2 ][1], array( 'routing', 'contact_of', 'manager_name_of' ), true ) && '(' === $tokens[ $i + 3 ] ) {
+				$found[ $file->getFilename() ][] = $tokens[ $i + 2 ][1];
+			}
+		}
+	}
+
+	ksort( $found );
+
+	return $found;
+}
+
+// While the areas hold no country and no region, `WPCPM_Institution_Application::store()` keeps snapshotting the
+// contact, which is one call; the other is the one-off seed, which reads the stored map.
+$readers = countries_contact_calls( WPCPM_PLUGIN_DIR . 'includes' );
+unset( $readers['class-wpcpm-countries.php'] );
+ck( 'no file but the class reads it, but the one gated snapshot in the application\'s store() and the one-off seed', $readers, array( 'class-wpcpm-institution-application.php' => array( 'routing' ), 'class-wpcpm-institution-seed.php' => array( 'routing' ) ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

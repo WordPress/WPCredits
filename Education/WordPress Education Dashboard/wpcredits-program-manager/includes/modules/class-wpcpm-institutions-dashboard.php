@@ -372,6 +372,18 @@ class WPCPM_Institutions_Dashboard {
 			$viewer
 		);
 
+		// A tutor has no claim through the agreement, whose ground is a representative's and a
+		// manager's, and has one through the view of the roster, which a settled agreement opens and an
+		// unsettled one closes: so a tutor of a school whose agreement is not settled is refused here, as
+		// somebody with no claim at all, and the locked page's agreement panel is never drawn for them.
+		if ( empty( $decision['allowed'] ) ) {
+			$decision = WPCPM_Institution_Policy::decide(
+				WPCPM_Institution_Policy::ACT_VIEW_ROSTER,
+				WPCPM_Institution_Policy::subject_institution( $record ),
+				$viewer
+			);
+		}
+
 		if ( empty( $decision['allowed'] ) ) {
 			// Word for word what a viewer with no institution at all is told above, and that is
 			// deliberate: the difference between "there is nothing here" and "this one is not
@@ -389,7 +401,7 @@ class WPCPM_Institutions_Dashboard {
 		// them as a member, which is what makes that stamp this institution's. It is the
 		// fallback and not the source: `profile()` reads the index first, for the reason it
 		// records.
-		$member  = WPCPM_Institution_Policy::GROUND_MEMBER === $decision['ground'];
+		$member  = in_array( $decision['ground'], array( WPCPM_Institution_Policy::GROUND_MEMBER, WPCPM_Institution_Policy::GROUND_TUTOR ), true );
 		$profile = self::profile( $record, $member ? $viewer : null );
 
 		ob_start();
@@ -438,7 +450,10 @@ class WPCPM_Institutions_Dashboard {
 		// everybody who reads it. Each module says under its title what it is for.
 		if ( ! $locked ) {
 			$order    = self::module_order( $record );
-			$own_page = (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record;
+			// A tutor is on their institution's page and arranges nothing and joins nothing: `$own_page`
+			// is the representative's, and `$can_move` and the sponsors' events follow it.
+			$own_page = (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record
+				&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $viewer );
 			$can_move = $can_manage || $own_page;
 
 			if ( $can_move && wp_script_is( WPCPM_Module_Order::SCRIPT, 'registered' ) ) {
@@ -608,7 +623,8 @@ class WPCPM_Institutions_Dashboard {
 
 		if ( $can_manage && WPCPM_Mentors_Sync::is_record_id( $asked ) ) {
 			$record = $asked;
-		} elseif ( '' !== $own ) {
+		} elseif ( '' !== $own && WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $viewer ) ) {
+			// A tutor arranges nothing: the page is a representative's to arrange.
 			$record = $own;
 		}
 
@@ -1014,38 +1030,24 @@ class WPCPM_Institutions_Dashboard {
 	/**
 	 * Who this institution writes to, as the Resources section's last word.
 	 *
-	 * The routing is by country and lives in `WPCPM_Countries`, which holds a name, an address
-	 * and sometimes a booking link for each. A country the program has not routed yet prints
-	 * nothing at all rather than a heading with a blank under it: an empty contact block would
-	 * read as "you have nobody", which is not what an unrouted country means.
+	 * The contact is the Administrator the institution is assigned to, with their address and, when they
+	 * keep one on their account, their booking link. An institution nobody is assigned to prints nothing
+	 * at all rather than a heading with a blank under it: an empty contact block would read as "you have
+	 * nobody", which is not what an unassigned institution means.
 	 *
 	 * @param string $record Institutions record ID.
 	 * @return string Escaped markup, or ''.
 	 */
 	private static function contact_block( $record ) {
-		$row = WPCPM_Institutions_Index::row( $record );
+		$contact = WPCPM_Institution_Assignment::contact_of( $record );
 
-		$country = ( is_array( $row ) && isset( $row['country'] ) ) ? trim( (string) $row['country'] ) : '';
-
-		if ( '' === $country || ! class_exists( 'WPCPM_Countries' ) ) {
+		if ( null === $contact ) {
 			return '';
 		}
 
-		$routing = WPCPM_Countries::routing( $country );
-
-		if ( ! is_array( $routing ) ) {
-			return '';
-		}
-
-		$name     = isset( $routing['manager'] ) ? trim( (string) $routing['manager'] ) : '';
-		$email    = isset( $routing['email'] ) ? trim( (string) $routing['email'] ) : '';
-		$calendly = isset( $routing['calendly'] ) ? trim( (string) $routing['calendly'] ) : '';
-
-		// A record ID in the name means the linked manager was never resolved to a person; it
-		// is a database key and nothing to show a school.
-		if ( '' !== $name && WPCPM_Mentors_Sync::is_record_id( $name ) ) {
-			$name = '';
-		}
+		$name     = trim( (string) $contact['name'] );
+		$email    = trim( (string) $contact['email'] );
+		$calendly = trim( (string) $contact['calendly'] );
 
 		if ( '' === $name && '' === $email && '' === $calendly ) {
 			return '';
@@ -1085,7 +1087,7 @@ class WPCPM_Institutions_Dashboard {
 
 		$out .= sprintf(
 			'<p class="wpcpm-student__note">%s</p>',
-			esc_html__( 'They look after institutions in your country. Write to them about anything the guide does not answer.', 'wpcredits-program-manager' )
+			esc_html__( 'They look after your institution. Write to them about anything the guide does not answer.', 'wpcredits-program-manager' )
 		);
 
 		return $out . '</div>';

@@ -253,7 +253,7 @@ ck( 'the field is drawn for a manager and not for a student',
 		false !== strpos( $own, '<table class="form-table"' ),
 		false !== strpos( $own, '<th><label for="wpcpm_booking_url">Booking link</label></th>' ),
 		1 === preg_match( '#<input type="url" name="wpcpm_booking_url" id="wpcpm_booking_url" value="https://calendly\.example/seven"#', $own ),
-		false !== strpos( $own, '<p class="description" id="wpcpm_booking_url-description">The link a sponsor presses to book a call with you. An https address.</p></td>' ),
+		false !== strpos( $own, '<p class="description" id="wpcpm_booking_url-description">The link a sponsor or an institution presses to book a call with you. An https address.</p></td>' ),
 		$student,
 	),
 	array( true, true, true, true, '' )

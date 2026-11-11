@@ -706,6 +706,7 @@ const GRADUATE    = 12;
 const MENTOR      = 20;
 const MENTOR_REP  = 22;
 const CONTACT     = 30;
+const TUTOR       = 31;
 
 const PARTNER  = 'spoAAAA0000000001'; // Partner, the term runs to 31 January 2027.
 const CHAMPION = 'spoAAAA0000000002'; // Champion, no term.
@@ -745,6 +746,8 @@ a_user( MENTOR, 'Mona Mentor', array( 'wpcpm_mentor' ), array( 'wpcpm_mentor_rec
 // A mentor who also acts for the Partner, which the memberships allow on purpose.
 a_user( MENTOR_REP, 'Mel Mentorrep', array( 'wpcpm_mentor', 'wpcpm_sponsor' ), array( 'wpcpm_mentor_record_id' => 'recSEED0000000203', 'wpcpm_mentor_active' => 1, 'wpcpm_sponsor_record_id' => PARTNER, 'wpcpm_sponsor_active' => 1 ) );
 a_user( CONTACT, 'Ines Institution', array( 'wpcpm_institution' ), array( 'wpcpm_institution_record_id' => 'recSEED0000000301', 'wpcpm_institution_active' => 1 ) );
+// A tutor of the same school (Institutions release 1): an account of the institution that sees and changes nothing.
+a_user( TUTOR, 'Tess Tutor', array( 'wpcpm_institution' ), array( 'wpcpm_institution_record_id' => 'recSEED0000000301', 'wpcpm_institution_active' => 1, 'wpcpm_institution_level' => 'tutor' ) );
 
 $GLOBALS['manage']   = array( MANAGER, MANAGER_TWO );
 $GLOBALS['program']  = array(
@@ -877,7 +880,8 @@ ck(
 		false !== strpos( $modules, "if ( \$own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {\n\t\t\t\tWPCPM_Sponsor_Event_List::render( \$viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );" ),
 		strpos( $modules, 'self::render_module( $key' ) < strpos( $modules, 'WPCPM_Sponsor_Event_List::render(' ),
 		strpos( $modules, 'WPCPM_Sponsor_Event_List::render(' ) < strpos( $modules, 'read_line(' ),
-		false !== strpos( $modules, '$own_page = (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record;' ),
+		// A contact on their own page, a tutor of the school not among them (Institutions release 1): a Join would put a tutor on the event.
+		false !== strpos( $modules, "\$own_page = (string) WPCPM_Institution_Members::institution_of( \$viewer ) === \$record\n\t\t\t\t&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( \$viewer );" ),
 	),
 	array( true, true, true, true )
 );
@@ -1107,9 +1111,28 @@ ck(
 	array( 1, 'sponsor-event.ics', true, true, true, true, array( 'ATTENDEE;CN="Sam Current";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:sam.current@people.example' ), false )
 );
 ck(
+	'a tutor of an institution pressing Leave on an event they are not on writes and mails nothing',
+	static function () use ( $partner ) {
+		$before = store_state();
+		press( 'handle_leave', pressing( $partner, 'institution' ), TUTOR );
+		return store_state() === $before;
+	},
+	true
+);
+ck(
 	'joining again is said as already on it, and nothing is written or mailed',
 	static function () use ( $partner ) { $before = store_state(); return array( press( 'handle_join', pressing( $partner ), STUDENT ), store_state() === $before ); },
 	array( array( 'already', 'https://site.example/student-dashboard/#wpcpm-sevents' ), true )
+);
+
+ck(
+	'a tutor of an institution is not in the institutions\' audience: a hand-made Join with a valid nonce seats nobody, mails nobody and writes nothing',
+	static function () use ( $partner ) {
+		$before = store_state();
+		$join   = press( 'handle_join', pressing( $partner, 'institution' ), TUTOR );
+		return array( WPCPM_Sponsor_Event::audience_of( TUTOR ), WPCPM_Sponsor_Event::audience_of( CONTACT ), $join[0] ?? null, store_state() === $before );
+	},
+	array( '', WPCPM_Sponsor_Event::AUDIENCE_INSTITUTIONS, 'audience', true )
 );
 
 $GLOBALS['sent'] = array();

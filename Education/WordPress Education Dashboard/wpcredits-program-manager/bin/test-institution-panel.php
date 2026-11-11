@@ -335,6 +335,12 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 				return self::answer( true, self::GROUND_MANAGER, (string) ( $subject['institution_ids'][0] ?? '' ) );
 			}
 
+			// A tutor holds the four view actions and the agreement is not among them (the real rule is
+			// `bin/test-institution-policy.php`'s).
+			if ( ! empty( $GLOBALS['tutor'] ) && self::ACT_AGREEMENT === $action ) {
+				return self::answer( false, '', '' );
+			}
+
 			// Then membership of an institution the subject names, gated on the agreement for
 			// every action but the one the panel draws.
 			foreach ( (array) $GLOBALS['member_of'] as $mine ) {
@@ -532,6 +538,19 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 require_once __DIR__ . '/stubs/administrators-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
+// The Administrator an institution is assigned to (Institutions off Airtable, R1), at the one read the assignment
+// makes of the institution's record and of the booking link.
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	class WPCPM_Institution_Record {
+		public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+	}
+}
+if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
+	class WPCPM_Manager_Booking {
+		public static function url_for( $user_id ) { return ''; }
+	}
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
 
@@ -548,6 +567,19 @@ function ck( $label, $actual, $expected ) {
 }
 
 /**
+ * Assign an institution to an Administrator, the way its record keeps it. The Countries table still names
+ * poland@example.org for the country, which nothing reads any more.
+ *
+ * @param string $record  Institutions record ID.
+ * @param int    $user_id The Administrator.
+ */
+function seed_assignee( $record, $user_id = 12 ) {
+	$GLOBALS['users'][ $user_id ]  = new WP_User( $user_id, 'Ana Admin', 'ana.admin@example.org' );
+	$GLOBALS['grants'][ $user_id ] = array( 'wpcpm_manage_program' );
+	$GLOBALS['kept'][ $record ]    = array( 'assigned' => $user_id );
+}
+
+/**
  * Forget every option, post and pending message.
  *
  * The capability goes back to the manager's too. Every render below says who is looking
@@ -556,6 +588,7 @@ function ck( $label, $actual, $expected ) {
  * "no capability dies 403" would pass in a block that meant to test something else.
  */
 function reset_world() {
+	$GLOBALS['kept']       = array();
 	$GLOBALS['caps']       = true;
 	$GLOBALS['opts']       = array();
 	$GLOBALS['posts']      = array();
@@ -851,13 +884,33 @@ seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_REVOKED, WPCPM_Institution
 	WPCPM_Institution_Agreement::META_DECIDED_BY => 9,
 	WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-08-31',
 ) );
+seed_assignee( $rec_a );
 WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Revoked' ) );
 $revoked = panel( $rec_a );
 
 ck( 'revoked: says the program revoked it and what is left', false !== strpos( $revoked, 'revoked this institution&#039;s agreement' ), true );
 ck( 'revoked: the note verbatim', false !== strpos( $revoked, 'The partnership ended in July.' ), true );
-ck( 'revoked: names the country contact\'s address', false !== strpos( $revoked, 'Your program contact for Poland is poland@example.org.' ), true );
+ck( 'revoked: names the assigned Administrator\'s address, not the Countries table\'s', array(
+	false !== strpos( $revoked, 'Your program contact for Poland is ana.admin@example.org.' ),
+	false === strpos( $revoked, 'poland@example.org' ),
+), array( true, true ) );
 $ledes['revoked'] = $revoked;
+
+// An assigned school whose country the map does not hold: the neutral sentence, never one with a blank country.
+reset_world();
+seed_index( $rec_a, 'recCOUNTRYMISSING1' );
+seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_REVOKED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array(
+	WPCPM_Institution_Agreement::META_NOTE       => 'The partnership ended in July.',
+	WPCPM_Institution_Agreement::META_DECIDED_BY => 9,
+	WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-08-31',
+) );
+seed_assignee( $rec_a );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Revoked' ) );
+$no_country = panel( $rec_a );
+ck( 'revoked, assigned, country not in the map: the neutral sentence, not "for  is"', array(
+	false !== strpos( $no_country, 'Write to the Administrator who has been in touch with your institution.' ),
+	false === strpos( $no_country, 'Your program contact for' ),
+), array( true, true ) );
 
 $first_lines = array();
 foreach ( $ledes as $state => $html ) {
@@ -944,6 +997,7 @@ seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_RETURNED, WPCPM_Institutio
 	WPCPM_Institution_Agreement::META_DECIDED_BY => 9,
 	WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-08-30',
 ) );
+seed_assignee( $rec_a );
 WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Returned' ) );
 
 $stranger = panel( $rec_a, false, $rec_b );
@@ -951,13 +1005,16 @@ $stranger = panel( $rec_a, false, $rec_b );
 ck( 'a member of another institution gets nothing from the panel', $stranger, '' );
 ck( 'not the state this one\'s agreement is in', false !== strpos( $stranger, 'returned your agreement' ), false );
 ck( 'not the program manager\'s note', false !== strpos( $stranger, 'Page 4 is not signed.' ), false );
-ck( 'and not the country contact\'s address', false !== strpos( $stranger, 'poland@example.org' ), false );
+ck( 'and not the assigned Administrator\'s address', false !== strpos( $stranger, 'ana.admin@example.org' ), false );
 ck( 'a member of this one gets all three', array(
 	false !== strpos( panel( $rec_a ), 'returned your agreement' ),
 	false !== strpos( panel( $rec_a ), 'Page 4 is not signed.' ),
-	false !== strpos( panel( $rec_a ), 'poland@example.org' ),
+	false !== strpos( panel( $rec_a ), 'ana.admin@example.org' ),
 ), array( true, true, true ) );
 ck( 'and so does a program manager, who is a member of nothing', false !== strpos( panel( $rec_a, true ), 'Page 4 is not signed.' ), true );
+$GLOBALS['tutor'] = true;
+ck( 'a tutor of this one is drawn no panel: no state, no note, no upload and no generate form', array( panel( $rec_a ), forms_in( panel( $rec_a ) ) ), array( '', array( 'generate' => 0, 'upload' => 0, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) ) );
+$GLOBALS['tutor'] = false;
 
 // The panel asks for the one ungated action, and it has to: a locked member is exactly who
 // it is drawn for, and any other action would refuse every one of them inside ground_member().
@@ -973,7 +1030,11 @@ $stranger_card = card( $rec_a, false, $rec_b );
 
 ck( 'a member of another institution gets nothing from the card', $stranger_card, '' );
 ck( 'not the acceptance date', false !== strpos( $stranger_card, 'Accepted on' ), false );
-ck( 'a member of this one gets it', false !== strpos( card( $rec_a ), 'Accepted on' ), true );
+ck( 'a member of this one gets it', false !== strpos( card( $rec_a ), 'Accepted on' ), true );$GLOBALS['tutor'] = true;
+ck( 'and so does a tutor of it: the card is a read, drawn on the view of the roster', false !== strpos( card( $rec_a ), 'Accepted on' ), true );
+ck( 'a tutor\'s card has no sentence offering an upload, since none is drawn', array( false !== strpos( card( $rec_a ), 'Replace it by uploading' ), false !== strpos( card( $rec_a ), 'type="file"' ) ), array( false, false ) );
+$GLOBALS['tutor'] = false;
+ck( 'a representative\'s card keeps the sentence, and the upload it offers', array( false !== strpos( card( $rec_a ), 'Replace it by uploading a newer signed copy.' ), false !== strpos( card( $rec_a ), 'type="file"' ) ), array( true, true ) );
 ck( 'and a program manager gets it with the Drive link', array(
 	false !== strpos( card( $rec_a, true ), 'Accepted on' ),
 	false !== strpos( card( $rec_a, true ), $drive ),
@@ -1408,6 +1469,7 @@ function state_panel( $record, $state, $status, array $meta = array() ) {
 		'rows' => array( 'recCOUNTRYAAAAAAA' => array( 'name' => 'Poland', 'manager' => 'recTEAMAAAAAAAA1', 'email' => 'poland@example.org', 'calendly' => '' ) ),
 	);
 
+	seed_assignee( $record );
 	$post_id = '' === $state ? 0 : seed_post( $record, $state, WPCPM_Institution_Agreement::KIND_TEMPLATE, $meta );
 	WPCPM_Institution_Agreement::rebuild( $record, block( $status ) );
 

@@ -21,7 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Four phases. `countries` refreshes the routing map, first, because the records phase
  * names each institution's country through it. `records` reads the Institutions table with
- * an explicit column list, writes `WPCPM_Institutions_Index` in one go, then rebuilds every
+ * an explicit column list, writes `WPCPM_Institutions_Index` in one go, gives each school new to
+ * it the Administrator of its country's area (`assign_new()`, 1.123.84), then rebuilds every
  * `wpcpm_agreement_<record>` option from what the base says (T12 in the design). `provision`
  * creates the one account an institution starts with from its `Contact Email`, and only for
  * an institution with no membership history at all. `revoke` closes the gate and detaches
@@ -107,6 +108,25 @@ class WPCPM_Institutions_Sync {
 	 * stopped rather than starting the phase again.
 	 */
 	const PROVISION_BATCH = 5;
+
+	/**
+	 * Assignment emails one run sends at most (1.123.84): a school new to the index past these is still
+	 * given its area's Administrator, without the email, and the run's report names it.
+	 *
+	 * A ceiling and not a cadence: a run finds a school or two new in the base, and five is room for a
+	 * busy week. What it guards against is the run that finds dozens at once (a table reopened, a filter
+	 * taken off a view), which would otherwise be dozens of emails to one person in a minute.
+	 */
+	const ASSIGN_EMAILS = 5;
+
+	/**
+	 * Schools new to the index in one run past which none is assigned (1.123.84).
+	 *
+	 * Ten new in one read is a busy week; more is a table switched under the setting or an index that was
+	 * lost, and every school in it would read as new. Then nobody is assigned, and an Administrator assigns
+	 * the schools on their details cards.
+	 */
+	const ASSIGN_MAX_NEW = 10;
 
 	/**
 	 * The `WP_Error` code every refused provisioning carries.
@@ -762,7 +782,8 @@ class WPCPM_Institutions_Sync {
 	 *
 	 * Two halves under one phase key. While `indexed` is false, each slice reads one page
 	 * and accumulates rows; the last page writes the index in a single `write()`, so an
-	 * error on any page leaves the previous index untouched. Once written, each slice
+	 * error on any page leaves the previous index untouched, and compares it with the index it
+	 * replaces to give each school new to it its area's Administrator (`assign_new()`). Once written, each slice
 	 * rebuilds `REBUILD_BATCH` agreement options from the columns just read, the Drive link
 	 * included, which is how a manager typing `On file` and a link into the grid settles an
 	 * institution on the next run (T12).
@@ -871,6 +892,10 @@ class WPCPM_Institutions_Sync {
 		// fields rather than an error, and a filtered or renamed table answers 200 with no
 		// records at all. Neither is an empty table, and neither may replace a good index:
 		// the revoke phase reads the index back and would detach every member on the site.
+		// Read from the table, not this request's copy (1.123.84): an approval may have inserted its
+		// row since this request first read the option, and the comparison below must see it.
+		WPCPM_Institutions_Index::forget_cached();
+
 		$held = WPCPM_Institutions_Index::rows();
 
 		if ( 0 === self::named_rows( $state['rows'] ) && ! empty( $held ) ) {
@@ -888,11 +913,164 @@ class WPCPM_Institutions_Sync {
 		WPCPM_Test_Institutions::remember( $held, $state['rows'] );
 		WPCPM_Institutions_Index::write( $state['rows'], $state['started'] );
 
+		// Here and nowhere else (1.123.84). `$held` is the whole index as the last run left it, and
+		// `$state['rows']` the whole one this run read, every page of it gathered in the run state across
+		// ticks; this write, once per run, is the one moment both are whole. A page earlier sees half the
+		// table, and a phase later, or `finish()`, sees only the new index, the old one written over. After
+		// the write, so the email names the school as the index now holds it.
+		self::assign_new( $held, $state );
+
 		$state['indexed'] = true;
 		$state['rebuild'] = array_keys( $state['rows'] );
 		$state['offset']  = null;
 
 		return true;
+	}
+
+	/**
+	 * Give each school this run read for the first time the Administrator of its country's area (1.123.84).
+	 *
+	 * A school added in Airtable (the interest form there, a lead promoted there, a row typed in by hand)
+	 * reaches the site through this sync alone, and without this nobody would follow it up: its
+	 * Institution Dashboard would name no contact and no Administrator would be told. The site's own
+	 * approval assigns the schools it creates, and inserts them in the index before this compares.
+	 *
+	 * - **Only when there was an index before.** A first read, or one after the index was emptied or
+	 *   stored at another version (`WPCPM_Institutions_Index::read()` answers empty), would find every
+	 *   school new and mail every Administrator about every school in their area.
+	 * - **Only a record the previous index did not hold.** A school the site already knew keeps whatever
+	 *   it has, unassigned included: assigning those is the seed's and the details card's.
+	 * - **Never over an assignment**: one stored, even to somebody who is no Administrator now, and Nobody
+	 *   chosen on the details card (`has_choice()`), asked again under the school's lock.
+	 * - **Only from an area.** A country no area covers, or no country, leaves the school unassigned, as the
+	 *   Pipeline's "no area" mark shows, until an Administrator assigns it.
+	 * - **At most `ASSIGN_MAX_NEW` schools new in one run.** More reads as a switched table or a lost index,
+	 *   and none of them is assigned; the report says so.
+	 * - **At most `ASSIGN_EMAILS` emails a run**; a school past them, and a test institution, is assigned
+	 *   without one.
+	 * - **Under the school's lock**, as the details card's save takes it; a school whose lock another request
+	 *   holds is left, and the report says so.
+	 *
+	 * Each one assigned is named in the run's report, with whether its Administrator was emailed.
+	 *
+	 * @param array $held  The index before this run's write, keyed by record ID.
+	 * @param array $state Sync state, by reference: the rows just written, the statistics and the notices.
+	 */
+	private static function assign_new( array $held, array &$state ) {
+		// A deploy half done, with this file new and the assignment's old, assigns nothing rather than fatal the cron.
+		if ( empty( $held ) || ! is_callable( array( 'WPCPM_Institution_Assignment', 'has_choice' ) ) ) {
+			return;
+		}
+
+		$new = array_diff_key( $state['rows'], $held );
+
+		if ( count( $new ) > self::ASSIGN_MAX_NEW ) {
+			$state['notices'][] = sprintf(
+				/* translators: 1: how many schools are new, 2: how many a run assigns at most. */
+				__( '%1$d schools are new in the pipeline in this read, more than %2$d, so none was given an Administrator. Assign them on their details cards.', 'wpcredits-program-manager' ),
+				count( $new ),
+				self::ASSIGN_MAX_NEW
+			);
+
+			return;
+		}
+
+		foreach ( $new as $record_id => $row ) {
+			$record_id = (string) $record_id;
+
+			$country = isset( $row['country'] ) ? (string) $row['country'] : '';
+			$user_id = '' !== $country ? (int) WPCPM_Institution_Areas::administrator_for( $country ) : 0;
+
+			if ( $user_id < 1 ) {
+				continue;
+			}
+
+			$name   = isset( $row['name'] ) && '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record_id;
+			$sent   = isset( $state['stats']['assign_emails'] ) ? (int) $state['stats']['assign_emails'] : 0;
+			$test   = WPCPM_Test_Institutions::is_test( $record_id );
+			$notify = ! $test && $sent < self::ASSIGN_EMAILS;
+			$lock   = WPCPM_Institution_Request::school_lock_name( $record_id );
+			$token  = WPCPM_Lock::take( $lock, WPCPM_Institution_Request::LOCK_TTL );
+
+			if ( '' === $token ) {
+				$state['notices'][] = sprintf(
+					/* translators: %s: an institution's name. */
+					__( '%s is new in the pipeline, but its record was being changed, so it was not given its area\'s Administrator. Assign it on its details card.', 'wpcredits-program-manager' ),
+					$name
+				);
+
+				continue;
+			}
+
+			$result  = false;
+			$emailed = false;
+
+			try {
+				// The record is read under the lock, not from this request's copy from before it.
+				WPCPM_Institution_Record::forget_cached( $record_id );
+
+				if ( 0 === WPCPM_Institution_Assignment::stored_of( $record_id ) && ! WPCPM_Institution_Assignment::has_choice( $record_id ) ) {
+					$result = WPCPM_Institution_Assignment::assign( $record_id, $user_id, 0, $notify, $emailed );
+				}
+			} finally {
+				WPCPM_Lock::release( $lock, $token );
+			}
+
+			if ( is_wp_error( $result ) ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: an institution's name, 2: why the assignment was refused. */
+					__( '%1$s is new in the pipeline, but it was not assigned: %2$s', 'wpcredits-program-manager' ),
+					$name,
+					$result->get_error_message()
+				);
+
+				continue;
+			}
+
+			if ( true !== $result ) {
+				continue;
+			}
+
+			$state['stats']['assigned'] = ( isset( $state['stats']['assigned'] ) ? (int) $state['stats']['assigned'] : 0 ) + 1;
+
+			// Counted as asked, not as sent: the ceiling is on the emails a run tries to send.
+			if ( $notify ) {
+				$state['stats']['assign_emails'] = $sent + 1;
+			}
+
+			$who = WPCPM_Institution_Assignment::label( $user_id );
+
+			if ( $emailed ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: an institution's name, 2: an Administrator's name. */
+					__( '%1$s is new in the pipeline and is assigned to %2$s, the Administrator of its area, who was emailed.', 'wpcredits-program-manager' ),
+					$name,
+					$who
+				);
+			} elseif ( $notify ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: an institution's name, 2: an Administrator's name. */
+					__( '%1$s is new in the pipeline and is assigned to %2$s, the Administrator of its area. The email to them could not be sent.', 'wpcredits-program-manager' ),
+					$name,
+					$who
+				);
+			} elseif ( $test ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: an institution's name, 2: an Administrator's name. */
+					__( '%1$s is new in the pipeline and is assigned to %2$s, the Administrator of its area. No email was sent: it is a test institution.', 'wpcredits-program-manager' ),
+					$name,
+					$who
+				);
+			} else {
+				$state['notices'][] = sprintf(
+					/* translators: 1: an institution's name, 2: an Administrator's name, 3: how many assignment emails a run sends at most. */
+					__( '%1$s is new in the pipeline and is assigned to %2$s, the Administrator of its area. No email was sent: this run had sent %3$d already.', 'wpcredits-program-manager' ),
+					$name,
+					$who,
+					self::ASSIGN_EMAILS
+				);
+			}
+		}
 	}
 
 	/**
@@ -1505,6 +1683,10 @@ class WPCPM_Institutions_Sync {
 			// The revoke phase's last step: agreement cells an earlier request could not
 			// write, finished in this run.
 			'agreements'        => 0,
+			// The records phase's schools new to the index given their area's Administrator, and the
+			// assignment emails it asked for (1.123.84).
+			'assigned'          => 0,
+			'assign_emails'     => 0,
 		);
 	}
 

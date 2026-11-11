@@ -44,6 +44,9 @@ $GLOBALS['opts']  = array();
 $GLOBALS['sent']  = array();
 $GLOBALS['take']  = true;
 $GLOBALS['rows']  = array();
+$GLOBALS['kept']  = array();
+$GLOBALS['users'] = array();
+$GLOBALS['lapsed'] = array();
 $GLOBALS['hook']  = HOOK;
 
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
@@ -66,15 +69,41 @@ class WPCPM_Mentors_Sync {
 }
 
 /**
- * The one place that turns a country into a program manager's name. The real rule, and why it
- * cannot read the Institutions table's own lookup, is in WPCPM_Countries; here it is fixture data.
+ * The Administrator an institution is assigned to (Institutions off Airtable, R1), at the reads the assignment
+ * makes: the institution's record, the account and its capability, and the booking link. The Countries table
+ * names somebody else for every country here, and the announcement never reads it.
  */
 class WPCPM_Countries {
 	public static function manager_name_of( $record_id ) {
-		$by = isset( $GLOBALS['managers'] ) ? (array) $GLOBALS['managers'] : array();
-
-		return isset( $by[ $record_id ] ) ? $by[ $record_id ] : '';
+		return 'Country Contact';
 	}
+}
+class WPCPM_Roles {
+	const CAP_MANAGE = 'wpcpm_manage_program';
+}
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+}
+class WPCPM_Manager_Booking {
+	public static function url_for( $user_id ) { return ''; }
+}
+class WP_User {
+	public $ID = 0, $display_name = '', $user_email = '', $user_login = '';
+	public function __construct( $id, $name ) { $this->ID = $id; $this->display_name = $name; $this->user_login = strtolower( $name ); }
+}
+function get_userdata( $id ) { return isset( $GLOBALS['users'][ (int) $id ] ) ? $GLOBALS['users'][ (int) $id ] : false; }
+function user_can( $id, $cap ) { return isset( $GLOBALS['users'][ (int) $id ] ) && ! in_array( (int) $id, $GLOBALS['lapsed'], true ); }
+
+/**
+ * Assign an institution to an Administrator, named as given.
+ *
+ * @param string $record_id The institution's record ID.
+ * @param string $name      The Administrator's display name.
+ * @param int    $user_id   Their account.
+ */
+function assign_to( $record_id, $name, $user_id = 12 ) {
+	$GLOBALS['users'][ $user_id ] = new WP_User( $user_id, $name );
+	$GLOBALS['kept'][ $record_id ] = array( 'assigned' => $user_id );
 }
 
 /** The index the module reads. */
@@ -127,6 +156,7 @@ class WP_Error {
 	public function get_error_message() { return 'refused'; }
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-announce.php';
@@ -145,8 +175,9 @@ function ck( $label, $actual, $expected = true ) {
 	}
 }
 
-function row( $name, $stage = 'Confirmed', $city = '', $country = '', $country_id = '', $confirmed_on = '' ) {
+function row( $name, $stage = 'Confirmed', $city = '', $country = '', $country_id = '', $confirmed_on = '', $record_id = '' ) {
 	return array(
+		'record_id'    => $record_id,
 		'name'         => $name,
 		'stage'        => $stage,
 		'city'         => $city,
@@ -167,7 +198,9 @@ function reset_all( array $rows ) {
 	$GLOBALS['take'] = true;
 	$GLOBALS['hook'] = HOOK;
 	$GLOBALS['rows'] = $rows;
-	$GLOBALS['managers'] = array();
+	$GLOBALS['kept'] = array();
+	$GLOBALS['users'] = array();
+	$GLOBALS['lapsed'] = array();
 	$GLOBALS['lock_held'] = false;
 	$GLOBALS['lock_taken'] = array();
 	$GLOBALS['lock_released'] = array();
@@ -237,23 +270,31 @@ ck(
 
 echo "\n=== The program manager line (WPCredits#282) ===\n";
 
-$GLOBALS['managers'] = array( 'recCOUNTRY000001' => 'Manager Example' );
+assign_to( 'recINSTITUTE0001', 'Manager Example' );
 ck(
-	'named for the institution\'s country',
-	WPCPM_Institution_Announce::message( row( 'A School', 'Confirmed', 'Pisa', 'Italy', 'recCOUNTRY000001' ), 53 ),
+	'named for the Administrator the institution is assigned to, not the country\'s contact',
+	WPCPM_Institution_Announce::message( row( 'A School', 'Confirmed', 'Pisa', 'Italy', 'recCOUNTRY000001', '', 'recINSTITUTE0001' ), 53 ),
 	":tada: *A School* has joined WordPress Credits, from Pisa, Italy.\nTheir Administrator is Manager Example.\nThat makes 53 confirmed institutions."
 );
 ck(
-	'a country the site cannot name a manager for leaves the line out, and still announces',
-	WPCPM_Institution_Announce::message( row( 'A School', 'Confirmed', 'Pisa', 'Italy', 'recCOUNTRY000009' ), 53 ),
+	'an institution nobody is assigned to leaves the line out, and still announces',
+	WPCPM_Institution_Announce::message( row( 'A School', 'Confirmed', 'Pisa', 'Italy', 'recCOUNTRY000009', '', 'recINSTITUTE0009' ), 53 ),
 	":tada: *A School* has joined WordPress Credits, from Pisa, Italy.\nThat makes 53 confirmed institutions."
 );
+$GLOBALS['lapsed'] = array( 12 );
 ck(
-	'a row with no country at all does not ask, and still announces',
+	'so does one whose Administrator is no Administrator now',
+	WPCPM_Institution_Announce::message( row( 'A School', 'Confirmed', 'Pisa', 'Italy', 'recCOUNTRY000001', '', 'recINSTITUTE0001' ), 53 ),
+	":tada: *A School* has joined WordPress Credits, from Pisa, Italy.\nThat makes 53 confirmed institutions."
+);
+$GLOBALS['lapsed'] = array();
+ck(
+	'a row with no record ID does not ask, and still announces',
 	WPCPM_Institution_Announce::message( row( 'A School' ), 1 ),
 	":tada: *A School* has joined WordPress Credits.\nThat makes 1 confirmed institution."
 );
-$GLOBALS['managers'] = array();
+$GLOBALS['kept']  = array();
+$GLOBALS['users'] = array();
 
 echo "\n=== Slack refuses ===\n";
 reset_all( array( $one => row( 'First University' ) ) );
@@ -446,8 +487,8 @@ ck(
 echo "=== What a record's own text cannot do to a message (1.123.57) ===\n";
 
 $evil = 'College <!channel> & Co';
-reset_all( array( $one => row( $evil, 'Confirmed', '<https://evil.test|Krakow>', 'Poland', 'recCOUNTRY00001' ) ) );
-$GLOBALS['managers'] = array( 'recCOUNTRY00001' => 'Jo & Co <Administrator>' );
+reset_all( array( $one => row( $evil, 'Confirmed', '<https://evil.test|Krakow>', 'Poland', 'recCOUNTRY00001', '', $one ) ) );
+assign_to( $one, 'Jo & Co <Administrator>' );
 $GLOBALS['opts'][ WPCPM_Institution_Announce::OPT_ANNOUNCED ] = array( 'v' => 1, 'ids' => array(), 'seeded' => time() );
 
 ck( 'an institution whose name holds Slack markup is announced like any other', WPCPM_Institution_Announce::after_sync(), 1 );

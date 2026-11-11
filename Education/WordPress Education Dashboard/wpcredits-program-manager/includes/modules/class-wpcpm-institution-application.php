@@ -263,8 +263,18 @@ class WPCPM_Institution_Application {
 	/** Post meta: that country's name as it read when the form was sent. */
 	const META_COUNTRY_NAME = '_wpcpm_app_country_name';
 
-	/** Post meta: a snapshot of `WPCPM_Countries::routing()` at submission. */
+	/**
+	 * Post meta: a snapshot of `WPCPM_Countries::routing()` at submission. Written by applications filed
+	 * before Institutions off Airtable release 1, and while no area is set; read for the booking link of an
+	 * application nobody is assigned to.
+	 */
 	const META_MANAGER = '_wpcpm_app_manager';
+
+	/**
+	 * Post meta: the Administrator the country's area gave the application when it was sent, a user ID, or
+	 * 0 for none. A snapshot like the one it replaces: who the areas routed it to on the day it was sent.
+	 */
+	const META_ASSIGNED = '_wpcpm_app_assigned';
 
 	/** Post meta: the consent evidence. See the class docblock. */
 	const META_CONSENT = '_wpcpm_app_consent';
@@ -2231,8 +2241,17 @@ class WPCPM_Institution_Application {
 			}
 		}
 
+		// An application an area gave to an Administrator tells that Administrator alone, and one no area
+		// gave to anybody tells every Administrator, as it always did.
 		if ( self::STATE_NEW === $state ) {
-			self::mail_managers( $post_id );
+			// Only an application with no valid assignee goes to the managers. When the assignee's own
+			// email fails the failure is recorded on the row and the mail is not widened: it would send
+			// the application to addresses it was deliberately kept from.
+			if ( null === WPCPM_Institution_Assignment::contact_for( WPCPM_Institution_Assignment::for_application( $post_id ) ) ) {
+				self::mail_managers( $post_id );
+			} elseif ( ! self::mail_assignee( $post_id ) ) {
+				self::add_signal( $post_id, 'mail-assignee' );
+			}
 		}
 
 		// The token's record is the row now, for a second press of it to answer with: after the mail
@@ -2652,7 +2671,6 @@ class WPCPM_Institution_Application {
 		}
 
 		$post_id = (int) $post_id;
-		$routing = '' !== $country ? WPCPM_Countries::routing( $country ) : null;
 
 		update_post_meta( $post_id, self::META_FIELDS, wp_slash( $fields ) );
 		update_post_meta( $post_id, self::META_SITE, wp_slash( $site ) );
@@ -2660,9 +2678,20 @@ class WPCPM_Institution_Application {
 		update_post_meta( $post_id, self::META_REFERENCE, self::reference( $post_id ) );
 		update_post_meta( $post_id, self::META_COUNTRY, $country );
 		update_post_meta( $post_id, self::META_COUNTRY_NAME, '' !== $country ? wp_slash( WPCPM_Countries::name_of( $country ) ) : '' );
-		// A snapshot, not a lookup: who the country routed to on the day it was sent is what a
-		// queue row means by "for information", and the map is rebuilt by every sync.
-		update_post_meta( $post_id, self::META_MANAGER, is_array( $routing ) ? wp_slash( $routing ) : array() );
+		// A snapshot, not a lookup: who the areas routed the country to on the day it was sent is what a
+		// queue row means by "for information", and the areas are edited on the Settings screen.
+		update_post_meta( $post_id, self::META_ASSIGNED, '' !== $country ? WPCPM_Institution_Areas::administrator_for( $country ) : 0 );
+
+		// Until an area is set (the areas are seeded in a later task), nothing assigns an application, and
+		// the Countries table's contact stays the one routing it, snapshotted as it always was. Once any
+		// area is set, nothing new routes by that contact.
+		$areas = WPCPM_Institution_Areas::areas();
+
+		if ( array() === $areas['countries'] && array() === $areas['regions'] ) {
+			$routing = '' !== $country ? WPCPM_Countries::routing( $country ) : null;
+
+			update_post_meta( $post_id, self::META_MANAGER, is_array( $routing ) ? wp_slash( $routing ) : array() );
+		}
 		update_post_meta( $post_id, self::META_CONSENT, wp_slash( self::consent_record() ) );
 		update_post_meta( $post_id, self::META_SIGNALS, array_values( array_unique( $signals ) ) );
 		update_post_meta( $post_id, self::META_EMAIL, '' !== $email ? wp_hash( mb_strtolower( $email ) ) : '' );
@@ -3193,8 +3222,15 @@ class WPCPM_Institution_Application {
 		$post      = get_post( $post_id );
 		$name      = $post instanceof WP_Post ? (string) $post->post_title : '';
 		$reference = (string) get_post_meta( $post_id, self::META_REFERENCE, true );
-		$routing   = get_post_meta( $post_id, self::META_MANAGER, true );
-		$calendly  = ( is_array( $routing ) && ! empty( $routing['calendly'] ) ) ? (string) $routing['calendly'] : '';
+		$contact   = WPCPM_Institution_Assignment::contact_for( WPCPM_Institution_Assignment::for_application( $post_id ) );
+		$calendly  = null !== $contact ? $contact['calendly'] : '';
+
+		// An application with nobody assigned (filed before the areas existed, or while none were set) holds
+		// the country contact's link as it was snapshotted.
+		if ( null === $contact ) {
+			$routing  = get_post_meta( $post_id, self::META_MANAGER, true );
+			$calendly = ( is_array( $routing ) && ! empty( $routing['calendly'] ) ) ? (string) $routing['calendly'] : '';
+		}
 		$verify    = self::verify_url( $post_id );
 		$site      = WPCPM_Mail::site_name();
 		$id        = '' !== $calendly ? 'institution-applied' : 'institution-applied-no-call';
@@ -3217,6 +3253,30 @@ class WPCPM_Institution_Application {
 		// the applicant's language is the locale the page they filled in was rendered in, which
 		// is the one this request is already running in.
 		return WPCPM_Mail::send_to( $email, $id, $build );
+	}
+
+	/**
+	 * Tell the Administrator the application was assigned to, and nobody else.
+	 *
+	 * @param int $post_id Application post ID.
+	 * @return bool Whether an Administrator was assigned and the message was handed off to them. False
+	 *              for an application nobody holds, whose caller tells every Administrator instead.
+	 */
+	private static function mail_assignee( $post_id ) {
+		$assignee = WPCPM_Institution_Assignment::for_application( $post_id );
+
+		if ( null === WPCPM_Institution_Assignment::contact_for( $assignee ) ) {
+			return false;
+		}
+
+		$post = get_post( $post_id );
+
+		return WPCPM_Institution_Assignment::notify(
+			$assignee,
+			$post instanceof WP_Post ? (string) $post->post_title : '',
+			(string) get_post_meta( $post_id, self::META_COUNTRY_NAME, true ),
+			self::queue_url( $post_id )
+		);
 	}
 
 	/**

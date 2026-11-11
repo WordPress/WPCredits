@@ -20,7 +20,7 @@
  *   another quiet stretch, is reminded again.
  * - A mentor with three quiet students gets one digest listing three; a student whose mentor has no
  *   account is reminded alone (Review Focus 3); a mentor who is also an Administrator gets each mail once.
- * - The booking link is the calls section with a mentor, else the country's booking page, else the
+ * - The booking link is the calls section with a mentor, else the assigned Administrator's booking page, else the
  *   Student Report Card.
  * - A test institution's student is never mailed, counted or listed in the Monday list.
  * - A student closed since the snapshot is skipped at send time (Review Focus 1).
@@ -164,7 +164,10 @@ function get_user_by( $field, $value ) {
 	}
 	return false;
 }
-function user_can( $user, $cap ) { return in_array( $cap, $user->caps, true ); }
+function user_can( $user, $cap ) {
+	$user = is_object( $user ) ? $user : get_userdata( (int) $user );
+	return $user && in_array( $cap, $user->caps, true );
+}
 function get_users( $args ) {
 	// A step a check takes while the list is being made (one time only).
 	if ( isset( $GLOBALS['on_rows'] ) ) {
@@ -259,6 +262,14 @@ foreach ( $seed['institutions'] as $row ) {
 foreach ( $seed['countries'] as $row ) {
 	$GLOBALS['seed_countries'][ $row['id'] ] = $row;
 }
+// The Administrator an institution is assigned to (Institutions off Airtable, R1): its record, at the one read the
+// assignment makes, and the booking link on the Administrator's own account.
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+}
+class WPCPM_Manager_Booking {
+	public static function url_for( $user_id ) { return isset( $GLOBALS['booking'][ (int) $user_id ] ) ? $GLOBALS['booking'][ (int) $user_id ] : ''; }
+}
 class WPCPM_Institutions_Index {
 	public static function row( $id ) { return isset( $GLOBALS['seed_inst'][ $id ] ) ? $GLOBALS['seed_inst'][ $id ] : null; }
 }
@@ -287,8 +298,8 @@ function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 
 class WP_User {
-	public $ID = 0, $display_name = '', $user_email = '';
-	public function __construct( $id = 0, $name = '' ) { $this->ID = $id; $this->display_name = $name; }
+	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $user_registered = '', $roles = array(), $caps = array();
+	public function __construct( $id = 0, $name = '' ) { $this->ID = $id; $this->display_name = $name; $this->user_login = $name; }
 }
 
 class WPCPM_Lock {
@@ -354,6 +365,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-activity.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-flags.php';
 
 $fail = 0;
@@ -400,6 +412,8 @@ function reset_all() {
 	$GLOBALS['meta_cache']     = array();
 	$GLOBALS['meta_cache_on']  = false;
 	$GLOBALS['mark_locale']    = false;
+	$GLOBALS['kept']           = array();
+	$GLOBALS['booking']        = array();
 	$GLOBALS['in_build']       = 0;
 	$GLOBALS['nonce_ok']       = '';
 	$_POST                     = array();
@@ -431,7 +445,10 @@ function student( $id, $quiet, $institution = '', $status = 'In Sensei' ) {
 }
 
 function person( $id, $caps = array(), $email = null ) {
-	$GLOBALS['users'][ $id ] = (object) array( 'ID' => $id, 'user_email' => null === $email ? 'p' . $id . '@example.test' : $email, 'user_registered' => '', 'display_name' => 'Person ' . $id, 'roles' => array(), 'caps' => $caps );
+	$user             = new WP_User( $id, 'Person ' . $id );
+	$user->user_email = null === $email ? 'p' . $id . '@example.test' : $email;
+	$user->caps       = $caps;
+	$GLOBALS['users'][ $id ] = $user;
 }
 
 function mentor_of( $student, $mentor ) {
@@ -465,10 +482,12 @@ function student_at( $id, $at, $quiet ) {
 	$GLOBALS['umeta'][ $id ][ WPCPM_Sign_Ins::META_SIGN_IN ] = (string) ( $at - $quiet * $D );
 }
 
-// The Administrator of the real institution's country.
+// The Administrator the real institution is assigned to. The Countries table names `contact-<country>@example.test`
+// for its country, which nobody holds, and nothing reads.
 function manager( $id = 60 ) {
-	global $country;
-	person( $id, array( WPCPM_Roles::CAP_MANAGE ), 'contact-' . $country . '@example.test' );
+	global $real_inst;
+	person( $id, array( WPCPM_Roles::CAP_MANAGE ) );
+	$GLOBALS['kept'][ $real_inst ] = array( 'assigned' => $id );
 }
 
 echo "=== On: the reminder and the mentor digest ===\n";
@@ -659,7 +678,7 @@ manager( 60 );
 student( 1, 20, $real_inst );
 mentor_of( 1, 60 );
 WPCPM_Student_Flags::run_daily( $M );
-ck( 'a mentor who is also the country\'s Administrator gets the digest and the weekly list, each once', array( to_of( sent( 'student-quiet-mentor' ) ), to_of( sent( 'student-quiet-weekly' ) ), to_of( sent( 'student-quiet-student' ) ) ), array( array( 60 ), array( 60 ), array( 1 ) ) );
+ck( 'a mentor who is also the institution\'s Administrator gets the digest and the weekly list, each once', array( to_of( sent( 'student-quiet-mentor' ) ), to_of( sent( 'student-quiet-weekly' ) ), to_of( sent( 'student-quiet-student' ) ) ), array( array( 60 ), array( 60 ), array( 1 ) ) );
 
 echo "\n=== The booking link ===\n";
 reset_all();
@@ -667,8 +686,10 @@ manager();
 student( 1, 20, $real_inst );
 person( 77 );
 ck( 'booking_link_choice: no mentor and no booking page, the Student Report Card', WPCPM_Student_Flags::booking_link( 1 ), 'https://example.test/student/' );
-$GLOBALS['calendly'] = 'https://calendly.test/admin';
-ck( 'no mentor and a country with a booking page, that page', WPCPM_Student_Flags::booking_link( 1 ), 'https://calendly.test/admin' );
+// The Countries table's booking page is another one, and nothing reads it: the assigned Administrator's is offered.
+$GLOBALS['calendly'] = 'https://calendly.test/country';
+$GLOBALS['booking']  = array( 60 => 'https://calendly.test/admin' );
+ck( 'no mentor and an assigned Administrator with a booking page, that page', WPCPM_Student_Flags::booking_link( 1 ), 'https://calendly.test/admin' );
 mentor_of( 1, 77 );
 ck( 'a mentor, the calls section of the Student Report Card, whatever the country has', WPCPM_Student_Flags::booking_link( 1 ), 'https://example.test/student/#wpcpm-module-calls' );
 WPCPM_Student_Flags::run_daily( $T );
@@ -737,7 +758,7 @@ student( 3, 40, $test_inst );
 student( 4, 50 ); // No institution, no Administrator.
 WPCPM_Student_Flags::run_daily( $M );
 $weekly = sent( 'student-quiet-weekly' );
-ck( 'weekly_on_monday_once: on a Monday, the country\'s Administrator gets one list; the test student and the one with no Administrator are not on it', array( to_of( $weekly ), false !== strpos( $weekly[0]['subject'], 'Students gone quiet this week: 2' ), false !== strpos( $weekly[0]['body'], 'Students gone quiet in your country: 2.' ), false === strpos( $weekly[0]['body'], 'Student 3' ), false === strpos( $weekly[0]['body'], 'Student 4' ) ), array( array( 60 ), true, true, true, true ) );
+ck( 'weekly_on_monday_once: on a Monday, the institution\'s Administrator gets one list; the test student and the one with no Administrator are not on it', array( to_of( $weekly ), false !== strpos( $weekly[0]['subject'], 'Students gone quiet this week: 2' ), false !== strpos( $weekly[0]['body'], 'Students gone quiet at your institutions: 2.' ), false === strpos( $weekly[0]['body'], 'Student 3' ), false === strpos( $weekly[0]['body'], 'Student 4' ) ), array( array( 60 ), true, true, true, true ) );
 ck( 'the lines are most quiet first, each linking to the student on the Student Report Card, and the card is linked', array( strpos( $weekly[0]['body'], 'Student 2, 33 days: https://example.test/student/?wpcpm_student_view=2' ) < strpos( $weekly[0]['body'], 'Student 1, 23 days: https://example.test/student/?wpcpm_student_view=1' ), false !== strpos( $weekly[0]['body'], "https://example.test/administrators/?wpcpm_view=watch#wpcpm-quiet-students" ) ), array( true, true ) );
 ck( 'the week is noted', $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_WEEKLY ], gmdate( 'o-W', $M ) );
 WPCPM_Student_Flags::run_daily( $M + 3600 );
@@ -892,8 +913,7 @@ ck( 'lists_in_recipient_locale: the mentor\'s and the Administrator\'s list line
 
 echo "\n=== No call to book is never offered (fix round 1) ===\n";
 /**
- * Student 1, quiet 20 days, at an institution whose country has an Administrator's contact but no
- * account: with a mentor, with the country's booking page only, or with neither. Answers the
+ * Student 1, quiet 20 days, at an institution with an assigned Administrator: with a mentor, with that Administrator's booking page only, or with neither. Answers the
  * reminder's body and the note on their own Student Report Card.
  */
 function booking_case( $case, $contact = 'programs@example.test' ) {
@@ -906,7 +926,8 @@ function booking_case( $case, $contact = 'programs@example.test' ) {
 		mentor_of( 1, 77 );
 	}
 	if ( 'calendly' === $case ) {
-		$GLOBALS['calendly'] = 'https://calendly.test/admin';
+		manager();
+		$GLOBALS['booking'] = array( 60 => 'https://calendly.test/admin' );
 	}
 	WPCPM_Student_Flags::run_daily( $T );
 	$mail           = sent( 'student-quiet-student' );
@@ -918,7 +939,7 @@ list( $with_mentor, $with_mentor_note ) = booking_case( 'mentor' );
 list( $with_page, $with_page_note )     = booking_case( 'calendly' );
 list( $with_none, $with_none_note )     = booking_case( 'none' );
 list( $bare, $bare_note )               = booking_case( 'none', '' );
-ck( 'booking_offered_only_where_bookable: with a mentor the reminder and the note send the student to the calls section, with the country\'s booking page only to that page, and say nothing of the contact address', array(
+ck( 'booking_offered_only_where_bookable: with a mentor the reminder and the note send the student to the calls section, with the assigned Administrator\'s booking page only to that page, and say nothing of the contact address', array(
 	false !== strpos( $with_mentor, "You can book one here:\nhttps://example.test/student/#wpcpm-module-calls" ),
 	false !== strpos( $with_mentor_note, 'A short call is the easiest way to get going again. <a href="https://example.test/student/#wpcpm-module-calls">Book a call</a>' ),
 	false !== strpos( $with_page, "You can book one here:\nhttps://calendly.test/admin" ),
@@ -961,7 +982,7 @@ ck( 'the reminder\'s body, in full: a student seen before, with a mentor and an 
 	'Hello,',
 	'It has been 23 days since we last saw you on the program site, so we wanted to check in and see how you are doing.',
 	'Your mentor, Person 77, is there to help, whatever stage you are at.',
-	'Person 60, the Administrator for your country, is glad to help. Questions are always welcome.',
+	'Person 60, the Administrator for your institution, is glad to help. Questions are always welcome.',
 	"A short call is the easiest way to get going. You can book one here:\nhttps://example.test/student/#wpcpm-module-calls",
 	"If you have already talked with someone from the program, tell us by using the \"We've already talked\" button on your Student Report Card:\nhttps://example.test/student/",
 ) ) );
@@ -973,7 +994,7 @@ ck( 'one_student_digest_reads_right: the mentor\'s email for one student, in ful
 ) ) );
 ck( 'and the Monday email for one student, in full', $GLOBALS['mails'][2]['body'], implode( "\n\n", array(
 	'Hello,',
-	'Students gone quiet in your country: 1. The list is most quiet first.',
+	'Students gone quiet at your institutions: 1. The list is most quiet first.',
 	'Student 1, 23 days: https://example.test/student/?wpcpm_student_view=1',
 	"The Students gone quiet card of the Administrator Dashboard has the same list, and is where you can say that a student has already talked with us:\nhttps://example.test/administrators/?wpcpm_view=watch#wpcpm-quiet-students",
 ) ) );
@@ -999,7 +1020,7 @@ ck( 'never_seen_has_own_sentence: a student never seen since their track started
 	false !== strpos( $from_track, "Hello,\n\nYour track started 20 days ago and we have not seen you on the program site since, so we wanted to check in and see how you are doing.\n\nQuestions are always welcome.\n\nIf you have already talked" ),
 	false === strpos( $from_track, 'since we last saw you' ),
 	false === strpos( $from_track, 'Your mentor' ),
-	false === strpos( $from_track, 'Administrator for your country' ),
+	false === strpos( $from_track, 'Administrator for your institution' ),
 	false === strpos( $from_track, 'too' ),
 	false === strpos( $from_track, 'your mentor' ),
 	false === strpos( $from_track, 'get going again' ),

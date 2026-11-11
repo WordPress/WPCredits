@@ -741,7 +741,7 @@ report for the set number of days, 14 unless the program changed it. A change to
 whether you saved it here or edited it through another of the program's forms. The note says how many
 days it has been since you were last here, or, when we have not seen you since your track started or
 your account was made, how many days ago that was, and, when you have a call to book, a **Book a call**
-link; where you have no mentor and there is no booking page for your country, the link is left out and the
+link; where you have no mentor and your Administrator has no booking page, the link is left out and the
 email names the program's contact address instead. A call you have booked for a later date counts as being in touch, and the days are counted from
 your track's start date when it comes after your last visit, so nobody is quiet before their track
 begins. It is a nudge, never a

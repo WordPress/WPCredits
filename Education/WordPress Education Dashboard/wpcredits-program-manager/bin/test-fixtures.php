@@ -215,9 +215,39 @@ ck( 'and the leading space on the first internship choice',
     ' Based on required hours (e.g. 150 hours)' );
 
 ck( 'the Countries table has 8 fields', isset( $institutions['countries_fields'] ) ? count( $institutions['countries_fields'] ) : 0, 8 );
-ck( 'including the two lookups the acknowledgement needs',
+ck( 'including the two lookups the areas\' seed reads',
     not_offered( array( 'Email (from Person of contact (Team))', 'Calendly link (from Person of contact (Team))' ), isset( $institutions['countries_fields'] ) ? $institutions['countries_fields'] : array() ),
     array() );
+
+// The one-off seed (Institutions off Airtable, R1) reads three Institutions columns, the Team Members table
+// 'Original program manager' links to, and the Tutors table. Their names are the seed's to send, so each is
+// read here against what the base reported on 2026-11-11.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-seed.php';
+
+$outreach = fixture( 'outreach-tracker-fields.json' );
+
+ck( 'the seed\'s Institutions columns exist', not_offered( array( WPCPM_Institution_Seed::FIELD_NAME, WPCPM_Institution_Seed::FIELD_COUNTRY, WPCPM_Institution_Seed::FIELD_ORIGINAL ), $inst_fields ), array() );
+ck( 'Original program manager is a link, to the Team Members table the seed reads', array( isset( $institutions['types']['Original program manager'] ) ? $institutions['types']['Original program manager'] : null, isset( $institutions['team_members_table'] ) ? $institutions['team_members_table'] : null ), array( 'multipleRecordLinks', WPCPM_Institution_Seed::TEAM_TABLE ) );
+ck( 'the Team Members table has its four fields, in byte order', array( isset( $institutions['team_members_fields'] ) ? $institutions['team_members_fields'] : null, in_byte_order( isset( $institutions['team_members_fields'] ) ? $institutions['team_members_fields'] : array() ) ), array( array( 'Calendly link', 'Countries', 'Email', 'Name' ), true ) );
+ck( 'the seed\'s Team Members columns exist', not_offered( array( WPCPM_Institution_Seed::TEAM_NAME, WPCPM_Institution_Seed::TEAM_EMAIL, WPCPM_Institution_Seed::TEAM_CALENDLY ), isset( $institutions['team_members_fields'] ) ? $institutions['team_members_fields'] : array() ), array() );
+ck( 'the Institutions column the help desk was kept in is FreeScout now, and HelpScout is gone', array( in_array( 'FreeScout', $inst_fields, true ), in_array( 'HelpScout', $inst_fields, true ) ), array( true, false ) );
+ck( 'the types read on 2026-11-11 are in the Institutions fixture', array_intersect_key( isset( $institutions['types'] ) ? $institutions['types'] : array(), array_flip( array( 'Comments', 'Follow-Up Date', 'FreeScout', 'Last Contact Date', 'Next Step', 'Notes', 'Original program manager', 'Your Email' ) ) ), array(
+	'Comments'                 => 'multilineText',
+	'Follow-Up Date'           => 'date',
+	'FreeScout'                => 'multilineText',
+	'Last Contact Date'        => 'date',
+	'Next Step'                => 'singleLineText',
+	'Notes'                    => 'multilineText',
+	'Original program manager' => 'multipleRecordLinks',
+	'Your Email'               => 'email',
+) );
+ck( 'every type names a field the table has', array_values( array_diff( array_keys( isset( $institutions['types'] ) ? $institutions['types'] : array() ), $inst_fields ) ), array() );
+ck( 'the Outreach Tracker fixture was read on a date, and its table is the base\'s', array( isset( $outreach['read'] ) && 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $outreach['read'] ), isset( $outreach['outreach_tracker_table'] ) ? $outreach['outreach_tracker_table'] : null ), array( true, 'tblQssm68GvGEfAEH' ) );
+ck( 'its ten fields are listed once each, in byte order, and each has a type', array( count( isset( $outreach['fields'] ) ? $outreach['fields'] : array() ), in_byte_order( isset( $outreach['fields'] ) ? $outreach['fields'] : array() ), array_keys( isset( $outreach['types'] ) ? $outreach['types'] : array() ) === ( isset( $outreach['fields'] ) ? $outreach['fields'] : null ) ), array( 10, true, true ) );
+ck( 'it has no contact people column: nothing there names a contact or an address', array_values( preg_grep( '/^contact|e-?mail|person/i', isset( $outreach['fields'] ) ? $outreach['fields'] : array() ) ), array( ) );
+ck( 'Country there is text, and the primary column is the lead\'s name', array( isset( $outreach['types']['Country'] ) ? $outreach['types']['Country'] : null, isset( $outreach['types']['Ac'] ) ? $outreach['types']['Ac'] : null ), array( 'singleLineText', 'multilineText' ) );
+ck( 'the Tutors table is the settings default, with the seed\'s three columns', array( isset( $outreach['tutors_table'] ) ? $outreach['tutors_table'] : null, isset( $outreach['tutors_fields'] ) ? $outreach['tutors_fields'] : null ), array( WPCPM_Settings::defaults()['tutors_table'], array( WPCPM_Institution_Seed::TUTOR_EMAIL, WPCPM_Institution_Seed::TUTOR_LINK, WPCPM_Institution_Seed::TUTOR_NAME ) ) );
+ck( 'and types them: the link is a link', isset( $outreach['tutors_types']['Institutions Onboarding'] ) ? $outreach['tutors_types']['Institutions Onboarding'] : null, 'multipleRecordLinks' );
 
 /* ---- the students table ------------------------------------------------- */
 

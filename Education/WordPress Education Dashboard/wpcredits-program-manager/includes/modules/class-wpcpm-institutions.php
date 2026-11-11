@@ -360,6 +360,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			WPCPM_Institution_Members::META_ACTIVE,
 			WPCPM_Institution_Members::META_RECORD_ID_WAS,
 			WPCPM_Institution_Members::META_MEMBERSHIP,
+			// A member's level, Representative or Tutor (1.123.84).
+			WPCPM_Institution_Members::META_LEVEL,
+			WPCPM_Institution_Members::META_LEVEL_WAS,
 			WPCPM_Institution_Members::META_INVITED,
 			WPCPM_Institution_Members::META_PROFILE,
 		);
@@ -1691,7 +1694,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * belongs to an account, so the message is built in that person's language, and
 	 * `send_to()` for a bare address.
 	 *
-	 * The country contact is named in a body when a message is about their country, never
+	 * The assigned Administrator is named in a body when a message is about their institution, never
 	 * added here as a recipient: routing is information, not a mailing list.
 	 *
 	 * @param string   $context     Short label for the mail log, e.g. `agreement-landed`.
@@ -2161,6 +2164,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The name of the Administrator an institution is assigned to, for a queue row's "for information".
+	 *
+	 * @param string $record The institution's record ID.
+	 * @return string The name, '' for nobody.
+	 */
+	private static function assigned_name( $record ) {
+		$record = trim( (string) $record );
+
+		return '' === $record ? '' : WPCPM_Institution_Assignment::label( WPCPM_Institution_Assignment::stored_of( $record ) );
+	}
+
+	/**
 	 * The queue, as one list, oldest first.
 	 *
 	 * Three kinds of row and one list, because they are one queue: a person works it from the
@@ -2240,7 +2255,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'overdue'      => ( $now - $at ) > $overdue,
 				'name'         => '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ),
 				'country_name' => self::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) ),
-				'contact'      => WPCPM_Countries::contact_of( $country ),
+				'contact'      => WPCPM_Institution_Assignment::application_label( (int) $post->ID ),
 				'state'        => self::application_state( $post ),
 				// Carried on the row rather than counted again when it is drawn: a held row
 				// has to say on the list that it was held, and how many checks held it.
@@ -2274,7 +2289,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'overdue'      => ( $now - $at ) > $overdue,
 				'name'         => $name,
 				'country_name' => self::country_name( $country, isset( $index['country_name'] ) ? (string) $index['country_name'] : '' ),
-				'contact'      => WPCPM_Countries::contact_of( $country ),
+				'contact'      => self::assigned_name( $record ),
 				'state'        => '',
 				'signals'      => array(),
 				'duplicate'    => false,
@@ -2300,7 +2315,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'overdue'       => ! empty( $facts['overdue'] ),
 				'name'          => (string) $facts['institution_name'],
 				'country_name'  => self::country_name( $country, isset( $facts['country_name'] ) ? (string) $facts['country_name'] : '' ),
-				'contact'       => WPCPM_Countries::contact_of( $country ),
+				'contact'       => self::assigned_name( (string) $facts['institution'] ),
 				'state'         => '',
 				'signals'       => array(),
 				'duplicate'     => false,
@@ -3345,14 +3360,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html(
 					'' !== (string) $row['contact']
 						? sprintf(
-							/* translators: 1: country, 2: the country's person of contact. */
-							__( '%1$s. Person of contact: %2$s, for information.', 'wpcredits-program-manager' ),
+							/* translators: 1: country, 2: the Administrator the row is assigned to. */
+							__( '%1$s. Assigned to %2$s, for information.', 'wpcredits-program-manager' ),
 							(string) $row['country_name'],
 							(string) $row['contact']
 						)
 						: sprintf(
 							/* translators: %s: country. */
-							__( '%s. The Countries table names nobody for it, for information.', 'wpcredits-program-manager' ),
+							__( '%s. Nobody is assigned to it, for information.', 'wpcredits-program-manager' ),
 							(string) $row['country_name']
 						)
 				)
@@ -3720,6 +3735,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 	private static function signal_labels() {
 		return array(
+			'mail-assignee'        => __( 'The email to the assigned Administrator could not be sent. Nobody else was emailed in its place, so open this application from the queue.', 'wpcredits-program-manager' ),
 			'honeypot'             => __( 'A field no visitor can see was filled in, which is what an automated submission does and a person cannot.', 'wpcredits-program-manager' ),
 			'dwell'                => sprintf(
 				/* translators: %s: a number of seconds. */
@@ -4751,11 +4767,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			echo '<td>';
 			echo esc_html( '' !== $country_name ? $country_name : __( 'unknown country', 'wpcredits-program-manager' ) );
 
-			if ( null === WPCPM_Countries::routing( $country ) ) {
+			if ( 0 === WPCPM_Institution_Areas::administrator_for( $country ) ) {
 				printf(
 					' <span class="wpcpm-inst-mark wpcpm-inst-mark--routing" title="%1$s">%2$s</span>',
-					esc_attr__( 'The Countries table names no Administrator for this country.', 'wpcredits-program-manager' ),
-					esc_html__( 'no contact', 'wpcredits-program-manager' )
+					esc_attr__( 'No area of responsibility covers this country.', 'wpcredits-program-manager' ),
+					esc_html__( 'no area', 'wpcredits-program-manager' )
 				);
 			}
 
@@ -4850,10 +4866,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Countries that institutions name and the Countries table routes nowhere.
+	 * Countries that institutions name and no area of responsibility gives an Administrator.
 	 *
-	 * A routing gap, never an error: the acknowledgement for an applicant from one of these
-	 * countries has no manager to name, and the queue shows no contact for information. Read
+	 * A routing gap, never an error: an application from one of these countries is assigned to
+	 * nobody, and every Administrator is told of it. Read
 	 * from the index rows and the countries map, so the list is the countries institutions name
 	 * and not the fifty-eight nobody has applied from. Since 1.123.29 the rows are the ones the
 	 * Pipeline counts (`counted_rows()`): a country named only by a record set aside is no gap
@@ -4865,15 +4881,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$gaps      = array();
 		$countries = WPCPM_Countries::read();
 		$read      = isset( $countries['read'] ) ? (int) $countries['read'] : 0;
+		$uncovered = WPCPM_Institution_Areas::gaps();
 
 		foreach ( $rows as $row ) {
 			$country = isset( $row['country'] ) ? (string) $row['country'] : '';
+			$label   = '' === $country ? '' : WPCPM_Countries::name_of( $country );
 
-			if ( '' === $country || null !== WPCPM_Countries::routing( $country ) ) {
+			// A country the map holds is a gap when no area gives it an Administrator; one it does not hold
+			// has none either, and is listed by the name the record carries.
+			if ( '' === $country || ( '' !== $label && ! isset( $uncovered[ $country ] ) ) ) {
 				continue;
 			}
-
-			$label = WPCPM_Countries::name_of( $country );
 
 			if ( '' === $label ) {
 				$label = isset( $row['country_name'] ) && '' !== (string) $row['country_name']
@@ -4887,7 +4905,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$this->read_line( $read, __( 'Countries map', 'wpcredits-program-manager' ) );
 
 		if ( empty( $gaps ) ) {
-			echo '<p>' . esc_html__( 'Every country an institution names has an Administrator contact.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'Every country an institution names has an Administrator.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}
@@ -4902,7 +4920,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		printf(
 			'<p class="wpcpm-inst-routing">%1$s %2$s</p>',
-			esc_html__( 'Countries named by institutions with no Administrator contact in the Countries table:', 'wpcredits-program-manager' ),
+			esc_html__( 'Countries named by institutions with no Administrator in the areas of responsibility:', 'wpcredits-program-manager' ),
 			esc_html( implode( ', ', $parts ) )
 		);
 	}

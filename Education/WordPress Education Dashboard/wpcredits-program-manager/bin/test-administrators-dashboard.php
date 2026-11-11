@@ -513,6 +513,15 @@ class WPCPM_Roster_Index {
 	public static function is_waiting( array $row ) { return empty( $row['reports'] ) && empty( $row['has_mentor'] ); }
 	public static function rows( $id ) { return self::read( $id )['rows']; }
 }
+// The Administrator an application or an institution is assigned to (Institutions off Airtable, R1), at the reads the
+// assignment makes: the institution's record and the booking link. The Countries table's contact below is somebody
+// else, and the card never reads it.
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+}
+class WPCPM_Manager_Booking {
+	public static function url_for( $user_id ) { return ''; }
+}
 class WPCPM_Countries {
 	public static function contact_of( $country ) { return 'recCOUNTRY0000001' === (string) $country ? 'Ana Manager' : ''; }
 	// The name the countries map holds for a record, which the answers table prints before the one stored.
@@ -545,6 +554,7 @@ class WPCPM_Institution_Application {
 	const POST_TYPE = 'wpcpm_inst_app';
 	const STATE_NEW = 'new'; const STATE_HELD = 'held'; const STATE_INFO = 'info'; const STATE_REJECTED = 'rejected'; const STATE_SPAM = 'spam'; const STATE_APPROVED = 'approved';
 	const META_STATE = '_wpcpm_app_state'; const META_COUNTRY = '_wpcpm_app_country'; const META_COUNTRY_NAME = '_wpcpm_app_country_name';
+	const META_ASSIGNED = '_wpcpm_app_assigned'; const META_MANAGER = '_wpcpm_app_manager';
 	const META_FIELDS = '_wpcpm_app_fields'; const META_CONSENT = '_wpcpm_app_consent'; const META_SITE = '_wpcpm_app_site';
 	/**
 	 * The form's questions in the order it asks them, at the spec's shape the answers table reads: the
@@ -980,6 +990,7 @@ class WPCPM_Sponsor_Event {
 if ( ! function_exists( 'get_userdata' ) ) {
 	function get_userdata( $id ) { return get_user_by( 'id', $id ); }
 }
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 // Core's warm-up of many accounts in one query, which the card asks before it reads the names of
 // the people on an event: nothing to warm here.
 if ( ! function_exists( 'cache_users' ) ) {
@@ -1228,6 +1239,7 @@ seed_post( 501, 'wpcpm_inst_app', 'Uni Nueva', array(
 	'_wpcpm_app_state'        => 'new',
 	'_wpcpm_app_country'      => 'recCOUNTRY0000001',
 	'_wpcpm_app_country_name' => 'Poland',
+	'_wpcpm_app_assigned'     => 12,
 	'_wpcpm_app_fields'       => array( 'Name' => 'Uni Nueva', 'City' => 'Krakow', 'Contact Email' => 'office@example.test' ),
 	'_wpcpm_app_site'         => array(
 		'contact_role'      => 'Internship coordinator',
@@ -1237,7 +1249,7 @@ seed_post( 501, 'wpcpm_inst_app', 'Uni Nueva', array(
 		'credits_page'      => 'https://uni-nueva.example/credits',
 	),
 ), '2026-09-01 08:00:00' );
-seed_post( 502, 'wpcpm_inst_app', 'Uni Held', array( '_wpcpm_app_state' => 'held', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '' ), '2026-09-02 08:00:00' );
+seed_post( 502, 'wpcpm_inst_app', 'Uni Held', array( '_wpcpm_app_state' => 'held', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '', '_wpcpm_app_manager' => array( 'manager' => 'recTEAMAAAAAAAAAA', 'email' => 'old.snapshot@example.test', 'calendly' => '' ) ), '2026-09-02 08:00:00' );
 seed_post( 503, 'wpcpm_inst_app', 'Uni Rejected', array( '_wpcpm_app_state' => 'rejected', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '' ), '2026-08-01 08:00:00' );
 
 seed_post( 601, 'wpcpm_agreement', 'Agreement B', array( '_wpcpm_agr_institution' => $B, '_wpcpm_agr_state' => 'submitted' ), '2026-08-20 08:00:00' );
@@ -1914,9 +1926,14 @@ foreach ( array(
 }
 ck( 'every card with nothing in it is drawn folded, in this page\'s shape, its zero printed', $folded_at_zero, array_fill_keys( array_keys( $folded_at_zero ), true ) );
 
+$GLOBALS['users'][12] = new WP_User( 12, 'Beata Admin', 'beata.admin@example.test' );
+$GLOBALS['manage']    = array( 3, 12 );
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
+$GLOBALS['manage']    = array( 3 );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
-ck( 'each open application names itself, its reference, country and routed manager', has( $apps, 'Uni Nueva' ) && has( $apps, 'APP-2026-0501' ) && has( $apps, 'Poland' ) && has( $apps, 'Ana Manager' ), true );
+ck( 'each open application names itself, its reference, country and the Administrator it was given to', has( $apps, 'Uni Nueva' ) && has( $apps, 'APP-2026-0501' ) && has( $apps, 'Poland' ) && has( $apps, 'Assigned to Beata Admin' ), true );
+ck( 'and never the Countries table\'s contact for the country', has( $apps, 'Ana Manager' ), false );
+ck( 'an application filed before the release, with a snapshot and nobody assigned, names the snapshot\'s contact', has( $apps, 'Assigned to old.snapshot@example.test' ), true );
 ck( 'the answers are the module\'s, behind a disclosure', has( $apps, '<details class="wpcpm-administrator__answers"><summary>Read the application</summary><table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>' ), true );
 ck( 'the decisions are the module\'s, and come back here', substr_count( $apps, 'name="wpcpm_return" value="dashboard"' ), 4 );
 // Reject, Reject as spam and Delete for good carry a confirm; a canceled dialog must not

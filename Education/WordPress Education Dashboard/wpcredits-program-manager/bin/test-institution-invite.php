@@ -348,6 +348,16 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-member
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-people.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
+// The tutor list an accepted Tutor invitation adds to, over an in-memory record: its own suite holds the list to
+// the real one (bin/test-institution-tutors.php).
+require_once __DIR__ . '/stubs/tutor-list.php';
+class WPCPM_Institution_Record {
+	public static function get( $id ) { return $GLOBALS['kept'][ $id ] ?? array(); }
+	public static function forget_cached( $id ) {}
+	public static function set( $id, array $answers ) { $GLOBALS['kept'][ $id ] = array_merge( $GLOBALS['kept'][ $id ] ?? array(), $answers ); return true; }
+}
+$GLOBALS['kept'] = array();
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -1332,6 +1342,146 @@ $here = (string) ob_get_clean();
 
 ck( 'another institution\'s card prints nothing', $elsewhere, '' );
 ck( 'and this one prints the message with the address', array( has( $here, 'on its way' ), has( $here, 'colleague@example.test' ) ), array( true, true ) );
+
+/* ---- the Tutor level (Institutions release 1) ----------------------------- */
+
+echo "\n=== The invitation chooses a level ===\n";
+
+reset_world();
+
+$GLOBALS['umeta'][7][ WPCPM_Flash::META ] = array();
+$form = render_form_as( 7, $A );
+
+ck( 'the form draws a fieldset Level with the two choices', array( has( $form, '<fieldset class="wpcpm-people__level"><legend>Level</legend>' ), substr_count( $form, 'type="radio" id="wpcpm-invite-level-' . $A . '-' ), has( $form, 'name="level" value="representative" checked="checked"' ), has( $form, 'name="level" value="tutor"' ), has( $form, 'name="level" value="tutor" checked' ) ), array( true, 2, true, true, false ) );
+ck( 'Representative says what it may do, and Tutor what it may not', array(
+	has( $form, ' Representative</label> <span class="description" id="wpcpm-invite-level-' . $A . '-representative-hint">Adds and changes students, invites colleagues, corrects the details.</span>' ),
+	has( $form, ' Tutor</label> <span class="description" id="wpcpm-invite-level-' . $A . '-tutor-hint">Sees the students, their Student Report Cards and the semester reports, and changes nothing.</span>' ),
+), array( true, true ) );
+ck( 'each hint has an id and its radio points at it', array(
+	has( $form, 'name="level" value="representative" checked="checked" aria-describedby="wpcpm-invite-level-' . $A . '-representative-hint"' ),
+	has( $form, 'name="level" value="tutor" aria-describedby="wpcpm-invite-level-' . $A . '-tutor-hint"' ),
+	has( $form, '<span class="description" id="wpcpm-invite-level-' . $A . '-tutor-hint">Sees the students' ),
+), array( true, true, true ) );
+ck( 'the radios sit before the button, so the choice is made before the press', before( $form, 'name="level" value="tutor"', 'Send invitation' ), true );
+
+function invite_level_as( $uid, $record, $email, $level ) {
+	$GLOBALS['uid'] = (int) $uid;
+	$_POST          = array( 'record' => $record, 'email' => $email, 'level' => $level );
+	return run( 'handle_invite' );
+}
+
+// A refused press gives the choice back as it was made: Tutor stays ticked after a mistyped address.
+invite_level_as( 7, $A, 'not an address', 'tutor' );
+// A fresh account holding the same meta, since the real flash reads a channel once per account and request.
+$GLOBALS['users'][43] = new WP_User( 43, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
+$GLOBALS['umeta'][43] = $GLOBALS['umeta'][7];
+$redrawn = render_form_as( 43, $A );
+ck( 'a tutor invitation refused for its address is drawn again with Tutor ticked and the address as typed', array( flash_status( 7 ), has( $redrawn, 'name="level" value="tutor" checked="checked"' ), has( $redrawn, 'name="level" value="representative" checked' ), has( $redrawn, 'value="not an address"' ) ), array( 'invite-bad-email', true, false, true ) );
+invite_level_as( 7, $A, 'not an address', 'owner' );
+$GLOBALS['users'][44] = new WP_User( 44, 'Anna Kowalska', 'anna@example.test', array( 'subscriber' ) );
+$GLOBALS['umeta'][44] = $GLOBALS['umeta'][7];
+$again = render_form_as( 44, $A );
+ck( 'a refused made-up level leaves Representative ticked', array( has( $again, 'name="level" value="representative" checked="checked"' ), has( $again, 'value="tutor" checked' ) ), array( true, false ) );
+unset( $GLOBALS['users'][43], $GLOBALS['users'][44], $GLOBALS['umeta'][43], $GLOBALS['umeta'][44] );
+unset( $GLOBALS['umeta'][7][ WPCPM_Flash::META ] );
+
+$before_posts = invite_count();
+$before_mails = count( $GLOBALS['sent'] );
+invite_level_as( 7, $A, 'tutor@example.test', 'owner' );
+ck( 'a level that is neither is refused by name, in its sentence', array( flash_status( 7 ), WPCPM_Institution_Invite::messages()['invite-bad-level'] ), array( 'invite-bad-level', array( 'error', 'Nothing was sent. Choose Representative or Tutor.' ) ) );
+ck( 'and nothing was stored or mailed', array( invite_count(), count( $GLOBALS['sent'] ) ), array( $before_posts, $before_mails ) );
+invite_level_as( 7, $A, 'tutor@example.test', '' );
+ck( 'nor is an empty level taken for a representative', array( flash_status( 7 ), invite_count(), count( $GLOBALS['sent'] ) ), array( 'invite-bad-level', $before_posts, $before_mails ) );
+$GLOBALS['opts'] = array_filter( $GLOBALS['opts'], function ( $k ) { return 0 !== strpos( (string) $k, WPCPM_Ceiling::PREFIX ); }, ARRAY_FILTER_USE_KEY );
+
+invite_level_as( 7, $A, 'Tutor@Example.test', 'tutor' );
+$tutor_post = newest_invite();
+$mail       = last_mail();
+ck( 'a tutor invitation stores the level', array( flash_status( 7 ), pmeta( $tutor_post, '_wpcpm_inv_level' ), WPCPM_Institution_Invite::META_LEVEL ), array( 'invite-sent', 'tutor', '_wpcpm_inv_level' ) );
+ck( 'and is mailed under its own id, with its sentence', array( $mail['context'], has( $mail['mail']['body'], 'You are invited as a tutor: you can see the institution\'s students, their Student Report Cards and its semester reports, and change nothing.' ), has( $mail['mail']['body'], 'invited as a representative' ), has( $mail['mail']['body'], 'Anna Kowalska' ) ), array( 'institution-invite-tutor', true, false, true ) );
+$tutor_token = token_from_mail();
+
+invite_level_as( 7, $A, 'rep@example.test', 'representative' );
+$rep_post  = newest_invite();
+$rep_token = token_from_mail();
+$mail      = last_mail();
+ck( 'a representative invitation stores it, and is mailed as the invitation always was, with its sentence', array( pmeta( $rep_post, '_wpcpm_inv_level' ), $mail['context'], has( $mail['mail']['body'], 'You are invited as a representative: you can see and add the institution\'s students, invite colleagues and correct its details.' ) ), array( 'representative', 'institution-invite', true ) );
+
+$tutor_page = ask_as( 0, $tutor_token );
+$rep_page   = ask_as( 0, $rep_token );
+ck( 'the accept page for a tutor says nothing about removing anybody, since a tutor changes nothing', array( has( $tutor_page, 'Accepting adds you as a member' ), has( $tutor_page, 'remove anybody' ), has( $tutor_page, 'you will see the same students they do' ) ), array( true, false, true ) );
+ck( 'the accept page for a representative keeps its sentence', has( $rep_page, 'you will see the same students they do, and you can remove anybody, including them.' ), true );
+
+invite_as( 7, $A, 'old-form@example.test' );
+$mail = last_mail();
+ck( 'a form posted with no level (one drawn before this release) is a representative\'s', array( pmeta( newest_invite(), '_wpcpm_inv_level' ), $mail['context'] ), array( 'representative', 'institution-invite' ) );
+
+$no_name = seed_invite( $A, 'resend-me@example.test', 7, time() );
+update_post_meta( $no_name, WPCPM_Institution_Invite::META_LEVEL, 'tutor' );
+$GLOBALS['users'][7]->display_name = '';
+press( 7, 'handle_resend', $no_name );
+$mail = last_mail();
+$GLOBALS['users'][7]->display_name = 'Anna Kowalska';
+ck( 'a resent tutor invitation keeps its level, and with nobody to name it is the tutor id with no sender', array( flash_status( 7 ), $mail['context'], has( $mail['mail']['body'], 'You are invited as a tutor' ), pmeta( $no_name, '_wpcpm_inv_level' ) ), array( 'invite-resent', 'institution-invite-tutor-no-sender', true, 'tutor' ) );
+
+echo "\n=== Accepting attaches at the invitation's level ===\n";
+
+$GLOBALS['users'][ 40 ] = new WP_User( 40, 'Tess Tutor', 'tutor@example.test', array( 'subscriber' ) );
+ck( 'the tutor presses Accept', accept_as( 40, $tutor_token ), 'redirect:https://example.test/institution-dashboard/' );
+ck( 'and is attached at the tutor level, to the invitation\'s institution', array( WPCPM_Institution_Members::institution_of( 40 ), WPCPM_Institution_Members::level_of( 40 ) ), array( $A, 'tutor' ) );
+ck( 'accepting a Tutor invitation lists the account\'s address under its display name', WPCPM_Institution_Tutors::list_for( $A ), array( array( 'name' => 'Tess Tutor', 'email' => 'tutor@example.test' ) ) );
+$added = array_values( array_filter( WPCPM_Institution_Audit::entries_for( $A ), function ( $e ) { return 'member_added' === $e['kind'] && '40' === (string) $e['subject']; } ) );
+ck( 'the member_added row carries the level and names the invitation', array( $added[0]['data']['level'] ?? null, $added[0]['data']['invite'] ?? null, $added[0]['data']['how'] ?? null ), array( 'tutor', $tutor_post, 'invited' ) );
+
+invite_as( 7, $A, 'old-invite@example.test' );
+$legacy       = newest_invite();
+$legacy_token = token_from_mail();
+unset( $GLOBALS['pmeta'][ $legacy ]['_wpcpm_inv_level'] );
+$GLOBALS['users'][41] = new WP_User( 41, 'Ora Old', 'old-invite@example.test', array( 'subscriber' ) );
+ck( 'an invitation stored before this release has no level meta', pmeta( $legacy, '_wpcpm_inv_level' ), null );
+ck( 'and attaches as a representative, as every invitation did', array( accept_as( 41, $legacy_token ), WPCPM_Institution_Members::institution_of( 41 ), WPCPM_Institution_Members::level_of( 41 ) ), array( 'redirect:https://example.test/institution-dashboard/', $A, 'representative' ) );
+
+$GLOBALS['users'][42] = new WP_User( 42, 'Ria Rep', 'rep@example.test', array( 'subscriber' ) );
+ck( 'a representative invitation attaches a representative', array( accept_as( 42, $rep_token ), WPCPM_Institution_Members::level_of( 42 ) ), array( 'redirect:https://example.test/institution-dashboard/', 'representative' ) );
+ck( 'and neither a representative\'s acceptance nor an invitation from before the levels adds anybody to the tutors', WPCPM_Institution_Tutors::names( $A ), array( 'Tess Tutor' ) );
+ck( 'the tutor\'s add is one row of history, on the system ground', array_map( function ( $e ) { return array( $e['kind'], $e['ground'], $e['data']['email'] ); }, array_values( array_filter( WPCPM_Institution_Audit::entries_for( $A ), function ( $e ) { return 'tutor_added' === $e['kind']; } ) ) ), array( array( 'tutor_added', 'system', 'tutor@example.test' ) ) );
+
+echo "\n=== A tutor's hand-made posts to the invitation handlers are refused, and nothing is written ===\n";
+
+// Tess (40) is now a tutor of A, a settled institution. Every post carries a valid nonce, which this
+// suite's stub always grants: what refuses is the policy.
+$GLOBALS['sent'] = array();
+$posts_before    = invite_count();
+$victim          = seed_invite( $A, 'victim@example.test', 7, time() );
+$meta_before     = serialize( $GLOBALS['pmeta'] );
+$opts_before     = serialize( $GLOBALS['opts'] );
+$refusal         = 'wp_die:' . WPCPM_Institution_Policy::refusal()->get_error_message();
+
+$posts_before = invite_count();
+$meta_before  = serialize( $GLOBALS['pmeta'] );
+$opts_before  = serialize( $GLOBALS['opts'] );
+
+ck( 'a tutor\'s invite is refused with the one refusal', invite_level_as( 40, $A, 'friend@example.test', 'tutor' ), $refusal );
+ck( 'and a tutor posting a representative invitation too', invite_level_as( 40, $A, 'friend@example.test', 'representative' ), $refusal );
+ck( 'a tutor\'s cancel is refused', press( 40, 'handle_cancel', $victim ), $refusal );
+ck( 'a tutor\'s resend is refused', press( 40, 'handle_resend', $victim ), $refusal );
+ck( 'nothing was written: no post, no meta, no option (the ceiling is an option), no mail', array( invite_count(), serialize( $GLOBALS['pmeta'] ) === $meta_before, serialize( $GLOBALS['opts'] ) === $opts_before, $GLOBALS['sent'] ), array( $posts_before, true, true, array() ) );
+ck( 'the invitation is still pending', pmeta( $victim, '_wpcpm_inv_state' ), 'pending' );
+ck( 'and a tutor is drawn no invitation form and no waiting list', array( render_form_as( 40, $A ), render_pending_as( 40, $A ) ), array( '', '' ) );
+
+echo "\n=== Only a representative vouches for an invitation ===\n";
+
+// An invitation sent by an account that is now a tutor (it was removed, then invited back as one) is not
+// one a tutor stands behind: the link is refused, and canceled when it is pressed.
+reset_world();
+invite_as( 7, $A, 'vouch@example.test' );
+$vouch_post  = newest_invite();
+$vouch_token = token_from_mail();
+update_post_meta( $vouch_post, WPCPM_Institution_Invite::META_ACTOR, 40 );
+ck( 'a link whose sender is a tutor is refused on the page', has( ask_as( 0, $vouch_token ), 'wp_die:That invitation cannot be used' ), true );
+ck( 'and on the press, where it is canceled and nobody joins', array( has( accept_as( 0, $vouch_token ), 'wp_die:That invitation cannot be used' ), pmeta( $vouch_post, '_wpcpm_inv_state' ) ), array( true, 'cancelled' ) );
+invite_as( 7, $A, 'vouch2@example.test' );
+ck( 'while a representative\'s still stands', has( ask_as( 0, token_from_mail() ), 'wp_die' ), false );
 
 /* ---- the shape of the file ------------------------------------------------ */
 

@@ -518,6 +518,82 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	}
 }
 
+/*
+ * The four pieces the records phase reaches for when it gives a school new to the index its area's
+ * Administrator (1.123.84), at their contracts: the areas as a map the check sets
+ * (`$GLOBALS['areas']`, country record ID => user ID), the school's lock by its real name, the record's
+ * cache, and the assignment as the institution's record holds it (`$GLOBALS['assigned']`, record ID =>
+ * user ID, 0 for Nobody chosen). `assign()` answers as the real one does: false for the same
+ * Administrator, true for a change, and an email to the new Administrator unless the caller asked for
+ * none, the email naming the school as the index holds it at that moment. Each call notes whether the
+ * school's lock was held while it ran.
+ */
+if ( ! class_exists( 'WPCPM_Institution_Areas' ) ) {
+	class WPCPM_Institution_Areas {
+		public static function administrator_for( $country_id ) {
+			$GLOBALS['calls']['administrator_for'][] = (string) $country_id;
+			return isset( $GLOBALS['areas'][ (string) $country_id ] ) ? (int) $GLOBALS['areas'][ (string) $country_id ] : 0;
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
+	class WPCPM_Institution_Request {
+		const LOCK_TTL = 300;
+		public static function school_lock_name( $institution ) { return 'wpcpm_req_lock_details_' . trim( (string) $institution ); }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	class WPCPM_Institution_Record {
+		public static function forget_cached( $record_id ) { $GLOBALS['calls']['record_forgotten'][] = (string) $record_id; }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Assignment' ) ) {
+	class WPCPM_Institution_Assignment {
+		public static function stored_of( $record_id ) {
+			return isset( $GLOBALS['assigned'][ $record_id ] ) ? (int) $GLOBALS['assigned'][ $record_id ] : 0;
+		}
+		public static function has_choice( $record_id ) {
+			return isset( $GLOBALS['assigned'] ) && array_key_exists( $record_id, $GLOBALS['assigned'] );
+		}
+		public static function label( $user_id ) { return 'Administrator ' . (int) $user_id; }
+		public static function assign( $record_id, $user_id, $actor, $notify = true, &$emailed = null ) {
+			$emailed = false;
+			$GLOBALS['calls']['assign'][] = array(
+				'record' => (string) $record_id,
+				'user'   => (int) $user_id,
+				'actor'  => (int) $actor,
+				'notify' => (bool) $notify,
+				'locked' => WPCPM_Lock::until( WPCPM_Institution_Request::school_lock_name( $record_id ) ) > time(),
+			);
+			if ( ! empty( $GLOBALS['assign_refuses'] ) ) {
+				return new WP_Error( 'wpcpm_assign_not_kept', 'The assignment could not be kept. Try again.' );
+			}
+			if ( self::stored_of( $record_id ) === (int) $user_id ) {
+				return false;
+			}
+			$GLOBALS['assigned'][ $record_id ] = (int) $user_id;
+			if ( $notify && $user_id > 0 && (int) $user_id !== (int) $actor ) {
+				if ( ! empty( $GLOBALS['assign_mail_fails'] ) ) {
+					return true;
+				}
+				$row                                = WPCPM_Institutions_Index::row( $record_id );
+				$GLOBALS['calls']['assigned_mail'][] = array( (int) $user_id, is_array( $row ) ? trim( $row['name'] ) : (string) $record_id );
+				$emailed                            = true;
+			}
+			return true;
+		}
+	}
+}
+
+/** The options cache, as far as the records phase drops its copy of the index before it reads it. */
+function wp_cache_delete( $key, $group = '' ) {
+	$GLOBALS['calls']['cache_delete'][] = $group . ':' . $key;
+	return true;
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
@@ -643,6 +719,9 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['attach_fails']    = false;
 	$GLOBALS['retry_cleared']   = 0;
 	$GLOBALS['retry_rebuilds']  = '';
+	$GLOBALS['areas']           = array();
+	$GLOBALS['assigned']        = array();
+	$GLOBALS['assign_refuses']  = false;
 
 	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge(
 		WPCPM_Settings::defaults(),
@@ -1737,6 +1816,223 @@ ck( 'a tick whose lock was taken over in a non-paging phase stops before its nex
 	array( isset( $GLOBALS['after_write'][ WPCPM_Institutions_Sync::OPT_STATE ] ), get_option( WPCPM_Institutions_Sync::OPT_STATE ) === $restarted_run, WPCPM_Lock::until( WPCPM_Institutions_Sync::OPT_LOCK ) ),
 	array( false, true, time() + 900 ) );
 unset( $GLOBALS['after_write'], $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] );
+
+/* ---- a school new to the index is given its area's Administrator (1.123.84) ---- */
+
+echo "\n=== A school added in Airtable is given its area's Administrator ===\n";
+
+/**
+ * The seed's pages with records the base has gained since, on the last page.
+ *
+ * @param array $seed The fixture.
+ * @param array $new  Record ID => its cells.
+ * @return array
+ */
+function pages_with( array $seed, array $new ) {
+	$pages = airtable_pages( $seed );
+	$last  = count( $pages ) - 1;
+
+	foreach ( $new as $id => $fields ) {
+		$pages[ $last ][] = array(
+			'id'          => $id,
+			'createdTime' => '2026-11-11T10:00:00.000Z',
+			'fields'      => $fields,
+		);
+	}
+
+	return $pages;
+}
+
+/** A school typed into the Institutions table, in a country. */
+function new_school( $name, $country ) {
+	return array( 'Name' => $name, 'Current Stage' => 'First Contact Made', 'Country' => array( $country ) );
+}
+
+$italy = 'recSEED0000000009';
+$other = '';
+foreach ( $seed['countries'] as $c ) {
+	if ( $italy !== $c['id'] ) {
+		$other = $c['id'];
+		break;
+	}
+}
+$known      = 'recSEED0000000008'; // Institution 4, in Italy, read by the first run.
+$covered    = 'recNEW00000000001';
+$uncovered  = 'recNEW00000000002';
+$held_by    = 'recNEW00000000003';
+$nobody     = 'recNEW00000000004';
+$no_country = 'recNEW00000000005';
+$table      = 'tbl4V0FEbzRP7I2w2';
+
+reset_site( $seed );
+$GLOBALS['areas'] = array( $italy => 11 );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'the first read, with no index before it, assigns nobody, though an area covers Italy',
+	array( WPCPM_Institutions_Sync::is_running(), isset( $GLOBALS['calls']['assign'] ), isset( $GLOBALS['calls']['assigned_mail'] ), $GLOBALS['assigned'], isset( $GLOBALS['calls']['administrator_for'] ) ),
+	array( false, false, false, array(), false ) );
+
+// The second run finds five records the first did not: one in a covered country, one in a country no
+// area covers, one an Administrator assigned already, one whose card says Nobody, and one with no country.
+$GLOBALS['assigned'][ $held_by ] = 12;
+$GLOBALS['assigned'][ $nobody ]  = 0;
+$GLOBALS['calls']                = array();
+$five                            = array(
+	$covered    => new_school( 'New School One ', $italy ),
+	$uncovered  => new_school( 'New School Two', $other ),
+	$held_by    => new_school( 'New School Three', $italy ),
+	$nobody     => new_school( 'New School Four', $italy ),
+	$no_country => array( 'Name' => 'New School Five', 'Current Stage' => 'First Contact Made' ),
+);
+$GLOBALS['pages'][ $table ] = pages_with( $seed, $five );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$report  = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+$notices = implode( "\n", $report['notices'] );
+
+ck( 'a new row in a covered country is assigned to its area\'s Administrator by the site, with the email asked for, under the school\'s lock',
+	isset( $GLOBALS['calls']['assign'] ) ? $GLOBALS['calls']['assign'] : array(),
+	array( array( 'record' => $covered, 'user' => 11, 'actor' => 0, 'notify' => true, 'locked' => true ) ) );
+ck( 'and its Administrator is emailed once, naming the school as the index holds it once written',
+	isset( $GLOBALS['calls']['assigned_mail'] ) ? $GLOBALS['calls']['assigned_mail'] : array(),
+	array( array( 11, 'New School One' ) ) );
+ck( 'the record is read again under the lock, and the lock is let go',
+	array( in_array( $covered, isset( $GLOBALS['calls']['record_forgotten'] ) ? $GLOBALS['calls']['record_forgotten'] : array(), true ), WPCPM_Lock::until( 'wpcpm_req_lock_details_' . $covered ) ),
+	array( true, 0 ) );
+ck( 'a new row in a country no area covers, and one with no country, stay unassigned',
+	array( WPCPM_Institution_Assignment::has_choice( $uncovered ), WPCPM_Institution_Assignment::has_choice( $no_country ) ),
+	array( false, false ) );
+ck( 'a new row assigned already keeps its Administrator, and one whose card says Nobody keeps Nobody',
+	array( $GLOBALS['assigned'][ $held_by ], $GLOBALS['assigned'][ $nobody ] ),
+	array( 12, 0 ) );
+ck( 'a row the index held before is untouched, though it is in Italy and has nobody',
+	array( WPCPM_Institution_Assignment::has_choice( $known ), in_array( $known, array_column( isset( $GLOBALS['calls']['assign'] ) ? $GLOBALS['calls']['assign'] : array(), 'record' ), true ) ),
+	array( false, false ) );
+ck( 'the areas are asked about the new rows with a country, and no other', count( isset( $GLOBALS['calls']['administrator_for'] ) ? $GLOBALS['calls']['administrator_for'] : array() ), 4 );
+ck( 'the index is read from the table, not this request\'s copy, before it is compared', in_array( 'options:' . WPCPM_Institutions_Index::OPT_NAME, isset( $GLOBALS['calls']['cache_delete'] ) ? $GLOBALS['calls']['cache_delete'] : array(), true ), true );
+ck( 'the report counts it and names it', array( isset( $report['stats']['assigned'] ) ? $report['stats']['assigned'] : null, false !== strpos( $notices, 'New School One is new in the pipeline and is assigned to Administrator 11, the Administrator of its area, who was emailed.' ) ), array( 1, true ) );
+
+// The same table again: nothing is new.
+$GLOBALS['calls'] = array();
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'a run that finds nothing new assigns nothing and mails nobody', array( isset( $GLOBALS['calls']['assign'] ), isset( $GLOBALS['calls']['assigned_mail'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['assigned'] ), array( false, false, 0 ) );
+
+// Six at once: five emails, and the sixth assigned without one.
+$six = array();
+for ( $n = 1; $n <= 6; $n++ ) {
+	$six[ sprintf( 'recSIX%011d', $n ) ] = new_school( 'Six School ' . $n, $italy );
+}
+$GLOBALS['calls']           = array();
+$GLOBALS['pages'][ $table ] = pages_with( $seed, array_merge( $five, $six ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$sixth = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'six new rows in a covered country: six assigned, five emails, the sixth asked for none',
+	array( count( isset( $GLOBALS['calls']['assign'] ) ? $GLOBALS['calls']['assign'] : array() ), count( isset( $GLOBALS['calls']['assigned_mail'] ) ? $GLOBALS['calls']['assigned_mail'] : array() ), array_column( isset( $GLOBALS['calls']['assign'] ) ? $GLOBALS['calls']['assign'] : array(), 'notify' ) ),
+	array( 6, 5, array( true, true, true, true, true, false ) ) );
+ck( 'all six to the area\'s Administrator', array_map( array( 'WPCPM_Institution_Assignment', 'stored_of' ), array_keys( $six ) ), array( 11, 11, 11, 11, 11, 11 ) );
+ck( 'and the report says the sixth was not emailed, and why', array( $sixth['stats']['assigned'], false !== strpos( implode( "\n", $sixth['notices'] ), 'Six School 6 is new in the pipeline and is assigned to Administrator 11, the Administrator of its area. No email was sent: this run had sent 5 already.' ) ), array( 6, true ) );
+
+// A rebuild: the stored index is of another version, so it reads as empty, and nothing is compared.
+$GLOBALS['calls']                                             = array();
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 0;
+$GLOBALS['pages'][ $table ]                                   = pages_with( $seed, array_merge( $five, $six, array( 'recNEW00000000006' => new_school( 'New School Six', $italy ) ) ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'an index rebuilt from nothing assigns nothing, though a row is new and its country covered', array( isset( $GLOBALS['calls']['assign'] ), WPCPM_Institution_Assignment::has_choice( 'recNEW00000000006' ), WPCPM_Institutions_Index::has( 'recNEW00000000006' ) ), array( false, false, true ) );
+
+// A school whose record somebody is changing at that moment, and one whose assignment the site refuses.
+$busy  = 'recNEW00000000007';
+$taken = WPCPM_Lock::take( 'wpcpm_req_lock_details_' . $busy, 300 );
+$GLOBALS['calls']           = array();
+$GLOBALS['pages'][ $table ] = pages_with( $seed, array_merge( $five, $six, array( 'recNEW00000000006' => new_school( 'New School Six', $italy ), $busy => new_school( 'Busy School', $italy ) ) ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'a new row whose school lock another request holds is left unassigned, and the report says so',
+	array( '' !== $taken, WPCPM_Institution_Assignment::has_choice( $busy ), isset( $GLOBALS['calls']['assign'] ), false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), 'Busy School is new in the pipeline, but its record was being changed, so it was not given its area\'s Administrator. Assign it on its details card.' ) ),
+	array( true, false, false, true ) );
+WPCPM_Lock::release( 'wpcpm_req_lock_details_' . $busy, $taken );
+
+$GLOBALS['calls']             = array();
+$GLOBALS['assign_mail_fails'] = true;
+$GLOBALS['pages'][ $table ]   = pages_with( $seed, array_merge( $five, $six, array( 'recNEW00000000006' => new_school( 'New School Six', $italy ), $busy => new_school( 'Busy School', $italy ), 'recNEW00000000009' => new_school( 'Quiet School', $italy ) ) ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$GLOBALS['assign_mail_fails'] = false;
+ck( 'an email the mail host would not take is not called sent',
+	array( WPCPM_Institution_Assignment::stored_of( 'recNEW00000000009' ), false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), 'Quiet School is new in the pipeline and is assigned to Administrator 11, the Administrator of its area. The email to them could not be sent.' ) ),
+	array( 11, true ) );
+ck( 'and a school whose lock was held when it was new is not new to a later run: the report was its one mention', WPCPM_Institution_Assignment::has_choice( $busy ), false );
+
+$GLOBALS['calls']           = array();
+$GLOBALS['assign_refuses']  = true;
+$GLOBALS['pages'][ $table ] = pages_with( $seed, array_merge( $five, $six, array( 'recNEW00000000006' => new_school( 'New School Six', $italy ), $busy => new_school( 'Busy School', $italy ), 'recNEW00000000009' => new_school( 'Quiet School', $italy ), 'recNEW00000000008' => new_school( 'Refused School', $italy ) ) ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$GLOBALS['assign_refuses'] = false;
+ck( 'a refused assignment stops nothing else, and the report gives the reason',
+	array( WPCPM_Institutions_Sync::is_running(), false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), 'Refused School is new in the pipeline, but it was not assigned: The assignment could not be kept. Try again.' ) ),
+	array( false, true ) );
+
+// Everything the base has gained so far, so each run below adds only what it names.
+$so_far = array_merge( $five, $six, array( 'recNEW00000000006' => new_school( 'New School Six', $italy ), $busy => new_school( 'Busy School', $italy ), 'recNEW00000000009' => new_school( 'Quiet School', $italy ), 'recNEW00000000008' => new_school( 'Refused School', $italy ) ) );
+
+// A test institution new in a covered country (1.123.84): assigned, never emailed, and the five not touched.
+$test_school                = 'recTST00000000001';
+$so_far[ $test_school ]     = new_school( 'TEST - New School Seven', $italy );
+$GLOBALS['calls']           = array();
+$GLOBALS['pages'][ $table ] = pages_with( $seed, $so_far );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$test_report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'a new test institution in a covered country is assigned without the email, and the run\'s email count stays 0',
+	array(
+		WPCPM_Institution_Assignment::stored_of( $test_school ),
+		array_column( isset( $GLOBALS['calls']['assign'] ) ? $GLOBALS['calls']['assign'] : array(), 'notify' ),
+		isset( $GLOBALS['calls']['assigned_mail'] ),
+		$test_report['stats']['assign_emails'],
+		false !== strpos( implode( "\n", $test_report['notices'] ), 'TEST - New School Seven is new in the pipeline and is assigned to Administrator 11, the Administrator of its area. No email was sent: it is a test institution.' ),
+	),
+	array( 11, array( false ), false, 0, true ) );
+
+// More than ten new in one read is a switched table or a lost index, not a busy week: nobody is assigned.
+$eleven = array();
+for ( $n = 1; $n <= 11; $n++ ) {
+	$eleven[ sprintf( 'recELV%011d', $n ) ] = new_school( 'Eleven School ' . $n, $italy );
+}
+$GLOBALS['calls']           = array();
+$GLOBALS['pages'][ $table ] = pages_with( $seed, array_merge( $so_far, $eleven ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$eleven_report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'eleven new records in a covered country: none assigned, nobody emailed, and the report says why',
+	array(
+		isset( $GLOBALS['calls']['assign'] ),
+		isset( $GLOBALS['calls']['assigned_mail'] ),
+		array_filter( array_map( array( 'WPCPM_Institution_Assignment', 'has_choice' ), array_keys( $eleven ) ) ),
+		$eleven_report['stats']['assigned'],
+		false !== strpos( implode( "\n", $eleven_report['notices'] ), '11 schools are new in the pipeline in this read, more than 10, so none was given an Administrator. Assign them on their details cards.' ),
+	),
+	array( false, false, array(), 0, true ) );
+$so_far = array_merge( $so_far, $eleven );
+
+// Ten is still a busy week: all ten assigned, five emailed.
+$ten = array();
+for ( $n = 1; $n <= 10; $n++ ) {
+	$ten[ sprintf( 'recTEN%011d', $n ) ] = new_school( 'Ten School ' . $n, $italy );
+}
+$GLOBALS['calls']           = array();
+$GLOBALS['pages'][ $table ] = pages_with( $seed, array_merge( $so_far, $ten ) );
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'ten new records in a covered country: all ten assigned, five emailed',
+	array(
+		count( isset( $GLOBALS['calls']['assign'] ) ? $GLOBALS['calls']['assign'] : array() ),
+		count( isset( $GLOBALS['calls']['assigned_mail'] ) ? $GLOBALS['calls']['assigned_mail'] : array() ),
+		array_map( array( 'WPCPM_Institution_Assignment', 'stored_of' ), array_keys( $ten ) ),
+	),
+	array( 10, 5, array_fill( 0, 10, 11 ) ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

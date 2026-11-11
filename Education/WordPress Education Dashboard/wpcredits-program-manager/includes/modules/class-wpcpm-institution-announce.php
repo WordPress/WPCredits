@@ -300,7 +300,7 @@ final class WPCPM_Institution_Announce {
 
 		if ( '' !== $manager ) {
 			$line .= "\n" . sprintf(
-				/* translators: %s: the name of the Administrator for the institution's country. */
+				/* translators: %s: the name of the Administrator the institution is assigned to. */
 				__( 'Their Administrator is %s.', 'wpcredits-program-manager' ),
 				$manager
 			);
@@ -355,7 +355,7 @@ final class WPCPM_Institution_Announce {
 	}
 
 	/**
-	 * The Administrator for the institution's country, by name, or ''.
+	 * The Administrator the institution is assigned to, by name, or ''.
 	 *
 	 * "Administrator" is the word, not "program manager": the owner settled on 29 September
 	 * 2026 that the Administrators are called that in every string the plugin shows, and
@@ -363,27 +363,24 @@ final class WPCPM_Institution_Announce {
 	 * this line (WPCredits#282) calls the person a program manager, which is what the handbook
 	 * calls them; the site does not.
 	 *
-	 * Asked of the country rather than of the institution, because that is where the program
-	 * keeps it: the Institutions table's own "Program manager (from Countries)" is a lookup
-	 * that reaches this site as a bare Team record ID, and `Original program manager` is empty
-	 * on the records that have the lookup. `WPCPM_Countries::manager_name_of()` is the one
-	 * place that turns a country into a person's name, so this message and any screen that
-	 * asks later cannot give two different answers.
-	 *
-	 * The line is left out rather than guessed. 56 of 197 countries have no contact at all,
-	 * and an institution in one of them is still announced, without the line.
+	 * Asked of the institution's own assignment (`WPCPM_Institution_Assignment`), which answers only
+	 * for an account that still holds the manage capability, so the line is left out for an institution
+	 * nobody is assigned to and for an Administrator who is no longer one, and the institution is still
+	 * announced without it.
 	 *
 	 * @param array $row The index row.
 	 * @return string
 	 */
 	private static function manager( array $row ) {
-		$country = trim( (string) ( isset( $row['country'] ) ? $row['country'] : '' ) );
+		$record = trim( (string) ( isset( $row['record_id'] ) ? $row['record_id'] : '' ) );
 
-		if ( '' === $country || ! class_exists( 'WPCPM_Countries' ) ) {
+		if ( '' === $record || ! class_exists( 'WPCPM_Institution_Assignment' ) ) {
 			return '';
 		}
 
-		return WPCPM_Slack::escape( WPCPM_Countries::manager_name_of( $country ) );
+		$contact = WPCPM_Institution_Assignment::contact_of( $record );
+
+		return null === $contact ? '' : WPCPM_Slack::escape( $contact['name'] );
 	}
 
 	/**

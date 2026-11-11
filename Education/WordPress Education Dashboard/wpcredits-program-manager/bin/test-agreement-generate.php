@@ -350,7 +350,9 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 
 			// Membership of an institution the subject names, which is what refuses a member
 			// of one institution asking for another's document.
-			if ( '' !== $GLOBALS['member_of'] && in_array( $GLOBALS['member_of'], (array) $subject['institution_ids'], true ) ) {
+			// A tutor holds the four view actions and the agreement is not among them (the real rule is
+			// `bin/test-institution-policy.php`'s): the member ground is not theirs.
+			if ( empty( $GLOBALS['tutor'] ) && '' !== $GLOBALS['member_of'] && in_array( $GLOBALS['member_of'], (array) $subject['institution_ids'], true ) ) {
 				return array( 'allowed' => true, 'ground' => self::GROUND_MEMBER, 'institution' => $GLOBALS['member_of'], 'fields' => null, 'why' => '' );
 			}
 
@@ -1166,6 +1168,25 @@ try {
 }
 
 ck( 'a refusal from the fence is the one refusal, and nothing is written', array( $outcome, count( $GLOBALS['posts'] ) ), array( 'wp_die: That record is not on your roster.', 0 ) );
+
+// Institutions release 1 (Review Focus 4): a tutor of the institution posts with a valid nonce, the name filled.
+reset_world();
+seed_index( 'recMEMBEROWN00001' );
+sign_in( 31, false, 'recMEMBEROWN00001' );
+$GLOBALS['tutor']                              = true;
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
+$opts_before                                   = serialize( $GLOBALS['opts'] );
+
+try {
+	WPCPM_Agreement_Generate::generate();
+	$outcome = 'nothing';
+} catch ( Exception $e ) {
+	$outcome = $e->getMessage();
+}
+
+ck( 'a tutor of the institution is refused with the one refusal, after the nonce keyed to it, for the agreement action', array( $outcome, $GLOBALS['nonces'], array_column( $GLOBALS['decisions'], 0 ) ), array( 'wp_die: That record is not on your roster.', array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recMEMBEROWN00001' ), array( 'agreement' ) ) );
+ck( 'and nothing is written: no post, no meta, no option, no log row, nothing sent to the base', array( $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['audit'], $GLOBALS['patched'], serialize( $GLOBALS['opts'] ) === $opts_before ), array( array(), array(), array(), array(), true ) );
+$GLOBALS['tutor'] = false;
 
 /* ---- the handler: the ceiling and the name ------------------------------ */
 

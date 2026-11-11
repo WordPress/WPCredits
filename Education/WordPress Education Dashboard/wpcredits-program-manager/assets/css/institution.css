@@ -522,6 +522,23 @@
 	margin: 0;
 }
 
+/* The level choice sits between the address and the button, on a row of its own. */
+.wpcpm-people__level {
+	border: 0;
+	flex-basis: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-people__level p {
+	margin: 0.25em 0;
+}
+
+.wpcpm-people__level .description {
+	display: block;
+	margin-inline-start: 1.6em;
+}
+
 /* The cohort picker and the filter bar. A row that wraps rather than a grid: the
    controls are of different widths and there are never many of them. */
 .wpcpm-roster__filters {

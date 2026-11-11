@@ -65,11 +65,11 @@ $wpcpm_placeholders = static function ( $email ) {
 			'example' => 'Ben Lindqvist',
 		),
 		'administrator_name' => array(
-			'means'   => __( 'The Administrator for the student\'s country. The sentence that names them is left out for a student whose country has none.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The Administrator assigned to the student\'s institution. The sentence that names them is left out for a student whose institution has none.', 'wpcredits-program-manager' ),
 			'example' => 'Cleo Marsh',
 		),
 		'booking_link'       => array(
-			'means'   => __( 'Where the student can book a call: the calls section of their Student Report Card when they have a mentor, else the booking page of the Administrator for their country. Empty for a student with neither, who has nothing to book, and the sentence that holds it is left out.', 'wpcredits-program-manager' ),
+			'means'   => __( 'Where the student can book a call: the calls section of their Student Report Card when they have a mentor, else the booking page of the Administrator assigned to their institution. Empty for a student with neither, who has nothing to book, and the sentence that holds it is left out.', 'wpcredits-program-manager' ),
 			'example' => static function () {
 				$card = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_STUDENT );
 
@@ -77,7 +77,7 @@ $wpcpm_placeholders = static function ( $email ) {
 			},
 		),
 		'contact_address'    => array(
-			'means'   => __( 'The address in Contact address in emails, for a student with nothing to book: no mentor and no booking page for their country. Empty for any other student, and while the setting holds no address, and the sentence that holds it is left out.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The address in Contact address in emails, for a student with nothing to book: no mentor and no booking page from the Administrator assigned to their institution. Empty for any other student, and while the setting holds no address, and the sentence that holds it is left out.', 'wpcredits-program-manager' ),
 			'example' => '',
 		),
 		'dashboard_link'     => array(
@@ -175,8 +175,8 @@ return array(
 					'{mentor_name}'
 				),
 				sprintf(
-					/* translators: %s: the name of the Administrator for the student's country. */
-					__( '%s, the Administrator for your country, is glad to help.', 'wpcredits-program-manager' ),
+					/* translators: %s: the name of the Administrator assigned to the student's institution. */
+					__( '%s, the Administrator for your institution, is glad to help.', 'wpcredits-program-manager' ),
 					'{administrator_name}'
 				) . ' ' . __( 'Questions are always welcome.', 'wpcredits-program-manager' ),
 				// "Again" and "your mentor" are left out here: the line is the same for a student never
@@ -216,7 +216,7 @@ return array(
 		'placeholders' => $wpcpm_take( 'mentor', array( 'site_name', 'count', 'students_list', 'dashboard_link' ), array( 'count', 'students_list', 'dashboard_link' ) ),
 	),
 	'student-quiet-weekly'  => array(
-		'trigger'      => __( 'On the first daily run of each Monday, once a week, when the switch is On: to each Administrator who has at least one quiet student in their country. Students of a test institution are not counted or listed.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'On the first daily run of each Monday, once a week, when the switch is On: to each Administrator who has at least one quiet student at an institution assigned to them. Students of a test institution are not counted or listed.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: the site's name, 2: a number of students. */
 			__( '[%1$s] Students gone quiet this week: %2$s', 'wpcredits-program-manager' ),
@@ -228,7 +228,7 @@ return array(
 				__( 'Hello,', 'wpcredits-program-manager' ),
 				sprintf(
 					/* translators: %s: a number of students. */
-					__( 'Students gone quiet in your country: %s.', 'wpcredits-program-manager' ),
+					__( 'Students gone quiet at your institutions: %s.', 'wpcredits-program-manager' ),
 					'{count}'
 				) . ' ' . __( 'The list is most quiet first.', 'wpcredits-program-manager' ),
 				'{students_list}',

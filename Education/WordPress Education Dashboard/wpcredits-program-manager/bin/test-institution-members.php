@@ -519,6 +519,50 @@ ck( 'and its profile keeps the name and the contact exactly as the base holds th
 	array( meta( 30, 'wpcpm_institution_profile' )['name'] ?? null, meta( 30, 'wpcpm_institution_profile' )['contact_person'] ?? null ),
 	array( $typed_name, $typed_who ) );
 
+/* ---- the Tutor level (Institutions release 1) ---------------------------- */
+
+echo "\n=== The level of a membership ===\n";
+
+$D = 'recSEED0000000004';
+$GLOBALS['index'][ $D ] = array( 'record_id' => $D, 'name' => 'Instituto D', 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Chile', 'website' => '', 'contact_person' => '', 'contact_email' => '' );
+$GLOBALS['users'][40]   = new WP_User( 40, 'Tess Tutor', 'tess@example.test', array( 'subscriber' ) );
+$GLOBALS['users'][41]   = new WP_User( 41, 'Rob Representative', 'rob@example.test', array( 'subscriber' ) );
+$GLOBALS['users'][42]   = new WP_User( 42, 'Bad Level', 'bad@example.test', array( 'subscriber' ) );
+
+ck( 'the levels, and the constants that name them', array( WPCPM_Institution_Members::levels(), WPCPM_Institution_Members::LEVEL_REPRESENTATIVE, WPCPM_Institution_Members::LEVEL_TUTOR, WPCPM_Institution_Members::META_LEVEL ), array( array( 'representative', 'tutor' ), 'representative', 'tutor', 'wpcpm_institution_level' ) );
+ck( 'an account with no level meta is a representative: every account before the Tutor level', WPCPM_Institution_Members::level_of( 40 ), 'representative' );
+ck( 'and so is nobody', array( WPCPM_Institution_Members::level_of( 999 ), WPCPM_Institution_Members::level_of( 0 ) ), array( 'representative', 'representative' ) );
+ck( 'a level the list does not know is refused by name', code( WPCPM_Institution_Members::attach( 42, $D, 'invited', 7, 0, 'owner' ) ), 'wpcpm_member_bad_level' );
+ck( 'and an array is refused too', code( WPCPM_Institution_Members::attach( 42, $D, 'invited', 7, 0, array( 'tutor' ) ) ), 'wpcpm_member_bad_level' );
+ck( 'the refusals wrote nothing: no stamp, no level, no row', array( meta( 42, 'wpcpm_institution_record_id' ), meta( 42, 'wpcpm_institution_level' ), audit_rows( $D ) ), array( null, null, array() ) );
+
+ck( 'attach() with no level is a representative, as every call before it', WPCPM_Institution_Members::attach( 41, $D, 'invited', 7, 5 ), true );
+ck( 'its level is stored as representative', array( meta( 41, 'wpcpm_institution_level' ), WPCPM_Institution_Members::level_of( 41 ) ), array( 'representative', 'representative' ) );
+
+ck( 'attach() as a tutor', WPCPM_Institution_Members::attach( 40, $D, 'invited', 7, 6, 'tutor' ), true );
+ck( 'stores tutor', array( meta( 40, 'wpcpm_institution_level' ), WPCPM_Institution_Members::level_of( 40 ), WPCPM_Institution_Members::level_of( $GLOBALS['users'][40] ) ), array( 'tutor', 'tutor', 'tutor' ) );
+ck( 'and the membership is the same one: the stamp, the flag and the institution', array( meta( 40, 'wpcpm_institution_record_id' ), meta( 40, 'wpcpm_institution_active' ), WPCPM_Institution_Members::institution_of( 40 ) ), array( $D, 1, $D ) );
+$rows = audit_rows( $D );
+ck( 'the member_added row carries the level, in order: the tutor, then the representative', array( $rows[0]['data']['level'], $rows[1]['data']['level'] ), array( 'tutor', 'representative' ) );
+ck( 'with the rest of its data unchanged', array( $rows[0]['data']['how'], $rows[0]['data']['invite'], $rows[0]['data']['readded'] ), array( 'invited', 6, false ) );
+
+$GLOBALS['umeta'][41]['wpcpm_institution_level'] = 'nonsense';
+ck( 'a damaged value reads as a representative: it narrows nobody and grants nothing', WPCPM_Institution_Members::level_of( 41 ), 'representative' );
+
+ck( 'detach() ends the tutor', WPCPM_Institution_Members::detach( 40, 'removed', 1 ), true );
+ck( 'and deletes the level meta, never blanks it', array_key_exists( 'wpcpm_institution_level', $GLOBALS['umeta'][40] ), false );
+ck( 'so the account reads as a representative again, holding nothing', array( WPCPM_Institution_Members::level_of( 40 ), WPCPM_Institution_Members::institution_of( 40 ) ), array( 'representative', '' ) );
+ck( 'coming back with no level is a representative: the old level does not follow it', array( WPCPM_Institution_Members::attach( 40, $D, 'manager', 1 ), WPCPM_Institution_Members::level_of( 40 ) ), array( true, 'representative' ) );
+
+// A removed tutor must never come back with a representative's rights (Codex finding 1).
+ck( 'a tutor attached and then removed keeps the level beside the stamp', array( WPCPM_Institution_Members::detach( 40, 'removed', 1 ) && WPCPM_Institution_Members::attach( 40, $D, 'invited', 7, 6, 'tutor' ), WPCPM_Institution_Members::detach( 40, 'removed', 1 ), meta( 40, 'wpcpm_institution_level_was' ), WPCPM_Institution_Members::former_level_of( 40 ), array_key_exists( 'wpcpm_institution_level', $GLOBALS['umeta'][40] ) ), array( true, true, 'tutor', 'tutor', false ) );
+ck( 'and the former level grants nothing while they are out: they read as a representative holding nothing', array( WPCPM_Institution_Members::level_of( 40 ), WPCPM_Institution_Members::institution_of( 40 ) ), array( 'representative', '' ) );
+ck( 'coming back at the former level, the account is a tutor again and the former level is cleared', array( WPCPM_Institution_Members::attach( 40, $D, 'manager', 1, 0, WPCPM_Institution_Members::former_level_of( 40 ) ), WPCPM_Institution_Members::level_of( 40 ), array_key_exists( 'wpcpm_institution_level_was', $GLOBALS['umeta'][40] ) ), array( true, 'tutor', false ) );
+ck( 'a representative removed leaves no former level', array( WPCPM_Institution_Members::detach( 41, 'removed', 1 ), array_key_exists( 'wpcpm_institution_level_was', $GLOBALS['umeta'][41] ), WPCPM_Institution_Members::former_level_of( 41 ) ), array( true, false, 'representative' ) );
+ck( 'and comes back a representative', array( WPCPM_Institution_Members::attach( 41, $D, 'manager', 1, 0, WPCPM_Institution_Members::former_level_of( 41 ) ), WPCPM_Institution_Members::level_of( 41 ) ), array( true, 'representative' ) );
+ck( 'a new invitation still sets the level it carries, whatever the account held before', array( WPCPM_Institution_Members::detach( 40, 'removed', 1 ), WPCPM_Institution_Members::attach( 40, $D, 'invited', 7, 9, 'representative' ), WPCPM_Institution_Members::level_of( 40 ), array_key_exists( 'wpcpm_institution_level_was', $GLOBALS['umeta'][40] ) ), array( true, true, 'representative', false ) );
+ck( 'uninstall removes the new key too', 1 === preg_match( '/function member_meta\\(\\).*?META_LEVEL_WAS/s', file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ) ), true );
+
 /* ---- the structural rules ------------------------------------------------ */
 
 echo "\n=== Nobody else writes the stamp ===\n";

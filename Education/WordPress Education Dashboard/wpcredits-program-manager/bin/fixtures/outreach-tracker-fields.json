@@ -1,0 +1,40 @@
+{
+	"_comment": "Field names and types, and no values, of the Airtable 'Outreach Tracker' table (tblQssm68GvGEfAEH) and of the 'Tutors' table (tbllW9yWhbg1UCHVy), read from the base's metadata API on 2026-11-11. Pins what the Outreach Tracker's import (a lead becomes a lead on the site) and the one-off institutions seed (the Tutors rows) read, so a rename in the grid fails bin/test-fixtures.php before it fails a read. The Outreach Tracker's first column, 'Ac', is the lead's name. 'Country' there is text, not a link: the import resolves it to a Countries record by name, and a name that matches none stays as text on the lead. There is no contact people column: a lead's contact person and address come over empty and an Administrator fills them on the Talks card. 'Promote to Institutions' is a button and is not read. Refresh with a metadata read when either table changes.",
+	"outreach_tracker_table": "tblQssm68GvGEfAEH",
+	"tutors_table": "tbllW9yWhbg1UCHVy",
+	"read": "2026-11-11",
+	"fields": [
+		"Ac",
+		"City",
+		"Country",
+		"Date of last contact",
+		"HS link (where applicable)",
+		"Introduced to WP Credits",
+		"Introduced to WPCC",
+		"Lead Owner",
+		"Notes",
+		"Promoted to Institutions"
+	],
+	"types": {
+		"Ac": "multilineText",
+		"City": "singleLineText",
+		"Country": "singleLineText",
+		"Date of last contact": "date",
+		"HS link (where applicable)": "richText",
+		"Introduced to WP Credits": "checkbox",
+		"Introduced to WPCC": "checkbox",
+		"Lead Owner": "singleLineText",
+		"Notes": "richText",
+		"Promoted to Institutions": "checkbox"
+	},
+	"tutors_fields": [
+		"Email",
+		"Institutions Onboarding",
+		"Name"
+	],
+	"tutors_types": {
+		"Email": "email",
+		"Institutions Onboarding": "multipleRecordLinks",
+		"Name": "singleLineText"
+	}
+}

@@ -131,6 +131,9 @@ class WPCPM_Institution_Invite {
 	/** Post meta: the account that accepted it. */
 	const META_USER = '_wpcpm_inv_user';
 
+	/** Post meta: the level the invitation attaches the account at. Absent on an invitation stored before the Tutor level, which attaches a representative. */
+	const META_LEVEL = '_wpcpm_inv_level';
+
 	const STATE_PENDING   = 'pending';
 	const STATE_ACCEPTED  = 'accepted';
 	const STATE_CANCELLED = 'cancelled';
@@ -148,6 +151,12 @@ class WPCPM_Institution_Invite {
 
 	/** The invitation with nobody to name as its sender: the inviter's account gone or holding no name. */
 	const MAIL_INVITE_NO_SENDER = 'institution-invite-no-sender';
+
+	/** The invitation to a tutor, who sees the students and changes nothing. */
+	const MAIL_INVITE_TUTOR = 'institution-invite-tutor';
+
+	/** The tutor's invitation with nobody to name as its sender. */
+	const MAIL_INVITE_TUTOR_NO_SENDER = 'institution-invite-tutor-no-sender';
 
 	/** Flash channel. The value carries the institution, the way the People card's does. */
 	const FLASH = 'institution_invite';
@@ -292,6 +301,7 @@ class WPCPM_Institution_Invite {
 
 		$kept  = WPCPM_Flash::kept( self::KEPT_FORM . $record_id );
 		$typed = isset( $kept['values']['email'] ) && is_scalar( $kept['values']['email'] ) ? (string) $kept['values']['email'] : '';
+		$chosen = isset( $kept['values']['level'] ) && is_scalar( $kept['values']['level'] ) && in_array( (string) $kept['values']['level'], WPCPM_Institution_Members::levels(), true ) ? (string) $kept['values']['level'] : WPCPM_Institution_Members::LEVEL_REPRESENTATIVE;
 
 		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Invite a colleague', 'wpcredits-program-manager' ) );
 
@@ -313,6 +323,35 @@ class WPCPM_Institution_Invite {
 			esc_attr( $typed )
 		);
 
+		// The level, a choice of two and never a free field: Representative is ticked, so a press that
+		// ignores the choice invites a representative as every invitation did before the Tutor level.
+		echo '<fieldset class="wpcpm-people__level">';
+		printf( '<legend>%s</legend>', esc_html__( 'Level', 'wpcredits-program-manager' ) );
+
+		$levels = array(
+			WPCPM_Institution_Members::LEVEL_REPRESENTATIVE => array(
+				__( 'Representative', 'wpcredits-program-manager' ),
+				__( 'Adds and changes students, invites colleagues, corrects the details.', 'wpcredits-program-manager' ),
+			),
+			WPCPM_Institution_Members::LEVEL_TUTOR          => array(
+				__( 'Tutor', 'wpcredits-program-manager' ),
+				__( 'Sees the students, their Student Report Cards and the semester reports, and changes nothing.', 'wpcredits-program-manager' ),
+			),
+		);
+
+		foreach ( $levels as $level => $words ) {
+			printf(
+				'<p><label for="wpcpm-invite-level-%1$s-%2$s"><input type="radio" id="wpcpm-invite-level-%1$s-%2$s" name="level" value="%2$s"%3$s aria-describedby="wpcpm-invite-level-%1$s-%2$s-hint" /> %4$s</label> <span class="description" id="wpcpm-invite-level-%1$s-%2$s-hint">%5$s</span></p>',
+				esc_attr( $record_id ),
+				esc_attr( $level ),
+				$chosen === $level ? ' checked="checked"' : '',
+				esc_html( $words[0] ),
+				esc_html( $words[1] )
+			);
+		}
+
+		echo '</fieldset>';
+
 		printf(
 			'<button type="submit" class="button button-primary">%s</button>',
 			esc_html__( 'Send invitation', 'wpcredits-program-manager' )
@@ -323,7 +362,7 @@ class WPCPM_Institution_Invite {
 			esc_html(
 				sprintf(
 					/* translators: 1: how many days an invitation is good for, 2: how many invitations may be waiting at once. */
-					__( 'They get one email with a link that is good for %1$s days. Whoever accepts it sees the same students you do and can remove anybody, including you. Up to %2$s invitations can be waiting at a time.', 'wpcredits-program-manager' ),
+					__( 'They get one email with a link that is good for %1$s days. Whoever accepts it sees the same students you do, and a representative can remove anybody, including you. Up to %2$s invitations can be waiting at a time.', 'wpcredits-program-manager' ),
 					number_format_i18n( self::LIFETIME_DAYS ),
 					number_format_i18n( self::PENDING_MAX )
 				)
@@ -552,6 +591,7 @@ class WPCPM_Institution_Invite {
 					number_format_i18n( self::SENDS_PER_DAY )
 				),
 			),
+			'invite-bad-level' => array( 'error', __( 'Nothing was sent. Choose Representative or Tutor.', 'wpcredits-program-manager' ) ),
 			'invite-bad-email' => array( 'error', __( 'Nothing was sent. That is not an address an invitation can go to.', 'wpcredits-program-manager' ) ),
 			'invite-unknown'   => array( 'error', __( 'Nothing was sent. This institution is not in the program\'s index on this site yet, so nobody can be added to it. Tell your program contact.', 'wpcredits-program-manager' ) ),
 			'invite-gone'      => array( 'info', __( 'Nothing happened. That invitation is no longer waiting: somebody has accepted or canceled it since this page was drawn, or it has expired.', 'wpcredits-program-manager' ) ),
@@ -610,6 +650,14 @@ class WPCPM_Institution_Invite {
 			self::refuse( 'invite-unknown', '', $record );
 		}
 
+		// A form that omits the choice is a representative's, as every form was before the Tutor level;
+		// a value that is neither is refused rather than guessed.
+		$level = WPCPM_Request::posted_key( 'level', WPCPM_Institution_Members::LEVEL_REPRESENTATIVE );
+
+		if ( ! in_array( $level, WPCPM_Institution_Members::levels(), true ) ) {
+			self::refuse( 'invite-bad-level', '', $record );
+		}
+
 		$email = strtolower( sanitize_email( WPCPM_Request::posted_text( 'email' ) ) );
 
 		if ( ! is_email( $email ) ) {
@@ -637,7 +685,7 @@ class WPCPM_Institution_Invite {
 			self::refuse( 'invite-ceiling', '', $record );
 		}
 
-		$post_id = self::create( $record, $email, $actor );
+		$post_id = self::create( $record, $email, $actor, $level );
 
 		if ( ! $post_id ) {
 			self::refuse( 'invite-error', '', $record );
@@ -754,7 +802,7 @@ class WPCPM_Institution_Invite {
 		}
 
 		$actor    = (int) get_post_meta( $post_id, self::META_ACTOR, true );
-		$attached = WPCPM_Institution_Members::attach( $user_id, $record, WPCPM_Institution_Members::HOW_INVITED, $actor, $post_id );
+		$attached = WPCPM_Institution_Members::attach( $user_id, $record, WPCPM_Institution_Members::HOW_INVITED, $actor, $post_id, self::level_of( $post_id ) );
 
 		// Already a member of this institution is not a failure: two people can follow the
 		// same link, and the second deserves to land on the dashboard rather than on a
@@ -789,6 +837,12 @@ class WPCPM_Institution_Invite {
 				),
 			)
 		);
+
+		// A Tutor's address joins the school's tutor list when it is not on it, so the import's picker offers the
+		// person who has just been given a tutor's access. A Representative invitation lists nobody.
+		if ( WPCPM_Institution_Members::LEVEL_TUTOR === self::level_of( $post_id ) ) {
+			WPCPM_Institution_Tutors::accepted( $record, (int) $user_id );
+		}
 
 		// A no-op for somebody who is not signed in, which is most of them: the flash is user
 		// meta, and the account that was just created has nobody sitting behind it yet.
@@ -925,8 +979,10 @@ class WPCPM_Institution_Invite {
 		}
 
 		foreach ( WPCPM_Institution_Members::members_of( $record ) as $member ) {
+			// A tutor invites nobody, so a tutor's account is not one whose earlier invitations are
+			// stood behind: removed and invited back as a tutor, it does not revive them.
 			if ( (int) $member->ID === $actor ) {
-				return true;
+				return WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $member );
 			}
 		}
 
@@ -1046,7 +1102,12 @@ class WPCPM_Institution_Invite {
 			)
 		) . '</p>' . "\n";
 
-		$html .= '<p>' . esc_html__( 'Accepting adds you as a member: you will see the same students they do, and you can remove anybody, including them. If you do not have an account here yet, one is made for you and you get an email with a link to set your password.', 'wpcredits-program-manager' ) . '</p>' . "\n";
+		// A tutor changes nothing, so the clause about removing anybody is the representative's alone.
+		$accept_words = WPCPM_Institution_Members::LEVEL_TUTOR === self::level_of( $post_id )
+			? __( 'Accepting adds you as a member: you will see the same students they do. If you do not have an account here yet, one is made for you and you get an email with a link to set your password.', 'wpcredits-program-manager' )
+			: __( 'Accepting adds you as a member: you will see the same students they do, and you can remove anybody, including them. If you do not have an account here yet, one is made for you and you get an email with a link to set your password.', 'wpcredits-program-manager' );
+
+		$html .= '<p>' . esc_html( $accept_words ) . '</p>' . "\n";
 
 		$html .= '<form class="wpcpm-accept__form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">' . "\n";
 		$html .= '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_ACCEPT ) . '" />' . "\n";
@@ -1402,9 +1463,10 @@ class WPCPM_Institution_Invite {
 	 * @param string $record_id Airtable institution record ID.
 	 * @param string $email     The invited address, lowercased.
 	 * @param int    $actor_id  Who is inviting.
+	 * @param string $level     One of `WPCPM_Institution_Members::levels()`.
 	 * @return int The post ID, or 0.
 	 */
-	private static function create( $record_id, $email, $actor_id ) {
+	private static function create( $record_id, $email, $actor_id, $level = WPCPM_Institution_Members::LEVEL_REPRESENTATIVE ) {
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => self::POST_TYPE,
@@ -1430,6 +1492,7 @@ class WPCPM_Institution_Invite {
 		update_post_meta( $post_id, self::META_EMAIL, (string) $email );
 		update_post_meta( $post_id, self::META_STATE, self::STATE_PENDING );
 		update_post_meta( $post_id, self::META_ACTOR, absint( $actor_id ) );
+		update_post_meta( $post_id, self::META_LEVEL, (string) $level );
 		update_post_meta( $post_id, self::META_SENT, time() );
 
 		return $post_id;
@@ -1908,7 +1971,11 @@ class WPCPM_Institution_Invite {
 		$until   = WPCPM_Dates::day( self::expires_at( time() ) );
 		$sender  = get_user_by( 'id', $actor );
 		$headers = WPCPM_Mail::reply_to( $sender instanceof WP_User ? $sender : null );
-		$id      = '' === trim( $who ) ? self::MAIL_INVITE_NO_SENDER : self::MAIL_INVITE;
+		$tutor   = WPCPM_Institution_Members::LEVEL_TUTOR === self::level_of( $post_id );
+		$named   = '' !== trim( $who );
+		$id      = $tutor
+			? ( $named ? self::MAIL_INVITE_TUTOR : self::MAIL_INVITE_TUTOR_NO_SENDER )
+			: ( $named ? self::MAIL_INVITE : self::MAIL_INVITE_NO_SENDER );
 
 		$build = static function () use ( $id, $site, $school, $who, $link, $until, $headers ) {
 			return WPCPM_Mail_Templates::mail(
@@ -1927,6 +1994,21 @@ class WPCPM_Institution_Invite {
 		};
 
 		return (bool) WPCPM_Mail::send_to( $email, $id, $build );
+	}
+
+	/**
+	 * The level an invitation attaches the account at.
+	 *
+	 * A representative unless the row says `tutor`: an invitation stored before the Tutor level has
+	 * no such meta and attaches as every one did.
+	 *
+	 * @param int $post_id The invitation.
+	 * @return string One of `WPCPM_Institution_Members::levels()`.
+	 */
+	private static function level_of( $post_id ) {
+		return WPCPM_Institution_Members::LEVEL_TUTOR === (string) get_post_meta( absint( $post_id ), self::META_LEVEL, true )
+			? WPCPM_Institution_Members::LEVEL_TUTOR
+			: WPCPM_Institution_Members::LEVEL_REPRESENTATIVE;
 	}
 
 	/**
@@ -2064,7 +2146,17 @@ class WPCPM_Institution_Invite {
 	 * @param string $record The institution the form is for.
 	 */
 	private static function refuse( $status, $detail, $record ) {
-		WPCPM_Flash::keep( self::KEPT_FORM . $record, array( 'email' => WPCPM_Request::posted_text( 'email' ) ) );
+		// The level too, when it is one the list knows: a refused press must not turn a tutor's invitation
+		// into a representative's when it is pressed again.
+		$level = WPCPM_Request::posted_key( 'level' );
+
+		WPCPM_Flash::keep(
+			self::KEPT_FORM . $record,
+			array(
+				'email' => WPCPM_Request::posted_text( 'email' ),
+				'level' => in_array( $level, WPCPM_Institution_Members::levels(), true ) ? $level : WPCPM_Institution_Members::LEVEL_REPRESENTATIVE,
+			)
+		);
 
 		self::finish( $status, $detail, $record );
 	}

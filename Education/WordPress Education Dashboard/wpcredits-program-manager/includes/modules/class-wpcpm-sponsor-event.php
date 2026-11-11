@@ -1166,7 +1166,9 @@ final class WPCPM_Sponsor_Event {
 			return self::AUDIENCE_MENTORS;
 		}
 
-		if ( '' !== WPCPM_Institution_Roster::resolve_institution( $person, false ) ) {
+		// A tutor sees the school's students and changes nothing: a Join would put them on an event and
+		// mail them its call link, so a tutor is not in the institutions' audience.
+		if ( '' !== WPCPM_Institution_Roster::resolve_institution( $person, false ) && WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $person ) ) {
 			return self::AUDIENCE_INSTITUTIONS;
 		}
 

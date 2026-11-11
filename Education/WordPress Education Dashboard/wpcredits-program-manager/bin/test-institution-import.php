@@ -100,6 +100,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-import.php'
  */
 if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	class WPCPM_Mentors_Sync {
+		public static function is_record_id( $value ) { return (bool) preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) ); }
 		public static function fields() {
 			return array(
 				'student_record_name' => 'Full Name',
@@ -1043,6 +1044,42 @@ foreach ( token_get_all( $source ) as $token ) {
 foreach ( array( 'wp_remote_', 'create_records', 'update_records', 'wp_mail', '$_POST', '$_FILES', '$_GET' ) as $forbidden ) {
 	ck( sprintf( 'no %s anywhere in it', $forbidden ), false !== strpos( $code, $forbidden ), false );
 }
+
+echo "\n=== The tutors the picker offers are the school's own list, read from the site ===\n";
+
+// Institutions release 1: each school keeps its tutor list on the site (`WPCPM_Institution_Tutors`), and the import's
+// picker reads that and nothing else. It used to read the base's Tutors table, one request and a cache of half a day.
+// The client here fails every request and records each: it must be asked nothing.
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+}
+require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-tutors.php';
+
+$GLOBALS['kept']      = array( 'recTUTORS00000001' => array( 'tutors' => array(
+	array( 'name' => 'Zofia Zielinska', 'email' => 'zofia@example.test' ),
+	array( 'name' => 'Adam Adamski', 'email' => 'adam@example.test' ),
+	array( 'name' => 'Adam Adamski', 'email' => 'adam.two@example.test' ),
+) ) );
+$GLOBALS['fail_table']  = 'tblTutors';
+$GLOBALS['queries']     = array();
+
+ck( 'the school\'s tutors are offered by name, sorted, each once', WPCPM_Institution_Import::tutors( 'recTUTORS00000001' ), array( 'Adam Adamski', 'Zofia Zielinska' ) );
+ck( 'a school with none listed is offered none', WPCPM_Institution_Import::tutors( 'recTUTORS00000002' ), array() );
+ck( 'and a value that is no record ID is offered none', WPCPM_Institution_Import::tutors( 'tutors' ), array() );
+ck( 'the base was asked nothing, whatever it would have answered', $GLOBALS['queries'], array() );
+$tutors_body = '';
+if ( preg_match( '/public static function tutors\(([^)]*)\)\s*\{(.*?)\n\t\}\n/s', $source, $m ) ) {
+	$tutors_body = $m[1] . $m[2];
+}
+ck( 'and the method holds no client, no table, no cache', array(
+	'' !== $tutors_body,
+	false !== stripos( $tutors_body, 'airtable' ),
+	false !== stripos( $tutors_body, 'tutors_table' ),
+	false !== stripos( $tutors_body, 'transient' ),
+	false !== strpos( $tutors_body, 'fetch_all' ),
+	false !== strpos( $tutors_body, 'WPCPM_Institution_Tutors::names(' ),
+), array( true, false, false, false, false, true ) );
+ck( 'the cache the read used to keep is gone from the file', false !== strpos( $source, 'wpcpm_tutors_' ), false );
 
 // Never in this project, chat, code or comment alike.
 foreach ( array( 'import' => $source, 'suite' => file_get_contents( __FILE__ ) ) as $what => $text ) {

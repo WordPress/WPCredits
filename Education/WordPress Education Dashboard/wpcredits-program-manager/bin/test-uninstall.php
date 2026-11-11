@@ -926,6 +926,21 @@ $mentor  = a_user(
 	)
 );
 $sponsor = a_user( array( 'wpcpm_sponsor' ), array( 'edit_posts', 'delete_posts', 'upload_files' ), array( 'wpcpm_sponsor_active' => 1 ) );
+// A school's tutor (1.123.84): every stamp a membership leaves on an account, the level among them.
+$school_tutor = a_user(
+	array( 'wpcpm_institution' ),
+	array(),
+	array(
+		'wpcpm_institution_record_id'     => 'recSEED0000000001',          // WPCPM_Institution_Members::META_RECORD_ID.
+		'wpcpm_institution_active'        => 1,                            // WPCPM_Institution_Members::META_ACTIVE.
+		'wpcpm_institution_record_id_was' => 'recSEED0000000002',          // WPCPM_Institution_Members::META_RECORD_ID_WAS.
+		'wpcpm_institution_membership'    => array( 'how' => 'invited' ), // WPCPM_Institution_Members::META_MEMBERSHIP.
+		'wpcpm_institution_level'         => 'tutor',                      // WPCPM_Institution_Members::META_LEVEL.
+		'wpcpm_inst_invited'              => 1792000000,                   // WPCPM_Institution_Members::META_INVITED.
+		'wpcpm_institution_profile'       => array( 'role' => 'Lecturer' ), // WPCPM_Institution_Members::META_PROFILE.
+		'nickname'                        => 'tutor-one',
+	)
+);
 
 // A sponsor's event (1.117.0), private as the store keeps it: its facts, its call link, the student
 // on it, the row that says the student is still to be told of its last change and the mark the day
@@ -1144,6 +1159,7 @@ echo "\n=== The meta ===\n";
 
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
 ck( 'the three keys an activation leaves on a mentor\'s account go, the held invitation among them, and the account\'s own stays', $GLOBALS['umeta'][ $mentor ], array( 'nickname' => 'mentor-one' ) );
+ck( 'every stamp a school\'s membership leaves on an account goes, the tutor\'s level among them, and the account\'s own stays', $GLOBALS['umeta'][ $school_tutor ], array( 'nickname' => 'tutor-one' ) );
 ck( 'the locks a details request left behind, one per request and one per school, go with the rest', array( get_option( 'wpcpm_req_lock_810', 'gone' ), get_option( 'wpcpm_req_lock_details_recSEED0000000001', 'gone' ) ), array( 'gone', 'gone' ) );
 ck( 'so does the lock a patch of the institutions index left behind, and the extra sync run a patch asked for', array( get_option( 'wpcpm_institutions_index_lock', 'gone' ), in_array( array( 'hook' => 'wpcpm_institutions_sync_daily', 'args' => array( 'again' ) ), $GLOBALS['cron'], true ) ), array( 'gone', false ) );
 ck( 'and so does the list of test institutions the sync remembers beside the index', get_option( 'wpcpm_test_institutions', 'gone' ), 'gone' );
@@ -1245,6 +1261,7 @@ $names = array(
 	'WPCPM_Content_Access::META_KEY'                => '_wpcpm_access_level',
 	'WPCPM_Notices::META_AUDIENCE'                  => '_wpcpm_notice_audience',
 	'WPCPM_Mentor_Calls::META_REMINDED'             => '_wpcpm_call_reminded',
+	'WPCPM_Institution_Members::META_LEVEL'         => 'wpcpm_institution_level',
 	'WPCPM_Students_Sync::META_INSTITUTION'         => 'wpcpm_student_institution',
 	'WPCPM_Students_Sync::META_COURSE'              => 'wpcpm_student_course',
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',

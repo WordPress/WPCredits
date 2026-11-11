@@ -166,7 +166,7 @@ class WPCPM_Airtable {
 	public function __construct( $s = null ) {}
 	public function formula_in( $f, array $v, $l = false ) { return empty( $v ) ? '' : 'in'; }
 	public function formula_contains( $f, array $v, $l = true ) { return empty( $v ) ? '' : 'has'; }
-	public function fetch_all( $t, array $a = array() ) { return array(); }
+	public function fetch_all( $t, array $a = array() ) { $GLOBALS['fetched'][] = $t; return array(); }
 	/** Every create is recorded whole, so the handlers' cells can be read back and asserted. */
 	public function create_records( $t, array $records ) {
 		$ids = array();
@@ -294,6 +294,17 @@ class WP_Error { public $c; public $m; public function __construct( $c = '', $m 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function get_user_by( $by, $v ) { return false; }
 
+/**
+ * The institution's record, as far as the tutor list asks it: the answers kept for a school, `$GLOBALS['kept']`.
+ * The picker reads the real list (`WPCPM_Institution_Tutors`) over it, so what is offered is what the list holds.
+ */
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+}
+$GLOBALS['kept']    = array();
+$GLOBALS['fetched'] = array();
+
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-create.php';
 
@@ -514,8 +525,28 @@ ck( 'opening on a blank answer', false !== strpos( $form, '<option value="">Not 
 // institution has nobody in the table yet, with a sentence saying who to ask rather than a box
 // implying the site will take whatever is typed.
 ck( 'the tutor is a picker even with none recorded', false !== strpos( $form, '<select id="wpcpm-import-tutor"' ), true );
-ck( 'and says who to ask instead of pretending otherwise', false !== strpos( $form, 'no tutors recorded for your institution yet' ), true );
+ck( 'and says where to add them instead of pretending otherwise', false !== strpos( $form, 'No tutors are listed for your institution yet. Add them in the Tutors section of the People card, and they will appear here.' ), true );
+ck( 'the old sentence, which sent the school to an Administrator, is gone', false !== strpos( $form, 'Ask an Administrator to add them' ), false );
 ck( 'no field is left as a free-text box that the base has options for', substr_count( $form, 'id="wpcpm-import-tutor" name="tutor" /' ), 0 );
+
+// The picker offers the school's own list, kept on the site: the names, each once, and nothing of another school's,
+// and the base is not asked for them (a request to any table is recorded, and there are none).
+$GLOBALS['kept'][ $HERE ]  = array( 'tutors' => array(
+	array( 'name' => 'Zofia Zielinska', 'email' => 'zofia@example.test' ),
+	array( 'name' => 'Adam Adamski', 'email' => 'adam@example.test' ),
+	array( 'name' => 'Adam Adamski', 'email' => 'adam.two@example.test' ),
+) );
+$GLOBALS['kept'][ $THERE ] = array( 'tutors' => array( array( 'name' => 'Other School Tutor', 'email' => 'other@example.test' ) ) );
+$GLOBALS['fetched']        = array();
+$listed                    = draw_section( $HERE );
+ck( 'with tutors listed the picker offers each name once, A to Z', array(
+	substr_count( $listed, '<option value="Adam Adamski">' ),
+	strpos( $listed, 'Adam Adamski' ) < strpos( $listed, 'Zofia Zielinska' ),
+	false !== strpos( $listed, '<option value="Zofia Zielinska">' ),
+), array( 1, true, true ) );
+ck( 'and not another school\'s, and no hint', array( false !== strpos( $listed, 'Other School Tutor' ), false !== strpos( $listed, 'No tutors are listed' ) ), array( false, false ) );
+ck( 'and no request was made to the base to draw it', $GLOBALS['fetched'], array() );
+$GLOBALS['kept'] = array();
 
 echo "\n=== Cancel decides against the batch's institution ===\n";
 
@@ -835,6 +866,34 @@ ck( 'and only a real upload is read at all', false !== strpos( $code, 'is_upload
 foreach ( array( 'module' => $source, 'suite' => file_get_contents( __FILE__ ) ) as $what => $text ) {
 	ck( sprintf( 'no dash but the plain hyphen in the %s', $what ), preg_match( '/[\x{2013}\x{2014}]/u', $text ), 0 );
 }
+
+echo "\n=== A tutor's hand-made posts are refused (Institutions release 1) ===\n";
+
+// The policy here is this suite's stand-in, so a tutor is the one it refuses: the real rule, that a tutor holds the
+// four view grounds and the add_student row is not among them, is `bin/test-institution-policy.php`'s. What this
+// suite holds is the handlers' half: every one of the four asks for the add_student action, refuses on the
+// policy's no with its one status, and writes no batch, no option and no record.
+fresh_world();
+post_check( batch_fields() );
+$batch_id = WPCPM_Institution_Import::active_for( $HERE );
+$GLOBALS['created'] = array();
+$posts_before       = serialize( array( $GLOBALS['posts'], $GLOBALS['pmeta'] ) );
+$opts_before        = serialize( $GLOBALS['opts'] );
+$GLOBALS['allowed'] = false;
+
+ck( 'a tutor\'s check posts a valid list and is refused', post_check( batch_fields() ), 'refused' );
+ck( 'a tutor\'s cancel of the school\'s waiting batch is refused', post_batch( 'handle_cancel', $batch_id ), 'refused' );
+ck( 'a tutor\'s confirm of it is refused', post_batch( 'handle_confirm', $batch_id ), 'refused' );
+ck( 'a tutor\'s continue of it is refused', post_batch( 'handle_continue', $batch_id ), 'refused' );
+$asked = array();
+foreach ( array( 'handle_cancel', 'handle_confirm', 'handle_continue' ) as $handler ) {
+	post_batch( $handler, $batch_id );
+	foreach ( $GLOBALS['calls'] as $call ) { if ( 'decide' === $call[0] ) { $asked[ $handler ] = $call[1]; } }
+}
+ck( 'each asked the policy for add_student', $asked, array( 'handle_cancel' => 'add_student', 'handle_confirm' => 'add_student', 'handle_continue' => 'add_student' ) );
+ck( 'and nothing was written: no batch, no meta, no option, no student', array( serialize( array( $GLOBALS['posts'], $GLOBALS['pmeta'] ) ) === $posts_before, serialize( $GLOBALS['opts'] ) === $opts_before, $GLOBALS['created'], WPCPM_Institution_Import::active_for( $HERE ) === $batch_id ), array( true, true, array(), true ) );
+ck( 'and a tutor is drawn no Enroll students section at all', draw_section( $HERE ), '' );
+$GLOBALS['allowed'] = true;
 
 echo "\n=== The institution gate (the design's decision 10) ===\n";
 

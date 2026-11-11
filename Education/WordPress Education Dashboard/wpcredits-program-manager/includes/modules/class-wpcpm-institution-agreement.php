@@ -3833,11 +3833,11 @@ class WPCPM_Institution_Agreement {
 	 * Verbatim, like the return note, and for a harder reason: this message is the whole of
 	 * what an institution is told about why the account it signed in to yesterday shows one
 	 * panel today. It says what is limited rather than what is gone, because nothing about
-	 * their students is deleted by a revocation, and it names the country contact so there is
+	 * their students is deleted by a revocation, and it names the assigned Administrator so there is
 	 * somebody to write to who is not the address this mail was sent from.
 	 *
-	 * The note is read back to what was typed, as in `mail_returned()`. A country with a contact
-	 * on file and one with none are two emails in other words (`contact_of()`).
+	 * The note is read back to what was typed, as in `mail_returned()`. An institution with an assigned Administrator
+	 * and one with none are two emails in other words (`contact_of()`).
 	 *
 	 * @param string $record  Institutions record ID.
 	 * @param int    $post_id The revoked document.
@@ -3916,27 +3916,27 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
-	 * Who to write to about a revoked agreement: the country contact when the base names one, or
-	 * null when it does not, and the email then says the panel's own neutral sentence, so the two
+	 * Who to write to about a revoked agreement: the institution's assigned Administrator, or null
+	 * when nobody is assigned, and the email then says the panel's own neutral sentence, so the two
 	 * places an institution reads this read the same. Named in the body and never added as a
 	 * recipient: that is the rule design spec 7.4 sets for this address everywhere it appears, and
-	 * this mail is not the country contact's business unless the institution decides it is.
+	 * this mail is not the Administrator's business unless the institution decides it is.
 	 *
 	 * @param string $record Institutions record ID.
-	 * @return array{country:string,email:string}|null The country and its contact's address.
+	 * @return array{country:string,email:string}|null The country and the Administrator's address.
 	 */
 	private static function contact_of( $record ) {
 		$row     = WPCPM_Institutions_Index::row( $record );
 		$country = is_array( $row ) ? (string) $row['country'] : '';
-		$routing = '' === $country ? null : WPCPM_Countries::routing( $country );
+		$contact = '' === WPCPM_Countries::name_of( $country ) ? null : WPCPM_Institution_Assignment::contact_of( $record );
 
-		if ( null === $routing || '' === trim( (string) $routing['email'] ) ) {
+		if ( null === $contact || '' === trim( (string) $contact['email'] ) ) {
 			return null;
 		}
 
 		return array(
 			'country' => $country,
-			'email'   => trim( (string) $routing['email'] ),
+			'email'   => trim( (string) $contact['email'] ),
 		);
 	}
 

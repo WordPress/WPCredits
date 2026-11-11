@@ -359,7 +359,7 @@ final class WPCPM_Institution_Import_Form {
 			if ( 'tutor' === $name && empty( $options ) ) {
 				printf(
 					'<span class="wpcpm-field__hint">%s</span>',
-					esc_html__( 'The program has no tutors recorded for your institution yet. Ask an Administrator to add them, and they will appear here.', 'wpcredits-program-manager' )
+					esc_html__( 'No tutors are listed for your institution yet. Add them in the Tutors section of the People card, and they will appear here.', 'wpcredits-program-manager' )
 				);
 			}
 
@@ -487,8 +487,8 @@ final class WPCPM_Institution_Import_Form {
 	 * **Both lists are the base's own.** `Your field of study` is a single-select in Airtable
 	 * and `create_records()` sends no typecast, so a value spelled any other way is a 422 for
 	 * the whole record: a text box here is a box in which a school can only get it wrong.
-	 * Tutors are a table, and the list offered is this institution's own rows from it and never
-	 * the program's fourteen.
+	 * Tutors are the institution's own list, kept on the site (`WPCPM_Institution_Tutors`), and
+	 * the list offered is that and never another school's.
 	 *
 	 * The file route is deliberately not held to these. A school adding a tutor the base has
 	 * not heard of yet should not have their whole term refused for it, so a CSV keeps free
@@ -507,12 +507,11 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		if ( 'tutor' === $name ) {
-			// **Always a picker, even when the answer is empty.** Tutors are a table in the
-			// base and a free-text box invites a name that matches nothing in it, which is
-			// how the column filled up with spellings in the first place. A school with none
-			// recorded gets a picker holding only the blank answer and the sentence beside it
-			// saying who to ask, which is a truer thing to show than a box implying the site
-			// will take whatever they type.
+			// **Always a picker, even when the answer is empty.** Tutors are the school's own list and
+			// a free-text box invites a name that matches nobody on it, which is how the column filled
+			// up with spellings in the first place. A school with none listed gets a picker holding
+			// only the blank answer and the sentence beside it saying where to add them, which is a
+			// truer thing to show than a box implying the site will take whatever they type.
 			return WPCPM_Institution_Import::tutors( $record );
 		}
 

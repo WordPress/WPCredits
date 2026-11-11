@@ -126,6 +126,9 @@ echo "\n=== The institution writer is unchanged ===\n";
 $inst = WPCPM_Institution_Audit::record( array_merge( $base, array( 'kind' => 'member_added', 'institution' => $I, 'message' => 'x' ) ) );
 ck( 'an institution row carries the institution key', get_post_meta( $inst, WPCPM_Institution_Audit::META_INSTITUTION, true ), $I );
 ck( 'and no sponsor key', isset( $GLOBALS['pmeta'][ $inst ][ WPCPM_Institution_Audit::META_SPONSOR ] ), false );
+ck( 'the grounds a row may carry, a tutor\'s among them since Institutions release 1', WPCPM_Institution_Audit::grounds(), array( 'manager', 'member', 'tutor', 'system' ) );
+$tutor_row = WPCPM_Institution_Audit::record( array_merge( $base, array( 'kind' => 'member_added', 'institution' => $I, 'message' => 'x', 'ground' => 'tutor' ) ) );
+ck( 'a row on the tutor ground is written, and keeps it', is_int( $tutor_row ) ? get_post_meta( $tutor_row, WPCPM_Institution_Audit::META_GROUND, true ) : 'no row', 'tutor' );
 $inst_bad = WPCPM_Institution_Audit::record( array_merge( $base, array( 'kind' => 'x', 'institution' => '' ) ) );
 ck( 'and still refuses a row with no institution', is_wp_error( $inst_bad ) ? $inst_bad->get_error_code() : '', 'wpcpm_audit_institution' );
 

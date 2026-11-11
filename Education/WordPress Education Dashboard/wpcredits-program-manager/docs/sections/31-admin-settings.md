@@ -86,9 +86,9 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 | **Students table** | Read only for the Tutor column, which does not exist on Students Reports. |
 | **Institutions table** and **Institutions name column** | Airtable sends linked-record fields as record IDs rather than names, so the table is read to turn those IDs into names. The name column is used only when the token lacks the `schema.bases:read` scope; with that scope the primary column is detected automatically. |
 | **Contribution areas table** and **Contribution areas name column** | Read the same way, for the contribution team a record links to. |
-| **Tutors table** | Read when an institution enrolls students, for that institution's own tutors and no other school's. |
+| **Tutors table** | Not read when an institution enrolls students: each school keeps its own tutor list on this site, in the Tutors section of its People card. The setting stays for moving the program's tutors onto the site. |
 | **Feedback table** | Where the students' survey answers are written: one row per student, with a column per question. |
-| **Countries table** and **Countries name column** | Read for the name of each institution's country and the Administrator who looks after it; the name column holds each country's name. |
+| **Countries table** and **Countries name column** | Read for the name of each institution's country; the name column holds each country's name. Who follows a school up comes from the areas of responsibility on the Institutions tab. |
 
 ### The Students and mentors tab
 
@@ -271,7 +271,7 @@ card the sign-in and the visit that bring them to it do not count, so the note a
 there when the reminder sends them to it; for the mentor and for an Administrator they do. The
 **Book a call** link is the student's alone: an Administrator viewing the card as the student reads
 the note without it. It is offered only where there is a call to book, with a mentor or on the booking
-page of the Administrator for the student's country; a student with neither is offered none, and their
+page of the Administrator assigned to the student's institution; a student with neither is offered none, and their
 reminder names the address in **Contact address in emails** instead, while it holds one. After a press of **We've already talked**, the page it was pressed on says so
 where the button was.
 
@@ -289,9 +289,9 @@ mailed.
 A student of a test institution is listed with the Test mark and **Not mailed: test institution**,
 left out of the counts and never mailed. The mentor gets one email a day listing the students just
 reminded, and only about students who have a mentor and whose reminder went out; a student whose
-program record names their own account as their mentor counts as having none. Each Administrator who
-is the contact for a country gets one email on the first run of a Monday, in the site's time zone,
-listing that country's quiet students who are not of a test institution, and only when there is at
+program record names their own account as their mentor counts as having none. Each Administrator
+gets one email on the first run of a Monday, in the site's time zone,
+listing the quiet students of the institutions assigned to them who are not of a test institution, and only when there is at
 least one. The three emails are edited in **Tools > Emails**, under the area **Quiet students**.
 
 #### New students
@@ -399,7 +399,7 @@ The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
 
 ### The Institutions tab
 
-Five sections, headed on the screen **Applications and enrollment**, **Landing page**, **When an
+Six sections, headed on the screen **Applications and enrollment**, **Areas of responsibility**, **Landing page**, **When an
 institution leaves the pipeline**, **Collaboration Agreements** and **Semester reports**.
 
 #### Institution applications and enrollment
@@ -446,6 +446,39 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
   No account, the institution is listed with the reason, never the address or the account; with
   this off, accounts are created only when somebody presses Create account there.
 
+#### Institution areas of responsibility
+
+Which Administrator a new institution is assigned to: the country's own Administrator first, then
+the region's. An Administrator here is an account with the plugin's manage capability, never every
+WordPress administrator account.
+
+- **Regions** - one choice per region (Africa, Asia, Europe, Latin America and the Caribbean, Middle
+  East, North America, Oceania): the Administrator who has the whole region, or **Nobody**.
+- **Countries** - the countries that have their own Administrator, one row each. A country with a
+  row goes to that Administrator whatever its region says; choose **Nobody** in its row to take it
+  away.
+- **Add a country** - type a country, choose its Administrator and save. A country that already has
+  its row is refused, naming it and its Administrator, so a country has one Administrator.
+- **Who has what** - one line per Administrator with an area, such as "Ana: Europe; Poland".
+- **Countries by region** - closed until opened: each region's countries, and **No region** for a
+  country the plugin's map does not hold. **Move a country** puts one in another region; choosing
+  the plugin's own region takes the move away.
+
+A save is refused, and nothing of the areas is saved, when it gives a country to a second
+Administrator (the sentence names the country and who has it already) or names an account that is
+not an Administrator. A country or a region with nobody leaves its institutions unassigned. A new
+application is emailed to its assigned Administrator, and one no area covers to the addresses in
+**Who is emailed about institutions** under Collaboration Agreements, or to every Administrator when
+nobody is named there.
+
+**Gaps.** The Institutions screen's Pipeline tab lists the countries that institutions name and no
+area gives an Administrator ("Countries named by institutions with no Administrator in the areas of
+responsibility"), each with how many institutions, and an institution in one is marked "no
+area". Give the country, or its region, an Administrator here to close the gap. A change
+here assigns nobody already on the program: an institution keeps the Administrator it has until
+somebody reassigns it on its details card. The guide to running the program has the rest, and the
+command that fills the areas in the first time.
+
 #### Institution landing page
 
 - **Institution landing page** - **Use the Institution Dashboard page as the institution
@@ -471,7 +504,7 @@ Institution Dashboard, and only an editor or an administrator stays in wp-admin.
   the nightly reminder names it.
 - **Who is emailed about institutions** (called **Who reviews agreements** until 1.123.26, the
   same setting) - who gets every email about institutions an Administrator is sent: a new
-  application from an institution, a signed agreement uploaded for review, the nightly reminder of
+  application from an institution that no area gives an Administrator, a signed agreement uploaded for review, the nightly reminder of
   agreements waiting past the review days, the notice that the agreement template cannot be used,
   an institution's last member leaving, and the three emails about a school's details: a school
   saving a correction of its contact or agreement details (what changed, from what to what), a school

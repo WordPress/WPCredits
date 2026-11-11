@@ -621,7 +621,7 @@ class WPCPM_Institution_Roster {
 				'institution' => $institution,
 				'subject'     => (string) $actor->ID,
 				'actor'       => $actor->ID,
-				'ground'      => WPCPM_Institution_Audit::GROUND_MEMBER,
+				'ground'      => self::ground_of( $actor ),
 				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
 				'message'     => sprintf(
 					/* translators: %d: the number of refused claims that fills a day's ceiling. */
@@ -831,7 +831,7 @@ class WPCPM_Institution_Roster {
 				'institution' => $institution,
 				'subject'     => $record,
 				'actor'       => $user->ID,
-				'ground'      => WPCPM_Institution_Audit::GROUND_MEMBER,
+				'ground'      => self::ground_of( $user ),
 				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_LIVE,
 				'message'     => __( 'A live read placed this record with another institution than the site held for it.', 'wpcredits-program-manager' ),
 				'data'        => array(
@@ -840,5 +840,15 @@ class WPCPM_Institution_Roster {
 				),
 			)
 		);
+	}
+
+	/**
+	 * The ground an account's own rows are filed on: the tutor ground for a tutor, the member ground for any other.
+	 *
+	 * @param WP_User $user The account.
+	 * @return string
+	 */
+	private static function ground_of( WP_User $user ) {
+		return WPCPM_Institution_Members::LEVEL_TUTOR === WPCPM_Institution_Members::level_of( $user ) ? WPCPM_Institution_Audit::GROUND_TUTOR : WPCPM_Institution_Audit::GROUND_MEMBER;
 	}
 }

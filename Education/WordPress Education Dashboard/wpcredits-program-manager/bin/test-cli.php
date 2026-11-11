@@ -45,6 +45,12 @@ class WP_CLI {
 	public static function warning( $message ) { self::$lines[] = 'warning: ' . $message; }
 	public static function success( $message ) { self::$lines[] = 'success: ' . $message; }
 	public static function error( $message ) { self::$lines[] = 'error: ' . $message; throw new ExitSignal( $message ); }
+	/** WP-CLI's own: --yes skips the question, and a no is an abort. */
+	public static function confirm( $question, $assoc_args = array() ) {
+		if ( ! empty( $assoc_args['yes'] ) ) { return; }
+		self::$lines[] = 'confirm: ' . $question;
+		if ( empty( $GLOBALS['confirm_yes'] ) ) { self::$lines[] = 'error: Aborted'; throw new ExitSignal( 'Aborted' ); }
+	}
 }
 
 // `WP_CLI\Utils\format_items()`, kept in `WP_CLI::$lines` as 'items: <format> <json>'.
@@ -408,6 +414,78 @@ ck( 'a seed that fails is warned about, the rest are still tried and compiled on
         ),
         1,
     ) );
+
+echo "\n=== wp wpcredits institutions_seed ===\n";
+
+/** The seed, stood in: what the command does around it is what is read here (the seed's own suite reads the seed). */
+class WPCPM_Institution_Seed {
+	public static $plan    = array( 'areas' => array() );
+	public static $done    = array();
+	public static $applied = 0;
+	public static function plan( $client ) { return self::$plan; }
+	public static function summary( array $plan ) { return array( 'Line one.', 'Line two.' ); }
+	public static function apply( array $plan ) { ++self::$applied; return self::$done; }
+}
+
+/** The command with its Airtable client stood in. */
+class Seed_CLI extends WPCPM_CLI {
+	protected function seed_client() { return new stdClass(); }
+}
+
+function run_institutions_seed( array $assoc ) {
+	WP_CLI::$lines              = array();
+	WPCPM_Institution_Seed::$applied = 0;
+
+	try {
+		( new Seed_CLI() )->institutions_seed( array(), $assoc );
+	} catch ( ExitSignal $e ) {
+		return 1;
+	}
+
+	return 0;
+}
+
+WPCPM_Institution_Seed::$done = array( 'areas' => 1, 'areas_kept' => false, 'booking' => 2, 'assigned_area' => 1, 'assigned_original' => 2, 'tutors' => 4, 'failed' => array() );
+$written                     = 'Written: 1 country is given an Administrator; 2 booking links are added; 3 institutions are assigned; 4 tutors are added.';
+
+$exit = run_institutions_seed( array( 'dry-run' => true ) );
+ck( '--dry-run prints the summary and says nothing was written, asks nothing and writes nothing',
+    array( $exit, WP_CLI::$lines, WPCPM_Institution_Seed::$applied ),
+    array( 0, array( 'log: Line one.', 'log: Line two.', 'success: Dry run: nothing was written.' ), 0 ) );
+
+$exit = run_institutions_seed( array( 'yes' => true ) );
+ck( '--yes writes without asking, and says what was written',
+    array( $exit, WP_CLI::$lines, WPCPM_Institution_Seed::$applied ),
+    array( 0, array( 'log: Line one.', 'log: Line two.', 'success: ' . $written ), 1 ) );
+
+$GLOBALS['confirm_yes'] = true;
+$exit                   = run_institutions_seed( array() );
+ck( 'with no flag it asks, and on a yes writes',
+    array( $exit, WP_CLI::$lines, WPCPM_Institution_Seed::$applied ),
+    array( 0, array( 'log: Line one.', 'log: Line two.', 'confirm: Write this to the site?', 'success: ' . $written ), 1 ) );
+
+$GLOBALS['confirm_yes'] = false;
+$exit                   = run_institutions_seed( array() );
+ck( 'on a no it writes nothing and exits non-zero',
+    array( $exit, WP_CLI::$lines, WPCPM_Institution_Seed::$applied ),
+    array( 1, array( 'log: Line one.', 'log: Line two.', 'confirm: Write this to the site?', 'error: Aborted' ), 0 ) );
+
+WPCPM_Institution_Seed::$done['failed'] = array( 'The site refused the areas, so none was written.' );
+$exit                                   = run_institutions_seed( array( 'yes' => true ) );
+ck( 'a refused write ends the command with an error naming it, as seed_tracks does, after what was written',
+    array( $exit, WP_CLI::$lines ),
+    array( 1, array( 'log: Line one.', 'log: Line two.', 'log: ' . $written, 'error: Not everything was written. The site refused the areas, so none was written.' ) ) );
+
+// The sentence is the site's, so it is translated, with a note saying what fills it (1.123.84).
+ck( 'and that sentence is translatable, with a note for translators',
+    1 === preg_match( "#/\\* translators: [^*]+\\*/\\s*__\\( 'Not everything was written\\. %s', 'wpcredits-program-manager' \\)#", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cli.php' ) ),
+    true );
+
+WPCPM_Institution_Seed::$plan = new WP_Error( 'wpcpm_airtable_down', 'Airtable said no.' );
+$exit                         = run_institutions_seed( array( 'yes' => true ) );
+ck( 'a read that fails is the error, and nothing is written',
+    array( $exit, WP_CLI::$lines, WPCPM_Institution_Seed::$applied ),
+    array( 1, array( 'error: Airtable said no.' ), 0 ) );
 
 echo "\n=== wp wpcredits check_mentors ===\n";
 

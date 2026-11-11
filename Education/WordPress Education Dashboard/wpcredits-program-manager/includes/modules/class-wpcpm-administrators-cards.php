@@ -2243,7 +2243,7 @@ final class WPCPM_Administrators_Cards {
 		$country = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY, true );
 		$name    = trim( (string) $post->post_title );
 		$at      = (int) get_post_time( 'U', true, $post );
-		$manager = WPCPM_Countries::contact_of( $country );
+		$manager = WPCPM_Institution_Assignment::application_label( (int) $post->ID );
 
 		printf( '<article class="wpcpm-administrator__item wpcpm-application" id="wpcpm-application-%d">', (int) $post->ID );
 		printf(
@@ -2263,7 +2263,7 @@ final class WPCPM_Administrators_Cards {
 				esc_html(
 					sprintf(
 						/* translators: %s: an Administrator's name or address. */
-						__( 'Routed to %s', 'wpcredits-program-manager' ),
+						__( 'Assigned to %s', 'wpcredits-program-manager' ),
 						$manager
 					)
 				)

@@ -93,6 +93,7 @@ class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager';
 	const GROUND_MEMBER  = 'member';
 	const GROUND_SYSTEM  = 'system';
+	const GROUND_TUTOR   = 'tutor';
 
 	const EVIDENCE_INDEX = 'index';
 	const EVIDENCE_CACHE = 'cache';
@@ -157,7 +158,7 @@ class WPCPM_Institution_Audit {
 	 * @return string[]
 	 */
 	public static function grounds() {
-		return array( self::GROUND_MANAGER, self::GROUND_MEMBER, self::GROUND_SYSTEM );
+		return array( self::GROUND_MANAGER, self::GROUND_MEMBER, self::GROUND_TUTOR, self::GROUND_SYSTEM );
 	}
 
 	/**

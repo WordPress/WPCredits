@@ -27,8 +27,10 @@ define( 'MONTH_IN_SECONDS', 2592000 );
 $GLOBALS['opts'] = array();
 
 class WP_Error {
-	public function __construct( $c = '', $m = '' ) {}
-	public function get_error_message() { return ''; }
+	private $code, $message;
+	public function __construct( $c = '', $m = '' ) { $this->code = $c; $this->message = $m; }
+	public function get_error_code() { return $this->code; }
+	public function get_error_message() { return $this->message; }
 }
 class WP_User {
 	public $ID = 0, $roles = array(), $display_name = '', $user_login = '';
@@ -262,6 +264,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-emails.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';
 // The enrollment ceilings the Institutions tab states: the real ones.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
 // The Security tab's Latest calls: the date class, the abilities' labels (the real ones, since the table
 // prints them) and a stand-in of the audit log that answers what a check sets. The real log's shape is
 // pinned by bin/test-audit.php; the stand-in's rows carry the keys `entry_from()` gives.
@@ -345,10 +348,25 @@ class WPCPM_Two_Factor {
  * settings, and which say where the Mentors table's statuses are.
  */
 class WPCPM_Mentors_Sync {
+	public static function is_record_id( $value ) { return (bool) preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) ); }
 	public static function fields() {
 		return array( 'mentor_name' => 'Full Name', 'mentor_profile' => 'WordPress profile', 'mentor_status' => 'Status', 'report_status' => 'Status' );
 	}
 }
+
+
+/** The Countries table's map, as the areas read it: two countries, by record ID. */
+class WPCPM_Countries {
+	public static function all() { return array( 'recPOLAND00000001' => array( 'name' => 'Poland' ), 'recEGYPT00000001' => array( 'name' => 'Egypt' ) ); }
+	public static function options() { return array_map( static function ( $row ) { return $row['name']; }, self::all() ); }
+	public static function name_of( $id ) { return self::all()[ $id ]['name'] ?? ''; }
+}
+/** The one-field choice, as a select the checks can read: the script that turns it into a combobox is not under test here. */
+class WPCPM_Dashboards {
+	public static function compare_names( $a, $b ) { return strnatcasecmp( (string) $a, (string) $b ); }
+	public static function render_combo( array $args ) { echo '<select name="' . esc_attr( $args['name'] ) . '" id="' . esc_attr( $args['id'] ) . '"></select>'; }
+}
+function remove_accents( $s ) { return (string) $s; }
 
 /** The mail layer, for the Mail tab: what is queued. */
 class WPCPM_Mail {
@@ -557,7 +575,12 @@ $probe = array(
 	'students_per_mentor'           => '4',
 	// The Emails tool's contact address (1.122.19).
 	'mail_contact'                  => 'programs@example.test',
+	// The areas of responsibility (Institutions off Airtable, R1): a region's Administrator, and a
+	// country moved out of the region the plugin ships. The move comes back as the override it makes.
+	'institution_areas'             => array( 'countries' => array(), 'regions' => array( 'europe' => 12 ) ),
+	'institution_regions'           => array( 'move_country' => 'recEGYPT00000001', 'move_region' => 'middle-east' ),
 );
+$probe_comes_back = array( 'institution_regions' => array( 'recEGYPT00000001' => 'middle-east' ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
@@ -566,6 +589,7 @@ $saved = WPCPM_Settings::save( $probe );
 foreach ( $probe as $key => $value ) {
 	// Integers are posted as strings and come back cast; everything else comes back as sent.
 	$expected = is_int( $defaults[ $key ] ) ? (int) $value : $value;
+	$expected = array_key_exists( $key, $probe_comes_back ) ? $probe_comes_back[ $key ] : $expected;
 
 	ck( sprintf( '%s survives the save', $key ), array( $saved[ $key ] ), array( $expected ) );
 }
@@ -1871,7 +1895,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
 	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled', 'students_per_mentor' ),
-	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify' ),
+	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify', 'institution_areas', 'institution_regions' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
 	'advanced'                   => array( 'institution_new_stage', 'institution_active_stages', 'application_spam_days', 'application_rejected_days', 'application_approved_days', 'application_trusted_proxy', 'agreement_max_mb', 'agreement_uploads_per_day', 'agreement_generations_per_day', 'agreement_discard_days', 'invite_retention_days' ),
@@ -2835,7 +2859,8 @@ function forms_of( $html ) {
 				continue;
 			}
 
-			$name = preg_replace( '/\[\]$/', '', $name );
+			// A nested name posts its setting's own key first: institution_areas[regions][europe].
+			$name = preg_replace( '/\[.*$/', '', $name );
 
 			if ( ! in_array( $name, $plumbing, true ) ) {
 				$fields[ $name ] = true;
@@ -3239,6 +3264,7 @@ $design_sections = array(
 	),
 	'institutions' => array(
 		'Applications and enrollment'             => 'institution-applications-and-enrollment',
+		'Areas of responsibility'                 => 'institution-areas-of-responsibility',
 		'Landing page'                            => 'institution-landing-page',
 		'When an institution leaves the pipeline' => 'when-an-institution-leaves-the-pipeline',
 		'Collaboration Agreements'                => 'collaboration-agreements',
@@ -3332,8 +3358,8 @@ foreach ( array( 'no page' => null, 'a draft' => 'draft', 'a private page' => 'p
 	$unlinked[ $case ] = array( count( $intros ), count( preg_grep( '#<a\b#', $intros ) ), count( preg_grep( '/^[^<]+\.$/', $intros ) ) );
 }
 
-ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 31 intros says its sentence and links nothing',
-    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 31, 0, 31 ) ) );
+ck( 'with no published page at that path, whether there is none, a draft, a private or a trashed one, each of the 32 intros says its sentence and links nothing',
+    $unlinked, array_fill_keys( array( 'no page', 'a draft', 'a private page', 'a trashed page' ), array( 32, 0, 32 ) ) );
 
 // A site that publishes the guide elsewhere says where, and a filter that answers no address leaves
 // the intros without a link, as a missing page does.
@@ -5516,6 +5542,72 @@ ck( 'and with the site\'s own address that help is one sentence in one paragraph
     array( 'MCP Adapter 0.7.1 is active, and Claude connects at https://wordpresseducation.org/wp-json/mcp/wpcredits.', 1, true, 1, array() ) );
 
 $GLOBALS['rest_root'] = 'https://example.test/wp-json/';
+
+/* ---- Areas of responsibility (Institutions off Airtable, R1) ------------ */
+
+echo "\n=== Areas of responsibility ===\n";
+
+$GLOBALS['users'] = array(
+	11 => (function () { $u = new WP_User( 11 ); $u->display_name = 'Ana Admin'; return $u; })(),
+	12 => (function () { $u = new WP_User( 12 ); $u->display_name = 'Bo Boss'; return $u; })(),
+	13 => (function () { $u = new WP_User( 13 ); $u->display_name = 'Cy Client'; return $u; })(),
+);
+$GLOBALS['manage'] = array( 11, 12 );
+$POLAND = 'recPOLAND00000001';
+$EGYPT  = 'recEGYPT00000001';
+
+ck( 'the areas and the region overrides are settings, empty to start with',
+    array( $defaults['institution_areas'], $defaults['institution_regions'] ),
+    array( array( 'countries' => array(), 'regions' => array() ), array() ) );
+ck( 'and in the Institutions scope alone',
+    array_keys( array_filter( array_map( static function ( $scope ) { return in_array( 'institution_areas', WPCPM_Settings::scope_keys( $scope ), true ) && in_array( 'institution_regions', WPCPM_Settings::scope_keys( $scope ), true ); }, array_combine( array_keys( $scopes ), array_keys( $scopes ) ) ) ) ),
+    array( 'institutions' ) );
+
+$GLOBALS['opts'] = array();
+$before = WPCPM_Settings::get();
+$saved  = WPCPM_Settings::save(
+	array(
+		'institution_areas'   => array( 'regions' => array( 'europe' => '12', 'asia' => '' ), 'countries' => array( $POLAND => '11' ) ),
+		'institution_regions' => array( 'move_country' => $EGYPT, 'move_region' => 'middle-east' ),
+		'agreement_review_days' => '9',
+		'mail_contact'        => 'someone@example.org',
+	),
+	'institutions'
+);
+ck( 'a save of the Institutions scope writes the areas and the moves',
+    array( $saved['institution_areas'], $saved['institution_regions'] ),
+    array( array( 'countries' => array( $POLAND => 11 ), 'regions' => array( 'europe' => 12 ) ), array( $EGYPT => 'middle-east' ) ) );
+ck( 'and the scope\'s other settings, and no other scope\'s', array( $saved['agreement_review_days'], $saved['mail_contact'] ), array( 9, $before['mail_contact'] ) );
+
+$GLOBALS['opts'] = array();
+WPCPM_Settings::save( array( 'institution_areas' => array( 'regions' => array( 'europe' => '12' ) ) ), 'institutions' );
+$other = WPCPM_Settings::save( array( 'institution_areas' => array( 'regions' => array( 'asia' => '11' ) ) ), 'people' );
+ck( 'a save of another scope leaves the areas alone', $other['institution_areas'], array( 'countries' => array(), 'regions' => array( 'europe' => 12 ) ) );
+
+$kept = WPCPM_Settings::save(
+	array(
+		'institution_areas'     => array( 'regions' => array( 'europe' => '13' ) ),
+		'agreement_review_days' => '11',
+	),
+	'institutions'
+);
+ck( 'a refused areas post keeps the stored areas and saves the scope\'s other settings',
+    array( $kept['institution_areas'], $kept['agreement_review_days'] ),
+    array( array( 'countries' => array(), 'regions' => array( 'europe' => 12 ) ), 11 ) );
+ck( 'and last_refused() names the sentence',
+    WPCPM_Settings::last_refused(),
+    array( 'institution_areas' => 'That account is not an Administrator, so the areas were not saved.' ) );
+
+$twice = WPCPM_Settings::save( array( 'institution_areas' => array( 'countries' => array( $POLAND => '12' ), 'add_country' => $POLAND, 'add_user' => '11' ) ), 'institutions' );
+ck( 'a country given twice is refused and the refusal names it',
+    array( $twice['institution_areas']['countries'], WPCPM_Settings::last_refused() ),
+    array( array(), array( 'institution_areas' => 'Poland is already given to Bo Boss. Change it in its own row, so the country has one Administrator.' ) ) );
+
+$drawn = draw_settings( 'institutions' );
+ck( 'the Institutions tab draws the Areas section after Applications and enrollment, before the Landing page',
+    array( strpos( $drawn, 'Applications and enrollment' ) < strpos( $drawn, 'Areas of responsibility' ), strpos( $drawn, 'Areas of responsibility' ) < strpos( $drawn, 'Landing page' ) ),
+    array( true, true ) );
+ck( 'in the settings form, with the areas\' own fields', array( false !== strpos( $drawn, 'name="institution_areas[regions][europe]"' ), false !== strpos( $drawn, 'name="institution_regions[move_region]"' ) ), array( true, true ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

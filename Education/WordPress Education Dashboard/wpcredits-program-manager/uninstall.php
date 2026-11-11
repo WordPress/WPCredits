@@ -157,6 +157,10 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institu
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-record.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-details.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-tracks.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-tutors.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-areas.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-seed.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-history.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-student-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-students.php';

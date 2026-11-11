@@ -181,12 +181,12 @@ final class WPCPM_Student_Flags {
 	}
 
 	/**
-	 * The program manager of a student: the account behind the contact of the country of the
-	 * student's institution, when that account may manage the program.
+	 * The Administrator of a student: the one their institution is assigned to, while that account may
+	 * manage the program.
 	 *
 	 * @param int $user_id The student's account.
-	 * @return int User ID, or 0 when the chain breaks anywhere (no institution, no country, no
-	 *             contact, no account, an account that cannot manage the program).
+	 * @return int User ID, or 0 when the chain breaks anywhere (no institution, nobody assigned to it,
+	 *             an account that is gone or cannot manage the program).
 	 */
 	public static function manager_of( $user_id ) {
 		$institution = trim( (string) get_user_meta( (int) $user_id, WPCPM_Students_Sync::META_INSTITUTION, true ) );
@@ -195,27 +195,9 @@ final class WPCPM_Student_Flags {
 			return 0;
 		}
 
-		$row     = WPCPM_Institutions_Index::row( $institution );
-		$country = ( is_array( $row ) && ! empty( $row['country'] ) ) ? (string) $row['country'] : '';
+		$contact = WPCPM_Institution_Assignment::contact_of( $institution );
 
-		if ( '' === $country ) {
-			return 0;
-		}
-
-		$routing = WPCPM_Countries::routing( $country );
-		$email   = ( is_array( $routing ) && ! empty( $routing['email'] ) ) ? trim( (string) $routing['email'] ) : '';
-
-		if ( '' === $email ) {
-			return 0;
-		}
-
-		$account = get_user_by( 'email', $email );
-
-		if ( ! $account || ! user_can( $account, WPCPM_Roles::CAP_MANAGE ) ) {
-			return 0;
-		}
-
-		return (int) $account->ID;
+		return null !== $contact ? (int) $contact['user_id'] : 0;
 	}
 
 	/**
@@ -569,7 +551,7 @@ final class WPCPM_Student_Flags {
 
 	/**
 	 * Where a quiet student is sent to book: the calls section of their Student Report Card when they
-	 * have a mentor, else the booking page of the Administrator for their country, else the Student
+	 * have a mentor, else the booking page of the Administrator their institution is assigned to, else the Student
 	 * Report Card. Never an empty address: the site's front page stands in when no card is published.
 	 *
 	 * @param int $user_id The student's account.
@@ -593,7 +575,7 @@ final class WPCPM_Student_Flags {
 
 	/**
 	 * Whether a quiet student has somewhere to book a call: a mentor, whose calls section on the
-	 * Student Report Card books with them, or the booking page of the Administrator for their country.
+	 * Student Report Card books with them, or the booking page of the Administrator their institution is assigned to.
 	 * With neither, `booking_link()` falls back to the Student Report Card itself, whose calls section
 	 * offers nothing to book, so the reminder and the note offer no booking (fix round 1 of Release B):
 	 * the reminder names the program's contact address instead, and the note leaves out Book a call.
@@ -606,18 +588,16 @@ final class WPCPM_Student_Flags {
 	}
 
 	/**
-	 * The booking page of the Administrator for a student's country, or ''.
+	 * The booking page of the Administrator a student's institution is assigned to, or ''.
 	 *
 	 * @param int $user_id The student's account.
 	 * @return string
 	 */
 	private static function calendly_of( $user_id ) {
 		$institution = trim( (string) get_user_meta( (int) $user_id, WPCPM_Students_Sync::META_INSTITUTION, true ) );
-		$row         = '' !== $institution ? WPCPM_Institutions_Index::row( $institution ) : null;
-		$country     = ( is_array( $row ) && ! empty( $row['country'] ) ) ? (string) $row['country'] : '';
-		$routing     = '' !== $country ? WPCPM_Countries::routing( $country ) : null;
+		$contact     = '' !== $institution ? WPCPM_Institution_Assignment::contact_of( $institution ) : null;
 
-		return ( is_array( $routing ) && ! empty( $routing['calendly'] ) ) ? trim( (string) $routing['calendly'] ) : '';
+		return null !== $contact ? trim( (string) $contact['calendly'] ) : '';
 	}
 
 	/**
@@ -848,7 +828,7 @@ final class WPCPM_Student_Flags {
 	 * @param array        $last       What `WPCPM_Student_Activity::last()` gave.
 	 * @param int          $days       Days quiet.
 	 * @param WP_User|null $mentor     The student's mentor, or null.
-	 * @param int          $manager_id The Administrator for the student's country, or 0.
+	 * @param int          $manager_id The Administrator the student's institution is assigned to, or 0.
 	 * @return array<string,string>
 	 */
 	private static function reminder_values( $user_id, array $last, $days, $mentor, $manager_id ) {

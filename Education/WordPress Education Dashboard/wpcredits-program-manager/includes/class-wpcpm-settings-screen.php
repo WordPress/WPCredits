@@ -962,7 +962,7 @@ class WPCPM_Settings_Screen {
 	 * @param string $anchor The section's part of the program manager guide (`section_heading()`).
 	 */
 	private function open_section( $title, $intro, $anchor ) {
-		$this->section_heading( $title, $intro, $anchor );
+		self::section_heading( $title, $intro, $anchor );
 		echo '<table class="form-table" role="presentation"><tbody>';
 	}
 
@@ -986,7 +986,7 @@ class WPCPM_Settings_Screen {
 	 *                       docs/sections/31-admin-settings.md: bin/test-settings.php holds each to its
 	 *                       section's ID in that part of the built guide.
 	 */
-	private function section_heading( $title, $intro, $anchor ) {
+	public static function section_heading( $title, $intro, $anchor ) {
 		printf( '<h2>%s</h2>', esc_html( $title ) );
 
 		$guide = self::settings_guide();
@@ -1766,6 +1766,10 @@ class WPCPM_Settings_Screen {
 
 		$this->close_section();
 
+		// Which Administrator a new institution goes to: its section, with the heading every section has,
+		// is drawn by the class that cleans what it posts.
+		WPCPM_Institution_Areas::render_settings( $settings );
+
 		$this->open_section(
 			__( 'Landing page', 'wpcredits-program-manager' ),
 			__( 'Where institution accounts go when they log in.', 'wpcredits-program-manager' ),
@@ -2483,7 +2487,7 @@ class WPCPM_Settings_Screen {
 	 * buttons went with that.
 	 */
 	private function render_mail_card() {
-		$this->section_heading(
+		self::section_heading(
 			__( 'Invitations', 'wpcredits-program-manager' ),
 			__( 'What each invitation says, and a test of it sent to your own address, are in WPCredits Program > Tools > Emails, on its Templates tab.', 'wpcredits-program-manager' ),
 			'invitations-waiting-to-be-sent'
@@ -2529,7 +2533,7 @@ class WPCPM_Settings_Screen {
 	 * them failed, when any did.
 	 */
 	private function render_mail_log() {
-		$this->section_heading(
+		self::section_heading(
 			__( 'Recent mail', 'wpcredits-program-manager' ),
 			__( 'Every email the site sends is kept for 30 days in WPCredits Program > Tools > Emails, where it can be searched and filtered.', 'wpcredits-program-manager' ),
 			'recent-mail'

@@ -39,7 +39,7 @@ function ck( $label, $got, $want ) {
 
 $emails = WPCPM_Mail_Catalog::emails();
 
-ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, and, since 1.123.54, the 3 Student registrations emails, and, since 1.123.60, the 3 Quiet students emails, and, since 1.123.64, the 2 Student interests emails, 118', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 118 );
+ck( 'the catalog names the plugin\'s 75 emails: the 42 contexts it sent before 1.122.19, the institution invitation for an agreement on file, the test of the signature and footer, the 19 Mentor calls emails of their own since 1.122.21, the 4 Institutions and 2 Sponsors emails of their own since 1.122.22, the institution\'s invitation with no sender named, its own since 1.122.23, and the 5 Mentor applications emails since 1.122.31; with the 2 Sponsors emails of a term\'s end, the 27 Sponsor events emails and, since 1.123.18, the Sponsors email of an offer returned with a note, and the 5 Institutions emails about the details of a school of Institutions release 2, and the 1 that tells an Administrator an institution is assigned to them, and, since Institutions release 1, the 2 invitations of a tutor, and, since 1.123.54, the 3 Student registrations emails, and, since 1.123.60, the 3 Quiet students emails, and, since 1.123.64, the 2 Student interests emails, 121', count( array_filter( $emails, function ( $e ) { return ! in_array( $e['module'], array( 'wordpress', 'two-factor' ), true ); } ) ), 121 );
 ck( 'and reads the same list twice in a request', WPCPM_Mail_Catalog::emails() === $emails, true );
 
 $bad = array();
@@ -123,7 +123,7 @@ ck(
 // since 1.122.22: the ids each area was sent under keep their emails, their names reading true of
 // them, and six new ones name the emails that said other words under them (the acknowledgement with
 // no call to book or whose logo was not kept, the upload the courtesy scan noticed something in, the
-// revocation with no country contact) or another email altogether (the agreement put back in force,
+// revocation with nobody assigned) or another email altogether (the agreement put back in force,
 // sent as an acceptance until then, and the request to sponsor a mentor, sent as a sponsor's
 // interest). The institution's agreement emails are named for the Collaboration Agreement in full,
 // and the sponsor's say who receives each, as the institution's do.
@@ -134,7 +134,7 @@ foreach ( $emails as $id => $e ) {
 	}
 }
 ck(
-	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, the invitation with no sender named, its own since 1.122.23, and the five about a school\'s details of Institutions release 2, each with who receives it',
+	'the Institutions area names its thirteen ids of before 1.122.22, the four emails of their own since, the invitation with no sender named, its own since 1.122.23, the five about a school\'s details of Institutions release 2, and the one that tells an Administrator an institution is assigned to them, and the two invitations of a tutor of Institutions release 1, each with who receives it',
 	isset( $named['institutions'] ) ? $named['institutions'] : null,
 	array(
 		'institution-applied'          => 'Institution application received, to the applicant / applicant',
@@ -144,6 +144,8 @@ ck(
 		'institution-declined'         => 'Institution application declined / applicant',
 		'institution-invite'           => 'Invitation to join an institution / institution',
 		'institution-invite-no-sender' => 'Invitation to join an institution, with no sender named / institution',
+		'institution-invite-tutor'     => 'Invitation to an institution as a tutor / institution',
+		'institution-invite-tutor-no-sender' => 'Invitation to an institution as a tutor, with no sender named / institution',
 		'agreement-received'           => 'Collaboration Agreement received, to the institution / institution',
 		'agreement-landed'             => 'Collaboration Agreement uploaded by an institution, to Administrators / administrator',
 		'agreement-landed-flagged'     => 'Collaboration Agreement uploaded by an institution with the scan\'s notes, to Administrators / administrator',
@@ -151,7 +153,7 @@ ck(
 		'agreement-reinstated'         => 'Collaboration Agreement back in force, to the institution / institution',
 		'agreement-returned'           => 'Collaboration Agreement returned with a note, to the institution / institution',
 		'agreement-revoked'            => 'Collaboration Agreement taken out of force, to the institution / institution',
-		'agreement-revoked-no-contact' => 'Collaboration Agreement taken out of force, to an institution with no country contact / institution',
+		'agreement-revoked-no-contact' => 'Collaboration Agreement taken out of force, to an institution nobody is assigned to / institution',
 		'agreement-reminder'           => 'Collaboration Agreements from institutions waiting for review, to Administrators / administrator',
 		'agreement-template'           => 'Collaboration Agreement for an institution could not be generated, to Administrators / administrator',
 		'member-last'                  => 'Institution has no members left, to Administrators / administrator',
@@ -160,6 +162,7 @@ ck(
 		'institution-details-approved'  => 'Correction of institution details approved, to the institution / institution',
 		'institution-details-declined'  => 'Correction of institution details declined, to the institution / institution',
 		'institution-details-withdrawn' => 'Institution withdrew its request to correct its details, to Administrators / administrator',
+		'institution-assigned'          => 'Institution assigned, to the Administrator / administrator',
 	)
 );
 ck(
@@ -350,7 +353,7 @@ foreach ( array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '
 $missing = array_values( array_diff( array_keys( $contexts ), array_keys( $emails ) ) );
 sort( $missing );
 ck( 'every context the source passes to the mail layer is in the catalog', $missing, array() );
-ck( 'and the scan found all 42 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31, the offer returned with a note since 1.123.18, the three Quiet students emails since 1.123.60 and the student interest form\'s two since 1.123.64; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 42 );
+ck( 'and the scan found all 43 of them (it is not reading nothing), the mentor application form\'s two among them since 1.122.31, the offer returned with a note since 1.123.18, the three Quiet students emails since 1.123.60 and the student interest form\'s two since 1.123.64, the assignment\'s since Institutions off Airtable release 1; the institution\'s invitation is set from a choice between two ids since 1.122.23, and read from the registry\'s files below', count( $contexts ), 43 );
 
 // The template registry's ids, read from its definition files as each file writes them: one at the
 // start of each line of the array the file returns. An invitation is named by its template's id,

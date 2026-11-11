@@ -364,6 +364,13 @@ if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	/** Contract: the only thing the policy's member ground asks of the members module. */
 	class WPCPM_Institution_Members {
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+		public static function level_of( $user = null ) {
+			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+			return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+		}
 		public static function memberships_of( $user = null ) {
 			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
 			return $GLOBALS['memberships'][ $id ] ?? array();
@@ -1813,6 +1820,18 @@ ck( 'so is an account that acts for none, a request that is not a details reques
 $GLOBALS['settled'] = array_values( array_diff( $GLOBALS['settled'], array( $withdraw_school ) ) );
 ck( 'and so is a school whose agreement is not settled', det_withdraw( 30, $withdraw ), 'wp_die:That record is not on your roster.' );
 $GLOBALS['settled'][] = $withdraw_school;
+
+// Institutions release 1 (Review Focus 4): a tutor of the school, whose agreement is settled, posts the withdrawal with a valid nonce.
+$GLOBALS['levels'] = array( 31 => 'tutor' );
+$rows_before       = count( det_rows( $withdraw_school, 'request_resolved' ) );
+ck( 'a tutor of the school is refused the withdrawal with the one refusal: the request stays open, nobody is mailed, no row is written, nothing goes to Airtable', array(
+	det_withdraw( 31, $withdraw ),
+	det_state( $withdraw ),
+	$GLOBALS['mail'],
+	count( det_rows( $withdraw_school, 'request_resolved' ) ) === $rows_before,
+	$GLOBALS['patched'],
+), array( 'wp_die:That record is not on your roster.', 'open', array(), true, array() ) );
+$GLOBALS['levels'] = array();
 
 ck( 'a member of the school withdraws it, having checked the nonce keyed to that request, and is sent back where the press was made', array(
 	det_withdraw( 31, $withdraw ),

@@ -192,6 +192,7 @@ function get_user_by( $f, $v ) {
 	return false;
 }
 function get_userdata( $id ) { return get_user_by( 'id', $id ); }
+function esc_url_raw( $url, $protocols = null ) { return (string) $url; }
 /**
  * `get_users()` as the senders ask it: the accounts holding a capability, or a meta key's value.
  *
@@ -435,6 +436,7 @@ require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-26.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-27.php';
+require_once __DIR__ . '/stubs/mail-since-institutions-r1.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
@@ -449,6 +451,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-manager-booking.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
@@ -531,6 +535,13 @@ class WPCPM_Sponsors_Index {
 
 		return 0 === strncmp( $name, 'TEST', 4 ) && ( 4 === strlen( $name ) || 1 !== preg_match( '/^[A-Za-z0-9]$/', $name[4] ) );
 	}
+}
+/**
+ * The answers kept for an institution, at the one read the assignment makes of them (Institutions off Airtable,
+ * R1): `$GLOBALS['kept']` holds the Administrator a case's institution is assigned to.
+ */
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
 }
 /** Each country's routing: its contact's address and booking link, as the countries map holds them. */
 class WPCPM_Countries {
@@ -667,6 +678,10 @@ $GLOBALS['opts']['time_format'] = 'g:i a';
 $GLOBALS['users'][40] = new WP_User( 40, 'Ida Admin', 'ida@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
 $GLOBALS['users'][41] = new WP_User( 41, "Omar O'Admin, Ops", 'omar@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
 $GLOBALS['users'][42] = new WP_User( 42, 'Rhea Reviewer', 'rhea@example.test', array() );
+// The Administrator the real institution (recSEED0000000016, in Poland) is assigned to. Its capability is granted
+// only while a revocation email is built (below), so it does not join the Administrators every other case mails.
+$GLOBALS['users'][96] = new WP_User( 96, 'Pola Contact', 'pl-contact@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
+$GLOBALS['kept']      = array( 'recSEED0000000016' => array( 'assigned' => 96 ) );
 // An Administrator whose account holds no name, as an account made by hand can.
 $GLOBALS['users'][43] = new WP_User( 43, '', 'nameless@example.test', array( WPCPM_Roles::ROLE_ADMIN ) );
 // An Administrator whose name is as WordPress stores an account's on save, "&" written `&amp;` and a
@@ -1245,7 +1260,14 @@ function emails_of( array $case ) {
 		case 'inst-application':
 		case 'inst-information':
 		case 'inst-declined':
-			$routing = array_key_exists( 'routing', $args ) ? '' : array( 'email' => 'pl-contact@example.test', 'calendly' => $args['calendly'] ?? 'https://calendly.example.test/pl-contact' );
+			// Who the country's area gave the application to: Administrator 41 with a booking link on the account,
+			// or nobody for the case that says there is no routing.
+			$assignee = array_key_exists( 'routing', $args ) ? 0 : 41;
+
+			if ( $assignee > 0 ) {
+				$GLOBALS['umeta'][ $assignee ][ WPCPM_Manager_Booking::META ] = $args['calendly'] ?? 'https://calendly.example.test/pl-contact';
+			}
+
 			post(
 				701,
 				WPCPM_Institution_Application::POST_TYPE,
@@ -1259,7 +1281,7 @@ function emails_of( array $case ) {
 					),
 					WPCPM_Institution_Application::META_REFERENCE    => 'APP-2036-0701',
 					WPCPM_Institution_Application::META_COUNTRY_NAME => $args['country'] ?? 'Poland',
-					WPCPM_Institution_Application::META_MANAGER      => $routing,
+					WPCPM_Institution_Application::META_ASSIGNED     => $assignee,
 					WPCPM_Institution_Application::META_EMAIL        => 'hashed-address',
 					WPCPM_Institution_Application::META_STATE        => WPCPM_Institution_Application::STATE_NEW,
 				)
@@ -1318,11 +1340,18 @@ function emails_of( array $case ) {
 				'agr-revoked'    => 'mail_revoked',
 			)[ $case['send'] ];
 
+			// Only the revocation names the institution's Administrator; the others mail every Administrator.
+			if ( 'agr-revoked' === $case['send'] ) {
+				$GLOBALS['grants'][96] = array( WPCPM_Roles::CAP_MANAGE );
+			}
+
 			if ( in_array( $case['send'], array( 'agr-returned', 'agr-revoked' ), true ) ) {
 				reach( 'WPCPM_Institution_Agreement', $method )->invoke( null, $record, 731, sanitize_textarea_field( $args['typed'] ?? TYPED ) );
 			} else {
 				reach( 'WPCPM_Institution_Agreement', $method )->invoke( null, $record, 731 );
 			}
+
+			unset( $GLOBALS['grants'][96] );
 			break;
 
 		case 'agr-reminder':
@@ -2154,7 +2183,7 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 		foreach ( (array) $want as $n => $mail ) {
 			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
 
-			$since = wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_26( wpcpm_mail_since_1_123_24( $mail['body'] ) ) ) + $mail, $site );
+			$since = wpcpm_mail_since_institutions_r1( wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_26( wpcpm_mail_since_1_123_24( $mail['body'] ) ) ) + $mail, $site ) );
 
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
 			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $since['subject'] );
@@ -2203,6 +2232,10 @@ ck(
 		'report_subject'       => 0,
 	)
 );
+
+// Institutions release 1: the invitation says what the invited person may do, in the seven recorded
+// invitations, which were all a representative's, and in no other email of either recording.
+ck( 'the invitation says it is to a representative, in the seven recorded invitations and no other email, as Institutions release 1 sends it', $GLOBALS['wpcpm_since_institutions_r1'], array( 'invite_level' => 7 ) );
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair
 // names a field no email has, changes nothing, and is noted as a row that does.
@@ -2332,7 +2365,7 @@ $twin                      = emails_of( added_cases()['invite-inviter-with-no-na
 array_pop( $GLOBALS['locale_stack'] );
 ck(
 	'the invitation with nobody to name promises a reply in the language it is built in',
-	explode( "\r\n\r\n", $twin[0]['body'] ?? '' )[4] ?? null,
+	explode( "\r\n\r\n", $twin[0]['body'] ?? '' )[5] ?? null,
 	'[pl_PL] If you were not expecting this, ignore this message: opening the link only shows you the invitation, nothing happens until you press Accept, and it stops working on its own. Replying to this message reaches [pl_PL] the person who sent it.'
 );
 ck(

@@ -828,6 +828,38 @@ ck( 'the handler decides ACT_ADD_STUDENT, then checks the nonce keyed to that in
 ck( 'and it reads nothing else from the request: the institution is the page\'s answer, never a posted value',
 	array( has( $body, '$_POST' ), has( $body, '$_GET' ), has( $body, '$_REQUEST' ), has( $body, 'WPCPM_Request::' ) ), array( false, false, false, false ) );
 
+echo "\n=== A tutor's hand-made posts to the exports are refused (Institutions release 1) ===\n";
+
+// The policy here is this suite's stand-in, so a tutor is the account it refuses: the real rule, that a tutor
+// holds the four view grounds and neither export row nor the import's is among them, is
+// `bin/test-institution-policy.php`'s. What this suite holds is the three handlers' half: each asks the policy
+// first, refuses on its no with the one message, and writes nothing and sends no file (the stand-in's claim()
+// would refuse the grades' read too).
+if ( ! function_exists( 'get_userdata' ) ) {
+	function get_userdata( $id ) { return new WP_User( (int) $id, 'Ana Example', 'ana.example@example.test' ); }
+}
+$GLOBALS['acting']     = $A;
+$GLOBALS['imports_on'] = true;
+$GLOBALS['allowed']    = false;
+$GLOBALS['asked']      = array();
+$GLOBALS['referer'] = array();
+$tutor_refusal      = 'wp_die:403:That record is not on your roster.';
+$_GET               = array( WPCPM_Institution_Export::ARG_STUDENT => '11' );
+$ended              = array();
+foreach ( array( 'handle_roster', 'handle_student', 'handle_sample' ) as $handler ) {
+	try {
+		call_user_func( array( 'WPCPM_Institution_Export', $handler ) );
+		$ended[ $handler ] = 'sent';
+	} catch ( Exception $e ) {
+		$ended[ $handler ] = $e->getMessage();
+	}
+}
+ck( 'a tutor\'s roster export, student export and sample list are each refused with the one message', $ended, array( 'handle_roster' => $tutor_refusal, 'handle_student' => $tutor_refusal, 'handle_sample' => $tutor_refusal ) );
+ck( 'each asked the policy for its own action: export, export, add_student', array_column( $GLOBALS['asked'], 0 ), array( 'export', 'export', 'add_student' ) );
+$GLOBALS['allowed'] = true;
+$_GET               = array();
+$GLOBALS['acting']  = $A;
+
 echo "\n=== House rules ===\n";
 
 $dashes = array();

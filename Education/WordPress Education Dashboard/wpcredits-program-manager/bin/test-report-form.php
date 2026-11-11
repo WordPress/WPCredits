@@ -2067,6 +2067,15 @@ ck( 'a save that goes through draws the form from the record, with nothing kept 
 	array( strpos( $page, 'wpcpm-errors' ), strpos( $page, 'aria-invalid' ) ),
 	array( false, false ) );
 
+echo "\n=== Who may fill in a student's report form (Institutions release 1) ===\n";
+
+// A tutor of the student's school is an account that is neither the student nor an Administrator: the form's
+// gate asks for one of those two, so neither the save nor the image's removal is theirs.
+$GLOBALS['caps'] = false;
+$GLOBALS['uid']  = 4242;
+ck( 'a tutor of the student\'s school is neither the student nor an Administrator, so user_can_edit() refuses them the report form', array( WPCPM_Student_Report_Form::user_can_edit( 77 ), WPCPM_Student_Report_Form::user_can_edit( 4242 ) ), array( false, true ) );
+$GLOBALS['uid'] = 0;
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 

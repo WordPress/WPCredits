@@ -732,6 +732,8 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 		const META_ACTIVE        = 'wpcpm_institution_active';
 		const META_RECORD_ID_WAS = 'wpcpm_institution_record_id_was';
 		const META_MEMBERSHIP    = 'wpcpm_institution_membership';
+		const META_LEVEL         = 'wpcpm_institution_level';
+		const META_LEVEL_WAS     = 'wpcpm_institution_level_was';
 		const META_INVITED       = 'wpcpm_inst_invited';
 		const META_PROFILE       = 'wpcpm_institution_profile';
 		public static function members_of( $record_id ) {
@@ -827,10 +829,26 @@ if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
 	/** Stands in for the institutions' own records (1.123.29): booted and swept at uninstall, drawn nowhere here. */
 	class WPCPM_Institution_Record {
 		const POST_TYPE = 'wpcpm_inst_record';
+		// The answers kept for an institution, at the one read the assignment makes of them.
+		public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
 		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Record::init' ); }
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Record::delete_all' ); }
 	}
 }
+
+// The Administrator an application or an institution is assigned to, and the areas that give a country its
+// Administrator (Institutions off Airtable, R1), the real classes over their two reads: the account and the
+// booking link on it.
+if ( ! function_exists( 'get_userdata' ) ) {
+	function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
+}
+if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
+	class WPCPM_Manager_Booking {
+		public static function url_for( $user_id ) { return ''; }
+	}
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 
 if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 	class WPCPM_Institutions_Sync {
@@ -948,6 +966,7 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 		const META_COUNTRY      = '_wpcpm_app_country';
 		const META_COUNTRY_NAME = '_wpcpm_app_country_name';
 		const META_MANAGER      = '_wpcpm_app_manager';
+		const META_ASSIGNED     = '_wpcpm_app_assigned';
 		const META_CONSENT      = '_wpcpm_app_consent';
 		const META_SIGNALS      = '_wpcpm_app_signals';
 		const META_EMAIL        = '_wpcpm_app_email';
@@ -1739,6 +1758,14 @@ foreach ( $seed['institutions'] as $institution ) {
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]        = array_merge( WPCPM_Settings::defaults(), array( 'api_token' => 'pat', 'base_id' => 'appIzQKfwTn5dyPVp' ) );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
 $GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ]          = array( 'v' => 1, 'read' => $read_at - 600, 'rows' => $countries );
+// The site's own areas of responsibility (Institutions off Airtable, R1) give Max Manager (account 2) every
+// country the Countries table names a contact for, so a country is a gap on the Pipeline exactly where the table
+// names nobody; the checks on the Countries table's own contact below break that on purpose.
+$area_countries = array();
+foreach ( $countries as $area_country_id => $area_country_row ) {
+	if ( '' !== $area_country_row['manager'] || '' !== $area_country_row['email'] ) { $area_countries[ $area_country_id ] = 2; }
+}
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_areas'] = array( 'countries' => $area_countries, 'regions' => array() );
 $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = array(
 	'v'              => 1,
 	'read'           => $read_at - 3600,
@@ -2237,9 +2264,33 @@ ck( 'each row naming one carries the no-contact mark, in the folded stages too',
 $gap_rows = array_filter( $rows, function ( $r ) { return '' !== $r['country'] && null === WPCPM_Countries::routing( $r['country'] ); } );
 ck( 'every row naming one is at Not Moving Forward, so the routing line, over the counted rows, says every country has a contact', array(
 	array_values( array_unique( array_column( $gap_rows, 'stage' ) ) ),
-	preg_match( '/Countries named by institutions with no Administrator contact/', $html ),
-	false !== strpos( $html, '<p>Every country an institution names has an Administrator contact.</p>' ),
+	preg_match( '/Countries named by institutions with no Administrator/', $html ),
+	false !== strpos( $html, '<p>Every country an institution names has an Administrator.</p>' ),
 ), array( array( 'Not Moving Forward' ), 0, true ) );
+
+// The mark and the line follow the areas of responsibility and never the Countries table's contact: take one named
+// country the table gives a contact out of the areas and put one it gives nobody into them.
+$named_ids   = array_values( array_unique( array_filter( array_column( $rows, 'country' ) ) ) );
+$gap_country = '';
+$own_country = '';
+foreach ( $named_ids as $named_id ) {
+	if ( '' === $gap_country && null === WPCPM_Countries::routing( $named_id ) ) { $gap_country = $named_id; }
+	if ( '' === $own_country && null !== WPCPM_Countries::routing( $named_id ) ) { $own_country = $named_id; }
+}
+$rows_naming = function ( $id ) use ( $rows ) { return count( array_filter( $rows, function ( $r ) use ( $id ) { return $id === $r['country']; } ) ); };
+$swapped     = $area_countries;
+unset( $swapped[ $own_country ] );
+$swapped[ $gap_country ] = 2;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_areas'] = array( 'countries' => $swapped, 'regions' => array() );
+$swap_html = render_tab( 'pipeline' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_areas'] = array( 'countries' => $area_countries, 'regions' => array() );
+ck( 'a row is marked where no area gives its country an Administrator, whatever the Countries table says', array(
+	substr_count( $swap_html, 'wpcpm-inst-mark--routing' ),
+	// "no area" since 1.123.84: the mark says the country has no area, not that the school has nobody.
+	false !== strpos( $swap_html, 'title="No area of responsibility covers this country.">no area</span>' ),
+	false === strpos( $swap_html, '>no contact<' ),
+	false === strpos( $swap_html, '>no Administrator</span>' ),
+), array( $named_without_contact - $rows_naming( $gap_country ) + $rows_naming( $own_country ), true, true, true ) );
 ck( 'no row prints an unresolved country', strpos( $html, 'unknown country' ), false );
 ck( 'the rows with no country say so', substr_count( $html, '>no country<' ), count( array_filter( $rows, function ( $r ) { return '' === $r['country']; } ) ) );
 
@@ -2402,7 +2453,7 @@ ck( 'every other count on the tab is over the counted rows too: Confirmed with n
 	false !== strpos( $focus_html, 'Confirmed with no agreement recorded <span class="wpcpm-count">' . ( $seed['counts']['by_stage']['Confirmed'] - 3 ) . '</span></a>' ),
 	false !== strpos( $focus_html, 'Institutions with no live member <span class="wpcpm-count">87</span>' ),
 	$focus_pipeline_reads,
-	false !== strpos( $focus_html, '<p class="wpcpm-inst-routing">Countries named by institutions with no Administrator contact in the Countries table: Nigeria (1)</p>' ),
+	false !== strpos( $focus_html, '<p class="wpcpm-inst-routing">Countries named by institutions with no Administrator in the areas of responsibility: Nigeria (1)</p>' ),
 	array( $focus_before, $focus_since ),
 	false !== strpos( $focus_html, '<p class="wpcpm-inst-consent">' . $focus_before . ' institution records were collected before the consent question was added on 20 July 2026, ' . $seed['counts']['created_before_consent_question_confirmed'] . ' of them at Confirmed.</p>' ),
 	false !== strpos( $focus_html, 'Since then, ' . $focus_since . ' records have been created without the tick' ),
@@ -2526,7 +2577,7 @@ $routing_rows['recGAPCAMBODIA001'] = array_merge( reset( $rows ), array( 'record
 $routing_rows['recGAPNIGERIA0001'] = array_merge( reset( $rows ), array( 'record_id' => 'recGAPNIGERIA0001', 'name' => 'Gap College Nigeria', 'stage' => 'Info Sent', 'country' => $country_id( 'Nigeria' ), 'country_name' => 'Nigeria', 'city' => 'City H' ) );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $routing_rows;
 $routing_html = render_tab( 'pipeline' );
-ck( 'the routing line lists two countries sorted and joined: "Cambodia (1), Nigeria (2)"', preg_match( '#<p class="wpcpm-inst-routing">(.*?)</p>#', $routing_html, $routing_line ) ? $routing_line[1] : null, 'Countries named by institutions with no Administrator contact in the Countries table: Cambodia (1), Nigeria (2)' );
+ck( 'the routing line lists two countries sorted and joined: "Cambodia (1), Nigeria (2)"', preg_match( '#<p class="wpcpm-inst-routing">(.*?)</p>#', $routing_html, $routing_line ) ? $routing_line[1] : null, 'Countries named by institutions with no Administrator in the areas of responsibility: Cambodia (1), Nigeria (2)' );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- the reconciliation card -------------------------------------------- */
@@ -3868,8 +3919,25 @@ ck( 'while the Administrator Dashboard page is missing the list says so once, ab
 	$GLOBALS['reviews'],
 ), array( 1, true, 0, 6, array( array( 601, false ) ) ) );
 
-ck( 'the country and its person of contact are printed for information', false !== strpos( $html, esc_html( $routed_name . '. Person of contact: A Manager, for information.' ) ), true );
-ck( 'a row whose country routes nowhere says so rather than printing nothing', false !== strpos( render_screen(), 'The Countries table names nobody for it, for information.' ), true );
+// The Countries table names "A Manager" for the country; the rows name who the site assigned.
+$GLOBALS['kept'][ $record ]                = array( 'assigned' => 2 );
+$GLOBALS['kept'][ $request_records[0] ]    = array( 'assigned' => 1 );
+update_post_meta( 501, WPCPM_Institution_Application::META_ASSIGNED, 2 );
+update_post_meta( 502, WPCPM_Institution_Application::META_MANAGER, array( 'manager' => 'recTEAMAAAAAAAAAA', 'email' => 'old.snapshot@example.test', 'calendly' => '' ) );
+$assigned_html   = render_screen();
+$assigned_chunks = queue_chunks( $assigned_html );
+ck( 'an application names the country and the Administrator it was given to, for information', false !== strpos( $assigned_chunks[1], esc_html( $routed_name . '. Assigned to Max Manager, for information.' ) ), true );
+ck( 'and nothing of the Countries table\'s contact', substr_count( $assigned_html, 'A Manager' ), 0 );
+ck( 'an application filed before the release, with a snapshot and nobody assigned, names the snapshot\'s contact', false !== strpos( $assigned_chunks[3], esc_html( $routed_name . '. Assigned to old.snapshot@example.test, for information.' ) ), true );
+ck( 'a signed agreement and a request name the Administrator their institution is assigned to', array(
+	false !== strpos( $assigned_chunks[4], '. Assigned to Max Manager, for information.' ),
+	false !== strpos( $assigned_chunks[0], '. Assigned to Ada Admin, for information.' ),
+), array( true, true ) );
+ck( 'a row nobody is assigned to says so rather than printing nothing', array(
+	false !== strpos( $assigned_chunks[5], '. Nobody is assigned to it, for information.' ),
+	false !== strpos( $assigned_chunks[2], '. Nobody is assigned to it, for information.' ),
+), array( true, true ) );
+unset( $GLOBALS['kept'][ $record ], $GLOBALS['kept'][ $request_records[0] ] );
 
 ck( 'the two that name the same institution are flagged as possible duplicates', substr_count( $html, 'possible duplicate' ), 2 );
 ck( 'drawing the list asks Airtable nothing', array_filter( $GLOBALS['calls'], function ( $c ) { return 'fetch_page' === $c[0]; } ), array() );

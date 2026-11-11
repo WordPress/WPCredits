@@ -291,6 +291,13 @@ class WPCPM_Mentors_Sync {
 }
 /** The institutions an account acts for right now. */
 class WPCPM_Institution_Members {
+	const LEVEL_REPRESENTATIVE = 'representative';
+	const LEVEL_TUTOR          = 'tutor';
+	/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+	public static function level_of( $user = null ) {
+		$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+		return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+	}
 	public static function memberships_of( $user ) {
 		$id = is_object( $user ) ? (int) $user->ID : (int) $user;
 		return $GLOBALS['members'][ $id ] ?? array();
@@ -556,6 +563,13 @@ $GLOBALS['bad_nonce'] = false;
 reset_world();
 ck( 'a member of another institution gets the one refusal', refused( 21, 10 ), nothing( 'invite-refused' ) );
 ck( 'an account that is nobody\'s member gets it too', refused( 40, 10 ), nothing( 'invite-refused' ) );
+// Institutions release 1 (Review Focus 4): a tutor of the student's own, settled institution, with a valid nonce.
+$GLOBALS['users'][50]   = new WP_User( 50, 'Tess Tutor', 'tess@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['members'][50] = array( $A );
+$GLOBALS['levels']      = array( 50 => 'tutor' );
+ck( 'a tutor of the student\'s own institution gets the one refusal: nothing sent, stamped, recorded, spent or claimed', refused( 50, 10 ), nothing( 'invite-refused' ) );
+ck( 'and is drawn no Resend control on the student\'s card, which a representative of the school is', array( draw( 50, 10 ), '' !== draw( 20, 10 ) ), array( '', true ) );
+$GLOBALS['levels'] = array();
 ck( 'and so does the student, for their own invitation', refused( 10, 10 ), nothing( 'invite-refused' ) );
 ck( 'and an account that does not exist', refused( 20, 999 ), nothing( 'invite-refused' ) );
 ck( 'nobody signed in sends nothing either, and is left no notice', refused( 0, 10 ), nothing( '' ) );

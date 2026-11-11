@@ -1283,6 +1283,13 @@ $GLOBALS['refuse'] = array();
 ck( 'a reader the fence refuses an export is offered no control', has( $unsettled, 'wpcpm-roster__export' ), false );
 ck( 'though their roster is drawn as before', has( $unsettled, 'Ada Example' ), true );
 
+// Institutions release 1: a tutor holds view_roster and neither export nor add_student (the policy suite's rows),
+// which is exactly this fixture: the roster is drawn, with no file of it and no way to add a student.
+$GLOBALS['refuse'] = array( 'export', 'add_student' );
+$tutor_view        = render();
+$GLOBALS['refuse'] = array();
+ck( 'a tutor of the school is drawn the roster and no export control', array( has( $tutor_view, 'Ada Example' ), has( $tutor_view, 'wpcpm-roster__export' ) ), array( true, false ) );
+
 $GLOBALS['allowed'] = false;
 $refused_all        = render();
 $GLOBALS['allowed'] = true;

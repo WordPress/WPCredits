@@ -320,6 +320,15 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy
 // that answered every call would let the card drift from what `render_form()` actually checks.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-people.php';
+// The tutor list the card draws after its members, over an in-memory record: bin/test-institution-tutors.php holds it to the real one.
+require_once __DIR__ . '/stubs/tutor-list.php';
+class WPCPM_Institution_Record {
+	public static function get( $id ) { return $GLOBALS['kept'][ $id ] ?? array(); }
+	public static function set( $id, array $answers ) { $GLOBALS['kept'][ $id ] = array_merge( $GLOBALS['kept'][ $id ] ?? array(), $answers ); return true; }
+	public static function forget_cached( $id ) {}
+}
+$GLOBALS['kept'] = array();
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -585,7 +594,7 @@ ck( 'nothing is drawn', $refused, '' );
 // refuses never reaches it either; asked directly here rather than trusted from the empty
 // string above, since the two gates are meant to agree and not merely to happen to.
 ck( 'the invite form is not among what is not drawn', has( $refused, 'name="action" value="' . WPCPM_Institution_Invite::ACTION_INVITE . '"' ), false );
-ck( 'and a manager still sees it', has( render_card( 1, $A, true ), 'Institution representatives' ), true );
+ck( 'and a manager still sees it', has( render_card( 1, $A, true ), 'Representatives and tutors' ), true );
 $GLOBALS['settled'] = array( $A, $B );
 
 /* ---- removal: the fence -------------------------------------------------- */
@@ -679,7 +688,7 @@ $back = render_card( 7, $A );
 // memoizes per user and channel for the whole process, so a second render for user 7 in this
 // run can print nothing whatever is queued, and an assertion on it passes by construction. The
 // guard is the one above: nothing was queued for the leaver in the first place.
-ck( 'the card itself is drawn again', has( $back, 'Institution representatives' ), true );
+ck( 'the card itself is drawn again', has( $back, 'Representatives and tutors' ), true );
 // Back to nobody, which is the state the blocks below were written against.
 WPCPM_Institution_Members::detach( 7, 'removed', 1 );
 
@@ -1106,7 +1115,76 @@ clear_flash();
 $_POST = array();
 $_GET  = array();
 
-echo "\n=== The rules that are invisible at runtime ===\n";
+/* ---- the Tutor level (Institutions release 1) ------------------------------ */
+
+echo "\n=== The card names each member's level, and draws a tutor no control ===\n";
+
+$GLOBALS['users'][50] = new WP_User( 50, 'Tess Tutor', 'tess@example.test', array( 'subscriber' ) );
+ck( 'a tutor is attached to A, as an invitation to a tutor attaches them', WPCPM_Institution_Members::attach( 50, $A, 'invited', 7, 0, 'tutor' ), true );
+if ( ! WPCPM_Institution_Members::institution_of( 7 ) ) { WPCPM_Institution_Members::attach( 7, $A, 'manager', 1 ); }
+
+$rep_card   = render_card( 7, $A );
+$tutor_card = render_card( 50, $A );
+
+ck( 'a representative\'s card says Tutor on the tutor\'s line and Representative on their own and the others\'', array(
+	1 === preg_match( '/Tess Tutor<\/span> <span class="wpcpm-people__email">tess@example.test<\/span> <span class="wpcpm-people__level-name">Tutor<\/span>/', $rep_card ),
+	1 === preg_match( '/Anna Kowalska<\/span> <span class="wpcpm-people__email">anna@example.test<\/span>(?: <span class="wpcpm-people__mark"[^>]*>[^<]*<\/span>)? <span class="wpcpm-people__level-name">Representative<\/span>/', $rep_card ),
+), array( true, true ) );
+ck( 'a tutor reads the same list, each line naming its level', array( has( $tutor_card, 'Tess Tutor' ), substr_count( $tutor_card, 'wpcpm-people__level-name">Tutor<' ), 0 < substr_count( $tutor_card, 'wpcpm-people__level-name">Representative<' ) ), array( true, 1, true ) );
+ck( 'but is drawn no Remove or Leave, no invitation form and no waiting list', array( has( $tutor_card, 'wpcpm_remove_member' ), has( $tutor_card, 'wpcpm_invite_member' ), has( $tutor_card, 'Invite a colleague' ), has( $tutor_card, 'wpcpm_cancel_invite' ), has( $tutor_card, 'name="level"' ) ), array( false, false, false, false, false ) );
+ck( 'where a representative is drawn them', array( has( $rep_card, 'wpcpm_remove_member' ), has( $rep_card, 'wpcpm_invite_member' ), has( $rep_card, 'name="level" value="tutor"' ) ), array( true, true, true ) );
+ck( 'and the sentence about removing anyone is left out of a tutor\'s card, which cannot', array( has( $rep_card, 'Representatives can remove anyone, including themselves, and tutors change nothing. A removal keeps the account and tells the people who are left.' ), has( $tutor_card, 'Representatives can remove anyone' ), has( $tutor_card, 'can see TEST - Institution 20&#039;s students on this site.' ) ), array( true, false, true ) );
+ck( 'the level words are the card\'s own, one list: Representative for every level but the tutor\'s', array( WPCPM_Institution_People::level_label( 'tutor' ), WPCPM_Institution_People::level_label( 'representative' ), WPCPM_Institution_People::level_label( 'nonsense' ) ), array( 'Tutor', 'Representative', 'Representative' ) );
+
+echo "\n=== A removed tutor re-added by a manager is a tutor, never a representative ===\n";
+
+WPCPM_Institution_Members::detach( 50, 'removed', 1 );
+$GLOBALS['uid']     = 1;
+$GLOBALS['queued']  = array();
+$_POST              = array( 'member' => 50, 'record' => $A, 'wpcpm_from' => 'admin' );
+run( 'handle_readd' );
+ck( 'a removed tutor put back by a manager is a tutor again', array( WPCPM_Institution_Members::institution_of( 50 ), WPCPM_Institution_Members::level_of( 50 ) ), array( $A, 'tutor' ) );
+ck( 'and the policy grounds them as a tutor, so they can see and change nothing more', WPCPM_Institution_Policy::decide( WPCPM_Institution_Policy::ACT_MANAGE_MEMBERS, WPCPM_Institution_Policy::subject_institution( $A ), 50 )['allowed'] ?? false, false );
+clear_flash();
+
+echo "\n=== A tutor's hand-made posts to the members' handlers are refused, and nothing is written ===\n";
+
+// Tess (50) is a tutor of A, which is settled. Every post carries a valid nonce (the stub grants it); what
+// refuses is the policy. A former member of A is posted for the re-add, a live one for the remove.
+$GLOBALS['uid']      = 50;
+$GLOBALS['inserted'] = array();
+$GLOBALS['queued']   = array();
+$GLOBALS['referer']  = array();
+$refusal             = 'wp_die:That record is not on your roster.';
+$members_before      = array_map( function ( $u ) { return $u->ID; }, WPCPM_Institution_Members::members_of( $A ) );
+$former_before       = array_map( function ( $u ) { return $u->ID; }, WPCPM_Institution_Members::former_members_of( $A ) );
+$rows_before         = count( WPCPM_Institution_Audit::entries_for( $A, 0 ) );
+$umeta_before        = serialize( $GLOBALS['umeta'] );
+$opts_before         = serialize( $GLOBALS['opts'] );
+
+$_POST = array( 'member' => 7, 'record' => $A );
+ck( 'a tutor removing a colleague is refused with the one message', run( 'handle_remove_member' ), $refusal );
+$_POST = array( 'member' => 50, 'record' => $A );
+ck( 'and removing themselves, which is Leave, which they are not drawn', run( 'handle_remove_member' ), $refusal );
+$_POST = array( 'record' => $A, 'name' => 'New Person', 'email' => 'new.person@example.test' );
+ck( 'adding an account is refused, as it is for everybody without the program\'s capability', run( 'handle_add_account' ), 'wp_die:You do not have permission to manage the program.' );
+$former = $former_before ? $former_before[0] : 12;
+$_POST  = array( 'member' => $former, 'record' => $A );
+ck( 'and so is putting a former member back', run( 'handle_readd' ), 'wp_die:You do not have permission to manage the program.' );
+
+ck( 'nothing was written: the members, the former members, the log, every meta and option, no account, no mail queued', array(
+	array_map( function ( $u ) { return $u->ID; }, WPCPM_Institution_Members::members_of( $A ) ) === $members_before,
+	array_map( function ( $u ) { return $u->ID; }, WPCPM_Institution_Members::former_members_of( $A ) ) === $former_before,
+	count( WPCPM_Institution_Audit::entries_for( $A, 0 ) ) === $rows_before,
+	serialize( $GLOBALS['umeta'] ) === $umeta_before,
+	serialize( $GLOBALS['opts'] ) === $opts_before,
+	$GLOBALS['inserted'],
+	$GLOBALS['queued'],
+), array( true, true, true, true, true, array(), array() ) );
+$GLOBALS['uid'] = 0;
+$_POST          = array();
+
+
 
 $src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-people.php' );
 
@@ -1193,10 +1271,12 @@ ck( 'and the stamp keys are named through the members module', has( $src, 'WPCPM
 
 $GLOBALS['hooks'] = array();
 WPCPM_Institution_People::init();
-ck( 'the three handlers are registered', $GLOBALS['hooks'], array(
+ck( 'the three handlers are registered, and the tutor list\'s two after them', $GLOBALS['hooks'], array(
 	'admin_post_wpcpm_remove_member',
 	'admin_post_wpcpm_add_institution_account',
 	'admin_post_wpcpm_readd_institution_member',
+	'admin_post_wpcpm_institution_tutor_add',
+	'admin_post_wpcpm_institution_tutor_remove',
 ) );
 
 $dashes = array();

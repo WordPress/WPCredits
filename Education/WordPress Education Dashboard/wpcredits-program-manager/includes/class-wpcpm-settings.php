@@ -264,6 +264,14 @@ class WPCPM_Settings {
 			'report_autodraft'              => true,
 			'report_autodraft_grace_days'   => 45,
 			'report_notify'                 => '',
+			// Who an institution's country routes to (Institutions off Airtable, R1): each country's
+			// own Administrator and each region's, and the countries moved out of the region the
+			// plugin ships. Cleaned by `WPCPM_Institution_Areas`.
+			'institution_areas'             => array(
+				'countries' => array(),
+				'regions'   => array(),
+			),
+			'institution_regions'           => array(),
 			// Where the wording actually lives, for the Agreement template card's link to it on the
 			// Institutions screen. Deliberately empty by default and deliberately not in the code:
 			// the document is editable by anyone holding its link, so the link belongs on the site
@@ -401,6 +409,8 @@ class WPCPM_Settings {
 				'report_autodraft',
 				'report_autodraft_grace_days',
 				'report_notify',
+				'institution_areas',
+				'institution_regions',
 			),
 			'sponsors'                   => array(
 				'sponsor_applications_enabled',
@@ -1142,6 +1152,24 @@ class WPCPM_Settings {
 			if ( isset( $reads[ $flag ] ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
+		}
+
+		// The areas of responsibility and the countries moved between regions, each cleaned by the class
+		// that owns them. An areas post that gives a country twice, or names an account that is not an
+		// Administrator, is refused as a whole and the stored areas stay (`last_refused()` says why);
+		// the moves cannot be wrong that way, so a bad one is simply not made.
+		if ( isset( $input['institution_areas'] ) ) {
+			$areas = WPCPM_Institution_Areas::clean( wp_unslash( $input['institution_areas'] ), $current['institution_areas'] );
+
+			if ( is_wp_error( $areas ) ) {
+				self::refuse( $clean, $current, 'institution_areas', $areas->get_error_message() );
+			} else {
+				$clean['institution_areas'] = $areas;
+			}
+		}
+
+		if ( isset( $input['institution_regions'] ) ) {
+			$clean['institution_regions'] = WPCPM_Institution_Areas::clean_regions( wp_unslash( $input['institution_regions'] ), $current['institution_regions'] );
 		}
 
 		// A page drawn earlier writes only what the person changed on it (SET-01, LOG-03, 1.123.58).

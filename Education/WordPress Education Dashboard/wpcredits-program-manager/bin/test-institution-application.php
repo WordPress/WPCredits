@@ -439,6 +439,8 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 			return true;
 		}
 		public static function site_name() { return 'WordPress Education'; }
+		public static $sender = null;
+		public static function send( $recipient, $context, $build ) { return call_user_func( self::$sender, $recipient, $context, $build ); }
 	}
 }
 
@@ -455,6 +457,38 @@ if ( ! class_exists( 'WPCPM_Institutions' ) ) {
 	}
 }
 
+// The assigned Administrator (Institutions off Airtable, R1): the accounts the areas may name, their booking
+// links, and the mail the assignment sends, recorded rather than sent.
+$GLOBALS['grants']     = array( 11 => array( 'wpcpm_manage_program' ) );
+$GLOBALS['assignmail'] = array();
+
+if ( ! class_exists( 'WP_User' ) ) {
+	class WP_User {
+		public $ID = 0, $display_name = '', $user_email = '';
+		public function exists() { return true; }
+	}
+}
+function get_userdata( $id ) {
+	if ( 11 !== (int) $id ) { return false; }
+	$u = new WP_User(); $u->ID = 11; $u->display_name = 'Ana Admin'; $u->user_email = 'ana.admin@example.test';
+	return $u;
+}
+function get_user_by( $field, $id ) { return get_userdata( $id ); }
+
+class WPCPM_Manager_Booking {
+	public static function url_for( $id ) { return ( 11 === (int) $id && empty( $GLOBALS['no_booking'] ) ) ? 'https://calendly.com/wpcredits-cr' : ''; }
+}
+// The one method the assignment's mail uses, as the real one: the recipient and the builder.
+WPCPM_Mail::$sender = static function ( $recipient, $context, $build ) {
+	$user              = get_userdata( $recipient );
+	$mail              = (array) call_user_func( $build, $user );
+	$mail['to']        = $user->ID;
+	$mail['context']   = $context;
+	if ( ! empty( $GLOBALS['assign_fails'] ) ) { return false; }
+	$GLOBALS['assignmail'][] = $mail;
+	return true;
+};
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
@@ -465,6 +499,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php';
 
 $fail = 0;
@@ -496,6 +532,7 @@ function reset_world() {
 	$GLOBALS['transients']  = array();
 	$GLOBALS['mail']        = array();
 	$GLOBALS['managermail'] = array();
+	$GLOBALS['assignmail']  = array();
 	$GLOBALS['caps']        = false;
 	$GLOBALS['uid']         = 0;
 	$GLOBALS['policy']      = 'https://example.test/privacy/';
@@ -573,6 +610,14 @@ function seed_countries() {
 				'calendly' => '',
 			),
 		),
+	);
+}
+
+/** Costa Rica's Administrator is account 11, by the areas: the country's own rule. */
+function seed_areas() {
+	$GLOBALS['settings']['institution_areas'] = array(
+		'countries' => array( 'recCR000000000001' => 11 ),
+		'regions'   => array(),
 	);
 }
 
@@ -1371,6 +1416,7 @@ ck( 'and does not mark it invalid: another answer was refused, not the country',
 echo "\n-- one good application, end to end -----------------------------------\n";
 
 reset_world();
+seed_areas();
 $sent = submit( answers() );
 $row  = only_row();
 
@@ -1431,7 +1477,9 @@ ck( 'and the count is an integer, not a string', $fields['Estimated number of st
 
 ck( 'the country is held on its own key', get_post_meta( $row->ID, WPCPM_Institution_Application::META_COUNTRY, true ), 'recCR000000000001' );
 ck( 'with the name it had that day', get_post_meta( $row->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ), 'Costa Rica' );
-ck( 'and a snapshot of who it routed to', get_post_meta( $row->ID, WPCPM_Institution_Application::META_MANAGER, true )['calendly'], 'https://calendly.com/wpcredits-cr' );
+ck( 'and who the country\'s area gave it to, an Administrator\'s ID', get_post_meta( $row->ID, WPCPM_Institution_Application::META_ASSIGNED, true ), 11 );
+ck( 'with no snapshot of the Countries table\'s routing any more', get_post_meta( $row->ID, WPCPM_Institution_Application::META_MANAGER, true ), '' );
+ck( 'and for_application() reads it back', WPCPM_Institution_Assignment::for_application( $row->ID ), 11 );
 
 $consent = get_post_meta( $row->ID, WPCPM_Institution_Application::META_CONSENT, true );
 
@@ -1482,14 +1530,26 @@ ck( 'the body names the routed manager\'s booking link', false !== strpos( $GLOB
 ck( 'and the link that confirms the address', false !== strpos( $GLOBALS['mail'][0]['body'], 'action=wpcpm_apply_verify' ), true );
 ck( 'and says what happens next', false !== strpos( $GLOBALS['mail'][0]['body'], 'What happens next' ), true );
 
-ck( 'one message to the managers', count( $GLOBALS['managermail'] ), 1 );
-ck( 'with its own context', $GLOBALS['managermail'][0]['context'], 'institution-application' );
-ck( 'naming the institution in the subject', $GLOBALS['managermail'][0]['subject'], '[WordPress Education] New institution application from Universidad Example' );
-ck( 'and linking the queue row', false !== strpos( $GLOBALS['managermail'][0]['body'], 'page=wpcpm-institutions&wpcpm_app_id=' . $row->ID ), true );
+ck( 'the assigned Administrator is told, alone: no message to the managers', array( count( $GLOBALS['assignmail'] ), count( $GLOBALS['managermail'] ) ), array( 1, 0 ) );
+ck( 'with the assignment email, to account 11', array( $GLOBALS['assignmail'][0]['context'], $GLOBALS['assignmail'][0]['to'] ), array( 'institution-assigned', 11 ) );
+ck( 'naming the institution in the subject', $GLOBALS['assignmail'][0]['subject'], '[WordPress Education] Universidad Example is assigned to you' );
+ck( 'and linking the queue row', false !== strpos( $GLOBALS['assignmail'][0]['body'], 'page=wpcpm-institutions&wpcpm_app_id=' . $row->ID ), true );
+ck( 'and the country\'s name', false !== strpos( $GLOBALS['assignmail'][0]['body'], 'Universidad Example, in Costa Rica, is now assigned to you.' ), true );
 
 // The queue shows all thirteen answers to somebody who has signed in. A mail is a copy in an
 // inbox that nothing on this site can withdraw, so it carries facts and a link.
-ck( 'the managers\' mail does not carry the applicant\'s own writing', strpos( $GLOBALS['managermail'][0]['body'], 'real open source experience' ), false );
+ck( 'the assignment mail does not carry the applicant\'s own writing', strpos( $GLOBALS['assignmail'][0]['body'], 'real open source experience' ), false );
+
+echo "\n-- an assignee whose message fails does not widen the mail ---------------\n";
+
+reset_world();
+seed_areas();
+$GLOBALS['assign_fails'] = true;
+submit( answers() );
+$row = only_row();
+ck( 'the assigned Administrator is still the one who was meant to be told: nothing went to the managers', array( count( $GLOBALS['assignmail'] ), count( $GLOBALS['managermail'] ) ), array( 0, 0 ) );
+ck( 'and the failure is recorded as a signal on the row', in_array( 'mail-assignee', (array) get_post_meta( $row->ID, WPCPM_Institution_Application::META_SIGNALS, true ), true ), true );
+$GLOBALS['assign_fails'] = false;
 
 echo "\n-- a country that routes to nobody ------------------------------------\n";
 
@@ -1497,8 +1557,49 @@ reset_world();
 submit( answers( array( 'Country' => 'recNG000000000002' ) ) );
 
 ck( 'the application is taken all the same', get_post_meta( only_row()->ID, WPCPM_Institution_Application::META_STATE, true ), WPCPM_Institution_Application::STATE_NEW );
-ck( 'the routing snapshot is simply empty', get_post_meta( only_row()->ID, WPCPM_Institution_Application::META_MANAGER, true ), array() );
+ck( 'nobody is assigned', get_post_meta( only_row()->ID, WPCPM_Institution_Application::META_ASSIGNED, true ), 0 );
+ck( 'every Administrator is told, as before: the managers\' message goes, the assignment email does not', array( count( $GLOBALS['managermail'] ), count( $GLOBALS['assignmail'] ) ), array( 1, 0 ) );
 ck( 'and the acknowledgement offers no call rather than a broken link', strpos( $GLOBALS['mail'][0]['body'], 'book a call' ), false );
+
+echo "\n-- before any area is set, and an application filed before the areas ------\n";
+
+// No area set: the Countries table's contact still routes, as before this release.
+reset_world();
+submit( answers() );
+$row = only_row();
+
+ck( 'with no area set, the routing snapshot is written as it always was', get_post_meta( $row->ID, WPCPM_Institution_Application::META_MANAGER, true )['calendly'] ?? null, 'https://calendly.com/wpcredits-cr' );
+ck( 'nobody is assigned', get_post_meta( $row->ID, WPCPM_Institution_Application::META_ASSIGNED, true ), 0 );
+ck( 'the acknowledgement carries the country contact\'s link', false !== strpos( $GLOBALS['mail'][0]['body'], 'https://calendly.com/wpcredits-cr' ), true );
+ck( 'and every Administrator is told, as today', array( count( $GLOBALS['managermail'] ), count( $GLOBALS['assignmail'] ) ), array( 1, 0 ) );
+
+// With an area set, no snapshot.
+reset_world();
+seed_areas();
+submit( answers() );
+ck( 'with an area set, no snapshot is written', get_post_meta( only_row()->ID, WPCPM_Institution_Application::META_MANAGER, true ), '' );
+
+// An application stored before the release: a snapshot and no assignee.
+reset_world();
+seed_areas();
+submit( answers() );
+$old = only_row();
+unset( $GLOBALS['pmeta'][ $old->ID ][ WPCPM_Institution_Application::META_ASSIGNED ] );
+update_post_meta( $old->ID, WPCPM_Institution_Application::META_MANAGER, array( 'email' => 'manager@example.test', 'calendly' => 'https://calendly.com/old-snapshot' ) );
+$GLOBALS['mail'] = array();
+ck( 'an application with only a snapshot is acknowledged again', WPCPM_Institution_Application::acknowledge_again( $old->ID ), 'sent' );
+ck( 'with the snapshot\'s link, as the email with a call to book', array( $GLOBALS['mail'][0]['context'], false !== strpos( $GLOBALS['mail'][0]['body'], 'https://calendly.com/old-snapshot' ) ), array( 'institution-applied', true ) );
+
+// An assigned Administrator with no booking link: the email without a call to book, though the Countries table's
+// contact for the country still holds one (stub row above), which nothing reads now.
+reset_world();
+seed_areas();
+submit( answers() );
+$GLOBALS['no_booking'] = true;
+$GLOBALS['mail']       = array();
+ck( 'an application assigned to an Administrator with no booking link is acknowledged again', WPCPM_Institution_Application::acknowledge_again( only_row()->ID ), 'sent' );
+ck( 'as the email with no call to book, and the country contact\'s link is not offered in its place', array( $GLOBALS['mail'][0]['context'], false === strpos( $GLOBALS['mail'][0]['body'], 'https://calendly.com/wpcredits-cr' ) ), array( 'institution-applied-no-call', true ) );
+unset( $GLOBALS['no_booking'] );
 
 echo "\n-- consent is a precondition ------------------------------------------\n";
 
@@ -1649,6 +1750,7 @@ function token_on_page( $html ) {
 // acknowledgement carries the link that stamps `_wpcpm_app_verified`, and without it no
 // shipped path can ever approve the row.
 reset_world();
+seed_areas();
 $bounced = submit( answers(), array( 'token' => dwell_token( 13 * HOUR_IN_SECONDS ) ) );
 follow( $bounced['url'] );
 $fresh = token_on_page( WPCPM_Institution_Application::render() );
@@ -1661,6 +1763,7 @@ $row    = only_row();
 ck( 'the re-send at age zero is held, not filed as spam', array( $resend['outcome'], get_post_meta( $row->ID, WPCPM_Institution_Application::META_STATE, true ), get_post_meta( $row->ID, WPCPM_Institution_Application::META_SIGNALS, true ) ), array( 'sent', WPCPM_Institution_Application::STATE_HELD, array( 'dwell-fast' ) ) );
 ck( 'so it reaches the queue as one pending row', array( count( stored() ), WPCPM_Institution_Application::pending_count() ), array( 1, 1 ) );
 ck( 'and gets the held-row mails: the applicant is acknowledged, the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( 1, 'ana@example.edu', 0 ) );
+ck( 'and the assigned Administrator is spared too, though the row is assigned', array( count( $GLOBALS['assignmail'] ), get_post_meta( $row->ID, WPCPM_Institution_Application::META_ASSIGNED, true ) ), array( 0, 11 ) );
 ck( 'with the link that makes the row approvable at all', false !== strpos( mail_said( -1, 'body' ), 'action=wpcpm_apply_verify' ), true );
 
 // A young token nobody signed here is still spam: the signature is what tells a re-sending
@@ -2155,6 +2258,7 @@ echo "\n-- a held row is acknowledged, and only the managers are spared -------\
 // the site-wide degrade and every content signal produce held.
 
 reset_world();
+seed_areas();
 $GLOBALS['disallowed'] = true;
 submit( answers() );
 $GLOBALS['disallowed'] = false;
@@ -2179,9 +2283,10 @@ ck( 'so a held application ends up carrying the stamp approval demands', is_int(
 // Spam is the one hold that stays silent in both directions: the address is forged or a probe,
 // so a reply is wrong, and the sender learns nothing about which attempt was recognized.
 reset_world();
+seed_areas();
 $quiet = submit( answers(), array( 'honeypot' => 'x' ) );
 
-ck( 'a spam row sends nothing to anybody', array( count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ) ), array( 0, 0 ) );
+ck( 'a spam row sends nothing to anybody', array( count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ), count( $GLOBALS['assignmail'] ) ), array( 0, 0, 0 ) );
 ck( 'and its sender is shown what everybody else is shown', $quiet['outcome'], 'sent' );
 
 echo "\n-- an answer is drawn even when the form cannot be --------------------\n";
@@ -2975,6 +3080,7 @@ echo "\n=== The confirmation link, sent again at an Administrator's press ===\n"
 // good. `acknowledge_again()` is the one way the queue sends it again: the same email the form
 // sends, through the same sender, counted against the same daily limit.
 reset_world();
+seed_areas();
 submit( answers() );
 $row             = only_row();
 $first_link      = WPCPM_Institution_Application::verify_url( $row->ID );
@@ -3032,7 +3138,6 @@ ck( 'an application with backslashes in it is sent', $sent['outcome'], 'sent' );
 ck( 'its title is the institution\'s name exactly as typed', $row ? $row->post_title : null, $typed );
 ck( 'and the answers are stored exactly as typed', array( $fields['Name'] ?? null, $fields['Comments'] ?? null ), array( $typed, $typed ) );
 ck( 'the country\'s name is kept exactly as the base holds it', get_post_meta( $row->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ), 'Pais C:\drafts, two \\\\ in a row, "Norte"' );
-ck( 'and so is who it routed to', get_post_meta( $row->ID, WPCPM_Institution_Application::META_MANAGER, true )['manager'], 'Ana C:\drafts, two \\\\ in a row, "Ruiz"' );
 ck( 'and the browser in the consent evidence', get_post_meta( $row->ID, WPCPM_Institution_Application::META_CONSENT, true )['agent'], $typed_agent );
 
 WPCPM_Institution_Application::add_event( $row->ID, 'information requested', 3, $typed );

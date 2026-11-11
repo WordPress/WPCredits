@@ -300,6 +300,13 @@ if ( ! class_exists( 'WPCPM_Students_Sync' ) ) {
 }
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	class WPCPM_Institution_Members {
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+		public static function level_of( $user = null ) {
+			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+			return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+		}
 		const META_RECORD_ID = '_wpcpm_inst_record';
 		public static function memberships_of( $user ) {
 			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
@@ -835,6 +842,21 @@ ck( 'without a request', $GLOBALS['http'], array() );
 reset_world();
 save( 1, $report, array( k( 'students', 'End Date' ) => '2026-07-31' ) );
 ck( 'a program manager passes', flash_status(), 'student-saved' );
+
+// Institutions release 1 (Review Focus 4): a tutor of the student's own, settled institution is refused
+// the edit, with every field of the form posted and a valid nonce (this suite's stub grants it): the
+// handler's one refusal, no request, no write, nothing stored.
+reset_world();
+$GLOBALS['users'][20]   = new WP_User( 20, 'A Tutor', 'tutor@example.test' );
+$GLOBALS['members'][20] = array( $inst_a );
+$GLOBALS['levels']      = array( 20 => 'tutor' );
+$snapshot               = serialize( array( $GLOBALS['opts'], $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['umeta'][10] ) );
+save( 20, $report, array( k( 'students', 'End Date' ) => '2026-07-31', k( 'students', 'Start Date' ) => '2026-01-31' ) );
+ck( 'a tutor of the student\'s own institution is refused the edit with the one refusal', array( flash_status(), WPCPM_Institution_Student_Form::messages()['student-refused'][1] ), array( 'student-refused', WPCPM_Institution_Policy::refusal()->get_error_message() ) );
+ck( 'and nothing was fetched, written to Airtable, stored or logged', array( $GLOBALS['http'], $GLOBALS['writes'], serialize( array( $GLOBALS['opts'], $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['umeta'][10] ) ) === $snapshot, WPCPM_Institution_Audit::entries_for( $inst_a ) ), array( array(), array(), true, array() ) );
+$GLOBALS['levels'] = array();
+save( 2, $report, array( k( 'students', 'End Date' ) => '2026-07-31' ) );
+ck( 'while a representative of the same school passes', flash_status(), 'student-saved' );
 
 
 /* ---- the cross-field rules ----------------------------------------------- */

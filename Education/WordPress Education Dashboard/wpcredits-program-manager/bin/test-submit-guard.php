@@ -615,6 +615,7 @@ $surfaces = array(
 	'includes/modules/class-wpcpm-institution-panel.php'                 => array( 'admin', 'administrator-dashboard', 'institution-dashboard' ),
 	'includes/modules/class-wpcpm-institution-people.php'                => array( 'admin', 'institution-dashboard' ),
 	'includes/modules/class-wpcpm-institution-students.php'              => array( 'institution-dashboard' ),
+	'includes/modules/class-wpcpm-institution-tutors.php'                => array( 'institution-dashboard' ),
 	'includes/modules/class-wpcpm-institutions.php'                      => array( 'admin', 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-mentor-application-queue.php'          => array( 'admin' ),
 	'includes/modules/class-wpcpm-mentor-notes.php'                      => array( 'mentor-report-card' ),

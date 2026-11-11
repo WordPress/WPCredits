@@ -550,7 +550,7 @@ class WPCPM_Institution_History {
 	 * invitations (`WPCPM_Institution_Invite::LOG_*`), requests (`WPCPM_Institution_Request::LOG_*`),
 	 * students (`WPCPM_Institution_Student_Form::KIND_*`, `WPCPM_Institution_Students::KIND_*`,
 	 * `WPCPM_Institutions::LOG_LINKED` and `WPCPM_Institution_Resend::KIND`) and a school's corrected
-	 * details (`WPCPM_Institution_Details::LOG_SAVED`). The suite reads the constants from those files, and
+	 * details (`WPCPM_Institution_Details::LOG_SAVED`), and a school's tutor list (`WPCPM_Institution_Tutors::LOG_*`). The suite reads the constants from those files, and
 	 * every kind passed to `WPCPM_Institution_Audit::record(` in includes/, so a kind renamed there, or
 	 * written without words here, fails it.
 	 *
@@ -603,6 +603,9 @@ class WPCPM_Institution_History {
 			'student-invite-resent' => __( 'A welcome invitation was sent to a student.', 'wpcredits-program-manager' ),
 			'details_saved'         => __( 'The institution\'s details were corrected.', 'wpcredits-program-manager' ),
 			'tracks_saved'          => __( 'The tracks the institution offers were changed.', 'wpcredits-program-manager' ),
+			'assignment_changed'    => __( 'The institution\'s assigned Administrator was changed.', 'wpcredits-program-manager' ),
+			'tutor_added'           => __( 'A tutor was added to the institution\'s list.', 'wpcredits-program-manager' ),
+			'tutor_removed'         => __( 'A tutor was removed from the institution\'s list.', 'wpcredits-program-manager' ),
 		);
 	}
 }

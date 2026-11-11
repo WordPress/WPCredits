@@ -66,7 +66,10 @@ function get_user_by( $field, $value ) {
 	}
 	return false;
 }
-function user_can( $user, $cap ) { return in_array( $cap, $user->caps, true ); }
+function user_can( $user, $cap ) {
+	$user = is_object( $user ) ? $user : get_userdata( (int) $user );
+	return $user && in_array( $cap, $user->caps, true );
+}
 function get_users( $args ) {
 	$ids = array();
 	foreach ( $GLOBALS['users'] as $user ) {
@@ -193,6 +196,20 @@ class WPCPM_Test_Institutions {
 	public static function is_test( $id ) { return isset( $GLOBALS['seed_inst'][ $id ] ) && 0 === strpos( $GLOBALS['seed_inst'][ $id ]['name'], 'TEST' ); }
 }
 
+// The Administrator an institution is assigned to (Institutions off Airtable, R1): its record, at the one read the
+// assignment makes, and the booking link on the Administrator's own account.
+// An account as WordPress holds it: the assignment reads a `WP_User`.
+class WP_User {
+	public $ID = 0, $user_email = '', $user_registered = '', $display_name = '', $user_login = '', $roles = array(), $caps = array();
+	public function __construct( $id, $email, $name, $caps ) { $this->ID = $id; $this->user_email = $email; $this->display_name = $name; $this->user_login = $name; $this->caps = $caps; }
+}
+class WPCPM_Institution_Record {
+	public static function get( $record_id ) { return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array(); }
+}
+class WPCPM_Manager_Booking {
+	public static function url_for( $user_id ) { return isset( $GLOBALS['booking'][ (int) $user_id ] ) ? $GLOBALS['booking'][ (int) $user_id ] : ''; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-activity.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-flags.php';
 
@@ -227,6 +244,8 @@ function reset_all() {
 	$GLOBALS['nonce_ok']   = '';
 	$GLOBALS['flash']      = array();
 	unset( $GLOBALS['calendly'] );
+	$GLOBALS['kept']    = array();
+	$GLOBALS['booking'] = array();
 	unset( $GLOBALS['referer'] );
 	$_POST = array();
 }
@@ -344,12 +363,18 @@ reset_all();
 $country = $GLOBALS['seed_inst'][ $real_inst ]['country'];
 $email   = 'contact-' . $country . '@example.test';
 student( 1, 30, 'In Sensei', $real_inst );
-$GLOBALS['users'][50] = (object) array( 'ID' => 50, 'user_email' => $email, 'user_registered' => '', 'display_name' => 'Manager', 'roles' => array(), 'caps' => array( WPCPM_Roles::CAP_MANAGE ) );
-ck( 'manager_by_country: the account behind the country contact who may manage the program', WPCPM_Student_Flags::manager_of( 1 ), 50 );
+// The Countries table names account 51 for the country; the institution is assigned to account 50.
+$GLOBALS['users'][50] = new WP_User( 50, 'assigned@example.test', 'Assigned', array( WPCPM_Roles::CAP_MANAGE ) );
+$GLOBALS['users'][51] = (object) array( 'ID' => 51, 'user_email' => $email, 'user_registered' => '', 'display_name' => 'Country Contact', 'roles' => array(), 'caps' => array( WPCPM_Roles::CAP_MANAGE ) );
+$GLOBALS['kept'][ $real_inst ] = array( 'assigned' => 50 );
+ck( 'manager_by_assignee: the Administrator the student\'s institution is assigned to, not the country\'s contact', WPCPM_Student_Flags::manager_of( 1 ), 50 );
 $GLOBALS['users'][50]->caps = array();
-ck( 'an account without the capability gives 0', WPCPM_Student_Flags::manager_of( 1 ), 0 );
+ck( 'an assignee who may no longer manage the program gives 0, and the country\'s contact is not the fallback', WPCPM_Student_Flags::manager_of( 1 ), 0 );
+$GLOBALS['users'][50]->caps = array( WPCPM_Roles::CAP_MANAGE );
 unset( $GLOBALS['users'][50] );
-ck( 'a contact with no account gives 0', WPCPM_Student_Flags::manager_of( 1 ), 0 );
+ck( 'an assignee whose account is gone gives 0', WPCPM_Student_Flags::manager_of( 1 ), 0 );
+$GLOBALS['kept'] = array();
+ck( 'an institution nobody is assigned to gives 0, whoever the Countries table names', WPCPM_Student_Flags::manager_of( 1 ), 0 );
 student( 2, 30 );
 ck( 'a student with no institution gives 0', WPCPM_Student_Flags::manager_of( 2 ), 0 );
 student( 3, 30, 'In Sensei', 'recSEED9999999999' );
@@ -448,11 +473,15 @@ reset_all();
 student( 1, 30, 'In Sensei', $real_inst ); // A mentor.
 person( 77 );
 $GLOBALS['mentors'][1] = 77;
-student( 2, 30, 'In Sensei', $real_inst ); // No mentor; the country's booking page, once set below.
+student( 2, 30, 'In Sensei', $real_inst ); // No mentor; the assigned Administrator's booking page, once set below.
 student( 3, 30, 'In Sensei', $real_inst ); // No mentor, and no booking page.
 $none_yet             = method_exists( 'WPCPM_Student_Flags', 'can_book' ) ? array( WPCPM_Student_Flags::can_book( 2 ), WPCPM_Student_Flags::booking_link( 2 ) ) : 'missing';
-$GLOBALS['calendly'] = 'https://calendly.test/admin';
-ck( 'can_book_three_cases: with a mentor the calls section, with the country\'s booking page only that page, with neither nothing to book, and the link falls back to the Student Report Card, which offers none', method_exists( 'WPCPM_Student_Flags', 'can_book' ) ? array(
+// The Countries table's booking page is another one, and nothing reads it: the assigned Administrator's is offered.
+$GLOBALS['calendly'] = 'https://calendly.test/country';
+$GLOBALS['users'][50] = new WP_User( 50, 'assigned@example.test', 'Assigned', array( WPCPM_Roles::CAP_MANAGE ) );
+$GLOBALS['kept'][ $real_inst ] = array( 'assigned' => 50 );
+$GLOBALS['booking']            = array( 50 => 'https://calendly.test/admin' );
+ck( 'can_book_three_cases: with a mentor the calls section, with the assigned Administrator\'s booking page only that page, with neither nothing to book, and the link falls back to the Student Report Card, which offers none', method_exists( 'WPCPM_Student_Flags', 'can_book' ) ? array(
 	array( WPCPM_Student_Flags::can_book( 1 ), WPCPM_Student_Flags::booking_link( 1 ) ),
 	array( WPCPM_Student_Flags::can_book( 2 ), WPCPM_Student_Flags::booking_link( 2 ) ),
 	$none_yet,

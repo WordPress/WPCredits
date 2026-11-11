@@ -321,6 +321,15 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 		const META_RECORD_ID = 'wpcpm_institution_record_id';
 		const META_ACTIVE    = 'wpcpm_institution_active';
 		const META_PROFILE   = 'wpcpm_institution_profile';
+		const META_LEVEL     = 'wpcpm_institution_level';
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** As the real class reads it: a tutor only where the meta says so, a representative otherwise. */
+		public static function level_of( $user = null ) {
+			$user = WPCPM_Roles::resolve_user( $user );
+			if ( ! $user instanceof WP_User || ! $user->exists() ) { return self::LEVEL_REPRESENTATIVE; }
+			return 'tutor' === (string) get_user_meta( $user->ID, self::META_LEVEL, true ) ? self::LEVEL_TUTOR : self::LEVEL_REPRESENTATIVE;
+		}
 		public static function institution_of( $user = null ) {
 			$user = WPCPM_Roles::resolve_user( $user );
 			if ( ! $user instanceof WP_User || ! $user->exists() ) { return ''; }
@@ -414,6 +423,7 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 	class WPCPM_Institution_Policy {
 		const GROUND_MANAGER = 'manager';
 		const GROUND_MEMBER  = 'member';
+		const GROUND_TUTOR   = 'tutor';
 		const ACT_VIEW_ROSTER = 'view_roster';
 		const ACT_AGREEMENT   = 'agreement';
 		public static function subject_institution( $record_id ) {
@@ -428,10 +438,13 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 				return array( 'allowed' => true, 'ground' => self::GROUND_MANAGER, 'institution' => $ids ? $ids[0] : '', 'fields' => null, 'why' => '' );
 			}
 			if ( empty( $ids ) ) { return $refused; }
+			// A tutor holds the view of the roster, behind the gate, and nothing else (the real rule is the policy suite's).
+			$tutor = WPCPM_Institution_Members::LEVEL_TUTOR === WPCPM_Institution_Members::level_of( $user );
+			if ( $tutor && self::ACT_VIEW_ROSTER !== $action ) { return $refused; }
 			foreach ( WPCPM_Institution_Members::memberships_of( $user ) as $mine ) {
 				if ( ! in_array( $mine, $ids, true ) ) { continue; }
 				if ( self::ACT_AGREEMENT !== $action && ! WPCPM_Institution_Agreement::is_settled( $mine ) ) { continue; }
-				return array( 'allowed' => true, 'ground' => self::GROUND_MEMBER, 'institution' => $mine, 'fields' => null, 'why' => '' );
+				return array( 'allowed' => true, 'ground' => $tutor ? self::GROUND_TUTOR : self::GROUND_MEMBER, 'institution' => $mine, 'fields' => null, 'why' => '' );
 			}
 			return $refused;
 		}
@@ -500,6 +513,31 @@ if ( ! class_exists( 'WPCPM_Countries' ) ) {
 		}
 	}
 }
+
+// The Administrator an institution is assigned to (Institutions off Airtable, R1): its record, at the one read
+// the assignment makes, and the booking link on the Administrator's own account.
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	class WPCPM_Institution_Record {
+		public static function get( $record_id ) {
+			// The history's read of the record is what this log is for; the assignment's read of who the
+			// institution is assigned to (the contact block) is another question.
+			$caller = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 2 );
+			if ( empty( $caller[1]['class'] ) || 'WPCPM_Institution_Assignment' !== $caller[1]['class'] ) {
+				$GLOBALS['history_reads'][] = array( 'record', $record_id );
+			}
+			return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array();
+		}
+	}
+}
+if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
+	class WPCPM_Manager_Booking {
+		public static function url_for( $user_id ) { return isset( $GLOBALS['booking'][ (int) $user_id ] ) ? $GLOBALS['booking'][ (int) $user_id ] : ''; }
+	}
+}
+if ( ! function_exists( 'get_userdata' ) ) {
+	function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
+}
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 
 if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	class WPCPM_Institution_Panel {
@@ -1259,17 +1297,20 @@ ck( 'at the same version block.json carries', $asset['version'], $block['version
 echo "\n=== Where to go with a question ===\n";
 
 // The section is the one the two Report Cards end on, asked for this audience. What this page
-// adds to it is the person: every institution is routed to a program manager by country, and
-// until now that name appeared only in a revoked agreement's panel, which is the worst moment
-// to meet it for the first time.
+// adds to it is the person: the Administrator the institution is assigned to. The Countries table's
+// contact for the country is somebody else here, and is never read.
 $GLOBALS['routing'] = array(
 	'recCOUNTRYPOLAND1' => array(
 		'name'     => 'Poland',
-		'manager'  => 'Ola Nowak',
-		'email'    => 'ola@example.org',
-		'calendly' => 'https://calendly.com/example/intro',
+		'manager'  => 'Old Contact',
+		'email'    => 'old.contact@example.org',
+		'calendly' => 'https://calendly.com/example/old',
 	),
 );
+$GLOBALS['users'][12]  = new WP_User( 12, 'Ola Nowak', 'ola@example.org' );
+$GLOBALS['manage'][]   = 12;
+$GLOBALS['booking']    = array( 12 => 'https://calendly.com/example/intro' );
+$GLOBALS['kept']       = array( $krakow => array( 'assigned' => 12 ) );
 
 $GLOBALS['resources'] = array();
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
@@ -1283,36 +1324,39 @@ ck( 'and it sits under the identity header, above everything the reader has to w
 	strpos( $out, 'wpcpm-institution__name' ) < strpos( $out, 'wpcpm-handbook__resources' ),
 	strpos( $out, 'wpcpm-handbook__resources' ) < strpos( $out, 'data-card="roster"' ),
 ), array( true, true ) );
-ck( 'and it names the person, their address and the way to book them', array(
+ck( 'and it names the assigned Administrator, their address and the way to book them', array(
 	false !== strpos( $out, 'Your contact at the program' ),
 	false !== strpos( $out, 'Ola Nowak' ),
 	false !== strpos( $out, 'mailto:ola@example.org' ),
 	false !== strpos( $out, 'https://calendly.com/example/intro' ),
 ), array( true, true, true, true ) );
+ck( 'and nothing of the Countries table\'s contact for the country', array(
+	false !== strpos( $out, 'Old Contact' ),
+	false !== strpos( $out, 'old.contact@example.org' ),
+	false !== strpos( $out, 'calendly.com/example/old' ),
+), array( false, false, false ) );
 
-// A country the program has not routed prints nothing at all. A heading with a blank under it
-// would read as "you have nobody", which is not what an unrouted country means.
+// An institution nobody is assigned to prints nothing at all, whatever the Countries table says
+// for its country. A heading with a blank under it would read as "you have nobody", which is not
+// what an unassigned institution means.
 $GLOBALS['resources'] = array();
 $out = render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
 
-ck( 'an unrouted country still gets the section', $GLOBALS['resources'], array( 'institution' ) );
+ck( 'an unassigned institution still gets the section', $GLOBALS['resources'], array( 'institution' ) );
 ck( 'but no contact block, and no empty heading', array(
 	false !== strpos( $out, 'wpcpm-resources__contact' ),
 	false !== strpos( $out, 'Your contact at the program' ),
 ), array( false, false ) );
 
-// A record ID in the manager field means the link was never resolved to a person. It is a
-// database key, and printing one at a school is worse than printing nothing.
-$GLOBALS['routing']['recCOUNTRYINDIA01'] = array(
-	'name'     => 'India',
-	'manager'  => 'recUNRESOLVED0001',
-	'email'    => 'india@example.org',
-	'calendly' => '',
-);
-$out = render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
-
-ck( 'an unresolved manager link is not shown as a name', false !== strpos( $out, 'recUNRESOLVED0001' ), false );
-ck( 'though the address behind it still is', false !== strpos( $out, 'mailto:india@example.org' ), true );
+// An Administrator who has lost the capability is not offered as the contact.
+$GLOBALS['manage'] = array( 4 );
+$GLOBALS['resources'] = array();
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'an assignee who is no Administrator now is not shown as the contact', array(
+	false !== strpos( $out, 'wpcpm-resources__contact' ),
+	false !== strpos( $out, 'Ola Nowak' ),
+), array( false, false ) );
+$GLOBALS['manage'] = array( 4, 12 );
 
 // The locked account is the one most likely to need somebody to ask.
 $GLOBALS['resources'] = array();
@@ -1321,6 +1365,8 @@ $locked = render_as( 2 );
 ck( 'a locked account gets the section too', $GLOBALS['resources'], array( 'institution' ) );
 ck( 'with its own contact in it', false !== strpos( $locked, 'Ola Nowak' ), true );
 
+$GLOBALS['kept']    = array();
+$GLOBALS['manage']  = array( 4 );
 $GLOBALS['routing'] = array();
 
 
@@ -1763,6 +1809,46 @@ delete_option( 'wpcpm_agreement_' . $krakow );
 $html = render_as( 2 );
 ck( 'a locked account, which sees no module, gets no list either', array( $GLOBALS['sevents'], strpos( $html, 'data-stub="sevents"' ) ), array( array(), false ) );
 
+echo "\n=== A tutor (Institutions release 1) ===\n";
+
+// A tutor of Krakow sees the page and arranges nothing. What each card draws for a tutor is that card's
+// own suite's, since the cards here are stand-ins; this page's part is the claim, the movers, the list
+// of events and the handler.
+$GLOBALS['users'][10] = new WP_User( 10, 'Tess Tutor', 'tess@example.edu', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['umeta'][10][ WPCPM_Institution_Members::META_RECORD_ID ] = $krakow;
+$GLOBALS['umeta'][10][ WPCPM_Institution_Members::META_ACTIVE ]    = '1';
+$GLOBALS['umeta'][10][ WPCPM_Institution_Members::META_LEVEL ]     = 'tutor';
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array( 'v' => 1, 'settled' => true, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_ACCEPTED, 'airtable_status' => 'Accepted' );
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $krakow ] );
+
+$GLOBALS['sevents'] = array();
+$GLOBALS['scripts'] = array();
+$tutor_page         = render_as( 10 );
+$rep_page           = render_as( 2 );
+ck( 'a tutor of a school whose agreement is settled is drawn the page: the same cards a representative is drawn', array( cards_run(), false !== strpos( $tutor_page, 'wpcpm-institution__identity' ), false !== strpos( $tutor_page, 'data-card="roster"' ) ), array( cards_run(), true, true ) );
+ck( 'with the school\'s name in the header, from the index, as a member\'s is', false !== strpos( $tutor_page, 'Politechnika Example' ), true );
+ck( 'and no Move up or Move down, no mover form, no script that moves', array( substr_count( $tutor_page, 'wpcpm-module__mover' ), substr_count( $tutor_page, 'wpcpm-module__move' ), substr_count( $tutor_page, 'wpcpm_institution_module_move' ), in_array( 'wpcpm-modules', (array) $GLOBALS['scripts'], true ) ), array( 0, 0, 0, false ) );
+ck( 'where a representative of the same school is offered them', array( 0 < substr_count( $rep_page, 'wpcpm-module__mover' ), 0 < substr_count( $rep_page, 'wpcpm_institution_module_move' ) ), array( true, true ) );
+ck( 'and the sponsors\' events, which a Join would put them on, are not drawn for a tutor', array( strpos( $tutor_page, 'data-stub="sevents"' ), array_column( $GLOBALS['sevents'], 0 ) ), array( false, array( 2 ) ) );
+ck( 'nor is the section for Administrators', false !== strpos( $tutor_page, 'For Administrators' ), false );
+
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array( 'v' => 1, 'settled' => false, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_NONE, 'airtable_status' => '' );
+$locked_tutor = render_as( 10 );
+ck( 'a tutor of a school whose agreement is not settled is told there is nothing to show, as somebody with no claim is, and is drawn no card, no panel and no agreement', array( false !== strpos( $locked_tutor, WPCPM_Dashboards::nothing_to_show( 'institutions', false ) ), cards_run() ), array( true, array() ) );
+ck( 'which is the notice a stranger is given, byte for byte', $locked_tutor, render_as( 5 ) );
+$GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array( 'v' => 1, 'settled' => true, 'site_state' => WPCPM_Institution_Agreement::SUMMARY_ACCEPTED, 'airtable_status' => 'Accepted' );
+
+$GLOBALS['uid'] = 10;
+$_POST          = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up' );
+$opts_before    = serialize( $GLOBALS['opts'] );
+ck( 'a tutor\'s hand-made post to the mover is refused with a 403, after the nonce', array( ran_move(), $GLOBALS['nonce_checked'] ), array( 'die: 403', array( WPCPM_Institutions_Dashboard::ACTION_MOVE ) ) );
+$_POST = array( 'wpcpm_institution' => $institute, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'down', 'wpcpm_async' => '1' );
+ck( 'whatever institution it names, and by the script\'s route too', ran_move(), 'die: 403' );
+ck( 'and nothing was written: no option, the order of either institution included', serialize( $GLOBALS['opts'] ) === $opts_before, true );
+$_POST          = array();
+$GLOBALS['uid'] = 0;
+unset( $GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] );
+
 echo "\n=== The For Administrators section (1.123.29) ===\n";
 
 // Review Focus 3. The section holds the answers the application gave, the addresses invitations
@@ -1792,14 +1878,6 @@ $GLOBALS['audit_rows']    = array(
 );
 
 // The section's neighbors, as the real classes keep them, stood in for to their contracts.
-if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
-	class WPCPM_Institution_Record {
-		public static function get( $record_id ) {
-			$GLOBALS['history_reads'][] = array( 'record', $record_id );
-			return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array();
-		}
-	}
-}
 if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 	class WPCPM_Institution_Audit {
 		// The ground a withdrawal is read by (`WPCPM_Institution_History`).

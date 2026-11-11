@@ -426,6 +426,13 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-availability.php
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event.php';
+if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
+	/** The level of an account, which the events' audience asks since Institutions release 1: nobody here is a tutor. */
+	class WPCPM_Institution_Members {
+		const LEVEL_TUTOR = 'tutor';
+		public static function level_of( $user = null ) { return 'representative'; }
+	}
+}
 
 // Who a signed-in viewer is, as the event store's audience_of() reads it: a program manager first,
 // then the three modules' own readers, stood in here and answering from $GLOBALS['audiences'] (user

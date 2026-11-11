@@ -16,7 +16,7 @@ Directly under the name are the places to go with a question:
 
 - **Program updates and announcements** carries what the program publishes for institutions. It says "Nothing new right now." when there is nothing, and **All updates** opens the rest.
 - **Resources** holds the Slack logo, which opens the WordPress Credits Slack channel, and **Institution guide**, which opens this guide. It also holds **Need help?** whenever the program has switched its question assistant on for institutions: it answers questions about the program and about WordPress from the WordPress documentation, and links back to the pages its answers came from. Your question is sent to an outside AI service, so do not type anything confidential.
-- **Your contact at the program** is under the buttons: the Administrator who looks after institutions in your country, with a link to write to them when the program has an address for them, and **Book a call** when it has a booking link. It is there once the program has set contact details for your country. The page says "They look after institutions in your country. Write to them about anything the guide does not answer."
+- **Your contact at the program** is under the buttons: the Administrator your institution is assigned to, with a link to write to them when the program has an address for them, and **Book a call** when it has a booking link. It is there once an Administrator is assigned to your institution. The page says "They look after your institution. Write to them about anything the guide does not answer."
 
 ### Before your agreement is accepted
 

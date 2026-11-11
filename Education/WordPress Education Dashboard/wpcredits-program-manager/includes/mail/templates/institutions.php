@@ -121,6 +121,10 @@ $wpcpm_placeholders = static function () use ( $wpcpm_sample_changes ) {
 			'means'   => __( 'The country\'s name.', 'wpcredits-program-manager' ),
 			'example' => 'Poland',
 		),
+		'country_phrase'     => array(
+			'means'   => __( 'Where the institution is, with its commas: ", in Poland,", or nothing when its country is not on record.', 'wpcredits-program-manager' ),
+			'example' => ', in Poland,',
+		),
 		'contact_name'       => array(
 			'means'     => __( 'The contact person the application gave, as the applicant typed it. It goes in the body, never in the subject, which the mail log keeps.', 'wpcredits-program-manager' ),
 			'example'   => 'Ada Okonjo',
@@ -324,6 +328,14 @@ $wpcpm_placeholders = static function () use ( $wpcpm_sample_changes ) {
 			},
 			'body_only' => true,
 		),
+		'institution_link'   => array(
+			'means'   => __( 'The institution\'s page on the Institution Dashboard, where it can be reassigned; for a new application, the Institutions screen, where it waits. The email needs it, in its body.', 'wpcredits-program-manager' ),
+			'example' => static function () {
+				$page = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_INSTITUTION );
+
+				return '' !== $page ? $page : admin_url( 'admin.php?page=wpcpm-institutions' );
+			},
+		),
 		'request_link'       => array(
 			'means'   => __( 'The Administrator Dashboard, where the request waits for an Administrator to approve or decline it. Empty leaves its sentence out.', 'wpcredits-program-manager' ),
 			'example' => static function () {
@@ -434,8 +446,9 @@ $wpcpm_applied_subject = sprintf(
 
 // A colleague's invitation, with its inviter named or with nobody to name (since 1.122.23): the
 // opening sentence is the inviter's, and in both the promise of a reply is a value, empty when the
-// invitation carries no address to reply to, which leaves its sentence out.
-$wpcpm_invite = static function ( $named ) use ( $wpcpm_body ) {
+// invitation carries no address to reply to, which leaves its sentence out. Since Institutions release 1
+// the invitation also says its level, a representative's or a tutor's.
+$wpcpm_invite = static function ( $named, $tutor = false ) use ( $wpcpm_body ) {
 	return $wpcpm_body(
 		array(
 			$named
@@ -452,6 +465,9 @@ $wpcpm_invite = static function ( $named ) use ( $wpcpm_body ) {
 					'{institution_name}',
 					'{site_name}'
 				),
+			$tutor
+				? __( 'You are invited as a tutor: you can see the institution\'s students, their Student Report Cards and its semester reports, and change nothing.', 'wpcredits-program-manager' )
+				: __( 'You are invited as a representative: you can see and add the institution\'s students, invite colleagues and correct its details.', 'wpcredits-program-manager' ),
 			__( 'Open this link, and press Accept on the page it opens:', 'wpcredits-program-manager' ),
 			'{accept_link}',
 			sprintf(
@@ -627,6 +643,20 @@ return array(
 		'trigger'      => __( 'When a colleague is invited to an institution\'s account and the invitation has nobody to name as its sender, the inviter\'s account being gone or holding no name: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_invite_subject,
 		'body'         => $wpcpm_invite( false ),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
+	),
+	'institution-invite-tutor'      => array(
+		'trigger'      => __( 'When a member of an institution, or an Administrator acting for it, invites a colleague to its account as a tutor, who sees the students and changes nothing: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
+		'subject'      => $wpcpm_invite_subject,
+		'body'         => $wpcpm_invite( true, true ),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'inviter_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
+	),
+	'institution-invite-tutor-no-sender' => array(
+		'trigger'      => __( 'When a colleague is invited to an institution\'s account as a tutor and the invitation has nobody to name as its sender, the inviter\'s account being gone or holding no name: to the colleague\'s address, with the inviter\'s address to reply to while their account holds one.', 'wpcredits-program-manager' ),
+		'subject'      => $wpcpm_invite_subject,
+		'body'         => $wpcpm_invite( false, true ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'accept_link', 'expiry_date', 'replies_reach' ), array( 'accept_link' ) ),
 	),
@@ -926,5 +956,33 @@ return array(
 		),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'actor_name' ), array() ),
+	),
+	// An institution assigned to an Administrator (Institutions off Airtable, release 1).
+	'institution-assigned'          => array(
+		'trigger'      => __( 'When an institution is assigned to an Administrator, on a new application or when somebody reassigns it: to that Administrator, unless they made the assignment themselves.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: site name, 2: institution name. */
+			__( '[%1$s] %2$s is assigned to you', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{institution_name}'
+		),
+		'body'         => $wpcpm_body(
+			array(
+				sprintf(
+					/* translators: 1: institution name, 2: where it is, as ", in Poland," or nothing. */
+					__( '%1$s%2$s is now assigned to you.', 'wpcredits-program-manager' ),
+					'{institution_name}',
+					'{country_phrase}'
+				),
+				sprintf(
+					/* translators: %s: a link. */
+					__( 'Open it here: %s', 'wpcredits-program-manager' ),
+					'{institution_link}'
+				),
+				__( 'You are told because you follow this institution up. Reassign it from its page if somebody else should.', 'wpcredits-program-manager' ),
+			)
+		),
+		'eol'          => "\r\n",
+		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'country_phrase', 'institution_link' ), array( 'institution_link' ) ),
 	),
 );

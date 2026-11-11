@@ -271,6 +271,14 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 // Before the Institutions module, which uses it: PHP declares a class only once its traits are.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+// The Institutions tab draws the Areas section, which asks the Countries table and draws its one-field
+// choices through the dashboards' combobox; the combobox is a stand-in here, as it is not under test.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
+class WPCPM_Dashboards {
+	public static function compare_names( $a, $b ) { return strnatcasecmp( (string) $a, (string) $b ); }
+	public static function render_combo( array $args ) {}
+}
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, the Settings screen, and the three tools that draw their
 // own settings on their own screens, as the plugin's loader requires them.
@@ -642,7 +650,8 @@ function names_of( $form ) {
 			continue;
 		}
 
-		$names[ preg_replace( '/\[\]$/', '', $name ) ] = true;
+		// A nested name posts its setting's own key first: institution_areas[regions][europe].
+		$names[ preg_replace( '/\[.*$/', '', $name ) ] = true;
 	}
 
 	$names = array_keys( array_diff_key( $names, array_flip( array( WPCPM_Settings_Screen::SETTINGS_NONCE, 'wpcpm_tab', 'submit', WPCPM_Settings::FIELD_DRAWN_STATUSES ) ) ) );

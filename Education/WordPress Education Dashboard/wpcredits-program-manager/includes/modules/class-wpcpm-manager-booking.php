@@ -120,7 +120,7 @@ final class WPCPM_Manager_Booking {
 			esc_attr( self::META ),
 			esc_html__( 'Booking link', 'wpcredits-program-manager' ),
 			esc_attr( self::url_for( $user->ID ) ),
-			esc_html__( 'The link a sponsor presses to book a call with you. An https address.', 'wpcredits-program-manager' )
+			esc_html__( 'The link a sponsor or an institution presses to book a call with you. An https address.', 'wpcredits-program-manager' )
 		);
 	}
 

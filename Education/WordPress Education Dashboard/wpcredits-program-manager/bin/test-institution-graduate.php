@@ -244,6 +244,13 @@ if ( ! class_exists( 'WPCPM_Students_Sync' ) ) {
 }
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	class WPCPM_Institution_Members {
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+		public static function level_of( $user = null ) {
+			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+			return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+		}
 		const META_RECORD_ID = '_wpcpm_inst_record';
 		public static function memberships_of( $user ) {
 			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
@@ -941,6 +948,22 @@ ck( 'and no HTTP happened at all', $GLOBALS['http'], array() );
 $refusal = WPCPM_Institution_Students::messages()['status-refused'][1];
 ck( 'the refusal is the module\'s one refusal, byte for byte',
     $refusal, WPCPM_Institution_Policy::refusal()->get_error_message() );
+
+// Institutions release 1 (Review Focus 4): a tutor of the student's own, settled institution posts the
+// change with a valid nonce (the stub grants it) and the other state a representative may press.
+foreach ( array( 'graduated', 'withdrawn' ) as $state ) {
+	reset_world( 'In Sensei' );
+	$GLOBALS['users'][20]   = new WP_User( 20, 'A Tutor', 'tutor@example.test' );
+	$GLOBALS['members'][20] = array( $inst_a );
+	$GLOBALS['levels']      = array( 20 => 'tutor' );
+	$snapshot               = serialize( array( $GLOBALS['opts'], $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['umeta'][10] ) );
+	press( 20, $student, $state );
+	ck( "a tutor of the student's own institution posting $state gets the one refusal", flash_outcome(), 'status-refused' );
+	ck( 'and nothing was fetched, written, stored, logged or invalidated', array( $GLOBALS['http'], $GLOBALS['writes'], $GLOBALS['forgot'], serialize( array( $GLOBALS['opts'], $GLOBALS['posts'], $GLOBALS['pmeta'], $GLOBALS['umeta'][10] ) ) === $snapshot, WPCPM_Institution_Audit::entries_for( $inst_a ) ), array( array(), array(), array(), true, array() ) );
+}
+unset( $GLOBALS['umeta'][20] );
+ck( 'a tutor is drawn no graduation control on the student\'s page, and a representative of the same school is', array( draw( 20, $student, array() ), 0 < substr_count( draw( 2, $student, array() ), '<form' ) ), array( '', true ) );
+$GLOBALS['levels'] = array();
 
 reset_world( 'In Sensei' );
 $GLOBALS['live_rows'][ $student ] = new WP_Error( 'wpcpm_airtable_http', 'The base could not be reached.' );

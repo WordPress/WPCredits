@@ -261,6 +261,7 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 		const META_COUNTRY       = '_wpcpm_app_country';
 		const META_COUNTRY_NAME  = '_wpcpm_app_country_name';
 		const META_MANAGER       = '_wpcpm_app_manager';
+		const META_ASSIGNED      = '_wpcpm_app_assigned';
 		const META_CONSENT       = '_wpcpm_app_consent';
 		const META_SIGNALS       = '_wpcpm_app_signals';
 		const META_EMAIL         = '_wpcpm_app_email';
@@ -308,9 +309,12 @@ if ( ! class_exists( 'WPCPM_Settings' ) ) {
 	/** The table the writes name and the stage a new record starts at. */
 	class WPCPM_Settings {
 		public static function get() {
-			return array(
-				'institutions_table'    => 'tbl4V0FEbzRP7I2w2',
-				'institution_new_stage' => 'First Contact Made',
+			return array_merge(
+				array(
+					'institutions_table'    => 'tbl4V0FEbzRP7I2w2',
+					'institution_new_stage' => 'First Contact Made',
+				),
+				isset( $GLOBALS['extra_settings'] ) ? $GLOBALS['extra_settings'] : array()
 			);
 		}
 		public static function get_value( $key, $fallback = null ) {
@@ -443,6 +447,16 @@ if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
 			++$GLOBALS['site_read'];
 			return $GLOBALS['site_records'][ $record_id ] ?? array();
 		}
+		/** Keeps what it is given over what the record holds, and says whether the record changed. */
+		public static function set( $record_id, array $answers ) {
+			$held                                  = $GLOBALS['site_records'][ $record_id ] ?? array();
+			$kept                                  = array_merge( $held, $answers );
+			if ( $kept === $held ) {
+				return false;
+			}
+			$GLOBALS['site_records'][ $record_id ] = $kept;
+			return true;
+		}
 		public static function fill_empty( $record_id, array $answers ) {
 			$GLOBALS['journal'][]     = 'site';
 			$GLOBALS['site_filled'][] = array( $record_id, $answers );
@@ -555,6 +569,13 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
+	/** The booking link `contact_for()` reads with the account (1.123.84): nobody here has one. */
+	class WPCPM_Manager_Booking {
+		public static function url_for( $user_id ) { return ''; }
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 	/** The log, at its contract: it refuses the four rows the real one refuses. */
 	class WPCPM_Institution_Audit {
@@ -586,6 +607,8 @@ if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-areas.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-approval.php';
 
 $fail = 0;
@@ -1312,6 +1335,76 @@ foreach ( array( 'an empty list' => array(), 'a string' => 'garbled', 'false' =>
 
 	ck( sprintf( 'site meta that is %s is no answers: approved, nothing filled, no record', $why ), array( is_array( $result ), $GLOBALS['site_filled'], record_posts() ), array( true, array(), 0 ) );
 }
+
+echo "\n-- the assigned Administrator comes across with the application --\n";
+
+// Account 11 is an Administrator (the stand-in grants the capability to every account while the
+// suite says a manager can). The assignment is made without an email: the application's own
+// message told them when it landed. Made after `reset_world()`, which empties the accounts: since
+// 1.123.84 the approval asks whether the account is an Administrator's now (`contact_for()`), and an
+// account that is not there is nobody's.
+reset_world();
+$GLOBALS['users'][11]               = new WP_User( 11, 'ana.admin@example.test', 'ana' );
+$GLOBALS['users'][11]->display_name = 'Ana Admin';
+$GLOBALS['create_answer']           = $institution;
+$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_ASSIGNED => 11 ) );
+$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an application assigned to account 11 is approved', is_array( $result ), true );
+ck( 'and the institution is assigned to 11', WPCPM_Institution_Assignment::stored_of( $institution ), 11 );
+ck( 'by the Administrator who approved it, without an email', array( $GLOBALS['audit'][0]['kind'], $GLOBALS['audit'][0]['actor'], $GLOBALS['audit'][0]['data'] ), array( 'assignment_changed', 7, array( 'from' => 0, 'to' => 11 ) ) );
+
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$app                      = seed_application();
+$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an application assigned to nobody leaves the institution unassigned and writes no assignment row', array( WPCPM_Institution_Assignment::stored_of( $institution ), count( array_filter( $GLOBALS['audit'], static function ( $row ) { return 'assignment_changed' === $row['kind']; } ) ) ), array( 0, 0 ) );
+
+// A record the program already had keeps the Administrator it has.
+reset_world();
+$GLOBALS['search_answer']          = array( array( 'id' => $other, 'fields' => adopted_cells() ) );
+$GLOBALS['site_records'][ $other ] = array( 'assigned' => 12 );
+$GLOBALS['users'][12]              = new WP_User( 12, 'bo.boss@example.test', 'bo' );
+$app                               = seed_application( 'new', array( WPCPM_Institution_Application::META_ASSIGNED => 11 ) );
+$result                            = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an adopted record that already has an assignee keeps it', array( is_array( $result ), WPCPM_Institution_Assignment::stored_of( $other ) ), array( true, 12 ) );
+ck( 'and no assignment row is written', count( array_filter( $GLOBALS['audit'], static function ( $row ) { return 'assignment_changed' === $row['kind']; } ) ), 0 );
+
+// A record the program already had, set to Nobody, stays Nobody (Codex finding 3).
+reset_world();
+$GLOBALS['search_answer']          = array( array( 'id' => $other, 'fields' => adopted_cells() ) );
+$GLOBALS['site_records'][ $other ] = array( 'assigned' => 0 );
+$GLOBALS['users'][11]              = new WP_User( 11, 'ana.admin@example.test', 'ana' );
+$app                               = seed_application( 'new', array( WPCPM_Institution_Application::META_ASSIGNED => 11 ) );
+$result                            = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an adopted record set to Nobody stays Nobody', array( is_array( $result ), WPCPM_Institution_Assignment::stored_of( $other ), WPCPM_Institution_Assignment::has_choice( $other ) ), array( true, 0, true ) );
+ck( 'and no assignment row is written', count( array_filter( $GLOBALS['audit'], static function ( $row ) { return 'assignment_changed' === $row['kind']; } ) ), 0 );
+
+// An application filed with nobody assigned, approved after an area exists for its country.
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$GLOBALS['extra_settings'] = array( 'institution_areas' => array( 'countries' => array( $GLOBALS['country_id'] => 11 ), 'regions' => array() ) );
+$app                       = seed_application();
+$sent_before               = count( $GLOBALS['mail_queue'] );
+$result                    = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an application with no assignee, approved once an area holds its country, gives the institution that Administrator', array( is_array( $result ), WPCPM_Institution_Assignment::stored_of( $institution ) ), array( true, 11 ) );
+ck( 'by the approving Administrator, with no assignment email', array( $GLOBALS['audit'][0]['kind'], $GLOBALS['audit'][0]['actor'], $GLOBALS['audit'][0]['data'] ), array( 'assignment_changed', 7, array( 'from' => 0, 'to' => 11 ) ) );
+
+// An application given to an account that is no Administrator now (here, one that is gone) is treated as one
+// given to nobody (1.123.84): the area's Administrator at approval, with no email, as when it had none.
+reset_world();
+$GLOBALS['create_answer'] = $institution;
+$app                      = seed_application( 'new', array( WPCPM_Institution_Application::META_ASSIGNED => 99 ) );
+$result                   = WPCPM_Institution_Approval::approve( $app, 7 );
+
+ck( 'an application whose Administrator is no Administrator now takes the area\'s Administrator at approval', array( is_array( $result ), WPCPM_Institution_Assignment::stored_of( $institution ) ), array( true, 11 ) );
+// No email: this suite's mail stand-in has no `send()`, so an assignment email would end the run here.
+ck( 'by the approving Administrator, and the only mail is the new account\'s invitation', array( $GLOBALS['audit'][0]['kind'], $GLOBALS['audit'][0]['actor'], $GLOBALS['audit'][0]['data'], $GLOBALS['invited'] ), array( 'assignment_changed', 7, array( 'from' => 0, 'to' => 11 ), array( array( $result['user_id'] ) ) ) );
+unset( $GLOBALS['extra_settings'] );
 
 echo "\n-- the record waits for the account, and a resume makes it once --\n";
 

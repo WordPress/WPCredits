@@ -26,6 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * | `wpcpm_institution_active`         | 1 while it may be exercised; 0 after a detach or the sync's revoke  |
  * | `wpcpm_institution_record_id_was`  | Where the stamp goes when membership ends: history without power   |
  * | `wpcpm_institution_membership`     | `since`, `by`, `how`, `invite`: facts for the card and the log      |
+ * | `wpcpm_institution_level`          | `representative` (absent means it) or `tutor`: what the account may do |
  * | `wpcpm_inst_invited`        | Stamped by the mail layer when the login invitation is sent        |
  * | `wpcpm_institution_profile`        | The index row's public facts, so the header needs no Airtable read |
  *
@@ -44,6 +45,18 @@ class WPCPM_Institution_Members {
 
 	/** User meta: `since`, `by`, `how`, `invite`. Never read by the policy. */
 	const META_MEMBERSHIP = 'wpcpm_institution_membership';
+
+	/** User meta: the level of the membership, `representative` or `tutor`. Absent means `representative`. */
+	const META_LEVEL = 'wpcpm_institution_level';
+
+	/** User meta: the level a removed tutor held, kept beside the `_was` stamp so a re-add restores it. Written only for a tutor. */
+	const META_LEVEL_WAS = 'wpcpm_institution_level_was';
+
+	/** The level of every account before the Tutor level: sees, adds and changes the school's students. */
+	const LEVEL_REPRESENTATIVE = 'representative';
+
+	/** The level that sees the students, their Student Report Cards and the semester reports, and changes nothing. */
+	const LEVEL_TUTOR = 'tutor';
 
 	/** User meta: when the login invitation went out. Written by the mail layer. */
 	const META_INVITED = 'wpcpm_inst_invited';
@@ -73,6 +86,55 @@ class WPCPM_Institution_Members {
 	 */
 	public static function hows() {
 		return array( self::HOW_PROVISIONED, self::HOW_APPROVED, self::HOW_MANAGER, self::HOW_INVITED, self::HOW_LEGACY );
+	}
+
+	/**
+	 * The levels a membership may have.
+	 *
+	 * @return string[]
+	 */
+	public static function levels() {
+		return array( self::LEVEL_REPRESENTATIVE, self::LEVEL_TUTOR );
+	}
+
+	/**
+	 * The level a former member held when the membership ended.
+	 *
+	 * A removed tutor must never come back with a representative's rights, so a re-add
+	 * passes this to `attach()`. Only a stored `tutor` narrows: anything else reads as a
+	 * representative, as `level_of()` does.
+	 *
+	 * @param int|WP_User|null $user User ID, object, or null for the current user.
+	 * @return string One of `levels()`.
+	 */
+	public static function former_level_of( $user = null ) {
+		$user = self::resolve( $user );
+
+		if ( ! $user instanceof WP_User || ! $user->exists() ) {
+			return self::LEVEL_REPRESENTATIVE;
+		}
+
+		return self::LEVEL_TUTOR === (string) get_user_meta( $user->ID, self::META_LEVEL_WAS, true ) ? self::LEVEL_TUTOR : self::LEVEL_REPRESENTATIVE;
+	}
+
+	/**
+	 * The level of this account's membership.
+	 *
+	 * `representative` whenever the meta is absent or holds anything else, which is every
+	 * account made before the Tutor level: only a stored `tutor` narrows an account, so a
+	 * damaged value never takes a school's access away and never grants a tutor more.
+	 *
+	 * @param int|WP_User|null $user User ID, object, or null for the current user.
+	 * @return string One of `levels()`.
+	 */
+	public static function level_of( $user = null ) {
+		$user = self::resolve( $user );
+
+		if ( ! $user instanceof WP_User || ! $user->exists() ) {
+			return self::LEVEL_REPRESENTATIVE;
+		}
+
+		return self::LEVEL_TUTOR === (string) get_user_meta( $user->ID, self::META_LEVEL, true ) ? self::LEVEL_TUTOR : self::LEVEL_REPRESENTATIVE;
 	}
 
 	/**
@@ -238,9 +300,10 @@ class WPCPM_Institution_Members {
 	 * @param string $how       One of `hows()`.
 	 * @param int    $actor_id  Who is doing it; 0 for a sync.
 	 * @param int    $invite_id The invitation post this answers, when there is one.
+	 * @param string $level     One of `levels()`; a representative unless said otherwise.
 	 * @return true|WP_Error
 	 */
-	public static function attach( $user_id, $record_id, $how, $actor_id, $invite_id = 0 ) {
+	public static function attach( $user_id, $record_id, $how, $actor_id, $invite_id = 0, $level = self::LEVEL_REPRESENTATIVE ) {
 		$record_id = trim( (string) $record_id );
 
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
@@ -283,6 +346,11 @@ class WPCPM_Institution_Members {
 			return new WP_Error( 'wpcpm_member_bad_how', __( 'That is not a way a membership can come about.', 'wpcredits-program-manager' ) );
 		}
 
+		// A server-held list too: the level is what a tutor's account is narrowed by.
+		if ( ! is_string( $level ) || ! in_array( $level, self::levels(), true ) ) {
+			return new WP_Error( 'wpcpm_member_bad_level', __( 'That is not a level a membership can have.', 'wpcredits-program-manager' ) );
+		}
+
 		$actor_id  = absint( $actor_id );
 		$invite_id = absint( $invite_id );
 		// Re-added only when the account is coming back to THIS institution. A `_was` naming
@@ -294,6 +362,8 @@ class WPCPM_Institution_Members {
 
 		update_user_meta( $user->ID, self::META_RECORD_ID, $record_id );
 		update_user_meta( $user->ID, self::META_ACTIVE, 1 );
+		update_user_meta( $user->ID, self::META_LEVEL, $level );
+		delete_user_meta( $user->ID, self::META_LEVEL_WAS );
 		update_user_meta(
 			$user->ID,
 			self::META_MEMBERSHIP,
@@ -336,6 +406,7 @@ class WPCPM_Institution_Members {
 					'how'     => $how,
 					'invite'  => $invite_id,
 					'readded' => $readded,
+					'level'   => $level,
 				),
 			)
 		);
@@ -383,9 +454,17 @@ class WPCPM_Institution_Members {
 
 		$actor_id = absint( $actor_id );
 
+		// A tutor's level is kept beside the stamp, so a re-add cannot hand back more than they had.
+		if ( self::LEVEL_TUTOR === self::level_of( $user ) ) {
+			update_user_meta( $user->ID, self::META_LEVEL_WAS, self::LEVEL_TUTOR );
+		} else {
+			delete_user_meta( $user->ID, self::META_LEVEL_WAS );
+		}
+
 		update_user_meta( $user->ID, self::META_RECORD_ID_WAS, $record_id );
 		delete_user_meta( $user->ID, self::META_RECORD_ID );
 		update_user_meta( $user->ID, self::META_ACTIVE, 0 );
+		delete_user_meta( $user->ID, self::META_LEVEL );
 
 		// Never touch an administrator's roles, and never delete an account.
 		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_ADMIN )

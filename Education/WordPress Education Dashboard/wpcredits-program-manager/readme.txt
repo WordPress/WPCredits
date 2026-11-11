@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.83
+Stable tag: 1.123.84
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,16 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.84 =
+
+* Every institution has an assigned Administrator. Settings > Institutions has a new section, Areas of responsibility: one Administrator for a country, or for a region, never two for the same country. A new application takes the Administrator of its country's area, and approval keeps it. Once the areas are set, the Countries table in Airtable no longer decides who follows an institution up.
+* The assigned Administrator is emailed when an institution is assigned to them, on a new application or when somebody reassigns it, and is the only one told of an application that has an Administrator. An application no area covers goes to the agreement notification addresses, or to every Administrator, as before.
+* A school added in Airtable is given its area's Administrator by the institutions sync, and that Administrator is emailed.
+* An Administrator reassigns an institution from its details card. The queues, the Administrator Dashboard and the school's Institution Dashboard name the assigned Administrator, with their booking link.
+* An invitation to an institution has a Level: Representative, or Tutor. A tutor sees the students, their Student Report Cards and the semester reports, and changes nothing.
+* Each school keeps its tutor list on the site, in the Tutors section of its People card. The Tutor box on the enrollment form reads that list, not Airtable.
+* New command: `wp wpcredits institutions_seed` fills in the areas, booking links, assignments and tutor lists once from Airtable. Run it with `--dry-run` first. It never replaces what the site holds and sends no email.
 
 = 1.123.83 =
 

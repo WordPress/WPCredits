@@ -34,6 +34,12 @@ final class WPCPM_Institution_Policy {
 	/** Ground: membership of an institution the subject belongs to. */
 	const GROUND_MEMBER = 'member';
 
+	/**
+	 * Ground: a tutor's membership of an institution the subject belongs to. It carries the four
+	 * view actions and nothing else: a tutor sees and changes nothing.
+	 */
+	const GROUND_TUTOR = 'tutor';
+
 	// Reserved, not built: 'project'. See section 12 of the design spec.
 
 	/** The dashboard, its groups, the strip, the members card. */
@@ -98,15 +104,15 @@ final class WPCPM_Institution_Policy {
 	 */
 	public static function grounds() {
 		return array(
-			self::ACT_VIEW_ROSTER          => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
-			self::ACT_VIEW_STUDENT         => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
-			self::ACT_VIEW_REPORT          => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_VIEW_ROSTER          => array( self::GROUND_MANAGER, self::GROUND_MEMBER, self::GROUND_TUTOR ),
+			self::ACT_VIEW_STUDENT         => array( self::GROUND_MANAGER, self::GROUND_MEMBER, self::GROUND_TUTOR ),
+			self::ACT_VIEW_REPORT          => array( self::GROUND_MANAGER, self::GROUND_MEMBER, self::GROUND_TUTOR ),
 			self::ACT_EDIT_STUDENT         => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_CHANGE_STATUS        => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_RESEND_INVITE        => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_ADD_STUDENT          => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_EXPORT               => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
-			self::ACT_VIEW_SEMESTER_REPORT => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			self::ACT_VIEW_SEMESTER_REPORT => array( self::GROUND_MANAGER, self::GROUND_MEMBER, self::GROUND_TUTOR ),
 			// Managers only since the approval design of 4 September 2026: the site drafts the
 			// report and the program approves it, so a member's account has nothing to write.
 			// Viewing keeps the member ground, narrowed to approved reports by the screen, which
@@ -277,7 +283,21 @@ final class WPCPM_Institution_Policy {
 		$ids   = array_values( array_filter( $given, array( 'WPCPM_Mentors_Sync', 'is_record_id' ) ) );
 
 		foreach ( $grounds[ $action ] as $ground ) {
-			$decision = call_user_func( array( __CLASS__, 'ground_' . $ground ), $action, $subject, $ids, $user );
+			// Direct calls, so the analyser sees each ground used. A ground this map names but
+			// this switch does not stays undecided and falls through to the refusal below.
+			switch ( $ground ) {
+				case 'manager':
+					$decision = self::ground_manager( $action, $subject, $ids, $user );
+					break;
+				case 'member':
+					$decision = self::ground_member( $action, $subject, $ids, $user );
+					break;
+				case 'tutor':
+					$decision = self::ground_tutor( $action, $subject, $ids, $user );
+					break;
+				default:
+					$decision = null;
+			}
 
 			if ( is_array( $decision ) ) {
 				return $decision;
@@ -334,6 +354,45 @@ final class WPCPM_Institution_Policy {
 			return null;
 		}
 
+		// A tutor holds the tutor ground and no other: a row that lists `member` does not carry them.
+		if ( WPCPM_Institution_Members::LEVEL_TUTOR === WPCPM_Institution_Members::level_of( $user ) ) {
+			return null;
+		}
+
+		return self::membership_decision( self::GROUND_MEMBER, $action, $ids, $user );
+	}
+
+	/**
+	 * A tutor's membership of an institution the subject belongs to, for the view actions.
+	 *
+	 * The same test as the member ground, the agreement gate included, for an account whose level
+	 * is `tutor`. Only the four view rows of the map list this ground, so every other action is
+	 * refused a tutor for want of a ground.
+	 *
+	 * @param string  $action  The action, for the gate.
+	 * @param array   $subject The subject, unused: the filtered IDs are what is needed.
+	 * @param array   $ids     The subject's institution IDs, well-formed ones only.
+	 * @param WP_User $user    The acting user.
+	 * @return array|null A decision, or null to try the next ground.
+	 */
+	private static function ground_tutor( $action, array $subject, array $ids, WP_User $user ) {
+		if ( empty( $ids ) || WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $user ) ) {
+			return null;
+		}
+
+		return self::membership_decision( self::GROUND_TUTOR, $action, $ids, $user );
+	}
+
+	/**
+	 * The decision for an account that acts for one of the subject's institutions, or null.
+	 *
+	 * @param string  $ground The ground to name.
+	 * @param string  $action The action, for the gate.
+	 * @param array   $ids    The subject's institution IDs, well-formed ones only.
+	 * @param WP_User $user   The acting user.
+	 * @return array|null
+	 */
+	private static function membership_decision( $ground, $action, array $ids, WP_User $user ) {
 		foreach ( WPCPM_Institution_Members::memberships_of( $user ) as $mine ) {
 			if ( ! in_array( $mine, $ids, true ) ) {
 				continue;
@@ -345,7 +404,7 @@ final class WPCPM_Institution_Policy {
 
 			return array(
 				'allowed'     => true,
-				'ground'      => self::GROUND_MEMBER,
+				'ground'      => $ground,
 				'institution' => $mine,
 				'fields'      => null,
 				'why'         => '',

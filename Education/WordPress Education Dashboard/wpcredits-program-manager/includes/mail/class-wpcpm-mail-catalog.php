@@ -162,7 +162,7 @@ final class WPCPM_Mail_Catalog {
 			// Institutions. Since 1.122.22 each email that says words of its own has an id of its own: the
 			// acknowledgement with no call to book, the upload the courtesy scan noticed something in,
 			// the agreement put back in force (sent as an acceptance until then) and the revocation with
-			// no country contact are new; the agreement's names say Collaboration Agreement in full.
+			// nobody assigned are new; the agreement's names say Collaboration Agreement in full.
 			// The names of the emails about an application, an upload, a reminder and a template say they
 			// are the institution's, as the sponsors' say they are the sponsor's, since the Log's Email field
 			// lists every name side by side.
@@ -173,6 +173,8 @@ final class WPCPM_Mail_Catalog {
 			'institution-declined'               => array( __( 'Institution application declined', 'wpcredits-program-manager' ), $n, self::TYPE_APPLICANT ),
 			'institution-invite'                 => array( __( 'Invitation to join an institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'institution-invite-no-sender'       => array( __( 'Invitation to join an institution, with no sender named', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
+			'institution-invite-tutor'           => array( __( 'Invitation to an institution as a tutor', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
+			'institution-invite-tutor-no-sender' => array( __( 'Invitation to an institution as a tutor, with no sender named', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-received'                 => array( __( 'Collaboration Agreement received, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-landed'                   => array( __( 'Collaboration Agreement uploaded by an institution, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'agreement-landed-flagged'           => array( __( 'Collaboration Agreement uploaded by an institution with the scan\'s notes, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
@@ -180,7 +182,7 @@ final class WPCPM_Mail_Catalog {
 			'agreement-reinstated'               => array( __( 'Collaboration Agreement back in force, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-returned'                 => array( __( 'Collaboration Agreement returned with a note, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-revoked'                  => array( __( 'Collaboration Agreement taken out of force, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
-			'agreement-revoked-no-contact'       => array( __( 'Collaboration Agreement taken out of force, to an institution with no country contact', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
+			'agreement-revoked-no-contact'       => array( __( 'Collaboration Agreement taken out of force, to an institution nobody is assigned to', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'agreement-reminder'                 => array( __( 'Collaboration Agreements from institutions waiting for review, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'agreement-template'                 => array( __( 'Collaboration Agreement for an institution could not be generated, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			'member-last'                        => array( __( 'Institution has no members left, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
@@ -192,6 +194,8 @@ final class WPCPM_Mail_Catalog {
 			'institution-details-approved'       => array( __( 'Correction of institution details approved, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'institution-details-declined'       => array( __( 'Correction of institution details declined, to the institution', 'wpcredits-program-manager' ), $n, self::TYPE_INSTITUTION ),
 			'institution-details-withdrawn'      => array( __( 'Institution withdrew its request to correct its details, to Administrators', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
+			// An institution assigned to an Administrator (Institutions off Airtable, release 1).
+			'institution-assigned'               => array( __( 'Institution assigned, to the Administrator', 'wpcredits-program-manager' ), $n, self::TYPE_ADMIN ),
 			// Semester reports.
 			'report-drafted'                     => array( __( 'Semester report drafted, to Administrators', 'wpcredits-program-manager' ), $r, self::TYPE_ADMIN ),
 			'report-approved'                    => array( __( 'Semester report approved, to the institution', 'wpcredits-program-manager' ), $r, self::TYPE_INSTITUTION ),

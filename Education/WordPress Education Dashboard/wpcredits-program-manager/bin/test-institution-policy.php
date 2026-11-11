@@ -28,6 +28,7 @@ $GLOBALS['users']        = array();
 $GLOBALS['uid']          = 0;
 $GLOBALS['manage']       = array();
 $GLOBALS['memberships']  = array();
+$GLOBALS['levels']       = array();
 $GLOBALS['settled']      = array();
 $GLOBALS['umeta']        = array();
 $GLOBALS['pmeta']        = array();
@@ -91,6 +92,13 @@ if ( ! class_exists( 'WPCPM_Students_Sync' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	/** Stands in for the members module: the institutions an account acts for right now. */
 	class WPCPM_Institution_Members {
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** The level the account holds: a representative unless the fixture says tutor, as the real class reads it. */
+		public static function level_of( $user = null ) {
+			$id = is_object( $user ) ? $user->ID : (int) $user;
+			return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+		}
 		public static function memberships_of( $user = null ) {
 			$id = is_object( $user ) ? $user->ID : (int) $user;
 			return $GLOBALS['memberships'][ $id ] ?? array();
@@ -199,6 +207,9 @@ $GLOBALS['users'] = array(
 	7 => new WP_User( 7, 'Member of TEST' ),
 	8 => new WP_User( 8, 'Student at A' ),
 	9 => new WP_User( 9, 'Student nowhere' ),
+	10 => new WP_User( 10, 'Tutor of A' ),
+	11 => new WP_User( 11, 'Tutor of B' ),
+	12 => new WP_User( 12, 'Tutor of TEST' ),
 );
 $GLOBALS['manage']      = array( 1, 6 );
 $GLOBALS['memberships'] = array(
@@ -207,7 +218,11 @@ $GLOBALS['memberships'] = array(
 	5 => array( '' ),       // The bug shape: a membership that is present and empty.
 	6 => array( $A ),
 	7 => array( $TEST ),
+	10 => array( $A ),
+	11 => array( $B ),
+	12 => array( $TEST ),
 );
+$GLOBALS['levels'] = array( 10 => 'tutor', 11 => 'tutor', 12 => 'tutor' );
 $GLOBALS['settled'] = array( $A, $B );
 $GLOBALS['umeta']   = array(
 	8 => array( WPCPM_Students_Sync::META_INSTITUTION => $A ),
@@ -253,9 +268,10 @@ echo "\n=== The map of grounds ===\n";
 // ground to a row is a diff here as well as in the class. That is how a project clause is
 // meant to land: on two rows, with this assertion updated in the same commit.
 $expected_map = array(
-	'view_roster'          => array( 'manager', 'member' ),
-	'view_student'         => array( 'manager', 'member' ),
-	'view_report'          => array( 'manager', 'member' ),
+	// Institutions release 1: a tutor's ground is on the four view rows and on no other.
+	'view_roster'          => array( 'manager', 'member', 'tutor' ),
+	'view_student'         => array( 'manager', 'member', 'tutor' ),
+	'view_report'          => array( 'manager', 'member', 'tutor' ),
 	'edit_student'         => array( 'manager', 'member' ),
 	'change_status'        => array( 'manager', 'member' ),
 	// A student's welcome invitation, sent again from their card: the member ground for the
@@ -263,7 +279,7 @@ $expected_map = array(
 	'resend_invite'        => array( 'manager', 'member' ),
 	'add_student'          => array( 'manager', 'member' ),
 	'export'               => array( 'manager', 'member' ),
-	'view_semester_report' => array( 'manager', 'member' ),
+	'view_semester_report' => array( 'manager', 'member', 'tutor' ),
 	// Design of 4 September 2026, decision 1: the institution reads the report and never
 	// writes it. The member ground stays on viewing, behind the agreement gate as before.
 	'edit_semester_report' => array( 'manager' ),
@@ -277,7 +293,7 @@ $expected_map = array(
 
 ck( 'grounds() is exactly the expected map, in order', $P::grounds(), $expected_map );
 ck( 'ungated() is the agreement alone', $P::ungated(), array( 'agreement' ) );
-ck( 'the two grounds and the refusal code', array( $P::GROUND_MANAGER, $P::GROUND_MEMBER, $P::REFUSAL_CODE ), array( 'manager', 'member', 'wpcpm_inst_unknown' ) );
+ck( 'the three grounds and the refusal code', array( $P::GROUND_MANAGER, $P::GROUND_MEMBER, $P::GROUND_TUTOR, $P::REFUSAL_CODE ), array( 'manager', 'member', 'tutor', 'wpcpm_inst_unknown' ) );
 
 // Every ACT_* constant the class declares is a row, and every row is a constant, so an action
 // cannot be added to the class without being placed in the map, nor the other way round.
@@ -437,6 +453,47 @@ ck( 'nor a signed-out visitor', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_s
 ck( 'a student with no stamp is an Administrator\'s alone, naming no institution',
     array( $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 9 ), 2 ), $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 9 ), 1 ) ),
     array( refused_for( 'no-ground' ), allowed_as( 'manager', '' ) ) );
+
+/* ---- the Tutor level (Institutions release 1) ------------------------------ */
+
+echo "\n=== A tutor sees and changes nothing ===\n";
+
+$view_rows = array( 'view_roster', 'view_student', 'view_report', 'view_semester_report' );
+
+foreach ( $expected_map as $action => $grounds ) {
+	if ( in_array( $action, $view_rows, true ) ) {
+		ck( "a tutor of settled A passes $action on A, on the tutor ground", $P::decide( $action, $inst_a, 10 ), allowed_as( 'tutor', $A ) );
+	} else {
+		ck( "a tutor of settled A is refused $action on A with the one refusal", $P::decide( $action, $inst_a, 10 ), refused_for( 'no-ground' ) );
+	}
+
+	ck( "a tutor of B is refused $action on A", $P::decide( $action, $inst_a, 11 ), refused_for( 'no-ground' ) );
+	ck( "a tutor is refused $action on an institution-less subject", $P::decide( $action, $nowhere, 10 ), refused_for( 'no-ground' ) );
+}
+
+ck( 'a tutor of A passes the roster of A through a student subject too', $P::decide( $P::ACT_VIEW_STUDENT, $P::subject_student_account( 8 ), 10 ), allowed_as( 'tutor', $A ) );
+ck( 'and a post placed under A', $P::decide( $P::ACT_VIEW_SEMESTER_REPORT, $P::subject_post( new WP_Post( 503, 'wpcpm_inst_report' ), '_wpcpm_sr_institution' ), 10 ), allowed_as( 'tutor', $A ) );
+ck( 'a tutor of A is refused to send a student their invitation again', $P::decide( $P::ACT_RESEND_INVITE, $P::subject_student_account( 8 ), 10 ), refused_for( 'no-ground' ) );
+ck( 'a tutor never holds the member ground, on any row that lists it', array_filter( array_map( function ( $action ) use ( $P, $inst_a ) { return 'member' === $P::decide( $action, $inst_a, 10 )['ground']; }, array_keys( $expected_map ) ) ), array() );
+
+$GLOBALS['settled'] = array( $B );
+foreach ( $view_rows as $action ) {
+	ck( "a tutor of A is refused $action while A's agreement is not settled", $P::decide( $action, $inst_a, 10 ), refused_for( 'no-ground' ) );
+}
+ck( 'and the agreement, which is a representative\'s, is not theirs either', $P::decide( $P::ACT_AGREEMENT, $inst_a, 10 ), refused_for( 'no-ground' ) );
+ck( 'a tutor of B, still settled, is unaffected by the lock on A', $P::decide( $P::ACT_VIEW_ROSTER, $inst_b, 11 ), allowed_as( 'tutor', $B ) );
+ck( 'a representative of A is unchanged by all of it: the member ground on a view row', $P::decide( $P::ACT_VIEW_ROSTER, $inst_b, 3 ), allowed_as( 'member', $B ) );
+$GLOBALS['settled'] = array( $A, $B );
+
+$GLOBALS['levels'][2] = 'representative';
+ck( 'a stored representative level is the member ground', $P::decide( $P::ACT_EDIT_STUDENT, $inst_a, 2 ), allowed_as( 'member', $A ) );
+$GLOBALS['levels'][2] = 'nonsense';
+ck( 'and a damaged level narrows nobody', $P::decide( $P::ACT_EDIT_STUDENT, $inst_a, 2 ), allowed_as( 'member', $A ) );
+unset( $GLOBALS['levels'][2] );
+
+$GLOBALS['manage'][] = 10;
+ck( 'an Administrator account that somehow holds the tutor level passes as a manager', $P::decide( $P::ACT_EDIT_STUDENT, $inst_a, 10 ), allowed_as( 'manager', $A ) );
+$GLOBALS['manage'] = array( 1, 6 );
 
 /* ---- the Phase 1 demonstration, against the TEST record ------------------- */
 
@@ -611,6 +668,144 @@ printf(
 	$inst_files ? implode( ', ', array_map( 'basename', $inst_files ) ) : 'none',
 	$scanned ? implode( ', ', $scanned ) : 'none registered yet'
 );
+
+/* ---- source level: every handler names an action a tutor is refused, or says why not ---- */
+
+echo "\n=== Review Focus 4: every handler names an action a tutor is refused, or is listed with its proof ===\n";
+
+// What this proves, and no more. The scan finds every admin_post_ and wp_ajax_ registration (the signed-out
+// `nopriv` forms too) in every file under includes/ that consults the institution policy, institution
+// membership or the events' audience, so a handler added to any of them is found without being listed. Each
+// handler passes only if one of these holds:
+//   - it names, on its own or within two calls of its own file's helpers, an action of the policy's map that the
+//     real policy refuses a tutor of a settled institution;
+//   - its own body, or the guard method it calls first, checks the manage capability, which a tutor does not
+//     hold;
+//   - it is in the list below. `public` is a flow anybody may post. Every other entry names the check, in a
+//     suite, that proves a tutor's post writes nothing, and that check's label must be found in that suite's
+//     source here.
+// What a handler writes for a tutor is that suite check's business, not this section's.
+$listed = array(
+	'WPCPM_Institution_Application::handle_submit'     => array( 'public' ),
+	'WPCPM_Institution_Application::handle_verify'     => array( 'public' ),
+	'WPCPM_Institution_Invite::handle_accept'          => array( 'public' ),
+	'WPCPM_Institutions_Dashboard::handle_move'        => array( 'level', 'bin/test-institutions-dashboard.php', 'a tutor\'s hand-made post to the mover is refused with a 403, after the nonce' ),
+	'WPCPM_Semester_Report_Screen::handle_print'       => array( 'read', 'bin/test-semester-report.php', 'and printing it writes no export stamp' ),
+	'WPCPM_Sponsor_Event_List::handle_join'            => array( 'audience', 'bin/test-sponsor-event-list.php', 'a tutor of an institution is not in the institutions\' audience: a hand-made Join with a valid nonce seats nobody, mails nobody and writes nothing' ),
+	'WPCPM_Sponsor_Event_List::handle_leave'           => array( 'audience', 'bin/test-sponsor-event-list.php', 'a tutor of an institution pressing Leave on an event they are not on writes and mails nothing' ),
+	'WPCPM_Student_Report_Form::handle_save'           => array( 'own', 'bin/test-report-form.php', 'a tutor of the student\'s school is neither the student nor an Administrator, so user_can_edit() refuses them the report form' ),
+	'WPCPM_Student_Report_Form::handle_image_remove'   => array( 'own', 'bin/test-report-form.php', 'a tutor of the student\'s school is neither the student nor an Administrator, so user_can_edit() refuses them the report form' ),
+);
+
+$view_actions  = array( 'view_roster', 'view_student', 'view_report', 'view_semester_report' );
+$handlers_seen = array();
+$module_base   = (string) file_get_contents( $module_dir . 'class-wpcpm-module.php' );
+$module_guard  = (string) method_body( $module_base, 'verify' );
+$all_files     = array();
+$rii           = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( WPCPM_PLUGIN_DIR . 'includes' ) );
+
+foreach ( $rii as $file ) {
+	if ( $file->isFile() && 'php' === $file->getExtension() ) {
+		$all_files[] = $file->getPathname();
+	}
+}
+sort( $all_files );
+
+foreach ( $all_files as $path ) {
+	$source = (string) file_get_contents( $path );
+
+	if ( ! preg_match( '/WPCPM_Institution_Policy::|WPCPM_Institution_Members::|resolve_institution|WPCPM_Sponsor_Event::audience_of\(/', $source ) ) {
+		continue;
+	}
+
+	$class = preg_match( '/^(?:final |abstract )?class ([A-Za-z_]+)/m', $source, $cm ) ? $cm[1] : basename( $path );
+
+	if ( ! preg_match_all( '/add_action\(\s*[\'"](?:admin_post|wp_ajax)(?:_nopriv)?_[^\'"]*[\'"][^,]*,\s*(.+?)\s*\)\s*;/s', $source, $regs, PREG_SET_ORDER ) ) {
+		continue;
+	}
+
+	foreach ( $regs as $reg ) {
+		if ( ! preg_match( '/array\(\s*[^,]+,\s*[\'"]([A-Za-z_][A-Za-z0-9_]*)[\'"]\s*\)/', trim( $reg[1] ), $m ) ) {
+			continue;
+		}
+
+		$method = $m[1];
+		$name   = $class . '::' . $method;
+
+		if ( isset( $handlers_seen[ $name ] ) ) {
+			continue;
+		}
+
+		$handlers_seen[ $name ] = true;
+		$body  = method_body( $source, $method );
+		$body  = null === $body ? (string) method_body( (string) file_get_contents( $module_dir . 'class-wpcpm-sync-module.php' ), $method ) . (string) method_body( (string) file_get_contents( $module_dir . 'trait-wpcpm-accounts-screen.php' ), $method ) : $body;
+		$reach = $body;
+
+		// Two hops into the file's own helpers: the report screen's state buttons reach the decision through two.
+		for ( $hop = 0; $hop < 2; $hop++ ) {
+			if ( preg_match_all( '/(?:self|static)::([A-Za-z_][A-Za-z0-9_]*)\s*\(/', $reach, $calls ) ) {
+				foreach ( array_unique( $calls[1] ) as $callee ) {
+					$reach .= (string) method_body( $source, $callee );
+				}
+			}
+		}
+
+		$named = array();
+		preg_match_all( '/ACT_[A-Z_]+/', $reach, $acts );
+		foreach ( array_unique( $acts[0] ) as $constant ) {
+			$action = constant( $P . '::' . $constant );
+			if ( ! in_array( $action, $view_actions, true ) && isset( $expected_map[ $action ] ) && refused_for( 'no-ground' ) === $P::decide( $action, $inst_a, 10 ) ) {
+				$named[] = $constant;
+			}
+		}
+
+		if ( $named ) {
+			ck( sprintf( '%s names %s, which the real policy refuses a tutor of a settled institution', $name, $named[0] ), true, true );
+			continue;
+		}
+
+		// The capability, in the handler's own body or in the guard it calls first: `$this->verify()` is the
+		// module base's, whose own body is read here for the capability.
+		$first_guard = '';
+		if ( preg_match( '/^\s*(?:self|static)::([A-Za-z_]+)\s*\(/m', $body, $g ) ) {
+			$first_guard = (string) method_body( $source, $g[1] );
+		}
+		// A refusal for whoever lacks it, not a mention: a handler that only reads the capability to decide where to
+		// send an Administrator (the dashboard's mover) is not guarded by it.
+		$refuses = '/if\s*\(\s*!\s*current_user_can\(\s*WPCPM_Roles::CAP_MANAGE\s*\)/';
+		$guarded = 1 === preg_match( $refuses, $body ) || 1 === preg_match( $refuses, $first_guard )
+			|| ( false !== strpos( $body, '$this->verify(' ) && 1 === preg_match( $refuses, $module_guard ) );
+
+		if ( $guarded ) {
+			ck( sprintf( '%s checks the manage capability, which a tutor does not hold', $name ), true, true );
+			continue;
+		}
+
+		$entry  = isset( $listed[ $name ] ) ? $listed[ $name ] : array();
+		$proved = false;
+		$how    = 'not listed';
+
+		if ( $entry ) {
+			$how = $entry[0];
+
+			if ( 'public' === $entry[0] ) {
+				$proved = true;
+			} else {
+				$suite  = (string) file_get_contents( WPCPM_PLUGIN_DIR . $entry[1] );
+				// The suites write their labels inside single quotes, so an apostrophe sits there as \'.
+				$proved = false !== strpos( $suite, $entry[2] ) || false !== strpos( $suite, str_replace( "'", "\\'", $entry[2] ) );
+
+				if ( 'level' === $entry[0] ) {
+					$proved = $proved && 1 === preg_match( '/LEVEL_TUTOR\s*!==\s*WPCPM_Institution_Members::level_of\(/', $body );
+				}
+			}
+		}
+
+		ck( sprintf( '%s names no action a tutor is refused and checks no capability: listed as %s, with the check that proves a tutor writes nothing found in its suite', $name, $how ), $proved, true );
+	}
+}
+
+ck( 'the scan found the handlers it is meant to', array( isset( $handlers_seen['WPCPM_Agreement_Generate::handle_generate'] ), isset( $handlers_seen['WPCPM_Semester_Report_Screen::handle_save'] ), isset( $handlers_seen['WPCPM_Sponsor_Event_List::handle_join'] ), isset( $handlers_seen['WPCPM_Student_Report_Form::handle_save'] ), count( $handlers_seen ) > 45 ), array( true, true, true, true, true ) );
 
 /* ---- source level: nobody else compares institution IDs ------------------- */
 

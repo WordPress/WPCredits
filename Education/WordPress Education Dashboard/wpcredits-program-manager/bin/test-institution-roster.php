@@ -205,6 +205,13 @@ if ( ! class_exists( 'WPCPM_Students_Sync' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	/** Stands in for the members module: the live stamp, and the flag the switcher's fallback queries. */
 	class WPCPM_Institution_Members {
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+		public static function level_of( $user = null ) {
+			$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+			return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+		}
 		const META_ACTIVE = 'wpcpm_institution_active';
 		public static function institution_of( $user = null ) {
 			$id = is_object( $user ) ? $user->ID : (int) $user;
@@ -242,6 +249,7 @@ if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
 	class WPCPM_Institution_Audit {
 		const GROUND_MANAGER = 'manager';
 		const GROUND_MEMBER  = 'member';
+		const GROUND_TUTOR   = 'tutor';
 		const GROUND_SYSTEM  = 'system';
 		const EVIDENCE_INDEX = 'index';
 		const EVIDENCE_CACHE = 'cache';
@@ -903,6 +911,16 @@ ck( "filed under the actor's own institution, on the member ground, against live
 		$GLOBALS['audit'][0]['evidence'],
 	),
 	array( WPCPM_Institution_Roster::LOG_REFUSED, $A, $R_STALE, 2, 'member', 'live' ) );
+
+// Institutions release 1: the same live refusal for a tutor of A is filed on the tutor ground, not as a member's.
+reset_calls();
+$GLOBALS['audit']  = array();
+$GLOBALS['levels'] = array( 2 => 'tutor' );
+WPCPM_Institution_Roster::claim( $R_STALE, $P::ACT_VIEW_REPORT, 'report', 2 );
+ck( 'a tutor\'s refused live read is logged on the tutor ground, as the policy would name it',
+	array( count( $GLOBALS['audit'] ), $GLOBALS['audit'][0]['kind'] ?? null, $GLOBALS['audit'][0]['actor'] ?? null, $GLOBALS['audit'][0]['ground'] ?? null ),
+	array( 1, WPCPM_Institution_Roster::LOG_REFUSED, 2, 'tutor' ) );
+$GLOBALS['levels'] = array();
 
 echo "\n--- zero matches and several matches both fail closed ---\n";
 

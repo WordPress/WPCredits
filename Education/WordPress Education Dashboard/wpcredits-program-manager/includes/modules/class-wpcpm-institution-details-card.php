@@ -91,6 +91,7 @@ class WPCPM_Institution_Details_Card {
 		add_action( 'admin_post_' . self::ACTION_SAVE, array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_' . self::ACTION_ASK, array( __CLASS__, 'handle_ask' ) );
 		add_action( 'admin_post_' . WPCPM_Institution_Tracks::ACTION_SAVE, array( 'WPCPM_Institution_Tracks', 'handle_save' ) );
+		add_action( 'admin_post_' . WPCPM_Institution_Assignment::ACTION_SAVE, array( 'WPCPM_Institution_Assignment', 'handle_save' ) );
 	}
 
 	/**
@@ -112,6 +113,8 @@ class WPCPM_Institution_Details_Card {
 			'refused-now'     => array( 'error', __( 'Nothing was saved. Correct what is marked below and save again.', 'wpcredits-program-manager' ) ),
 			'refused-checked' => array( 'error', __( 'Nothing was sent. Correct what is marked below and send it again.', 'wpcredits-program-manager' ) ),
 			'tracks-saved'    => array( 'success', __( 'The tracks offered are saved.', 'wpcredits-program-manager' ) ),
+			'assignment-emailed' => array( 'success', __( 'The assigned Administrator is saved, and they have been emailed.', 'wpcredits-program-manager' ) ),
+			'assignment-saved'   => array( 'success', __( 'The assigned Administrator is saved.', 'wpcredits-program-manager' ) ),
 			// A save at once that found the school's lock held: the store's words for a raise that found it so.
 			'saving-busy'     => array( 'error', WPCPM_Institution_Request::saving_message() ),
 		);
@@ -172,8 +175,8 @@ class WPCPM_Institution_Details_Card {
 
 		printf( '<p class="wpcpm-details__lead">%s</p>', esc_html__( 'What the program has on record.', 'wpcredits-program-manager' ) );
 
-		// An outcome of the Tracks offered form is read under that section's heading.
-		if ( null !== $flash['message'] && 'tracks' !== $flash['section'] ) {
+		// An outcome of the Tracks offered or the Assigned Administrator form is read under that section's heading.
+		if ( null !== $flash['message'] && ! in_array( $flash['section'], array( 'tracks', 'assignment' ), true ) ) {
 			printf(
 				'<p class="wpcpm-details__message is-%1$s" role="status">%2$s</p>',
 				esc_attr( $flash['message'][0] ),
@@ -205,6 +208,7 @@ class WPCPM_Institution_Details_Card {
 		}
 
 		WPCPM_Institution_Tracks::render( $record, $checker, 'tracks' === $flash['section'] ? $flash['message'] : null );
+		WPCPM_Institution_Assignment::render( $record, $checker, 'assignment' === $flash['section'] ? $flash['message'] : null );
 
 		echo '</div></details></section>';
 	}
@@ -655,8 +659,8 @@ class WPCPM_Institution_Details_Card {
 			$out['message'] = $messages[ $status ];
 		}
 
-		if ( isset( $flash['section'] ) && 'tracks' === $flash['section'] ) {
-			$out['section'] = 'tracks';
+		if ( isset( $flash['section'] ) && in_array( $flash['section'], array( 'tracks', 'assignment' ), true ) ) {
+			$out['section'] = $flash['section'];
 		}
 
 		if ( isset( $flash['group'] ) && is_scalar( $flash['group'] ) ) {
@@ -1001,9 +1005,9 @@ class WPCPM_Institution_Details_Card {
 	 *
 	 * @param string $record Institutions record ID the outcome is about.
 	 * @param string $status A key of `messages()`, or `said` with the sentence in `$extra['text']`.
-	 * @param array  $extra  `group` and `problems` of a refused post, or `text`; `section` set to `tracks`
-	 *                       for the Tracks offered form, whose outcome is read under its own heading.
-	 * @param string $anchor The id to land on, the card's own by default: the tracks form lands on its outcome line.
+	 * @param array  $extra  `group` and `problems` of a refused post, or `text`; `section` set to `tracks` or
+	 *                       `assignment` for the section's form, whose outcome is read under its own heading.
+	 * @param string $anchor The id to land on, the card's own by default: a section's form lands on its outcome line.
 	 */
 	public static function finish( $record, $status, array $extra = array(), $anchor = '' ) {
 		WPCPM_Flash::set(

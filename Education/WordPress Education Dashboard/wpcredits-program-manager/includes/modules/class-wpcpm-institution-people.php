@@ -79,6 +79,7 @@ class WPCPM_Institution_People {
 		add_action( 'admin_post_' . self::ACTION_REMOVE_MEMBER, array( __CLASS__, 'handle_remove_member' ) );
 		add_action( 'admin_post_' . self::ACTION_ADD_ACCOUNT, array( __CLASS__, 'handle_add_account' ) );
 		add_action( 'admin_post_' . self::ACTION_READD, array( __CLASS__, 'handle_readd' ) );
+		WPCPM_Institution_Tutors::init();
 	}
 
 	/*
@@ -145,18 +146,25 @@ class WPCPM_Institution_People {
 		// set of rules for the fold, the chevron and the inset applies here without a copy.
 		printf(
 			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count wpcpm-people__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
-			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
+			esc_html__( 'Representatives and tutors', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);
 
+		// A tutor reads the list and changes nothing, so the sentence about removing is left out for them.
 		printf(
 			'<p class="wpcpm-people__intro">%s</p>',
 			esc_html(
-				sprintf(
-					/* translators: %s: institution name. */
-					__( 'Everyone here with an account can see %s\'s students on this site, and can remove anyone, including themselves. A removal keeps the account and tells the people who are left.', 'wpcredits-program-manager' ),
-					$name
-				)
+				$can_change || $can_manage
+					? sprintf(
+						/* translators: %s: institution name. */
+						__( 'Everyone here with an account can see %s\'s students on this site. Representatives can remove anyone, including themselves, and tutors change nothing. A removal keeps the account and tells the people who are left.', 'wpcredits-program-manager' ),
+						$name
+					)
+					: sprintf(
+						/* translators: %s: institution name. */
+						__( 'Everyone here with an account can see %s\'s students on this site.', 'wpcredits-program-manager' ),
+						$name
+					)
 			)
 		);
 
@@ -194,6 +202,10 @@ class WPCPM_Institution_People {
 		WPCPM_Institution_Invite::render_message( $record_id );
 		WPCPM_Institution_Invite::render_pending( $record_id );
 		WPCPM_Institution_Invite::render_form( $record_id );
+
+		// The school's own tutor list, after the members: a tutor on it need hold no account, so it is a list of its
+		// own and not a row of the one above. It decides for itself through the policy, as the three renderers do.
+		WPCPM_Institution_Tutors::render( $record_id, $context );
 
 		// To this institution's own view on the Institutions screen, where its accounts are
 		// added and its former members wait with a Re-add, rather than to the screen's front door.
@@ -250,6 +262,8 @@ class WPCPM_Institution_People {
 				esc_html__( 'the institution\'s contact', 'wpcredits-program-manager' )
 			);
 		}
+
+		printf( ' <span class="wpcpm-people__level-name">%s</span>', esc_html( self::level_label( WPCPM_Institution_Members::level_of( $member ) ) ) );
 
 		printf( ' <span class="wpcpm-people__facts">%s</span>', esc_html( self::facts_line( $member ) ) );
 
@@ -475,6 +489,18 @@ class WPCPM_Institution_People {
 	}
 
 	/**
+	 * The level of a membership, in words.
+	 *
+	 * @param string $level One of `WPCPM_Institution_Members::levels()`.
+	 * @return string
+	 */
+	public static function level_label( $level ) {
+		return WPCPM_Institution_Members::LEVEL_TUTOR === $level
+			? __( 'Tutor', 'wpcredits-program-manager' )
+			: __( 'Representative', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * The way a membership came about, in words.
 	 *
 	 * A server-held list, matched against the ways the members module knows. A value it does
@@ -579,7 +605,7 @@ class WPCPM_Institution_People {
 
 		printf(
 			'<h3 class="wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h3>',
-			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
+			esc_html__( 'Representatives and tutors', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);
 
@@ -1022,7 +1048,7 @@ class WPCPM_Institution_People {
 			self::finish( 'not-former', '', $record );
 		}
 
-		$attached = WPCPM_Institution_Members::attach( $member_id, $record, WPCPM_Institution_Members::HOW_MANAGER, get_current_user_id() );
+		$attached = WPCPM_Institution_Members::attach( $member_id, $record, WPCPM_Institution_Members::HOW_MANAGER, get_current_user_id(), 0, WPCPM_Institution_Members::former_level_of( $member_id ) );
 
 		if ( is_wp_error( $attached ) ) {
 			self::finish( 'error', $attached->get_error_message(), $record );
@@ -1409,14 +1435,27 @@ class WPCPM_Institution_People {
 			exit;
 		}
 
+		wp_safe_redirect( self::card_url( $record ) . '#' . self::ANCHOR );
+		exit;
+	}
+
+	/**
+	 * The institution dashboard a press made on the card comes back to: the reader's own, or for an
+	 * Administrator the institution they were viewing.
+	 *
+	 * Public, because the tutor list's two handlers (`WPCPM_Institution_Tutors`) land on the same card.
+	 *
+	 * @param string $record Airtable institution record ID.
+	 * @return string The address, with no anchor.
+	 */
+	public static function card_url( $record ) {
 		$url = self::dashboard_url();
 
 		if ( WPCPM_Mentors_Sync::is_record_id( $record ) && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			$url = add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => trim( (string) $record ) ), $url );
 		}
 
-		wp_safe_redirect( $url . '#' . self::ANCHOR );
-		exit;
+		return $url;
 	}
 
 	/**

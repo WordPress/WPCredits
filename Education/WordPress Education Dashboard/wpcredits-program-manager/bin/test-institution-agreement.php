@@ -351,6 +351,13 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	 * institution is this account's" are answered from one place and cannot disagree.
 	 */
 	class WPCPM_Institution_Members {
+		const LEVEL_REPRESENTATIVE = 'representative';
+		const LEVEL_TUTOR          = 'tutor';
+		/** A tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+		public static function level_of( $user = null ) {
+			$id = $user instanceof WP_User ? $user->ID : (int) $user;
+			return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+		}
 		public static function members_of( $record_id ) {
 			$out = array();
 			foreach ( (array) ( $GLOBALS['members'][ (string) $record_id ] ?? array() ) as $id ) {
@@ -419,6 +426,12 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 
 			if ( $GLOBALS['caps'] ) {
 				return self::answer( true, self::GROUND_MANAGER, (string) ( $ids[0] ?? '' ) );
+			}
+
+			// A tutor holds the four view actions and no other, the agreement not among them (the real rule is
+			// `bin/test-institution-policy.php`'s; this suite only asks about the agreement).
+			if ( WPCPM_Institution_Members::LEVEL_TUTOR === WPCPM_Institution_Members::level_of( wp_get_current_user() ) ) {
+				return self::answer( false, '', '' );
 			}
 
 			$mine = WPCPM_Institution_Members::institution_of( wp_get_current_user() );
@@ -675,7 +688,23 @@ if ( ! class_exists( 'WPCPM_Countries' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Institution_Record' ) ) {
+	/** The institution's own record, at the one read the assignment makes: the answers kept for it. */
+	class WPCPM_Institution_Record {
+		public static function get( $record_id ) {
+			return isset( $GLOBALS['kept'][ $record_id ] ) ? $GLOBALS['kept'][ $record_id ] : array();
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Manager_Booking' ) ) {
+	class WPCPM_Manager_Booking {
+		public static function url_for( $user_id ) { return ''; }
+	}
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 
 $fail = 0;
@@ -694,6 +723,7 @@ function ck( $label, $actual, $expected ) {
  * Forget every option, lock and post.
  */
 function reset_world() {
+	$GLOBALS['kept']        = array();
 	$GLOBALS['opts']        = array();
 	$GLOBALS['posts']       = array();
 	$GLOBALS['pmeta']       = array();
@@ -838,6 +868,20 @@ function seed_country( $record, $country, $name = 'Costa Rica', $email = 'costa.
 		'email'    => $email,
 		'calendly' => '',
 	);
+}
+
+/**
+ * Assign an institution to an Administrator, the way its record keeps it (Institutions off Airtable, R1).
+ *
+ * @param string $record  Institutions record ID.
+ * @param int    $user_id The Administrator.
+ * @param string $name    Their display name.
+ * @param string $email   Their address.
+ */
+function seed_assignee( $record, $user_id, $name = 'Ana Admin', $email = 'ana.admin@example.org' ) {
+	$GLOBALS['users'][ $user_id ]  = new WP_User( $user_id, $name, $email );
+	$GLOBALS['grants'][ $user_id ] = array( 'wpcpm_manage_program' );
+	$GLOBALS['kept'][ $record ]    = array( 'assigned' => $user_id );
 }
 
 /**
@@ -1566,6 +1610,16 @@ upload_world();
 $GLOBALS['members'] = array();
 ck( 'an account the fence refuses gets the one refusal', run( 'handle_upload' ), 'died: That record is not on your roster.' );
 ck( 'and nothing reached the store', $GLOBALS['stored'], array() );
+
+// Institutions release 1 (Review Focus 4): a tutor of the institution, with a good PDF, the declaration ticked and
+// a valid form.
+upload_world();
+$GLOBALS['levels'] = array( 4 => 'tutor' );
+$meta_before       = serialize( $GLOBALS['pmeta'] );
+$posts_before      = serialize( $GLOBALS['posts'] );
+ck( 'a tutor of the institution uploading an agreement gets the one refusal', run( 'handle_upload' ), 'died: That record is not on your roster.' );
+ck( 'and nothing was stored: no file, no post, no meta, no mail, no audit row, nothing sent to the base', array( $GLOBALS['stored'], serialize( $GLOBALS['posts'] ) === $posts_before, serialize( $GLOBALS['pmeta'] ) === $meta_before, $GLOBALS['mail'], $GLOBALS['audit'], $GLOBALS['patched'] ), array( array(), true, true, array(), array(), array() ) );
+$GLOBALS['levels'] = array();
 
 upload_world();
 $_POST['wpcpm_agreement_signed'] = '0';
@@ -2348,6 +2402,16 @@ $GLOBALS['uid']     = 4;
 ck( 'a member of B withdrawing A\'s document gets the one refusal', run( 'handle_withdraw' ), 'died: That record is not on your roster.' );
 ck( 'and the file is still there', array_keys( $GLOBALS['files'] ), array( '2026/deadbeef.pdf' ) );
 
+// Institutions release 1 (Review Focus 4): a tutor of the document's own institution, with a valid form.
+$id                 = review_world();
+$GLOBALS['caps']    = false;
+$GLOBALS['uid']     = 4;
+$GLOBALS['levels']  = array( 4 => 'tutor' );
+$meta_before        = serialize( $GLOBALS['pmeta'] );
+ck( 'a tutor of the institution withdrawing its document gets the one refusal', run( 'handle_withdraw' ), 'died: That record is not on your roster.' );
+ck( 'and nothing changed: the file is there, the post and its meta as they were, no mail, no audit row, nothing sent to the base', array( array_keys( $GLOBALS['files'] ), serialize( $GLOBALS['pmeta'] ) === $meta_before, $GLOBALS['mail'], $GLOBALS['audit'], $GLOBALS['patched'] ), array( array( '2026/deadbeef.pdf' ), true, array(), array(), array() ) );
+$GLOBALS['levels']  = array();
+
 $id                 = review_world();
 $GLOBALS['caps']    = false;
 $GLOBALS['uid']     = 4;
@@ -2547,6 +2611,8 @@ ck( 'with the gate still open', WPCPM_Institution_Agreement::is_settled( $rec_a 
 $id   = settled_world();
 $note = (string) $_POST['wpcpm_agreement_note'];
 seed_country( $rec_a, 'recCOUNTRYAAAAAA1' );
+// The Countries table names costa.rica@example.org for the country; the institution is assigned to Ana.
+seed_assignee( $rec_a, 12 );
 $outcome = run( 'handle_revoke' );
 
 ck( 'the outcome is the one the panel prints', $outcome, 'agreement-revoked' );
@@ -2573,8 +2639,11 @@ ck( 'saying what the account shows now rather than what is gone, by the card\'s 
 	false !== strpos( $GLOBALS['mail'][0]['body'], 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
 	false === stripos( $GLOBALS['mail'][0]['body'], 'agreement panel' ),
 ), array( true, true ) );
-ck( 'and naming the country contact to write to', false !== strpos( $GLOBALS['mail'][0]['body'], 'Your program contact for Costa Rica is costa.rica@example.org.' ), true );
-ck( 'who is named and never mailed', in_array( 'costa.rica@example.org', array_column( $GLOBALS['mail'], 'to' ), true ), false );
+ck( 'and naming the assigned Administrator to write to, not the country\'s contact', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Your program contact for Costa Rica is ana.admin@example.org.' ),
+	false === strpos( $GLOBALS['mail'][0]['body'], 'costa.rica@example.org' ),
+), array( true, true ) );
+ck( 'who is named and never mailed', in_array( 'ana.admin@example.org', array_column( $GLOBALS['mail'], 'to' ), true ), false );
 ck( 'one audit row, on the manager ground, from what the site was holding', array(
 	$GLOBALS['audit'][0]['kind'],
 	$GLOBALS['audit'][0]['ground'],
@@ -2588,6 +2657,25 @@ ck( 'and wrote nothing further', count( $GLOBALS['patched'] ), 1 );
 $id = settled_world();
 run( 'handle_revoke' );
 ck( 'an institution the base routes nowhere gets the neutral sentence instead', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the Administrator who has been in touch with your institution.' ), true );
+
+$id = settled_world();
+seed_country( $rec_a, 'recCOUNTRYAAAAAA1' );
+run( 'handle_revoke' );
+ck( 'and so does one the Countries table names somebody for but nobody is assigned to', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the Administrator who has been in touch with your institution.' ),
+	false === strpos( $GLOBALS['mail'][0]['body'], 'costa.rica@example.org' ),
+), array( true, true ) );
+
+$id = settled_world();
+// An assigned school whose country the map does not hold: no sentence with a blank country in it.
+$GLOBALS['index_rows'][ $rec_a ]['country'] = 'recCOUNTRYMISSING1';
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+seed_assignee( $rec_a, 12 );
+run( 'handle_revoke' );
+ck( 'an assigned institution whose country is not in the map gets the neutral sentence, not one with a blank country', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the Administrator who has been in touch with your institution.' ),
+	false === strpos( $GLOBALS['mail'][0]['body'], 'Your program contact for' ),
+), array( true, true ) );
 
 $id = settled_world();
 seed_country( $rec_a, 'recCOUNTRYAAAAAA1', 'Nigeria', '' );

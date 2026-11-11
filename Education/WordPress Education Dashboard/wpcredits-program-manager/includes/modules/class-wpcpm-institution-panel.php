@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **Why the panel is a state machine and not a form.** The design spec's section 7.4 gives one
  * row per summary state, and the words differ in what they ask the reader to do: `none` needs
  * three numbered steps, `returned` needs the manager's note before anything else, `revoked`
- * needs the country contact's address, and `submitted` needs the reader to do nothing at all.
+ * needs the assigned Administrator's address, and `submitted` needs the reader to do nothing at all.
  * A single "upload your agreement" panel would be wrong in four of the five cases.
  *
  * **What Phase 3 added.** The controls the spec's table names are real here now: Generate and
@@ -153,7 +153,7 @@ class WPCPM_Institution_Panel {
 
 		// The render-from-cache pattern of design spec 5.4: decide first, then act on what
 		// came back. Everything below this line is one institution's - the state of its
-		// agreement, a program manager's note verbatim, its country contact's address - and
+		// agreement, an Administrator's note verbatim, its assigned Administrator's address - and
 		// the dashboard shell having asked the same question before it called this method is
 		// not a reason to skip it. A second caller that forgot the shell's own check is what
 		// the fence is for, and it costs one array walk to keep.
@@ -313,7 +313,7 @@ class WPCPM_Institution_Panel {
 	 * @param string $record_id Institutions record ID.
 	 * @return bool
 	 */
-	private static function may_act( $record_id ) {
+	public static function may_act( $record_id ) {
 		if ( ! WPCPM_Mentors_Sync::is_record_id( trim( (string) $record_id ) ) ) {
 			return false;
 		}
@@ -1426,9 +1426,9 @@ class WPCPM_Institution_Panel {
 	}
 
 	/**
-	 * The country contact's address, when the base names one.
+	 * The assigned Administrator's address, when the institution has one.
 	 *
-	 * Named, never mailed: the country contact is who an institution writes to, and adding
+	 * Named, never mailed: the assigned Administrator is who an institution writes to, and adding
 	 * them as a recipient of the program's own queue mail is a different decision the design
 	 * spec makes elsewhere and does not make here.
 	 *
@@ -1441,9 +1441,9 @@ class WPCPM_Institution_Panel {
 		}
 
 		$country = isset( $row['country'] ) ? (string) $row['country'] : '';
-		$routing = WPCPM_Countries::routing( $country );
+		$contact = ( '' !== WPCPM_Countries::name_of( $country ) && isset( $row['record_id'] ) ) ? WPCPM_Institution_Assignment::contact_of( (string) $row['record_id'] ) : null;
 
-		if ( null === $routing || '' === trim( (string) $routing['email'] ) ) {
+		if ( null === $contact || '' === trim( (string) $contact['email'] ) ) {
 			printf(
 				'<p class="wpcpm-agreement-panel__contact">%s</p>',
 				esc_html__( 'Write to the Administrator who has been in touch with your institution.', 'wpcredits-program-manager' )
@@ -1459,7 +1459,7 @@ class WPCPM_Institution_Panel {
 					/* translators: 1: country name, 2: the contact's email address. */
 					__( 'Your program contact for %1$s is %2$s.', 'wpcredits-program-manager' ),
 					WPCPM_Countries::name_of( $country ),
-					$routing['email']
+					$contact['email']
 				)
 			)
 		);
@@ -1755,6 +1755,11 @@ class WPCPM_Institution_Agreement_Card {
 			);
 			WPCPM_Institution_Panel::render_withdraw_form( $pending );
 
+			return;
+		}
+
+		// The sentence offers the upload, so it is drawn for whoever the upload is drawn for.
+		if ( ! WPCPM_Institution_Panel::may_act( $record_id ) ) {
 			return;
 		}
 

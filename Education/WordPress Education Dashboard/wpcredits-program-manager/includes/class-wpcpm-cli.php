@@ -317,6 +317,98 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * Fill, once, what the Institutions screens read from the site instead of Airtable.
+	 *
+	 * Gives each country its contact's Administrator as the area (the regions stay empty: move Administrators
+	 * to regions on the Institutions settings afterwards), keeps each Administrator's booking link, assigns
+	 * each institution to its country's Administrator or else to the one its Original program manager column
+	 * names, and adds each school's tutors from the Tutors table. It never replaces what the site holds
+	 * already (areas, a booking link, an assignee, a listed tutor), sends no email, and reads Airtable only
+	 * for three tables. Run it with --dry-run first: the summary names each school it cannot assign and why.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--dry-run]
+	 * : Print what would be written, and write nothing.
+	 *
+	 * [--yes]
+	 * : Write without asking first.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits institutions_seed --dry-run
+	 *     wp wpcredits institutions_seed
+	 *     wp wpcredits institutions_seed --yes
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function institutions_seed( $args, $assoc_args ) {
+		unset( $args );
+
+		$plan = WPCPM_Institution_Seed::plan( $this->seed_client() );
+
+		if ( is_wp_error( $plan ) ) {
+			WP_CLI::error( $plan->get_error_message() );
+		}
+
+		foreach ( WPCPM_Institution_Seed::summary( $plan ) as $line ) {
+			WP_CLI::log( $line );
+		}
+
+		if ( ! empty( $assoc_args['dry-run'] ) ) {
+			WP_CLI::success( __( 'Dry run: nothing was written.', 'wpcredits-program-manager' ) );
+
+			return;
+		}
+
+		WP_CLI::confirm( __( 'Write this to the site?', 'wpcredits-program-manager' ), $assoc_args );
+
+		$done     = WPCPM_Institution_Seed::apply( $plan );
+		$assigned = $done['assigned_area'] + $done['assigned_original'];
+		$written  = sprintf(
+			/* translators: 1: countries given an Administrator, 2: booking links added, 3: institutions assigned, 4: tutors added; each a phrase with its number. */
+			__( 'Written: %1$s; %2$s; %3$s; %4$s.', 'wpcredits-program-manager' ),
+			/* translators: %d: how many countries. */
+			sprintf( _n( '%d country is given an Administrator', '%d countries are given an Administrator', $done['areas'], 'wpcredits-program-manager' ), $done['areas'] ),
+			/* translators: %d: how many booking links. */
+			sprintf( _n( '%d booking link is added', '%d booking links are added', $done['booking'], 'wpcredits-program-manager' ), $done['booking'] ),
+			/* translators: %d: how many institutions. */
+			sprintf( _n( '%d institution is assigned', '%d institutions are assigned', $assigned, 'wpcredits-program-manager' ), $assigned ),
+			/* translators: %d: how many tutors. */
+			sprintf( _n( '%d tutor is added', '%d tutors are added', $done['tutors'], 'wpcredits-program-manager' ), $done['tutors'] )
+		);
+
+		if ( array() !== $done['failed'] ) {
+			WP_CLI::log( $written );
+			WP_CLI::error(
+				sprintf(
+					/* translators: %s: one sentence for each thing that was not written, run together. */
+					__( 'Not everything was written. %s', 'wpcredits-program-manager' ),
+					implode( ' ', $done['failed'] )
+				)
+			);
+		}
+
+		WP_CLI::success( $written );
+	}
+
+	/**
+	 * The Airtable client the seed reads through, or the command's error when Airtable is not connected.
+	 *
+	 * Not a command: it is not public, and a suite stands it in.
+	 *
+	 * @return WPCPM_Airtable
+	 */
+	protected function seed_client() {
+		if ( ! WPCPM_Settings::is_connected() ) {
+			WP_CLI::error( 'Airtable is not configured.' );
+		}
+
+		return new WPCPM_Airtable( WPCPM_Settings::get() );
+	}
+
+	/**
 	 * Show the outcome figures the site counts for its homepage, or read them again from Airtable.
 	 *
 	 * With no option, prints the stored set, when it was read, what the homepage may show of it, and

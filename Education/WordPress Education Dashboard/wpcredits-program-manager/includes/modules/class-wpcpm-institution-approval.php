@@ -271,6 +271,24 @@ class WPCPM_Institution_Approval {
 			}
 		}
 
+		// The Administrator the application was given to when it was sent now follows the institution up,
+		// unless the record already has one, or was set to Nobody: an adopted record keeps its own. No email: the application's
+		// own message told them. A refusal (the account stopped being an Administrator since) leaves the
+		// institution unassigned, which is where every institution without an area stands, and does not
+		// stop the approval.
+		$assigned = WPCPM_Institution_Assignment::for_application( $application_id );
+
+		// An application filed with nobody assigned (before an area existed for its country), or given to an
+		// account that is no Administrator now (`contact_for()` answers null for both), is given today's
+		// Administrator for that country, without an email, as one that had nobody always was.
+		if ( null === WPCPM_Institution_Assignment::contact_for( $assigned ) ) {
+			$assigned = WPCPM_Institution_Areas::administrator_for( (string) get_post_meta( $application_id, WPCPM_Institution_Application::META_COUNTRY, true ) );
+		}
+
+		if ( $assigned > 0 && 0 === WPCPM_Institution_Assignment::stored_of( $record ) && ! WPCPM_Institution_Assignment::has_choice( $record ) ) {
+			WPCPM_Institution_Assignment::assign( $record, $assigned, $manager_id, false );
+		}
+
 		update_post_meta( $application_id, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_APPROVED );
 		self::event( $application_id, self::EVENT_APPROVED, $manager_id, $record );
 

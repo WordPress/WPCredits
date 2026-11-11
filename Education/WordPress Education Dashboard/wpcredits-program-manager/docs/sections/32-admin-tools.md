@@ -65,7 +65,7 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   (its name, website, city, country or contact's email), the request's approval, its decline with
   the Administrator's note, and its withdrawal. An email that says other words in one case than in
   another is two: the acknowledgement for a country with a call to book and for one without, the
-  upload with the courtesy scan's notes and without, the revocation with a country contact named and
+  upload with the courtesy scan's notes and without, the revocation with an assigned Administrator named and
   without one, and the invitation with its inviter named and with nobody to name as its sender, the
   inviter's account gone or holding no name.
 - **Semester reports**: the notice to the Administrators that the daily job drafted a report, the
@@ -111,13 +111,13 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   only while the **Daily list** setting is On. The student gets a friendly note once for each
   stretch of quiet: how many days since they were last seen, or, for a student not seen since their
   track started or their account was made, how many days ago that was, each in a sentence of its own
-  with its own placeholder; the mentor's name and the name of the Administrator for their country,
+  with its own placeholder; the mentor's name and the name of the Administrator assigned to their institution,
   each in a sentence left out for a student who has none; a link to book a call, or, for a student with
-  no mentor and no booking page for their country, who has nothing to book, the address in **Contact
+  no mentor and no booking page from that Administrator, who has nothing to book, the address in **Contact
   address in emails**; and a link to the Student Report Card, where **We've already talked** is. The mentor gets one email a day with the
   students just reminded whose reminder went out, and its subject and first line give their number,
-  so one student reads as right as several. Each Administrator who is the contact for a country gets
-  one email on Monday with the quiet students of that country, most quiet first, and a link to the
+  so one student reads as right as several. Each Administrator gets
+  one email on Monday with the quiet students of the institutions assigned to them, most quiet first, and a link to the
   *Students gone quiet* card. Each list is written in the language of the person it goes to. None
   says anything about a penalty.
 

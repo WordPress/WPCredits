@@ -268,6 +268,8 @@ ck(
 		'institution-declined',
 		'institution-invite',
 		'institution-invite-no-sender',
+		'institution-invite-tutor',
+		'institution-invite-tutor-no-sender',
 		'agreement-received',
 		'agreement-landed',
 		'agreement-landed-flagged',
@@ -284,6 +286,7 @@ ck(
 		'institution-details-approved',
 		'institution-details-declined',
 		'institution-details-withdrawn',
+		'institution-assigned',
 		'report-drafted',
 		'report-approved',
 		'report-consent',
@@ -509,6 +512,8 @@ $shape = array(
 	'institution-declined'          => array( "\r\n", array(), array() ),
 	'institution-invite'            => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
 	'institution-invite-no-sender'  => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
+	'institution-invite-tutor'      => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
+	'institution-invite-tutor-no-sender' => array( "\r\n", array( 'accept_link' ), array( 'accept_link' ) ),
 	'agreement-received'            => array( "\r\n", array(), array() ),
 	'agreement-landed'              => array( "\r\n", array(), array() ),
 	'agreement-landed-flagged'      => array( "\r\n", array( 'scan_flags' ), array() ),
@@ -528,6 +533,8 @@ $shape = array(
 	'institution-details-approved'  => array( "\r\n", array( 'changes' ), array( 'changes' ) ),
 	'institution-details-declined'  => array( "\r\n", array( 'note' ), array( 'note' ) ),
 	'institution-details-withdrawn' => array( "\r\n", array(), array() ),
+	// An institution assigned to an Administrator: its link is needed, in the body or the subject.
+	'institution-assigned'          => array( "\r\n", array( 'institution_link' ), array() ),
 	'report-drafted'                => array( "\n", array( 'semester' ), array() ),
 	'report-approved'               => array( "\n", array( 'semester' ), array() ),
 	'report-consent'                => array( "\n", array( 'semester' ), array() ),
@@ -674,9 +681,11 @@ foreach ( $lists_1_123_26 as $id => $list ) {
 		$added[ $id ] = array_values( array_diff( $lists_now[ $id ], $was ) );
 	}
 }
-$details_emails = array( 'institution-details-saved', 'institution-details-request', 'institution-details-approved', 'institution-details-declined', 'institution-details-withdrawn' );
+$details_emails = array( 'institution-details-saved', 'institution-details-request', 'institution-details-approved', 'institution-details-declined', 'institution-details-withdrawn', 'institution-assigned' );
+$tutor_emails   = array( 'institution-invite-tutor', 'institution-invite-tutor-no-sender' );
 
-ck( 'the Institutions and the Semester reports have the 21 emails they had, and the five about a school\'s details of Institutions release 2 after the Institutions\' own', array_keys( $lists_now ), array_merge( array_slice( array_keys( $lists_1_123_26 ), 0, 18 ), $details_emails, array_slice( array_keys( $lists_1_123_26 ), 18 ) ) );
+ck( 'the Institutions and the Semester reports have the 21 emails they had, the two invitations of a tutor of Institutions release 1 after the invitations, and the five about a school\'s details of Institutions release 2 and the assignment\'s after the Institutions\' own', array_keys( $lists_now ), array_merge( array_slice( array_keys( $lists_1_123_26 ), 0, 7 ), $tutor_emails, array_slice( array_keys( $lists_1_123_26 ), 7, 11 ), $details_emails, array_slice( array_keys( $lists_1_123_26 ), 18 ) ) );
+ck( 'the tutor\'s two invitations take the placeholders of the representative\'s two, with the same marks', array( $lists_now['institution-invite-tutor'], $lists_now['institution-invite-tutor-no-sender'] ), array( $lists_now['institution-invite'], $lists_now['institution-invite-no-sender'] ) );
 ck( 'no placeholder is taken out of any of their lists, none is made required and none is moved to the body alone, so no saved edit is set aside', $removed, array() );
 ck(
 	'and what the lists gain is optional and in the body or the subject: the institution\'s name, in the notice of a template that cannot be used, and the site\'s name in the three Semester reports emails\' subjects',
@@ -714,8 +723,10 @@ $said       = array(
 		'What happens next: an Administrator reads every application by hand and writes back, usually within a few working days. If the program can take your institution, we will set up an account for it on the site, where you generate the program\'s Collaboration Agreement or upload your own, then sign it and upload the signed copy.',
 		'This message went to {applicant_email} because that address was given on the application form at the {site_name}. If it was not you, you can ignore it: nothing happens until the address is confirmed.',
 	),
-	'institution-invite'           => array( '{inviter_name} has invited you to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.' ),
-	'institution-invite-no-sender' => array( 'You have been invited to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.' ),
+	'institution-invite'           => array( '{inviter_name} has invited you to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a representative: you can see and add the institution\'s students, invite colleagues and correct its details.' ),
+	'institution-invite-no-sender' => array( 'You have been invited to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a representative: you can see and add the institution\'s students, invite colleagues and correct its details.' ),
+	'institution-invite-tutor'     => array( '{inviter_name} has invited you to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a tutor: you can see the institution\'s students, their Student Report Cards and its semester reports, and change nothing.' ),
+	'institution-invite-tutor-no-sender' => array( 'You have been invited to see {institution_name}\'s students in the WordPress Credits Program on the {site_name}.', 'You are invited as a tutor: you can see the institution\'s students, their Student Report Cards and its semester reports, and change nothing.' ),
 	'agreement-revoked'            => array( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
 	'agreement-revoked-no-contact' => array( 'Until an agreement is in force again, your Institution Dashboard shows only the Collaboration Agreement card. Nothing about your students has been deleted.' ),
 	'agreement-received'           => array( 'If it was the wrong file, withdraw it from the Collaboration Agreement card on your Institution Dashboard and upload the right one.' ),
@@ -795,6 +806,17 @@ $details = array(
 		),
 		'list'     => 'site_name institution_name actor_name',
 	),
+	'institution-assigned'          => array(
+		'audience' => 'administrator',
+		'trigger'  => 'When an institution is assigned to an Administrator, on a new application or when somebody reassigns it: to that Administrator, unless they made the assignment themselves.',
+		'subject'  => '[{site_name}] {institution_name} is assigned to you',
+		'body'     => array(
+			'{institution_name}{country_phrase} is now assigned to you.',
+			'Open it here: {institution_link}',
+			'You are told because you follow this institution up. Reassign it from its page if somebody else should.',
+		),
+		'list'     => 'site_name institution_name country_phrase institution_link*',
+	),
 );
 $details_said = array();
 foreach ( $details as $id => $want ) {
@@ -846,6 +868,10 @@ ck(
 		'institution-details-withdrawn' => array(
 			'[WordPress Credits] Example University withdrew its request',
 			"Ada Okonjo withdrew the request to correct Example University's details. Nothing waits for you.",
+		),
+		'institution-assigned'          => array(
+			'[WordPress Credits] Example University is assigned to you',
+			"Example University, in Poland, is now assigned to you.\r\n\r\nOpen it here: https://example.test/institution-dashboard/\r\n\r\nYou are told because you follow this institution up. Reassign it from its page if somebody else should.",
 		),
 	)
 );
@@ -1692,6 +1718,10 @@ $GLOBALS['mail'] = array();
 ck( 'and an email the registry does not hold sends nothing', array( WPCPM_Mail_Templates::send_test( 'call-booked', $admin ), $GLOBALS['mail'] ), array( false, array() ) );
 
 echo "\n=== An email as a builder hands it over ===\n";
+
+// An institution with no country: the sentence has no empty place in it.
+$no_country = WPCPM_Mail_Templates::mail( 'institution-assigned', array( 'site_name' => 'WordPress Credits', 'institution_name' => 'Example University', 'country_phrase' => '', 'institution_link' => 'https://example.test/x' ) );
+ck( 'an assignment email for an institution with no country reads "X is now assigned to you."', array( 0 === strpos( $no_country['body'], 'Example University is now assigned to you.' ), false !== strpos( $no_country['body'], ', in ' ) ), array( true, false ) );
 
 // What a builder of the Institutions and the Sponsors returns, `mail()`: the email `render()` fills,
 // with what stays in the sender's code beside it, or, for an id the registry does not hold, no subject

@@ -177,6 +177,27 @@ final class WPCPM_Settings_Choices {
 	}
 
 	/**
+	 * The Administrators by account, for the areas of responsibility: every account holding the
+	 * capability that has an address (`WPCPM_Institutions::managers()`), in the one read a request
+	 * makes of them, so a tab that lists them twice and draws the areas asks the site once.
+	 *
+	 * @return array<int, string> User ID => display name, the login when the name is empty, in name order.
+	 */
+	public static function manager_accounts() {
+		$accounts = array();
+
+		foreach ( self::manager_users() as $user ) {
+			$name = trim( (string) $user->display_name );
+
+			$accounts[ (int) $user->ID ] = '' !== $name ? $name : (string) $user->user_login;
+		}
+
+		uasort( $accounts, 'strnatcasecmp' );
+
+		return $accounts;
+	}
+
+	/**
 	 * The models the answer provider may use.
 	 *
 	 * `WPCPM_Handbook_Answer::providers()` names each provider and no model, and Google AI Studio is
@@ -555,19 +576,37 @@ final class WPCPM_Settings_Choices {
 	}
 
 	/**
+	 * The accounts that manage the program, read once a request: `WPCPM_Institutions::managers()`,
+	 * of which `managers()` and `manager_accounts()` each show their own part.
+	 *
+	 * @return WP_User[]
+	 */
+	private static function manager_users() {
+		if ( ! array_key_exists( 'manager_users', self::$read ) ) {
+			$users = class_exists( 'WPCPM_Institutions' ) ? WPCPM_Institutions::managers() : array();
+
+			self::$read['manager_users'] = array_values(
+				array_filter(
+					(array) $users,
+					static function ( $user ) {
+						return $user instanceof WP_User;
+					}
+				)
+			);
+		}
+
+		return self::$read['manager_users'];
+	}
+
+	/**
 	 * The program managers, under Administrators, read now (`managers()`).
 	 *
 	 * @return array<string, array<string, string>>
 	 */
 	private static function read_managers() {
-		$users          = class_exists( 'WPCPM_Institutions' ) ? WPCPM_Institutions::managers() : array();
 		$administrators = array();
 
-		foreach ( (array) $users as $user ) {
-			if ( ! $user instanceof WP_User ) {
-				continue;
-			}
-
+		foreach ( self::manager_users() as $user ) {
 			$email = trim( (string) $user->user_email );
 
 			if ( '' === $email ) {

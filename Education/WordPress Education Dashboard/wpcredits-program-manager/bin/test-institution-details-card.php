@@ -231,7 +231,7 @@ function check_admin_referer( $a = -1, $q = '_wpnonce' ) {
 function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
-function add_query_arg( $args, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
+function add_query_arg( $args, $url_or_value, $url = null ) { if ( ! is_array( $args ) ) { $args = array( $args => $url_or_value ); } else { $url = $url_or_value; } return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
 function wp_get_referer() { return $GLOBALS['back']; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect:' . $to ); }
 function wp_die( $m = '', $c = 0 ) { throw new Exception( 'wp_die:' . $m ); }
@@ -306,6 +306,13 @@ class WPCPM_Roster_Index {
 	public static function rows( $id ) { return $GLOBALS['rosters'][ trim( (string) $id ) ] ?? array(); }
 }
 class WPCPM_Institution_Members {
+	const LEVEL_REPRESENTATIVE = 'representative';
+	const LEVEL_TUTOR          = 'tutor';
+	/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+	public static function level_of( $user = null ) {
+		$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+		return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+	}
 	public static function memberships_of( $user = null ) {
 		$id = is_object( $user ) ? (int) $user->ID : (int) $user;
 		return $GLOBALS['memberships'][ $id ] ?? array();
@@ -337,6 +344,10 @@ class WPCPM_Settings {
 /** Every send, with the message its builder made for that recipient, so "one email" is countable. */
 class WPCPM_Mail {
 	public static function send( $recipient, $context, $build ) {
+		// A mail host that takes nothing, when a check says so (1.123.84).
+		if ( ! empty( $GLOBALS['mail_fails'] ) ) { return false; }
+		// As the real one: an account's ID is as good as the account.
+		$recipient = $recipient instanceof WP_User ? $recipient : get_userdata( (int) $recipient );
 		if ( ! $recipient instanceof WP_User || ! $recipient->exists() || '' === $recipient->user_email ) { return false; }
 		return self::record( $recipient->user_email, $context, call_user_func( $build, $recipient ) );
 	}
@@ -404,6 +415,15 @@ class WPCPM_Dashboards {
 	}
 }
 
+/** The assignment's contracts: who holds the manage capability (the suite's `manage` list), the names, the booking link and the picker's accounts. */
+function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
+class WPCPM_Manager_Booking {
+	public static function url_for( $id ) { return ''; }
+}
+class WPCPM_Settings_Choices {
+	public static function manager_accounts() { $o = array(); foreach ( $GLOBALS['manage'] as $id ) { $o[ $id ] = $GLOBALS['users'][ $id ]->display_name; } asort( $o ); return $o; }
+}
+
 // The lock a request is raised and decided under, over the options table the suite keeps in `$GLOBALS['opts']`.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once __DIR__ . '/stubs/options-lock-wpdb.php';
@@ -433,6 +453,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tracks.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details-card.php';
 
 $fail = 0;
@@ -516,7 +537,7 @@ function fresh() {
 	);
 	$GLOBALS['settled']     = array( A, B );
 	$GLOBALS['memberships'] = array( 7 => array( A ), 8 => array( A ), 9 => array( B ), 10 => array( C ) );
-	$GLOBALS['manage']      = array( 1 );
+	$GLOBALS['manage']      = array( 1, 12, 13 );
 	$GLOBALS['users']       = array(
 		1  => new WP_User( 1, 'Manager', 'manager@example.test', array( 'administrator' ) ),
 		5  => new WP_User( 5, 'Stranger', 'stranger@example.test', array( 'subscriber' ) ),
@@ -524,6 +545,8 @@ function fresh() {
 		8  => new WP_User( 8, 'Member Two', 'member2@example.test', array( 'subscriber' ) ),
 		9  => new WP_User( 9, 'Member Three', 'member3@example.test', array( 'subscriber' ) ),
 		10 => new WP_User( 10, 'Member Four', 'member4@example.test', array( 'subscriber' ) ),
+		12 => new WP_User( 12, 'Bo Boss', 'bo@example.test', array( 'administrator' ) ),
+		13 => new WP_User( 13, 'Cy Chief', 'cy@example.test', array( 'administrator' ) ),
 	);
 	WPCPM_Institutions_Dashboard::$url = 'https://example.test/institution-dashboard/';
 }
@@ -674,7 +697,7 @@ ck( 'two actions, one for each group', array( WPCPM_Institution_Details_Card::AC
 ck( 'the anchor the dashboard and the handlers come back to', WPCPM_Institution_Details_Card::ANCHOR, 'wpcpm-details' );
 
 WPCPM_Institution_Details_Card::init();
-ck( 'both handlers are registered for a signed-in account, and the tracks one after them', $GLOBALS['hooks'], array( 'admin_post_wpcpm_save_details', 'admin_post_wpcpm_ask_details', 'admin_post_wpcpm_institution_tracks_save' ) );
+ck( 'both handlers are registered for a signed-in account, and the tracks and the assignment ones after them', $GLOBALS['hooks'], array( 'admin_post_wpcpm_save_details', 'admin_post_wpcpm_ask_details', 'admin_post_wpcpm_institution_tracks_save', 'admin_post_wpcpm_institution_assign' ) );
 
 /* ---- the read view ------------------------------------------------------- */
 
@@ -1312,6 +1335,20 @@ ck( 'a member of another school is refused with the policy\'s one refusal, in bo
 ck( 'a stranger and a record that is no record are refused the same, byte for byte', array( post_as( 5, 'now', array(), A ), post_as( 7, 'now', array(), 'not-a-record' ), post_as( 7, 'checked', array(), 'not-a-record' ), post_as( 7, 'now', array(), 'recINSTITUTION999' ) ), array( $refusal, $refusal, $refusal, $refusal ) );
 ck( 'a member whose agreement is not settled is refused too', array( post_as( 10, 'now', array( 'wpcpm_details_contact_role' => 'Hijack' ), C ), post_as( 10, 'checked', array( 'wpcpm_details_name' => 'Hijack' ), C ) ), array( $refusal, $refusal ) );
 ck( 'none of them wrote, made or sent anything', array( $GLOBALS['records'][ A ]['contact_role'], $GLOBALS['index'][ A ]['name'], $GLOBALS['patched'], requests(), $GLOBALS['mail'], count( audit( A, 'details_saved' ) ) ), array( 'Head of the international office', 'Universidad Ejemplo ', array(), array(), array(), 0 ) );
+// Institutions release 1 (Review Focus 4): a tutor of the school, whose agreement is settled, posts each form
+// with a valid nonce (`nonce_ok` is true here) and every field filled.
+fresh();
+$GLOBALS['users'][14]   = new WP_User( 14, 'Tess Tutor', 'tess@example.test', array( 'subscriber' ) );
+$GLOBALS['memberships'][14] = array( A );
+$GLOBALS['levels']      = array( 14 => 'tutor' );
+$opts_before            = serialize( $GLOBALS['opts'] );
+$records_before         = serialize( $GLOBALS['records'] );
+ck( 'a tutor of the school is refused with the one refusal, in both groups', array( post_as( 14, 'now', array( 'wpcpm_details_contact_role' => 'Hijack', 'wpcpm_details_student_languages' => array( 'French' ) ), A ), post_as( 14, 'checked', array( 'wpcpm_details_name' => 'Hijack' ), A ) ), array( $refusal, $refusal ) );
+ck( 'and nothing was written, asked, mailed, logged, stored or sent to Airtable', array( serialize( $GLOBALS['records'] ) === $records_before, $GLOBALS['index'][ A ]['name'], $GLOBALS['patched'], requests(), $GLOBALS['mail'], count( audit( A, 'details_saved' ) ), $GLOBALS['posts'], serialize( $GLOBALS['opts'] ) === $opts_before ), array( true, 'Universidad Ejemplo ', array(), array(), array(), 0, array(), true ) );
+ck( 'and the card is not drawn for a tutor: no read view, no form, no request to approve', draw( 14, A ), '' );
+$GLOBALS['levels'] = array();
+ck( 'while a representative of the same school is drawn it', has( draw( 7, A ), 'id="wpcpm-details"' ), true );
+fresh();
 ck( 'a signed-out request is refused', array( post_as( 0, 'now', array(), A ) ), array( $refusal ) );
 ck( 'an Administrator may act on any school, the unsettled one included', array( post_as( 1, 'now', array( 'wpcpm_details_contact_role' => 'Set By An Administrator', 'wpcpm_details_student_languages' => array( 'English' ) ), C ), $GLOBALS['records'][ C ]['contact_role'] ), array( manager_back( C ), 'Set By An Administrator' ) );
 
@@ -1348,7 +1385,8 @@ const TRACK_FIELD = 'wpcpm_tracks_offered';
 /** The tracks section of a page: from its small heading to the end of the card's body. */
 function tracks_part( $html ) {
 	$at = strpos( $html, '<h4 class="wpcpm-details__subtitle">Tracks</h4>' );
-	return false === $at ? '' : substr( $html, $at );
+	$to = strpos( $html, '<h4 class="wpcpm-details__subtitle">Assigned Administrator</h4>' );
+	return false === $at ? '' : ( false === $to ? substr( $html, $at ) : substr( $html, $at, $to - $at ) );
 }
 /** Post the Tracks offered form as one account. */
 function post_tracks( $uid, array $statuses, $record = A, array $extra = array() ) {
@@ -1462,6 +1500,121 @@ ck( 'the handler checks the nonce, the record, the policy, the manager ground, a
 	before( $handler, 'is_record_id(', 'WPCPM_Institution_Policy::decide(' ),
 	before( $handler, 'WPCPM_Institution_Policy::decide(', 'GROUND_MANAGER' ),
 	before( $handler, 'GROUND_MANAGER', 'self::save(' ),
+), array( true, true, true, true ) );
+
+echo "\n=== Assigned Administrator: the section and its handler ===\n";
+
+const ASSIGN_FIELD = 'wpcpm_assigned';
+/** The assignment section of a page: from its small heading to the end of the card's body. */
+function assign_part( $html ) {
+	$at = strpos( $html, '<h4 class="wpcpm-details__subtitle">Assigned Administrator</h4>' );
+	return false === $at ? '' : substr( $html, $at );
+}
+function assign_back( $record = A ) { return 'redirect:https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '#wpcpm-details-assignment-outcome'; }
+/** Post the assignment form as one account. */
+function post_assign( $uid, $value, $record = A, array $extra = array() ) {
+	$GLOBALS['uid'] = (int) $uid;
+	$_POST          = array_merge( array( 'record' => $record, 'action' => 'wpcpm_institution_assign', ASSIGN_FIELD => $value ), $extra );
+	try {
+		WPCPM_Institution_Assignment::handle_save();
+	} catch ( Exception $e ) {
+		return $e->getMessage();
+	}
+	return '';
+}
+ck( 'the action, the field and the outcome id are named', array( WPCPM_Institution_Assignment::ACTION_SAVE, WPCPM_Institution_Assignment::FIELD, WPCPM_Institution_Assignment::OUTCOME_ID ), array( 'wpcpm_institution_assign', 'wpcpm_assigned', 'wpcpm-details-assignment-outcome' ) );
+
+echo "\n-- the section --\n";
+
+fresh();
+$GLOBALS['records'][ A ]['assigned'] = 12;
+$member_page = draw( 7 );
+ck( 'a member\'s card draws no Assigned Administrator heading, name or form', array( has( $member_page, 'Assigned Administrator' ), has( $member_page, 'Bo Boss' ), has( $member_page, 'wpcpm_institution_assign' ), has( $member_page, ASSIGN_FIELD ) ), array( false, false, false, false ) );
+
+$admin = assign_part( draw( 1 ) );
+ck( 'an Administrator\'s card draws the subtitle and the name of the stored one', array( '' !== $admin, has( $admin, '<dd>Bo Boss</dd>' ) ), array( true, true ) );
+ck( 'after the Tracks section', strpos( draw( 1 ), '>Tracks</h4>' ) < strpos( draw( 1 ), '>Assigned Administrator</h4>' ), true );
+ck( 'the fold is closed and says what it is for', has( $admin, '<details class="wpcpm-details__more" id="wpcpm-details-assignment"><summary class="wpcpm-details__toggle">Change who follows it up</summary><form class="wpcpm-details__form"' ), true );
+ck( 'the form posts to admin-post with the action, the record and the nonce keyed to the record', array(
+	has( $admin, '<input type="hidden" name="action" value="wpcpm_institution_assign" />' ),
+	has( $admin, '<input type="hidden" name="record" value="' . A . '" />' ),
+	has( $admin, 'value="nonce-wpcpm_institution_assign_' . A . '"' ),
+), array( true, true, true ) );
+$combo = end( $GLOBALS['combos'] );
+ck( 'one combobox: named wpcpm_assigned, Nobody first and every Administrator A to Z, the stored one chosen', array( $combo['name'], $combo['options'], (int) $combo['current'] ), array( 'wpcpm_assigned', array( 0 => 'Nobody', 12 => 'Bo Boss', 13 => 'Cy Chief', 1 => 'Manager' ), 12 ) );
+ck( 'with the button', has( $admin, '>Save</button>' ), true );
+$GLOBALS['records'][ A ]['assigned'] = 0;
+ck( 'nobody assigned reads Nobody yet', has( assign_part( draw( 1 ) ), '<dd>Nobody yet</dd>' ), true );
+$GLOBALS['records'][ A ]['assigned'] = 13;
+$GLOBALS['manage'] = array( 1, 12 );
+$gone = assign_part( draw( 1 ) );
+ck( 'an account that lost the capability reads so, and is not offered or chosen again', array( has( $gone, '<dd>Cy Chief (not an Administrator now)</dd>' ), array_keys( end( $GLOBALS['combos'] )['options'] ), end( $GLOBALS['combos'] )['current'] ), array( true, array( 0, 12, 1 ), 0 ) );
+$GLOBALS['manage'] = array( 1, 12, 13 );
+
+echo "\n-- the handler --\n";
+
+fresh();
+$GLOBALS['records'][ A ]['assigned'] = 12;
+$before  = $GLOBALS['records'][ A ];
+$refusal = 'wp_die:' . WPCPM_Institution_Policy::refusal()->get_error_message();
+ck( 'a member\'s hand-made post with a valid nonce is refused with the policy\'s 403', post_assign( 7, '13' ), $refusal );
+ck( 'and nothing was kept, audited or mailed', array( $GLOBALS['records'][ A ], count( audit( A, 'assignment_changed' ) ), $GLOBALS['mail'] ), array( $before, 0, array() ) );
+ck( 'another school\'s member, a stranger, a signed-out post and a bad record are refused alike', array( post_assign( 9, '13' ), post_assign( 5, '13' ), post_assign( 0, '13' ), post_assign( 1, '13', 'not-a-record' ) ), array( $refusal, $refusal, $refusal, $refusal ) );
+ck( 'still nothing written', array( $GLOBALS['records'][ A ], $GLOBALS['mail'] ), array( $before, array() ) );
+$GLOBALS['nonce_ok'] = false;
+ck( 'a nonce for another record is refused by check_admin_referer, keyed to the posted record', post_assign( 1, '13', B ), 'nonce:wpcpm_institution_assign_' . B );
+$GLOBALS['nonce_ok'] = true;
+ck( 'and nothing was written', array( $GLOBALS['records'][ A ], isset( $GLOBALS['records'][ B ]['assigned'] ) ), array( $before, false ) );
+
+$GLOBALS['events'] = array();
+ck( 'an Administrator assigns 13, and lands on the outcome line', post_assign( 1, '13' ), assign_back( A ) );
+$flash = flash_of( 1 );
+ck( 'kept, one audit row, flashed for the assignment section', array( $GLOBALS['records'][ A ]['assigned'], count( audit( A, 'assignment_changed' ) ), $flash['status'], $flash['record'], $flash['section'] ), array( 13, 1, 'assignment-emailed', A, 'assignment' ) );
+ck( 'the new Administrator was emailed once, naming the school', array( count( $GLOBALS['mail'] ), $GLOBALS['mail'][0]['to'], $GLOBALS['mail'][0]['context'], has( $GLOBALS['mail'][0]['body'], 'Universidad Ejemplo, in Costa Rica, is now assigned to you.' ) ), array( 1, 'cy@example.test', 'institution-assigned', true ) );
+ck( 'the nonce was checked first', $GLOBALS['events'][0], 'nonce wpcpm_institution_assign_' . A );
+$page = draw( 1 );
+ck( 'the outcome line takes the focus, under the section heading, once', array(
+	has( $page, '<p class="wpcpm-details__message is-success" role="status" tabindex="-1" id="wpcpm-details-assignment-outcome" data-wpcpm-card-message>The assigned Administrator is saved, and they have been emailed.</p>' ),
+	strpos( $page, 'they have been emailed' ) > strpos( $page, '>Assigned Administrator</h4>' ),
+	substr_count( $page, 'they have been emailed' ),
+	has( $page, 'wpcpm-details__more" id="wpcpm-details-assignment" open' ),
+), array( true, true, 1, true ) );
+ck( 'and the top of the card does not repeat it', has( substr( $page, 0, (int) strpos( $page, '<h4' ) ), 'emailed' ), false );
+
+$GLOBALS['mail'] = array();
+ck( 'the same Administrator again changes nothing, and says so', array( post_assign( 1, '13' ), flash_of( 1 )['status'], count( audit( A, 'assignment_changed' ) ), $GLOBALS['mail'] ), array( assign_back( A ), 'nothing', 1, array() ) );
+ck( 'an Administrator assigning themselves is saved and not emailed', array( post_assign( 1, '1' ), $GLOBALS['records'][ A ]['assigned'], flash_of( 1 )['status'], $GLOBALS['mail'] ), array( assign_back( A ), 1, 'assignment-saved', array() ) );
+ck( 'Nobody is saved and not emailed', array( post_assign( 1, '0' ), $GLOBALS['records'][ A ]['assigned'], flash_of( 1 )['status'], $GLOBALS['mail'] ), array( assign_back( A ), 0, 'assignment-saved', array() ) );
+// The notice says "emailed" only when the email went (1.123.84): a mail host that refused it leaves the
+// change saved and the sentence without that clause.
+$GLOBALS['mail_fails'] = true;
+ck( 'an assignment whose email the mail host refuses is saved, and the notice does not say emailed', array( post_assign( 1, '13' ), $GLOBALS['records'][ A ]['assigned'], flash_of( 1 )['status'], $GLOBALS['mail'] ), array( assign_back( A ), 13, 'assignment-saved', array() ) );
+$GLOBALS['mail_fails'] = false;
+$words = WPCPM_Institution_Details_Card::messages();
+ck( 'the two sentences are the plan\'s', array( $words['assignment-emailed'], $words['assignment-saved'] ), array( array( 'success', 'The assigned Administrator is saved, and they have been emailed.' ), array( 'success', 'The assigned Administrator is saved.' ) ) );
+
+$GLOBALS['records'][ A ]['assigned'] = 12;
+$before = $GLOBALS['records'][ A ];
+$count  = count( audit( A, 'assignment_changed' ) );
+ck( 'an account that is no Administrator is refused with the reason, and nothing is written', array( post_assign( 1, '7' ), flash_of( 1 )['text'], $GLOBALS['records'][ A ], $GLOBALS['mail'] ), array( assign_back( A ), 'Only an Administrator can be assigned an institution.', $before, array() ) );
+ck( 'so is a value that is no number: it does not clear the assignment', array( post_assign( 1, 'abc' ), flash_of( 1 )['text'], $GLOBALS['records'][ A ], count( audit( A, 'assignment_changed' ) ) ), array( assign_back( A ), 'Only an Administrator can be assigned an institution.', $before, $count ) );
+ck( 'and a post with no field at all', array( post_assign( 1, '', A, array( ASSIGN_FIELD => null ) ), $GLOBALS['records'][ A ] ), array( assign_back( A ), $before ) );
+
+// The school's lock: one more writer of the record's whole answers.
+$token = WPCPM_Lock::take( 'wpcpm_req_lock_details_' . A, 300 );
+$out   = post_assign( 1, '13' );
+$busy  = flash_of( 1 );
+ck( 'a save that finds the school\'s lock held writes nothing and says someone is saving', array( '' !== $token, $out, $GLOBALS['records'][ A ], $busy['status'], $busy['section'] ), array( true, assign_back( A ), $before, 'saving-busy', 'assignment' ) );
+WPCPM_Lock::release( 'wpcpm_req_lock_details_' . A, $token );
+ck( 'the lock free, the same post saves, and the lock is let go', array( post_assign( 1, '13' ), $GLOBALS['records'][ A ]['assigned'], WPCPM_Lock::take( 'wpcpm_req_lock_details_' . A, 300 ) !== '' ), array( assign_back( A ), 13, true ) );
+
+$assign_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assignment.php' );
+$handler    = (string) method_body( $assign_src, 'handle_save' );
+ck( 'the handler checks the nonce, the record, the policy, the manager ground, and only then assigns', array(
+	before( $handler, 'check_admin_referer(', 'is_record_id(' ),
+	before( $handler, 'is_record_id(', 'WPCPM_Institution_Policy::decide(' ),
+	before( $handler, 'WPCPM_Institution_Policy::decide(', 'GROUND_MANAGER' ),
+	before( $handler, 'GROUND_MANAGER', 'self::assign(' ),
 ), array( true, true, true, true ) );
 
 echo "\n=== The words the plan gives ===\n";

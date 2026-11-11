@@ -205,6 +205,13 @@ class WPCPM_Roster_Index {
 
 /** Stands in for the members module: the institutions an account acts for right now. */
 class WPCPM_Institution_Members {
+	const LEVEL_REPRESENTATIVE = 'representative';
+	const LEVEL_TUTOR          = 'tutor';
+	/** The level the account holds: a tutor where the fixture says so (`$GLOBALS['levels']`), a representative otherwise, as the real class reads it. */
+	public static function level_of( $user = null ) {
+		$id = is_object( $user ) ? (int) $user->ID : (int) $user;
+		return isset( $GLOBALS['levels'][ $id ] ) && 'tutor' === $GLOBALS['levels'][ $id ] ? 'tutor' : 'representative';
+	}
 	public static function memberships_of( $user = null ) {
 		$id = is_object( $user ) ? $user->ID : (int) $user;
 		return isset( $GLOBALS['memberships'][ $id ] ) ? $GLOBALS['memberships'][ $id ] : array();
@@ -801,6 +808,20 @@ ck( 'an unsettled agreement closes the card too', WPCPM_Institution_Student_View
 ck( 'and draws nothing', card( $inst_a, 10, array() ), '' );
 
 $GLOBALS['settled'] = array( $inst_a, $inst_b );
+
+// Institutions release 1, through the real policy: a tutor of settled A sees the student, and the card draws
+// as it does for a representative, which is a read; the unsettled gate closes it for them as for anybody.
+$GLOBALS['users'][25]       = new WP_User( 25, 'Tess Tutor', 'tess@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['memberships'][25] = array( $inst_a );
+$GLOBALS['levels']          = array( 25 => 'tutor' );
+$GLOBALS['uid']             = 25;
+ck( 'a tutor of the student\'s institution opens the student and is drawn the card, as a representative of it is', array( WPCPM_Institution_Student_View::shows( 10 ), '' !== card( $inst_a, 10, array() ), card( $inst_a, 10, array() ) === ( function () use ( $inst_a ) { $GLOBALS['uid'] = 20; return card( $inst_a, 10, array() ); } )() ), array( true, true, true ) );
+ck( 'a tutor of A may read the Student Report Card of A\'s student, and not B\'s', array( may_read( 25, $report_a ), may_read( 25, $report_b ) ), array( true, false ) );
+$GLOBALS['uid']     = 25;
+$GLOBALS['settled'] = array( $inst_b );
+ck( 'while the agreement is not settled they are drawn nothing', array( WPCPM_Institution_Student_View::shows( 10 ), card( $inst_a, 10, array() ) ), array( false, '' ) );
+$GLOBALS['settled'] = array( $inst_a, $inst_b );
+$GLOBALS['levels']  = array();
 
 /* ---- 8. the Student Report Card, fetched when it is opened ---------------- */
 

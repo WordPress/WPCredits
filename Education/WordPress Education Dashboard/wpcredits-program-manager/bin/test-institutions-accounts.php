@@ -225,7 +225,23 @@ class WPCPM_Institution_Members {
 	const HOW_MANAGER        = 'manager';
 	const HOW_INVITED        = 'invited';
 	const HOW_LEGACY         = 'legacy';
+	const META_LEVEL            = 'wpcpm_institution_level';
+	const META_LEVEL_WAS        = 'wpcpm_institution_level_was';
+	const LEVEL_REPRESENTATIVE  = 'representative';
+	const LEVEL_TUTOR           = 'tutor';
 
+	/** As the real class reads it: a tutor only where the stored level says so. */
+	public static function level_of( $user = null ) {
+		$id = $user instanceof WP_User ? (int) $user->ID : (int) $user;
+
+		return isset( $GLOBALS['umeta'][ $id ][ self::META_LEVEL ] ) && 'tutor' === $GLOBALS['umeta'][ $id ][ self::META_LEVEL ] ? 'tutor' : 'representative';
+	}
+	/** As the real class reads it: the level a removed member held, a tutor only where it says so. */
+	public static function former_level_of( $user = null ) {
+		$id = $user instanceof WP_User ? (int) $user->ID : (int) $user;
+
+		return isset( $GLOBALS['umeta'][ $id ][ self::META_LEVEL_WAS ] ) && 'tutor' === $GLOBALS['umeta'][ $id ][ self::META_LEVEL_WAS ] ? 'tutor' : 'representative';
+	}
 	public static function members_of( $record_id ) {
 		$GLOBALS['member_reads'][] = (string) $record_id;
 
@@ -425,6 +441,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-provision.p
 // The Manage members view's two blocks and the policy both decide through, the plugin's own.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-people.php';
+// The People card's init registers the tutor list's two handlers, so the class is loaded beside it, as the plugin does.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-tutors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
 
 // The invitation's template, hooked as the plugin hooks it, so the stand-in for core's invitation
