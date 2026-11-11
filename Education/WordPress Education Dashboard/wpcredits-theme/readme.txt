@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.26
+Stable tag: 1.32.27
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -220,6 +220,11 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.27 =
+
+* The Sponsor Dashboard, the Sponsor guide and each program update a sponsor reads are drawn in WPCredits Program Manager 1.123.78's frame, each on a bare canvas of its own (`page-sponsor-dashboard`, `page-sponsor-guide`, `single-sponsor-update`), as the Administrator Dashboard's pages are. The guide and an update take their canvas only for a reader the plugin draws them for; anybody else gets the page as before.
+* Inside the frame the Sponsor Dashboard's cards are the Administrator Dashboard's: a plain 1px box with 2px corners, the row's state at its end, Inter throughout, an offer's state as the frame's status tag. The rules for the At a glance strip, the identity header, the two-column Offers card and the movable sections, which the plugin no longer prints, are gone.
 
 = 1.32.26 =
 

@@ -30,6 +30,7 @@
  * The same file pins the Sponsor Dashboard's At a glance strip (theme 1.32.8): the tier tile's figure
  * is a word, and a word at the numbers' 28px ran up to 14.5px past its tile's content where the tile is
  * narrowest, so the tile is an inline-size container and the word takes its size from the tile's width.
+ * Since theme 1.32.27 (plugin 1.123.78) the page draws no strip, and the file pins that those rules are gone.
  *
  * Run from the theme root:  php bin/test-dashboard-table.php
  *
@@ -385,20 +386,16 @@ ck( 'numbers keep 28px on a 32px line with the hair of tracking, in the one rule
 
 $shared_tile = '.wpc-administrator-page .wpcpm-attention__tile, .wpc-sponsor-page .wpcpm-attention__tile';
 
-ck( 'the Sponsor Dashboard\'s tile is an inline-size container, so a figure can size itself by the tile\'s width: the rule both strips share still draws the tile as it did, and a rule for the Sponsor Dashboard\'s tile alone follows with that one declaration',
-	array( dashboard_rules_of( $shared_tile ), dashboard_rules_of( $tile ) ),
+// The Sponsor Dashboard draws no At a glance strip since WPCredits Program Manager 1.123.78, so the rules that
+// sized a tier's name to its tile went with it (theme 1.32.27): no tile is a container, no rule sizes a word,
+// and the rule both strips shared draws the tile as it did, for the Administrator Dashboard.
+ck( 'the tile rule both strips share still draws the tile as it did, and no rule makes the Sponsor Dashboard\'s tile a container or sizes a tier\'s word, now that the page draws no strip',
+	array( dashboard_rules_of( $shared_tile ), dashboard_rules_of( $tile ), dashboard_rules_of( $word ) ),
 	array(
 		array( array( 'background: var( --wpc-surface );', 'border: 1px solid var( --wpc-line-card );', 'border-radius: var( --wpc-radius-card );' ) ),
-		array( array( 'container-type: inline-size;' ) ),
+		array(),
+		array(),
 	) );
-
-ck( 'the word\'s figure takes the least of 28px and a size that follows the tile: 20 percent of the tile\'s width less 8px, about 22px in the 151.7px tile of a 601px window and 28px from about a 180px tile; said once, nothing else',
-	dashboard_rules_of( $word ),
-	array( array( 'font-size: min( 28px, calc( 20cqi - 8px ) );' ) ) );
-
-ck( 'the container rule and the word\'s rule come after the figure\'s rule, in that order: the word\'s rule ties with the figure\'s at two classes and wins by coming after it',
-	$position( $figure ) > -1 && $position( $figure ) < $position( $tile, 'container-type: inline-size;' ) && $position( $tile, 'container-type: inline-size;' ) < $position( $word ),
-	true );
 
 $administrator = array();
 

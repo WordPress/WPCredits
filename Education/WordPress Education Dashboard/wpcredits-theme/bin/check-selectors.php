@@ -701,7 +701,7 @@ function wpcredits_declared( array $rules, $selector, $prop, $width ) {
 $placed    = wpcredits_rules( (string) file_get_contents( $theme . '/assets/css/dashboard.css' ) );
 $misplaced = array();
 
-foreach ( array( '.wpc-institution-page .wpcpm-institution__identity', '.wpc-institution-page .wpcpm-institution__card', '.wpc-institution-page .wpcpm-roster', '.wpc-institution-page .wpcpm-institution__module-title', '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-institution-page .wpcpm-sevents', '.wpc-sponsor-page .wpcpm-sponsor__module-title', '.wpc-sponsor-page .wpcpm-sponsor__module-lead' ) as $block ) {
+foreach ( array( '.wpc-institution-page .wpcpm-institution__identity', '.wpc-institution-page .wpcpm-institution__card', '.wpc-institution-page .wpcpm-roster', '.wpc-institution-page .wpcpm-institution__module-title', '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-institution-page .wpcpm-sevents' ) as $block ) {
 	foreach ( array( 1280 => '32px', 900 => '20px' ) as $width => $inset ) {
 		foreach ( array( 'left', 'right' ) as $side ) {
 			$got = wpcredits_side( $placed, $block, 'padding', $side, $width );
@@ -720,13 +720,6 @@ foreach ( array( 1280, 900 ) as $width ) {
 	if ( '' === $fold || $fold !== $got ) {
 		$misplaced[] = sprintf( 'the Change the event fold opens %s under its toggle at %dpx, the offers\' fold %s', '' === $got ? 'unset' : $got, $width, '' === $fold ? 'unset' : $fold );
 	}
-
-	$lead = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-offers__col--list .wpcpm-offer + .wpcpm-sponsor__subheading', 'margin', 'top', $width );
-	$got  = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-group__body .wpcpm-sponsor__subheading:not(:first-child)', 'margin', 'top', $width );
-
-	if ( '' === $lead || $lead !== $got ) {
-		$misplaced[] = sprintf( 'a card\'s sub-heading after something stands %s under it at %dpx, the offers\' sub-headings %s', '' === $got ? 'unset' : $got, $width, '' === $lead ? 'unset' : $lead );
-	}
 }
 
 // The Sponsor Dashboard's sections, twin by twin: each selector of the Institution Dashboard's module
@@ -737,7 +730,6 @@ $twins = array(
 	array( '.wpc-institution-page .wpcpm-module + .wpcpm-module', '.wpc-sponsor-page .wpcpm-module + .wpcpm-module', array( 'margin-top' ) ),
 	array( '.wpc-institution-page .wpcpm-module > .wpcpm-institution__card', '.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card', array( 'border-top', 'margin-bottom', 'margin-top', 'padding-top' ) ),
 	array( '.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card', '.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card + .wpcpm-sponsor__card', array( 'margin-top' ) ),
-	array( '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-sponsor-page .wpcpm-sponsor__module-lead', array( 'margin-bottom', 'margin-top' ) ),
 );
 
 foreach ( $twins as $twin ) {
@@ -753,38 +745,14 @@ foreach ( $twins as $twin ) {
 	}
 }
 
-// The strip stands 21px over the help's hairline, as the Institution Dashboard's header does: its
-// 1.5em bottom margin at 14px (assets/css/institution.css in the plugin).
-foreach ( array( 1280, 900 ) as $width ) {
-	$got = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-sponsor__glance', 'margin', 'bottom', $width );
+// The Sponsor Dashboard's sections' titles and leads, its At a glance strip with its waiting tile's red edge,
+// and the Offers card's two columns are gone since WPCredits Program Manager 1.123.78, which draws the page in
+// its frame, a view for each section; the placements this checker held them to went with them (theme 1.32.27).
+// The module twins above stay, for a plugin rolled back before it.
 
-	if ( '21px' !== $got ) {
-		$misplaced[] = sprintf( 'the At a glance strip stands %s over the help at %dpx, the header\'s 21px', '' === $got ? 'unset' : $got, $width );
-	}
-}
-
-// The waiting tile's leading edge: the theme's one rule for a strip's tiles draws a 1px line on all
-// four sides and so resets the plugin's one-class edge, which is why a rule of two classes restates
-// it; and it has to come after the rule that resets it, since the two tie.
-$reset = -1;
-$edge  = -1;
-
-foreach ( $placed as $at => $rule ) {
-	if ( in_array( '.wpc-sponsor-page .wpcpm-attention__tile', $rule['selectors'], true ) && isset( $rule['decls']['border'] ) ) {
-		$reset = $at;
-	}
-
-	if ( in_array( '.wpc-sponsor-page .wpcpm-attention__tile--waiting', $rule['selectors'], true ) && '' === $rule['media'] && '4px' === ( isset( $rule['decls']['border-inline-start-width'] ) ? $rule['decls']['border-inline-start-width'] : '' ) && 0 === strpos( isset( $rule['decls']['border-inline-start-color'] ) ? $rule['decls']['border-inline-start-color'] : '', 'var( --wpc-red' ) ) {
-		$edge = $at;
-	}
-}
-
-if ( $edge < 0 || $edge < $reset ) {
-	$misplaced[] = 'a waiting tile of the At a glance strip has no red leading edge of 4px after the rule that draws every tile a 1px border';
-}
-
-// The help is the third block of the Sponsor Dashboard, under the strip. No selector of the theme
-// that names the Sponsor Dashboard places it, which is what the foot of the page used to need.
+// The help was the third block of the Sponsor Dashboard, under the strip, until plugin 1.123.78 moved its
+// links into the frame's menu. No selector of the theme that names the Sponsor Dashboard places it, which is
+// what the foot of the page used to need.
 foreach ( $placed as $rule ) {
 	foreach ( $rule['selectors'] as $selector ) {
 		if ( false !== strpos( $selector, '.wpc-sponsor-page' ) && false !== strpos( $selector, '.wpcpm-handbook__resources' ) ) {

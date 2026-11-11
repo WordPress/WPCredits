@@ -764,7 +764,9 @@
    `wpcpm-sponsor__card` where the institution's are a roster, cards and an agreement card. So each
    rule below that dresses a module takes the sponsor page's selector in the same rule, value for
    value, and the two pages' modules cannot drift apart (the owner's rule that the dashboards look
-   alike). The groups' own rules, further down, stay for a plugin rolled back to 1.123.37. */
+   alike). The groups' own rules, further down, stay for a plugin rolled back to 1.123.37. Since plugin
+   1.123.78 each Sponsor Dashboard section is a view of its own in the frame and no longer a module; its
+   selectors here stay for a plugin rolled back before it. */
 /* The one line a module draws is the one above its title, first module included (owner,
    1.23.12), and 20px over every title - the student section's top padding - so the title's line
    sits where the arrows expect it (18px down, centered on a 14px/20px line), the way it does on
@@ -835,15 +837,12 @@
 }
 
 .wpc-institution-page .wpcpm-institution__module-title,
-.wpc-institution-page .wpcpm-institution__module-lead,
-.wpc-sponsor-page .wpcpm-sponsor__module-title,
-.wpc-sponsor-page .wpcpm-sponsor__module-lead {
+.wpc-institution-page .wpcpm-institution__module-lead {
 	padding-left: 32px;
 	padding-right: 32px;
 }
 
-.wpc-institution-page .wpcpm-institution__module-lead,
-.wpc-sponsor-page .wpcpm-sponsor__module-lead {
+.wpc-institution-page .wpcpm-institution__module-lead {
 	margin-bottom: 16px;
 	margin-top: 0;
 }
@@ -879,9 +878,7 @@
 	}
 
 	.wpc-institution-page .wpcpm-institution__module-title,
-	.wpc-institution-page .wpcpm-institution__module-lead,
-	.wpc-sponsor-page .wpcpm-sponsor__module-title,
-	.wpc-sponsor-page .wpcpm-sponsor__module-lead {
+	.wpc-institution-page .wpcpm-institution__module-lead {
 		padding-left: 20px;
 		padding-right: 20px;
 	}
@@ -1449,7 +1446,6 @@
 	}
 }
 
-
 /* Back to one column at the width the mentor page's two-column body collapses at,
    and for the same reason: these are label-and-value tables with a 170px label, and
    half of a card this narrow is not enough for the value beside it. */
@@ -1651,18 +1647,6 @@
 	border-radius: var( --wpc-radius-card );
 }
 
-/* A tile that waits on the sponsor's people (plugin, Institutions release 3) keeps the leading edge
-   the plugin gives it, 4px in the dashboards' attention red (`border-inline-start` on
-   `.wpcpm-attention__tile--waiting`, one class). The rule above draws all four sides at two classes
-   and so resets that edge, hence this one, at two classes and after it: the width and the color of
-   the logical side alone, as the People card's refusal takes its color, so the edge leads in a
-   right-to-left locale too and the line style the rule above sets stays. The label says what
-   waits, so the edge is never the only sign of it. */
-.wpc-sponsor-page .wpcpm-attention__tile--waiting {
-	border-inline-start-color: var( --wpc-red, #b32d2e );
-	border-inline-start-width: 4px;
-}
-
 /* A hair of tracking off the number. The longest word the tiles hold, a tier's name on the Sponsor
    Dashboard, ran 0.75px into its tile's line where the tile is narrowest, 152px wide in a 601px
    window; with it the word clears the line by 1.5px, and the two rules after this one keep it
@@ -1672,24 +1656,6 @@
 .wpc-sponsor-page .wpcpm-attention__n {
 	font: 700 28px/32px var( --wpc-font );
 	letter-spacing: -0.01em;
-}
-
-/* A tier's name is the one figure that is a word (the plugin gives it `wpcpm-attention__n--word`),
-   and a word is wider than a number: at 28px "Champion" runs 132px and "Supporter" 130px, in a tile
-   whose figure has about 114px between the link's padding where the tiles are narrowest, 152px
-   wide in a 601px window, so they ran up to 14.5px past it. The tile is an inline-size container so
-   the word can take its size from the tile's width: 20 percent of it less 8px, about 22px in a
-   152px tile (the container's width is the tile's less its borders) and the numbers' 28px from
-   about a 180px tile on. The strip's tracks are
-   `minmax( 150px, 1fr )`, so a tile's width never depends on its content and containing it moves
-   nothing. Numbers keep their 28px, and the Administrator Dashboard's strip is as it was. The word's
-   rule ties with the figure's above at two classes and wins by coming after it. */
-.wpc-sponsor-page .wpcpm-attention__tile {
-	container-type: inline-size;
-}
-
-.wpc-sponsor-page .wpcpm-attention__n--word {
-	font-size: min( 28px, calc( 20cqi - 8px ) );
 }
 
 .wpc-administrator-page .wpcpm-attention__l,
@@ -2010,7 +1976,6 @@
 	margin-right: 0;
 }
 
-.wpc-sponsor-page .wpcpm-sponsor__identity,
 .wpc-sponsor-page .wpcpm-sponsor__card {
 	padding-left: 32px;
 	padding-right: 32px;
@@ -2101,28 +2066,6 @@
 	border-top: 0;
 	margin-top: 16px;
 	padding-top: 0;
-}
-
-/* The At a glance strip (plugin 1.118.0) sits under the identity header, where the Resources
-   section sat until then, and draws the line that section drew there: the Institution Dashboard's
-   line under its header, value for value, the header's own 21px above a line-soft hairline and a
-   section's 20px under it. The plugin gives the strip the card rhythm, a group's 2.5em and 2em
-   over the darker card line, which read as a group with no heading. Its tiles take the tile rules
-   the two strips share, above.
-
-   The help follows the strip since Institutions release 3 (theme 1.32.5), where the Institution
-   Dashboard's follows its header, and the strip stands over the help's hairline as the header does:
-   21px, the header's 1.5em bottom margin at its 14px (assets/css/institution.css in the plugin),
-   in place of the card base's 1.25em, 17.5px. The help is the section the shared rules above dress,
-   a hairline over 20px of padding, and it needs nothing of its own. Where no help is drawn the
-   first module follows the strip, 21px under it as it follows the header on the Institution
-   Dashboard; a plugin rolled back to 1.123.37 has a group's 2.5em after the strip, which is the
-   larger margin and wins. */
-.wpc-sponsor-page .wpcpm-sponsor__glance {
-	border-top: 1px solid var( --wpc-line-soft );
-	margin-bottom: 21px;
-	margin-top: 0;
-	padding-top: 20px;
 }
 
 /* A card's row (plugin 1.118.0) says what the card holds: the title and its count, one phrase, the
@@ -2285,22 +2228,6 @@
 .wpc-sponsor-page .wpcpm-sponsor__initials {
 	color: var( --wpc-brand );
 	font: 700 32px/1 var( --wpc-font );
-}
-
-/* The badge (plugin 1.115.1): at the header's right, in the space it otherwise leaves empty
-   beside the details, so a sponsor's tier reads at a glance where the company itself is named
-   (the owner's ask, 26 September 2026). Centered on the row like the logo rather than stretched
-   to its height, and capped so a wide viewport does not let it dominate the header. */
-.wpc-sponsor-page .wpcpm-sponsor__badge {
-	align-self: center;
-	flex: 0 0 auto;
-	margin-left: auto;
-}
-
-.wpc-sponsor-page .wpcpm-sponsor__badge-image {
-	display: block;
-	height: auto;
-	max-width: 240px;
 }
 
 /* The details beside the logo (the name, the website, the facts) are not sized here, on
@@ -2842,31 +2769,12 @@
 /*
  * The Offers and Usage cards on the Sponsor Dashboard (plugin 1.94.0). One offer is a block
  * under a hairline inside the card body; its state and "in the base" marks are the pills the
- * group counts use, so a reader who knows one knows the other.
+ * group counts use, so a reader who knows one knows the other. A folded offer is the mentor
+ * page's availability panel, value for value: surface, the card line, the panel radius, 12px 14px
+ * inside; its title line is the summary, the counts under it in ink-70; open, the forms sit under a
+ * soft line 12px down. 10px between offers. The New offer form sits behind its button over the
+ * offers since plugin 1.123.78, in one column, where it stood in a column of its own (1.97.1).
  */
-/* The Offers and codes card rearranged (plugin 1.97.1, owner): the new-offer form on the left,
-   the offers on the right, folded. The columns are the profile card's, value for value: two
-   equal tracks, the right column's left edge carries the divider, one column under 900px with
-   24px between. A folded offer is the mentor page's availability panel, value for value:
-   surface, the card line, the panel radius, 12px 14px inside; its title line is the summary,
-   the counts under it in ink-70; open, the forms sit under a soft line 12px down. 10px between
-   offers, 24px between the last active offer and the ended list's title. */
-.wpc-sponsor-page .wpcpm-offers__cols {
-	align-items: start;
-	display: grid;
-	gap: 0;
-	grid-template-columns: minmax( 0, 1fr ) minmax( 0, 1fr );
-}
-
-.wpc-sponsor-page .wpcpm-offers__col--new {
-	padding-right: 32px;
-}
-
-.wpc-sponsor-page .wpcpm-offers__col--list {
-	border-left: 1px solid var( --wpc-line-soft );
-	padding-left: 32px;
-}
-
 .wpc-sponsor-page .wpcpm-offer {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
@@ -2893,10 +2801,6 @@
 	border-top: 1px solid var( --wpc-line-soft );
 	margin-top: 12px;
 	padding-top: 12px;
-}
-
-.wpc-sponsor-page .wpcpm-offers__col--list .wpcpm-offer + .wpcpm-sponsor__subheading {
-	margin-top: 24px;
 }
 
 /* Inside an open offer (plugin 1.97.2, owner): Save offer and the state moves on one line, 12px
@@ -3002,8 +2906,7 @@
 	margin: 0;
 }
 
-.wpc-sponsor-page .wpcpm-offer__state,
-.wpc-sponsor-page .wpcpm-offer__primary {
+.wpc-sponsor-page .wpcpm-offer__state {
 	border: 1px solid var( --wpc-line );
 	border-radius: 999px;
 	font: 600 12px/18px var( --wpc-font );
@@ -3188,20 +3091,6 @@
 }
 
 @media ( max-width: 900px ) {
-
-	.wpc-sponsor-page .wpcpm-offers__cols {
-		grid-template-columns: minmax( 0, 1fr );
-		row-gap: 24px;
-	}
-
-	.wpc-sponsor-page .wpcpm-offers__col--new {
-		padding-right: 0;
-	}
-
-	.wpc-sponsor-page .wpcpm-offers__col--list {
-		border-left: 0;
-		padding-left: 0;
-	}
 
 	.wpc-sponsor-page .wpcpm-profile__cols {
 		grid-template-columns: minmax( 0, 1fr );
@@ -4566,7 +4455,6 @@
 	opacity: 1;
 }
 
-
 /* ==========================================================================
    Empty state
 
@@ -4644,7 +4532,6 @@
 	.wpc-institution-page .wpcpm-institution__identity,
 	.wpc-institution-page .wpcpm-institution__card,
 	.wpc-administrator-page .wpcpm-administrator__card,
-	.wpc-sponsor-page .wpcpm-sponsor__identity,
 	.wpc-sponsor-page .wpcpm-sponsor__card,
 	.wpc-sponsor-page .wpcpm-sponsor__group-title,
 	.wpc-sponsor-page .wpcpm-sponsor__group-lead,
@@ -4654,17 +4541,6 @@
 	.wpc-institution-page .wpcpm-sevents {
 		padding-left: 20px;
 		padding-right: 20px;
-	}
-
-	/* The badge (plugin 1.115.1): this narrow, the row has no room for the logo, the details
-	   and the badge side by side, so the header wraps and the badge drops to a line of its own
-	   under the details, at the same left edge the header's other rows already keep here. */
-	.wpc-sponsor-page .wpcpm-sponsor__identity {
-		flex-wrap: wrap;
-	}
-
-	.wpc-sponsor-page .wpcpm-sponsor__badge {
-		margin-left: 0;
 	}
 
 	.wpcpm-dashboard__switcher,
@@ -5543,7 +5419,6 @@
 	}
 }
 
-
 /* ==========================================================================
    Feedback surveys
 
@@ -5636,8 +5511,6 @@
 	color: var( --wpc-ink-70 );
 }
 
-
-
 /* `:has()` is not everywhere yet, and a scale that cannot show which step is
    chosen is unusable rather than merely plain - so the radio itself stays
    visible as the fallback, and is only hidden where the fill works. */
@@ -5665,7 +5538,6 @@
 .wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step {
 	background: none;
 }
-
 
 /* ==========================================================================
    The dashboards in the plugin's frame (theme 1.32.22, WPCredits Program Manager 1.123.69)
@@ -5802,12 +5674,12 @@
 /* The buttons and fields inside an open card are the frame's: Inter, and the 2px corners DESIGN.md gives
    every button and control, at the cards' own 34px, the size of the row's Review cue. The page outside
    the frame keeps its rounder ones. */
-.wpc-dashboard-page .wpc-main--app .wpcpm-administrator :is( .wpcpm-button, .button, button, input[type="submit"], input[type="button"] ) {
+.wpc-dashboard-page .wpc-main--app :is( .wpcpm-administrator, .wpcpm-sponsor ) :is( .wpcpm-button, .button, button, input[type="submit"], input[type="button"] ) {
 	border-radius: var( --wpc-radius-control );
 	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
 }
 
-.wpc-dashboard-page .wpc-main--app .wpcpm-administrator :is( input:not( [type="checkbox"] ):not( [type="radio"] ), select, textarea ) {
+.wpc-dashboard-page .wpc-main--app :is( .wpcpm-administrator, .wpcpm-sponsor ) :is( input:not( [type="checkbox"] ):not( [type="radio"] ), select, textarea ) {
 	border-radius: var( --wpc-radius-control );
 	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
 }
@@ -5835,7 +5707,7 @@
 /* The whole page in Inter, the homepage's text face. The dashboards' sheets set the system face on many of
    their own elements, the tables, notes, links and the Tools and Resources sections among them; inside the
    frame each takes Inter instead, except the head's and the figures' serif and anything set as code. */
-.wpc-dashboard-page .wpc-main--app .wpcpm-administrator *:not( .wpcpm-head__title ):not( .wpcpm-figure__value ):not( .wpcpm-figure__value * ):not( code ):not( kbd ):not( pre ):not( samp ):not( .dashicons ) {
+.wpc-dashboard-page .wpc-main--app :is( .wpcpm-administrator, .wpcpm-sponsor ) *:not( .wpcpm-head__title ):not( .wpcpm-figure__value ):not( .wpcpm-figure__value * ):not( .wpcpm-sponsor__initials ):not( code ):not( kbd ):not( pre ):not( samp ):not( .dashicons ) {
 	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
 }
 
@@ -5850,4 +5722,99 @@
 
 .wpc-administrator-page .wpc-main--app :is( .wpcpm-tools__offer, .wpcpm-tools__logo, .wpcpm-timeline-notes ) {
 	border-radius: var( --wpc-radius-control );
+}
+
+/* ==========================================================================
+   The Sponsor Dashboard in the plugin's frame (theme 1.32.27, WPCredits Program Manager 1.123.78)
+
+   The Administrator Dashboard's frame rules above, for the Sponsor Dashboard's cards: no hairline over the
+   page or inset of its own (the frame's main area holds them), each card a plain 1px box with 2px corners
+   whose open body draws no second box, and the row's state and action at its end. The rules for the page
+   outside the frame stay above, keyed on the same body class.
+   ========================================================================== */
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-dashboard.wpcpm-sponsor {
+	border-top: 0;
+	padding: 0;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-sponsor__group-title {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-sponsor__card {
+	border-top: 0;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-sponsor__card > .wpcpm-group__disclosure {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-radius: var( --wpc-radius-control );
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__summary {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	padding: 14px 16px;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__summary > .wpcpm-sponsor__state,
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__summary > .wpcpm-mentee__toggle {
+	margin-inline-start: auto;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__summary > .wpcpm-sponsor__state ~ .wpcpm-mentee__toggle {
+	margin-inline-start: 0;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__disclosure[open] > .wpcpm-group__summary {
+	border-bottom: 1px solid var( --wpc-line );
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__disclosure > .wpcpm-group__body {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-group__title {
+	font-family: var( --wpc-hub-sans, var( --wpc-font ) );
+}
+
+/* A card's action, such as Upload or Edit, under its box in the flow, as on the Administrator Dashboard's
+   other views. */
+.wpc-sponsor-page .wpc-main--app .wpcpm-sponsor__row-action {
+	margin: 8px 0 0;
+	position: static;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-sponsor__card:has( > .wpcpm-sponsor__row-action ) > .wpcpm-group__disclosure:not([open]) > .wpcpm-group__summary {
+	padding-right: 16px;
+}
+
+/* Every box inside the frame takes the frame's 2px corners: an offer's fold, the mentors' tiles, the logo. */
+.wpc-sponsor-page .wpc-main--app :is( .wpcpm-offer, .wpcpm-offer__edit, .wpcpm-mentor-tile, .wpcpm-sponsor__logo, .wpcpm-logo__tile ) {
+	border-radius: var( --wpc-radius-control );
+}
+
+
+/* An offer's state is the frame's status tag (plugin 1.123.78), the homepage's 2px tag in words, not the round
+   pill the page outside the frame draws. */
+.wpc-sponsor-page .wpc-main--app .wpcpm-offer__state.wpcpm-status {
+	border-color: transparent;
+	border-radius: var( --wpc-radius-control );
+	font: 500 12px/18px var( --wpc-hub-sans, var( --wpc-font ) );
+	letter-spacing: .06em;
+	margin-left: 0;
+	padding: 1px 8px;
+}
+
+.wpc-sponsor-page .wpc-main--app .wpcpm-offer__state.wpcpm-status--amber {
+	border-color: var( --wpc-amber-border, #d0b481 );
 }

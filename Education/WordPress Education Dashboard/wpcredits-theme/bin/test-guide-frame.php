@@ -1,6 +1,7 @@
 <?php
 /**
- * The Administrator guide on its bare canvas (theme 1.32.23, with WPCredits Program Manager 1.123.70).
+ * The Administrator guide on its bare canvas (theme 1.32.23, with WPCredits Program Manager 1.123.70), and the
+ * Sponsor Dashboard, its guide and a sponsor's updates on theirs (theme 1.32.27, with the plugin's 1.123.78).
  *
  * The guide's page names the Documentation template; while the plugin can draw the guide in the
  * Administrator Dashboard's frame, the theme draws it on `page-administrator-guide` instead, and loads
@@ -27,21 +28,42 @@ function get_theme_support( $feature ) { return 'wpcpm-dashboard-frame' === $fea
 function is_page() { return $GLOBALS['req']['is_page']; }
 function is_single() { return ! empty( $GLOBALS['req']['is_single'] ); }
 function get_queried_object() { return $GLOBALS['req']['object']; }
-// The Administrator Dashboard's own page test is template-tags.php's; here it is a switch.
+// The Administrator and Sponsor Dashboards' own page tests are template-tags.php's; here they are switches.
 function wpcredits_is_administrator_page() { return $GLOBALS['req']['dashboard']; }
+function wpcredits_is_sponsor_page() { return ! empty( $GLOBALS['req']['sponsor_dashboard'] ); }
 
 class WP_Post {
 	public $post_name = '';
 }
 
-// The plugin's answer, standing in: the page at the guide's path.
+// The plugin's answer, standing in: the frame a guide's page is drawn in for this reader (1.123.78), the
+// Administrator guide for anybody who opens it here, the Sponsor guide only for a reader the plugin draws it for.
 class WPCPM_Administrator_Guide_View {
-	public static function is_guide( $post ) { return $post instanceof WP_Post && 'administrator-guide' === $post->post_name; }
+	public static function is_guide( $post ) { return 'administrator-guide' === self::frame_for( $post ); }
+	public static function frame_for( $post ) {
+		if ( ! $post instanceof WP_Post ) {
+			return '';
+		}
+		if ( 'administrator-guide' === $post->post_name ) {
+			return 'administrator-guide';
+		}
+		return 'sponsor-guide' === $post->post_name && ! empty( $GLOBALS['req']['sponsor_reader'] ) ? 'sponsor-guide' : '';
+	}
 }
 
-// The plugin's answer for an update (1.123.71), standing in: an update drawn for this reader.
+// The plugin's answer for an update (1.123.71; whose frame since 1.123.78), standing in: an Administrator's
+// frame for a manager, a sponsor's for somebody who acts for a sponsor.
 class WPCPM_Administrator_Updates_View {
-	public static function draws( $post ) { return $post instanceof WP_Post && 'site-update' === $post->post_name && ! empty( $GLOBALS['req']['manager'] ); }
+	public static function draws( $post ) { return '' !== self::audience_of( $post ); }
+	public static function audience_of( $post ) {
+		if ( ! $post instanceof WP_Post || 'site-update' !== $post->post_name ) {
+			return '';
+		}
+		if ( ! empty( $GLOBALS['req']['manager'] ) ) {
+			return 'administrator';
+		}
+		return ! empty( $GLOBALS['req']['member'] ) ? 'sponsor' : '';
+	}
 }
 
 require_once WPCREDITS_THEME_DIR . 'inc/dashboard.php';
@@ -131,8 +153,43 @@ foreach ( $kept as $name => $case ) {
 ck( 'anywhere else the post keeps the templates core made for it', $as_core, array_fill_keys( array_keys( $kept ), array( true, false ) ) );
 ck( 'the update\'s canvas is the dashboard\'s, and functions.php names the updates for the frame', array(
 	file_get_contents( WPCREDITS_THEME_DIR . 'templates/single-administrator-update.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--administrator-update', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
-	false !== strpos( file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), "add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates' ) );" ),
+	false !== strpos( file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), "add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates' ) );" ),
 ), array( true, true ) );
+
+// Theme 1.32.27, with the plugin's 1.123.78: the Sponsor Dashboard, the Sponsor guide and each update a sponsor
+// reads are drawn in the Sponsor Dashboard's frame, each on a bare canvas of its own.
+$all = array( array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates' ) );
+
+on( 'sponsor-dashboard', array( 'sponsor_dashboard' => true, 'support' => $all ) );
+ck( 'the Sponsor Dashboard is a page in the frame while functions.php names it', wpcredits_is_frame_page(), true );
+on( 'sponsor-dashboard', array( 'sponsor_dashboard' => true ) );
+ck( 'and is not while it does not', wpcredits_is_frame_page(), false );
+
+$sponsor_hierarchy = array( 'page-documentation', 'page-sponsor-guide.php', 'page-1770.php', 'page.php' );
+on( 'sponsor-guide', array( 'sponsor_reader' => true, 'support' => $all ) );
+ck( 'the Sponsor guide, for a reader the plugin draws it for, is moved onto page-sponsor-guide, once, ahead of the Documentation template, and is a page in the frame', array( wpcredits_guide_frame_template( $sponsor_hierarchy ), wpcredits_is_frame_page() ), array( array( 'page-sponsor-guide.php', 'page-documentation', 'page-1770.php', 'page.php' ), true ) );
+
+$sponsor_left = array(
+	'a reader the plugin does not draw it for' => array( 'sponsor-guide', array( 'support' => $all ) ),
+	'a theme that names only the Administrator guide' => array( 'sponsor-guide', array( 'sponsor_reader' => true ) ),
+);
+$as_named = array();
+foreach ( $sponsor_left as $name => $case ) {
+	on( $case[0], $case[1] );
+	$as_named[ $name ] = array( wpcredits_guide_frame_template( $sponsor_hierarchy ) === $sponsor_hierarchy, wpcredits_is_guide_frame_page() );
+}
+ck( 'anywhere else the Sponsor guide keeps the Documentation template it names', $as_named, array_fill_keys( array_keys( $sponsor_left ), array( true, false ) ) );
+
+on( 'site-update', array( 'is_page' => false, 'is_single' => true, 'member' => true, 'support' => $all ) );
+ck( 'an update somebody who acts for a sponsor reads is on single-sponsor-update, first, and is a page in the frame', array( wpcredits_update_frame_template( $single ), wpcredits_is_frame_page() ), array( array( 'single-sponsor-update.php', 'single-post-site-update.php', 'single-post.php', 'single.php' ), true ) );
+on( 'site-update', array( 'is_page' => false, 'is_single' => true, 'member' => true, 'support' => $names ) );
+ck( 'and keeps its own templates while functions.php does not name the sponsor\'s updates', array( wpcredits_update_frame_template( $single ) === $single, wpcredits_is_update_frame_page() ), array( true, false ) );
+
+ck( 'the Sponsor Dashboard\'s, the Sponsor guide\'s and a sponsor\'s update\'s canvases are the Administrator Dashboard\'s, each with its own class', array(
+	file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-sponsor-dashboard.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--sponsor', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
+	file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-sponsor-guide.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--sponsor-guide', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
+	file_get_contents( WPCREDITS_THEME_DIR . 'templates/single-sponsor-update.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--sponsor-update', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
+), array( true, true, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

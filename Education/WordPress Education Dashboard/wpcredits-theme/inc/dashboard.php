@@ -194,6 +194,7 @@ function wpcredits_handbook_available() {
  */
 function wpcredits_is_frame_page() {
 	return ( wpcredits_frame_names( 'administrator' ) && wpcredits_is_administrator_page() )
+		|| ( wpcredits_frame_names( 'sponsor' ) && wpcredits_is_sponsor_page() )
 		|| wpcredits_is_guide_frame_page()
 		|| wpcredits_is_update_frame_page();
 }
@@ -212,72 +213,117 @@ function wpcredits_frame_names( $page ) {
 }
 
 /**
- * Whether the page being viewed is the Administrator guide, drawn in the Administrator Dashboard's frame
- * (plugin 1.123.70): only while a plugin that can draw it is active, so a site without one keeps the
- * guide on the Documentation template the page names.
+ * The frame a guide being viewed is drawn in, as functions.php names it: `administrator-guide` for the
+ * Administrator guide (plugin 1.123.70), `sponsor-guide` for the Sponsor guide (plugin 1.123.78), or '' for
+ * any other page. Only while a plugin that can draw it is active and draws it for this reader, so a site
+ * without one, and a reader the plugin does not draw it for, keep the guide on the Documentation template
+ * the page names.
+ *
+ * @return string
+ */
+function wpcredits_guide_frame() {
+	if ( ! is_page() || ! class_exists( 'WPCPM_Administrator_Guide_View' ) ) {
+		return '';
+	}
+
+	$post = get_queried_object();
+
+	if ( method_exists( 'WPCPM_Administrator_Guide_View', 'frame_for' ) ) {
+		$frame = (string) WPCPM_Administrator_Guide_View::frame_for( $post );
+	} else {
+		// A plugin before 1.123.78 draws the Administrator guide alone.
+		$frame = WPCPM_Administrator_Guide_View::is_guide( $post ) ? 'administrator-guide' : '';
+	}
+
+	return '' !== $frame && wpcredits_frame_names( $frame ) ? $frame : '';
+}
+
+/**
+ * Whether the page being viewed is a guide drawn in its dashboard's frame.
  *
  * @return bool
  */
 function wpcredits_is_guide_frame_page() {
-	if ( ! is_page() || ! class_exists( 'WPCPM_Administrator_Guide_View' ) || ! wpcredits_frame_names( 'administrator-guide' ) ) {
-		return false;
-	}
-
-	return WPCPM_Administrator_Guide_View::is_guide( get_queried_object() );
+	return '' !== wpcredits_guide_frame();
 }
 
 /**
- * Draw the Administrator guide on its bare canvas, `page-administrator-guide`, ahead of the Documentation
- * template the page itself names. The page keeps naming it, so the day the plugin cannot draw the frame
- * the guide is a Documentation page again, with nothing to change on it.
+ * Draw a guide on its bare canvas, `page-administrator-guide` or `page-sponsor-guide`, ahead of the
+ * Documentation template the page itself names. The page keeps naming it, so the day the plugin cannot draw
+ * the frame the guide is a Documentation page again, with nothing to change on it.
  *
  * @param string[] $templates The page's templates, the first found wins.
  * @return string[]
  */
 function wpcredits_guide_frame_template( $templates ) {
-	if ( ! wpcredits_is_guide_frame_page() ) {
+	$frame = wpcredits_guide_frame();
+
+	if ( '' === $frame ) {
 		return $templates;
 	}
 
-	// Moved, not added: the page's slug already puts `page-administrator-guide.php` in the list, after the
-	// stored template, and core orders block templates by `array_flip()` of the list, where the last of
-	// two equal entries wins. A second copy at the front would lose to the stored template.
-	$templates = array_values( array_diff( $templates, array( 'page-administrator-guide.php' ) ) );
-	array_unshift( $templates, 'page-administrator-guide.php' );
+	// Moved, not added: the page's slug already puts `page-<slug>.php` in the list, after the stored
+	// template, and core orders block templates by `array_flip()` of the list, where the last of two equal
+	// entries wins. A second copy at the front would lose to the stored template.
+	$canvas    = 'page-' . $frame . '.php';
+	$templates = array_values( array_diff( $templates, array( $canvas ) ) );
+	array_unshift( $templates, $canvas );
 
 	return $templates;
 }
 add_filter( 'page_template_hierarchy', 'wpcredits_guide_frame_template' );
 
 /**
- * Whether the post being viewed is a program update the plugin draws in the Administrator Dashboard's
- * frame (plugin 1.123.71). The plugin decides, post by post and reader by reader: a public update is
- * read by everybody, and only an Administrator gets the frame.
+ * Whose frame a program update being viewed is drawn in: `administrator` (plugin 1.123.71), `sponsor`
+ * (plugin 1.123.78), or '' for any other post. The plugin decides, post by post and reader by reader: a
+ * public update is read by everybody, and only an Administrator, or somebody who acts for a sponsor, gets a
+ * frame.
+ *
+ * @return string
+ */
+function wpcredits_update_frame() {
+	if ( ! is_single() || ! class_exists( 'WPCPM_Administrator_Updates_View' ) ) {
+		return '';
+	}
+
+	$post = get_queried_object();
+
+	if ( method_exists( 'WPCPM_Administrator_Updates_View', 'audience_of' ) ) {
+		$audience = (string) WPCPM_Administrator_Updates_View::audience_of( $post );
+	} else {
+		// A plugin before 1.123.78 draws an Administrator's updates alone.
+		$audience = WPCPM_Administrator_Updates_View::draws( $post ) ? 'administrator' : '';
+	}
+
+	return '' !== $audience && wpcredits_frame_names( $audience . '-updates' ) ? $audience : '';
+}
+
+/**
+ * Whether the post being viewed is a program update the plugin draws in a dashboard's frame.
  *
  * @return bool
  */
 function wpcredits_is_update_frame_page() {
-	if ( ! is_single() || ! class_exists( 'WPCPM_Administrator_Updates_View' ) || ! wpcredits_frame_names( 'administrator-updates' ) ) {
-		return false;
-	}
-
-	return WPCPM_Administrator_Updates_View::draws( get_queried_object() );
+	return '' !== wpcredits_update_frame();
 }
 
 /**
- * Draw such an update on its bare canvas, `single-administrator-update`, ahead of every template core
- * would pick for the post.
+ * Draw such an update on its bare canvas, `single-administrator-update` or `single-sponsor-update`, ahead of
+ * every template core would pick for the post.
  *
  * @param string[] $templates The post's templates, the first found wins.
  * @return string[]
  */
 function wpcredits_update_frame_template( $templates ) {
-	if ( ! wpcredits_is_update_frame_page() ) {
+	$audience = wpcredits_update_frame();
+
+	if ( '' === $audience ) {
 		return $templates;
 	}
 
-	$templates = array_values( array_diff( $templates, array( 'single-administrator-update.php' ) ) );
-	array_unshift( $templates, 'single-administrator-update.php' );
+	$canvas    = 'single-' . $audience . '-update.php';
+	$templates = array_values( array_diff( $templates, array( $canvas ) ) );
+	array_unshift( $templates, $canvas );
 
 	return $templates;
 }

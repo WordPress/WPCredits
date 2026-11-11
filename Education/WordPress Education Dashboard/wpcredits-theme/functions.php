@@ -72,8 +72,9 @@ function wpcredits_setup() {
 	// as wide as the window (WPCredits Program Manager 1.123.69): their templates are a bare canvas
 	// under the WordPress.org bar, and the plugin prints the page's top bar and its one H1 itself. The
 	// Administrator guide is drawn in the Administrator Dashboard's frame too (plugin 1.123.70), and each
-	// program update an Administrator reads (plugin 1.123.71).
-	add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates' ) );
+	// program update an Administrator reads (plugin 1.123.71). The Sponsor Dashboard, the Sponsor guide and each
+	// update a sponsor reads follow in the Sponsor Dashboard's frame (plugin 1.123.78).
+	add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates' ) );
 
 	// The chrome's own styles apply inside the editor, so the Site Editor shows
 	// the sticky bar and the landing sections as the front end renders them.
