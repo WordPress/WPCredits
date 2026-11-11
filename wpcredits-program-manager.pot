@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.75\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.76\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T02:35:50+00:00\n"
+"POT-Creation-Date: 2026-11-11T04:21:28+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -533,8 +533,8 @@ msgstr ""
 #: includes/class-wpcpm-settings-screen.php:2576
 #: includes/modules/class-wpcpm-institution-application.php:1667
 #: includes/modules/class-wpcpm-institution-application.php:1744
-#: includes/modules/class-wpcpm-institution-details-card.php:514
-#: includes/modules/class-wpcpm-institution-details-card.php:562
+#: includes/modules/class-wpcpm-institution-details-card.php:519
+#: includes/modules/class-wpcpm-institution-details-card.php:567
 #: includes/modules/class-wpcpm-institution-import-form.php:284
 #: includes/modules/class-wpcpm-institution-import-form.php:314
 #: includes/modules/class-wpcpm-mentor-application-form.php:1305
@@ -546,7 +546,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsors.php:4105
 #: includes/modules/class-wpcpm-sponsors.php:5096
 #: includes/modules/class-wpcpm-student-interest-form.php:1157
-#: includes/modules/class-wpcpm-student-registration-form.php:1265
+#: includes/modules/class-wpcpm-student-registration-form.php:1339
+#: includes/modules/class-wpcpm-student-registration-form.php:1411
 #: includes/modules/class-wpcpm-student-report-form.php:1181
 #: includes/tools/class-wpcpm-emails.php:656
 msgid "Required"
@@ -1897,8 +1898,9 @@ msgid "%s ago"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2751
-#: includes/modules/class-wpcpm-institution-details-card.php:457
+#: includes/modules/class-wpcpm-institution-details-card.php:462
 #: includes/modules/class-wpcpm-institution-request.php:1821
+#: includes/modules/class-wpcpm-institution-tracks.php:314
 #: includes/modules/class-wpcpm-semester-report-screen.php:939
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:455
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:750
@@ -2487,7 +2489,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1179
 #: includes/modules/class-wpcpm-sponsor-application.php:1164
 #: includes/modules/class-wpcpm-student-interest-form.php:1032
-#: includes/modules/class-wpcpm-student-registration-form.php:1136
+#: includes/modules/class-wpcpm-student-registration-form.php:1174
 msgid "This form had been open for a long time, so it was not sent. Your answers are still here: please send it again."
 msgstr ""
 
@@ -2495,7 +2497,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1180
 #: includes/modules/class-wpcpm-sponsor-application.php:1165
 #: includes/modules/class-wpcpm-student-interest-form.php:1033
-#: includes/modules/class-wpcpm-student-registration-form.php:1137
+#: includes/modules/class-wpcpm-student-registration-form.php:1175
 msgid "This form had been open for a while and could not be sent. Your answers are still here: please send it again."
 msgstr ""
 
@@ -2515,7 +2517,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1219
 #: includes/modules/class-wpcpm-sponsor-application.php:1203
 #: includes/modules/class-wpcpm-student-interest-form.php:1069
-#: includes/modules/class-wpcpm-student-registration-form.php:1173
+#: includes/modules/class-wpcpm-student-registration-form.php:1224
 msgid "Sending..."
 msgstr ""
 
@@ -2532,7 +2534,7 @@ msgid "Send this application"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1741
-#: includes/modules/class-wpcpm-institution-details-card.php:559
+#: includes/modules/class-wpcpm-institution-details-card.php:564
 #: includes/modules/class-wpcpm-mentor-application-form.php:1387
 #: includes/modules/class-wpcpm-student-interest-form.php:1231
 msgid "Choose a country"
@@ -2540,14 +2542,14 @@ msgstr ""
 
 #. translators: Shown in the empty country field, which takes typing.
 #: includes/modules/class-wpcpm-institution-application.php:1749
-#: includes/modules/class-wpcpm-institution-details-card.php:566
+#: includes/modules/class-wpcpm-institution-details-card.php:571
 #: includes/modules/class-wpcpm-mentor-application-form.php:1398
 #: includes/modules/class-wpcpm-student-interest-form.php:1238
 msgid "Type to find your country"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:1750
-#: includes/modules/class-wpcpm-institution-details-card.php:567
+#: includes/modules/class-wpcpm-institution-details-card.php:572
 #: includes/modules/class-wpcpm-mentor-application-form.php:1401
 #: includes/modules/class-wpcpm-student-interest-form.php:1239
 msgid "No country has that name."
@@ -2555,7 +2557,7 @@ msgstr ""
 
 #. translators: %s: how many countries the list shows, as a number.
 #: includes/modules/class-wpcpm-institution-application.php:1752
-#: includes/modules/class-wpcpm-institution-details-card.php:569
+#: includes/modules/class-wpcpm-institution-details-card.php:574
 #: includes/modules/class-wpcpm-mentor-application-form.php:1406
 #: includes/modules/class-wpcpm-student-interest-form.php:1241
 #, php-format
@@ -2574,7 +2576,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1503
 #: includes/modules/class-wpcpm-sponsor-application.php:1802
 #: includes/modules/class-wpcpm-student-interest-form.php:1316
-#: includes/modules/class-wpcpm-student-registration-form.php:1460
+#: includes/modules/class-wpcpm-student-registration-form.php:1606
 msgid "Fill this in."
 msgstr ""
 
@@ -2589,7 +2591,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1505
 #: includes/modules/class-wpcpm-sponsor-application.php:1806
 #: includes/modules/class-wpcpm-student-interest-form.php:1320
-#: includes/modules/class-wpcpm-student-registration-form.php:1465
+#: includes/modules/class-wpcpm-student-registration-form.php:1611
 #: includes/modules/class-wpcpm-student-report-form.php:1937
 msgid "That does not look like an email address."
 msgstr ""
@@ -2598,7 +2600,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1506
 #: includes/modules/class-wpcpm-sponsor-application.php:1810
 #: includes/modules/class-wpcpm-student-interest-form.php:1321
-#: includes/modules/class-wpcpm-student-registration-form.php:1466
+#: includes/modules/class-wpcpm-student-registration-form.php:1612
 msgid "Choose one of the options offered."
 msgstr ""
 
@@ -2607,7 +2609,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-application.php:1819
 #: includes/modules/class-wpcpm-student-interest-form.php:1322
 #: includes/modules/class-wpcpm-student-interest-form.php:1323
-#: includes/modules/class-wpcpm-student-registration-form.php:1474
+#: includes/modules/class-wpcpm-student-registration-form.php:1620
 msgid "Tick this box to send the form."
 msgstr ""
 
@@ -2615,12 +2617,12 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-application-form.php:1516
 #: includes/modules/class-wpcpm-sponsor-application.php:1849
 #: includes/modules/class-wpcpm-student-interest-form.php:1326
-#: includes/modules/class-wpcpm-student-registration-form.php:1477
+#: includes/modules/class-wpcpm-student-registration-form.php:1624
 #: includes/modules/class-wpcpm-student-report-form.php:1949
 msgid "That answer could not be read. Write it again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-details-card.php:457
+#: includes/modules/class-wpcpm-institution-details-card.php:462
 #: includes/modules/class-wpcpm-semester-report-screen.php:1249
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:547
 #: includes/modules/class-wpcpm-sponsor-mentors.php:523
@@ -2851,7 +2853,7 @@ msgid "Sponsors see this list on their Sponsor Dashboard once you are an active 
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-form.php:512
-#: includes/modules/class-wpcpm-student-registration-form.php:536
+#: includes/modules/class-wpcpm-student-registration-form.php:545
 msgid "Compliance declaration"
 msgstr ""
 
@@ -2949,13 +2951,13 @@ msgid "No"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-form.php:1386
-#: includes/modules/class-wpcpm-student-registration-form.php:1340
+#: includes/modules/class-wpcpm-student-registration-form.php:1486
 msgid "Choose your institution"
 msgstr ""
 
 #. translators: Shown in the empty institution field, which takes typing.
 #: includes/modules/class-wpcpm-mentor-application-form.php:1397
-#: includes/modules/class-wpcpm-student-registration-form.php:1347
+#: includes/modules/class-wpcpm-student-registration-form.php:1493
 msgid "Type to find your institution"
 msgstr ""
 
@@ -2965,7 +2967,7 @@ msgstr ""
 
 #. translators: %s: how many institutions the list shows, as a number.
 #: includes/modules/class-wpcpm-mentor-application-form.php:1404
-#: includes/modules/class-wpcpm-student-registration-form.php:1351
+#: includes/modules/class-wpcpm-student-registration-form.php:1497
 #, php-format
 msgid "Institutions in the list: %s"
 msgstr ""
@@ -2979,12 +2981,12 @@ msgid "Give your WordPress.org username or your profile's address."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-form.php:1508
-#: includes/modules/class-wpcpm-student-registration-form.php:1469
+#: includes/modules/class-wpcpm-student-registration-form.php:1615
 msgid "Give a number of hours."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-form.php:1509
-#: includes/modules/class-wpcpm-student-registration-form.php:1470
+#: includes/modules/class-wpcpm-student-registration-form.php:1616
 msgid "Give at least one hour."
 msgstr ""
 
@@ -3775,6 +3777,12 @@ msgstr ""
 msgid "mentors"
 msgstr ""
 
+#: includes/modules/class-wpcpm-sponsor-application.php:732
+#: includes/modules/class-wpcpm-student-registration-form.php:1323
+#: includes/modules/class-wpcpm-student-registration-form.php:1331
+msgid "Not sure yet"
+msgstr ""
+
 #: includes/modules/class-wpcpm-sponsor-claims.php:185
 #: includes/modules/class-wpcpm-sponsor-tools.php:60
 msgid "That offer is not open to your account."
@@ -3920,7 +3928,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-start-pages.php:76
 #: includes/modules/class-wpcpm-start-pages.php:262
-#: includes/modules/class-wpcpm-student-registration-form.php:1116
+#: includes/modules/class-wpcpm-student-registration-form.php:1154
 msgid "Team Matcher"
 msgstr ""
 
@@ -4565,13 +4573,13 @@ msgid "I have told the representative about this request, and they agreed that I
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-interest-form.php:493
-#: includes/modules/class-wpcpm-student-registration-form.php:543
+#: includes/modules/class-wpcpm-student-registration-form.php:552
 msgid "Privacy Policy Compliance"
 msgstr ""
 
 #. translators: %s: the WordPress.org privacy policy's address, as a link.
 #: includes/modules/class-wpcpm-student-interest-form.php:498
-#: includes/modules/class-wpcpm-student-registration-form.php:548
+#: includes/modules/class-wpcpm-student-registration-form.php:557
 #, php-format
 msgid "By clicking this checkbox, you understand that your information will be used in accordance with our Privacy Policy (%s)."
 msgstr ""
@@ -4625,17 +4633,17 @@ msgid "Tick at least one."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-interest-form.php:1317
-#: includes/modules/class-wpcpm-student-registration-form.php:1461
+#: includes/modules/class-wpcpm-student-registration-form.php:1607
 msgid "This cannot start with =, +, - or @."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-interest-form.php:1318
-#: includes/modules/class-wpcpm-student-registration-form.php:1462
+#: includes/modules/class-wpcpm-student-registration-form.php:1608
 msgid "This cannot hold a tab, a line break or a \"|\"."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-interest-form.php:1319
-#: includes/modules/class-wpcpm-student-registration-form.php:1463
+#: includes/modules/class-wpcpm-student-registration-form.php:1609
 msgid "Give your full name, from 2 to 200 characters."
 msgstr ""
 
@@ -4699,156 +4707,168 @@ msgstr ""
 msgid "Department / Area of Study"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:475
+#: includes/modules/class-wpcpm-student-registration-form.php:477
+msgid "Which track would you like to join?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-registration-form.php:480
+msgid "Your institution offers more than one track. If you have not decided yet, choose Not sure yet."
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-registration-form.php:484
 msgid "Tutor Name - The professor or main contact person at your educational institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:482
+#: includes/modules/class-wpcpm-student-registration-form.php:491
 msgid "If your educational institution doesn't require you to indicate a tutor, you can skip this question."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:486
+#: includes/modules/class-wpcpm-student-registration-form.php:495
 msgid "Your tutor's email address"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:494
+#: includes/modules/class-wpcpm-student-registration-form.php:503
 msgid "Preferred Start Date"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:500
+#: includes/modules/class-wpcpm-student-registration-form.php:509
 msgid "Estimated End Date"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:506
+#: includes/modules/class-wpcpm-student-registration-form.php:515
 msgid "Total Expected Hours (Approximate)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:511
+#: includes/modules/class-wpcpm-student-registration-form.php:520
 msgid "Format: Decimal"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:515
+#: includes/modules/class-wpcpm-student-registration-form.php:524
 msgid "Languages You Speak"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:518
+#: includes/modules/class-wpcpm-student-registration-form.php:527
 msgid "Select as many as you speak."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:522
+#: includes/modules/class-wpcpm-student-registration-form.php:531
 msgid "Preferred Language"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:525
+#: includes/modules/class-wpcpm-student-registration-form.php:534
 msgid "Select only one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:529
+#: includes/modules/class-wpcpm-student-registration-form.php:538
 msgid "Do you have any accessibility needs we should be aware of?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:532
+#: includes/modules/class-wpcpm-student-registration-form.php:541
 msgid "Optional - Leave blank if none."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:539
+#: includes/modules/class-wpcpm-student-registration-form.php:548
 msgid "I understand that the course is conducted in English, requires written communication, and involves proactive, independent remote work."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:957
+#: includes/modules/class-wpcpm-student-registration-form.php:995
 msgid "The student registration form is switched off. Turn on \"Registrations from students\" on the Students and mentors tab of WPCredits Program > Settings when the program is ready to take them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:961
+#: includes/modules/class-wpcpm-student-registration-form.php:999
 msgid "This form is not shown yet: Airtable is not connected, so no registration could be written. Connect it on the Connection tab of WPCredits Program > Settings."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:966
+#: includes/modules/class-wpcpm-student-registration-form.php:1004
 msgid "This form is not shown yet: no institution the site holds is at a stage ticked under Institutions offered, on the Students and mentors tab of WPCredits Program > Settings. New partners arrive with the institutions sync, every three hours."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:970
+#: includes/modules/class-wpcpm-student-registration-form.php:1008
 msgid "This form is not shown yet: the languages have not been read from Airtable yet. They are read within the hour."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1087
+#: includes/modules/class-wpcpm-student-registration-form.php:1125
 msgid "The public student registration form is drawn here on the front end. This is a summary, not the form: the live form carries a single-use token that the editor would spend."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1107
+#: includes/modules/class-wpcpm-student-registration-form.php:1145
 msgid "Thank you. We have received your registration and will email you at the address you gave."
 msgstr ""
 
 #. translators: %s: a link to the Team Matcher page, reading "Team Matcher".
-#: includes/modules/class-wpcpm-student-registration-form.php:1115
+#: includes/modules/class-wpcpm-student-registration-form.php:1153
 #, php-format
 msgid "While you wait, try the %s to find the contribution team that fits you."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1138
+#: includes/modules/class-wpcpm-student-registration-form.php:1176
 msgid "Something went wrong at our end and the registration was not saved. Try once more."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1139
+#: includes/modules/class-wpcpm-student-registration-form.php:1177
 msgid "Student registrations through this form are closed for now."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1174
+#: includes/modules/class-wpcpm-student-registration-form.php:1225
 msgid "Sending your registration."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1211
+#: includes/modules/class-wpcpm-student-registration-form.php:1267
 msgid "Send this registration"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1340
+#: includes/modules/class-wpcpm-student-registration-form.php:1486
 msgid "Choose a language"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1347
+#: includes/modules/class-wpcpm-student-registration-form.php:1493
 msgid "Type to find your language"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1348
+#: includes/modules/class-wpcpm-student-registration-form.php:1494
 msgid "No institution has that name."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1348
+#: includes/modules/class-wpcpm-student-registration-form.php:1494
 msgid "No language has that name."
 msgstr ""
 
 #. translators: %s: how many languages the list shows, as a number.
-#: includes/modules/class-wpcpm-student-registration-form.php:1353
+#: includes/modules/class-wpcpm-student-registration-form.php:1499
 #, php-format
 msgid "Languages in the list: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1371
+#: includes/modules/class-wpcpm-student-registration-form.php:1517
 msgid "Choose an area of study"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1464
+#: includes/modules/class-wpcpm-student-registration-form.php:1610
 msgid "Keep this to 120 characters."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1467
+#: includes/modules/class-wpcpm-student-registration-form.php:1613
 msgid "Give a date."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1468
+#: includes/modules/class-wpcpm-student-registration-form.php:1614
 msgid "The end date has to be on or after the start date."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1471
+#: includes/modules/class-wpcpm-student-registration-form.php:1617
 msgid "Give at most 2,000 hours."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1472
+#: includes/modules/class-wpcpm-student-registration-form.php:1618
 msgid "Your preferred language has to be one of the languages you ticked above."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-registration-form.php:1473
+#: includes/modules/class-wpcpm-student-registration-form.php:1619
 msgid "The program can only take students who can say this, so please tick it."
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-registration-form.php:1621
+msgid "Choose a track, or Not sure yet."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:268
