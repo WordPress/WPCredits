@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.71
+Stable tag: 1.123.72
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.72 =
+
+* For translators: the strings students and mentors read, and the emails the site sends them, are published as their own smaller translation template for translate.wordpress.org (about a sixth of the plugin's strings), and a release step brings the approved translations back into the plugin. Nothing on the site changes in this version.
 
 = 1.123.71 =
 
