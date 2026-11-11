@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.77\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.78\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T04:23:52+00:00\n"
+"POT-Creation-Date: 2026-11-11T05:57:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -18,6 +18,7 @@ msgstr ""
 #: includes/class-wpcpm-admin.php:57
 #: includes/class-wpcpm-overview.php:43
 #: includes/modules/class-wpcpm-administrators-dashboard.php:679
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:677
 #: includes/tools/class-wpcpm-handbook-assistant.php:647
 msgid "Overview"
 msgstr ""
@@ -153,7 +154,7 @@ msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:104
 #: includes/mail/class-wpcpm-mail-templates.php:1111
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:145
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:167
 #: blocks/sponsor-dashboard/editor.js:48
 msgid "Sponsor Dashboard"
 msgstr ""
@@ -217,17 +218,17 @@ msgstr ""
 msgid "No sponsor has an account yet."
 msgstr ""
 
-#: includes/class-wpcpm-dashboards.php:334
+#: includes/class-wpcpm-dashboards.php:345
 #: includes/modules/class-wpcpm-institution-roster-view.php:471
 msgid "Show"
 msgstr ""
 
-#: includes/class-wpcpm-dashboards.php:335
+#: includes/class-wpcpm-dashboards.php:346
 msgid "Only Administrators see this control."
 msgstr ""
 
 #. translators: %s: how many names the Viewing as list shows, as a number.
-#: includes/class-wpcpm-dashboards.php:415
+#: includes/class-wpcpm-dashboards.php:426
 #, php-format
 msgid "Names in the list: %s"
 msgstr ""
@@ -282,11 +283,13 @@ msgstr[1] ""
 
 #. translators: 1: a link to the field, its label as the words, 2: the sentence saying why it was refused.
 #. translators: 1: what was asked for, 2: Airtable institution record ID.
+#. translators: 1: a month's name, 2: how many claims it had.
 #. translators: 1: the section's heading, "The track" or "The tracks", 2: a track's name.
 #. translators: 1: the sponsor's name, 2: why it was not given an account.
 #. translators: 1: a column name, 2: why the definition was refused.
 #: includes/class-wpcpm-form-errors.php:153
 #: includes/modules/class-wpcpm-institution-request.php:500
+#: includes/modules/class-wpcpm-sponsor-offers.php:2867
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:705
 #: includes/modules/class-wpcpm-sponsors.php:1451
 #: includes/tools/class-wpcpm-track-editor.php:591
@@ -405,12 +408,13 @@ msgstr ""
 
 #: includes/class-wpcpm-notices.php:75
 #: includes/mail/class-wpcpm-mail-templates.php:1108
-#: includes/modules/class-wpcpm-administrators-cards.php:2006
+#: includes/modules/class-wpcpm-administrators-cards.php:2000
 #: includes/modules/class-wpcpm-administrators-dashboard.php:718
 #: includes/modules/class-wpcpm-institution-roster-view.php:146
 #: includes/modules/class-wpcpm-institutions-dashboard.php:556
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:94
 #: includes/modules/class-wpcpm-mentors-table.php:96
+#: includes/modules/class-wpcpm-sponsor-offers.php:2781
 #: includes/modules/class-wpcpm-sponsor-report-files.php:714
 #: includes/modules/class-wpcpm-students.php:85
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:31
@@ -422,19 +426,18 @@ msgstr ""
 
 #: includes/class-wpcpm-notices.php:76
 #: includes/mail/class-wpcpm-mail-templates.php:1109
-#: includes/modules/class-wpcpm-administrators-cards.php:2015
-#: includes/modules/class-wpcpm-administrators-cards.php:2846
+#: includes/modules/class-wpcpm-administrators-cards.php:2009
+#: includes/modules/class-wpcpm-administrators-cards.php:2840
 #: includes/modules/class-wpcpm-administrators-dashboard.php:720
 #: includes/modules/class-wpcpm-mentors.php:108
-#: includes/modules/class-wpcpm-sponsor-offers.php:2849
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:682
+#: includes/modules/class-wpcpm-sponsor-offers.php:3041
 msgid "Mentors"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:77
 #: includes/class-wpcpm-settings-screen.php:293
 #: includes/mail/class-wpcpm-mail-catalog.php:66
-#: includes/modules/class-wpcpm-administrators-cards.php:2023
+#: includes/modules/class-wpcpm-administrators-cards.php:2017
 #: includes/modules/class-wpcpm-administrators-dashboard.php:728
 #: includes/modules/class-wpcpm-cohort-timeline-view.php:722
 #: includes/modules/class-wpcpm-institutions.php:383
@@ -493,8 +496,10 @@ msgid "%s h"
 msgstr ""
 
 #. translators: 1: hours logged, 2: the track's target in hours.
+#. translators: 1: codes claimed, 2: codes loaded.
 #. translators: 1: this step's number, 2: the highest number on the scale.
 #: includes/class-wpcpm-program.php:310
+#: includes/modules/class-wpcpm-sponsor-offers.php:2772
 #: includes/modules/class-wpcpm-student-feedback.php:1525
 #, php-format
 msgid "%1$s of %2$s"
@@ -542,7 +547,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:293
 #: includes/modules/class-wpcpm-sponsor-application.php:1356
 #: includes/modules/class-wpcpm-sponsor-application.php:4335
-#: includes/modules/class-wpcpm-sponsor-offers.php:2754
+#: includes/modules/class-wpcpm-sponsor-offers.php:2946
 #: includes/modules/class-wpcpm-sponsors.php:4105
 #: includes/modules/class-wpcpm-sponsors.php:5096
 #: includes/modules/class-wpcpm-student-interest-form.php:1157
@@ -1110,7 +1115,7 @@ msgstr ""
 
 #: includes/mail/templates/institutions.php:577
 #: includes/mail/templates/mentor-applications.php:265
-#: includes/mail/templates/sponsors.php:371
+#: includes/mail/templates/sponsors.php:372
 msgid "It is on the queue here:"
 msgstr ""
 
@@ -1580,9 +1585,9 @@ msgstr ""
 #. translators: 1: who saved the edit, 2: when.
 #. translators: 1: what happened, 2: a date and time, then who did it.
 #: includes/mail/templates/mentor-applications.php:261
-#: includes/mail/templates/sponsors.php:361
+#: includes/mail/templates/sponsors.php:362
 #: includes/mail/templates/student-interests.php:117
-#: includes/modules/class-wpcpm-administrators-cards.php:3112
+#: includes/modules/class-wpcpm-administrators-cards.php:3106
 #: includes/modules/class-wpcpm-institution-announce.php:404
 #: includes/modules/class-wpcpm-institution-panel.php:1502
 #: includes/modules/class-wpcpm-institutions.php:5079
@@ -1887,6 +1892,12 @@ msgstr ""
 msgid "The Students gone quiet card of the Administrator Dashboard has the same list, and is where you can say that a student has already talked with us:"
 msgstr ""
 
+#: includes/modules/class-wpcpm-administrator-guide-view.php:100
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:720
+#: includes/tools/class-wpcpm-handbook-assistant.php:447
+msgid "Sponsor guide"
+msgstr ""
+
 #. translators: %s: how long ago.
 #. translators: %s: human-readable time difference.
 #. translators: %s: a time span, such as "3 days".
@@ -1897,14 +1908,14 @@ msgstr ""
 msgid "%s ago"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:2751
+#: includes/modules/class-wpcpm-administrators-cards.php:2745
 #: includes/modules/class-wpcpm-institution-details-card.php:462
 #: includes/modules/class-wpcpm-institution-request.php:1821
 #: includes/modules/class-wpcpm-institution-tracks.php:314
 #: includes/modules/class-wpcpm-semester-report-screen.php:939
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:455
 #: includes/modules/class-wpcpm-sponsor-event-queue.php:750
-#: includes/modules/class-wpcpm-sponsor-offers.php:3051
+#: includes/modules/class-wpcpm-sponsor-offers.php:3243
 #: includes/modules/class-wpcpm-sponsor-profile.php:743
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:623
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1062
@@ -1919,7 +1930,7 @@ msgstr ""
 #. translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #. translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #. translators: 1: the first day of the sponsor's term, 2: its last day, both in the site's date format.
-#: includes/modules/class-wpcpm-administrators-cards.php:2873
+#: includes/modules/class-wpcpm-administrators-cards.php:2867
 #: includes/modules/class-wpcpm-mentor-calls.php:2346
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1595
 #: includes/modules/class-wpcpm-sponsor-report-files.php:648
@@ -1927,7 +1938,7 @@ msgstr ""
 msgid "%1$s to %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:3126
+#: includes/modules/class-wpcpm-administrators-cards.php:3120
 #: includes/modules/class-wpcpm-mentor-calls.php:144
 msgid "Mentor call"
 msgstr ""
@@ -3603,7 +3614,7 @@ msgid "%s days"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:442
-#: includes/modules/class-wpcpm-sponsor-offers.php:1873
+#: includes/modules/class-wpcpm-sponsor-offers.php:1875
 msgid "Ended"
 msgstr ""
 
@@ -3717,7 +3728,7 @@ msgid "Accessibility needs"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1285
-#: includes/modules/class-wpcpm-sponsor-offers.php:2901
+#: includes/modules/class-wpcpm-sponsor-offers.php:3093
 #: includes/modules/class-wpcpm-sponsors.php:4734
 #: includes/tools/class-wpcpm-track-editor-screen.php:415
 #: includes/tools/class-wpcpm-track-editor-screen.php:838
@@ -3772,7 +3783,8 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-mentors.php:832
 #: includes/modules/class-wpcpm-sponsor-offer-review.php:139
-#: includes/modules/class-wpcpm-sponsor-offers.php:2887
+#: includes/modules/class-wpcpm-sponsor-offers.php:2784
+#: includes/modules/class-wpcpm-sponsor-offers.php:3079
 #: includes/modules/class-wpcpm-sponsor-tools.php:587
 msgid "mentors"
 msgstr ""
@@ -3811,7 +3823,8 @@ msgid "Removing"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-offer-review.php:143
-#: includes/modules/class-wpcpm-sponsor-offers.php:2891
+#: includes/modules/class-wpcpm-sponsor-offers.php:2788
+#: includes/modules/class-wpcpm-sponsor-offers.php:3083
 #: includes/modules/class-wpcpm-sponsor-tools.php:588
 msgid "the program team"
 msgstr ""
@@ -5214,10 +5227,6 @@ msgstr ""
 
 #: includes/tools/class-wpcpm-handbook-assistant.php:430
 msgid "Institution guide"
-msgstr ""
-
-#: includes/tools/class-wpcpm-handbook-assistant.php:447
-msgid "Sponsor guide"
 msgstr ""
 
 #: includes/tools/class-wpcpm-handbook-assistant.php:546
