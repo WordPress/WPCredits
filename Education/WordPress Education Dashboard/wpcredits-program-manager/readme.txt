@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.77
+Stable tag: 1.123.78
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,15 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.78 =
+
+* The Sponsor Dashboard is drawn in the dashboards' frame, as the Administrator Dashboard is: a menu down the side and a view for each item, each at its own address (`?wpcpm_view=`). Overview, Your sponsorship (while the tiers are switched on), Offers, Students reached, Mentors to sponsor, Your company and Agreement; under Help the Sponsor guide, Write to the program (the company's contact at the program) and the Ask box. A view's menu item counts what waits in it.
+* The Overview leads with what the company's support did: the company's name and logo, a thank-you that says how many people its offers reached this year and how many mentors it sponsors, and New offer. Under it the figures (people reached this year, codes claimed of the codes loaded with the codes left where they run out first, the mentors it sponsors), what waits on the company's people as rows with a status tag in words and a link to the card that holds each, the offers in play as program cards (state, what you get, claimed, last day, who it is open to, claims a month for the last six months, Change the offer, See the claims), and the mentors looking for a sponsor.
+* The Offers card: New offer is a button and the form opens under it, open again after a save that was refused; each offer's state is a status tag; "(primary)" is no longer printed.
+* The Sponsor guide opens in the Sponsor Dashboard's frame with its sections listed beside it, and each program update a sponsor reads opens there with the other updates listed beside it, as the Administrator guide and updates do. Program updates is in the menu.
+* The At a glance strip, the Resources block and the four movable sections are gone: what the strip counted is on the Overview and in the menu, the Resources' links are the menu's, and each section is a view of its own.
+* Every link to a Sponsor Dashboard card, in the emails, on the Administrator Dashboard, from the offers' review and after a press, goes to the view that holds the card. Older links to the page still open the Overview.
 
 = 1.123.77 =
 

@@ -200,7 +200,12 @@ class WPCPM_Settings {
 }
 
 /** The Sponsor Dashboard's page, which the list names and a row's View page opens, each ask counted. */
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	public static $url = 'https://example.test/sponsor-dashboard/';
 	public static function page_url() {
 		++$GLOBALS['page_reads'];

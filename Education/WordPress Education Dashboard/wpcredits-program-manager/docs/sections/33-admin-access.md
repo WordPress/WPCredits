@@ -240,16 +240,22 @@ A flag is the flag of the country the translation is written for; a language tha
 one country is listed by its name. Where a system draws no flags (Windows), the country's two
 letters stand in its place.
 
-### Arranging an institution's or a sponsor's page
+### Arranging an institution's page
 
-The Institution Dashboard is three sections and the Sponsor Dashboard four, **Your sponsorship**, **What you
-offer**, **Mentors** and **Your company**, each with the same two small arrows at its top right, named after
-the section, for example "Move Your sponsorship up". The order belongs to the institution or the company and
-is the same for everyone who signs in for it. When you open a page through the switcher you see that
-institution's or company's order and can arrange it for them with the same arrows, and your move is theirs
-from then on. A section with nothing to show is left out and has no arrows, so the Sponsor Dashboard has no
-**Your sponsorship** section while "Sponsor tiers" is off. Only the people the page belongs to and
-Administrators are shown the arrows.
+The Institution Dashboard is three sections, each with two small arrows at its top right, named after the
+section, for example "Move Students up". The order belongs to the institution and is the same for everyone
+who signs in for it. When you open the page through the switcher you see that institution's order and can
+arrange it for them with the same arrows, and your move is theirs from then on. A section with nothing to
+show is left out and has no arrows. Only the people the page belongs to and Administrators are shown the
+arrows.
+
+The Sponsor Dashboard has nothing to arrange since 1.123.78: it is drawn in the dashboards' frame, with a
+menu down the side and a view for each of its parts, **Overview**, **Your sponsorship** (while "Sponsor
+tiers" is on), **Offers**, **Students reached**, **Mentors to sponsor**, **Your company** and **Agreement**,
+each at its own address. Opened through the switcher, it keeps the sponsor you chose as you move between
+views, and the switcher keeps the view when you choose another sponsor. Its Sponsor guide and the updates a
+sponsor reads open in the same frame for the people who act for a sponsor; you read the Sponsor guide there
+too.
 
 ### Group sessions, from a student's card or a mentor's
 

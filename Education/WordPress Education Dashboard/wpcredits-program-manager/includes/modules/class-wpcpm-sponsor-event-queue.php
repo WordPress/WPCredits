@@ -1434,7 +1434,8 @@ final class WPCPM_Sponsor_Event_Queue {
 		$files  = array();
 
 		$values['note']        = (string) $said['note'];
-		$values['events_card'] = '' === $said['page'] ? '' : $said['page'] . '#wpcpm-sponsor-events';
+		// Your sponsorship's view, at the Events card (1.123.78); '' while the page is not published.
+		$values['events_card'] = '' === $said['page'] ? '' : (string) WPCPM_Sponsors_Dashboard::card_url( 'events' );
 
 		if ( self::MAIL_APPROVED === $what ) {
 			$files = WPCPM_Sponsor_Event::calendar_file( $event, '', $recipient );

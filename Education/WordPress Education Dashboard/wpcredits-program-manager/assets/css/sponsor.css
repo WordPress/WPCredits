@@ -1,30 +1,9 @@
 /* The Sponsor Dashboard's base styles. Every value here that the Institution Dashboard also
    has is copied from institution.css, value for value, so the two pages read as one product:
-   the header, the switcher, the card rhythm, the program-contact block, the list rows, the
-   sub-headings and the out-of-band message. The theme (wpcredits-theme 1.18.x) dresses the rest
+   the switcher, the card rhythm, the list rows, the sub-headings and the out-of-band message. The
+   page's head, its logo and what waits are the frame's (1.123.78), at the end of this sheet. The theme (wpcredits-theme 1.18.x) dresses the rest
    under .wpc-sponsor-page and loads both plugin stylesheets on both pages, so nothing below
    redefines a class institution.css owns - the two files would then win on different pages. */
-
-/* The At a glance strip under the header is the Administrator Dashboard's attention strip, and its
-   tiles (.wpcpm-attention__*) are dressed by administrator.css, which this sheet depends on
-   (WPCPM_Sponsors_Dashboard::register_assets()): no tile rule is copied here, so the two strips
-   cannot drift apart. The strip's section is a card of this page and takes the card rhythm below. */
-
-/* The identity header: the logo on the left, the details beside it, aligned at the top as the
-   institution's icon and details are. */
-.wpcpm-sponsor__identity { align-items: flex-start; display: flex; gap: 1em; margin: 0 0 1.5em; }
-.wpcpm-sponsor__logo { flex: 0 0 176px; width: 176px; height: 96px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-.wpcpm-sponsor__logo-image { max-width: 160px; max-height: 80px; width: auto; height: auto; object-fit: contain; }
-.wpcpm-sponsor__initials { font-size: 32px; font-weight: 700; letter-spacing: 0.04em; color: #1e1e1e; }
-/* The details beside the logo take the Institution Dashboard's rules value for value (see
-   institution.css), so the two headers read as the same header: the name at 1.2em bold with no
-   margin, the facts a quiet line each and tight to one another, the website a plain line.
-   `min-width: 0` so a long name or address wraps inside the flex item instead of pushing the
-   logo off the card. */
-.wpcpm-sponsor__details { min-width: 0; }
-.wpcpm-sponsor__name { font-size: 1.2em; font-weight: 700; margin: 0; }
-.wpcpm-sponsor__fact { margin: 0.15em 0 0; opacity: 0.75; }
-.wpcpm-sponsor__website { margin: 0.15em 0 0; }
 
 /* The switcher's first and last child lose their block margins, as under .wpcpm-institution. */
 .wpcpm-sponsor .wpcpm-dashboard__switcher > :first-child { margin-block-start: 0; }
@@ -267,4 +246,399 @@
 .wpcpm-field__problem {
 	font-weight: 600;
 	margin: 0.3em 0 0;
+}
+
+/* ==========================================================================
+   The Sponsor Dashboard in the frame (1.123.78, the version 3 concepts): each view's blocks follow each other
+   on the main area's rhythm, as the Administrator Dashboard's do. The colors, faces and the status tag are the
+   frame's (dashboard-frame.css). What waits is a plain row with its status tag in words, never a colored edge
+   (the owner, 10 November 2026).
+   ========================================================================== */
+
+.wpcpm-frame .wpcpm-sponsor {
+	align-content: start;
+	display: grid;
+	gap: 28px;
+	grid-template-columns: minmax( 0, 1fr );
+	min-width: 0;
+}
+
+.wpcpm-frame .wpcpm-sponsor > .wpcpm-dashboard__switcher,
+.wpcpm-frame .wpcpm-sponsor > .wpcpm-dashboard__message {
+	margin: 0;
+}
+
+/* The head's logo, or the company's initials, in a box 88px high beside the head's copy: square for the
+   initials, as wide as a wide logo needs up to 220px, since most companies' logos are a wordmark. */
+.wpcpm-frame .wpcpm-sponsor .wpcpm-head--logo {
+	grid-template-columns: auto minmax( 0, 1fr );
+}
+
+.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__logo {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	box-sizing: border-box;
+	display: flex;
+	flex: none;
+	height: 88px;
+	justify-content: center;
+	max-width: 220px;
+	min-width: 88px;
+	overflow: hidden;
+	padding: 12px;
+}
+
+.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__logo-image {
+	height: auto;
+	max-height: 62px;
+	max-width: 194px;
+	object-fit: contain;
+	width: auto;
+}
+
+.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__initials {
+	color: var( --wpcpm-f-brand );
+	font: 400 40px/1 var( --wpcpm-f-serif );
+	letter-spacing: 0;
+}
+
+.wpcpm-sponsor__since {
+	font-weight: 500;
+}
+
+.wpcpm-frame .wpcpm-sponsor .wpcpm-head__title {
+	overflow-wrap: anywhere;
+}
+
+/* A group's small heading on the Overview: the menu's own heading, in the muted ink. */
+.wpcpm-frame .wpcpm-sponsor__group-title {
+	color: var( --wpcpm-f-muted );
+	font: 600 13px/1.4 var( --wpcpm-f-sans );
+	letter-spacing: 0.08em;
+	margin: 0 0 12px;
+	text-transform: uppercase;
+}
+
+.wpcpm-sponsor__waiting,
+.wpcpm-sponsor__offers {
+	min-width: 0;
+}
+
+/* One row for each thing that waits: the tag, what waits and why, and the way to it. */
+.wpcpm-sponsor__wait {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	display: grid;
+	gap: 6px 20px;
+	grid-template-columns: auto minmax( 0, 1fr ) auto;
+	padding: 14px 18px;
+}
+
+.wpcpm-sponsor__wait > .wpcpm-status {
+	justify-self: start;
+}
+
+.wpcpm-sponsor__wait + .wpcpm-sponsor__wait {
+	margin-top: 10px;
+}
+
+.wpcpm-sponsor__wait-text {
+	display: grid;
+	gap: 3px;
+	margin: 0;
+	min-width: 0;
+}
+
+.wpcpm-sponsor__wait-text strong {
+	color: var( --wpcpm-f-ink );
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.wpcpm-sponsor__wait-text span {
+	color: var( --wpcpm-f-muted );
+	font-size: 14px;
+}
+
+/* The offers in play, as the homepage's program cards, two to a row while the main area has room. */
+.wpcpm-offer-cards {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat( auto-fill, minmax( min( 100%, 340px ), 1fr ) );
+}
+
+.wpcpm-offer-card {
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+	padding: 22px 24px;
+}
+
+.wpcpm-offer-card__tag {
+	margin: 0;
+}
+
+.wpcpm-frame .wpcpm-offer-card__name {
+	color: var( --wpcpm-f-ink );
+	font: 600 18px/1.3 var( --wpcpm-f-sans );
+	letter-spacing: -0.005em;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-offer-card__what {
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	color: var( --wpcpm-f-ink-2 );
+	display: -webkit-box;
+	font-size: 15px;
+	line-height: 1.5;
+	margin: 0;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-offer-card__facts {
+	display: grid;
+	gap: 10px 16px;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	margin: 0;
+}
+
+.wpcpm-offer-card__facts > div {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.wpcpm-offer-card__facts dt {
+	color: var( --wpcpm-f-muted );
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.wpcpm-offer-card__facts dd {
+	font-size: 14px;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-offer-card__spark {
+	display: block;
+	line-height: 0;
+	padding-top: 4px;
+}
+
+.wpcpm-offer-card__spark svg {
+	height: 32px;
+	max-width: 100%;
+	width: 114px;
+}
+
+.wpcpm-offer-card__spark .is-past {
+	fill: var( --wpcpm-f-brand-border );
+}
+
+.wpcpm-offer-card__spark .is-now {
+	fill: var( --wpcpm-f-brand );
+}
+
+.wpcpm-offer-card__links {
+	border-top: 1px solid var( --wpcpm-f-line );
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 14px;
+	gap: 8px 20px;
+	margin: auto 0 0;
+	padding-top: 12px;
+}
+
+.wpcpm-offer-card__links a::after,
+.wpcpm-sponsor__door-cue::after {
+	content: "\2192";
+	display: inline-block;
+	margin-inline-start: 4px;
+}
+
+[dir="rtl"] .wpcpm-offer-card__links a::after,
+[dir="rtl"] .wpcpm-sponsor__door-cue::after {
+	transform: scaleX( -1 );
+}
+
+/* The mentors looking for a sponsor: one door, the page's invitation in the open. */
+.wpcpm-sponsor__door {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	color: var( --wpcpm-f-ink );
+	display: grid;
+	gap: 4px 14px;
+	grid-template-columns: 36px minmax( 0, 1fr ) auto;
+	padding: 18px 22px;
+	text-decoration: none;
+}
+
+.wpcpm-sponsor__door:hover,
+.wpcpm-sponsor__door:focus-visible {
+	border-color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-sponsor__door > .wpcpm-icon {
+	background: var( --wpcpm-f-brand-tint );
+	border-radius: 2px;
+	box-sizing: content-box;
+	color: var( --wpcpm-f-brand );
+	padding: 8px;
+}
+
+.wpcpm-sponsor__door-text {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.wpcpm-sponsor__door-text strong {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.wpcpm-sponsor__door-text span {
+	color: var( --wpcpm-f-ink-2 );
+	font-size: 14px;
+}
+
+.wpcpm-sponsor__door-cue {
+	color: var( --wpcpm-f-brand );
+	font-size: 14px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* A view's cards, one under the other on the main area's rhythm; no hairline over each, as in the frame. */
+.wpcpm-frame .wpcpm-sponsor__cards {
+	display: grid;
+	gap: 16px;
+	min-width: 0;
+}
+
+.wpcpm-frame .wpcpm-sponsor__cards > .wpcpm-sponsor__card {
+	border-top: 0;
+	margin: 0;
+	padding: 0;
+}
+
+/* New offer: a button, the form under it once it is pressed. */
+.wpcpm-offers__new {
+	margin: 0 0 20px;
+}
+
+.wpcpm-offers__new > summary {
+	cursor: pointer;
+	display: inline-flex;
+	list-style: none;
+}
+
+.wpcpm-offers__new > summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-offers__new[open] > summary {
+	margin-bottom: 16px;
+}
+
+.wpcpm-offers__new-body {
+	max-width: 720px;
+}
+
+/* An offer folds like every row in the frame: the frame's chevron at the row's end, not the browser's triangle. */
+.wpcpm-frame .wpcpm-offer__summary {
+	cursor: pointer;
+	list-style: none;
+	padding-inline-end: 32px;
+	position: relative;
+}
+
+.wpcpm-frame .wpcpm-offer__summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-frame .wpcpm-offer__summary::after {
+	border-bottom: 1.5px solid var( --wpcpm-f-icon );
+	border-inline-end: 1.5px solid var( --wpcpm-f-icon );
+	content: "";
+	height: 8px;
+	inset-inline-end: 14px;
+	position: absolute;
+	top: 22px;
+	transform: rotate( 45deg );
+	width: 8px;
+}
+
+.wpcpm-frame .wpcpm-offer[open] > .wpcpm-offer__summary::after {
+	top: 26px;
+	transform: rotate( -135deg );
+}
+
+.wpcpm-offer__title .wpcpm-status {
+	margin-inline-start: 8px;
+	vertical-align: 2px;
+}
+
+/* By the main area's width, as the frame's own head and figures fold (dashboard-frame.css). The logo goes over
+   the head's copy, so the name and the thank-you keep the whole width. */
+@container wpcpm-main ( max-width: 600px ) {
+	.wpcpm-frame .wpcpm-sponsor .wpcpm-head--logo {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__logo {
+		justify-self: start;
+	}
+
+	.wpcpm-sponsor__wait {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-sponsor__wait > .wpcpm-btn {
+		justify-self: start;
+	}
+
+	.wpcpm-sponsor__door {
+		grid-template-columns: 36px minmax( 0, 1fr );
+	}
+
+	.wpcpm-sponsor__door-cue {
+		grid-column: 2;
+	}
+
+	.wpcpm-offer-card {
+		padding: 18px;
+	}
+
+	.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__logo {
+		height: 64px;
+		max-width: 140px;
+		min-width: 64px;
+		padding: 8px;
+	}
+
+	.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__logo-image {
+		max-height: 46px;
+		max-width: 122px;
+	}
+
+	.wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__initials {
+		font-size: 30px;
+	}
 }

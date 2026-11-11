@@ -484,7 +484,12 @@ class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return self::$url; }
 }
 /** As above, and the Sponsor Dashboard's way back from a press, which stops the handler here. */
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	public static $url = '';
 	public static function page_url() { return self::$url; }
 	public static function leave( $status, $card = '', $record = '', $detail = '' ) { throw new WPCPM_Test_Stop( 'leave: ' . $status ); }
@@ -1991,6 +1996,16 @@ function changes() {
 				'replace' => array( 'body' => array( 'The full history is in the Sponsorship interests column of the Sponsors table.' => 'The full history is on the Sponsors screen.' ) ),
 			);
 		}
+	}
+
+	// The Sponsor Dashboard's views (1.123.78): the low-codes email's link goes to the Offers view, where the
+	// Offers card is, as `WPCPM_Sponsors_Dashboard::card_url()` builds it. Only in the cases whose email
+	// carries the link, the page being published.
+	foreach ( array( 'low-stock', 'low-stock-at-the-highest-mark', 'low-stock-no-members', 'low-stock-non-ascii', 'low-stock-one-left', 'low-stock-past-a-thousand', 'low-stock-title' ) as $case ) {
+		$rows[] = array(
+			'case'    => $case,
+			'replace' => array( 'body' => array( '/sponsor-dashboard/?wpcpm_sponsor_view=' => '/sponsor-dashboard/?wpcpm_view=offers&wpcpm_sponsor_view=' ) ),
+		);
 	}
 
 	return $rows;

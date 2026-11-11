@@ -1,6 +1,6 @@
 ## Mentors
 
-The section **Mentors** holds two cards, both read from the program's mentor records, which this site reads at intervals. Each mentor on them is a tile: their photo when they have a WordPress.org profile, their name, linked to that profile, how many students they guide now and how many they guided before, the areas they know, and a **WordPress.org profile** link. A mentor whose account on this site is not linked yet reads "No site account yet" in place of the counts.
+The view **Mentors to sponsor** holds two cards, both read from the program's mentor records, which this site reads at intervals. Each mentor on them is a tile: their photo when they have a WordPress.org profile, their name, linked to that profile, how many students they guide now and how many they guided before, the areas they know, and a **WordPress.org profile** link. A mentor whose account on this site is not linked yet reads "No site account yet" in place of the counts.
 
 ### Mentors you sponsor
 

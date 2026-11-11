@@ -295,6 +295,8 @@ class WPCPM_Dashboards {
 	 *     @type string     $label   The list's label.
 	 *     @type string     $find    The field's placeholder, which it shows while it is empty.
 	 *     @type string     $none    What the field's list says when no name matches what was typed.
+	 *     @type array      $keep    Query arguments the form carries as hidden fields, name to value: what the
+	 *                              page shows besides whose page it is, such as a dashboard's view.
 	 * }
 	 */
 	public static function render_switcher( array $args ) {
@@ -307,6 +309,7 @@ class WPCPM_Dashboards {
 				'label'   => '',
 				'find'    => '',
 				'none'    => '',
+				'keep'    => array(),
 			),
 			$args
 		);
@@ -318,6 +321,14 @@ class WPCPM_Dashboards {
 		}
 
 		echo '<form class="wpcpm-dashboard__switcher" method="get">';
+
+		// What the page is showing besides whose page it is, such as a dashboard's view (1.123.78): a GET form
+		// replaces the address's query, so it travels as a hidden field.
+		foreach ( (array) $args['keep'] as $name => $value ) {
+			if ( is_scalar( $value ) && '' !== (string) $value ) {
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( (string) $name ), esc_attr( (string) $value ) );
+			}
+		}
 
 		// Without pretty permalinks the page is addressed by query string, which a GET form
 		// would otherwise discard - resubmitting to the site root.

@@ -352,7 +352,12 @@ class WPCPM_Mentors_Sync {
 class WPCPM_Mentors_Dashboard { public static function get_mentees( $user_id ) { return array(); } }
 class WPCPM_Students_Sync { public static function get_program( $user_id ) { return $GLOBALS['program'][ (int) $user_id ] ?? array(); } }
 class WPCPM_Students_Dashboard { public static function page_url() { return 'https://example.test/student-report-card/'; } }
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
 	public static function leave( $status, $card, $record = '', $detail = '', array $args = array() ) { $GLOBALS['left'] = array( $status, $card, $record, $detail ); $GLOBALS['left_args'] = $args; throw new WPCPM_Test_Redirect( $status ); }
@@ -1145,9 +1150,9 @@ if ( ! empty( $backdated ) ) {
 	$GLOBALS['opts'][ $backdated[0] ] = $backdated[1];
 	wp_cache_delete( $backdated[0], 'options' );
 }
-$new_offer = '</div></div></div></details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="#wpcpm-sponsor-offers">New offer<span class="screen-reader-text"> for the program&#039;s students and mentors</span></a></p></section>';
-ck( 'the Offers card is open, its row the offers live and the claims this month, its body opening on the form for a new offer, and New offer after the fold, naming what it makes for a screen reader and hidden by the stylesheets while the card is open; the Usage card folds until a flash names it, its row every claim that stands, with no action', array(
-	0 === strpos( $offers_row, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-offers" class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Offers and codes <span class="wpcpm-group__count">3</span></h3><span class="wpcpm-sponsor__state">1 live, 4 claims this month</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body"><div class="wpcpm-offers__cols"><div class="wpcpm-offers__col wpcpm-offers__col--new">' ),
+$new_offer = '</div></div></details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="#wpcpm-sponsor-offers">New offer<span class="screen-reader-text"> for the program&#039;s students and mentors</span></a></p></section>';
+ck( 'the Offers card is open, its row the offers live and the claims this month, its body opening on New offer, a button over the form for a new offer (1.123.78), and New offer after the fold, naming what it makes for a screen reader and hidden by the stylesheets while the card is open; the Usage card folds until a flash names it, its row every claim that stands, with no action', array(
+	0 === strpos( $offers_row, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-offers" class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">Offers and codes <span class="wpcpm-group__count">3</span></h3><span class="wpcpm-sponsor__state">1 live, 4 claims this month</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body"><details class="wpcpm-offers__new" id="wpcpm-offer-new"><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offers__new-toggle">New offer</summary><div class="wpcpm-offers__new-body"><p class="wpcpm-student__note">' ),
 	substr( $offers_row, -strlen( $new_offer ) ) === $new_offer,
 	1 === substr_count( $offers_row, 'wpcpm-sponsor__row-action' ),
 	0 === strpos( $usage_row, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-usage" class="wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title"><span id="wpcpm-sponsor-usage-title">Usage</span> <span class="wpcpm-group__count">5</span></h3><span class="wpcpm-sponsor__state">5 claims in all</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ),
@@ -1287,12 +1292,12 @@ $one_claim    = array( card( 'WPCPM_Sponsor_Offers', $B, $context ), card( 'WPCP
 ck( 'one claim is one, on the Offers row and on the Usage row', array( false !== strpos( $one_claim[0], '<span class="wpcpm-sponsor__state">1 live, 1 claim this month</span>' ), false !== strpos( $one_claim[1], '<span class="wpcpm-sponsor__state">1 claim in all</span>' ) ), array( true, true ) );
 ck( 'and its rows count nothing and say so: no offer live and no claim, and nothing claimed in all', array( false !== strpos( $no_offer_row, '<span class="wpcpm-sponsor__state">0 live, 0 claims this month</span>' ), false !== strpos( $no_offer, '<span class="wpcpm-sponsor__state">0 claims in all</span>' ) ), array( true, true ) );
 
-echo "\n=== The Offers and codes card in two columns (1.97.1) ===\n";
+echo "\n=== The Offers and codes card: New offer, then the offers (1.97.1; one column since 1.123.78) ===\n";
 $card_html = card( 'WPCPM_Sponsor_Offers', $A, $context );
-$col_new   = (int) strpos( $card_html, 'wpcpm-offers__col--new' );
-$col_list  = (int) strpos( $card_html, 'wpcpm-offers__col--list' );
+$col_new   = (int) strpos( $card_html, 'class="wpcpm-offers__new"' );
+$col_list  = (int) strpos( $card_html, 'class="wpcpm-offers__lists"' );
 $form_new  = (int) strpos( $card_html, 'wpcpm-offer__form--new' );
-ck( 'the new-offer form is first and on the left, the offers on the right under Active offers, each a folded disclosure', array( $col_new > 0 && $col_new < $form_new && $form_new < $col_list, substr_count( $card_html, '<h4 class="wpcpm-sponsor__subheading">Active offers</h4>' ), substr_count( $card_html, '<details class="wpcpm-offer wpcpm-offer--' ), substr_count( $card_html, '<summary class="wpcpm-offer__summary">' ), substr_count( $card_html, '<div class="wpcpm-offer__body">' ) ), array( true, 1, count( WPCPM_Sponsor_Offers::offers_of( $A ) ), count( WPCPM_Sponsor_Offers::offers_of( $A ) ), count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ) );
+ck( 'the new-offer form is first, folded behind New offer, the offers under it under Active offers, each a folded disclosure', array( $col_new > 0 && $col_new < $form_new && $form_new < $col_list, substr_count( $card_html, '<h4 class="wpcpm-sponsor__subheading">Active offers</h4>' ), substr_count( $card_html, '<details class="wpcpm-offer wpcpm-offer--' ), substr_count( $card_html, '<summary class="wpcpm-offer__summary">' ), substr_count( $card_html, '<div class="wpcpm-offer__body">' ) ), array( true, 1, count( WPCPM_Sponsor_Offers::offers_of( $A ) ), count( WPCPM_Sponsor_Offers::offers_of( $A ) ), count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ) );
 $past_n = count( array_filter( WPCPM_Sponsor_Offers::offers_of( $A ), array( 'WPCPM_Sponsor_Offers', 'is_past' ) ) );
 ck( 'the counts line is phrasing inside the summary, not a paragraph, and the ended list is drawn exactly when an offer is over', array( substr_count( $card_html, '<span class="wpcpm-offer__counts">' ) > 0, strpos( $card_html, '<p class="wpcpm-offer__counts">' ), false !== strpos( $card_html, 'Ended and expired offers' ) ), array( true, false, $past_n > 0 ) );
 $first = substr( $card_html, (int) strpos( $card_html, '<div class="wpcpm-offer__body">' ) );
@@ -1319,10 +1324,10 @@ $ended_head = false === $ended_at ? '' : substr( $ended_card, $ended_at, (int) s
 ck( 'an offer switched on but past its last day is listed under Ended and expired offers wearing Expired, not Live, and an ended one keeps Ended', array(
 	WPCPM_Sponsor_Offers::read( $a1 )['state'],
 	false !== $expired_at && $expired_at > (int) strpos( $expired_card, '<h4 class="wpcpm-sponsor__subheading">Ended and expired offers</h4>' ),
-	false !== strpos( $expired_head, '<span class="wpcpm-offer__state">Expired</span>' ),
-	strpos( $expired_head, '<span class="wpcpm-offer__state">Live</span>' ),
+	false !== strpos( $expired_head, '<span class="wpcpm-offer__state wpcpm-status">Expired</span>' ),
+	strpos( $expired_head, '>Live</span>' ),
 	WPCPM_Sponsor_Offers::read( $cap_b3 )['state'],
-	false !== strpos( $ended_head, '<span class="wpcpm-offer__state">Ended</span>' ),
+	false !== strpos( $ended_head, '<span class="wpcpm-offer__state wpcpm-status">Ended</span>' ),
 ), array( 'live', true, true, false, 'ended', true ) );
 ck( 'is_past(): ended, or past the last day named; a draft or a live offer with days left is in play', array( WPCPM_Sponsor_Offers::is_past( array( 'state' => 'ended', 'expires' => '' ) ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'live', 'expires' => '2026-09-05' ), '2026-09-06' ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'live', 'expires' => '2026-09-06' ), '2026-09-06' ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'paused', 'expires' => '2026-12-31' ), '2026-09-06' ), WPCPM_Sponsor_Offers::is_past( array( 'state' => 'draft', 'expires' => '' ) ) ), array( true, true, false, false, false ) );
 $chart = substr( $html, (int) strpos( $html, '<figure class="wpcpm-chart wpcpm-usage__chart">' ) );
@@ -1881,7 +1886,7 @@ ck( 'Send for review puts it in Waiting for review, stamped with who sent it and
 ck( 'and it is in the queue, as a new offer', rv_waiting(), array( array( $rv1, 'new' ) ) );
 $html = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );
 $form = substr( $html, (int) strpos( $html, 'id="wpcpm-offer-state-' . $rv1 . '"' ), 900 );
-ck( 'the card shows it waiting, with Take it back and End this offer', array( false !== strpos( $html, '<span class="wpcpm-offer__state">Waiting for review</span>' ), false !== strpos( $html, 'Waiting for review: nobody but you sees it until an Administrator approves it.' ), false !== strpos( $form, 'value="draft">Take it back</button>' ), false !== strpos( $form, 'value="ended"' ), strpos( $form, 'value="live"' ) ), array( true, true, true, true, false ) );
+ck( 'the card shows it waiting, with Take it back and End this offer', array( false !== strpos( $html, '<span class="wpcpm-offer__state wpcpm-status wpcpm-status--amber">Waiting for review</span>' ), false !== strpos( $html, 'Waiting for review: nobody but you sees it until an Administrator approves it.' ), false !== strpos( $form, 'value="draft">Take it back</button>' ), false !== strpos( $form, 'value="ended"' ), strpos( $form, 'value="live"' ) ), array( true, true, true, true, false ) );
 
 /** The Offers card's line, as its fold shows it. */
 function rv_line( $html ) { return preg_match( '#<span class="wpcpm-sponsor__state">([^<]*)</span>#', $html, $m ) ? $m[1] : null; }
@@ -1923,7 +1928,7 @@ $r     = post( rv_fields( $rv1, array( 'wpcpm_note' => 'Say how long the two yea
 $rv1_o = WPCPM_Sponsor_Offers::read( $rv1 );
 ck( 'returned: the offer is live as it was, the change kept for the member with the note, out of the queue', array( $r[0], $rv1_o['state'], $rv1_o['text'], $rv1_o['proposed']['text'], $rv1_o['note'], $rv1_o['returned'] > 0, rv_waiting() ), array( 'offer-returned', 'live', 'A year of hosting.', 'Two years of hosting.', 'Say how long the two years run.', true, array() ) );
 $mail = end( $GLOBALS['sent'] );
-ck( 'the member who sent it is emailed the note, from the template registry, with the way to the Offers card', array( $mail[0], $mail[1], $mail[2], $mail[3]['subject'], false !== strpos( $mail[3]['body'], "Hello Rep One,\n\nAn Administrator read your offer \"Reviewed hosting\" and sent it back with this note:\n\nSay how long the two years run." ), false !== strpos( $mail[3]['body'], 'https://example.test/sponsor-dashboard/#wpcpm-sponsor-offers' ) ), array( 'user', 5, 'sponsor-offer-returned', 'Your offer "Reviewed hosting" needs a change before students see it', true, true ) );
+ck( 'the member who sent it is emailed the note, from the template registry, with the way to the Offers card', array( $mail[0], $mail[1], $mail[2], $mail[3]['subject'], false !== strpos( $mail[3]['body'], "Hello Rep One,\n\nAn Administrator read your offer \"Reviewed hosting\" and sent it back with this note:\n\nSay how long the two years run." ), false !== strpos( $mail[3]['body'], 'https://example.test/sponsor-dashboard/?wpcpm_view=offers#wpcpm-sponsor-offers' ) ), array( 'user', 5, 'sponsor-offer-returned', 'Your offer "Reviewed hosting" needs a change before students see it', true, true ) );
 ck( 'the return is on the trail, with the note\'s length and never the note', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data'], false !== strpos( (string) json_encode( end( $GLOBALS['audit'] ) ), 'two years' ) ), array( 'offer_returned', array( 'offer' => $rv1, 'change' => 'changes', 'note_length' => 31 ), false ) );
 $GLOBALS['uid'] = 5;
 $html = card( 'WPCPM_Sponsor_Offers', $A, $ctx_m );

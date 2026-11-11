@@ -86,6 +86,15 @@ class WPCPM_Administrators_Dashboard {
 	public static function menu_args( $view ) { return array( 'page' => 'administrator-guide', 'from' => 'menu_args:' . $view ); }
 }
 
+// The Sponsor Dashboard's menu and who acts for a sponsor (1.123.78), standing in: a switch for the reader.
+class WPCPM_Sponsors_Dashboard {
+	public static function menu_args( $view ) { return array( 'page' => 'sponsor-guide', 'from' => 'sponsor menu_args:' . $view ); }
+}
+
+class WPCPM_Sponsor_Members {
+	public static function is_member( $user = null, $record = '' ) { return ! empty( $GLOBALS['req']['member'] ); }
+}
+
 require_once __DIR__ . '/../includes/modules/class-wpcpm-administrator-guide-view.php';
 
 $fail   = 0;
@@ -318,6 +327,62 @@ foreach ( glob( __DIR__ . '/../docs/build/*.html' ) as $built ) {
 	}
 }
 ck( 'no built guide holds a bracket WordPress could read as a shortcode: each is written as &#91;, which reads the same', $running, array() );
+
+
+/*
+ * --------------------------------------------------------------------
+ * The Sponsor guide, in the Sponsor Dashboard's frame (1.123.78)
+ * --------------------------------------------------------------------
+ */
+
+$sponsor_guide = static function () {
+	$post             = page( 'sponsor-guide' );
+	$post->ID         = 1770;
+	$post->post_title = 'Sponsor guide';
+	return $post;
+};
+$all_frames    = array( array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates' ) );
+
+ck( 'each guide is known by its page\'s path, a top-level page, and frame_for() names its frame', array(
+	WPCPM_Administrator_Guide_View::guide_of( page( 'administrator-guide' ) ),
+	WPCPM_Administrator_Guide_View::guide_of( $sponsor_guide() ),
+	WPCPM_Administrator_Guide_View::guide_of( page( 'sponsor-guide', 12 ) ),
+	WPCPM_Administrator_Guide_View::guide_of( page( 'mentor-guide' ) ),
+	WPCPM_Administrator_Guide_View::is_guide( $sponsor_guide() ),
+), array( 'administrator-guide', 'sponsor-guide', '', '', false ) );
+
+$sponsor_cases = array(
+	'somebody who acts for a sponsor'              => array( 'manager' => false, 'member' => true ),
+	'an Administrator'                             => array(),
+	'a reader who acts for no sponsor'             => array( 'manager' => false ),
+	'a visitor who is not logged in'               => array( 'manager' => false, 'member' => true, 'logged_in' => false ),
+	'a theme that names only the Administrator\'s' => array( 'manager' => false, 'member' => true, 'support' => array( array( 'administrator', 'administrator-guide' ) ) ),
+);
+$sponsor_wrapped = array();
+$sponsor_frames  = array();
+
+foreach ( $sponsor_cases as $name => $change ) {
+	fresh();
+	reading( array_merge( array( 'post' => $sponsor_guide(), 'support' => $all_frames ), $change ) );
+	$sponsor_frames[ $name ]  = WPCPM_Administrator_Guide_View::frame_for( $sponsor_guide() );
+	$sponsor_wrapped[ $name ] = '<p>x</p>' !== WPCPM_Administrator_Guide_View::filter_content( '<p>x</p>' );
+}
+
+ck( 'the Sponsor guide is drawn in the frame for somebody who acts for a sponsor and for an Administrator, in a theme that names it, and the theme is told the frame for exactly those readers', array( array_keys( array_filter( $sponsor_wrapped ) ), array_keys( array_filter( $sponsor_frames ) ) ), array( array( 'somebody who acts for a sponsor', 'an Administrator' ), array( 'somebody who acts for a sponsor', 'an Administrator' ) ) );
+
+fresh();
+reading( array( 'post' => $sponsor_guide(), 'support' => $all_frames, 'manager' => false, 'member' => true ) );
+$sponsor_drawn = WPCPM_Administrator_Guide_View::filter_content( $guide );
+
+ck( 'in the Sponsor Dashboard\'s menu, with the page\'s title as the one H1 and its list of sections', array(
+	WPCPM_Dashboard_Frame::$opened[0],
+	false !== strpos( $sponsor_drawn, '<h1 class="wpcpm-head__title">Sponsor guide</h1>' ),
+	false !== strpos( $sponsor_drawn, '<nav class="wpcpm-guide__contents"' ),
+), array( array( 'page' => 'sponsor-guide', 'from' => 'sponsor menu_args:guide' ), true, true ) );
+
+fresh();
+reading( array( 'post' => page( 'administrator-guide' ), 'support' => $all_frames, 'manager' => false, 'member' => true ) );
+ck( 'and somebody who acts for a sponsor never gets the Administrator guide in a frame', array( WPCPM_Administrator_Guide_View::frame_for( page( 'administrator-guide' ) ), '<p>x</p>' === WPCPM_Administrator_Guide_View::filter_content( '<p>x</p>' ) ), array( '', true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

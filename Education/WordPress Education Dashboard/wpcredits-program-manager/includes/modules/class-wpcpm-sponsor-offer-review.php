@@ -698,8 +698,8 @@ final class WPCPM_Sponsor_Offer_Review {
 		if ( $member instanceof WP_User ) {
 			$title = (string) $offer['title'];
 			$said  = (string) $note;
-			$link  = class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'page_url' ) ? (string) WPCPM_Sponsors_Dashboard::page_url() : '';
-			$link  = '' === $link ? '' : $link . '#wpcpm-sponsor-' . WPCPM_Sponsor_Offers::CARD;
+			// The Offers view, at the Offers card (1.123.78); '' while the page is not published.
+			$link  = class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'card_url' ) ? (string) WPCPM_Sponsors_Dashboard::card_url( WPCPM_Sponsor_Offers::CARD ) : '';
 
 			WPCPM_Mail::send(
 				$member,

@@ -88,76 +88,100 @@ institution sees the same page.
 
 Your company's page on the Education Directory is the Sponsor Dashboard, at /sponsor-dashboard/. You reach it after signing in with the account the program created for your company. Every person the program attached to your company sees the same page.
 
-The page opens with your company's name, then **At a glance**, a row of tiles with your tier and what is waiting for your company, then the program's updates, its resources and your contact at the program. Under them are your cards, in four sections: **Your sponsorship**, **What you offer**, **Mentors** and **Your company**, in that order until your company arranges them. This guide takes them in the same order.
-
 Your sponsorship, your offers, codes and claims, your posts and your events are kept on this site, so the page shows them as they are each time you open it. The two lists of mentors are the exception: they come from the program's mentor records, which this site reads at intervals, so a change there can take a while to reach the page.
 
-### Your company's name
+### The menu
 
-![The top of the Sponsor Dashboard: your company's name and badge, the At a glance tiles, and the places to go with a question.](images/sponsor-dashboard-top.png)
+The page is drawn in a frame. A bar across the top holds the site's name, **Homepage**, and your photo and first name, with **Log out** behind them. A menu runs down the side, and the page you are reading sits beside it. Each item in the menu is a view of its own, at its own address, in this order:
 
-*The top of the Sponsor Dashboard: your company's name and badge, the At a glance tiles, and the places to go with a question.*
+- **Overview**, where the page opens.
+- **Your sponsorship**, once the program has launched the sponsor tiers: the **Sponsorship**, **Events**, **Reports** and **Badge** cards.
+- **Offers**: the **Offers and codes** and **Posts** cards.
+- **Students reached**: the **Usage** card.
+- **Mentors to sponsor**: the **Mentors you sponsor** and **Mentors looking for a sponsor** cards.
+- **Your company**: the **Company profile and logo** and **People** cards.
+- **Agreement**: the **Collaboration Agreement** card.
+- **Program updates**, while the program has published an update for sponsors. It opens the newest in the same frame, with the other updates listed beside it when there are more.
 
-Your company's name sits at the top, with your logo beside it, or your company's initials until there is a logo. Under the name are your website, as a link, and "Contact:" with the name of the contact person you gave the program. The header shows that person's name alone: the contact address is on the **Company profile and logo** card, where you change both. From Supporter up, your badge sits at the right of the header, unless the program has paused your sponsorship.
+Under **Help** come:
 
-### At a glance
+- the Ask box, "Ask about the program", whenever the program has switched its question assistant on for sponsors. Your question is sent to an outside AI service, so do not type anything confidential.
+- **Sponsor guide**, which opens this guide in the same frame, with its sections listed beside it.
+- **Write to the program**, which opens a mail to the Administrator who looks after your company, once the program has assigned one and has an address for them, and while that person is still an Administrator.
 
-The first tile is your tier. It is there once the program has launched the sponsor tiers, and its line gives the last day of your term and the days left in it, "ending today" on that day, the day the term ended once it has, or "no term". It always opens the **Sponsorship** card, where the card says how to renew.
+Beside a view's name, a red tag counts what waits for your company in it, for example "1 waits". Beside **Overview**, the tag counts everything that waits. *Waiting for you*, below, says what is counted.
 
-After it comes one tile for each kind of thing that is waiting for your company, with a number and a line that says what waits:
+Each view opens with its name and one sentence that says what it holds. **Agreement** opens under the name **Collaboration Agreement**.
 
+In a right-to-left language, such as Arabic or Hebrew, the menu sits on the right. On a narrower screen it shows its icons alone, and on a phone it opens as a drawer from the **Menu** button at the top and closes with **Close menu**. On a wide screen, **Collapse menu** at its foot folds it to its icons, and your browser remembers that.
+
+### The Overview
+
+The Overview opens with the page's name and, when the program's record holds the day your company became a sponsor, the month and year, as in "Sponsor Dashboard · sponsor since March 2026". Under it are your company's name, with your logo beside it, or your company's initials until there is a logo, and a thank-you that says how many people your offers reached this year and how many mentors your company sponsors, or, before there is either, thanks your company for its support. **New offer** opens the **Offers** view with the form for a new offer open.
+
+#### The figures
+
+Next, a row of figures says what your support did:
+
+- *People reached this year*: the people who claimed one of your offers this calendar year, each counted once, however many offers they claimed.
+- *Codes claimed*: the codes claimed of the codes loaded, in your pools of one-time codes that have not ended, with how many codes are left in the live offer closest to running out.
+- *Mentors you sponsor*: with how many of them have students now.
+
+A figure with nothing to count is left out, and with nothing at all to count there is no row of figures. A line under them says when they were read, for example "As of November 11, 2026, from the claims on this site and the program's mentor records."
+
+#### Waiting for you
+
+**Waiting for you** has one row for each kind of thing that waits for your company. Each row has a red "Waits" tag, says what waits, gives one sentence about it, and ends with a button, such as **Open the offers** or **Complete the profile**, that opens the view and the card that hold it:
+
+- *Your term ends on* its last day, in the last thirty days of a term, or *Your term ended on* that day once it has, while the program has launched the sponsor tiers.
 - *Offers returned with a note*: offers, or changes to them, that an Administrator sent back.
 - *Offers running low on codes*: live offers with fewer codes left than the number you chose for the warning.
 - *Offers not switched on yet*: drafts, which nobody but you sees.
 - *Posts returned with a note*.
-- *Event returned*: the plan of your co-hosted event, sent back with a note.
+- *Your event plan was returned with a note*: the plan of your co-hosted event, sent back with a note.
 - *Collaboration Agreement returned* or *Collaboration Agreement revoked*.
 - *Company profile details missing*, which counts how many of the three details are empty.
 
-An offer is counted once, under the first of its three lines that fits it, so an offer an Administrator returned is never also counted as not switched on yet. A kind with nothing waiting has no tile, and when nothing at all waits, one dimmed tile says "Nothing waits for you". A tile that waits has a red edge at its start, and its line always says what waits, so the red is never the only sign. The tier tile waits too, in the last thirty days of a term and once a term has ended.
+An offer is counted once, under the first of its three rows that fits it, so an offer an Administrator returned is never also counted as not switched on yet. When nothing waits, the Overview says "Nothing waits for you." The tag says "Waits" in words, so the red is never the only sign.
 
-Press a tile with something waiting and the page takes you to the card that holds it, opened. The *Event returned* tile is there only while the **Events** card can show the note, which stands above the form that plans an event: from Champion up, with no event of yours still to take place, while your sponsorship is not paused and your term still has an event to plan. It is the plan returned in your current term that the note and the tile show: once your term is renewed, a plan dated in the term before is not shown again, even in the days that term still runs.
+The event row is there only while the **Events** card can show the note, which stands above the form that plans an event: from Champion up, with no event of yours still to take place, while your sponsorship is not paused and your term still has an event to plan. It is the plan returned in your current term that the note and the row show: once your term is renewed, a plan dated in the term before is not shown again, even in the days that term still runs.
 
-The figures that once had tiles of their own, your next event, how many offers are live, how many mentors your company sponsors and your yearly reports, are on the lines of their cards.
+#### Your offers
 
-### Where to find help
+**Your offers** shows each offer still in play, the ones listed under **Active offers** on the **Offers** view, as a card:
 
-Under the tiles, and above the cards, are the places to go with a question:
+- its state as a tag, its title, and what a person gets;
+- for a pool of one-time codes, *Claimed*, the codes claimed of the codes loaded, or *Codes*, how many are ready, while the offer is not switched on yet or waits for review; for one code everyone uses, *Taken*, how many people took it;
+- *Ends*, its last day, or "No last day";
+- *Open to*: students, and mentors or the program team when you chose them;
+- for a pool, *Running low*, the codes left, while it runs low, or *Warns you at*, the number you set for the warning, while it is not live;
+- *Claims a month*, small bars for the last six months, while any of them had a claim.
 
-- **Program updates and announcements** carries what the program publishes for sponsors. It says "Nothing new right now." when there is nothing, and **All updates** opens the rest when there are more than it shows.
-- **Resources** holds the Slack logo, which opens the WordPress Credits Slack channel, and **Sponsor guide**, which opens this guide. It also holds **Need help?** whenever the program has switched its question assistant on for sponsors: "Ask anything about the program or WordPress itself, and get an answer." Your question is sent to an outside AI service, so do not type anything confidential.
-- **Your contact at the program** is under the buttons: the Administrator who looks after your company, with a link to write to them when the program has an address for them, and **Book a call** when it has a booking link. The page says "They look after your company's sponsorship. Write to them about anything the guide does not answer." The contact is there once the program has assigned an Administrator to your company, and only while that person still is one.
+**Change the offer** opens that offer on the **Offers** view. Once anybody claimed the offer, **See the claims** opens the **Usage** card on **Students reached**, which counts the claims and, as *What your company can and cannot see* says, names nobody. With no offer in play, the Overview says "No offer is running." with **Create one**.
 
-### Arranging the page
-
-Each section has two small arrows at its top right, named after it, for example "Move Your sponsorship up" and "Move Your sponsorship down". Press one and the section moves at once. The order is your company's, kept for everyone who signs in for it, and **Your sponsorship** comes first until somebody moves it.
-
-A section with nothing to show is left out and has no arrows: until the program has launched the sponsor tiers, **Your sponsorship** is not on the page.
+While any mentor is looking for a sponsor, the Overview ends with a row such as "3 mentors are looking for a sponsor", and **See who** opens **Mentors looking for a sponsor**.
 
 ### Opening and folding the cards
 
-![The four sections with every card folded, each card's line saying what it holds.](images/sponsor-dashboard-cards.png)
-
-*The four sections with every card folded, each card's line saying what it holds.*
-
-Under each section's title, one line says what its cards hold. A card folds and unfolds with one press on its title. The number beside a title is how many things the card holds, and the words after it say where the card stands, so a folded card still tells you what is in it: "No event planned", "2 of 3 fields filled", "Accepted on September 3, 2026".
+A card folds and unfolds with one press on its title. The number beside a title is how many things the card holds, and the words after it say where the card stands, so a folded card still tells you what is in it: "No event planned", "2 of 3 fields filled", "Accepted on September 3, 2026".
 
 Where a card has one thing to do, its button sits beside the folded card. Open the card and the button gives way to it.
 
-- **Plan an event**, **New offer** and **Edit** open their card at its top, where the form is.
+- **Plan an event** and **Edit** open their card at its top, where the form is.
 - **Upload** opens **Collaboration Agreement** the same way, while the program has sent your agreement back or it is no longer in force.
+- **New offer** opens **Offers and codes** at its top, where the card's own **New offer** opens the form.
 - **Write a post** opens the WordPress editor.
 
-**Sponsorship**, **Offers and codes** and **Mentors you sponsor** are open when you arrive, and so is **Events** while an event of yours is still to take place. Every other card stays folded until you open it. After you send one of a card's forms, the page comes back with that card open.
+**Sponsorship**, **Offers and codes** and **Mentors you sponsor** are open when you arrive, and so is **Events** while an event of yours is still to take place. Every other card stays folded until you open it, or until a button or a link on the Overview opens it. After you send one of a card's forms, the page comes back to the view with that card open.
 
 ## Your sponsorship
 
-**Your sponsorship** is on the page once the program has launched the sponsor tiers. Its cards come in this order: **Sponsorship**, **Events** from Champion up, **Reports** once your program contact has finished your first yearly report, and **Badge** from Supporter up. The line under the section's title names the cards it holds for your company.
+**Your sponsorship** is a view in the menu once the program has launched the sponsor tiers. Its cards come in this order: **Sponsorship**, **Events** from Champion up, **Reports** once your program contact has finished your first yearly report, and **Badge** from Supporter up. The sentence under the view's name names the cards it holds for your company.
 
 What each tier adds on this page and on the Partners page:
 
 - *Friend.* The **Sponsorship** card, and your company's name on the Partners page.
-- *Supporter.* The **Badge** card and your badge in the header, a **Description for the partner page** on your profile, and the annual program report, your yearly report on the **Reports** card. The Partners page shows your logo, your website and that description.
+- *Supporter.* The **Badge** card, a **Description for the partner page** on your profile, and the annual program report, your yearly report on the **Reports** card. The Partners page shows your logo, your website and that description.
 - *Backer.* What your sponsorship funds, on the **Sponsorship** card, a report covering that cost line in your yearly report, and one post at a time.
 - *Champion.* A second post, an invitation to the annual education partners session, and the **Events** card with the planner for your co-hosted event.
 - *Partner.* The launch communications, which the program plans with you, and in your yearly report a section on each track your company partners.
@@ -185,11 +209,11 @@ The row with the card's title, which shows whether the card is open or folded, s
 
 ### Renewing and moving up
 
-One press on **Talk to your program contact** tells them you would like to talk about the next tier. The button keeps what you asked on record, and the page says "Sent. Your program contact will be in touch." Each account can send five a day. To tell the program anything else your company would like to do, write to your program contact, named under **Your contact at the program** near the top of the page.
+One press on **Talk to your program contact** tells them you would like to talk about the next tier. The button keeps what you asked on record, and the page says "Sent. Your program contact will be in touch." Each account can send five a day. To tell the program anything else your company would like to do, write to your program contact: **Write to the program**, under **Help** in the menu, opens a mail to them.
 
 A term runs through its last day, and the card follows it:
 
-- *In the last thirty days.* The card says how many days are left, for example "Your term ends on March 31, 2027, in 12 days. Your program contact can renew it.", and the tier tile on **At a glance** waits.
+- *In the last thirty days.* The card says how many days are left, for example "Your term ends on March 31, 2027, in 12 days. Your program contact can renew it.", and the Overview's **Waiting for you** has a row for it, with a count beside **Your sponsorship** in the menu.
 - *From the day after the last day.* Your company reads as a Friend. The line with your tier says the term has ended and asks for its renewal, without the link to the Partners page: "Your company reads as a Friend now; your program contact can renew it." The same button then asks your program contact to renew the term.
 - *At Partner*, the top of the ladder, there is no next tier, so the card has no button until a term has ended.
 
@@ -263,7 +287,7 @@ If your sponsorship stops including events, because your term ends, your tier ch
 
 From Supporter up, **Badge** holds your badge for your own site, in its light and dark versions, and its **Embed code**, with **Copy the embed code**. The badge names your tier and the current year, and once a term has ended the year it ended. The card's line says the same, for example "Champion badge for 2026". The program's site serves the badge, so a change of tier shows on your Sponsor Dashboard at once and on your own site within an hour, with nothing to paste again.
 
-The badge is only for a sponsorship the program has approved. While the program has paused yours, the **Badge** card and the badge in your header are gone, and the badge on your own site does not show.
+The badge is only for a sponsorship the program has approved. While the program has paused yours, the **Badge** card is gone, and the badge on your own site does not show.
 
 ## Offers, codes and claims
 
@@ -272,15 +296,11 @@ An offer is something your company gives the program's participants: a license, 
 - **A pool of one-time codes, one per person**: a list of codes you paste or upload, one per line or as a CSV. Each code is handed to one person, once.
 - **One code or link everyone uses**: a single code or checkout link that every eligible person sees.
 
-**Offers and codes**, the first card of **What you offer**, is open when you arrive and opens on the form for a new offer. Its line says how many of your offers are live, how many offers and changes wait for an Administrator's review while any do, and how many times your offers were claimed this month.
+**Offers and codes**, the first card of the **Offers** view, is open when you arrive, with **New offer** at its top. Its line says how many of your offers are live, how many offers and changes wait for an Administrator's review while any do, and how many times your offers were claimed this month.
 
 ### Making an offer
 
-![The Offers and codes card: the form for a new offer, and your offers beside it.](images/sponsor-offers-card.png)
-
-*The Offers and codes card: the form for a new offer, and your offers beside it.*
-
-The **New offer** form sits on the left of the card. Above it, a line says "Offers are separate from the tiers: your company may have any number of live offers, whatever its tier." As the Partners page says, partners at any level may offer free access to their products. Drafts are unlimited.
+Press **New offer** and the form for a new offer opens under it. The form is open again after a save that was refused, with what you typed kept. Above it, a line says "Offers are separate from the tiers: your company may have any number of live offers, whatever its tier." As the Partners page says, partners at any level may offer free access to their products. Drafts are unlimited.
 
 1. Give the offer a **Title**, say in **What you get, in a sentence or two** what a person gets, in **How to redeem it** how to redeem it, and in **Link with more information, or where to redeem** where to find more information.
 2. Choose the **Kind**. For a pool, paste **The codes** or upload a .txt or .csv file; for one code everyone uses, type **The shared code or link**.
@@ -288,13 +308,13 @@ The **New offer** form sits on the left of the card. Above it, a line says "Offe
 4. Set **Warn me when fewer than this many codes are left**, the number at which the program warns you that the pool is running low, and, if the offer has a last day, **Last day (optional)**.
 5. Press **Create offer**. The offer starts as a draft that nobody but you can see.
 
-Your offers sit on the right, under **Active offers**, each folded to its title, its state and a line of counts: for a pool, how many codes are available, claimed and void; for a shared code, how many people took it. Open one to read its details and edit it with **Edit this offer**, to pause, resume or end it and, for a pool, to add codes or void the ones nobody has claimed. An offer that has ended, or whose last day has passed, moves under **Ended and expired offers**.
+Your offers follow, under **Active offers**, each folded to one row: its title, its state as a tag, and its counts, which for a pool are how many codes are available, claimed and void, and for a shared code how many people took it. Open one to read its details and edit it with **Edit this offer**, to pause, resume or end it and, for a pool, to add codes or void the ones nobody has claimed. An offer that has ended, or whose last day has passed, moves under **Ended and expired offers**.
 
-Each offer's state is a word beside its title:
+Each offer's state is a tag beside its title:
 
 - *Not switched on yet.* A draft, visible to nobody but you: send it for review when it is ready. An offer an Administrator returned with a note is a draft again, and reads the same; the next part says how to tell it apart.
 - *Waiting for review.* Visible to nobody but you either, until an Administrator approves it.
-- *Live.* Shown to the people it is open to. The one live offer marked "(primary)" is the offer the program names as yours.
+- *Live.* Shown to the people it is open to.
 - *Paused.* Hidden until you resume it with **Resume**, and its codes stay.
 - *Dormant.* An offer the program held back while a tier capped live offers. It is hidden, its codes stay, the codes already claimed stay with the people who hold them, and you can end it but not resume it. No tier caps live offers now, so a dormant offer comes back by itself on the program's next daily run; one whose last day has passed stays as it is.
 - *Ended.* Over: nothing more can be claimed, it cannot be resumed, and the codes already claimed stay with the people who hold them. **End this offer** asks you to confirm first.
@@ -326,7 +346,7 @@ An Administrator reads every offer before students and mentors see it, and a lin
 
 1. When a draft is ready, press **Send for review**. The offer is then *Waiting for review*, still seen by nobody but you, and **Take it back** makes it a draft again.
 2. An Administrator approves it, and it goes live, or returns it with a note, which reaches you by email.
-3. A new offer that is returned is a draft again. In your list, and in the **Usage** table, its state reads "Not switched on yet", like any draft. Open it, and under **State** it says "Returned by the program with a note: change the offer, then send it for review again.", with the note under it, and **At a glance** counts it under *Offers returned with a note*. Change the offer, then press **Send for review** again.
+3. A new offer that is returned is a draft again. In your list, and in the **Usage** table, its state reads "Not switched on yet", like any draft. Open it, and under **State** it says "Returned by the program with a note: change the offer, then send it for review again.", with the note under it, and the Overview's **Waiting for you** counts it under *Offers returned with a note*, as does the count beside **Offers** in the menu. Change the offer, then press **Send for review** again.
 
 Once an offer has been approved, a change to what students see of it is saved and waits for review too, while students and mentors go on seeing the offer as it was approved. That is its title, what a person gets, how to redeem it, where to find more information and, for one code everyone uses, the code or link itself. The offer says so under its details, and **Discard the changes** drops what waits. An approved change takes the place of what students saw; a returned one stays under the offer's details with the note, until you change it again or discard it.
 
@@ -345,7 +365,7 @@ While anything of yours waits, the card's line says how many offers and changes 
 When a live pool falls below the number you set in **Warn me when fewer than this many codes are left**:
 
 - the offer's line of counts adds a warning, for example "Running low: fewer than 10 codes left. Add more, or pause the offer.";
-- **At a glance** counts the offer under *Offers running low on codes*;
+- the Overview's **Waiting for you** counts the offer under *Offers running low on codes*, as does the count beside **Offers** in the menu;
 - the program emails everyone who can sign in for your company, and your program contact, once. Codes that go into the pool afterward set that email up again.
 
 Add codes, or pause the offer. Codes that wait for review are left out of the counts until they are approved, so they do not lift the warning.
@@ -373,7 +393,7 @@ Nobody is named there, and the card says so: "Nobody is named here: the program 
 
 From the Backer tier up, your company can write posts for the program's students, as the Partners page says: a Backer one self-written educational post about the sponsored product, and a Champion or a Partner a second, with factual, value-neutral information about additional products. Posts are written in the site's editor.
 
-The **Posts** card, in **What you offer**, lists every post your company wrote, with where each one stands, and its line counts the published ones and the ones waiting for review. While the card is folded, **Write a post** sits beside it whenever you can write one. If posting is switched off for your company, the card says "The program has not enabled posting for this sponsor." Ask your program contact.
+The **Posts** card, on the **Offers** view, lists every post your company wrote, with where each one stands, and its line counts the published ones and the ones waiting for review. While the card is folded, **Write a post** sits beside it whenever you can write one. If posting is switched off for your company, the card says "The program has not enabled posting for this sponsor." Ask your program contact.
 
 ### Writing a post
 
@@ -393,7 +413,7 @@ Every post is read by an Administrator before it is published. The Administrator
 
 ### When a post is returned
 
-A returned post comes back to you as a draft, with the note on it, and its author is emailed the note. The card lists it as *Returned with a note*, with the note under it, and **At a glance** counts it under *Posts returned with a note*. Change the post and submit it again.
+A returned post comes back to you as a draft, with the note on it, and its author is emailed the note. The card lists it as *Returned with a note*, with the note under it, and the Overview's **Waiting for you** counts it under *Posts returned with a note*, as does the count beside **Offers** in the menu. Change the post and submit it again.
 
 ### Once a post is published
 
@@ -407,7 +427,7 @@ When your tier includes no posts at all, as at Friend and Supporter, the **Posts
 
 ## Mentors
 
-The section **Mentors** holds two cards, both read from the program's mentor records, which this site reads at intervals. Each mentor on them is a tile: their photo when they have a WordPress.org profile, their name, linked to that profile, how many students they guide now and how many they guided before, the areas they know, and a **WordPress.org profile** link. A mentor whose account on this site is not linked yet reads "No site account yet" in place of the counts.
+The view **Mentors to sponsor** holds two cards, both read from the program's mentor records, which this site reads at intervals. Each mentor on them is a tile: their photo when they have a WordPress.org profile, their name, linked to that profile, how many students they guide now and how many they guided before, the areas they know, and a **WordPress.org profile** link. A mentor whose account on this site is not linked yet reads "No site account yet" in place of the counts.
 
 ### Mentors you sponsor
 
@@ -419,7 +439,7 @@ The section **Mentors** holds two cards, both read from the program's mentor rec
 
 ## Your company, your people and your agreement
 
-The section **Your company** holds three cards, in this order: **Company profile and logo**, **People** and **Collaboration Agreement**. Each stays folded until you open it.
+The view **Your company** holds two cards, **Company profile and logo** and **People**, and the view **Agreement** holds **Collaboration Agreement**. Each stays folded until you open it.
 
 ### Company profile and logo
 
@@ -427,11 +447,11 @@ The section **Your company** holds three cards, in this order: **Company profile
 
 *The Company profile and logo card, open: your company's details on the left and your logo on the right.*
 
-**Company profile and logo** is your company as the program records it: the details on the left, your logo on the right. The card says "Keep the profile current: what you save here is kept by the program." Its line says whether all three details are filled in, "Profile complete" or, for example, "2 of 3 fields filled", and **At a glance** counts the ones missing. **Edit**, beside the folded card, opens it.
+**Company profile and logo** is your company as the program records it: the details on the left, your logo on the right. The card says "Keep the profile current: what you save here is kept by the program." Its line says whether all three details are filled in, "Profile complete" or, for example, "2 of 3 fields filled", and the Overview's **Waiting for you** counts the ones missing, as does the count beside **Your company** in the menu. **Edit**, beside the folded card, opens it.
 
 The details are:
 
-- **Website**, **Contact person** and **Contact email**, the three the line counts. The contact person's name is the one in the header. A new **Contact email** changes the address the program holds for your company, and not who can sign in: ask your program contact for that.
+- **Website**, **Contact person** and **Contact email**, the three the line counts. A new **Contact email** changes the address the program holds for your company, and not who can sign in: ask your program contact for that.
 - **Anything else you would like to share**, which is optional.
 - **Description for the partner page**, from Supporter up, as the next part describes.
 
@@ -451,7 +471,7 @@ From Supporter up, once the program has launched the sponsor tiers, the profile 
 
 ### Your Collaboration Agreement
 
-**Collaboration Agreement** is where the agreement between your company and the program lives: you upload the signed copy here and read where it stands. The card's line says where it stands, with the day it was accepted once it is. While it is *Sent back to you* or *Out of force*, **Upload** sits beside the folded card, and **At a glance** shows *Collaboration Agreement returned* or *Collaboration Agreement revoked*. Nothing on this dashboard depends on an agreement: your offers, your codes and your posts work either way.
+**Collaboration Agreement** is where the agreement between your company and the program lives: you upload the signed copy here and read where it stands. The card's line says where it stands, with the day it was accepted once it is. While it is *Sent back to you* or *Out of force*, **Upload** sits beside the folded card, and the Overview's **Waiting for you** shows *Collaboration Agreement returned* or *Collaboration Agreement revoked*, with a count beside **Agreement** in the menu. Nothing on this dashboard depends on an agreement: your offers, your codes and your posts work either way.
 
 - *Nothing on file.* The card says there is no agreement on file for your company, and that if the program has asked you to sign one, you upload the signed PDF here.
 - *Waiting for the program.* The card says since when your signed agreement has waited for the program to read it, how many working days the program aims to answer within, and that you will get an email either way. **Download the copy we hold** gives you the file back, and **Withdraw it** deletes it from this site at once, so that you can upload another.
@@ -470,7 +490,7 @@ The Sponsor Dashboard shows your company its own things: its profile, its people
 - **Mentors.** You see the mentors your company sponsors by name and WordPress.org profile, with how many students each one guides, and the active mentors who asked to be listed as looking for a sponsor. You do not see a mentor's calendar, notes or feedback.
 - **Claims.** You see numbers, by month and by offer. The program keeps the list of who claimed which code, so that it can help a person whose code failed, and does not share it with sponsors.
 - **Events.** You see how many people joined your co-hosted event, on the **Events** card, never who: the names are for Administrators alone, and no mail your company receives carries one. The reminder the day before your event says how many have joined so far, and nothing more about them. The call link you give reaches the people who join and the program, and no list shows it to anybody else. Your **Reports** card is the same: the yearly report lists the events held in the term with how many joined, and no names.
-- **Records.** The details you save on your profile card, your logo, the offer marked "(primary)" and what you send with **Talk to your program contact** are kept on this site, where Administrators read them.
+- **Records.** The details you save on your profile card, your logo and what you send with **Talk to your program contact** are kept on this site, where Administrators read them.
 - **The program's people.** Administrators see your page as you see it, and can act on it for you: create an account for a colleague, record your agreement as on file, review a post. The switcher above the page, **Viewing as sponsor**, is theirs alone.
 
 Once the program turns the sponsor tiers on, the Partners page lists your company by name at every tier, while your sponsorship is approved and not paused, in alphabetical order with every other partner and in the same format, adding your logo, your website and your description from Supporter up. Your badge, from Supporter up, names only the program, your tier and the year, with no logo or other company detail of its own.

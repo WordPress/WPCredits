@@ -214,7 +214,12 @@ class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 }
 /** As above, its page unpublished in a check that says so. */
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	public static $url = 'https://example.test/sponsor-dashboard/';
 	public static function page_url() { return self::$url; }
 }

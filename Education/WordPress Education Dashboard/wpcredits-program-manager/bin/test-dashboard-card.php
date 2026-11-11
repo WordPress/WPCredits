@@ -851,16 +851,18 @@ ck( 'and one whose cards print something is its wrapper, its heading in the eyeb
 // merges the page's classes into what it asks. Calls are read where a statement starts, so the class's
 // own docblock, which names the printer, is not one.
 preg_match_all( '/WPCPM_Dashboard_Card::group\(\s*array_merge\(\s*self::GROUP,\s*array\(\s*\'id\'\s*=>\s*\'([a-z-]+)\'/', $admin_page, $admin_groups );
-ck( 'the Administrator Dashboard prints each of its three groups through the shell, Waiting for you, Watch and Reference, each asking for the page\'s own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as modules',
+// Since 1.123.78 the Sponsor Dashboard's sections are views of its own in the frame, so it draws neither
+// a group nor a module.
+ck( 'the Administrator Dashboard prints each of its three groups through the shell, Waiting for you, Watch and Reference, each asking for the page\'s own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as views, neither groups nor modules',
 	array(
 		substr_count( $sponsors_page, 'WPCPM_Dashboard_Card::group(' ),
-		substr_count( $sponsors_page, "WPCPM_Module_Order::render_module(\n" ),
+		substr_count( $sponsors_page, 'WPCPM_Module_Order::render_module(' ),
 		preg_match_all( '/^\s*WPCPM_Dashboard_Card::group\(/m', $admin_page ),
 		$admin_groups[1],
 		substr_count( $sponsors_page . $admin_page, '__group--%' ) + substr_count( $sponsors_page . $admin_page, '__group-lead">%' ) + substr_count( $sponsors_page . $admin_page, '__group-title">%' ),
 		strpos( $admin_page, 'function render_group(' ),
 	),
-	array( 0, 1, 3, array( 'waiting', 'watch', 'reference' ), 0, false )
+	array( 0, 0, 3, array( 'waiting', 'watch', 'reference' ), 0, false )
 );
 
 echo "\n=== Wiring and house rules ===\n";

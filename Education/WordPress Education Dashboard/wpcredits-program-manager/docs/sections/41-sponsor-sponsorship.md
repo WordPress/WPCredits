@@ -1,11 +1,11 @@
 ## Your sponsorship
 
-**Your sponsorship** is on the page once the program has launched the sponsor tiers. Its cards come in this order: **Sponsorship**, **Events** from Champion up, **Reports** once your program contact has finished your first yearly report, and **Badge** from Supporter up. The line under the section's title names the cards it holds for your company.
+**Your sponsorship** is a view in the menu once the program has launched the sponsor tiers. Its cards come in this order: **Sponsorship**, **Events** from Champion up, **Reports** once your program contact has finished your first yearly report, and **Badge** from Supporter up. The sentence under the view's name names the cards it holds for your company.
 
 What each tier adds on this page and on the Partners page:
 
 - *Friend.* The **Sponsorship** card, and your company's name on the Partners page.
-- *Supporter.* The **Badge** card and your badge in the header, a **Description for the partner page** on your profile, and the annual program report, your yearly report on the **Reports** card. The Partners page shows your logo, your website and that description.
+- *Supporter.* The **Badge** card, a **Description for the partner page** on your profile, and the annual program report, your yearly report on the **Reports** card. The Partners page shows your logo, your website and that description.
 - *Backer.* What your sponsorship funds, on the **Sponsorship** card, a report covering that cost line in your yearly report, and one post at a time.
 - *Champion.* A second post, an invitation to the annual education partners session, and the **Events** card with the planner for your co-hosted event.
 - *Partner.* The launch communications, which the program plans with you, and in your yearly report a section on each track your company partners.
@@ -31,11 +31,11 @@ The row with the card's title, which shows whether the card is open or folded, s
 
 ### Renewing and moving up
 
-One press on **Talk to your program contact** tells them you would like to talk about the next tier. The button keeps what you asked on record, and the page says "Sent. Your program contact will be in touch." Each account can send five a day. To tell the program anything else your company would like to do, write to your program contact, named under **Your contact at the program** near the top of the page.
+One press on **Talk to your program contact** tells them you would like to talk about the next tier. The button keeps what you asked on record, and the page says "Sent. Your program contact will be in touch." Each account can send five a day. To tell the program anything else your company would like to do, write to your program contact: **Write to the program**, under **Help** in the menu, opens a mail to them.
 
 A term runs through its last day, and the card follows it:
 
-- *In the last thirty days.* The card says how many days are left, for example "Your term ends on March 31, 2027, in 12 days. Your program contact can renew it.", and the tier tile on **At a glance** waits.
+- *In the last thirty days.* The card says how many days are left, for example "Your term ends on March 31, 2027, in 12 days. Your program contact can renew it.", and the Overview's **Waiting for you** has a row for it, with a count beside **Your sponsorship** in the menu.
 - *From the day after the last day.* Your company reads as a Friend. The line with your tier says the term has ended and asks for its renewal, without the link to the Partners page: "Your company reads as a Friend now; your program contact can renew it." The same button then asks your program contact to renew the term.
 - *At Partner*, the top of the ladder, there is no next tier, so the card has no button until a term has ended.
 
@@ -107,4 +107,4 @@ If your sponsorship stops including events, because your term ends, your tier ch
 
 From Supporter up, **Badge** holds your badge for your own site, in its light and dark versions, and its **Embed code**, with **Copy the embed code**. The badge names your tier and the current year, and once a term has ended the year it ended. The card's line says the same, for example "Champion badge for 2026". The program's site serves the badge, so a change of tier shows on your Sponsor Dashboard at once and on your own site within an hour, with nothing to paste again.
 
-The badge is only for a sponsorship the program has approved. While the program has paused yours, the **Badge** card and the badge in your header are gone, and the badge on your own site does not show.
+The badge is only for a sponsorship the program has approved. While the program has paused yours, the **Badge** card is gone, and the badge on your own site does not show.

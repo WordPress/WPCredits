@@ -2,7 +2,7 @@
 
 From the Backer tier up, your company can write posts for the program's students, as the Partners page says: a Backer one self-written educational post about the sponsored product, and a Champion or a Partner a second, with factual, value-neutral information about additional products. Posts are written in the site's editor.
 
-The **Posts** card, in **What you offer**, lists every post your company wrote, with where each one stands, and its line counts the published ones and the ones waiting for review. While the card is folded, **Write a post** sits beside it whenever you can write one. If posting is switched off for your company, the card says "The program has not enabled posting for this sponsor." Ask your program contact.
+The **Posts** card, on the **Offers** view, lists every post your company wrote, with where each one stands, and its line counts the published ones and the ones waiting for review. While the card is folded, **Write a post** sits beside it whenever you can write one. If posting is switched off for your company, the card says "The program has not enabled posting for this sponsor." Ask your program contact.
 
 ### Writing a post
 
@@ -22,7 +22,7 @@ Every post is read by an Administrator before it is published. The Administrator
 
 ### When a post is returned
 
-A returned post comes back to you as a draft, with the note on it, and its author is emailed the note. The card lists it as *Returned with a note*, with the note under it, and **At a glance** counts it under *Posts returned with a note*. Change the post and submit it again.
+A returned post comes back to you as a draft, with the note on it, and its author is emailed the note. The card lists it as *Returned with a note*, with the note under it, and the Overview's **Waiting for you** counts it under *Posts returned with a note*, as does the count beside **Offers** in the menu. Change the post and submit it again.
 
 ### Once a post is published
 

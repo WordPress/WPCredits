@@ -449,6 +449,34 @@ final class WPCPM_Sponsor_Claims {
 	}
 
 	/**
+	 * How many people claimed one of a sponsor's offers in a year (1.123.78, the Sponsor Dashboard's figure):
+	 * each person once, however many offers they claimed, and never who they are. A voided claim does not
+	 * count, as `stats()` leaves it out.
+	 *
+	 * @param string $record Sponsor key.
+	 * @param int    $year   The year, as four digits; this year when 0.
+	 * @return int
+	 */
+	public static function people_reached( $record, $year = 0 ) {
+		$year   = (int) $year > 0 ? (int) $year : (int) wp_date( 'Y' );
+		$people = array();
+
+		foreach ( WPCPM_Sponsor_Offers::offers_of( $record ) as $offer ) {
+			foreach ( WPCPM_Sponsor_Codes::claims( $offer['id'] ) as $claim ) {
+				if ( ! empty( $claim['v'] ) || (int) $claim['u'] <= 0 ) {
+					continue;
+				}
+
+				if ( (int) wp_date( 'Y', (int) $claim['at'] ) === $year ) {
+					$people[ (int) $claim['u'] ] = true;
+				}
+			}
+		}
+
+		return count( $people );
+	}
+
+	/**
 	 * The same counts over the months a caller names, for a window that is not the trailing twelve:
 	 * the annual sponsor report counts a term's months with it, whenever it is generated.
 	 *
@@ -609,9 +637,8 @@ final class WPCPM_Sponsor_Claims {
 		// The same address for everyone: a member's page ignores the switcher argument, and
 		// a manager's needs it to land on this sponsor. With the Sponsor Dashboard's page not
 		// published there is no card to open, so the line naming it is left out rather than
-		// sent as a bare query string (since 1.122.23).
-		$page  = (string) WPCPM_Sponsors_Dashboard::page_url();
-		$link  = '' === $page ? '' : add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $offer['sponsor'], $page ) . '#wpcpm-sponsor-offers';
+		// sent as a bare query string (since 1.122.23). At the Offers view since 1.123.78.
+		$link  = (string) WPCPM_Sponsors_Dashboard::card_url( 'offers', (string) $offer['sponsor'] );
 		$title = (string) $offer['title'];
 		$build = static function () use ( $offer, $title, $available, $link ) {
 			return WPCPM_Mail_Templates::mail(

@@ -14,6 +14,9 @@
  * H1 in the serif head, the guide, and beside it the list of its sections. Under any other theme the page is
  * left as the theme draws it.
  *
+ * Since 1.123.78 the Sponsor guide is drawn the same way in the Sponsor Dashboard's frame (`guides()`), for the
+ * people who act for a sponsor and for Administrators, where the theme names `sponsor-guide`.
+ *
  * The list holds the guide's sections (its `h2`s) and, under each, the parts of it (its `h3`s). The script
  * (`assets/js/administrator-guide.js`) marks the part being read, opens only that section's parts, and folds
  * the whole list behind its heading when the main area is too narrow for a column beside the guide.
@@ -75,17 +78,98 @@ class WPCPM_Administrator_Guide_View {
 	}
 
 	/**
-	 * Whether a post is the Administrator guide's page: the top-level page at the guide's path. The theme
-	 * asks this too, to know which page to draw as a bare canvas.
+	 * The guides drawn in a dashboard's frame, by the path of their page: the frame's key for the page, as the
+	 * theme names it, the dashboard whose menu it draws, who reads it in the frame (`manage`, an Administrator;
+	 * `sponsor`, an Administrator or somebody who acts for a sponsor) and the title for a page with none.
+	 *
+	 * @return array<string, array{frame: string, dashboard: string, reader: string, title: string}>
+	 */
+	public static function guides() {
+		return array(
+			WPCPM_Settings_Screen::GUIDE_PAGE_PATH => array(
+				'frame'     => self::FRAME_PAGE,
+				'dashboard' => 'WPCPM_Administrators_Dashboard',
+				'reader'    => 'manage',
+				'title'     => __( 'Administrator guide', 'wpcredits-program-manager' ),
+			),
+			// The Sponsor guide (1.123.78), in the Sponsor Dashboard's frame.
+			'sponsor-guide'                        => array(
+				'frame'     => 'sponsor-guide',
+				'dashboard' => 'WPCPM_Sponsors_Dashboard',
+				'reader'    => 'sponsor',
+				'title'     => __( 'Sponsor guide', 'wpcredits-program-manager' ),
+			),
+		);
+	}
+
+	/**
+	 * Which guide a post is: the path of a top-level page `guides()` lists, or ''. The theme asks this too, to
+	 * know which page to draw as a bare canvas, and on which template.
+	 *
+	 * @param mixed $post A post, or anything else.
+	 * @return string
+	 */
+	public static function guide_of( $post ) {
+		if ( ! $post instanceof WP_Post || 'page' !== $post->post_type || 0 !== (int) $post->post_parent ) {
+			return '';
+		}
+
+		return array_key_exists( (string) $post->post_name, self::guides() ) ? (string) $post->post_name : '';
+	}
+
+	/**
+	 * Whether a post is the Administrator guide's page: the top-level page at the guide's path. Theme 1.32.23
+	 * to 1.32.26 ask this; later ones ask `guide_of()`.
 	 *
 	 * @param mixed $post A post, or anything else.
 	 * @return bool
 	 */
 	public static function is_guide( $post ) {
-		return $post instanceof WP_Post
-			&& 'page' === $post->post_type
-			&& 0 === (int) $post->post_parent
-			&& WPCPM_Settings_Screen::GUIDE_PAGE_PATH === $post->post_name;
+		return WPCPM_Settings_Screen::GUIDE_PAGE_PATH === self::guide_of( $post );
+	}
+
+	/**
+	 * The frame a guide's page is drawn in for this reader (1.123.78): the frame's key, as the theme names it
+	 * (`administrator-guide`, `sponsor-guide`), or '' when the page is no guide, the theme does not name its
+	 * frame, or the reader does not read it there. The theme asks this to pick the page's bare canvas, so a
+	 * reader the frame is not drawn for keeps the page's own template.
+	 *
+	 * @param mixed $post A post, or anything else.
+	 * @return string
+	 */
+	public static function frame_for( $post ) {
+		$guide = self::guide_of( $post );
+
+		if ( '' === $guide ) {
+			return '';
+		}
+
+		$guides = self::guides();
+		$found  = $guides[ $guide ];
+
+		if ( ! WPCPM_Dashboard_Frame::owns_page( $found['frame'] ) || ! class_exists( $found['dashboard'] ) || ! self::may_read( $found['reader'] ) ) {
+			return '';
+		}
+
+		return $found['frame'];
+	}
+
+	/**
+	 * Whether the reader reads a guide in its dashboard's frame.
+	 *
+	 * @param string $reader A guide's `reader`, as `guides()` lists it.
+	 * @return bool
+	 */
+	private static function may_read( $reader ) {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return true;
+		}
+
+		return 'sponsor' === $reader && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member();
 	}
 
 	/**
@@ -106,11 +190,9 @@ class WPCPM_Administrator_Guide_View {
 		// The page the address asked for, not one a Query Loop inside it draws (the updates' review, 1.123.71).
 		$post = get_post();
 
-		return self::is_guide( $post )
+		return $post instanceof WP_Post
 			&& (int) get_queried_object_id() === (int) $post->ID
-			&& WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE )
-			&& is_user_logged_in()
-			&& current_user_can( WPCPM_Roles::CAP_MANAGE );
+			&& '' !== self::frame_for( $post );
 	}
 
 	/**
@@ -128,7 +210,7 @@ class WPCPM_Administrator_Guide_View {
 
 		$post = get_post();
 
-		return self::render( (string) $content, $post instanceof WP_Post ? (string) $post->post_title : '' );
+		return self::render( (string) $content, $post instanceof WP_Post ? (string) $post->post_title : '', self::guide_of( $post ) );
 	}
 
 	/**
@@ -139,10 +221,13 @@ class WPCPM_Administrator_Guide_View {
 	 *
 	 * @param string $content The guide, rendered.
 	 * @param string $title   The page's title.
+	 * @param string $guide   The guide's path, a key of `guides()`; the Administrator guide by default.
 	 * @return string
 	 */
-	public static function render( $content, $title ) {
-		$found = self::sections( $content );
+	public static function render( $content, $title, $guide = '' ) {
+		$guides = self::guides();
+		$guide  = isset( $guides[ $guide ] ) ? $guides[ $guide ] : $guides[ WPCPM_Settings_Screen::GUIDE_PAGE_PATH ];
+		$found  = self::sections( $content );
 
 		self::register_assets();
 		wp_enqueue_style( self::STYLE );
@@ -150,14 +235,15 @@ class WPCPM_Administrator_Guide_View {
 
 		ob_start();
 
-		WPCPM_Dashboard_Frame::open( WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_GUIDE ) );
+		// The guide's dashboard's own menu, with the guide marked as where the reader is.
+		WPCPM_Dashboard_Frame::open( call_user_func( array( $guide['dashboard'], 'menu_args' ), 'guide' ) );
 
 		// What the script names a table that scrolls sideways, for a screen reader.
 		printf( '<div class="wpcpm-guide" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );
 
 		printf(
 			'<header class="wpcpm-head wpcpm-guide__head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__title">%s</h1></div></header>',
-			esc_html( '' !== trim( $title ) ? $title : __( 'Administrator guide', 'wpcredits-program-manager' ) )
+			esc_html( '' !== trim( $title ) ? $title : $guide['title'] )
 		);
 
 		self::contents( $found['sections'] );

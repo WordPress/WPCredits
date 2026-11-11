@@ -2525,7 +2525,13 @@ $sponsor = new WP_User( 80, 'Sponsor Rep', 'rep@sponsor.example.test', array( WP
 // dashboard was above, so the label is proven present rather than merely not fatal.
 if ( ! class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
 	/** Stands in for the Sponsor Dashboard's class, which this suite does not load. */
-	class WPCPM_Sponsors_Dashboard { public static function page_url() { return 'https://example.test/sponsor-dashboard/'; } }
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
+	class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
+	 public static function page_url() { return 'https://example.test/sponsor-dashboard/'; } }
 }
 
 $sponsor_mail = WPCPM_Mail::welcome_email( $sponsor_email, $sponsor, 'Site' );

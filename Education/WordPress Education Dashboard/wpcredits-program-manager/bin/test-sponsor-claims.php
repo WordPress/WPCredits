@@ -266,7 +266,12 @@ class WPCPM_Mentors_Sync {
 class WPCPM_Mentors_Dashboard { public static function get_mentees( $user_id ) { return array(); } }
 class WPCPM_Students_Sync { public static function get_program( $user_id ) { return $GLOBALS['program'][ (int) $user_id ] ?? array(); } }
 class WPCPM_Students_Dashboard { public static function page_url() { return 'https://example.test/student-report-card/'; } }
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
 	public static function leave( $status, $card, $record = '', $detail = '' ) { $GLOBALS['left'] = array( $status, $card, $record, $detail ); throw new WPCPM_Test_Redirect( $status ); }

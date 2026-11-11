@@ -670,7 +670,12 @@ class WPCPM_Administrators_Dashboard {
 }
 
 /** Where the sponsor's members read their event: a page, unless a check says the site has none published. */
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	public static function page_url() { return empty( $GLOBALS['no_pages'] ) ? 'https://site.example/sponsor-dashboard/' : ''; }
 }
 
@@ -1252,7 +1257,7 @@ ck(
 		'[WordPress Education] Your event is approved: Partners "Q&A" in C:\\talks',
 		"An Administrator approved your company's event. The calendar file attached adds it to your calendar.\n\n"
 			. "Title: Partners \"Q&A\" in C:\\talks\nWhen: November 10, 2026 2:00 pm to 3:30 pm (America / New York)\nLength: 90 minutes\nPlaces: 40\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\n"
-			. "Your event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+			. "Your event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/?wpcpm_view=sponsorship#wpcpm-sponsor-events",
 		array(),
 	)
 );
@@ -1500,7 +1505,7 @@ ck(
 		"An Administrator returned your company's event with this note:\n\n"
 			. "Move it to a weekday & say who \"hosts\" it.\nThe slides are in C:\\shared.\n\n"
 			. "Title: Champion webinar\nWhen: December 1, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\n\n"
-			. "The event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+			. "The event is canceled. You can plan it again on your dashboard.\nhttps://site.example/sponsor-dashboard/?wpcpm_view=sponsorship#wpcpm-sponsor-events",
 		array( 'Reply-To: Mira Manager <mira.manager@people.example>' ),
 		array(),
 	)
@@ -3279,7 +3284,14 @@ $GLOBALS['run_complete'] = true;
 // What every mail of the suite says, as the recording made before the event and term emails moved
 // into the template registry holds it (bin/stubs/mail-recording.php), each ending with the footer as
 // it reads since 1.123.24, the site's address under its first line.
-foreach ( wpcpm_recording_checks( 'sponsor-event-mails-queue.json', 'ac387e8f3f67f232e2e50c5e32295d7d9508639f441132035a30720d9d0611ee', array_keys( array_filter( WPCPM_Mail_Catalog::emails(), static function ( $e ) { return WPCPM_Mail_Catalog::MODULE_EVENTS === $e['module']; } ) ), array(), "-- \nWordPress Credits, WordPress Education\nhttps://site.example/\nThis email comes from the WordPress Credits program." ) as $recorded_check ) {
+// The Sponsor Dashboard's views (1.123.78): a member's mail links the Events card at Your sponsorship's view.
+$events_view = array();
+
+foreach ( array( 0, 1, 2, 3, 10, 72, 74, 75, 77 ) as $n ) {
+	$events_view[ $n ] = array( 'body' => array( 'sponsor-dashboard/#wpcpm-sponsor-events' => 'sponsor-dashboard/?wpcpm_view=sponsorship#wpcpm-sponsor-events' ) );
+}
+
+foreach ( wpcpm_recording_checks( 'sponsor-event-mails-queue.json', 'ac387e8f3f67f232e2e50c5e32295d7d9508639f441132035a30720d9d0611ee', array_keys( array_filter( WPCPM_Mail_Catalog::emails(), static function ( $e ) { return WPCPM_Mail_Catalog::MODULE_EVENTS === $e['module']; } ) ), $events_view, "-- \nWordPress Credits, WordPress Education\nhttps://site.example/\nThis email comes from the WordPress Credits program." ) as $recorded_check ) {
 	ck( $recorded_check[0], $recorded_check[1], $recorded_check[2] );
 }
 
@@ -3338,7 +3350,7 @@ ck(
 			'[WordPress Education] Your event is approved: Plain no limit',
 			"An Administrator approved your company's event. The calendar file attached adds it to your calendar.\n\n"
 				. "Title: Plain no limit\nWhen: December 21, 2026 11:00 am to 12:30 pm (Europe / Warsaw)\nLength: 90 minutes\nPlaces: no limit\nCall link: https://call.example/room?pwd=a%2Fb&id=7\n\n"
-				. "Your event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/#wpcpm-sponsor-events",
+				. "Your event is on the Events card of the Sponsor Dashboard:\nhttps://site.example/sponsor-dashboard/?wpcpm_view=sponsorship#wpcpm-sponsor-events",
 		),
 	)
 );

@@ -1,16 +1,16 @@
 ## Your company, your people and your agreement
 
-The section **Your company** holds three cards, in this order: **Company profile and logo**, **People** and **Collaboration Agreement**. Each stays folded until you open it.
+The view **Your company** holds two cards, **Company profile and logo** and **People**, and the view **Agreement** holds **Collaboration Agreement**. Each stays folded until you open it.
 
 ### Company profile and logo
 
 {{image:sponsor-company-card|The Company profile and logo card, open: your company's details on the left and your logo on the right.}}
 
-**Company profile and logo** is your company as the program records it: the details on the left, your logo on the right. The card says "Keep the profile current: what you save here is kept by the program." Its line says whether all three details are filled in, "Profile complete" or, for example, "2 of 3 fields filled", and **At a glance** counts the ones missing. **Edit**, beside the folded card, opens it.
+**Company profile and logo** is your company as the program records it: the details on the left, your logo on the right. The card says "Keep the profile current: what you save here is kept by the program." Its line says whether all three details are filled in, "Profile complete" or, for example, "2 of 3 fields filled", and the Overview's **Waiting for you** counts the ones missing, as does the count beside **Your company** in the menu. **Edit**, beside the folded card, opens it.
 
 The details are:
 
-- **Website**, **Contact person** and **Contact email**, the three the line counts. The contact person's name is the one in the header. A new **Contact email** changes the address the program holds for your company, and not who can sign in: ask your program contact for that.
+- **Website**, **Contact person** and **Contact email**, the three the line counts. A new **Contact email** changes the address the program holds for your company, and not who can sign in: ask your program contact for that.
 - **Anything else you would like to share**, which is optional.
 - **Description for the partner page**, from Supporter up, as the next part describes.
 
@@ -30,7 +30,7 @@ From Supporter up, once the program has launched the sponsor tiers, the profile 
 
 ### Your Collaboration Agreement
 
-**Collaboration Agreement** is where the agreement between your company and the program lives: you upload the signed copy here and read where it stands. The card's line says where it stands, with the day it was accepted once it is. While it is *Sent back to you* or *Out of force*, **Upload** sits beside the folded card, and **At a glance** shows *Collaboration Agreement returned* or *Collaboration Agreement revoked*. Nothing on this dashboard depends on an agreement: your offers, your codes and your posts work either way.
+**Collaboration Agreement** is where the agreement between your company and the program lives: you upload the signed copy here and read where it stands. The card's line says where it stands, with the day it was accepted once it is. While it is *Sent back to you* or *Out of force*, **Upload** sits beside the folded card, and the Overview's **Waiting for you** shows *Collaboration Agreement returned* or *Collaboration Agreement revoked*, with a count beside **Agreement** in the menu. Nothing on this dashboard depends on an agreement: your offers, your codes and your posts work either way.
 
 - *Nothing on file.* The card says there is no agreement on file for your company, and that if the program has asked you to sign one, you upload the signed PDF here.
 - *Waiting for the program.* The card says since when your signed agreement has waited for the program to read it, how many working days the program aims to answer within, and that you will get an email either way. **Download the copy we hold** gives you the file back, and **Withdraw it** deletes it from this site at once, so that you can upload another.

@@ -105,6 +105,8 @@ final class WPCPM_Sponsor_Offers {
 	const ACTION_DISCARD    = 'wpcpm_offer_discard';
 
 	const CARD = 'offers';
+	/** The New offer disclosure's id (1.123.78): the Sponsor Dashboard's New offer button opens it. */
+	const NEW_ID = 'wpcpm-offer-new';
 
 	const LOG_SAVED  = 'offer_saved';
 	const LOG_STATE  = 'offer_state';
@@ -2546,10 +2548,11 @@ final class WPCPM_Sponsor_Offers {
 			)
 		);
 
-		// The new-offer form first and on the left, the sponsor's offers on the right, folded to
-		// a title and a line of counts: the ones in play under "Active offers", the ended and
-		// expired ones under their own title (owner, 1.97.1). A draft and a paused offer are in
-		// play - a paused offer resumes with one press - and an ended one never is.
+		// New offer behind one button (1.123.78, the version 3 concepts: the form took a third of the page): the
+		// form opens in place under it, and stays open after a refused save so the typing is where it was left.
+		// The sponsor's offers follow, each folded to its program card's row: the ones in play under "Active
+		// offers", the ended and expired ones under their own title (owner, 1.97.1). A draft and a paused offer
+		// are in play - a paused offer resumes with one press - and an ended one never is.
 		$active = array();
 		$past   = array();
 
@@ -2561,16 +2564,26 @@ final class WPCPM_Sponsor_Offers {
 			}
 		}
 
-		echo '<div class="wpcpm-offers__cols"><div class="wpcpm-offers__col wpcpm-offers__col--new">';
-		self::render_new_form( $record, $staff );
-		echo '</div><div class="wpcpm-offers__col wpcpm-offers__col--list">';
-		self::render_list( __( 'Active offers', 'wpcredits-program-manager' ), $active, $record, __( 'No offer yet. Create one on the left, and it appears here.', 'wpcredits-program-manager' ), $staff );
+		$refused = WPCPM_Flash::kept( self::typed_form( $record, 0 ) );
+		$typed   = array() !== $refused['values'] || array() !== $refused['problems'];
+
+		printf(
+			'<details class="wpcpm-offers__new" id="%1$s"%2$s><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offers__new-toggle">%3$s</summary><div class="wpcpm-offers__new-body">',
+			esc_attr( self::NEW_ID ),
+			$typed ? ' open' : '',
+			esc_html__( 'New offer', 'wpcredits-program-manager' )
+		);
+		self::render_new_form( $record, $staff, $refused );
+		echo '</div></details>';
+
+		echo '<div class="wpcpm-offers__lists">';
+		self::render_list( __( 'Active offers', 'wpcredits-program-manager' ), $active, $record, __( 'No offer yet. Press New offer to create one, and it appears here.', 'wpcredits-program-manager' ), $staff );
 
 		if ( ! empty( $past ) ) {
 			self::render_list( __( 'Ended and expired offers', 'wpcredits-program-manager' ), $past, $record, '', $staff );
 		}
 
-		echo '</div></div>';
+		echo '</div>';
 		WPCPM_Dashboard_Card::close();
 	}
 
@@ -2647,12 +2660,15 @@ final class WPCPM_Sponsor_Offers {
 		$problems = $refused['problems'];
 		$came     = array() !== $kept || array() !== $problems;
 
+		// The folded row is the offer's program card (1.123.78): its title, then its state as the homepage's
+		// status tag in words, then its counts. The "(primary)" mark is no longer printed: it said nothing a
+		// sponsor acts on.
 		printf( '<details class="wpcpm-offer wpcpm-offer--%1$s" id="wpcpm-offer-%2$d"%3$s><summary class="wpcpm-offer__summary">', esc_attr( $offer['state'] ), (int) $offer['id'], $came ? ' open' : '' );
 		printf(
-			'<h4 class="wpcpm-offer__title">%1$s <span class="wpcpm-offer__state">%2$s</span>%3$s</h4>',
+			'<h4 class="wpcpm-offer__title">%1$s <span class="%2$s">%3$s</span></h4>',
 			esc_html( $offer['title'] ),
-			esc_html( $pill ),
-			$offer['primary'] ? ' <span class="wpcpm-offer__primary">' . esc_html__( '(primary)', 'wpcredits-program-manager' ) . '</span>' : ''
+			esc_attr( self::tag_class( $offer ) ),
+			esc_html( $pill )
 		);
 
 		if ( self::KIND_CODES === $offer['kind'] ) {
@@ -2704,6 +2720,182 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		echo '</div></details>';
+	}
+
+	/**
+	 * The classes of an offer's state tag (1.123.78): the homepage's status tag, green for a live offer, amber
+	 * for one that is not switched on yet or waits for review, plain for the rest; an offer past its last day
+	 * is plain whatever its state says.
+	 *
+	 * @param array $offer The offer.
+	 * @return string
+	 */
+	public static function tag_class( array $offer ) {
+		$tone = '';
+
+		if ( ! self::is_past( $offer ) ) {
+			if ( self::STATE_LIVE === $offer['state'] ) {
+				$tone = 'green';
+			} elseif ( in_array( $offer['state'], array( self::STATE_DRAFT, self::STATE_REVIEW ), true ) ) {
+				$tone = 'amber';
+			}
+		}
+
+		return 'wpcpm-offer__state wpcpm-status' . ( '' !== $tone ? ' wpcpm-status--' . $tone : '' );
+	}
+
+	/**
+	 * One offer as the homepage's program card, for the Sponsor Dashboard's Overview (1.123.78, the version 3
+	 * concepts): its state tag, its title, what you get, its facts and the claims a month, then a link to
+	 * change it and, once anybody claimed it, one to the claims. Numbers only: no claimant is named.
+	 *
+	 * @param array $offer   The offer.
+	 * @param array $numbers Its row of `WPCPM_Sponsor_Claims::stats()`'s `offers`, or an empty array.
+	 * @param array $months  `stats()`'s `months`, `Y-m` keys, oldest first.
+	 * @param array $links   `change`, the address of the offer on the Offers view, and `claimed`, of the claims.
+	 */
+	public static function render_card( array $offer, array $numbers, array $months, array $links ) {
+		$past   = self::is_past( $offer );
+		$pill   = self::STATE_LIVE === $offer['state'] && $past ? __( 'Expired', 'wpcredits-program-manager' ) : self::state_label( $offer['state'] );
+		$counts = WPCPM_Sponsor_Codes::counts( $offer['id'] );
+		$total  = isset( $numbers['total'] ) ? (int) $numbers['total'] : 0;
+		$facts  = array();
+
+		if ( self::KIND_CODES === $offer['kind'] ) {
+			$loaded = (int) $counts['claimed'] + (int) $counts['available'];
+
+			if ( self::STATE_DRAFT === $offer['state'] || self::STATE_REVIEW === $offer['state'] ) {
+				/* translators: %s: how many codes are loaded. */
+				$facts[] = array( __( 'Codes', 'wpcredits-program-manager' ), sprintf( _n( '%s ready', '%s ready', (int) $counts['available'], 'wpcredits-program-manager' ), number_format_i18n( (int) $counts['available'] ) ) );
+			} else {
+				/* translators: 1: codes claimed, 2: codes loaded. */
+				$facts[] = array( __( 'Claimed', 'wpcredits-program-manager' ), sprintf( __( '%1$s of %2$s', 'wpcredits-program-manager' ), number_format_i18n( (int) $counts['claimed'] ), number_format_i18n( $loaded ) ) );
+			}
+		} else {
+			/* translators: %s: how many people took the offer. */
+			$facts[] = array( __( 'Taken', 'wpcredits-program-manager' ), sprintf( _n( '%s person', '%s people', $total, 'wpcredits-program-manager' ), number_format_i18n( $total ) ) );
+		}
+
+		$facts[] = array( __( 'Ends', 'wpcredits-program-manager' ), '' !== (string) $offer['expires'] ? self::format_day( (string) $offer['expires'] ) : __( 'No last day', 'wpcredits-program-manager' ) );
+
+		$open = array( __( 'Students', 'wpcredits-program-manager' ) );
+
+		if ( in_array( 'mentors', (array) $offer['audience'], true ) ) {
+			$open[] = __( 'mentors', 'wpcredits-program-manager' );
+		}
+
+		if ( in_array( 'managers', (array) $offer['audience'], true ) ) {
+			$open[] = __( 'the program team', 'wpcredits-program-manager' );
+		}
+
+		$facts[] = array( __( 'Open to', 'wpcredits-program-manager' ), implode( ', ', $open ) );
+
+		if ( self::KIND_CODES === $offer['kind'] && self::is_low( $offer, $counts ) ) {
+			/* translators: %s: how many codes are left. */
+			$facts[] = array( __( 'Running low', 'wpcredits-program-manager' ), sprintf( _n( '%s code left', '%s codes left', (int) $counts['available'], 'wpcredits-program-manager' ), number_format_i18n( (int) $counts['available'] ) ) );
+		} elseif ( self::KIND_CODES === $offer['kind'] && self::STATE_LIVE !== $offer['state'] ) {
+			/* translators: %s: the number of codes. */
+			$facts[] = array( __( 'Warns you at', 'wpcredits-program-manager' ), sprintf( _n( '%s code left', '%s codes left', (int) $offer['low'], 'wpcredits-program-manager' ), number_format_i18n( (int) $offer['low'] ) ) );
+		}
+
+		echo '<article class="wpcpm-offer-card">';
+		printf( '<p class="wpcpm-offer-card__tag"><span class="%1$s">%2$s</span></p>', esc_attr( self::tag_class( $offer ) ), esc_html( $pill ) );
+		printf( '<h3 class="wpcpm-offer-card__name">%s</h3>', esc_html( (string) $offer['title'] ) );
+
+		if ( '' !== trim( (string) $offer['text'] ) ) {
+			printf( '<p class="wpcpm-offer-card__what">%s</p>', esc_html( (string) $offer['text'] ) );
+		}
+
+		echo '<dl class="wpcpm-offer-card__facts">';
+
+		foreach ( $facts as $fact ) {
+			printf( '<div><dt>%1$s</dt><dd>%2$s</dd></div>', esc_html( $fact[0] ), esc_html( $fact[1] ) );
+		}
+
+		$chart = self::claims_chart( isset( $numbers['series'] ) ? (array) $numbers['series'] : array(), $months );
+
+		if ( '' !== $chart ) {
+			printf( '<div class="wpcpm-offer-card__chart"><dt>%1$s</dt><dd>%2$s</dd></div>', esc_html__( 'Claims a month', 'wpcredits-program-manager' ), $chart ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built and escaped in claims_chart().
+		}
+
+		echo '</dl><p class="wpcpm-offer-card__links">';
+
+		if ( ! empty( $links['change'] ) ) {
+			printf( '<a href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a>', esc_url( (string) $links['change'] ), esc_html__( 'Change the offer', 'wpcredits-program-manager' ), esc_html( (string) $offer['title'] ) );
+		}
+
+		if ( $total > 0 && ! empty( $links['claimed'] ) ) {
+			printf( '<a href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a>', esc_url( (string) $links['claimed'] ), esc_html__( 'See the claims', 'wpcredits-program-manager' ), esc_html( (string) $offer['title'] ) );
+		}
+
+		echo '</p></article>';
+	}
+
+	/**
+	 * The claims of the last six months as small bars, the month being counted in the brand blue, with the
+	 * numbers in words for a screen reader; '' while none of those months has a claim.
+	 *
+	 * @param array<string, int> $series Claims by `Y-m`.
+	 * @param string[]           $months The months, oldest first.
+	 * @return string Markup, escaped.
+	 */
+	private static function claims_chart( array $series, array $months ) {
+		$months = array_slice( array_values( $months ), -6 );
+		$values = array();
+
+		foreach ( $months as $key ) {
+			$values[ $key ] = isset( $series[ $key ] ) ? max( 0, (int) $series[ $key ] ) : 0;
+		}
+
+		if ( array() === $values || 0 === max( $values ) ) {
+			return '';
+		}
+
+		$top   = max( $values );
+		$bars  = '';
+		$words = array();
+		$x     = 0;
+		$last  = count( $values ) - 1;
+		$i     = 0;
+
+		foreach ( $values as $key => $n ) {
+			$h      = 0 === $n ? 1 : max( 2, (int) round( 30 * $n / $top ) );
+			$bars  .= sprintf( '<rect class="%1$s" x="%2$d" y="%3$d" width="14" height="%4$d"/>', $i === $last ? 'is-now' : 'is-past', $x, 31 - $h, $h );
+			$x     += 20;
+			$words[] = sprintf(
+				/* translators: 1: a month's name, 2: how many claims it had. */
+				__( '%1$s: %2$s', 'wpcredits-program-manager' ),
+				wp_date( 'F', (int) strtotime( $key . '-15 12:00:00 UTC' ), new DateTimeZone( 'UTC' ) ),
+				number_format_i18n( $n )
+			);
+			++$i;
+		}
+
+		return sprintf(
+			'<span class="wpcpm-offer-card__spark" role="img" aria-label="%1$s"><svg viewBox="0 0 114 32" width="114" height="32" aria-hidden="true" focusable="false">%2$s</svg></span>',
+			esc_attr(
+				sprintf(
+					/* translators: %s: each month with its claims, as a list. */
+					__( 'Claims a month, %s', 'wpcredits-program-manager' ),
+					implode( ', ', $words )
+				)
+			),
+			$bars
+		);
+	}
+
+	/**
+	 * A `Y-m-d` day in the site's date format, or the day as stored when it is not one.
+	 *
+	 * @param string $day The day.
+	 * @return string
+	 */
+	private static function format_day( $day ) {
+		if ( 1 !== preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', (string) $day, $m ) || ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+			return (string) $day;
+		}
+
+		return (string) wp_date( get_option( 'date_format' ), gmmktime( 12, 0, 0, (int) $m[2], (int) $m[3], (int) $m[1] ), new DateTimeZone( 'UTC' ) );
 	}
 
 	/**
@@ -3216,12 +3408,12 @@ final class WPCPM_Sponsor_Offers {
 	 * Administrator's review, or, for the program's own staff, that theirs need none. The review is not
 	 * a tier's, so it is said whatever the tiers switch says, and names no tier.
 	 *
-	 * @param string $record Sponsor key.
-	 * @param bool   $staff  Whether the program's own staff are looking.
+	 * @param string     $record  Sponsor key.
+	 * @param bool       $staff   Whether the program's own staff are looking.
+	 * @param array|null $refused What a refused save of this form kept, as `render()` read it, or null to read it here.
 	 */
-	private static function render_new_form( $record, $staff = false ) {
-		echo '<h4 class="wpcpm-sponsor__subheading">' . esc_html__( 'New offer', 'wpcredits-program-manager' ) . '</h4>';
-
+	private static function render_new_form( $record, $staff = false, $refused = null ) {
+		// No heading of its own since 1.123.78: the New offer button over it names it.
 		printf(
 			'<p class="wpcpm-student__note">%s</p>',
 			$staff
@@ -3245,7 +3437,9 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		echo '<input type="hidden" name="wpcpm_offer" value="0" />';
-		$refused = WPCPM_Flash::kept( self::typed_form( $record, 0 ) );
+		// What a refused save kept is handed back once (`WPCPM_Flash::kept()`): render() read it to open the form,
+		// and passes it here (1.123.78); read here only when nothing did.
+		$refused = is_array( $refused ) ? $refused : WPCPM_Flash::kept( self::typed_form( $record, 0 ) );
 
 		self::render_fields( null, $record, false, $refused['values'], $refused['problems'] );
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Create offer', 'wpcredits-program-manager' ) );

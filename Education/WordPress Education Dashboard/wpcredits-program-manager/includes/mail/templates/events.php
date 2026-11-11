@@ -143,7 +143,8 @@ $wpcpm_placeholders = static function () use ( $wpcpm_example ) {
 			'example' => static function () {
 				$page = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_SPONSOR );
 
-				return '' === $page ? '' : $page . '#wpcpm-sponsor-events';
+				// At Your sponsorship's view, as `WPCPM_Sponsors_Dashboard::card_url()` builds it (1.123.78).
+				return '' === $page ? '' : (string) WPCPM_Sponsors_Dashboard::card_url( 'events' );
 			},
 		),
 		'events_queue'  => array(

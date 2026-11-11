@@ -64,6 +64,8 @@ class WPCPM_Icons {
 			'file'         => '<path d="M6.5 3.5H14l4 4v13H6.5z"/><path d="M13.5 3.5V8H18M9.5 13h5M9.5 16.5h5"/>',
 			'sliders'      => '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
 			'book'         => '<path d="M4 5.5C6.5 4 9.5 4 12 5.5V19c-2.5-1.5-5.5-1.5-8 0z"/><path d="M20 5.5C17.5 4 14.5 4 12 5.5V19c2.5-1.5 5.5-1.5 8 0z"/>',
+			// A medal on its ribbon: the Sponsor Dashboard's sponsorship (1.123.78).
+			'award'        => '<circle cx="12" cy="9" r="5"/><path d="M9.2 13.2 7.8 20.5l4.2-2.1 4.2 2.1-1.4-7.3"/>',
 			'external'     => '<path d="M14 4.5h5.5V10M19.5 4.5 11 13M17.5 14v5.5h-13v-13H10"/>',
 			'collapse'     => '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M9 4.5v15M15.5 9.5 13 12l2.5 2.5"/>',
 			'chevron-down' => '<path d="m7 10 5 5 5-5"/>',

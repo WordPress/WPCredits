@@ -304,7 +304,12 @@ class WPCPM_Mentors_Dashboard {
 	public static function avatar_url( $username, $email, $size = 64 ) { return 'https://wordpress.org/grav-redirect.php?user=' . rawurlencode( (string) $username ) . '&s=' . (int) $size . '&d=mm'; }
 }
 class WPCPM_Sponsor_Offers { public static function offers_of( $record ) { return isset( $GLOBALS['offers'][ $record ] ) ? $GLOBALS['offers'][ $record ] : array(); } }
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
 	// The sentence after the status's own is kept apart, so every check of where a press landed reads as it did.

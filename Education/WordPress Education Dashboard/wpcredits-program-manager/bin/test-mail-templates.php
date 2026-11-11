@@ -197,9 +197,14 @@ class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 }
 /** As above, its page unpublished in a check that says so. */
+require_once __DIR__ . '/stubs/sponsor-card-url.php';
 class WPCPM_Sponsors_Dashboard {
+	const VIEW_ARG         = 'wpcpm_view';
+	const VIEW_OFFERS      = 'offers';
+	const VIEW_SPONSORSHIP = 'sponsorship';
 	public static $url = 'https://example.test/sponsor-dashboard/';
 	public static function page_url() { return self::$url; }
+	public static function card_url( $card, $record = '', $item = '' ) { return wpcpm_test_sponsor_card_url( self::page_url(), $card, $record, $item ); }
 }
 /** As above. */
 class WPCPM_Administrators_Dashboard {
@@ -1427,7 +1432,7 @@ $no_page = WPCPM_Mail_Templates::render( 'offer-low-stock', WPCPM_Mail_Templates
 WPCPM_Sponsors_Dashboard::$url = 'https://example.test/sponsor-dashboard/';
 ck(
 	'the low codes\' example names the Offers card while the Sponsor Dashboard is published, and leaves its line out while it is not',
-	array( false !== strpos( $with_page, 'from the Offers card: https://example.test/sponsor-dashboard/?wpcpm_sponsor_view=recEXAMPLE0000001#wpcpm-sponsor-offers' ), false !== strpos( $no_page, 'Offers card' ), false !== strpos( $no_page, 'wpcpm_sponsor_view' ) ),
+	array( false !== strpos( $with_page, 'from the Offers card: https://example.test/sponsor-dashboard/?wpcpm_view=offers&wpcpm_sponsor_view=recEXAMPLE0000001#wpcpm-sponsor-offers' ), false !== strpos( $no_page, 'Offers card' ), false !== strpos( $no_page, 'wpcpm_sponsor_view' ) ),
 	array( true, false, false )
 );
 

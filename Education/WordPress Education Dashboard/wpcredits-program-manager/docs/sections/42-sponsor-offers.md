@@ -5,13 +5,11 @@ An offer is something your company gives the program's participants: a license, 
 - **A pool of one-time codes, one per person**: a list of codes you paste or upload, one per line or as a CSV. Each code is handed to one person, once.
 - **One code or link everyone uses**: a single code or checkout link that every eligible person sees.
 
-**Offers and codes**, the first card of **What you offer**, is open when you arrive and opens on the form for a new offer. Its line says how many of your offers are live, how many offers and changes wait for an Administrator's review while any do, and how many times your offers were claimed this month.
+**Offers and codes**, the first card of the **Offers** view, is open when you arrive, with **New offer** at its top. Its line says how many of your offers are live, how many offers and changes wait for an Administrator's review while any do, and how many times your offers were claimed this month.
 
 ### Making an offer
 
-{{image:sponsor-offers-card|The Offers and codes card: the form for a new offer, and your offers beside it.}}
-
-The **New offer** form sits on the left of the card. Above it, a line says "Offers are separate from the tiers: your company may have any number of live offers, whatever its tier." As the Partners page says, partners at any level may offer free access to their products. Drafts are unlimited.
+Press **New offer** and the form for a new offer opens under it. The form is open again after a save that was refused, with what you typed kept. Above it, a line says "Offers are separate from the tiers: your company may have any number of live offers, whatever its tier." As the Partners page says, partners at any level may offer free access to their products. Drafts are unlimited.
 
 1. Give the offer a **Title**, say in **What you get, in a sentence or two** what a person gets, in **How to redeem it** how to redeem it, and in **Link with more information, or where to redeem** where to find more information.
 2. Choose the **Kind**. For a pool, paste **The codes** or upload a .txt or .csv file; for one code everyone uses, type **The shared code or link**.
@@ -19,13 +17,13 @@ The **New offer** form sits on the left of the card. Above it, a line says "Offe
 4. Set **Warn me when fewer than this many codes are left**, the number at which the program warns you that the pool is running low, and, if the offer has a last day, **Last day (optional)**.
 5. Press **Create offer**. The offer starts as a draft that nobody but you can see.
 
-Your offers sit on the right, under **Active offers**, each folded to its title, its state and a line of counts: for a pool, how many codes are available, claimed and void; for a shared code, how many people took it. Open one to read its details and edit it with **Edit this offer**, to pause, resume or end it and, for a pool, to add codes or void the ones nobody has claimed. An offer that has ended, or whose last day has passed, moves under **Ended and expired offers**.
+Your offers follow, under **Active offers**, each folded to one row: its title, its state as a tag, and its counts, which for a pool are how many codes are available, claimed and void, and for a shared code how many people took it. Open one to read its details and edit it with **Edit this offer**, to pause, resume or end it and, for a pool, to add codes or void the ones nobody has claimed. An offer that has ended, or whose last day has passed, moves under **Ended and expired offers**.
 
-Each offer's state is a word beside its title:
+Each offer's state is a tag beside its title:
 
 - *Not switched on yet.* A draft, visible to nobody but you: send it for review when it is ready. An offer an Administrator returned with a note is a draft again, and reads the same; the next part says how to tell it apart.
 - *Waiting for review.* Visible to nobody but you either, until an Administrator approves it.
-- *Live.* Shown to the people it is open to. The one live offer marked "(primary)" is the offer the program names as yours.
+- *Live.* Shown to the people it is open to.
 - *Paused.* Hidden until you resume it with **Resume**, and its codes stay.
 - *Dormant.* An offer the program held back while a tier capped live offers. It is hidden, its codes stay, the codes already claimed stay with the people who hold them, and you can end it but not resume it. No tier caps live offers now, so a dormant offer comes back by itself on the program's next daily run; one whose last day has passed stays as it is.
 - *Ended.* Over: nothing more can be claimed, it cannot be resumed, and the codes already claimed stay with the people who hold them. **End this offer** asks you to confirm first.
@@ -57,7 +55,7 @@ An Administrator reads every offer before students and mentors see it, and a lin
 
 1. When a draft is ready, press **Send for review**. The offer is then *Waiting for review*, still seen by nobody but you, and **Take it back** makes it a draft again.
 2. An Administrator approves it, and it goes live, or returns it with a note, which reaches you by email.
-3. A new offer that is returned is a draft again. In your list, and in the **Usage** table, its state reads "Not switched on yet", like any draft. Open it, and under **State** it says "Returned by the program with a note: change the offer, then send it for review again.", with the note under it, and **At a glance** counts it under *Offers returned with a note*. Change the offer, then press **Send for review** again.
+3. A new offer that is returned is a draft again. In your list, and in the **Usage** table, its state reads "Not switched on yet", like any draft. Open it, and under **State** it says "Returned by the program with a note: change the offer, then send it for review again.", with the note under it, and the Overview's **Waiting for you** counts it under *Offers returned with a note*, as does the count beside **Offers** in the menu. Change the offer, then press **Send for review** again.
 
 Once an offer has been approved, a change to what students see of it is saved and waits for review too, while students and mentors go on seeing the offer as it was approved. That is its title, what a person gets, how to redeem it, where to find more information and, for one code everyone uses, the code or link itself. The offer says so under its details, and **Discard the changes** drops what waits. An approved change takes the place of what students saw; a returned one stays under the offer's details with the note, until you change it again or discard it.
 
@@ -76,7 +74,7 @@ While anything of yours waits, the card's line says how many offers and changes 
 When a live pool falls below the number you set in **Warn me when fewer than this many codes are left**:
 
 - the offer's line of counts adds a warning, for example "Running low: fewer than 10 codes left. Add more, or pause the offer.";
-- **At a glance** counts the offer under *Offers running low on codes*;
+- the Overview's **Waiting for you** counts the offer under *Offers running low on codes*, as does the count beside **Offers** in the menu;
 - the program emails everyone who can sign in for your company, and your program contact, once. Codes that go into the pool afterward set that email up again.
 
 Add codes, or pause the offer. Codes that wait for review are left out of the counts until they are approved, so they do not lift the warning.

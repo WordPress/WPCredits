@@ -15,6 +15,11 @@
  * `draws()` which posts to: a public update is read by everybody, and anybody else gets the post as the
  * theme draws it. The layout is the Administrator guide's, its stylesheet and its script.
  *
+ * Since 1.123.78 an update somebody who acts for a sponsor reads, one the Sponsor Dashboard's list holds
+ * (`WPCPM_Updates::lists( $post, 'sponsor' )`), is drawn the same way in the Sponsor Dashboard's frame, where the
+ * theme names `sponsor-updates` (`audience_of()`). An Administrator always reads in the Administrator
+ * Dashboard's frame.
+ *
  * @package WPCreditsProgramManager
  */
 
@@ -49,19 +54,40 @@ class WPCPM_Administrator_Updates_View {
 	}
 
 	/**
-	 * Whether the post is drawn in the frame for this reader: an update the Administrator Dashboard lists,
-	 * read by an Administrator, in a theme that names these pages. The theme asks it too, to know which
-	 * posts to draw as a bare canvas.
+	 * Whether the post is drawn in a frame for this reader. The theme asks it too, to know which posts to draw
+	 * as a bare canvas.
 	 *
 	 * @param mixed $post A post, or anything else.
 	 * @return bool
 	 */
 	public static function draws( $post ) {
-		return $post instanceof WP_Post
-			&& WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE )
-			&& is_user_logged_in()
-			&& current_user_can( WPCPM_Roles::CAP_MANAGE )
-			&& WPCPM_Updates::lists( $post, 'administrator' );
+		return '' !== self::audience_of( $post );
+	}
+
+	/**
+	 * Whose frame the post is drawn in for this reader (1.123.78): `administrator` for an update the
+	 * Administrator Dashboard lists, read by an Administrator; `sponsor` for one the Sponsor Dashboard lists,
+	 * read by somebody who acts for a sponsor and is no Administrator; '' for anything else, or where the
+	 * theme does not name that frame's updates.
+	 *
+	 * @param mixed $post A post, or anything else.
+	 * @return string
+	 */
+	public static function audience_of( $post ) {
+		if ( ! $post instanceof WP_Post || ! is_user_logged_in() ) {
+			return '';
+		}
+
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE ) && WPCPM_Updates::lists( $post, 'administrator' ) ? 'administrator' : '';
+		}
+
+		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member()
+			&& WPCPM_Dashboard_Frame::owns_page( WPCPM_Sponsors_Dashboard::FRAME_PAGE . '-updates' ) && WPCPM_Updates::lists( $post, 'sponsor' ) ) {
+			return 'sponsor';
+		}
+
+		return '';
 	}
 
 	/**
@@ -98,24 +124,32 @@ class WPCPM_Administrator_Updates_View {
 
 		self::$drawn = true;
 
-		return self::render( (string) $content, get_post() );
+		$post = get_post();
+
+		return self::render( (string) $content, $post, self::audience_of( $post ) );
 	}
 
 	/**
 	 * The frame, the head, the list of updates and the post.
 	 *
-	 * @param string  $content The post, rendered.
-	 * @param WP_Post $post    The post.
+	 * @param string  $content  The post, rendered.
+	 * @param WP_Post $post     The post.
+	 * @param string  $audience `administrator` or `sponsor`: whose frame, menu and list.
 	 * @return string
 	 */
-	public static function render( $content, WP_Post $post ) {
+	public static function render( $content, WP_Post $post, $audience = 'administrator' ) {
+		$audience = 'sponsor' === $audience ? 'sponsor' : 'administrator';
+		$menu     = 'sponsor' === $audience
+			? WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_UPDATES )
+			: WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_UPDATES );
+
 		WPCPM_Administrator_Guide_View::register_assets();
 		wp_enqueue_style( WPCPM_Administrator_Guide_View::STYLE );
 		wp_enqueue_script( WPCPM_Administrator_Guide_View::SCRIPT );
 
 		ob_start();
 
-		WPCPM_Dashboard_Frame::open( WPCPM_Administrators_Dashboard::menu_args( WPCPM_Administrators_Dashboard::VIEW_UPDATES ) );
+		WPCPM_Dashboard_Frame::open( $menu );
 
 		printf( '<div class="wpcpm-guide wpcpm-guide--updates" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );
 
@@ -128,7 +162,7 @@ class WPCPM_Administrator_Updates_View {
 			esc_html( (string) get_the_date( '', $post ) )
 		);
 
-		self::others( $post );
+		self::others( $post, $audience );
 
 		echo '<div class="wpcpm-guide__body">' . $content . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The post's own content, filtered by the_content.
 
@@ -143,10 +177,11 @@ class WPCPM_Administrator_Updates_View {
 	 * The list of updates, newest first, the one being read marked. Its heading folds it on a narrow main
 	 * area, as the guide's does; a list of the one post alone is not drawn.
 	 *
-	 * @param WP_Post $current The post being read.
+	 * @param WP_Post $current  The post being read.
+	 * @param string  $audience `administrator` or `sponsor`: whose list.
 	 */
-	private static function others( WP_Post $current ) {
-		$posts = WPCPM_Updates::posts( self::LIST_MAX, 'administrator' );
+	private static function others( WP_Post $current, $audience = 'administrator' ) {
+		$posts = WPCPM_Updates::posts( self::LIST_MAX, 'sponsor' === $audience ? 'sponsor' : 'administrator' );
 
 		// The update being read is always in the list: one older than the newest twenty takes the last
 		// place, so the list keeps its length and its order (the release's review, 1.123.71).

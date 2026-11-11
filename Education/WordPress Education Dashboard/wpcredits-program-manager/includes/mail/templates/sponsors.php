@@ -191,7 +191,8 @@ $wpcpm_placeholders = static function () use ( $wpcpm_day ) {
 				// while the page is not published, so the preview leaves the line out as the email does.
 				$page = WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_SPONSOR );
 
-				return '' === $page ? '' : add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, 'recEXAMPLE0000001', $page ) . '#wpcpm-sponsor-offers';
+				// At the Offers view, as `WPCPM_Sponsors_Dashboard::card_url()` builds it (1.123.78).
+				return '' === $page ? '' : (string) WPCPM_Sponsors_Dashboard::card_url( 'offers', 'recEXAMPLE0000001' );
 			},
 		),
 		'claimant_name'      => array(

@@ -1758,15 +1758,9 @@ final class WPCPM_Administrators_Cards {
 			return '';
 		}
 
-		// No page, no link: add_query_arg() on '' would build a query on the current page, and a
-		// link that reloads the Administrator Dashboard says nothing.
-		$page = (string) WPCPM_Sponsors_Dashboard::page_url();
-
-		if ( '' === $page ) {
-			return '';
-		}
-
-		return add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $record, $page ) . '#wpcpm-sponsor-' . $card;
+		// No page, no link ('' from card_url()): a link that reloads the Administrator Dashboard says nothing. At
+		// the view that draws the card since the Sponsor Dashboard's views (1.123.78).
+		return (string) WPCPM_Sponsors_Dashboard::card_url( (string) $card, (string) $record );
 	}
 
 	/**
