@@ -1395,6 +1395,60 @@
 	padding: 14px 32px 18px;
 }
 
+/* The reader's own language, the small switcher the plugin prints first on the student page and the
+   mentor page (plugin 1.123.73). Here it is lifted into the card's title row, at its end: the title
+   is 50px tall and the switcher 32px, so 9px from the card's top centers it on the title, and 24px
+   from the card's edge leaves its 8px of own padding where a section's 32px inset ends. The card is
+   what it is placed against. */
+.wpc-dashboard-page .wpc-dash:has( .wpcpm-language ) {
+	position: relative;
+}
+
+.wpc-dashboard-page .wpcpm-language {
+	inset-block-start: 9px;
+	inset-inline-end: 24px;
+	margin: 0;
+	position: absolute;
+}
+
+.wpc-dashboard-page .wpcpm-language__current:hover,
+.wpc-dashboard-page .wpcpm-language[open] > .wpcpm-language__current {
+	border-color: var( --wpc-line-soft );
+}
+
+.wpc-dashboard-page .wpcpm-language__form {
+	background: #fff;
+	border-color: var( --wpc-line-soft );
+}
+
+/* The title keeps clear of the switcher: a long title wraps before it would run under it. On a
+   phone the switcher is its flag alone, with no name and no chevron (a language with no flag keeps
+   both), which is what leaves "Student Report Card" its one line at 375px. */
+.wpc-dashboard-page .wpc-dash:has( .wpcpm-language ) > .wpc-dash__title {
+	padding-inline-end: 136px;
+}
+
+@media ( max-width: 600px ) {
+
+	.wpc-dashboard-page .wpc-dash:has( .wpcpm-language ) > .wpc-dash__title {
+		padding-inline-end: 52px;
+	}
+
+	/* No chevron beside a flag on a phone: the flag is the button. */
+	.wpc-dashboard-page .wpcpm-language__current:has( .wpcpm-language__flag )::after {
+		content: none;
+	}
+
+	.wpc-dashboard-page .wpcpm-language__current > .wpcpm-language__flag + .wpcpm-language__name {
+		clip-path: inset( 50% );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		white-space: nowrap;
+		width: 1px;
+	}
+}
+
 
 /* Back to one column at the width the mentor page's two-column body collapses at,
    and for the same reason: these are label-and-value tables with a 170px label, and
@@ -1434,6 +1488,10 @@
 	.wpc-student-page .wpcpm-dashboard__updated {
 		padding-left: 20px;
 		padding-right: 20px;
+	}
+
+	.wpc-dashboard-page .wpcpm-language {
+		inset-inline-end: 12px;
 	}
 
 	.wpc-student-page .wpcpm-dashboard__switcher {

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.25
+Stable tag: 1.32.26
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -220,6 +220,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.26 =
+
+* The small language switcher WPCredits Program Manager 1.123.73 prints on the Student Report Card and the Mentor Report Card sits in the card's title row here, at its end, centered on the title.
 
 = 1.32.25 =
 
