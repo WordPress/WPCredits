@@ -38,6 +38,10 @@ to it in the Administrators' Slack channel opens it for anybody signed in as an 
 private post is never emailed to the site's subscribers or shared outside the site, which is why the
 update is private rather than published.
 
+An update for sponsors, at the *Sponsor level*, opens for an Administrator in the Sponsor Dashboard's
+frame, as it does for a sponsor. Opened from **Program updates** while viewing a sponsor, its menu and the
+list beside it keep that sponsor.
+
 ### Viewing a page as its owner
 
 The Student Report Card, the Mentor Report Card, the Institution Dashboard and the Sponsor Dashboard

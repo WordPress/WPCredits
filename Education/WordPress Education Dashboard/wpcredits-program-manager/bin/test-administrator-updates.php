@@ -96,6 +96,9 @@ class WPCPM_Sponsors_Dashboard {
 	const FRAME_PAGE   = 'sponsor';
 	const VIEW_UPDATES = 'updates';
 	public static function menu_args( $view ) { return array( 'page' => 'sponsor-updates', 'from' => 'sponsor menu_args:' . $view ); }
+	// The sponsor an Administrator's address names (1.123.79), standing in: a switch for the request.
+	public static function requested_record() { return ! empty( $GLOBALS['req']['manager'] ) ? (string) ( $GLOBALS['req']['named'] ?? '' ) : ''; }
+	public static function keep_sponsor( $url, $record ) { return '' !== (string) $record ? $url . '?wpcpm_sponsor_view=' . $record : $url; }
 }
 
 class WPCPM_Sponsor_Members {
@@ -261,14 +264,20 @@ ck( 'an update older than the newest twenty takes the list\'s last place, marked
 
 $for_sponsors              = update( 2001, 'Welcome to your Sponsor Dashboard', 'welcome', '2026-09-08', 'September 8, 2026' );
 $for_sponsors_too          = update( 2002, 'New for sponsors', 'new-for-sponsors', '2026-10-08', 'October 8, 2026' );
-$GLOBALS['updates']        = array( $newest, $older );
-$GLOBALS['sponsor_updates'] = array( $for_sponsors_too, $for_sponsors );
+$for_everyone              = update( 2003, 'For everybody', 'for-everybody', '2026-10-20', 'October 20, 2026' );
+$GLOBALS['updates']        = array( $newest, $older, $for_everyone );
+$GLOBALS['sponsor_updates'] = array( $for_sponsors_too, $for_everyone, $for_sponsors );
 $all_frames                = array( array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates' ) );
 
 $whose = array();
 foreach ( array(
 	'an Administrator, an Administrator\'s update'             => array( array( 'support' => $all_frames ), $newest ),
 	'an Administrator, an update for sponsors alone'           => array( array( 'support' => $all_frames ), $for_sponsors ),
+	'an Administrator looking at a sponsor, an update for sponsors alone' => array( array( 'support' => $all_frames, 'named' => 'recA' ), $for_sponsors ),
+	'an Administrator, an update both dashboards list'         => array( array( 'support' => $all_frames ), $for_everyone ),
+	'an Administrator looking at a sponsor, an update both list' => array( array( 'support' => $all_frames, 'named' => 'recA' ), $for_everyone ),
+	'an Administrator looking at a sponsor, an Administrator\'s update' => array( array( 'support' => $all_frames, 'named' => 'recA' ), $newest ),
+	'an Administrator, an update for sponsors, under a theme that names only the Administrator\'s' => array( array(), $for_sponsors ),
 	'somebody who acts for a sponsor, a sponsor\'s update'     => array( array( 'support' => $all_frames, 'manager' => false, 'member' => true ), $for_sponsors ),
 	'somebody who acts for a sponsor, an Administrator\'s one' => array( array( 'support' => $all_frames, 'manager' => false, 'member' => true ), $newest ),
 	'a sponsor\'s update under a theme that names only the Administrator\'s' => array( array( 'manager' => false, 'member' => true ), $for_sponsors ),
@@ -277,9 +286,14 @@ foreach ( array(
 	reading( $case[0] );
 	$whose[ $name ] = WPCPM_Administrator_Updates_View::audience_of( $case[1] );
 }
-ck( 'audience_of() names the frame an update is drawn in for this reader: an Administrator\'s for the updates the Administrator Dashboard lists, a sponsor\'s for somebody who acts for a sponsor and the updates the Sponsor Dashboard lists, and none otherwise', $whose, array(
+ck( 'audience_of() names the frame an update is drawn in for this reader: an Administrator\'s for the updates the Administrator Dashboard lists, a sponsor\'s for the updates the Sponsor Dashboard lists, read by somebody who acts for a sponsor or by an Administrator when the Administrator Dashboard does not list it or the address names a sponsor (1.123.79), and none otherwise', $whose, array(
 	'an Administrator, an Administrator\'s update'             => 'administrator',
-	'an Administrator, an update for sponsors alone'           => '',
+	'an Administrator, an update for sponsors alone'           => 'sponsor',
+	'an Administrator looking at a sponsor, an update for sponsors alone' => 'sponsor',
+	'an Administrator, an update both dashboards list'         => 'administrator',
+	'an Administrator looking at a sponsor, an update both list' => 'sponsor',
+	'an Administrator looking at a sponsor, an Administrator\'s update' => 'administrator',
+	'an Administrator, an update for sponsors, under a theme that names only the Administrator\'s' => '',
 	'somebody who acts for a sponsor, a sponsor\'s update'     => 'sponsor',
 	'somebody who acts for a sponsor, an Administrator\'s one' => '',
 	'a sponsor\'s update under a theme that names only the Administrator\'s' => '',
@@ -296,6 +310,22 @@ ck( 'a sponsor\'s update is drawn in the Sponsor Dashboard\'s menu, with the spo
 	false !== strpos( $sponsor_page, 'href="https://example.test/welcome/" aria-current="page">Welcome to your Sponsor Dashboard<' ),
 	substr_count( $sponsor_page, '<h1' ),
 ), array( array( 'page' => 'sponsor-updates', 'from' => 'sponsor menu_args:updates' ), array( array( 20, 'sponsor' ) ), true, true, 1 ) );
+
+// 1.123.79: the owner found the sponsors' welcome post outside the dashboard. An Administrator looking at a
+// sponsor reads it in that sponsor's frame, and every link in the list beside it keeps the sponsor, so the
+// next update opens in the same frame; a member's links name no sponsor, their page is their own.
+fresh();
+reading( array( 'post' => $for_sponsors, 'support' => $all_frames, 'named' => 'recA' ) );
+$managed_page = WPCPM_Administrator_Updates_View::filter_content( '<p>Welcome.</p>' );
+fresh();
+reading( array( 'post' => $for_sponsors, 'support' => $all_frames, 'manager' => false, 'member' => true, 'named' => 'recA' ) );
+$member_page = WPCPM_Administrator_Updates_View::filter_content( '<p>Welcome.</p>' );
+ck( 'an Administrator looking at a sponsor reads a sponsors\' update in the Sponsor Dashboard\'s menu, its list\'s links keeping the sponsor; a member\'s name none', array(
+	false !== strpos( $managed_page, '[open]' ),
+	substr_count( $managed_page, '?wpcpm_sponsor_view=recA"' ),
+	false !== strpos( $managed_page, 'href="https://example.test/welcome/?wpcpm_sponsor_view=recA" aria-current="page">' ),
+	strpos( $member_page, 'wpcpm_sponsor_view' ),
+), array( true, 3, true, false ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

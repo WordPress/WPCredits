@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.78
+Stable tag: 1.123.79
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.79 =
+
+* An update for sponsors opens in the Sponsor Dashboard's frame for an Administrator too. Before, only a sponsor's own people read it there, and an Administrator, the sponsor menu's Program updates included, got the post outside any dashboard.
+* Program updates and the list of updates beside one keep the sponsor an Administrator is viewing, as the Sponsor guide's link does, so the menu leads back to that sponsor.
 
 = 1.123.78 =
 

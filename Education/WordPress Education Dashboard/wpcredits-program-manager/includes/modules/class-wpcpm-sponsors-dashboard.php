@@ -710,7 +710,8 @@ final class WPCPM_Sponsors_Dashboard {
 		$newest = class_exists( 'WPCPM_Updates' ) ? WPCPM_Updates::posts( 1, 'sponsor' ) : array();
 
 		if ( ! empty( $newest ) ) {
-			$items[] = WPCPM_Dashboard_Frame::item( __( 'Program updates', 'wpcredits-program-manager' ), (string) get_permalink( $newest[0] ), 'inbox', array( 'current' => self::VIEW_UPDATES === $view ) );
+			// With the sponsor an Administrator is looking at, so the update draws in this sponsor's frame (1.123.79).
+			$items[] = WPCPM_Dashboard_Frame::item( __( 'Program updates', 'wpcredits-program-manager' ), self::keep_sponsor( (string) get_permalink( $newest[0] ), $managed ), 'inbox', array( 'current' => self::VIEW_UPDATES === $view ) );
 		}
 
 		$help  = array();
@@ -718,9 +719,7 @@ final class WPCPM_Sponsors_Dashboard {
 
 		if ( $guide instanceof WP_Post ) {
 			// The sponsor an Administrator is looking at travels to the guide too, so its menu leads back to it.
-			$guide_url = (string) get_permalink( $guide );
-			$guide_url = '' !== $managed && '' !== $guide_url ? add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $managed, $guide_url ) : $guide_url;
-			$help[]    = WPCPM_Dashboard_Frame::item( __( 'Sponsor guide', 'wpcredits-program-manager' ), $guide_url, 'book', array( 'current' => self::VIEW_GUIDE === $view ) );
+			$help[] = WPCPM_Dashboard_Frame::item( __( 'Sponsor guide', 'wpcredits-program-manager' ), self::keep_sponsor( (string) get_permalink( $guide ), $managed ), 'book', array( 'current' => self::VIEW_GUIDE === $view ) );
 		}
 
 		// Write to the program: the company's own contact there, when one is assigned and has an address.
@@ -761,21 +760,44 @@ final class WPCPM_Sponsors_Dashboard {
 	 */
 	public static function menu_args( $view ) {
 		$view   = in_array( $view, array( self::VIEW_GUIDE, self::VIEW_UPDATES ), true ) ? $view : self::VIEW_GUIDE;
-		$viewer = wp_get_current_user();
 		$manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
-		$asked  = $manage ? (string) WPCPM_Sponsor_Roster::requested_view() : '';
-
-		if ( $manage ) {
-			// The roster's own test of a request-named key: shaped like one, and still in the store.
-			$record = '' !== $asked && WPCPM_Sponsors_Index::is_key( $asked ) && WPCPM_Sponsors_Index::has( $asked ) ? $asked : '';
-		} else {
-			$record = (string) WPCPM_Sponsor_Members::sponsor_of( $viewer );
-		}
+		$record = $manage ? self::requested_record() : (string) WPCPM_Sponsor_Members::sponsor_of( wp_get_current_user() );
 
 		$stored = '' !== $record ? WPCPM_Sponsors_Index::row( $record ) : null;
 		$row    = is_array( $stored ) ? $stored : WPCPM_Sponsors_Index::empty_row();
 
 		return self::frame_args( $view, $record, $row, array( 'can_manage' => $manage ) );
+	}
+
+	/**
+	 * The sponsor an Administrator's address names (1.123.79): the request's key, shaped like one and still in
+	 * the store, the roster's own test. '' for a reader who is no Administrator, whose page is their own
+	 * company's, and for an address that names none.
+	 *
+	 * @return string Sponsor key, or ''.
+	 */
+	public static function requested_record() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return '';
+		}
+
+		$asked = (string) WPCPM_Sponsor_Roster::requested_view();
+
+		return '' !== $asked && WPCPM_Sponsors_Index::is_key( $asked ) && WPCPM_Sponsors_Index::has( $asked ) ? $asked : '';
+	}
+
+	/**
+	 * A link that keeps the sponsor an Administrator is looking at (1.123.79): the address with the sponsor's
+	 * key, so the page it opens draws that sponsor's frame. As it is when there is no sponsor to keep.
+	 *
+	 * @param string $url    The address.
+	 * @param string $record Sponsor key, or ''.
+	 * @return string
+	 */
+	public static function keep_sponsor( $url, $record ) {
+		$url = (string) $url;
+
+		return '' !== (string) $record && '' !== $url ? add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, (string) $record, $url ) : $url;
 	}
 
 	/**

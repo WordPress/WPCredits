@@ -2519,7 +2519,33 @@ ck( 'an Administrator looking at a sponsor reaches the Sponsor guide with that s
 	'sponsor-guide',
 ) );
 unset( $GLOBALS['posts'][777] );
-$GLOBALS['uid'] = 5;
+
+// 1.123.79: Program updates keeps the sponsor an Administrator is looking at, as the guide does, so the update
+// opens in that sponsor's frame; a member's link is the post's own address.
+$GLOBALS['posts'][778]      = $update_post;
+$GLOBALS['sponsor_updates'] = array( $update_post );
+$GLOBALS['get']             = array( WPCPM_Sponsor_Roster::ARG_VIEW => $B );
+$managed_updates            = menu_items( $D::render() );
+$updates_menu               = WPCPM_Sponsors_Dashboard::menu_args( WPCPM_Sponsors_Dashboard::VIEW_UPDATES );
+$GLOBALS['uid']             = 5;
+$GLOBALS['get']             = array();
+$member_updates             = menu_items( $D::render() );
+$GLOBALS['sponsor_updates'] = array();
+unset( $GLOBALS['posts'][778] );
+$updates_item = array_values( array_filter( $updates_menu['groups'][0]['items'], static function ( $item ) { return 'Program updates' === $item['label']; } ) );
+ck( 'an Administrator looking at a sponsor reaches Program updates with that sponsor in its address, and the update\'s own menu marks it; a member\'s link is the post\'s address', array(
+	$managed_updates['Program updates']['url'] ?? null,
+	$updates_item[0]['url'] ?? null,
+	! empty( $updates_item[0]['current'] ),
+	$updates_menu['page'],
+	$member_updates['Program updates']['url'] ?? null,
+), array(
+	'https://example.test/a-word-for-sponsors/?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $B,
+	'https://example.test/a-word-for-sponsors/?' . WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $B,
+	true,
+	'sponsor-updates',
+	'https://example.test/a-word-for-sponsors/',
+) );
 
 // Counted by ck() itself: a literal here read 45 while the file carried 49 (1.93.2), and a count
 // nobody maintains is a count nobody should trust.

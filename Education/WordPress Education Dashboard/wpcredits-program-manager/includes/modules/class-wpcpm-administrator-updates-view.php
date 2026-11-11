@@ -17,8 +17,9 @@
  *
  * Since 1.123.78 an update somebody who acts for a sponsor reads, one the Sponsor Dashboard's list holds
  * (`WPCPM_Updates::lists( $post, 'sponsor' )`), is drawn the same way in the Sponsor Dashboard's frame, where the
- * theme names `sponsor-updates` (`audience_of()`). An Administrator always reads in the Administrator
- * Dashboard's frame.
+ * theme names `sponsor-updates` (`audience_of()`). Since 1.123.79 an Administrator reads one there too: an
+ * update the Administrator Dashboard does not list, such as the sponsors' own, and any sponsors' update opened
+ * while the address names the sponsor the Administrator is looking at, as the sponsor menu's links do.
  *
  * @package WPCreditsProgramManager
  */
@@ -67,8 +68,10 @@ class WPCPM_Administrator_Updates_View {
 	/**
 	 * Whose frame the post is drawn in for this reader (1.123.78): `administrator` for an update the
 	 * Administrator Dashboard lists, read by an Administrator; `sponsor` for one the Sponsor Dashboard lists,
-	 * read by somebody who acts for a sponsor and is no Administrator; '' for anything else, or where the
-	 * theme does not name that frame's updates.
+	 * read by somebody who acts for a sponsor, or by an Administrator when the Administrator Dashboard does not
+	 * list it or the address names a sponsor (1.123.79: the sponsors' own update drew outside any frame for an
+	 * Administrator, the sponsor menu's Program updates included); '' for anything else, or where the theme
+	 * does not name that frame's updates.
 	 *
 	 * @param mixed $post A post, or anything else.
 	 * @return string
@@ -78,16 +81,20 @@ class WPCPM_Administrator_Updates_View {
 			return '';
 		}
 
+		$sponsors = class_exists( 'WPCPM_Sponsors_Dashboard' ) && WPCPM_Dashboard_Frame::owns_page( WPCPM_Sponsors_Dashboard::FRAME_PAGE . '-updates' ) && WPCPM_Updates::lists( $post, 'sponsor' );
+
 		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			return WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE ) && WPCPM_Updates::lists( $post, 'administrator' ) ? 'administrator' : '';
+			$administrators = WPCPM_Dashboard_Frame::owns_page( self::FRAME_PAGE ) && WPCPM_Updates::lists( $post, 'administrator' );
+
+			// The sponsor's frame for the sponsor an Administrator is looking at, so its menu leads back there.
+			if ( $sponsors && ( ! $administrators || '' !== WPCPM_Sponsors_Dashboard::requested_record() ) ) {
+				return 'sponsor';
+			}
+
+			return $administrators ? 'administrator' : '';
 		}
 
-		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member()
-			&& WPCPM_Dashboard_Frame::owns_page( WPCPM_Sponsors_Dashboard::FRAME_PAGE . '-updates' ) && WPCPM_Updates::lists( $post, 'sponsor' ) ) {
-			return 'sponsor';
-		}
-
-		return '';
+		return $sponsors && class_exists( 'WPCPM_Sponsor_Members' ) && WPCPM_Sponsor_Members::is_member() ? 'sponsor' : '';
 	}
 
 	/**
@@ -183,6 +190,9 @@ class WPCPM_Administrator_Updates_View {
 	private static function others( WP_Post $current, $audience = 'administrator' ) {
 		$posts = WPCPM_Updates::posts( self::LIST_MAX, 'sponsor' === $audience ? 'sponsor' : 'administrator' );
 
+		// In a sponsor's frame each link keeps the sponsor an Administrator is looking at (1.123.79).
+		$keep = 'sponsor' === $audience ? WPCPM_Sponsors_Dashboard::requested_record() : '';
+
 		// The update being read is always in the list: one older than the newest twenty takes the last
 		// place, so the list keeps its length and its order (the release's review, 1.123.71).
 		if ( ! in_array( (int) $current->ID, array_map( 'intval', wp_list_pluck( $posts, 'ID' ) ), true ) ) {
@@ -210,7 +220,7 @@ class WPCPM_Administrator_Updates_View {
 		foreach ( $posts as $post ) {
 			printf(
 				'<li class="wpcpm-guide__entry"><a class="wpcpm-guide__link wpcpm-guide__link--post" href="%1$s"%2$s>%3$s<span class="wpcpm-guide__date">%4$s</span></a></li>',
-				esc_url( (string) get_permalink( $post ) ),
+				esc_url( '' !== $keep ? WPCPM_Sponsors_Dashboard::keep_sponsor( (string) get_permalink( $post ), $keep ) : (string) get_permalink( $post ) ),
 				(int) $post->ID === (int) $current->ID ? ' aria-current="page"' : '',
 				esc_html( $post->post_title ),
 				esc_html( (string) get_the_date( '', $post ) )

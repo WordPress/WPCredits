@@ -112,6 +112,16 @@ company's contact at the program (a mail link), when one is assigned; and the As
 item while there is an update a sponsor may read, each update drawn in the frame with the others beside it. The
 Resources block under the strip goes: its links are the menu's.
 
+### 7.1 An Administrator reading a sponsors' update (1.123.79)
+
+The owner found the sponsors' welcome post outside the dashboard: in 1.123.78 only a sponsor's own people read
+an update for sponsors in the frame, and an Administrator, the sponsor menu's Program updates included, got the
+post as the theme draws any post. Now an Administrator reads in the Sponsor Dashboard's frame an update the
+Sponsor Dashboard lists when the Administrator Dashboard does not list it, or when the address names a sponsor
+(`wpcpm_sponsor_view`); an update both list, opened with no sponsor named, stays in the Administrator
+Dashboard's frame. Program updates in the sponsor menu and every link in the list beside an update keep the
+sponsor an Administrator is viewing, as the Sponsor guide's link does. A member's links name no sponsor.
+
 ## 8. Links to a card
 
 Every link to a Sponsor Dashboard card goes through one routine that knows which view holds the card, as
