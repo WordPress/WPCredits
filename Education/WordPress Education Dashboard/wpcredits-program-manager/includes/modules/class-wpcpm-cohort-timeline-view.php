@@ -321,12 +321,11 @@ final class WPCPM_Cohort_Timeline_View {
 		$state = (string) $summary['state'];
 
 		if ( WPCPM_Cohort_Timeline::STATE_SHORT === $state ) {
+			// The how-many is the Mentors to recruit figure above, so the sentence says only when (1.123.83).
 			$text = sprintf(
-				/* translators: 1: a month and year, 2: how many more mentors for the confirmed students, 3: how many with the registrations in review. */
-				_n( 'From %1$s the confirmed students alone need more places than the mentors have. Recruit %2$s more mentor for them, %3$s if the registrations in review are placed too.', 'From %1$s the confirmed students alone need more places than the mentors have. Recruit %2$s more mentors for them, %3$s if the registrations in review are placed too.', max( 1, (int) $summary['recruit_confirmed'] ), 'wpcredits-program-manager' ),
-				self::month_long( $summary['first_short'] ),
-				number_format_i18n( max( 1, (int) $summary['recruit_confirmed'] ) ),
-				number_format_i18n( (int) $summary['recruit'] )
+				/* translators: %s: a month and year. */
+				__( 'From %s the confirmed students alone need more places than the mentors have.', 'wpcredits-program-manager' ),
+				self::month_long( $summary['first_short'] )
 			);
 		} elseif ( WPCPM_Cohort_Timeline::STATE_TIGHT === $state ) {
 			$text = sprintf(

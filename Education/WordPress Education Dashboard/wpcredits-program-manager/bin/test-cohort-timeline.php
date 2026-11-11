@@ -301,6 +301,15 @@ $short_report['read'] = $report['read'];
 $short_card   = draw( static function () use ( $short_report ) { WPCPM_Cohort_Timeline_View::render_card( $short_report ); } );
 ck( 'short: the card is drawn open and says how many and by when', array( false !== strpos( $short_card, ' open>' ), false !== strpos( $short_card, '1 more mentor needed by February 2027' ) ), array( true, true ) );
 
+$short_view = draw( static function () use ( $short_report ) { WPCPM_Cohort_Timeline_View::render_view( $short_report ); } );
+ck( 'short: the outlook says when, and leaves the how-many to the Mentors to recruit figure',
+	array(
+		false !== strpos( $short_view, '<strong>Short</strong> From February 2027 the confirmed students alone need more places than the mentors have.</p>' ),
+		false !== strpos( $short_view, 'Recruit' ),
+		false !== strpos( $short_view, 'if the registrations in review are placed too' ),
+	),
+	array( true, false, false ) );
+
 ck( 'an empty report draws no card', draw( static function () { WPCPM_Cohort_Timeline_View::render_card( array() ); } ), '' );
 
 $none = WPCPM_Cohort_Timeline::compute( array(), 4, 3, $today );

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.81
+Stable tag: 1.123.83
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.83 =
+
+* The cohort timeline's outlook no longer says how many mentors to recruit. A short program's line says from which month the confirmed students need more places than the mentors have; the number stays in the Mentors to recruit figure above it.
 
 = 1.123.81 =
 
