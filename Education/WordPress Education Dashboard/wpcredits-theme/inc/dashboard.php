@@ -194,7 +194,8 @@ function wpcredits_handbook_available() {
  */
 function wpcredits_is_frame_page() {
 	return ( wpcredits_frame_names( 'administrator' ) && wpcredits_is_administrator_page() )
-		|| wpcredits_is_guide_frame_page();
+		|| wpcredits_is_guide_frame_page()
+		|| wpcredits_is_update_frame_page();
 }
 
 /**
@@ -247,3 +248,37 @@ function wpcredits_guide_frame_template( $templates ) {
 	return $templates;
 }
 add_filter( 'page_template_hierarchy', 'wpcredits_guide_frame_template' );
+
+/**
+ * Whether the post being viewed is a program update the plugin draws in the Administrator Dashboard's
+ * frame (plugin 1.123.71). The plugin decides, post by post and reader by reader: a public update is
+ * read by everybody, and only an Administrator gets the frame.
+ *
+ * @return bool
+ */
+function wpcredits_is_update_frame_page() {
+	if ( ! is_single() || ! class_exists( 'WPCPM_Administrator_Updates_View' ) || ! wpcredits_frame_names( 'administrator-updates' ) ) {
+		return false;
+	}
+
+	return WPCPM_Administrator_Updates_View::draws( get_queried_object() );
+}
+
+/**
+ * Draw such an update on its bare canvas, `single-administrator-update`, ahead of every template core
+ * would pick for the post.
+ *
+ * @param string[] $templates The post's templates, the first found wins.
+ * @return string[]
+ */
+function wpcredits_update_frame_template( $templates ) {
+	if ( ! wpcredits_is_update_frame_page() ) {
+		return $templates;
+	}
+
+	$templates = array_values( array_diff( $templates, array( 'single-administrator-update.php' ) ) );
+	array_unshift( $templates, 'single-administrator-update.php' );
+
+	return $templates;
+}
+add_filter( 'single_template_hierarchy', 'wpcredits_update_frame_template' );

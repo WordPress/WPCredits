@@ -71,8 +71,9 @@ function wpcredits_setup() {
 	// The dashboards the plugin draws in its own frame, a top bar, a menu down the side and a main area
 	// as wide as the window (WPCredits Program Manager 1.123.69): their templates are a bare canvas
 	// under the WordPress.org bar, and the plugin prints the page's top bar and its one H1 itself. The
-	// Administrator guide is drawn in the Administrator Dashboard's frame too (plugin 1.123.70).
-	add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide' ) );
+	// Administrator guide is drawn in the Administrator Dashboard's frame too (plugin 1.123.70), and each
+	// program update an Administrator reads (plugin 1.123.71).
+	add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates' ) );
 
 	// The chrome's own styles apply inside the editor, so the Site Editor shows
 	// the sticky bar and the landing sections as the front end renders them.
