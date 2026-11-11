@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.79
+Stable tag: 1.123.80
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.80 =
+
+* Every card on the Sponsor Dashboard's views is open when the view opens, as the owner asked. A card still folds with one press on its title, and the forms inside a card (New offer, Edit this offer) and each offer's row keep their own fold.
 
 = 1.123.79 =
 

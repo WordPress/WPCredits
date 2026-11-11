@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.79\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.80\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T08:19:46+00:00\n"
+"POT-Creation-Date: 2026-11-11T09:10:19+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -9077,7 +9077,7 @@ msgid "In wp-admin"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-dashboard.php:825
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1320
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1325
 msgid "Waiting for you"
 msgstr ""
 
@@ -14989,7 +14989,7 @@ msgstr ""
 #. translators: %s: a number of institutions.
 #. translators: %s: how many of the mentors have students now.
 #: includes/modules/class-wpcpm-institutions.php:4489
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1272
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1277
 #, php-format
 msgid "%s with students now"
 msgid_plural "%s with students now"
@@ -21316,7 +21316,7 @@ msgstr[1] ""
 
 #: includes/modules/class-wpcpm-sponsor-offers.php:2544
 #: includes/modules/class-wpcpm-sponsor-offers.php:2574
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1197
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1202
 msgid "New offer"
 msgstr ""
 
@@ -23134,140 +23134,140 @@ msgstr ""
 msgid "The agreement between your company and the program, and the signed copy on file."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:885
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:890
 msgid "Nothing to show here yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:939
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:944
 msgid "What your company gives the program's students and mentors, and what it wrote for them."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:940
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:945
 msgid "What your company gives the program's students and mentors."
 msgstr ""
 
 #. translators: %s: the last day of the term that ended.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:986
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:991
 #, php-format
 msgid "Your term ended on %s"
 msgstr ""
 
 #. translators: %s: the last day of the term.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:988
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:993
 #, php-format
 msgid "Your term ends on %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:989
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:994
 msgid "Your sponsorship says how to renew it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:990
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:995
 msgid "See your sponsorship"
 msgstr ""
 
 #. translators: %s: how many offers.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1004
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1009
 #, php-format
 msgid "%s offer returned with a note"
 msgid_plural "%s offers returned with a note"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1005
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1042
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1053
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1010
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1047
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1058
 msgid "An Administrator wrote a note on what to change."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1006
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1017
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1028
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1011
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1022
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1033
 msgid "Open the offers"
 msgstr ""
 
 #. translators: %s: how many offers.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1015
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1020
 #, php-format
 msgid "%s offer running low on codes"
 msgid_plural "%s offers running low on codes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1016
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1021
 msgid "Fewer codes are left than the number you set for a warning. Add more, or pause the offer."
 msgstr ""
 
 #. translators: %s: how many offers.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1026
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1031
 #, php-format
 msgid "%s offer not switched on yet"
 msgid_plural "%s offers not switched on yet"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1027
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1032
 msgid "Nobody can claim an offer until it is switched on."
 msgstr ""
 
 #. translators: %s: how many posts.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1041
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1046
 #, php-format
 msgid "%s post returned with a note"
 msgid_plural "%s posts returned with a note"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1043
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1048
 msgid "Open the posts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1052
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1057
 msgid "Your event plan was returned with a note"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1054
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1059
 msgid "Open the events"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1066
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1071
 msgid "Collaboration Agreement returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1067
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1072
 msgid "Collaboration Agreement revoked"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1068
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1073
 msgid "The program needs a new signed copy from your company."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1069
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1074
 msgid "Open the agreement"
 msgstr ""
 
 #. translators: %s: how many details.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1082
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1087
 #, php-format
 msgid "%s company profile detail missing"
 msgid_plural "%s company profile details missing"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1083
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1088
 msgid "Fill in what is missing on the company profile."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1084
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1089
 msgid "Complete the profile"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1151
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1156
 msgid "Unnamed sponsor"
 msgstr ""
 
 #. translators: %s: how many people claimed one of the company's offers this year.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1158
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1163
 #, php-format
 msgid "Thank you. This year your offers reached %s person."
 msgid_plural "Thank you. This year your offers reached %s people."
@@ -23275,7 +23275,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: how many mentors the company sponsors.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1164
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1169
 #, php-format
 msgid "Thank you. Your company sponsors %s mentor."
 msgid_plural "Thank you. Your company sponsors %s mentors."
@@ -23283,172 +23283,172 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: how many mentors the company sponsors.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1166
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1171
 #, php-format
 msgid "Your company sponsors %s mentor."
 msgid_plural "Your company sponsors %s mentors."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1170
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1175
 msgid "Thank you for supporting the program's students and mentors. Your offers, your mentors and your company each have a page in the menu."
 msgstr ""
 
 #. translators: %s: the sponsor's status in the program.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1190
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1195
 #, php-format
 msgid "Status: %s"
 msgstr ""
 
 #. translators: a figure's label, under the number of people.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1221
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1226
 msgid "person reached this year"
 msgid_plural "people reached this year"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1222
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1227
 msgid "who claimed one of your offers"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1249
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1254
 msgid "codes claimed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1251
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1256
 msgid "in the offers not ended"
 msgstr ""
 
 #. translators: 1: how many codes are left, 2: the offer's title.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1253
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1258
 #, php-format
 msgid "%1$s left in %2$s"
 msgid_plural "%1$s left in %2$s"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1270
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1275
 msgid "mentor you sponsor"
 msgid_plural "mentors you sponsor"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1280
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1285
 msgid "What your support did"
 msgstr ""
 
 #. translators: %s: today's date.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1298
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1303
 #, php-format
 msgid "As of %s, from the claims on this site and the program's mentor records."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1315
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1320
 msgid "Nothing waits for you."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1325
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1330
 msgid "Waits"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1357
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1362
 msgid "Your offers"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1362
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1367
 msgid "No offer is running."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1364
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1369
 msgid "Create one"
 msgstr ""
 
 #. translators: %s: how many mentors are looking for a sponsor.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1410
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1415
 #, php-format
 msgid "%s mentor is looking for a sponsor"
 msgid_plural "%s mentors are looking for a sponsor"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1411
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1416
 msgid "Each gives a few hours a week to students on the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1412
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1417
 msgid "See who"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1453
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1458
 msgctxt "a month and year, as in \"sponsor since March 2026\""
 msgid "F Y"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1488
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1493
 msgid "Your tier, your events, your reports and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1489
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1494
 msgid "Your tier, your events and your reports."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1493
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1498
 msgid "Your tier, your events and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1494
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1499
 msgid "Your tier and your events."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1499
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1504
 msgid "Your tier, your reports and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1500
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1505
 msgid "Your tier and your reports."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1504
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1509
 msgid "Your tier and your badge."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1505
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1510
 msgid "Your tier and what it includes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1605
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1610
 msgid "Viewing as sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1606
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1611
 msgid "Find a sponsor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1607
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1612
 msgid "No sponsors match that search."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1731
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1736
 msgid "People"
 msgstr ""
 
 #. translators: %s: how many accounts act for the sponsor.
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1735
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1740
 #, php-format
 msgid "%s account"
 msgid_plural "%s accounts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1742
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1747
 msgid "No account acts for this sponsor yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1757
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1762
 msgid "Attach or remove accounts on the Sponsors screen."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsors-dashboard.php:1760
+#: includes/modules/class-wpcpm-sponsors-dashboard.php:1765
 msgid "To add a colleague, write to your contact at the program."
 msgstr ""
 

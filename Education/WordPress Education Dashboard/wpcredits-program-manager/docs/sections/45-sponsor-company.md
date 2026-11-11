@@ -1,6 +1,6 @@
 ## Your company, your people and your agreement
 
-The view **Your company** holds two cards, **Company profile and logo** and **People**, and the view **Agreement** holds **Collaboration Agreement**. Each stays folded until you open it.
+The view **Your company** holds two cards, **Company profile and logo** and **People**, and the view **Agreement** holds **Collaboration Agreement**.
 
 ### Company profile and logo
 

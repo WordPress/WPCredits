@@ -110,6 +110,13 @@ final class WPCPM_Dashboard_Card {
 	private static $cue = '';
 
 	/**
+	 * Whether `unfold()` is on: every card drawn then is drawn open (the Sponsor Dashboard's views, 1.123.80).
+	 *
+	 * @var bool
+	 */
+	private static $unfolded = false;
+
+	/**
 	 * The opener, for a page that draws its cards in this shell: a browser that follows a link to a
 	 * closed card leaves it closed, and the opener opens the card a tile, a row's action, a link in a
 	 * mail or a decision's way back lands on, on either page. The Institution Dashboard asks for it
@@ -226,8 +233,9 @@ final class WPCPM_Dashboard_Card {
 	public static function forget() {
 		self::$held   = null;
 		self::$ages   = array();
-		self::$folded = false;
-		self::$cue    = '';
+		self::$folded   = false;
+		self::$cue      = '';
+		self::$unfolded = false;
 	}
 
 	/**
@@ -240,6 +248,27 @@ final class WPCPM_Dashboard_Card {
 	public static function fold( $on, $cue = '' ) {
 		self::$folded = (bool) $on;
 		self::$cue    = self::$folded ? (string) $cue : '';
+
+		if ( self::$folded ) {
+			self::$unfolded = false;
+		}
+	}
+
+	/**
+	 * Draw the cards that follow open, until called again with false (1.123.80). The owner, of the Sponsor
+	 * Dashboard: "by default the tabs with information should be open, not closed". A view there holds a few
+	 * cards, and each is what the reader came to that view for. The disclosures inside a card, a form behind
+	 * its button or an offer's row, are the card's own and keep their own state.
+	 *
+	 * @param bool $on Whether to open the cards that follow.
+	 */
+	public static function unfold( $on ) {
+		self::$unfolded = (bool) $on;
+
+		if ( self::$unfolded ) {
+			self::$folded = false;
+			self::$cue    = '';
+		}
 	}
 
 	/**
@@ -454,7 +483,7 @@ final class WPCPM_Dashboard_Card {
 			$args['open'] = false;
 		}
 
-		if ( $holds ) {
+		if ( self::$unfolded || $holds ) {
 			$args['open'] = true;
 		}
 

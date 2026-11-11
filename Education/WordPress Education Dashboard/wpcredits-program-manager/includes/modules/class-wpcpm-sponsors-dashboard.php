@@ -870,6 +870,9 @@ final class WPCPM_Sponsors_Dashboard {
 
 		ob_start();
 
+		// Every card of a view is drawn open (1.123.80, the owner's ask): the view is the card's own page.
+		WPCPM_Dashboard_Card::unfold( true );
+
 		foreach ( self::view_owners( $view ) as $owner ) {
 			if ( 'people' === $owner ) {
 				self::render_people( $record, $context );
@@ -878,6 +881,8 @@ final class WPCPM_Sponsors_Dashboard {
 
 			self::card( $owner, $record, $context );
 		}
+
+		WPCPM_Dashboard_Card::unfold( false );
 
 		$cards = trim( (string) ob_get_clean() );
 

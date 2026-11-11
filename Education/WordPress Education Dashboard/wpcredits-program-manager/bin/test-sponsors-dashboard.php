@@ -888,7 +888,7 @@ $people_card = substr( $company_view, strpos( $company_view, 'id="wpcpm-sponsor-
 ck( 'the people card, on Your company, lists the accounts and offers no form to a member', false !== strpos( $people_card, 'Rep One' ) && 0 === substr_count( $people_card, '<form' ), true );
 // The row a folded People card shows (the design the owner approved on 27 September 2026): how many
 // accounts act for the sponsor, and no action, since accounts are attached by the program.
-ck( 'the People row: folded, how many accounts act for the sponsor, and no action', array( false !== strpos( $company_view, '<details id="wpcpm-sponsor-people" class="wpcpm-group wpcpm-group__disclosure"><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">People <span class="wpcpm-group__count">1</span></h3><span class="wpcpm-sponsor__state">1 account</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ), strpos( $people_card, 'wpcpm-sponsor__row-action' ) ), array( true, false ) );
+ck( 'the People row: drawn open (1.123.80), how many accounts act for the sponsor, and no action', array( false !== strpos( $company_view, '<details id="wpcpm-sponsor-people" class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">People <span class="wpcpm-group__count">1</span></h3><span class="wpcpm-sponsor__state">1 account</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>' ), strpos( $people_card, 'wpcpm-sponsor__row-action' ) ), array( true, false ) );
 // A folded card's action follows its fold, and names for a screen reader what it does, so a link
 // read out of its row says more than "Edit": on this member's views, the profile's alone, Offer more's
 // Tell us having gone with its card (1.123.22).
@@ -2546,6 +2546,35 @@ ck( 'an Administrator looking at a sponsor reaches Program updates with that spo
 	'sponsor-updates',
 	'https://example.test/a-word-for-sponsors/',
 ) );
+
+// 1.123.80: the owner, "by default the tabs with information should be open, not closed". Every card on every
+// view is drawn open, for a member and for an Administrator looking at a sponsor; the disclosures inside a card,
+// the New offer form, each offer's row and its Edit this offer, keep their own state, folded.
+$cards_of = static function ( array $pages ) {
+	$states = array();
+	foreach ( $pages as $view => $html ) {
+		preg_match_all( '#<details id="wpcpm-sponsor-([a-z-]+)" class="wpcpm-group wpcpm-group__disclosure"( open)?>#', (string) $html, $m, PREG_SET_ORDER );
+		foreach ( $m as $card ) { $states[ $view . ':' . $card[1] ] = isset( $card[2] ) && ' open' === $card[2]; }
+	}
+	return $states;
+};
+$GLOBALS['uid']    = 5;
+$GLOBALS['get']    = array();
+$member_pages      = every_view();
+$GLOBALS['uid']    = 1;
+$GLOBALS['get']    = array( WPCPM_Sponsor_Roster::ARG_VIEW => $A );
+$manager_pages     = every_view();
+$GLOBALS['uid']    = 5;
+$GLOBALS['get']    = array();
+$member_cards      = $cards_of( $member_pages );
+$manager_cards     = $cards_of( $manager_pages );
+$inner_open        = preg_match_all( '#<details class="wpcpm-(offers__new|offer |offer__edit)[^"]*"[^>]* open>#', implode( '', $member_pages ) );
+ck( 'every card on every view is drawn open, for a member and for an Administrator looking at a sponsor, and the forms and offer rows inside stay folded', array(
+	count( $member_cards ) >= 6,
+	array_keys( array_filter( $member_cards, static function ( $open ) { return ! $open; } ) ),
+	array_keys( array_filter( $manager_cards, static function ( $open ) { return ! $open; } ) ),
+	$inner_open,
+), array( true, array(), array(), 0 ) );
 
 // Counted by ck() itself: a literal here read 45 while the file carried 49 (1.93.2), and a count
 // nobody maintains is a count nobody should trust.

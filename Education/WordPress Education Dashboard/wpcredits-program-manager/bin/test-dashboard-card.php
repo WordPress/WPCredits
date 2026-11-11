@@ -459,6 +459,31 @@ ck( 'fold( true ) with no cue folds the card and prints no cue, and fold( false 
 	array( strpos( $no_cue, ' open>' ), strpos( $no_cue, 'wpcpm-card__cue' ), false !== strpos( $after_off, ' open>' ), strpos( $after_off, 'wpcpm-card__cue' ) ),
 	array( false, false, true, false )
 );
+// The Sponsor Dashboard's views draw every card open (1.123.80, the owner: "by default the tabs with
+// information should be open, not closed"). unfold() outweighs a card's own rule to fold until it is switched
+// off; fold( true ) switches it off, and forget() does too, so nothing after the views is drawn open by it.
+$unfold = static function ( $on ) {
+	if ( is_callable( array( 'WPCPM_Dashboard_Card', 'unfold' ) ) ) {
+		WPCPM_Dashboard_Card::unfold( $on );
+	}
+};
+$own_rule = administrator_card( 'reports', 'Semester reports', 0 );
+$unfold( true );
+$opened   = administrator_card( 'reports', 'Semester reports', 0 );
+$unfold( false );
+$back     = administrator_card( 'reports', 'Semester reports', 0 );
+$unfold( true );
+$fold( true );
+$fold_wins = administrator_card( 'reports', 'Semester reports', 0 );
+$fold( false );
+$after_fold = administrator_card( 'reports', 'Semester reports', 0 );
+$unfold( true );
+WPCPM_Dashboard_Card::forget();
+$after_forget = administrator_card( 'reports', 'Semester reports', 0 );
+ck( 'after unfold( true ) a card its own rule folds is drawn open, and after unfold( false ) folded again byte for byte; fold( true ) and forget() each switch it off',
+	array( strpos( $own_rule, ' open>' ), false !== strpos( $opened, ' open>' ), $back === $own_rule, strpos( $fold_wins, ' open>' ), $after_fold === $own_rule, $after_forget === $own_rule ),
+	array( false, true, true, false, true, true )
+);
 // The outcome of a decision is printed in the card it came back to, and a folded card would hide it.
 WPCPM_Dashboard_Card::hold( 'wpcpm-reports', 'success', 'The report is approved.' );
 $fold( true, 'Review' );

@@ -77,7 +77,7 @@ While any mentor is looking for a sponsor, the Overview ends with a row such as 
 
 ### Opening and folding the cards
 
-A card folds and unfolds with one press on its title. The number beside a title is how many things the card holds, and the words after it say where the card stands, so a folded card still tells you what is in it: "No event planned", "2 of 3 fields filled", "Accepted on September 3, 2026".
+Every card is open when you arrive on its view, and folds and unfolds with one press on its title. The number beside a title is how many things the card holds, and the words after it say where the card stands, so a folded card still tells you what is in it: "No event planned", "2 of 3 fields filled", "Accepted on September 3, 2026".
 
 Where a card has one thing to do, its button sits beside the folded card. Open the card and the button gives way to it.
 
@@ -86,4 +86,4 @@ Where a card has one thing to do, its button sits beside the folded card. Open t
 - **New offer** opens **Offers and codes** at its top, where the card's own **New offer** opens the form.
 - **Write a post** opens the WordPress editor.
 
-**Sponsorship**, **Offers and codes** and **Mentors you sponsor** are open when you arrive, and so is **Events** while an event of yours is still to take place. Every other card stays folded until you open it, or until a button or a link on the Overview opens it. After you send one of a card's forms, the page comes back to the view with that card open.
+Inside a card, a form waits behind its button, such as **New offer** or **Edit this offer**, and each offer is folded to one row until you open it. After you send one of a card's forms, the page comes back to the view with that card open.

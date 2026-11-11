@@ -8,4 +8,4 @@ The view **Mentors to sponsor** holds two cards, both read from the program's me
 
 ### Mentors looking for a sponsor
 
-**Mentors looking for a sponsor** lists the active mentors who asked to be listed and have no sponsor yet, and its line says how many are looking. The card stays folded until you open it. Each mentor's tile has **I would like to sponsor this mentor**: one press tells your program contact you would like to sponsor that mentor, and the page says "Thank you. Your program contact will get in touch about that mentor." Each account can send five a day.
+**Mentors looking for a sponsor** lists the active mentors who asked to be listed and have no sponsor yet, and its line says how many are looking. Each mentor's tile has **I would like to sponsor this mentor**: one press tells your program contact you would like to sponsor that mentor, and the page says "Thank you. Your program contact will get in touch about that mentor." Each account can send five a day.

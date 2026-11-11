@@ -102,6 +102,7 @@ with 2px corners.
 - **Offers:** New offer is a button; the form opens in place under it and stays open after a refused save so the
   typing is kept. Each offer's folded row is its program card (status tag, title, facts); open, it holds today's
   details, Edit this offer, the state buttons and the codes. "(primary)" is no longer printed.
+- **Every card open (1.123.80):** the owner, "by default the tabs with information should be open, not closed". Every card on a view is drawn open (`WPCPM_Dashboard_Card::unfold()`); the disclosures inside a card, the New offer and Edit this offer forms and each offer's row, keep their own state.
 - **Students reached:** the usage card, by offer.
 - The rest as today, one view each.
 
