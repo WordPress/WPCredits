@@ -583,6 +583,10 @@ class WPCPM_Mentors_Dashboard {
 
 		echo '<div class="wpcpm-dashboard">';
 
+		// The reader's own language, a small switcher at the top of the page (1.123.73), as on the
+		// Student Report Card: theirs, never the mentor's being looked at.
+		WPCPM_Language::picker( wp_get_current_user() );
+
 		// Where a mentor actually is, which is the only place a prompt to protect the account
 		// will be seen: the plugin's own controls live on the wp-admin profile screen, and
 		// mentors are routed away from wp-admin the moment they sign in. The reader's own

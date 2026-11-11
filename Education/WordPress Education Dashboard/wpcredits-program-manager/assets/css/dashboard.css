@@ -1156,3 +1156,111 @@ button.wpcpm-tools__code {
 .wpcpm-mentee__quiet > .wpcpm-quiet__notice {
 	margin-bottom: 0;
 }
+
+/* The reader's own language, a small switcher at the top of the Student Report Card and the Mentor
+   Report Card (1.123.73): the flag and the name of the language being read, at the end of its line,
+   which opens a short list under it. A `details`, so it opens and closes with no script. Quiet on
+   purpose: the page's type at 13px, no box until it is open or under the pointer. Start and end,
+   never left and right, so it sits on the left in a right-to-left language. */
+.wpcpm-language {
+	font-size: 13px;
+	line-height: 1.4;
+	margin-block: 0 8px;
+	margin-inline-start: auto;
+	position: relative;
+	width: fit-content;
+}
+
+.wpcpm-language__current {
+	align-items: center;
+	border: 1px solid transparent;
+	border-radius: 2px;
+	cursor: pointer;
+	display: flex;
+	gap: 6px;
+	list-style: none;
+	min-height: 32px;
+	padding: 0 8px;
+}
+
+.wpcpm-language__current::-webkit-details-marker {
+	display: none;
+}
+
+/* The chevron, drawn: it turns when the list is open. */
+.wpcpm-language__current::after {
+	border-block-end: 1.5px solid currentColor;
+	border-inline-end: 1.5px solid currentColor;
+	content: "";
+	height: 5px;
+	margin-block-end: 3px;
+	opacity: 0.7;
+	transform: rotate( 45deg );
+	width: 5px;
+}
+
+.wpcpm-language[open] > .wpcpm-language__current::after {
+	margin-block-end: -3px;
+	transform: rotate( 225deg );
+}
+
+.wpcpm-language__current:hover,
+.wpcpm-language[open] > .wpcpm-language__current {
+	border-color: var( --wpcpm-border, #e6e6e6 );
+}
+
+.wpcpm-language__current:focus-visible,
+.wpcpm-language__choice:focus-visible {
+	outline: 2px solid var( --wpcpm-accent, #3858e9 );
+	outline-offset: 1px;
+}
+
+.wpcpm-language__flag {
+	font-size: 15px;
+	line-height: 1;
+}
+
+.wpcpm-language__form {
+	background: Canvas;
+	border: 1px solid var( --wpcpm-border, #e6e6e6 );
+	border-radius: 4px;
+	color: CanvasText;
+	box-shadow: 0 4px 12px rgba( 0, 0, 0, 0.08 );
+	inset-block-start: calc( 100% + 4px );
+	inset-inline-end: 0;
+	min-width: 100%;
+	padding: 4px;
+	position: absolute;
+	z-index: 10;
+}
+
+.wpcpm-language__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-language__choice {
+	align-items: center;
+	background: transparent;
+	border: 0;
+	border-radius: 2px;
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	gap: 8px;
+	min-height: 36px;
+	padding: 0 10px;
+	text-align: start;
+	white-space: nowrap;
+	width: 100%;
+}
+
+.wpcpm-language__choice:hover {
+	background: var( --wpcpm-surface, #f6f6f6 );
+}
+
+.wpcpm-language__choice[aria-current="true"] {
+	font-weight: 600;
+}

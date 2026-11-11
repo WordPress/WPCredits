@@ -69,6 +69,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-errors.php
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-updates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-template.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-two-factor.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-language.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-cohort.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-dates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roster-index.php';

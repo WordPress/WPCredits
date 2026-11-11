@@ -2544,6 +2544,30 @@ order belongs to the student: they arrange their own card, and it stays as they 
 open a student's card through the switcher you see their order and can arrange it for them with the
 same arrows. Nobody else sees the arrows.
 
+### A student's or a mentor's own language
+
+At the top right of the Student Report Card and the Mentor Report Card, in the title's row, is a
+small language switcher: the flag and the name of the language the page is in. Pressing it opens a
+short list, and pressing a language there keeps it; the page comes back in that language, and the
+emails the site sends that person are in it from then on. On a phone the switcher is the flag
+alone. The choice is kept on their account, where WordPress keeps an account's language, and is
+theirs alone: when you open somebody's page through the switcher you are not shown it, and you
+read the page in your own language.
+
+The list holds only the languages the plugin has a translation for, each named in itself, with the
+site's own language first. While there is no translation the switcher is not shown at all, so
+nothing changes on a site that has none. Translators are given what students and mentors read, so
+a sentence only an Administrator, an institution or a sponsor sees stays in English, and so does
+anything not translated yet. A language whose translation a later version takes out goes back to
+the site's language by itself.
+
+There is no setting. A translation arrives with a version of the plugin, and the language is on the
+list from then on. Dates and WordPress's own words follow too once that language is installed
+under Settings, General, Site Language's list (installing it does not change the site's language).
+A flag is the flag of the country the translation is written for; a language that belongs to no
+one country is listed by its name. Where a system draws no flags (Windows), the country's two
+letters stand in its place.
+
 ### Arranging an institution's or a sponsor's page
 
 The Institution Dashboard is three sections and the Sponsor Dashboard four, **Your sponsorship**, **What you

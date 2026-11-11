@@ -252,6 +252,10 @@ class WPCPM_Students_Dashboard {
 
 		echo '<div class="wpcpm-dashboard wpcpm-student">';
 
+		// The reader's own language, a small switcher at the top of the page (1.123.73): theirs,
+		// never the student's being looked at.
+		WPCPM_Language::picker( $viewer );
+
 		// As on the Mentor Report Card: the setup screen is in wp-admin, and a student has no
 		// reason to go there, so the invitation comes to them. The reader's own account, never
 		// the student being viewed.

@@ -143,6 +143,10 @@ define( 'WPCPM_VERSION', 'test' );
 
 /* ---- the pieces a student's card draws through, stubbed to their contracts ---- */
 
+// The language switcher has its own suite (bin/test-language.php); here it prints nothing.
+class WPCPM_Language {
+	public static function picker( $u ) {}
+}
 class WPCPM_Two_Factor {
 	public static function prompt( $user ) {}
 }

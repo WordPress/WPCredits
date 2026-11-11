@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.72
+Stable tag: 1.123.73
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,12 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.73 =
+
+* A student or a mentor can choose their own language. At the top right of the Student Report Card and the Mentor Report Card a small switcher shows the flag and the name of the language the page is in; it opens a short list of the languages the plugin has a translation for, each named in itself, and pressing one puts their pages in that language, and the emails the site sends them, which already followed the account. The choice is kept on their account and is theirs alone.
+* While the plugin has no translation the switcher is not shown, so nothing changes yet. A sentence that is not translated stays in English, and a language whose translation is later taken out goes back to the site's language by itself.
+* For translators: the sponsors' tools and the program's updates, which students and mentors read on their pages, join the strings they are given.
 
 = 1.123.72 =
 

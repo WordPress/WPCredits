@@ -58,11 +58,15 @@ function wpcpm_translators_files() {
 		'includes/modules/class-wpcpm-mentor-notes.php',
 		'includes/modules/class-wpcpm-mentor-application-form.php',
 
-		// What both see: calls, group sessions, the dashboards' frame and what a refused form says.
+		// What both see: calls, group sessions, the sponsors' tools, the program's updates, their own
+		// language, the dashboards' frame and what a refused form says.
 		'includes/modules/class-wpcpm-mentor-calls.php',
 		'includes/modules/class-wpcpm-call-calendar.php',
 		'includes/modules/class-wpcpm-group-sessions.php',
+		'includes/modules/class-wpcpm-sponsor-tools.php',
+		'includes/class-wpcpm-updates.php',
 		'includes/class-wpcpm-dashboard-frame.php',
+		'includes/class-wpcpm-language.php',
 		'includes/class-wpcpm-dashboards.php',
 		'includes/class-wpcpm-form-errors.php',
 		'includes/class-wpcpm-form-guard.php',

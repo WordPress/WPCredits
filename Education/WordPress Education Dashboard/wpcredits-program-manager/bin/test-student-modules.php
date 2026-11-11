@@ -131,6 +131,8 @@ class WPCPM_Dashboards {
 	public static function render_switcher( array $args ) { $GLOBALS['switcher'] = $args; }
 }
 class WPCPM_Two_Factor { public static function prompt( $u ) {} }
+// The language switcher has its own suite (bin/test-language.php); here it prints nothing.
+class WPCPM_Language { public static function picker( $u ) {} }
 // A course for every status but four: a track with no Learn course, which a Track Builder track may
 // be (TRACKS-3), and the three states that are no track at all (TRACKS-5).
 // `course_status()` keeps its contract in miniature: a status is its own course unless it is one of
