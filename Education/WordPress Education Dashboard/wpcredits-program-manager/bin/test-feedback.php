@@ -1295,6 +1295,30 @@ ck( 'a saved form\'s disclosure is drawn open with its status inside it, not abo
 	),
 	array( '#wpcpm-feedback-f2', true, true, false, true ) );
 
+/*
+ * What a student reads in a single-select list (1.123.75). The value is the base's, and stays so;
+ * the words beside it come from `choice_labels()`, where each is written out for the translation
+ * template. A choice a form offers with no label there would be read in English on a translated
+ * form, so every one is held to the list.
+ */
+$labels  = WPCPM_Student_Feedback::choice_labels();
+$offered = array();
+
+foreach ( WPCPM_Student_Feedback::forms() as $form ) {
+	foreach ( $form['fields'] as $spec ) {
+		if ( isset( $spec['choices'] ) ) {
+			$offered = array_merge( $offered, $spec['choices'] );
+		}
+	}
+}
+
+$offered = array_values( array_unique( $offered ) );
+
+ck( 'every choice a form offers has words for the reader', array_values( array_diff( $offered, array_keys( $labels ) ) ), array() );
+ck( 'and the list holds no choice no form offers', array_values( array_diff( array_keys( $labels ), $offered ) ), array() );
+ck( 'in English a choice reads as the base spells it', WPCPM_Student_Feedback::choice_label( 'Yes, by my blog address only' ), 'Yes, by my blog address only' );
+ck( 'a choice with no words is read as it is stored', WPCPM_Student_Feedback::choice_label( 'A choice added later' ), 'A choice added later' );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

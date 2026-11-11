@@ -153,6 +153,61 @@ class WPCPM_Student_Feedback {
 	}
 
 	/**
+	 * What a reader is shown for each choice a single-select question offers (1.123.75).
+	 *
+	 * A choice is two things. It is the value Airtable keeps, which has to match the base's own
+	 * option letter for letter, so it is never translated; and it is what the student reads in the
+	 * list, which should be in their language like the question above it. Until 1.123.75 the list
+	 * printed the stored value, so a translated form asked in one language and answered in English.
+	 * The keys are the stored values, each written out so the translation template holds it.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function choice_labels() {
+		return array(
+			'Very clear'                   => __( 'Very clear', 'wpcredits-program-manager' ),
+			'Clear enough'                 => __( 'Clear enough', 'wpcredits-program-manager' ),
+			'Neutral'                      => __( 'Neutral', 'wpcredits-program-manager' ),
+			'Somewhat unclear'             => __( 'Somewhat unclear', 'wpcredits-program-manager' ),
+			'Very unclear'                 => __( 'Very unclear', 'wpcredits-program-manager' ),
+			'Yes'                          => __( 'Yes', 'wpcredits-program-manager' ),
+			'Partly'                       => __( 'Partly', 'wpcredits-program-manager' ),
+			'Unsure'                       => __( 'Unsure', 'wpcredits-program-manager' ),
+			'Maybe'                        => __( 'Maybe', 'wpcredits-program-manager' ),
+			'No'                           => __( 'No', 'wpcredits-program-manager' ),
+			'Likely'                       => __( 'Likely', 'wpcredits-program-manager' ),
+			'Neither likely nor unlikely'  => __( 'Neither likely nor unlikely', 'wpcredits-program-manager' ),
+			'Unlikely'                     => __( 'Unlikely', 'wpcredits-program-manager' ),
+			'Yes, with my name'            => __( 'Yes, with my name', 'wpcredits-program-manager' ),
+			'Yes, by my blog address only' => __( 'Yes, by my blog address only', 'wpcredits-program-manager' ),
+			'Yes, without my name'         => __( 'Yes, without my name', 'wpcredits-program-manager' ),
+			'Never started'                => __( 'Never started', 'wpcredits-program-manager' ),
+			'Started the course'           => __( 'Started the course', 'wpcredits-program-manager' ),
+			'Chose a contribution'         => __( 'Chose a contribution', 'wpcredits-program-manager' ),
+			'Started contributing'         => __( 'Started contributing', 'wpcredits-program-manager' ),
+			'Did not know where to start'  => __( 'Did not know where to start', 'wpcredits-program-manager' ),
+			'No time'                      => __( 'No time', 'wpcredits-program-manager' ),
+			'Not what I expected'          => __( 'Not what I expected', 'wpcredits-program-manager' ),
+			'Not enough support'           => __( 'Not enough support', 'wpcredits-program-manager' ),
+			'Not relevant to my studies'   => __( 'Not relevant to my studies', 'wpcredits-program-manager' ),
+			'Technical problems'           => __( 'Technical problems', 'wpcredits-program-manager' ),
+			'Other'                        => __( 'Other', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * What a reader is shown for one choice: its label, or the stored value for a choice with none.
+	 *
+	 * @param string $choice The value Airtable keeps.
+	 * @return string
+	 */
+	public static function choice_label( $choice ) {
+		$labels = self::choice_labels();
+
+		return isset( $labels[ (string) $choice ] ) ? $labels[ (string) $choice ] : (string) $choice;
+	}
+
+	/**
 	 * The four forms.
 	 *
 	 * @return array<string, array>
@@ -1370,7 +1425,8 @@ class WPCPM_Student_Feedback {
 					'<option value="%1$s"%2$s>%3$s</option>',
 					esc_attr( $choice ),
 					selected( (string) $value, (string) $choice, false ),
-					esc_html( $choice )
+					// The value is the base's own; what is read is in the reader's language.
+					esc_html( self::choice_label( $choice ) )
 				);
 			}
 

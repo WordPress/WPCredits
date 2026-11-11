@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.74
+Stable tag: 1.123.75
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.75 =
+
+* For translators: the answers a feedback form lists ("Very clear", "Yes, with my name", "No time" and the rest) can be translated. Until now a translated form would have asked its question in the reader's language and listed its answers in English. What is sent to the program's records is unchanged: the answer as the base spells it, whatever language it was read in.
 
 = 1.123.74 =
 

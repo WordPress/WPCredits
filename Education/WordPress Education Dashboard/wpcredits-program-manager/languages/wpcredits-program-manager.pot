@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.74\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.75\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T02:20:42+00:00\n"
+"POT-Creation-Date: 2026-11-11T02:35:50+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -2059,7 +2059,7 @@ msgid "That file could not be read."
 msgstr ""
 
 #: includes/class-wpcpm-program.php:97
-#: includes/modules/class-wpcpm-student-feedback.php:164
+#: includes/modules/class-wpcpm-student-feedback.php:219
 msgid "Getting started"
 msgstr ""
 
@@ -2086,7 +2086,7 @@ msgstr ""
 #. translators: 1: hours logged, 2: the track's target in hours.
 #. translators: 1: this step's number, 2: the highest number on the scale.
 #: includes/class-wpcpm-program.php:310
-#: includes/modules/class-wpcpm-student-feedback.php:1469
+#: includes/modules/class-wpcpm-student-feedback.php:1525
 #, php-format
 msgid "%1$s of %2$s"
 msgstr ""
@@ -3927,6 +3927,7 @@ msgstr ""
 #: includes/mail/class-wpcpm-mail-catalog.php:76
 #: includes/mail/class-wpcpm-mail-catalog.php:93
 #: includes/modules/class-wpcpm-semester-report-screen.php:1544
+#: includes/modules/class-wpcpm-student-feedback.php:194
 msgid "Other"
 msgstr ""
 
@@ -9240,6 +9241,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-table.php:169
 #: includes/modules/class-wpcpm-mentor-application-form.php:1358
+#: includes/modules/class-wpcpm-student-feedback.php:173
 #: includes/modules/class-wpcpm-student-report-form.php:1540
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:1046
 msgid "Yes"
@@ -16091,6 +16093,7 @@ msgid "This address was already confirmed, so there is nothing more to do. Your 
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-application-form.php:1359
+#: includes/modules/class-wpcpm-student-feedback.php:177
 #: includes/modules/class-wpcpm-student-report-form.php:1540
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:1046
 msgid "No"
@@ -24305,10 +24308,10 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:136
 #: includes/modules/class-wpcpm-student-feedback.php:137
-#: includes/modules/class-wpcpm-student-feedback.php:220
-#: includes/modules/class-wpcpm-student-feedback.php:261
-#: includes/modules/class-wpcpm-student-feedback.php:267
-#: includes/modules/class-wpcpm-student-feedback.php:293
+#: includes/modules/class-wpcpm-student-feedback.php:275
+#: includes/modules/class-wpcpm-student-feedback.php:316
+#: includes/modules/class-wpcpm-student-feedback.php:322
+#: includes/modules/class-wpcpm-student-feedback.php:348
 msgid "Not at all"
 msgstr ""
 
@@ -24317,286 +24320,382 @@ msgid "Very confident"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:137
-#: includes/modules/class-wpcpm-student-feedback.php:293
+#: includes/modules/class-wpcpm-student-feedback.php:348
 msgid "A great deal"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:165
-msgid "For once you have chosen your contribution team and project. It takes a couple of minutes."
+#: includes/modules/class-wpcpm-student-feedback.php:168
+msgid "Very clear"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:169
-msgid "How easy was it to get started?"
+msgid "Clear enough"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:170
+msgid "Neutral"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:171
+msgid "Somewhat unclear"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:172
-msgid "Very hard"
+msgid "Very unclear"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:172
-msgid "Very easy"
+#: includes/modules/class-wpcpm-student-feedback.php:174
+msgid "Partly"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:175
-msgid "How clear was choosing your contribution and project?"
+msgid "Unsure"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:176
+msgid "Maybe"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:178
+msgid "Likely"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:179
+msgid "Neither likely nor unlikely"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:180
+msgid "Unlikely"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:181
+msgid "Yes, with my name"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:182
-msgid "What specifically slowed you down or was unclear?"
+msgid "Yes, by my blog address only"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:196
-msgid "What helped you most in getting started?"
+#: includes/modules/class-wpcpm-student-feedback.php:183
+msgid "Yes, without my name"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:200
-msgid "What was hardest or most confusing?"
+#: includes/modules/class-wpcpm-student-feedback.php:184
+msgid "Never started"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:204
-msgid "Are the course materials available in a language you are comfortable working in?"
+#: includes/modules/class-wpcpm-student-feedback.php:185
+msgid "Started the course"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:212
-msgid "Half way"
+#: includes/modules/class-wpcpm-student-feedback.php:186
+msgid "Chose a contribution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:213
-msgid "For the middle of your project, while there is still time to act on what you say."
+#: includes/modules/class-wpcpm-student-feedback.php:187
+msgid "Started contributing"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:217
-#: includes/modules/class-wpcpm-student-feedback.php:264
-msgid "Do you feel part of the WordPress community?"
+#: includes/modules/class-wpcpm-student-feedback.php:188
+msgid "Did not know where to start"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:189
+msgid "No time"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:190
+msgid "Not what I expected"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:191
+msgid "Not enough support"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:192
+msgid "Not relevant to my studies"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:193
+msgid "Technical problems"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:220
-#: includes/modules/class-wpcpm-student-feedback.php:267
-msgid "Very much"
+msgid "For once you have chosen your contribution team and project. It takes a couple of minutes."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:223
-msgid "What is making you feel part of the community, or what is missing?"
+#: includes/modules/class-wpcpm-student-feedback.php:224
+msgid "How easy was it to get started?"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:227
+msgid "Very hard"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:227
+msgid "Very easy"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:230
+msgid "How clear was choosing your contribution and project?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:237
+msgid "What specifically slowed you down or was unclear?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:251
+msgid "What helped you most in getting started?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:255
+msgid "What was hardest or most confusing?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:259
+msgid "Are the course materials available in a language you are comfortable working in?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:267
+msgid "Half way"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:268
+msgid "For the middle of your project, while there is still time to act on what you say."
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:272
+#: includes/modules/class-wpcpm-student-feedback.php:319
+msgid "Do you feel part of the WordPress community?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:275
+#: includes/modules/class-wpcpm-student-feedback.php:322
+msgid "Very much"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:278
+msgid "What is making you feel part of the community, or what is missing?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-feedback.php:282
 msgid "What was most helpful about your mentor's support?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:231
+#: includes/modules/class-wpcpm-student-feedback.php:286
 msgid "What could your mentor's support do better?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:235
+#: includes/modules/class-wpcpm-student-feedback.php:290
 msgid "Do the required hours feel achievable?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:240
+#: includes/modules/class-wpcpm-student-feedback.php:295
 msgid "What is making the hours hard to reach?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:253
+#: includes/modules/class-wpcpm-student-feedback.php:308
 msgid "Finishing up"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:254
+#: includes/modules/class-wpcpm-student-feedback.php:309
 msgid "For the end of the program, on either track."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:258
+#: includes/modules/class-wpcpm-student-feedback.php:313
 msgid "How impactful do you feel your contributions were?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:261
+#: includes/modules/class-wpcpm-student-feedback.php:316
 msgid "Very impactful"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:270
+#: includes/modules/class-wpcpm-student-feedback.php:325
 msgid "What made you feel part of the community, or what was missing?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:274
+#: includes/modules/class-wpcpm-student-feedback.php:329
 msgid "How likely are you to recommend WP Credits to another student?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:281
+#: includes/modules/class-wpcpm-student-feedback.php:336
 msgid "What would have made you more likely to recommend?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:285
+#: includes/modules/class-wpcpm-student-feedback.php:340
 msgid "How likely are you to keep contributing to WordPress?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:290
+#: includes/modules/class-wpcpm-student-feedback.php:345
 msgid "How much did your mentor influence your intention to keep contributing?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:296
+#: includes/modules/class-wpcpm-student-feedback.php:351
 msgid "What would make you keep contributing?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:300
+#: includes/modules/class-wpcpm-student-feedback.php:355
 msgid "One example of a contribution you are proud of"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:304
+#: includes/modules/class-wpcpm-student-feedback.php:359
 msgid "New skills, knowledge or experiences you gained"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:308
+#: includes/modules/class-wpcpm-student-feedback.php:363
 msgid "One main change that would improve the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:314
+#: includes/modules/class-wpcpm-student-feedback.php:369
 msgid "May we share a quote about your experience publicly? If so, write it here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:319
+#: includes/modules/class-wpcpm-student-feedback.php:374
 msgid "Yes, you can contact me about WordPress events, learning and skill building opportunities, and career opportunities."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:334
+#: includes/modules/class-wpcpm-student-feedback.php:389
 msgid "May your institution list you in its semester report?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:340
+#: includes/modules/class-wpcpm-student-feedback.php:395
 msgid "May your institution quote your feedback in its semester report?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:349
+#: includes/modules/class-wpcpm-student-feedback.php:404
 msgid "Leaving the program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:350
+#: includes/modules/class-wpcpm-student-feedback.php:405
 msgid "Four questions, for anyone who did not finish. This is the group we hear from least, and it is the one we most need to hear from."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:353
+#: includes/modules/class-wpcpm-student-feedback.php:408
 msgid "How far did you get?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:358
+#: includes/modules/class-wpcpm-student-feedback.php:413
 msgid "What stopped you?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:363
+#: includes/modules/class-wpcpm-student-feedback.php:418
 msgid "What could we have done differently?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:367
+#: includes/modules/class-wpcpm-student-feedback.php:422
 msgid "Would you consider coming back?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:453
+#: includes/modules/class-wpcpm-student-feedback.php:508
 msgid "Your record has no email address, so your feedback could not be matched to it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:489
-#: includes/modules/class-wpcpm-student-feedback.php:493
+#: includes/modules/class-wpcpm-student-feedback.php:544
+#: includes/modules/class-wpcpm-student-feedback.php:548
 msgid "You have no feedback record yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:523
+#: includes/modules/class-wpcpm-student-feedback.php:578
 msgid "Your feedback record could not be created."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:846
+#: includes/modules/class-wpcpm-student-feedback.php:901
 msgid "Feedback forms"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:858
+#: includes/modules/class-wpcpm-student-feedback.php:913
 msgid "The forms below are feedback about the program itself. They are not part of your report, they are not marked, and your institution does not see them, so please say what you actually think. The one exception is the permissions box at the end of the last form: it asks what your institution may put in its own semester report, and nothing from it is shared unless you say yes."
 msgstr ""
 
 #. translators: %s: the reason the record could not be read.
-#: includes/modules/class-wpcpm-student-feedback.php:867
+#: includes/modules/class-wpcpm-student-feedback.php:922
 #, php-format
 msgid "Your earlier answers could not be loaded just now: %s Anything you have already sent is safe - try reloading the page before filling these in again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:888
+#: includes/modules/class-wpcpm-student-feedback.php:943
 msgid "The next form appears once you have answered everything in this one. There is no rush - they are asked at different points in the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:983
+#: includes/modules/class-wpcpm-student-feedback.php:1038
 msgid "all answered"
 msgstr ""
 
 #. translators: 1: number of questions answered, 2: number of questions being asked.
-#: includes/modules/class-wpcpm-student-feedback.php:986
+#: includes/modules/class-wpcpm-student-feedback.php:1041
 #, php-format
 msgid "%1$s of %2$s answered"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1007
+#: includes/modules/class-wpcpm-student-feedback.php:1062
 msgid "Sending…"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1023
+#: includes/modules/class-wpcpm-student-feedback.php:1078
 msgid "This is the student's own feedback, so it is shown here but not editable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1039
+#: includes/modules/class-wpcpm-student-feedback.php:1094
 msgid "The same three, every time"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1040
+#: includes/modules/class-wpcpm-student-feedback.php:1095
 msgid "Asked at each stage on the same scale, so your answers can be read as a line rather than as three separate snapshots."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1055
+#: includes/modules/class-wpcpm-student-feedback.php:1110
 msgid "This stage"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1075
+#: includes/modules/class-wpcpm-student-feedback.php:1130
 msgid "Permissions"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1076
+#: includes/modules/class-wpcpm-student-feedback.php:1131
 msgid "Optional, and separate from the feedback above. These are the only answers on this page that anyone outside the program sees, and only if you say yes. Leaving them blank changes nothing about your report or your place on the program."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1088
+#: includes/modules/class-wpcpm-student-feedback.php:1143
 msgid "Only the student can answer these. Their answers are shown here so you can see what they said."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1102
+#: includes/modules/class-wpcpm-student-feedback.php:1157
 msgid "Save my answers"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1365
+#: includes/modules/class-wpcpm-student-feedback.php:1420
 msgid "No answer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1525
+#: includes/modules/class-wpcpm-student-feedback.php:1581
 msgid "You cannot fill in that feedback form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1825
+#: includes/modules/class-wpcpm-student-feedback.php:1881
 msgid "Thank you - your answers have been sent. You can change them at any time."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1827
+#: includes/modules/class-wpcpm-student-feedback.php:1883
 msgid "Your other answers have been sent. The ones marked below need a change."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1828
+#: includes/modules/class-wpcpm-student-feedback.php:1884
 msgid "Nothing was filled in, so nothing was sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1829
+#: includes/modules/class-wpcpm-student-feedback.php:1885
 msgid "Airtable did not take your answers. They are still in the form below: send it again in a moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1830
+#: includes/modules/class-wpcpm-student-feedback.php:1886
 msgid "Your feedback could not be matched to your program record, so nothing was sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1831
+#: includes/modules/class-wpcpm-student-feedback.php:1887
 msgid "That form does not exist."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-feedback.php:1835
+#: includes/modules/class-wpcpm-student-feedback.php:1891
 msgid "The permission answers are the student's own to give, so they were not saved. Anything else on the form was."
 msgstr ""
 
