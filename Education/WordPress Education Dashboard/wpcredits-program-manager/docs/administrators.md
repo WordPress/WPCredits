@@ -363,6 +363,17 @@ never sent:
   acknowledgements, or whose hand-off to the mail queue was refused; one filed as spam is sent it by
   Put back in the queue. An application acknowledged already, or holding no address, is sent
   nothing, and two presses at one moment send it once.
+- **Send the confirmation link again**, since 1.123.77, on an application still in the queue that
+  was acknowledged and carries the mark **address not confirmed**, sends the acknowledgement once
+  more, with the same link, and leaves the application where it is. It is drawn first, before Select,
+  on the application's row, and it is also in the notice that says nothing was sent because the
+  address is not confirmed, so an Administrator who was refused can send it there and then. It is not
+  offered once the address is confirmed, for an application that never had its acknowledgement (Send
+  the acknowledgement is its press), one that is no longer in the queue, or one holding no address.
+  Each send counts against the same day's limit on acknowledgements as the form's, and when the limit
+  is reached nothing is sent and the notice says so. The history records **sent the confirmation link
+  again**, with the Administrator who pressed it and the day, once for each send. The link in the first
+  email still works, and two presses at one moment send it once.
 - **The course is completed**, on a selected application, and offered only while **Make mentors
   from applications** is on: for an applicant an Administrator knows has completed the mentors'
   course, whatever the profile shows. Its note, how you know, is optional and never sent. It makes
@@ -386,7 +397,7 @@ submitted, was never sent the link, so its address cannot be confirmed and the t
 email the applicant stay refused until it is: Put back in the queue sends it to an application filed
 as spam, and Send the acknowledgement to one still in the queue, past the ceiling or after a refused
 hand-off, and the mark goes either way. Select, Decline, Mark as spam, Withdraw, The course is
-completed and Send the acknowledgement ask before they act. The five emails are the **Mentor
+completed, Send the acknowledgement and Send the confirmation link again ask before they act. The five emails are the **Mentor
 applications** area of **Tools > Emails**, where their words can be edited.
 
 Since 1.123.58 Select, Ask for more information and Decline each check the application again at the

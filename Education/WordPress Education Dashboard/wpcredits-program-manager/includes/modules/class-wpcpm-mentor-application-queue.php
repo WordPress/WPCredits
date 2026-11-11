@@ -38,6 +38,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *   (1.122.33): the row is written as the activation writes it (`retry_airtable()`).
  * - Send the acknowledgement, on an open row whose acknowledgement never went (1.122.33): it goes
  *   now, once, with the link that confirms the address, and the row stays where it is.
+ * - Send the confirmation link again (1.123.77), on an open row that was acknowledged and whose
+ *   address is not confirmed: drawn first on the row and carried by the notice of a decision refused
+ *   for the unconfirmed address; the same sender and signed link, counted against the day's limit on
+ *   acknowledgements, recorded in the history, under the application's lock.
  *
  * A decision that emails the applicant refuses an address nobody has confirmed through the
  * acknowledgement's link, as the institution approval does, and Select refuses while no course
@@ -64,6 +68,7 @@ final class WPCPM_Mentor_Application_Queue {
 	const ACTION_COMPLETE    = 'wpcpm_mapp_complete';
 	const ACTION_AIRTABLE    = 'wpcpm_mapp_airtable';
 	const ACTION_ACKNOWLEDGE = 'wpcpm_mapp_acknowledge';
+	const ACTION_RESEND      = 'wpcpm_mapp_resend';
 
 	/** The field naming the application a decision is posted for. */
 	const FIELD_APPLICATION = 'wpcpm_mapp_app';
@@ -148,6 +153,7 @@ final class WPCPM_Mentor_Application_Queue {
 			self::ACTION_COMPLETE    => 'handle_complete',
 			self::ACTION_AIRTABLE    => 'handle_airtable',
 			self::ACTION_ACKNOWLEDGE => 'handle_acknowledge',
+			self::ACTION_RESEND      => 'handle_resend',
 		);
 	}
 
@@ -575,6 +581,7 @@ final class WPCPM_Mentor_Application_Queue {
 			WPCPM_Mentor_Application::EVENT_SUBMITTED,
 			WPCPM_Mentor_Application::EVENT_CONFIRMED,
 			WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED,
+			WPCPM_Mentor_Application::EVENT_LINK_RESENT,
 		);
 		$last    = null;
 
@@ -787,6 +794,115 @@ final class WPCPM_Mentor_Application_Queue {
 
 				return 'mapp-acknowledged';
 			}
+		);
+	}
+
+	/**
+	 * Send the confirmation link again: the acknowledgement goes once more, through the form's own
+	 * sender, to an open row that was acknowledged and whose address is still not confirmed. The link
+	 * is the same signed one (`verify_url()` signs the application), so the first email's keeps working.
+	 * It counts against the day's limit on acknowledgements the form's send uses, and is recorded in
+	 * the history with who pressed. A confirmed address, a missing one and a row not offered the press
+	 * are refused with nothing sent.
+	 *
+	 * The send is made under the application's lock (`locked()`), with the row read again there, so
+	 * two presses at one moment send it once, and an address confirmed meanwhile is sent nothing.
+	 */
+	public static function handle_resend() {
+		$post = self::begin( self::ACTION_RESEND, WPCPM_Mentor_Application::open_states() );
+
+		if ( WPCPM_Mentor_Application::is_confirmed( (int) $post->ID ) ) {
+			self::leave( 'mapp-confirmed' );
+		}
+
+		if ( '' === WPCPM_Mentor_Application::email_of( $post ) ) {
+			self::leave( 'mapp-no-email' );
+		}
+
+		self::locked(
+			$post,
+			static function ( WP_Post $row ) {
+				if ( WPCPM_Mentor_Application::is_confirmed( (int) $row->ID ) ) {
+					return 'mapp-confirmed';
+				}
+
+				if ( ! self::can_resend( $row ) ) {
+					return 'mapp-state';
+				}
+
+				if ( ! WPCPM_Form_Guard::claim_mail( WPCPM_Mentor_Application_Form::MAIL_KEY, WPCPM_Form_Guard::MAIL_PER_DAY ) ) {
+					return 'mapp-mail-limit';
+				}
+
+				if ( ! WPCPM_Mentor_Application_Form::mail_applicant( (int) $row->ID ) ) {
+					return 'mapp-not-sent';
+				}
+
+				WPCPM_Mentor_Application::add_event( (int) $row->ID, WPCPM_Mentor_Application::EVENT_LINK_RESENT, get_current_user_id() );
+
+				return 'mapp-link-sent';
+			}
+		);
+	}
+
+	/**
+	 * Whether Send the confirmation link again is offered for a row: open, acknowledged, its address
+	 * not confirmed, and an address to send to.
+	 *
+	 * @param WP_Post $post The row.
+	 * @return bool
+	 */
+	private static function can_resend( WP_Post $post ) {
+		return in_array( WPCPM_Mentor_Application::state_of( $post ), WPCPM_Mentor_Application::open_states(), true )
+			&& self::acknowledged( $post )
+			&& ! WPCPM_Mentor_Application::is_confirmed( (int) $post->ID )
+			&& '' !== WPCPM_Mentor_Application::email_of( $post );
+	}
+
+	/**
+	 * What the notice of a refused decision adds under its sentence: for `mapp-unconfirmed`, the form
+	 * that sends the confirmation link again for the application the press stored with it, while that
+	 * application is still one the press is offered for; '' for any other outcome or application.
+	 *
+	 * @param string $status The outcome being printed.
+	 * @return string HTML, escaped.
+	 */
+	public static function notice_extra( $status ) {
+		if ( 'mapp-unconfirmed' !== (string) $status || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return '';
+		}
+
+		$carried = WPCPM_Flash::take( self::FLASH_MESSAGE );
+		$post    = is_array( $carried ) && isset( $carried['id'] ) ? WPCPM_Mentor_Application::application( (int) $carried['id'] ) : null;
+
+		if ( ! $post instanceof WP_Post || ! self::can_resend( $post ) ) {
+			return '';
+		}
+
+		ob_start();
+		self::render_form( $post, self::current_view(), self::resend_args( $post ) );
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The press's form, as the row and the notice draw it.
+	 *
+	 * @param WP_Post $post The row.
+	 * @return array The arguments of `render_form()`.
+	 */
+	private static function resend_args( WP_Post $post ) {
+		$name = WPCPM_Mentor_Application::name_of( $post );
+		$name = '' !== $name ? $name : WPCPM_Mentor_Application::reference_of( $post );
+
+		return array(
+			'action'  => self::ACTION_RESEND,
+			'label'   => __( 'Send the confirmation link again', 'wpcredits-program-manager' ),
+			'confirm' => sprintf(
+				/* translators: %s: the applicant's name. */
+				__( 'Send %s the acknowledgement again, with the link that confirms the address?', 'wpcredits-program-manager' ),
+				$name
+			),
 		);
 	}
 
@@ -1082,6 +1198,9 @@ final class WPCPM_Mentor_Application_Queue {
 			'mapp-spam'           => array( 'success', __( 'The application is marked as spam. Nothing was sent to the address on it.', 'wpcredits-program-manager' ) ),
 			'mapp-withdrawn'      => array( 'success', __( 'The application is withdrawn and listed under Lapsed, with your note. Nothing was sent to the applicant, and Select is offered there if they come back.', 'wpcredits-program-manager' ) ),
 			'mapp-reopened'       => array( 'success', __( 'The application is back in the queue, under Waiting. Nothing was sent to the address on it.', 'wpcredits-program-manager' ) ),
+			'mapp-link-sent'      => array( 'success', __( 'Sent: the acknowledgement went again, with the link that confirms the address.', 'wpcredits-program-manager' ) ),
+			'mapp-confirmed'      => array( 'warning', __( 'The address is already confirmed, so nothing was sent.', 'wpcredits-program-manager' ) ),
+			'mapp-mail-limit'     => array( 'error', __( 'Nothing was sent. The day\'s limit on acknowledgements is reached, so no more go out today. Try again tomorrow.', 'wpcredits-program-manager' ) ),
 			'mapp-reopened-sent'  => array( 'success', __( 'The application is back in the queue, under Waiting, and the acknowledgement it never had is sent, with the link that confirms the address.', 'wpcredits-program-manager' ) ),
 			/* translators: 1: the Administrator's display name, 2: the decision as the history prints it, such as "selected", 3: the date and time in the site's formats. */
 			'mapp-decided'        => array( 'warning', __( '%1$s already decided this application: %2$s, on %3$s. Nothing was sent.', 'wpcredits-program-manager' ) ),
@@ -1905,6 +2024,7 @@ final class WPCPM_Mentor_Application_Queue {
 			WPCPM_Mentor_Application::EVENT_REOPENED       => __( 'put back in the queue', 'wpcredits-program-manager' ),
 			WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED => __( 'put back in the queue, acknowledgement sent', 'wpcredits-program-manager' ),
 			WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED   => __( 'sent the acknowledgement', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Application::EVENT_LINK_RESENT    => __( 'sent the confirmation link again', 'wpcredits-program-manager' ),
 			WPCPM_Mentor_Application::EVENT_LAPSED         => __( 'lapsed', 'wpcredits-program-manager' ),
 			WPCPM_Mentor_Application::EVENT_ACTIVATED      => __( 'made a mentor', 'wpcredits-program-manager' ),
 			WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR => __( 'filed as already a mentor', 'wpcredits-program-manager' ),
@@ -1929,7 +2049,12 @@ final class WPCPM_Mentor_Application_Queue {
 		$open = in_array( $state, WPCPM_Mentor_Application::open_states(), true );
 		$kept = WPCPM_Typed_Text::box_form( self::TYPED, (int) $post->ID );
 
-		// First, since Select, Ask for more information and Decline wait on the link it carries.
+		// First, since Select, Ask for more information and Decline wait on the link it carries: the
+		// acknowledgement again for a row that had it and whose address is not confirmed.
+		if ( self::can_resend( $post ) ) {
+			self::render_form( $post, $view, self::resend_args( $post ) );
+		}
+
 		if ( $open && ! self::acknowledged( $post ) && '' !== WPCPM_Mentor_Application::email_of( $post ) ) {
 			self::render_form(
 				$post,

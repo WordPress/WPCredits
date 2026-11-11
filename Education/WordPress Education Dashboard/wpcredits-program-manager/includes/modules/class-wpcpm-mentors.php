@@ -599,6 +599,17 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The form the Waiting for review tab's refusal for an unconfirmed address carries, so an
+	 * Administrator can send the confirmation link again from the notice (1.123.77).
+	 *
+	 * @param string $status The status being printed.
+	 * @return string
+	 */
+	protected function notice_extra( $status ) {
+		return 'mapp-unconfirmed' === (string) $status ? WPCPM_Mentor_Application_Queue::notice_extra( $status ) : '';
+	}
+
+	/**
 	 * The outcomes of Confirm on a waiting match (1.123.58), which come back to the Sync tab.
 	 * `match-confirmed` names the account (`notice_sentence()`).
 	 *

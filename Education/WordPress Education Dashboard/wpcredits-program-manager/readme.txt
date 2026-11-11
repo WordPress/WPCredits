@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.76
+Stable tag: 1.123.77
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.77 =
+
+* A mentor application whose address is not confirmed has a new press, **Send the confirmation link again**, first among its decisions and in the notice that says nothing was sent because the address is not confirmed. It sends the acknowledgement once more, with the same link, counts against the day's limit on acknowledgements and writes a line in the application's history.
 
 = 1.123.76 =
 

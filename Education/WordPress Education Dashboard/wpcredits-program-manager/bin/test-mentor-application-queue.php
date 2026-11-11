@@ -166,6 +166,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
@@ -472,9 +474,9 @@ echo "=== The hooks ===\n";
 $GLOBALS['hooks'] = array();
 WPCPM_Mentor_Application_Queue::init();
 ck(
-	'ten decisions, each for a signed-in request alone',
+	'eleven decisions, each for a signed-in request alone',
 	array( array_values( array_filter( array_keys( $GLOBALS['hooks'] ), function ( $hook ) { return 0 === strpos( $hook, 'admin_post_' ); } ) ) ),
-	array( array( 'admin_post_wpcpm_mapp_select', 'admin_post_wpcpm_mapp_info', 'admin_post_wpcpm_mapp_second', 'admin_post_wpcpm_mapp_decline', 'admin_post_wpcpm_mapp_spam', 'admin_post_wpcpm_mapp_withdraw', 'admin_post_wpcpm_mapp_reopen', 'admin_post_wpcpm_mapp_complete', 'admin_post_wpcpm_mapp_airtable', 'admin_post_wpcpm_mapp_acknowledge' ) )
+	array( array( 'admin_post_wpcpm_mapp_select', 'admin_post_wpcpm_mapp_info', 'admin_post_wpcpm_mapp_second', 'admin_post_wpcpm_mapp_decline', 'admin_post_wpcpm_mapp_spam', 'admin_post_wpcpm_mapp_withdraw', 'admin_post_wpcpm_mapp_reopen', 'admin_post_wpcpm_mapp_complete', 'admin_post_wpcpm_mapp_airtable', 'admin_post_wpcpm_mapp_acknowledge', 'admin_post_wpcpm_mapp_resend' ) )
 );
 
 echo "\n=== Who may press ===\n";
@@ -555,7 +557,7 @@ echo "\n=== Every decision from every state ===\n";
 // The states each decision takes, what it moves a row to (null: it stays where it is), its sentence
 // and how many emails it sends; from any other state it is refused, the row left as it was and nothing
 // sent. The course is completed and Write the Airtable row again reach the activation, stood in here,
-// which moves nothing itself; Send the acknowledgement is pressed on rows that never had theirs.
+// which moves nothing itself; Send the acknowledgement is pressed on rows that never had theirs, and Send the confirmation link again on rows whose address is not confirmed.
 $takes = array(
 	'wpcpm_mapp_select'      => array( array( 'new', 'held', 'info', 'second', 'lapsed', 'declined' ), 'selected', 'mapp-selected', 1 ),
 	'wpcpm_mapp_info'        => array( array( 'new', 'held', 'info', 'second' ), 'info', 'mapp-info', 1 ),
@@ -567,6 +569,7 @@ $takes = array(
 	'wpcpm_mapp_complete'    => array( array( 'selected' ), null, 'mapp-activated', 0 ),
 	'wpcpm_mapp_airtable'    => array( array( 'active' ), null, 'mapp-airtable-written', 0 ),
 	'wpcpm_mapp_acknowledge' => array( array( 'new', 'held', 'info', 'second' ), null, 'mapp-acknowledged', 1 ),
+	'wpcpm_mapp_resend'      => array( array( 'new', 'held', 'info', 'second' ), null, 'mapp-link-sent', 1 ),
 );
 $pressed  = array();
 $wanted   = array();
@@ -575,7 +578,7 @@ foreach ( $takes as $action => $rule ) {
 	$asked_of[ $action ] = 0;
 	foreach ( WPCPM_Mentor_Application::states() as $state ) {
 		reset_world();
-		$id                           = an_application( $state, true, array(), 'wpcpm_mapp_acknowledge' === $action ? array( 'mail-ceiling' ) : array() );
+		$id                           = an_application( $state, 'wpcpm_mapp_resend' !== $action, array(), 'wpcpm_mapp_acknowledge' === $action ? array( 'mail-ceiling' ) : array() );
 		$out                          = press( $action, $id, array( 'note' => 'A note long enough for every decision.' ) );
 		$pressed[ $action ][ $state ] = $out['state'] . ' ' . $out['flash'] . ' ' . count( $out['mail'] );
 		$wanted[ $action ][ $state ]  = in_array( $state, $rule[0], true ) ? ( null === $rule[1] ? $state : $rule[1] ) . ' ' . $rule[2] . ' ' . $rule[3] : $state . ' mapp-state 0';
@@ -654,7 +657,7 @@ $long = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $id, array( 'note
 ck( 'a note longer than the box holds is refused, nothing sent', array( $long['flash'], $long['state'], $long['mail'] ), array( 'mapp-note-long', 'new', array() ) );
 $loss = press( WPCPM_Mentor_Application_Queue::ACTION_DECLINE, $id, array( 'note' => 'Kids <12 free, adults >18 pay' ) );
 ck( 'and so is one the cleaner would take words from, its typing kept', array( $loss['flash'], $loss['state'], kept( $id, 'decline' ) ), array( 'mapp-note-loss', 'new', 'Kids <12 free, adults >18 pay' ) );
-ck( 'every outcome a press leaves has a sentence', array_values( array_diff( array( 'mapp-selected', 'mapp-info', 'mapp-second', 'mapp-declined', 'mapp-spam', 'mapp-withdrawn', 'mapp-reopened', 'mapp-reopened-sent', 'mapp-unknown', 'mapp-state', 'mapp-unconfirmed', 'mapp-no-email', 'mapp-no-course-link', 'mapp-not-sent', 'mapp-note-short', 'mapp-note-long', 'mapp-note-loss', 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-airtable-gone', 'mapp-acknowledged' ), array_keys( WPCPM_Mentor_Application_Queue::messages() ) ) ), array() );
+ck( 'every outcome a press leaves has a sentence', array_values( array_diff( array( 'mapp-selected', 'mapp-info', 'mapp-second', 'mapp-declined', 'mapp-spam', 'mapp-withdrawn', 'mapp-reopened', 'mapp-reopened-sent', 'mapp-unknown', 'mapp-state', 'mapp-unconfirmed', 'mapp-no-email', 'mapp-no-course-link', 'mapp-not-sent', 'mapp-note-short', 'mapp-note-long', 'mapp-note-loss', 'mapp-activated', 'mapp-activated-refused', 'mapp-activated-login', 'mapp-activated-login-refused', 'mapp-activated-record', 'mapp-activated-record-refused', 'mapp-activated-admin', 'mapp-activated-admin-refused', 'mapp-activated-linked', 'mapp-activated-linked-refused', 'mapp-already', 'mapp-already-mentor', 'mapp-off', 'mapp-busy', 'mapp-no-account', 'mapp-airtable-written', 'mapp-airtable-refused', 'mapp-airtable-not-needed', 'mapp-airtable-gone', 'mapp-acknowledged', 'mapp-link-sent', 'mapp-confirmed', 'mapp-mail-limit' ), array_keys( WPCPM_Mentor_Application_Queue::messages() ) ) ), array() );
 
 $words = WPCPM_Mentor_Application_Queue::messages();
 ck(
@@ -675,6 +678,15 @@ ck(
 		'mapp-airtable-not-needed' => array( 'success', 'Nothing was written: the mentor\'s account holds its Airtable record already.' ),
 		'mapp-airtable-gone'       => array( 'warning', 'The account made for this mentor no longer exists; nothing more is written for it.' ),
 		'mapp-acknowledged'        => array( 'success', 'The acknowledgement is sent, with the link that confirms the address. The application stays where it was.' ),
+	)
+);
+ck(
+	'and the confirmation link\'s resend words its three outcomes, each with its kind of notice',
+	array_intersect_key( WPCPM_Mentor_Application_Queue::messages(), array_flip( array( 'mapp-link-sent', 'mapp-confirmed', 'mapp-mail-limit' ) ) ),
+	array(
+		'mapp-link-sent'   => array( 'success', 'Sent: the acknowledgement went again, with the link that confirms the address.' ),
+		'mapp-confirmed'   => array( 'warning', 'The address is already confirmed, so nothing was sent.' ),
+		'mapp-mail-limit'  => array( 'error', 'Nothing was sent. The day\'s limit on acknowledgements is reached, so no more go out today. Try again tomorrow.' ),
 	)
 );
 ck(
@@ -1059,6 +1071,174 @@ ck( 'a row with no address is offered no such press, and a press made all the sa
 $filed = an_application( 'spam', false, array(), array( 'honeypot' ) );
 ck( 'and one filed as spam is offered Put back in the queue, not this press', count_forms( decided_part( tab() ), WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), 0 );
 
+
+echo "\n=== Send the confirmation link again ===\n";
+
+/** The decisions a row's own HTML posts, in the order they are drawn. */
+function actions_in( $html ) {
+	preg_match_all( '#name="action" value="([a-z_]+)"#', $html, $found );
+
+	return $found[1];
+}
+
+reset_world();
+$unc = an_application( 'new', false );
+$row = row_for_id( view_part( tab() ), $unc );
+ck( 'an open, acknowledged row whose address is not confirmed offers Send the confirmation link again, first, before Select, Ask for more information, Second opinion, Decline and Mark as spam, and not Send the acknowledgement',
+	actions_in( $row ),
+	array( 'wpcpm_mapp_resend', 'wpcpm_mapp_select', 'wpcpm_mapp_info', 'wpcpm_mapp_second', 'wpcpm_mapp_decline', 'wpcpm_mapp_spam' ) );
+ck( 'with a button of that name and a question that asks first',
+	array( false !== strpos( $row, '>Send the confirmation link again</button>' ), false !== strpos( $row, 'data-wpcpm-confirm="Send Ada Okonjo the acknowledgement again, with the link that confirms the address?"' ) ),
+	array( true, true ) );
+ck( 'the form carries its own nonce, keyed to the decision and the row, and a way back to its view',
+	array( false !== strpos( $row, 'name="_wpnonce" value="nonce-wpcpm_mapp_resend_' . $unc . '"' ), false !== strpos( $row, 'name="' . WPCPM_Mentor_Application_Queue::FIELD_APPLICATION . '" value="' . $unc . '"' ) ),
+	array( true, true ) );
+
+// Every view that lists open rows draws it.
+reset_world();
+$in_info = an_application( 'info', false );
+$in_sec  = an_application( 'second', false );
+$held_u  = an_application( 'held', false );
+ck( 'an Asked for more information row, a Second opinion row and a held row offer it too',
+	array(
+		count_forms( row_for_id( view_part( tab( 'info' ) ), $in_info ), WPCPM_Mentor_Application_Queue::ACTION_RESEND ),
+		count_forms( row_for_id( view_part( tab( 'second' ) ), $in_sec ), WPCPM_Mentor_Application_Queue::ACTION_RESEND ),
+		count_forms( row_for_id( view_part( tab() ), $held_u ), WPCPM_Mentor_Application_Queue::ACTION_RESEND ),
+	),
+	array( 1, 1, 1 ) );
+
+reset_world();
+an_application( 'new', true );
+ck( 'a row whose address is confirmed is offered no such press', count_forms( tab(), WPCPM_Mentor_Application_Queue::ACTION_RESEND ), 0 );
+reset_world();
+$never = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+$never_row = row_for_id( view_part( tab() ), $never );
+ck( 'a row whose acknowledgement never went is offered Send the acknowledgement instead, and the two never show together',
+	array( count_forms( $never_row, WPCPM_Mentor_Application_Queue::ACTION_ACKNOWLEDGE ), count_forms( $never_row, WPCPM_Mentor_Application_Queue::ACTION_RESEND ) ),
+	array( 1, 0 ) );
+reset_world();
+an_application( 'declined', false );
+an_application( 'selected', false );
+an_application( 'spam', false );
+ck( 'a closed row, selected, declined or filed as spam, is offered none',
+	array( count_forms( tab(), WPCPM_Mentor_Application_Queue::ACTION_RESEND ), count_forms( tab( 'selected' ), WPCPM_Mentor_Application_Queue::ACTION_RESEND ) ),
+	array( 0, 0 ) );
+reset_world();
+an_application( 'new', false, array( 'email' => '' ) );
+ck( 'a row without an address is offered none', count_forms( tab(), WPCPM_Mentor_Application_Queue::ACTION_RESEND ), 0 );
+
+// The notice of a refused decision carries the form, for the application it stored, while it applies.
+reset_world();
+$GLOBALS['manage'] = array( 9, 21, 22, 23, 24, 25 );
+$for = function ( $uid, $id, $status = 'mapp-unconfirmed' ) {
+	$GLOBALS['uid'] = $uid;
+	WPCPM_Flash::set( WPCPM_Mentor_Application_Queue::FLASH_MESSAGE, array( 'status' => $status, 'message' => '', 'who' => 'Ada Okonjo', 'reference' => 'MAPP-X', 'id' => $id, 'box' => '' ), $uid );
+	$html = WPCPM_Mentor_Application_Queue::notice_extra( $status );
+	$GLOBALS['uid'] = 9;
+
+	return $html;
+};
+$u_open = an_application( 'new', false );
+$notice = $for( 21, $u_open );
+ck( 'the mapp-unconfirmed notice for an open, acknowledged, unconfirmed application carries the one form, for that application',
+	array( count_forms( $notice, WPCPM_Mentor_Application_Queue::ACTION_RESEND ), false !== strpos( $notice, 'name="' . WPCPM_Mentor_Application_Queue::FIELD_APPLICATION . '" value="' . $u_open . '"' ), false !== strpos( $notice, '>Send the confirmation link again</button>' ), false !== strpos( $notice, 'name="_wpnonce" value="nonce-wpcpm_mapp_resend_' . $u_open . '"' ) ),
+	array( 1, true, true, true ) );
+$c_done = an_application( 'new', true );
+$u_never = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+$u_noaddr = an_application( 'new', false, array( 'email' => '' ) );
+$u_closed = an_application( 'declined', false );
+ck( 'and none for one since confirmed, never acknowledged, with no address, or closed',
+	array( $for( 22, $c_done ), $for( 23, $u_never ), $for( 24, $u_noaddr ), $for( 25, $u_closed ) ),
+	array( '', '', '', '' ) );
+ck( 'nor under any other outcome\'s notice', $for( 26, $u_open, 'mapp-state' ), '' );
+
+// The handler.
+reset_world();
+$GLOBALS['wpdb']->before_takeover = null;
+$limit = WPCPM_Form_Guard::MAIL_PER_DAY;
+for ( $i = 0; $i < $limit - 1; $i++ ) {
+	WPCPM_Form_Guard::claim_mail( WPCPM_Mentor_Application_Form::MAIL_KEY, $limit );
+}
+$rs   = an_application( 'new', false );
+$sent = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $rs );
+ck( 'the press hands the acknowledgement off again, to the applicant, from the same template, with the same signed link the first one carried, and leaves the row in its state',
+	array( $sent['flash'], count( $sent['mail'] ), $sent['mail'][0]['context'] ?? null, $sent['mail'][0]['to'] ?? null, false !== strpos( $sent['mail'][0]['body'] ?? '', WPCPM_Mentor_Application::verify_url( $rs ) ), $sent['state'] ),
+	array( 'mapp-link-sent', 1, 'mentor-application-received', 'ada@example.test', true, 'new' ) );
+ck( 'records who sent it in the history, in plain words', array( last_event( $rs ), false !== strpos( tab(), ': sent the confirmation link again, Ida Admin.' ) ), array( array( 'confirmation link sent again', 9, '' ), true ) );
+ck( 'the notice names the applicant and says what went', array( carried(), detail()['who'] ?? null ), array( '', 'Ada Okonjo' ) );
+ck( 'one send counted exactly one claim against the day\'s limit on acknowledgements: the next press, the day\'s last claim spent, is refused, sends nothing and writes nothing',
+	( function () use ( $rs ) {
+		$again = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $rs );
+		return array( $again['flash'], $again['mail'], count( array_keys( array_column( WPCPM_Mentor_Application::events( $rs ), 'event' ), WPCPM_Mentor_Application::EVENT_LINK_RESENT, true ) ), array_key_exists( WPCPM_Mentor_Application::lock_name( $rs ), $GLOBALS['opts'] ) );
+	} )(),
+	array( 'mapp-mail-limit', array(), 1, false ) );
+ck( 'the resend does not make the row acknowledged or confirmed: it is still offered, and still says the address is not confirmed', array( count_forms( tab(), WPCPM_Mentor_Application_Queue::ACTION_RESEND ), array_column( marks_of( tab() ), 0 ) ), array( 1, array( 'unconfirmed' ) ) );
+
+reset_world();
+for ( $i = 0; $i < $limit; $i++ ) {
+	WPCPM_Form_Guard::claim_mail( WPCPM_Mentor_Application_Form::MAIL_KEY, $limit );
+}
+$capped = an_application( 'new', false );
+$out    = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $capped );
+ck( 'with the day\'s limit reached, nothing is sent and no event is written', array( $out['flash'], $out['mail'], last_event( $capped )[0], $out['state'] ), array( 'mapp-mail-limit', array(), 'submitted', 'new' ) );
+
+reset_world();
+$failing               = an_application( 'new', false );
+$GLOBALS['mail_fails'] = true;
+$out                   = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $failing );
+ck( 'a hand-off the mail layer refuses is mapp-not-sent, with no event, and lets go of the lock', array( $out['flash'], last_event( $failing )[0], array_key_exists( WPCPM_Mentor_Application::lock_name( $failing ), $GLOBALS['opts'] ) ), array( 'mapp-not-sent', 'submitted', false ) );
+$GLOBALS['mail_fails'] = false;
+
+reset_world();
+$done = an_application( 'new', true );
+$out  = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $done );
+ck( 'an address already confirmed is refused, nothing sent', array( $out['flash'], $out['mail'], last_event( $done )[0] ), array( 'mapp-confirmed', array(), 'address confirmed' ) );
+$nowhere = an_application( 'new', false, array( 'email' => '' ) );
+$out     = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $nowhere );
+ck( 'a row with no address is refused with mapp-no-email', array( $out['flash'], $out['mail'] ), array( 'mapp-no-email', array() ) );
+$closed = an_application( 'declined', false );
+$out    = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $closed );
+ck( 'a closed row is refused with mapp-state', array( $out['flash'], $out['mail'], $out['state'] ), array( 'mapp-state', array(), 'declined' ) );
+$never = an_application( 'new', false, array(), array( WPCPM_Mentor_Application_Form::SIGNAL_MAIL_CEILING ) );
+$out   = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $never );
+ck( 'a row that never had its acknowledgement is refused with mapp-state: Send the acknowledgement is its press', array( $out['flash'], $out['mail'] ), array( 'mapp-state', array() ) );
+
+$GLOBALS['manage'] = array();
+$cap               = an_application( 'new', false );
+$out               = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $cap, array( 'nonce' => 'nonce-wrong' ) );
+ck( 'without the capability a press is refused before its nonce is read', array( 0 === strpos( $out['stop'], 'wp_die: You do not have permission' ), $out['mail'] ), array( true, array() ) );
+$GLOBALS['manage'] = array( 9 );
+reset_world();
+$bad = an_application( 'new', false );
+$out = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $bad, array( 'nonce' => wp_create_nonce( WPCPM_Mentor_Application_Queue::ACTION_SELECT . '_' . $bad ) ) );
+ck( 'a nonce that is not this decision\'s for this row is refused', array( $out['stop'], $out['mail'] ), array( 'nonce refused: wpcpm_mapp_resend_' . $bad, array() ) );
+
+// Two presses at one moment send it once.
+reset_world();
+$twice     = an_application( 'new', false );
+$held_till = (string) ( time() + 600 );
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $twice ) ] = $held_till;
+$busy = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $twice );
+ck( 'while the application\'s lock is held, nothing is sent or written, and the press says another request is working on it',
+	array( $busy['flash'], $busy['mail'], last_event( $twice )[0], $GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $twice ) ] ),
+	array( 'mapp-busy', array(), 'submitted', $held_till ) );
+reset_world();
+$raced = an_application( 'new', false );
+$GLOBALS['opts'][ WPCPM_Mentor_Application::lock_name( $raced ) ] = '1';
+$GLOBALS['wpdb']->before_takeover = function () use ( $raced ) {
+	WPCPM_Mentor_Application::confirm( $raced );
+};
+$second = press( WPCPM_Mentor_Application_Queue::ACTION_RESEND, $raced );
+ck( 'a press that finds, under the lock, the address confirmed meanwhile sends nothing and spends no claim', array( $second['flash'], $second['mail'], count( array_keys( array_column( WPCPM_Mentor_Application::events( $raced ), 'event' ), WPCPM_Mentor_Application::EVENT_LINK_RESENT, true ) ) ), array( 'mapp-confirmed', array(), 0 ) );
+$GLOBALS['wpdb']->before_takeover = null;
+
+// A resend is no decision: a press that finds the row moved is not told one was taken.
+reset_world();
+$moved = an_application( 'new', true );
+WPCPM_Mentor_Application::add_event( $moved, WPCPM_Mentor_Application::EVENT_LINK_RESENT, 9 );
+press( WPCPM_Mentor_Application_Queue::ACTION_SELECT, $moved, array( 'drawn' => 'info' ) );
+ck( 'a press that finds the row moved does not name a resend as the decision that moved it', array( detail()['status'] ?? null, false === strpos( detail()['message'] ?? '', 'confirmation link' ) ), array( 'mapp-decided', true ) );
+
 echo "\n=== Recently decided, and Put back in the queue ===\n";
 
 reset_world();
@@ -1256,8 +1436,8 @@ ck(
 	array( true, true, true )
 );
 preg_match_all( '#<input type="hidden" name="action" value="(wpcpm_mapp_[a-z]+)" /><input type="hidden" name="wpcpm_mapp_app" value="' . $first . '" />#', $waiting, $first_forms );
-ck( 'an open row offers Select, Ask for more information, Second opinion, Decline and Mark as spam, in that order', $first_forms[1], array( 'wpcpm_mapp_select', 'wpcpm_mapp_info', 'wpcpm_mapp_second', 'wpcpm_mapp_decline', 'wpcpm_mapp_spam' ) );
-ck( 'each form carries the nonce of its decision for its row, and the view to come back to', array( false !== strpos( $waiting, 'value="nonce-wpcpm_mapp_decline_' . $first . '"' ), substr_count( view_part( $waiting ), 'name="mapp_view" value="waiting"' ) ), array( true, 15 ) );
+ck( 'an open row, its address not confirmed, offers Send the confirmation link again first, then Select, Ask for more information, Second opinion, Decline and Mark as spam, in that order', $first_forms[1], array( 'wpcpm_mapp_resend', 'wpcpm_mapp_select', 'wpcpm_mapp_info', 'wpcpm_mapp_second', 'wpcpm_mapp_decline', 'wpcpm_mapp_spam' ) );
+ck( 'each form carries the nonce of its decision for its row, and the view to come back to', array( false !== strpos( $waiting, 'value="nonce-wpcpm_mapp_decline_' . $first . '"' ), substr_count( view_part( $waiting ), 'name="mapp_view" value="waiting"' ) ), array( true, 16 ) );
 
 $selected_view = view_part( tab( 'selected' ) );
 preg_match_all( '#<input type="hidden" name="action" value="(wpcpm_mapp_[a-z]+)" />#', $selected_view, $selected_forms );

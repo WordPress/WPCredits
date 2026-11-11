@@ -445,6 +445,7 @@ $not_decisions = array(
 	WPCPM_Mentor_Application::EVENT_REOPENED,
 	WPCPM_Mentor_Application::EVENT_REOPENED_ACKNOWLEDGED,
 	WPCPM_Mentor_Application::EVENT_ACKNOWLEDGED,
+	WPCPM_Mentor_Application::EVENT_LINK_RESENT,
 	WPCPM_Mentor_Application::EVENT_AIRTABLE_WRITTEN,
 	WPCPM_Mentor_Application::EVENT_AIRTABLE_REFUSED,
 	WPCPM_Mentor_Application::EVENT_ALREADY_MENTOR,

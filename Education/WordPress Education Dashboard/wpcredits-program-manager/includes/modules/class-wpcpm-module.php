@@ -178,10 +178,21 @@ abstract class WPCPM_Module {
 		}
 
 		printf(
-			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
+			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p>%3$s</div>',
 			esc_attr( $messages[ $status ][0] ),
-			esc_html( $this->notice_sentence( $status, (string) $messages[ $status ][1] ) )
+			esc_html( $this->notice_sentence( $status, (string) $messages[ $status ][1] ) ),
+			$this->notice_extra( $status ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped where it is built.
 		);
+	}
+
+	/**
+	 * What one status's notice carries under its sentence, such as a form: a seam, empty by default.
+	 *
+	 * @param string $status The status being printed.
+	 * @return string HTML, escaped by the screen that builds it.
+	 */
+	protected function notice_extra( $status ) {
+		return '';
 	}
 
 	/**

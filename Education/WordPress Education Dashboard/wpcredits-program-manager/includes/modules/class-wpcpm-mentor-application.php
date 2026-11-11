@@ -185,6 +185,13 @@ final class WPCPM_Mentor_Application {
 	const EVENT_ACKNOWLEDGED = 'acknowledgement sent';
 
 	/**
+	 * The acknowledgement sent again, with the same signed link, by Send the confirmation link again
+	 * on an open row whose address is not confirmed (1.123.77); the row stays in its state. Not a
+	 * decision, and not counted by the feed.
+	 */
+	const EVENT_LINK_RESENT = 'confirmation link sent again';
+
+	/**
 	 * The activation's Mentors row (1.122.33): written, refused, and, for a mentor on this site
 	 * already, filed as such. None is counted by the feed.
 	 */

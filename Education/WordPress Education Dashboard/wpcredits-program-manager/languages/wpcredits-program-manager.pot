@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.76\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.77\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T04:21:28+00:00\n"
+"POT-Creation-Date: 2026-11-11T04:23:52+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -104,8 +104,8 @@ msgstr ""
 #: includes/class-wpcpm-settings-screen.php:1628
 #: includes/mail/class-wpcpm-mail-catalog.php:70
 #: includes/modules/class-wpcpm-administrators-dashboard.php:481
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1137
-#: includes/modules/class-wpcpm-mentor-application.php:272
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1256
+#: includes/modules/class-wpcpm-mentor-application.php:279
 msgid "Mentor applications"
 msgstr ""
 
@@ -812,8 +812,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-people.php:992
 #: includes/modules/class-wpcpm-institution-request.php:1287
 #: includes/modules/class-wpcpm-institution-request.php:1385
-#: includes/modules/class-wpcpm-mentor-application-queue.php:287
-#: includes/modules/class-wpcpm-mentors.php:668
+#: includes/modules/class-wpcpm-mentor-application-queue.php:293
+#: includes/modules/class-wpcpm-mentors.php:679
 #: includes/modules/class-wpcpm-module.php:136
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1050
 #: includes/modules/class-wpcpm-sponsor-agreement.php:1148
@@ -1540,7 +1540,7 @@ msgid "This run was stopped, or cleared in another tab. The count above is where
 msgstr ""
 
 #: includes/class-wpcpm-mail.php:1647
-#: includes/modules/class-wpcpm-mentors.php:983
+#: includes/modules/class-wpcpm-mentors.php:994
 #: includes/modules/class-wpcpm-students.php:668
 msgid "Invitations sent"
 msgstr ""
@@ -2120,7 +2120,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-view.php:518
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:92
 #: includes/modules/class-wpcpm-mentors-table.php:94
-#: includes/modules/class-wpcpm-mentors.php:721
+#: includes/modules/class-wpcpm-mentors.php:732
 #: includes/modules/class-wpcpm-sponsor-report-files.php:714
 #: includes/modules/class-wpcpm-students-table.php:118
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
@@ -4660,7 +4660,7 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-templates.php:862
 #: includes/modules/class-wpcpm-institution-panel.php:1503
-#: includes/modules/class-wpcpm-mentor-application-queue.php:589
+#: includes/modules/class-wpcpm-mentor-application-queue.php:596
 #: includes/modules/class-wpcpm-sponsor-agreement.php:2444
 #: includes/tools/class-wpcpm-track-builder.php:1520
 msgid "An Administrator"
@@ -8255,8 +8255,8 @@ msgstr[1] ""
 #: includes/modules/class-wpcpm-institutions.php:5614
 #: includes/modules/class-wpcpm-institutions.php:5706
 #: includes/modules/class-wpcpm-institutions.php:5771
-#: includes/modules/class-wpcpm-mentor-application-queue.php:951
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1335
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1067
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1454
 #: includes/modules/class-wpcpm-sponsor-application.php:4492
 #: includes/modules/class-wpcpm-sponsor-application.php:4659
 #: includes/modules/class-wpcpm-sponsor-application.php:4811
@@ -8526,7 +8526,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2774
 #: includes/modules/class-wpcpm-institution-request.php:1858
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2001
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2126
 msgid "Decline"
 msgstr ""
 
@@ -8976,7 +8976,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:3968
 #: includes/modules/class-wpcpm-institutions.php:6305
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1875
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1994
 msgid "by the site"
 msgstr ""
 
@@ -10096,7 +10096,7 @@ msgid "Add a note for everybody on this session"
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:2102
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1098
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1217
 msgid "Note"
 msgstr ""
 
@@ -10278,7 +10278,7 @@ msgstr ""
 #. translators: who sent a Collaboration Agreement back or revoked it, when the Administrator's account holds no name: "... by an Administrator, with this note:".
 #: includes/modules/class-wpcpm-institution-agreement.php:3820
 #: includes/modules/class-wpcpm-institution-agreement.php:3870
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1875
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1994
 #: includes/modules/class-wpcpm-mentor-calls.php:1859
 msgid "an Administrator"
 msgstr ""
@@ -10713,7 +10713,7 @@ msgid "That answer could not be read. Write it again."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-application.php:2644
-#: includes/modules/class-wpcpm-mentor-application.php:354
+#: includes/modules/class-wpcpm-mentor-application.php:361
 #: includes/modules/class-wpcpm-sponsor-application.php:2704
 msgid "Application with no name"
 msgstr ""
@@ -11128,7 +11128,7 @@ msgid "From the application"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-history.php:106
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1861
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1980
 #: includes/tools/class-wpcpm-track-builder-screen.php:120
 #: includes/tools/class-wpcpm-track-builder-screen.php:747
 msgid "History"
@@ -12760,7 +12760,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-people.php:1285
 #: includes/modules/class-wpcpm-institution-people.php:1286
-#: includes/modules/class-wpcpm-mentors.php:641
+#: includes/modules/class-wpcpm-mentors.php:652
 msgid "The invitation could not be queued: the queue was busy. Send it from the account's row."
 msgstr ""
 
@@ -14003,7 +14003,7 @@ msgid "Contact"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions-table.php:902
-#: includes/modules/class-wpcpm-mentors.php:722
+#: includes/modules/class-wpcpm-mentors.php:733
 #: includes/modules/class-wpcpm-sponsors-table.php:878
 msgid "Account"
 msgstr ""
@@ -14151,7 +14151,7 @@ msgid "waiting on the applicant"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:1924
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1903
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2022
 #: includes/modules/class-wpcpm-sponsor-application.php:3355
 msgid "marked as spam"
 msgstr ""
@@ -14451,7 +14451,7 @@ msgid "Each was refused more claims than the daily ceiling allows: %s. The insti
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3106
-#: includes/modules/class-wpcpm-mentors.php:840
+#: includes/modules/class-wpcpm-mentors.php:851
 #: includes/modules/class-wpcpm-students.php:566
 msgid "Airtable sync"
 msgstr ""
@@ -14461,13 +14461,13 @@ msgid "Reads the Countries table, then each institution's name, stage, country, 
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3116
-#: includes/modules/class-wpcpm-mentors.php:914
+#: includes/modules/class-wpcpm-mentors.php:925
 #: includes/modules/class-wpcpm-students.php:576
 msgid "The sync has finished. The page will show its report."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3129
-#: includes/modules/class-wpcpm-mentors.php:928
+#: includes/modules/class-wpcpm-mentors.php:939
 #: includes/modules/class-wpcpm-students.php:587
 msgid "Sync progress"
 msgstr ""
@@ -14475,7 +14475,7 @@ msgstr ""
 #. translators: %s: elapsed time as a clock value.
 #. translators: %s: elapsed time as a clock value, e.g. "2:05".
 #: includes/modules/class-wpcpm-institutions.php:3136
-#: includes/modules/class-wpcpm-mentors.php:937
+#: includes/modules/class-wpcpm-mentors.php:948
 #: includes/modules/class-wpcpm-students.php:594
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:509
 #, php-format
@@ -14487,7 +14487,7 @@ msgid "No progress for over two minutes. The run may have been interrupted: canc
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3157
-#: includes/modules/class-wpcpm-mentors.php:849
+#: includes/modules/class-wpcpm-mentors.php:860
 #: includes/modules/class-wpcpm-students.php:623
 msgid "Cancel sync"
 msgstr ""
@@ -14499,7 +14499,7 @@ msgid "Last completed %1$s (%2$s ago)."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3173
-#: includes/modules/class-wpcpm-mentors.php:864
+#: includes/modules/class-wpcpm-mentors.php:875
 #: includes/modules/class-wpcpm-students.php:638
 msgid "No sync has run yet."
 msgstr ""
@@ -14542,7 +14542,7 @@ msgstr ""
 #. translators: 1: human-readable time difference, 2: date and time.
 #. translators: 1: how long the application has waited, 2: the day it arrived.
 #: includes/modules/class-wpcpm-institutions.php:3332
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1426
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1545
 #: includes/modules/class-wpcpm-sponsor-application.php:4680
 #, php-format
 msgid "Waiting %1$s, since %2$s."
@@ -14570,7 +14570,7 @@ msgid "The anti-spam checks held this submission. Nothing was announced about it
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3368
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1450
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1569
 #: includes/modules/class-wpcpm-sponsor-application.php:4724
 msgid "held"
 msgstr ""
@@ -14593,7 +14593,7 @@ msgid "Another application in the queue names the same institution or the same a
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3385
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1458
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1577
 #: includes/modules/class-wpcpm-sponsor-application.php:4741
 msgid "possible duplicate"
 msgstr ""
@@ -14633,7 +14633,7 @@ msgid "Back to the queue"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3568
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1841
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1960
 #: includes/modules/class-wpcpm-sponsor-application.php:4961
 #: includes/modules/class-wpcpm-student-interests-tab.php:512
 #: includes/modules/class-wpcpm-student-registrations-tab.php:639
@@ -14846,6 +14846,7 @@ msgid "This one is listed in its Institution applications card, with every decis
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:4131
+#: includes/modules/class-wpcpm-mentor-application-queue.php:900
 msgid "Send the confirmation link again"
 msgstr ""
 
@@ -14913,7 +14914,7 @@ msgid "Mark the application from %s as spam? Nothing at all is sent to the addre
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:4221
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2033
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2158
 #: includes/modules/class-wpcpm-sponsor-application.php:4176
 msgid "Put back in the queue"
 msgstr ""
@@ -14931,7 +14932,7 @@ msgid "Delete the application from %s for good? Every answer on it goes; only it
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:4291
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2123
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2248
 #: includes/modules/class-wpcpm-sponsor-application.php:4324
 #: includes/modules/class-wpcpm-student-interests-tab.php:621
 #: includes/modules/class-wpcpm-student-registrations-tab.php:710
@@ -15735,7 +15736,7 @@ msgid "The account already holds its Airtable record; nothing was written."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-activation.php:513
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1064
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1180
 msgid "Nothing was written: the mentor's account holds its Airtable record already."
 msgstr ""
 
@@ -15749,7 +15750,7 @@ msgid "Linked by the mentors sync or by hand; nothing was written from here."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-activation.php:738
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1065
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1181
 msgid "The account made for this mentor no longer exists; nothing more is written for it."
 msgstr ""
 
@@ -15783,7 +15784,7 @@ msgid "The account could not be made, so the application stays selected."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-activation.php:962
-#: includes/modules/class-wpcpm-mentor-application-queue.php:627
+#: includes/modules/class-wpcpm-mentor-application-queue.php:634
 msgid "Another request is working on this application at this moment, so nothing was done."
 msgstr ""
 
@@ -15796,7 +15797,7 @@ msgid "Nothing was written: the mentor's Airtable row needs nothing more."
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-activation.php:978
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1062
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1178
 msgid "The Airtable row is written, and the mentor's account holds its record."
 msgstr ""
 
@@ -16203,651 +16204,673 @@ msgstr ""
 msgid "Choose the institution you teach at."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:176
+#: includes/modules/class-wpcpm-mentor-application-queue.php:182
 #: includes/tools/class-wpcpm-mentor-checker.php:652
 msgid "Waiting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:180
+#: includes/modules/class-wpcpm-mentor-application-queue.php:186
 msgid "Asked for more information"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:184
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1988
+#: includes/modules/class-wpcpm-mentor-application-queue.php:190
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2113
 msgid "Second opinion"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:188
+#: includes/modules/class-wpcpm-mentor-application-queue.php:194
 msgid "Selected (course pending)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:192
+#: includes/modules/class-wpcpm-mentor-application-queue.php:198
 msgid "Activated"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:196
+#: includes/modules/class-wpcpm-mentor-application-queue.php:202
 msgid "Lapsed"
 msgstr ""
 
 #. translators: 1: the application's reference, 2: its state.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:599
+#: includes/modules/class-wpcpm-mentor-application-queue.php:606
 #, php-format
 msgid "%1$s is already %2$s. Nothing was sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:845
+#. translators: %s: the applicant's name.
+#: includes/modules/class-wpcpm-mentor-application-queue.php:903
+#, php-format
+msgid "Send %s the acknowledgement again, with the link that confirms the address?"
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-queue.php:961
 msgid "The acknowledgement was not sent, because the email could not be handed off."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:847
+#: includes/modules/class-wpcpm-mentor-application-queue.php:963
 msgid "The acknowledgement was not sent, because the day's limit on acknowledgements had been reached."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:849
+#: includes/modules/class-wpcpm-mentor-application-queue.php:965
 msgid "The acknowledgement was not sent, because the form's checks filed the application as spam."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:852
+#: includes/modules/class-wpcpm-mentor-application-queue.php:968
 msgid "The applicant has no link to confirm the address with, so Select, Ask for more information and Decline wait. Send the acknowledgement sends it now, once; for an application filed as spam, Put back in the queue does."
 msgstr ""
 
 #. translators: 1: the applicant's name, 2: the application's reference, such as MAPP-2026-0007, 3: what was done, the outcome's own sentence.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1010
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1126
 #, php-format
 msgid "%1$s (%2$s): %3$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1040
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1156
 msgid "The Airtable row is written."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1041
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1157
 msgid "Airtable refused the row, so Write the Airtable row again waits on it under Activated."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1042
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1158
 msgid "The applicant is a mentor now, but the invitation with the welcome is held: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1043
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1159
 msgid "The applicant is a mentor now, but the invitation with the welcome is held: another account also answered for the applicant. Confirm which account is the person's, then press Send invite or Resend invite on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1044
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1160
 msgid "The applicant is a mentor now. No invitation was sent: the account is an Administrator's, which signs in already."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1047
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1163
 msgid "The applicant is a mentor now: their account is made, the Airtable row written, and the invitation with the welcome is on its way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1048
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1164
 msgid "The applicant is a mentor now: their account is made and the invitation with the welcome is on its way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1049
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1165
 msgid "The applicant is a mentor now: their existing account is linked, the Airtable row written, and the invitation with the welcome is on its way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1050
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1166
 msgid "The applicant is a mentor now: their existing account is linked and the invitation with the welcome is on its way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1057
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1173
 msgid "That application was made a mentor already. Nothing was changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1058
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1174
 msgid "That applicant is a mentor on this site already: the application is filed under Activated with a note, and nothing was sent or written to Airtable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1059
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1175
 msgid "Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings. It is switched on at the launch."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1060
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1176
 msgid "Another request is making that applicant a mentor at this moment. Reload the page in a minute to see where it got to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1061
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1177
 msgid "The account could not be made, so the application waits under Selected (course pending), with the reason on it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1063
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1179
 msgid "Airtable refused the row again. The reason is on the application; nothing else changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1066
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1182
 msgid "The acknowledgement is sent, with the link that confirms the address. The application stays where it was."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1078
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1194
 msgid "The applicant is selected, and the selection email with the mentors' course invitation link is sent. The application waits for the course under Selected (course pending)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1079
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1195
 msgid "The request for more information is sent. The application stays in the queue, under Asked for more information; record what comes back in the note of the decision you take next."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1080
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1196
 msgid "The application is marked for a second opinion, with your note for a colleague. Nothing was sent to the applicant."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1081
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1197
 msgid "The application is declined, and the decline email is sent. Your note stays on this site."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1082
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1198
 #: includes/modules/class-wpcpm-sponsor-application.php:3382
 msgid "The application is marked as spam. Nothing was sent to the address on it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1083
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1199
 msgid "The application is withdrawn and listed under Lapsed, with your note. Nothing was sent to the applicant, and Select is offered there if they come back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1084
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1200
 msgid "The application is back in the queue, under Waiting. Nothing was sent to the address on it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1085
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1201
+msgid "Sent: the acknowledgement went again, with the link that confirms the address."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1202
+msgid "The address is already confirmed, so nothing was sent."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1203
+msgid "Nothing was sent. The day's limit on acknowledgements is reached, so no more go out today. Try again tomorrow."
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1204
 msgid "The application is back in the queue, under Waiting, and the acknowledgement it never had is sent, with the link that confirms the address."
 msgstr ""
 
 #. translators: 1: the Administrator's display name, 2: the decision as the history prints it, such as "selected", 3: the date and time in the site's formats.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1087
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1206
 #, php-format
 msgid "%1$s already decided this application: %2$s, on %3$s. Nothing was sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1088
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1207
 msgid "There is no mentor application with that ID."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1089
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1208
 #: includes/modules/class-wpcpm-sponsor-application.php:3387
 msgid "That application is not in a state this decision applies to. Reload the page to see where it got to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1090
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1209
 msgid "Nothing was sent. The applicant has not confirmed the address with the link in the acknowledgement, and a decision that emails them waits until they have. If they never do, Mark as spam closes the application without writing to anyone."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1091
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1210
 msgid "Nothing was sent. That application holds no address an email can go to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1092
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1211
 msgid "Nothing was sent. The selection email gives the mentors' course invitation link, and none is set: fill in Mentors' course invitation link on the Students and mentors tab of WPCredits Program > Settings."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1093
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1212
 msgid "The email could not be handed off, so the application was left as it was. The Log tab of Tools > Emails says what happened to it."
 msgstr ""
 
 #. translators: %s: the least length of a note, in characters.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1095
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1214
 #, php-format
 msgid "Nothing was done. This decision needs a note of at least %s characters, for whoever reads the application next."
 msgstr ""
 
 #. translators: %s: the longest note allowed, in characters.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1097
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1216
 #, php-format
 msgid "Nothing was done. The note is longer than %s characters: shorten it and press again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1138
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1257
 msgid "People who applied to mentor through the form on the site, oldest first. Select sends the mentors' course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address. The course is completed, or the daily check finding the course on the profile, makes a selected applicant a mentor once Make mentors from applications is on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1161
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1280
 msgid "Nothing here. New applications appear in Waiting."
 msgstr ""
 
 #. translators: 1: how many rows are drawn, 2: how many there are.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1174
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1293
 #, php-format
 msgid "Showing %1$s of %2$s: those still waiting for their Airtable row first, then the most recently made mentors."
 msgstr ""
 
 #. translators: 1: how many rows are drawn, 2: how many there are.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1186
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1305
 #, php-format
 msgid "Showing the oldest %1$s of %2$s. As these are decided, the next take their place."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1241
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1360
 msgid "Find by reference"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1244
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1363
 msgid "Find"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1261
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1380
 msgid "No application was found for that reference."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1285
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1404
 #: includes/modules/class-wpcpm-sponsor-application.php:4602
 msgid "Recently decided"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1288
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1407
 msgid "No application has been filed as spam or declined."
 msgstr ""
 
 #. translators: %s: how many rows are listed.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1300
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1419
 #, php-format
 msgid "The %s most recent applications filed as spam or declined, newest first. Older ones are listed again as these are put back in the queue or deleted. Put back in the queue returns one filed as spam to Waiting, and sends the acknowledgement to one that never had it; Select is offered on a declined one, for an applicant who appeals."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1303
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1422
 msgid "The applications filed as spam and the declined ones, newest first, until they are deleted. Put back in the queue returns one filed as spam to Waiting, and sends the acknowledgement to one that never had it; Select is offered on a declined one, for an applicant who appeals."
 msgstr ""
 
 #. translators: 1: the day the applicant was selected, 2: the day the application lapses.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1374
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1493
 #, php-format
 msgid "Selected on %1$s. It lapses from %2$s if the course has not shown by then."
 msgstr ""
 
 #. translators: %s: the day the application was filed as already a mentor.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1386
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1505
 #, php-format
 msgid "Filed as already a mentor on %s."
 msgstr ""
 
 #. translators: %s: the day the applicant was made a mentor.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1393
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1512
 #, php-format
 msgid "Made a mentor on %s."
 msgstr ""
 
 #. translators: %s: the day the application lapsed.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1401
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1520
 #, php-format
 msgid "Lapsed on %s."
 msgstr ""
 
 #. translators: %s: the day the application was declined.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1409
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1528
 #, php-format
 msgid "Declined on %s."
 msgstr ""
 
 #. translators: %s: the day the application was filed as spam.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1417
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1536
 #, php-format
 msgid "Filed as spam on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1452
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1571
 msgid "The form's checks held it for a person to read first. Nobody was refused, and the applicant was acknowledged."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1453
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1572
 msgid "The form's checks held it for a person to read first. Nobody was refused."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1458
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1577
 msgid "Another application in the queue or waiting for the course has the same address or WordPress.org username. Nothing is ever merged."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1462
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1581
 msgid "already a mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1462
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1581
 msgid "A mentor the site knows, current or former, has this address or WordPress.org username."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1466
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1585
 msgid "address not confirmed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1466
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1585
 msgid "The applicant has not followed the link in the acknowledgement yet, so Select, Ask for more information and Decline wait."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1473
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1592
 msgid "acknowledgement not sent"
 msgstr ""
 
 #. translators: %s: the day more information was asked for.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1491
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1610
 #, php-format
 msgid "Asked for more information on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1513
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1632
 msgid "Making mentors from applications is off until the launch: this applicant waits."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1517
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1636
 msgid "Not checked yet: the daily check reads the profile next."
 msgstr ""
 
 #. translators: %s: the day the profile was last checked.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1520
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1639
 #, php-format
 msgid "Checked on %s: the course shows on the profile."
 msgstr ""
 
 #. translators: %s: the day the profile was last checked.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1523
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1642
 #, php-format
 msgid "Checked on %s: the course does not show on the profile yet."
 msgstr ""
 
 #. translators: 1: the day the profile was last checked, 2: why it could not be read, as the check said.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1527
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1646
 #, php-format
 msgid "Checked on %1$s: the profile could not be read (%2$s)."
 msgstr ""
 
 #. translators: 1: the day the account could not be made, 2: why, in the words the account step gave.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1541
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1660
 #, php-format
 msgid "The account could not be made on %1$s: %2$s"
 msgstr ""
 
 #. translators: %s: the username of the mentor's account, a link to its profile screen.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1564
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1683
 #, php-format
 msgid "Account: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1568
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1687
 msgid "Account: the account made for this mentor no longer exists."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1611
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1730
 msgid "The account is gone, so no invitation can reach it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1615
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1734
 msgid "No invitation: the account is an Administrator's, which signs in already."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1619
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1738
 msgid "The invitation with the welcome waits in the email queue."
 msgstr ""
 
 #. translators: %s: the day the invitation was handed to the mail host.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1643
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1762
 #, php-format
 msgid "The invitation with the welcome went to the mail host on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1645
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1764
 msgid "Send invite or Resend invite is on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
 #. translators: %s: the day the invitation was handed over.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1651
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1770
 #, php-format
 msgid "The invitation with the welcome was handed over on %s, and the mail log does not say whether it went."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1672
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1791
 msgid "No invitation has gone since this applicant was made a mentor: the account was linked by WordPress.org username alone. Confirm it is the same person, then press Send invite or Resend invite on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1676
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1795
 msgid "No invitation has gone since this applicant was made a mentor: another account also answered for the applicant. Confirm which account is the person's, then press Send invite or Resend invite on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1679
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1798
 msgid "No invitation has gone since this applicant was made a mentor. Send invite or Resend invite is on its row in the Mentors screen's Accounts tab."
 msgstr ""
 
 #. translators: %s: the day the invitation was sent.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1691
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1810
 #, php-format
 msgid "The invitation with the welcome was sent on %s."
 msgstr ""
 
 #. translators: %s: the day the Mentors row was written.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1715
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1834
 #, php-format
 msgid "Airtable row written on %s."
 msgstr ""
 
 #. translators: %s: the day the mentor's own Mentors row was set back to Active.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1720
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1839
 #, php-format
 msgid "The mentor's own Airtable row was set back to Active on %s."
 msgstr ""
 
 #. translators: %s: the day the Mentors row that held the address was set back to Active and linked.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1725
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1844
 #, php-format
 msgid "The Mentors row that held this address was set back to Active and linked on %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1729
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1848
 msgid "The account holds its Airtable record, linked by the mentors sync or by hand; nothing was written from here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1733
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1852
 msgid "The account made for this mentor no longer exists, so no Airtable row is written for it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1737
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1856
 msgid "A mentor already: nothing was written."
 msgstr ""
 
 #. translators: 1: the day Airtable refused the Mentors row, 2: Airtable's words, or the site's, for why.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1742
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1861
 #, php-format
 msgid "Airtable refused the row on %1$s: %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1746
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1865
 msgid "The Airtable row has not been written yet."
 msgstr ""
 
 #. translators: %s: an address.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1816
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1935
 #, php-format
 msgid "%s (confirmed)"
 msgstr ""
 
 #. translators: %s: an address.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1818
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1937
 #, php-format
 msgid "%s (not confirmed yet)"
 msgstr ""
 
 #. translators: %s: an Airtable record ID.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1834
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1953
 #, php-format
 msgid "%s (not in the institutions the site holds)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1838
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1957
 #: includes/modules/class-wpcpm-student-registrations-tab.php:624
 msgid "Agreed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1838
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1957
 #: includes/modules/class-wpcpm-student-registrations-tab.php:624
 msgid "Not agreed"
 msgstr ""
 
 #. translators: 1: a day, 2: what happened, 3: who did it.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1872
+#: includes/modules/class-wpcpm-mentor-application-queue.php:1991
 #, php-format
 msgid "%1$s: %2$s, %3$s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1897
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2016
 msgid "applied"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1898
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2017
 msgid "confirmed the address"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1899
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2018
 msgid "selected"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1900
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2019
 msgid "asked for more information"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1901
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2020
 msgid "asked for a second opinion"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1902
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2021
 msgid "declined"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1904
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2023
 msgid "withdrawn"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1905
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2024
 msgid "put back in the queue"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1906
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2025
 msgid "put back in the queue, acknowledgement sent"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1907
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2026
 msgid "sent the acknowledgement"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1908
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2027
+msgid "sent the confirmation link again"
+msgstr ""
+
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2028
 msgid "lapsed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1909
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2029
 #: includes/tools/class-wpcpm-mentor-checker.php:755
 msgid "made a mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1910
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2030
 msgid "filed as already a mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1911
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2031
 msgid "wrote the Airtable row"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1912
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2032
 msgid "Airtable refused the row"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1914
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2034
 msgid "the account is gone, so nothing more is written for it"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1915
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2035
 msgid "the row was linked by the mentors sync or by hand"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1939
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2064
 msgid "Send the acknowledgement"
 msgstr ""
 
 #. translators: %s: the applicant's name.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1942
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2067
 #, php-format
 msgid "Send %s the acknowledgement, with the link that confirms the address?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1956
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2081
 msgid "Select"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1958
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2083
 msgid "A note for the next Administrator, optional. It is never sent."
 msgstr ""
 
 #. translators: %s: the applicant's name.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1963
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2088
 #, php-format
 msgid "Select %s and send the selection email with the mentors' course invitation link?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1977
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2102
 msgid "Ask for more information"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1978
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2103
 msgid "What you are asking about, for the next Administrator, optional. The email is the template's; this is never sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:1989
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2114
 msgid "What a colleague should look at. Needed; nothing is sent to the applicant."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2002
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2127
 msgid "Why, for the next Administrator, optional. It is never sent."
 msgstr ""
 
 #. translators: %s: the applicant's name.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2007
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2132
 #, php-format
 msgid "Decline the application from %s and send the decline email?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2017
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2142
 #: includes/modules/class-wpcpm-student-interests-tab.php:582
 msgid "Mark as spam"
 msgstr ""
 
 #. translators: %s: the applicant's name.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2020
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2145
 #, php-format
 msgid "Mark the application from %s as spam? Nothing is sent to the address on it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2046
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2171
 msgid "The course is completed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2048
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2173
 msgid "How you know, for the next Administrator, optional. It is never sent."
 msgstr ""
 
 #. translators: %s: the applicant's name.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2053
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2178
 #, php-format
 msgid "Make %s a mentor now? It makes or links their account, writes or reactivates their Airtable row, and queues the invitation with the welcome unless the account must be confirmed first or is an Administrator's. If Airtable refuses the row, they are a mentor all the same. An applicant who is a mentor already is only filed as one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2066
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2191
 msgid "Write the Airtable row again"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2077
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2202
 msgid "Withdraw"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2078
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2203
 msgid "Why: what the applicant wrote. Needed; nothing is sent to them."
 msgstr ""
 
 #. translators: %s: the applicant's name.
-#: includes/modules/class-wpcpm-mentor-application-queue.php:2084
+#: includes/modules/class-wpcpm-mentor-application-queue.php:2209
 #, php-format
 msgid "Withdraw %s? The application moves to Lapsed and nothing is sent."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentor-application.php:273
+#: includes/modules/class-wpcpm-mentor-application.php:280
 msgid "Mentor application"
 msgstr ""
 
 #. translators: 1: the day the applicant was selected, 2: how many days the course had.
-#: includes/modules/class-wpcpm-mentor-application.php:1093
+#: includes/modules/class-wpcpm-mentor-application.php:1100
 #, php-format
 msgid "Selected on %1$s, and the mentors' course had not shown %2$s days later."
 msgstr ""
@@ -18098,69 +18121,69 @@ msgid "Airtable sends those two fields as record IDs, which the sync turns into 
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/modules/class-wpcpm-mentors.php:610
+#: includes/modules/class-wpcpm-mentors.php:621
 #, php-format
 msgid "Confirmed: %s is linked to the mentor's record and holds the Mentor role. The next sync gives the account its students."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:611
+#: includes/modules/class-wpcpm-mentors.php:622
 msgid "That match is no longer waiting: a sync found the mentor another way, or the account is gone. Nothing was changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:630
+#: includes/modules/class-wpcpm-mentors.php:641
 msgid "The account"
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/modules/class-wpcpm-mentors.php:635
+#: includes/modules/class-wpcpm-mentors.php:646
 #, php-format
 msgid "Confirmed: %s is linked to the mentor's record and keeps its Administrator role. The next sync gives the account its students."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:643
+#: includes/modules/class-wpcpm-mentors.php:654
 msgid "An invitation with the welcome is queued."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:718
+#: includes/modules/class-wpcpm-mentors.php:729
 msgid "Needs confirming"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:719
+#: includes/modules/class-wpcpm-mentors.php:730
 msgid "The sync found an account whose login is a mentor's WordPress.org username, and nothing else ties the two: no address and no record. It gave the account nothing. Confirm a match only when the account is the mentor's."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:723
+#: includes/modules/class-wpcpm-mentors.php:734
 msgid "Found"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:724
-#: includes/modules/class-wpcpm-mentors.php:760
+#: includes/modules/class-wpcpm-mentors.php:735
+#: includes/modules/class-wpcpm-mentors.php:771
 msgid "Confirm"
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/modules/class-wpcpm-mentors.php:751
+#: includes/modules/class-wpcpm-mentors.php:762
 #, php-format
 msgid "Make %s a mentor and give the account this mentor's students?"
 msgstr ""
 
 #. translators: %s: how many mentors made from applications have no Airtable row yet.
-#: includes/modules/class-wpcpm-mentors.php:787
+#: includes/modules/class-wpcpm-mentors.php:798
 #, php-format
 msgid "%s mentor made from an application has no Airtable row yet."
 msgid_plural "%s mentors made from applications have no Airtable row yet."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-mentors.php:792
+#: includes/modules/class-wpcpm-mentors.php:803
 msgid "Write the Airtable row again is on each, under Activated on the Waiting for review tab."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:820
+#: includes/modules/class-wpcpm-mentors.php:831
 msgid "No mentor has an account on the site yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:821
+#: includes/modules/class-wpcpm-mentors.php:832
 #: includes/modules/class-wpcpm-sponsor-offer-review.php:139
 #: includes/modules/class-wpcpm-sponsor-offers.php:2887
 #: includes/modules/class-wpcpm-sponsor-tools.php:587
@@ -18168,7 +18191,7 @@ msgid "mentors"
 msgstr ""
 
 #. translators: %s: how many mentors.
-#: includes/modules/class-wpcpm-mentors.php:823
+#: includes/modules/class-wpcpm-mentors.php:834
 #, php-format
 msgid "Invite %s mentor who has never been invited"
 msgid_plural "Invite %s mentors who have never been invited"
@@ -18176,100 +18199,100 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: human-readable time difference.
-#: includes/modules/class-wpcpm-mentors.php:858
+#: includes/modules/class-wpcpm-mentors.php:869
 #: includes/modules/class-wpcpm-students.php:632
 #, php-format
 msgid "Last completed %s ago."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:871
+#: includes/modules/class-wpcpm-mentors.php:882
 msgid "Sync mentors now"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:950
+#: includes/modules/class-wpcpm-mentors.php:961
 #: includes/modules/class-wpcpm-students.php:605
 msgid "No progress for over two minutes. The run may have been interrupted - cancel it and start again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:958
+#: includes/modules/class-wpcpm-mentors.php:969
 #: includes/modules/class-wpcpm-students.php:613
 msgid "Reload this page to choose Run anyway or Cancel."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:961
+#: includes/modules/class-wpcpm-mentors.php:972
 msgid "The sync works in short bursts so it never hits a PHP timeout. Progress above updates every few seconds; you can safely leave this page and come back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:963
+#: includes/modules/class-wpcpm-mentors.php:974
 msgid "JavaScript is off, so this page reloads every 15 seconds to show progress. The sync itself continues either way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:978
+#: includes/modules/class-wpcpm-mentors.php:989
 msgid "Field descriptions read from Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:979
+#: includes/modules/class-wpcpm-mentors.php:990
 msgid "Active mentors in Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:980
+#: includes/modules/class-wpcpm-mentors.php:991
 #: includes/modules/class-wpcpm-students.php:664
 msgid "Accounts created"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:981
+#: includes/modules/class-wpcpm-mentors.php:992
 #: includes/modules/class-wpcpm-students.php:665
 msgid "Existing accounts linked"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:982
+#: includes/modules/class-wpcpm-mentors.php:993
 #: includes/modules/class-wpcpm-students.php:666
 msgid "Accounts refreshed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:984
+#: includes/modules/class-wpcpm-mentors.php:995
 msgid "Invitations sent to existing accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:985
+#: includes/modules/class-wpcpm-mentors.php:996
 msgid "Mentor role revoked (no longer active)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:986
+#: includes/modules/class-wpcpm-mentors.php:997
 msgid "Current student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:987
+#: includes/modules/class-wpcpm-mentors.php:998
 msgid "Past student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:988
+#: includes/modules/class-wpcpm-mentors.php:999
 msgid "Student assignments written"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:989
+#: includes/modules/class-wpcpm-mentors.php:1000
 msgid "Students with no mentor in Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:990
+#: includes/modules/class-wpcpm-mentors.php:1001
 msgid "Students assigned to a non-active mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:991
+#: includes/modules/class-wpcpm-mentors.php:1002
 msgid "Mentors skipped (missing data)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:992
+#: includes/modules/class-wpcpm-mentors.php:1003
 #: includes/modules/class-wpcpm-students.php:672
 msgid "Account conflicts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:996
+#: includes/modules/class-wpcpm-mentors.php:1007
 #: includes/modules/class-wpcpm-students.php:676
 msgid "Last sync report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1016
+#: includes/modules/class-wpcpm-mentors.php:1027
 #: includes/modules/class-wpcpm-students.php:696
 msgid "Warnings"
 msgstr ""
