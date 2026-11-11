@@ -1,0 +1,127 @@
+# Publishes the strings students and mentors read, for translate.wordpress.org.
+#
+# This file's source is the plugin's bin/translations-pot.workflow.yml. It runs from the
+# repository's .github/workflows/translations-pot.yml, copied there by hand when it changes.
+#
+# translate.wordpress.org imports a project's originals from one fixed URL, and there are two:
+#
+#   https://raw.githubusercontent.com/WordPress/WPCredits/translations/wpcredits-program-manager.pot
+#   https://raw.githubusercontent.com/WordPress/WPCredits/translations/wpcredits-theme.pot
+#
+# so every push to trunk that can change a string cuts the templates again and commits them to
+# `translations`, an orphan branch holding those two files. The Contributor Toolkit and Openverse
+# publish their strings the same way.
+#
+# Both are cut by the plugin's bin/translators-pot.php from the full templates a release
+# regenerates. The plugin's keeps the files students and mentors see and the emails sent to them,
+# about a sixth of the whole; the theme's keeps the pieces around those screens (signing in, the
+# header), listed in its bin/translators-files.txt. Nothing is installed: the runner's own PHP and
+# gettext do the work.
+#
+# Two jobs, so the one that runs the repository's PHP holds a read-only token and the one that can
+# push runs nothing but Git.
+
+name: Translatable strings
+
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - 'Education/WordPress Education Dashboard/wpcredits-program-manager/languages/wpcredits-program-manager.pot'
+      - 'Education/WordPress Education Dashboard/wpcredits-program-manager/bin/translators-pot.php'
+      - 'Education/WordPress Education Dashboard/wpcredits-theme/languages/wpcredits-theme.pot'
+      - 'Education/WordPress Education Dashboard/wpcredits-theme/bin/translators-files.txt'
+      - '.github/workflows/translations-pot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two runs pushing to the same branch would race.
+concurrency:
+  group: translations-pot
+  cancel-in-progress: false
+
+env:
+  PLUGIN: Education/WordPress Education Dashboard/wpcredits-program-manager
+  THEME: Education/WordPress Education Dashboard/wpcredits-theme
+  PLUGIN_POT: wpcredits-program-manager.pot
+  THEME_POT: wpcredits-theme.pot
+
+jobs:
+  cut:
+    name: cut the templates
+    # Trunk only, whichever way the run started: a hand-started run from another branch would
+    # publish that branch's strings, and trunk's missing ones would be marked obsolete.
+    if: github.repository_owner == 'WordPress' && github.ref == 'refs/heads/trunk'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Fails, naming the file, when a listed file no longer has a string in the template.
+      - name: Cut the templates
+        run: |
+          mkdir "$RUNNER_TEMP/pot"
+          php "$PLUGIN/bin/translators-pot.php" "$RUNNER_TEMP/pot/$PLUGIN_POT"
+          php "$PLUGIN/bin/translators-pot.php" "$RUNNER_TEMP/pot/$THEME_POT" \
+            --source="$THEME/languages/wpcredits-theme.pot" --files="$THEME/bin/translators-files.txt"
+
+      # GNU gettext's own compiler reads a template the way translate.wordpress.org will, and
+      # fails on a syntax error before the file is published. It warns about the header fields a
+      # template leaves at their defaults, which does not fail it.
+      - name: Check the templates with msgfmt
+        run: |
+          command -v msgfmt >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q gettext; }
+          msgfmt --check -o /dev/null "$RUNNER_TEMP/pot/$PLUGIN_POT"
+          msgfmt --check -o /dev/null "$RUNNER_TEMP/pot/$THEME_POT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pot
+          path: ${{ runner.temp }}/pot/*.pot
+          retention-days: 1
+
+  publish:
+    name: publish to the translations branch
+    needs: cut
+    runs-on: ubuntu-latest
+    # Writes to the `translations` branch.
+    permissions:
+      contents: write
+    steps:
+      # Pinned to a commit, not a tag: this job holds a token that can push to any branch, trunk
+      # included, and a commit cannot be repointed.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pot
+          path: ${{ runner.temp }}/pot
+
+      - name: Commit the templates to `translations`
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # `translations` does not exist on the first run. Orphaning keeps trunk's files out of
+          # the commit: `--cached` unstages everything, and only the templates are added back.
+          if git ls-remote --exit-code --heads origin translations >/dev/null 2>&1; then
+            git fetch --depth=1 origin translations:translations
+            git checkout translations
+          else
+            git checkout --orphan translations
+            git rm -rf --cached . >/dev/null
+          fi
+
+          cp "$RUNNER_TEMP/pot/$PLUGIN_POT" "$RUNNER_TEMP/pot/$THEME_POT" .
+          # Forced, in case trunk's .gitignore ever ignores templates.
+          git add -f "$PLUGIN_POT" "$THEME_POT"
+          if git diff --cached --quiet; then
+            echo "No change to the strings."
+            exit 0
+          fi
+          git commit -m "Update the translation templates from $GITHUB_SHA"
+          git push origin translations
