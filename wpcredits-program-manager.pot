@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.83\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.84\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T13:00:04+00:00\n"
+"POT-Creation-Date: 2026-11-11T13:19:59+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -147,7 +147,7 @@ msgstr ""
 #: includes/class-wpcpm-dashboards.php:88
 #: includes/mail/class-wpcpm-mail-templates.php:1110
 #: includes/modules/class-wpcpm-institutions-dashboard.php:127
-#: includes/modules/class-wpcpm-institutions-dashboard.php:1407
+#: includes/modules/class-wpcpm-institutions-dashboard.php:1409
 #: blocks/institution-dashboard/editor.js:48
 msgid "Institution Dashboard"
 msgstr ""
@@ -411,7 +411,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:2000
 #: includes/modules/class-wpcpm-administrators-dashboard.php:718
 #: includes/modules/class-wpcpm-institution-roster-view.php:146
-#: includes/modules/class-wpcpm-institutions-dashboard.php:556
+#: includes/modules/class-wpcpm-institutions-dashboard.php:571
 #: includes/modules/class-wpcpm-mentor-engagement-table.php:94
 #: includes/modules/class-wpcpm-mentors-table.php:96
 #: includes/modules/class-wpcpm-sponsor-offers.php:2781
@@ -440,7 +440,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:2017
 #: includes/modules/class-wpcpm-administrators-dashboard.php:728
 #: includes/modules/class-wpcpm-cohort-timeline-view.php:721
-#: includes/modules/class-wpcpm-institutions.php:383
+#: includes/modules/class-wpcpm-institutions.php:386
 msgid "Institutions"
 msgstr ""
 
@@ -458,8 +458,8 @@ msgid "Sponsors"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:79
-#: includes/class-wpcpm-settings-choices.php:584
-#: includes/class-wpcpm-settings-screen.php:2147
+#: includes/class-wpcpm-settings-choices.php:623
+#: includes/class-wpcpm-settings-screen.php:2151
 #: includes/mail/class-wpcpm-mail-templates.php:1112
 #: includes/modules/class-wpcpm-administrators.php:82
 #: includes/modules/class-wpcpm-mentor-engagement.php:300
@@ -519,7 +519,7 @@ msgid "Details"
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1270
-#: includes/class-wpcpm-settings.php:1669
+#: includes/class-wpcpm-settings.php:1697
 #: includes/modules/class-wpcpm-mentors-dashboard.php:700
 msgid "Currently mentoring"
 msgstr ""
@@ -529,17 +529,17 @@ msgstr ""
 msgid "Past students"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:2015
+#: includes/class-wpcpm-settings-screen.php:2019
 #: includes/modules/class-wpcpm-sponsor-tools.php:420
 #: includes/modules/class-wpcpm-students-dashboard.php:420
 msgid "Tools from our sponsors"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:2576
-#: includes/modules/class-wpcpm-institution-application.php:1667
-#: includes/modules/class-wpcpm-institution-application.php:1744
-#: includes/modules/class-wpcpm-institution-details-card.php:519
-#: includes/modules/class-wpcpm-institution-details-card.php:567
+#: includes/class-wpcpm-settings-screen.php:2580
+#: includes/modules/class-wpcpm-institution-application.php:1677
+#: includes/modules/class-wpcpm-institution-application.php:1754
+#: includes/modules/class-wpcpm-institution-details-card.php:523
+#: includes/modules/class-wpcpm-institution-details-card.php:571
 #: includes/modules/class-wpcpm-institution-import-form.php:284
 #: includes/modules/class-wpcpm-institution-import-form.php:314
 #: includes/modules/class-wpcpm-mentor-application-form.php:1305
@@ -644,6 +644,7 @@ msgstr ""
 
 #: includes/mail/class-wpcpm-mail-log-table.php:58
 #: includes/mail/class-wpcpm-mail-log.php:512
+#: includes/modules/class-wpcpm-institution-tutors.php:484
 #: includes/modules/class-wpcpm-mentor-application-form.php:432
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1246
 #: includes/modules/class-wpcpm-student-registration-form.php:451
@@ -1090,7 +1091,7 @@ msgstr ""
 #. translators: %s: number of minutes.
 #: includes/mail/templates/events.php:87
 #: includes/modules/class-wpcpm-mentor-availability.php:1032
-#: includes/modules/class-wpcpm-sponsor-event.php:1491
+#: includes/modules/class-wpcpm-sponsor-event.php:1493
 #, php-format
 msgid "%s minute"
 msgid_plural "%s minutes"
@@ -1108,12 +1109,12 @@ msgstr ""
 msgid "The address the application gave, which this email is sent to, as the applicant typed it. It goes in the body, never in the subject, which the mail log keeps."
 msgstr ""
 
-#: includes/mail/templates/institutions.php:409
+#: includes/mail/templates/institutions.php:421
 #: includes/mail/templates/mentor-applications.php:148
 msgid "Please follow this link: we cannot take your application further until you do."
 msgstr ""
 
-#: includes/mail/templates/institutions.php:577
+#: includes/mail/templates/institutions.php:593
 #: includes/mail/templates/mentor-applications.php:265
 #: includes/mail/templates/sponsors.php:372
 msgid "It is on the queue here:"
@@ -1588,9 +1589,9 @@ msgstr ""
 #: includes/mail/templates/sponsors.php:362
 #: includes/mail/templates/student-interests.php:117
 #: includes/modules/class-wpcpm-administrators-cards.php:3106
-#: includes/modules/class-wpcpm-institution-announce.php:404
+#: includes/modules/class-wpcpm-institution-announce.php:401
 #: includes/modules/class-wpcpm-institution-panel.php:1502
-#: includes/modules/class-wpcpm-institutions.php:5079
+#: includes/modules/class-wpcpm-institutions.php:5097
 #: includes/tools/class-wpcpm-emails.php:488
 #: includes/tools/class-wpcpm-track-history-screen.php:202
 #, php-format
@@ -1763,15 +1764,15 @@ msgid "The student's mentor. The sentence that names the mentor is left out for 
 msgstr ""
 
 #: includes/mail/templates/students.php:68
-msgid "The Administrator for the student's country. The sentence that names them is left out for a student whose country has none."
+msgid "The Administrator assigned to the student's institution. The sentence that names them is left out for a student whose institution has none."
 msgstr ""
 
 #: includes/mail/templates/students.php:72
-msgid "Where the student can book a call: the calls section of their Student Report Card when they have a mentor, else the booking page of the Administrator for their country. Empty for a student with neither, who has nothing to book, and the sentence that holds it is left out."
+msgid "Where the student can book a call: the calls section of their Student Report Card when they have a mentor, else the booking page of the Administrator assigned to their institution. Empty for a student with neither, who has nothing to book, and the sentence that holds it is left out."
 msgstr ""
 
 #: includes/mail/templates/students.php:80
-msgid "The address in Contact address in emails, for a student with nothing to book: no mentor and no booking page for their country. Empty for any other student, and while the setting holds no address, and the sentence that holds it is left out."
+msgid "The address in Contact address in emails, for a student with nothing to book: no mentor and no booking page from the Administrator assigned to their institution. Empty for any other student, and while the setting holds no address, and the sentence that holds it is left out."
 msgstr ""
 
 #: includes/mail/templates/students.php:84
@@ -1820,10 +1821,10 @@ msgstr ""
 msgid "Your mentor, %s, is there to help, whatever stage you are at."
 msgstr ""
 
-#. translators: %s: the name of the Administrator for the student's country.
+#. translators: %s: the name of the Administrator assigned to the student's institution.
 #: includes/mail/templates/students.php:179
 #, php-format
-msgid "%s, the Administrator for your country, is glad to help."
+msgid "%s, the Administrator for your institution, is glad to help."
 msgstr ""
 
 #: includes/mail/templates/students.php:181
@@ -1869,7 +1870,7 @@ msgid "If you have already talked with a student listed here, the Mentor Report 
 msgstr ""
 
 #: includes/mail/templates/students.php:219
-msgid "On the first daily run of each Monday, once a week, when the switch is On: to each Administrator who has at least one quiet student in their country. Students of a test institution are not counted or listed."
+msgid "On the first daily run of each Monday, once a week, when the switch is On: to each Administrator who has at least one quiet student at an institution assigned to them. Students of a test institution are not counted or listed."
 msgstr ""
 
 #. translators: 1: the site's name, 2: a number of students.
@@ -1881,7 +1882,7 @@ msgstr ""
 #. translators: %s: a number of students.
 #: includes/mail/templates/students.php:231
 #, php-format
-msgid "Students gone quiet in your country: %s."
+msgid "Students gone quiet at your institutions: %s."
 msgstr ""
 
 #: includes/mail/templates/students.php:233
@@ -1909,7 +1910,8 @@ msgid "%s ago"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:2745
-#: includes/modules/class-wpcpm-institution-details-card.php:462
+#: includes/modules/class-wpcpm-institution-assignment.php:385
+#: includes/modules/class-wpcpm-institution-details-card.php:466
 #: includes/modules/class-wpcpm-institution-request.php:1821
 #: includes/modules/class-wpcpm-institution-tracks.php:314
 #: includes/modules/class-wpcpm-semester-report-screen.php:939
@@ -1921,8 +1923,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-report-screen.php:1062
 #: includes/modules/class-wpcpm-sponsors.php:3930
 #: includes/modules/class-wpcpm-student-checklist.php:270
-#: includes/modules/class-wpcpm-student-flags.php:1232
-#: includes/modules/class-wpcpm-student-flags.php:1259
+#: includes/modules/class-wpcpm-student-flags.php:1212
+#: includes/modules/class-wpcpm-student-flags.php:1239
 msgid "Saving"
 msgstr ""
 
@@ -2118,7 +2120,7 @@ msgid "Cancel this call? The slot goes back on the calendar."
 msgstr ""
 
 #: includes/modules/class-wpcpm-call-calendar.php:929
-#: includes/modules/class-wpcpm-institution-invite.php:412
+#: includes/modules/class-wpcpm-institution-invite.php:451
 #: includes/modules/class-wpcpm-sponsors.php:3946
 msgid "Cancel"
 msgstr ""
@@ -2442,24 +2444,25 @@ msgstr ""
 msgid "an Administrator"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:740
+#: includes/modules/class-wpcpm-institution-application.php:750
+#: includes/modules/class-wpcpm-institution-areas.php:448
 #: includes/modules/class-wpcpm-institution-details.php:138
-#: includes/modules/class-wpcpm-institutions.php:4531
+#: includes/modules/class-wpcpm-institutions.php:4547
 #: includes/modules/class-wpcpm-mentor-application-form.php:448
 #: includes/modules/class-wpcpm-student-interest-form.php:427
 #: includes/modules/class-wpcpm-student-interest.php:961
 msgid "Country"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:746
+#: includes/modules/class-wpcpm-institution-application.php:756
 #: includes/modules/class-wpcpm-institution-details.php:131
-#: includes/modules/class-wpcpm-institutions.php:4532
+#: includes/modules/class-wpcpm-institutions.php:4548
 #: includes/modules/class-wpcpm-student-interest-form.php:433
 #: includes/modules/class-wpcpm-student-interest.php:962
 msgid "City"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:754
+#: includes/modules/class-wpcpm-institution-application.php:764
 #: includes/modules/class-wpcpm-institution-details.php:124
 #: includes/modules/class-wpcpm-institution-export.php:182
 #: includes/modules/class-wpcpm-institution-roster-view.php:264
@@ -2472,13 +2475,13 @@ msgstr ""
 msgid "Website"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:902
+#: includes/modules/class-wpcpm-institution-application.php:912
 #: includes/modules/class-wpcpm-mentor-application-form.php:550
 #: includes/modules/class-wpcpm-sponsor-application.php:685
 msgid "Tell us more"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:903
+#: includes/modules/class-wpcpm-institution-application.php:913
 #: includes/modules/class-wpcpm-mentor-application-form.php:551
 #: includes/modules/class-wpcpm-sponsor-application.php:686
 #: includes/modules/class-wpcpm-student-interest-form.php:376
@@ -2489,14 +2492,14 @@ msgstr ""
 #. translators: %s: the application reference, e.g. APP-2026-0007.
 #. translators: %s: the application reference, e.g. MAPP-2026-0007.
 #. translators: %s: the application reference, e.g. SAPP-2026-0007.
-#: includes/modules/class-wpcpm-institution-application.php:1455
+#: includes/modules/class-wpcpm-institution-application.php:1465
 #: includes/modules/class-wpcpm-mentor-application-form.php:1137
 #: includes/modules/class-wpcpm-sponsor-application.php:1120
 #, php-format
 msgid "Your reference is %s. Quote it if you write to us about this application."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1501
+#: includes/modules/class-wpcpm-institution-application.php:1511
 #: includes/modules/class-wpcpm-mentor-application-form.php:1179
 #: includes/modules/class-wpcpm-sponsor-application.php:1164
 #: includes/modules/class-wpcpm-student-interest-form.php:1032
@@ -2504,7 +2507,7 @@ msgstr ""
 msgid "This form had been open for a long time, so it was not sent. Your answers are still here: please send it again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1502
+#: includes/modules/class-wpcpm-institution-application.php:1512
 #: includes/modules/class-wpcpm-mentor-application-form.php:1180
 #: includes/modules/class-wpcpm-sponsor-application.php:1165
 #: includes/modules/class-wpcpm-student-interest-form.php:1033
@@ -2512,18 +2515,18 @@ msgstr ""
 msgid "This form had been open for a while and could not be sent. Your answers are still here: please send it again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1503
+#: includes/modules/class-wpcpm-institution-application.php:1513
 #: includes/modules/class-wpcpm-mentor-application-form.php:1181
 #: includes/modules/class-wpcpm-sponsor-application.php:1166
 msgid "Something went wrong at our end and the application was not saved. Nothing has been sent. Try once more."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1507
+#: includes/modules/class-wpcpm-institution-application.php:1517
 #: includes/modules/class-wpcpm-mentor-application-form.php:1185
 msgid "That confirmation link could not be read. It may have been broken across two lines by a mail program: please try the whole link again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1542
+#: includes/modules/class-wpcpm-institution-application.php:1552
 #: includes/modules/class-wpcpm-institution-resend.php:226
 #: includes/modules/class-wpcpm-mentor-application-form.php:1219
 #: includes/modules/class-wpcpm-sponsor-application.php:1203
@@ -2532,43 +2535,45 @@ msgstr ""
 msgid "Sending..."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1543
+#: includes/modules/class-wpcpm-institution-application.php:1553
 #: includes/modules/class-wpcpm-mentor-application-form.php:1220
 #: includes/modules/class-wpcpm-sponsor-application.php:1204
 msgid "Sending your application."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1590
+#: includes/modules/class-wpcpm-institution-application.php:1600
 #: includes/modules/class-wpcpm-mentor-application-form.php:1251
 #: includes/modules/class-wpcpm-sponsor-application.php:1261
 msgid "Send this application"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1741
-#: includes/modules/class-wpcpm-institution-details-card.php:564
+#: includes/modules/class-wpcpm-institution-application.php:1751
+#: includes/modules/class-wpcpm-institution-areas.php:446
+#: includes/modules/class-wpcpm-institution-areas.php:504
+#: includes/modules/class-wpcpm-institution-details-card.php:568
 #: includes/modules/class-wpcpm-mentor-application-form.php:1387
 #: includes/modules/class-wpcpm-student-interest-form.php:1231
 msgid "Choose a country"
 msgstr ""
 
 #. translators: Shown in the empty country field, which takes typing.
-#: includes/modules/class-wpcpm-institution-application.php:1749
-#: includes/modules/class-wpcpm-institution-details-card.php:571
+#: includes/modules/class-wpcpm-institution-application.php:1759
+#: includes/modules/class-wpcpm-institution-details-card.php:575
 #: includes/modules/class-wpcpm-mentor-application-form.php:1398
 #: includes/modules/class-wpcpm-student-interest-form.php:1238
 msgid "Type to find your country"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1750
-#: includes/modules/class-wpcpm-institution-details-card.php:572
+#: includes/modules/class-wpcpm-institution-application.php:1760
+#: includes/modules/class-wpcpm-institution-details-card.php:576
 #: includes/modules/class-wpcpm-mentor-application-form.php:1401
 #: includes/modules/class-wpcpm-student-interest-form.php:1239
 msgid "No country has that name."
 msgstr ""
 
 #. translators: %s: how many countries the list shows, as a number.
-#: includes/modules/class-wpcpm-institution-application.php:1752
-#: includes/modules/class-wpcpm-institution-details-card.php:574
+#: includes/modules/class-wpcpm-institution-application.php:1762
+#: includes/modules/class-wpcpm-institution-details-card.php:578
 #: includes/modules/class-wpcpm-mentor-application-form.php:1406
 #: includes/modules/class-wpcpm-student-interest-form.php:1241
 #, php-format
@@ -2576,14 +2581,14 @@ msgid "Countries in the list: %s"
 msgstr ""
 
 #. translators: %1$s: opening link tag to the WordPress.org privacy policy, %2$s: closing link tag.
-#: includes/modules/class-wpcpm-institution-application.php:1845
+#: includes/modules/class-wpcpm-institution-application.php:1855
 #: includes/modules/class-wpcpm-mentor-application-form.php:1472
 #: includes/modules/class-wpcpm-sponsor-application.php:1776
 #, php-format
 msgid "You can read the WordPress.org privacy policy %1$shere%2$s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1871
+#: includes/modules/class-wpcpm-institution-application.php:1881
 #: includes/modules/class-wpcpm-mentor-application-form.php:1503
 #: includes/modules/class-wpcpm-sponsor-application.php:1802
 #: includes/modules/class-wpcpm-student-interest-form.php:1316
@@ -2592,13 +2597,13 @@ msgid "Fill this in."
 msgstr ""
 
 #. translators: %s: the most characters the answer may have, as a number.
-#: includes/modules/class-wpcpm-institution-application.php:1877
+#: includes/modules/class-wpcpm-institution-application.php:1887
 #: includes/modules/class-wpcpm-student-interest-form.php:1306
 #, php-format
 msgid "Keep this to %s characters or fewer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1883
+#: includes/modules/class-wpcpm-institution-application.php:1893
 #: includes/modules/class-wpcpm-mentor-application-form.php:1505
 #: includes/modules/class-wpcpm-sponsor-application.php:1806
 #: includes/modules/class-wpcpm-student-interest-form.php:1320
@@ -2607,7 +2612,7 @@ msgstr ""
 msgid "That does not look like an email address."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1900
+#: includes/modules/class-wpcpm-institution-application.php:1910
 #: includes/modules/class-wpcpm-mentor-application-form.php:1506
 #: includes/modules/class-wpcpm-sponsor-application.php:1810
 #: includes/modules/class-wpcpm-student-interest-form.php:1321
@@ -2615,7 +2620,7 @@ msgstr ""
 msgid "Choose one of the options offered."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1910
+#: includes/modules/class-wpcpm-institution-application.php:1920
 #: includes/modules/class-wpcpm-mentor-application-form.php:1513
 #: includes/modules/class-wpcpm-sponsor-application.php:1819
 #: includes/modules/class-wpcpm-student-interest-form.php:1322
@@ -2624,7 +2629,7 @@ msgstr ""
 msgid "Tick this box to send the form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-application.php:1913
+#: includes/modules/class-wpcpm-institution-application.php:1923
 #: includes/modules/class-wpcpm-mentor-application-form.php:1516
 #: includes/modules/class-wpcpm-sponsor-application.php:1849
 #: includes/modules/class-wpcpm-student-interest-form.php:1326
@@ -2633,7 +2638,12 @@ msgstr ""
 msgid "That answer could not be read. Write it again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-details-card.php:462
+#: includes/modules/class-wpcpm-institution-areas.php:511
+#: includes/modules/class-wpcpm-mentor-availability.php:961
+msgid "to"
+msgstr ""
+
+#: includes/modules/class-wpcpm-institution-details-card.php:466
 #: includes/modules/class-wpcpm-semester-report-screen.php:1249
 #: includes/modules/class-wpcpm-sponsor-event-planner.php:547
 #: includes/modules/class-wpcpm-sponsor-mentors.php:523
@@ -2664,6 +2674,8 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-export.php:184
 #: includes/modules/class-wpcpm-institution-import-form.php:444
+#: includes/modules/class-wpcpm-institution-invite.php:337
+#: includes/modules/class-wpcpm-institution-people.php:499
 #: includes/modules/class-wpcpm-institution-roster-view.php:266
 #: includes/modules/class-wpcpm-institution-student-view.php:486
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1230
@@ -2692,7 +2704,8 @@ msgstr ""
 msgid "Full name"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-people.php:352
+#: includes/modules/class-wpcpm-institution-people.php:366
+#: includes/modules/class-wpcpm-institution-tutors.php:459
 #: includes/modules/class-wpcpm-sponsors.php:3132
 #: includes/modules/class-wpcpm-student-report-form.php:1508
 #: includes/tools/class-wpcpm-track-editor-screen.php:782
@@ -3093,10 +3106,6 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-availability.php:950
 msgid "Copy hours from"
-msgstr ""
-
-#: includes/modules/class-wpcpm-mentor-availability.php:961
-msgid "to"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-availability.php:974
