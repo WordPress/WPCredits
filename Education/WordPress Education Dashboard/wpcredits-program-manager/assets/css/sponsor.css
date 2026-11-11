@@ -269,7 +269,9 @@
 }
 
 /* The head's logo, or the company's initials, in a box 88px high beside the head's copy: square for the
-   initials, as wide as a wide logo needs up to 220px, since most companies' logos are a wordmark. */
+   initials, as wide as a wide logo needs up to 220px, since most companies' logos are a wordmark. The box's
+   width is the logo's own (1.123.81): the theme's 176px box of the page before the frame clipped a wordmark
+   on both sides, and the logo is shown whole, scaled down, never cut. */
 .wpcpm-frame .wpcpm-sponsor .wpcpm-head--logo {
 	grid-template-columns: auto minmax( 0, 1fr );
 }
@@ -288,12 +290,15 @@
 	min-width: 88px;
 	overflow: hidden;
 	padding: 12px;
+	width: auto;
 }
 
 .wpcpm-frame .wpcpm-head--logo .wpcpm-sponsor__logo-image {
+	flex: 0 1 auto;
 	height: auto;
 	max-height: 62px;
 	max-width: 194px;
+	min-width: 0;
 	object-fit: contain;
 	width: auto;
 }

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.80
+Stable tag: 1.123.81
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.81 =
+
+* The company's logo in the Sponsor Dashboard's head is shown whole. Its box is as wide as the logo needs, up to 220px, where a fixed 176px box cut a wide wordmark on both sides.
 
 = 1.123.80 =
 
