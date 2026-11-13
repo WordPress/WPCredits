@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.15
+Stable tag: 1.1.16
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,25 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.16 =
+
+Say how many jobs were actually queued, not how many were offered.
+
+1.1.15's own fault, caught the same day while verifying it on the live site.
+De-duplicating in `push()` meant the count `enqueue_incremental()` logged was no
+longer the number of jobs queued: it counted what was handed to `push()`, so a
+run that added six jobs would still have reported "34 jobs queued". That is the
+same kind of reassuring-but-wrong reporting that let the stale Campus Connect
+figures go unnoticed for two days, so it is not a cosmetic fix.
+
+* Changed: `push()` returns how many jobs it added.
+* Changed: `enqueue_incremental()` logs that number, and names how many were
+  already waiting when any were skipped, so the log says where the difference
+  went instead of leaving a gap to guess at.
+* Changed: `enqueue_full()` logs its count too, which it never did.
+* Changed: both return the number added rather than the number offered. No
+  caller read either value, so nothing else changes.
 
 = 1.1.15 =
 

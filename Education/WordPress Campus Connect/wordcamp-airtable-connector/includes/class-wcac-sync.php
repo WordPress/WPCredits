@@ -94,7 +94,7 @@ class WCAC_Sync {
 	 */
 	protected function push( array $jobs ) {
 		if ( empty( $jobs ) ) {
-			return;
+			return 0;
 		}
 
 		$queue = $this->queue();
@@ -103,10 +103,15 @@ class WCAC_Sync {
 		$fresh = self::new_jobs_only( $queue, $jobs );
 
 		if ( empty( $fresh ) ) {
-			return;
+			return 0;
 		}
 
 		$this->set_queue( array_merge( $queue, $fresh ) );
+
+		// How many were ADDED, not how many were offered. The caller logs this,
+		// and a count of what was offered would claim thirty-odd jobs were
+		// queued on a run that added six.
+		return count( $fresh );
 	}
 
 	/**
@@ -282,7 +287,7 @@ class WCAC_Sync {
 			$jobs[] = array( 'to' => 'cc' );
 		}
 
-		$this->push( $jobs );
+		$added = $this->push( $jobs );
 
 		$this->set_state(
 			array(
@@ -295,9 +300,9 @@ class WCAC_Sync {
 			)
 		);
 
-		WCAC_Logger::log( 'info', 'Full backfill queued.' );
+		WCAC_Logger::log( 'info', sprintf( 'Full backfill queued (%d job(s) added).', $added ) );
 
-		return count( $jobs );
+		return $added;
 	}
 
 	/**
@@ -357,9 +362,8 @@ class WCAC_Sync {
 			}
 		}
 
-		$jobs = $this->without_queued_duplicates( $jobs );
-
-		$this->push( $jobs );
+		$jobs  = $this->without_queued_duplicates( $jobs );
+		$added = $this->push( $jobs );
 
 		$this->set_state(
 			array(
@@ -369,9 +373,19 @@ class WCAC_Sync {
 			)
 		);
 
-		WCAC_Logger::log( 'info', sprintf( 'Incremental sync queued (%d jobs, since %s).', count( $jobs ), $since ) );
+		$already = count( $jobs ) - $added;
 
-		return count( $jobs );
+		WCAC_Logger::log(
+			'info',
+			sprintf(
+				'Incremental sync queued (%d job(s) added%s, since %s).',
+				$added,
+				$already > 0 ? sprintf( ', %d already waiting', $already ) : '',
+				$since
+			)
+		);
+
+		return $added;
 	}
 
 	/* ---------------------------------------------------------------------

@@ -3,7 +3,7 @@
  * Plugin Name:       WordCamp Airtable Connector
  * Plugin URI:        https://github.com/gomp/wordcamp-airtable-connector
  * Description:       Pulls WordCamps, Meetups, Sessions, Speakers, Sponsors and Campus Connect events from the WordCamp.org REST API and upserts them into an Airtable base on a schedule.
- * Version:           1.1.15
+ * Version:           1.1.16
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WCAC_VERSION', '1.1.15' );
+define( 'WCAC_VERSION', '1.1.16' );
 define( 'WCAC_FILE', __FILE__ );
 define( 'WCAC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WCAC_URL', plugin_dir_url( __FILE__ ) );
@@ -101,7 +101,8 @@ add_action( WCAC_CONTINUE_HOOK, 'wcac_cron_tick' );
  * take a `since`, and the Campus Connect report accepts no query parameters at
  * all, so its job is the same complete re-read either way.
  *
- * Safe to run unattended. enqueue_incremental() appends rather than clearing,
+ * Safe to run unattended. enqueue_incremental() appends what is not already
+ * waiting, rather than clearing,
  * so a queue still draining is not discarded, and its own
  * without_queued_duplicates() drops a second Campus Connect job while one is
  * pending, which is the only job expensive enough to matter. It does not clear
