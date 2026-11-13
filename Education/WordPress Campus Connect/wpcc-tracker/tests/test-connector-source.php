@@ -158,3 +158,46 @@ t_eq( $slimmed['pipeline'], $full['pipeline'], 'and the whole status pipeline' )
 t_eq( $slimmed['unmapped_countries'], $full['unmapped_countries'], 'and the unmapped country list' );
 t_eq( count( $slimmed['events'] ), count( $full['events'] ), 'and keeps every event' );
 
+/*
+ * Rebuilding as soon as the provider has a new snapshot, rather than waiting
+ * for this plugin's own daily run.
+ *
+ * On a site whose cron only runs when something asks it to, that daily run can
+ * be the best part of a day after the snapshot it reads. The provider fires an
+ * action when it stores one; this plugin listens and rebuilds in the same
+ * request.
+ *
+ * The action's name is a contract between two plugins that cannot see each
+ * other's code, so both sides assert the same literal in their own suite. A
+ * rename on either side would stop the dashboard updating and report nothing,
+ * which is the failure mode this whole line of work keeps running into. The
+ * real WPCCT_Sync cannot be loaded here, because test-provenance.php stubs it,
+ * so these read the source.
+ */
+$sync_src = file_get_contents( __DIR__ . '/../includes/class-wpcct-sync.php' );
+
+t_ok(
+	1 === preg_match( "/const PROVIDER_UPDATED_ACTION\s*=\s*'wcac_campus_snapshot_updated'/", $sync_src ),
+	'the provider-updated action is named wcac_campus_snapshot_updated, matching the connector'
+);
+t_ok(
+	1 === preg_match( "/const PROVIDER_FILTER\s*=\s*'wcac_campus_connect_export'/", $sync_src ),
+	'and the export filter still matches the connector too'
+);
+t_ok(
+	1 === preg_match( '/add_action\(\s*self::PROVIDER_UPDATED_ACTION/', $sync_src ),
+	'and something actually listens for it'
+);
+t_ok(
+	0 === preg_match( "/add_action\(\s*'wcac_campus_snapshot_updated'/", $sync_src ),
+	'registered through the constant rather than a hardcoded string'
+);
+
+/* The Airtable source must ignore the signal. Rebuilding from Airtable inside
+   the provider's own request would do a pile of third-party HTTP nobody asked
+   for, and on a path that has its own schedule. */
+t_ok(
+	1 === preg_match( '/function on_provider_update.*?SOURCE_CONNECTOR/s', $sync_src ),
+	'the handler checks the source before rebuilding, so the Airtable path ignores it'
+);
+

@@ -923,5 +923,44 @@ t(
     $fail
 );
 
+
+// ------------------------------------------------- the snapshot-updated signal
+echo "\nsnapshot-updated signal:\n";
+
+/*
+ * The dashboard rebuilds when this fires. Its name is a contract between two
+ * plugins that cannot see each other's code, so a rename on either side stops
+ * the dashboard updating and reports nothing at all. The literal is asserted
+ * here, and the other side asserts the same literal, so a drift fails a suite
+ * instead of going quiet.
+ */
+t(
+    'wcac_campus_snapshot_updated' === WCAC_Campus_Snapshot::UPDATED_ACTION,
+    'the snapshot-updated action is named wcac_campus_snapshot_updated',
+    $pass,
+    $fail
+);
+t(
+    'wcac_campus_connect_export' === WCAC_Campus_Snapshot::FILTER,
+    'and the export filter is still named wcac_campus_connect_export',
+    $pass,
+    $fail
+);
+
+// It must actually be fired where the snapshot is stored, not merely defined.
+$sync_src = file_get_contents( __DIR__ . '/../includes/class-wcac-sync.php' );
+t(
+    1 === preg_match( '/do_action\(\s*WCAC_Campus_Snapshot::UPDATED_ACTION/', $sync_src ),
+    'write_campus_snapshot() fires it through the constant, not a loose string',
+    $pass,
+    $fail
+);
+t(
+    0 === preg_match( "/do_action\(\s*'wcac_campus_snapshot_updated'/", $sync_src ),
+    'and nowhere fires it as a hardcoded string, which would dodge the constant',
+    $pass,
+    $fail
+);
+
 printf( "\n%d passed, %d failed\n", $pass, $fail );
 exit( $fail > 0 ? 1 : 0 );

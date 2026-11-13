@@ -1343,6 +1343,21 @@ class WCAC_Sync {
 				count( $snapshot['coords'] )
 			)
 		);
+
+		/*
+		 * Told last, after the state and the log, so anything that rebuilds on
+		 * this signal sees a snapshot that is already stored and already
+		 * accounted for. Fire-and-forget: if nothing listens, nothing happens,
+		 * and this job neither knows nor cares.
+		 */
+		do_action(
+			WCAC_Campus_Snapshot::UPDATED_ACTION,
+			array(
+				'read_at' => $snapshot['read_at'],
+				'rows'    => count( $snapshot['rows'] ),
+				'coords'  => count( $snapshot['coords'] ),
+			)
+		);
 	}
 
 	protected function cc_volume_ok( $incoming, $accepted = false ) {

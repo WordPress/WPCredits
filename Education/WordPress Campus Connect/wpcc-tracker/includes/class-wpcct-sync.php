@@ -36,6 +36,21 @@ class WPCCT_Sync {
 	const PROVIDER_FILTER = 'wcac_campus_connect_export';
 
 	/**
+	 * Action the provider fires once it has stored a new snapshot.
+	 *
+	 * Listening to it is what keeps the published figures close to the snapshot
+	 * behind them. Without it this plugin learns about a new snapshot on its own
+	 * daily run, and on a site whose cron only runs when something asks it to,
+	 * that can be the best part of a day later.
+	 *
+	 * Owned by wordcamp-airtable-connector as WCAC_Campus_Snapshot::UPDATED_ACTION.
+	 * The name is a contract between two plugins that cannot see each other's
+	 * code, so both sides assert the literal in their own suite: a rename that
+	 * slipped through would stop the dashboard updating and report nothing.
+	 */
+	const PROVIDER_UPDATED_ACTION = 'wcac_campus_snapshot_updated';
+
+	/**
 	 * Fewest events that can be a real reading of the report.
 	 *
 	 * The report has carried between 142 and 177 rows. A handful means a
@@ -96,6 +111,41 @@ class WPCCT_Sync {
 	private function __construct() {
 		add_action( WPCCT_CRON_SYNC, array( __CLASS__, 'run' ) );
 		add_action( 'init', array( __CLASS__, 'maybe_schedule' ) );
+		add_action( self::PROVIDER_UPDATED_ACTION, array( __CLASS__, 'on_provider_update' ) );
+	}
+
+	/**
+	 * Rebuild as soon as the provider has stored a new snapshot.
+	 *
+	 * Inline, in the provider's own request, rather than by scheduling a run
+	 * for "now". A single event would wait for the next time cron is asked to
+	 * run, which on this site is the problem being solved rather than the
+	 * solution. On the connector source the rebuild costs no HTTP at all -- it
+	 * reads a filter and normalises 180-odd rows -- so doing it here is cheap
+	 * enough to be the obvious choice.
+	 *
+	 * The daily schedule stays. This makes it a backstop rather than the only
+	 * way figures ever refresh.
+	 *
+	 * @param array $summary read_at, rows and coords, for the log. Unused here:
+	 *                       run() reads the snapshot itself rather than trusting
+	 *                       a payload it did not fetch.
+	 * @return void
+	 */
+	public static function on_provider_update( $summary = array() ) {
+		$settings = self::settings();
+
+		/* The Airtable source ignores this. Rebuilding from Airtable inside the
+		   provider's own request would mean a pile of third-party HTTP nobody
+		   asked for, on a path that has its own schedule and its own guards. */
+		if ( self::SOURCE_CONNECTOR !== $settings['source'] ) {
+			return;
+		}
+
+		// Deliberately not reported on failure beyond what run() already does:
+		// it sets the last-error option and the progress record, which the
+		// settings screen renders, and a second channel would only disagree.
+		self::run();
 	}
 
 	/**

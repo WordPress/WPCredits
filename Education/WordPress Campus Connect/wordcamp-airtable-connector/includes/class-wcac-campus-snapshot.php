@@ -51,6 +51,23 @@ class WCAC_Campus_Snapshot {
 	const FILTER = 'wcac_campus_connect_export';
 
 	/**
+	 * Action fired once a new snapshot has been accepted and stored.
+	 *
+	 * Fire-and-forget, so this plugin neither knows nor cares whether anything
+	 * listens. A reader that does listen can rebuild in the same request
+	 * instead of waiting for its own schedule, which on a site whose cron only
+	 * runs when something asks it to is the difference between minutes and the
+	 * best part of a day.
+	 *
+	 * Passed one argument: array( read_at, rows, coords ).
+	 *
+	 * The name is a contract with a plugin that cannot see this code, so both
+	 * sides assert the literal in their own suite. A rename that slips through
+	 * would stop the dashboard updating and report nothing.
+	 */
+	const UPDATED_ACTION = 'wcac_campus_snapshot_updated';
+
+	/**
 	 * Fewest rows that can be a real reading of the report.
 	 *
 	 * The report carries 177 rows today and has never been below 142. A

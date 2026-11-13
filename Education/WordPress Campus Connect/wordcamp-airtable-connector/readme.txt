@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.16
+Stable tag: 1.1.17
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,23 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.17 =
+
+Say when a new snapshot has been stored, so a reader need not wait for its own
+schedule to find out.
+
+* Added: `WCAC_Campus_Snapshot::UPDATED_ACTION`, fired once a snapshot has been
+  accepted and stored, carrying its read time and its row and coordinate
+  counts. Fire-and-forget, so this plugin neither knows nor cares whether
+  anything listens, exactly as with the export filter.
+* Fired last, after the state and the log are written, so a listener that
+  rebuilds on it sees a snapshot that is already stored and already accounted
+  for.
+
+Nothing else changed. The point is at the far end: the dashboard was reading the
+snapshot once a day, so a snapshot read from Central at 07:16 would not have
+reached it until 22:32.
 
 = 1.1.16 =
 

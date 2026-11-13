@@ -4,7 +4,7 @@ Tags: campus connect, wordpress, education, events, statistics
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,36 @@ event countries that could not be matched to one of the five reporting regions.
 Until the first successful sync the blocks render bundled seed data.
 
 == Changelog ==
+
+= 1.3.0 =
+
+The figures now refresh when the snapshot does, instead of waiting for the next
+daily run.
+
+The connector reads WordCamp Central and stores a snapshot; this plugin read
+that snapshot once a day. On a site whose cron only runs when something asks it
+to, those two can be most of a day apart, and on 13 Nov 2026 they were: a
+snapshot read from Central at 07:16 would not have reached the dashboard until
+22:32.
+
+* Added: this plugin listens for `wcac_campus_snapshot_updated`, which the
+  connector fires once it has accepted and stored a snapshot, and rebuilds in
+  the same request. On the connector source that costs no HTTP at all: it reads
+  a filter and normalises 180-odd rows.
+* Added: the handler ignores the signal on the Airtable source. Rebuilding from
+  Airtable inside the connector's own request would mean a pile of third-party
+  HTTP nobody asked for, on a path that has its own schedule.
+* Unchanged: the daily schedule. It is now a backstop rather than the only way
+  figures ever refresh.
+
+Rebuilding inline rather than scheduling a run for "now" is deliberate. A single
+event would wait for the next time cron is asked to run, which on this site is
+the problem being solved rather than the solution.
+
+The action's name is a contract between two plugins that cannot see each other's
+code, so both sides assert the literal in their own suite. A rename that slipped
+through would stop the dashboard updating and report nothing, which is the exact
+failure mode this line of work keeps meeting.
 
 = 1.2.0 =
 
