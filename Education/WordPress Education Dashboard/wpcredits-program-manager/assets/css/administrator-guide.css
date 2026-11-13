@@ -293,6 +293,357 @@
 	padding-inline-start: 16px;
 }
 
+/* ---------- Search (the guides' clarity release) ---------- */
+
+.wpcpm-guide__search {
+	padding: 0 10px 12px;
+}
+
+.wpcpm-guide__search[hidden],
+.wpcpm-guide__results[hidden] {
+	display: none;
+}
+
+.wpcpm-frame .wpcpm-guide__search-label {
+	color: var( --wpcpm-f-ink );
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 20px;
+	margin: 0 0 6px;
+}
+
+/* Quiet, and still above 4.5:1 on the page. */
+.wpcpm-guide__search-hint {
+	color: var( --wpcpm-f-muted );
+	font-size: 12px;
+	font-weight: 400;
+	margin-inline-start: 4px;
+}
+
+.wpcpm-frame .wpcpm-guide__search-input {
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-control );
+	border-radius: 2px;
+	box-sizing: border-box;
+	color: var( --wpcpm-f-ink );
+	font: inherit;
+	font-size: 14px;
+	line-height: 20px;
+	margin: 0;
+	min-height: 40px;
+	padding: 8px 10px;
+	width: 100%;
+}
+
+.wpcpm-guide__search-status {
+	color: var( --wpcpm-f-muted );
+	font-size: 13px;
+	line-height: 18px;
+	margin: 8px 0 0;
+}
+
+.wpcpm-guide__search-status:empty {
+	display: none;
+}
+
+.wpcpm-guide__results {
+	list-style: none;
+	margin: 8px 0 0;
+	padding: 0;
+}
+
+.wpcpm-frame .wpcpm-guide__result {
+	border-radius: 2px;
+	border-top: 1px solid var( --wpcpm-f-line );
+	color: var( --wpcpm-f-ink );
+	display: block;
+	padding: 8px 6px;
+	text-decoration: none;
+}
+
+.wpcpm-frame .wpcpm-guide__result:hover .wpcpm-guide__result-text {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.wpcpm-guide__result-where {
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 16px;
+	margin-bottom: 2px;
+}
+
+.wpcpm-guide__result-text {
+	display: block;
+	font-size: 13px;
+	line-height: 18px;
+	overflow-wrap: break-word;
+}
+
+/* While the box holds a query, the results take the list's place. */
+.wpcpm-guide__contents[data-searching] .wpcpm-guide__list {
+	display: none;
+}
+
+/* The words found, in the frame's warm highlight on ink, and underlined so it is not color alone. */
+::highlight(wpcpm-guide-found) {
+	background-color: var( --wpc-highlight-warm, #ffe9de );
+	color: #1e1e1e;
+	text-decoration: underline;
+}
+
+/* ---------- The reference, folded ---------- */
+
+.wpcpm-guide__fold-tools {
+	display: flex;
+	gap: 16px;
+	margin: 0 0 8px;
+}
+
+.wpcpm-frame .wpcpm-guide__fold-button {
+	background: none;
+	border: 0;
+	border-radius: 2px;
+	color: var( --wpcpm-f-brand );
+	cursor: pointer;
+	font: inherit;
+	font-size: 14px;
+	line-height: 20px;
+	margin: 0;
+	min-height: 32px;
+	padding: 0 4px;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+/* The script folds a part of the reference where the browser can find text in a part hidden "until found";
+   everywhere else the reference is open and these headings are plain headings. The body is hidden by the
+   attribute alone: nothing here sets its display or visibility, so the browser can open it. Space and lines
+   sit on the heading and on the body's child. */
+.wpcpm-frame .wpcpm-guide__body .wpcpm-guide__fold-heading {
+	border-bottom: 1px solid var( --wpcpm-f-line );
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-guide__fold-toggle {
+	align-items: center;
+	background: none;
+	border: 0;
+	border-radius: 2px;
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	gap: 10px;
+	letter-spacing: inherit;
+	margin: 0;
+	min-height: 48px;
+	padding: 10px 0;
+	text-align: start;
+	width: 100%;
+}
+
+/* The chevron: WPCPM_Icons' chevron-down as a mask, so it follows the text. Closed it points sideways. */
+.wpcpm-guide__fold-toggle::before {
+	background-color: var( --wpcpm-f-icon );
+	block-size: 16px;
+	content: "";
+	flex: none;
+	inline-size: 16px;
+	-webkit-mask: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E" ) no-repeat center / contain;
+	mask: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E" ) no-repeat center / contain;
+	rotate: -90deg;
+}
+
+.wpcpm-guide__fold-toggle:dir( rtl )::before {
+	rotate: 90deg;
+}
+
+.wpcpm-guide__fold-toggle[aria-expanded="true"]::before {
+	rotate: 0deg;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.wpcpm-guide__fold-toggle::before {
+		transition: rotate 0.15s;
+	}
+}
+
+.wpcpm-frame .wpcpm-guide__fold-toggle:focus-visible {
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
+}
+
+/* A part's text sits in the body's wrapper, not on the body: padding on the body itself would show while it is hidden. */
+.wpcpm-guide__fold-body > :first-child {
+	margin-top: 16px;
+}
+
+.wpcpm-guide__fold-body > :last-child {
+	margin-bottom: 24px;
+}
+
+/* ---------- Steps, run-in headings and clips ---------- */
+
+/* A numbered list in the guide is a list of steps: clear numerals in the frame's sans, room around each. */
+.wpcpm-frame .wpcpm-guide__body ol.wp-block-list {
+	font-family: var( --wpcpm-f-sans );
+	list-style: none;
+	counter-reset: wpcpm-step;
+	padding-inline-start: 0;
+}
+
+.wpcpm-frame .wpcpm-guide__body ol.wp-block-list > li {
+	counter-increment: wpcpm-step;
+	margin-top: 0;
+	padding-block: 8px;
+	padding-inline-start: 40px;
+	position: relative;
+}
+
+.wpcpm-guide__body ol.wp-block-list > li::before {
+	color: var( --wpcpm-f-muted );
+	content: counter( wpcpm-step ) ".";
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	inset-inline-start: 0;
+	position: absolute;
+	text-align: end;
+	width: 28px;
+}
+
+/* The bold control names stay the weight of a name, not louder than the numerals. */
+.wpcpm-guide__body ol.wp-block-list > li strong {
+	font-weight: 600;
+}
+
+/* "What happens next" and "Good to know", set as quiet small headings. Never upper-cased: a bold-only
+   paragraph may name WordPress. */
+.wpcpm-frame .wpcpm-guide__body p:has( > strong:only-child ) {
+	color: var( --wpcpm-f-muted );
+	font-family: var( --wpcpm-f-sans );
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.4;
+	margin-block: 24px 6px;
+}
+
+.wpcpm-guide__body p > strong:only-child {
+	font-weight: 600;
+}
+
+/* ---------- What happens next, Good to know ---------- */
+
+/* A job's two notes, each drawn as a notice the way WordPress.org draws one: a tint, its hairline, 2px
+   corners, a small mark at the start and the note's name in bold over its list. Never a colored edge, and
+   never the color alone: the name says which note it is. "What happens next" is the information one, in
+   the Blueberry tint; "Good to know" is the one to watch for, in the amber tint. The builder
+   (bin/build-docs.php) wraps the bold line and its list in the group these rules style.
+
+   The mark is a mask filled with the note's own color, in a pseudo-element with no content, so it is
+   decoration to a screen reader. forced-color-adjust keeps it in forced colors, where the browser would
+   otherwise replace the fill and the mark would vanish; the note's border keeps its outline there, since
+   the tint is dropped. */
+.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note {
+	--wpcpm-note-tint: var( --wpcpm-f-brand-tint );
+	--wpcpm-note-line: var( --wpcpm-f-brand-border );
+	--wpcpm-note-mark: var( --wpcpm-f-brand );
+	--wpcpm-note-icon: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.25'/%3E%3Cpath d='M8 12h7.5M12.5 8.5 16 12l-3.5 3.5'/%3E%3C/svg%3E" );
+
+	background: var( --wpcpm-note-tint );
+	border: 1px solid var( --wpcpm-note-line );
+	border-radius: 2px;
+	margin-block: 20px;
+	padding: 14px 16px 14px 48px;
+	position: relative;
+}
+
+.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note--know {
+	--wpcpm-note-tint: var( --wpcpm-f-amber-tint );
+	--wpcpm-note-line: var( --wpcpm-f-amber-border );
+	--wpcpm-note-mark: var( --wpcpm-f-amber );
+	--wpcpm-note-icon: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 17.25h5M10.5 20h3M12 3.75a5.75 5.75 0 0 0-3.4 10.4c.55.4.9 1 .9 1.6h5c0-.6.35-1.2.9-1.6A5.75 5.75 0 0 0 12 3.75Z'/%3E%3C/svg%3E" );
+}
+
+/* The two notes of one job sit as a pair. */
+.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note + .wpcpm-guide-note {
+	margin-block-start: -8px;
+}
+
+.wpcpm-guide__body .wpcpm-guide-note::before {
+	background-color: var( --wpcpm-note-mark );
+	content: "";
+	forced-color-adjust: none;
+	height: 20px;
+	inset-block-start: 14px;
+	inset-inline-start: 16px;
+	-webkit-mask: var( --wpcpm-note-icon ) no-repeat center / contain;
+	mask: var( --wpcpm-note-icon ) no-repeat center / contain;
+	pointer-events: none;
+	position: absolute;
+	width: 20px;
+}
+
+.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note p.wpcpm-guide-note__title {
+	color: var( --wpcpm-f-ink );
+	font-family: var( --wpcpm-f-sans );
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 20px;
+	margin-block: 0 6px;
+}
+
+.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note ul.wp-block-list {
+	font-size: 15px;
+	line-height: 1.6;
+	margin-block: 0;
+	padding-inline-start: 18px;
+}
+
+/* Where the reading column is narrow the mark sits on the name's line and the list takes the full width. */
+@container wpcpm-main ( max-width: 479px ) {
+
+	.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note {
+		padding-inline-start: 16px;
+	}
+
+	.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note p.wpcpm-guide-note__title {
+		padding-inline-start: 28px;
+	}
+}
+
+/* A paragraph that starts in italics, as the "When:" line of a job does, is a quiet lead line. The width and
+   height attributes of the clip's video give it its ratio before it loads. */
+.wpcpm-frame .wpcpm-guide__body p:has( > em:first-child ) {
+	color: var( --wpcpm-f-ink-2 );
+}
+
+.wpcpm-frame .wpcpm-guide-clip {
+	margin-inline: 0;
+	max-width: 100%;
+}
+
+.wpcpm-frame .wpcpm-guide-clip video {
+	background: var( --wpcpm-f-band );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	display: block;
+	height: auto;
+	max-width: 100%;
+	width: 100%;
+}
+
+.wpcpm-frame .wpcpm-guide-clip figcaption {
+	color: var( --wpcpm-f-muted );
+	font-size: 13px;
+	line-height: 1.5;
+	margin-top: 8px;
+}
+
 /* ---------- Too narrow for the column ---------- */
 
 /* The list above the guide, one column, not held in view. The script folds it behind its heading. */

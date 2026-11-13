@@ -1019,10 +1019,13 @@ class WPCPM_Settings_Screen {
 	 * the guide. A site that publishes the guide at another address says which through the
 	 * `wpcpm_settings_guide_url` filter.
 	 *
+	 * Public since 1.123.84 for `WPCPM_Guide_Jobs`, whose help links on the dashboards find the guide the
+	 * way the intros do.
+	 *
 	 * @return array|null The guide's `url`, without a fragment, and its `label`; null when there is no
 	 *                    guide to link, and each intro says its sentence alone.
 	 */
-	private static function settings_guide() {
+	public static function settings_guide() {
 		$page = self::guide_page();
 		$url  = null !== $page && 'publish' === $page->post_status ? (string) get_permalink( $page ) : '';
 

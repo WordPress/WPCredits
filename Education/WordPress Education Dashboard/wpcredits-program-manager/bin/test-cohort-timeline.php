@@ -225,6 +225,9 @@ class WPCPM_Administrators_Cards {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+function current_user_can( $cap ) { return true; }
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/guide-jobs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-cohort-timeline-view.php';
 
 function draw( $fn ) {
@@ -290,6 +293,23 @@ ck( 'the estimated end date is owned up to', false !== strpos( $view, 'have no e
 ck( 'no style carries a comma for a decimal', preg_match( '/style="[^"]*\d,\d/', $view ), 0 );
 
 $card = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_card( $report ); } );
+
+// The help link (M3): one on the card, after its disclosure, to the cohort timeline job; none on a site
+// with no published guide.
+
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public $ID = 0, $post_status = 'publish', $post_name = 'administrator-guide';
+	}
+}
+$GLOBALS['wpcpm_guide_page'] = new WP_Post();
+WPCPM_Guide_Jobs::forget();
+$help_card                    = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_card( $report ); } );
+unset( $GLOBALS['wpcpm_guide_page'] );
+WPCPM_Guide_Jobs::forget();
+ck( 'the Upcoming cohorts card carries one help link, after its disclosure, to the cohort job; a site with no guide draws none',
+	array( substr_count( $help_card, 'class="wpcpm-job-link"' ), false !== strpos( $help_card, '</details><p class="wpcpm-job-link-row"><a class="wpcpm-job-link" href="https://example.test/administrator-guide/#read-the-cohort-timeline-do-we-need-more-mentors">How to do this<span class="screen-reader-text">: Upcoming cohorts</span></a></p>' ), substr_count( $card, 'class="wpcpm-job-link"' ) ),
+	array( 1, true, 0 ) );
 ck( 'the card lands on its anchor, in the Administrator Dashboard\'s shell', false !== strpos( $card, '<section class="wpcpm-administrator__card" id="wpcpm-cohort-timeline">' ), true );
 ck( 'the card counts the starts of the next six months', false !== strpos( $card, '<span class="wpcpm-group__count">8</span>' ), true );
 ck( 'the card\'s phrase says the first tight month', false !== strpos( $card, 'Tight from February 2027 if the registrations in review are placed' ), true );

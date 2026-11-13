@@ -297,7 +297,9 @@ class WPCPM_Student_Registrations_Tab {
 
 		echo '<div class="wpcpm-card" id="wpcpm-student-registrations">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Student registrations', 'wpcredits-program-manager' ), esc_html( number_format_i18n( $open ) ) );
-		echo '<p class="description">' . esc_html__( 'Students who registered through the form on the site, newest first. A registration is written to the Airtable Students table unless the address has an account or is registered already; one Airtable could not take waits and is tried again every hour, and after 72 hours shows as Could not be written.', 'wpcredits-program-manager' ) . '</p>';
+		// The sentence, then the help link to the job in the guide, which a site with no guide leaves out.
+		$help = WPCPM_Guide_Jobs::link( 'student-registration', __( 'Student registrations', 'wpcredits-program-manager' ) );
+		echo '<p class="description">' . esc_html__( 'Students who registered through the form on the site, newest first. A registration is written to the Airtable Students table unless the address has an account or is registered already; one Airtable could not take waits and is tried again every hour, and after 72 hours shows as Could not be written.', 'wpcredits-program-manager' ) . ( '' === $help ? '' : ' ' . $help ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in esc_html__() and WPCPM_Guide_Jobs::link().
 
 		echo '<ul class="subsubsub">';
 

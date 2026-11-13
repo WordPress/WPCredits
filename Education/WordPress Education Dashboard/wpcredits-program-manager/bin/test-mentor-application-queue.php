@@ -164,6 +164,7 @@ function get_edit_user_link( $user_id = null ) {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-lock.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/guide-jobs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
@@ -1405,6 +1406,29 @@ $made    = an_application( 'active' );
 $gone    = an_application( 'lapsed' );
 $closed  = an_application( 'declined' );
 $waiting = tab();
+
+// The help link (M3): one, at the end of the tab's own sentence, to the job in the Administrator guide;
+// none on a site with no published guide.
+
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public $ID = 0, $post_status = 'publish', $post_name = 'administrator-guide';
+	}
+}
+$guide_post                   = new WP_Post();
+$guide_post->ID               = 9001;
+$guide_post->post_type        = 'page';
+$guide_post->post_status      = 'publish';
+$GLOBALS['posts'][9001]       = $guide_post;
+$GLOBALS['slugs'][9001]       = 'administrator-guide';
+$GLOBALS['wpcpm_guide_page']  = $guide_post;
+WPCPM_Guide_Jobs::forget();
+$with_guide                   = tab();
+unset( $GLOBALS['wpcpm_guide_page'], $GLOBALS['posts'][9001], $GLOBALS['slugs'][9001] );
+WPCPM_Guide_Jobs::forget();
+ck( 'the queue ends its sentence with one help link to the mentor application job; a site with no guide draws none',
+	array( substr_count( $with_guide, 'wpcpm-job-link' ), 1 === preg_match( '#once Make mentors from applications is on\. <a class="wpcpm-job-link" href="https://example.test/administrator-guide/\#a-mentor-applied">How to do this<span class="screen-reader-text">: Mentor applications</span></a></p>#', $with_guide ), substr_count( $waiting, 'wpcpm-job-link' ) ),
+	array( 1, true, 0 ) );
 
 preg_match_all( '#<li class="([a-z]+)"><a href="([^"]*)"( class="current" aria-current="page")?>([^<]*) <span class="count">\((\d+)\)</span>#', $waiting, $views, PREG_SET_ORDER );
 ck(

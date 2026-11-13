@@ -232,6 +232,7 @@ class WPCPM_Administrator_Guide_View {
 		self::register_assets();
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
+		wp_localize_script( self::SCRIPT, 'wpcpmGuideStrings', self::strings() );
 
 		ob_start();
 
@@ -250,13 +251,176 @@ class WPCPM_Administrator_Guide_View {
 
 		// The guide as the page holds it, after `the_content`: what a reader may see, already through
 		// every filter core and the theme put on it.
-		echo '<div class="wpcpm-guide__body">' . $found['content'] . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The page's own content, filtered by the_content.
+		echo '<div class="wpcpm-guide__body">' . self::fold( $found['content'] ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The page's own content, filtered by the_content.
 
 		echo '</div>';
 
 		WPCPM_Dashboard_Frame::close();
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * What the script says: the search's status lines and the labels of the two buttons over the folded
+	 * reference. `%d`, `%1$d` and `%2$d` are filled in by the script.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function strings() {
+		return array(
+			/* translators: %d: how many places in the guide hold the words typed (exactly one). */
+			'found_one'  => __( '%d place found', 'wpcredits-program-manager' ),
+			/* translators: %d: how many places in the guide hold the words typed. */
+			'found_many' => __( '%d places found', 'wpcredits-program-manager' ),
+			'none'       => __( 'No part of the guide has these words.', 'wpcredits-program-manager' ),
+			/* translators: 1: how many results are listed, 2: how many places hold the words typed. */
+			'cut'        => __( 'Showing the first %1$d of %2$d.', 'wpcredits-program-manager' ),
+			/* translators: Shown before or after a sentence cut out of the guide, in a search result, to say it goes on. */
+			'ellipsis'   => __( '…', 'wpcredits-program-manager' ),
+			// Between a section's name and the part of it in a result.
+			'separator'  => ' › ',
+			'open_all'   => __( 'Open every part', 'wpcredits-program-manager' ),
+			'close_all'  => __( 'Close every part', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * Folds the reference. Under each `h2` whose class holds `wpcpm-guide-ref`, every `h3` and what follows it
+	 * up to the next `h2` or `h3` becomes its `h3` (with the class `wpcpm-guide__fold-heading` added, id kept) and, after
+	 * it, a `div.wpcpm-guide__fold-body` with the id of the heading and `-part`. Nothing is hidden here: the script folds
+	 * the parts where the browser can find text inside a folded part, and the reference is open everywhere else. What sits
+	 * between the `h2` and its first `h3` stays as it is, and so does every other section.
+	 *
+	 * Only the guide's top-level headings are parts. A heading inside another element, or markup left open,
+	 * leaves the content exactly as it came, and so does a failed pattern: better an unfolded guide than a
+	 * broken one.
+	 *
+	 * @param string $html The guide, rendered, with the ids `sections()` gave.
+	 * @return string
+	 */
+	public static function fold( $html ) {
+		$html = (string) $html;
+
+		if ( false === strpos( $html, 'wpcpm-guide-ref' ) ) {
+			return $html;
+		}
+
+		// Comments and tags, with where each starts. The tag's attributes may quote a `>`; possessive, as in sections().
+		$found = preg_match_all(
+			'#<!--.*?-->|<(/?)([a-z][a-z0-9-]*+)\b((?:[^>"\']++|"[^"]*+"|\'[^\']*+\')*+)>#is',
+			$html,
+			$tokens,
+			PREG_SET_ORDER | PREG_OFFSET_CAPTURE
+		);
+
+		if ( false === $found ) {
+			return $html;
+		}
+
+		$void     = array( 'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr' );
+		$stack    = array();
+		$headings = array();
+		$open     = null;
+
+		foreach ( $tokens as $token ) {
+			if ( ! isset( $token[2] ) ) {
+				continue; // A comment.
+			}
+
+			$closing = '/' === $token[1][0];
+			$name    = strtolower( $token[2][0] );
+			$start   = $token[0][1];
+			$end     = $start + strlen( $token[0][0] );
+
+			if ( $closing ) {
+				$at = array_search( $name, array_reverse( $stack, true ), true );
+
+				if ( false === $at ) {
+					continue;
+				}
+
+				$stack = array_slice( $stack, 0, $at );
+
+				if ( null !== $open && $name === $open['name'] && empty( $stack ) ) {
+					$headings[] = array(
+						'level' => $open['level'],
+						'tag'   => $open['tag'],
+						'start' => $open['start'],
+						'end'   => $end,
+						'inner' => substr( $html, $open['inner'], $start - $open['inner'] ),
+					);
+					$open       = null;
+				}
+
+				continue;
+			}
+
+			if ( in_array( $name, $void, true ) || '/' === substr( $token[0][0], -2, 1 ) ) {
+				continue;
+			}
+
+			if ( ( 'h2' === $name || 'h3' === $name ) ) {
+				if ( ! empty( $stack ) ) {
+					return $html; // A heading inside another element: not the guide's own shape.
+				}
+
+				$open = array(
+					'name'  => $name,
+					'level' => (int) substr( $name, 1 ),
+					'tag'   => $token[0][0],
+					'start' => $start,
+					'inner' => $end,
+				);
+			}
+
+			$stack[] = $name;
+		}
+
+		if ( ! empty( $stack ) || null !== $open ) {
+			return $html; // Markup left open.
+		}
+
+		$taken  = array_flip( self::page_ids( $html ) );
+		$out    = '';
+		$at     = 0;
+		$ref    = false;
+		$folded = false;
+
+		foreach ( $headings as $heading ) {
+			$text = trim( preg_replace( '/\s+/', ' ', html_entity_decode( wp_strip_all_tags( $heading['inner'] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+
+			if ( '' === $text ) {
+				continue; // A heading with no words is not a part.
+			}
+
+			if ( 2 === $heading['level'] ) {
+				$out   .= substr( $html, $at, $heading['start'] - $at ) . ( $folded ? '</div>' : '' );
+				$at     = $heading['start'];
+				$folded = false;
+				$ref    = in_array( 'wpcpm-guide-ref', preg_split( '/\s+/', trim( self::tag_attribute( $heading['tag'], 'class' ) ) ), true );
+
+				continue;
+			}
+
+			$id = self::tag_attribute( $heading['tag'], 'id' );
+
+			// A part with no id to name its body by, or whose body's id is taken, stays as it was.
+			if ( ! $ref || '' === $id || isset( $taken[ $id . '-part' ] ) ) {
+				continue;
+			}
+
+			$taken[ $id . '-part' ] = true;
+
+			$out   .= substr( $html, $at, $heading['start'] - $at ) . ( $folded ? '</div>' : '' );
+			$out   .= self::with_class( $heading['tag'], 'wpcpm-guide__fold-heading' ) . $heading['inner'] . '</h3>';
+			$out   .= '<div class="wpcpm-guide__fold-body" id="' . esc_attr( $id . '-part' ) . '">';
+			$at     = $heading['end'];
+			$folded = true;
+		}
+
+		$out .= substr( $html, $at ) . ( $folded ? '</div>' : '' );
+
+		return $out;
 	}
 
 	/**
@@ -387,6 +551,17 @@ class WPCPM_Administrator_Guide_View {
 	 * @return string The id, or '' for none or an empty one.
 	 */
 	private static function tag_id( $open ) {
+		return self::tag_attribute( $open, 'id' );
+	}
+
+	/**
+	 * A tag's attribute, read as `tag_id()` reads an id.
+	 *
+	 * @param string $open The opening tag.
+	 * @param string $name The attribute's name, lowercase.
+	 * @return string The value, or '' for none or an empty one.
+	 */
+	private static function tag_attribute( $open, $name ) {
 		if ( self::parser() ) {
 			$tag = new WP_HTML_Tag_Processor( $open );
 
@@ -394,16 +569,18 @@ class WPCPM_Administrator_Guide_View {
 				return '';
 			}
 
-			$id = $tag->get_attribute( 'id' );
+			$value = $tag->get_attribute( $name );
 
-			return is_string( $id ) ? $id : '';
+			return is_string( $value ) ? $value : '';
 		}
 
 		$attributes = (string) preg_replace( '#^<[a-z][a-z0-9-]*#i', '', rtrim( $open, '>' ) );
 
 		if ( preg_match_all( '/([^\s"\'>\/=]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]*)))?/', $attributes, $found, PREG_SET_ORDER ) ) {
 			foreach ( $found as $attribute ) {
-				if ( 'id' !== strtolower( $attribute[1] ) ) {
+				$called = strtolower( $attribute[1] );
+
+				if ( $called !== $name ) {
 					continue;
 				}
 
@@ -421,6 +598,54 @@ class WPCPM_Administrator_Guide_View {
 		}
 
 		return '';
+	}
+
+	/**
+	 * An opening tag with a class added to its class list, in whatever way its attributes were written.
+	 *
+	 * @param string $open  The opening tag.
+	 * @param string $class The class to add.
+	 * @return string
+	 */
+	private static function with_class( $open, $class ) {
+		if ( self::parser() ) {
+			$tag = new WP_HTML_Tag_Processor( $open );
+
+			if ( $tag->next_tag() ) {
+				$tag->add_class( $class );
+
+				return $tag->get_updated_html();
+			}
+		}
+
+		if ( ! preg_match( '#^<[a-z][a-z0-9-]*+#i', $open, $name ) ) {
+			return $open;
+		}
+
+		$rest = substr( $open, strlen( $name[0] ) );
+
+		if ( preg_match_all( '/([^\s"\'>\/=]+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]*)))?/', $rest, $found, PREG_SET_ORDER | PREG_OFFSET_CAPTURE ) ) {
+			foreach ( $found as $attribute ) {
+				if ( 'class' !== strtolower( $attribute[1][0] ) ) {
+					continue;
+				}
+
+				$value = '';
+
+				foreach ( array( 2, 3, 4 ) as $group ) {
+					if ( isset( $attribute[ $group ] ) && '' !== $attribute[ $group ][0] ) {
+						$value = html_entity_decode( $attribute[ $group ][0], ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+						break;
+					}
+				}
+
+				$changed = 'class="' . esc_attr( trim( $value . ' ' . $class ) ) . '"';
+
+				return $name[0] . substr( $rest, 0, $attribute[0][1] ) . $changed . substr( $rest, $attribute[0][1] + strlen( $attribute[0][0] ) );
+			}
+		}
+
+		return $name[0] . ' class="' . esc_attr( $class ) . '"' . $rest;
 	}
 
 	/**
@@ -498,6 +723,14 @@ class WPCPM_Administrator_Guide_View {
 			esc_html( $label ),
 			esc_attr( self::LIST_ID ),
 			WPCPM_Icons::svg( 'chevron-down', 16 ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed icon from WPCPM_Icons.
+		);
+
+		// The search box (the guides' clarity release): drawn hidden, and shown by the script, so a page
+		// without script has no box that does nothing.
+		printf(
+			'<div class="wpcpm-guide__search" data-wpcpm-guide-search hidden><label class="wpcpm-guide__search-label" for="wpcpm-guide-search">%1$s <span class="wpcpm-guide__search-hint">%2$s</span></label><input class="wpcpm-guide__search-input" id="wpcpm-guide-search" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"><p class="wpcpm-guide__search-status" role="status"></p><ol class="wpcpm-guide__results"></ol></div>',
+			esc_html__( 'Search the guide', 'wpcredits-program-manager' ),
+			esc_html__( 'Press / to search', 'wpcredits-program-manager' )
 		);
 
 		printf( '<ul class="wpcpm-guide__list" id="%s">', esc_attr( self::LIST_ID ) );

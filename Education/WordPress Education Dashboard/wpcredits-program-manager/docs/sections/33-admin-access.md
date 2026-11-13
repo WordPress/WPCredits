@@ -9,12 +9,15 @@ The levels come from the roles, so there is one per audience plus the two ends:
 | Level | Who can read it |
 | --- | --- |
 | Public | Everyone, including logged-out visitors. |
-| Student level | Accounts holding `wpcpm_student`, plus Administrators. |
-| Mentor level | Accounts holding `wpcpm_mentor`, plus Administrators. |
-| Institution level | Accounts holding `wpcpm_institution`, plus Administrators. |
-| Sponsor level | Accounts holding `wpcpm_sponsor`, plus Administrators. |
-| Students and mentors | Accounts holding `wpcpm_student` or `wpcpm_mentor`, plus Administrators. The level sponsor posts default to; an Administrator may widen a post to Public or narrow it in the post's Program access box. |
+| Student level | Accounts holding `wpcpm_view_student_content`, plus Administrators. |
+| Mentor level | Accounts holding `wpcpm_view_mentor_content`, plus Administrators. |
+| Institution level | Accounts holding `wpcpm_view_institution_content`, plus Administrators. |
+| Sponsor level | Accounts holding `wpcpm_view_sponsor_content`, plus Administrators. |
+| Students and mentors | Accounts holding `wpcpm_view_student_content` or `wpcpm_view_mentor_content`, plus Administrators. The level sponsor posts default to; an Administrator may widen a post to Public or narrow it in the post's Program access box. |
 | Administrators only | Accounts with `wpcpm_manage_program`. |
+
+A level is read by any account holding the capability its row names, whatever its role. A post's author
+can always read it, at any level.
 
 **The levels do not nest.** A mentor holds the mentor capability and nothing else, so a mentor cannot
 read a Student-level page. That is why documentation written for mentors has to repeat what students
@@ -26,15 +29,16 @@ explanation, the rendered content and excerpt are filtered, and the REST API is 
 
 ### Program updates and announcements
 
-The column at the foot of both the Student Report Card and the Mentor Report Card lists recent posts
-from the *Updates* category, filtered by the same access levels - so a post set to Mentor level
-appears on the mentor's card and on nobody else's. Set the access level on the post and it lands in
+The **Program updates and announcements** column, in the Resources section near the top of both the
+Student Report Card and the Mentor Report Card, lists up to five recent posts from the *Updates*
+category, filtered by the same access levels. Each card lists Public posts and posts at its own level;
+the Student and Mentor Report Cards also list *Students and mentors* posts, so a post set to Mentor
+level appears on the mentor's card and on no other. Set the access level on the post and it lands in
 the right place; there is nothing else to configure.
 
 The Administrator Dashboard's column lists private posts too: a post in *Updates* whose visibility
 is *Private* and whose access level is *Administrators only* appears there for the Administrators,
-and on no other card. The biweekly site update is one, filed under *Site updates* as well; the link
-to it in the Administrators' Slack channel opens it for anybody signed in as an Administrator. A
+and on no other card. The biweekly site update is one. A
 private post is never emailed to the site's subscribers or shared outside the site, which is why the
 update is private rather than published.
 
@@ -101,7 +105,8 @@ questions, labels and help, and the application's rules:
   that card while the page is published, and a post of that form is refused with the same sentence. The
   first form stays open to everyone allowed.
 
-Since 1.123.76 the card ends with **Tracks offered**: the tracks it offers that the site runs, by
+Below the two lists the card has a **Tracks** part, and for Administrators an **Assigned Administrator**
+part after it. Its row **Tracks offered** gives the tracks it offers that the site runs, by
 name, or "None listed yet.". It is set by Administrators alone. An Administrator is drawn a checkbox for
 each track the site runs, **Save tracks**, and the line "Students are asked which track they want when
 two or more are ticked."; an account of the institution reads the list and "The program sets the tracks
@@ -123,8 +128,8 @@ reads the same lines without the button, since the request is decided on the Adm
 second list then offers no form, because an institution has one request at a time. A second account, or a second tab,
 that asks meanwhile is told "One change is already waiting for an Administrator." and nothing is made.
 Once the request is decided, every account of the institution reads its outcome until the next request is
-sent: "Updated on" and the day after an approval; "An Administrator did not make the change you asked for:"
-and the note after a decline; nothing after a withdrawal. Withdraw it brings the account back to this card.
+sent: "Updated on" and the day after an approval; "An Administrator did not make the change you asked for"
+after a decline, with a colon and the Administrator's note when there is one; nothing after a withdrawal. Withdraw it brings the account back to this card.
 
 A form posted with nothing changed says "Nothing was changed." and sends no email; a value posted back as
 it was drawn is not a change, even one the program holds in a form the application would not accept. A
@@ -210,24 +215,25 @@ of the details. A line written before the Administrators were named is read in t
 
 ### Arranging the Student Report Card
 
-Under a student's profile and mentor columns the Student Report Card is a stack of modules: the
-**program updates with the resources**, **My course** (**My hours** when there is no course to open),
-the **report form with the feedback forms**, **My mentor call**, and **Tools from our sponsors** when
-its setting on the Sponsors tab of Settings shows it. Each carries two small arrows at its top right,
+Under a student's profile and mentor columns the Student Report Card is a stack of up to six modules:
+**Your first weeks** (for a new student only), **Program updates and resources**, **My course** (**My
+hours** when there is no course to open), **Report form and feedback forms**, **My mentor call**, and
+**Tools from our sponsors** when its setting on the Sponsors tab of Settings shows it and the student
+has offers or claimed tools. A module with nothing to show is left out and has no arrows. Each carries two small arrows at its top right,
 and pressing one moves the module up or down at once, the way the block editor moves blocks. The
 order belongs to the student: they arrange their own card, and it stays as they left it. When you
 open a student's card through the switcher you see their order and can arrange it for them with the
-same arrows. Nobody else sees the arrows.
+same arrows; there **Tools from our sponsors** is at most one line, saying how many tools they claimed. Nobody else sees the arrows.
 
 ### A student's or a mentor's own language
 
-At the top right of the Student Report Card and the Mentor Report Card, in the title's row, is a
-small language switcher: the flag and the name of the language the page is in. Pressing it opens a
+At the top right of the Student Report Card and the Mentor Report Card, above the title, a student or a
+mentor sees a small language switcher: the flag and the name of the language the page is in. Pressing it opens a
 short list, and pressing a language there keeps it; the page comes back in that language, and the
-emails the site sends that person are in it from then on. On a phone the switcher is the flag
-alone. The choice is kept on their account, where WordPress keeps an account's language, and is
-theirs alone: when you open somebody's page through the switcher you are not shown it, and you
-read the page in your own language.
+emails the site sends that person are in it from then on.
+The choice is kept on their account, where WordPress keeps an account's language, and is
+theirs alone. Administrators are never shown the language switcher, on their own page or on a page they
+open for somebody else, and you read the page in your own language.
 
 The list holds only the languages the plugin has a translation for, each named in itself, with the
 site's own language first. While there is no translation the switcher is not shown at all, so
@@ -250,8 +256,8 @@ The Institution Dashboard is three sections, each with two small arrows at its t
 section, for example "Move Students up". The order belongs to the institution and is the same for everyone
 who signs in for it. When you open the page through the switcher you see that institution's order and can
 arrange it for them with the same arrows, and your move is theirs from then on. A section with nothing to
-show is left out and has no arrows. Only the people the page belongs to and Administrators are shown the
-arrows.
+show is left out and has no arrows. Only the institution's representatives and Administrators are shown the
+arrows; a tutor sees the page in its order but cannot move anything.
 
 The Sponsor Dashboard has nothing to arrange since 1.123.78: it is drawn in the dashboards' frame, with a
 menu down the side and a view for each of its parts, **Overview**, **Your sponsorship** (while "Sponsor

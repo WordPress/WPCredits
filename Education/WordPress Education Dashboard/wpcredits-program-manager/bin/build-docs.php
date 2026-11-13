@@ -72,79 +72,7 @@ $ids = array(
 	'sponsor-events-card'                    => 1787,
 );
 
-// Each guide: its title, its lead-in, and the sections it is made of. Order matters - this
-// is the reading order.
-$guides = array(
-	'students'       => array(
-		'title' => 'Student guide',
-		'lede'  => 'Everything on your Student Report Card, how to book a call with your mentor, and what to expect from the program.',
-		'intro' => "Welcome to the Education Directory. This is where your place on the WordPress Credits Program lives while you are on it: your program details, who your mentor is, and the calendar you book your calls from.\n\nThis guide is written for students. Your mentor and the Administrators have their own.",
-		'parts' => array( '00-signing-in', '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help', '14-student-program' ),
-	),
-	'mentors'        => array(
-		'title' => 'Mentor guide',
-		'lede'  => 'Your Mentor Report Card, setting the hours students can book, tips, check-ins and a checklist for your mentoring, and what your students see on their own page.',
-		'intro' => "Thank you for mentoring on the WordPress Credits Program. This guide covers your own Mentor Report Card, tips, check-in templates and a checklist for working with your students, and, at the end, what your students see on their Student Report Card - you cannot open a student's page yourself, so the whole of it is repeated here.\n\nIf you read one section today, make it *Setting your availability*: until you publish some hours, nobody can book a call with you.",
-		'parts' => array(
-			'00-signing-in',
-			'20-mentor-card',
-			'21-mentor-availability',
-			'22-mentor-help',
-			'23-mentor-tips',
-			'24-mentor-check-ins',
-			'25-mentor-checklist',
-			'26-mentor-student-view',
-			'27-mentor-students-read',
-			'10-student-card',
-			'11-student-booking',
-			'13-student-feedback',
-			'12-student-help',
-			'14-student-program',
-		),
-		// The Student guide's sections sit one heading level down here, under *What your students
-		// read*, so the contents list shows where the mentors' part ends (1.123.53, #283). Their
-		// headings keep their words, so their anchors do not change.
-		'demote' => array( '10-student-card', '11-student-booking', '13-student-feedback', '12-student-help', '14-student-program' ),
-	),
-	'administrators' => array(
-		'title' => 'Administrator guide',
-		'lede'  => 'The plugin in wp-admin - settings, tools, access levels and the sync - plus everything mentors and students are told.',
-		'intro' => "This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.\n\nIt also contains the mentor and student guides in full. Administrators are the people other people ask. Unless you are on the program as a mentor or a student too, no Student Report Card or Mentor Report Card is your own: you open anyone's through the **Viewing as** switcher, as *Viewing a page as its owner* describes.",
-		'parts' => array(
-			'00-signing-in',
-			'30-admin-wpadmin',
-			'31-admin-settings',
-			'32-admin-tools',
-			'33-admin-access',
-			'34-admin-operations',
-			'35-admin-feedback',
-			'20-mentor-card',
-			'21-mentor-availability',
-			'22-mentor-help',
-			'23-mentor-tips',
-			'24-mentor-check-ins',
-			'25-mentor-checklist',
-			'26-mentor-student-view',
-			'10-student-card',
-			'11-student-booking',
-			'13-student-feedback',
-			'12-student-help',
-			'14-student-program',
-		),
-	),
-	'institutions'   => array(
-		'title' => 'Institution guide',
-		'lede'  => 'Your Institution Dashboard, your students, your details and your Collaboration Agreement.',
-		'intro' => "Thank you for bringing the WordPress Credits Program to your institution. This guide covers the Institution Dashboard, the page your institution has on the Education Directory: your students and the lists you can download, enrolling more of them, the semester report, your institution's details and how to correct them, your colleagues, and your Collaboration Agreement.\n\nIt is written for the people who act for an institution. The program's Administrators have a guide of their own.",
-		'parts' => array( '00-signing-in', '50-institution-dashboard', '51-institution-students', '52-institution-details' ),
-	),
-	'sponsors'       => array(
-		'title' => 'Sponsor guide',
-		'lede'  => 'Your Sponsor Dashboard, your sponsorship and its events, your offers and codes, your posts, your mentors, your company and its agreement, and what your company can see.',
-		'intro' => "Thank you for sponsoring the WordPress Credits Program. This guide covers the Sponsor Dashboard, the page your company has on the Education Directory: your sponsorship and the events you co-host, your offers and the codes students and mentors claim, the posts you write and how they are approved, the mentors you sponsor, your company's details and your Collaboration Agreement, and what the program shows you and what it keeps to itself.\n\nIt is written for the people who act for a sponsor. The program's Administrators have a guide of their own.",
-		'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-sponsorship', '42-sponsor-offers', '43-sponsor-posts', '44-sponsor-mentors', '45-sponsor-company', '46-sponsor-visibility' ),
-	),
-);
+$guides = require __DIR__ . '/docs-guides.php';
 
 /**
  * A stable, unique anchor for a heading.
@@ -292,16 +220,151 @@ function wpcpm_docs_images_blocks( $text, $base, $ids ) {
 }
 
 /**
+ * The clips table, docs/clips.json: slug => attachment id, urls, size and caption. A missing file is an
+ * empty table; a file that is not a JSON object stops the build.
+ *
+ * @param string $path Path to clips.json.
+ * @return array
+ */
+function wpcpm_docs_clips( $path ) {
+	if ( ! is_file( $path ) ) {
+		return array();
+	}
+
+	$clips = json_decode( (string) file_get_contents( $path ), true );
+
+	if ( ! is_array( $clips ) ) {
+		fwrite( STDERR, "docs/clips.json is not a JSON object.\n" );
+		exit( 1 );
+	}
+
+	return $clips;
+}
+
+/**
+ * Stop the build when a clip token names a slug the table lacks, or an entry lacks a field.
+ *
+ * @param string $text  Section text.
+ * @param array  $clips The clips table.
+ */
+function wpcpm_docs_clips_check( $text, $clips ) {
+	// A line that starts like a clip and is not exactly one would print as text in the guide.
+	foreach ( explode( "\n", (string) $text ) as $line ) {
+		if ( 0 === strpos( $line, '{{clip:' ) && ! preg_match( '/^\{\{clip:[a-z0-9-]+\}\}$/', rtrim( $line ) ) ) {
+			fwrite( STDERR, 'Not a clip token: ' . $line . "\n" );
+			exit( 1 );
+		}
+	}
+
+	if ( ! preg_match_all( '/^\{\{clip:([a-z0-9-]+)\}\}$/m', $text, $found ) ) {
+		return;
+	}
+
+	foreach ( array_unique( $found[1] ) as $slug ) {
+		if ( ! isset( $clips[ $slug ] ) || ! is_array( $clips[ $slug ] ) ) {
+			fwrite( STDERR, "Clip \"{$slug}\" is not in docs/clips.json.\n" );
+			exit( 1 );
+		}
+
+		foreach ( array( 'id', 'src', 'poster', 'captions', 'width', 'height', 'caption' ) as $field ) {
+			$value = $clips[ $slug ][ $field ] ?? null;
+
+			if ( ! is_string( $value ) && ! is_int( $value ) && ! is_float( $value ) ) {
+				fwrite( STDERR, "Clip \"{$slug}\" in docs/clips.json has no \"{$field}\" as a string or a number.\n" );
+				exit( 1 );
+			}
+
+			if ( '' === trim( (string) $value ) ) {
+				fwrite( STDERR, "Clip \"{$slug}\" in docs/clips.json has an empty \"{$field}\".\n" );
+				exit( 1 );
+			}
+		}
+	}
+}
+
+/**
+ * Turn a line that is exactly `{{clip:slug}}` into the caption in italics.
+ *
+ * @param string $text  Section text.
+ * @param array  $clips The clips table.
+ * @return string
+ */
+function wpcpm_docs_clips_md( $text, $clips ) {
+	return preg_replace_callback(
+		'/^\{\{clip:([a-z0-9-]+)\}\}$/m',
+		static function ( $m ) use ( $clips ) {
+			return '*Clip: ' . $clips[ $m[1] ]['caption'] . '*';
+		},
+		$text
+	);
+}
+
+/**
+ * Turn a line that is exactly `{{clip:slug}}` into a core video block: controls, nothing preloaded,
+ * captions as a track, never autoplay.
+ *
+ * @param string $text  Section text.
+ * @param array  $clips The clips table.
+ * @return string
+ */
+function wpcpm_docs_clips_blocks( $text, $clips ) {
+	$esc = static function ( $value ) {
+		return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+	};
+
+	return preg_replace_callback(
+		'/^\{\{clip:([a-z0-9-]+)\}\}$/m',
+		static function ( $m ) use ( $clips, $esc ) {
+			$c     = $clips[ $m[1] ];
+			$attrs = wpcpm_docs_block_json( array(
+				'id'     => (int) $c['id'],
+				'tracks' => array( array( 'src' => (string) $c['captions'], 'kind' => 'captions', 'srcLang' => 'en', 'label' => 'English' ) ),
+			) );
+
+			return sprintf(
+				"<!-- wp:video %s -->\n<figure class=\"wp-block-video wpcpm-guide-clip\"><video controls preload=\"none\" poster=\"%s\" src=\"%s\" width=\"%d\" height=\"%d\"><track src=\"%s\" kind=\"captions\" srclang=\"en\" label=\"English\"/></video><figcaption class=\"wp-element-caption\">%s</figcaption></figure>\n<!-- /wp:video -->",
+				$attrs,
+				$esc( $c['poster'] ),
+				$esc( $c['src'] ),
+				(int) $c['width'],
+				(int) $c['height'],
+				$esc( $c['captions'] ),
+				$esc( $c['caption'] )
+			);
+		},
+		$text
+	);
+}
+
+/**
+ * JSON for a block comment, escaped the way WordPress's serialize_block_attributes() does it: `--`, `<`,
+ * `>`, `&` and `\"` as unicode escapes, so no value can end the comment or open a tag in it.
+ *
+ * @param array $data Attributes.
+ * @return string
+ */
+function wpcpm_docs_block_json( $data ) {
+	$json = json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+
+	return str_replace(
+		array( '--', '<', '>', '&', '\\"' ),
+		array( '\\u002d\\u002d', '\\u003c', '\\u003e', '\\u0026', '\\u0022' ),
+		$json
+	);
+}
+
+/**
  * Convert the Markdown subset the sections use into block markup.
  *
  * Deliberately small: headings, paragraphs, lists, tables and the image blocks already
  * substituted above. A general Markdown parser would be a dependency, and these are
  * documents this repository writes for itself.
  *
- * @param string $md Markdown.
+ * @param string $md        Markdown.
+ * @param bool   $reference Whether this is a reference part: its ## headings carry the class wpcpm-guide-ref.
  * @return string
  */
-function wpcpm_docs_to_blocks( $md ) {
+function wpcpm_docs_to_blocks( $md, $reference = false ) {
 	$out    = array();
 	$lines  = explode( "\n", $md );
 	$count  = count( $lines );
@@ -357,11 +420,16 @@ function wpcpm_docs_to_blocks( $md ) {
 			// appear twice and would otherwise share an anchor with the wrong one.
 			$anchor = wpcpm_docs_anchor( $m[2] );
 
+			// A reference part's `##` heading carries a class, so the guide view can fold what is under it.
+			$marked = $reference && 2 === $level;
+
 			$out[] = sprintf(
-				"<!-- wp:heading {\"level\":%d,\"anchor\":\"%s\"} -->\n<h%d class=\"wp-block-heading\" id=\"%s\">%s</h%d>\n<!-- /wp:heading -->",
+				"<!-- wp:heading {\"level\":%d,\"anchor\":\"%s\"%s} -->\n<h%d class=\"wp-block-heading%s\" id=\"%s\">%s</h%d>\n<!-- /wp:heading -->",
 				$level,
 				$anchor,
+				$marked ? ',"className":"wpcpm-guide-ref"' : '',
 				$level,
+				$marked ? ' wpcpm-guide-ref' : '',
 				$anchor,
 				wpcpm_docs_inline( $m[2] ),
 				$level
@@ -419,7 +487,55 @@ function wpcpm_docs_to_blocks( $md ) {
 
 	$flush();
 
-	return implode( "\n\n", $out );
+	return implode( "\n\n", wpcpm_docs_notes( $out ) );
+}
+
+/**
+ * A job's two notes, each as one block: the line "What happens next" or "Good to know" in bold, and the
+ * list under it, in a group that carries the note's kind, so the guide's page can draw the two as the
+ * notices they are (assets/css/administrator-guide.css). Only these two lines, only directly over a
+ * bulleted list: any other paragraph in bold stays a paragraph. The Markdown output is not touched.
+ *
+ * The group's layout is named as the default (flow) one: a group with no layout takes the constrained
+ * one when WordPress renders it, which caps and centers what is inside.
+ *
+ * @param string[] $blocks The section's blocks, in order.
+ * @return string[]
+ */
+function wpcpm_docs_notes( $blocks ) {
+	$kinds = array(
+		'What happens next' => 'next',
+		'Good to know'      => 'know',
+	);
+	$out   = array();
+	$count = count( $blocks );
+
+	for ( $i = 0; $i < $count; $i++ ) {
+		$kind = '';
+		$name = '';
+
+		foreach ( $kinds as $title => $slug ) {
+			if ( "<!-- wp:paragraph -->\n<p><strong>" . $title . "</strong></p>\n<!-- /wp:paragraph -->" === $blocks[ $i ] ) {
+				$kind = $slug;
+				$name = $title;
+				break;
+			}
+		}
+
+		if ( '' === $kind || ! isset( $blocks[ $i + 1 ] ) || 0 !== strpos( $blocks[ $i + 1 ], "<!-- wp:list -->\n" ) ) {
+			$out[] = $blocks[ $i ];
+			continue;
+		}
+
+		$class = 'wpcpm-guide-note wpcpm-guide-note--' . $kind;
+		$out[] = '<!-- wp:group {"className":"' . $class . '","layout":{"type":"default"}} -->' . "\n"
+			. '<div class="wp-block-group ' . $class . '"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->' . "\n"
+			. '<p class="wpcpm-guide-note__title"><strong>' . $name . "</strong></p>\n<!-- /wp:paragraph -->\n\n"
+			. $blocks[ $i + 1 ] . "</div>\n<!-- /wp:group -->";
+		++$i;
+	}
+
+	return $out;
 }
 
 /**
@@ -457,12 +573,121 @@ function wpcpm_docs_table( $rows ) {
 }
 
 /**
+ * The pointers a section holds: `[[Heading text]]`, the text free of `[` and `]`.
+ */
+const WPCPM_DOCS_POINTER = '/\[\[([^\[\]]+)\]\]/';
+
+/**
+ * The anchors of one guide's headings, by heading text, in the order the block output numbers them.
+ *
+ * Walks the texts the way wpcpm_docs_to_blocks() does (headings of the second to fourth level), with
+ * the same anchor function, so the anchor listed here is the one the heading is given. Leaves the
+ * anchor numbering reset.
+ *
+ * @param string[] $texts The guide's Markdown texts in reading order: the intro, then each part.
+ * @return array Stripped heading text => list of anchors.
+ */
+function wpcpm_docs_heading_map( $texts ) {
+	$map = array();
+
+	wpcpm_docs_anchor_reset();
+
+	foreach ( $texts as $text ) {
+		foreach ( explode( "\n", (string) $text ) as $line ) {
+			if ( preg_match( '/^(#{2,4}) (.+)$/', rtrim( $line ), $m ) ) {
+				$map[ wpcpm_docs_strip_inline( $m[2] ) ][] = wpcpm_docs_anchor( $m[2] );
+			}
+		}
+	}
+
+	wpcpm_docs_anchor_reset();
+
+	return $map;
+}
+
+/**
+ * The pointers in a text that name no heading of the guide, or a heading it holds more than once.
+ *
+ * @param string $text Markdown.
+ * @param array  $map  The guide's heading map.
+ * @return string[] The offending pointers as written, with the reason.
+ */
+function wpcpm_docs_pointer_problems( $text, $map ) {
+	$problems = array();
+
+	if ( preg_match_all( WPCPM_DOCS_POINTER, (string) $text, $found ) ) {
+		foreach ( array_unique( $found[1] ) as $name ) {
+			$n = isset( $map[ $name ] ) ? count( $map[ $name ] ) : 0;
+
+			if ( 1 !== $n ) {
+				$problems[] = '[[' . $name . ']] ' . ( 0 === $n ? 'names no heading in this guide' : 'names a heading that appears ' . $n . ' times in this guide' );
+			}
+		}
+	}
+
+	return $problems;
+}
+
+/**
+ * The heading map pointers resolve against, set for each guide before its text is built.
+ *
+ * @param array|null $set A heading map to keep, or null to read it.
+ * @return array
+ */
+function wpcpm_docs_pointer_map( $set = null ) {
+	static $map = array();
+
+	if ( null !== $set ) {
+		$map = $set;
+	}
+
+	return $map;
+}
+
+/**
+ * Pointers as Markdown links, for the repository copy.
+ *
+ * @param string $text Markdown.
+ * @return string
+ */
+function wpcpm_docs_pointers_md( $text ) {
+	$map = wpcpm_docs_pointer_map();
+
+	return preg_replace_callback(
+		WPCPM_DOCS_POINTER,
+		static function ( $m ) use ( $map ) {
+			return isset( $map[ $m[1] ][0] ) ? '[' . $m[1] . '](#' . $map[ $m[1] ][0] . ')' : $m[0];
+		},
+		(string) $text
+	);
+}
+
+/**
  * Inline Markdown: bold, italic and code.
  *
  * @param string $text Text.
  * @return string
  */
 function wpcpm_docs_inline( $text ) {
+	// A pointer, `[[Heading text]]`, is held aside while the rest is escaped and put back as a link at the
+	// end, so the bracket escape below never touches it. The map is the guide's own; a pointer the build
+	// has not checked is left to the escape like any other bracket.
+	$pointers = array();
+	$map      = wpcpm_docs_pointer_map();
+	$text     = preg_replace_callback(
+		WPCPM_DOCS_POINTER,
+		static function ( $m ) use ( &$pointers, $map ) {
+			if ( ! isset( $map[ $m[1] ][0] ) ) {
+				return $m[0];
+			}
+
+			$pointers[] = '<a href="#' . $map[ $m[1] ][0] . '">' . htmlspecialchars( $m[1], ENT_NOQUOTES, 'UTF-8', false ) . '</a>';
+
+			return "\x01" . ( count( $pointers ) - 1 ) . "\x02";
+		},
+		(string) $text
+	);
+
 	// The text is prose written as Markdown, and only its own four marks are markup: an
 	// ampersand or an angle bracket in it is a character to read, so it is escaped before the
 	// marks are turned into tags (clean-up 1.98.1; the S6 review found `<record>` swallowed).
@@ -475,8 +700,10 @@ function wpcpm_docs_inline( $text ) {
 	// Deliberately narrow - http and https only, so a `javascript:` address cannot be written
 	// into a guide, and no whitespace, angle bracket or quote in the address, so it cannot end
 	// the attribute early. Anything that does not match is left as the text it already was.
+	// A page of this site may be named by its path alone (`/student-guide/`): one slash, then
+	// letters, digits, hyphens and slashes, so it holds no scheme and no second slash to make one.
 	$text = preg_replace_callback(
-		'/\[([^\]]+)\]\((https?:\/\/[^\s()<>"\']+)\)/',
+		'/\[([^\]]+)\]\((https?:\/\/[^\s()<>"\']+|\/[a-z0-9][a-z0-9\/-]*)\)/',
 		static function ( $m ) {
 			return '<a href="' . $m[2] . '">' . $m[1] . '</a>';
 		},
@@ -493,40 +720,89 @@ function wpcpm_docs_inline( $text ) {
 	$text = preg_replace( '/(?<![*\w])\*([^*]+)\*(?!\*)/', '<em>$1</em>', $text );
 	$text = preg_replace( '/`([^`]+)`/', '<code>$1</code>', $text );
 
-	return $text;
+	return preg_replace_callback(
+		'/\x01(\d+)\x02/',
+		static function ( $m ) use ( $pointers ) {
+			return $pointers[ (int) $m[1] ];
+		},
+		$text
+	);
 }
 
-$made = array();
+$clips = wpcpm_docs_clips( $root . '/docs/clips.json' );
+
+// Everything is built in memory first and written after, so a build that stops writes no file.
+$made   = array();
+$result = array();
 
 foreach ( $guides as $slug => $guide ) {
 	// Anchors are numbered per guide, so the second "Resources" in the mentor guide is `resources-2`
 	// there and the only one in the student guide stays `resources`.
 	wpcpm_docs_anchor_reset();
 
-	$body = array();
+	$body      = array();
+	$block_out = array();
+	$texts     = array( $guide['intro'] );
+
+	foreach ( $guide['parts'] as $part ) {
+		$text    = wpcpm_docs_section( $sections, $part );
+		$texts[] = isset( $guide['demote'] ) && in_array( $part, $guide['demote'], true ) ? wpcpm_docs_demote( $text ) : $text;
+	}
+
+	// A pointer, `[[Heading text]]`, is checked against this guide's own headings before anything is built:
+	// a pointer to a heading that is gone, renamed or written twice would be a dead link in the guide.
+	$map = wpcpm_docs_heading_map( $texts );
+	wpcpm_docs_pointer_map( $map );
+
+	foreach ( $texts as $n => $text ) {
+		foreach ( wpcpm_docs_pointer_problems( $text, $map ) as $problem ) {
+			fwrite( STDERR, 'Guide "' . $slug . '", ' . ( 0 === $n ? 'its intro' : 'section ' . $guide['parts'][ $n - 1 ] ) . ': ' . $problem . ".\n" );
+			$failed = true;
+		}
+	}
+
+	if ( ! empty( $failed ) ) {
+		exit( 1 );
+	}
 
 	foreach ( $guide['parts'] as $part ) {
 		$section = wpcpm_docs_section( $sections, $part );
-		$body[]  = isset( $guide['demote'] ) && in_array( $part, $guide['demote'], true ) ? wpcpm_docs_demote( $section ) : $section;
+		$section = isset( $guide['demote'] ) && in_array( $part, $guide['demote'], true ) ? wpcpm_docs_demote( $section ) : $section;
+
+		wpcpm_docs_clips_check( $section, $clips );
+
+		$body[] = $section;
 	}
+
+	wpcpm_docs_clips_check( $guide['intro'], $clips );
+
+	// Block markup is built part by part, in order, so a reference part can mark its headings. The parts
+	// were joined by a blank line before and are still, and every part ends its own paragraph and list.
+	$blocks = wpcpm_docs_to_blocks( wpcpm_docs_images_blocks( wpcpm_docs_clips_blocks( $guide['intro'], $clips ), $base, $ids ) ) . "\n\n";
+	$pieces = array();
+
+	foreach ( $guide['parts'] as $n => $part ) {
+		$is_ref   = isset( $guide['reference'] ) && in_array( $part, $guide['reference'], true );
+		$pieces[] = wpcpm_docs_to_blocks( wpcpm_docs_images_blocks( wpcpm_docs_clips_blocks( $body[ $n ], $clips ), $base, $ids ), $is_ref );
+	}
+
+	$blocks .= implode( "\n\n", $pieces ) . "\n";
 
 	$body = implode( "\n\n", $body );
 
 	// Markdown, for reading in the repository.
 	$md  = '# ' . $guide['title'] . "\n\n";
 	$md .= '*' . $guide['lede'] . "*\n\n";
-	$md .= $guide['intro'] . "\n\n";
-	$md .= wpcpm_docs_images_md( $body, 'images' ) . "\n";
+	$md .= wpcpm_docs_pointers_md( wpcpm_docs_clips_md( $guide['intro'], $clips ) ) . "\n\n";
+	$md .= wpcpm_docs_pointers_md( wpcpm_docs_images_md( wpcpm_docs_clips_md( $body, $clips ), 'images' ) ) . "\n";
 
-	file_put_contents( $out_md . '/' . $slug . '.md', $md );
+	$result[ $slug ] = array( $md, $blocks );
+	$made[ $slug ]   = array( strlen( $md ), substr_count( $blocks, '<!-- wp:' ) );
+}
 
-	// Block markup, for the published page.
-	$blocks  = wpcpm_docs_to_blocks( wpcpm_docs_images_blocks( $guide['intro'], $base, $ids ) ) . "\n\n";
-	$blocks .= wpcpm_docs_to_blocks( wpcpm_docs_images_blocks( $body, $base, $ids ) ) . "\n";
-
-	file_put_contents( $out_html . '/' . $slug . '.html', $blocks );
-
-	$made[ $slug ] = array( strlen( $md ), substr_count( $blocks, '<!-- wp:' ) );
+foreach ( $result as $slug => $texts ) {
+	file_put_contents( $out_md . '/' . $slug . '.md', $texts[0] );
+	file_put_contents( $out_html . '/' . $slug . '.html', $texts[1] );
 }
 
 foreach ( $made as $slug => $info ) {

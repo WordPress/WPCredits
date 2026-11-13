@@ -359,6 +359,8 @@ define( 'WPCPM_VERSION', 'test' );
 require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once __DIR__ . '/stubs/scroll-regions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-guide-jobs.php';
 // What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -1926,6 +1928,46 @@ foreach ( array(
 }
 ck( 'every card with nothing in it is drawn folded, in this page\'s shape, its zero printed', $folded_at_zero, array_fill_keys( array_keys( $folded_at_zero ), true ) );
 
+// The help link (M3): a card that waits for a decision carries exactly one small link to its job in the
+// Administrator guide, after its disclosure (never in the summary or a form), to the job's own anchor.
+// The guide is a published page here only for these checks; a reader who is not an Administrator, and a
+// site with no guide, get none.
+$guide_page              = new WP_Post();
+$guide_page->ID          = 991;
+$guide_page->post_name   = 'administrator-guide';
+$guide_page->post_status = 'publish';
+$guide_page->post_type   = 'page';
+$GLOBALS['posts'][991]   = $guide_page;
+WPCPM_Guide_Jobs::forget();
+$job_of_card             = array(
+	'applications'         => array( 'institution-application', 'Institution applications', static function () { WPCPM_Administrators_Cards::render_applications( array() ); } ),
+	'agreements'           => array( 'institution-agreement', 'Collaboration Agreements', static function () { WPCPM_Administrators_Cards::render_agreements( array() ); } ),
+	'reports'              => array( 'semester-report', 'Semester reports', static function () { WPCPM_Administrators_Cards::render_reports( array() ); } ),
+	'requests'             => array( 'institution-requests', 'Requests from institutions', static function () { WPCPM_Administrators_Cards::render_requests( array() ); } ),
+	'sponsor-applications' => array( 'sponsor-application', 'Sponsor applications', static function () { WPCPM_Administrators_Cards::render_sponsor_applications( array() ); } ),
+	'sponsor-posts'        => array( 'sponsor-post', 'Sponsor posts to review', static function () { WPCPM_Administrators_Cards::render_sponsor_posts( array() ); } ),
+	'sponsor-agreements'   => array( 'sponsor-agreement', 'Sponsor Collaboration Agreements', static function () { WPCPM_Administrators_Cards::render_sponsor_agreements( array() ); } ),
+	'sponsor-reports'      => array( 'sponsor-report', 'Sponsor reports', static function () { WPCPM_Administrators_Cards::render_sponsor_reports( array() ); } ),
+	'duplicates'           => array( 'duplicates', 'Duplicated students', static function () { WPCPM_Administrators_Cards::render_duplicates( array() ); } ),
+	'health'               => array( 'syncs', 'Syncs and health', static function () { WPCPM_Administrators_Cards::render_health( array(), array() ); } ),
+);
+$helped = array();
+foreach ( $job_of_card as $anchor => $card ) {
+	$html  = capture( $card[2] );
+	$want  = '<p class="wpcpm-job-link-row"><a class="wpcpm-job-link" href="' . WPCPM_Guide_Jobs::url( $card[0] ) . '">How to do this<span class="screen-reader-text">: ' . $card[1] . '</span></a></p>';
+	$after = strpos( $html, '</details>' );
+	// One link, after the disclosure, and none in the summary.
+	$helped[ $anchor ] = 1 === substr_count( $html, 'class="wpcpm-job-link"' ) && has( $html, $want ) && false !== $after && strpos( $html, $want ) > $after && '' !== WPCPM_Guide_Jobs::url( $card[0] ) && false === strpos( (string) substr( $html, 0, (int) $after ), 'wpcpm-job-link' );
+}
+ck( 'each card that waits for a decision carries exactly one help link, after its disclosure, to its job', $helped, array_fill_keys( array_keys( $helped ), true ) );
+ck( 'the link is not inside a form', 0, preg_match( '#<form[^>]*>(?:(?!</form>).)*wpcpm-job-link#s', capture( $job_of_card['reports'][2] ) ) );
+$GLOBALS['manage'] = array();
+ck( 'a reader who cannot manage the program gets no help link on any of them', array_sum( array_map( static function ( $card ) { return substr_count( capture( $card[2] ), 'wpcpm-job-link' ); }, $job_of_card ) ), 0 );
+$GLOBALS['manage'] = array( 3 );
+unset( $GLOBALS['posts'][991] );
+WPCPM_Guide_Jobs::forget();
+ck( 'a site with no published guide draws no help link', array_sum( array_map( static function ( $card ) { return substr_count( capture( $card[2] ), 'wpcpm-job-link' ); }, $job_of_card ) ), 0 );
+
 $GLOBALS['users'][12] = new WP_User( 12, 'Beata Admin', 'beata.admin@example.test' );
 $GLOBALS['manage']    = array( 3, 12 );
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
@@ -3234,6 +3276,11 @@ function sheet_rules( $sheet ) {
 				$media = trim( $query[1] );
 				continue;
 			}
+			// A container query holds rules as a media query does; its name and condition lead its keys.
+			if ( 1 === preg_match( '/^[@]container\s*(.*)$/', $selectors, $query ) ) {
+				$media = '@' . 'container ' . trim( $query[1] );
+				continue;
+			}
 			$end  = (int) strpos( $css, '}', $i );
 			$body = trim( (string) preg_replace( '/\s+/', ' ', substr( $css, $i + 1, $end - $i - 1 ) ) );
 			foreach ( explode( ',', $selectors ) as $selector ) {
@@ -3866,12 +3913,51 @@ ck( 'this page\'s sheet dresses a card\'s row: the phrase in the preview voice, 
 ck( 'and the action shows only while its card is folded: one rule, outside every query, hides it once the card\'s disclosure is open, and the row keeps room for it only while the disclosure is folded', array(
 	$admin_sheet[ '|' . $admin_hide ] ?? null,
 	array_values( array_filter( array_keys( $admin_sheet ), static function ( $key ) { return false !== strpos( $key, '[open]' ) && '.wpcpm-sponsor__row-action' === substr( $key, -strlen( '.wpcpm-sponsor__row-action' ) ) && 0 !== strpos( $key, '|' ); } ) ),
-	array_values( array_filter( array_keys( $admin_sheet ), static function ( $key ) { return false !== strpos( $key, 'wpcpm-group__summary' ) && false !== strpos( $key, 'row-action' ); } ) ),
+	array_values( array_filter( array_keys( $admin_sheet ), static function ( $key ) { return false !== strpos( $key, 'wpcpm-group__summary' ) && false !== strpos( $key, 'row-action' ) && 0 !== strpos( $key, '@' . 'container' ); } ) ),
 ), array(
 	'display: none;',
 	array(),
 	array( '|' . $admin_room, '( max-width: 600px )|' . $admin_room ),
 ) );
+
+// The help link's layout (M3 fix round 1). By default the link is a line of its own in the flow, under the
+// card, aligned to the end, with nothing reserved in the summary and nothing absolutely placed. Only where
+// the card itself is wide (a container query on the card, not the viewport's width) is it lifted to the end
+// of the title row, with room reserved in the summary there; a card with a folded action never lifts it.
+$job_default  = $admin_sheet['|.wpcpm-administrator__card > .wpcpm-job-link-row'] ?? '';
+$job_query    = '@' . 'container wpcpm-job-card ( min-width: 960px )';
+$job_lifted   = $admin_sheet[ $job_query . '|.wpcpm-administrator__card:not(:has( > .wpcpm-sponsor__row-action )) > .wpcpm-job-link-row' ] ?? '';
+$job_reserved = $admin_sheet[ $job_query . '|.wpcpm-administrator__card:not(:has( > .wpcpm-sponsor__row-action )) > .wpcpm-group__disclosure > .wpcpm-group__summary' ] ?? '';
+$job_rules    = array_filter( $admin_sheet, static function ( $rule, $key ) { return false !== strpos( $key, 'job-link-row' ) || false !== strpos( $key, 'wpcpm-job-card' ); }, ARRAY_FILTER_USE_BOTH );
+ck( 'the help link is in the flow by default: its own line, aligned to the end, wrapping if it must, and nothing absolutely placed or reserved',
+	array( false !== strpos( $job_default, 'text-align: end;' ), false === strpos( $job_default, 'position' ), false === strpos( $job_default, 'padding-right' ), false !== strpos( $admin_sheet['|.wpcpm-job-link'] ?? '', 'white-space: normal;' ) ),
+	array( true, true, true, true ) );
+ck( 'the card is a container on the inline axis, named, only where it carries the link',
+	$admin_sheet['|.wpcpm-administrator__card:has( > .wpcpm-job-link-row )'] ?? null,
+	'container-name: wpcpm-job-card; container-type: inline-size;' );
+ck( 'the link is lifted to the end of the title row only inside the card\'s own container query, and the room for it is reserved there too',
+	array( false !== strpos( $job_lifted, 'position: absolute;' ), false !== strpos( $job_reserved, 'padding-right: calc( 1.25em + 8em );' ) ),
+	array( true, true ) );
+// An open card (the trials of 1.123.86): under a long open body the link in the flow sat a screen or more from
+// the title it explains. An open card's action and cue are hidden, so the corner is free: the link is lifted
+// there, and the room for it is reserved in the open summary only, never in a folded one. Only where the card
+// is at least 600px wide: on a phone's 343px card the reserved room broke the open title row into a stack of
+// three or four lines (the second trial), so there the link stays in the flow.
+$job_open_query = '@' . 'container wpcpm-job-card ( min-width: 600px )';
+$job_open       = $admin_sheet[ $job_open_query . '|.wpcpm-administrator__card:has( > .wpcpm-group__disclosure[open] ) > .wpcpm-job-link-row' ] ?? '';
+$job_open_room  = $admin_sheet[ $job_open_query . '|.wpcpm-administrator__card:has( > .wpcpm-job-link-row ) > .wpcpm-group__disclosure[open] > .wpcpm-group__summary' ] ?? '';
+ck( 'an open card at least 600px wide lifts the link to the end of its title row, placed as the wide card places it, with its room reserved in the open summary',
+	array( $job_open === $job_lifted && '' !== $job_open, $job_open_room === $job_reserved && '' !== $job_open_room ),
+	array( true, true ) );
+ck( 'no rule reserves room or places the link outside those two queries on the card, and none keys on the viewport: a folded card with an action is left out of the lift, and so is an open card on a phone',
+	array_values( array_filter( array_keys( $job_rules ), static function ( $key ) use ( $job_query, $job_open_query, $admin_sheet ) {
+		$body = $admin_sheet[ $key ];
+		$is_layout = false !== strpos( $body, 'padding-right' ) || false !== strpos( $body, 'position: absolute' ) || false !== strpos( $body, 'right:' );
+		$in_wide   = 0 === strpos( $key, $job_query . '|' );
+		$in_open   = 0 === strpos( $key, $job_open_query . '|' );
+		return ( $is_layout && ! $in_wide && ! $in_open ) || ( $in_wide && false === strpos( $key, ':not(:has( > .wpcpm-sponsor__row-action ))' ) ) || ( $in_open && false === strpos( $key, '.wpcpm-group__disclosure[open]' ) ) || 0 === strpos( $key, '( max-width' );
+	} ) ),
+	array() );
 ck( 'value for value with sponsor.css wherever the two pages\' rhythm is the same, and only the action\'s place down the card and the room kept for it differ', array(
 	( $admin_sheet['|.wpcpm-administrator__card .wpcpm-sponsor__state'] ?? 'a' ) === ( $sponsor_sheet['|.wpcpm-sponsor__state'] ?? 'b' ),
 	false !== strpos( $sponsor_sheet['|.wpcpm-sponsor__card'] ?? '', (string) ( $admin_sheet['|.wpcpm-administrator__card'] ?? 'a' ) ),

@@ -51,16 +51,28 @@ p.wpcpm-settings__intro {
 	cursor: pointer;
 }
 
-.wpcpm-settings__details summary:hover {
+.wpcpm-settings__details summary:hover,
+.wpcpm-job-link:hover,
+.wpcpm-job-link:focus {
 	color: #135e96;
 }
 
-.wpcpm-settings__details p {
+.wpcpm-settings__details p,
+.wpcpm-job-link {
 	color: #646970;
 }
 
 .wpcpm-settings__details .wpcpm-scopes {
 	margin: 8px 0 0;
+}
+
+/* The help link to a job in the Administrator guide, at the end of a queue's own intro line: small, in the
+   gray of the help it ends and the blue of a link's hover (the two rules above, which it shares), and
+   underlined always, as a link in a line of gray words must be to read as one, with core's focus ring.
+   No icon, no button. */
+.wpcpm-job-link {
+	font-size: 13px;
+	text-decoration: underline;
 }
 
 /* A group of boxes in a checkbox list on the Settings screen, such as From Airtable: its name a

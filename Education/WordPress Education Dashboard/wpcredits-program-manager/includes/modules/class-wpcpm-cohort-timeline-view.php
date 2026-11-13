@@ -106,6 +106,7 @@ final class WPCPM_Cohort_Timeline_View {
 				array(
 					'key'    => self::CARD,
 					'title'  => __( 'Upcoming cohorts', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'cohorts', __( 'Upcoming cohorts', 'wpcredits-program-manager' ) ),
 					'count'  => $starts,
 					'open'   => WPCPM_Cohort_Timeline::STATE_SHORT === $summary['state'],
 					'state'  => self::phrase( $summary ),

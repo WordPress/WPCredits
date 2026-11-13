@@ -1227,7 +1227,7 @@ foreach ( array( 'students', 'mentors', 'administrators' ) as $built_guide ) {
 }
 ck( 'and no built guide still says the students\' channel', $built_with_it, array( false, false, false ) );
 
-$build_src = file_get_contents( __DIR__ . '/build-docs.php' );
+$build_src = file_get_contents( __DIR__ . '/docs-guides.php' );
 // The Sponsor guide's parts, in the Sponsor Dashboard's order (1.123.45): each one named in the build has
 // to be a section on disk, or the build stops with "Missing section".
 $sponsor_parts   = array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-sponsorship', '42-sponsor-offers', '43-sponsor-posts', '44-sponsor-mentors', '45-sponsor-company', '46-sponsor-visibility' );
@@ -1252,6 +1252,7 @@ $fresh_html   = '';
 
 if ( @mkdir( $fresh_root . '/bin', 0700, true ) && @mkdir( $fresh_root . '/docs/sections', 0700, true ) && @mkdir( $fresh_root . '/docs/build', 0700, true ) ) {
     copy( __DIR__ . '/build-docs.php', $fresh_root . '/bin/build-docs.php' );
+    copy( __DIR__ . '/docs-guides.php', $fresh_root . '/bin/docs-guides.php' );
     foreach ( (array) glob( __DIR__ . '/../docs/sections/*.md' ) as $fresh_section ) {
         copy( $fresh_section, $fresh_root . '/docs/sections/' . basename( $fresh_section ) );
     }
@@ -1358,11 +1359,11 @@ ck( 'a section\'s Markdown link becomes a link in the built guide, and none is l
 	),
     array( true, true, 0 ) );
 
-ck( 'and every address a guide links to is http or https, so no section can write a javascript: link',
+ck( 'and every address a guide links to is http or https, a page of this site by its path, or a heading of the same guide, so no section can write a javascript: link',
     array(
 		count( $hrefs ) > 0,
 		count( array_filter( $hrefs, static function ( $href ) {
-			return ! preg_match( '#^https?://#', $href );
+			return ! preg_match( '#^(?:https?://|/[a-z0-9][a-z0-9/-]*$|\#[^\s"\'<>:]+$)#', $href );
 		} ) ),
 	),
     array( true, 0 ) );
@@ -1672,13 +1673,13 @@ $set_guide_page( 'sponsor-guide', 4322, 'publish', $sponsor_address );
 $mentor_new_parts = array( '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist' );
 $mentor_order     = array( '22-mentor-help', '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist', '26-mentor-student-view', '27-mentor-students-read', '10-student-card' );
 $admin_order      = array( '22-mentor-help', '23-mentor-tips', '24-mentor-check-ins', '25-mentor-checklist', '26-mentor-student-view', '10-student-card', '11-student-booking' );
-$mentor_build     = (string) file_get_contents( __DIR__ . '/build-docs.php' );
+$mentor_build     = (string) file_get_contents( __DIR__ . '/docs-guides.php' );
 preg_match_all( "/'(\d\d-[a-z-]+)'/", $mentor_build, $mentor_listed );
 $mentor_runs = array();
 foreach ( array_keys( $mentor_listed[1], '22-mentor-help', true ) as $start ) {
 	$mentor_runs[] = array_slice( $mentor_listed[1], $start, count( $mentor_order ) );
 }
-ck( 'the Mentor guide and the Administrator guide both list the three sections, in that place, and the Mentor guide alone puts its own heading before the student part (1.123.53, WordPress/WPCredits#283)', $mentor_runs, array( $mentor_order, $admin_order ) );
+ck( 'the Mentor guide and the Administrator guide list the three sections in that place only in the Mentor guide (the Administrator guide links to it and no longer repeats it), and the Mentor guide alone puts its own heading before the student part (1.123.53, WordPress/WPCredits#283)', $mentor_runs, array( $mentor_order ) );
 
 $mentor_new_text = '';
 foreach ( $mentor_new_parts as $part ) {
@@ -1720,9 +1721,9 @@ $mentor_outputs = array(
 	(string) file_get_contents( __DIR__ . '/../docs/administrators.md' ),
 	(string) file_get_contents( __DIR__ . '/../docs/build/administrators.html' ),
 );
-ck( 'both guides are built with them, in both outputs',
+ck( 'the Mentor guide is built with them, in both outputs, and the Administrator guide no longer repeats them (guides clarity, M1)',
     array( false !== strpos( $mentor_outputs[0], '## Mentoring tips' ), false !== strpos( $mentor_outputs[1], 'Mentoring tips</h2>' ), false !== strpos( $mentor_outputs[2], '## Mentoring tips' ), false !== strpos( $mentor_outputs[3], 'Mentoring tips</h2>' ) ),
-    array( true, true, true, true ) );
+    array( true, true, false, false ) );
 ck( 'the mirror\'s privacy guard refuses an email address in a tracked .html file: neither built guide holds one',
     array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $mentor_outputs[1] ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $mentor_outputs[3] ) ),
     array( 0, 0 ) );
@@ -1734,9 +1735,9 @@ $student_runs = array();
 foreach ( array_keys( $mentor_listed[1], '12-student-help', true ) as $start ) {
 	$student_runs[] = array_slice( $mentor_listed[1], $start, 2 );
 }
-ck( 'the Student, Mentor and Administrator guides all list the new section after If something looks wrong, and the Mentor guide\'s list of the sections it nests (1.123.53) does too',
+ck( 'the Student and Mentor guides list the new section after If something looks wrong, and the Mentor guide\'s list of the sections it nests (1.123.53) does too; the Administrator guide no longer carries it',
     $student_runs,
-    array( array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ) ) );
+    array( array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ), array( '12-student-help', '14-student-program' ) ) );
 
 $student_new_text = (string) @file_get_contents( __DIR__ . '/../docs/sections/14-student-program.md' );
 ck( 'the section carries the handbook\'s headings',
@@ -1790,7 +1791,7 @@ $students_read = (string) @file_get_contents( __DIR__ . '/../docs/sections/27-me
 ck( 'the Mentor guide\'s student part starts with its own heading and one sentence saying what follows',
     array( 0 === strpos( $students_read, "## What your students read\n" ), false !== strpos( $students_read, 'the Student guide, as your students read it' ) ),
     array( true, true ) );
-ck( 'in the Mentor guide the student sections sit one level under it, and the Student and Administrator guides keep them as they were',
+ck( 'in the Mentor guide the student sections sit one level under it, and the Student guide keeps them as it had them; the Administrator guide no longer holds them',
     array(
 		false !== strpos( $mentor_outputs[0], "\n### What is on your Student Report Card\n" ),
 		false !== strpos( $mentor_outputs[0], "\n## What is on your Student Report Card\n" ),
@@ -1798,7 +1799,7 @@ ck( 'in the Mentor guide the student sections sit one level under it, and the St
 		false !== strpos( $student_outputs[0], "\n## What is on your Student Report Card\n" ),
 		false !== strpos( $mentor_outputs[2], "\n## What is on your Student Report Card\n" ),
 	),
-    array( true, false, true, true, true ) );
+    array( true, false, true, true, false ) );
 ck( 'and keep their anchors, so a link into a section of the Mentor guide still lands',
     array(
 		false !== strpos( $mentor_outputs[1], '<h3 class="wp-block-heading" id="what-is-on-your-student-report-card">What is on your Student Report Card</h3>' ),
@@ -1806,9 +1807,9 @@ ck( 'and keep their anchors, so a link into a section of the Mentor guide still 
 		false !== strpos( $mentor_outputs[1], 'id="their-feedback-forms">Their feedback forms</h2>' ),
 	),
     array( true, true, true ) );
-ck( 'all three guides are built with it',
+ck( 'the Student and Mentor guides are built with it, and the Administrator guide is not',
     array( false !== strpos( $student_outputs[0], '## What is WordPress Credits?' ), false !== strpos( $student_outputs[1], 'What is WordPress Credits?</h2>' ), false !== strpos( $mentor_outputs[0], '## What is WordPress Credits?' ), false !== strpos( $mentor_outputs[2], '## What is WordPress Credits?' ) ),
-    array( true, true, true, true ) );
+    array( true, true, true, false ) );
 ck( 'and the built Student guide holds no email address, for the same reason',
     array( preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_outputs[0] ), preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/', $student_outputs[1] ) ),
     array( 0, 0 ) );

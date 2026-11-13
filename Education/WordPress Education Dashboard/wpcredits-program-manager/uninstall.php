@@ -33,6 +33,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roles.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
 // Named below for the flag of the Administrator guide's one-time move (1.123.41), whose constant it owns.
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-screen.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-guide-jobs.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-choices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-rows.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';

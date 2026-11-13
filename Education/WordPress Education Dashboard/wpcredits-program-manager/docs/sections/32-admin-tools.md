@@ -1,17 +1,17 @@
 ## Tools you run on their own
 
-Three of the tools keep settings of their own: the **Mentor Status Checker**, the
-**Student Duplicate Finder** and **Need help?**. Each shows them in a **Settings** section at the top
+Four of the tools keep settings of their own: the **Mentor Status Checker**, the
+**Student Duplicate Finder**, **Need help?** and **Emails**. Each shows them in a **Settings** section at the top
 of its screen, a form with its own **Save settings** that saves that tool's settings and nothing
 else, and the notice after a save, on the same screen, names the tool. The Settings screen's
-Connection tab names the three, each a link to its section. On the **Tools** screen, a
+Connection tab names all four, each a link to its section. On the **Tools** screen, a
 tool that cannot run says why on its card, in its own words: the Airtable connection for the Mentor
 Status Checker and the Student Duplicate Finder, and for Need help? its switch or its provider.
 
 ### Header notices
 
 **WPCredits Program > Tools > Header notices.** One notice per audience - Students, Mentors,
-Institutions, Sponsors, Administrators - each in its own editor on one screen, with a single Save
+Institutions, Sponsors, Administrators - each in its own editor on one screen, with its own **Save this notice**
 button underneath.
 
 {{image:admin-header-notices|One editor per audience. An empty notice is not shown; there is no separate switch.}}
@@ -24,8 +24,8 @@ button underneath.
   though the sync never gives them the role.
 - A notice appears at the top of the content, which in this program's theme is the top of the
   dashboard card - not above the site header.
-- Links and simple emphasis survive; scripts and other markup are stripped **on save**, so nothing
-  dangerous is stored rather than merely hidden at render time.
+- A notice may hold anything a WordPress post may hold (links, images, lists, headings); scripts and
+  other markup a post cannot hold are removed **on save**, so nothing dangerous is stored rather than merely hidden at render time.
 
 Since 1.123.58 each audience's notice has its own Save, so saving one notice never touches another,
 and a notice changed after you opened the page is not overwritten.
@@ -39,7 +39,7 @@ footer. The tool also keeps a record of every email the site sends, for 30 days.
 
 #### Templates
 
-The plugin's emails, grouped by area, each area in a table of its own. There are nine:
+The plugin's emails, grouped by area, each area in a table of its own. There are ten:
 
 - **Invitations**: the student's, which since 1.123.61 can carry a line *Your first week, step by step:*
   with the address of the Start here page, through the optional placeholder `{start_here_link}`, left
@@ -57,7 +57,9 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   a series, each have a second email for that case.
 - **Institutions**: what an institution and the Administrators are told from its application to
   its last member: the acknowledgement of an application, the notice of it to the Administrators, an
-  Administrator's question and the rejection; a member's invitation to a colleague; the institution's
+  Administrator's question and the rejection; a member's invitation to a colleague, and to a
+  colleague as a tutor, who sees the students and changes nothing; the notice to an Administrator
+  that an institution has been assigned to them, unless they made the assignment; the institution's
   Collaboration Agreement received, uploaded, accepted, put back in force, returned with a note and
   revoked, the daily list of agreements waiting too long, and the notice that the agreement's
   template could not be used; the notice that an institution has no members left; and what happens
@@ -65,8 +67,9 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   (its name, website, city, country or contact's email), the request's approval, its decline with
   the Administrator's note, and its withdrawal. An email that says other words in one case than in
   another is two: the acknowledgement for a country with a call to book and for one without, the
-  upload with the courtesy scan's notes and without, the revocation with an assigned Administrator named and
-  without one, and the invitation with its inviter named and with nobody to name as its sender, the
+  upload with the courtesy scan's notes and without, the revocation with a program contact for the institution's country named and
+  without one, which tells the institution to write to the Administrator who has been in touch, and
+  each invitation with its inviter named and with nobody to name as its sender, the
   inviter's account gone or holding no name.
 - **Semester reports**: the notice to the Administrators that the daily job drafted a report, the
   approval to the institution's accounts, and the question to the students whether the report may
@@ -76,7 +79,8 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   the rejection; the sponsor's Collaboration Agreement received, accepted, returned with a note, out
   of force and back in force; what a sponsor says on the Sponsor Dashboard it would like to support,
   and its request to sponsor a mentor; the warning that an offer's codes are running low and a
-  claimant's report of a code that did not work; a sponsor's post sent back to its author; and the
+  claimant's report of a code that did not work; a sponsor's post sent back to its author; a sponsor's offer, or a change to a live one, sent back
+  with a note to the member who sent it; and the
   mail to a sponsor's Administrator thirty days before its term ends, and its twin for a term the
   daily run finds already over.
 - **Sponsor events**: what the people on a sponsor's event, or on one of the program's own, the
@@ -88,6 +92,8 @@ The plugin's emails, grouped by area, each area in a table of its own. There are
   changes or cancels there, to its Administrator. An event of the program's own says "Hosted by the
   WordPress Credits Program" where a sponsor's names its sponsor, so it has emails of its own, and
   so has what an Administrator did on a sponsor's behalf through the Sponsor Dashboard's switcher.
+  An event returned with a note to a sponsor whose tier no longer includes events has an email of
+  its own, since the return cancels it.
 - **Mentor applications** (since 1.122.31): what a person who applied to mentor through the form on
   the site is told, the acknowledgement with the link that confirms the address, the selection with
   the mentors' course invitation link, the request for more information and the decline, and the
@@ -205,7 +211,9 @@ Semester reports email's does, ends with one too, after its signature and footer
 **Save** is refused, nothing is stored, and the editor comes back with what you typed, when:
 
 - a box is empty;
-- a required placeholder is missing. Every invitation needs `{set_password_link}`, the link that
+- a required placeholder is missing. Each email's required placeholders are marked **Required** in
+  its editor's placeholder table; the ones below are the common ones, not the full list. Every
+  invitation needs `{set_password_link}`, the link that
   sets the password, and so does every other link that carries a secret: an institution
   application's confirmation link, `{verify_link}`, and a colleague's invitation to an institution,
   `{accept_link}`. Every email about a call needs `{when}`, its time (a series, `{session_dates}`),
@@ -263,8 +271,9 @@ what everybody else gets. The site's address, on the line above, is the same in 
 everybody can open it, an applicant with no account among them. A site whose front page is one of
 the dashboards prints that address once, on the site's line.
 
-The tab edits it with the editor every template has, without a subject, with **Save**, **Send me a
-test** (a short email that ends with the block) and **Restore the original**. An empty block is not
+The tab edits it with the editor every template has, without a subject, with **Save** and **Send me a
+test** (a short email that ends with the block); once the block has been edited, **Restore the
+original** appears too. An empty block is not
 saved, since every email ends with it.
 
 #### Settings
@@ -328,8 +337,9 @@ recipient type; those older than 30 days are deleted with the rest.
 ### Mentor Status Checker
 
 **WPCredits Program > Tools > Mentor Status Checker.** Reads the WordPress.org profile of each mentor
-who has still to be made one, matches the Credits Mentor's Course completion, and reports what it
-would change before it changes anything. It has two sources. First the applications selected on this
+who has still to be made one, matches the Credits Mentor's Course completion. **Run check (report only)** shows what it would
+change without changing anything; **Run check and promote to Active** changes mentors as it goes,
+after one confirmation. It has two sources. First the applications selected on this
 site, the newest selection first: where the course shows on an applicant's profile, they are made a
 mentor on this site, once **Make mentors from applications** is on (see *Applications to mentor* in
 the part on the plugin in wp-admin). Then, until **Stop checking mentors in Airtable** is ticked, the
@@ -350,8 +360,8 @@ mentor** beside **promoted**. A run that only reports, and any run while **Make 
 applications** is off, makes nobody a mentor: an application whose course shows reads *Awaiting
 promotion*, "Ready to be made a mentor", or, while the switch is off, *Waiting*, with "it waits
 until Make mentors from applications is switched on". A report keeps on each application the day of
-its last check, which the Selected view shows. **Run check and promote** and **Promote all
-eligible** promote and make mentors from both sources, and **Promote** on one row re-checks that
+its last check, which the Selected view shows. **Run check and promote to Active** (the last word is the status set under **Promote them to**)
+and **Promote all eligible** promote and make mentors from both sources, and **Promote** on one row re-checks that
 mentor or application first, never from the cache, and refuses an application that has left Selected
 (course pending). A row that reads *Waiting* offers no **Promote**, since it says it waits; the
 summary above the results counts those rows as waiting for Make mentors from applications, apart
@@ -387,7 +397,7 @@ settings**:
 #### The Slack message after a promotion
 
 With a webhook saved, every action that promotes or makes a mentor sends **one** message once it has
-finished: a run, whether the daily one, **Run check and promote** or `wp wpcredits check_mentors
+finished: a run, whether the daily one, **Run check and promote to Active** or `wp wpcredits check_mentors
 --promote`; **Promote all eligible**; **Promote** on one row; or, since 1.122.33, **The course is
 completed** on an application, which sends its message at once. It calls the channel (`@channel`),
 says how many mentors were moved to the status they were promoted to and which channel to add them
@@ -429,8 +439,9 @@ change to that Airtable automation, written up step by step in
 This is the part worth reading twice. **The site stores Airtable record IDs**, and deleting the row
 one of them names is not something Airtable can warn you about:
 
-- a student's account holds the record ID of their **Students Reports** row and of their
-  **Feedback** row, which is how their Student Report Card finds their program;
+- a student's account holds the record ID of their **Students Reports** row, which is how their
+  Student Report Card finds their program, and of their **Feedback** row, which is how their surveys
+  are found;
 - a mentor's **call note** and a **booked call** hold the record ID of the student they are about;
 - **audit log entries** hold the record IDs of what they describe.
 
@@ -448,8 +459,8 @@ the surviving row again, but only by someone who knows which row that was.
 
 A scan reads the three tables and writes nothing to Airtable, so running one is always safe.
 
-- **It runs by itself every three hours**, offset from the four syncs so no two of them run in the
-  same request.
+- **It runs by itself every three hours**, at a different minute from the students, mentors and
+  institutions syncs, so no two of them run in the same request.
 - **Scan now** runs one while you watch, with a progress bar. Press it if you have just changed
   something in Airtable and want the list to catch up.
 - **A scan that fails changes nothing**, whether Airtable did not answer or the site could not read
@@ -458,13 +469,15 @@ A scan reads the three tables and writes nothing to Airtable, so running one is 
 - **An address is the same student however it is typed.** Capitals and spaces before or after it
   make no difference, so a row whose address was typed with a space around it is listed, and can be
   deleted, like any other. When a student's rows spell the address differently, their card says so.
-- Pressing **Scan now** while a scan is running does nothing except say so. **Review selection** is
+- While a scan is running, **Scan now** is replaced by the progress bar and **Cancel scan**; a
+  **Scan now** pressed from a page opened earlier does nothing except say a scan is already running. **Review selection** is
   disabled while a scan is running, because the rows underneath the list are about to change.
 
 #### Working through the list
 
 1. Open the finder and read the tiles: how many students are duplicated, how many are **Ready**, how
-   many **need a decision**, and how many rows are duplicated in each table.
+   many **need a decision**, and, for each table, how many rows are proposed for deletion and how
+   many are held.
 2. Start with **Ready**. Press **Select all ready**, or tick students one at a time.
 3. Move on to **needs a decision**. Each row that may go has its own checkbox and, beside it, the
    sentence saying why it was held back. Read the sentence and decide. Nothing is ever ticked for
@@ -473,7 +486,8 @@ A scan reads the three tables and writes nothing to Airtable, so running one is 
 5. The confirmation lists exactly what will go, table by table, and lists anything it left out with
    the reason. Rows that would leave a student with no row in a table are left out here already,
    not only after you press Delete. Read it. This is the page to turn back from.
-6. Press **Delete**. Only this button deletes anything.
+6. Press **Delete 3 rows from Airtable**, where the number is the count of rows the confirmation
+   lists. Only this button deletes anything.
 
 Take it in small batches the first few times. One confirmation deletes at most 100 rows, and there
 is no prize for clearing the list in one afternoon.
@@ -517,8 +531,8 @@ moves the whole student to **needs a decision**, which is why that group is the 
   cannot be erased from a table entirely.
 - **Rows go in order: Feedback, then Students Reports, then Students**, so a child row never
   outlives its parent.
-- **A sealed copy of every row is written to the site first.** If the copy cannot be written, the
-  row is not deleted.
+- **A sealed copy of every row is written to the site first.** If any copy cannot be written, or
+  the site cannot encrypt, nothing in the selection is deleted.
 - **If Airtable stops a delete part of the way**, the notice says what was deleted before it stopped,
   with Airtable's own message. The rows it did not confirm stay in the list and can be selected and
   deleted again; each still ends with one copy and one log entry.
@@ -593,7 +607,7 @@ none of them is ever offered it.
 
 #### Starting a track
 
-Three ways, each ending on the new track's page, as a draft.
+Two ways, each ending on the new track's page, as a draft.
 
 - **New track** asks for the three things two tracks can never share: the **Name**, the **Airtable
   status** and the **Key**, the short word on the chip, plus the **Learn course** link when the
@@ -607,9 +621,10 @@ Three ways, each ending on the new track's page, as a draft.
   them. The copy starts with no Learn course, no hours target, no partners and no partners'
   narrative; set them on its page. This is the usual way to start a track that resembles one you
   run: duplicate the 150-hour track and change what differs.
-- *From a Learn course link* is New track with the link filled in. The lessons appear under the
-  groups that are their modules, and each lesson offers **Add a question under this lesson**, which
-  is how a form gets built lesson by lesson.
+
+With a **Learn course** link filled in on New track, the lessons appear under the groups that are
+their modules, and each lesson offers **Add a question under this lesson**, which is how a form
+gets built lesson by lesson.
 
 #### The track's page
 
@@ -684,7 +699,8 @@ exists has to be of that type, or the publish screen refuses.
 A duplicated track shares its columns with the track it came from, and the question's page says so,
 naming every other track that writes the column. Rewording a shared question keeps the column.
 Changing its control, or the choices of a select, gives it a column of its own, named after the track,
-which can still be renamed until the track is published. A different control is a different column.
+which can still be renamed until the track is published. On a question no other track shares, changing the control keeps its column and changes only the
+type the column needs.
 
 #### One question
 
@@ -703,7 +719,7 @@ to that control.
 | Note after the run | A sentence after the run of questions this one ends |
 | Row, and Shares one column of its row | Questions with the same row name sit side by side |
 | Marked required | Draws the word *Required* beside the label; nothing is enforced |
-| Kept off everything an institution reads | The answer is left off the Student Report Card an institution sees |
+| Kept off everything an institution reads | The answer is left off the Student Report Card an institution sees and off the institution's export; an Email address question is always kept off |
 | Filled in by the program: students see it but cannot change it | For a value the program writes, not the student: the card shows it as text with no box, and a save never sends it. Not offered on the Hours question, a screenshot or the contribution team |
 | Lowest value, Highest value, Step | A number's limits; the step also sets how many decimal places a new column keeps |
 | Length limit | A single-line box's limit; a text area has its own |
@@ -823,8 +839,8 @@ publish them exactly like a track you make yourself.
 
 A fresh site seeds and publishes all four at once, with their publish checklist already ticked, from
 the seed files the plugin ships, so the program runs on day one with nobody pressing Publish. If one
-of the four is ever missing, `wp wpcredits seed_tracks` on the command line puts it back; it is the
-same command a site runs on itself the first time it reaches the Track Builder.
+of the four is ever missing, `wp wpcredits seed_tracks` on the command line puts it back; a fresh
+site runs the same step by itself on the first page load after the plugin is installed.
 
 **Their statuses and keys belong to them.** No other track can take the Airtable status or the key of
 one of the four, whether you are starting a new track, duplicating one, or saving one you already
@@ -869,7 +885,8 @@ nothing is stored on this site, and each question, and the pages found for it, g
   The documentation describes running the program rather than being on it, which is why students
   are not included by default.
 - **Questions per person per hour** - from 0 to 200, 20 by default, so a free tier cannot be spent in
-  an afternoon. Past the limit, people are asked to come back shortly. `0` removes the limit.
+  an afternoon. Past the limit, people are asked to come back shortly. `0` removes the per-person
+  limit; the whole site can still be answered at most 300 questions a day.
 
 While it is switched off, a notice above the section says so, with a link down to the switch; while it
 has no provider, the **Provider** row under the section says so, with a link back up. Its card on the

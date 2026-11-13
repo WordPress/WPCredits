@@ -465,6 +465,9 @@ function get_post_time( $format = 'U', $gmt = false, $post = null ) {
 	return 'U' === $format ? ( $gmt ? $time : $time + (int) $GLOBALS['site_offset'] ) : gmdate( $format, $gmt ? $time : $time + (int) $GLOBALS['site_offset'] );
 }
 function get_permalink( $id ) {
+	// Core takes a post as well as an ID: the Administrator guide's help link asks it for the page it found.
+	$id = is_object( $id ) ? $id->ID : $id;
+
 	return 'https://example.test/' . ( isset( $GLOBALS['slugs'][ (int) $id ] ) ? $GLOBALS['slugs'][ (int) $id ] . '/' : '?p=' . (int) $id );
 }
 function get_page_by_path( $path ) {

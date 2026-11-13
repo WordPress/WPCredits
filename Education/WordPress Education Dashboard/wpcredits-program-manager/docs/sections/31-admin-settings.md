@@ -88,7 +88,7 @@ column typed: the mentors sync would ask for that column itself, and a blank one
 | **Contribution areas table** and **Contribution areas name column** | Read the same way, for the contribution team a record links to. |
 | **Tutors table** | Not read when an institution enrolls students: each school keeps its own tutor list on this site, in the Tutors section of its People card. The setting stays for moving the program's tutors onto the site. |
 | **Feedback table** | Where the students' survey answers are written: one row per student, with a column per question. |
-| **Countries table** and **Countries name column** | Read for the name of each institution's country; the name column holds each country's name. Who follows a school up comes from the areas of responsibility on the Institutions tab. |
+| **Countries table** and **Countries name column** | Read for the name of each institution's country; the name column holds each country's name. Once any area of responsibility is set on the Institutions tab, it decides who follows a school up; until then the Countries table's contact for the country does. |
 
 ### The Students and mentors tab
 
@@ -171,12 +171,13 @@ when the page is missing, a sentence saying that re-activating the plugin recrea
 
 - **Mentor landing page** - **Use the Mentor Report Card page as the mentor dashboard**, on by
   default: mentors go to their Mentor Report Card when they log in and in place of the wp-admin
-  Dashboard, and get a "Mentor Report Card" link in the toolbar. Its fold: they keep their own
-  profile screen, a mentor who followed a link somewhere specific still lands there, and
-  administrators are unaffected.
+  Dashboard. The toolbar link to the page is there whatever the switch says, on its own or inside
+  the "Dashboards" menu. Its fold: they keep their own profile screen, a mentor who followed a link
+  somewhere specific still lands there, and anyone who manages the program or can edit others'
+  posts, an editor or an administrator, is unaffected.
 - **Student landing page** - **Use the Student Report Card page as the student dashboard**, on by
-  default: the same arrangement for students, with a "Student Report Card" link in the toolbar and
-  the same exceptions: a requested destination wins, their own profile screen stays reachable, and
+  default: the same arrangement for students, with the toolbar link there whatever the switch says,
+  and the same exceptions: a requested destination wins, their own profile screen stays reachable, and
   anyone who can edit others' posts, an editor or an administrator, is left alone.
 
 Since 1.123.59 a student who can write posts, a contributor or an author, still goes to the Student
@@ -316,7 +317,7 @@ the other three with **Mark as done**, because the site cannot see them: joining
 Slack, joining the #wpcredits channel, and enrolling in the Learn course. The student's ticks are kept
 on the account. The student, or an Administrator looking at the card as the student, may press them; a
 tick cannot be undone. The Learn item moves to the site's own sight when the Learn Link module arrives. The
-team item links the Team Matcher page while that page exists, and the Learn item links the student's
+team item links the Team Matcher page while that page is published, and the Learn item links the student's
 course.
 
 **When all are done.** The card folds to one line, "All done. You have everything on the list.", with
@@ -375,7 +376,7 @@ The form people apply to mentor through, at /become-a-mentor/, since 1.122.31.
   review** tab, and the form writes nothing to Airtable; while this is off, the page shows one
   sentence saying applications are closed, and an Administrator who opens it a second saying why
   (until 1.123.26 the public were shown nothing here, and on the institution and sponsor forms
-  too, whatever their rows said). As with the other two
+  too, whatever their rows said). As with the other
   forms, its consent box links to the WordPress.org privacy policy, not to this site's own privacy
   page (since 1.123.24), and the row's fold says so.
 - **Make mentors from applications** (since 1.122.33) - **Make a mentor of each selected applicant
@@ -428,9 +429,9 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
   the program and the term and then adds one student or sends a CSV. Off by default. Beside the file
-  box, a link **Download a sample list** sends a file, `students-sample.csv`, with the four headers
+  box, a link **Download a sample list** sends a file, `students-sample.csv`, with four of the headers
   the import reads (`name`, `email`, `field_of_study`, `tutor`) and one example student, so a school
-  that has never seen the format is shown one. Since 1.123.41 the import refuses an address at
+  that has never seen the format is shown one; the import also reads an optional `profile` column. Since 1.123.41 the import refuses an address at
   example.test, the example's domain, as the sample list's own row ("This is the sample list's
   example student. Replace it with one of your students, or delete the row."), so a sample sent
   back unchanged creates nobody; the other rows of a file are checked as usual. The site makes the file
@@ -483,8 +484,8 @@ command that fills the areas in the first time.
 
 - **Institution landing page** - **Use the Institution Dashboard page as the institution
   dashboard**, on by default: institution accounts go to their Institution Dashboard when they log in
-  and in place of the wp-admin Dashboard, and get an "Institution Dashboard" link in the toolbar, with
-  the same exceptions as for mentors and students. The page's address is under the switch.
+  and in place of the wp-admin Dashboard, with the same exceptions as for mentors and students.
+  Their toolbar link to it is there whether this is on or off. The page's address is under the switch.
 
 Since 1.123.59 the same holds here: an institution account that can write posts still goes to the
 Institution Dashboard, and only an editor or an administrator stays in wp-admin.
@@ -511,8 +512,10 @@ Institution Dashboard, and only an editor or an administrator stays in wp-admin.
   asking to correct its name, website, city, country or contact's email (what it asks for, with a link
   to the request on the Administrator Dashboard), and a school withdrawing that request. A box for
   each Administrator, under **Administrators**, and an **Other addresses** line for anybody else,
-  separated by commas. With nobody named, every Administrator account gets them, and a notice under
-  the field says so: "Nobody is named, so every Administrator account gets these emails." That
+  separated by commas. To have every Administrator account emailed, tick **Mail every Administrator
+  account instead of the people below**, above the list; a list with no address in it is refused.
+  While nobody is named, a notice under the field says so: "Nobody is named, so every Administrator
+  account gets these emails." That
   means every account with the WordPress Administrator role, technical ones too, so name somebody.
   Where no Administrator account with an email address can be listed, the addresses are typed,
   separated by commas.
@@ -550,8 +553,9 @@ Approved**, **Interest mail**, **Offers** and **Tiers**.
 #### Sponsor landing page
 
 - **Sponsor landing page** - **Send sponsor accounts to the Sponsor Dashboard when they log in**,
-  instead of the wp-admin Dashboard, on by default. Accounts that can also edit content or manage
-  the program are left where WordPress sends them. The page's address is under the switch.
+  instead of the wp-admin Dashboard, on by default. Accounts that manage the program, or that can
+  edit other people's posts, editors and administrators, are left where WordPress sends them, and so
+  are mentors. The page's address is under the switch.
 
 #### When a sponsor is no longer Approved
 
@@ -664,9 +668,9 @@ records, read-only, through the MCP Adapter plugin. The section is saved with th
   Each refusal of a signed-in account is a row in the log, one for each request however many times
   WordPress asks about it, and 60 an hour at most for each account; a question refused for being
   over the hour's, the day's or the lookups' limit counts in the same 60. The other half is the fence: a password named Claude opens this address and nothing else. Used on any
-  other REST route or on the batch route it is refused with 403, and anywhere else a sign-in with it
-  fails: on XML-RPC, and on any request a plugin opens to application passwords, such as the
-  VideoPress requests Jetpack opens in wp-admin. That holds whether the switch is on or off, and on
+  other REST route or on the batch route it is refused with 403. On XML-RPC it fails to sign in, and
+  on any other request that is not REST, such as the VideoPress requests Jetpack opens in wp-admin,
+  it counts as nobody being signed in. That holds whether the switch is on or off, and on
   a REST route the refusal shows in the log as "Refused: another address". A password counts as named Claude when its name begins with Claude, in
   any case and with spaces before it: "Claude - laptop" does and "Claudette" does not.
   Before deactivating this plugin or installing a version below 1.123.30, revoke every application password whose name begins with Claude, or check that there is none: without the plugin, such a password opens every address its account can use.
@@ -775,13 +779,14 @@ records, read-only, through the MCP Adapter plugin. The section is saved with th
   accounts** list or on the **Engagement** tab of the Mentors screen; a mentor made by hand, whose
   account holds no Mentors record ID, comes back with none and is found by username or email address.
   An application's reference goes in **Find by reference**, above the views of the Mentors screen's
-  **Waiting for review** tab: it draws the application whole, with its decisions, whatever its age. The
+  **Waiting for review** tab: it draws the application whole, with its decisions, whatever its age,
+  except one filed as spam, which it reports as not found. The
   reference is also printed over the applicant's answers in every view of that tab, but a view draws
   50 applications at most: the oldest 50 in Waiting, Asked for more information, Second opinion,
   Selected (course pending) and Lapsed; in Activated, those still waiting for their Airtable row
   first, then the most recently made mentors; and, under every view, in Recently decided, the 50
   most recently declined or filed as spam, newest first. **Find by reference** reaches the ones past
-  them. A reference is the one the applicant saw on the thank-you page.
+  them, except those filed as spam. A reference is the one the applicant saw on the thank-you page.
 
 ### The Mail tab
 
@@ -842,7 +847,8 @@ one proxy the three application forms believe.
 - **Trusted proxy** - the one IP address, not a range, of the proxy whose forwarded header the
   application forms believe for a sender's address, which their limits count by. Its fold: leave it
   empty unless the site sits behind a proxy, since anybody can send that header; anything but one
-  address, a range included, is saved as empty.
+  IP address, a range included, is refused with a notice and the address saved before is kept;
+  clear the box to save it empty.
 
 The daily run that keeps these days for the mentor applications also lapses a selected application
 whose course has not shown after the days set under **Mentor applications** on the Students and

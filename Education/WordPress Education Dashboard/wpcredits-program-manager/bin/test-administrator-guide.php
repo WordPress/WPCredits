@@ -23,6 +23,7 @@ function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function __( $s, $d = null ) { return $s; }
 function esc_attr__( $s, $d = null ) { return esc_attr( $s ); }
+function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function wp_strip_all_tags( $s ) { return trim( strip_tags( (string) $s ) ); }
 function add_action() {}
 function add_filter() {}
@@ -51,6 +52,8 @@ function wp_enqueue_style( $h ) { $GLOBALS['enqueued'][] = 'style:' . $h; }
 function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['scripts'][ $h ] ); }
 function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['scripts'][ $h ] = array( $src, $deps, $ver, $footer ); }
 function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = 'script:' . $h; }
+$GLOBALS['localized'] = array();
+function wp_localize_script( $h, $name, $data ) { $GLOBALS['localized'][ $h ] = array( $name, $data ); return true; }
 
 class WP_Post {
 	public $ID = 0, $post_title = '', $post_name = '', $post_type = 'page', $post_parent = 0;
@@ -287,7 +290,7 @@ ck( 'the stylesheet, on the frame\'s, and the script, in the footer, are registe
  * --------------------------------------------------------------------
  */
 
-ck( 'the list\'s heading holds the button that folds it, hidden until the script shows it on a narrow main area, and controlling the list', false !== strpos( $first, '<h2 class="wpcpm-guide__contents-title" id="wpcpm-guide-contents-title"><span class="wpcpm-guide__contents-label">On this page</span><button class="wpcpm-guide__contents-toggle" type="button" aria-expanded="false" aria-controls="wpcpm-guide-list" hidden>On this page<svg data-icon="chevron-down"></svg></button></h2><ul class="wpcpm-guide__list" id="wpcpm-guide-list">' ), true );
+ck( 'the list\'s heading holds the button that folds it, hidden until the script shows it on a narrow main area, and controlling the list', false !== strpos( $first, '<h2 class="wpcpm-guide__contents-title" id="wpcpm-guide-contents-title"><span class="wpcpm-guide__contents-label">On this page</span><button class="wpcpm-guide__contents-toggle" type="button" aria-expanded="false" aria-controls="wpcpm-guide-list" hidden>On this page<svg data-icon="chevron-down"></svg></button></h2><div class="wpcpm-guide__search" data-wpcpm-guide-search hidden>' ), true );
 
 ck( 'each section a link to its heading, its parts a list inside it, the words escaped', array(
 	false !== strpos( $first, '<li class="wpcpm-guide__entry"><a class="wpcpm-guide__link" href="#signing-in">Signing in</a><ul class="wpcpm-guide__parts"><li><a class="wpcpm-guide__link wpcpm-guide__link--part" href="#signing-in-with-a-code">Signing in with a code</a></li><li><a class="wpcpm-guide__link wpcpm-guide__link--part" href="#settings">Settings</a></li></ul></li>' ),
@@ -383,6 +386,161 @@ ck( 'in the Sponsor Dashboard\'s menu, with the page\'s title as the one H1 and 
 fresh();
 reading( array( 'post' => page( 'administrator-guide' ), 'support' => $all_frames, 'manager' => false, 'member' => true ) );
 ck( 'and somebody who acts for a sponsor never gets the Administrator guide in a frame', array( WPCPM_Administrator_Guide_View::frame_for( page( 'administrator-guide' ) ), '<p>x</p>' === WPCPM_Administrator_Guide_View::filter_content( '<p>x</p>' ) ), array( '', true ) );
+
+/*
+ * --------------------------------------------------------------------
+ * The reference folds, the guide can be searched (the guides' clarity release)
+ * --------------------------------------------------------------------
+ */
+
+$ref = '<h2 class="wp-block-heading wpcpm-guide-ref" id="reference">Reference</h2>'
+	. '<p>What the reference holds.</p>'
+	. '<h3 class="wp-block-heading" id="first-part">First <strong>part</strong></h3>'
+	. '<p>One.</p><table><tbody><tr><td>Cell</td></tr></tbody></table><ul><li>Item</li></ul>'
+	. '<h4 id="deeper-one">Deeper</h4><p>Deep text.</p>'
+	. '<h3 id=\'second-part\' title="a > b">Second part</h3>'
+	. '<p>Two.</p>'
+	. '<h2 id="plain">Plain</h2><p>Plain text.</p><h3 id="plain-part">Plain part</h3><p>Stays.</p>';
+
+$folded = WPCPM_Administrator_Guide_View::fold( $ref );
+
+ck( 'fold(): under a reference heading each h3 and what follows it up to the next h2 or h3 is its h3 (class added, id kept) and a body div after it, nothing hidden; the text before the first part, and a plain section with its parts, are untouched', $folded,
+	'<h2 class="wp-block-heading wpcpm-guide-ref" id="reference">Reference</h2>'
+	. '<p>What the reference holds.</p>'
+	. '<h3 class="wp-block-heading wpcpm-guide__fold-heading" id="first-part">First <strong>part</strong></h3><div class="wpcpm-guide__fold-body" id="first-part-part"><p>One.</p><table><tbody><tr><td>Cell</td></tr></tbody></table><ul><li>Item</li></ul><h4 id="deeper-one">Deeper</h4><p>Deep text.</p></div>'
+	. '<h3 class="wpcpm-guide__fold-heading" id=\'second-part\' title="a > b">Second part</h3><div class="wpcpm-guide__fold-body" id="second-part-part"><p>Two.</p></div>'
+	. '<h2 id="plain">Plain</h2><p>Plain text.</p><h3 id="plain-part">Plain part</h3><p>Stays.</p>' );
+
+$plain = '<h2 id="a">A</h2><p>Text</p><h3 id="b">B</h3><table><tr><td><h3>In a cell</h3></td></tr></table>';
+ck( 'fold(): content with no reference heading comes back byte for byte', array(
+	WPCPM_Administrator_Guide_View::fold( $plain ),
+	WPCPM_Administrator_Guide_View::fold( '' ),
+	WPCPM_Administrator_Guide_View::fold( '<p>only text</p>' ),
+), array( $plain, '', '<p>only text</p>' ) );
+
+$nested = '<h2 class="wpcpm-guide-ref" id="r">R</h2><div><h3 id="x">Inside a div</h3><p>t</p></div><h3 id="y">Y</h3><p>t</p>';
+$open_list = '<h2 class="wpcpm-guide-ref" id="r">R</h2><ul><li><h3 id="x">In a list</h3></li></ul><h3 id="y">Y</h3><p>t</p>';
+$broken    = '<h2 class="wpcpm-guide-ref" id="r">R</h2><div><h3 id="y">Y</h3><p>t</p>';
+ck( 'fold(): a heading that is not at the top level, or markup left open, leaves the content as it was rather than producing broken markup', array(
+	WPCPM_Administrator_Guide_View::fold( $nested ),
+	WPCPM_Administrator_Guide_View::fold( $open_list ),
+	WPCPM_Administrator_Guide_View::fold( $broken ),
+), array( $nested, $open_list, $broken ) );
+
+$classed = WPCPM_Administrator_Guide_View::fold( '<h2 data-x=\'a > b\' class = "x  wpcpm-guide-ref y">R</h2><h3 id=bare>Bare</h3><p>t</p><h3 class=wp-block-heading>  </h3><p>after</p>' );
+ck( 'fold(): the class is found among others in any quoting style, a part with no words is not a part, and an h3 holding a quoted > is read whole', array(
+	0 === strpos( $classed, '<h2 data-x=\'a > b\' class = "x  wpcpm-guide-ref y">R</h2><h3 class="wpcpm-guide__fold-heading" id=bare>Bare</h3><div class="wpcpm-guide__fold-body" id="bare-part"><p>t</p><h3 class=wp-block-heading>  </h3><p>after</p></div>' ),
+	substr_count( $classed, 'wpcpm-guide__fold-body' ),
+), array( true, 1 ) );
+
+$taken = '<h2 class="wpcpm-guide-ref" id="r">R</h2><h3 id="a">A</h3><p>t</p><p id="a-part">taken</p><h3 id="b">B</h3><p>u</p>';
+ck( 'fold(): a part whose body id (the heading\'s id and -part) is already on the page is left as it was, the others still fold', WPCPM_Administrator_Guide_View::fold( $taken ),
+	'<h2 class="wpcpm-guide-ref" id="r">R</h2><h3 id="a">A</h3><p>t</p><p id="a-part">taken</p><h3 class="wpcpm-guide__fold-heading" id="b">B</h3><div class="wpcpm-guide__fold-body" id="b-part"><p>u</p></div>' );
+
+ck( 'fold(): a class that only contains the name (wpcpm-guide-reference) is not a reference heading', WPCPM_Administrator_Guide_View::fold( '<h2 class="wpcpm-guide-reference">R</h2><h3>P</h3><p>t</p>' ), '<h2 class="wpcpm-guide-reference">R</h2><h3>P</h3><p>t</p>' );
+
+$long_attr = '<h2 class="wpcpm-guide-ref" data-meta=' . str_repeat( 'a', 20000 ) . '>R</h2><h3 title="' . str_repeat( 'b', 20000 ) . '">P</h3><p>t</p>';
+$long_out  = WPCPM_Administrator_Guide_View::fold( $long_attr );
+ck( 'fold(): a very long attribute does not lose the guide', array( strlen( $long_out ) >= strlen( $long_attr ), false !== strpos( $long_out, '<p>t</p>' ) ), array( true, true ) );
+
+// render(): the Administrator guide folds; the search box is in the list's nav, hidden, with its label, status and list.
+$both = '<h2 class="wpcpm-guide-ref" id="step-by-step">Reference</h2><h3 id="one">One</h3><p>Text.</p><h3 id="two">Two</h3><p>More.</p><h2 id="start">Start</h2><p>Hello.</p>';
+$GLOBALS['localized'] = array();
+$admin_out   = WPCPM_Administrator_Guide_View::render( $both, 'Guide' );
+$sponsor_out = WPCPM_Administrator_Guide_View::render( '<h2 id="a">A</h2><h3 id="b">B</h3><p>t</p><h2 id="c">C</h2><p>u</p>', 'Guide', 'sponsor-guide' );
+$search      = '<div class="wpcpm-guide__search" data-wpcpm-guide-search hidden><label class="wpcpm-guide__search-label" for="wpcpm-guide-search">Search the guide <span class="wpcpm-guide__search-hint">Press / to search</span></label><input class="wpcpm-guide__search-input" id="wpcpm-guide-search" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"><p class="wpcpm-guide__search-status" role="status"></p><ol class="wpcpm-guide__results"></ol></div>';
+
+ck( 'render(): the search box is in the list\'s nav, above the list, drawn hidden for the script to show, on both guides', array(
+	false !== strpos( $admin_out, $search . '<ul class="wpcpm-guide__list"' ),
+	false !== strpos( $sponsor_out, $search . '<ul class="wpcpm-guide__list"' ),
+	substr_count( $admin_out, '<input' ),
+), array( true, true, 1 ) );
+
+ck( 'render(): the Administrator guide\'s reference is folded; the Sponsor guide has no folded part', array(
+	substr_count( $admin_out, 'class="wpcpm-guide__fold-body"' ),
+	false !== strpos( $admin_out, '<h3 class="wpcpm-guide__fold-heading" id="one">One</h3><div class="wpcpm-guide__fold-body" id="one-part">' ),
+	substr_count( $sponsor_out, 'wpcpm-guide__fold' ),
+	false !== strpos( $sponsor_out, '<div class="wpcpm-guide__body"><h2 id="a">A</h2><h3 id="b">B</h3><p>t</p><h2 id="c">C</h2><p>u</p></div>' ),
+), array( 2, true, 0, true ) );
+
+ck( 'the list of sections still holds every h2 and h3 as a link to its id, folded or not', array(
+	substr_count( $admin_out, 'href="#step-by-step"' ),
+	substr_count( $admin_out, 'href="#one"' ),
+	substr_count( $admin_out, 'href="#two"' ),
+	substr_count( $admin_out, 'href="#start"' ),
+	substr_count( $admin_out, 'wpcpm-guide__link--part' ),
+), array( 1, 1, 1, 1, 2 ) );
+
+$strings = isset( $GLOBALS['localized']['wpcpm-administrator-guide'] ) ? $GLOBALS['localized']['wpcpm-administrator-guide'] : array( '', array() );
+ck( 'the script is given every string it shows, through wp_localize_script, as wpcpmGuideStrings', array( $strings[0], array_keys( $strings[1] ) ), array( 'wpcpmGuideStrings', array( 'found_one', 'found_many', 'none', 'cut', 'ellipsis', 'separator', 'open_all', 'close_all' ) ) );
+ck( 'and they read as the brief words them', array( $strings[1]['found_one'], $strings[1]['found_many'], $strings[1]['none'], $strings[1]['cut'], $strings[1]['open_all'], $strings[1]['close_all'] ), array( '%d place found', '%d places found', 'No part of the guide has these words.', 'Showing the first %1$d of %2$d.', 'Open every part', 'Close every part' ) );
+
+// The script, read as source.
+$js  = (string) file_get_contents( __DIR__ . '/../assets/js/administrator-guide.js' );
+$css = (string) file_get_contents( __DIR__ . '/../assets/css/administrator-guide.css' );
+$plain_js = preg_replace( '#/\*.*?\*/|(?<![:"\'])//[^\n]*#s', '', $js );
+
+ck( 'the script reads its strings from the page and holds no English of its own', array(
+	false !== strpos( $js, 'wpcpmGuideStrings' ),
+	1 === preg_match( '/Open every part|Close every part|places? found|Search the guide|No part of the guide/', $plain_js ),
+), array( true, false ) );
+
+ck( 'the script checks CSS.highlights before it marks anything', 1 === preg_match( '/CSS\.highlights/', $js ) && 1 === preg_match( '/CSS\s*&&\s*(?:window\.)?CSS\.highlights|window\.CSS\s*&&\s*window\.CSS\.highlights|typeof Highlight/', $js ), true );
+
+ck( 'the script never sets innerHTML, outerHTML or insertAdjacentHTML: rows are built with textContent', 1 === preg_match( '/innerHTML|outerHTML|insertAdjacentHTML|document\.write/', $plain_js ), false );
+
+ck( 'the script opens a closed part for a link into it, on load, on hashchange and on a press of an in-page link, and searches after a 150 ms pause, from 2 characters, 30 results at most', array(
+	false !== strpos( $js, "'hashchange'" ),
+	false !== strpos( $js, 'wpcpm-guide__fold-body' ),
+	1 === preg_match( '/\b150\b/', $js ),
+	1 === preg_match( '/\b30\b/', $js ),
+	1 === preg_match( '/prefers-reduced-motion/', $js ),
+	1 === preg_match( '/tabindex/', $js ),
+), array( true, true, true, true, true, true ) );
+
+ck( 'the script is valid JavaScript (node --check, where node is installed)', ( static function () {
+	$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
+	if ( '' === $node ) { return true; }
+	exec( escapeshellarg( $node ) . ' --check ' . escapeshellarg( __DIR__ . '/../assets/js/administrator-guide.js' ) . ' 2>&1', $out, $code );
+	return 0 === $code ? true : implode( "\n", $out );
+} )(), true );
+
+ck( 'the script folds only where onbeforematch is supported, listens for beforematch and beforeprint, and writes hidden only as until-found', array(
+	1 === preg_match( "/'onbeforematch'\\s+in\\s+HTMLElement\\.prototype/", $js ),
+	false !== strpos( $js, "'beforematch'" ),
+	false !== strpos( $js, "'beforeprint'" ) && false !== strpos( $js, "'afterprint'" ),
+	1 === preg_match( "/setAttribute\\(\\s*+'hidden'\\s*+,\\s*+(?!'until-found')/", $js ),
+	1 === preg_match( '/(?:part|fold|body)\\.hidden\\s*=/', $js ),
+	1 === preg_match( '/<details|summary/', $css . $js ),
+	1 === preg_match( '/\\.wpcpm-guide__fold-body\\s*\\{[^}]*(display|visibility)\\s*:/', $css ),
+), array( true, true, true, false, false, false, false ) );
+
+$upper = array();
+if ( preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER ) ) {
+	foreach ( $rules as $rule ) {
+		if ( false !== strpos( $rule[1], '.wpcpm-guide__body' ) && false !== strpos( $rule[2], 'text-transform: uppercase' ) ) {
+			$upper[] = trim( $rule[1] );
+		}
+	}
+}
+ck( 'no rule that names the guide\'s body upper-cases text: the WordPress trademark is never shown in an uppercase label', $upper, array() );
+
+ck( 'the ellipsis around a result\'s sentence comes from the page, and a chosen result\'s marks clear when focus leaves its block', array(
+	false !== strpos( $js, 'strings.ellipsis' ),
+	1 === preg_match( '/\\\\u2026|\x{2026}/u', $plain_js ),
+	false !== strpos( $js, "'blur'" ),
+	isset( $strings[1]['ellipsis'] ),
+), array( true, false, true, true ) );
+
+ck( 'the stylesheet draws a fold, a clip, steps and the highlight, with a ::highlight rule and a reduced-motion rule, and no em or en dash', array(
+	false !== strpos( $css, '.wpcpm-guide__fold' ),
+	false !== strpos( $css, '.wpcpm-guide-clip' ),
+	false !== strpos( $css, '::highlight(' ),
+	false !== strpos( $css, 'prefers-reduced-motion' ),
+	false !== strpos( $css, 'ol.wp-block-list' ),
+	1 === preg_match( '/\x{2014}|\x{2013}/u', $css . $js ),
+), array( true, true, true, true, true, false ) );
+
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

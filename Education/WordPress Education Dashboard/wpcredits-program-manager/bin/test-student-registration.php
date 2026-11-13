@@ -90,6 +90,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-templates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registration-process.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/guide-jobs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-stash.php';
@@ -3313,6 +3314,29 @@ tab_reg( 'spam' );
 tab_reg( 'spam' );
 
 $page = tab_html();
+
+// The help link (M3): one, at the end of the tab's own sentence, to the job in the Administrator guide;
+// none on a site with no published guide.
+
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public $ID = 0, $post_status = 'publish', $post_name = 'administrator-guide';
+	}
+}
+$guide_post                   = new WP_Post();
+$guide_post->ID               = 9001;
+$guide_post->post_type        = 'page';
+$guide_post->post_status      = 'publish';
+$GLOBALS['posts'][9001]       = $guide_post;
+$GLOBALS['slugs'][9001]       = 'administrator-guide';
+$GLOBALS['wpcpm_guide_page']  = $guide_post;
+WPCPM_Guide_Jobs::forget();
+$with_guide                   = tab_html();
+unset( $GLOBALS['wpcpm_guide_page'], $GLOBALS['posts'][9001], $GLOBALS['slugs'][9001] );
+WPCPM_Guide_Jobs::forget();
+ck( 'the Registrations tab ends its sentence with one help link to the student registration job; a site with no guide draws none',
+	array( substr_count( $with_guide, 'wpcpm-job-link' ), 1 === preg_match( '#Could not be written\. <a class="wpcpm-job-link" href="https://example.test/administrator-guide/\#a-student-registered">How to do this<span class="screen-reader-text">: Student registrations</span></a></p>#', $with_guide ), substr_count( $page, 'wpcpm-job-link' ) ),
+	array( 1, true, 0 ) );
 
 ck( 'the card is headed Student registrations with the count waiting (a held one among them) and could not be written, then the one sentence',
 	array(

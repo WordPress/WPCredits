@@ -3194,12 +3194,12 @@ function guide_page( $status ) {
  * @return array The part's ids, in order, and whether the built guide's headings are its parts'.
  */
 function guide_part_ids( $part ) {
-	$build = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'bin/build-docs.php' );
+	$build = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'bin/docs-guides.php' );
 	$built = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/build/administrators.html' );
 
 	preg_match( "/'administrators'\s*=>\s*array\(.*?'parts'\s*=>\s*array\(([^)]*)\)/s", $build, $list );
 	preg_match_all( "/'([0-9a-z-]+)'/", isset( $list[1] ) ? $list[1] : '', $parts );
-	preg_match_all( '#<h([2-4]) class="wp-block-heading" id="([a-z0-9-]+)">(.*?)</h\1>#s', $built, $headings, PREG_SET_ORDER );
+	preg_match_all( '#<h([2-4]) class="wp-block-heading(?: wpcpm-guide-ref)?" id="([a-z0-9-]+)">(.*?)</h\1>#s', $built, $headings, PREG_SET_ORDER );
 
 	$ids     = array();
 	$at      = 0;

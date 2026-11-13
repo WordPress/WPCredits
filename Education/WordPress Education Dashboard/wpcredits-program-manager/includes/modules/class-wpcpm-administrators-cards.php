@@ -583,6 +583,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'sponsor-agreements',
 					'title'  => __( 'Sponsor Collaboration Agreements', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-agreement', __( 'Sponsor Collaboration Agreements', 'wpcredits-program-manager' ) ),
 					'count'  => $total,
 					'shown'  => WPCPM_Sponsors::queue_count( $total ),
 					'open'   => $total > 0,
@@ -680,6 +681,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'sponsor-posts',
 					'title'  => __( 'Sponsor posts to review', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-post', __( 'Sponsor posts to review', 'wpcredits-program-manager' ) ),
 					'count'  => $total,
 					'shown'  => WPCPM_Sponsors::queue_count( $total ),
 					'open'   => $total > 0,
@@ -744,6 +746,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'sponsor-offers-review',
 					'title'  => __( 'Sponsor offers to review', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-offer', __( 'Sponsor offers to review', 'wpcredits-program-manager' ) ),
 					'count'  => $total,
 					'shown'  => WPCPM_Sponsors::queue_count( $total ),
 					'open'   => $total > 0,
@@ -792,6 +795,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'sponsor-events',
 					'title'  => __( 'Events', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-event', __( 'Events', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => $count > 0,
 					'state'  => self::waiting( $count ),
@@ -833,6 +837,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'sponsor-applications',
 					'title'  => __( 'Sponsor applications', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-application', __( 'Sponsor applications', 'wpcredits-program-manager' ) ),
 					'count'  => $total,
 					'open'   => $total > 0,
 					'state'  => self::waiting( $total ),
@@ -1021,6 +1026,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'duplicates',
 					'title'  => __( 'Duplicated students', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'duplicates', __( 'Duplicated students', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => false,
 					'state'  => self::duplicates_phrase( $count, (int) $facts['read'] ),
@@ -1291,6 +1297,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'sponsor-reports',
 					'title'  => __( 'Sponsor reports', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-report', __( 'Sponsor reports', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => $count > 0,
 					'state'  => self::waiting( $count ),
@@ -2116,6 +2123,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'applications',
 					'title'  => __( 'Institution applications', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'institution-application', __( 'Institution applications', 'wpcredits-program-manager' ) ),
 					'count'  => $open_total,
 					'open'   => $open_total > 0,
 					'state'  => self::waiting( $open_total ),
@@ -2316,6 +2324,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'agreements',
 					'title'  => __( 'Collaboration Agreements', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'institution-agreement', __( 'Collaboration Agreements', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => $count > 0,
 					'state'  => self::waiting( $count ),
@@ -2451,6 +2460,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'reports',
 					'title'  => __( 'Semester reports', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'semester-report', __( 'Semester reports', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => $count > 0,
 					'state'  => self::waiting( $count ),
@@ -2574,6 +2584,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'requests',
 					'title'  => __( 'Requests from institutions', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'institution-requests', __( 'Requests from institutions', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => $count > 0,
 					'state'  => self::waiting( $count ),
@@ -2936,6 +2947,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'    => 'quiet-students',
 					'title'  => __( 'Students gone quiet', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'quiet-students', __( 'Students gone quiet', 'wpcredits-program-manager' ) ),
 					'count'  => $real,
 					'open'   => false,
 					'state'  => self::quiet_phrase( $real, $days, $at ),
@@ -3206,6 +3218,7 @@ final class WPCPM_Administrators_Cards {
 				array(
 					'key'   => 'health',
 					'title' => __( 'Syncs and health', 'wpcredits-program-manager' ),
+					'help'  => WPCPM_Guide_Jobs::link( 'syncs', __( 'Syncs and health', 'wpcredits-program-manager' ) ),
 					'count' => $row['count'],
 					'open'  => false,
 					'state' => $row['state'],

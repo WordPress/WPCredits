@@ -152,6 +152,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-stash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/guide-jobs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
@@ -1776,6 +1777,32 @@ $GLOBALS['uid'] = 0;
 $signed_out     = tab_html();
 $GLOBALS['uid'] = 9;
 $as_admin       = tab_html();
+
+// The help link (M3): one, at the end of the tab's own sentence, to the job in the Administrator guide;
+// none for an account without the capability and none on a site with no published guide.
+
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public $ID = 0, $post_status = 'publish', $post_name = 'administrator-guide';
+	}
+}
+$guide_post                   = new WP_Post();
+$guide_post->ID               = 9001;
+$guide_post->post_type        = 'page';
+$guide_post->post_status      = 'publish';
+$GLOBALS['posts'][9001]       = $guide_post;
+$GLOBALS['slugs'][9001]       = 'administrator-guide';
+$GLOBALS['wpcpm_guide_page']  = $guide_post;
+WPCPM_Guide_Jobs::forget();
+$with_guide                   = tab_html();
+$GLOBALS['uid']               = 10;
+$guide_student                = tab_html();
+$GLOBALS['uid']               = 9;
+unset( $GLOBALS['wpcpm_guide_page'], $GLOBALS['posts'][9001], $GLOBALS['slugs'][9001] );
+WPCPM_Guide_Jobs::forget();
+ck( 'the Interests tab ends its sentence with one help link to the student interest job; a site with no guide, or a reader who cannot manage the program, gets none',
+	array( substr_count( $with_guide, 'wpcpm-job-link' ), 1 === preg_match( '#Nothing here is written to Airtable\. <a class="wpcpm-job-link" href="https://example.test/administrator-guide/\#a-student-is-interested-in-a-school-that-is-not-in-the-program">How to do this<span class="screen-reader-text">: Interest from students</span></a></p>#', $with_guide ), substr_count( $as_admin, 'wpcpm-job-link' ), substr_count( $guide_student, 'wpcpm-job-link' ) ),
+	array( 1, true, 0, 0 ) );
 
 ck( 'the tab draws nothing for an account without the program\'s capability, or for nobody, and the card for an Administrator',
 	array( $as_student, $signed_out, 0 === strpos( $as_admin, '<div class="wpcpm-card" id="wpcpm-student-interests"><h2>Interest from students <span class="wpcpm-count">1</span></h2>' ) ),

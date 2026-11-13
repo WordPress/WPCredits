@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.84
+Stable tag: 1.123.86
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,18 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.86 =
+
+* The Administrator guide now starts with the jobs an Administrator does, each as numbered steps with the names on the screen: for institutions, students, mentors, sponsors and running the site, about a hundred in all. Each group opens with its whole path, and each job says what happens next and who is emailed.
+* Two new parts of the guide: Start here, with the Administrator Dashboard at a glance and how to open someone's page as they see it, and Where does it stand?, four tables of what a screen shows, what it means and what to do next.
+* In each job, What happens next and Good to know are drawn as notices, each with its own tint and mark, so the steps, what follows them and what to watch for are told apart at a glance.
+* The guide's page has a search box. It looks through the whole guide, lists the places that hold your words and marks them. Press / to reach it.
+* The reference (the screens, the settings, the tools, access and running the site) is folded under its headings, so the page opens on the jobs. A link or a search result opens the part it leads to. Without script, or in a browser that cannot find text in a folded part, every part stays open.
+* Each card on the Administrator Dashboard that waits for a decision has a How to do this link to its job in the guide. The queue of applications to mentor and the Registrations and Interests tabs of the Students screen have one too.
+* The Administrator guide no longer repeats the Student guide and the Mentor guide. It links to both, which an Administrator can open.
+* The reference was checked against the code statement by statement, and the 107 statements that were wrong are corrected.
+* For developers: `bin/test-guide-labels.php` fails when a name the guide's new parts print in bold is not a name in the code. A job points at another with `[[its heading]]`, and the build stops on a pointer to a heading that is gone. `bin/test-guide-jobs.php` ties each How to do this link to its job. The guides' table is `bin/docs-guides.php`.
 
 = 1.123.84 =
 

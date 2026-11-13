@@ -243,7 +243,9 @@ class WPCPM_Student_Interests_Tab {
 
 		echo '<div class="wpcpm-card" id="wpcpm-student-interests">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Interest from students', 'wpcredits-program-manager' ), esc_html( number_format_i18n( WPCPM_Student_Interest::count_new() ) ) );
-		echo '<p class="description">' . esc_html__( 'Students whose institution is not in the program yet, who said through the form on the site that they would like to take part, newest first. Each names a representative of the institution; the site sends the representative nothing, so write to them yourself, then mark the interest as contacted. Nothing here is written to Airtable.', 'wpcredits-program-manager' ) . '</p>';
+		// The sentence, then the help link to the job in the guide, which a site with no guide leaves out.
+		$help = WPCPM_Guide_Jobs::link( 'student-interest', __( 'Interest from students', 'wpcredits-program-manager' ) );
+		echo '<p class="description">' . esc_html__( 'Students whose institution is not in the program yet, who said through the form on the site that they would like to take part, newest first. Each names a representative of the institution; the site sends the representative nothing, so write to them yourself, then mark the interest as contacted. Nothing here is written to Airtable.', 'wpcredits-program-manager' ) . ( '' === $help ? '' : ' ' . $help ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in esc_html__() and WPCPM_Guide_Jobs::link().
 
 		echo '<ul class="subsubsub">';
 

@@ -428,6 +428,10 @@ final class WPCPM_Dashboard_Card {
 	 *                                     null for none. An action with no label is none. It is
 	 *                                     printed whether the card is drawn open or folded; the
 	 *                                     stylesheets show it only while the card is folded.
+	 *     @type string     $help          The card's help link, `WPCPM_Guide_Jobs::link()`'s markup, already
+	 *                                     escaped; '' for none. It sits after the fold like the action,
+	 *                                     never in the summary, drawn at the end of the title row by the
+	 *                                     stylesheets, and is shown whether the card is open or folded.
 	 *     @type string     $body_class    A class the card adds to the body after the shared one,
 	 *                                     or ''.
 	 *     @type string     $prefix        What the anchor starts with: `wpcpm-sponsor-`, the default,
@@ -464,6 +468,7 @@ final class WPCPM_Dashboard_Card {
 				'open'          => false,
 				'state'         => '',
 				'action'        => null,
+				'help'          => '',
 				'body_class'    => '',
 				'prefix'        => 'wpcpm-sponsor-',
 				'section_class' => 'wpcpm-sponsor__card',
@@ -490,6 +495,7 @@ final class WPCPM_Dashboard_Card {
 		self::$opened[] = array(
 			'anchor' => $anchor,
 			'action' => is_array( $args['action'] ) ? $args['action'] : null,
+			'help'   => (string) $args['help'],
 		);
 
 		// The anchor stays on the element each page has always put it on, so every link, mail and
@@ -570,6 +576,12 @@ final class WPCPM_Dashboard_Card {
 		$label  = isset( $action['label'] ) ? (string) $action['label'] : '';
 
 		echo '</div></details>';
+
+		// The help link: one small link to the card's job in the guide, a sibling of the disclosure so it
+		// is never a second control inside the toggle.
+		if ( is_array( $card ) && '' !== $card['help'] ) {
+			echo '<p class="wpcpm-job-link-row">' . $card['help'] . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Guide_Jobs::link().
+		}
 
 		if ( '' !== $label ) {
 			$href    = isset( $action['href'] ) && '' !== (string) $action['href'] ? (string) $action['href'] : '#' . $card['anchor'];

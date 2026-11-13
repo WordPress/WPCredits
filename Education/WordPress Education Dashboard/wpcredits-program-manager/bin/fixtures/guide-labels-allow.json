@@ -1,0 +1,56 @@
+{
+	"What happens next": {
+		"why": "heading",
+		"note": "A run-in heading in the guide's own fixed build of a job."
+	},
+	"Good to know": {
+		"why": "heading",
+		"note": "A run-in heading in the guide's own fixed build of a job."
+	},
+	"Bulk actions": {
+		"why": "wordpress",
+		"note": "The menu WordPress puts above its list tables."
+	},
+	"Apply": {
+		"why": "wordpress",
+		"note": "The button beside Bulk actions on WordPress's list tables."
+	},
+	"Administration Email Address": {
+		"why": "wordpress",
+		"note": "A field on WordPress's Settings > General screen."
+	},
+	"Updates": {
+		"why": "wordpress",
+		"note": "The post category the plugin reads for program updates (WPCPM_Updates); a category is made in WordPress."
+	},
+	"Run check and promote to Active": {
+		"why": "placeholder",
+		"note": "The last word is the status chosen under Promote them to; Active is the default.",
+		"pattern": "Run check and promote to %s"
+	},
+	"Student level": {
+		"why": "placeholder",
+		"note": "An access level: the audience's name, then level.",
+		"pattern": "%s level"
+	},
+	"Mentor level": {
+		"why": "placeholder",
+		"note": "An access level: the audience's name, then level.",
+		"pattern": "%s level"
+	},
+	"Institution level": {
+		"why": "placeholder",
+		"note": "An access level: the audience's name, then level.",
+		"pattern": "%s level"
+	},
+	"Sponsor level": {
+		"why": "placeholder",
+		"note": "An access level: the audience's name, then level.",
+		"pattern": "%s level"
+	},
+	"Invited": {
+		"why": "placeholder",
+		"note": "A view of the Accounts tab; the screen adds how many in parentheses.",
+		"pattern": "Invited %s"
+	}
+}

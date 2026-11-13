@@ -71,6 +71,78 @@
 	}
 }
 
+/* The help link to the card's job in the Administrator guide (How to do this). The shell prints it after
+   the card's disclosure, never in the summary. By default it is a short line of its own in the flow,
+   aligned to the end, with nothing reserved in the summary and nothing absolutely placed, so a narrow
+   or crowded card (the page sits beside a menu, so the viewport says little of the card's width) never
+   has its title squeezed; it may wrap. The card is a size container on the inline axis, named, and only
+   where the card itself is 960px wide is the link lifted to the end of the title row, beside the
+   chevron, with its room (8em) reserved in the summary there. A card with a folded action never lifts
+   it: the action holds that corner. An open card lifts it the same way where the card is at least 600px
+   wide: its action and its cue are hidden, so the corner is free, and under a long open body the link
+   would sit a screen or more from the title it explains. Narrower than that (a phone) the room for it
+   would break the open title row into a stack, so there the link stays in the flow. Small (13px), the frame's muted color, underlined on hover and
+   focus, a visible focus ring, no icon and no button shape. */
+.wpcpm-administrator__card:has( > .wpcpm-job-link-row ) {
+	container-name: wpcpm-job-card;
+	container-type: inline-size;
+}
+
+.wpcpm-administrator__card > .wpcpm-job-link-row {
+	font-size: 13px;
+	line-height: 20px;
+	margin: 4px 0 0;
+	padding: 0 1.25em;
+	text-align: end;
+}
+
+@container wpcpm-job-card ( min-width: 600px ) {
+
+	.wpcpm-administrator__card:has( > .wpcpm-group__disclosure[open] ) > .wpcpm-job-link-row {
+		margin: 0;
+		padding: 0;
+		position: absolute;
+		right: calc( 1.25em + 1px );
+		top: calc( 0.85em + 1px );
+	}
+
+	.wpcpm-administrator__card:has( > .wpcpm-job-link-row ) > .wpcpm-group__disclosure[open] > .wpcpm-group__summary {
+		padding-right: calc( 1.25em + 8em );
+	}
+}
+
+@container wpcpm-job-card ( min-width: 960px ) {
+
+	.wpcpm-administrator__card:not(:has( > .wpcpm-sponsor__row-action )) > .wpcpm-job-link-row {
+		margin: 0;
+		padding: 0;
+		position: absolute;
+		right: calc( 1.25em + 1px );
+		top: calc( 0.85em + 1px );
+	}
+
+	.wpcpm-administrator__card:not(:has( > .wpcpm-sponsor__row-action )) > .wpcpm-group__disclosure > .wpcpm-group__summary {
+		padding-right: calc( 1.25em + 8em );
+	}
+}
+
+.wpcpm-job-link {
+	color: var( --wpcpm-ink-muted );
+	font-size: 13px;
+	text-decoration: none;
+	white-space: normal;
+}
+
+.wpcpm-job-link:hover,
+.wpcpm-job-link:focus-visible {
+	text-decoration: underline;
+}
+
+.wpcpm-job-link:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
 /* The base shape only: color is a theme's job (the WPCredits theme's dashboard skin paints
    --success and --error), so a site with no skin still gets a readable, bordered message
    rather than a bare paragraph nobody dressed. */

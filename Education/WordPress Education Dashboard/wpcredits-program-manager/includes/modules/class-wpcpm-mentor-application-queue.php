@@ -1254,7 +1254,9 @@ final class WPCPM_Mentor_Application_Queue {
 
 		echo '<div class="wpcpm-card" id="wpcpm-mentor-applications">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Mentor applications', 'wpcredits-program-manager' ), esc_html( number_format_i18n( WPCPM_Mentor_Application::waiting_count() ) ) );
-		echo '<p class="description">' . esc_html__( 'People who applied to mentor through the form on the site, oldest first. Select sends the mentors\' course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address. The course is completed, or the daily check finding the course on the profile, makes a selected applicant a mentor once Make mentors from applications is on.', 'wpcredits-program-manager' ) . '</p>';
+		// The sentence, then the help link to the job in the guide, which a site with no guide leaves out.
+		$help = WPCPM_Guide_Jobs::link( 'mentor-application', __( 'Mentor applications', 'wpcredits-program-manager' ) );
+		echo '<p class="description">' . esc_html__( 'People who applied to mentor through the form on the site, oldest first. Select sends the mentors\' course invitation link; Ask for more information and Decline send their emails; Second opinion, Mark as spam and Withdraw send nothing. A decision that emails the applicant waits until they have confirmed the address. The course is completed, or the daily check finding the course on the profile, makes a selected applicant a mentor once Make mentors from applications is on.', 'wpcredits-program-manager' ) . ( '' === $help ? '' : ' ' . $help ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in esc_html__() and WPCPM_Guide_Jobs::link().
 
 		$found = self::render_find( $view );
 

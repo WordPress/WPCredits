@@ -61,14 +61,8 @@ Two consequences:
 
 Questions live in `WPCPM_Student_Feedback::forms()`, keyed by the exact Airtable column name.
 Airtable refuses a whole record when one field name does not match, so a typo does not spoil one
-answer - it loses the student's entire submission, and they are told only that it could not be sent.
-
-`bin/test-feedback.php` pins all 44 column names and every single-select's choices against the
-base's own schema. Run it after any change to the base:
-
-```bash
-php bin/test-feedback.php
-```
+answer - it refuses the student's entire submission. The student keeps what they typed and is told to
+send it again, and it fails every time until the name is fixed.
 
 A single-select answer is checked against the choices the column actually has before it is sent, so
 a hand-edited form cannot add an option to the base or take a submission down with it.

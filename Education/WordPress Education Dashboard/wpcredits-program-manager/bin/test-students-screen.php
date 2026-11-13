@@ -200,6 +200,7 @@ class WPCPM_Student_Checklist {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/guide-jobs.php';
 // The Registrations tab, which the module boots and draws; it reads the registration record stood in above.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-registrations-tab.php';
 // The Interests tab (1.123.64), which the module boots and draws; it reads the record stood in above.
