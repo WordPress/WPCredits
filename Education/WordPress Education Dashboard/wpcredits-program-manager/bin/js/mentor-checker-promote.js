@@ -307,7 +307,7 @@ function build( source, answers, rows ) {
 	document.body = body;
 	document.activeElement = body;
 
-	[ 'wpcpm-checker-run-dry', 'wpcpm-checker-promote-all', 'wpcpm-checker-status', 'wpcpm-checker-progress', 'wpcpm-checker-progress-bar', 'wpcpm-checker-progress-fill', 'wpcpm-checker-progress-label', 'wpcpm-checker-progress-count', 'wpcpm-checker-progress-meta', 'wpcpm-checker-progress-eta', 'wpcpm-checker-results-body' ].forEach( ( id ) => {
+	[ 'wpcpm-checker-run-dry', 'wpcpm-checker-promote-all', 'wpcpm-checker-status', 'wpcpm-checker-progress', 'wpcpm-checker-progress-bar', 'wpcpm-checker-progress-label', 'wpcpm-checker-progress-count', 'wpcpm-checker-progress-meta', 'wpcpm-checker-progress-eta', 'wpcpm-checker-results-body' ].forEach( ( id ) => {
 		byId[ id ] = body.append( new Element( 'tbody' === id ? 'tbody' : 'div', { id } ) );
 	} );
 

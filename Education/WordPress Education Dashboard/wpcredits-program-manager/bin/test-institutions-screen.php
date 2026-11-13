@@ -3614,7 +3614,7 @@ $running = render_tab( 'sync' );
 ck( 'a running sync draws the progress panel admin.js polls', array(
 	false !== strpos( $running, '<div class="wpcpm-progress" data-wpcpm-progress data-action="wpcpm_institutions_tick" data-nonce="nonce" data-poll="3" data-finished="The sync has finished. The page will show its report.">' ),
 	false !== strpos( $running, '<strong data-wpcpm-label>Reading institution records…</strong>' ),
-	false !== strpos( $running, 'aria-valuenow="40"' ),
+	false !== strpos( $running, '<progress class="wpcpm-bar" max="100" value="40" aria-label="Sync progress" data-wpcpm-bar></progress>' ),
 	false !== strpos( $running, '<span data-wpcpm-elapsed data-label="running for %s">running for 1:15</span>' ),
 	false !== strpos( $running, '<input type="hidden" name="action" value="wpcpm_institutions_cancel" />' ),
 	false === strpos( $running, 'value="wpcpm_institutions_sync"' ),

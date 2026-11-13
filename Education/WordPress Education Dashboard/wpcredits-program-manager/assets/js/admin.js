@@ -100,7 +100,6 @@
 			label: root.querySelector( '[data-wpcpm-label]' ),
 			step: root.querySelector( '[data-wpcpm-step]' ),
 			bar: root.querySelector( '[data-wpcpm-bar]' ),
-			fill: root.querySelector( '[data-wpcpm-fill]' ),
 			percent: root.querySelector( '[data-wpcpm-percent]' ),
 			detail: root.querySelector( '[data-wpcpm-detail]' ),
 			elapsed: root.querySelector( '[data-wpcpm-elapsed]' ),
@@ -171,11 +170,8 @@
 			}
 
 			if ( typeof data.percent === 'number' ) {
-				if ( el.fill ) {
-					el.fill.style.width = data.percent + '%';
-				}
 				if ( el.bar ) {
-					el.bar.setAttribute( 'aria-valuenow', String( data.percent ) );
+					el.bar.value = data.percent;
 				}
 				if ( el.percent ) {
 					el.percent.textContent = data.percent + '%';
@@ -358,7 +354,6 @@
 		var el = {
 			count: panel.querySelector( '[data-wpcpm-invite-count]' ),
 			bar: panel.querySelector( '[data-wpcpm-invite-bar]' ),
-			fill: panel.querySelector( '[data-wpcpm-invite-fill]' ),
 			detail: panel.querySelector( '[data-wpcpm-invite-detail]' ),
 			stop: panel.querySelector( 'form' ),
 			stopButton: panel.querySelector( '[data-wpcpm-invite-stop]' ),
@@ -396,11 +391,8 @@
 			}
 
 			if ( typeof data.percent === 'number' ) {
-				if ( el.fill ) {
-					el.fill.style.width = data.percent + '%';
-				}
 				if ( el.bar ) {
-					el.bar.setAttribute( 'aria-valuenow', String( data.percent ) );
+					el.bar.value = data.percent;
 				}
 			}
 

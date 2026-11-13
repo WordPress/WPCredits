@@ -1028,7 +1028,7 @@ ck( 'and the Stop button marked for the poller, which counts it again in those w
 	false !== strpos( $polled, '<button type="submit" class="button" data-wpcpm-invite-stop>Stop and cancel the remaining 15</button>' ),
 	true );
 ck( 'with the count, the bar and the line under it marked for the poller, from the same figures',
-	array( false !== strpos( $polled, '<strong data-wpcpm-invite-count>Sending: 10 of 25 sent.</strong>' ), 1 === preg_match( '#role="progressbar" aria-valuenow="40"[^>]*data-wpcpm-invite-bar><span style="width:40%" data-wpcpm-invite-fill></span>#', $polled ), false !== strpos( $polled, 'data-wpcpm-invite-detail>15 still to go.' ) ),
+	array( false !== strpos( $polled, '<strong data-wpcpm-invite-count>Sending: 10 of 25 sent.</strong>' ), 1 === preg_match( '#<progress class="wpcpm-invites__bar" max="100" value="40" aria-label="Invitations sent" data-wpcpm-invite-bar></progress>#', $polled ), false !== strpos( $polled, 'data-wpcpm-invite-detail>15 still to go.' ) ),
 	array( true, true, true ) );
 ck( 'and a link that loads the page again, for a page with scripts off or a poller that stopped', false !== strpos( $polled, '<p class="wpcpm-invites__refresh" data-wpcpm-invite-refresh>To see the latest count, <a href="">refresh the page</a>.</p>' ), true );
 

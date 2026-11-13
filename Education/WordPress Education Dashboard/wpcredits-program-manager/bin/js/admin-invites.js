@@ -91,8 +91,7 @@ class Element {
 function page() {
 	const panel = new Element( { 'data-wpcpm-invite-poll': '', 'data-action': 'wpcpm_invite_progress', 'data-nonce': 'n1', 'data-poll': '10', 'data-total': '40', 'data-stopped': 'The count stopped updating.', 'data-finished': 'This run has finished: every invitation in it has been sent or passed over.', 'data-cleared': 'This run was stopped, or cleared in another tab. The count above is where it ended.', 'data-stop-label': 'Stop and cancel the remaining %d', 'aria-busy': 'true' } );
 	const count = new Element( { 'data-wpcpm-invite-count': '' } );
-	const bar = new Element( { 'data-wpcpm-invite-bar': '', 'aria-valuenow': '25' } );
-	const fill = new Element( { 'data-wpcpm-invite-fill': '' } );
+	const bar = new Element( { tag: 'progress', 'data-wpcpm-invite-bar': '' } );
 	const detail = new Element( { 'data-wpcpm-invite-detail': '' } );
 	const stop = new Element( { tag: 'form' } );
 	const stopButton = new Element( { 'data-wpcpm-invite-stop': '' } );
@@ -101,10 +100,10 @@ function page() {
 	detail.textContent = '30 still to go.';
 	stopButton.textContent = 'Stop and cancel the remaining 30';
 	stop.add( stopButton );
-	bar.add( fill );
+	bar.value = 25;
 	panel.add( count, bar, detail, stop );
 
-	return { panel, count, bar, fill, detail, stop, stopButton };
+	return { panel, count, bar, detail, stop, stopButton };
 }
 
 // Figures as WPCPM_Mail::invite_progress() answers them.
@@ -175,12 +174,12 @@ function load( answers, options ) {
 }
 
 ( async function () {
-	await scenario( 'the first answer moves the count, the bar and the line in place, says nothing, and asks again in ten seconds', { count: 'Sending: 12 of 40 sent.', bar: '30', fill: '30%', detail: '28 still to go.', said: [], next: [ 10000 ], body: 'action=wpcpm_invite_progress&nonce=n1' }, async () => {
+	await scenario( 'the first answer moves the count, the bar and the line in place, says nothing, and asks again in ten seconds', { count: 'Sending: 12 of 40 sent.', bar: '30', detail: '28 still to go.', said: [], next: [ 10000 ], body: 'action=wpcpm_invite_progress&nonce=n1' }, async () => {
 		const run = load( [ ok( figures( 12, 40, true ) ) ] );
 
 		await run.settle();
 
-		return { count: run.els.count.textContent, bar: run.els.bar.getAttribute( 'aria-valuenow' ), fill: run.els.fill.style.width, detail: run.els.detail.textContent, said: run.said, next: run.timers.map( ( t ) => t.ms ), body: run.asked[ 0 ] };
+		return { count: run.els.count.textContent, bar: String( run.els.bar.value ), detail: run.els.detail.textContent, said: run.said, next: run.timers.map( ( t ) => t.ms ), body: run.asked[ 0 ] };
 	} );
 
 	await scenario( 'a screen reader is told as the run passes each quarter, once each, and not between', { said: [ 'Invitations sent: 20 of 40.', 'Invitations sent: 30 of 40.' ] }, async () => {
@@ -213,7 +212,7 @@ function load( answers, options ) {
 		run.next();
 		await run.settle();
 
-		return { said: run.said, count: run.els.count.textContent, bar: run.els.bar.getAttribute( 'aria-valuenow' ), detail: run.els.detail.textContent, stopHidden: run.els.stop.hidden, busy: run.els.panel.getAttribute( 'aria-busy' ), timers: run.timers.length, asked: run.asked.length };
+		return { said: run.said, count: run.els.count.textContent, bar: String( run.els.bar.value ), detail: run.els.detail.textContent, stopHidden: run.els.stop.hidden, busy: run.els.panel.getAttribute( 'aria-busy' ), timers: run.timers.length, asked: run.asked.length };
 	} );
 
 	await scenario( 'a refused answer, as an expired nonce on a tab left open overnight gives, stops the panel with its sentence and asks nothing more', { detail: 'The count stopped updating.', busy: 'false', timers: 0, asked: 2 }, async () => {

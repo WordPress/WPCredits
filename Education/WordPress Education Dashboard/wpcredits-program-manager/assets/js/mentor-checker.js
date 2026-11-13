@@ -18,7 +18,6 @@
 	var statusEl = document.getElementById( 'wpcpm-checker-status' );
 	var progress = document.getElementById( 'wpcpm-checker-progress' );
 	var progressBar = document.getElementById( 'wpcpm-checker-progress-bar' );
-	var fill = document.getElementById( 'wpcpm-checker-progress-fill' );
 	var labelEl = document.getElementById( 'wpcpm-checker-progress-label' );
 	var countEl = document.getElementById( 'wpcpm-checker-progress-count' );
 	var metaEl = document.getElementById( 'wpcpm-checker-progress-meta' );
@@ -303,11 +302,8 @@
 
 		var percent = total > 0 ? Math.round( ( done / total ) * 100 ) : 0;
 
-		if ( fill ) {
-			fill.style.width = percent + '%';
-		}
 		if ( progressBar ) {
-			progressBar.setAttribute( 'aria-valuenow', String( percent ) );
+			progressBar.value = percent;
 		}
 		if ( labelEl && undefined !== label ) {
 			labelEl.textContent = label;

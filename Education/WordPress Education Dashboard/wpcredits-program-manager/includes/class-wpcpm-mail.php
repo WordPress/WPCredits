@@ -1641,7 +1641,7 @@ class WPCPM_Mail {
 			);
 
 			printf(
-				'<div class="wpcpm-invites__bar" role="progressbar" aria-valuenow="%1$d" aria-valuemin="0" aria-valuemax="100" aria-label="%3$s" data-wpcpm-invite-bar><span style="width:%1$d%%" data-wpcpm-invite-fill></span></div><p class="description" data-wpcpm-invite-detail>%2$s</p>',
+				'<progress class="wpcpm-invites__bar" max="100" value="%1$d" aria-label="%3$s" data-wpcpm-invite-bar></progress><p class="description" data-wpcpm-invite-detail>%2$s</p>',
 				(int) $progress['percent'],
 				esc_html( $progress['detail'] ),
 				esc_attr__( 'Invitations sent', 'wpcredits-program-manager' )

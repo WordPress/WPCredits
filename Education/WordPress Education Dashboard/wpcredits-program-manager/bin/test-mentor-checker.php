@@ -1374,7 +1374,7 @@ ck( 'the screen\'s script counts a waiting row apart from the eligible ones, int
 $checker_php = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-mentor-checker.php' );
 ck( 'the progress bar is named by its visible label',
 	array(
-		1 === preg_match( '#<div class="wpcpm-checker-progress__bar" role="progressbar" id="wpcpm-checker-progress-bar" aria-labelledby="wpcpm-checker-progress-label" #', $checker_php ),
+		1 === preg_match( '#<progress class="wpcpm-checker-progress__bar" id="wpcpm-checker-progress-bar" aria-labelledby="wpcpm-checker-progress-label" max="100" value="0"></progress>#', $checker_php ),
 		1 === preg_match( '#<span class="wpcpm-checker-progress__label" id="wpcpm-checker-progress-label"></span>#', $checker_php ),
 	),
 	array( true, true ) );

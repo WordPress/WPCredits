@@ -192,19 +192,31 @@ p.wpcpm-settings__intro {
 	font-size: 12px;
 }
 
+/* A native <progress> (1.123.87), drawn as the bar it replaced. `appearance: none` hands the
+   whole drawing to these rules; the fill is a pseudo-element with one name in Chrome and Safari
+   and another in Firefox, and a rule naming both is thrown away whole, so each has its own. */
 .wpcpm-bar {
+	--wpcpm-bar-motion: wpcpm-bar-stripes 1s linear infinite;
+	--wpcpm-bar-move: inline-size 0.4s ease;
+	appearance: none;
 	background: #f0f0f1;
+	border: 0 solid;
 	border-radius: 999px;
 	box-shadow: inset 0 0 0 1px rgba( 0, 0, 0, 0.06 );
+	display: block;
 	height: 18px;
 	max-width: 640px;
-	overflow: hidden;
+	overflow: clip;
+	width: 100%;
 }
 
-.wpcpm-bar__fill {
+.wpcpm-bar::-webkit-progress-bar {
+	background: transparent;
+}
+
+/* Moving stripes: the bar still reads as working while a long phase holds the same percentage. */
+.wpcpm-bar::-webkit-progress-value {
 	background-color: #2271b1;
-	/* Moving stripes: the bar still reads as working while a long phase holds
-	   the same percentage. */
 	background-image: linear-gradient(
 		45deg,
 		rgba( 255, 255, 255, 0.22 ) 25%,
@@ -216,11 +228,27 @@ p.wpcpm-settings__intro {
 	);
 	background-size: 18px 18px;
 	border-radius: 999px;
-	height: 100%;
 	min-width: 2px;
-	transition: width 0.4s ease;
-	width: 0;
-	animation: wpcpm-bar-stripes 1s linear infinite;
+	transition: var( --wpcpm-bar-move );
+	animation: var( --wpcpm-bar-motion );
+}
+
+.wpcpm-bar::-moz-progress-bar {
+	background-color: #2271b1;
+	background-image: linear-gradient(
+		45deg,
+		rgba( 255, 255, 255, 0.22 ) 25%,
+		transparent 25%,
+		transparent 50%,
+		rgba( 255, 255, 255, 0.22 ) 50%,
+		rgba( 255, 255, 255, 0.22 ) 75%,
+		transparent 75%
+	);
+	background-size: 18px 18px;
+	border-radius: 999px;
+	min-width: 2px;
+	transition: var( --wpcpm-bar-move );
+	animation: var( --wpcpm-bar-motion );
 }
 
 @keyframes wpcpm-bar-stripes {
@@ -236,9 +264,9 @@ p.wpcpm-settings__intro {
 
 @media ( prefers-reduced-motion: reduce ) {
 
-	.wpcpm-bar__fill {
-		animation: none;
-		transition: none;
+	.wpcpm-bar {
+		--wpcpm-bar-motion: none;
+		--wpcpm-bar-move: none;
 	}
 }
 
@@ -532,20 +560,31 @@ p.wpcpm-settings__intro {
 /* Not `.wpcpm-progress`: that class already dresses the sync screen's step list,
    and a bar borrowing it would inherit that layout. */
 .wpcpm-invites__bar {
+	appearance: none;
 	background: #f0f0f1;
+	border: 0 solid;
 	border-radius: 999px;
+	display: block;
 	height: 8px;
 	margin: 0 0 8px;
-	overflow: hidden;
+	overflow: clip;
+	width: 100%;
 }
 
-.wpcpm-invites__bar > span {
+.wpcpm-invites__bar::-webkit-progress-bar {
+	background: transparent;
+}
+
+/* The count only moves when the page comes back, so the fill is animated to show that the last
+   step was progress rather than a redraw. One rule per browser's name for the fill. */
+.wpcpm-invites__bar::-webkit-progress-value {
 	background: #3858e9;
-	display: block;
-	height: 100%;
-	/* The count only moves when the page comes back, so the fill is animated to
-	   show that the last step was progress rather than a redraw. */
-	transition: width 0.4s ease;
+	transition: inline-size 0.4s ease;
+}
+
+.wpcpm-invites__bar::-moz-progress-bar {
+	background: #3858e9;
+	transition: inline-size 0.4s ease;
 }
 
 .wpcpm-invites form {

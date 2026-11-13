@@ -58,20 +58,33 @@
 	color: #50575e;
 }
 
+/* A native <progress> (1.123.87): one rule per browser's name for the fill. */
 .wpcpm-checker-progress__bar {
+	--wpcpm-checker-move: inline-size 240ms ease;
+	appearance: none;
+	display: block;
+	width: 100%;
 	height: 8px;
-	overflow: hidden;
+	overflow: clip;
+	border: 0 solid;
 	background: #dcdcde;
 	border-radius: 4px;
 }
 
-.wpcpm-checker-progress__bar span {
-	display: block;
-	width: 0;
-	height: 100%;
+.wpcpm-checker-progress__bar::-webkit-progress-bar {
+	background: transparent;
+}
+
+.wpcpm-checker-progress__bar::-webkit-progress-value {
 	background: #2271b1;
 	border-radius: 4px;
-	transition: width 240ms ease;
+	transition: var( --wpcpm-checker-move );
+}
+
+.wpcpm-checker-progress__bar::-moz-progress-bar {
+	background: #2271b1;
+	border-radius: 4px;
+	transition: var( --wpcpm-checker-move );
 }
 
 .wpcpm-checker-progress__meta {
@@ -127,8 +140,8 @@ tr.is-checking {
 		animation-duration: 2.4s;
 	}
 
-	.wpcpm-checker-progress__bar span {
-		transition: none;
+	.wpcpm-checker-progress__bar {
+		--wpcpm-checker-move: none;
 	}
 }
 

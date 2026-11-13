@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.86\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.87\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T02:01:56+00:00\n"
+"POT-Creation-Date: 2026-11-13T03:30:33+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -1601,7 +1601,7 @@ msgid "This run was stopped, or cleared in another tab. The count above is where
 msgstr ""
 
 #: includes/class-wpcpm-mail.php:1647
-#: includes/modules/class-wpcpm-mentors.php:994
+#: includes/modules/class-wpcpm-mentors.php:992
 #: includes/modules/class-wpcpm-students.php:668
 msgid "Invitations sent"
 msgstr ""
@@ -2023,7 +2023,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsors.php:4705
 #: includes/modules/class-wpcpm-students-table.php:116
 #: includes/tools/class-wpcpm-emails.php:1045
-#: includes/tools/class-wpcpm-mentor-checker.php:955
+#: includes/tools/class-wpcpm-mentor-checker.php:953
 #: includes/tools/class-wpcpm-track-builder-screen.php:55
 msgid "Status"
 msgstr ""
@@ -2188,7 +2188,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-report-files.php:714
 #: includes/modules/class-wpcpm-students-table.php:118
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:741
-#: includes/tools/class-wpcpm-mentor-checker.php:952
+#: includes/tools/class-wpcpm-mentor-checker.php:950
 msgid "Mentor"
 msgstr ""
 
@@ -3555,7 +3555,7 @@ msgid "Asked"
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:2387
-#: includes/tools/class-wpcpm-mentor-checker.php:956
+#: includes/tools/class-wpcpm-mentor-checker.php:954
 msgid "Outcome"
 msgstr ""
 
@@ -11464,7 +11464,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1240
 #: includes/modules/class-wpcpm-students-dashboard.php:786
 #: includes/modules/class-wpcpm-students-dashboard.php:1087
-#: includes/tools/class-wpcpm-mentor-checker.php:953
+#: includes/tools/class-wpcpm-mentor-checker.php:951
 msgid "WordPress.org"
 msgstr ""
 
@@ -15290,7 +15290,7 @@ msgid "The sync has finished. The page will show its report."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3144
-#: includes/modules/class-wpcpm-mentors.php:939
+#: includes/modules/class-wpcpm-mentors.php:937
 #: includes/modules/class-wpcpm-students.php:587
 msgid "Sync progress"
 msgstr ""
@@ -15298,7 +15298,7 @@ msgstr ""
 #. translators: %s: elapsed time as a clock value.
 #. translators: %s: elapsed time as a clock value, e.g. "2:05".
 #: includes/modules/class-wpcpm-institutions.php:3151
-#: includes/modules/class-wpcpm-mentors.php:948
+#: includes/modules/class-wpcpm-mentors.php:946
 #: includes/modules/class-wpcpm-students.php:594
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:509
 #, php-format
@@ -19035,90 +19035,90 @@ msgstr ""
 msgid "Sync mentors now"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:961
+#: includes/modules/class-wpcpm-mentors.php:959
 #: includes/modules/class-wpcpm-students.php:605
 msgid "No progress for over two minutes. The run may have been interrupted - cancel it and start again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:969
+#: includes/modules/class-wpcpm-mentors.php:967
 #: includes/modules/class-wpcpm-students.php:613
 msgid "Reload this page to choose Run anyway or Cancel."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:972
+#: includes/modules/class-wpcpm-mentors.php:970
 msgid "The sync works in short bursts so it never hits a PHP timeout. Progress above updates every few seconds; you can safely leave this page and come back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:974
+#: includes/modules/class-wpcpm-mentors.php:972
 msgid "JavaScript is off, so this page reloads every 15 seconds to show progress. The sync itself continues either way."
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:989
+#: includes/modules/class-wpcpm-mentors.php:987
 msgid "Field descriptions read from Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:990
+#: includes/modules/class-wpcpm-mentors.php:988
 msgid "Active mentors in Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:991
+#: includes/modules/class-wpcpm-mentors.php:989
 #: includes/modules/class-wpcpm-students.php:664
 msgid "Accounts created"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:992
+#: includes/modules/class-wpcpm-mentors.php:990
 #: includes/modules/class-wpcpm-students.php:665
 msgid "Existing accounts linked"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:993
+#: includes/modules/class-wpcpm-mentors.php:991
 #: includes/modules/class-wpcpm-students.php:666
 msgid "Accounts refreshed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:995
+#: includes/modules/class-wpcpm-mentors.php:993
 msgid "Invitations sent to existing accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:996
+#: includes/modules/class-wpcpm-mentors.php:994
 msgid "Mentor role revoked (no longer active)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:997
+#: includes/modules/class-wpcpm-mentors.php:995
 msgid "Current student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:998
+#: includes/modules/class-wpcpm-mentors.php:996
 msgid "Past student reports read"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:999
+#: includes/modules/class-wpcpm-mentors.php:997
 msgid "Student assignments written"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1000
+#: includes/modules/class-wpcpm-mentors.php:998
 msgid "Students with no mentor in Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1001
+#: includes/modules/class-wpcpm-mentors.php:999
 msgid "Students assigned to a non-active mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1002
+#: includes/modules/class-wpcpm-mentors.php:1000
 msgid "Mentors skipped (missing data)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1003
+#: includes/modules/class-wpcpm-mentors.php:1001
 #: includes/modules/class-wpcpm-students.php:672
 msgid "Account conflicts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1007
+#: includes/modules/class-wpcpm-mentors.php:1005
 #: includes/modules/class-wpcpm-students.php:676
 msgid "Last sync report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-mentors.php:1027
+#: includes/modules/class-wpcpm-mentors.php:1025
 #: includes/modules/class-wpcpm-students.php:696
 msgid "Warnings"
 msgstr ""
@@ -29299,11 +29299,11 @@ msgstr ""
 msgid "This run did not finish."
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:954
+#: includes/tools/class-wpcpm-mentor-checker.php:952
 msgid "Course"
 msgstr ""
 
-#: includes/tools/class-wpcpm-mentor-checker.php:962
+#: includes/tools/class-wpcpm-mentor-checker.php:960
 msgid "No results yet. Run a check to see where each vetted mentor stands."
 msgstr ""
 

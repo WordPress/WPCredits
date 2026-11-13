@@ -932,9 +932,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		echo '</p>';
 
 		printf(
-			'<div class="wpcpm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="%1$d" aria-label="%2$s" data-wpcpm-bar>
-				<div class="wpcpm-bar__fill" style="width:%1$d%%" data-wpcpm-fill></div>
-			</div>',
+			'<progress class="wpcpm-bar" max="100" value="%1$d" aria-label="%2$s" data-wpcpm-bar></progress>',
 			(int) $percent,
 			esc_attr__( 'Sync progress', 'wpcredits-program-manager' )
 		);

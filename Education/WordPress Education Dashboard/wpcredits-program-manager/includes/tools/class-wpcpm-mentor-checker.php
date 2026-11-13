@@ -935,9 +935,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					<span class="wpcpm-checker-progress__label" id="wpcpm-checker-progress-label"></span>
 					<span class="wpcpm-checker-progress__count" id="wpcpm-checker-progress-count"></span>
 				</div>
-				<div class="wpcpm-checker-progress__bar" role="progressbar" id="wpcpm-checker-progress-bar" aria-labelledby="wpcpm-checker-progress-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-					<span id="wpcpm-checker-progress-fill"></span>
-				</div>
+				<progress class="wpcpm-checker-progress__bar" id="wpcpm-checker-progress-bar" aria-labelledby="wpcpm-checker-progress-label" max="100" value="0"></progress>
 				<div class="wpcpm-checker-progress__meta">
 					<span id="wpcpm-checker-progress-meta"></span>
 					<span class="wpcpm-checker-progress__eta" id="wpcpm-checker-progress-eta"></span>

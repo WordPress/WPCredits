@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.86
+Stable tag: 1.123.87
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.87 =
+
+* The progress bars on the Students, Mentors and Institutions sync tabs, the Student Duplicate Finder's scan, the invitations card and the Mentor Status Checker are the browser's own progress bars now, not hand-built ones. They look as before, stripes included, and screen readers announce their value without the extra markup. Nothing else changes.
 
 = 1.123.86 =
 

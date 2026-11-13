@@ -498,7 +498,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 			echo '</p>';
 			$percent = (int) $progress['percent'];
 			printf(
-				'<div class="wpcpm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="%1$d" aria-label="%2$s" data-wpcpm-bar><div class="wpcpm-bar__fill" style="width:%1$d%%" data-wpcpm-fill></div></div>',
+				'<progress class="wpcpm-bar" max="100" value="%1$d" aria-label="%2$s" data-wpcpm-bar></progress>',
 				(int) $percent,
 				esc_attr__( 'Scan progress', 'wpcredits-program-manager' )
 			);

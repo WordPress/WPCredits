@@ -98,8 +98,7 @@ function page() {
 	const panel = new Element( { 'data-wpcpm-progress': '', 'data-action': 'wpcpm_mentors_tick', 'data-nonce': 'n1', 'data-poll': '3', 'data-finished': FINISHED } );
 	const label = new Element( { 'data-wpcpm-label': '' } );
 	const step = new Element( { 'data-wpcpm-step': '' } );
-	const bar = new Element( { 'data-wpcpm-bar': '', 'aria-valuenow': '10' } );
-	const fill = new Element( { 'data-wpcpm-fill': '' } );
+	const bar = new Element( { tag: 'progress', 'data-wpcpm-bar': '' } );
 	const percent = new Element( { 'data-wpcpm-percent': '' } );
 	const detail = new Element( { 'data-wpcpm-detail': '' } );
 	const elapsed = new Element( { 'data-wpcpm-elapsed': '', 'data-label': 'running for %s' } );
@@ -112,10 +111,10 @@ function page() {
 	stalled.hidden = true;
 	stop.hidden = true;
 	stop.add( stopSentence, stopHint );
-	bar.add( fill );
+	bar.value = 10;
 	panel.add( label, step, bar, percent, detail, elapsed, stalled, stop );
 
-	return { panel, label, step, stalled, stop, stopSentence, stopHint };
+	return { panel, label, step, bar, percent, stalled, stop, stopSentence, stopHint };
 }
 
 const LABELS = { 2: 'Reading field descriptions…', 3: 'Reading mentors…' };
@@ -215,6 +214,19 @@ async function drive( run, polls ) {
 		await drive( run, 2 );
 
 		return { busy: run.busy };
+	} );
+
+	await scenario( 'the bar is a progress element whose value follows each answer, with the percent beside it', { bars: [ 20, 30 ], percent: '30%' }, async () => {
+		const run = load( [ ok( progress( 2 ) ), ok( progress( 3 ) ) ] );
+		const bars = [];
+
+		await run.settle();
+		bars.push( run.els.bar.value );
+		run.next();
+		await run.settle();
+		bars.push( run.els.bar.value );
+
+		return { bars, percent: run.els.percent.textContent };
 	} );
 
 	await scenario( 'each step is said once', { said: [ 'Step 2 of 7: Reading field descriptions…', 'Step 3 of 7: Reading mentors…' ] }, async () => {
