@@ -761,5 +761,167 @@ t(
     $fail
 );
 
+
+// --------------------------------------------------------------- queue hygiene
+echo "\nqueue hygiene:\n";
+
+require __DIR__ . '/../includes/class-wcac-sync.php';
+
+/*
+ * Every enqueue appended its jobs blindly, so a site still waiting in the queue
+ * was queued again the next day. Measured on the live queue on 13 Nov 2026: 81
+ * jobs for 33 distinct sites, some queued four times. Only the Campus Connect
+ * job was ever protected, by without_queued_duplicates(), because that one job
+ * is expensive enough that somebody noticed.
+ */
+$pending = array(
+    array( 'to' => 'kid', 'wcid' => 1, 'site' => 'https://a.wordcamp.org/2026/' ),
+    array( 'to' => 'wc', 'page' => 1, 'since' => '2026-11-10T00:00:00' ),
+);
+
+$incoming = array(
+    array( 'to' => 'kid', 'wcid' => 1, 'site' => 'https://a.wordcamp.org/2026/' ),
+    array( 'to' => 'kid', 'wcid' => 2, 'site' => 'https://b.wordcamp.org/2026/' ),
+);
+
+$kept = WCAC_Sync::new_jobs_only( $pending, $incoming );
+t( 1 === count( $kept ), 'a job already waiting in the queue is not queued again', $pass, $fail );
+t( isset( $kept[0]['wcid'] ) && 2 === $kept[0]['wcid'], 'and the genuinely new job is kept', $pass, $fail );
+
+$kept = WCAC_Sync::new_jobs_only( array(), array(
+    array( 'to' => 'kid', 'wcid' => 3, 'site' => 'https://c.wordcamp.org/2026/' ),
+    array( 'to' => 'kid', 'wcid' => 3, 'site' => 'https://c.wordcamp.org/2026/' ),
+) );
+t( 1 === count( $kept ), 'a batch that repeats a job itself is collapsed too', $pass, $fail );
+
+// Key order is an artefact of how a job was built, not part of its identity.
+$kept = WCAC_Sync::new_jobs_only(
+    array( array( 'to' => 'kid', 'wcid' => 4, 'site' => 'https://d.wordcamp.org/2026/' ) ),
+    array( array( 'site' => 'https://d.wordcamp.org/2026/', 'wcid' => 4, 'to' => 'kid' ) )
+);
+t( array() === $kept, 'the same job written with its keys in another order is still the same job', $pass, $fail );
+
+/* What must NOT be collapsed: pagination, and two reads over different
+   windows. Collapsing either would silently drop work. */
+$kept = WCAC_Sync::new_jobs_only(
+    array( array( 'to' => 'wc', 'page' => 1, 'since' => '2026-11-10T00:00:00' ) ),
+    array(
+        array( 'to' => 'wc', 'page' => 2, 'since' => '2026-11-10T00:00:00' ),
+        array( 'to' => 'wc', 'page' => 1, 'since' => '2026-11-11T00:00:00' ),
+    )
+);
+t( 2 === count( $kept ), 'a later page and a different window are both still queued', $pass, $fail );
+
+t( array() === WCAC_Sync::new_jobs_only( array(), array() ), 'nothing in, nothing out', $pass, $fail );
+$only = array( array( 'to' => 'cc' ) );
+t( $only === WCAC_Sync::new_jobs_only( array(), $only ), 'an empty queue keeps everything offered', $pass, $fail );
+t( array_values( WCAC_Sync::new_jobs_only( array(), $only ) ) === $only, 'and the result is a list, not a sparse array', $pass, $fail );
+
+// Order is preserved, because the queue is drained from the head.
+$kept = WCAC_Sync::new_jobs_only(
+    array(),
+    array(
+        array( 'to' => 'kid', 'wcid' => 10, 'site' => 'https://j.wordcamp.org/2026/' ),
+        array( 'to' => 'kid', 'wcid' => 11, 'site' => 'https://k.wordcamp.org/2026/' ),
+        array( 'to' => 'kid', 'wcid' => 12, 'site' => 'https://l.wordcamp.org/2026/' ),
+    )
+);
+t( array( 10, 11, 12 ) === array_column( $kept, 'wcid' ), 'the order jobs were offered in is kept', $pass, $fail );
+
+// -------------------------------------------------------- sites that refuse us
+echo "\nsites that refuse us:\n";
+
+/*
+ * Three of the 33 sites in the live queue answer 403 on sessions, speakers and
+ * sponsors: two 2026 Campus Connect events and one 2027 one. Ten OTHER Campus
+ * Connect sites answer 200, and so do the regular WordCamps, so this is a
+ * property of the individual site and not of Campus Connect. They were
+ * re-queued every day and spent three requests each proving it again, and
+ * between them they had eaten 108 of the log's 200 entries, which is the real
+ * cost: the log is the only place a fault like this shows up.
+ *
+ * 403 only. A 404 here is the documented ordinary case -- camps with no
+ * schedule yet, archived camps, non-camp event sites -- and backing off from
+ * those would skip sites that are going to have a schedule later.
+ */
+$now = 1794556800;
+
+t(
+    ! WCAC_Sync::site_is_refusing( array(), 99, $now ),
+    'a site nothing is known about is not skipped',
+    $pass,
+    $fail
+);
+
+$marked = WCAC_Sync::note_refusal( array(), 99, array( 403, 403, 403 ), $now );
+t( isset( $marked[99] ), 'a site that refused all three collections is marked', $pass, $fail );
+t( WCAC_Sync::site_is_refusing( $marked, 99, $now ), 'and is skipped from then on', $pass, $fail );
+t( WCAC_Sync::site_is_refusing( $marked, 99, $now + DAY_IN_SECONDS ), 'still skipped a day later', $pass, $fail );
+t( ! WCAC_Sync::site_is_refusing( $marked, 99, $now + ( 4 * DAY_IN_SECONDS ) ), 'and tried again once the cooldown is over, so a site that recovers is picked up', $pass, $fail );
+
+// One collection answering is enough to keep visiting the site.
+t( array() === WCAC_Sync::note_refusal( array(), 98, array( 403, 403, 200 ), $now ), 'a site that answered one of the three is not marked', $pass, $fail );
+t( array() === WCAC_Sync::note_refusal( array(), 98, array( 404, 404, 404 ), $now ), '404 is absence, not refusal, and is not marked', $pass, $fail );
+t( array() === WCAC_Sync::note_refusal( array(), 98, array( 403, 404, 403 ), $now ), 'a mix of refusal and absence is not marked', $pass, $fail );
+t( array() === WCAC_Sync::note_refusal( array(), 98, array(), $now ), 'no observations at all marks nothing', $pass, $fail );
+t( array() === WCAC_Sync::note_refusal( array(), 98, array( 403, 403 ), $now ), 'fewer than three observations marks nothing', $pass, $fail );
+
+// A site that starts answering again clears its mark immediately.
+$cleared = WCAC_Sync::note_refusal( $marked, 99, array( 200, 200, 200 ), $now + 100 );
+t( ! isset( $cleared[99] ), 'a site that answers again has its mark removed', $pass, $fail );
+t( ! WCAC_Sync::site_is_refusing( $cleared, 99, $now + 100 ), 'and is visited normally', $pass, $fail );
+
+$two = WCAC_Sync::note_refusal( $marked, 77, array( 403, 403, 403 ), $now );
+t( isset( $two[99], $two[77] ), 'marking one site does not disturb another', $pass, $fail );
+
+// The queue builder must consult it.
+t(
+    array() === WCAC_Sync::new_jobs_only( array(), array() ),
+    'the de-duplicator and the refusal list are independent of each other',
+    $pass,
+    $fail
+);
+
+
+/*
+ * The link the refusal logic hangs on: a refusal has to arrive as a status
+ * that note_refusal() can read. If get() ever stopped putting the code in the
+ * error's data, sites would simply never be marked and nothing would say so.
+ */
+wcac_reset_http();
+$GLOBALS['wcac_http']['queue'][] = array( 'code' => 403, 'body' => '', 'headers' => array() );
+$refused = $source->event_posts( 'https://events.wordpress.org/campusconnect/2026/example/', 'sessions' );
+t( is_wp_error( $refused ), 'a 403 from a camp site comes back as an error', $pass, $fail );
+$data = is_wp_error( $refused ) ? $refused->get_error_data() : array();
+t(
+    is_array( $data ) && isset( $data['status'] ) && 403 === (int) $data['status'],
+    'and carries the status, which is what marks a site as refusing',
+    $pass,
+    $fail
+);
+
+wcac_reset_http();
+$GLOBALS['wcac_http']['queue'][] = array( 'code' => 404, 'body' => '', 'headers' => array() );
+$absent = $source->event_posts( 'https://example.wordcamp.org/2026/', 'sponsors' );
+$data   = is_wp_error( $absent ) ? $absent->get_error_data() : array();
+t(
+    is_array( $data ) && isset( $data['status'] ) && 404 === (int) $data['status'],
+    'an absent collection reports 404, which must not mark the site',
+    $pass,
+    $fail
+);
+t(
+    array() === WCAC_Sync::note_refusal( array(), 5, array( 404, 404, 404 ), 1794556800 ),
+    'and end to end, three 404s leave the site unmarked',
+    $pass,
+    $fail
+);
+t(
+    isset( WCAC_Sync::note_refusal( array(), 5, array( 403, 403, 403 ), 1794556800 )[5] ),
+    'while three 403s mark it',
+    $pass,
+    $fail
+);
+
 printf( "\n%d passed, %d failed\n", $pass, $fail );
 exit( $fail > 0 ? 1 : 0 );

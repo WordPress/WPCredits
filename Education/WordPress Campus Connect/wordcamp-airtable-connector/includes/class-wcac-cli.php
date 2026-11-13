@@ -176,6 +176,7 @@ class WCAC_CLI {
 				array( 'key' => 'base', 'value' => WCAC_Settings::get( 'base_id' ) ),
 				array( 'key' => 'jobs pending', 'value' => $sync->pending() ),
 				array( 'key' => 'camps cached', 'value' => count( $sync->camps() ) ),
+				array( 'key' => 'sites skipped', 'value' => $this->refusing_summary( $sync ) ),
 				array( 'key' => 'mode', 'value' => $state['mode'] ? $state['mode'] : '-' ),
 				array( 'key' => 'created', 'value' => $state['created'] ),
 				array( 'key' => 'updated', 'value' => $state['updated'] ),
@@ -822,6 +823,41 @@ class WCAC_CLI {
 		if ( ! empty( $stored['coords'] ) ) {
 			WP_CLI::log( sprintf( 'In the stored snapshot:                 %d', count( $stored['coords'] ) ) );
 		}
+	}
+
+	/**
+	 * One line naming the sites whose child collections are being skipped.
+	 *
+	 * Visible on purpose. A site quietly dropped from the queue for three days
+	 * is the same shape of fault as a queue nothing drains: correct behaviour
+	 * that looks like nothing happening.
+	 *
+	 * @param WCAC_Sync $sync Sync instance.
+	 * @return string
+	 */
+	private function refusing_summary( WCAC_Sync $sync ) {
+		$refusing = $sync->refusing();
+		$now      = time();
+		$live     = array();
+
+		foreach ( $refusing as $wcid => $record ) {
+			if ( ! WCAC_Sync::site_is_refusing( $refusing, $wcid, $now ) ) {
+				continue;
+			}
+
+			$hours = (int) ceil( ( (int) $record['until'] - $now ) / HOUR_IN_SECONDS );
+			$live[] = sprintf( '%d (%dh left)', (int) $wcid, max( 0, $hours ) );
+		}
+
+		if ( empty( $live ) ) {
+			return 'none';
+		}
+
+		return sprintf(
+			'%d refusing all 3 collections: %s',
+			count( $live ),
+			implode( ', ', array_slice( $live, 0, 6 ) ) . ( count( $live ) > 6 ? ', …' : '' )
+		);
 	}
 
 	private function campus_rows() {

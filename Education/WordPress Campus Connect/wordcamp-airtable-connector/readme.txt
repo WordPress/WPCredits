@@ -4,7 +4,7 @@ Tags: airtable, wordcamp, sync, rest-api, reporting
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.14
+Stable tag: 1.1.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -366,6 +366,58 @@ live inside the plugin's own option rows. It does not touch
 application password on Central and the Airtable token yourself.
 
 == Changelog ==
+
+= 1.1.15 =
+
+Two kinds of waste in the job queue, both of which had been hiding a real fault
+rather than causing one.
+
+Found on 13 Nov 2026 while working out why the reporting P2's Campus Connect
+figures were two days old. The cause turned out to be that the site has no cron
+at all, which is fixed elsewhere, but the queue made it much worse and made it
+much harder to see.
+
+**Every enqueue appended blindly.** A site still waiting in the queue was queued
+again the next day, and again the day after. The live queue held 81 jobs for 33
+distinct sites, some of them four times over. Only the Campus Connect job was
+ever protected from this, by `without_queued_duplicates()`, because that one job
+is expensive enough that somebody noticed. Replaying the real queue through the
+new rule takes it from 81 jobs to 38, a 53% cut, losing no distinct job.
+
+* Added: `WCAC_Sync::new_jobs_only()`, and `push()` now uses it, so a job
+  already waiting is not added twice. Identity is the whole payload with its
+  keys sorted, because key order is an artefact of how a job was built. A later
+  page and a read over a different window stay distinct, which they must:
+  collapsing either would silently drop work. A job already mid-flight has been
+  shifted out of the queue, so it can be queued again, which is correct.
+
+**Three sites refuse their child collections, and were asked every day anyway.**
+`liceo-la-paz-a-coruna`, `smktp2ska` and `ies-fernando-wirtz` answer HTTP 403 on
+sessions, speakers and sponsors. Ten other Campus Connect sites answer 200, and
+so do the regular WordCamps, so this is a property of the individual site and
+not of Campus Connect, and it is now read from the site rather than guessed from
+its URL. Nor is it the event's status: all three refusing sites are upcoming
+events, but four other upcoming events serve their collections perfectly well,
+so filtering on `wcpt-scheduled` would skip those four for nothing. The cost was not the nine wasted requests. It was that three log lines
+per site per run had eaten 108 of the log's 200 entries, and the log is the only
+place a fault like a stalled queue becomes visible at all.
+
+* Added: a site that answers 403 on all three collections is skipped for three
+  days and then tried again. 403 only: a 404 here is the documented ordinary
+  case, a camp with no schedule yet or an archived camp, and backing off from
+  those would skip sites that are going to have a schedule later. One collection
+  answering is likewise enough to keep visiting the site.
+* Added: any later success clears the mark at once, so a site that reopens is
+  picked up on the next run rather than waiting out the cooldown.
+* Changed: `sync_collection()` reports the status it got instead of logging its
+  own warning, and `job_event_data()` logs one line per site naming what was
+  missing. Three lines became one.
+* Added: the skipped sites are shown in `wp wcac status` and on the settings
+  screen. A site quietly dropped from the queue for three days is the same shape
+  of fault as a queue nothing drains, so it says so out loud.
+
+Nothing about the Campus Connect path, the snapshot or the Airtable write
+changed.
 
 = 1.1.14 =
 

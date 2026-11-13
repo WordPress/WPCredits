@@ -641,6 +641,47 @@ class WCAC_Admin {
 						<td><?php echo esc_html( number_format_i18n( count( $sync->camps() ) ) ); ?></td>
 					</tr>
 					<tr>
+						<th><?php esc_html_e( 'Sites being skipped', 'wordcamp-airtable-connector' ); ?></th>
+						<td>
+							<?php
+							// Its own row on purpose. A site quietly dropped from
+							// the queue for a few days is the same shape of fault
+							// as a queue nothing drains: correct behaviour that
+							// looks like nothing happening.
+							$refusing = $sync->refusing();
+							$now      = time();
+							$skipped  = array();
+
+							foreach ( $refusing as $wcid => $record ) {
+								if ( WCAC_Sync::site_is_refusing( $refusing, $wcid, $now ) ) {
+									$skipped[] = (int) $wcid;
+								}
+							}
+
+							if ( empty( $skipped ) ) {
+								esc_html_e( 'none', 'wordcamp-airtable-connector' );
+							} else {
+								printf(
+									/* translators: 1: number of sites. 2: comma-separated WordCamp IDs. */
+									esc_html( _n(
+										'%1$s site refused sessions, speakers and sponsors, so it is skipped for three days and then tried again: WordCamp ID %2$s',
+										'%1$s sites refused sessions, speakers and sponsors, so they are skipped for three days and then tried again: WordCamp IDs %2$s',
+										count( $skipped ),
+										'wordcamp-airtable-connector'
+									) ),
+									esc_html( number_format_i18n( count( $skipped ) ) ),
+									esc_html( implode( ', ', array_slice( $skipped, 0, 12 ) ) )
+								);
+
+								printf(
+									'<br /><span class="description">%s</span>',
+									esc_html__( 'A site that starts answering again clears itself on the next run, without waiting for the three days.', 'wordcamp-airtable-connector' )
+								);
+							}
+							?>
+						</td>
+					</tr>
+					<tr>
 						<th><?php esc_html_e( 'Campus Connect', 'wordcamp-airtable-connector' ); ?></th>
 						<td>
 							<?php

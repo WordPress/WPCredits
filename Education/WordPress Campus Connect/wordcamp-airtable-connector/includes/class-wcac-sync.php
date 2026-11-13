@@ -97,7 +97,16 @@ class WCAC_Sync {
 			return;
 		}
 
-		$this->set_queue( array_merge( $this->queue(), $jobs ) );
+		$queue = $this->queue();
+
+		// A job already waiting is not worth adding twice; see new_jobs_only().
+		$fresh = self::new_jobs_only( $queue, $jobs );
+
+		if ( empty( $fresh ) ) {
+			return;
+		}
+
+		$this->set_queue( array_merge( $queue, $fresh ) );
 	}
 
 	/**
@@ -325,17 +334,26 @@ class WCAC_Sync {
 		// Refresh every camp whose event window is live: ended in the last 30
 		// days, or starts within the next year.
 		if ( WCAC_Settings::get( 'sync_children' ) ) {
-			$floor   = gmdate( 'Y-m-d', time() - 30 * DAY_IN_SECONDS );
-			$ceiling = gmdate( 'Y-m-d', time() + YEAR_IN_SECONDS );
+			$floor    = gmdate( 'Y-m-d', time() - 30 * DAY_IN_SECONDS );
+			$ceiling  = gmdate( 'Y-m-d', time() + YEAR_IN_SECONDS );
+			$refusing = $this->refusing();
 
 			foreach ( $this->camps() as $wcid => $camp ) {
 				if ( empty( $camp['s'] ) || empty( $camp['d'] ) ) {
 					continue;
 				}
 
-				if ( $camp['d'] >= $floor && $camp['d'] <= $ceiling ) {
-					$jobs[] = array( 'to' => 'kid', 'wcid' => (int) $wcid, 'site' => $camp['s'] );
+				if ( $camp['d'] < $floor || $camp['d'] > $ceiling ) {
+					continue;
 				}
+
+				// A site that refused all three collections is left alone for
+				// a few days rather than asked again every run.
+				if ( self::site_is_refusing( $refusing, $wcid, time() ) ) {
+					continue;
+				}
+
+				$jobs[] = array( 'to' => 'kid', 'wcid' => (int) $wcid, 'site' => $camp['s'] );
 			}
 		}
 
@@ -516,6 +534,182 @@ class WCAC_Sync {
 	/* ---------------------------------------------------------------------
 	 * Campus Connect: de-duplication, failure latch, per-run state
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Option holding the sites that refuse their child collections.
+	 *
+	 * wcid => array( since, until ). Not autoloaded: it is consulted when the
+	 * queue is built, not on every page load.
+	 */
+	const OPT_REFUSING = 'wcac_refusing';
+
+	/**
+	 * How long a refusing site is left alone, in seconds. Three days.
+	 *
+	 * A literal rather than DAY_IN_SECONDS * 3, because a class constant is
+	 * resolved when the class is defined and this file is also loaded by a
+	 * bare-PHP test harness.
+	 *
+	 * Long enough that a site which has shut its doors is not asked again every
+	 * day, short enough that one which reopens is picked up in the same week.
+	 */
+	const REFUSAL_COOLDOWN = 259200;
+
+	/**
+	 * The sites whose child collections are being skipped for now.
+	 *
+	 * @return array wcid => array( since, until )
+	 */
+	public function refusing() {
+		$stored = get_option( self::OPT_REFUSING, array() );
+
+		return is_array( $stored ) ? $stored : array();
+	}
+
+	/**
+	 * Store the refusal record.
+	 *
+	 * @param array $refusing wcid => array( since, until ).
+	 * @return void
+	 */
+	protected function set_refusing( array $refusing ) {
+		update_option( self::OPT_REFUSING, $refusing, false );
+	}
+
+	/**
+	 * A job's identity, for telling a repeat from new work.
+	 *
+	 * The whole payload, with its keys sorted: key order is an artefact of how
+	 * a job was built, not part of what it is. So a page, and a read over a
+	 * different window, stay distinct, which they must -- collapsing either
+	 * would silently drop work.
+	 *
+	 * @param mixed $job Queue entry.
+	 * @return string
+	 */
+	public static function job_key( $job ) {
+		if ( is_array( $job ) ) {
+			ksort( $job );
+		}
+
+		return md5( (string) wp_json_encode( $job ) );
+	}
+
+	/**
+	 * The offered jobs that are not already waiting in the queue.
+	 *
+	 * Every enqueue used to append blindly, so a site still waiting was queued
+	 * again the next day. On 13 Nov 2026 the live queue held 81 jobs for 33
+	 * distinct sites, some of them four times over, and the one Campus Connect
+	 * job was the only thing protected from it -- by without_queued_duplicates(),
+	 * because that job is expensive enough that somebody noticed.
+	 *
+	 * A job that is mid-flight has already been shifted out of the queue, so it
+	 * is not seen here and can be queued again. That is correct: it will read
+	 * fresh data when it runs.
+	 *
+	 * @param array $pending  The queue as it stands.
+	 * @param array $incoming Jobs being offered.
+	 * @return array The subset worth adding, in the order offered.
+	 */
+	public static function new_jobs_only( array $pending, array $incoming ) {
+		$seen = array();
+
+		foreach ( $pending as $job ) {
+			$seen[ self::job_key( $job ) ] = true;
+		}
+
+		$keep = array();
+
+		foreach ( $incoming as $job ) {
+			$key = self::job_key( $job );
+
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+
+			// Marked as seen so a batch that repeats itself is collapsed too.
+			$seen[ $key ] = true;
+			$keep[]       = $job;
+		}
+
+		return $keep;
+	}
+
+	/**
+	 * Whether this site's child collections are being skipped for now.
+	 *
+	 * @param array $refusing Stored refusal record.
+	 * @param int   $wcid     WordCamp ID.
+	 * @param int   $now      Current timestamp.
+	 * @return bool
+	 */
+	public static function site_is_refusing( array $refusing, $wcid, $now ) {
+		$wcid = (int) $wcid;
+
+		if ( ! isset( $refusing[ $wcid ]['until'] ) ) {
+			return false;
+		}
+
+		return (int) $now < (int) $refusing[ $wcid ]['until'];
+	}
+
+	/**
+	 * Record what a site's child collections just answered.
+	 *
+	 * A site is only marked when every one of the three collections answered
+	 * 403. Three of the 33 sites in the live queue do exactly that, and ten
+	 * other Campus Connect sites answer 200, so this is a property of the
+	 * individual site rather than of Campus Connect, and is read from the site
+	 * rather than guessed from its URL. It is not the event's status either:
+	 * all three refusing sites are upcoming events, but four other upcoming
+	 * events serve their collections, so filtering on wcpt-scheduled would
+	 * skip those four for nothing.
+	 *
+	 * 403 only. A 404 here is the documented ordinary case -- a camp with no
+	 * schedule yet, an archived camp, a non-camp event site -- and backing off
+	 * from those would skip sites that are going to have a schedule later.
+	 * One collection answering is likewise enough to keep visiting the site.
+	 *
+	 * Any later success clears the mark at once, so recovery does not wait for
+	 * the cooldown to expire.
+	 *
+	 * @param array $refusing Stored refusal record.
+	 * @param int   $wcid     WordCamp ID.
+	 * @param array $statuses HTTP status per collection fetched this run.
+	 * @param int   $now      Current timestamp.
+	 * @return array The updated record.
+	 */
+	public static function note_refusal( array $refusing, $wcid, array $statuses, $now ) {
+		$wcid = (int) $wcid;
+
+		// Three collections are fetched per site. Fewer observations than that
+		// means the run did not finish, which is not evidence of a refusal.
+		$refused = count( $statuses ) >= 3;
+
+		foreach ( $statuses as $status ) {
+			if ( 403 !== (int) $status ) {
+				$refused = false;
+
+				break;
+			}
+		}
+
+		if ( ! $refused ) {
+			unset( $refusing[ $wcid ] );
+
+			return $refusing;
+		}
+
+		$refusing[ $wcid ] = array(
+			// Kept across renewals, so the record says how long this has been
+			// going on and not merely when it was last confirmed.
+			'since' => isset( $refusing[ $wcid ]['since'] ) ? (int) $refusing[ $wcid ]['since'] : (int) $now,
+			'until' => (int) $now + self::REFUSAL_COOLDOWN,
+		);
+
+		return $refusing;
+	}
 
 	/**
 	 * Drop jobs that are already pending.
@@ -1316,8 +1510,9 @@ class WCAC_Sync {
 
 		// Remember each camp's Airtable record ID, site and start date, so the
 		// child jobs can link rows without re-reading the table.
-		$cache = array();
-		$kids  = array();
+		$cache    = array();
+		$kids     = array();
+		$refusing = $this->refusing();
 
 		foreach ( $rows as $row ) {
 			$wcid = (int) $row['WordCamp ID'];
@@ -1329,7 +1524,8 @@ class WCAC_Sync {
 				'd' => isset( $row['Start Date'] ) ? (string) $row['Start Date'] : '',
 			);
 
-			if ( WCAC_Settings::get( 'sync_children' ) && $site ) {
+			if ( WCAC_Settings::get( 'sync_children' ) && $site
+				&& ! self::site_is_refusing( $refusing, $wcid, time() ) ) {
 				$kids[] = array( 'to' => 'kid', 'wcid' => $wcid, 'site' => $site );
 			}
 		}
@@ -1464,9 +1660,9 @@ class WCAC_Sync {
 	 * Three things this must NOT copy from its neighbours: the 400-means-past-
 	 * the-last-page early return (a wp/v2 pagination convention that would
 	 * swallow a genuine bad request here), the page fan-out (total_pages is 0
-	 * for a route outside wp/v2), and sync_collection() (which downgrades a
-	 * source error to a warning and returns without tallying, so a 401 would
-	 * read as a clean run that wrote nothing).
+	 * for a route outside wp/v2), and sync_collection() (which reports a source
+	 * error back as a status for its caller to judge, and does not tally, so a
+	 * 401 would read as a clean run that wrote nothing).
 	 *
 	 * @return void
 	 */
@@ -2012,7 +2208,11 @@ class WCAC_Sync {
 		$camps    = $this->camps();
 		$camp_rec = isset( $camps[ $wcid ]['r'] ) && $camps[ $wcid ]['r'] ? $camps[ $wcid ]['r'] : null;
 
-		$this->sync_collection(
+		// Status per collection, so this site's verdict is drawn from what it
+		// actually answered rather than from its URL.
+		$answered = array();
+
+		$answered['sessions'] = $this->sync_collection(
 			$site,
 			'sessions',
 			'Session Key',
@@ -2021,7 +2221,7 @@ class WCAC_Sync {
 			}
 		);
 
-		$this->sync_collection(
+		$answered['speakers'] = $this->sync_collection(
 			$site,
 			'speakers',
 			'Speaker Key',
@@ -2030,13 +2230,84 @@ class WCAC_Sync {
 			}
 		);
 
-		$this->sync_collection(
+		$answered['sponsors'] = $this->sync_collection(
 			$site,
 			'sponsors',
 			'Sponsor Key',
 			function ( $post ) use ( $wcid, $camp_rec, $site ) {
 				return WCAC_Mapper::sponsor( $post, $wcid, $camp_rec, $this->source->term_map( $site, 'sponsor_level' ) );
 			}
+		);
+
+		$this->record_event_data_outcome( $wcid, $site, $answered );
+	}
+
+	/**
+	 * Log one line for this site, and mark it if it refused everything.
+	 *
+	 * One line rather than one per collection: three lines per site per run
+	 * were drowning the log, and the log is the only place a fault like a
+	 * stalled queue becomes visible.
+	 *
+	 * @param int    $wcid     WordCamp ID.
+	 * @param string $site     Camp site root.
+	 * @param array  $answered Collection name => HTTP status.
+	 * @return void
+	 */
+	protected function record_event_data_outcome( $wcid, $site, array $answered ) {
+		$before = $this->refusing();
+		$after  = self::note_refusal( $before, $wcid, array_values( $answered ), time() );
+
+		$was    = self::site_is_refusing( $before, $wcid, time() );
+		$is_now = self::site_is_refusing( $after, $wcid, time() );
+
+		if ( $after !== $before ) {
+			$this->set_refusing( $after );
+		}
+
+		$missed = array();
+
+		foreach ( $answered as $collection => $status ) {
+			if ( 200 !== (int) $status ) {
+				$missed[] = sprintf( '%s (HTTP %d)', $collection, (int) $status );
+			}
+		}
+
+		if ( empty( $missed ) ) {
+			// A site that has only just started answering again is worth a
+			// line, because its mark was standing until this run.
+			if ( $was ) {
+				WCAC_Logger::log(
+					'info',
+					sprintf( '%s is serving its collections again and will be synced normally from now on.', $site )
+				);
+			}
+
+			return;
+		}
+
+		if ( $is_now ) {
+			// Already marked: the cooldown has simply renewed, and saying so
+			// every three days is the noise this method exists to remove.
+			if ( ! $was ) {
+				WCAC_Logger::log(
+					'warn',
+					sprintf(
+						'%s refused all three collections: %s. Skipping it for three days, then trying again.',
+						$site,
+						implode( ', ', $missed )
+					)
+				);
+			}
+
+			return;
+		}
+
+		// Ordinary partial absence: a camp with no schedule yet, an archived
+		// camp, a non-camp event site. One line, naming what was missing.
+		WCAC_Logger::log(
+			'warn',
+			sprintf( '%s did not serve %s.', $site, implode( ', ', $missed ) )
 		);
 	}
 
@@ -2047,24 +2318,29 @@ class WCAC_Sync {
 	 * @param string   $collection  sessions|speakers|sponsors.
 	 * @param string   $merge_field Airtable merge key.
 	 * @param callable $map         Maps one post to an Airtable field array.
-	 * @return void
+	 * @return int HTTP status the site answered with: 200 when it served the
+	 *             collection, otherwise the refusal's own code, or 0 when the
+	 *             request did not reach a status at all.
 	 */
 	protected function sync_collection( $site, $collection, $merge_field, callable $map ) {
 		$posts = $this->source->event_posts( $site, $collection );
 
 		if ( is_wp_error( $posts ) ) {
-			// Camps with no schedule, archived camps and non-camp event sites
-			// all 404 here. That is ordinary, so it is a warning, not an error.
-			WCAC_Logger::log(
-				'warn',
-				sprintf( 'No %s at %s (%s)', $collection, $site, $posts->get_error_message() )
-			);
+			$data   = $posts->get_error_data();
+			$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
 
-			return;
+			/* Not logged here any more. Camps with no schedule, archived camps
+			   and non-camp event sites all 404, which is ordinary, and three
+			   such lines per site per run were drowning the log: two refusing
+			   sites alone held 108 of its 200 entries on 13 Nov 2026, which
+			   matters because the log is where a fault like a stalled queue
+			   shows up. job_event_data() logs one line per site instead, and
+			   names the collections. */
+			return $status;
 		}
 
 		if ( empty( $posts ) ) {
-			return;
+			return 200;
 		}
 
 		$rows = array_map( $map, $posts );
@@ -2077,9 +2353,13 @@ class WCAC_Sync {
 				sprintf( '%s upsert failed for %s: %s', ucfirst( $collection ), $site, $sent->get_error_message() )
 			);
 
-			return;
+			// The site served the collection; what failed was the write to
+			// Airtable, which says nothing about the site.
+			return 200;
 		}
 
 		$this->tally( $sent['created'], $sent['updated'] );
+
+		return 200;
 	}
 }
