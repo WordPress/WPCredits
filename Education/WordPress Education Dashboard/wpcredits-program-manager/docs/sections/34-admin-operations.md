@@ -23,7 +23,7 @@ Three syncs bring the site in line with Airtable: students, mentors and institut
 
 - A student in **Past students** keeps an existing account but is never given a new one.
 - An institution's first account is made from its Contact Email, only for a *Confirmed* school whose agreement is recorded and that never had a member. An address already on an account is left alone.
-- A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement. By default its people lose their access; **Its people** (tab **Institutions**) decides.
+- A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; **Its people** (tab **Institutions**) decides.
 
 #### How an account is matched
 
@@ -42,7 +42,8 @@ Step by step: [[A mentor's account waits under Needs confirming]]; [[A student t
 A linked account the run did not read has left. **When someone leaves** (tab **Students and mentors**) decides whether the role is removed. The default removes it.
 
 - A mentor who left loses their list of students with either choice.
-- A student in **Past students** counts as having left.
+- A graduate keeps the Student role and the Student Report Card whatever the setting: a status under **Past students** that reads as graduated, completed, finished or passed and does not say the opposite, such as Not completed. The sync does not give the role back to a graduate who had already lost it.
+- Any other past student, and anyone the run did not read, loses the role at the default.
 - An Administrator's roles are never touched. An account left with no role becomes a *Subscriber*.
 - No sync ever deletes an account.
 - A mentor made from an application keeps the role while their Mentors row is not written, or was written after the run began. The **Sync** tab says how many have no Airtable row yet.
@@ -68,6 +69,7 @@ The **Last sync report** card on the Students and Mentors screens' **Sync** tab 
 | **Invitations sent to existing accounts** | Mentors only: welcomes queued for existing accounts |
 | **Students skipped (missing data)**, **Mentors skipped (missing data)** | Students: no valid address, or an account that could not be made. Mentors: also no WordPress.org username |
 | **Account conflicts** | An address or account that belongs to someone else |
+| **Calls and group sessions taken off students whose mentor changed** | Students only: upcoming one-to-one calls canceled and group sessions left with a former mentor |
 | **Students assigned to a non-active mentor** | Mentors only: reports linked to a mentor the run did not read |
 
 Step by step: [[Run a sync by hand and read its report]].
@@ -378,7 +380,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 | **Sponsor reports** | **Open** opens a draft to finish. **Draft now** makes one. |
 
 - **Approve** on an institution application creates its Airtable record and its site account. **Approve** on a sponsor application creates the sponsor record and its site account.
-- **Reinstate** on an institution's Collaboration Agreement is on this page only. **Revoke this agreement** is on `Institutions > Agreements` only.
+- **Reinstate** on an institution's Collaboration Agreement is on `Institutions > Agreements`, under **Revoked agreements**, and on this page's **Collaboration Agreements** card while a signed agreement waits. **Revoke this agreement** is on `Institutions > Agreements` only.
 - An item past the 50 a card lists is decided on its wp-admin screen.
 
 Step by step: [[A school applied]]; [[A signed Collaboration Agreement arrived]]; [[Take an agreement out of force, or put it back]]; [[A semester report: draft, review, approve, reopen]]; [[A company applied to sponsor]]; [[A sponsor's annual report]]; [[Find an application or agreement past the fifty the dashboard lists]].

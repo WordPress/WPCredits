@@ -3018,16 +3018,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The Agreements tab: the Confirmed institutions with no agreement recorded, each linked to where
 	 * its one agreement is recorded, then the agreements in force, each with a folded form to revoke
-	 * it, then the agreements the site and Airtable disagree about, then the template and the
-	 * versions signed against it. Recording an agreement has no press here since 1.123.26, when the
-	 * form that recorded every Confirmed institution at once was retired; the one press the tab
-	 * offers, since 1.123.29, is the revoke.
+	 * it, then the revoked agreements, each with a Reinstate button, then the agreements the
+	 * site and Airtable disagree about, then the template and the versions signed against it.
+	 * Recording an agreement has no press here since 1.123.26, when the form that recorded every
+	 * Confirmed institution at once was retired; the presses the tab offers are the revoke (since
+	 * 1.123.29) and Reinstate.
 	 */
 	private function render_tab_agreements() {
 		$index = WPCPM_Institutions_Index::read();
 
 		$this->render_agreements_on_file( $index );
 		$this->render_agreements_in_force( $index );
+		$this->render_agreements_revoked( $index );
 		$this->render_discrepancies( $index );
 		$this->render_template( $index );
 	}
@@ -5106,6 +5108,148 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			if ( (int) $summary['agreement_id'] > 0 ) {
 				$this->render_revoke_form( (int) $summary['agreement_id'], $item['name'] );
 			}
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
+		echo '</div>';
+	}
+
+	/**
+	 * The Revoked agreements card: each institution whose agreement an Administrator revoked, with nothing
+	 * newer accepted or waiting for review, and a Reinstate button on its row.
+	 *
+	 * A row is an institution in the index with a latest revoked document the handler accepts and
+	 * nothing accepted, on file or waiting for review: the handler's own test, so a school that has
+	 * since generated a new template, or had a newer submission returned, is listed too. One with no
+	 * revoked document is left out, as a form posting a zero would only be refused. The form is the
+	 * Administrator Dashboard's, without its Return field, so the handler's outcome comes back to
+	 * this tab, where `WPCPM_Institution_Panel::messages()` words it. The button asks first, as the
+	 * revoke does.
+	 *
+	 * A school whose stage is outside the active ones is listed without the form: reinstated, the
+	 * next institutions sync would close it again. The test is the sync's own
+	 * (`WPCPM_Institutions_Sync::is_in_pipeline()`), so a school with no stage keeps the button.
+	 *
+	 * @param array $index The pipeline index, from `WPCPM_Institutions_Index::read()`.
+	 */
+	private function render_agreements_revoked( array $index ) {
+		$rows   = isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array();
+		$read   = isset( $index['read'] ) ? (int) $index['read'] : 0;
+		$active = (array) WPCPM_Settings::get_value( 'institution_active_stages', array() );
+		$out    = array();
+
+		foreach ( $rows as $record_id => $row ) {
+			$record_id = (string) $record_id;
+			$summary   = WPCPM_Institution_Agreement::summary( $record_id );
+
+			if ( self::is_settled_summary( $summary ) || WPCPM_Institution_Agreement::SUMMARY_SUBMITTED === (string) $summary['state'] ) {
+				continue;
+			}
+
+			$post_id = WPCPM_Institution_Agreement::latest_revoked_id( $record_id );
+
+			if ( $post_id <= 0 ) {
+				continue;
+			}
+
+			$name  = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+			$stage = is_array( $row ) && isset( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
+			$facts = WPCPM_Institution_Agreement::revoked_facts( $post_id );
+
+			$out[] = array(
+				'id'      => $record_id,
+				'name'    => '' !== $name ? $name : $record_id,
+				'post_id' => $post_id,
+				'at'      => (int) $facts['at'],
+				'note'    => (string) $facts['note'],
+				'stage'   => $stage,
+				'left'    => ! WPCPM_Institutions_Sync::is_in_pipeline( $stage, $active ),
+			);
+		}
+
+		usort(
+			$out,
+			static function ( $a, $b ) {
+				$order = strcasecmp( remove_accents( $a['name'] ), remove_accents( $b['name'] ) );
+
+				return 0 !== $order ? $order : strcmp( $a['id'], $b['id'] );
+			}
+		);
+
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Revoked agreements', 'wpcredits-program-manager' ) . '</h2>';
+
+		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
+
+		echo '<p>' . esc_html__( 'Agreements an Administrator revoked, with nothing newer accepted or waiting for review. Reinstate puts one back in force and emails everybody at the institution.', 'wpcredits-program-manager' ) . '</p>';
+
+		if ( empty( $out ) ) {
+			echo '<p>' . esc_html__( 'No agreement is revoked.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		$page = (string) $this->dashboard_url();
+
+		echo '<ul class="wpcpm-inst-inforce">';
+
+		foreach ( $out as $item ) {
+			$day = WPCPM_Dates::day( $item['at'] );
+
+			echo '<li class="wpcpm-inst-inforce__row">';
+
+			printf(
+				'<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">%1$s</span>%2$s <span class="wpcpm-inst-muted">%3$s</span></p>',
+				self::institution_link( $item['name'], $item['id'], $page ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in institution_link(): the name, and the link around it.
+				WPCPM_Test_Institutions::mark( $item['name'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
+				esc_html(
+					'' === $day ? __( 'Revoked', 'wpcredits-program-manager' ) : sprintf(
+						/* translators: %s: the day the agreement was revoked, in the site's date format. */
+						__( 'Revoked %s', 'wpcredits-program-manager' ),
+						$day
+					)
+				)
+			);
+
+			if ( '' !== $item['note'] ) {
+				printf( '<p class="description">%s</p>', esc_html( $item['note'] ) );
+			}
+
+			// Left the pipeline: reinstated now, the next institutions sync would close it again, so
+			// the row says so and offers nothing to press.
+			if ( $item['left'] ) {
+				printf(
+					'<p class="description">%s</p>',
+					esc_html(
+						sprintf(
+							/* translators: %s: the institution's Current Stage in Airtable. */
+							__( 'At the stage "%s", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again.', 'wpcredits-program-manager' ),
+							self::stage_label( $item['stage'] )
+						)
+					)
+				);
+				echo '</li>';
+
+				continue;
+			}
+
+			printf(
+				'<form method="post" action="%1$s" class="wpcpm-review__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Reinstating', 'wpcredits-program-manager' )
+			);
+			wp_nonce_field( WPCPM_Institution_Agreement::ACTION_REINSTATE . '_' . $item['post_id'] );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_REINSTATE ) );
+			printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $item['post_id'] );
+			printf(
+				'<button type="submit" class="button" data-wpcpm-confirm="%1$s">%2$s</button>',
+				esc_attr( WPCPM_Institution_Agreement::reinstate_question( $item['name'] ) ),
+				esc_html__( 'Reinstate', 'wpcredits-program-manager' )
+			);
+			echo '</form>';
 
 			echo '</li>';
 		}

@@ -4500,7 +4500,7 @@ $rules = array(
 $remove_then_leave = array(
 	'on_inactive'             => array( array( 'revoke', 'Remove the Mentor role' ), array( 'keep', 'Leave the role in place' ) ),
 	'student_on_inactive'     => array( array( 'revoke', 'Remove the Student role, so they lose access to Student-level content' ), array( 'keep', 'Leave the role in place' ) ),
-	'institution_on_inactive' => array( array( 'revoke', 'Remove its people, so they lose access to its students' ), array( 'keep', 'Leave their access in place' ) ),
+	'institution_on_inactive' => array( array( 'revoke', 'Remove its people, so they lose access to its students' ), array( 'keep', 'Leave its people in place, able to open only its agreement' ) ),
 	'sponsor_on_inactive'     => array( array( 'revoke', 'Remove its accounts from the sponsor, so they lose access to its Sponsor Dashboard' ), array( 'keep', 'Leave their access in place' ) ),
 );
 
@@ -4564,6 +4564,26 @@ foreach ( $defaults_drawn as $name => $answers ) {
 		$first_words[ $name ][] = strtok( $answer[1], ' ' );
 	}
 }
+
+// Decision of 13 November 2026: the words say what happens, and an empty stage has not left.
+$inst_html = html_entity_decode( draw_settings( 'institutions' ), ENT_QUOTES );
+$adv_html  = html_entity_decode( draw_settings( 'advanced' ), ENT_QUOTES );
+
+ck( 'the Its people row\'s help says either choice stops the agreement counting, in one short sentence',
+    array(
+        false !== strpos( $inst_html, '<p class="description">Either way its agreement stops counting as recorded, and people left in place can open only the agreement until it is back at an active stage.</p>' ),
+        strlen( 'Either way its agreement stops counting as recorded, and people left in place can open only the agreement until it is back at an active stage.' ) <= 160,
+    ),
+    array( true, true ) );
+ck( 'and its Details fold says an institution with no stage has not left',
+    false !== strpos( $inst_html, 'An institution leaves the pipeline when Airtable moves it to a stage outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.' ),
+    true );
+ck( 'and the Advanced tab\'s stages row keeps its help to one short sentence and says in its Details fold that one with no stage at all is left alone',
+    array(
+        false !== strpos( $adv_html, '<p class="description">An institution at any of these stages is in the pipeline, and one moved to a stage outside the list has left it, so the list cannot be left empty.</p>' ),
+        false !== strpos( $adv_html, 'An institution with no stage at all is left alone: the sync does not close its agreement or take its people off it.' ),
+    ),
+    array( true, true ) );
 
 ck( 'and the four rules\' answers begin with the same words, Remove and then Leave',
     $first_words,

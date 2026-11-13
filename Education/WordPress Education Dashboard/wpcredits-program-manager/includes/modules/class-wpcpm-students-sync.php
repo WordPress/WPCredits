@@ -938,6 +938,8 @@ class WPCPM_Students_Sync {
 				// applies.
 				'program'        => $status,
 				'is_past'        => in_array( $status, $statuses['past'], true ),
+				// A past student whose status reads as graduated, completed, finished or passed.
+				'is_graduate'    => in_array( $status, $statuses['past'], true ) && WPCPM_Program::is_graduation( $status ),
 				'start'          => $read( 'report_start' ),
 				'end'            => $read( 'report_end' ),
 				'institution'    => WPCPM_Mentors_Sync::resolve_stored(
@@ -1432,7 +1434,7 @@ class WPCPM_Students_Sync {
 			}
 
 			$program = $student;
-			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'], $program['created'], $program['report_edited'] );
+			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'], $program['created'], $program['report_edited'], $program['is_graduate'] );
 
 			// Whose word the stamp below is on, beside the resolved name the cards print.
 			$program['institution_source'] = $join['source'];
@@ -1492,8 +1494,13 @@ class WPCPM_Students_Sync {
 			// them off, and they kept a series' reminders for as long as it ran (the deep check of
 			// 1.109.1, SESSIONS-7). After the card is written, since the card is one of the two sides
 			// that have to agree. Guarded, so the sync still runs where that module is not loaded.
+			// What it answers (group sessions left plus one-to-one calls canceled) is counted, so the
+			// report says what the run took off moved students; `isset()`, since a run in flight when
+			// this count was added began without the key.
 			if ( class_exists( 'WPCPM_Group_Sessions' ) ) {
-				WPCPM_Group_Sessions::leave_former( $user_id );
+				$moved_off = (int) WPCPM_Group_Sessions::leave_former( $user_id );
+
+				$state['stats']['moved_off'] = ( isset( $state['stats']['moved_off'] ) ? (int) $state['stats']['moved_off'] : 0 ) + $moved_off;
 			}
 
 			++$state['stats']['assigned'];
@@ -2124,7 +2131,10 @@ class WPCPM_Students_Sync {
 			$was_linked = ( '' !== $claimed );
 
 			// add_role(), and never on an administrator: the same rule the Mentors
-			// sync follows, for the same reason.
+			// sync follows, for the same reason. Only for a row that is not past: a graduate
+			// keeps a role they hold (`revoke_departed()` leaves it), but one who had already lost
+			// it is not given it back, since the rule is for new graduates only (the product
+			// owner, 13 November 2026).
 			if ( ! in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true )
 				&& ! in_array( WPCPM_Roles::ROLE_STUDENT, (array) $user->roles, true )
 				&& ! $student['is_past'] ) {
@@ -2336,8 +2346,9 @@ class WPCPM_Students_Sync {
 	 * @param array $settings Plugin settings.
 	 */
 	private static function revoke_departed( array &$state, array $settings ) {
-		$known  = array();
-		$synced = array();
+		$known     = array();
+		$synced    = array();
+		$graduates = array();
 
 		foreach ( (array) $state['students'] as $student ) {
 			if ( empty( $student['record_id'] ) ) {
@@ -2351,6 +2362,18 @@ class WPCPM_Students_Sync {
 
 			if ( empty( $student['is_past'] ) ) {
 				$known[] = $student['record_id'];
+				continue;
+			}
+
+			// A run that read its rows before this release and finishes after it holds rows with no
+			// `is_graduate`: the answer is worked out from the status the row does hold, or that one
+			// run would take the role from every graduate, and no later run gives a role back.
+			$graduate = array_key_exists( 'is_graduate', $student )
+				? ! empty( $student['is_graduate'] )
+				: WPCPM_Program::is_graduation( isset( $student['program'] ) ? (string) $student['program'] : '' );
+
+			if ( $graduate ) {
+				$graduates[] = $student['record_id'];
 			}
 		}
 
@@ -2391,7 +2414,9 @@ class WPCPM_Students_Sync {
 
 			update_user_meta( $user_id, self::META_ACTIVE, 0 );
 
-			if ( 'revoke' !== $settings['student_on_inactive'] ) {
+			// A graduate keeps the Student role, and so the Student Report Card, whatever the
+			// setting says: it is inactive, not departed.
+			if ( 'revoke' !== $settings['student_on_inactive'] || in_array( $record, $graduates, true ) ) {
 				continue;
 			}
 
@@ -2908,6 +2933,8 @@ class WPCPM_Students_Sync {
 			// address. A row that exists and names no institution is not one of these.
 			'rows_read'            => 0,
 			'stamped_from_reports' => 0,
+			// Group sessions left and one-to-one calls canceled for students whose mentor changed.
+			'moved_off'            => 0,
 		);
 	}
 

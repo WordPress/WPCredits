@@ -219,7 +219,7 @@ class WPCPM_Cohort {
 	 *
 	 * A row belongs to the cohort when key() of its start date is the key asked for, so NONE
 	 * counts the rows with no usable date. `graduated` is the exact status, not the loose
-	 * regex `WPCPM_Student_Feedback::is_graduate()` uses for a screen, because a report says
+	 * regex `WPCPM_Program::is_graduation()` uses for a screen, because a report says
 	 * a number and the number has to be reproducible from the grid. `pending` is printed
 	 * separately until open question 1 of the design spec says whether it counts as graduated.
 	 * `other` exists so a status the base grows later shows up as a number rather than vanishing.

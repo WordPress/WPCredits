@@ -587,6 +587,7 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 
 - **Agreements on file**: Confirmed institutions with no agreement recorded. Each opens the school's **Collaboration Agreement** panel, with **Record an agreement the program already holds**.
 - **Agreements in force**: each standing agreement, **Accepted on the site** or **Recorded on file**, and the day.
+- **Revoked agreements**: each school with a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned: the day it was revoked, the Administrator's note and **Reinstate**.
 - **Agreement discrepancies**: where the site and Airtable's Agreement Status disagree. Each is locked until they agree.
 - **Agreement template**: the site's copy of the agreement, its version, the date it was copied from the program's Doc, and which institutions signed which version.
 
@@ -596,7 +597,14 @@ Step by step: [[A semester report: draft, review, approve, reopen]].
 - Airtable is updated first. If that fails, nothing changes.
 - The stage stays. If the partnership ended, change it in Airtable.
 - A refused note comes back to its box.
-- **Reinstate**, on the Administrator Dashboard, puts it back.
+- **Reinstate**, under **Revoked agreements**, puts it back.
+
+**Reinstate**, under **Revoked agreements**:
+- It asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed."
+- Airtable is updated first. The school's people get "Your agreement is in force again".
+- The press comes back to the **Agreements** tab. The Administrator Dashboard's **Collaboration Agreements** card still offers it while a signed agreement waits for review.
+- It is refused when an accepted agreement already stands, and for any but the most recently revoked one.
+- A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.
 
 Step by step: [[Record an agreement the program already holds]]; [[Take an agreement out of force, or put it back]].
 

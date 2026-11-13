@@ -506,7 +506,7 @@ return array(
 		'placeholders' => $wpcpm_take( $wpcpm_student, array( 'site_name', 'mentor_name', 'when', 'time_zone', 'session_topic', 'dashboard_link' ), array( 'when' ) ),
 	),
 	'call-cancelled-mentor'         => array(
-		'trigger'      => __( 'When the student or an Administrator cancels a one-to-one call.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When the student or an Administrator cancels a one-to-one call, or the student moves to another mentor.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: date of the canceled call. */
 			__( '[%1$s] Call on %2$s canceled', 'wpcredits-program-manager' ),
@@ -522,14 +522,14 @@ return array(
 					'{canceled_by}'
 				),
 				$wpcpm_times,
-				__( 'The slot is free again, and your student can book another time whenever suits them.', 'wpcredits-program-manager' ),
+				__( 'The slot is free again and open for booking.', 'wpcredits-program-manager' ),
 				'{dashboard_link}',
 			)
 		),
 		'placeholders' => $wpcpm_take( $wpcpm_mentor, array( 'site_name', 'call_date', 'when', 'canceled_by', 'time_zone', 'dashboard_link' ), array( 'when' ) ),
 	),
 	'call-cancelled-student'        => array(
-		'trigger'      => __( 'When the mentor or an Administrator cancels a one-to-one call.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When the mentor or an Administrator cancels a one-to-one call, or the student moves to another mentor.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: date of the canceled call. */
 			__( '[%1$s] Call on %2$s canceled', 'wpcredits-program-manager' ),
@@ -545,7 +545,7 @@ return array(
 					'{canceled_by}'
 				),
 				$wpcpm_times,
-				__( 'The slot is free again, so you can book another time.', 'wpcredits-program-manager' ),
+				__( 'You can book another time on your Student Report Card.', 'wpcredits-program-manager' ),
 				'{dashboard_link}',
 			)
 		),

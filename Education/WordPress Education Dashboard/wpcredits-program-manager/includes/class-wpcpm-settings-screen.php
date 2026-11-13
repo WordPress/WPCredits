@@ -1320,7 +1320,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Remove the Student role, so they lose access to Student-level content', 'wpcredits-program-manager' ),
 			checked( $settings['student_on_inactive'], 'keep', false ),
 			esc_html__( 'Leave the role in place', 'wpcredits-program-manager' ),
-			esc_html__( 'The account itself is never deleted either way, and their program details are kept.', 'wpcredits-program-manager' )
+			esc_html__( 'A graduate keeps the role and the Student Report Card either way, the account is never deleted, and program details are kept.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -1809,10 +1809,10 @@ class WPCPM_Settings_Screen {
 			checked( $settings['institution_on_inactive'], 'revoke', false ),
 			esc_html__( 'Remove its people, so they lose access to its students', 'wpcredits-program-manager' ),
 			checked( $settings['institution_on_inactive'], 'keep', false ),
-			esc_html__( 'Leave their access in place', 'wpcredits-program-manager' ),
-			esc_html__( 'The accounts themselves are never deleted either way, and the agreement and the roster are kept.', 'wpcredits-program-manager' )
+			esc_html__( 'Leave its people in place, able to open only its agreement', 'wpcredits-program-manager' ),
+			esc_html__( 'Either way its agreement stops counting as recorded, and people left in place can open only the agreement until it is back at an active stage.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $its_people, __( 'An institution leaves the pipeline when Airtable moves it out of the stages the program treats as active, which the Advanced tab lists.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $its_people, __( 'An institution leaves the pipeline when Airtable moves it to a stage outside the ones the program treats as active, which the Advanced tab lists. An institution with no stage at all has not left: the sync leaves it and its people alone. The accounts themselves are never deleted, and the agreement and the roster are kept.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 
@@ -2658,9 +2658,11 @@ class WPCPM_Settings_Screen {
 			__( 'Institution pipeline stages', 'wpcredits-program-manager' ),
 			WPCPM_Settings::clean_list( (array) $settings['institution_active_stages'] ),
 			$stages,
-			__( 'An institution at any of these stages is in the pipeline, and one whose stage leaves the list is treated as having left it, so the list cannot be left empty.', 'wpcredits-program-manager' ),
+			__( 'An institution at any of these stages is in the pipeline, and one moved to a stage outside the list has left it, so the list cannot be left empty.', 'wpcredits-program-manager' ),
 			array(),
-			WPCPM_Settings_Rows::typed( 'stages', $why )
+			WPCPM_Settings_Rows::typed( 'stages', $why ),
+			array(),
+			__( 'An institution with no stage at all is left alone: the sync does not close its agreement or take its people off it.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();

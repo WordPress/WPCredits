@@ -202,8 +202,12 @@ class WPCPM_Group_Sessions {
 	 * whose session it is does not. A session under way is left alone, as a Leave is refused on one,
 	 * and one whose mentor's booking lock is held is tried again by the next run.
 	 *
+	 * **One-to-one calls too.** The student's upcoming one-to-one calls with that mentor are canceled
+	 * on the same terms, and the mentor and the student are both sent "Call canceled"
+	 * (`WPCPM_Mentor_Calls::cancel_moved()`, the owner's decisions of 13 November 2026).
+	 *
 	 * @param int $student_id Student user ID.
-	 * @return int How many sessions the student was taken off.
+	 * @return int How many sessions the student was taken off, plus how many calls were canceled.
 	 */
 	public static function leave_former( $student_id ) {
 		$student_id = (int) $student_id;
@@ -213,17 +217,11 @@ class WPCPM_Group_Sessions {
 			return 0;
 		}
 
-		// The sessions the student is on, if any: most students are on none, and this query is all
-		// they cost the sync.
-		$on = array();
+		// The calls and sessions the student is booked on, if any: most students have none, and this
+		// query is all they cost the sync.
+		$upcoming = WPCPM_Mentor_Calls::for_student( $student_id, true );
 
-		foreach ( WPCPM_Mentor_Calls::for_student( $student_id, true ) as $call ) {
-			if ( WPCPM_Mentor_Calls::capacity( $call->ID ) > 1 ) {
-				$on[] = $call;
-			}
-		}
-
-		if ( array() === $on ) {
+		if ( array() === $upcoming ) {
 			return 0;
 		}
 
@@ -235,16 +233,24 @@ class WPCPM_Group_Sessions {
 
 		$left = 0;
 
-		foreach ( $on as $call ) {
+		foreach ( $upcoming as $call ) {
 			$former = (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true );
 
-			// Their own mentor's session, or one whose mentor's list still holds them: a student with
-			// two mentors, or a list the mentors sync has not rewritten yet.
+			// Their own mentor's, or one whose mentor's list still holds them: a student with two
+			// mentors, or a list the mentors sync has not rewritten yet.
 			if ( $former === $mentor_id || null !== WPCPM_Mentor_Calls::mentee_row( $former, $record ) ) {
 				continue;
 			}
 
-			if ( '' === self::take_off( $call->ID, $student_id, true ) ) {
+			// A session they are taken off; a one-to-one call is canceled, and both people told
+			// (the owner's decisions of 13 November 2026). Either is left alone once under way.
+			if ( WPCPM_Mentor_Calls::capacity( $call->ID ) > 1 ) {
+				$done = self::take_off( $call->ID, $student_id, true );
+			} else {
+				$done = WPCPM_Mentor_Calls::cancel_moved( $call->ID );
+			}
+
+			if ( '' === $done ) {
 				++$left;
 			}
 		}

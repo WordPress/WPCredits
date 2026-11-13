@@ -52,7 +52,9 @@ leave a single date from its row.
 If your mentor changes, a session of your former mentor's that you are on stays on your list, with
 their name and **Leave the session**, and the list is headed simply *Group sessions*. Once the
 program records show the change for you and for both mentors, you are taken off it and sent an email
-whose calendar file takes it out of your calendar.
+whose calendar file takes it out of your calendar. Your upcoming one-to-one calls with your former
+mentor are canceled at the same time, unless one has already started, and you both get an email with
+the calendar file; book your next call with your new mentor.
 
 ## Events from our sponsors
 

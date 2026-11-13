@@ -3636,6 +3636,8 @@ $the_page    = 'https://example.test/administrator-dashboard/';
 // The queue on the Institutions screen, an address other than the handler's own fallback, so the
 // press that came from it is seen to go back there.
 $the_screen  = 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=queue';
+// The Agreements tab's Revoked agreements card posts no Return field: the press comes back to the tab.
+$the_tab     = 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=agreements';
 $lands       = array();
 
 review_world();
@@ -3653,6 +3655,10 @@ $GLOBALS['referer']  = $the_page;
 $_POST               = array_merge( $_POST, $to_the_card );
 $lands['reinstated'] = landed( 'handle_reinstate' );
 
+revoked_world();
+$GLOBALS['referer']       = $the_tab;
+$lands['from the tab']    = landed( 'handle_reinstate' );
+
 review_world( 'template', 'Not Moving Forward' );
 $GLOBALS['referer'] = $the_page;
 $_POST              = array_merge( $_POST, $to_the_card );
@@ -3666,10 +3672,40 @@ ck( 'a decision posted from the Administrator Dashboard lands on its Collaborati
 	'accepted'        => array( $the_card, 'agreement-accepted' ),
 	'returned'        => array( $the_card, 'agreement-returned' ),
 	'reinstated'      => array( $the_card, 'agreement-reinstated' ),
+	'from the tab'    => array( $the_tab, 'agreement-reinstated' ),
 	'refused'         => array( $the_card, 'agreement-stage' ),
 	'from the screen' => array( $the_screen, 'agreement-accepted' ),
 ) );
 $_POST = array();
+
+// The reader of a revoked document's date and note answers for a revoked agreement alone.
+if ( ! function_exists( 'get_post_modified_time' ) ) {
+	function get_post_modified_time( $format = 'U', $gmt = false, $post = null ) { return 1780000000; }
+}
+$facts_revoked  = seed_post( 'recAAAAAAAAAAAAA1', 'revoked', 'template', array( WPCPM_Institution_Agreement::META_NOTE => '  Paused for the term.  ' ) );
+$facts_accepted = seed_post( 'recAAAAAAAAAAAAA1', 'accepted', 'template', array( WPCPM_Institution_Agreement::META_NOTE => 'stale note' ) );
+$facts_other    = wp_insert_post( array( 'post_type' => 'page', 'post_title' => 'not an agreement' ) );
+update_post_meta( $facts_other, WPCPM_Institution_Agreement::META_STATE, 'revoked' );
+update_post_meta( $facts_other, WPCPM_Institution_Agreement::META_NOTE, 'not ours' );
+$empty_facts = array( 'at' => 0, 'note' => '' );
+// The day is the day the revocation recorded, not the document's last edit (the trial of 1.123.89:
+// revoking writes meta alone, so the card showed the upload's day). Noon on the site's clock.
+$facts_dated = seed_post( 'recAAAAAAAAAAAAA1', 'revoked', 'template', array( WPCPM_Institution_Agreement::META_NOTE => 'Dated.', WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-03-04' ) );
+$facts_zone  = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+$facts_noon  = ( new DateTimeImmutable( '2026-03-04 12:00:00', $facts_zone ) )->getTimestamp();
+$facts_undated = seed_post( 'recAAAAAAAAAAAAA1', 'revoked', 'template', array( WPCPM_Institution_Agreement::META_NOTE => 'No day.', WPCPM_Institution_Agreement::META_DECIDED_AT => 'not a day' ) );
+ck( 'revoked_facts() gives the day the agreement was revoked, and the last edit only when no day was recorded', array(
+	WPCPM_Institution_Agreement::revoked_facts( $facts_dated ),
+	WPCPM_Institution_Agreement::revoked_facts( $facts_undated ),
+	gmdate( 'Y-m-d', $facts_noon ),
+), array( array( 'at' => $facts_noon, 'note' => 'Dated.' ), array( 'at' => 1780000000, 'note' => 'No day.' ), '2026-03-04' ) );
+update_post_meta( $facts_revoked, WPCPM_Institution_Agreement::META_DECIDED_AT, '' );
+ck( 'revoked_facts() gives a revoked agreement\'s date and trimmed note, and the empty result for an accepted one, a post of another type and an unknown ID', array(
+	WPCPM_Institution_Agreement::revoked_facts( $facts_revoked ),
+	WPCPM_Institution_Agreement::revoked_facts( $facts_accepted ),
+	WPCPM_Institution_Agreement::revoked_facts( $facts_other ),
+	WPCPM_Institution_Agreement::revoked_facts( 999999 ),
+), array( array( 'at' => 1780000000, 'note' => 'Paused for the term.' ), $empty_facts, $empty_facts, $empty_facts ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

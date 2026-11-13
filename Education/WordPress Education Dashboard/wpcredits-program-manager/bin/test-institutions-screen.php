@@ -778,6 +778,7 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const SUMMARY_ACCEPTED  = 'accepted';
 		const SUMMARY_ON_FILE   = 'on_file';
 		const ACTION_REVOKE     = 'wpcpm_agreement_revoke';
+		const ACTION_REINSTATE  = 'wpcpm_agreement_reinstate';
 		const MIN_NOTE          = 20;
 		const MAX_NOTE          = 2000;
 		const STAGE_ORDER       = array( 'First Contact Made', 'Call Scheduled', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Agreement Sent', 'Confirmed', 'Student' );
@@ -805,6 +806,11 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		}
 		/** What a refused revoke kept for that document's box, for the one time the form is drawn again: set per document by the suite. */
 		public static function kept_revoke_note( $post_id ) { return $GLOBALS['kept_revoke'][ (int) $post_id ] ?? null; }
+		/** The latest revoked document, set per record by the suite. */
+		public static function latest_revoked_id( $id ) { return (int) ( $GLOBALS['latest_revoked'][ $id ] ?? 0 ); }
+		/** When it was revoked and the note, set per document by the suite. */
+		public static function revoked_facts( $post_id ) { return $GLOBALS['revoked_facts'][ (int) $post_id ] ?? array( 'at' => 0, 'note' => '' ); }
+		public static function reinstate_question( $name ) { return 'Reinstate the agreement with ' . $name . '? It is back in force at once, and everybody at the institution is emailed.'; }
 		public static function rebuild( $id, array $airtable ) { return array(); }
 		public static function discrepancies() { return $GLOBALS['discrepancies'] ?? array(); }
 		public static function posts_for( $id ) { return array(); }
@@ -894,6 +900,8 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 		public static function activate() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::activate' ); }
 		public static function deactivate() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::deactivate' ); }
 		public static function last_read() { return $GLOBALS['sync_last'] ?? 0; }
+		/** The sync's own stage test, as the real one answers it: no stage, or a stage on the active list. */
+		public static function is_in_pipeline( $stage, array $active ) { return '' === trim( $stage ) || in_array( $stage, $active, true ); }
 
 		/*
 		 * Provisioning. The screen asks why an institution may not have an account, and its
@@ -2068,7 +2076,7 @@ ck( 'each tab draws the cards of its job and none of another tab\'s', array_map(
 	'pipeline'   => array( 'Pipeline', 'Consent' ),
 	'accounts'   => array( 'Invitations', 'Institution accounts' ),
 	'reports'    => array( 'Semester reports' ),
-	'agreements' => array( 'Agreements on file', 'Agreements in force', 'Agreement discrepancies', 'Agreement template' ),
+	'agreements' => array( 'Agreements on file', 'Agreements in force', 'Revoked agreements', 'Agreement discrepancies', 'Agreement template' ),
 	'sync'       => array( 'Airtable sync', 'Reconciliation', 'Storage' ),
 ) );
 
@@ -2214,14 +2222,14 @@ ck( 'the three terminal stages fold under it, closed, in the order they always h
 ck( 'and no group is drawn for the empty stage the fixture does not have', array( isset( $headings['No stage'] ), isset( folded_groups( $html )['No stage'] ) ), array( false, false ) );
 
 // The read time, once per card that reads the index (the pipeline and the consent report on the
-// Pipeline tab, the agreements on file, the agreements in force, the discrepancies and the template
+// Pipeline tab, the agreements on file, the agreements in force, the revoked agreements, the discrepancies and the template
 // versions on the Agreements tab) and once for
 // the countries map and the roster counts, each on the tab of the card that reads it. A stale
 // count must never look fresh.
 $read_lines = function ( $needle ) use ( $tabs ) {
 	return array_map( function ( $drawn ) use ( $needle ) { return substr_count( (string) $drawn, $needle ); }, $tabs );
 };
-ck( 'the index read time is printed with the date and the age, once by each card that reads the index, on its tab', $read_lines( 'Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 2, 'accounts' => 0, 'reports' => 0, 'agreements' => 4, 'sync' => 0 ) );
+ck( 'the index read time is printed with the date and the age, once by each card that reads the index, on its tab', $read_lines( 'Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 2, 'accounts' => 0, 'reports' => 0, 'agreements' => 5, 'sync' => 0 ) );
 ck( 'so is the roster counts\' read time, on Sync and storage', $read_lines( 'Roster counts: read ' . gmdate( 'Y-m-d H:i', $read_at - 3600 ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 0, 'reports' => 0, 'agreements' => 0, 'sync' => 1 ) );
 ck( 'and the countries map\'s, on Pipeline', $read_lines( 'Countries map: read ' . gmdate( 'Y-m-d H:i', $read_at - 600 ) ), array( 'queue' => 0, 'pipeline' => 1, 'accounts' => 0, 'reports' => 0, 'agreements' => 0, 'sync' => 0 ) );
 
@@ -3029,18 +3037,18 @@ $GLOBALS['summaries'] = array(
 	$force_ids[6] => array( 'state' => 'revoked' ),
 );
 $in_force_tab  = render_tab( 'agreements' );
-$in_force_card = preg_match( '#<div class="wpcpm-card"><h2>Agreements in force</h2>(.*?)</div><div class="wpcpm-card">#s', $in_force_tab, $force_match ) ? $force_match[1] : '';
+$in_force_card = preg_match( '#<div class="wpcpm-card"><h2>Agreements in force</h2>(.*?)</div><div class="wpcpm-card"><h2>Revoked agreements</h2>#s', $in_force_tab, $force_match ) ? $force_match[1] : '';
 preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $in_force_card, $force_listed );
 $force_li = $force_listed[1];
 $link_of  = function ( $name, $record ) {
 	return '<a href="https://example.test/institution-dashboard/?wpcpm_institution_view=' . $record . '">' . esc_html( $name ) . '</a>';
 };
 
-ck( 'the card comes after Agreements on file, and the tab draws four cards in their order', array(
+ck( 'the card comes after Agreements on file, and the tab draws five cards in their order', array(
 	strpos( $in_force_tab, '<h2>Agreements on file</h2>' ) < strpos( $in_force_tab, '<h2>Agreements in force</h2>' ),
 	strpos( $in_force_tab, '<h2>Agreements in force</h2>' ) < strpos( $in_force_tab, 'Agreement discrepancies' ),
 	cards_of( $in_force_tab ),
-), array( true, true, array( 'Agreements on file', 'Agreements in force', 'Agreement discrepancies', 'Agreement template' ) ) );
+), array( true, true, array( 'Agreements on file', 'Agreements in force', 'Revoked agreements', 'Agreement discrepancies', 'Agreement template' ) ) );
 ck( 'it holds one row for each agreement in force, the one accepted on the site and the ones recorded on file, whatever the stage, and none for a generated, submitted, returned or revoked one', count( $force_li ), 3 );
 ck( 'sorted by name, without regard to case or accents, the name linked to its Institution Dashboard as an Administrator sees it', array(
 	0 === strpos( $force_li[0], '<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">' . $link_of( 'alpha Institute', $force_ids[1] ) . '</span>' ),
@@ -3154,6 +3162,186 @@ foreach ( array( 'queue', 'pipeline', 'accounts', 'reports', 'sync' ) as $other_
 ck( 'no other tab draws the card or the form', $elsewhere, array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 0, 'reports' => 0, 'sync' => 0 ) );
 
 $GLOBALS['summaries'] = $kept_summaries;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
+
+/* ---- revoked agreements ------------------------------------------------- */
+
+// The fifth card lists each institution whose agreement is revoked (no accepted and no submitted one),
+// with the date, the Administrator's note and a Reinstate button that posts the handler's own fields
+// and carries no way back, so the press comes back to this tab.
+
+echo "\n=== Revoked agreements ===\n";
+
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+$GLOBALS['summaries'] = array(
+	$force_ids[0] => array( 'state' => 'revoked' ),
+	// A newer agreement waiting for review over an older revoked one: state submitted, not listed.
+	$force_ids[1] => array( 'state' => 'submitted', 'pending_id' => 7005 ),
+	// An accepted one: not listed.
+	$force_ids[2] => array( 'state' => 'accepted', 'kind' => 'own', 'accepted_at' => '2026-03-05', 'agreement_id' => 7003, 'route' => 'site' ),
+	// Revoked, but with no document the handler would accept: left out.
+	$force_ids[3] => array( 'state' => 'revoked' ),
+);
+$GLOBALS['latest_revoked'] = array( $force_ids[0] => 7101, $force_ids[1] => 7102, $force_ids[2] => 7103 );
+$GLOBALS['revoked_facts']  = array( 7101 => array( 'at' => strtotime( '2026-04-09 12:00:00 UTC' ), 'note' => 'The rector asked us to pause <it> & "all" of them.' ) );
+$out_tab  = render_tab( 'agreements' );
+$out_card = preg_match( '#<div class="wpcpm-card"><h2>Revoked agreements</h2>(.*?)</div><div class="wpcpm-card">#s', $out_tab, $out_match ) ? $out_match[1] : '';
+preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $out_card, $out_listed );
+$out_li   = $out_listed[1];
+$out_form = $form_of( $out_li[0] ?? '' );
+
+ck( 'the card says what it lists and what Reinstate does, in one line under the heading', false !== strpos( $out_card, '<p>Agreements an Administrator revoked, with nothing newer accepted or waiting for review. Reinstate puts one back in force and emails everybody at the institution.</p>' ), true );
+ck( 'it lists the revoked institution once, and not the one with a submitted agreement over a revoked one, the one with an accepted agreement, or the one with no document to reinstate', array(
+	count( $out_li ),
+	false !== strpos( $out_card, 'Zeta College' ),
+	false !== strpos( $out_card, 'alpha Institute' ),
+	false !== strpos( $out_card, 'Émile School' ),
+), array( 1, true, false, false ) );
+ck( 'the row links the name as Agreements in force does, says the day it was revoked, and shows the note escaped', array(
+	0 === strpos( $out_li[0] ?? '', '<p class="wpcpm-inst-inforce__line"><span class="wpcpm-inst-name__text">' . $link_of( 'Zeta College', $force_ids[0] ) . '</span>' ),
+	false !== strpos( $out_li[0] ?? '', '<span class="wpcpm-inst-muted">Revoked April 9, 2026</span>' ),
+	false !== strpos( $out_li[0] ?? '', '<p class="description">' . esc_html( 'The rector asked us to pause <it> & "all" of them.' ) . '</p>' ),
+	false !== strpos( $out_li[0] ?? '', '<it>' ),
+), array( true, true, true, false ) );
+ck( 'the form posts the handler\'s own fields, keyed to the revoked document, once, with no way back so the press lands on this tab', array(
+	0 === strpos( $out_form, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-review__form" data-wpcpm-once data-wpcpm-busy="Reinstating">' ),
+	false !== strpos( $out_form, '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_agreement_reinstate_7101" />' ),
+	false !== strpos( $out_form, '<input type="hidden" name="action" value="wpcpm_agreement_reinstate" />' ),
+	false !== strpos( $out_form, '<input type="hidden" name="wpcpm_agreement_post" value="7101" />' ),
+	strpos( $out_card, 'wpcpm_return' ),
+	substr_count( $out_card, '<form' ),
+), array( true, true, true, true, false, 1 ) );
+ck( 'the button is "Reinstate" and asks first, naming the institution and what follows', false !== strpos( $out_form, '<button type="submit" class="button" data-wpcpm-confirm="Reinstate the agreement with Zeta College? It is back in force at once, and everybody at the institution is emailed.">Reinstate</button>' ), true );
+
+// A name with markup is escaped in the row and in the question.
+$force_rows[ $force_ids[0] ]['name'] = 'St. Mary\'s <b>& "Sons"</b> College';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+$out_escaped = render_tab( 'agreements' );
+ck( 'a name is escaped in the row and in the question', array(
+	false !== strpos( $out_escaped, esc_html( 'St. Mary\'s <b>& "Sons"</b> College' ) ),
+	false !== strpos( $out_escaped, 'Reinstate the agreement with ' . esc_attr( 'St. Mary\'s <b>& "Sons"</b> College' ) . '?' ),
+	false !== strpos( $out_escaped, '<b>& "Sons"</b>' ),
+), array( true, true, false ) );
+$force_rows[ $force_ids[0] ]['name'] = 'Zeta College';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+
+// Three revoked institutions, one of them a test institution by the plugin's own rule: the rows come
+// out by name, as Agreements in force sorts, and only the test one carries the mark.
+$force_rows[ $force_ids[1] ]['name'] = 'TEST - Beta School';
+$force_rows[ $force_ids[2] ]['name'] = 'Émile School';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+$GLOBALS['summaries']      = array(
+	$force_ids[0] => array( 'state' => 'revoked' ),
+	$force_ids[1] => array( 'state' => 'revoked' ),
+	$force_ids[2] => array( 'state' => 'revoked' ),
+);
+$GLOBALS['latest_revoked'] = array( $force_ids[0] => 7101, $force_ids[1] => 7102, $force_ids[2] => 7103 );
+$three_tab  = render_tab( 'agreements' );
+$three_card = preg_match( '#<div class="wpcpm-card"><h2>Revoked agreements</h2>(.*?)</div><div class="wpcpm-card">#s', $three_tab, $three_match ) ? $three_match[1] : '';
+preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $three_card, $three_listed );
+$three_li  = $three_listed[1];
+$test_mark = WPCPM_Test_Institutions::mark( 'TEST - Beta School' );
+$names_of  = array_map( function ( $li ) { return preg_match( '#<a [^>]*>(.*?)</a>#', $li, $m ) ? $m[1] : ''; }, $three_li );
+ck( 'the plugin\'s own rule makes the fixture a test institution, and the other is not one', array( '' !== $test_mark, '' === WPCPM_Test_Institutions::mark( 'Zeta College' ) ), array( true, true ) );
+ck( 'the rows come out by name without regard to accents or case, as Agreements in force sorts', $names_of, array( 'Émile School', 'TEST - Beta School', 'Zeta College' ) );
+ck( 'the test institution\'s row carries exactly the mark the other cards give, right after its name, and the ordinary rows carry none', array(
+	false !== strpos( $three_li[1] ?? '', '</span>' . $test_mark . ' <span class="wpcpm-inst-muted">' ),
+	false !== strpos( $three_li[0] ?? '', '</span> <span class="wpcpm-inst-muted">' ),
+	false !== strpos( $three_li[2] ?? '', '</span> <span class="wpcpm-inst-muted">' ),
+	substr_count( $three_card, $test_mark ),
+), array( true, true, true, 1 ) );
+$force_rows[ $force_ids[1] ]['name'] = 'alpha Institute ';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+
+$kept_force_rows = $force_rows;
+// A school that has left the pipeline is listed without the button (final review, finding 1): a stage
+// outside the active list draws the row and one line in place of the form; no stage, and an active
+// stage, keep the form. The stage test is the institutions sync's own (`is_in_pipeline()`).
+$stage_rows = $force_rows;
+$stage_rows[ $force_ids[0] ]['stage'] = 'Not Moving Forward';
+$stage_rows[ $force_ids[1] ]['stage'] = '';
+$stage_rows[ $force_ids[2] ]['stage'] = 'Confirmed';
+$stage_rows[ $force_ids[0] ]['name']  = 'Left <b>School</b>';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $stage_rows;
+$GLOBALS['summaries']      = array(
+	$force_ids[0] => array( 'state' => 'revoked' ),
+	$force_ids[1] => array( 'state' => 'revoked' ),
+	$force_ids[2] => array( 'state' => 'revoked' ),
+);
+$GLOBALS['latest_revoked'] = array( $force_ids[0] => 7101, $force_ids[1] => 7102, $force_ids[2] => 7103 );
+$stage_card = preg_match( '#<div class="wpcpm-card"><h2>Revoked agreements</h2>(.*?)</div><div class="wpcpm-card">#s', render_tab( 'agreements' ), $stage_match ) ? $stage_match[1] : '';
+preg_match_all( '#<li class="wpcpm-inst-inforce__row">(.*?)</li>#s', $stage_card, $stage_listed );
+$stage_by = array();
+foreach ( $stage_listed[1] as $li ) {
+	if ( preg_match( '#wpcpm_agreement_post" value="(\d+)"#', $li, $m ) ) {
+		$stage_by[ (int) $m[1] ] = $li;
+	} else {
+		$stage_by['left'] = $li;
+	}
+}
+$left_line = '<p class="description">' . esc_html( 'At the stage "Not Moving Forward", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again.' ) . '</p>';
+ck( 'a revoked school at a stage outside the pipeline is listed, with the line in place of the form and no button', array(
+	count( $stage_listed[1] ),
+	false !== strpos( $stage_by['left'] ?? '', esc_html( 'Left <b>School</b>' ) ),
+	false !== strpos( $stage_by['left'] ?? '', $left_line ),
+	strpos( $stage_by['left'] ?? '', '<form' ),
+	strpos( $stage_by['left'] ?? '', 'Reinstate' ),
+	isset( $stage_by[7101] ),
+), array( 3, true, true, false, false, false ) );
+ck( 'a revoked school with no stage, and one at an active stage, keep the form', array( isset( $stage_by[7102] ), isset( $stage_by[7103] ), substr_count( $stage_card, '<form' ) ), array( true, true, 2 ) );
+$stage_rows[ $force_ids[0] ]['stage'] = 'Paused <i>';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $stage_rows;
+$paused_card = render_tab( 'agreements' );
+ck( 'the stage in the line is escaped', array(
+	false !== strpos( $paused_card, esc_html( 'At the stage "Paused <i>", which is outside the pipeline.' ) ),
+	false !== strpos( $paused_card, 'Paused <i>' ),
+), array( true, false ) );
+
+// Who is listed (finding 6): a latest revoked document and nothing accepted or submitted, whatever the
+// summary says, so also a school that generated a new template or had a newer submission returned.
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+$GLOBALS['summaries']      = array(
+	$force_ids[0] => array( 'state' => 'generated', 'generated_id' => 7201 ),
+	$force_ids[1] => array( 'state' => 'returned' ),
+	$force_ids[2] => array( 'state' => 'submitted', 'pending_id' => 7203 ),
+	$force_ids[3] => array( 'state' => 'accepted', 'kind' => 'own', 'accepted_at' => '2026-03-05', 'agreement_id' => 7204, 'route' => 'site' ),
+	$force_ids[4] => array( 'state' => 'on_file', 'kind' => 'legacy', 'accepted_at' => '2026-03-05', 'agreement_id' => 7205, 'route' => 'grid' ),
+);
+$GLOBALS['latest_revoked'] = array( $force_ids[0] => 7101, $force_ids[1] => 7102, $force_ids[2] => 7103, $force_ids[3] => 7104, $force_ids[4] => 7105 );
+foreach ( array( 0, 1, 2, 3, 4 ) as $at ) {
+	$force_rows[ $force_ids[ $at ] ]['stage'] = 'Confirmed';
+}
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+$who_card = preg_match( '#<div class="wpcpm-card"><h2>Revoked agreements</h2>(.*?)</div><div class="wpcpm-card">#s', render_tab( 'agreements' ), $who_match ) ? $who_match[1] : '';
+ck( 'a revoked school with a newer template, or a newer submission returned, is listed; one with a newer submission waiting, or an accepted or on-file agreement, is not', array(
+	false !== strpos( $who_card, 'name="wpcpm_agreement_post" value="7101"' ),
+	false !== strpos( $who_card, 'name="wpcpm_agreement_post" value="7102"' ),
+	false !== strpos( $who_card, 'value="7103"' ),
+	false !== strpos( $who_card, 'value="7104"' ),
+	false !== strpos( $who_card, 'value="7105"' ),
+), array( true, true, false, false, false ) );
+$force_rows = $kept_force_rows;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $force_rows;
+
+// None revoked: the card says so and draws no form. No institution has a revoked document, which is
+// what the card reads first.
+$GLOBALS['latest_revoked'] = array();
+$GLOBALS['summaries'] = array( $force_ids[2] => array( 'state' => 'accepted', 'agreement_id' => 7003, 'accepted_at' => '2026-03-05' ) );
+$none_out             = render_tab( 'agreements' );
+ck( 'with no revoked institution the card says so and draws no row and no form', array(
+	false !== strpos( $none_out, '<p>No agreement is revoked.</p></div>' ),
+	substr_count( $none_out, 'wpcpm_agreement_reinstate' ),
+), array( true, 0 ) );
+
+$elsewhere = array();
+foreach ( array( 'queue', 'pipeline', 'accounts', 'reports', 'sync' ) as $other_tab ) {
+	$elsewhere[ $other_tab ] = substr_count( render_tab( $other_tab ), 'Revoked agreements' );
+}
+ck( 'no other tab draws the card', $elsewhere, array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 0, 'reports' => 0, 'sync' => 0 ) );
+
+$GLOBALS['latest_revoked'] = array();
+$GLOBALS['revoked_facts']  = array();
+$GLOBALS['summaries']      = $kept_summaries;
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- discrepancies and the template card -------------------------------- */

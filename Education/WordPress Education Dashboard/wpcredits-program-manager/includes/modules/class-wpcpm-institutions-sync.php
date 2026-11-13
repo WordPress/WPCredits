@@ -1483,6 +1483,23 @@ class WPCPM_Institutions_Sync {
 	}
 
 	/**
+	 * Whether a record at this stage is left alone by the revoke phase.
+	 *
+	 * Public for the Institutions screen's Revoked agreements card, which offers Reinstate only to
+	 * a school this test keeps: one rule for "in the pipeline", read in both places.
+	 *
+	 * @param string $stage  The record's trimmed Current Stage.
+	 * @param array  $active The stages the program treats as active.
+	 * @return bool
+	 */
+	public static function is_in_pipeline( $stage, array $active ) {
+		// An empty stage is not a stage outside the list: a school with no stage at all has not
+		// left the pipeline, so it and its people are left alone (owner's decision, 13 November
+		// 2026). A record missing from the index never reaches this.
+		return '' === trim( $stage ) || in_array( $stage, $active, true );
+	}
+
+	/**
 	 * Phase 4 - close the gate on every institution that has left the pipeline.
 	 *
 	 * The live members are the accounts holding the Institution role: `attach()` grants it
@@ -1524,7 +1541,7 @@ class WPCPM_Institutions_Sync {
 		foreach ( WPCPM_Institution_Agreement::stored_records() as $record_id ) {
 			$in_index = isset( $rows[ $record_id ] );
 
-			if ( $in_index && in_array( (string) $rows[ $record_id ]['stage'], $active, true ) ) {
+			if ( $in_index && self::is_in_pipeline( (string) $rows[ $record_id ]['stage'], $active ) ) {
 				continue;
 			}
 
@@ -1553,7 +1570,7 @@ class WPCPM_Institutions_Sync {
 			$in_index = isset( $rows[ $record_id ] );
 			$stage    = $in_index ? (string) $rows[ $record_id ]['stage'] : '';
 
-			if ( $in_index && in_array( $stage, $active, true ) ) {
+			if ( $in_index && self::is_in_pipeline( $stage, $active ) ) {
 				continue;
 			}
 

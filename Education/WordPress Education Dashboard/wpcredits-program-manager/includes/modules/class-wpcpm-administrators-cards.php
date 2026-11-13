@@ -3836,10 +3836,15 @@ final class WPCPM_Administrators_Cards {
 				continue;
 			}
 
+			// A revoked document's day is the day it was revoked, which the agreement class reads
+			// from the decision's own record: revoking edits no post, so the last edit is the
+			// upload's day (the trial of 1.123.89). Any other document keeps its last edit.
+			$revoked = WPCPM_Institution_Agreement::revoked_facts( (int) $post->ID );
+
 			$rows[] = array(
 				'id'     => (int) $post->ID,
 				'record' => (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Agreement::META_INSTITUTION, true ),
-				'at'     => (int) get_post_modified_time( 'U', true, $post ),
+				'at'     => $revoked['at'] > 0 ? (int) $revoked['at'] : (int) get_post_modified_time( 'U', true, $post ),
 				'note'   => trim( (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Agreement::META_NOTE, true ) ),
 			);
 		}

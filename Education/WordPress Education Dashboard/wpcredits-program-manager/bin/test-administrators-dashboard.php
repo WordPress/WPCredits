@@ -666,6 +666,8 @@ class WPCPM_Institution_Agreement {
 	const ACTION_REINSTATE = 'wpcpm_agreement_reinstate';
 	public static function awaiting_review( $limit = 200 ) { return isset( $GLOBALS['agr']['submitted'] ) ? $GLOBALS['agr']['submitted'] : array(); }
 	public static function in_state( $state, $limit = 50 ) { return isset( $GLOBALS['agr'][ $state ] ) ? $GLOBALS['agr'][ $state ] : array(); }
+	/** The day a document was revoked, as the real class reads it: nothing for a document that is not revoked. */
+	public static function revoked_facts( $post_id ) { return isset( $GLOBALS['agr_revoked_facts'][ (int) $post_id ] ) ? $GLOBALS['agr_revoked_facts'][ (int) $post_id ] : array( 'at' => 0, 'note' => '' ); }
 	public static function summary( $record ) { return array( 'state' => isset( $GLOBALS['agr_summary'][ $record ] ) ? $GLOBALS['agr_summary'][ $record ] : 'none' ); }
 	/** The words an Administrator reads for a summary state, as the real class holds them. */
 	public static function summary_label( $state ) {

@@ -227,6 +227,7 @@ require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-24.php';
 require_once __DIR__ . '/stubs/mail-since-1-123-27.php';
+require_once __DIR__ . '/stubs/mail-since-owner-decisions.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
@@ -953,9 +954,10 @@ foreach ( array( array( $cases, $recorded ), array( added_cases(), $more ) ) as 
 		foreach ( $want as $n => $mail ) {
 			$now = isset( $got[ $n ] ) ? $got[ $n ] : array_fill_keys( array_keys( $mail ), null );
 
-			// As 1.123.24 and then 1.123.27 send it: the footer's address line, and a Semester reports email's
-			// subject opening with the site's name in brackets.
-			$since = wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_24( body_as( $name, $mail['body'] ) ) ) + $mail, array( 'name' => $case['site'] ) );
+			// As 1.123.24, then 1.123.27, then the owner's decisions of 13 November 2026 send it: the
+			// footer's address line, a Semester reports email's subject opening with the site's name in
+			// brackets, and a one-to-one call's cancellation closing with a sentence true for every one.
+			$since = wpcpm_mail_since_owner_decisions( wpcpm_mail_since_1_123_27( array( 'body' => wpcpm_mail_since_1_123_24( body_as( $name, $mail['body'] ) ) ) + $mail, array( 'name' => $case['site'] ) ) );
 
 			ck( $name . ' #' . $n . ': logged under its own id' . $as, $now['context'], sent_as( $name, $n, $mail['context'] ) );
 			ck( $name . ' #' . $n . ': the subject, byte for byte' . $as, $now['subject'], $since['subject'] );
@@ -983,6 +985,13 @@ foreach ( array( $recorded, $more ) as $recording ) {
 }
 ck( 'every Semester reports email opens its subject with the site\'s name in brackets, as 1.123.27 sends it, and nothing else of 1.123.27 is in them', array( $GLOBALS['wpcpm_since_1_123_27']['report_subject'], $reported ), array( $reported, $reported ) );
 ck( 'and they are the 30 recorded emails of the three, the managers\' notices of a draft, the approvals and the questions to the students', $reported, 30 );
+
+// The owner's decisions of 13 November 2026: the closing sentence of each one-to-one call's
+// cancellation, the mentor's and the student's, in every recorded one and no other email.
+ck( 'every one-to-one call\'s cancellation closes with the sentence the owner\'s decisions of 13 November 2026 give it: the 3 recorded to a mentor and the 4 to a student',
+	$GLOBALS['wpcpm_since_owner_decisions'],
+	array( 'mentor_closing' => 3, 'student_closing' => 4 ) );
+
 ck( 'no other change of 1.123.27 touched them', array_sum( array_diff_key( $GLOBALS['wpcpm_since_1_123_27'], array( 'report_subject' => 0 ) ) ), 0 );
 
 // The check above holds for every row: a row whose `only` names no email of its case, or whose pair

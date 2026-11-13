@@ -1102,6 +1102,85 @@ class WPCPM_Mentor_Calls {
 	}
 
 	/**
+	 * Cancel a one-to-one call for a student who has moved to another mentor.
+	 *
+	 * The students sync calls this once the student's new pairing has settled, for each upcoming call
+	 * with a mentor whose list no longer holds them (the owner's decisions of 13 November 2026). It
+	 * follows `handle_cancel()` step for step, but nobody pressed anything: nothing is redirected and
+	 * nothing is read from the request, and both people are written to, told the site canceled it
+	 * and why. The call is in the trash (or, where the trash is switched off, deleted) before anybody
+	 * is written to, so a run that is retried mails nobody twice.
+	 *
+	 * @param int $call_id Call post ID.
+	 * @return string '' once it is canceled and both were written to; `gone` when it is not a live
+	 *                one-to-one call, or the trash refused it; `started` when it is under way; `busy` when the mentor's
+	 *                booking lock is held, for the next run to try again.
+	 */
+	public static function cancel_moved( $call_id ) {
+		$call_id = (int) $call_id;
+		$call    = $call_id ? get_post( $call_id ) : null;
+
+		if ( ! $call instanceof WP_Post || self::POST_TYPE !== $call->post_type ) {
+			return 'gone';
+		}
+
+		$mentor_id = (int) get_post_meta( $call->ID, self::META_MENTOR, true );
+
+		if ( ! self::lock( $mentor_id ) ) {
+			return 'busy';
+		}
+
+		// The call as the lock guards it, not the copy read before the lock was taken.
+		self::forget_cached( $call->ID );
+
+		$call = get_post( $call->ID );
+
+		// In the trash already (another request's cancellation, or a run that was retried), or a
+		// group session, which the sync takes the student off instead.
+		if ( ! $call instanceof WP_Post || 'private' !== $call->post_status || self::capacity( $call->ID ) > 1 ) {
+			self::unlock( $mentor_id );
+
+			return 'gone';
+		}
+
+		// Under way: left alone, as a session under way is.
+		if ( (int) get_post_meta( $call->ID, self::META_START, true ) <= time() ) {
+			self::unlock( $mentor_id );
+
+			return 'started';
+		}
+
+		// What the notice needs, read before the trash: where the trash is switched off
+		// (`EMPTY_TRASH_DAYS` 0) `wp_trash_post()` deletes the call and its meta outright.
+		$facts = self::details( $call );
+
+		// Nobody canceled it: the site did.
+		update_post_meta( $call->ID, self::META_CANCELLED_BY, 0 );
+
+		wp_trash_post( $call->ID );
+
+		// In the trash, or no longer there at all (deleted with the trash switched off): canceled
+		// either way, so both people are told. Only a call still there and not in the trash was
+		// refused (a `pre_trash_post` filter, a failed write): nobody is told it is canceled, its
+		// mark is taken off again, and the next run tries again. Mailing anyway would mail both
+		// people at every run.
+		$status = get_post_status( $call->ID );
+
+		if ( false !== $status && 'trash' !== $status ) {
+			delete_post_meta( $call->ID, self::META_CANCELLED_BY );
+			self::unlock( $mentor_id );
+
+			return 'gone';
+		}
+
+		self::unlock( $mentor_id );
+
+		self::notify_cancelled( $call, $facts, null, true );
+
+		return '';
+	}
+
+	/**
 	 * Store the viewer's display timezone.
 	 */
 	public static function handle_timezone() {
@@ -1797,21 +1876,25 @@ class WPCPM_Mentor_Calls {
 	 * Tell everybody else a call was canceled.
 	 *
 	 * A session's cancellation says the same words to its mentor and to every student on it
-	 * (`session-cancelled`); a one-to-one call's tells the mentor that the student can book again and
-	 * the student that they can (`call-cancelled-mentor`, `call-cancelled-student`).
+	 * (`session-cancelled`); a one-to-one call's tells the mentor that the slot is free again and open
+	 * for booking, and the student that they can book another time on their Student Report Card
+	 * (`call-cancelled-mentor`, `call-cancelled-student`).
 	 *
 	 * @param WP_Post  $call     Call post.
 	 * @param array    $facts    Its facts, read under the booking lock as it was trashed, so the
 	 *                           people told are the people who were on it (SESSIONS-5).
 	 * @param int|null $revision A session's calendar version, raised by the cancellation
 	 *                           (SESSIONS-3); null keeps a cancellation's default.
+	 * @param bool     $moved    Whether the students sync canceled it, the student having moved to
+	 *                           another mentor: both people are written to, whoever is signed in,
+	 *                           and told the site did it and why.
 	 */
-	private static function notify_cancelled( WP_Post $call, array $facts, $revision = null ) {
+	private static function notify_cancelled( WP_Post $call, array $facts, $revision = null, $moved = false ) {
 		if ( ! self::mail_enabled( $call ) ) {
 			return;
 		}
 
-		$actor   = get_current_user_id();
+		$actor   = $moved ? 0 : get_current_user_id();
 		$mentor  = get_user_by( 'id', $facts['mentor_id'] );
 		$student = get_user_by( 'id', $facts['student_id'] );
 
@@ -1851,12 +1934,22 @@ class WPCPM_Mentor_Calls {
 			WPCPM_Mail::send(
 				$person,
 				$id,
-				function ( $recipient ) use ( $id, $facts, $by, $to_mentor, $mentor, $named, $other, $revision ) {
+				function ( $recipient ) use ( $id, $facts, $by, $to_mentor, $mentor, $named, $other, $revision, $moved ) {
 					$invite = self::calendar( $facts, WPCPM_ICS::METHOD_CANCEL, $mentor, $named, $recipient, $revision );
+
+					if ( $moved ) {
+						$canceled_by = $to_mentor
+							/* translators: Completes the sentence "The call on %1$s was canceled by %2$s." in the mentor's email. */
+							? __( 'the site, because this student now has another mentor', 'wpcredits-program-manager' )
+							/* translators: Completes the sentence "The call on %1$s was canceled by %2$s." in the student's email. */
+							: __( 'the site, because you now have another mentor', 'wpcredits-program-manager' );
+					} else {
+						$canceled_by = null === $by ? __( 'an Administrator', 'wpcredits-program-manager' ) : $by;
+					}
 
 					return self::mail_of(
 						$id,
-						array( 'canceled_by' => null === $by ? __( 'an Administrator', 'wpcredits-program-manager' ) : $by ) + self::call_values( $facts, $recipient, $to_mentor ),
+						array( 'canceled_by' => $canceled_by ) + self::call_values( $facts, $recipient, $to_mentor ),
 						array(
 							'headers'     => WPCPM_Mail::reply_to( $other ),
 							'attachments' => $invite,

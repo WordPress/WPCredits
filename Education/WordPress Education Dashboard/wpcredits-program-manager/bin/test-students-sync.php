@@ -114,6 +114,8 @@ function sanitize_email( $s ) { return trim( (string) $s ); }
 function is_email( $s ) { return false !== filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
 function sanitize_user( $s, $strict = false ) { return preg_replace( $strict ? '/[^a-z0-9 _.\-@]/i' : '/[^a-z0-9 _.\-@]/i', '', (string) $s ); }
 function wp_generate_password() { return 'not-a-real-password'; }
+// A mail log: the sync sends nothing, and the checks below hold it to that.
+if ( ! function_exists( 'wp_mail' ) ) { function wp_mail() { $GLOBALS['mail_log'][] = func_get_args(); return true; } }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function add_action() {} function remove_filter() { return true; }
@@ -429,7 +431,8 @@ if ( ! class_exists( 'WPCPM_Group_Sessions' ) ) {
 		public static function leave_former( $student_id ) {
 			$GLOBALS['left_former'][ (int) $student_id ] = get_user_meta( (int) $student_id, WPCPM_Students_Sync::META_MENTOR, true );
 
-			return 0;
+			// What the real one answers: group sessions left plus one-to-one calls canceled.
+			return (int) ( $GLOBALS['leave_former_answer'] ?? 0 );
 		}
 	}
 }
@@ -1302,6 +1305,7 @@ $a = account( 'reference-grad-1@example.test' );
 
 ck( 'a graduate with an existing account is stamped', $a['stamp'], $reference );
 ck( 'and kept inactive, as before', $GLOBALS['umeta'][ $a['id'] ][ WPCPM_Students_Sync::META_ACTIVE ], 0 );
+ck( 'and not given the Student role: a graduate who had lost it, or never held it, gets nothing back', in_array( WPCPM_Roles::ROLE_STUDENT, $GLOBALS['users'][ $a['id'] ]['roles'], true ), false );
 ck( 'a graduate with no account gets none', account( 'reference-grad-2@example.test' )['id'], 0 );
 
 echo "\n=== wpcpm_student_program keeps its shape ===\n";
@@ -1716,9 +1720,28 @@ foreach ( $GLOBALS['umeta'] as $carded => $meta ) {
 	}
 }
 
+// The run was in flight when the release that counts `moved_off` was deployed: its stats have no
+// such key, and the run must count from nothing rather than warn.
+$GLOBALS['leave_former_answer'] = 2;
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ]['stats']['moved_off'] );
+$moved_warnings = array();
+set_error_handler(
+	function ( $no, $msg ) use ( &$moved_warnings ) {
+		$moved_warnings[] = $msg;
+		return true;
+	}
+);
 WPCPM_Students_Sync::run_tick( 60 );
+restore_error_handler();
+unset( $GLOBALS['leave_former_answer'] );
 
 ck( 'the resumed run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
+ck( 'the report counts what was taken off moved students, the sum of what leave_former() answered, with no warning for a run that began without the key',
+	array( (int) ( get_option( WPCPM_Students_Sync::OPT_REPORT )['stats']['moved_off'] ?? -1 ), $moved_warnings ),
+	array( 2 * count( $GLOBALS['left_former'] ), array() ) );
+ck( 'a new run starts the count at nothing', WPCPM_Students_Sync::empty_stats()['moved_off'] ?? null, 0 );
+$students_screen_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php' );
+ck( 'the Students screen labels the count in the run\'s report', false !== strpos( $students_screen_src, "'moved_off'     => __( 'Calls and group sessions taken off students whose mentor changed', 'wpcredits-program-manager' )," ), true );
 ck( 'with the error cleared', get_option( WPCPM_Students_Sync::OPT_ERROR, '' ), '' );
 
 // SESSIONS-7: every student the run assigned is handed to the sessions module, after their card is
@@ -2645,6 +2668,138 @@ ck( 'report_edited_absent_no_warning: rows with no report-edited key are provisi
 	array( true, true, true, array() ) );
 
 list( $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_site;
+
+echo "\n=== A graduate keeps the Student role and the Student Report Card ===\n";
+
+// Its own small base and its own accounts, so nothing above or below is disturbed. The default
+// lists: past = Graduate, Dropped out; student_on_inactive = revoke.
+$kept_for_graduates = array( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] );
+$GLOBALS['airtable'] = array( $students_table => array(), $reports_table => array() );
+$GLOBALS['users']    = array();
+$GLOBALS['umeta']    = array();
+$GLOBALS['mail_log'] = array();
+
+$grad_mk = static function ( $uid, $login, $roles, $record ) use ( $reference ) {
+	$GLOBALS['users'][ $uid ] = array( 'login' => $login, 'email' => "$login@example.test", 'name' => $login, 'roles' => $roles );
+	if ( '' !== $record ) {
+		$GLOBALS['umeta'][ $uid ] = array( WPCPM_Students_Sync::META_RECORD_ID => $record, WPCPM_Students_Sync::META_ACTIVE => 1, WPCPM_Students_Sync::META_INSTITUTION => $reference );
+	}
+};
+$grad_roles = static function ( $uid ) { return $GLOBALS['users'][ $uid ]['roles']; };
+
+// Current students keep the count check satisfied.
+for ( $i = 1; $i <= 3; $i++ ) {
+	$rec = report_row( "Grad Current $i", "grad-current-$i@example.test", 'In Sensei', $reference );
+	$grad_mk( 3000 + $i, "grad-current-$i", array( WPCPM_Roles::ROLE_STUDENT ), $rec );
+}
+
+$r_grad     = report_row( 'Grad Kept', 'grad-kept@example.test', 'Graduate', $reference );
+$r_dropped  = report_row( 'Grad Dropped', 'grad-dropped@example.test', 'Dropped out', $reference );
+$r_revoked  = report_row( 'Grad Revoked', 'grad-revoked@example.test', 'Graduate', $reference );
+$r_admin    = report_row( 'Grad Admin', 'grad-admin@example.test', 'Graduate', $reference );
+$r_completed = report_row( 'Grad Completed', 'grad-completed@example.test', 'Completed 50h', $reference );
+$r_matched  = report_row( 'Grad Matched', 'grad-matched@example.test', 'Graduate', $reference );
+$r_nocreate = report_row( 'Grad Nobody', 'grad-nobody@example.test', 'Graduate', $reference );
+
+$grad_mk( 3101, 'grad-kept', array( WPCPM_Roles::ROLE_STUDENT ), $r_grad );
+$grad_mk( 3102, 'grad-dropped', array( WPCPM_Roles::ROLE_STUDENT ), $r_dropped );
+$grad_mk( 3103, 'grad-revoked', array( 'subscriber' ), $r_revoked );
+$grad_mk( 3104, 'grad-admin', array( WPCPM_Roles::ROLE_ADMIN ), $r_admin );
+$grad_mk( 3105, 'grad-completed', array( WPCPM_Roles::ROLE_STUDENT ), $r_completed );
+$grad_mk( 3106, 'grad-matched', array( 'subscriber' ), '' );
+// Linked to a record the run does not read at all.
+$grad_mk( 3107, 'grad-unread', array( WPCPM_Roles::ROLE_STUDENT ), 'recUNREADXXXXXXXX' );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['past_statuses'] = array( 'Graduate', 'Dropped out', 'Completed 50h' );
+
+$mail_before = count( $GLOBALS['mail_log'] );
+$run         = run_sync();
+$grad_report = get_option( WPCPM_Students_Sync::OPT_REPORT );
+
+ck( 'the graduates run finished', $run > 0 && ! isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ) && '' === get_option( WPCPM_Students_Sync::OPT_ERROR, '' ), true );
+ck( 'a graduate holding the Student role keeps it', in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3101 ), true ), true );
+ck( 'and is inactive', $GLOBALS['umeta'][3101][ WPCPM_Students_Sync::META_ACTIVE ], 0 );
+ck( 'a past status added in the settings that reads as completed is kept too: the test is the name', in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3105 ), true ), true );
+ck( 'a student at Dropped out loses the role and is left a Subscriber', $grad_roles( 3102 ), array( 'subscriber' ) );
+// The rule is for new graduates only (the product owner, 13 November 2026): a graduate who had
+// already lost the role is not given it back, whether linked already or found by address.
+ck( 'a graduate who had already lost the role still holds only subscriber', $grad_roles( 3103 ), array( 'subscriber' ) );
+ck( 'and was made inactive, as a past row is', $GLOBALS['umeta'][3103][ WPCPM_Students_Sync::META_ACTIVE ], 0 );
+ck( 'a graduate found by address is stamped and kept inactive, and is not given the Student role', array(
+	$GLOBALS['umeta'][3106][ WPCPM_Students_Sync::META_RECORD_ID ] ?? '',
+	$GLOBALS['umeta'][3106][ WPCPM_Students_Sync::META_ACTIVE ] ?? null,
+	$grad_roles( 3106 ),
+), array( $r_matched, 0, array( 'subscriber' ) ) );
+ck( 'the run sent no mail, and none of the graduates was emailed', count( $GLOBALS['mail_log'] ) - $mail_before, 0 );
+ck( 'an Administrator linked to a graduate record keeps exactly its roles', $grad_roles( 3104 ), array( WPCPM_Roles::ROLE_ADMIN ) );
+ck( 'an account linked to a record the run did not read loses the role', $grad_roles( 3107 ), array( 'subscriber' ) );
+ck( 'and the institution stamp', array_key_exists( WPCPM_Students_Sync::META_INSTITUTION, $GLOBALS['umeta'][3107] ), false );
+ck( 'a graduate with no account still gets none', get_user_by( 'email', 'grad-nobody@example.test' ), false );
+// The count check's two numbers, reached as the suite reaches them above: linked_active() is public,
+// and current_read() is private, so it is called through a bound closure over rows built as the run
+// builds them (past rows carry is_graduate). The graduates hold the role and are in neither number.
+$grad_rows = array();
+foreach ( array( 'Graduate', 'Graduate', 'Completed 50h' ) as $st ) {
+	$grad_rows[] = array( 'record_id' => 'recGRAD' . count( $grad_rows ), 'is_past' => true, 'is_graduate' => WPCPM_Program::is_graduation( $st ) );
+}
+foreach ( array( 1, 2, 3 ) as $n ) {
+	$grad_rows[] = array( 'record_id' => 'recCUR' . $n, 'is_past' => false, 'is_graduate' => false );
+}
+$grad_current_read = Closure::bind( static function ( array $rows ) { return self::current_read( $rows ); }, null, 'WPCPM_Students_Sync' );
+ck( 'the count check reads three current students: graduates holding the role are not among them', $grad_current_read( $grad_rows ), 3 );
+ck( 'and counts three linked active accounts: the graduates are inactive though they hold the role',
+	array( WPCPM_Students_Sync::linked_active(), in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3101 ), true ), in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3105 ), true ) ),
+	array( 3, true, true ) );
+ck( 'revoked counts the dropped-out student and the unread account only', $grad_report['stats']['revoked'], 2 );
+
+foreach ( array( 'Graduate', 'Completed 50h', 'Finished', 'Passed', 'Graduated (no mentor)', 'Graduated - no longer active', 'Completed (no extension)', 'Nottingham cohort graduate', 'Note: passed' ) as $status ) {
+	ck( "is_graduation() is true for $status", WPCPM_Program::is_graduation( $status ), true );
+}
+// A status that says the opposite of a graduation is not one, though it holds the word (final review,
+// finding 4): a false match would keep the Student role for a student who did not graduate.
+foreach ( array( 'Not completed', 'Incomplete', 'Did not pass', 'Didn\'t finish', "Didn\u{2019}t pass", 'Didnt finish', 'No pass', 'Never finished', 'Unfinished', 'Uncompleted', 'Ungraduated', 'Failed to complete', 'Non-graduate', 'Nongraduate', 'Non graduate', 'Withdrew before completion', 'Left without finishing', 'Dropped before passing', 'Quit, course not passed', 'Dropped out', 'Paused', '' ) as $status ) {
+	ck( "is_graduation() is false for '$status'", WPCPM_Program::is_graduation( $status ), false );
+}
+
+// The lifecycle the rule is about: a current student holding the role in one run, at Graduate in the
+// next, still holds it after the second run.
+$r_life = report_row( 'Grad Lifecycle', 'grad-life@example.test', 'In Sensei', $reference );
+$grad_mk( 3108, 'grad-life', array( WPCPM_Roles::ROLE_STUDENT ), $r_life );
+run_sync();
+$life_first = array( in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3108 ), true ), (int) $GLOBALS['umeta'][3108][ WPCPM_Students_Sync::META_ACTIVE ] );
+foreach ( $GLOBALS['airtable'][ $reports_table ] as $at => $record ) {
+	if ( $r_life === $record['id'] ) {
+		$GLOBALS['airtable'][ $reports_table ][ $at ]['fields'][ $fields['report_status'] ] = 'Graduate';
+	}
+}
+$life_mail = count( $GLOBALS['mail_log'] );
+run_sync();
+ck( 'a current student holding the role who graduates before the next run still holds it after that run, inactive, with no mail',
+	array( $life_first, in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3108 ), true ), (int) $GLOBALS['umeta'][3108][ WPCPM_Students_Sync::META_ACTIVE ], count( $GLOBALS['mail_log'] ) - $life_mail ),
+	array( array( true, 1 ), true, 0, 0 ) );
+
+// A run that read its rows under the release before this one and reaches the role step after the
+// deploy: its saved rows hold `is_past` and the status, and no `is_graduate`. A graduate must not
+// lose the role to that one run (the outside review of 1.123.89, finding 1), since no run gives it back.
+$GLOBALS['users'][3201] = array( 'login' => 'spanning-graduate', 'email' => 'spanning-graduate@example.test', 'name' => 'Spanning Graduate', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][3201] = array( WPCPM_Students_Sync::META_RECORD_ID => 'recSPANGRAD000001', WPCPM_Students_Sync::META_ACTIVE => 1 );
+$GLOBALS['users'][3202] = array( 'login' => 'spanning-dropped', 'email' => 'spanning-dropped@example.test', 'name' => 'Spanning Dropped', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][3202] = array( WPCPM_Students_Sync::META_RECORD_ID => 'recSPANDROP000001', WPCPM_Students_Sync::META_ACTIVE => 1 );
+$span_rows = array();
+foreach ( $GLOBALS['umeta'] as $span_uid => $span_meta ) {
+	// Every other linked account stays as the run found it: current, so the walk leaves it alone.
+	if ( ! empty( $span_meta[ WPCPM_Students_Sync::META_RECORD_ID ] ) && ! in_array( $span_uid, array( 3201, 3202 ), true ) ) {
+		$span_rows[] = array( 'record_id' => $span_meta[ WPCPM_Students_Sync::META_RECORD_ID ], 'is_past' => false, 'program' => 'In Sensei' );
+	}
+}
+$span_rows[] = array( 'record_id' => 'recSPANGRAD000001', 'is_past' => true, 'program' => 'Graduate' );
+$span_rows[] = array( 'record_id' => 'recSPANDROP000001', 'is_past' => true, 'program' => 'Dropped out' );
+$span_state  = $revoke( array( 'students' => $span_rows, 'stats' => array( 'revoked' => 0 ) ), array( 'student_on_inactive' => 'revoke' ) );
+ck( 'a run that spans the upgrade (rows with no is_graduate) still leaves a graduate the role, takes it from a dropped-out student, and marks both inactive',
+	array( in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3201 ), true ), in_array( WPCPM_Roles::ROLE_STUDENT, $grad_roles( 3202 ), true ), (int) $GLOBALS['umeta'][3201][ WPCPM_Students_Sync::META_ACTIVE ], (int) $GLOBALS['umeta'][3202][ WPCPM_Students_Sync::META_ACTIVE ], (int) $span_state['stats']['revoked'] ),
+	array( true, false, 0, 0, 1 ) );
+
+list( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_for_graduates;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

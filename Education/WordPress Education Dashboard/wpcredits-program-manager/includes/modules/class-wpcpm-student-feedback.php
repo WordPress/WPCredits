@@ -456,15 +456,15 @@ class WPCPM_Student_Feedback {
 	/**
 	 * Whether a finished status means they completed the program.
 	 *
-	 * Matched loosely, because this decides which survey somebody is asked and the statuses are
-	 * configurable: anything that is not recognizably a graduation is treated as leaving early,
-	 * which asks the gentler set of questions and never hands a graduate an exit survey.
+	 * The test is `WPCPM_Program::is_graduation()`, shared with the students sync. Anything that is
+	 * not recognizably a graduation is treated as leaving early, which asks the gentler set of
+	 * questions and never hands a graduate an exit survey.
 	 *
 	 * @param string $status Airtable status.
 	 * @return bool
 	 */
 	private static function is_graduate( $status ) {
-		return (bool) preg_match( '/graduat|complet|finish|pass/i', (string) $status );
+		return WPCPM_Program::is_graduation( $status );
 	}
 
 

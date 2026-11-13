@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.88
+Stable tag: 1.123.89
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,15 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.89 =
+
+* A graduate keeps the Student role and the Student Report Card: a student who holds the role when they reach a past status that reads as graduated, completed, finished or passed is no longer shut out by "When a student leaves the program". A graduate who had already lost the role is not given it back, and nobody is invited. Any other past student loses the role as before.
+* When a student is moved to another mentor, the students sync cancels their upcoming one-to-one calls with the former mentor, and both receive the "Call canceled" email with a calendar file. A call already under way is left. The email says when it was the site that canceled, and why.
+* An institution with no stage in Airtable is left alone by the institutions sync from now on: its agreement record is kept and its people are not taken off it. People taken off at earlier syncs are not put back. One at a stage outside the active list, or gone from Airtable, is closed as before.
+* Settings: under "When an institution leaves the pipeline" the second choice now reads "Leave its people in place, able to open only its agreement", and the help says what either choice does.
+* Institutions screen, Agreements tab: a new "Revoked agreements" card lists each institution whose Collaboration Agreement was revoked, with a Reinstate button that asks first. A school that has left the pipeline is listed without the button. Reinstate no longer depends on a signed agreement waiting on the Administrator Dashboard.
+* The Administrator, Mentor and Student guides say all of the above.
 
 = 1.123.88 =
 

@@ -29,7 +29,9 @@ Everything is in your own timezone, and each student sees the same call in their
 
 You both get an email with a calendar invitation attached, so the call lands in your calendar rather
 than only on the page. A reminder goes out 24 hours before, and either of you can cancel - which
-puts the slot straight back on the calendar.
+puts the slot straight back on the calendar. If a student moves to another mentor, the site cancels
+their upcoming calls with you once the program records show the change, unless one has already
+started, and you both get an email with the calendar file.
 
 Booked calls appear under **Upcoming calls** beside your availability, so you can see what is coming
 without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the

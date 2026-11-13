@@ -118,7 +118,14 @@ function wp_json_encode( $v ) { return json_encode( $v ); }
 // with which status, for the background move's checks (BUILDER-4).
 function wp_send_json_success( $data = null, $status = null ) { $GLOBALS['json_sent'] = array( 'success' => true, 'data' => $data, 'status' => $status ); throw new DieSignal( 'json' ); }
 function wp_send_json_error( $data = null, $status = null ) { $GLOBALS['json_sent'] = array( 'success' => false, 'data' => $data, 'status' => $status ); throw new DieSignal( 'json' ); }
-function apply_filters( $t, $v ) { return $v; }
+// The id each email is built under, as `WPCPM_Mail` hands it to its filter, so a check can say which
+// template went out and how many times.
+function apply_filters( $t, $v, ...$rest ) {
+	if ( 'wpcpm_mail' === $t ) {
+		$GLOBALS['mail_ids'][] = (string) ( $rest[0] ?? '' );
+	}
+	return $v;
+}
 // No page at the path the program manager guide is published at, so the Settings screen's section
 // intros link nothing.
 function get_page_by_path( $path, $output = 'OBJECT', $type = 'page' ) { return null; }
@@ -284,7 +291,20 @@ function wp_insert_post( $a, $err = false ) {
 }
 // Trashing moves the post out of `private`, as WordPress does, so a reader that asks for the status
 // sees the cancellation (the deep check of 1.109.1, SESSIONS-13: a no-op here let every reader pass).
-function wp_trash_post( $id ) { if ( isset( $GLOBALS['posts'][ (int) $id ] ) ) { $GLOBALS['posts'][ (int) $id ]->post_status = 'trash'; } return true; }
+// `$GLOBALS['refuse_trash']` stands for a `pre_trash_post` filter or a failed write: nothing moves,
+// and false comes back, as core answers then. `$GLOBALS['trash_deletes']` stands for a site with the
+// trash switched off (`EMPTY_TRASH_DAYS` 0): core deletes the post and its meta outright and answers
+// the deleted post.
+function wp_trash_post( $id ) {
+	if ( ! empty( $GLOBALS['refuse_trash'] ) ) { return false; }
+	if ( ! empty( $GLOBALS['trash_deletes'] ) ) {
+		$gone = $GLOBALS['posts'][ (int) $id ] ?? null;
+		unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ], $GLOBALS['pmeta_rows'][ (int) $id ] );
+		return $gone ? $gone : false;
+	}
+	if ( isset( $GLOBALS['posts'][ (int) $id ] ) ) { $GLOBALS['posts'][ (int) $id ]->post_status = 'trash'; }
+	return true;
+}
 function get_post_status( $p = null ) { $post = get_post( is_object( $p ) ? $p->ID : $p ); return $post ? $post->post_status : false; }
 // The statuses core registers, which the Track Builder's store asks for when it lists every track.
 function get_post_stati() { return array( 'publish' => 'publish', 'future' => 'future', 'draft' => 'draft', 'pending' => 'pending', 'private' => 'private', 'trash' => 'trash', 'auto-draft' => 'auto-draft', 'inherit' => 'inherit' ); }
@@ -812,6 +832,39 @@ run( 'handle_cancel (the same call again)', array( 'WPCPM_Mentor_Calls', 'handle
 check( 'a second Cancel of a one-to-one call already canceled writes to nobody and says it is canceled',
     array( flashed( 1, 'call' ), count( $GLOBALS['mail'] ) ),
     array( 'cancelled', 0 ) );
+
+// The student cancels their own call: the mentor alone is written to, the student named as having
+// canceled, and the closing sentence true for every cancellation (the owner's decisions of 13
+// November 2026).
+$cancel_uid  = $GLOBALS['uid'];
+$cancel_caps = $GLOBALS['caps'] ?? null;
+$GLOBALS['posts'][502] = new WP_Post();
+$GLOBALS['posts'][502]->ID = 502;
+$GLOBALS['posts'][502]->post_type = WPCPM_Mentor_Calls::POST_TYPE;
+$GLOBALS['posts'][502]->post_status = 'private';
+$GLOBALS['pmeta'][502] = array(
+	WPCPM_Mentor_Calls::META_MENTOR => 20, WPCPM_Mentor_Calls::META_STUDENT => 30,
+	WPCPM_Mentor_Calls::META_START => time() + 86400, WPCPM_Mentor_Calls::META_END => time() + 88200,
+	WPCPM_Mentor_Calls::META_RECORD => $student_rec, WPCPM_Mentor_Calls::META_NAME => 'Sam Student',
+	WPCPM_Mentor_Calls::META_ZONE => 'Europe/Riga',
+);
+$GLOBALS['uid']  = 30;
+$GLOBALS['caps'] = false;
+$_POST           = array( 'call' => 502 );
+run( 'handle_cancel (the student cancels their own call)', array( 'WPCPM_Mentor_Calls', 'handle_cancel' ) );
+check( 'a student\'s own cancellation writes to the mentor alone, names the student, and says the slot is open for booking',
+    array(
+        array_column( $GLOBALS['mail'], 'to' ),
+        false !== strpos( $GLOBALS['mail'][0]['body'] ?? '', 'was canceled by Sam Student' ),
+        false !== strpos( $GLOBALS['mail'][0]['body'] ?? '', 'The slot is free again and open for booking.' ),
+        false !== strpos( $GLOBALS['mail'][0]['body'] ?? '', 'another mentor' ),
+    ),
+    array( array( 'mentor@example.test' ), true, true, false ) );
+flashed( 30, 'call' );
+$GLOBALS['uid']  = $cancel_uid;
+$GLOBALS['caps'] = $cancel_caps;
+unset( $GLOBALS['posts'][502], $GLOBALS['pmeta'][502] );
+$GLOBALS['mail'] = array();
 
 $_POST = array( 'call' => 4242 );
 run( 'handle_cancel (call that does not exist)', array( 'WPCPM_Mentor_Calls', 'handle_cancel' ) );
@@ -2042,6 +2095,7 @@ WPCPM_Mentor_Calls::add_attendee( 740, 33, $lee_rec );
 function leave_former_of( array $on ) {
 	$GLOBALS['query_result'] = $on;
 	$GLOBALS['mail']         = array();
+	$GLOBALS['mail_ids']     = array();
 	$left                    = WPCPM_Group_Sessions::leave_former( 33 );
 	$GLOBALS['query_result'] = array();
 
@@ -2130,6 +2184,177 @@ run( 'handle_note (a record nobody may note)', array( 'WPCPM_Group_Sessions', 'h
 check( 'the old mentor\'s note on a session with a re-paired student is saved, and a note refused for somebody on the session says so in its own words',
     array( $old_mentor_note, flashed( 20, 'call' ), WPCPM_Mentor_Calls::message( 'session-note-denied' ) ),
     array( 'session-noted', 'session-note-denied', array( 'error', 'You cannot add notes for everybody on that session.' ) ) );
+
+// The owner's decision of 13 November 2026: once the pairing has settled, the sync also cancels the
+// moved student's upcoming one-to-one calls with the old mentor, and writes to both of them in the
+// "Call canceled" email, saying the site did it and why. Lee's calls with Mia: 746 tomorrow, 747
+// under way, 748 with Noa, his new mentor.
+/**
+ * A one-to-one call booked by Lee.
+ *
+ * @param int $id     Post ID.
+ * @param int $start  Start, a timestamp.
+ * @param int $mentor Mentor user ID.
+ */
+function moved_call_fixture( $id, $start, $mentor = 20 ) {
+	$GLOBALS['posts'][ $id ]              = new WP_Post();
+	$GLOBALS['posts'][ $id ]->ID          = $id;
+	$GLOBALS['posts'][ $id ]->post_type   = WPCPM_Mentor_Calls::POST_TYPE;
+	$GLOBALS['posts'][ $id ]->post_status = 'private';
+	$GLOBALS['pmeta'][ $id ]              = array(
+		WPCPM_Mentor_Calls::META_MENTOR  => $mentor,
+		WPCPM_Mentor_Calls::META_STUDENT => 33,
+		WPCPM_Mentor_Calls::META_RECORD  => 'recSTUDENT3300000',
+		WPCPM_Mentor_Calls::META_NAME    => 'Lee Student',
+		WPCPM_Mentor_Calls::META_START   => $start,
+		WPCPM_Mentor_Calls::META_END     => $start + 1800,
+		WPCPM_Mentor_Calls::META_ZONE    => 'UTC',
+	);
+	unset( $GLOBALS['pmeta_rows'][ $id ] );
+}
+
+/**
+ * What the last sync step's mail said, by recipient: the template, whether its file cancels, and
+ * the words that name who canceled.
+ *
+ * @return array
+ */
+function moved_mail() {
+	$out = array();
+
+	foreach ( $GLOBALS['mail'] as $index => $sent ) {
+		$out[ $sent['to'] ] = array(
+			false !== strpos( file_of( $index ), 'METHOD:CANCEL' ),
+			false !== strpos( $sent['body'], 'the site, because this student now has another mentor' ),
+			false !== strpos( $sent['body'], 'the site, because you now have another mentor' ),
+			false !== strpos( $sent['body'], 'an Administrator' ),
+			false !== strpos( $sent['subj'], 'canceled' ),
+			false !== strpos( $sent['body'], 'The slot is free again and open for booking.' ),
+			false !== strpos( $sent['body'], 'You can book another time on your Student Report Card.' ),
+		);
+	}
+
+	ksort( $out );
+
+	$ids = $GLOBALS['mail_ids'] ?? array();
+	sort( $ids );
+
+	return array( count( $GLOBALS['mail'] ), $ids, $out );
+}
+
+$moved_want = array(
+	2,
+	array( 'call-cancelled-mentor', 'call-cancelled-student' ),
+	array(
+		'lee@example.test'    => array( true, false, true, false, true, false, true ),
+		'mentor@example.test' => array( true, true, false, false, true, true, false ),
+	),
+);
+
+foreach ( array( 'the sync' => 0, 'the old mentor' => 20, 'an Administrator' => 1 ) as $moved_by => $moved_uid ) {
+	$GLOBALS['uid'] = $moved_uid;
+	$GLOBALS['caps'] = 1 === $moved_uid;
+	moved_call_fixture( 746, time() + DAY_IN_SECONDS );
+	$moved_left = leave_former_of( array( $GLOBALS['posts'][746] ) );
+	check( 'once the pairing has settled, the sync cancels the student\'s upcoming one-to-one call with the old mentor and writes to both, saying the site did it and why (run by ' . $moved_by . ')',
+	    array(
+	        $moved_left,
+	        $GLOBALS['posts'][746]->post_status,
+	        get_post_meta( 746, WPCPM_Mentor_Calls::META_CANCELLED_BY, true ),
+	        moved_mail(),
+	        get_option( 'wpcpm_call_lock_20', false ),
+	    ),
+	    array( 1, 'trash', 0, $moved_want, false ) );
+}
+$GLOBALS['uid']  = 0;
+$GLOBALS['caps'] = false;
+
+// A second run over what the first left: the query asks for live calls only, so it finds none; and
+// handed the trashed call anyway, the run still cancels nothing and writes to nobody.
+$moved_live = array_values( array_filter( array( $GLOBALS['posts'][746] ), function ( $p ) { return 'private' === $p->post_status; } ) );
+check( 'a second run of the sync after the cancellation writes to nobody, whether the call in the trash is left out of its query or handed to it',
+    array( leave_former_of( $moved_live ), count( $GLOBALS['mail'] ), leave_former_of( array( $GLOBALS['posts'][746] ) ), count( $GLOBALS['mail'] ), $GLOBALS['posts'][746]->post_status ),
+    array( 0, 0, 0, 0, 'trash' ) );
+check( 'and the call handed to it again in the trash is not canceled twice',
+    array( WPCPM_Mentor_Calls::cancel_moved( 746 ), count( $GLOBALS['mail'] ) ),
+    array( 'gone', 0 ) );
+
+// Under way: left as it is.
+moved_call_fixture( 747, time() - 600 );
+check( 'a one-to-one call with the old mentor that has already started is left as it is',
+    array( leave_former_of( array( $GLOBALS['posts'][747] ) ), $GLOBALS['posts'][747]->post_status, count( $GLOBALS['mail'] ), WPCPM_Mentor_Calls::cancel_moved( 747 ) ),
+    array( 0, 'private', 0, 'started' ) );
+
+// Not settled, then two mentors, then the new mentor's own call.
+moved_call_fixture( 746, time() + DAY_IN_SECONDS );
+$GLOBALS['umeta'][21][ WPCPM_Mentors_Sync::META_MENTEES ] = array();
+$moved_unsettled = array( leave_former_of( array( $GLOBALS['posts'][746] ) ), $GLOBALS['posts'][746]->post_status, count( $GLOBALS['mail'] ) );
+$GLOBALS['umeta'][21][ WPCPM_Mentors_Sync::META_MENTEES ] = array( array( 'record_id' => $lee_rec, 'name' => 'Lee Student', 'is_past' => false ) );
+$mia_mentees = $GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_MENTEES ];
+$GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_MENTEES ][] = array( 'record_id' => $lee_rec, 'name' => 'Lee Student', 'is_past' => false );
+$moved_two = array( leave_former_of( array( $GLOBALS['posts'][746] ) ), $GLOBALS['posts'][746]->post_status, count( $GLOBALS['mail'] ) );
+$GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_MENTEES ] = $mia_mentees;
+moved_call_fixture( 748, time() + DAY_IN_SECONDS, 21 );
+$moved_new = array( leave_former_of( array( $GLOBALS['posts'][748] ) ), $GLOBALS['posts'][748]->post_status, count( $GLOBALS['mail'] ) );
+check( 'nothing is canceled while the new pairing has not settled, while the old mentor\'s list still holds the student, or for a call with the new mentor',
+    array( $moved_unsettled, $moved_two, $moved_new ),
+    array( array( 0, 'private', 0 ), array( 0, 'private', 0 ), array( 0, 'private', 0 ) ) );
+
+// The old mentor's booking lock held by another request: the call stays, and a later run cancels it.
+$GLOBALS['opts']['wpcpm_call_lock_20'] = time();
+$moved_busy = array( leave_former_of( array( $GLOBALS['posts'][746] ) ), $GLOBALS['posts'][746]->post_status, count( $GLOBALS['mail'] ) );
+unset( $GLOBALS['opts']['wpcpm_call_lock_20'] );
+$moved_later = array( leave_former_of( array( $GLOBALS['posts'][746] ) ), $GLOBALS['posts'][746]->post_status, count( $GLOBALS['mail'] ) );
+check( 'with the old mentor\'s booking lock held the call stays booked and nobody is written to, and the next run cancels it',
+    array( $moved_busy, $moved_later ),
+    array( array( 0, 'private', 0 ), array( 1, 'trash', 2 ) ) );
+
+// A student on no session, with one call and a session of the old mentor's on the same run: both go,
+// and the answer counts both.
+moved_call_fixture( 746, time() + DAY_IN_SECONDS );
+session_fixture( 749, time() + 2 * DAY_IN_SECONDS );
+WPCPM_Mentor_Calls::add_attendee( 749, 33, $lee_rec );
+check( 'a call and a session of the old mentor\'s on one run are both taken, and the answer counts both',
+    array( leave_former_of( array( $GLOBALS['posts'][746], $GLOBALS['posts'][749] ) ), $GLOBALS['posts'][746]->post_status, WPCPM_Group_Sessions::has_joined( 749, 33 ) ),
+    array( 2, 'trash', false ) );
+
+// The trash refused (a `pre_trash_post` filter, a failed write): the call is still live, so nobody is
+// told it is canceled, and the next run tries again.
+moved_call_fixture( 746, time() + DAY_IN_SECONDS );
+$GLOBALS['refuse_trash'] = true;
+$moved_refused_left      = leave_former_of( array( $GLOBALS['posts'][746] ) );
+$moved_refused           = array( $moved_refused_left, count( $GLOBALS['mail'] ), WPCPM_Mentor_Calls::cancel_moved( 746 ), count( $GLOBALS['mail'] ), $GLOBALS['posts'][746]->post_status, get_post_meta( 746, WPCPM_Mentor_Calls::META_CANCELLED_BY, true ), get_option( 'wpcpm_call_lock_20', false ) );
+unset( $GLOBALS['refuse_trash'] );
+check( 'a call the trash refuses is answered gone, mails nobody, is not counted, and stays live and unmarked with the lock released',
+    $moved_refused,
+    array( 0, 0, 'gone', 0, 'private', '', false ) );
+
+// The trash switched off (`EMPTY_TRASH_DAYS` 0): core deletes the call instead of trashing it. The
+// call is gone, so it was canceled: both people are told, with the details read before it went, and
+// the answer counts it.
+moved_call_fixture( 746, time() + DAY_IN_SECONDS );
+$GLOBALS['mail']          = array();
+$GLOBALS['mail_ids']      = array();
+$GLOBALS['trash_deletes'] = true;
+$moved_deleted            = array( WPCPM_Mentor_Calls::cancel_moved( 746 ), isset( $GLOBALS['posts'][746] ), moved_mail(), get_option( 'wpcpm_call_lock_20', false ) );
+unset( $GLOBALS['trash_deletes'] );
+check( 'where the trash is switched off and the call is deleted outright, it counts as canceled: both people are told and the lock is released',
+    $moved_deleted,
+    array( '', false, $moved_want, false ) );
+$GLOBALS['mail']     = array();
+$GLOBALS['mail_ids'] = array();
+
+// `cancel_moved()` is for one-to-one calls only.
+session_fixture( 749, time() + 2 * DAY_IN_SECONDS );
+WPCPM_Mentor_Calls::add_attendee( 749, 33, $lee_rec );
+$GLOBALS['mail'] = array();
+check( 'cancel_moved() on a group session answers gone and changes nothing',
+    array( WPCPM_Mentor_Calls::cancel_moved( 749 ), $GLOBALS['posts'][749]->post_status, WPCPM_Group_Sessions::has_joined( 749, 33 ), count( $GLOBALS['mail'] ), WPCPM_Mentor_Calls::cancel_moved( 4242 ) ),
+    array( 'gone', 'private', true, 0, 'gone' ) );
+
+foreach ( array( 746, 747, 748, 749 ) as $fixture ) {
+	unset( $GLOBALS['posts'][ $fixture ], $GLOBALS['pmeta'][ $fixture ], $GLOBALS['pmeta_rows'][ $fixture ] );
+}
 
 foreach ( range( 740, 745 ) as $fixture ) {
 	unset( $GLOBALS['posts'][ $fixture ], $GLOBALS['pmeta'][ $fixture ], $GLOBALS['pmeta_rows'][ $fixture ] );

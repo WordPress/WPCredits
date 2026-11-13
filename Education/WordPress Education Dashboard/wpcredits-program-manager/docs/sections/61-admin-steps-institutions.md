@@ -105,7 +105,7 @@
 **Good to know**
 
 - Such a school has no address check and no **Approve** step.
-- Without an active stage, each sync takes away its agreement record. With the default setting it also removes the school's accounts from it.
+- At a stage outside the active ones, each sync takes away its agreement record. With the default setting it also removes the school's accounts from it. A school with no stage at all is left alone, and so are its people.
 - What Airtable's own form sends the school is not part of the site.
 
 ### Give a school its first account
@@ -126,7 +126,7 @@
 
 - An address that already has an account is refused, unless it is a former member of this school or a mentor's account.
 - For a school at *Confirmed* with its agreement settled, `Institutions > Accounts`, view **No account**, shows **Create account** on its row. It uses Airtable's Contact Email. A row that is not *Ready* says why, for example when the school has had a member before or the address already has an account.
-- Set an active stage in Airtable first, or the next sync takes the account off the school. See [[A school came in through Airtable, not the site's form]].
+- A school with no stage is left alone, but give it an active stage in Airtable first: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See [[A school came in through Airtable, not the site's form]].
 
 ### A signed Collaboration Agreement arrived
 
@@ -178,19 +178,20 @@
 2. Under the school, open **Revoke this agreement**.
 3. Write the reason in **Why it is revoked, in your own words** (20 to 2000 characters).
 4. Press **Revoke this agreement** and confirm.
-5. To put one back: open `Administrator Dashboard > Overview`, card **Collaboration Agreements**, and open the fold of revoked agreements.
-6. Press **Reinstate** under the school.
+5. To put one back: open `WPCredits Program > Institutions`, tab **Agreements**, card **Revoked agreements**. It lists each school whose agreement was revoked, with the day and your note.
+6. Press **Reinstate** next to the school and confirm.
 
 **What happens next**
 
 - Revoke: the school's people keep their accounts but see only the Collaboration Agreement card. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".
-- Reinstate acts at once, with no question. The account opens again, and everybody at the school gets "Your agreement is in force again".
+- Reinstate asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed." Once you confirm, the account opens again, and everybody at the school gets "Your agreement is in force again". You land back on the **Agreements** tab.
 
 **Good to know**
 
 - Revoking does not change Current Stage in Airtable. If the partnership has ended, change the stage there.
 - **Reinstate** is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.
-- The **Collaboration Agreements** card, and so **Reinstate**, shows only while a signed agreement waits for review. At other times no screen offers **Reinstate**.
+- **Revoked agreements** lists a school at any time while it has a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned. The Administrator Dashboard's **Collaboration Agreements** card also offers **Reinstate** while a signed agreement waits for review.
+- A school at a stage outside the active ones is listed without **Reinstate**: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.
 
 ### Assign a school to another Administrator, or to nobody
 

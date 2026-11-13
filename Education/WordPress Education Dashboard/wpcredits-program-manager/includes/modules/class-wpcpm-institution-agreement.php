@@ -3169,6 +3169,71 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * The latest revoked document of one institution, for a screen that offers Reinstate.
+	 *
+	 * Reads what the handler reads (`latest_revoked()`), so a press for the ID it returns is the one
+	 * the handler accepts.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return int The document's post ID, or 0 when none is revoked.
+	 */
+	public static function latest_revoked_id( $record ) {
+		return self::latest_revoked( trim( (string) $record ) );
+	}
+
+	/**
+	 * When a document was revoked and the Administrator's note: the day the revocation recorded
+	 * (`META_DECIDED_AT`), as noon of that day on the site's clock in seconds since the epoch, and
+	 * the stored note, trimmed. Revoking writes meta alone, so the document's last edit is an earlier
+	 * day (the trial of 1.123.89 showed the upload's date as the day revoked); it is the fallback
+	 * only for a document with no decided day. Empty (`at` 0, `note` '') for anything that is not an
+	 * agreement document in state revoked: an accepted one, a post of another type, an unknown ID.
+	 *
+	 * @param int $post_id The revoked document.
+	 * @return array{at: int, note: string}
+	 */
+	public static function revoked_facts( $post_id ) {
+		$post = get_post( (int) $post_id );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type || self::STATE_REVOKED !== (string) get_post_meta( $post->ID, self::META_STATE, true ) ) {
+			return array(
+				'at'   => 0,
+				'note' => '',
+			);
+		}
+
+		$decided = self::date_or_empty( get_post_meta( $post->ID, self::META_DECIDED_AT, true ) );
+		$at      = 0;
+
+		if ( '' !== $decided ) {
+			// Noon on the site's clock, so the day reads the same whatever the site's zone is.
+			$zone  = function_exists( 'wp_timezone' ) ? wp_timezone() : new DateTimeZone( 'UTC' );
+			$stamp = date_create_immutable( $decided . ' 12:00:00', $zone );
+			$at    = $stamp instanceof DateTimeImmutable ? (int) $stamp->getTimestamp() : 0;
+		}
+
+		return array(
+			'at'   => $at > 0 ? $at : (int) get_post_modified_time( 'U', true, $post ),
+			'note' => trim( (string) get_post_meta( (int) $post->ID, self::META_NOTE, true ) ),
+		);
+	}
+
+	/**
+	 * What Reinstate asks on the Institutions screen's Agreements tab, before it emails everybody at
+	 * the institution.
+	 *
+	 * @param string $name The institution's name.
+	 * @return string The question, translated and not escaped.
+	 */
+	public static function reinstate_question( $name ) {
+		return sprintf(
+			/* translators: %s: the institution's name. */
+			__( 'Reinstate the agreement with %s? It is back in force at once, and everybody at the institution is emailed.', 'wpcredits-program-manager' ),
+			(string) $name
+		);
+	}
+
+	/**
 	 * The stored file a document points at, or null when it has none.
 	 *
 	 * A generated post and a legacy row both have none, and both are legitimate; the caller

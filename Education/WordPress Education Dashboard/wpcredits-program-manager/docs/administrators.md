@@ -178,7 +178,7 @@ Where to start:
 **Good to know**
 
 - Such a school has no address check and no **Approve** step.
-- Without an active stage, each sync takes away its agreement record. With the default setting it also removes the school's accounts from it.
+- At a stage outside the active ones, each sync takes away its agreement record. With the default setting it also removes the school's accounts from it. A school with no stage at all is left alone, and so are its people.
 - What Airtable's own form sends the school is not part of the site.
 
 ### Give a school its first account
@@ -199,7 +199,7 @@ Where to start:
 
 - An address that already has an account is refused, unless it is a former member of this school or a mentor's account.
 - For a school at *Confirmed* with its agreement settled, `Institutions > Accounts`, view **No account**, shows **Create account** on its row. It uses Airtable's Contact Email. A row that is not *Ready* says why, for example when the school has had a member before or the address already has an account.
-- Set an active stage in Airtable first, or the next sync takes the account off the school. See [A school came in through Airtable, not the site's form](#a-school-came-in-through-airtable-not-the-site-s-form).
+- A school with no stage is left alone, but give it an active stage in Airtable first: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See [A school came in through Airtable, not the site's form](#a-school-came-in-through-airtable-not-the-site-s-form).
 
 ### A signed Collaboration Agreement arrived
 
@@ -251,19 +251,20 @@ Where to start:
 2. Under the school, open **Revoke this agreement**.
 3. Write the reason in **Why it is revoked, in your own words** (20 to 2000 characters).
 4. Press **Revoke this agreement** and confirm.
-5. To put one back: open `Administrator Dashboard > Overview`, card **Collaboration Agreements**, and open the fold of revoked agreements.
-6. Press **Reinstate** under the school.
+5. To put one back: open `WPCredits Program > Institutions`, tab **Agreements**, card **Revoked agreements**. It lists each school whose agreement was revoked, with the day and your note.
+6. Press **Reinstate** next to the school and confirm.
 
 **What happens next**
 
 - Revoke: the school's people keep their accounts but see only the Collaboration Agreement card. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".
-- Reinstate acts at once, with no question. The account opens again, and everybody at the school gets "Your agreement is in force again".
+- Reinstate asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed." Once you confirm, the account opens again, and everybody at the school gets "Your agreement is in force again". You land back on the **Agreements** tab.
 
 **Good to know**
 
 - Revoking does not change Current Stage in Airtable. If the partnership has ended, change the stage there.
 - **Reinstate** is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.
-- The **Collaboration Agreements** card, and so **Reinstate**, shows only while a signed agreement waits for review. At other times no screen offers **Reinstate**.
+- **Revoked agreements** lists a school at any time while it has a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned. The Administrator Dashboard's **Collaboration Agreements** card also offers **Reinstate** while a signed agreement waits for review.
+- A school at a stage outside the active ones is listed without **Reinstate**: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.
 
 ### Assign a school to another Administrator, or to nobody
 
@@ -464,7 +465,7 @@ Where to start:
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
-8. You, in Airtable, change the **Status** when the student finishes, for example to `Graduate`; with the default setting, the next sync takes away their Student role.
+8. You, in Airtable, change the **Status** when the student finishes, for example to `Graduate`; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
 
 ### A student registered
 
@@ -473,7 +474,7 @@ Where to start:
 1. Open `WPCredits Program > Students` and choose the **Registrations** tab.
 2. Read the line under the student's name. **Written to Airtable** means the row is in Airtable's Students table.
 3. Open **Answers and consent** to read the answers, among them the track the student asked for, when the form asked for one.
-4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there.
+4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them.
 5. Wait for the next students sync, or open the **Sync** tab and press **Sync students now**.
 6. Open the **Accounts** tab, find the student and press **Send invite** under their name.
 
@@ -713,7 +714,7 @@ You can change:
 
 **Good to know**
 
-- Moving a student to another mentor is done in Airtable: change the **Mentor** on the student's row in the Students Reports table, and the next sync moves the student.
+- Moving a student to another mentor is done in Airtable: change the **Mentor** on the student's row in the Students Reports table, and the next sync moves the student. Once both mentors' lists agree, that sync also cancels the student's upcoming one-to-one calls with the former mentor, leaving a call already under way, and sends both of them the cancellation email with a calendar file; the student books again with the new mentor.
 - Stopping a mentor is done in Airtable: change the mentor's **Status** in the Mentors table to anything but **Active**, and the next mentors sync clears their student list and, by default, removes the Mentor role.
 - To see where one mentor or applicant stands, use *Where does it stand?*.
 
@@ -2854,6 +2855,7 @@ Step by step: [A semester report: draft, review, approve, reopen](#a-semester-re
 
 - **Agreements on file**: Confirmed institutions with no agreement recorded. Each opens the school's **Collaboration Agreement** panel, with **Record an agreement the program already holds**.
 - **Agreements in force**: each standing agreement, **Accepted on the site** or **Recorded on file**, and the day.
+- **Revoked agreements**: each school with a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned: the day it was revoked, the Administrator's note and **Reinstate**.
 - **Agreement discrepancies**: where the site and Airtable's Agreement Status disagree. Each is locked until they agree.
 - **Agreement template**: the site's copy of the agreement, its version, the date it was copied from the program's Doc, and which institutions signed which version.
 
@@ -2863,7 +2865,14 @@ Step by step: [A semester report: draft, review, approve, reopen](#a-semester-re
 - Airtable is updated first. If that fails, nothing changes.
 - The stage stays. If the partnership ended, change it in Airtable.
 - A refused note comes back to its box.
-- **Reinstate**, on the Administrator Dashboard, puts it back.
+- **Reinstate**, under **Revoked agreements**, puts it back.
+
+**Reinstate**, under **Revoked agreements**:
+- It asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed."
+- Airtable is updated first. The school's people get "Your agreement is in force again".
+- The press comes back to the **Agreements** tab. The Administrator Dashboard's **Collaboration Agreements** card still offers it while a signed agreement waits for review.
+- It is refused when an accepted agreement already stands, and for any but the most recently revoked one.
+- A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.
 
 Step by step: [Record an agreement the program already holds](#record-an-agreement-the-program-already-holds); [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back).
 
@@ -3178,7 +3187,7 @@ Step by step: [Take a track off the live site](#take-a-track-off-the-live-site).
 What the sync does with the account of somebody no longer on the program. The account itself is never deleted.
 
 - **When a mentor is no longer active**: what happens to their account. Choices: **Remove the Mentor role**, **Leave the role in place**. Default: **Remove the Mentor role**. Either way the mentor loses their student list.
-- **When a student leaves the program**: their program details are kept either way. Choices: **Remove the Student role, so they lose access to Student-level content**, **Leave the role in place**. Default: **Remove the Student role, so they lose access to Student-level content**.
+- **When a student leaves the program**: their program details are kept either way, and a graduate (a status under **Past students** that reads as graduated, completed, finished or passed and does not say the opposite, such as Not completed) keeps the role and the Student Report Card whatever you choose. The sync does not give the role back to a graduate who had already lost it. Choices: **Remove the Student role, so they lose access to Student-level content**, **Leave the role in place**. Default: **Remove the Student role, so they lose access to Student-level content**.
 
 #### Accounts
 
@@ -3392,9 +3401,9 @@ A person who logs in from a link that names a page, such as an invitation, goes 
 
 What the sync does when an institution's stage is no longer ticked under **Institution pipeline stages** on the **Advanced** tab.
 
-- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave their access in place**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
+- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave its people in place, able to open only its agreement**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
 
-Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again.
+Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again. A school with no stage at all has not left: the sync leaves it and its people alone. A school that left and whose stage is then emptied reopens at the next sync for whoever is still attached.
 
 #### Collaboration Agreements
 
@@ -3636,7 +3645,7 @@ Step by step: [Change how long applications and files are kept](#change-how-long
 Chosen from the Institutions table's Current Stage options.
 
 - **Institution starting stage**: the stage an approved application's institution is created at in Airtable. Default: *First Contact Made*.
-- **Institution pipeline stages**: an institution at a ticked stage is in the pipeline; any other has left it. Default: eight, *First Contact Made* to *Student*.
+- **Institution pipeline stages**: an institution at a ticked stage is in the pipeline; any other has left it, and a school with no stage at all is left alone. Default: eight, *First Contact Made* to *Student*.
 
 Neither can be blank: a blank one gets its default back, with a notice. When Airtable cannot list the stages, you type the starting stage, and the pipeline stages one per line.
 
@@ -3775,8 +3784,8 @@ The area **Mentor calls** covers one-to-one calls, group sessions and series of 
 | **Group session moved, to the mentor** | The mentor | An Administrator moves the mentor's group session |
 | **Left a group session, to the student** | The student | The student leaves a group session |
 | **Place on a group session released, to the student** | The student | The sync takes the student off a former mentor's session, after a new mentor |
-| **Call canceled, to the mentor** | The mentor | The student or an Administrator cancels a call |
-| **Call canceled, to the student** | The student | The mentor or an Administrator cancels a call |
+| **Call canceled, to the mentor** | The mentor | The student or an Administrator cancels a call, or the student moves to another mentor |
+| **Call canceled, to the student** | The student | The mentor or an Administrator cancels a call, or the student moves to another mentor |
 | **Group session canceled** | The mentor and every student on it, but the person who canceled | A group session is canceled |
 | **Call reminder, to the mentor** | The mentor | A day before a call, unless it was booked within that day |
 | **Call reminder, to the student** | The student | A day before a call, unless it was booked within that day |
@@ -4641,7 +4650,7 @@ Three syncs bring the site in line with Airtable: students, mentors and institut
 
 - A student in **Past students** keeps an existing account but is never given a new one.
 - An institution's first account is made from its Contact Email, only for a *Confirmed* school whose agreement is recorded and that never had a member. An address already on an account is left alone.
-- A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement. By default its people lose their access; **Its people** (tab **Institutions**) decides.
+- A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; **Its people** (tab **Institutions**) decides.
 
 #### How an account is matched
 
@@ -4660,7 +4669,8 @@ Step by step: [A mentor's account waits under Needs confirming](#a-mentor-s-acco
 A linked account the run did not read has left. **When someone leaves** (tab **Students and mentors**) decides whether the role is removed. The default removes it.
 
 - A mentor who left loses their list of students with either choice.
-- A student in **Past students** counts as having left.
+- A graduate keeps the Student role and the Student Report Card whatever the setting: a status under **Past students** that reads as graduated, completed, finished or passed and does not say the opposite, such as Not completed. The sync does not give the role back to a graduate who had already lost it.
+- Any other past student, and anyone the run did not read, loses the role at the default.
 - An Administrator's roles are never touched. An account left with no role becomes a *Subscriber*.
 - No sync ever deletes an account.
 - A mentor made from an application keeps the role while their Mentors row is not written, or was written after the run began. The **Sync** tab says how many have no Airtable row yet.
@@ -4686,6 +4696,7 @@ The **Last sync report** card on the Students and Mentors screens' **Sync** tab 
 | **Invitations sent to existing accounts** | Mentors only: welcomes queued for existing accounts |
 | **Students skipped (missing data)**, **Mentors skipped (missing data)** | Students: no valid address, or an account that could not be made. Mentors: also no WordPress.org username |
 | **Account conflicts** | An address or account that belongs to someone else |
+| **Calls and group sessions taken off students whose mentor changed** | Students only: upcoming one-to-one calls canceled and group sessions left with a former mentor |
 | **Students assigned to a non-active mentor** | Mentors only: reports linked to a mentor the run did not read |
 
 Step by step: [Run a sync by hand and read its report](#run-a-sync-by-hand-and-read-its-report).
@@ -4996,7 +5007,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 | **Sponsor reports** | **Open** opens a draft to finish. **Draft now** makes one. |
 
 - **Approve** on an institution application creates its Airtable record and its site account. **Approve** on a sponsor application creates the sponsor record and its site account.
-- **Reinstate** on an institution's Collaboration Agreement is on this page only. **Revoke this agreement** is on `Institutions > Agreements` only.
+- **Reinstate** on an institution's Collaboration Agreement is on `Institutions > Agreements`, under **Revoked agreements**, and on this page's **Collaboration Agreements** card while a signed agreement waits. **Revoke this agreement** is on `Institutions > Agreements` only.
 - An item past the 50 a card lists is decided on its wp-admin screen.
 
 Step by step: [A school applied](#a-school-applied); [A signed Collaboration Agreement arrived](#a-signed-collaboration-agreement-arrived); [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back); [A semester report: draft, review, approve, reopen](#a-semester-report-draft-review-approve-reopen); [A company applied to sponsor](#a-company-applied-to-sponsor); [A sponsor's annual report](#a-sponsor-s-annual-report); [Find an application or agreement past the fifty the dashboard lists](#find-an-application-or-agreement-past-the-fifty-the-dashboard-lists).

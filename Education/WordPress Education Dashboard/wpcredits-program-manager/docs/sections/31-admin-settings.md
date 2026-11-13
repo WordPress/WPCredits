@@ -100,7 +100,7 @@ Step by step: [[Take a track off the live site]].
 What the sync does with the account of somebody no longer on the program. The account itself is never deleted.
 
 - **When a mentor is no longer active**: what happens to their account. Choices: **Remove the Mentor role**, **Leave the role in place**. Default: **Remove the Mentor role**. Either way the mentor loses their student list.
-- **When a student leaves the program**: their program details are kept either way. Choices: **Remove the Student role, so they lose access to Student-level content**, **Leave the role in place**. Default: **Remove the Student role, so they lose access to Student-level content**.
+- **When a student leaves the program**: their program details are kept either way, and a graduate (a status under **Past students** that reads as graduated, completed, finished or passed and does not say the opposite, such as Not completed) keeps the role and the Student Report Card whatever you choose. The sync does not give the role back to a graduate who had already lost it. Choices: **Remove the Student role, so they lose access to Student-level content**, **Leave the role in place**. Default: **Remove the Student role, so they lose access to Student-level content**.
 
 #### Accounts
 
@@ -314,9 +314,9 @@ A person who logs in from a link that names a page, such as an invitation, goes 
 
 What the sync does when an institution's stage is no longer ticked under **Institution pipeline stages** on the **Advanced** tab.
 
-- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave their access in place**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
+- **Its people**: Choices: **Remove its people, so they lose access to its students**, **Leave its people in place, able to open only its agreement**. Default: **Remove its people, so they lose access to its students**. The accounts are never deleted.
 
-Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again.
+Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again. A school with no stage at all has not left: the sync leaves it and its people alone. A school that left and whose stage is then emptied reopens at the next sync for whoever is still attached.
 
 #### Collaboration Agreements
 
@@ -558,7 +558,7 @@ Step by step: [[Change how long applications and files are kept]].
 Chosen from the Institutions table's Current Stage options.
 
 - **Institution starting stage**: the stage an approved application's institution is created at in Airtable. Default: *First Contact Made*.
-- **Institution pipeline stages**: an institution at a ticked stage is in the pipeline; any other has left it. Default: eight, *First Contact Made* to *Student*.
+- **Institution pipeline stages**: an institution at a ticked stage is in the pipeline; any other has left it, and a school with no stage at all is left alone. Default: eight, *First Contact Made* to *Student*.
 
 Neither can be blank: a blank one gets its default back, with a notice. When Airtable cannot list the stages, you type the starting stage, and the pipeline stages one per line.
 

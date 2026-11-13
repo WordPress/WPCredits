@@ -667,6 +667,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			'assigned'      => __( 'Program details written', 'wpcredits-program-manager' ),
 			'invited'       => __( 'Invitations sent', 'wpcredits-program-manager' ),
 			'revoked'       => __( 'Student role revoked (no longer in the program)', 'wpcredits-program-manager' ),
+			'moved_off'     => __( 'Calls and group sessions taken off students whose mentor changed', 'wpcredits-program-manager' ),
 			'no_mentor'     => __( 'Students with no mentor assigned', 'wpcredits-program-manager' ),
 			'skipped'       => __( 'Students skipped (missing data)', 'wpcredits-program-manager' ),
 			'conflicts'     => __( 'Account conflicts', 'wpcredits-program-manager' ),

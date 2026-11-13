@@ -222,7 +222,9 @@ Everything is in your own timezone, and each student sees the same call in their
 
 You both get an email with a calendar invitation attached, so the call lands in your calendar rather
 than only on the page. A reminder goes out 24 hours before, and either of you can cancel - which
-puts the slot straight back on the calendar.
+puts the slot straight back on the calendar. If a student moves to another mentor, the site cancels
+their upcoming calls with you once the program records show the change, unless one has already
+started, and you both get an email with the calendar file.
 
 Booked calls appear under **Upcoming calls** beside your availability, so you can see what is coming
 without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the
@@ -928,7 +930,9 @@ leave a single date from its row.
 If your mentor changes, a session of your former mentor's that you are on stays on your list, with
 their name and **Leave the session**, and the list is headed simply *Group sessions*. Once the
 program records show the change for you and for both mentors, you are taken off it and sent an email
-whose calendar file takes it out of your calendar.
+whose calendar file takes it out of your calendar. Your upcoming one-to-one calls with your former
+mentor are canceled at the same time, unless one has already started, and you both get an email with
+the calendar file; book your next call with your new mentor.
 
 ### Events from our sponsors
 

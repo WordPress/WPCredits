@@ -97,8 +97,8 @@ The area **Mentor calls** covers one-to-one calls, group sessions and series of 
 | **Group session moved, to the mentor** | The mentor | An Administrator moves the mentor's group session |
 | **Left a group session, to the student** | The student | The student leaves a group session |
 | **Place on a group session released, to the student** | The student | The sync takes the student off a former mentor's session, after a new mentor |
-| **Call canceled, to the mentor** | The mentor | The student or an Administrator cancels a call |
-| **Call canceled, to the student** | The student | The mentor or an Administrator cancels a call |
+| **Call canceled, to the mentor** | The mentor | The student or an Administrator cancels a call, or the student moves to another mentor |
+| **Call canceled, to the student** | The student | The mentor or an Administrator cancels a call, or the student moves to another mentor |
 | **Group session canceled** | The mentor and every student on it, but the person who canceled | A group session is canceled |
 | **Call reminder, to the mentor** | The mentor | A day before a call, unless it was booked within that day |
 | **Call reminder, to the student** | The student | A day before a call, unless it was booked within that day |

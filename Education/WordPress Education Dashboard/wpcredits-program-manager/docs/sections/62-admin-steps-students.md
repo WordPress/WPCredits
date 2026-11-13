@@ -11,7 +11,7 @@
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
-8. You, in Airtable, change the **Status** when the student finishes, for example to `Graduate`; with the default setting, the next sync takes away their Student role.
+8. You, in Airtable, change the **Status** when the student finishes, for example to `Graduate`; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
 
 ### A student registered
 
@@ -20,7 +20,7 @@
 1. Open `WPCredits Program > Students` and choose the **Registrations** tab.
 2. Read the line under the student's name. **Written to Airtable** means the row is in Airtable's Students table.
 3. Open **Answers and consent** to read the answers, among them the track the student asked for, when the form asked for one.
-4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there.
+4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them.
 5. Wait for the next students sync, or open the **Sync** tab and press **Sync students now**.
 6. Open the **Accounts** tab, find the student and press **Send invite** under their name.
 

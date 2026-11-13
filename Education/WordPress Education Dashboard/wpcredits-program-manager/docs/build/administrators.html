@@ -471,7 +471,7 @@
 <li>Such a school has no address check and no <strong>Approve</strong> step.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Without an active stage, each sync takes away its agreement record. With the default setting it also removes the school's accounts from it.</li>
+<li>At a stage outside the active ones, each sync takes away its agreement record. With the default setting it also removes the school's accounts from it. A school with no stage at all is left alone, and so are its people.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>What Airtable's own form sends the school is not part of the site.</li>
@@ -536,7 +536,7 @@
 <li>For a school at <em>Confirmed</em> with its agreement settled, <code>Institutions &gt; Accounts</code>, view <strong>No account</strong>, shows <strong>Create account</strong> on its row. It uses Airtable's Contact Email. A row that is not <em>Ready</em> says why, for example when the school has had a member before or the address already has an account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Set an active stage in Airtable first, or the next sync takes the account off the school. See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</li>
+<li>A school with no stage is left alone, but give it an active stage in Airtable first: at a stage outside the active ones, or once Airtable no longer has it, the next sync takes the account off the school. See <a href="#a-school-came-in-through-airtable-not-the-site-s-form">A school came in through Airtable, not the site's form</a>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -695,10 +695,10 @@
 <li>Press <strong>Revoke this agreement</strong> and confirm.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>To put one back: open <code>Administrator Dashboard &gt; Overview</code>, card <strong>Collaboration Agreements</strong>, and open the fold of revoked agreements.</li>
+<li>To put one back: open <code>WPCredits Program &gt; Institutions</code>, tab <strong>Agreements</strong>, card <strong>Revoked agreements</strong>. It lists each school whose agreement was revoked, with the day and your note.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Press <strong>Reinstate</strong> under the school.</li>
+<li>Press <strong>Reinstate</strong> next to the school and confirm.</li>
 <!-- /wp:list-item -->
 </ol>
 <!-- /wp:list -->
@@ -714,7 +714,7 @@
 <li>Revoke: the school's people keep their accounts but see only the Collaboration Agreement card. Waiting invitations are canceled. Everybody there gets your note in "Your agreement has been revoked".</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Reinstate acts at once, with no question. The account opens again, and everybody at the school gets "Your agreement is in force again".</li>
+<li>Reinstate asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed." Once you confirm, the account opens again, and everybody at the school gets "Your agreement is in force again". You land back on the <strong>Agreements</strong> tab.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -734,7 +734,10 @@
 <li><strong>Reinstate</strong> is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>The <strong>Collaboration Agreements</strong> card, and so <strong>Reinstate</strong>, shows only while a signed agreement waits for review. At other times no screen offers <strong>Reinstate</strong>.</li>
+<li><strong>Revoked agreements</strong> lists a school at any time while it has a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned. The Administrator Dashboard's <strong>Collaboration Agreements</strong> card also offers <strong>Reinstate</strong> while a signed agreement waits for review.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school at a stage outside the active ones is listed without <strong>Reinstate</strong>: reinstated, the next institutions sync would close it again. In its place the row says "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -1352,7 +1355,7 @@
 <li>The student sets a password and works on their Student Report Card, and you follow them: see <em>Open a student's Student Report Card</em> and <em>Students who have gone quiet</em>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>You, in Airtable, change the <strong>Status</strong> when the student finishes, for example to <code>Graduate</code>; with the default setting, the next sync takes away their Student role.</li>
+<li>You, in Airtable, change the <strong>Status</strong> when the student finishes, for example to <code>Graduate</code>; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.</li>
 <!-- /wp:list-item -->
 </ol>
 <!-- /wp:list -->
@@ -1377,7 +1380,7 @@
 <li>Open <strong>Answers and consent</strong> to read the answers, among them the track the student asked for, when the form asked for one.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>In Airtable, on the student's row in the Students table, set <strong>Status</strong> to the track and choose the <strong>Mentor</strong>. To move the student to another mentor later, change the <strong>Mentor</strong> on their Students Reports row: the site reads it from there.</li>
+<li>In Airtable, on the student's row in the Students table, set <strong>Status</strong> to the track and choose the <strong>Mentor</strong>. To move the student to another mentor later, change the <strong>Mentor</strong> on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Wait for the next students sync, or open the <strong>Sync</strong> tab and press <strong>Sync students now</strong>.</li>
@@ -2116,7 +2119,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li>Moving a student to another mentor is done in Airtable: change the <strong>Mentor</strong> on the student's row in the Students Reports table, and the next sync moves the student.</li>
+<li>Moving a student to another mentor is done in Airtable: change the <strong>Mentor</strong> on the student's row in the Students Reports table, and the next sync moves the student. Once both mentors' lists agree, that sync also cancels the student's upcoming one-to-one calls with the former mentor, leaving a call already under way, and sends both of them the cancellation email with a calendar file; the student books again with the new mentor.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Stopping a mentor is done in Airtable: change the mentor's <strong>Status</strong> in the Mentors table to anything but <strong>Active</strong>, and the next mentors sync clears their student list and, by default, removes the Mentor role.</li>
@@ -7921,6 +7924,9 @@
 <li><strong>Agreements in force</strong>: each standing agreement, <strong>Accepted on the site</strong> or <strong>Recorded on file</strong>, and the day.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><strong>Revoked agreements</strong>: each school with a revoked agreement and nothing accepted or waiting for review, also one that has since started a new agreement or had one returned: the day it was revoked, the Administrator's note and <strong>Reinstate</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><strong>Agreement discrepancies</strong>: where the site and Airtable's Agreement Status disagree. Each is locked until they agree.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -7951,7 +7957,31 @@
 <li>A refused note comes back to its box.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Reinstate</strong>, on the Administrator Dashboard, puts it back.</li>
+<li><strong>Reinstate</strong>, under <strong>Revoked agreements</strong>, puts it back.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><strong>Reinstate</strong>, under <strong>Revoked agreements</strong>:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>It asks "Reinstate the agreement with {school}? It is back in force at once, and everybody at the institution is emailed."</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Airtable is updated first. The school's people get "Your agreement is in force again".</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The press comes back to the <strong>Agreements</strong> tab. The Administrator Dashboard's <strong>Collaboration Agreements</strong> card still offers it while a signed agreement waits for review.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>It is refused when an accepted agreement already stands, and for any but the most recently revoked one.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A school at a stage outside the active ones is listed without the button, with the line "At the stage "{stage}", which is outside the pipeline. Move it to an active stage in Airtable first: reinstated now, the next institutions sync would close it again." A school with no stage keeps the button.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -8628,7 +8658,7 @@
 <li><strong>When a mentor is no longer active</strong>: what happens to their account. Choices: <strong>Remove the Mentor role</strong>, <strong>Leave the role in place</strong>. Default: <strong>Remove the Mentor role</strong>. Either way the mentor loses their student list.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>When a student leaves the program</strong>: their program details are kept either way. Choices: <strong>Remove the Student role, so they lose access to Student-level content</strong>, <strong>Leave the role in place</strong>. Default: <strong>Remove the Student role, so they lose access to Student-level content</strong>.</li>
+<li><strong>When a student leaves the program</strong>: their program details are kept either way, and a graduate (a status under <strong>Past students</strong> that reads as graduated, completed, finished or passed and does not say the opposite, such as Not completed) keeps the role and the Student Report Card whatever you choose. The sync does not give the role back to a graduate who had already lost it. Choices: <strong>Remove the Student role, so they lose access to Student-level content</strong>, <strong>Leave the role in place</strong>. Default: <strong>Remove the Student role, so they lose access to Student-level content</strong>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -9224,13 +9254,13 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Its people</strong>: Choices: <strong>Remove its people, so they lose access to its students</strong>, <strong>Leave their access in place</strong>. Default: <strong>Remove its people, so they lose access to its students</strong>. The accounts are never deleted.</li>
+<li><strong>Its people</strong>: Choices: <strong>Remove its people, so they lose access to its students</strong>, <strong>Leave its people in place, able to open only its agreement</strong>. Default: <strong>Remove its people, so they lose access to its students</strong>. The accounts are never deleted.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again.</p>
+<p>Either way, the agreement stops counting as recorded. People left in place can open the agreement, but nothing else of the institution, until it counts again. A school with no stage at all has not left: the sync leaves it and its people alone. A school that left and whose stage is then emptied reopens at the next sync for whoever is still attached.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"collaboration-agreements"} -->
@@ -9798,7 +9828,7 @@
 <li><strong>Institution starting stage</strong>: the stage an approved application's institution is created at in Airtable. Default: <em>First Contact Made</em>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Institution pipeline stages</strong>: an institution at a ticked stage is in the pipeline; any other has left it. Default: eight, <em>First Contact Made</em> to <em>Student</em>.</li>
+<li><strong>Institution pipeline stages</strong>: an institution at a ticked stage is in the pipeline; any other has left it, and a school with no stage at all is left alone. Default: eight, <em>First Contact Made</em> to <em>Student</em>.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -10076,7 +10106,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Email</th><th>Who gets it</th><th>When</th></tr></thead><tbody><tr><td><strong>Call booked, to the mentor</strong></td><td>The mentor</td><td>A student books a call, and the mentor has a meeting link</td></tr><tr><td><strong>Call booked, to a mentor with no meeting link</strong></td><td>The mentor</td><td>A student books a call, and the mentor has no meeting link yet</td></tr><tr><td><strong>Call booked, to the student</strong></td><td>The student</td><td>The student books a call</td></tr><tr><td><strong>Group session joined, to the mentor</strong></td><td>The mentor</td><td>A student joins a group session, and the mentor has a meeting link</td></tr><tr><td><strong>Group session joined, to a mentor with no meeting link</strong></td><td>The mentor</td><td>As above, with no meeting link yet</td></tr><tr><td><strong>Group session joined, to the student</strong></td><td>The student</td><td>The student joins a group session</td></tr><tr><td><strong>Session series joined, to the mentor</strong></td><td>The mentor</td><td>A student presses <strong>Join all</strong> on a series, and the mentor has a meeting link</td></tr><tr><td><strong>Session series joined, to a mentor with no meeting link</strong></td><td>The mentor</td><td>As above, with no meeting link yet</td></tr><tr><td><strong>Session series joined, to the student</strong></td><td>The student</td><td>The student presses <strong>Join all</strong> on a series</td></tr><tr><td><strong>Group session moved, to the student</strong></td><td>Each student on it</td><td>A group session moves to another time</td></tr><tr><td><strong>Group session moved, to the mentor</strong></td><td>The mentor</td><td>An Administrator moves the mentor's group session</td></tr><tr><td><strong>Left a group session, to the student</strong></td><td>The student</td><td>The student leaves a group session</td></tr><tr><td><strong>Place on a group session released, to the student</strong></td><td>The student</td><td>The sync takes the student off a former mentor's session, after a new mentor</td></tr><tr><td><strong>Call canceled, to the mentor</strong></td><td>The mentor</td><td>The student or an Administrator cancels a call</td></tr><tr><td><strong>Call canceled, to the student</strong></td><td>The student</td><td>The mentor or an Administrator cancels a call</td></tr><tr><td><strong>Group session canceled</strong></td><td>The mentor and every student on it, but the person who canceled</td><td>A group session is canceled</td></tr><tr><td><strong>Call reminder, to the mentor</strong></td><td>The mentor</td><td>A day before a call, unless it was booked within that day</td></tr><tr><td><strong>Call reminder, to the student</strong></td><td>The student</td><td>A day before a call, unless it was booked within that day</td></tr><tr><td><strong>Group session reminder</strong></td><td>The mentor and every student on it</td><td>A day before a group session, unless it was made within that day</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Email</th><th>Who gets it</th><th>When</th></tr></thead><tbody><tr><td><strong>Call booked, to the mentor</strong></td><td>The mentor</td><td>A student books a call, and the mentor has a meeting link</td></tr><tr><td><strong>Call booked, to a mentor with no meeting link</strong></td><td>The mentor</td><td>A student books a call, and the mentor has no meeting link yet</td></tr><tr><td><strong>Call booked, to the student</strong></td><td>The student</td><td>The student books a call</td></tr><tr><td><strong>Group session joined, to the mentor</strong></td><td>The mentor</td><td>A student joins a group session, and the mentor has a meeting link</td></tr><tr><td><strong>Group session joined, to a mentor with no meeting link</strong></td><td>The mentor</td><td>As above, with no meeting link yet</td></tr><tr><td><strong>Group session joined, to the student</strong></td><td>The student</td><td>The student joins a group session</td></tr><tr><td><strong>Session series joined, to the mentor</strong></td><td>The mentor</td><td>A student presses <strong>Join all</strong> on a series, and the mentor has a meeting link</td></tr><tr><td><strong>Session series joined, to a mentor with no meeting link</strong></td><td>The mentor</td><td>As above, with no meeting link yet</td></tr><tr><td><strong>Session series joined, to the student</strong></td><td>The student</td><td>The student presses <strong>Join all</strong> on a series</td></tr><tr><td><strong>Group session moved, to the student</strong></td><td>Each student on it</td><td>A group session moves to another time</td></tr><tr><td><strong>Group session moved, to the mentor</strong></td><td>The mentor</td><td>An Administrator moves the mentor's group session</td></tr><tr><td><strong>Left a group session, to the student</strong></td><td>The student</td><td>The student leaves a group session</td></tr><tr><td><strong>Place on a group session released, to the student</strong></td><td>The student</td><td>The sync takes the student off a former mentor's session, after a new mentor</td></tr><tr><td><strong>Call canceled, to the mentor</strong></td><td>The mentor</td><td>The student or an Administrator cancels a call, or the student moves to another mentor</td></tr><tr><td><strong>Call canceled, to the student</strong></td><td>The student</td><td>The mentor or an Administrator cancels a call, or the student moves to another mentor</td></tr><tr><td><strong>Group session canceled</strong></td><td>The mentor and every student on it, but the person who canceled</td><td>A group session is canceled</td></tr><tr><td><strong>Call reminder, to the mentor</strong></td><td>The mentor</td><td>A day before a call, unless it was booked within that day</td></tr><tr><td><strong>Call reminder, to the student</strong></td><td>The student</td><td>A day before a call, unless it was booked within that day</td></tr><tr><td><strong>Group session reminder</strong></td><td>The mentor and every student on it</td><td>A day before a group session, unless it was made within that day</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
@@ -11750,7 +11780,7 @@
 <li>An institution's first account is made from its Contact Email, only for a <em>Confirmed</em> school whose agreement is recorded and that never had a member. An address already on an account is left alone.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>A school that leaves the stages in <strong>Institution pipeline stages</strong> (tab <strong>Advanced</strong>) loses its open agreement. By default its people lose their access; <strong>Its people</strong> (tab <strong>Institutions</strong>) decides.</li>
+<li>A school that leaves the stages in <strong>Institution pipeline stages</strong> (tab <strong>Advanced</strong>) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; <strong>Its people</strong> (tab <strong>Institutions</strong>) decides.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -11803,7 +11833,10 @@
 <li>A mentor who left loses their list of students with either choice.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>A student in <strong>Past students</strong> counts as having left.</li>
+<li>A graduate keeps the Student role and the Student Report Card whatever the setting: a status under <strong>Past students</strong> that reads as graduated, completed, finished or passed and does not say the opposite, such as Not completed. The sync does not give the role back to a graduate who had already lost it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Any other past student, and anyone the run did not read, loses the role at the default.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>An Administrator's roles are never touched. An account left with no role becomes a <em>Subscriber</em>.</li>
@@ -11852,7 +11885,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Line</th><th>What it counts</th></tr></thead><tbody><tr><td><strong>Existing accounts linked</strong></td><td>Accounts linked to a record for the first time</td></tr><tr><td><strong>Accounts refreshed</strong></td><td>Accounts already linked, brought up to date</td></tr><tr><td><strong>Invitations sent to existing accounts</strong></td><td>Mentors only: welcomes queued for existing accounts</td></tr><tr><td><strong>Students skipped (missing data)</strong>, <strong>Mentors skipped (missing data)</strong></td><td>Students: no valid address, or an account that could not be made. Mentors: also no WordPress.org username</td></tr><tr><td><strong>Account conflicts</strong></td><td>An address or account that belongs to someone else</td></tr><tr><td><strong>Students assigned to a non-active mentor</strong></td><td>Mentors only: reports linked to a mentor the run did not read</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Line</th><th>What it counts</th></tr></thead><tbody><tr><td><strong>Existing accounts linked</strong></td><td>Accounts linked to a record for the first time</td></tr><tr><td><strong>Accounts refreshed</strong></td><td>Accounts already linked, brought up to date</td></tr><tr><td><strong>Invitations sent to existing accounts</strong></td><td>Mentors only: welcomes queued for existing accounts</td></tr><tr><td><strong>Students skipped (missing data)</strong>, <strong>Mentors skipped (missing data)</strong></td><td>Students: no valid address, or an account that could not be made. Mentors: also no WordPress.org username</td></tr><tr><td><strong>Account conflicts</strong></td><td>An address or account that belongs to someone else</td></tr><tr><td><strong>Calls and group sessions taken off students whose mentor changed</strong></td><td>Students only: upcoming one-to-one calls canceled and group sessions left with a former mentor</td></tr><tr><td><strong>Students assigned to a non-active mentor</strong></td><td>Mentors only: reports linked to a mentor the run did not read</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
@@ -12519,7 +12552,7 @@
 <li><strong>Approve</strong> on an institution application creates its Airtable record and its site account. <strong>Approve</strong> on a sponsor application creates the sponsor record and its site account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Reinstate</strong> on an institution's Collaboration Agreement is on this page only. <strong>Revoke this agreement</strong> is on <code>Institutions &gt; Agreements</code> only.</li>
+<li><strong>Reinstate</strong> on an institution's Collaboration Agreement is on <code>Institutions &gt; Agreements</code>, under <strong>Revoked agreements</strong>, and on this page's <strong>Collaboration Agreements</strong> card while a signed agreement waits. <strong>Revoke this agreement</strong> is on <code>Institutions &gt; Agreements</code> only.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>An item past the 50 a card lists is decided on its wp-admin screen.</li>

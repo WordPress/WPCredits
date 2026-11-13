@@ -1292,6 +1292,68 @@ ck( 'the agreements the base had not been told about are counted and named',
 	),
 	array( 2, true ) );
 
+/* ---- a school with no stage is left alone --------------------------------- */
+
+echo "\n=== A school with no stage ===\n";
+
+// The owner's decision of 13 November 2026: an empty stage is not a stage outside the list. The
+// school is added to a copy of the fixture, so the shared file stays as it is.
+$blank_id    = 'recBLANK000000001';
+$missing_id  = 'recMISS0000000001';
+$blank_seed  = $seed;
+$blank_row   = $seed['institutions'][0];
+$blank_row['id']    = $blank_id;
+$blank_row['name']  = 'Institution Blank';
+$blank_row['stage'] = '';
+$blank_seed['institutions'][] = $blank_row;
+
+foreach ( array( 'revoke', 'keep' ) as $rule ) {
+	reset_site( $blank_seed );
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_on_inactive'] = $rule;
+	member( 50, $blank_id );
+	member( 51, $missing_id );
+	member( 52, $not_moving );
+	foreach ( array( $blank_id, $missing_id, $not_moving ) as $record ) {
+		$GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $record ) ] = array( 'v' => 1, 'settled' => true );
+	}
+
+	WPCPM_Institutions_Sync::start();
+	run_to_end();
+
+	$blank_report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+	$blank_gone   = array();
+	foreach ( $GLOBALS['calls']['detach'] ?? array() as $call ) {
+		$blank_gone[] = $call[0];
+	}
+	sort( $blank_gone );
+
+	ck( "[$rule] the index holds the school with an empty stage", WPCPM_Institutions_Index::rows()[ $blank_id ]['stage'], '' );
+	ck( "[$rule] a school with no stage keeps its agreement option", array_key_exists( WPCPM_Institution_Agreement::option_name( $blank_id ), $GLOBALS['opts'] ), true );
+	ck( "[$rule] a school missing from the index is still closed", array_key_exists( WPCPM_Institution_Agreement::option_name( $missing_id ), $GLOBALS['opts'] ), false );
+	ck( "[$rule] a school at a stage outside the list is still closed", array_key_exists( WPCPM_Institution_Agreement::option_name( $not_moving ), $GLOBALS['opts'] ), false );
+	// Every stored option the run should delete: each seeded school at a stage outside the list
+	// (the rebuild stores one for every record), plus the record missing from the index; not the
+	// school with no stage.
+	$blank_expect = 1;
+	foreach ( $blank_seed['institutions'] as $row ) {
+		if ( '' !== $row['stage'] && ! in_array( $row['stage'], WPCPM_Settings::defaults()['institution_active_stages'], true ) ) {
+			++$blank_expect;
+		}
+	}
+	ck( "[$rule] locked counts the schools outside the list and the one missing from the index, not the school with no stage", $blank_report['stats']['locked'], $blank_expect );
+	ck(
+		"[$rule] the member of a school with no stage keeps the membership",
+		array( isset( $GLOBALS['members'][50] ), in_array( 50, $blank_gone, true ) ),
+		array( true, false )
+	);
+	ck( "[$rule] and still holds the Institution role", in_array( WPCPM_Roles::ROLE_INSTITUTION, $GLOBALS['users'][50]['roles'], true ), true );
+	if ( 'revoke' === $rule ) {
+		ck( '[revoke] the members of the missing and the outside-the-list schools are detached, as before', $blank_gone, array( 51, 52 ) );
+	} else {
+		ck( '[keep] nobody is detached', $blank_gone, array() );
+	}
+}
+
 /* ---- an ID query answered with rows -------------------------------------- */
 
 echo "\n=== The revoke, where WordPress answers a request for IDs with rows ===\n";

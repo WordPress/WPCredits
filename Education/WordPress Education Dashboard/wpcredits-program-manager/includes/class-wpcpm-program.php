@@ -340,6 +340,30 @@ class WPCPM_Program {
 	}
 
 	/**
+	 * Whether a finished status means they completed the program.
+	 *
+	 * Matched loosely, because the statuses are configurable: anything that is not recognizably a
+	 * graduation is treated as leaving early. Two places ask: the feedback forms, to decide which
+	 * survey a student is asked, and the students sync, to let a graduate keep the Student role.
+	 * A status that says the opposite ("Not completed", "Incomplete", "Did not pass", "Failed to
+	 * complete") holds the same words and is not a graduation, since a false match would keep the
+	 * Student role for a student who did not graduate. "No" and "non" count only right before one of
+	 * those words ("No pass", "Non-graduate", "Nongraduate"), so "Graduated (no mentor)" is still a
+	 * graduation; "in" and "un" count joined to one ("Incomplete", "Uncompleted"); "didn't" is read
+	 * with a plain or a typographic apostrophe, which is three bytes here; and a status that says
+	 * the student left first ("Withdrew before completion", "Dropped, not finished") is not one.
+	 *
+	 * @param string $status Airtable status.
+	 * @return bool
+	 */
+	public static function is_graduation( $status ) {
+		$status = (string) $status;
+
+		return 1 === preg_match( '/graduat|complet|finish|pass/i', $status )
+			&& 1 !== preg_match( '/\b(not|never)\b|\bnon[\s-]*(pass|complet|finish|graduat)|\bno\s+(pass|complet|finish|graduat)|\bdid\s*n[^a-z]{0,3}t\b|\b(in|un)(pass|complet|finish|graduat)|\b(before|without)\b|fail|drop|withdr|quit/i', $status );
+	}
+
+	/**
 	 * Whether a status is one of the tracks, as opposed to a finished state.
 	 *
 	 * @param string $status Airtable status.
