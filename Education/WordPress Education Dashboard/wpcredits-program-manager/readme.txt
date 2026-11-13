@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.89
+Stable tag: 1.123.90
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,14 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.90 =
+
+* The site now emails a mentor when a student is assigned to them: one email per mentor per sync, listing every student just assigned to them with the track, the institution, the start date and the address, and a link to the Mentor Report Card.
+* Nobody is emailed about students already on a list. The first sync after this release only remembers who is there, and says so in its report.
+* A switch, on by default: Settings, Students and mentors, Accounts, "Students assigned to a mentor". The email's text is "Student assigned, to the mentor" on the Emails screen, under Invitations.
+* Two guards. At most 25 mentors are emailed per sync, the rest at the next one. And a scheduled sync that would email more than half of the mentors who have students at once (and at least 20) emails nobody and says how to go on. The sync's report has a new row, "Mentors emailed about assigned students".
+* Until the welcome emails Airtable sends are switched off, a mentor is also copied on the student's welcome email.
 
 = 1.123.89 =
 

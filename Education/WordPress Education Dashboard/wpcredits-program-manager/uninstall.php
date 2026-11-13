@@ -117,6 +117,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-provision.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-assigned.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-notes.php';
 // The calendar's three classes are required here for one reason: `WPCPM_Mentors`
@@ -311,6 +312,9 @@ delete_option( WPCPM_Sign_Ins::OPT_SINCE );
 // leaves behind until its two minutes are up.
 delete_option( WPCPM_Institution_Announce::OPT_ANNOUNCED );
 delete_option( WPCPM_Institution_Announce::LOCK );
+
+// The students each mentor has been told about ("Student assigned, to the mentor").
+delete_option( WPCPM_Mentor_Assigned::OPT_TOLD );
 
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );

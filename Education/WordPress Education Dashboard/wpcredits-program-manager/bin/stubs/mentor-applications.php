@@ -359,6 +359,11 @@ function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
 }
 function update_option( $key, $value, $autoload = null ) {
+	// A write the database refuses, as a check plants it for one option.
+	if ( ! empty( $GLOBALS['refuse_option'][ $key ] ) ) {
+		return false;
+	}
+
 	$GLOBALS['opts'][ $key ] = $value;
 
 	// What another request does the moment after this write, as a check plants it: fired once, and

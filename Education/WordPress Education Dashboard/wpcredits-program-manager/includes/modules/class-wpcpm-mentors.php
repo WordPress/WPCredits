@@ -997,6 +997,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			'assigned'         => __( 'Student assignments written', 'wpcredits-program-manager' ),
 			'unassigned'       => __( 'Students with no mentor in Airtable', 'wpcredits-program-manager' ),
 			'orphaned'         => __( 'Students assigned to a non-active mentor', 'wpcredits-program-manager' ),
+			'told'             => __( 'Mentors emailed about assigned students', 'wpcredits-program-manager' ),
 			'skipped'          => __( 'Mentors skipped (missing data)', 'wpcredits-program-manager' ),
 			'conflicts'        => __( 'Account conflicts', 'wpcredits-program-manager' ),
 		);

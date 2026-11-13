@@ -691,7 +691,7 @@ ck( 'the sync still hands each mentor to the one provisioning step, and makes no
 ck( 'the brake is five', WPCPM_Mentors_Sync::RELINK_INVITE_MAX, 5 );
 // One static alone, the token of the tick lock this request holds (1.123.58), which is this request's
 // and no run's: it is '' outside a tick.
-ck( 'the candidates of a run wait in its state, which is stored between requests: the sync keeps no static property of its own but the request\'s lock token', ( new ReflectionClass( 'WPCPM_Mentors_Sync' ) )->getStaticProperties(), array( 'lock_token' => '' ) );
+ck( 'the candidates of a run wait in its state, which is stored between requests: the sync keeps no static property of its own but the request\'s lock token and the flag the schedule sets around its own start', ( new ReflectionClass( 'WPCPM_Mentors_Sync' ) )->getStaticProperties(), array( 'lock_token' => '', 'scheduled' => false ) );
 ck( 'and nothing was asked of the stand-ins that they do not model', $GLOBALS['unmodeled'], array() );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

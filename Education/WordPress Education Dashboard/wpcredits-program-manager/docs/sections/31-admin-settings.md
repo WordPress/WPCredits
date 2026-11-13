@@ -104,9 +104,10 @@ What the sync does with the account of somebody no longer on the program. The ac
 
 #### Accounts
 
-Whether new accounts are emailed an invitation, and whether Airtable is read on a schedule.
+Whether new accounts are emailed an invitation, whether a mentor is emailed about students assigned to them, and whether Airtable is read on a schedule.
 
 - **Invitation emails**: the sync emails a password-reset link to each new mentor and student, and to each existing account it makes an active mentor. Default: off. A first sync creates around ninety accounts, so leave it off unless you mean to email them all.
+- **Students assigned to a mentor**: the mentors sync emails a mentor about the students assigned to them, one email per mentor per sync. Default: on. See [[Emailing a mentor about a student assigned to them]].
 - **Automatic sync**: the students, mentors and institutions syncs run every three hours, the mentors half an hour after the students. A run in progress is left to finish unless it has stalled. A run the count check stopped waits for an Administrator. Default: on.
 
 Rules for invitations:

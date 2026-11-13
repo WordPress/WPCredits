@@ -1321,6 +1321,24 @@ ck( 'and a save of another tab, a save that names no tab without it, or a patch 
 $GLOBALS['opts']  = $opts_before_activation;
 $GLOBALS['umeta'] = $umeta_before_activation;
 
+// The mentor-assigned email's switch: on until a person turns it off, saved by the Students and mentors
+// tab, which reads an unticked box as off, and left as it was by a save of any other tab.
+$opts_before_assigned  = $GLOBALS['opts'];
+$umeta_before_assigned = $GLOBALS['umeta'];
+store_settings( WPCPM_Settings::defaults() );
+$assigned_default  = WPCPM_Settings::defaults()['mentor_assigned_email'] ?? 'missing';
+$assigned_ticked   = WPCPM_Settings::save( array( 'mentor_assigned_email' => '1' ), 'people' )['mentor_assigned_email'] ?? 'missing';
+$assigned_unticked = WPCPM_Settings::save( array(), 'people' )['mentor_assigned_email'] ?? 'missing';
+ck( 'Email a mentor when a student is assigned to them is on by default, in the Students and mentors tab alone, saved on when ticked and off when the tab is saved without it',
+	array( $assigned_default, array_keys( array_filter( array_map( static function ( $scope ) { return in_array( 'mentor_assigned_email', WPCPM_Settings::scope_keys( $scope ), true ); }, array_combine( array_keys( WPCPM_Settings::scopes() ), array_keys( WPCPM_Settings::scopes() ) ) ) ) ), $assigned_ticked, $assigned_unticked ),
+	array( true, array( 'people' ), true, false ) );
+store_settings( array_merge( WPCPM_Settings::defaults(), array( 'mentor_assigned_email' => false ) ) );
+ck( 'and a save of another tab, a save that names no tab, or a patch of another setting leaves it as it was',
+	array( WPCPM_Settings::save( array(), 'sponsors' )['mentor_assigned_email'] ?? 'missing', WPCPM_Settings::save( array( 'mentor_lapse_days' => '30' ) )['mentor_assigned_email'] ?? 'missing', WPCPM_Settings::patch( array( 'mentor_lapse_days' => '40' ) )['mentor_assigned_email'] ?? 'missing' ),
+	array( false, false, false ) );
+$GLOBALS['opts']  = $opts_before_assigned;
+$GLOBALS['umeta'] = $umeta_before_assigned;
+
 echo "\n=== Stop checking mentors in Airtable (1.122.33) ===\n";
 
 // The Mentor Status Checker reads the site's applications first and Airtable's mentors after them until a person
@@ -1894,7 +1912,7 @@ ck( 'each tool\'s scope is named from the tool\'s own ID, as its screen posts it
 // row gives them.
 $by_design = array(
 	'connection'                 => array( 'api_token', 'schema_token', 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'tutors_table', 'feedback_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'countries_name_field' ),
-	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled', 'students_per_mentor' ),
+	'people'                     => array( 'student_statuses', 'past_statuses', 'mentor_status', 'on_inactive', 'student_on_inactive', 'send_welcome_email', 'mentor_assigned_email', 'auto_sync', 'mentor_home', 'student_home', 'mentor_applications_enabled', 'mentor_activation_enabled', 'mentor_notify', 'mentor_course_link', 'mentor_lapse_days', 'student_registrations_enabled', 'student_registration_stages', 'student_interest_open', 'student_interest_notify', 'student_flags_mode', 'student_quiet_days', 'student_checklist_enabled', 'students_per_mentor' ),
 	'institutions'               => array( 'applications_enabled', 'import_enabled', 'institution_provision', 'institution_home', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url', 'report_autodraft', 'report_autodraft_grace_days', 'report_notify', 'institution_areas', 'institution_regions' ),
 	'sponsors'                   => array( 'sponsor_applications_enabled', 'sponsor_home', 'sponsor_on_inactive', 'sponsor_notify', 'logo_max_kb', 'tools_students', 'tools_mentors', 'offer_low_stock', 'sponsor_tiers_live', 'sponsor_tier_grace_until' ),
 	'security'                   => array( 'two_factor_roles', 'mcp_enabled', 'mcp_users', 'mcp_calls_per_hour', 'mcp_calls_per_day', 'mcp_people_per_hour', 'mcp_log_days' ),
@@ -4048,6 +4066,38 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
             array( 'An address that already belongs to an account is left alone, and the institution is listed with the reason on the No account view of the Institutions screen\'s Accounts tab. With this off, accounts are created only when somebody presses Create account there.' ),
         ),
     ) );
+
+// The mentor-assigned email's row sits in Accounts, after the invitation emails and before the sync.
+$assigned_label = 'Students assigned to a mentor';
+$assigned_help  = help_of( $states['people'], $assigned_label );
+$assigned_order = array();
+foreach ( rows_of( $states['people'] ) as $assigned_row ) {
+	if ( in_array( $assigned_row['label'], array( 'Invitation emails', $assigned_label, 'Automatic sync' ), true ) ) {
+		$assigned_order[] = $assigned_row['label'];
+	}
+}
+$assigned_cell = '';
+foreach ( rows_of( $states['people'] ) as $assigned_row ) {
+	if ( $assigned_label === $assigned_row['label'] ) {
+		$assigned_cell = $assigned_row;
+	}
+}
+ck( 'the Students assigned to a mentor row follows the invitation emails row, with its checkbox, its one sentence of help and one closed Details fold',
+	array(
+		$assigned_order,
+		is_array( $assigned_cell ) && 1 === preg_match( '#<input type="checkbox" name="mentor_assigned_email" value="1" checked=\'checked\'> Email a mentor when a student is assigned to them</label>#', $assigned_cell['cell'] ),
+		$assigned_help,
+		is_array( $assigned_cell ) ? array( count( $assigned_cell['folds'] ), false === strpos( $assigned_cell['folds'][0] ?? '', ' open' ), 1 === preg_match( '#<summary>Details<span class="screen-reader-text"> about Students assigned to a mentor</span></summary>#', $assigned_cell['folds'][0] ?? '' ) ) : null,
+	),
+	array(
+		array( 'Invitation emails', $assigned_label, 'Automatic sync' ),
+		true,
+		array(
+			array( 'One email per mentor per sync lists every student just assigned to them, and nobody is emailed about students already on their list.' ),
+			array( 'A student moved over from another mentor counts as assigned, and the former mentor is not told. Past students and students of a test institution are left out. Until the welcome emails Airtable sends are switched off, the mentor is also copied on the student\'s welcome email. The text is "Student assigned, to the mentor" on the Emails screen.' ),
+		),
+		array( 1, true, true ),
+	) );
 
 // The institution emails' one setting says what it is (1.123.26). Its key, `agreement_notify`, is who
 // `WPCPM_Institutions::notify_managers()` writes to unless told another, so it was who got every new

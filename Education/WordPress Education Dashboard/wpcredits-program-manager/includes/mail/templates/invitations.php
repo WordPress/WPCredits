@@ -227,6 +227,66 @@ return array(
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_placeholders( WPCPM_Mail_Catalog::TYPE_MENTOR ),
 	),
+	// The mentor's email about students assigned to them (1.123.90). The body has no greeting and no
+	// `eol`, so the list's line breaks stay as they are built; the sender fills `{count}` with a phrase
+	// ("1 student", "3 students") and `{students_list}` with one student to a line.
+	'student-assigned-mentor'    => array(
+		'trigger'      => __( 'When the mentors sync finds a current student assigned to a mentor who has not been emailed about them: one email per mentor per sync, listing every such student.', 'wpcredits-program-manager' ),
+		'subject'      => sprintf(
+			/* translators: 1: the site's name, 2: a number of students, such as "3 students". */
+			__( '[%1$s] %2$s assigned to you', 'wpcredits-program-manager' ),
+			'{site_name}',
+			'{count}'
+		),
+		'body'         => implode(
+			"\n\n",
+			array(
+				sprintf(
+					/* translators: %s: a number of students, such as "3 students". */
+					__( '%s assigned to you:', 'wpcredits-program-manager' ),
+					'{count}'
+				),
+				'{students_list}',
+				__( 'The next step is a first call. Write to each student to introduce yourself and agree a time, or wait for their message.', 'wpcredits-program-manager' ),
+				__( 'Their details, your notes and your calendar are on your Mentor Report Card:', 'wpcredits-program-manager' ) . "\n{dashboard_link}",
+				__( 'Thank you for mentoring.', 'wpcredits-program-manager' ),
+			)
+		),
+		'placeholders' => array(
+			'site_name'      => array(
+				'means'    => __( 'The site\'s name.', 'wpcredits-program-manager' ),
+				'example'  => static function () {
+					return WPCPM_Mail::site_name();
+				},
+				'required' => false,
+			),
+			'count'          => array(
+				'means'    => __( 'How many students are on the list, as a phrase: "1 student" or "3 students". The email needs it.', 'wpcredits-program-manager' ),
+				'example'  => '2 students',
+				'required' => true,
+			),
+			'students_list'  => array(
+				'means'     => __( 'The students just assigned to the mentor, one to a line: name, track, institution, start date and email address. The students\' names and addresses go in the body alone, never in the subject, which the mail log keeps. The email needs it.', 'wpcredits-program-manager' ),
+				// The day is written by the helper a real student's line uses, so the preview shows the
+				// site's own date format, the one a mentor gets.
+				'example'   => static function () {
+					/* translators: %s: the day a student starts, in the site's date format. */
+					$starts = sprintf( __( 'starts %s', 'wpcredits-program-manager' ), WPCPM_Dates::day( '2026-12-02' ) );
+
+					return "Ada Example, WordPress Credits Program 150h, Example University, {$starts}: ada@example.org\nBen Example, WordPress Credits Program 150h, Example University, {$starts}: ben@example.org";
+				},
+				'required'  => true,
+				'body_only' => true,
+			),
+			'dashboard_link' => array(
+				'means'    => __( 'The mentor\'s Mentor Report Card. The email needs it.', 'wpcredits-program-manager' ),
+				'example'  => static function () {
+					return WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_MENTOR );
+				},
+				'required' => true,
+			),
+		),
+	),
 	'invite-institution'         => array(
 		'trigger'      => __( 'When an institution\'s member is sent the invitation to its account before the institution\'s Collaboration Agreement is on file.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(

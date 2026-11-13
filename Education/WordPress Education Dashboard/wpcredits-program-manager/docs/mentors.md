@@ -96,6 +96,8 @@ built from the program records, so there is no list to keep and nobody to ask fo
 A card at the top of the page may invite you to set up a code for signing in, or tell you the
 program asks for one: *Signing in*, at the start of this guide, covers it.
 
+When a student is assigned to you, the site emails you with their name and address.
+
 ### Your students, triaged
 
 Rather than one long list, your students are grouped by what needs your attention, and the counts

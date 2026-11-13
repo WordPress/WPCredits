@@ -1327,7 +1327,7 @@ class WPCPM_Settings_Screen {
 
 		$this->open_section(
 			__( 'Accounts', 'wpcredits-program-manager' ),
-			__( 'Whether a new account is emailed its invitation, and whether Airtable is read on a schedule.', 'wpcredits-program-manager' ),
+			__( 'Whether a new account is emailed its invitation, whether a mentor is emailed about students assigned to them, and whether Airtable is read on a schedule.', 'wpcredits-program-manager' ),
 			'accounts'
 		);
 
@@ -1348,6 +1348,19 @@ class WPCPM_Settings_Screen {
 				__( 'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.', 'wpcredits-program-manager' ),
 			)
 		);
+
+		// The mentor's email about students assigned to them: on unless switched off, and the same
+		// sentence of help as the other rows, the rest in its fold.
+		$assigned = __( 'Students assigned to a mentor', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mentor_assigned_email" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $assigned ),
+			checked( ! empty( $settings['mentor_assigned_email'] ), true, false ),
+			esc_html__( 'Email a mentor when a student is assigned to them', 'wpcredits-program-manager' ),
+			esc_html__( 'One email per mentor per sync lists every student just assigned to them, and nobody is emailed about students already on their list.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $assigned, __( 'A student moved over from another mentor counts as assigned, and the former mentor is not told. Past students and students of a test institution are left out. Until the welcome emails Airtable sends are switched off, the mentor is also copied on the student\'s welcome email. The text is "Student assigned, to the mentor" on the Emails screen.', 'wpcredits-program-manager' ) );
 
 		// Read by a person on the settings screen, so it says the cadence outright and had to move
 		// with it: the mentors run left the daily clock in 1.98.2 and joined the students run's, half

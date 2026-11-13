@@ -123,6 +123,7 @@ final class WPCPM_Mail_Catalog {
 			// Invitations.
 			'invite-student'                     => array( __( 'Invitation: student', 'wpcredits-program-manager' ), $i, self::TYPE_STUDENT ),
 			'invite-mentor'                      => array( __( 'Invitation: mentor', 'wpcredits-program-manager' ), $i, self::TYPE_MENTOR ),
+			'student-assigned-mentor'            => array( __( 'Student assigned, to the mentor', 'wpcredits-program-manager' ), $i, self::TYPE_MENTOR ),
 			'invite-institution'                 => array( __( 'Invitation: institution', 'wpcredits-program-manager' ), $i, self::TYPE_INSTITUTION ),
 			'invite-institution-settled'         => array( __( 'Invitation: institution, agreement on file', 'wpcredits-program-manager' ), $i, self::TYPE_INSTITUTION ),
 			'invite-sponsor'                     => array( __( 'Invitation: sponsor', 'wpcredits-program-manager' ), $i, self::TYPE_SPONSOR ),

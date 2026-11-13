@@ -7,7 +7,7 @@
 1. The student, if their school is not in the program, sends the student interest form: see *A student is interested in a school that is not in the program*.
 2. The student fills in the **Student registration** form, or the school enrolls them from its Institution Dashboard: the site writes one row to Airtable's Students table and creates no account. See *A student registered*.
 3. You read the registration on `WPCredits Program > Students`, tab **Registrations**: see *A student registered*.
-4. You, in Airtable, set the **Status** (the track) and the **Mentor** on the student's row in the Students table; an Airtable automation then creates the student's Students Reports and Feedback rows. A student the school enrolled already has a Status, so set only the Mentor.
+4. You, in Airtable, set the **Status** (the track) and the **Mentor** on the student's row in the Students table; an Airtable automation then creates the student's Students Reports and Feedback rows, and the next mentors sync emails the mentor about the student. A student the school enrolled already has a Status, so set only the Mentor.
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
@@ -20,14 +20,14 @@
 1. Open `WPCredits Program > Students` and choose the **Registrations** tab.
 2. Read the line under the student's name. **Written to Airtable** means the row is in Airtable's Students table.
 3. Open **Answers and consent** to read the answers, among them the track the student asked for, when the form asked for one.
-4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them.
+4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. At the next mentors sync the mentor is emailed about the student (**Student assigned, to the mentor**). To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them. The new mentor is emailed about the student at the next mentors sync, and the former mentor is not emailed about the student.
 5. Wait for the next students sync, or open the **Sync** tab and press **Sync students now**.
 6. Open the **Accounts** tab, find the student and press **Send invite** under their name.
 
 **What happens next**
 
 - The student was emailed "Registration received - WordPress Credits Program", which says someone will be in touch by email with the next steps, including their mentor and their course.
-- Once Airtable has the student's Students Reports row, the sync creates the account with the Student role and a random password. With **Invitation emails** on, it also queues the invitation; with it off, no email goes.
+- Once Airtable has the student's Students Reports row, the sync creates the account with the Student role and a random password. With **Invitation emails** on, it also queues the invitation; with it off, the student is sent nothing. The mentor's email has its own switch, **Students assigned to a mentor**.
 - The invitation is "Welcome to the WordPress Credits Program", with a link to set a password.
 
 **Good to know**

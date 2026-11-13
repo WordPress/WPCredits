@@ -71,6 +71,7 @@ The **Last sync report** card on the Students and Mentors screens' **Sync** tab 
 | **Account conflicts** | An address or account that belongs to someone else |
 | **Calls and group sessions taken off students whose mentor changed** | Students only: upcoming one-to-one calls canceled and group sessions left with a former mentor |
 | **Students assigned to a non-active mentor** | Mentors only: reports linked to a mentor the run did not read |
+| **Mentors emailed about assigned students** | Mentors only: mentors emailed this run, one email each however many students it lists |
 
 Step by step: [[Run a sync by hand and read its report]].
 
@@ -81,6 +82,21 @@ With **Invitation emails** on, the mentors sync queues the invitation, which car
 - Each mentor gets it once each time they become active. An Administrator never does.
 - An account whose invitation is held is named in a warning and left as it is.
 - A run that would welcome more than five sends none. It holds each and names them in the first warning. **Send invite** on the account's row, Mentors screen, tab **Accounts**, sends it.
+
+#### Emailing a mentor about a student assigned to them
+
+After the mentors sync writes the mentors' lists, it emails each mentor who has a current student assigned to them that they have not been emailed about. It sends one email per mentor per sync, **Student assigned, to the mentor**, listing every such student with the track, the institution, the start date and the address, and the link to the Mentor Report Card. The text is on the Emails screen, under **Invitations**. It is in the mentor's own language unless an Administrator has edited the text, and it has no reply address of its own.
+
+- **Students assigned to a mentor** (`WPCredits Program > Settings`, tab **Students and mentors**, section **Accounts**) switches it. Default: on. While it is off the site keeps remembering who is on each list, so switching it on later sends no backlog.
+- Left out: past students, students of a test institution, and a mentor with no account yet, who is emailed once they have one.
+- A student moved over from another mentor counts as assigned to the new mentor. The former mentor is not emailed.
+- A second track with the same mentor is a new enrollment, and the mentor is emailed about it. A student who comes back to a former mentor, or who was past and is current again, is not.
+- The first sync after the feature arrives emails nobody. It remembers who is on every list, the lists of mentors that sync does not read included, and its report says: "The site now remembers who is on every mentor's list. Nobody was emailed about students already there."
+- At most 25 mentors are emailed in a sync. The rest are emailed at the next sync, and the report says "{number} more mentors have students assigned and are emailed at the next sync." (one mentor: "1 more mentor has students assigned and is emailed at the next sync.")
+- The brake: a scheduled sync emails nobody when it would email more than half of the mentors who have students at once, and at least 20 mentors. The report says: "{number} mentors would have been emailed about students assigned to them at once, more than half of the mentors who have students, so nobody was emailed. If the assignments are real, start a mentors sync by hand: each sync started by hand emails up to 25 mentors, so start another until none wait. If they are not, switch "Students assigned to a mentor" off (Settings, Students and mentors, Accounts), run a sync and switch it on again: nobody is emailed about them." A sync started by hand is **Sync mentors now**, on the Mentors screen's **Sync** tab.
+- A send that is refused is tried again at the next sync. The report says: "{number} mentors could not be emailed about students assigned to them; the next sync tries again." (one mentor: "1 mentor could not be emailed about students assigned to them; the next sync tries again.")
+- When the site cannot save what it remembers, the report says: "The site could not save its record of the students mentors have been emailed about, so the next sync tries again. Leave "Students assigned to a mentor" as it is until a sync ends without this line." It means the database refused the site's record of who has been emailed, so that sync emailed no more mentors, and the next sync tries again.
+- Until the welcome emails Airtable sends are switched off, the mentor is also copied on the student's welcome email, so for a while a mentor gets two messages about one student.
 
 #### The public list of mentors
 
@@ -1216,6 +1232,7 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_invite_queue_lock` | `WPCPM_Mail::QUEUE_LOCK` (a lock row while the invitation queue is written, 30 seconds at most) |
 | `wpcpm_mapp_lock_` | `WPCPM_Mentor_Application::LOCK_PREFIX` (the per-application activation locks) |
 | `wpcpm_mcp_log_sweep` | `WPCPM_MCP::CRON_SWEEP` (cron hook: the daily sweep of the Claude access log, which deletes the calls older than the **Keep the log for** setting, never fewer than 7 days, in batches of 500, oldest first, up to 20 batches (10,000 rows) a run and the rest the next day, whether the switch is on or off; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
+| `wpcpm_mentees_told` | `WPCPM_Mentor_Assigned::OPT_TOLD` (for each mentor's Airtable record, the enrollments they have been emailed about or that were already on their list, past students and students of test institutions included, and every one assigned while the switch was off; Students Reports record IDs only; it only grows, so a list that shrinks and comes back emails nobody twice) |
 | `wpcpm_mentor_application_counts` | `WPCPM_Mentor_Application::OPT_KEPT` |
 | `wpcpm_mentor_application_log` | `WPCPM_Mentor_Application::OPT_LOG` |
 | `wpcpm_mentor_application_page_id` | `WPCPM_Mentor_Application_Form::OPT_PAGE` |

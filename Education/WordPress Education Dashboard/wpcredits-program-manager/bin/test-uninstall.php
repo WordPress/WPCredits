@@ -713,6 +713,7 @@ $named_options = array(
 	'wpcpm_mentor_application_counts',     // WPCPM_Mentor_Application::OPT_KEPT, through delete_all().
 	'wpcpm_mentor_application_page_id',    // WPCPM_Mentor_Application_Form::OPT_PAGE.
 	'wpcpm_mentors_unconfirmed',           // WPCPM_Mentor_Provision::OPT_UNCONFIRMED, the matches waiting under Needs confirming (1.123.58).
+	'wpcpm_mentees_told',                  // WPCPM_Mentor_Assigned::OPT_TOLD, the students each mentor has been told about.
 	'wpcpm_student_languages',             // WPCPM_Student_Airtable_Row::LANGUAGES_OPTION, through WPCPM_Students::uninstall().
 	'wpcpm_student_interest_page_id',      // WPCPM_Student_Interest_Form::OPT_PAGE (1.123.64), through WPCPM_Students::uninstall().
 	// Three rows a site may still hold from code that is gone (1.123.27), deleted by name: the

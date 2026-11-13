@@ -111,6 +111,8 @@ function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (
 function wp_timezone_string() { return $GLOBALS['site_zone'] ?? 'Europe/Warsaw'; }
 function wp_timezone() { return new DateTimeZone( wp_timezone_string() ); }
 function wp_date( $format, $timestamp = null, $zone = null ) { return ( new DateTimeImmutable( '@' . (int) ( null === $timestamp ? time() : $timestamp ) ) )->setTimezone( $zone instanceof DateTimeZone ? $zone : wp_timezone() )->format( $format ); }
+// A day in the site's date format, as `WPCPM_Dates::day()` asks for one.
+function date_i18n( $format, $timestamp = null ) { return gmdate( $format, null === $timestamp ? time() : (int) $timestamp ); }
 function human_time_diff( $from, $to = 0 ) { return round( abs( (int) $to - (int) $from ) / HOUR_IN_SECONDS ) . ' hours'; }
 function switch_to_locale( $locale ) { $GLOBALS['locales'][] = $locale; return true; }
 function restore_previous_locale() { $GLOBALS['locales'][] = 'restored'; return true; }
@@ -239,6 +241,7 @@ ck(
 	array(
 		'invite-student',
 		'invite-mentor',
+		'student-assigned-mentor',
 		'invite-institution',
 		'invite-institution-settled',
 		'invite-sponsor',
@@ -483,6 +486,8 @@ foreach ( $all as $id => $entry ) {
 $shape = array(
 	'invite-student'                => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
 	'invite-mentor'                 => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
+	// The mentor's email about students assigned to them (1.123.90): the count, the list and the card's link each needed, the list in the body alone, and the default line ending so the list's line breaks stay.
+	'student-assigned-mentor'       => array( "\n", array( 'count', 'students_list', 'dashboard_link' ), array( 'students_list' ) ),
 	'invite-institution'            => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
 	'invite-institution-settled'    => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
 	'invite-sponsor'                => array( "\r\n", array( 'set_password_link' ), array( 'set_password_link' ) ),
@@ -1668,6 +1673,62 @@ WPCPM_Sponsors_Dashboard::$url = 'https://example.test/sponsor-dashboard/';
 ck( 'each kind of person with an account, by the page of their kind, its full name and its address, in the order of the five audiences', WPCPM_Mail_Templates::dashboard_pages(), $every_page );
 ck( 'and a kind whose page is not published is left out', array_keys( $without_sponsors ), array( 'student', 'mentor', 'institution', 'administrator' ) );
 ck( 'each address is the one an email to that kind fills in', array_map( function ( $page ) { return $page['url']; }, WPCPM_Mail_Templates::dashboard_pages() ), array_map( array( 'WPCPM_Mail_Templates', 'page_of_type' ), array_combine( array_keys( $every_page ), array_keys( $every_page ) ) ) );
+
+$assigned = WPCPM_Mail_Templates::get( 'student-assigned-mentor' );
+$assigned_examples = WPCPM_Mail_Templates::example_values( 'student-assigned-mentor' );
+$assigned_sent = WPCPM_Mail_Templates::render( 'student-assigned-mentor', $assigned_examples );
+ck(
+	'the mentor\'s email about a new student says what sends it, has the subject and the body of the design, and keeps the default line ending',
+	array( $assigned['trigger'] ?? null, $assigned['subject'] ?? null, $assigned['body'] ?? null, isset( $assigned['eol'] ) ? $assigned['eol'] : null ),
+	array(
+		'When the mentors sync finds a current student assigned to a mentor who has not been emailed about them: one email per mentor per sync, listing every such student.',
+		'[{site_name}] {count} assigned to you',
+		"{count} assigned to you:\n\n{students_list}\n\nThe next step is a first call. Write to each student to introduce yourself and agree a time, or wait for their message.\n\nTheir details, your notes and your calendar are on your Mentor Report Card:\n{dashboard_link}\n\nThank you for mentoring.",
+		"\n",
+	)
+);
+ck(
+	'its placeholders are the site name, the count, the list and the card\'s link, each with an example, the count a phrase, the list two invented students at example.org, the link the Mentor Report Card\'s',
+	array(
+		array_keys( $assigned['placeholders'] ?? array() ),
+		$assigned_examples['count'] ?? null,
+		$assigned_examples['students_list'] ?? null,
+		$assigned_examples['dashboard_link'] ?? null,
+		WPCPM_Mail_Templates::page_of_type( WPCPM_Mail_Catalog::TYPE_MENTOR ),
+		array_keys( array_filter( $assigned['placeholders'] ?? array(), function ( $p ) { return '' === (string) ( is_string( $p['example'] ) ? $p['example'] : call_user_func( $p['example'] ) ); } ) ),
+	),
+	array(
+		array( 'site_name', 'count', 'students_list', 'dashboard_link' ),
+		'2 students',
+		"Ada Example, WordPress Credits Program 150h, Example University, starts December 2, 2026: ada@example.org\nBen Example, WordPress Credits Program 150h, Example University, starts December 2, 2026: ben@example.org",
+		'https://example.test/mentor-report-card/',
+		'https://example.test/mentor-report-card/',
+		array(),
+	)
+);
+ck(
+	'and an example fills it with no placeholder left, the list under the count and the Mentor Report Card\'s address on a line of its own',
+	array( WPCPM_Mail_Templates::placeholders_in( $assigned_sent['subject'] . $assigned_sent['body'] ), $assigned_sent['subject'], false !== strpos( $assigned_sent['body'], "2 students assigned to you:\n\nAda Example," ), false !== strpos( $assigned_sent['body'], "Mentor Report Card:\nhttps://example.test/mentor-report-card/\n\nThank you" ) ),
+	array( array(), '[WordPress Credits] 2 students assigned to you', true, true )
+);
+$assigned_in_subject = WPCPM_Mail_Templates::save( 'student-assigned-mentor', '[{site_name}] {students_list}', $assigned['body'], 7 );
+ck( 'a saved edit with the list in its subject is refused, since the mail log keeps subjects', array( $assigned_in_subject instanceof WP_Error, WPCPM_Mail_Templates::edit( 'student-assigned-mentor' ) ), array( true, null ) );
+$assigned_raw = ( static function () {
+	return require __DIR__ . '/../includes/mail/templates/invitations.php';
+} )();
+ck( 'the shipped entry sets no eol of its own, so the list\'s line breaks stay', array( isset( $assigned_raw['student-assigned-mentor'] ), array_key_exists( 'eol', $assigned_raw['student-assigned-mentor'] ?? array() ) ), array( true, false ) );
+$assigned_refusals = array();
+foreach ( array( 'students_list', 'dashboard_link' ) as $assigned_dropped ) {
+	$assigned_body = str_replace( '{' . $assigned_dropped . '}', 'gone', $assigned['body'] );
+	$assigned_save = WPCPM_Mail_Templates::save( 'student-assigned-mentor', $assigned['subject'], $assigned_body, 7 );
+	$assigned_refusals[ $assigned_dropped ] = $assigned_save instanceof WP_Error ? $assigned_save->get_error_message() : $assigned_save;
+}
+ck( 'an edit of it that leaves out the list, or the Mentor Report Card\'s link, is refused and nothing is stored', array( $assigned_refusals, WPCPM_Mail_Templates::edit( 'student-assigned-mentor' ) ), array( array( 'students_list' => 'Nothing was saved: this email needs {students_list}.', 'dashboard_link' => 'Nothing was saved: this email needs {dashboard_link}.' ), null ) );
+$GLOBALS['mail'] = array();
+$assigned_admin  = new WP_User( 1, 'Ida Admin', 'ida@example.test', array( 'administrator' ) );
+$assigned_test   = WPCPM_Mail_Templates::send_test( 'student-assigned-mentor', $assigned_admin );
+ck( 'a test send of it goes to the Administrator alone with no placeholder left', array( $assigned_test, count( $GLOBALS['mail'] ), $GLOBALS['mail'][0]['to'] ?? null, WPCPM_Mail_Templates::placeholders_in( ( $GLOBALS['mail'][0]['subject'] ?? '' ) . ( $GLOBALS['mail'][0]['body'] ?? '' ) ) ), array( true, 1, 'ida@example.test', array() ) );
+$GLOBALS['mail'] = array();
 
 echo "\n=== Send me a test ===\n";
 

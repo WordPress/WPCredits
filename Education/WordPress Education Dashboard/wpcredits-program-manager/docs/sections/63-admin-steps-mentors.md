@@ -16,6 +16,7 @@
 **Good to know**
 
 - Moving a student to another mentor is done in Airtable: change the **Mentor** on the student's row in the Students Reports table, and the next sync moves the student. Once both mentors' lists agree, that sync also cancels the student's upcoming one-to-one calls with the former mentor, leaving a call already under way, and sends both of them the cancellation email with a calendar file; the student books again with the new mentor.
+- A mentor is emailed about the students assigned to them at the next mentors sync: see [[Emailing a mentor about a student assigned to them]].
 - Stopping a mentor is done in Airtable: change the mentor's **Status** in the Mentors table to anything but **Active**, and the next mentors sync clears their student list and, by default, removes the Mentor role.
 - To see where one mentor or applicant stands, use *Where does it stand?*.
 

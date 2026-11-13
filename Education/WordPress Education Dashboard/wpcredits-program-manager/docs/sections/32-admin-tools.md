@@ -65,7 +65,7 @@ Where an email goes to Administrators, a setting decides which addresses get it.
 | A new mentor application | **Who is mailed** (tab **Students and mentors**, section **Mentor applications**) |
 | A new interest from a student | **Who hears of a new interest** (tab **Students and mentors**, section **Interest from students**) |
 
-The area **Invitations** holds the first email of each new account.
+The area **Invitations** holds the first email of each new account, and the email to a mentor about students assigned to them.
 
 | Email | Who gets it | When |
 |---|---|---|
@@ -74,11 +74,13 @@ The area **Invitations** holds the first email of each new account.
 | **Invitation: institution** | The institution's member | The invitation is sent before the Collaboration Agreement is on file |
 | **Invitation: institution, agreement on file** | The institution's member | The invitation is sent once the agreement is on file |
 | **Invitation: sponsor** | The sponsor's member | The invitation is sent from the Sponsors screen |
+| **Student assigned, to the mentor** | The mentor | The mentors sync finds a current student assigned to the mentor that they have not been emailed about, while **Students assigned to a mentor** is on |
 
 - An account that fits two rows gets the first of mentor, institution, sponsor, student.
 - The student's invitation names the Start here page while that page is published.
 - The mentor's invitation carries the welcome a new mentor gets. It ships with a line in brackets where the course invitation links and the mentor resource folder's link go. Type those links in before mentors are sent it.
 - A reply to the mentor's invitation goes to **Contact address in emails**, while it holds an address.
+- **Student assigned, to the mentor**: see [[Emailing a mentor about a student assigned to them]].
 
 The area **Mentor calls** covers one-to-one calls, group sessions and series of sessions. A mentor with no meeting link set gets a second version of each confirmation, which says so.
 

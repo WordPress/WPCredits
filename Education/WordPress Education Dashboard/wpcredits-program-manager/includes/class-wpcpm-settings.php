@@ -119,6 +119,9 @@ class WPCPM_Settings {
 			// Off by default: a first sync provisions ~90 accounts at once, and
 			// nobody wants to discover that by way of ninety emails.
 			'send_welcome_email'            => false,
+			// On by default (1.123.90): whether the mentors sync emails a mentor about the students assigned
+			// to them. It sends nothing the first run after the release, and a mentor is emailed once.
+			'mentor_assigned_email'         => true,
 			'auto_sync'                     => true,
 			// The handbook assistant, and whether it exists at all. Off means no page, no
 			// daily fetch of somebody else's site, and no question box - the stored copy is
@@ -380,6 +383,7 @@ class WPCPM_Settings {
 				'on_inactive',
 				'student_on_inactive',
 				'send_welcome_email',
+				'mentor_assigned_email',
 				'auto_sync',
 				'mentor_home',
 				'student_home',
@@ -1054,7 +1058,7 @@ class WPCPM_Settings {
 		// not, so unticking one still switches it off through this same guarded read. Absent
 		// means "leave alone" for a patch and for a save that names no scope: a save given a
 		// scope has already read each of the scope's absent switches as off.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mcp_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'sponsor_tiers_live', 'duplicate_delete_enabled', 'mentor_applications_enabled', 'mentor_activation_enabled', 'student_registrations_enabled', 'student_interest_open', 'student_checklist_enabled', 'mentor_assigned_email', 'mcp_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

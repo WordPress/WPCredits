@@ -118,6 +118,14 @@ class WPCPM_Mentors_Sync {
 	private static $lock_token = '';
 
 	/**
+	 * Whether `cron_daily()` is starting a run right now: set around its call to `start()`, so the
+	 * run's state says it was the schedule's and not a person's.
+	 *
+	 * @var bool
+	 */
+	private static $scheduled = false;
+
+	/**
 	 * The most mentors whose accounts already existed that one run sends the welcome to (1.123.42).
 	 *
 	 * A returning mentor, or a student or an institution member made a mentor, is queued the site's
@@ -393,7 +401,15 @@ class WPCPM_Mentors_Sync {
 			return;
 		}
 
-		self::start();
+		// The schedule marks its own start, whatever the host's cron runner defines: a run it starts
+		// is not a person's, and so does not pass the mentor email's brake.
+		self::$scheduled = true;
+
+		try {
+			self::start();
+		} finally {
+			self::$scheduled = false;
+		}
 	}
 
 	/**
@@ -471,6 +487,10 @@ class WPCPM_Mentors_Sync {
 			'access'      => array(),
 			'stats'       => self::empty_stats(),
 			'notices'     => array(),
+			// Who started the run, kept for every tick of it: the scheduled run is started by
+			// `cron_daily()`, every other start is a person's. A mentor email's brake lets a run
+			// started by hand through (`WPCPM_Mentor_Assigned`). A state from before this key reads false.
+			'by_hand'     => ! self::$scheduled,
 		);
 
 		if ( $accept ) {
@@ -1729,6 +1749,14 @@ class WPCPM_Mentors_Sync {
 	 * @return true|WP_Error
 	 */
 	private static function phase_revoke( array &$state, array $settings ) {
+		// Before any list is deleted here or replaced at assign: while the mentor email has no set yet,
+		// the lists the accounts hold now, IDs only, so its first run remembers a mentor this read
+		// leaves out (not Active today, or a short read) and does not email them about every student
+		// they already have at a later sync. Read once per run: a revoke step run again keeps them.
+		if ( ! array_key_exists( 'stored_lists', $state ) && class_exists( 'WPCPM_Mentor_Assigned' ) && ! WPCPM_Mentor_Assigned::has_baseline() ) {
+			$state['stored_lists'] = WPCPM_Mentor_Assigned::stored_lists();
+		}
+
 		$active_ids = array_keys( is_array( $state['mentors'] ) ? $state['mentors'] : array() );
 		$started    = isset( $state['started'] ) ? (int) $state['started'] : 0;
 
@@ -2062,16 +2090,24 @@ class WPCPM_Mentors_Sync {
 			}
 		}
 
+		// Every mentor of the run, for the email to a mentor about students assigned to them: the rows as built
+		// here, before they are slashed for storage, and user ID 0 for a mentor with no account.
+		$told_lists = array();
+
 		foreach ( (array) $state['mentors'] as $record_id => $mentor ) {
 			$user_id = isset( $mentor['user_id'] ) ? (int) $mentor['user_id'] : 0;
+			$rows    = isset( $by_mentor[ $record_id ] ) ? $by_mentor[ $record_id ] : array();
+
+			usort( $rows, array( __CLASS__, 'compare_mentees' ) );
+
+			$told_lists[ $record_id ] = array(
+				'user_id' => $user_id,
+				'rows'    => $rows,
+			);
 
 			if ( ! $user_id ) {
 				continue;
 			}
-
-			$rows = isset( $by_mentor[ $record_id ] ) ? $by_mentor[ $record_id ] : array();
-
-			usort( $rows, array( __CLASS__, 'compare_mentees' ) );
 
 			if ( empty( $rows ) ) {
 				delete_user_meta( $user_id, self::META_MENTEES );
@@ -2101,6 +2137,68 @@ class WPCPM_Mentors_Sync {
 			}
 
 			update_user_meta( $user_id, self::META_UPDATED, time() );
+		}
+
+		// Once, after every list is on its Mentor Report Card, so the card an email opens holds the
+		// student. Called again if this step runs again after a fatal: the class remembers what it sent.
+		if ( class_exists( 'WPCPM_Mentor_Assigned' ) ) {
+			$answer = WPCPM_Mentor_Assigned::run(
+				$told_lists,
+				array(
+					'by_hand' => ! empty( $state['by_hand'] ),
+					'alive'   => static function () {
+						return self::hold_lock();
+					},
+					// The lists before this run touched them, for the first run only. A state from before
+					// this key (a run in flight at the deploy) hands nothing, as before.
+					'known'   => isset( $state['stored_lists'] ) && is_array( $state['stored_lists'] ) ? $state['stored_lists'] : array(),
+					// The run's start, the same at every tick of it: the ceiling counts across this
+					// step run again.
+					'run'     => isset( $state['started'] ) ? (int) $state['started'] : 0,
+				)
+			);
+
+			// The answer's count for the run holds every email this sync has had accepted, so this
+			// step run again after a fatal does not lose the ones its earlier call sent. An answer
+			// without it (nothing was sent: the seed, the brake, the switch off) adds its own count.
+			$state['stats']['told'] = isset( $answer['run_sent'] )
+				? (int) $answer['run_sent']
+				: ( isset( $state['stats']['told'] ) ? (int) $state['stats']['told'] : 0 ) + (int) $answer['told'];
+
+			// A set that could not be saved: the next sync tries again. An answer from before this key
+			// has none.
+			if ( ! empty( $answer['unsaved'] ) ) {
+				$state['notices'][] = __( 'The site could not save its record of the students mentors have been emailed about, so the next sync tries again. Leave "Students assigned to a mentor" as it is until a sync ends without this line.', 'wpcredits-program-manager' );
+			}
+
+			if ( ! empty( $answer['seeded'] ) ) {
+				$state['notices'][] = __( 'The site now remembers who is on every mentor\'s list. Nobody was emailed about students already there.', 'wpcredits-program-manager' );
+			}
+
+			if ( $answer['waiting'] > 0 ) {
+				$state['notices'][] = sprintf(
+					/* translators: %d: a number of mentors. */
+					_n( '%d more mentor has students assigned and is emailed at the next sync.', '%d more mentors have students assigned and are emailed at the next sync.', (int) $answer['waiting'], 'wpcredits-program-manager' ),
+					(int) $answer['waiting']
+				);
+			}
+
+			if ( $answer['failed'] > 0 ) {
+				$state['notices'][] = sprintf(
+					/* translators: %d: a number of mentors. */
+					_n( '%d mentor could not be emailed about students assigned to them; the next sync tries again.', '%d mentors could not be emailed about students assigned to them; the next sync tries again.', (int) $answer['failed'], 'wpcredits-program-manager' ),
+					(int) $answer['failed']
+				);
+			}
+
+			if ( $answer['braked'] > 0 ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: a number of mentors, 2: how many mentors one sync emails at most. */
+					__( '%1$d mentors would have been emailed about students assigned to them at once, more than half of the mentors who have students, so nobody was emailed. If the assignments are real, start a mentors sync by hand: each sync started by hand emails up to %2$d mentors, so start another until none wait. If they are not, switch "Students assigned to a mentor" off (Settings, Students and mentors, Accounts), run a sync and switch it on again: nobody is emailed about them.', 'wpcredits-program-manager' ),
+					(int) $answer['braked'],
+					(int) WPCPM_Mentor_Assigned::MAX_EMAILS
+				);
+			}
 		}
 
 		$state['phase'] = 'done';
@@ -2191,6 +2289,7 @@ class WPCPM_Mentors_Sync {
 			'unassigned'            => 0,
 			'orphaned'              => 0,
 			'mentors_with_students' => 0,
+			'told'                  => 0,
 		);
 	}
 

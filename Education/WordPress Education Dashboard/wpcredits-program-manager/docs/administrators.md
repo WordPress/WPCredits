@@ -461,7 +461,7 @@ Where to start:
 1. The student, if their school is not in the program, sends the student interest form: see *A student is interested in a school that is not in the program*.
 2. The student fills in the **Student registration** form, or the school enrolls them from its Institution Dashboard: the site writes one row to Airtable's Students table and creates no account. See *A student registered*.
 3. You read the registration on `WPCredits Program > Students`, tab **Registrations**: see *A student registered*.
-4. You, in Airtable, set the **Status** (the track) and the **Mentor** on the student's row in the Students table; an Airtable automation then creates the student's Students Reports and Feedback rows. A student the school enrolled already has a Status, so set only the Mentor.
+4. You, in Airtable, set the **Status** (the track) and the **Mentor** on the student's row in the Students table; an Airtable automation then creates the student's Students Reports and Feedback rows, and the next mentors sync emails the mentor about the student. A student the school enrolled already has a Status, so set only the Mentor.
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
@@ -474,14 +474,14 @@ Where to start:
 1. Open `WPCredits Program > Students` and choose the **Registrations** tab.
 2. Read the line under the student's name. **Written to Airtable** means the row is in Airtable's Students table.
 3. Open **Answers and consent** to read the answers, among them the track the student asked for, when the form asked for one.
-4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them.
+4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. At the next mentors sync the mentor is emailed about the student (**Student assigned, to the mentor**). To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there. Once both mentors' lists show the change, the next sync cancels the student's upcoming one-to-one calls with the former mentor and emails both of them. The new mentor is emailed about the student at the next mentors sync, and the former mentor is not emailed about the student.
 5. Wait for the next students sync, or open the **Sync** tab and press **Sync students now**.
 6. Open the **Accounts** tab, find the student and press **Send invite** under their name.
 
 **What happens next**
 
 - The student was emailed "Registration received - WordPress Credits Program", which says someone will be in touch by email with the next steps, including their mentor and their course.
-- Once Airtable has the student's Students Reports row, the sync creates the account with the Student role and a random password. With **Invitation emails** on, it also queues the invitation; with it off, no email goes.
+- Once Airtable has the student's Students Reports row, the sync creates the account with the Student role and a random password. With **Invitation emails** on, it also queues the invitation; with it off, the student is sent nothing. The mentor's email has its own switch, **Students assigned to a mentor**.
 - The invitation is "Welcome to the WordPress Credits Program", with a link to set a password.
 
 **Good to know**
@@ -715,6 +715,7 @@ You can change:
 **Good to know**
 
 - Moving a student to another mentor is done in Airtable: change the **Mentor** on the student's row in the Students Reports table, and the next sync moves the student. Once both mentors' lists agree, that sync also cancels the student's upcoming one-to-one calls with the former mentor, leaving a call already under way, and sends both of them the cancellation email with a calendar file; the student books again with the new mentor.
+- A mentor is emailed about the students assigned to them at the next mentors sync: see [Emailing a mentor about a student assigned to them](#emailing-a-mentor-about-a-student-assigned-to-them).
 - Stopping a mentor is done in Airtable: change the mentor's **Status** in the Mentors table to anything but **Active**, and the next mentors sync clears their student list and, by default, removes the Mentor role.
 - To see where one mentor or applicant stands, use *Where does it stand?*.
 
@@ -3191,9 +3192,10 @@ What the sync does with the account of somebody no longer on the program. The ac
 
 #### Accounts
 
-Whether new accounts are emailed an invitation, and whether Airtable is read on a schedule.
+Whether new accounts are emailed an invitation, whether a mentor is emailed about students assigned to them, and whether Airtable is read on a schedule.
 
 - **Invitation emails**: the sync emails a password-reset link to each new mentor and student, and to each existing account it makes an active mentor. Default: off. A first sync creates around ninety accounts, so leave it off unless you mean to email them all.
+- **Students assigned to a mentor**: the mentors sync emails a mentor about the students assigned to them, one email per mentor per sync. Default: on. See [Emailing a mentor about a student assigned to them](#emailing-a-mentor-about-a-student-assigned-to-them).
 - **Automatic sync**: the students, mentors and institutions syncs run every three hours, the mentors half an hour after the students. A run in progress is left to finish unless it has stalled. A run the count check stopped waits for an Administrator. Default: on.
 
 Rules for invitations:
@@ -3752,7 +3754,7 @@ Where an email goes to Administrators, a setting decides which addresses get it.
 | A new mentor application | **Who is mailed** (tab **Students and mentors**, section **Mentor applications**) |
 | A new interest from a student | **Who hears of a new interest** (tab **Students and mentors**, section **Interest from students**) |
 
-The area **Invitations** holds the first email of each new account.
+The area **Invitations** holds the first email of each new account, and the email to a mentor about students assigned to them.
 
 | Email | Who gets it | When |
 |---|---|---|
@@ -3761,11 +3763,13 @@ The area **Invitations** holds the first email of each new account.
 | **Invitation: institution** | The institution's member | The invitation is sent before the Collaboration Agreement is on file |
 | **Invitation: institution, agreement on file** | The institution's member | The invitation is sent once the agreement is on file |
 | **Invitation: sponsor** | The sponsor's member | The invitation is sent from the Sponsors screen |
+| **Student assigned, to the mentor** | The mentor | The mentors sync finds a current student assigned to the mentor that they have not been emailed about, while **Students assigned to a mentor** is on |
 
 - An account that fits two rows gets the first of mentor, institution, sponsor, student.
 - The student's invitation names the Start here page while that page is published.
 - The mentor's invitation carries the welcome a new mentor gets. It ships with a line in brackets where the course invitation links and the mentor resource folder's link go. Type those links in before mentors are sent it.
 - A reply to the mentor's invitation goes to **Contact address in emails**, while it holds an address.
+- **Student assigned, to the mentor**: see [Emailing a mentor about a student assigned to them](#emailing-a-mentor-about-a-student-assigned-to-them).
 
 The area **Mentor calls** covers one-to-one calls, group sessions and series of sessions. A mentor with no meeting link set gets a second version of each confirmation, which says so.
 
@@ -4698,6 +4702,7 @@ The **Last sync report** card on the Students and Mentors screens' **Sync** tab 
 | **Account conflicts** | An address or account that belongs to someone else |
 | **Calls and group sessions taken off students whose mentor changed** | Students only: upcoming one-to-one calls canceled and group sessions left with a former mentor |
 | **Students assigned to a non-active mentor** | Mentors only: reports linked to a mentor the run did not read |
+| **Mentors emailed about assigned students** | Mentors only: mentors emailed this run, one email each however many students it lists |
 
 Step by step: [Run a sync by hand and read its report](#run-a-sync-by-hand-and-read-its-report).
 
@@ -4708,6 +4713,21 @@ With **Invitation emails** on, the mentors sync queues the invitation, which car
 - Each mentor gets it once each time they become active. An Administrator never does.
 - An account whose invitation is held is named in a warning and left as it is.
 - A run that would welcome more than five sends none. It holds each and names them in the first warning. **Send invite** on the account's row, Mentors screen, tab **Accounts**, sends it.
+
+#### Emailing a mentor about a student assigned to them
+
+After the mentors sync writes the mentors' lists, it emails each mentor who has a current student assigned to them that they have not been emailed about. It sends one email per mentor per sync, **Student assigned, to the mentor**, listing every such student with the track, the institution, the start date and the address, and the link to the Mentor Report Card. The text is on the Emails screen, under **Invitations**. It is in the mentor's own language unless an Administrator has edited the text, and it has no reply address of its own.
+
+- **Students assigned to a mentor** (`WPCredits Program > Settings`, tab **Students and mentors**, section **Accounts**) switches it. Default: on. While it is off the site keeps remembering who is on each list, so switching it on later sends no backlog.
+- Left out: past students, students of a test institution, and a mentor with no account yet, who is emailed once they have one.
+- A student moved over from another mentor counts as assigned to the new mentor. The former mentor is not emailed.
+- A second track with the same mentor is a new enrollment, and the mentor is emailed about it. A student who comes back to a former mentor, or who was past and is current again, is not.
+- The first sync after the feature arrives emails nobody. It remembers who is on every list, the lists of mentors that sync does not read included, and its report says: "The site now remembers who is on every mentor's list. Nobody was emailed about students already there."
+- At most 25 mentors are emailed in a sync. The rest are emailed at the next sync, and the report says "{number} more mentors have students assigned and are emailed at the next sync." (one mentor: "1 more mentor has students assigned and is emailed at the next sync.")
+- The brake: a scheduled sync emails nobody when it would email more than half of the mentors who have students at once, and at least 20 mentors. The report says: "{number} mentors would have been emailed about students assigned to them at once, more than half of the mentors who have students, so nobody was emailed. If the assignments are real, start a mentors sync by hand: each sync started by hand emails up to 25 mentors, so start another until none wait. If they are not, switch "Students assigned to a mentor" off (Settings, Students and mentors, Accounts), run a sync and switch it on again: nobody is emailed about them." A sync started by hand is **Sync mentors now**, on the Mentors screen's **Sync** tab.
+- A send that is refused is tried again at the next sync. The report says: "{number} mentors could not be emailed about students assigned to them; the next sync tries again." (one mentor: "1 mentor could not be emailed about students assigned to them; the next sync tries again.")
+- When the site cannot save what it remembers, the report says: "The site could not save its record of the students mentors have been emailed about, so the next sync tries again. Leave "Students assigned to a mentor" as it is until a sync ends without this line." It means the database refused the site's record of who has been emailed, so that sync emailed no more mentors, and the next sync tries again.
+- Until the welcome emails Airtable sends are switched off, the mentor is also copied on the student's welcome email, so for a while a mentor gets two messages about one student.
 
 #### The public list of mentors
 
@@ -5843,6 +5863,7 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_invite_queue_lock` | `WPCPM_Mail::QUEUE_LOCK` (a lock row while the invitation queue is written, 30 seconds at most) |
 | `wpcpm_mapp_lock_` | `WPCPM_Mentor_Application::LOCK_PREFIX` (the per-application activation locks) |
 | `wpcpm_mcp_log_sweep` | `WPCPM_MCP::CRON_SWEEP` (cron hook: the daily sweep of the Claude access log, which deletes the calls older than the **Keep the log for** setting, never fewer than 7 days, in batches of 500, oldest first, up to 20 batches (10,000 rows) a run and the rest the next day, whether the switch is on or off; scheduled on `init` when it is not on the clock, taken off it on deactivation and again on uninstall) |
+| `wpcpm_mentees_told` | `WPCPM_Mentor_Assigned::OPT_TOLD` (for each mentor's Airtable record, the enrollments they have been emailed about or that were already on their list, past students and students of test institutions included, and every one assigned while the switch was off; Students Reports record IDs only; it only grows, so a list that shrinks and comes back emails nobody twice) |
 | `wpcpm_mentor_application_counts` | `WPCPM_Mentor_Application::OPT_KEPT` |
 | `wpcpm_mentor_application_log` | `WPCPM_Mentor_Application::OPT_LOG` |
 | `wpcpm_mentor_application_page_id` | `WPCPM_Mentor_Application_Form::OPT_PAGE` |
