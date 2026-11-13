@@ -167,7 +167,7 @@ class WPCPM_Administrators_Table extends WPCPM_Accounts_Table {
 	protected function column_manage( $user ) {
 		return user_can( $user->ID, WPCPM_Roles::CAP_MANAGE )
 			? esc_html__( 'Yes', 'wpcredits-program-manager' )
-			: esc_html__( 'No - re-activate the plugin', 'wpcredits-program-manager' );
+			: esc_html__( 'No: re-activate the plugin', 'wpcredits-program-manager' );
 	}
 
 	/**

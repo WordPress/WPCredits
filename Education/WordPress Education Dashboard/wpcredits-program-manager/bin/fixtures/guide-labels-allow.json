@@ -52,5 +52,26 @@
 		"why": "placeholder",
 		"note": "A view of the Accounts tab; the screen adds how many in parentheses.",
 		"pattern": "Invited %s"
+	},
+	"Screen Options": {
+		"why": "wordpress",
+		"note": "The tab WordPress puts at the top right of its list screens."
+	},
+	"Users": {
+		"why": "wordpress",
+		"note": "WordPress's own Users screen."
+	},
+	"Export Personal Data": {
+		"why": "wordpress",
+		"note": "WordPress's own tool, under Tools."
+	},
+	"Erase Personal Data": {
+		"why": "wordpress",
+		"note": "WordPress's own tool, under Tools."
+	},
+	"Move Students up": {
+		"why": "placeholder",
+		"note": "A module's arrow: Move, the module's name, then up.",
+		"pattern": "Move %s up"
 	}
 }

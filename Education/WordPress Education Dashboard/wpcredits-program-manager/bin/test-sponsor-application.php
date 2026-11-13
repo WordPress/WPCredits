@@ -2493,9 +2493,9 @@ update_post_meta( $id, WPCPM_Sponsor_Application::META_SIGNALS, array( 'in-base'
 ob_start();
 WPCPM_Sponsor_Application::render_actions( get_post( $id ), 'new' );
 $flagged = (string) ob_get_clean();
-ck( 'a company already on the site is warned about on Approve, and sent to Create account on the Sponsors screen\'s Accounts tab instead', array(
+ck( 'a company already on the site is warned about on Approve, and sent to Manage accounts or Create account on the Sponsors screen\'s Accounts tab instead', array(
 	false !== strpos( $flagged, 'already holds a sponsor with this name or website' ),
-	false !== strpos( $flagged, esc_attr( "If it is the same company, reject this application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
+	false !== strpos( $flagged, esc_attr( "If it is the same company, reject this application and attach the person's account from Manage accounts on the Sponsors screen's Accounts tab, or use Create account on its No account view for an Approved sponsor with no account." ) ),
 	strpos( $flagged, 'Sponsors card' ),
 ), array( true, true, false ) );
 ob_start();
@@ -2871,7 +2871,7 @@ $card = queue_card();
 WPCPM_Administrators_Dashboard::$url = '';
 $card_no_page                        = queue_card();
 WPCPM_Administrators_Dashboard::$url = $dashboard;
-ck( 'the queue card says what it is for and where its applications are decided', false !== strpos( $card, '<p class="description">Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, where approving creates the sponsor record, the account, the category, the logo record and the first offer in one press.</p>' ), true );
+ck( 'the queue card says what it is for and where its applications are decided', false !== strpos( $card, '<p class="description">Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, and one past the oldest it lists is decided here; approving creates the sponsor record, the account, the category, the logo record and the first offer in one press.</p>' ), true );
 ck( 'under the list, before Recently decided, one line opens the card on the Administrator Dashboard; the rows keep their own way to open each here, and nothing on the card is a form', array(
 	substr_count( $card, '<p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p>' ),
 	false !== strpos( $card, '</ol><p><a href="' . $dashboard . '#wpcpm-sponsor-applications">Open on the Administrator Dashboard</a></p><section class="wpcpm-sapp-decided">' ),
@@ -2885,8 +2885,8 @@ $post = end( $rows );
 ob_start();
 WPCPM_Sponsor_Application::render_details( $post );
 $matches = (string) ob_get_clean();
-ck( 'what the site already has sends a manager to Create account on the Sponsors screen\'s Accounts tab when the company is already there', array(
-	false !== strpos( $matches, esc_html( "Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors screen's Accounts tab instead." ) ),
+ck( 'what the site already has sends a manager to Manage accounts or Create account on the Sponsors screen\'s Accounts tab when the company is already there', array(
+	false !== strpos( $matches, esc_html( "Approving creates a second record: if this is the same company, reject the application and attach the person's account from Manage accounts on the Sponsors screen's Accounts tab, or use Create account on its No account view for an Approved sponsor with no account." ) ),
 	strpos( $matches, 'Sponsors card' ),
 ), array( true, false ) );
 

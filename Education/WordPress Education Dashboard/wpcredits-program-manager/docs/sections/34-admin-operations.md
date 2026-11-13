@@ -2,449 +2,1157 @@
 
 ### The sync
 
-The students and the mentors syncs read Airtable and reconcile accounts: create what is missing,
-update what has changed, and apply the two settings under **When someone leaves** (Settings, Students and mentors tab) to the rest: **When a mentor is no longer active** and **When a student leaves the program**. Run
-one by hand from the Students or Mentors screen, or leave **Automatic sync** on - students and
-mentors every three hours, half an hour apart.
+Three syncs bring the site in line with Airtable: students, mentors and institutions.
 
-They start half an hour apart on purpose. The student rows carry what students and mentors are
-shown on their cards, so a stale copy is a stale card, and it is the expensive half of the pair:
-it reads one WordPress.org profile per mentor, cached for twelve hours, while building the mentor
-cards. The mentors run reads three Airtable tables and makes no WordPress.org request. Two runs in
-the same request would be one long request. A run still going when the next one is due is left to
-finish rather than restarted.
+#### When the syncs run
 
-**Syncs every three hours (1.98.2).** All three Airtable syncs - students, mentors and
-institutions - share one three-hour clock, and the first runs are staggered so each starts at its
-own point in the cycle: students half an hour in, mentors an hour, institutions an hour and a half.
-WordPress cron runs each event at or after its scheduled time, so the cadences
-drift apart after that and on a busy site two can still land close together, each safe behind its
-own lock. Before this only the students sync ran every three hours and the other two ran once a
-day, which meant an institution changed in the base was a day old on the site. Nothing
-has to be switched off and on again for the change to take: on the first request after the update
-each sync sees its own event still on the daily schedule, clears it and puts it back on the
-three-hour one. The housekeeping jobs are not syncs and stay daily - the three application retention
-runs (institutions, sponsors and mentors), the two agreement discards, the nightly reminder of agreements waiting, invitation expiry, the semester report
-drafting and the ceiling's sweep - because the settings behind them are in days and a base that is
-down must not stop a file being forgotten on time. The Mentor Status Checker is not a sync either: it
-reads WordPress.org profiles rather than Airtable, and its automatic run is daily (weekly until 1.122.4).
+- While **Automatic sync** is ticked (`WPCredits Program > Settings`, tab **Students and mentors**), all three run every three hours, half an hour apart: students, mentors, institutions. Default: on.
+- WordPress starts each run at or after its time, so two can still fall close together.
+- A run still going when the next is due is left to finish. A stalled run is started again.
+- By hand: **Sync students now** and **Sync mentors now** on the Students and Mentors screens (tab **Sync**), **Sync institutions now** on the Institutions screen (tab **Sync and storage**).
+- One run at a time: a press during a run starts nothing.
+- A brief refusal from Airtable makes the run wait, then carry on.
 
-**A correction made while the institutions sync reads (Institutions release 2).** A school's details
-corrected on the site, on its Institution Dashboard or by an Administrator's approval of its
-request, are written to Airtable and then to the site's copy of the Institutions table, one
-correction at a time, under the option `wpcpm_institutions_index_lock`; a correction that cannot
-take it within a second is in Airtable and reaches the site with the next run. The institutions sync
-writes that copy whole from what it read of the base, so a run that read before a correction could
-put back the value it replaced. A correction made while a run holds its lock therefore asks for one
-more run five minutes later, which reads the change from the base. Only one such run waits at a
-time, and it keeps to **Automatic sync** and leaves a run still going alone.
+#### What each sync reads and makes
 
-Since 1.123.56 the institutions sync says on Slack that an institution has joined. A run that
-finds a record at Confirmed the site has not announced before posts one message once it has
-finished: the institution's name, its city and country where the record holds them, the
-Administrator it is assigned to where it has one, and a last line with how many
-confirmed institutions that makes. It goes to the **Slack webhook** saved for the Mentor Status
-Checker, so the channel is chosen in Slack, and nothing is sent or recorded while no webhook is
-saved. Up to three in one run are announced one by one; more than that is one message naming them
-all, because a stage column edited in bulk is not fifty pieces of news. Each institution is
-announced once, under the option `wpcpm_institution_announced`, and the first run that has a
-webhook records every institution already at Confirmed and says nothing, so the partnerships signed
-before this shipped are not announced as new. A confirmation the program dated more than thirty
-days ago is history rather than news: it is remembered without a word, so a list of older
-partnerships entered in the base is quiet, while a record whose **Confirmed on** is empty or cannot
-be read is announced, losing a real partnership to an empty field being the worse of the two
-mistakes. A test institution is announced nowhere and is left out of the total the message prints,
-as it is left out of every other figure the site draws; renamed away from TEST, it is news at the
-sync that makes it real. A message Slack refuses leaves its institution unannounced, so the next
-run says it again, and the message is in the site's language whatever language the run was started
-in.
+| Sync | Reads in Airtable | Makes on the site |
+|---|---|---|
+| Students | Students Reports, mentors' contact details, the Students table | Student accounts and each student's program details |
+| Mentors | Mentors at **Mentor status to sync**, student reports, the Students table | Mentor accounts, each mentor's students, the public list of mentors |
+| Institutions | The Countries and Institutions tables | The site's copy of each institution, a first account while **Create accounts automatically** is ticked (tab **Institutions**), and removes the members of a school that left the pipeline |
 
-Accounts are matched by the Airtable record the sync stored, then by email address. Since 1.123.58 a
-mentor whose WordPress.org username is an account's login, with nothing else to tie the two, is not
-linked: the match waits under **Needs confirming** on the Mentors screen's Sync tab. A match you
-confirm is linked and given the Mentor role (an Administrator's account keeps its roles); with
-**Invitation emails** on it is also sent the invitation with the welcome, unless the account was an active mentor already, is an Administrator's, or its invitation is held. The next completed run
-removes a waiting match whose mentor has left the base. Needs confirming is the sync's path only:
-an application's activation still links an account by the applicant's own username. **No account is
-ever deleted by a sync** - the most it will do is remove a role.
+- A student in **Past students** keeps an existing account but is never given a new one.
+- An institution's first account is made from its Contact Email, only for a *Confirmed* school whose agreement is recorded and that never had a member. An address already on an account is left alone.
+- A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement. By default its people lose their access; **Its people** (tab **Institutions**) decides.
 
-The sync report on each screen says what happened rather than only that it finished: created,
-updated, skipped and why.
+#### How an account is matched
 
-Since 1.122.33 the mentors sync makes and links its accounts through the same step that making a
-mentor from an application uses, so there is one way to make a mentor: it matches as above, lists
-an account matched by username alone under **Needs confirming**, for an Administrator to confirm, and makes
-an account only when none matches. An application has no record id yet, so its lookup is the
-address, then the username, then the profile an account holds. The sync leaves a mentor made from an
-application alone while that mentor's Mentors row is not written (see *Applications to mentor*): it
-does not revoke the account while the row is not written. If the sync itself links the account to an
-Active row, that ends the wait, and the account is treated as any other mentor's. Nor does a run revoke a mentor who was made one,
-or whose row was written or found, after the run began; the next run reads the row and decides. The
-Mentors screen's **Sync** tab says how many wait.
+- Students: by the Airtable record the sync stored, then by email address, never by username.
+- A student's address that belongs to a mentor's account, an institution member's account, or an account with a role other than Student or Subscriber is a conflict. The account is left as it is.
+- Mentors: by the stored record, then by email address, then by username.
+- A mentor's account found by username alone is not linked. It waits under **Needs confirming** on the Mentors screen's **Sync** tab. **Needs confirming** is for the sync only. Making a mentor from an application links an account found by username at once, and holds its invitation.
+- **Confirm** links it and gives it the Mentor role; an Administrator's account keeps its roles. With **Invitation emails** on, the invitation is queued, unless the account was an active mentor already, is an Administrator's, or its invitation is held.
+- A run that passes the count check removes a waiting match whose mentor has left the base.
+- An account linked to another record is a conflict. A mentor with no WordPress.org username or no valid address is skipped.
 
-Since 1.123.42 the mentors sync also sends the welcome to a mentor whose account already existed. It
-used to queue the invitation, which carries the welcome, only for an account it created, so a
-returning mentor, or a student or an institution member made a mentor, was linked and given the role
-and never received it. With **Invitation emails** on, a run now queues it for each account it makes
-an active mentor that was not one before: the account had no Mentor role, or held it with its
-active flag off. A mentor who is active already, whether the sync or an application made them one,
-is not sent it again by a later run, so each is welcomed once each time they become active. An
-Administrator's account is never sent it. An account matched by username alone is not linked by the
-sync: it waits under **Needs confirming** on the Sync tab, and **Confirm** there decides whether it
-is welcomed. An account whose invitation is held already is named in a notice and left as
-it is. A run that would welcome more than five accounts at once, a base changed in bulk, sends
-none: it holds each one's invitation on the Mentors screen's **Accounts** tab, and names
-them all in the first notice of its report, so **Send invite** on a row sends the welcome to the
-ones that should have it. The **Last sync report** counts those it queued under **Invitations sent
-to existing accounts**.
+Step by step: [[A mentor's account waits under Needs confirming]]; [[A student the sync skipped, and a held invitation]].
 
-Since 1.123.62 the mentors sync also keeps the public list of active mentors on the site. For each
-active mentor it stores the name, the WordPress.org profile, the country, the languages and whether
-the mentor is sponsored, and no address. In the base Country and Languages are links to tables of
-their own, so the sync reads those tables' names as well. The list is replaced only by a run that
-read the whole Mentors table and could name every country and language: a run that stops halfway,
-or cannot read one of the linked tables, leaves the last list as it is and says so in a notice of
-the **Last sync report**. Who sponsors a mentor is not stored with the list. It is read from the
-sponsors' own records, the mentors each Approved sponsor holds on the **Sponsors** screen, never a
-test sponsor's, so a change there shows at once. The Credits Program Mentors plugin, which draws
-the directory on the mentors' page, reads this list (the filter `wpcpm_public_mentors`) and reads
-no Airtable of its own. The list is as fresh as the last finished run: a mentor made Active in
-Airtable appears on the page after the next one.
+#### Accounts of people who leave
 
-Since 1.123.58 the mentors and students syncs count before they take anyone's role. A run that read
-no records, or fewer than half as many as there are accounts linked to a record, stops before its
-revoke step and keeps every account; the Sync tab says what it read and offers **Run anyway**, and
-`wp wpcredits sync_mentors --accept` does the same on the command line, for that run only. A stopped
-run is not running: the Sync tab stops polling, prints why in the progress panel with a line to
-reload the page for **Run anyway** or **Cancel**, and **Cancel** ends a stopped run too. A
-passing refusal from Airtable makes every sync wait and carry on. Pressing **Sync students now** or **Sync mentors now** while a run is going
-comes back with "A sync is already running. Its progress is shown below." and starts nothing;
-`wp wpcredits sync_mentors --restart` starts again on purpose. While a run goes, a screen reader
-hears each step, a stall and the finish, and the finished run's counts are said on the Sync tab for
-the mentors and students syncs; the institutions sync says accounts created only.
+A linked account the run did not read has left. **When someone leaves** (tab **Students and mentors**) decides whether the role is removed. The default removes it.
 
-Two commands go with the Mentors row an activation writes. `wp wpcredits mentor_airtable_row
-<reference>` prints the row an application would write, each cell as its column takes it and what
-would be left out, and writes nothing; it reads Airtable and prints the applicant's answers, so it is
-for a test application. `wp wpcredits mentor_airtable_row --check --email=<address>` is for the
-launch, run by hand before **Make mentors from applications** is switched on: it writes one synthetic
-row to the Mentors table, with the address given and the Status Inactive, which neither the mentors
-sync nor the Mentor Status Checker reads, reads it back, deletes it, and says which columns the base
-kept. It deletes only the row it wrote, it changes nothing on the site, and it ends in an error while
-a row may be left behind, which then has to be deleted in Airtable by hand, and while a column did
-not take what the site sends.
+- A mentor who left loses their list of students with either choice.
+- A student in **Past students** counts as having left.
+- An Administrator's roles are never touched. An account left with no role becomes a *Subscriber*.
+- No sync ever deletes an account.
+- A mentor made from an application keeps the role while their Mentors row is not written, or was written after the run began. The **Sync** tab says how many have no Airtable row yet.
 
-Since 1.123.58 `wp wpcredits setting get <key>` prints a setting as the screen shows it, a secret
-masked, and `wp wpcredits setting set <key> <value> [--dry-run]` changes one by the Save's own
-rules: it prints what changed, what it would change with `--dry-run`, or why the value was refused;
-`everyone` is the value that sets a Who is mailed list to every Administrator account. Change a
-live setting one way at a time: a settings tab open in a browser keeps its own view of the page it
-drew.
+#### The count check
 
-Since 1.123.61 `wp wpcredits start_pages` makes the Start here page (/start-here/) and the Team Matcher
-page (/find-your-team/) the way the first-week checklist's switch does, and prints each page's ID and
-address. A page that already exists, at its address or in its stored ID, is kept as it is. The Team
-Matcher page is made only while the Find Your Team plugin's quiz block is available; the command says
-so when it is not, and can be run again once the plugin is active. Run it on a site where the switch
-was turned on before the Find Your Team plugin was active.
+Before the mentors or students sync takes a role, it compares the records it read with the accounts linked to a record.
+
+- It stops when it read none, or under half as many. It never stops while nothing is linked.
+- A stopped run keeps every account, and the automatic runs wait for you.
+- **Run anyway** is on the **Sync** tab while a run is stopped, and goes on for that run only.
+
+Step by step: [[A sync stopped before taking roles]].
+
+#### The Last sync report
+
+The **Last sync report** card on the Students and Mentors screens' **Sync** tab shows the last finished run: counts, then **Warnings**, which name each person skipped and why. It keeps 100 warnings.
+
+| Line | What it counts |
+|---|---|
+| **Existing accounts linked** | Accounts linked to a record for the first time |
+| **Accounts refreshed** | Accounts already linked, brought up to date |
+| **Invitations sent to existing accounts** | Mentors only: welcomes queued for existing accounts |
+| **Students skipped (missing data)**, **Mentors skipped (missing data)** | Students: no valid address, or an account that could not be made. Mentors: also no WordPress.org username |
+| **Account conflicts** | An address or account that belongs to someone else |
+| **Students assigned to a non-active mentor** | Mentors only: reports linked to a mentor the run did not read |
+
+Step by step: [[Run a sync by hand and read its report]].
+
+#### The welcome for an existing account
+
+With **Invitation emails** on, the mentors sync queues the invitation, which carries the welcome, for an existing account it makes an active mentor.
+
+- Each mentor gets it once each time they become active. An Administrator never does.
+- An account whose invitation is held is named in a warning and left as it is.
+- A run that would welcome more than five sends none. It holds each and names them in the first warning. **Send invite** on the account's row, Mentors screen, tab **Accounts**, sends it.
+
+#### The public list of mentors
+
+The mentors sync keeps a list of active mentors for a mentor directory: name, WordPress.org profile, country, languages and whether sponsored. No address.
+
+- Only a run that read the whole Mentors table and named every country and language replaces it. A linked table it could not read is named under **Warnings**.
+- The list is as fresh as the last finished mentors sync.
+- Who sponsors each mentor is read from the **Sponsors** screen, from *Approved* sponsors that are not test sponsors. A change there shows at once.
+
+#### Corrections during an institutions sync
+
+A school's details corrected on the site go to Airtable, then to the site's copy. If an institutions sync is reading then, the correction asks for one more run five minutes later. Only one waits at a time, and it keeps to **Automatic sync**. A correction the site could not copy at once is in Airtable already and arrives with the next run.
+
+#### The Slack message for a new institution
+
+After an institutions sync, the site posts on Slack for each institution newly at *Confirmed*. It uses the **Slack webhook** on the **Mentor Status Checker** screen, listed beneath **Tools** in the `WPCredits Program` menu. With none saved, nothing is sent or recorded.
+
+- It gives the name, the city and country, the Administrator where one is assigned, and the new total of confirmed institutions.
+- Up to three get a message each; more get one message naming them all.
+- Each is announced once. The first run with a webhook records those already *Confirmed* and says nothing.
+- A **Confirmed on** date over 30 days ago is recorded silently. An empty date is announced.
+- Test institutions are never announced or counted. A refused message is sent again next run.
+
+#### Commands for the command line
+
+- `wp wpcredits sync_mentors` runs the mentors sync. Add `--dry-run` to change nothing, `--accept` to pass the count check once, `--restart` to start again during a run.
+- `wp wpcredits mentor_airtable_row <reference>` prints the Mentors row a test application would write, and writes nothing.
+- `wp wpcredits mentor_airtable_row --check --email=<address>` writes a test row to the Mentors table, reads it back and deletes it. Run it before switching on **Make mentors from applications**. After an error, delete any row left in Airtable.
+- `wp wpcredits setting get <key>` prints a setting, a secret masked. `wp wpcredits setting set <key> <value>` changes it by the screen's rules; add `--dry-run` to only show the change. For a **Who is mailed** list, `everyone` means every Administrator.
+- Change a live setting one way at a time: an open settings tab saves its own copy.
+- `wp wpcredits start_pages` makes the Start here page (`/start-here/`) and the Team Matcher page (`/find-your-team/`), keeping pages that exist. The Team Matcher page needs the Find Your Team plugin active.
 
 ### Invitations
 
-An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
-before a sync, or one at a time from the Students and Mentors screens and the **Accounts** tab of
-the Institutions and Sponsors screens - which is the safer habit, because a first sync creates
-around ninety accounts at once. On those four lists you can also tick several accounts and choose
-**Send invite** or **Resend invite** under **Bulk actions**: those are queued and go out a few at a
-time.
+An invitation is an email with a link to set a password. Each new link cancels the one before, so only the newest email works.
 
-Each invitation cancels the link in the one before it, so only the newest email works: somebody who
-opens an older one is told the link appears to be invalid. For the same reason a second invitation
-to the same person within fifteen minutes is not sent, on purpose. **Resend invite** on a person's
-row says so and sends nothing, and so does a second press made while the first is still sending;
-**Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes and says
-how many it left out; and a bulk send passes over anybody invited in the last fifteen minutes or
-being sent one at that moment. Ask them to use their newest email, or send another once the fifteen
-minutes are up. An invitation the mail host refuses does not count as sent: **Resend invite** on the
-row says the mail host refused it, the fifteen minutes do not start, and the lists still show the
-last invitation that did go, or none, as a bulk send that meets a refusal leaves them too, its card
-counting how many it did not send. "Not sent" there covers anybody the mail host refused, anybody
-another press was sending one to at that moment, anybody invited in the last fifteen minutes,
-an account deleted before its turn, and anybody whose invitation is held until an Administrator confirms the account; the Emails tool's **Log** shows each refusal. That last
-invitation's link no longer works, though, since the refused attempt made a new one: send another
-once the site's email is working.
+- In bulk: switch **Invitation emails** on before a sync (`WPCredits Program > Settings`, tab **Students and mentors**). It is off by default, since a first sync creates around ninety accounts.
+- By hand: **Send invite** or **Resend invite** on a row of the **Accounts** tab of the Students, Mentors, Institutions and Sponsors screens. Several ticked rows go under **Bulk actions**.
+- A bulk send is queued and goes out ten at a time. A card counts what is sent and left.
 
-Since 1.122.33 the mentor's invitation carries the welcome a new mentor is sent, after the
-invitation's own lines: the two **Start here** posts, one welcoming mentors to their Mentor Report
-Card and one welcoming students to their Student Report Card; the five student courses on
-learn.wordpress.org (the WordPress Credits Translation Track since 1.122.38), which a mentor joins
-through each course's invitation link to see what is asked of their mentees; the program's private
-Slack channel for mentors; the discount codes for students' tools, which are in that channel; the
-mentor resource folder; and the sign-off. The courses' invitation links and the folder's link are
-private, and are not in the plugin or in this guide: the shipped text holds one bracketed line where
-they go, and the mentor coordinator types them into the template, **Invitation: mentor** in
-**Tools > Emails**, before any mentor is sent it. A saved edit of that template is sent in place of
-the shipped text, welcome or none, so an edit saved before the welcome existed has to be replaced,
-and an edit saved before 1.122.38 keeps its own course list: the mentor coordinator adds the line
-for the WordPress Credits Translation Track, and the track's invitation link, to that edit. A reply
-to the invitation reaches the address under **Contact address in emails**, as the program's
-Reply-To, which no other invitation carries.
+#### When an invitation is not sent
 
-The mentor's invitation is queued on every activation of a mentor application, whatever **Invitation
-emails** says, and goes out a few at a time like the others, under the same rules: the fifteen
-minutes, the lock, and a refused email writes no stamp. It is not queued for an Administrator, and
-it is held when the account is not yet confirmed as the person's, linked by WordPress.org username
-alone or with another account also answering for the applicant: **Send invite** or **Resend invite**
-on its row in the Mentors screen's **Accounts** tab sends it once an Administrator has confirmed
-which account is the person's. The **Activated** view of the Mentors screen's Waiting for review tab
-says what became of it since the person was made a mentor.
+- A second invitation to the same person within 15 minutes is not sent. The screen says so, and a bulk send leaves them out.
+- An invitation the mail host refuses does not count as sent, and the 15 minutes do not start. It has still canceled the earlier link, so send another once the email works.
+- A finished bulk send counts how many were not sent. They were refused, already being sent, invited in the last 15 minutes, gone, or held for an Administrator.
+- The **Log** of `WPCredits Program > Tools > Emails` shows each refusal. It keeps 30 days.
 
-Since 1.122.30 an institution sends a student's welcome invitation again itself. On a student's card
-on the Institution Dashboard, a student with no sign-in on record since the site began recording
-sign-ins, on October 15, 2026, shows a line saying so, with when their last invitation was sent or
-that none has been, and a **Resend invitation** button (**Send invitation** when none has). Every
-member of the student's own institution can press it, and so can an Administrator who opens that
-institution's dashboard through the switcher. It sends the same invitation as **Resend invite**
-here, with a new link that replaces the one before, and no Administrator is emailed. A student with
-a sign-in on record shows no line and no button: a lost password has WordPress's own reset. A
-student who also mentors, whose invitation was held when an application made them a mentor, shows
-the line with no button: in its place the card says the program's Administrators send this
-invitation once they have confirmed the account belongs to the student, and a press from a page
-drawn before is told the same and sends nothing, taking none of the day's twenty. The institution
-learns only whether a sign-in is on record, never when.
+#### The mentor's invitation
 
-The fifteen minutes hold here too, and each institution can send twenty a day, the presses of an
-Administrator through the switcher included. Two presses for one student at the same moment send one
-invitation: the second is told what a press within the fifteen minutes is told. A press that sends
-nothing takes none of the day's twenty, an email the mail host refuses included, and a refused email
-does not start the fifteen minutes either. The card then says the invitation could not be sent and
-that the link in any earlier invitation no longer works, and asks the school to try again in a few
-minutes and to write to their program contact if it fails again; its line still names the last
-invitation that went, though that one's link no longer works. Each send is in the Emails tool's
-**Log**, which keeps its rows for 30 days, and the institution's history records each one in its
-audit log, with who pressed it and whether as a member or as an Administrator. Those rows are listed in the
-**History** card, in the **For Administrators** section of the school's Institution Dashboard, which shows when each happened and who pressed it.
+**Invitation: mentor** also carries the welcome. It names the two Start here posts, the five student courses, the mentors' private Slack channel and the mentor resource folder.
+
+- The courses' invitation links and the folder's link are private. An Administrator types them into the template, over its line in square brackets, before any mentor is sent it.
+- Once you save an edit, the site sends your edit instead of the shipped text.
+- A reply goes to **Contact address in emails** (`Tools > Emails`, tab **Signature and footer**), while it holds an address.
+
+Activating a mentor application queues this invitation whatever **Invitation emails** says, but never for an Administrator's account. It is held when the account is linked by WordPress.org username alone, or another account also answers for the applicant. Confirm the account, then press **Send invite** on its row in the Mentors screen's **Accounts** tab.
+
+The **Activated** view of the Mentors screen's **Waiting for review** tab says what became of each one.
+
+#### A student's invitation from the Institution Dashboard
+
+A student with no sign-in on record has a line on their card. It says when the last invitation went, with **Resend invitation** (**Send invitation** when none went).
+
+- The school's representatives can press it, and so can an Administrator who opened the dashboard. Tutors cannot. No Administrator is emailed.
+- The 15 minutes apply, and each school can send 20 a day. A press that sends nothing does not count.
+- A held invitation shows no button: the card says the Administrators send it once they confirm the account.
+- The school learns only whether a sign-in is on record, never when.
+- Each send is in the **Log**, and in the **History** card under **For Administrators**.
+
+Step by step: [[Invite a student, or several]]; [[A student the sync skipped, and a held invitation]]; [[A held invitation, and an Airtable row that was refused]]; [[Change the words of an email and test it]].
 
 ### Who follows an institution up
 
-An institution's assigned Administrator is its contact at the program. It comes from the areas of responsibility under Settings > Institutions; once the areas are set, the Countries table in Airtable no longer decides who follows a school up. A school gets its Administrator on approval of its application on this site, from the institutions sync when it was added in Airtable, from the seed command, or on its details card. A school in a country no area covers stays unassigned until an Administrator assigns it on its details card.
+A school's assigned Administrator is its contact at the program. **Areas of responsibility** decide who it is (`WPCredits Program > Settings`, tab **Institutions**): the country's own Administrator first, then the region's.
 
-- **On an application.** A new application takes the Administrator of its country's area, or of its region's, and that Administrator alone is emailed, with a link to it ("Institution assigned, to the Administrator" in WPCredits Program > Tools > Emails). An application no area covers is assigned to nobody, and then it is emailed as it always was: to the addresses in **Who is emailed about institutions** on Settings > Institutions, or to every Administrator when that is empty. An application with an assigned Administrator who is still an Administrator goes to them alone, even if that email fails: it is never sent to those addresses in its place, and the application is marked so you can see the email did not go. An application held for review or caught as spam sends no Administrator an email. The setting still decides who is emailed about everything else an institution does, such as agreements, requests and members leaving.
-- **On approval.** The institution is given the Administrator the application had, unless it already has one or was set to **Nobody**. An application that had none, or whose Administrator is no longer an Administrator, takes the area's Administrator at that moment, if there is one. Nobody is emailed by the approval.
-- **Added in Airtable.** A school added in Airtable after the seed, by a form, an automation or by hand, is given its area's Administrator by the next institutions sync, and that Administrator is emailed as on a reassignment. The sync assigns only a school it had not read before, never one that has an Administrator or was set to **Nobody**, and nothing on its first read or after the stored list of institutions was rebuilt. It sends at most five of these emails a run; a school past them is assigned without one. A test institution is assigned without the email. When more than ten schools are new in one read, none is assigned, so an Administrator assigns them on their details cards. Each assignment is written to the school's history.
-- **Reassigning.** On the institution's details card, under **Assigned Administrator**, open **Change who follows it up**, choose an Administrator (or **Nobody**) and save. The new Administrator is emailed, unless they made the change themselves, and the card says they were emailed only when the email was sent. The change is written to the institution's history.
-- **Where it shows.** The queues on the Institutions screen say "Assigned to" and the name, or that nobody is assigned. The Administrator Dashboard's application card says "Assigned to" too. The school's Institution Dashboard shows the assigned Administrator as its contact, with their booking link.
+Once any area is set, the Countries table in Airtable no longer decides who follows a school up. Only an Administrator can be assigned. Someone who stops being an Administrator stays on the record but is nobody's contact.
 
-Only accounts with the plugin's manage capability can be assigned. A person who stops being an Administrator stays on the record until somebody else is chosen, but is nobody's contact.
+| When | Who it gets | Who is emailed |
+|---|---|---|
+| A school applies on this site | Its area's Administrator | That Administrator alone (**Institution assigned, to the Administrator**) |
+| No area covers the applicant | Nobody | **Who is emailed about institutions**, or every Administrator when it is empty |
+| The application is approved | The application's Administrator, or else today's area Administrator | Nobody |
+| The sync reads a school added in Airtable | Its area's Administrator | That Administrator |
+| You change it on the details card | Whoever you choose, or **Nobody** | The new Administrator, unless they made the change |
 
-**Seeding the areas and the assignments once.** `wp wpcredits institutions_seed` fills in what R1's screens read from the site, from what Airtable holds today. Run it with `--dry-run` first: it writes nothing and prints a summary of what a run would do, school by school for what it cannot assign, and says why. A real run prints the same summary and asks "Write this to the site?"; `--yes` skips the question.
+- An application held for review or filed as spam emails no Administrator. When the assigned Administrator's email fails, nobody else is emailed, and the application is marked.
+- Approval and the sync never replace an Administrator the school has, or **Nobody**. The sync assigns only schools it had not read before, and none on its first read or after the stored list of schools was rebuilt.
+- The sync sends at most five emails a run, and none for a test institution. With more than ten new schools in one read, it assigns none.
+- A school no area covers stays unassigned until you assign it. Each change is in the school's history.
 
-- It reads three Airtable tables and changes none: Institutions (name, country, and the Airtable column that records who first handled the institution), Team Members (name, email, booking link) and Tutors.
-- It gives each country the Administrator whose account has the address of its contact in the Countries table. Regions are left empty: set them afterward on Settings > Institutions. When the site already holds areas, it writes none and assigns by the areas it finds.
-- It keeps each Administrator's booking link from the Countries table's contact, or from Team Members for the person who first handled a school, and only while the account has none, and assigns each institution to its country's Administrator, or else to the Administrator that column names. While the site holds no areas, a country's contact with no matching Administrator account is named in the summary with the countries it leaves without an Administrator; a person from Team Members who matches no Administrator is named with how many institutions stay unassigned for them. A booking link that is not an https address is not kept, and the summary names the Administrator.
-- It adds each school's tutors from the Tutors table to the school's tutor list, except a tutor somebody removed from that list on this site. A tutor linked to a record the site does not hold is named in the summary and not added.
-- It never replaces an area, a booking link, an assignee or a tutor already listed, or a school set to **Nobody**, so it can be run again. It sends no email: nobody is told of an assignment it makes, and no tutor is invited. A school whose record somebody else is changing at that moment is not assigned: the command names it and ends with an error, and running it again assigns it.
-- With no countries map yet, it says to run the institutions sync on the Institutions screen's Sync and storage tab first.
+**Who is emailed about institutions** still decides who hears about the rest: agreements to review, their reminders, template problems and an institution's last member leaving.
 
-**The Tutor level and the tutor list.** An invitation has a **Level**. A **Representative** works the page; a **Tutor** only reads it: the students, their Student Report Cards and the semester reports. A tutor is shown no button that changes anything, and a request that tries to change something is refused and writes nothing. A tutor of a school whose agreement is not yet accepted sees nothing but what a stranger sees. Each level has its own invitation email, and **Resend** keeps the level.
+The Institutions screen's queues and the Administrator Dashboard's application card say who an application is assigned to. The school's Institution Dashboard shows its Administrator under **Your contact at the program**, with their booking link.
 
-Separately, each school keeps a **tutor list**: the names its students pick from in the **Tutor** box when the school enrolls them. It lives on the site, in the Tutors section of the People card, where a representative or an Administrator can **Add a tutor** (a name and an email address) and **Remove** one. Adding a tutor to the list sends no email and makes no account; removing one leaves their account and their past students as they are. A tutor who accepts a Tutor invitation is added to the list. The enrollment form and the tutor box read this list, never Airtable.
+#### Seeding the areas and assignments
+
+`wp wpcredits institutions_seed`, run on the server, fills the areas, booking links, assignments and tutor lists from Airtable.
+
+- `--dry-run` writes nothing and names each school it cannot assign, and why. `--yes` skips the question "Write this to the site?".
+- It changes nothing in Airtable, and sends no email.
+- It gives each country the Administrator whose address matches its Countries contact. It leaves regions empty, and writes no area while the site holds any.
+- It never replaces what is already there, so it can run again.
+
+#### Tutors
+
+An invitation to a school has a **Level**: a **Representative** works the page, and a **Tutor** only reads the students, their Student Report Cards and the semester reports. Until the agreement is accepted, a tutor sees no more than a visitor. Each level has its own invitation email, and **Resend** keeps the level.
+
+The school's tutor list is the names a student can pick in the **Tutor** box, kept in the **Tutors** section of the **Representatives and tutors** card. **Add a tutor** sends no email and makes no account, and **Remove** keeps any account. A tutor who accepts a **Tutor** invitation is added to it.
+
+Step by step: [[Give a country or a region to an Administrator]]; [[Close a "no area" gap]]; [[Assign a school to another Administrator, or to nobody]]; [[Choose who is emailed about institutions, mentors and students]]; [[Run the seed command]]; [[Invite a representative or a tutor for a school, and keep its tutor list]].
 
 ### Pages the plugin owns
 
-Activation creates the Student Report Card and Mentor Report Card pages and gates them. If one goes
-missing, re-activating the plugin recreates it, and the Students or Mentors screen says the page is missing.
-A Settings row that switches on a page, such as an application form's, says the same of its page.
-The institution application form's page is at /institution-application/ since 1.123.27, titled
-"Bring WordPress Credits to your institution", moved once from /apply/ on the first request after
-the update (its slug, title and content each only while still the plugin's own), and /apply/
-takes a visitor there.
-The Administrator guide's page is at /administrator-guide/ since 1.123.41, moved once from
-/program-manager-guide/ on the first request after the update (its slug alone, and only while it is
-still the old one and no other page, post or attachment holds the new one: the title, the content,
-the status and the modified date are not touched, and no save runs), and /program-manager-guide/ takes a visitor there. The release
-script writes the page by its ID, so a release does not care which address it has.
+Activating the plugin creates these pages when they are missing. A page already at the address is used, and its text is not changed.
 
-The student registration form's page is at /student-registration/ since 1.123.54, with the same Welcome text the Airtable form opened with, the program's address and the form. Activation makes it, and so can a person, with the same address: a published page at that address is used as it is, and nothing on it is changed. The page is not gated, because the students who use it have no account yet, and it is not cached.
+| Page | Address | Who can read it |
+|---|---|---|
+| Student Report Card | `/student-dashboard/` | Students |
+| Mentor Report Card | `/mentor-dashboard/` | Mentors |
+| Institution Dashboard | `/institution-dashboard/` | Institution accounts |
+| Sponsor Dashboard | `/sponsor-dashboard/` | Sponsor accounts |
+| Administrator Dashboard | `/administrator-dashboard/` | Administrators |
+| Institution application | `/institution-application/` | Anyone |
+| Mentor application | `/become-a-mentor/` | Anyone |
+| Sponsor application | `/sponsor-application/` | Anyone |
+| Student registration | `/student-registration/` | Anyone, never cached |
+| Partners | `/partners/` | Anyone, while **Sponsor tiers** is on |
 
-Since 1.123.63 the registration form's line for a student whose institution is not on the list
-leads to the institution application page on this site while it is published, and says to get in
-touch otherwise. It used to lead to the Students Interest Form, which is kept on Airtable; the site's
-public pages now link to no form there.
+In Pages, the three application pages are titled "Bring WordPress Credits to your institution", "Become a mentor" and "Sponsor the WordPress Credits Program".
 
-Since 1.123.64 the site has a student interest form, for a student whose institution is not in
-the program yet. The plugin makes no page for it: an editor adds the **Student Interest Form** block,
-or the `[wpcpm_student_interest]` shortcode, to a page, and the site remembers that page as pages
-are saved. The page is not gated and not cached. Each interest is kept on the site as one private
-record: the student's answers, the representative's name and address, the two sentences the student
-agreed to with the policy's address, what the form's checks noticed, and who last changed its state
-and when. Nothing is written to Airtable. A spam interest is deleted 30 days after it was marked as spam and
-a closed one 365 days after it was closed, by a daily job; the others stay until an Administrator
-moves them. Deleting the plugin removes every interest, the page's ID and the daily job, and leaves
-the page. While the form is open and its page is published, the registration form's line for a
-student whose institution is not on the list leads to it, and to the institution application
-otherwise.
+- Administrators can read every page. `/apply/` takes a visitor to the institution application.
+- If a page goes missing, re-activate the plugin. The screen that uses it, and any Settings row that switches it on, say it is missing.
+- The registration form's line for a school not on the list leads to the Student Interest Form while the **Student interest form** switch is on (tab **Students and mentors**) and its page is published. Else it leads to the institution application while that page is published. With neither, it asks the student to have a faculty member or the administration office get in touch.
 
-The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists.
-The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
-The Mentor Report Card's guide button follows a published page at `mentor-guide` on this site in the same way, and the handbook's Mentor guide until that page exists. The handbook keeps what is for people who are not mentors yet: who can become one, the mentor badge and how to apply.
-The Student Report Card's guide button does the same with a published page at `student-guide` and the handbook's Student guide. The handbook keeps what is for people who are not on the program yet: which institutions take part, the interest forms and how to apply.
+The plugin makes no page for the Student Interest Form: add the **Student Interest Form** block to a page. Each interest is a private record on the site, never in Airtable. A spam one is deleted 30 days after it was marked as spam, a closed one 365 days after it was closed.
+
+The Administrator guide is at `/administrator-guide/`, and `/program-manager-guide/` leads there.
+
+The Institution Dashboard's guide button follows a published page at `institution-guide` on this site when there is one, and the handbook's institutions page until that page exists. The Sponsor Dashboard's guide button follows a published page at `sponsor-guide` on this site when there is one, and the handbook's sponsor guide until that page exists. Each release republishes both pages from the built Institution guide and Sponsor guide, so a change made to either page by hand lasts only until the next release.
+
+The Mentor Report Card's button does the same with `mentor-guide` and the handbook's Mentor guide. The Student Report Card's does so with `student-guide` and the Student guide.
+
+Step by step: [[Open student registrations]]; [[Put the Student Interest Form on a page]]; [[Open the institution application form]]; [[Open applications to mentor]].
 
 ### Uninstall
 
-Uninstall removes the settings, the sync state, the access-level meta, the last sign-in and last visit the site records for every account, and the custom roles, and moves
-affected accounts back to Subscriber; it also deletes the sponsors' offers, pools and locks, and the
-claims meta, the sponsor applications with the logo files nobody approved, the mentor applications
-with what deleted ones counted for the public feed of their figures, the sponsor reports and their
-locks, forgetting the PDF each report held, the sponsor events with the people on them and their
-locks, and the institution records, which hold the five answers an application gave, the assigned
-Administrator, the tutor list and the tracks, and the student registrations with their answers and consent evidence, their locks and the page's ID.
-It also deletes the first-week checklist's start time and each student's own ticks, and the IDs of the Start here and Team Matcher pages (the pages themselves stay, as every page the plugin makes does), and the quiet students' daily list, the time the switch last went On, the week of the last Monday email, the run's lock and its place on the clock, and from every account the stamps of the last report save, the last edit seen in Airtable, "We've already talked" and the last reminder.
-**Accounts are never deleted**, but the program details the plugin stored on them (record IDs, program, mentor links, availability, sign-in times) are removed.
+Uninstall is deleting the plugin, not only deactivating it. What it deletes cannot be brought back.
+
+Kept:
+
+- Every account. One that held only a program role becomes a Subscriber.
+- Every page the plugin made, the site's posts, and Media Library files, except sponsor logos nobody approved.
+- The signed agreement files of schools and sponsors, with their key. A list of them is emailed to the site's **Administration Email Address** (`Settings > General`).
+
+Deleted:
+
+- The settings, your email edits and the email log.
+- The plugin's roles, and every **Program access** level, so gated pages become public.
+- The program details on accounts: record IDs, program, mentor links, availability, sign-in times, reminders.
+- The records of institutions, students, mentors and sponsors: applications, agreement records, invitations, history, semester reports, registrations, interests, calls, notes, offers, codes, claims, reports and events.
+- Track Builder tracks, header notices and the scheduled jobs.
+
+Step by step: [[Before you uninstall the plugin]].
 
 ### When something is wrong
 
-| Symptom | Where to look |
-| --- | --- |
-| A student or mentor is missing | Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list. |
-| Details are stale on a Student Report Card or Mentor Report Card | Run the sync by hand; the page renders from what the last sync stored. |
-| A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
-| Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
-| Invitations are not arriving | **WPCredits Program > Tools > Emails**, filtered to the **Invitations** area. **Handed to the mail server** means the site passed it on; anything after that is between the site and its mail service. |
-| A password link says it is invalid | An older invitation. Each one cancels the link in the one before, so ask them to use their newest email. |
-| A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
+| What you see | What it means | What to do |
+|---|---|---|
+| A student or mentor has no account | The sync makes accounts only for the statuses you chose. | Compare their Airtable status with **Currently mentoring**, **Past students** or **Mentor status to sync** (tab **Students and mentors**). |
+| A Student Report Card or Mentor Report Card shows old details | It shows what the last sync stored. | Run the sync by hand. |
+| A mentor sees the wrong students | The mentor link in Airtable is wrong. The page follows records, not names. | Fix the link in Airtable, then sync. |
+| Nobody can book a call | The mentor set no availability. Their Mentor Report Card says so. | Ask the mentor to set it. |
+| Invitations do not arrive | *Handed to the mail server* means the site passed it on. The rest is the mail service's. | Read the **Log**, with **Area** set to **Invitations**. |
+| A password link says it is invalid | They opened an older invitation, or the link expired. | Ask them to use the newest email, or "Lost your password?" on the login page. |
+| A gated page is read by the wrong people | Its **Program access** level or the reader's role is not as expected. | Check both. Administrators read every level. |
+
+Step by step: [[A student the sync skipped, and a held invitation]]; [[Run a sync by hand and read its report]]; [[Find out what the site sent to someone]]; [[Make a post readable by one group]].
 
 ## Semester reports
 
-The site drafts a report for each institution semester once the semester has ended and every student in it is finished, or 45 days after the end (the "Drafting grace" setting) if some are not. The job runs nightly and drafts at most ten reports a run; it never drafts a semester that ended before the feature was installed, so older semesters are drafted by hand with the Draft now button on the Institutions screen's Semester reports tab. Each draft is mailed to the addresses in "Who reviews reports", or to every Administrator when that is empty.
+The site drafts each institution's report for a semester once it has ended.
 
-Review a draft on the Institution Dashboard, reached through the switcher from the Semester reports tab. Edit the narrative, choose the quotes, then press **Approve this report**. The institution sees the report from that moment, with a Download PDF button, and its accounts are mailed; an institution with no account is not mailed and the screen says so, so send the PDF by hand. **Reopen for editing** takes the report back to a draft and out of the institution's view. Approval is refused while the students' consent answers cannot be read.
+- A daily job drafts it when every student is finished, or after **Drafting grace** if some are not. That is 7 to 365 days, 45 by default.
+- It drafts at most ten a run, only while **Drafting** is on (on by default).
+- It drafts only for schools at one of the **Institution pipeline stages** (tab **Advanced**), and never where a report already exists.
+- It skips a semester that ended before it first ran. Press **Draft now** on the Institutions screen's **Semester reports** tab instead, at most 20 times a day per account.
+- A job's draft is emailed to **Who reviews reports**, or every Administrator when it is empty.
+- These settings are in `WPCredits Program > Settings`, tab **Institutions**, section **Semester reports**.
+
+You review the draft on the school's Institution Dashboard, then press **Approve this report**.
+
+- The school sees it from then, with **Download PDF**, and its accounts are emailed. With no account, the screen says so: send the PDF yourself.
+- Approval is refused while the students' consent answers cannot be read.
+- **Reopen for editing** makes it a draft again, out of the school's view.
+
+Step by step: [[A semester report: draft, review, approve, reopen]].
 
 ## The Administrator Dashboard
 
-The Administrator Dashboard at /administrator-dashboard/ is the page to start the day on. It is gated to Administrators. Since 1.123.69 it is drawn in the dashboards' frame: a top bar with **Education Directory**, a **Homepage** link and your photo and first name with **Log out** behind them (when the theme leaves the page to the frame; otherwise the theme's own header shows above a slim bar with the **Menu** button), a menu down the side, and a main area as wide as the window. The menu holds the page's views: **Overview**, where the page opens, with the number of decisions waiting beside it; **Watch**, its own view since 1.123.71, with the number of cards to watch that have something to look at; **Cohort timeline**; **The program** (called *Reference* before 1.123.71); and, since 1.123.71, **Program updates**, which opens the newest of the program's updates when there is one. Each update opens in the same frame, with the other updates listed down the right of the page, newest first, the one you are reading marked; on a narrow screen the list sits under the update's title, folded behind **Program updates**. Under **In wp-admin** it links the Students, Mentors, Institutions, Sponsors and offers, Tracks, Tools and Settings screens, each marked as leaving the page, and the Mentors item counts the mentor applications waiting. Under **Help** come the Ask box, which sends your question to the program's assistant when it is set up, the Administrator guide, the *WordPress Credits handbook* and the program's Slack channel. Since 1.123.70 this guide opens in the same frame, with the same menu, and lists its sections down the right of the page: the section you are reading is marked and shows its parts, and the list stays in view as you scroll. On a narrow screen the list sits under the guide's title, folded behind **On this page**. **Collapse menu** at its foot folds the menu to its icons, and the browser remembers it. On a tablet the menu shows its icons alone, a dot on an icon where something waits; on a phone it opens from the **Menu** button and closes with **Close menu** or Escape. In a right-to-left language the menu sits on the right.
+The Administrator Dashboard is the page at `/administrator-dashboard/`. Only Administrators can open it. Every number on it is read when the page loads.
 
-**What it is for.** The site is the working layer on top of the program data. Airtable is the system of record for students, mentors and institutions for now: the site reads their records from it, writes back to it, and turns them into something people can use without asking an Administrator first; the sponsors' records live on this site. Students see their own Student Report Card and fix their own details. Mentors see who they are responsible for, publish their availability, and are flagged when someone goes quiet. An Administrator sees all of it in one place, plus the things only an Administrator should touch. The page is where you:
+### The dashboard's views
 
-- check the cohorts' health at a glance instead of opening records one by one: the head, the line on each card, and *Programs running*, which counts the students in progress per track and per institution;
-- triage the students who need a call, are ending soon or are on track: each mentor's Mentor Report Card sorts their students into those three groups, and you open it through the switcher, while *Programs running* shows how many of each institution's students are waiting for a mentor and when their internships end;
-- review the mentors' status and approvals: *Requests from institutions* holds what the institutions asked for, each mentor's status is on the Mentors screen, and the Mentor Status Checker moves a mentor from *Vetted - positive* to *Active* once their WordPress.org profile shows they completed the Credits Mentor's Course;
-- keep the numbers that feed the public program dashboard current: *Syncs and health* says which sync needs a look, and *Duplicated students* how many students the Student Duplicate Finder's last scan found with more than one row in Airtable.
+The page sits in the dashboards' frame: a top bar, a menu down the side and a main area as wide as the window.
 
-**The head and the figures.** The Overview opens with how many decisions wait for you, the sum of every queue below, and how long the oldest has waited and in which queue ("The oldest has waited 67 days, in Semester reports."), with **Review the oldest**, which opens that card, or for the mentor applications the Mentors screen's **Waiting for review** tab. With nothing waiting it says "Nothing waits for you today". Under it come the program's figures, with the homepage's definitions: the share of students who graduate rather than drop out and the share of graduates who would recommend the program, while the homepage shows them, then the active mentors, with how many signed in during the last 30 days, and the programs running, with at how many institutions; one line says when the two shares were read, and that the mentors and programs are as of today. A count in the menu, an age on a row and a state on a cohort tile are one mark, the homepage's status tag: words in the status's tint and border, never a colored edge.
+- The top bar shows the words Education Directory, a **Homepage** link, and your photo and first name with **Log out** behind them. When the theme draws its own header, the frame shows only a slim bar with the **Menu** button.
+- **Collapse menu** folds the menu to its icons, and the browser remembers it. On a tablet the menu shows icons alone; on a phone it opens from **Menu**.
 
-**The cards.** A card folds and unfolds with one press on its row. The number beside a title is how many things it holds, and the words after it say where it stands, so a folded card still tells you what is in it: "2 waiting", "1 offer under its threshold", "3 duplicated students as of September 28, 2026", "Every audience's sync ran in the last six hours". Each card with a home in wp-admin links the tab that holds its items, *Open on the Institutions screen*, *Open on the Sponsors screen* or, on *Mentor engagement*, *Open the Mentors screen's Engagement tab*: as the last line of its body while it is open, and beside its row while it is folded (under the row on a narrow screen). The institutions' cards open the Institutions screen's **Waiting for review** tab, and *Semester reports* its **Semester reports** tab. The sponsors' cards open the Sponsors screen at the tab that holds their items: *Sponsor applications*, *Sponsor posts to review*, *Sponsor offers to review*, *Events* and *Sponsor Collaboration Agreements* each at its own card on the **Waiting for review** tab, *Offers running low* at **Offers and codes**, *New interests* at **Interests**, *Sponsor reports* at **Reports**, and *Sponsor terms ending* and *Sponsors* at the **Sponsors** tab, where a *Sponsor terms ending* row's sponsor opens its Edit form. *Institution applications* says how many it left out: under the fifty oldest open applications it lists, a line says how many more are waiting, listed here as these are decided, and under its fold of rejected and spam applications, how many more it keeps. Each application's title opens it in the Institutions screen's queue, its state is said in that screen's words (such as "new" or "waiting on the applicant"), and an application the anti-spam checks held carries a note to open it on the Institutions screen to read which checks. *Sponsor applications*, *Sponsor posts to review*, *Sponsor offers to review* and *Sponsor Collaboration Agreements* each list the fifty oldest in their queue, and while more are waiting, a line under the list says how many more, listed here as these are decided. None of these lines links anywhere, and a card's link to its screen comes last, under them. For those four sponsor cards the number beside the title, the words after it and the head count everything waiting in the queue, the number the Sponsors screen shows for it: the applications in full, at any size, and the posts, the offers and the agreements up to 200, past which they read 200+, as their cards on the Sponsors screen do. *Duplicated students* keeps its own button, *Open the Student Duplicate Finder*, in its body as well as beside its title. The rows of *Syncs and health* each carry their own *Open* link to their sync's screen instead, since no one screen holds the audiences' three syncs and the outcome figures' weekly read. A link in a mail and the way back from a decision each open the card they land on.
+| View | What it holds | Its count in the menu |
+|---|---|---|
+| **Overview** | The figures, then what waits for a decision | Red: the decisions that wait, as "2 wait" |
+| **Watch** | Cards to keep an eye on this week | Amber: how many of **Offers running low**, **Duplicated students**, **Syncs and health** and **Students gone quiet** hold something |
+| **Cohort timeline** | The next twelve months of students against the mentor places | None |
+| **The program** | Three cards of numbers, then **Tools from our sponsors** with every live offer | None |
+| **Program updates** | The newest update for Administrators, while there is one | None |
 
-**Waiting for you** holds what needs an Administrator's decision: *Institution applications*, *Collaboration Agreements*, *Semester reports*, *Requests from institutions*, *Sponsor applications*, *Sponsor posts to review*, *Sponsor offers to review*, *Events* while Sponsor tiers is on, *Sponsor Collaboration Agreements* and *Sponsor reports*. On the Overview only a queue with something in it is drawn, as one folded row: its title, how many wait, how long the oldest has waited as a red status tag ("67 days waiting") and **Review**, which opens the row in place with its decisions. The mentor applications, while any wait, are a row whose **Review** opens the Mentors screen. Every queue with nothing in it is named in one sentence under the rows, each name a link to its screen in wp-admin, so nothing seems to have gone; a queue that the decision you just took emptied is drawn once more, open, with its outcome. **Watch**, its own view since 1.123.71 (before it, the column beside these rows), holds what to keep an eye on this week, each card one folded row: *Upcoming cohorts*, *Offers running low*, *Duplicated students*, *New interests*, *Sponsor terms ending*, *Syncs and health* and, while the **Daily list** setting is Preview or On, *Students gone quiet*. *Syncs and health* counts the syncs that need a look: while Automatic sync is on, an audience's sync whose last run left an error or that has finished no run in the last six hours; while it is off, an audience's sync whose last run left an error, under the words "Automatic sync is off"; and, the switch on or off, the outcome figures' weekly read when its last read was held or failed, or when the read has stopped and the figures stored are more than 29 days old, so the homepage shows none. With nothing else to look at, the row says which: "The outcome figures are held for a look", "The outcome figures' last read failed" or "The outcome figures are no longer shown on the homepage"; with nothing to look at, "Every audience's sync ran in the last six hours". With the switch off, the row begins "Automatic sync is off;" before the first three, and says only "Automatic sync is off" when nothing needs a look. **The program**, its own view in the menu, holds the program's numbers, folded too: *Sponsors*, *Programs running* and *Mentor engagement*.
+Under **In wp-admin**, **Mentors** counts the mentor applications waiting. The Administrator guide and each program update open in the same frame and menu.
 
-**Upcoming cohorts and the cohort timeline.** The *Upcoming cohorts* card (since 1.123.68) plans mentors ahead of an intake. The number beside its title is how many students start in the next six months, confirmed and in review together, and its line says the first month the program runs short ("2 more mentors needed by March 2027"), the first month that is tight if the registrations in review are placed, or "The mentors cover the next six months". It is drawn open while the program is short. Its body holds four figures (students starting in the next six months, active mentors, mentor places and mentors to recruit for the peak) and a six-month chart; *Open the cohort timeline* opens the whole view, the Administrator Dashboard's own page at `?wpcpm_view=cohort-timeline`, gated as the page is.
+### The figures at the top
 
-The timeline shows the next twelve months, the current one first, under the half-year bands the institutions' semester reports use (January to June, July to December). Each month is one column, stacked in three layers: **Already on the program** (gray: a student on a track or Paused whose start was on or before today), **Confirmed, starting** (blue: a student on a track whose start is after today) and **Registration in review** (teal, hatched: a Students row with no status yet, or a registration the site has not written to Airtable yet). A student counts in every month their dates overlap. The dark line across is the **mentor places**: the active mentors times **Students per mentor** (Settings, **Cohort planning**, 3 unless changed), the same every month because the site cannot know who will join or leave. A month whose confirmed students alone are more than the places is **Short**, a month that is over only with the registrations in review is **Tight**, and either carries a flag with how many students are over; every other month is **Covered**. Under each month, **+** is how many start and **-** how many finish. Hover or tab to a column for its numbers. Under the chart, **Month by month** holds every number in a table (starting, with those in review beside them, finishing, on the program, without a mentor, places, balance and outlook), and **Intakes** lists each month with students starting, the institutions they come from and their tracks. **How these numbers are made** at the end says the same rules in short, with a link to the setting, and how many students had no end date: those are counted for four months from their start. A student still on a track after their end date is counted this month only. Interested leads, the past statuses, `SPAM`, `Duplicated` and test institutions are left out of every number. The timeline reads the students sync's copy of the Students table and says when it was read; it writes nothing.
+The Overview opens with how many decisions wait for you. The next line names the queue that holds the oldest: "The oldest has waited 67 days, in Semester reports." **Review the oldest** opens that card, or `Mentors > Waiting for review` for a mentor application. With nothing waiting, it reads "Nothing waits for you today".
 
-**Students gone quiet.** The card (since 1.123.60) lists the students on a track who have not been active for the number of days set under **Quiet students** in Settings (14 unless changed). Activity is a sign-in, a visit, a call or group session booked or held, a report saved on the site or edited in Airtable, or **We've already talked**; the settings guide has the whole rule and the three positions of the switch. The card is drawn only while the switch is Preview or On, and it is folded. Its line says how many students are quiet and when the list was made, which is once a day at 06:00 UTC. Students are grouped by the Administrator assigned to the student's institution: **Your students** first, then each other Administrator by name, then **No Administrator assigned**. A row gives the student (linked to their Student Report Card), the days quiet, what they last did and when, their mentor (a student may have none), and the reminder: **Would remind** in Preview, or **Reminded** on the date a reminder went, **no reply**, while the student has done nothing since it went; a row that will never be mailed says why, **Not mailed: test institution**, or in On **Not mailed: quiet before the switch went On** for a stretch already past the days of quiet when the switch moved to On. A student not seen since their clock started reads **Track started** or **Account made** with the date, whichever the days are counted from (a list made by version 1.123.60 reads **Counting from** the date until the next daily run). A student of a test institution is listed with the Test mark and is left out of the card's count. **We've already talked** on a row records that somebody has been in touch: it counts as activity, takes the student off the list at once and may be pressed by the student, their mentor or any Administrator; the card then opens with a line saying it was noted. The student sees the same button on their Student Report Card and the mentor on the student's card on the Mentor Report Card, and only while the switch is On.
+- The total adds each queue's number. **Semester reports** adds its reports to review, or its semesters due for drafting when none waits for review. So the total can be lower than the rows added up.
+- Test institutions' items are left out of the total. They are also left out of the oldest, except a test institution's application, which can still be the oldest.
 
-Institution applications, Collaboration Agreements, Requests from institutions and the sponsor queues are decided on this page; mentor applications are decided on the Mentors screen, and semester reports and sponsor reports are finished in their editors. An open institution application, a signed Collaboration Agreement and a mentor request are decided here (a school has no way to make a mentor request now, so only one already on record is open): the Institutions screen's **Waiting for review** tab lists them to be read, each with a link to its card here, and keeps the record-keeping on a closed application and the four decisions on an open application past the fifty oldest this page's card lists, which no card here reaches. The sponsor queues are decided here the same way: an open sponsor application; a sponsor post, published with *Publish* or returned with *Return it with this note*, under *Return with a note*; a sponsor offer, or a change to what students see of a live one, approved with *Approve* or returned with *Return it with this note*, under *Return with a note*; a sponsor's planned event, approved with *Approve* or sent back with *Return it with this note*, under *Return with a note*, which cancels the event and emails your note to the sponsor's members; and a sponsor's signed agreement, accepted with *Accept it* or returned with *Return it with this note*, while an agreement out of force is put back with *Reinstate*, under *Out of force* in the same card. A sponsor's *Accept it* and *Reinstate* ask before they act, since each records a new state for the agreement and emails everybody at the company. The Sponsors screen lists them to be read on its **Waiting for review** tab, each application, post, offer, event and document with a link to its own item here, and keeps the record-keeping on a decided application and every decision on an open one past the fifty oldest this page's card lists; its **Agreements** tab reinstates an agreement past the fifty oldest out of force that this page lists. *Reinstate* on an institution's Collaboration Agreement is offered on this page alone, and revoking one is offered on the Institutions screen's **Agreements** tab alone, with **Revoke this agreement**. A decision a wp-admin screen offers too is the same decision there, posted to the same handler with the same safeguards, and every decision lands back on the page with its card open (Draft now opens the new draft in the editor, and a refusal comes back to the page). A Collaboration Agreement is decided in the same words whoever signed it, an institution or a sponsor: *Accept it*, *Return it with this note* and, once it is out of force, *Reinstate*. An institution's *Accept it* asks before it acts too, but its *Reinstate* acts at once, and its return note is always open under the agreement, with no fold. What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or create an account by hand: the only accounts it makes are the ones an approved institution application or an approved sponsor application makes in the same press; those stay in wp-admin, where the rows of *Syncs and health* and the resources lead.
+Under the head come up to four figures. The two shares show only while the homepage shows them, so one can be missing:
 
-**A school's request to correct its details.** *Requests from institutions* also holds a school's request to correct the name, website, city, country or contact's email the program has on record for it, which the school makes by opening **Ask to correct these** on the details card of its Institution Dashboard, changing the details and pressing **Send to an Administrator** (the card is described under *The details card on an institution's page*). A school has one such request open at a time, and an Administrator's own correction of the same details is saved at once on that card and raises none, except while the school's request waits, when the card sends the Administrator here to decide it. The item reads "<school> asks to correct its details", with who asked and on which day, how long it has waited (and *Overdue* past fourteen days), then a table of *Detail*, *On record now* and *Asked for*, a row to each detail it asks to change. *On record now* is read from the program records when the page is drawn, so a detail the program team has changed in Airtable since the school asked shows as it is now, and nothing is written over it unseen. Under the table are the box *A note for the school (required to decline)* and two buttons. **Approve and update the records** writes every asked value to the Institutions table in Airtable in one update, then to the program records here, closes the request, writes the history and emails the account that asked; if Airtable refuses, nothing is written here either, and the request stays open with "Airtable could not be updated, so nothing was changed here either. The request stays open." **Decline** needs a note of 20 to 2000 characters, which the school reads in the email it is sent; it writes nothing to Airtable, and a note it refuses is given back in the box. The school can withdraw its request until an Administrator decides it: it then closes as *Withdrawn*, the people *Who is emailed about institutions* names are emailed, and Approve or Decline on it says "Nothing was changed: the school withdrew this request." (or "Nothing was changed: an Administrator withdrew this request." when an Administrator took it back). Each decision is made under a lock of the request's own, the option `wpcpm_req_lock_<request>`, with its state read again under it, so two Administrators pressing Approve and Decline on one request together do not both act: the first decides it, and the second is told "Nothing was changed: that request had already been closed." (or "Nothing was changed: the school withdrew this request." when the school took it back first, "Nothing was changed: an Administrator withdrew this request." when an Administrator did) and writes, emails and records nothing. When the second press arrives while the first is still being made, so that the request's lock is held, it is told "Someone else is deciding this request at this moment, so nothing was done. Try again in a moment.", nothing is changed, and a note typed for Decline is given back in the box to send again. A Decline posted for a request that is already closed is answered with the sentence for its state before its note is looked at, so a note that was too short is not reported for a request nothing can be done with. The closed ones are listed under *Recently closed* as *Approved*, *Declined* or *Withdrawn* for a school's details request, and *Handled* or *Declined* for any other request, and the Institutions screen's **Waiting for review** tab lists a school's request as **Details to correct**, counted with the rest. A mentor request already on record keeps its *Mark as handled* and *Decline*; nothing on an institution's pages asks for one, so no new one arrives from a school, and closing one is not shown to the institution. The card also holds an *A student to add* request for each student a school's confirmed import creates, closed with *Mark as handled* or *Decline* in the same way.
+- the share of students who graduate rather than drop out;
+- the share of graduates who would recommend the program, from the final survey;
+- the active mentors, Administrators left out, with how many were seen (a sign-in or a visit) in the last 30 days;
+- the programs running: tracks with a student in progress, and at how many institutions.
 
-**On The program view, below the cards.** *Tools from our sponsors* lists every live offer with its audience, and the view ends there. Since 1.123.71 the program's updates are in the menu under **Program updates**, and the Slack channel, the *WordPress Credits handbook* and the Ask box under **Help**.
+A line under them says when the two shares were read, and that the mentors and programs are as of today. With no share shown, it says only the second.
 
-**When something looks wrong.** If something on the page looks wrong, it almost always means the record underneath (in Airtable, or for a sponsor on this site) needs a fix. Ask in the Administrators' channel, so the record, or the sync that brings it here, can be looked at rather than the display patched.
+### The dashboard's cards
 
-The programs card counts students in progress per track and per institution from the roster index, so its numbers are as old as the last students sync; the read time is printed under the table. "Finished this semester" counts graduates only, not everyone who left the program; a graduate's row no longer says which track they were on, so it is one number rather than one per track. "Signed up this semester" per track counts the students who started in the semester and are still on that track; a student who started and has since paused, graduated or left is in the semester's finished count or in no count. Mentors are counted by distinct name, not by their Airtable record, because a roster row carries no mentor record ID: two mentors who share a name count once. The **Agreement** column says where the institution's Collaboration Agreement stands (Not started, Template generated, Awaiting review, Returned, Revoked, Accepted or On file) and the **Report** column the state of its newest semester report (Not drafted, Draft or Approved).
+**Overview**, **Watch** and **The program** are lists of cards. Each card is one row, folded until you press it.
 
-**Mentor engagement** (since 1.122.26) follows Programs running. It shows six figures about the active mentors, the mentors Airtable holds as Active (Administrators who also mentor are counted apart, and the card says how many): how many there are, how many were seen on the site in the last 30 days (and in the last 7), how many took a program action (and how many signed in without one), how many never signed in, how many have students now (and of them, how many offer weekly hours and how many wrote notes), and how many one-to-one calls were held (with a note, and to come) and group sessions held. The call and group session figures count every call on the site, whoever the mentor. A mentor was seen when the site recorded a sign-in or a visit in that time. **Open the Mentors screen's Engagement tab** lists every mentor behind the figures.
+- The number beside the title is how many things the card holds. The words after it say where it stands, such as "2 waiting".
+- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none.
+- A link in an email, a decision's way back and **Review the oldest** each open the card they land on.
+- Each card that waits for a decision has a **How to do this** link to its job in this guide. So do **Upcoming cohorts**, **Duplicated students**, **Syncs and health** and **Students gone quiet**.
+
+A card with a home in wp-admin ends its body with a link there. On **The program**, a folded card also shows the link under its box:
+
+| Card | Its link opens |
+|---|---|
+| **Institution applications**, **Collaboration Agreements**, **Requests from institutions** | **Open on the Institutions screen**, tab **Waiting for review** |
+| **Semester reports** | **Open on the Institutions screen**, tab **Semester reports** |
+| The sponsor queues | **Open on the Sponsors screen**, tab **Waiting for review**, at that queue's own card |
+| **Offers running low**, **New interests**, **Sponsor reports** | **Open on the Sponsors screen**, tab **Offers and codes**, **Interests** or **Reports** |
+| **Sponsor terms ending**, **Sponsors** | **Open on the Sponsors screen**, tab **Sponsors** |
+| **Duplicated students** | **Open the Student Duplicate Finder** |
+| **Upcoming cohorts** | **Open the cohort timeline** |
+| **Mentor engagement** | **Open the Mentors screen's Engagement tab** |
+
+#### Limits and what is left out
+
+- **Institution applications**, **Sponsor applications**, **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** list the 50 oldest. A line under the list says how many more wait, "listed here as these are decided". It links nowhere.
+- **Collaboration Agreements** and **Requests from institutions** list up to 200, with no such line.
+- **Offers running low**, **New interests**, and the folds of returned, revoked or out-of-force agreements stop at 50 without a word.
+- **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** count up to 200, then read *200+*, as the Sponsors screen does. **Sponsor applications** counts every one.
+- A test institution, one whose name starts with TEST, has its items listed with the **Test** mark and left out of every count.
+- Test sponsors are not left out: their posts, offers, agreements and applications are counted and listed like any other.
+- **Requests from institutions** shows the 20 latest closed requests under **Recently closed**.
+
+#### The cards to watch
+
+| Card | What it holds |
+|---|---|
+| **Upcoming cohorts** | Students starting in the next six months; shown once the students sync has read a roster |
+| **Offers running low** | Live code offers with fewer codes than their warning, fewest first |
+| **Duplicated students** | What the Student Duplicate Finder's last scan found, as of that day |
+| **New interests** | What sponsors wrote on their dashboards in the last 30 days |
+| **Sponsor terms ending** | Approved sponsors whose term ends in the next 60 days, soonest first |
+| **Syncs and health** | The syncs, each with an **Open** link to its screen; **Locked accounts**; private storage; the last emails |
+| **Students gone quiet** | See below; shown only while **Daily list** is not *Off* |
+
+**Syncs and health** counts what needs a look:
+
+- While **Automatic sync** is on: a students, mentors or institutions sync whose last run left an error, or that finished no run in six hours.
+- While it is off: only a sync whose last run left an error. The row's words begin "Automatic sync is off".
+- Either way: the outcome figures' weekly read, when its last read was held or failed, or its figures are more than 29 days old and the homepage shows none.
+
+### Where each queue is decided
+
+**Waiting for you**, on the Overview, holds the queues, oldest first in each. Only a queue with something in it is drawn, as a row with **Review**. One sentence under the rows names the empty queues, each a link to its screen.
+
+- A queue your last decision emptied is drawn once more, open, with the outcome.
+- **Events** is a queue only while **Sponsor tiers** is on.
+
+| Queue | Where you decide it |
+|---|---|
+| **Institution applications**, **Collaboration Agreements**, **Requests from institutions** and the sponsor queues | On its card here |
+| **Mentor applications** | **Review** opens `Mentors > Waiting for review` |
+| **Semester reports** | **Review** opens the report, where **Approve this report** is. **Draft now** makes a draft. |
+| **Sponsor reports** | **Open** opens a draft to finish. **Draft now** makes one. |
+
+- **Approve** on an institution application creates its Airtable record and its site account. **Approve** on a sponsor application creates the sponsor record and its site account.
+- **Reinstate** on an institution's Collaboration Agreement is on this page only. **Revoke this agreement** is on `Institutions > Agreements` only.
+- An item past the 50 a card lists is decided on its wp-admin screen.
+
+Step by step: [[A school applied]]; [[A signed Collaboration Agreement arrived]]; [[Take an agreement out of force, or put it back]]; [[A semester report: draft, review, approve, reopen]]; [[A company applied to sponsor]]; [[A sponsor's annual report]]; [[Find an application or agreement past the fifty the dashboard lists]].
+
+#### A school's request to correct its details
+
+**Requests from institutions** holds a school's request to correct its name, website, city, country or contact's email. The school sends it from its details card with **Ask to correct these** and **Send to an Administrator**.
+
+- A school has one such request open at a time.
+- **On record now** is read when the page loads, so a change made in Airtable since the school asked shows.
+- The school can press **Withdraw it** until someone decides. The people in **Who is emailed about institutions** are then emailed, or every Administrator when it is empty.
+- If two Administrators decide at once, only the first press acts. The second is told so.
+- The Institutions screen's **Waiting for review** tab lists it as **Details to correct**.
+- Under **Recently closed** it reads *Approved*, *Declined* or *Withdrawn*. Other requests read *Handled* or *Declined*.
+
+The card also holds *A student to add*, raised for each student a school's confirmed import creates, and any older *A mentor is wanted*. You close them with **Mark as handled** or **Decline**.
+
+Step by step: [[A school asks to correct its details]]; [[A school's other requests (a student to add, a mentor wanted)]].
+
+### The cohort timeline's figures
+
+The **Cohort timeline** view shows the next twelve months, the current one first, under half-year bands. The **Upcoming cohorts** card on **Watch** shows the next six. Both only read.
+
+- The card's number is the students starting in the next six months, confirmed and in review.
+- Its words name the first short month ("2 more mentors needed by March 2027"), else the first tight month, else "The mentors cover the next six months".
+
+| Layer | Who it counts |
+|---|---|
+| **Already on the program** | A student whose status is in **Currently mentoring**, with a start date today or earlier |
+| **Confirmed, starting** | The same, with a start date after today |
+| **Registration in review** | A Students row with no status, or a registration from the site whose student the students sync has not read yet |
+
+**Currently mentoring** is the list of statuses in `Settings > Students and mentors`, section **Who is on the program**.
+
+- A student counts in every month their dates overlap.
+- A month is short when the confirmed students alone are more than the places, and tight when only the registrations in review take it over.
+- **Mentor places** is the active mentors times **Students per mentor** (`Settings > Students and mentors`, section **Cohort planning**: 1 to 20, default 3). It is the same every month.
+- **Mentors to recruit** covers the busiest of the next six months, registrations in review included. The card's "needed by" counts confirmed students only.
+- With no end date, a student counts for four months from the start. With no start date, a student is not counted.
+- A student still in progress after their end date counts in the current month only.
+- Interested leads, `SPAM`, `Duplicated`, past statuses and test institutions are left out.
+
+Under each month of the timeline's chart, a plus sign gives the students starting and a minus sign those finishing. A short or tight month carries a flag with how many students are over. In **Month by month**, **Balance** compares the places with every student, in review included.
+
+Step by step: [[Read the cohort timeline: do we need more mentors?]].
+
+### The quiet-students card
+
+**Students gone quiet** lists students on a track with no activity for the **Days of quiet** (`Settings > Students and mentors`, section **Quiet students**: 7 to 60, default 14). It shows only while **Daily list** is *Preview* or *On*.
+
+- Activity is a sign-in, a visit, a call or group session, a report saved on the site or edited in Airtable, or **We've already talked**.
+- The days count from the student's last activity, or from the later of the account's creation and the track's start when nothing came after it.
+- A student with a call or group session booked ahead is never listed.
+- The list is made once a day at 06:00 UTC. The card's words give the count and that day.
+- Rows are grouped by the Administrator the student's institution is assigned to: **Your students**, each other Administrator, then **No Administrator assigned**.
+- A test institution's student has the **Test** mark and is left out of the count.
+
+| Column | What it shows |
+|---|---|
+| **Last seen** | The last activity and its date, or **Track started** or **Account made** when nothing came after |
+| **Mentor** | The mentor, or **No mentor** |
+| **Reminder** | **Would remind** in *Preview*. After a reminder, its date and "no reply". Or why no email goes: **Not mailed: test institution**, **Not mailed: quiet before the switch went On**. |
+
+**We've already talked** counts as activity and takes the student off the list at once. The student, their mentor or any Administrator may press it. On the Report Cards it shows only while **Daily list** is *On*.
+
+Step by step: [[Students who have gone quiet]]; [[Try the quiet-students list in Preview]]; [[Switch the quiet-students reminders on]].
+
+### The program view's cards
+
+**The program** holds three cards, each folded.
+
+#### The Sponsors card
+
+It shows **Approved sponsors**, **With an account**, **Live offers** and **Claims this semester**, then the Approved sponsors by tier. A voided claim is not counted. Test sponsors are counted like any other.
+
+#### The Programs running card
+
+The card reads the students sync's copy of the rosters, so it is as old as the last students sync. The line under the table gives the oldest read.
+
+- Per track: students in progress, and how many signed up this semester, a start date in the current half-year.
+- **Finished this semester** counts status `Graduate` with an end date in the semester, across every track. A student who dropped out is not counted.
+- **Mentors** counts distinct mentor names, so two mentors with one name count once.
+- **Agreement** reads *Not started*, *Template generated*, *Awaiting review*, *Returned*, *Revoked*, *Accepted* or *On file*. **Report** reads *Not drafted*, *Draft* or *Approved*.
+- Test institutions are listed and left out of every total.
+
+#### The Mentor engagement card
+
+Active mentors are those Airtable holds as Active. Administrators who also mentor are counted apart, in a line under the figures.
+
+| Figure | What it counts |
+|---|---|
+| **Seen in the last 30 days** | A sign-in or a visit in 30 days, and in 7 |
+| **Took a program action** | A note, a saved schedule, a group session made or a call the mentor canceled; and how many signed in without one |
+| **No sign-in on record** | No sign-in or visit since the day the site began recording them |
+| **With students now** | Mentors with students, those with weekly hours and those who wrote notes |
+| **Calls held** | Every one-to-one call held on the site, whoever the mentor; under it, how many have a note, how many are still to come, and the group sessions held |
+
+Step by step: [[Find mentors who have gone quiet or have no hours]].
 
 ## Sponsors
 
-Since 1.111.0 the record of every sponsor lives on this site: one private post per company, never a row read from Airtable. A sponsor already on the site before the upgrade keeps its old Airtable record ID as its key for ever; a sponsor added since gets a key the site mints. A sponsor arrives one of two ways: an Administrator approves an application, or fills in the **Add a sponsor** form under the table on the Sponsors screen's **Sponsors** tab and presses **Add the sponsor**, for a company that never applied. Edit holds what an Administrator owns of the record: the name, website, status, contacts, the sponsorship shape, the assigned Administrator and their booking link (a field on that Administrator's own profile), the sponsored mentors, and private notes seen only here. An assigned Administrator who no longer holds the program's capability stays on the record, marked "(not an Administrator now)" on the Edit form, in the *Program contact* column of the **Sponsors** tab's table and on the Administrator Dashboard's *Sponsor terms ending* card until another is chosen, but is nobody's program contact: the mails a contact gets go to the "Interest mail" addresses, else every Administrator, and the Sponsor Dashboard does not name them. Moving a sponsor's status away from Approved detaches its accounts as well, if the setting "When a sponsor is no longer Approved" says to; renaming a sponsor renames its posts' category to match.
+The companies that sponsor the program, on `WPCredits Program > Sponsors`. First a sponsor's record, accounts, application, logo and agreement; then offers, posts, tiers, reports, events and test sponsors.
 
-While that move is not yet complete, the Sponsors screen's **Sponsors** tab shows a "Moving sponsors onto the site" box at its top: how many of the old index's rows are posts so far, any sponsor whose Administrator could not be matched to an Administrator's account, and any sponsor still waiting for the draft primary offer the move owes it from its old offer text. The move runs by itself, retrying at most once a minute, and Run again presses it by hand; the box disappears once every row is a post and every draft offer due exists.
+### The sponsor's record
 
-A public feed, at /wp-json/wpcpm/v1/sponsors, lists the Approved sponsors (name, slug, website, logo, how many mentors, and the month its record was made on this site) and how many applications came in and were approved each month for the last two years, a test sponsor and a company with a test name counted in neither (see *Test sponsors* below); it holds no contact details, no status but Approved, and its answer is cached for fifteen minutes. The WPCredits Tracker and the Credits Monthly Report, which used to read the Airtable table directly, switch to reading this feed in their own releases.
+Every sponsor is a record on this site, one per company. The site reads no sponsor record from Airtable. They are listed on the tab **Sponsors**, each row with **Edit** and **Manage accounts**.
 
-One step is the program team's, not the plugin's: retire the seven Airtable automations that answered the old interest form, since the site's own application form is now the only intake.
+A record is made one of two ways:
+- You approve the company's application. The record starts as *Approved*.
+- You fill in **Add a sponsor**, under the table, and press **Add the sponsor**. It starts as *In review* unless you choose another **Status**, and nothing else happens until it is *Approved* and has an account.
 
-Adding or editing a sponsor's record is separate from giving it an account. An Administrator presses **Create account** on the **Accounts** tab's **No account** view, under one Approved sponsor's name or for the ticked ones, at most ten a press, which makes an account from the sponsor's contact email (or attaches the account that already holds that address), queues the welcome unless that account was invited before, marks the record's dashboard-account flag and writes a log row. Accounts are attached by address and removed on the sponsor's own view of the **Accounts** tab, which **Manage accounts** opens; a sponsor's Sponsor Dashboard is opened through the switcher link on its name on the **Sponsors** tab, or with **View page** under a row of the **Accounts** tab's list.
+The record's form:
+- **Name**, **Website**, **Contact person**, **Contact email**. Accounts are made at the contact email.
+- **Status**: **Approved**, **In review**, **Paused**, **Not Moving Forward**, **Rejected**. Only an *Approved* sponsor can be given an account.
+- **Assigned Administrator**: **Nobody yet**, or an Administrator. The sponsor's mail for the program goes to this person. Their **Booking link**, on their own WordPress profile, lets the sponsor book a call.
+- **Interests**: read only, what the sponsor sent.
+- **Sponsored mentors**: the mentors the sponsor funds.
+- **Notes**: private, shown on this screen only.
+- **Test sponsor: not listed publicly**, **Tier** and **Term ends** are explained in the parts on test sponsors and tiers.
 
-On the Sponsor Dashboard a sponsor can save four profile fields (website, contact person, contact email and the free-text field; the product type was a fifth until 1.123.22); every save writes an audit row naming the fields changed and nothing else. The offer's text, instructions and link are edited on the Offers card, not here. Interests, and interest in a mentor from the looking-for-a-sponsor list, mail the assigned Administrator, or the addresses in the "Interest mail" setting, or every Administrator, in that order of preference; five a day per account. What sponsors can never read is a student's name: their mentors card shows mentor names and student counts only.
+Rules:
+- An assigned Administrator who lost the role stays on the record, marked *(not an Administrator now)*. They get no mail, and the Sponsor Dashboard does not name them.
+- Renaming a sponsor renames its posts' category.
+- A save is refused if someone saved the record after you opened it. Your changes stay in the form.
+- **Its accounts** (`WPCredits Program > Settings`, tab **Sponsors**, section **When a sponsor is no longer Approved**): what leaving *Approved* does to the accounts. Choices: **Remove its accounts from the sponsor, so they lose access to its Sponsor Dashboard**, **Leave their access in place**. Default: **Leave their access in place**.
+- **Who is mailed** (same tab, section **Interest mail**): mailed when a sponsor has no assigned Administrator, and for every new application. Empty means every Administrator.
 
-**Offers, codes and the Tools section (1.94.0).** A sponsor's offers live on the site. Each is a pool of one-time codes the sponsor pastes or uploads as a .txt or .csv file on the Sponsor Dashboard, on the new-offer form or on the pool's own box (one per line, or a CSV's first column; a code can be a whole checkout link; all or nothing, refused by line number; a file is read once and never stored, up to a megabyte; up to 5000 codes), or one shared code or link for everyone. Since 1.94.1 the kind is two plain choices and the form shows only the box that belongs to the kind chosen. An account provisioned with no offer yet gets one seeded as an empty draft titled with the sponsor's name, for the sponsor to complete and send for review; for sponsors provisioned before 1.94.0 the Sponsors screen's **Offers and codes** tab has a button for each, *Create the first offer for* and the sponsor's name. The one live offer marked primary is the offer the profile card points to, and the **Offers and codes** tab marks it "(primary)". An offer goes live only with something to give (a code in the pool, or the shared link); ended is final; the kind cannot change once the pool holds anything.
+While older sponsors are still being moved onto the site, the tab shows **Moving sponsors onto the site**. The move retries by itself; **Run again** runs it now. The box names any sponsor whose Administrator was not matched, so you choose one on its Edit form, and any sponsor still waiting for its first draft offer.
 
-Codes are encrypted at rest with the site key the stored agreements use and are shown only to the person who claimed one, on their own Student Report Card, Mentor Report Card or the Administrator Dashboard; nothing sends a code by mail. Who may claim is one function with eight clauses, asked only once the claimant is a real account: the offer is live and not past its last day; the person is a current student (their synced status is one of the student statuses and not a past one), or a mentor when the offer opens to mentors, or an Administrator when it opens to the program team; the Tools section is switched on for that audience; the offer's sponsor is not a test sponsor, unless it is claimed as the program team; on a Partner's track, once the tiers are launched, the offer is one of the partners'; they have not claimed it; a pool has a code left; a shared offer has something to share. A second press returns the same code. A claim is written under a per-offer lock, so two students pressing together get two codes.
+The public feed `/wp-json/wpcpm/v1/sponsors` lists *Approved* sponsors and two years of monthly application counts. It has no contact details or test sponsors, and can be fifteen minutes old.
 
-Sponsors read numbers, Administrators read names. The sponsor's Usage card counts claims by month and offer (and a CSV of the same); the Sponsors screen's **Offers and codes** tab lists every offer, the oldest hundred at most, with its counts and, for support, who claimed from it (name, address, date, the code's last four characters) with a *Void* button: voiding frees the person to claim again and keeps the code void for the count. A claimant's **Report a problem with this code** button mails the sponsor's assigned Administrator (else `sponsor_notify`, else every Administrator) the name, the offer and the last four characters, three a day per person. When a pool falls below its threshold, one mail goes to the sponsor's accounts and one to the Administrator, once, re-armed by adding codes. Nothing about a claim reaches Airtable.
+Step by step: [[Add a company that never applied]]; [[Pause or stop a sponsorship]].
 
-The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labeled with its audience). On an Administrator's view of a student it is one line, "N tools claimed".
+### Sponsor accounts
 
-**Logo and agreement (1.96.0).** A sponsor uploads its own logo on its Sponsor Dashboard, in color and optionally in white; the site checks the bytes rather than the name (PNG, JPEG or WebP, at least 300 pixels wide since 1.122.14, as on the application form, SVG refused; a logo already stored is never refused for its width; since 1.123.25 both the form and the card ask for a horizontal logo about twice as wide as it is tall, 600 pixels or more looking sharper, which they recommend and do not check) and re-saves the image through WordPress's editor. Five uploads a day per company. Remove takes the logo out of the site at once, and deletes nothing from the Media Library. The sponsor agreement is optional and is never a gate: a company's Sponsor Dashboard, offers and codes work without one. A sponsor uploads a signed PDF from its Sponsor Dashboard and can withdraw it while nobody has read it; the Sponsors screen's **Waiting for review** tab, and the Sponsor Collaboration Agreements card on the Administrator Dashboard, hold the review queue, with the facts, what the PDF scan noticed and a download that is always an attachment, and the dashboard's card decides each document with **Accept it**, which asks first, or **Return it with this note**, a note that is emailed verbatim. When a document arrives, the sponsor's assigned Administrator is mailed, or the addresses in the "Interest mail" setting, or every Administrator: the mail says it is accepted or returned on the Administrator Dashboard and read first on the Sponsors screen, and links to the **Signed agreements** card on that screen's **Waiting for review** tab. An accepted agreement can be taken out of force with a note on the Sponsors screen's **Agreements** tab, and put back with **Reinstate**, which asks first, on the Administrator Dashboard, or on that tab once it is past the fifty oldest out of force the dashboard lists; a company whose signed copy predates this site is recorded as on file on the same tab, with a link to the program's Drive folder. A withdrawn file is deleted the moment it is withdrawn, and a returned one by a daily run after the retention setting; accepted, superseded and revoked ones survive an uninstall and appear in the mailed manifest beside the institutions' files.
+A record and its accounts are separate. An approved application makes the first account. For any other *Approved* sponsor, use **Create account** on the tab **Accounts**, view **No account**.
 
-**The application form (1.97.0).** A company applies to sponsor the program on this site, at /sponsor-application/, instead of in the Airtable form: the same eight questions in the same order (company name, website, contact person and address, how it would like to support the program, a logo in color and in white, anything else, and the confirmation that the company has read the WordPress.org privacy policy, which the form links since 1.123.24), guarded exactly as the institution form is (a hidden field, a signed token, five submissions an hour per address, forty a day for the whole site before the rest are held, consent as a precondition with what was agreed to recorded, links counted, and a ceiling on acknowledgements). The form is off until "Applications from sponsors" is switched on in the settings. Every submission is a private row: the applicant gets an acknowledgement with a reference (SAPP-2026-0007), the Administrators named by the "Interest mail" setting (or every Administrator) get the facts and a link, and the **Sponsor applications** card on the Sponsors screen's **Waiting for review** tab lists what is waiting, oldest first, with a mark for a row the checks held, for another open application naming the same company or address, and for a company the sponsors index already holds under the same name or website. Under that list, *Recently decided* lists the applications somebody has already decided (marked as spam, rejected or approved), newest decision first, so a genuine application the checks filed as spam, or a rejection somebody pressed by mistake, can be opened and put back in the queue rather than waiting for the retention run to delete it. The logo files an applicant sends are kept in the Media Library as private files under a generated name until the application is approved, so nothing a stranger uploaded is listed or reachable before somebody has looked at it; approval publishes both halves and hands them to the sponsor's account. Open one to read the answers, the logo files, what was agreed to and what the sponsors index already holds. The decisions are the six the institution queue has: Approve, Send this question (mailed with your address to reply to), Reject (a short acknowledgement with no reason; your note stays on this site), Reject as spam (nothing is sent), Put back in the queue, Delete for good. An open application is decided on the Administrator Dashboard's own **Sponsor applications** card, and the dashboard's strip counts the queue; since 1.122.0 the Sponsors screen keeps the record-keeping on a decided application, **Put back in the queue** and **Delete for good**, and every decision on an open one past the fifty oldest that card lists. Approve creates the sponsor's record on the site with status Approved, the website, the contact, the sponsorship option, the free text and the two logo files, then in the same press the account (through the same path Create account uses), the company's category, the logo record and the first offer in draft, and queues the welcome unless that account was invited before. If a press got as far as the sponsor's record and then stopped, the row is marked *approval half done* wherever it is drawn, and Reject, Reject as spam and Put back in the queue are refused on it: pressing Approve again finishes whatever is left. A company the sponsors index already holds is never merged: reject the application and use **Create account** on the Sponsors screen's **Accounts** tab instead. The retention settings for institution applications govern this form too, the same three settings by the same names on both (spam after 30 days, rejected after a year, approved never, by default), and a held application is now purged on the rejected window on both forms alike. A spam, held or rejected sponsor application's logo files are deleted with it - the institution form keeps no logo files to delete - and an approved one's are the sponsor's logo and stay. After go-live, one manual step: change the form link on the handbook page to /sponsor-application/.
+- **Create account** uses the **Contact email**, at most 10 sponsors a press. The password-set link goes only to an account never invited before.
+- **Manage accounts** opens one sponsor's accounts, with **Remove**, and **Attach account** for an *Approved* sponsor only.
+- A removed account is never deleted. It loses the Sponsor Dashboard and the right to write posts and upload files.
+- A sponsor's name on the tab **Sponsors**, and **View page** on the tab **Accounts**, open its Sponsor Dashboard as that sponsor.
 
-Since 1.123.59 the Website question of both application forms, and the page about the program on the institution form, refuse an answer with a space in it or whose host has no dot, or with a user name before the host, at the field with the typing kept, under "Enter a web address such as example.com."; before, such an answer was stored as https://not%20a%20site.
+On its Sponsor Dashboard, view **Your company**, a sponsor saves **Website**, **Contact person**, **Contact email** and **Anything else you would like to share**, and its logo. While **Sponsor tiers** is on, a Supporter or higher also saves **Description for the partner page**. Each save is logged with the fields changed. A new **Contact email** does not change who can sign in.
 
-**The guide and the queues (1.98.0).** Sponsors have a guide of their own, built from eight parts (signing in, the dashboard, the sponsorship, offers, posts, mentors, the company, and what a sponsor can and cannot see) and published on the handbook beside the other three, where the Sponsor Dashboard's guide button pointed at it (since 1.123.44 the button follows this site's own page, as the Pages the plugin owns part above says). The Administrator Dashboard gained three sponsor cards after the Sponsor agreements card: *Offers running low* (every live pool under the threshold its sponsor set, the emptiest first, linked to the sponsor's Offers and codes card through the switcher), *New interests* (what sponsors sent in the last thirty days, as they wrote it: from *Offer more* until 1.123.22, from *Talk to your program contact* since) and *Sponsors* (Approved sponsors, how many hold an account, the offers live today, the claims since the semester began). The *Sponsor applications* card folds the whole application under *Read the application*, and the needs-attention strip has an **Offers running low** tile for the pools running low. Nothing here is a new option or a new post type: the phase reads what the earlier phases wrote.
+**Talk to your program contact**, shown only while **Sponsor tiers** is on, mails the assigned Administrator, else **Who is mailed**, else every Administrator. Five a day per account.
 
-**The clean-up (1.98.1).** The two application forms share one stash-and-redirect class, `WPCPM_Form_Stash`. The Sponsors menu bubble is counted once a minute and forgets its count the moment an application, an agreement or a sponsor post changes. A dwell token has one shape. Recently decided reads a decision-time index instead of every decided row. The docs build escapes a section's text, so a literal angle bracket is a character on the page. The institution agreement retries a failed Airtable write on every sync run. A refused image store deletes the copy it made.
+Sponsors never see a student's name: their mentors card shows names of mentors and counts of students.
 
-**The deep check fixes (1.99.0).** A line-by-line review of 1.98.1 on 7 September 2026 raised fifty findings, and all fifty are closed here. One was serious: a person removed from a sponsor kept the right to write posts and upload files, so they could still sign in to wp-admin, save drafts and put files in the Media Library. Removing somebody now takes those rights away for good, and the first admin page after the update repairs, once and silently, the accounts an earlier removal left holding them. Eight more were worth naming. A pasted list of offer codes was read line by line with a sentence written for every bad line, so a very long list of repeats could exhaust the site's memory; a paste is now measured and refused before it is read. A sponsor withdrawing its Collaboration Agreement wrote `Not started` over the `Returned` an Administrator had just set; a withdrawal now writes the status that is true at that moment and never an older one over a newer one. Three agreement transitions stored an empty Airtable status in an institution's option, and an empty status reads as an open gate, so the next generate could write over what the base already held; the option never stores an empty status now. The last five were gaps in the checks rather than in the plugin: nothing pinned the sponsor application post type's exposure flags, the PDF scan's stream and byte budgets were asserted as a pair of numbers rather than exercised, three of the five places the content gate is enforced had no assertion at all, and the largest suite printed no summary line, so the documented runner could not tell a pass from a failure. Each of the four has a check of its own now. The fifth was the seed fixture, which published three named people together with the program's private judgment of them: the fixture and every suite under `bin/` are synthetic, with no real record ID, name or address left anywhere on the public mirror. Two smaller changes belong here too: a held application row is purged on the rejected window on both the sponsor and the institution form, so nothing waits for ever; and `bin/check-standards.sh` exits 0 when it is clean, so a build script can read its status.
+Step by step: [[Give a sponsor an account, and manage its people]]; [[Open a sponsor's Sponsor Dashboard]].
 
-**The sponsor tiers (1.112.0).** A sponsor's tier says what its sponsorship includes, on a ladder of five, lowest first, as the program's partner page lists the levels: since 1.123.18 the page is the source of truth, and the *Sponsorship* card lists its lines for each level, under the page's lead from Supporter up, "Everything in" the level below "plus:", which the card prints as a line of its own over the checklist rather than as one of its items. A Friend, a company sponsoring the program's mentors through Five for the Future, has its company name on the partner page, a mention in the mentor feature and an acknowledgment in the annual partner thank you post; every sponsor with no tier set is one, and so is every sponsor whose term has ended. A Supporter adds its logo and description on the partner page, a badge for its own site and the annual program report. A Backer adds being named for the part of the program it funds in program communications, a report covering that cost line and one self-written educational post about the sponsored product. A Champion adds a second self-written post with factual, value-neutral information about additional products, an invitation to the annual education partners session and a webinar or event co-hosted with the education program. A Partner adds a complete program funded end to end: it is named as program partner on the program it funds and in launch communications, given a report specific to that program, and on the site it is co-branded on the track it sponsors and on its students' Student Report Cards. Products are not a level benefit: partners at any level may offer free access to their products for students, so no tier caps live offers. The ladder is one table, `WPCPM_Sponsor_Tiers`, which every gate asks, and it holds no amounts, because the site never handles money. What a tier includes is the program's promise, listed for the sponsor on its card; on the site, a tier decides the cap on posts, none for a Friend or a Supporter, one for a Backer and two for a Champion or a Partner, and what the sponsor's cards show.
+### The sponsor application form
 
-An Administrator sets a sponsor's tier in the Tier box that follows *Assigned Administrator* on a sponsor's Edit form, the view of one sponsor on the Sponsors screen's **Sponsors** tab (Add a sponsor has no Tier box, so a new sponsor starts as a Friend): *Tier*; *Term ends*, the last day of the term, where empty means no term and the tier stands until an Administrator changes it; *Extra events this term*, for a Champion or a Partner, how many co-hosted events the sponsor may hold in that term beyond the one its tier includes, from 0 to 11; and *What the sponsorship funds*, one line the sponsor sees from Backer up, on its *Sponsorship* card and in its report; the Partners page and the *Listing for the handbook* never print it, since the partner page lists every partner in the same format. A Friend has no term, so a day left in the box is cleared on save. The extra events are kept in the row as `event_allowance`, with the last day of the term the save leaves, and count for that term alone wherever they are read: the Events card's list, the planner's form and its one-per-term rule; without a term nothing is kept there, since a sponsor with no term waits only for its last event to take place. A renewal that moves the day and leaves the number as it was drawn leaves it with the term it was granted for, which keeps it for the days it still runs, and starts the renewed term with none: the box then holds 0 and says what the term before was granted, for example "2 more events were granted for the term to January 31, 2027.", or "for the term that ended on" once that day has passed, until a number is set for the new term, which takes its place, since the row holds one number at a time. Once the Term ends day itself has passed, no event can use its number anymore, so the box holds 0 and says what that term was granted, and a renewal of a term that has ended, saved with the number typed in, grants it to the renewed term in one save. Once the application form asks which tier a company is considering, the box shows the answer as "Requested on the application". The last day of a term is still the tier; from the day after, the sponsor reads as a Friend wherever a tier is asked, until an Administrator moves the day forward (renewal is moving the day) or empties it. The Tier column of the **Sponsors** tab's table shows a tier with the last day of its open term, and a lapsed one as a Friend with the tier that ended and the day it ended.
+Companies apply at `/sponsor-application/`. The form is off until you tick **Applications from sponsors** (`WPCredits Program > Settings`, tab **Sponsors**, section **Applications**). While it is off, visitors read that applications are closed.
 
-Two settings decide when any of this reaches a sponsor. "Sponsor tiers" is the launch switch, off by default: until it is on, no sponsor sees a tier or meets a cap, and the daily run puts nothing to dormant and wakes nothing, while Administrators set tiers, terms and funded lines all along and the Sponsors screen and the Administrator Dashboard show them either way. With it on, the *Your sponsorship* section holds *Sponsorship* (the tier and its term, the funded line from Backer up, what the tier includes, what the next tier adds and a *Talk to your program contact* button), then *Events* from Champion up (the events the tier includes and, since 1.117.0, the planner for the co-hosted event, below), then *Reports* and *Badge*, both below; and the *Company profile and logo* card of every tier from Supporter up gains a *Description for the partner page*, 300 characters at most, the description the Partners page prints under the sponsor's logo and name. The button files a line in the sponsor's interests, mailed to its program contact and logged, five a day per account at most, as the *Offer more* form did until it left the page in 1.123.22: "wants to move to" and the tier above (for example "wants to move to Backer"), or "wants to renew as" and the tier whose term ended. "Tier grace date" (31 December 2026 by default) holds back the one move that takes something away: nothing goes dormant on or before that day, even with the switch on.
+It asks the company's name, website, contact person and email, a logo in color and in white, anything else, and the privacy policy box. **Which level are you considering?** is asked only while **Sponsor tiers** is on. A website with a space, a user name or no dot is refused: *Enter a web address such as example.com.*
 
-The caps, with the switch on: since 1.123.18 no tier caps live offers, since the partner page offers products at any level, separately from the levels, and drafts are never capped; Friend and Supporter include no post, Backer one at a time, in review or published, and Champion and Partner two (any number before 1.123.18). *Write a post* appears from Backer up, a post submitted beyond the cap stays a draft and the *Posts* card says why, and an Administrator's Publish is refused, with "Not published", once the sponsor's published posts fill its tier. What a tier no longer covers goes dormant, the program's state rather than the sponsor's, which since 1.123.18 only a post can be. A dormant post is unpublished, back in pending with a mark the run leaves on it, and the review queue on the Administrator Dashboard and the Sponsors menu bubble leave it out; the oldest published posts keep their slots, so the newest go dormant first, and an edit by the sponsor makes a dormant post a new submission that joins the queue. It comes back by itself, oldest first, on the first daily run that finds room for it under the tier, usually after an Administrator sets a tier that includes it. An offer the run put to dormant under the caps before 1.123.18 is shown to nobody and left out of every Tools section, a code already claimed from it stays with the person who holds it, and its sponsor can end it but never resume it; the first daily run with the switch on brings it back, since no tier caps offers now, and an offer whose last day has passed stays dormant. While the switch is off nothing wakes, so whatever is dormant waits, and its sponsor reads only that the program is holding it back.
+Checks:
+- One network address can send five an hour. More are refused.
+- After 40 in a day for the whole site, the rest are held.
+- A filled-in hidden field, or a missing or invalid form token, marks it as spam.
+- A form sent too fast, three links or more, words on the site's disallowed list, or a company name the same as the contact's, holds it.
 
-The daily run, `wpcpm_sponsor_tiers_daily`, first due ten hours after the load that schedules it and at that hour every day after, takes every Approved sponsor at its effective tier: it puts what the tier does not cover to dormant (with the switch on and the grace date past), wakes what the tier covers again (with the switch on), and, switch or no switch, sends one mail per term once the term's last day is thirty days away or less, to the assigned Administrator, else the "Interest mail" addresses, else every Administrator, with a link to the sponsor's Edit form. A day with nobody to mail is tried again the next day, a moved day is a new term and is mailed again, and with the switch on the sponsor's own card counts the same thirty days down. A run that moved anything for a sponsor writes one audit row naming the tier and the counts, and mails nobody about it: the sponsor reads it on its own cards, so tell the sponsors the preview names. On or before the grace date, the Sponsors screen's **Sponsors** tab says above the table of sponsors what the run would put to dormant on the day after it, sponsor by sponsor and in total, as that day will find them (a term that ends first already counts as a Friend), and, while the switch is off, that nothing goes dormant until it is on; the line goes once the grace date has passed. The lines *Talk to your program contact* files land on the Administrator Dashboard's *New interests* card, where each sponsor's name opens its *Sponsorship* card through the switcher.
+| State | The applicant gets | Administrators get |
+|---|---|---|
+| *new* | An acknowledgement with a reference, such as SAPP-2026-0007 | A mail to **Who is mailed**, else to all |
+| *held by the anti-spam checks* | The acknowledgement | Nothing |
+| *marked as spam* | Nothing | Nothing |
 
-The Administrator Dashboard's *Sponsors* card counts the Approved sponsors by tier under its four tiles, and the *Sponsor terms ending* card, among the cards to watch, lists every term of an Approved sponsor that ends in the next sixty days, soonest first: the sponsor, linked to its Edit form, the tier, the day with how many days are left, and the Administrator. The record's six new fields (`tier`, `tier_until`, `funded_line`, `description`, `tier_requested` and `tier_mailed_for`, the term the thirty-day mail last went out for) live inside the row `_wpcpm_sponsor_row` already holds, so the record gains no meta key; the dormant mark on a post, the daily run's cron hook and its audit kind are in the table below, and uninstall takes the run off the clock and the mark off every post. The small findings the 1.111.0 review left are closed too: the public feed reads only the two years of applications it reports; a sponsor's record trashed outside the plugin still holds its key, so no new sponsor is given it, and an uninstall removes it; and an image download nothing called anymore is gone.
+The logo files stay private until the application is approved.
 
-**The public face of the tiers (1.113.0).** The Partners page exists at `/partners/`, created as a draft on an Administrator's first admin request after the update (and on activation): a heading, *Our partners*, the sentence "Our partners are listed in alphabetical order." and the `Sponsors` block with the full listing. The theme's `page-partners.html` template prints the rest of the program lead's partner page around that content: the levels with their amounts and what each includes, the products partners may offer, and the ways to apply. Its content is written once, at creation, and is the program's to edit from then on; the switch publishes it, turning it off returns it to draft, a save that would publish it while the switch is off lands as a draft instead, and a visitor who asks for the page gets a 404 while the switch is off, an Administrator still reading it. The same `Sponsors` block draws the listing as the full list on the Partners page or as the strip of logos on the theme's landing page (theme 1.25.0 dresses the strip, the listing and two of the Sponsor Dashboard's cards): one list in alphabetical order by name rather than by tier, as the partner page lists its partners, in the same format, down to a lowest tier set in the block. A Friend is listed by its name; every tier from Supporter up by its logo, its name and its description, with no tier heading, no prominence and no line naming what a sponsor funds. The strip shows the logos from Supporter up in the same order and counts the Friends, with *All partners* linking the Partners page. An Administrator sees the Partners page and the block while the switch is off, under a note that visitors do not see them yet. A Supporter and up also gets a badge for its own site, `/sponsor-badge/<slug>` and `/sponsor-badge/<slug>-dark`, naming the program, the tier and the current year, served only while the switch is on, cached an hour (a day until 1.123.22) and metered per address like the public feed; a lapsed term keeps its badge and names the year that term ended. The Sponsors screen's **Handbook listing** tab, in the bar only while the switch is on, shows the same list as plain HTML with the logos' public addresses and a Copy button, for pasting into a Custom HTML block in the handbook or on the WordPress Foundation's page. The application form asks, optionally and only while the switch is on, *Which level are you considering?* (the word "level" since 1.123.24, as on the Partners page), the five tiers and *Not sure yet*. Under the choices, a closed section, *What each level includes*, opens each level's name, amount, lead line and what it includes, as the WordPress Credits theme hands them over from the Partners page's own list (through the `wpcpm_partner_levels` filter, so the form and the page say the same), then a line linking the page's levels in a new tab; with no level handed over, the theme not active or older, the hint under the choices links the Partners page instead, and while the page is not published neither link is drawn. The answer shows on the Sponsors screen's **Waiting for review** tab and the Administrator Dashboard's queue ("Considering: Backer", or "Tier: not sure yet"), in the application's folded answers and, once a sponsor is approved, on the Tier box's note naming what was asked for, "Requested on the application: Backer." Since 1.123.12 the form no longer asks *How would you like to support WP Credits?*, nor gives its note that sponsoring tools or services also means sponsoring a mentor, since the tiers cover both: the tier question is the one question under *How you would like to support the program*, and while the switch is off the form has no such section. An application filed before keeps its answer, which its answers show, on the Sponsors screen and under *Read the application* on the Administrator Dashboard, as *How would you like to support WP Credits? (older answer, no longer asked)*, and which Approve still copies to the sponsor's *Sponsorship option*; an application filed since has no row for it, and the sponsor it becomes starts with *Sponsorship option* empty, for an Administrator to set on the Edit form if the program wants one.
+#### Deciding an application
 
-**A Partner's tracks (1.114.0).** On a track's page, the Partners picker follows Key chip color in the properties form: every sponsor Approved at the Partner tier today, plus any sponsor the track already names, ticked and carrying a note when it no longer qualifies ("no longer a Partner") or the sponsors store does not know it ("unknown sponsor"); with nothing to offer and nothing named, the row says so and draws no box. Save the track keeps a ticked partner whether or not it still qualifies and drops one left unticked, so a lapsed partner is removed only on purpose; the definition's `sponsors` property holds at most ten sponsor keys and is checked for shape alone, never against the sponsors store. Under the picker, *Partners' narrative* is one text for all of the track's partners, rewritten each term, the definition's `partners_narrative` property: at most 5,000 characters, a line break counted once, measured when the track is saved or published and never when it compiles, so no text a live track holds takes it off the site, and left out of the compiled index, which every request loads. A copy starts without it, as it starts without partners, and a save that changes it is named Partners' narrative on the track's History screen. The list names a track's partners, lapsed and unknown ones included, under its name, and a save that changes them is named Partners on the track's History screen, the word the picker uses too. While "Sponsor tiers" is on, a track's students see its partners on their Student Report Card - "In partnership with" and each partner's logo and name, linked to its website - inside My course, inside My hours on a track with no course, or, with neither drawn, in a section of its own, "Partners of your track"; and their Tools section offers the partners' live offers alone, a code already claimed from anybody else's staying under Your codes and a claim pressed for another sponsor's offer refused. Since 1.123.18 the Partners page names no track: a Partner is listed in the same format as every partner, and is named as program partner on the track it funds and on its students' Student Report Cards. The Tier box on the Edit form gains a read-only *Tracks* row for an effective Partner, each track linked to its own page on the Track Builder, or, with none, "None yet. A track names its partners on the Track Builder; they show here once the track is published."
+Read applications on the tab **Waiting for review**, card **Sponsor applications**. Decide them on the Administrator Dashboard, card **Sponsor applications**, which lists the 50 oldest. Past those, decide on the Sponsors screen.
 
-**Sponsor reports (1.115.0).** The annual sponsor report is the program's account of itself and of one sponsorship, for the twelve months ending on the sponsor's term's last day. For every sponsor from Supporter up the site drafts one the day after its term ends, once, stamping the row's `report_drafted_for` so it is not drafted twice; an Administrator may draft one at any time, for any period end on which the sponsor's tier carried a report, from the *Reports* card on the Sponsors screen's **Reports** tab, where each Approved sponsor is listed with its reports and, where its tier still earns one, the form that drafts the next. A draft is made under a lock per sponsor, the option `wpcpm_sreport_lock_<key>`, read from the options table itself, so that a request's own copy of the options on a site with a persistent object cache cannot pass it as free, taken with `add_option()` and taken over after five minutes as one a dead request left, so the daily run and an Administrator drafting the same term at the same moment cannot store two reports: a draft asked for while another of the sponsor's reports is being drafted is refused, on the Sponsors screen and the Administrator Dashboard alike, with "A report for this sponsor is being drafted right now. Try again in a minute.", and the daily run, refused the same way, stamps nothing and tries the term again at its next run. When an Administrator renews a term - moves *Term ends* forward on the Edit form - before its report exists, the term the renewal moved off keeps its report owed on the row (`report_owed`: its tier, its last day and its funded line) rather than losing it, and is drafted for on its own last day with its own tier and funded line, whatever the row holds by then; the Tier box's *Report due* row then reads, for example, "A report for the term to June 30, 2027 is still due.", with a *Not a renewal* button for a day that was corrected rather than renewed, which clears the debt, writes a `sponsor_report_owed_cleared` row on the trail and says so, for example "Done: the term to June 30, 2027 was a corrected day, not a renewal, so no report is owed for it."; pressed when nothing is owed, it changes nothing and says "Nothing changed. No term of that sponsor was waiting for its report."
+| Mark | What it means |
+|---|---|
+| *held* | The checks held it. Open it to read why. |
+| *possible duplicate* | Another open application names the same company or address. Nothing is merged. |
+| *already on the site* | A sponsor with this name or website exists. Approving makes a second record. |
+| *already an account* | The contact address has an account. **Approve** is refused. |
+| *approval half done* | **Approve** stopped partway. Press it again to finish. |
 
-A report's sections, in the order they print: *The program this year* and *Your sponsorship*, for every tier that earns a report at all (Supporter up); *The cost line*, from Backer up; one track block, titled *The track* or *The tracks*, for each track a Partner sponsors - left out entirely for a Partner that sponsors none; and *Looking ahead*, always. A draft starts each track block's narrative with the *Partners' narrative* its track was last published with, read from the track's published copy under the same lock as the rest of the draft, and keeps its own copy from then on: a track published with other words later changes the reports drafted after it, never one drafted before, *Regenerate* keeps the report's words, pulled or written, and a track published with none leaves its block empty. The program's figures - students started, finished and active, the hours logged to date by the active ones, their contributions, and the teams, institutions and countries among them - are `WPCPM_Sponsor_Report_Numbers`'s alone, read over every institution's roster and the students the Students table files under none. Active counts a student not started after the period's last day and not already ended before its first: an end day within that stretch is enough by itself, which is how a graduate with no start day on record is still active in the very year she finished; with no end day, a status the program currently counts as active keeps counting the student whether or not a start day is on record, while any other status counts them only for the period they actually started in - so a row with neither date at all is active only while its status is current. A track's block carries the same figures but no finished count, since the record keeps no graduate's track. The sponsorship section holds the tier and the term, what it funds, the mentors the sponsor sponsors who are Active and still linked when the report is generated, each with how many of their mentees started in the period, its offers and their claims by calendar month, the posts it published in the period (including any the daily run has since put dormant), and the events its tier is invited to. No student is ever named.
+- **Send this question** takes 10 to 2,000 characters.
+- While an approval is half done, **Reject**, **Reject as spam** and **Put back in the queue** are refused.
+- **Recently decided**, under the list, holds applications marked as spam, rejected or approved. Open one to press **Delete for good**, or, for a spam or rejected one, **Put back in the queue**. Deleting cannot be undone.
 
-A report is written in its own editor, opened from that card as a view of the **Reports** tab, in the card's place, at `?wpcpm_sreport=<id>`, with *Back to the reports*: the generated tables are read-only, and one textarea per narrative section - read-only once the report is final - is saved as a revision every time it is written, so every saved version keeps the words beside the figures they were written against. *Preview* opens the report exactly as the sponsor will print it; a PDF exported elsewhere can be attached, replaced or removed through the buttons under *The PDF*, even once the report is final; *Mark final* hands the report to the sponsor and *Reopen* takes it back for more writing; *Regenerate* reads a fresh snapshot from the program's records for the same twelve months and keeps every narrative as written. The card's own draft form only appears for a sponsor whose tier, on the form's own day, still earns a report, or while a term is owed its report; for any other sponsor it reads "No report for this tier." instead of a form.
+How long applications are kept (`WPCredits Program > Settings`, tab **Advanced**, section **Applications**, shared by all the application forms):
+- **Spam kept for (days)**: default 30.
+- **Rejected kept for (days)**: default 365. A held application counts from its last change.
+- **Approved kept for (days)**: default 0, which keeps them for ever.
 
-One PDF per report is kept through the private files, checked exactly as a signed Collaboration Agreement is. The PDF is downloaded under a name the site builds, `wordpress-credits-report-<slug>-<until>.pdf`; the printed document is a page titled with the report's title, which the browser proposes when it is saved as a PDF. Both go to an Administrator always, and to a member of the report's sponsor once the report is final and the switch is on - the same two conditions the Sponsor Dashboard's own *Reports* card reads before it shows *Open* and *PDF*; a signed-out reader is sent to sign in first rather than simply refused.
+A deleted application takes its logo files with it, unless it was approved.
 
-The Administrator Dashboard's *Sponsor reports* card, counted by the strip's *Sponsor reports to finish* tile, lists in three parts what an Administrator still has to do, each under its heading with one short sentence when it is empty: *Drafts to finish*, each opening straight into its editor; *Terms ended with no report*, each with its own *Draft now*, the **Reports** tab's own draft form bound for this card, so a refusal comes back here and names why; and *Final this semester*, each opening its editor too, a record of what is done rather than a queue, so it adds nothing to the tile's count. With nothing in any part, the card says "Nothing to finish." alone. The five audit kinds a report writes - `sponsor_report_drafted`, `sponsor_report_final`, `sponsor_report_reopened`, `sponsor_report_pdf` and `sponsor_report_owed_cleared` - and the new post type are in the table below; nothing here is a new setting, since the switch and the grace date are the ones Settings already holds.
+Step by step: [[A company applied to sponsor]]; [[From application to an active sponsor: the whole path]].
 
-**Sponsor events (1.117.0).** A Champion or a Partner plans its co-hosted webinar or event on the Sponsor Dashboard's *Events* card, under the list of what its tier includes, where the *Plan it now* buttons and their "wants to plan it" line used to be; the partners session and a Partner's launch communications stay the program's to plan with the sponsor, as the card says. The planner takes a date and a start time, read on the clock of the person planning, which the form names, and kept as a moment in UTC with that clock's name; a length of 15 to 480 minutes; the places, blank for no limit and 500 at most; a title of up to 120 characters; a description of up to 2,000; and the call link, an http or https address of up to 500. Each event is one private post of the type `wpcpm_sponsor_event`, planned, approved or canceled; a change keeps its state, so the program approves an event once. A sponsor plans one kind of event, one at a time, and one a term unless the program grants more: nothing while it is not Approved or its tier on the day has no co-hosted event (a lapsed term reads as a Friend); nothing new while one of its events is planned or approved and not over; while a term runs, nothing new once the approved events dated in the term's twelve months are the tier's one and as many more as the Tier box's *Extra events this term* granted for that term, and no day after the term's last; and never a start that has passed. A sponsor with no term waits only for its last event to take place, and a canceled event, or a planned one whose day passed without an approval, spends nothing. The card puts the waits in the form's place: while an event is still to take place, "Your event for this term is planned already." for a sponsor whose term runs, and "Your next event can be planned once this one has taken place." for one with no term; for a term granted more, the same "Your next event can be planned once this one has taken place." while the term can still hold another after it, and "Your events for this term are planned already." once the event still to take place is the last the term holds; and once the term's event has taken place, "Your event for this term has taken place already.", or "Your events for this term have taken place already." for a term granted more. A plan pressed anyway is refused in the same words. For a term granted more, the card's list says so under the co-hosted event, for example "and 2 more this term, granted by the program", and the form says how many events the term allows, for example "Your term allows 3 events." The card also shows the note a returned plan came back with above the form; shows the sponsor its event still to take place with where it stands and how many joined, never who, with *Change the event* and *Cancel the event* until it is over; and lists the events held under *Past events*, each with how many joined. A sponsor that no longer holds the planner, set to Paused or on a tier without events, keeps the card only while an event of its own is still to take place, reads an approved one as "Approved, but no longer offered: your company's sponsorship does not include events at the moment.", and has *Cancel the event* alone. An Administrator can plan, change or cancel for a sponsor through the switcher, on the Administrator's own clock, and the mails to the program contact and to the sponsor's members then say an Administrator did it on the sponsor's behalf.
+### A sponsor's logo and agreement
 
-The Administrator Dashboard's *Events* card, which holds the sponsors' events and the program's own, follows the sponsor offers' card, and the strip's *Events waiting* tile, right after *Sponsor offers to review*, counts what waits; the card, the tile, the lists below and every press behind them exist only while "Sponsor tiers" is on. The card has three parts, each read on the viewing Administrator's own clock, the third the program's own plan, below. *Waiting for the program's OK* lists every sponsor's planned event not over yet, the one planned first at the top: its title and sponsor, when it runs, its length and places, its description (folded under *Read the description* past 300 characters) and its call link, which the program vets with the rest. *Approve* opens it to its audiences; *Return with a note* cancels it and mails the note to the sponsor's members, who find it above the planner's form if they plan again, until the term is renewed; a plan dated in the term before that is returned after the renewal is told by the mail alone. *Coming up* lists every approved event not over yet, the program's own among them, the soonest first, whatever its sponsor's standing, with how many have joined and, under *Who joined*, their names, which reach no page or mail a sponsor reads; each carries the Administrator's own *Join* or *Leave*, as themselves, and *Cancel with a note*, which asks first and cancels it for everyone (an event of the program's own carries *Change the event* and *Cancel the event* instead, below). A return and a cancel both need a note. An event whose sponsor no longer offers events (not Approved, gone from the store, or without a tier that has events today) says "No longer offered": waiting, it has no *Approve*, and an approval posted anyway is refused with "Nothing was changed. That sponsor no longer offers events, so its event cannot be approved. Return it with a note."; approved, it stays under *Coming up*, since the people on it still expect it, and nobody new can join it. Every other refusal opens "Nothing was changed." too: a Return pressed on an event another Administrator approved meanwhile, which says to cancel it under *Coming up* instead; an Approve, a Return or a Cancel with a note sent for an event of the program's own, which says to change or cancel it under *Coming up*; an event canceled already, over, or no longer on the site; another change to the sponsor's events going through; and a press made after the switch went off.
+#### The logo
 
-**The program's own events.** The card's third part, *Plan an event of the program's*, plans an event the WordPress Credits Program hosts itself, with no sponsor: the partners session and the launch communications are such events. *Plan an event* opens the planner's own form, the same date, start time (read on the Administrator's own clock, which the form names), length, places, title, description and call link, under the same limits, with no last day, since no term binds the program; *Plan the event* saves it approved, as the program's own events wait for nobody's OK. None of a sponsor's rules applies to them: no tier, no term and no one event at a time, so the program may plan as many as it holds, for any day still to come. Each is listed under *Coming up* with the sponsors' events, named "the WordPress Credits Program" where a sponsor's event names its sponsor, and offered to the same four audiences, a sponsor's own members among them when they are also students, mentors, Administrators or institution contacts, since the event is nobody's own. It carries the Administrator's own *Join* or *Leave*, *Change the event*, the same form filled from the event, and *Cancel the event*, which asks first and needs no note. A change of the date, the start time, the length, the title or the call link tells everyone on it, and a cancel tells them with the file that takes it off their calendars, as for a sponsor's; nobody else is mailed, a plan included, since the program has no members to write to and is its own contact. The day before, the reminder reaches the people on it alone. A refusal opens "Nothing was changed." as the card's others do and names the program where a sponsor's names the sponsor: a start that has passed, fewer places than the people on it, details missing or not valid, or another change to the program's events going through. Such a refusal, or a save that failed, brings the plan or change form back once with what the Administrator who pressed typed, for that Administrator alone, its fold drawn open, and a value longer than its box allows comes back empty, as on the Sponsor Dashboard. An event of the program's own never counts toward a sponsor's events, never shows on a Sponsor Dashboard or in a sponsor's annual report, whatever its rows hold, and the planner on the Sponsor Dashboard refuses to change or cancel it, an Administrator's press through the switcher included.
+A sponsor uploads a **Color logo** and a **White logo, optional** on its Sponsor Dashboard, card **Company profile and logo**.
 
-Once approved, an event is listed as *Events from our sponsors* for the people it is for, headed *Events from our sponsors and the program* while one of the program's own is among them, each on their own page and their own clock: current students, as the Tools section counts them, which includes Paused, under their group sessions in *My mentor call* on the Student Report Card; Active mentors under the sessions panel on the Mentor Report Card; institution contacts other than tutors on their own Institution Dashboard, after its sections (a tutor sees no events and cannot join); and Administrators on the card above, which is their list. A test sponsor's events are listed for Administrators alone. A sponsor's own members never find their own event there: it is on their card. The list is drawn for the signed-in person on their own page alone, since a press acts as whoever presses it, so an Administrator reading a student's, a mentor's or an institution's page through the switcher sees none there, and joins on the Administrator Dashboard. Each item gives the title, the sponsor's name (the WordPress Credits Program for one of the program's own), when, how long, the places left ("Full", or "Open to everyone" with no limit) and the description, then *Join*, which a full event does not offer; a person on it reads "You are on it." with *Leave* and the *Join the call* link, which is drawn for nobody else. Join takes the last place under the event's lock, the sponsor's or the program's, and Join and Leave work until the event ends. Once a sponsor stops offering events, its event drops off the lists of everyone who could join it and stays, marked "No longer offered" and with *Leave* alone, on the list of each person already on it, whatever became of their own place in the program since, so nobody is left on an event they cannot get off. A Join or a Leave from a login that has lapsed, or made while the switch is off, stops on a WordPress error page and changes nothing. The Partners page lists the same events for everyone, signed in or not, at the end of the `Sponsors` block's full list, under *Upcoming events*: every approved event not over yet whose sponsor still offers events on the day and is not a test sponsor, and every one of the program's own, the soonest first, each with its title, its host (the sponsor's name linked to its website, or the WordPress Credits Program), its day and time on the site's clock with the zone named, its length and its description with every address that starts with http://, https:// or mailto: taken out and its line breaks run together, then the way in: for a visitor who is not signed in, *Sign in to join*, a button to the login screen; for a signed-in viewer who is one of the four audiences above, as the lists count them (an Administrator first, then a current student, an Active mentor, an institution contact other than a tutor), one link to their own page at the list instead, *Join it on your Administrator Dashboard*, *Join it on your Student Report Card*, *Join it on your Mentor Report Card* or *Join it on your Institution Dashboard*, since the login screen draws its form again for somebody signed in already, which reads as a failed login; and for anybody else signed in, a sponsor's member or a subscriber, or one whose page is not published, nothing. The page never shows the call link, the places or anybody on an event, by name or number. An address written without http://, https:// or mailto:, such as a bare www. one or a bare email address, stays in the description as it was written, which is why the planner's description box says the description is public and that the call link goes in its own box. A floor set in the block leaves the events whole; the landing page's strip and the **Handbook listing** tab's listing hold none, and nothing of an event shows there while "Sponsor tiers" is off, an Administrator's preview included. An approval, a change or a cancel of an approved event, and a plan of the program's own, each tell the host's page cache that the Partners page changed (`clean_post_cache()` of the page), so a signed-out visitor, who is served the cached page, sees the list as it now stands rather than when the cache expires.
+- PNG, JPEG or WebP, at least 300 pixels wide, at most 4000 on a side. SVG is refused. The site checks the file itself, not its name.
+- At most **Largest logo** (tab **Sponsors**, section **Offers**), 1024 KB by default. Five uploads a day per company.
+- A logo already stored is never refused for its width.
+- **Remove it** takes the logo off the site at once. The files stay in the Media Library.
 
-Every mail about an event is one of the Sponsor events area's emails in **WPCredits Program > Tools > Emails**, each logged under its own id (`event-joined`, `event-approved`, `event-planned` and the others), is written in its recipient's language, puts any time it gives on the recipient's own clock with the zone named (the site's for a bare address), and names nobody on the event to anybody. The program contact (the assigned Administrator, else the "Interest mail" addresses, else every Administrator) is mailed when an event is planned, changed or canceled on the Sponsor Dashboard, with its call link, its description and how many have joined, and a link to this card while it waits or stays approved. The sponsor's live members are mailed each decision: an approval, with the event's calendar file; a return, with the note; and an Administrator's cancel, with the note, how many of the people on it were told, when that is every one of them, or that they are being told while some wait for the drain below (an account that is gone, or a send that failed, leaves the number unsaid; the mail log keeps each failed send), and, once the event had been approved, the file that takes it out of their calendars; a reply to a return or a cancel goes to the Administrator who made it. They are mailed a change or a cancel of an approved event made on the Sponsor Dashboard too, with the file that updates or removes it. The people on an event are mailed by the store itself on a cancel, and on a change of the date, the start time, the length, the title or the call link, whoever made it, each with a calendar file that replaces theirs or takes the event off, and each naming the sponsor, or saying "Hosted by the WordPress Credits Program" for an event of the program's own; a change of the description or the places alone mails only the sponsor's members and the program contact, and a Save that changes nothing writes nothing, mails nobody and says "Nothing changed." The store writes each person to tell down on the event first, a `_wpcpm_sevent_pending` row each, tells the first fifty in the request itself, and leaves the rest to the cron event `wpcpm_sevent_drain`, due a minute later, which tells fifty a run, a minute apart, until no row is left; each row comes off the event before its mail is handed off, so a request that dies part way tells nobody twice, and whoever it had not reached is told by the next run. The Sponsor Dashboard's outcome then says everyone who joined is being told rather than has been told; a person who joins is mailed the call link with the file that adds the event to their calendar, and one who leaves the file that takes it off theirs alone. Each file names the program's sender as its organizer and the person it is sent to as its attendee, and nobody else, so every person gets a file of their own. The day before an event, the people on it and the sponsor's live members are reminded of it, once. While "Sponsor tiers" is on, the daily run `wpcpm_sponsor_tiers_daily`, as its last step, finds every approved event whose sponsor still offers events, or that is the program's own, and whose start falls in the run's window, normally from 12 to 36 hours after the run; writes a row for each person on it and for each member who is not, a person who is both once; and marks the event with the version it was reminded at, in `_wpcpm_sevent_reminded`. The drain above sends them, fifty a run, and nothing is mailed in the run itself. The window is counted in hours rather than by the site's calendar days, and it starts 12 hours after the run or, when that is sooner, where the last complete one stopped, which the option `wpcpm_sevent_reminder_edge` keeps: on the daily cadence the two are one moment, and when the run fires late (WP-Cron fires a due event on the first page load after its time) the edge is the sooner, so the late run still covers what the window before stopped short of, though never an event that has started. So the reminder normally comes the day before the event, sometimes closer to it, and never twice. An event approved after a run is reminded only if it starts inside a later run's window, which normally opens 12 hours after that run, so one approved less than a day and a half before it starts may get none. When another write to a sponsor's events, or to the program's, holds their lock at the run's moment, that event is left to one retry of the run five minutes later, the cron event `wpcpm_sevent_remind_retry`, which covers the same window: the edge moves on only once a run has reminded everything its window holds. A person on the event is reminded of the sponsor (or that the WordPress Credits Program hosts it), the title, when it starts on their own clock, the length and the call link; a member, of the title, when, and how many have joined so far, never who; neither mail carries a calendar file. A marked event is never reminded again, so after a change the people on it have the change's own mail with the new time. A cancel before the drain has sent the reminders replaces them with its own rows, and a reminder still waiting when its event has ended or been canceled is dropped. Each row still to tell ends with what it is for, `change`, `cancel` or `reminder`; a row an earlier release wrote without it is read as the change or the cancel its event's state says.
+#### The agreement
 
-Every move but a join or a leave writes one row of its own kind on the Sponsors audit trail, `sponsor_event_planned`, `sponsor_event_approved`, `sponsor_event_returned`, `sponsor_event_changed` or `sponsor_event_cancelled`, on the member or the Administrator ground: its message names the day, and its data holds the start, the length, the places and how many are on it, never the title, the link, the description, the note or a name. An event of the program's own writes its rows the same way, on the Administrator ground, naming no sponsor ("A program event was planned for ...", "The program event was changed; ..." and "The program event on ... was canceled."), marked as the program's with `_wpcpm_log_program`, so no sponsor's history lists them. Every write, a join and a leave included, happens under a lock per sponsor, the option `wpcpm_sevent_lock_<key>`, or, for the program's own events, the one option `wpcpm_sevent_lock_program`, read from the options table itself, taken with `add_option()` and taken over after two minutes as one a dead request left, and the event is read again under it; every write after the plan raises the event's calendar version, so each file sent outranks the one before. The annual sponsor report gains a table right under the brief of *Your sponsorship*, "Events held in this term" (Date, Event, Joined): the approved events whose end fell in the period on the site's clock, each dated by the day it began, with how many were on it, whatever tier the sponsor held on the term's last day, and nothing at all when none was held. It holds no name, no link and no description, a report drafted before 1.117.0 reads as holding none, and the Administrator's editor shows it whatever the switch says, as it shows the rest of the report. Uninstall deletes every event, a trashed one included, with the people on it, the rows still to tell them and its link, every lock and the reminders' edge, takes the drain and the reminders' retry off the clock, and leaves the accounts. The post type, the five audit kinds, the lock prefix, the reminders' edge and the two cron hooks are in the table below.
+The Collaboration Agreement is optional. A sponsor's dashboard, offers and codes work without one.
 
-**The offers' review (1.123.18).** An offer waits for an Administrator's review before students and mentors see it, as a sponsor post does. A member's new offer starts as a draft; *Send for review* puts it in a state of its own, *Waiting for review*, which nobody but its sponsor sees, and from which a member takes it back to a draft or ends it. While an offer is live, paused or dormant, a member's change to what students see of it, its title, what a person gets, how to redeem it, its link and, for one shared code, the code itself, is held beside the offer, and students and mentors go on seeing the approved version until the change is approved; the member may discard the change meanwhile. On a draft or an offer waiting for review, the same change is saved at once and the offer needs the approval again. Everything else a member does takes effect at once: pausing, resuming and ending, the last day, the audience, the warning threshold and voiding codes; codes a member adds to an approved offer wait for review since 1.123.20, as the next paragraph says. Both kinds of wait are listed on the Sponsors screen's **Waiting for review** tab, under *Sponsor offers to review*, and decided on the Administrator Dashboard's card of the same title: each item shows what students would see, every field of a new offer and, for changes, each changed field as it reads now and as it was asked for, with *Approve* and, under *Return with a note*, *Return it with this note*. *Approve* puts a new offer live, or the changes in place of what students saw; an offer with nothing left to give is not approved, and the refusal says to return it so the sponsor adds a code. A return needs a note of up to 2,000 characters: a new offer goes back to a draft, changes stay with the member while students see the offer as it was, and the note is shown on the offer on the Sponsor Dashboard and mailed to the person who sent it, through the template *Sponsor offer returned with a note* (`sponsor-offer-returned`, on Tools > Emails). Both decisions are on the sponsor's trail (`offer_approved`, `offer_returned`), naming the offer and never its words. Since 1.123.23 a decision covers what its item showed and nothing else: both forms carry a fingerprint of everything that waits on the offer and is shown, and when any of it changed after the page was drawn, a code added, the held words changed, or the offer paused or resumed, *Approve* and *Return it with this note* change nothing and say "This offer changed after you opened it, so nothing was decided. Read it again, then decide."; the item then shows what waits now, and a typed note is kept in its fold. A page drawn before 1.123.23 carries no fingerprint and is refused the same way. What a student claims meanwhile changes nothing the item shows, and refuses nothing. The strip's *Sponsor offers to review* tile and the Sponsors menu bubble count what waits. The program's own staff, an Administrator working on a sponsor's Sponsor Dashboard, create, change and switch on offers with no review, and the *New offer* form says so. The review is the program's, not a tier's: it applies with Sponsor tiers on or off, and nothing it says names a tier. Offers that were live, paused or dormant when 1.123.18 was installed carry no mark of approval and read as approved, so they stay as they were, with no migration and nothing for the upgrade to change; a draft from before then is sent for review like a new one.
+- A sponsor uploads its signed PDF on its Sponsor Dashboard, view **Agreement**. Limits: **Largest upload (MB)**, 10 by default, and **Uploads per day**, 5 by default (tab **Advanced**, section **Agreements**).
+- While it waits for review, the sponsor can press **Withdraw it**. The file is deleted at once.
+- Its assigned Administrator is emailed, else **Who is mailed**, else every Administrator. Accepting, returning, taking out of force and reinstating email every account of the sponsor.
+- Read it on the tab **Waiting for review**, card **Signed agreements**, with what the scan noticed. The download is saved, never opened in the browser.
+- Decide it on the Administrator Dashboard, card **Sponsor Collaboration Agreements**. Take it out of force, or record a copy the program holds, on the tab **Agreements**.
+- A returned file is deleted after **Discarded files kept for (days)**, 30 by default. An accepted agreement is never deleted.
+- Uninstalling the plugin keeps every signed file and mails the site's admin address a list of them.
 
-**Codes added to an approved offer (1.123.20).** A code can be a whole checkout link, so the codes a sponsor's member adds to an offer students can see or could see again, live, paused or dormant, one approved before 1.123.18 among them, wait for an Administrator's review too. They are kept beside the pool, sealed and checked for repeats like every code and counted toward the 5,000 an offer holds, but nobody can claim them, they are not among the codes available or what students see as left, and they neither re-arm nor answer the low-stock warning. The offer waits in the same queue as a change, on the same tab, card, tile and menu bubble: an offer with codes added and a change held is one item and one decision. Its *Codes added* line says how many codes there are and how many are web addresses (a line that starts with `http://`, `https://` or `www.`, in any case), then lists the codes themselves, the web addresses first, at most 20, and says how many more are not shown; every code is printed as plain text, never as a link. A new pool sent for review shows the codes it holds under the same *Codes added*, so an Administrator approves a new pool having read what is in it. *Approve* puts the codes in the pool with any change, as available, and clears the low-stock stamp as adding codes does; *Return it with this note* takes them out of the offer entirely, not as void, so the member can add them again, mails the note as for any return, says in its fold that the codes added are taken out, and the Offers card says how many were taken out beside the note; the member's *Discard the changes* takes them out too. Codes a member adds to a draft, or to an offer waiting for review as a new offer, are read with the offer itself: a draft that carried the program's OK, a sponsor's seeded first offer or one an Administrator drafted for it, loses it, as it does when a member changes its words, so the member sends it for review rather than switching it on, and its review lists the codes. An Administrator's codes, on a sponsor's Sponsor Dashboard, go in at once, and keep a draft's OK. *Void unclaimed codes* leaves codes that wait as they are, so a sponsor replacing a batch can void the old one and add the new in either order, and ending an offer takes the codes that wait on it out of the offer. Every one of these moves takes the pool's lock, a press decides only the codes its item showed, read again under the lock, so codes a member adds after the page was drawn are neither put in the pool nor taken out by it, codes a member adds while an Approve or a Return is going through stay listed for review, a Return the lock refuses gives its fold back with the note as it was typed, and a press that finds nothing held, because another Administrator approved or returned it a moment before, changes nothing and says "Only an offer or a change waiting for review can be approved or returned here." On the sponsor's side the press says the codes wait instead of saying they were added, and the offer says how many wait. Nothing in a pool at the update waits: every pool stays as it was. Approvals and returns that moved codes say how many on the sponsor's trail, and since 1.123.23 so does the move of an offer that ended with codes waiting on it, and a member's press says whether its codes wait, never naming a code.
+Step by step: [[A sponsor uploaded its signed agreement]]; [[A sponsor's agreement: record, take out of force, put back]].
 
-**Sponsor posts and the site's email subscribers (1.123.18).** Sponsor posts are never sent to the site's email subscribers. Jetpack Subscriptions emails a post to them whenever it moves to publish, each time it does, so without a guard a sponsor post would be mailed when an Administrator publishes it and again whenever the daily run wakes it from dormant. Two guards keep it out, either one enough: the Sponsors category and every sponsor's own category under it are on the list of categories Jetpack never emails (its filter `jetpack_subscriptions_exclude_these_categories`), and every sponsor post carries Jetpack's own mark, `_jetpack_dont_email_post_to_subs`, set on a member's save, on *Publish* and on a wake, before the post goes live. Without Jetpack the filter is never called and the mark is read by nobody, so nothing here needs Jetpack.
+### Offers, codes and claims
 
-**Test sponsors (1.123.18).** A test sponsor is a sponsor record for trying the sponsor side of the site, never listed publicly. Its flag, *Test sponsor: not listed publicly*, is a box right after Status on a sponsor's Edit form and on the Add form, and beside *Approve* on an open application, on the Administrator Dashboard's *Sponsor applications* card and on the application's own view on the Sponsors screen, so a test application is approved straight into a test sponsor, and since 1.123.20 the question *Approve* asks before it acts ends with what a ticked box does; the box is ticked already for a company whose name, trimmed, starts with the word "TEST" in capitals, and for a half-done approval of a test sponsor. Since 1.123.23 the word is "TEST" alone, or followed by a character that is neither a letter nor a digit in any script, such as a space, a hyphen, a colon or a bracket: "TEST", "TEST - Acme", "TEST: Acme" and "TEST(1)" are test names, while "TESTAMENT", "TESTIFY", "TEST2 Labs", "Test Acme" and "test acme" are not; before then any name starting with the four capital letters counted. The Sponsors card's list marks such a row "(test sponsor, not listed publicly)". A test sponsor is left out of every public surface whatever its status and tier: the Partners page's listing and its upcoming events, the strip on the hub and the front page and its count of the companies sponsoring mentors, the handbook listing, and the public feed at `wp-json/wpcpm/v1/sponsors`, whose list and approval counts leave it out and whose enquiry counts leave out the application approved into it. Since 1.123.23 the feed's two counts, the applications received and approved each month that the Credits Monthly Report reads, also leave out every application from a company with a test name, whether it is open, rejected or approved, and every sponsor with one, even while its flag is cleared for a trial. Students, mentors and institution contacts are shown none of it either: its offers, and the guides under them, are in no Tools section and cannot be claimed, its events are on nobody's list and cannot be joined, its posts are in no front-end listing anybody but an Administrator reads, and as a Partner it is named on no student's card and binds no track's students to its offers, though the Track Builder's picker still offers it. Since 1.123.20 its posts are not found by their own links either: for everyone but an Administrator, a member of that sponsor and the post's author, a post's page is the site's 404 page with a 404 status, its REST route answers `rest_post_invalid_id` with a 404, as for a post that is not there, however the route is spelled, its oEmbed answers as not found, and a 404 for it, by `?p=`, `?page_id=`, part of its slug or an old slug, redirects nowhere; wp-admin is as it was, and so is the block editor's own read of a post for anybody who may edit it. Its own accounts see their Sponsor Dashboard as any sponsor's do, and Administrators see it everywhere they see a sponsor: the Administrator Dashboard, its *Tools from our sponsors* and its events, the Sponsors screen. The move onto the site and an upgrade routine, once per site on the first request after 1.123.18 is installed, mark as a test sponsor every sponsor whose name is a test name, so a test record already on the site is listed nowhere from that request on; a flag cleared after that stays cleared. The narrower rule of 1.123.23 changes no flag already set or cleared, and the upgrade does not run again. **To test with a test sponsor:** apply through the form on the site with a company name that starts with "TEST" and a space, such as "TEST - Acme", and a test address, and approve the application with the box ticked, or add the sponsor on the Sponsors tab with the box ticked and give it an account on the **Accounts** tab; then sign in as its account, or open its Sponsor Dashboard from the Sponsors card, and create offers, posts and events as a sponsor would. An Administrator sees and can claim its offers opened to the program team and join its events; to see what a student or a mentor would, clear the flag for the trial and tick it again when you are done, since while it is cleared the sponsor is listed on every public surface like any other.
+An offer is what a sponsor gives the program's students. Sponsors manage offers on their Sponsor Dashboard. You see the oldest 100 offers on `WPCredits Program > Sponsors`, tab **Offers and codes**.
 
-**The Sponsor Dashboard after the levels (1.123.22).** *Offer more*, the card where a sponsor ticked what else it would support and named flagship events, is gone from the Sponsor Dashboard, and so is its *Tell us* button: its six choices were the sponsor application's before the levels, which the application stopped asking in 1.123.12 and the program's partner page names none of, and its *Tell us* said what *Talk to your program contact* on the *Sponsorship* card says. What sponsors sent from it stays where Administrators read it: the newest fifty lines on the Sponsors screen's **Interests** tab, the last thirty days on the Administrator Dashboard's *New interests* card, and the ticks on each sponsor's Edit form under *Would like to support*. Right under them, the Edit form now lists, read only and newest first under *Interests*, the whole history the sponsor's record keeps of what the company told the program from its Sponsor Dashboard, on *Offer more* and through *Talk to your program contact*, the history every interest email points to; a sponsor with none has no such row. The type of product (Hosting, Plugin or Service) is no longer under the company's name in the Sponsor Dashboard's header, nor a box on its *Company profile and logo* card, whose line now counts three details (the website, the contact person and the contact email): the application form no longer asks it and nothing public shows it. It stays on each sponsor's record, in the Sponsors screen's column and on its Edit form, and a sponsor's own save never reads or clears it. The *Sponsorship* card's line links to the Partners page (*See the program's partners.*) at every level once the page is published, not at Friend alone, since every level is in the page's one alphabetical list since 1.123.18; while a term runs the link follows the term's last day, and the sentence for a term that has ended stands without it. The line under *Your sponsorship* names the cards the group holds for that sponsor, in their order, where every sponsor read "Your tier, your events, your reports and your badge.": "Your tier and what it includes." for a Friend with no report, for example, "Your tier, your reports and your badge." for a Supporter or a Backer once its first yearly report is finished, and the whole line for a Champion or a Partner with a report. At Friend and Supporter, the levels with no posts, the *Posts* card is drawn only while the sponsor has a post of its own (a draft, a returned one, one waiting or held back by the daily run, or a published one; not one in the trash), for its members and for an Administrator through the switcher alike, and then says the level includes no posts and keeps the link to the member's posts in wp-admin; with none, the page has no *Posts* card. From Backer up, and while "Sponsor tiers" is off, the card is as before. The line under the *Offers* heading says "and what it wrote for them" only while the group holds the *Posts* card. The badge is cached an hour where it was cached a day, under an ETag, so a browser that holds it is answered "not modified" with no image while it is still the same: after an Administrator changes a sponsor's tier, the Sponsor Dashboard's header and *Badge* card show the new badge at once, since they draw it at an address that names the tier and the year, and the sponsor's own site within an hour, its embed code unchanged.
+Offers are separate from the sponsor tiers: a sponsor may have any number of live offers, whatever its tier.
+
+#### What an offer is
+
+- **Kind**: **A pool of one-time codes, one per person**, or **One code or link everyone uses**. It is fixed once the offer holds a code, a shared code or a claim.
+- **Also open to**: **Mentors**, **The program team**. Current students are always in.
+- **Warn me when fewer than this many codes are left**: 1 to 1000. It starts at **Low-stock warning** (`WPCredits Program > Settings`, tab **Sponsors**), 10 by default.
+- **Last day (optional)**: after this day nobody sees the offer.
+
+When a sponsor is approved or gets an account, the site makes its first offer: an empty draft with its name, marked **(primary)** on the tab. For a sponsor with an account and no offer, the tab has **Create the first offer for** and its name.
+
+| State | What it means |
+|---|---|
+| *Not switched on yet* | A draft. Only the sponsor sees it. |
+| *Waiting for review* | Sent to you. Only the sponsor sees it. |
+| *Live* | Students and mentors it is open to see it. |
+| *Paused* | Hidden. Its codes stay. |
+| *Dormant* | Held back by the program. It can only be ended. |
+| *Ended* | Final. Claimed codes stay with their holders. |
+
+An offer goes live only with something to give: a code left in the pool, or a shared code.
+
+#### Codes in a pool
+
+The sponsor pastes codes or uploads a .txt or .csv file, in the offer's **Add codes** box or with a new offer.
+
+- One code per line, or a CSV with the code in the first column. A code can be a whole checkout link.
+- At most 200 characters a line, 5,000 codes an offer, and a file of one megabyte. A file is never stored.
+- One bad line refuses the whole list. The message names the first ten bad lines and counts the rest. Repeats, and codes the offer already holds or voided, are refused.
+- **Void unclaimed codes** voids every code in the pool nobody claimed. Codes waiting for review are left alone. It cannot be undone.
+
+Codes are stored encrypted, and only the person who claimed one sees it. No email carries a code.
+
+#### Who can claim
+
+A person can claim only when all of these hold:
+
+- The offer is *Live* and not past its last day.
+- They are a current student, or a mentor or Administrator the offer is open to. A current student holds a status in **Currently mentoring** and not in **Past students** (`WPCredits Program > Settings`, tab **Students and mentors**). A student with no synced status yet is not current.
+- The Tools section is on for them.
+- The sponsor is not a test sponsor. Administrators may still claim one open to the program team.
+- While **Sponsor tiers** is on, a student on a track with partners sees and claims only those partners' offers.
+- They have not claimed it, and a code or shared code is left.
+
+A second press shows the same code. A refusal says why.
+
+#### The Tools section
+
+**Tools from our sponsors** lists the offers open to the person, with **Get my code** or **Show me the code**. **Your codes** keeps every code they hold, from ended offers too.
+
+- On a person's own Student Report Card: **Show the section on the Student Report Card**, on by default.
+- On a person's own Mentor Report Card: **Show the section on the Mentor Report Card**, off by default.
+- On `Administrator Dashboard > The program`: every live offer, always.
+- The section is not drawn when the person has no offer open to them and holds no code.
+- Both switches are in `WPCredits Program > Settings`, tab **Sponsors**. On your view of a student's card, the section is one line, such as *2 tools claimed*.
+- Students and mentors never see a test sponsor's offers, or an empty pool unless they hold one of its codes.
+
+#### Claims, problems and low stock
+
+Sponsors see numbers only, on the **Usage** card, with **Download as CSV**. On the **Offers and codes** tab, **Claimed by** shows each person's name, address, date and the code's last four characters, with **Void**.
+
+- **Report a problem with this code** sits beside each code under **Your codes**. A person can report three a day.
+- **Void** lets that person claim again. The code stays void in the counts.
+- Nothing about a claim reaches Airtable.
+
+| Email (`WPCredits Program > Tools > Emails`) | Who gets it | When |
+|---|---|---|
+| **Problem with a claimed code** | The sponsor's assigned Administrator | A person reports a problem |
+| **Codes running low** | The sponsor's accounts and its assigned Administrator | A claim drops a pool below its warning; once, until codes are added |
+| **Sponsor offer returned with a note** | The person who sent it for review | You return an offer or a change |
+
+With no assigned Administrator, the first two go to **Who is mailed** (tab **Sponsors**, section **Interest mail**), else to every Administrator. For **Codes running low**, the sponsor's accounts are mailed either way.
+
+Step by step: [[Void a code claim]].
+
+#### The review of an offer
+
+A sponsor's new offer waits for your review before students and mentors see it. So does a change to an offer that is *Live*, *Paused* or *Dormant*. This holds whether **Sponsor tiers** is on or off.
+
+- A change to the title, the texts, the link or the shared code is held. Students see the approved offer meanwhile. The sponsor can press **Discard the changes**.
+- On a draft, the same change is saved at once. The draft must then be sent for review.
+- Pausing, ending, the last day, the audience, the warning and voiding apply at once.
+
+You decide on the Administrator Dashboard card **Sponsor offers to review**. The Sponsors screen's tab **Waiting for review** lists the same items.
+
+- A return note is required, up to 2,000 characters.
+- If the offer changed after you opened the page, nothing is decided. A note you typed is kept.
+
+Step by step: [[A sponsor sent an offer for review]].
+
+#### Codes waiting for review
+
+Codes a sponsor adds to a *Live*, *Paused* or *Dormant* offer also wait, since a code can be a link.
+
+- Nobody can claim them yet.
+- The item lists them under **Codes added**: how many, how many are web addresses, then up to 20 as plain text.
+- **Approve** makes them available. **Return it with this note** takes them out, so the sponsor can add them again. The sponsor's own **Discard the changes** takes them out too. Ending the offer takes them out too.
+
+Codes added to a draft go in with it. A draft the program made then needs review, as after a change to its words.
+
+When you work on a sponsor's Sponsor Dashboard, nothing you do needs review: you see **Switch on** where the sponsor sees **Send for review**.
+
+Step by step: [[A sponsor sent an offer for review]]; [[Open a sponsor's Sponsor Dashboard]].
+
+### Sponsor posts and email
+
+Sponsor posts are never emailed to the site's email subscribers. Jetpack Subscriptions leaves out the *Sponsors* category and every sponsor's category under it. Each sponsor post also carries Jetpack's do-not-email mark before it goes live.
+
+Step by step: [[A sponsor sent a post for review]].
+
+### How the sponsor tiers work
+
+A sponsor's tier says what its sponsorship includes. The plugin holds no amounts and the site handles no money.
+
+#### The tier ladder
+
+Five tiers, lowest first. Each has everything in the tier below, plus its own lines.
+
+| Tier | Adds | Posts at a time |
+|---|---|---|
+| **Friend** | Company name on the partner page, a mention in the mentor feature, the annual thank you post | None |
+| **Supporter** | Logo and description on the partner page, a badge, the annual program report | None |
+| **Backer** | Named for the part it funds, a report on that cost line, one educational post | 1 |
+| **Champion** | A second post, an invitation to the annual partners session, a co-hosted event | 2 |
+| **Partner** | Named as partner of the program it funds and in launch communications, its own report, co-branding on its track | 2 |
+
+- A sponsor with no tier set is a Friend. So is a sponsor whose term has ended.
+- Offers are separate from the tiers: no tier caps live offers.
+
+#### The Tier box
+
+On a sponsor's Edit form, after **Assigned Administrator**: `WPCredits Program > Sponsors`, tab **Sponsors**, **Edit** on its row. **Add a sponsor** has no Tier box, so a new sponsor starts as a Friend.
+
+- **Tier**: the sponsor's tier. Choices: **Friend**, **Supporter**, **Backer**, **Champion**, **Partner**. Default: **Friend**.
+- **Term ends**: the term's last day. Empty means no term: the tier stands until you change it. A Friend's day is cleared on save.
+- **Extra events this term**: for a saved Champion or Partner. Co-hosted events this term beyond the one the tier includes, 0 to 11. Without a term, nothing is saved.
+- **What the sponsorship funds**: one line, at most 200 characters. The sponsor sees it from Backer up, never on the Partners page.
+- **Tracks**: read only, for a sponsor that is a Partner today. The live tracks that name it, each linked to the Track Builder.
+
+Rules you rely on:
+- The last day of a term is still the tier. From the day after, the sponsor reads as a Friend. To renew, move **Term ends** forward.
+- Extra events belong to one term. A renewal that leaves the box alone starts the new term with none. The box then says what the old term had, such as *2 more events were granted for the term to January 31, 2027.*
+- For a term that has ended, type the number as you move the day: one save grants it to the new term.
+- The tier asked for on the application shows here, such as *Requested on the application: Backer.*
+
+The tab's **Tier** column reads, for example, *Backer until January 31, 2027*, or *Friend (Backer ended January 31, 2027)* for a lapsed term.
+
+Step by step: [[Tiers: launch, grace, extra events]].
+
+#### When sponsors see the tiers
+
+Two settings decide it, at `WPCredits Program > Settings`, tab **Sponsors**, section **Tiers**.
+
+- **Sponsor tiers**: the launch switch, **Launch the sponsor tiers**. While it is off, no sponsor sees a tier or meets a cap, and nothing goes dormant or comes back. Default: off.
+- **Tier grace date**: through this day nothing goes dormant, even with the switch on. Default: December 31, 2026.
+
+You can set tiers and terms while the switch is off. Administrators see them either way.
+
+While **Sponsor tiers** is on, the sponsor sees:
+- **Your sponsorship** on its Sponsor Dashboard: **Sponsorship**, **Events** from Champion up, **Reports** once a report is final, and **Badge** from Supporter up.
+- **Description for the partner page** on **Company profile and logo**, from Supporter up, 300 characters at most.
+- **Talk to your program contact** on **Sponsorship**. A press files a line such as *wants to move to Backer*, or *wants to renew as Backer* after a term ended. Five a day per account. A Partner has no button until its term has ended.
+
+These lines are mailed as the term mail below is, and listed on `Administrator Dashboard > Watch`, card **New interests**.
+
+#### Post caps and dormant posts
+
+While **Sponsor tiers** is on, a tier caps the posts in review or published. Drafts are never capped.
+
+- With posting on, a Friend or a Supporter sees a sentence in place of **Write a post**.
+- A post sent beyond the cap stays a draft, and the **Posts** card says why.
+- Your **Publish** is refused once the published posts fill the tier: "Not published: the sponsor's tier includes no more published posts. The tier is on the Sponsors screen."
+
+A published post the tier no longer covers goes *Dormant* on the daily run, only while the switch is on and after the **Tier grace date**.
+- It is unpublished and left out of the review queue. The newest posts go dormant first.
+- It comes back by itself, oldest first, once the tier has room, usually after you set a higher tier.
+- If the sponsor edits it, it becomes a new submission for review.
+
+Step by step: [[A sponsor sent a post for review]].
+
+#### The daily run
+
+Once a day the site checks every Approved sponsor against its tier that day.
+
+- With the switch on and the grace date past, it makes dormant the posts the tier does not cover.
+- With the switch on, it brings back dormant posts the tier covers, and every *Dormant* offer not past its last day.
+- Whatever the switch, it sends the term mail. It mails nobody about what it moved.
+
+| Email (`WPCredits Program > Tools > Emails`) | When |
+|---|---|
+| **Sponsor term ending, to Administrators** | Once a term, 30 days or fewer before its last day |
+| **Sponsor term ended, to Administrators** | The term ended before that mail went |
+
+Both go to the assigned Administrator, else to **Who is mailed** (tab **Sponsors**, section **Interest mail**), else to every Administrator. A moved **Term ends** day is a new term, mailed again.
+
+Until the grace date has passed, the **Sponsors** tab says above its table what would go dormant the day after.
+
+#### Where Administrators see the tiers
+
+- `Administrator Dashboard > The program`, card **Sponsors**: the Approved sponsors counted by tier.
+- `Administrator Dashboard > Watch`, card **Sponsor terms ending**: terms ending in the next 60 days, soonest first.
+
+Step by step: [[Tiers: launch, grace, extra events]]; [[Where a sponsor stands]].
+
+### The Partners page
+
+The public list of partners, at `/partners/`. The site makes it once, when an Administrator first opens wp-admin, with the heading **Our partners**, one sentence and the **Sponsors** block. After that the page is yours to edit. If a page already exists at `/partners/`, the site uses it and writes nothing into it.
+
+The site's theme prints the rest of the page around this content: an introduction, the levels with each level's amount, the products and the ways to apply. Editing the page does not change those parts.
+
+- Turning **Sponsor tiers** on publishes the page. Turning it off returns it to draft.
+- While the switch is off, the page cannot be published, and visitors get a "not found" page. Administrators can still read it.
+
+#### The Sponsors block
+
+Only Administrators can add the **Sponsors** block. Its settings:
+- **Shape**: **Full list** for the Partners page, or **Strip of logos** for the landing page.
+- **Lowest tier shown**: leaves out the tiers below it. The strip ignores it.
+
+What it shows:
+- Approved sponsors, never a test sponsor, in alphabetical order, with no tier named.
+- A Friend by name. From Supporter up: logo, name linked to its website, and description.
+- The full list ends with **Upcoming events** while the switch is on and an event is coming.
+- The strip shows the logos from Supporter up, counts the Friends, and links **All partners** while the Partners page is published.
+
+While the switch is off, an Administrator sees the block under a note that visitors do not see it yet.
+
+#### The badge and the Handbook listing
+
+Both work only while **Sponsor tiers** is on.
+- The badge, for each Approved sponsor from Supporter up, at `/sponsor-badge/<slug>` and `/sponsor-badge/<slug>-dark`. It names the program, the tier and the year. After a term ends, the sponsor keeps its badge, naming the year the term ended.
+- The **Handbook listing** tab on the Sponsors screen: the same list as plain HTML. Press **Copy** and paste it into the handbook or the WordPress Foundation's page.
+
+#### The level question on the application
+
+While **Sponsor tiers** is on, the application asks, optionally, **Which level are you considering?**: the five tiers or **Not sure yet**. While it is off, the form has no section **How you would like to support the program**.
+
+- The answer shows on the **Waiting for review** tab and the Administrator Dashboard, such as *Considering: Backer* or **Tier: not sure yet**, then in the Tier box. It never sets the tier.
+- An older application may hold **How would you like to support WP Credits? (older answer, no longer asked)**. Approving copies it to **Sponsorship option**; otherwise that starts empty.
+
+Step by step: [[A company applied to sponsor]].
+
+### A Partner's tracks
+
+A Partner co-brands the tracks that name it. You name them on the track's page in the Track Builder, after **Key chip color**.
+
+- **Partners**: a box for each Approved sponsor that is a Partner today. One the track names already stays, noted *no longer a Partner* or *unknown sponsor*. With neither, the row reads "No sponsor is at the Partner tier yet." and has no box.
+- **Partners' narrative**: one text for all the track's partners, rewritten each term, at most 5,000 characters. Each partner's annual report starts its track block with it, from the track as last published. The report is drafted the day after that partner's term ends, so publish the track after a rewrite.
+
+Rules you rely on:
+- **Save the track** keeps every ticked partner, qualified or not, and drops one you untick.
+- A track names at most 10 partners. A copy starts with no partners and no narrative.
+- **History** names a change as **Partners** or **Partners' narrative**.
+- Students see the published track's partners. A partner whose term ends, or that is no longer Approved, stops showing by itself.
+
+While **Sponsor tiers** is on, the track's students see **In partnership with** and each partner's logo and name on their Student Report Card. It sits in **My course**, else **My hours**, else **Partners of your track**. While the track names a partner that still qualifies, their **Tools from our sponsors** section offers only its partners' offers.
+
+Step by step: [[Change a track that is live]]; [[Publish a new track]].
+
+### Sponsor events
+
+A Champion or a Partner plans its co-hosted webinar or event on its Sponsor Dashboard, card **Events**. You review it on the Administrator Dashboard, card **Events**. The program can also plan events of its own there.
+
+Nothing of the events shows, and no press on them works, while **Sponsor tiers** is off (`WPCredits Program > Settings`, tab **Sponsors**, section **Tiers**, box **Launch the sponsor tiers**). Every rule below holds while it is on.
+
+#### Who can plan an event
+
+A sponsor's accounts plan, change and cancel its event. You can do the same for it on its Sponsor Dashboard.
+
+- The sponsor must be *Approved*, and its tier on the day must include the co-hosted event: **Champion** or **Partner**. From the day after **Term ends**, the sponsor reads as a Friend and plans nothing.
+- One event at a time: nothing new while one of its events is planned or approved and not over.
+- While a term runs, the term holds one event, plus the number in **Extra events this term**. Approved events dated in the twelve months that end on the term's last day count. The start must be on or before that last day.
+- A sponsor with no **Term ends** day is held only to one event at a time.
+- A canceled event uses up nothing. Nor does a planned event that ended without an approval.
+- The start must still be to come.
+- On the Sponsor Dashboard, one account can plan, change or cancel 10 times an hour, all together.
+- A plan you make for a sponsor still waits for approval, like the sponsor's own. The emails say an Administrator acted on the sponsor's behalf.
+- The partners session and the launch communications are the program's to plan with the sponsor.
+
+A sponsor set to *Paused*, or whose tier no longer has events, keeps its event on the card until it ends, with **Cancel the event** alone. An approved one reads **Approved, but no longer offered: your company's sponsorship does not include events at the moment.**
+
+Step by step: [[Tiers: launch, grace, extra events]]; [[Open a sponsor's Sponsor Dashboard]].
+
+#### What a plan holds
+
+The sponsor's planner and the program's own form ask the same things.
+
+- **Date** and **Start time**: on the clock of the person planning, which the form names. Everyone who joins sees it on their own clock.
+- **Length in minutes**: 15 to 480. The form starts at 60.
+- **Places**: 1 to 500, or blank for no limit. A change cannot set fewer places than the people already on the event.
+- **Title**: up to 120 characters.
+- **Description**: up to 2,000 characters. It is shown on the Partners page once the event is approved.
+- **Call link**: an address that starts with https:// or http://, up to 500 characters. Only the sponsor, the people who join and Administrators see it.
+
+Every box but **Places** is required. A refused plan or change comes back with what was typed.
+
+| State | What it means |
+|---|---|
+| *Waiting for the program's OK* | Planned. Only the sponsor and Administrators see it. |
+| *Approved* | Open to join. A later change keeps it approved. |
+| *Canceled* | Returned or canceled. It cannot be undone. |
+
+#### The review on the Administrator Dashboard
+
+The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting for you**. It is drawn while a sponsor's event waits, and once more right after any press on it. At other times it is not drawn.
+
+- With nothing waiting, the name **Events** in the line of empty queues opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
+- `WPCredits Program > Overview`, card **Waiting for a decision**, counts them as **Events waiting**.
+
+| Part | What it holds |
+|---|---|
+| **Waiting for the program's OK** | Every sponsor's planned event not over yet, the oldest plan first, with **Approve** and **Return with a note** |
+| **Coming up** | Every approved event not over yet, the soonest first, the program's own included, with **Who joined**, your own **Join** or **Leave**, and, for a sponsor's event, **Cancel with a note** |
+| **Plan an event of the program's** | **Plan an event**: see the next part |
+
+Each event shows when it runs on your clock, its places, its description and its call link. A description longer than 300 characters is folded under **Read the description**.
+
+- **Return it with this note** cancels the event and emails the note to the sponsor's accounts. The sponsor sees the note above its planner's form until it plans again or its term is renewed.
+- **Cancel with this note** asks first and cannot be undone. Everyone who joined is told.
+- Both notes are required, up to 2,000 characters.
+- **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays under **Coming up**, and nobody new can join it.
+- **Who joined** names the people on an event. Sponsors see only how many.
+- You join an event as yourself.
+- While the card is not drawn, you can still cancel a sponsor's approved event on its Sponsor Dashboard, through **Viewing as sponsor**. There is no note, and everyone who joined is told.
+
+Step by step: [[A sponsor planned an event]].
+
+#### Events of the program's own
+
+An event of the program's own has no sponsor. It is named "the WordPress Credits Program" wherever a sponsor's event names its sponsor.
+
+- **Plan the event** saves it approved at once. Nobody is mailed.
+- No tier, term or one-at-a-time rule applies. The program may plan any number, for any day still to come.
+- It is open to the same people as a sponsor's event. A sponsor's account may join it when that account is also a student, a mentor, an Administrator or an institution contact.
+- Under **Coming up** it has **Change the event**, the same form filled in, and **Cancel the event**. The cancel asks first, needs no note and cannot be undone.
+- It can be planned, changed or canceled only while the card **Events** is drawn.
+- It never counts toward a sponsor's events. It never shows on a Sponsor Dashboard or in a sponsor's annual report.
+
+Step by step: [[Plan or cancel an event of the program's own]].
+
+#### Where people see and join an event
+
+Once approved, an event is listed under **Events from our sponsors** for the people it is for. The heading is **Events from our sponsors and the program** while one of the program's own is listed.
+
+| Who | Where |
+|---|---|
+| Current students | Student Report Card, under the group sessions in **My mentor call** |
+| Active mentors | Mentor Report Card, under the sessions panel |
+| Institution contacts, but not tutors | Institution Dashboard, after its sections |
+| Administrators | The card **Events**, part **Coming up**, while that card shows |
+
+A current student holds a status in **Currently mentoring** and not in **Past students** (`WPCredits Program > Settings`, tab **Students and mentors**).
+
+- Each item gives the title, the host, when on the person's clock, the length, the places left (a number, **Full**, or **Open to everyone** with no limit) and the description.
+- **Join** shows while a place is left. A person on the event sees **You are on it.** and **Leave**. On the three pages other than the card **Events**, they also see **Join the call**; on the card, the call link is on the event.
+- Join and Leave work until the event ends. A Leave frees the place at once.
+- A sponsor's own accounts never see their own event in a list. It is on their Sponsor Dashboard.
+- A test sponsor's events are listed for Administrators alone.
+- The list shows only on a person's own page. Through the switcher you see no list on someone else's page.
+- When a sponsor stops offering events, its event leaves everyone's list. The people on it still see it, marked **No longer offered**, with **Leave** alone.
+
+#### Events on the Partners page
+
+The Partners page's full sponsor list ends with **Upcoming events**, for everyone, signed in or not.
+
+- It lists every approved event not over yet, the soonest first. A sponsor's event shows while the sponsor still offers events and is not a test sponsor.
+- Each gives the title, the host, the day and time on the site's clock with the zone named, the length and the description.
+- Addresses that start with http://, https:// or mailto: are taken out of the description. A bare www. address or email address stays as written.
+- The page never shows the call link, the places, or who is on an event.
+- A visitor who is not signed in gets **Sign in to join**. A student, mentor, institution contact or Administrator gets one link, such as **Join it on your Student Report Card**. Anyone else gets nothing, and so does a person whose page is not published.
+- **Join it on your Administrator Dashboard** finds the event only while the card **Events** is drawn.
+- The landing page's strip and the **Handbook listing** tab hold no events.
+
+#### Emails about events
+
+Every email about an event is in `WPCredits Program > Tools > Emails`, area **Sponsor events**. Each is written in its recipient's language, with times on their own clock (the site's clock for a bare address). No email names the people on an event.
+
+"The program contact" is the sponsor's assigned Administrator; with none, **Who is mailed** (tab **Sponsors**, section **Interest mail**); with none set, every Administrator.
+
+| Email | Who gets it | When | Calendar file |
+|---|---|---|---|
+| **Event joined, to the person who joined**; **Program event joined, to the person who joined** | The person, with the call link | They join | Adds it |
+| **Event left, to the person who left**; **Program event left, to the person who left** | The person | They leave | Takes it off |
+| **Event changed, to the people on it**; **Program event changed, to the people on it** | Everyone on it | An approved event's time, length, title or call link changes | Replaces it |
+| **Event canceled, to the people on it**; **Program event canceled, to the people on it** | Everyone on it | The event is canceled, by anyone | Takes it off |
+| **Event reminder, to the people on it**; **Program event reminder, to the people on it** | Everyone on it, with the call link | The day before | None |
+| **Event reminder, to the sponsor** | The sponsor's accounts not on it, with how many joined | The day before | None |
+| **Event approved, to the sponsor** | The sponsor's accounts | You approve | Adds it |
+| **Event returned with a note, to the sponsor**; **Event returned with a note, to a sponsor whose tier no longer includes events** | The sponsor's accounts | You return it; the second when the sponsor no longer offers events | None |
+| **Event canceled with a note, to the sponsor** | The sponsor's accounts | You cancel it with a note | Takes it off, if it was approved |
+| **Approved event changed, to the sponsor**; **Approved event changed by an Administrator, to the sponsor** | The sponsor's accounts | Its approved event is changed on the Sponsor Dashboard | Replaces it |
+| **Approved event canceled, to the sponsor**; **Approved event canceled by an Administrator, to the sponsor** | The sponsor's accounts | Its approved event is canceled on the Sponsor Dashboard | Takes it off |
+| **Event planned by a sponsor, to Administrators**; **Event planned for a sponsor by an Administrator, to Administrators** | The program contact | An event is planned on the Sponsor Dashboard | None |
+| **Waiting event changed by its sponsor, to Administrators**; **Waiting event changed for a sponsor by an Administrator, to Administrators**; **Approved event changed by its sponsor, to Administrators**; **Approved event changed for a sponsor by an Administrator, to Administrators** | The program contact | An event is changed on the Sponsor Dashboard | None |
+| **Event canceled by its sponsor, to Administrators**; **Event canceled for a sponsor by an Administrator, to Administrators** | The program contact | An event is canceled on the Sponsor Dashboard | None |
+
+- A reply to a return or to a cancel with a note goes to the Administrator who wrote it.
+- The program contact's email gives the call link, the description and how many joined.
+- A change of only the description or the places tells nobody on the event.
+- A save that changes nothing mails nobody and says **Nothing changed.**
+- Of a change or a cancel, the first 50 people on the event are told at once, the rest 50 a minute. Meanwhile the Sponsor Dashboard's message says **Everyone who joined is being told.**
+
+While **Sponsor tiers** is on, the daily run picks the approved events that start 12 to 36 hours later. Their reminders go out shortly after, once per event. An event whose sponsor no longer offers events gets none. An event approved less than about a day and a half before it starts may get none either.
+
+#### What the site keeps of an event
+
+Each plan, approval, return, change and cancel writes a record on the site's audit trail. A join or a leave writes none. The record holds the day, the start, the length, the places and how many were on the event. It never holds the title, the call link, the description, the note or a name. No screen lists these records.
+
+A sponsor's annual report has the table **Events held in this term**, under **Your sponsorship**: **Date**, **Event** and **Joined**. It lists the approved events that ended in the report's period, whatever tier the sponsor held on its last day. With none held, there is no table. It holds no name, no link and no description.
+
+Removing the plugin deletes every event, with the people on it and its call link. The accounts stay.
+
+Step by step: [[A sponsor's annual report]].
+
+### Sponsor reports
+
+The annual sponsor report is the program's account of itself and of one sponsorship, for the twelve months ending on a term's last day. Every report is on `WPCredits Program > Sponsors`, tab **Reports**.
+
+- Supporter and higher tiers have a report. A Friend has none.
+- The daily run drafts it once, the day after the term ends, for an Approved sponsor only. It does so whether **Sponsor tiers** is on or off.
+- You can draft one for any last day on which the sponsor's tier carried a report.
+- No email is sent when a report is drafted or marked final.
+
+#### The Reports tab
+
+The tab lists each Approved sponsor with its reports, each with its state and **Open**. Under them, **Last day of the term** and **Draft a report** draft a report. Where the tier carries no report, the sponsor reads "No report for this tier." instead.
+
+A draft is refused when a report for that day exists, or the tier on that day carries none. While another draft for the sponsor is being made, the screen says "A report for this sponsor is being drafted right now. Try again in a minute."
+
+#### A renewed term still owes its report
+
+When you change **Term ends** before the report exists, the old term keeps its report, whether the day moved forward or back. The daily run drafts it after the old last day, with that term's tier and funded line.
+
+- The Edit form's Tier box shows **Report due**: "A report for the term to June 30, 2027 is still due."
+- **Not a renewal** says no report is owed, for a day you only corrected. It asks first.
+
+#### What a report holds
+
+| Section | Tiers | What it holds |
+|---|---|---|
+| *The program this year* | Supporter and up | The program's figures |
+| *Your sponsorship* | Supporter and up | Tier, term, what it funded, mentors, claims, posts, events |
+| *The cost line* | Backer and up | Your words |
+| *The track* or *The tracks* | Partner | Figures and words for each track it partners |
+| *Looking ahead* | All | Your words |
+
+- The figures: students who started, finished and were active, their hours, contributions, teams, institutions and countries. A track has no finished count.
+- The hours are the total logged to date by the students active this year, not the hours inside the year.
+- A Partner that partners no track has no *The track* section.
+- Active means started by the last day and not ended before the first. With no end day, only a status in **Currently mentoring** counts past the period the student started in.
+- Mentors are those Active and linked to the sponsor when the report is generated. Claims are counted by calendar month. No student is ever named.
+- A track's words start as the track's **Partners' narrative**. After that the report keeps its own.
+
+#### The report's editor
+
+**Open** shows the report in the tab. **Back to the reports** returns to the list.
+
+- The figures are read-only. Each section you write in has a box of up to 5,000 characters.
+- **Save the narratives** saves the boxes. Each save that changes a box keeps a saved version.
+- **Preview** opens the report as the sponsor prints it.
+- **Attach the PDF**, **Replace the PDF** and **Remove the PDF** keep one PDF per report, final or not.
+- **Mark final** gives the report to the sponsor. **Reopen** makes it a draft again, hidden from the sponsor.
+- **Regenerate**, on a draft only, reads the figures again and keeps the saved narratives.
+
+Save the narratives before **Mark final** or **Regenerate**: words not saved are lost.
+
+#### The report's PDF
+
+- Its size limit is **Largest upload (MB)** (`WPCredits Program > Settings`, tab **Advanced**), 10 by default. A password-protected PDF is refused.
+- It downloads as `wordpress-credits-report-<slug>-<last day>.pdf`.
+- Administrators can always open the PDF and the print page. The sponsor's members can once the report is final, while **Sponsor tiers** is on.
+
+#### The Sponsor reports card
+
+The Administrator Dashboard's **Sponsor reports** card has three parts.
+
+| Part | What it lists |
+|---|---|
+| **Drafts to finish** | Every draft, oldest first, with **Open** |
+| **Terms ended with no report** | Each term, with **Draft now** |
+| **Final this semester** | Reports marked final this semester, with **Open** |
+
+The tile **Sponsor reports to finish** counts the first two parts. With nothing in any part, the card says "Nothing to finish."
+
+Step by step: [[A sponsor's annual report]].
+
+### Test sponsors
+
+A test sponsor is a record for trying the sponsor side of the site. It is never listed publicly.
+
+- **Test sponsor: not listed publicly** is a box on the Add and Edit forms, after **Status**. It is also beside **Approve** on an open application.
+- Beside **Approve**, the box is ticked already for a test name: "TEST" in capitals, alone or followed by a space or a sign. "TEST", "TEST: Acme" and "TEST(1)" are test names; "TESTAMENT" and "Test Acme" are not.
+- On the **Sponsors** tab its row says "(test sponsor, not listed publicly)".
+- A flag you clear stays cleared.
+
+A test sponsor is left out of:
+
+- the Partners page, the logo strip and its count, the handbook listing and the feed at `wp-json/wpcpm/v1/sponsors`;
+- everything students, mentors and institution contacts see: its offers, events and posts;
+- a track's students, as a Partner. The Track Builder's partner picker still offers it.
+
+Its posts show as not found to everyone but Administrators, its members and the author. The feed's monthly counts also leave out every company with a test name, even with the flag cleared.
+
+Its own accounts see their Sponsor Dashboard. Administrators see it wherever they see a sponsor, and can claim its offers and join its events open to the program team.
+
+To try the sponsor side, approve an application named such as "TEST Acme" with the box ticked, or add the sponsor with the box ticked. Give it an account on the **Accounts** tab before you sign in as it, or open its Sponsor Dashboard.
+
+To see what a student would see, clear the flag for the trial: the sponsor is then public. Tick it again when you are done.
+
+Step by step: [[Add a company that never applied]]; [[Give a sponsor an account, and manage its people]]; [[Open a sponsor's Sponsor Dashboard]].
+
+### The Sponsor Dashboard's cards
+
+You see these cards as the sponsor does when you open its Sponsor Dashboard.
+
+#### The Your sponsorship view
+
+Its cards are drawn only while **Sponsor tiers** is on.
+
+| Card | Drawn |
+|---|---|
+| **Sponsorship** | Always |
+| **Events** | While the sponsor may plan events, or has one still to come |
+| **Reports** | Once it has a final report: **Open**, and **PDF** if attached |
+| **Badge** | Approved, at Supporter or higher |
+
+- The line under **Your sponsorship** names the cards drawn, such as "Your tier and what it includes."
+- **See the program's partners.** links to the Partners page from **Sponsorship** once that page is published. A term that has ended shows no link.
+- A tier change shows on **Badge** at once and on the sponsor's own site within an hour. The embed code stays the same.
+
+#### The Posts card
+
+While **Sponsor tiers** is on, at Friend and Supporter, **Posts** is drawn only while the sponsor has a draft, a returned, waiting, held-back or published post. It then says the tier includes no posts. In every other case it is always drawn.
+
+The line under **Offers** ends "and what it wrote for them." only while **Posts** is drawn.
+
+#### Company details and interests
+
+- **Company profile and logo** counts three details: website, contact person and contact email.
+- **Type of product** is not on the Sponsor Dashboard. It is on the Edit form and in the **Product** column, and a sponsor's own save never changes it.
+- What sponsors would like to support is on the **Interests** tab (the newest 50) and the Administrator Dashboard's **New interests** (the last 30 days). The sponsor's Edit form ticks it under **Would like to support**.
+- **Interests** on the Edit form lists, newest first and read-only, all the company told the program from its Sponsor Dashboard. A sponsor that told the program nothing has no such row.
+
+Step by step: [[Open a sponsor's Sponsor Dashboard]].
 
 ## Where the plugin keeps its data
 
-Many of the options the plugin writes, by the name it has in the database and the constant that owns it
-in the code; it is not every key the plugin stores, and some options, cron hooks, post types and user
-meta keys have no row here. Most option constants start with `OPT_`; others, and the locks,
-transients and cron hooks, use other names, so search for the stored name in the first column. Options named after a record
-or a batch (`wpcpm_roster_<record>`, `wpcpm_agreement_<record>`, the import and report locks)
-are formed from the prefix constants listed here. Post meta and user meta keep the keys they had:
-renaming a stored key is a migration, and nothing here warranted one.
+This table is for the person who maintains the site's code or database. Nobody needs it to run the program.
+
+It lists many of the names the plugin stores things under, each with the name it has in the code. It is not complete: some stored names have no row here.
 
 | Option | Constant |
 | --- | --- |

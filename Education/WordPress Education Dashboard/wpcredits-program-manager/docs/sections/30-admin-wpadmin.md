@@ -1,22 +1,8 @@
 ## The plugin in wp-admin
 
-Everything the Administrator touches lives under one top-level menu, **WPCredits Program**. You
-need the `wpcpm_manage_program` capability to see it, which the Administrator role is granted on
-activation. Every screen under it is titled with its own name: **Overview**, a screen for each
-audience, **Tools** and a screen for each tool, and **Settings**.
+Everything you manage in wp-admin is under one menu, **WPCredits Program**, given to the Administrator role. It holds **Overview**, a screen per audience, **Tools** with a screen per tool, and **Settings**.
 
-On the forms named here, among others, a press locks the button at once and the button says what it is doing
-until the next page opens, so a double press acts once: the decisions and the question on an opened
-application, on the Sponsors and Institutions screens; on the Mentors screen, the decisions on an
-application; on the Students screen, the presses on a registration and on an interest; on the Sponsors screen, **Run again** in the **Moving sponsors onto the site** box,
-**Add the sponsor**, a sponsor's Edit form and its **Not a renewal**, a sponsor's **Attach
-account**, **Remove** and posting switch, the offer and code forms, **Draft a report** and the forms
-of a report's editor, and the agreement forms; on the Institutions screen, the signed agreement's
-upload and withdrawal, **Revoke this agreement**, the **Link** form and the semester report buttons; **Save**, **Send me a test** and **Restore
-the original** in
-**WPCredits Program > Tools > Emails**; and the Track Builder's **Create the track** and
-**Make the copy**. Searching, filtering, a list's **Apply** and **Screen Options** work as they
-always have.
+Many buttons that change something lock at the first press and say what they are doing, so a second press does nothing.
 
 ### The words the screens use
 
@@ -24,521 +10,801 @@ The screens, the settings and this guide call each thing by one name.
 
 | Name | What it is | Where you meet it |
 | --- | --- | --- |
-| **WPCredits Program** | The plugin, as the menu names it. Each screen under the menu is titled with its own name alone: **Overview**, **Students**, **Tools**, **Settings** and so on. | The menu, and a screen's place in it, written with ">" between the steps, such as **WPCredits Program > Settings**. |
-| **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each audience has a user role and a screen under its name; the administrators hold WordPress's own Administrator role, which is granted the program's capabilities on activation. | The menu, each audience's own screen, and the Settings tabs. |
-| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Emails**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's **Tools** card, which lists each tool with its status. |
-| **Landing page** | Where an account goes when it logs in: the **Mentor**, **Student**, **Institution** and **Sponsor landing page**, each with the page's address under its switch. | The Students and mentors, Institutions and Sponsors tabs of Settings. |
-| **Remove** and **Leave** | The two answers of each rule for somebody who leaves the program, always in this order: remove the role or the access, or leave it in place. Nothing is ever deleted either way. | The Settings sections **When someone leaves**, **When an institution leaves the pipeline** and **When a sponsor is no longer Approved**. |
+| **WPCredits Program** | The plugin, as the menu names it. Each screen under it has its own name alone: **Overview**, **Students**, **Tools**, **Settings** and so on. | The menu. This guide writes a place as `WPCredits Program > Settings`. |
+| Audiences | The people the program is for and who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each has its own screen. Administrators hold WordPress's Administrator role. | The menu, each audience's screen, the Settings tabs. |
+| **Tools** | The parts run on their own: **Header notices**, **Emails**, **Need help?**, **Mentor Status Checker**, **Student Duplicate Finder** and **Track Builder**. | The **Tools** screen and the Overview's **Tools** card. |
+| Landing page | Where an account goes when it logs in: **Mentor landing page**, **Student landing page**, **Institution landing page** and **Sponsor landing page**. The page's address is under each switch. | Settings, tabs **Students and mentors**, **Institutions**, **Sponsors**. |
+| Remove and Leave | Each rule for someone who leaves has two answers, in this order: one starts with Remove, one with Leave. For example **Remove the Mentor role** and **Leave the role in place**. No account is deleted either way. | Settings, sections **When someone leaves**, **When an institution leaves the pipeline**, **When a sponsor is no longer Approved**. |
 
 ### Overview
 
 {{image:admin-overview|The Overview screen: what waits for a decision, the syncs, the tools and the way to Settings.}}
 
-**WPCredits Program** opens on the Overview: four cards with what waits for a decision, when each
-sync last ran and runs next, whether each tool can run, and the way to Settings. The Overview only
-reads and links; it decides nothing.
+**WPCredits Program** opens on the Overview. It reads and links: nothing is decided here. While Airtable is not connected, a warning at the top links to Settings.
 
-If Airtable is not connected yet, this screen says so and links straight to the setting.
+#### The Overview's waiting list
 
-**Waiting for a decision** lists each queue with something in it, in the order the Administrator
-Dashboard counts them, each in one line: the count first, set apart, then the queue's name, such as
-"2 Collaboration Agreements to review, 1 overdue". The count is the dashboard's own, so past 200 the sponsor posts, the sponsor offers and the Sponsor Collaboration Agreements to review read
-200+. Each is a link to where its queue is listed: the institution applications, agreements and
-requests from institutions open the **Waiting for review** tab of the **Institutions** screen, the semester
-reports to review and the semesters due for drafting its **Semester reports** tab, and the locked
-accounts its **Accounts** tab; the mentor applications open the **Waiting for review** tab of the
-**Mentors** screen; the sponsor applications, posts, events and agreements open the
-**Waiting for review** tab of the **Sponsors** screen, each at the card that lists it, as do the
-sponsor offers and the changes to them, the sponsor
-reports to finish its **Reports** tab, and the offers running low its **Offers and codes** tab; the
-duplicated students open the **Student Duplicate Finder**; and the syncs that need a look open this
-screen's own **Syncs** card. **Students gone quiet** is the one line with no link. As the dashboard's Waiting rows do, this card leaves out a queue with
-nothing in it; when nothing is waiting it says "Nothing
-is waiting for an Administrator right now." At the foot of the card, **Decide on the Administrator Dashboard** opens that
-page, where the decisions are made, except those on the mentor applications, which are made on the
-Mentors screen, those on an application past the oldest ones the dashboard's card lists, and putting
-back or deleting a closed application, which are done on the Institutions or Sponsors screen; while the page is missing, the card says so in the button's place and asks you to
-re-activate the plugin to recreate it.
+**Waiting for a decision** lists each queue with something in it, in the Administrator Dashboard's order and with its counts. Past 200, the sponsor posts, offers and Collaboration Agreements read *200+*. With nothing waiting it says "Nothing is waiting for an Administrator right now."
 
-**Syncs** has a row for each audience's sync, **Students**, **Mentors** and **Institutions**, each
-name a link to the screen the sync is run from: the **Sync** tab of the Students and Mentors
-screens and the **Sync and storage** tab of the Institutions screen. **Last run** gives the date and
-time of the last run, in the site's own formats, or *Never*. **Next run** gives the date and time of
-the next run; it says *Not scheduled* when none is, and *Running now* while a run is under way. The
-audiences' rows show no errors: a sync's last error is on the Administrator Dashboard's **Syncs and
-health** card. The fourth row, **Outcome figures** (1.122.24), is the weekly read of the three
-figures the site counts for its homepage with the WordPress Credits impact dashboard's definitions,
-every Monday at 07:00 UTC after the dashboard's build: its name opens the **Connection** tab of
-Settings, **Last run** is when the stored figures were read, a line under it says why the last
-attempt was held or failed, that it waits for the dashboard's build, that the site is not connected,
-which figure the homepage leaves out for having fewer than 30 answers or outcomes, or that the
-homepage shows none because the figures stored are more than 29 days old, and
-`wp wpcredits outcome_figures` shows them, reads them again with `--refresh` and checks them with
-`--refresh --dry-run`. The weekly read never stores the first figures: it holds them, and the line
-says to compare the counts with the dashboard's with
-`wp wpcredits outcome_figures --refresh --dry-run` and then store them with
-`wp wpcredits outcome_figures --refresh`. On the Administrator Dashboard's **Syncs and health** card
-the same line stands under the column headed **Last error**, and it is not always an error there:
-*Waiting for the dashboard's Monday build.*, *Not connected.* and the note about fewer than 30
-answers are notes, not errors.
+Each line opens where its queue is listed:
 
-**Tools** has a row for each tool, its name a link to the tool's screen, and under **Status** the
-line the tool's card shows on the **Tools** screen; for a tool that cannot run, that line is the
-warning that says why, in the tool's own words.
+| Lines | Open |
+|---|---|
+| Institution queues | **Institutions**: **Waiting for review**, **Semester reports** or **Accounts** |
+| **Mentor applications waiting** | **Mentors**, tab **Waiting for review** |
+| Sponsor queues | **Sponsors**: **Waiting for review**, **Reports** or **Offers and codes** |
+| **Duplicated students** | **Student Duplicate Finder** |
+| **Syncs need a look** | This screen's **Syncs** card |
 
-**Settings** says "Airtable is connected." or "Airtable is not connected yet." Its
-**Open Settings** button opens the Settings screen.
+**Students gone quiet** has no link. It shows only while **Daily list** under **Quiet students** is not **Off**. **Events waiting** shows only while **Sponsor tiers** is on.
+
+**Decide on the Administrator Dashboard** opens that page. If the page is missing, the button's place says "The Administrator Dashboard page is missing. Re-activate the plugin to recreate it." These are decided on a screen instead:
+
+- mentor applications, on **Mentors**;
+- an institution or sponsor application past the 50 oldest open ones the dashboard lists;
+- putting back or deleting a rejected or spam application.
+
+Step by step: [[The Administrator Dashboard at a glance]]; [[Find an application or agreement past the fifty the dashboard lists]].
+
+#### The Overview's Syncs card
+
+**Syncs** has a row each for **Students**, **Mentors**, **Institutions** and **Outcome figures**. Each audience's name opens the tab its sync is run from.
+
+- **Last run**: date and time, or *Never*.
+- **Next run**: date and time, *Not scheduled*, or *Running now*.
+- The **Students**, **Mentors** and **Institutions** rows show no errors here. Their last error is on the Administrator Dashboard's **Syncs and health** card, column **Last error**.
+
+**Outcome figures** reads the homepage's three figures every Monday at 07:00 UTC, after the impact dashboard's build. Its name opens Settings, tab **Connection**. Its **Last run** is when the stored figures were read, so a held or failed read does not change it. After a failed read or a wait for the build, **Next run** shows a retry at the next whole hour. A line under **Last run** says when the last read was held, failed or waits, or the site is not connected. It also says when the homepage leaves a figure out (fewer than 30 answers or outcomes) or shows none (figures over 29 days old).
+
+The weekly read never stores the first figures. Run `wp wpcredits outcome_figures --refresh --dry-run`, compare its counts with the impact dashboard's, then store them with `wp wpcredits outcome_figures --refresh`. `wp wpcredits outcome_figures` shows what is stored.
+
+Step by step: [[Run a sync by hand and read its report]].
+
+#### The Overview's Tools and Settings cards
+
+**Tools** lists each tool, linked to its screen, with the **Status** its card shows on the **Tools** screen. A tool that cannot run says why.
+
+**Settings** says whether Airtable is connected. **Open Settings** opens the Settings screen.
+
+Step by step: [[Connect the site to Airtable for the first time]].
 
 ### The audience screens
 
-| Screen | What it does |
+One screen per audience under `WPCredits Program`. Each is a row of tabs, and a press made on a tab comes back to it.
+
+| Screen | Its tabs | Opens on |
+| --- | --- | --- |
+| **Students** | **Accounts**, **Registrations**, **Interests**, **Sync** | **Accounts** |
+| **Mentors** | **Waiting for review**, **Accounts**, **Engagement**, **Sync** | **Waiting for review** while an application waits, else **Accounts** |
+| **Institutions** | **Waiting for review**, **Pipeline**, **Accounts**, **Semester reports**, **Agreements**, **Sync and storage** | **Waiting for review** |
+| **Sponsors** | **Waiting for review**, **Sponsors**, **Accounts**, **Offers and codes**, **Interests**, **Reports**, **Agreements**, and **Handbook listing** while **Sponsor tiers** is on | **Waiting for review** |
+| **Administrators** | **Accounts**, **Capabilities** | **Accounts** |
+
+The Institutions and Sponsors screens are described under Institutions and Sponsors, below.
+
+Where decisions are made:
+- Most are made on the Administrator Dashboard.
+- Mentor applications are decided on the Mentors screen.
+- An institution or sponsor application past the 50 oldest the dashboard lists is decided on its screen.
+- A rejected or spam institution or sponsor application is put back or deleted on its own screen.
+- A sponsor's account comes from its approved application, or from **Create account** on the **No account** view of the Sponsors screen's **Accounts** tab.
+
+Step by step: [[The Administrator Dashboard at a glance]]; [[Find an application or agreement past the fifty the dashboard lists]].
+
+#### The Students screen's tabs
+
+`WPCredits Program > Students`. Accounts are made by the sync from the Airtable Students Reports table.
+
+| Tab | What it holds |
 | --- | --- |
-| **Students** | Four tabs: **Accounts**, the invitations and every Student account in one list, **Registrations**, the students who registered through the form on the site, **Interests**, the students whose institution is not in the program yet and who said through the student interest form that they would like to take part, and **Sync**, the students sync and its last report. |
-| **Mentors** | Four tabs: **Waiting for review**, the applications to mentor that came through the form on the site, read and decided here, with the applicants made mentors under **Activated**, the tab the screen opens on while any wait; **Accounts**, the invitations and every Mentor account in one list; **Engagement**, how each mentor uses the site; and **Sync**, the mentors sync, a warning while mentors made from applications wait for their Airtable row, and its last report. |
-| **Institutions** | Six tabs: **Waiting for review**, the applications, signed agreements and requests from institutions waiting, read here and decided on the Administrator Dashboard; **Pipeline**, every institution record by stage and the consent report; **Accounts**, the invitations, every institution account in one list, the Confirmed institutions with no account yet, and each institution's members; **Semester reports**, every semester report and the semesters due for drafting; **Agreements**, the agreements to record as on file, the agreements in force with the form to revoke each, the ones Airtable disagrees with, and the plugin's copy of the Collaboration Agreement; and **Sync and storage**, the institutions sync, the reconciliation of Students with Students Reports, and the check of how the host serves the private files. |
-| **Sponsors** | Eight tabs: **Waiting for review**, the sponsor applications, sponsor posts, sponsor offers and the changes to them, sponsor events while they are on, and signed agreements waiting, read here and decided on the Administrator Dashboard; **Sponsors**, the box that finishes the move of the sponsor records onto the site while it is incomplete, then every sponsor with its status, tier, product, program contact, accounts and logo, **Edit** and **Manage accounts** on each row, and the form that adds a sponsor; **Accounts**, the invitations, every sponsor account in one list, the Approved sponsors with no account yet, where their accounts are created, and each sponsor's accounts; **Offers and codes**, every offer with its codes and claims; **Interests**, what sponsors said they would like to support; **Reports**, each sponsor's report and the editor it is written in; **Agreements**, the standing state of every Approved sponsor's agreement; and **Handbook listing**, the sponsors' listing for the handbook, in the bar only while the sponsor tiers are announced. |
-| **Administrators** | Two tabs, under the button to the Administrator Dashboard while that page exists: **Accounts**, every administrator account in one list, and **Capabilities**, the program capabilities granted to Administrator. |
+| **Accounts** | The **Invitations** card and the **Student accounts** list. |
+| **Registrations** | The students who registered through the form on the site. |
+| **Interests** | Students whose institution is not in the program yet. |
+| **Sync** | The last sync's error, the **Airtable sync** card with **Sync students now** (or the progress and **Cancel sync**), and the **Last sync report**. |
 
-Since 1.92.0 the Administrator Dashboard on the front end gathers the queues these screens hold, apart from the mentor applications, which it counts (since 1.122.31) and which are decided on the Mentors screen; the Administrators screen links to it.
+While Airtable is not connected, **Accounts** and **Sync** say so.
 
-Since 1.93.0 the Sponsors screen is no longer a placeholder: it holds every sponsor with its status, program contact and accounts, the **Create account** and **Attach account** controls, on its **Accounts** tab since 1.122.0, and the log of interests sponsors expressed on their Sponsor Dashboard. Since 1.111.0 the sponsors' records live on this site, added with **Add a sponsor** and changed with **Edit**, both now on the **Sponsors** tab. An approved application creates its sponsor's account; any other sponsor's account is created on the **Accounts** tab's **No account** view, and nowhere else.
+Step by step: [[Run a sync by hand and read its report]]; [[A student the sync skipped, and a held invitation]].
 
-Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for an Administrator, and since 1.123.0, while **Sponsor tiers** is on, the events waiting too, and since 1.123.18 the sponsor offers and the changes to them waiting for review. Since 1.122.0 that queue is read on the screen's **Waiting for review** tab and decided on the Administrator Dashboard, as the institution queue is.
+#### The Student accounts list
 
-The Students screen has four tabs, **Accounts**, **Registrations**, **Interests** and **Sync**, and a press on any tab comes back to it. **Accounts**, the tab **WPCredits Program > Students** opens on, holds the **Invitations** card and the **Student accounts** list. **Sync** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync students now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
+Every Student account, a page at a time, like WordPress's own **Users** screen. Columns: **Student**, **Username**, **Status**, **Institution** and **Mentor**.
 
-Since 1.123.54 the Students screen has a third tab between them, **Registrations**, and the paragraph above holds for the other two. It lists the students who registered through the form on the site (the form's page, `/student-registration/`, is in *Pages the plugin owns*), newest first, 50 at most with a line saying how many there are when there are more, in four views each with its count: **All**, which holds every registration but spam, **Waiting to be written**, which holds those held for an Administrator too, **Could not be written** and **Spam**. Each registration shows the date, the name, the address, the institution and what became of it, one of six outcomes: **Written to Airtable**, with a link to the Students row; **Already has an account**, with a link to the account; **Already registered**, with a link to the row Airtable found, or to the earlier registration on the page when Airtable named none; **Waiting to be written**, which says why it waits: past the day's limit of 40 registrations, when the hourly job writes it; held for an Administrator, when more than 200 registrations arrived that day, which the hourly job leaves alone until **Write it now** is pressed on it; or that Airtable could not take it yet and that it is tried again every hour, with the number of tries, the last try and the reason; **Could not be written**, which gives the reason, after 72 hours of trying, or when **Write it now** fails again; and **Spam**, which the form's checks filed. Since 1.123.76, at an institution that offers two or more tracks, the registration also carries the student's track request, shown in the **Answers and consent** fold and written to the Students table's **Requested track** column; an Administrator still assigns the track. It also says what the row left out, such as a language Airtable does not hold, and when the student's email was not sent, because the day's limit on emails was reached or the mail host refused it. **Answers and consent**, folded under each, holds the answers by their questions and what the student agreed to, when, from which shortened address and in which browser. Three presses work on a registration: **Write it now**, on one that could not be written or one held for an Administrator, tries it once at once, taking the hold off first, so a held one it does not settle then waits for the hourly job like any other; **Put back**, on spam, queues it again and tries it once at once, as a new registration is tried; and **Delete for good**, on spam, asks first and removes it. Each comes back to the view it was pressed on and says what it did. The site writes one Students row for a registration and never changes or deletes it afterward, so a correction to a row is made in Airtable. No email goes to Administrators when a student registers, since a new student reaches them through Airtable, where the row appears.
+- **Status** shows a track by its name and some statuses in plain words, such as *Graduated*. A hyphen means none.
+- **Search students** finds an account by name, username, email address or institution. It also takes a student's Students or Students Reports record ID.
+- The views **All**, **Invited** and **Never invited** split the list by invitation, each with its count.
+- The institution and status pickers narrow the list; press **Filter**. **Show all students** clears both.
+- Each picker counts within the other's choice. A chosen option stays listed, even at 0.
+- **Students by status:** shows a chip per status with its count. A chip narrows to that status and keeps the institution and view.
+- Statuses run in the order of two lists under `Settings > Students and mentors`: those ticked under **Currently mentoring**, then under **Past students**, then the rest A to Z.
+- A student with no status is in the list under all statuses and counted under none.
+- The list opens by name, A to Z. **Student**, **Username** and **Institution** sort it; press again to reverse.
+- Pickers, chips, search and sorts cover the whole list, not one page.
+- **Screen Options** sets rows per page, 20 by default, and the columns. **Student** cannot be hidden.
 
-The **Student accounts** list works like WordPress's own **Users** screen: every Student account, a page at a time, so each one can be reached however many the site has. **Search students** finds an account by name, username, email address or institution, and by a record ID. The Students record ID of any of a student's tracks is the ID Claude gives for a student in place of a name, so this is where an Administrator puts the name to one; the Students Reports record the account follows finds the account too. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Student** heading turns it Z to A; a press on **Username** or **Institution** sorts the list by it, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Student** column cannot be hidden, because each row's actions sit under it. The institution picker above the table, each institution with its number of accounts, narrows the list to one institution, and the **Invitations** card follows it, so its button invites only the students at that institution who have never been invited, and comes back to that institution's list. A student who also mentors and whose invitation was held when an application made them a mentor is left out of the button, and the card says how many it left out: only that student's own row sends it (see *Becoming a mentor*). The status picker beside the institution picker, each status with its number of accounts, narrows the list to one status, alone or together with an institution, so **Filter** can show, for example, the students on one track at one school. The **Invitations** card follows the status as it follows the institution: with a status chosen, its button invites only the students with that status who have never been invited (at that institution too, when one is chosen), says the status in the button, and comes back to the list narrowed the same way. **Show all students**, which appears while a picker is set, clears both. Each picker counts within the other filter, so a number is how many students choosing that option would list: the status picker counts the students at the institution chosen, and the institution picker the students with the status chosen. An option already chosen stays in its picker, selected, even when it counts 0. The **Status** column shows each student's status in the words the status picker and the summary use for it: a track by its name, a few statuses in plain words such as Graduated, and any other as it is recorded; a student with no status shows a hyphen. The Institution Dashboard's student list calls the same value **Program**, which is the word schools read. Above the views, **Students by status** shows how many students hold each status, one chip each with its count, within the institution chosen; a press on a chip narrows the list to that status, keeping the institution and the view, and the chip in force is bold, outlined in blue. The status picker and the summary list the statuses in the program's own order: the current statuses as **Currently mentoring** lists them, then the past ones as **Past students** lists them (both under **Settings** > **Students and mentors**), then any other status from A to Z by the words shown. A student with no status is in the list under all statuses and is counted under none. The pickers, the summary, a search by institution and the **Institution** sort work on the whole list, never only on the page in view.
+Under each name: **Edit** opens the account, **View page** the Student Report Card, and **Send invite** or **Resend invite** emails that student at once.
 
-Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that student's Student Report Card, and **Send invite** or **Resend invite**, which emails that one student at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**. On WordPress 6.7 or later, on this list and on every other accounts list, the action chosen under **Bulk actions** runs only when **Apply** is pressed: a search sent with rows ticked and an action chosen comes back to the list with nothing done to them, and Enter pressed in the menu does not apply it. Below 6.7, WordPress's own behavior stands. **Send invite** queues a first invitation for each ticked account that has never had one, as the card's button does, and the card shows the progress. **Resend invite** queues a fresh invitation for each ticked account invited before, which goes out with the next batch: the card's progress bar and its stop button follow a run of first invitations, and a re-invitation starts no run, so on its own it shows on neither. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, institution, status, sort and page. However it is asked for, nobody is sent a second invitation within fifteen minutes of the last one: **Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes, and its notice says how many it left out. **Send invite** and **Resend invite** on ticked accounts both leave out an account whose invitation was held when an application made it a mentor, and the notice says how many they left out: only that account's own row sends it, once an Administrator has confirmed the account is the person's.
+Step by step: [[Find a student]]; [[Open a student's Student Report Card, and what you can change there]]; [[Invite a student, or several]].
 
-Since 1.123.58 the invitations card no longer reloads the page while invitations go out. The count
-and the bar move on their own every ten seconds, a screen reader hears how many were sent at each
-quarter and at the end, and the card says when the run has finished; a search, a filter or a ticked
-row stays as it was. A run stopped or cleared in another tab ends the card with the count where it
-ended and says so. The card also links to the page itself, to see the whole card again.
+#### Invitations from an accounts list
 
-Since 1.123.64 the Students screen has a tab called **Interests**, between **Registrations** and **Sync**. It lists the interest students sent through the student interest form: a student whose institution is not in the program yet says they would like to take part, and names a representative of the institution who agreed to be contacted. The form takes the place of the one the program kept on Airtable, with the same questions. Nothing on this tab is written to Airtable, and nothing is made from an interest: no account, no row and no institution. You follow each one up by hand.
+How the **Invitations** card and the invitation presses work on the Students and Mentors screens.
 
-The card's heading counts the new interests. The list is newest first, 50 to a page, with **Newer** and **Older** above and under it when a view holds more, so every interest is reached; it comes in five views each with its count:
+- The card's button invites everyone in the list never invited. On the Students screen it follows the chosen institution and status.
+- It leaves out anyone whose invitation was held when an application made them a mentor, and says how many. Only that person's row sends it.
+- While invitations go out, the count moves by itself. **Stop and cancel the remaining** stops the run; sent ones cannot be recalled.
+- For several, tick rows, choose **Send invite** or **Resend invite** under **Bulk actions**, and press **Apply**.
+- On WordPress 6.7 or later, a bulk action runs only on **Apply**. A search with rows ticked does nothing to them.
+- **Send invite** queues a first invitation for each ticked account never invited. The card shows the progress.
+- **Resend invite** queues a fresh one for each ticked account invited before. It replaces the earlier link and is not shown on the card.
+- Nobody gets a second invitation within 15 minutes. Held invitations are left out too. The notice says how many.
+- Every press comes back to the list as it was: view, search, filters, sort and page.
 
-- **New**, the view the tab opens on: an interest no check held, which may still be marked as a repeat of an earlier one. Administrators were emailed about it.
-- **Held**: an interest one of the form's checks flagged, such as one sent within seconds, one holding several links or one past the 40 a day the site takes, kept for you to judge. The student was sent the acknowledgement; Administrators were not emailed.
-- **Contacted**: you wrote to the representative.
-- **Closed**: nothing more to do. A closed interest is deleted 365 days after it was closed.
-- **Spam**: what the form's checks filed, or you marked. A spam interest is deleted 30 days after it was filed.
+Step by step: [[Invite a student, or several]]; [[A held invitation, and an Airtable row that was refused]].
 
-Each interest shows the student's name and email address, the date it was received and its reference, such as `SINT-2026-0503`; where it stands, with who last changed it and when; and what the form's checks noticed, each in a sentence, such as that the same student sent an interest for the same institution in the 30 days before, or that the student was sent no acknowledgement because the day's limit on emails was reached. Under that is a table: **Institution**, with its name, city and country and its website as a link; **Department**; **Representative**, with the name and the email address as a link; **Internships or practices**, the student's choices; and **Anything else**, what the student wrote. **Consent**, folded under it, holds the two sentences the student agreed to, when, from which shortened address and in which browser.
+#### The Registrations tab
 
-The site never emails the representative. Write to them yourself, from the address on the row, then press **Mark contacted**.
+The **Student registrations** card: students who registered through the form on the site. The newest 50 are listed, with the total when there are more.
 
-Five presses work on an interest, each for the states it takes:
+| View or outcome | What it means |
+| --- | --- |
+| **Written to Airtable** | A Students row was written. A link opens it. |
+| **Already has an account** | The address has an account. A link opens it. |
+| **Already registered** | Registered before. A link opens the row or the earlier registration. |
+| **Waiting to be written** | Past the day's 40, held for an Administrator, or Airtable could not take it yet. It says which. |
+| **Could not be written** | Not taken after 72 hours, or failed again on **Write it now**. It gives the reason. |
+| **Spam** | Filed by the form's checks. |
 
-- **Mark contacted**, on a new or a held interest.
-- **Close**, on a new, a held or a contacted interest.
-- **Mark as spam**, on a new or a held interest.
-- **Put back to New**, on a held, a spam or a closed interest. Nobody is emailed again.
-- **Delete**, on a spam or a closed interest: it asks first and removes the interest for good.
+Views: **All** (all but spam), **Waiting to be written**, **Could not be written**, **Spam**.
 
-Each comes back to the view it was pressed on and says what it did. A press on an interest that another Administrator has moved in the meantime changes nothing and says so.
+Rules:
+- Each registration shows its date, name, email address, institution and outcome.
+- Past 40 a day, the rest wait for the hourly job. A waiting one shows its tries and reason.
+- Past 200 a day, the rest are held until **Write it now** is pressed.
+- A registration also says what the row left out, and when the student's email was not sent.
+- At a school with two or more tracks, the track request is in **Answers and consent** and Airtable's *Requested track* column. An Administrator assigns the track.
+- **Answers and consent** holds the answers and the consent: when, from which address and browser.
+- The site never changes or deletes a row it wrote. Correct it in Airtable.
+- Administrators get no email when a student registers.
 
-WordPress's **Export Personal Data** and **Erase Personal Data** tools find an interest by the student's address and by the representative's. A student is handed everything they sent and what the site keeps as evidence of the two boxes they ticked: the sentences, the policy's address, the time, and the address and browser the form was sent from. A representative is handed the institution's details and their own name and address, and not who named them. An erasure deletes the whole interest, for either address, and says so when WordPress would not delete one, which is then still on the tab to delete by hand.
+Presses, each back to its view:
+- **Write it now**, on one that failed or is held: takes off the hold and tries once. A held one it does not settle then waits for the hourly job.
+- **Put back**, on spam: queues it again and tries once.
+- **Delete for good**, on spam: asks first. It cannot be brought back.
 
-In 1.119.0 the Mentors screen became two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on while no application to mentor waits (see *Applications to mentor*), holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds, since 1.122.33, a warning while mentors made from applications have no Airtable row yet, with the way to where each is written, the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
+Step by step: [[A student registered]]; [[Open student registrations]].
 
-Since 1.122.26 the Mentors screen has a third tab between them, **Engagement**. It opens with the figures the Administrator Dashboard's **Mentor engagement** card shows, then lists every mentor: **Status**, whether Airtable holds them as Active (and **Administrator** for an Administrator who also mentors), their **Students** now and before, their **Last visit** (the latest day they opened a page of the site while signed in, which the site notes once a day) and **Last sign-in**, their **Schedule** (weekly hours and a meeting link, or what is missing), the **Notes** they wrote, their one-to-one **Calls** held and to come with how many held calls have a note, and their **Group sessions** held and to come. The 7 days and the 30 days count whichever is later, a mentor's last sign-in or last visit, so a mentor on a remembered session is not shown as absent; a mentor for whom the site holds neither is counted as never signed in. Sort by **Mentor**, **Students**, **Last visit**, **Last sign-in**, **Notes** or **Calls**; the list opens with the most students first. **Search mentors** finds a mentor by name, username, email address or Mentors record ID, the ID Claude gives for a mentor in place of a name. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden. The views, each with its count, find who to follow up with: **All**, **Active**, **With students now**, **No sign-in on record**, **Not seen in 30 days**, **No program action** (no note, no saved schedule, no group session created and no call they canceled, including those who never signed in, so it can list more mentors than the card's count of those who signed in without one), **Students, no weekly hours** and **Administrators**. Every view but **All** and **Administrators** lists active mentors only, those Airtable holds as Active, and so do the figures above, except the call and group session figures, which count every call and group session on the site; an Administrator who also mentors is counted apart, and **Administrators** lists the active ones. **All** lists every mentor, active or not. The tab reads only. Sign-ins from before the release were read once from what the site already held and are approximate, and visits start with the release, so a date can read **Not recorded yet**; the note under the list gives the date of the reading. The site records the last sign-in and last visit of every account, not only mentors', and uninstalling the plugin removes them. `wp wpcredits mentor_engagement --summary` prints the same figures on the command line, and without `--summary` it prints one row per mentor, as a table, JSON or CSV; it writes nothing.
+#### The Interests tab
 
-The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username, email address or Mentors record ID, the ID Claude gives for a mentor in place of a name. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **No students**, the fourth view, with its count too, lists the mentors whose **Students** column shows 0: no current student, whether every student they had has finished or they never had one. The search, the sorts and the pages work in it as in the other views, and when every mentor has a current student it says so. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited, except one whose invitation was held when an application made them a mentor: the card says how many it left out, and only that mentor's own row sends it (see *Becoming a mentor*).
+The **Interest from students** card: a student whose institution is not in the program yet names a representative there. Nothing is written to Airtable, and nothing is made from an interest.
 
-Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that mentor's Mentor Report Card, and **Send invite** or **Resend invite**, which emails that one mentor at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, sort and page. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out; both bulk actions leave out a mentor whose invitation was held, and say how many.
+The site never emails the representative. Write to them yourself, then press **Mark contacted**.
 
-Since 1.119.0 the Administrators screen is two tabs too, **Accounts** and **Capabilities**, under the **Open the Administrator Dashboard** button, which stays above them whichever tab is shown. The button is there while that page exists; while it is missing, the **Administrator accounts** list says so. **Accounts**, the tab **WPCredits Program > Administrators** opens on, holds the **Administrator accounts** list: every account with WordPress's Administrator role, a page at a time. **Search administrators** finds an account by name, username or email address. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; a press on **Username** sorts it by username, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's **Edit**, which opens the account in wp-admin, sits under it. **Can manage program** says whether each account holds the program's capability.
+| View | What it holds |
+| --- | --- |
+| **New** | The tab opens here. No check held it; it may be marked as a repeat. The addresses in **Who hears of a new interest** (`Settings > Students and mentors`) were emailed, or every Administrator when it is empty. |
+| **Held** | A check flagged it, such as one sent within seconds, one with several links, or one past 40 a day. Administrators were not emailed. |
+| **Contacted** | You wrote to the representative. |
+| **Closed** | Done. Deleted 365 days after closing. |
+| **Spam** | Filed by the checks or by you. Deleted after 30 days. |
 
-The list has one view, **All**, and no checkboxes, bulk actions or invitations: Administrators use WordPress's own Administrator role, the plugin never invites them, and their accounts are added and managed on the **Users** screen. **Capabilities** lists the program capabilities the Administrator role is granted on activation, as the screen did before.
+- The list is newest first, 50 a page, with **Newer** and **Older**. The heading counts the new ones.
+- Each shows the student, the date, a reference, who last changed it, and what the checks noticed.
+- Under it: **Institution**, **Department**, **Representative**, **Internships or practices**, **Anything else**, and **Consent** folded.
+- **Mark contacted** works on *New* and *Held*; **Close** on *New*, *Held* and *Contacted*; **Mark as spam** on *New* and *Held*.
+- **Put back to New** works on *Held*, *Spam* and *Closed*, and emails nobody. **Delete** works on *Spam* and *Closed*, asks first, and cannot be undone.
+- A press on an interest another Administrator just moved changes nothing and says so.
+- WordPress's **Export Personal Data** and **Erase Personal Data** find an interest by either address. An erasure deletes the whole interest.
+
+Step by step: [[A student is interested in a school that is not in the program]]; [[Put the Student Interest Form on a page]].
+
+#### The Mentors screen's tabs
+
+`WPCredits Program > Mentors`. Accounts are made by the sync from the Airtable Mentors table, and when an application to mentor is activated.
+
+| Tab | What it holds |
+| --- | --- |
+| **Waiting for review** | Applications to mentor, decided here. Applicants made mentors are under **Activated**. |
+| **Accounts** | The **Invitations** card and the **Mentor accounts** list. |
+| **Engagement** | How each mentor uses the site. Read only. |
+| **Sync** | The sync card with **Sync mentors now**, its warnings, **Needs confirming** and the **Last sync report**. |
+
+- **Sync** warns while a mentor made from an application has no Airtable row. **Write the Airtable row again** is under **Activated**.
+- **Needs confirming** lists accounts matched to a mentor by username alone, each with **Confirm**.
+- The applications are described under Applications to mentor, below.
+
+Step by step: [[A mentor applied]]; [[A mentor's account waits under Needs confirming]]; [[Run a sync by hand and read its report]].
+
+#### The Engagement tab
+
+The **Mentor engagement** figures, then every mentor, with **Edit** and **View page** under each name. Columns: **Status**, **Students** (now and before), **Last visit**, **Last sign-in**, **Schedule**, **Notes**, **Calls** and **Group sessions**.
+
+| View | Who it lists |
+| --- | --- |
+| **All** | Every mentor, active or not. |
+| **Active** | Mentors Airtable holds as Active. |
+| **With students now** | Active mentors with a current student. |
+| **No sign-in on record** | Active mentors with no sign-in or visit recorded. |
+| **Not seen in 30 days** | Active mentors last seen over 30 days ago. |
+| **No program action** | No note, no saved schedule, no group session made and no call they canceled. |
+| **Students, no weekly hours** | Active mentors with students and no weekly hours. |
+| **Administrators** | Active Administrators who mentor. |
+
+- A visit is the first signed-in page of a day. "Seen" is the later of the last visit and the last sign-in.
+- The note under the list gives the day from which sign-ins are exact.
+- Views but **All** and **Administrators** leave Administrators out, and the mentor figures count them apart.
+- **No program action** includes mentors who never signed in, so it can exceed the card's figure.
+- It opens with the most students first. **Mentor**, **Students**, **Last visit**, **Last sign-in**, **Notes** and **Calls** sort it.
+- **Search mentors** takes a name, username, email address or Mentors record ID. **Screen Options**: 20 rows by default.
+- `wp wpcredits mentor_engagement --summary` prints the figures; without `--summary`, one row per mentor. It changes nothing.
+
+Step by step: [[Find mentors who have gone quiet or have no hours]].
+
+#### The Mentor accounts list
+
+Every Mentor account, a page at a time. Columns: **Mentor**, **Username**, **Students** (current), **Past** and **Status**: *Active*, or *Not in Airtable*.
+
+- **Search mentors** takes a name, username, email address or Mentors record ID.
+- Views: **All**, **Invited**, **Never invited** and **No students**, which lists mentors with no current student.
+- It opens by name, A to Z. **Students** sorts fewest first, **Status** puts *Active* first. Press again to reverse.
+- Sorts cover the whole list. **Screen Options**: 20 rows by default; **Mentor** cannot be hidden.
+- There is no institution picker: the **Invitations** card invites every mentor never invited, but held ones.
+
+Under each name: **Edit**, **View page** (the Mentor Report Card), and **Send invite** or **Resend invite**.
+
+Step by step: [[Open a mentor's Mentor Report Card]]; [[A held invitation, and an Airtable row that was refused]].
+
+#### The Administrators screen
+
+`WPCredits Program > Administrators`. **Open the Administrator Dashboard** sits above the tabs while that page exists; while it is missing, the list says so.
+
+- **Accounts**: the **Administrator accounts** list, every account with WordPress's Administrator role. Columns: **Name**, **Username**, **Can manage program**. A *No* there means re-activating the plugin grants the capability again.
+- **Capabilities**: the **Program capabilities** the Administrator role is granted on activation.
+- **Search administrators** takes a name, username or email address. **Name** and **Username** sort it.
+- **Screen Options**: 20 rows by default. **Name** cannot be hidden; each row's **Edit** is under it.
+- One view, **All**, and no bulk actions. The plugin never invites Administrators: manage their accounts on WordPress's **Users** screen.
 
 ### Applications to mentor
 
-Since 1.122.31 a person can apply to mentor on this site, at /become-a-mentor/, and an Administrator
-decides on each application on the **Waiting for review** tab of the **Mentors** screen. The form is
-off until **Take mentor applications through the form on this site** is switched on, under
-**Mentor applications** on the Students and mentors tab of Settings. While it is off, the page shows
-one sentence saying applications are closed (since 1.123.26); while the syncs have read no countries
-or no contribution teams yet, the public see nothing. Either way an Administrator who opens it is
-told why in a sentence of its own.
-The page is not gated: the people it is for have no account. The form writes nothing to Airtable.
-Since 1.122.33 a selected applicant who completes the mentors' course becomes a mentor on this site
-once **Make mentors from applications** is switched on, under **Mentor applications** on the
-Students and mentors tab of Settings, as *Becoming a mentor*, further down, describes. It is off
-until the launch, and while it is off an application stops at the mentors' course, as it did before
-1.122.33, and nothing is written to Airtable.
+People apply to mentor on the site's `/become-a-mentor/` page, and you decide on `WPCredits Program > Mentors`, tab **Waiting for review**. The form writes nothing to Airtable.
 
-The page the plugin makes starts with the Airtable form's introduction, two paragraphs above the
-form, and they are the page's to edit. So is the sentence an applicant reads once the form is sent:
-**Thank-you sentence**, in the **Thank you** panel of the **Mentor Application Form** block (or
-`thanks="..."` on the `[wpcpm_mentor_application]` shortcode), and while it is empty the plugin's
-own sentence is shown. A page already at /become-a-mentor/ when the plugin first looks is used as
-it is, so the form shows on it only once the block is added.
+Two switches under **Mentor applications** (`WPCredits Program > Settings`, tab **Students and mentors**), both off by default:
 
-The form asks the eleven questions the Airtable form asks, in its order, and four more: the applicant's full name;
-their email; their WordPress.org profile (the username, an @username or the address of their
-profile on wordpress.org, kept as the username, and anything else refused with a sentence asking for
-one of those); their country (one field: type a few letters and pick one); whether they are a
-teacher at an institution taking part in the program; which institution they teach at, chosen from
-the Confirmed institutions (a Yes with none chosen is sent back with "Choose the institution you teach
-at.", and one chosen beside a No is not kept); the languages they can mentor in; the
-contribution areas they have expertise in, which may be left empty; the hours a week they can give,
-from 1 to 40, kept to one decimal place; since 1.123.52, the three sponsorship questions the
-Mentors table has columns for and the Airtable form never asked: whether they are sponsored to
-contribute to WordPress (Yes or No), which company sponsors them (asked of a sponsored applicant
-only: a Yes with no company is sent back with "Name the company that sponsors you.", and a
-company typed beside a No is not kept), and whether they would like to be on the list of mentors
-looking for a sponsor, which sponsors see on their Sponsor Dashboard once the person is an active
-mentor and not sponsored; the compliance declaration, the GPL and trademark statement
-with its two links, which must be ticked; anything else they would like us to know; and the
-confirmation that they have read the WordPress.org privacy policy, which the line under the box
-links. An answer to **Anything else you'd like us to know?** holding what WordPress's
-cleaning would remove, a tag or a percent code, is refused: the form says so in a sentence that
-tells the applicant how to keep every word, and hands the typing back in its box. The countries are
-the ones the institution form offers and the contribution areas the teams a student picks from, both
-read by the syncs; the languages are a fixed list in the plugin, since the site holds none. It is
-guarded as the sponsor form is: a hidden field, a signed token, five submissions an hour from one address,
-after which the next is refused and not kept, and forty a day for the whole site, after which the
-rest are kept and held, consent as a precondition with what was
-agreed to recorded, the comment disallowed list and the links counted, and a ceiling on
-acknowledgements. An application giving the address or the WordPress.org username of another
-application in the queue or waiting for the course, or of a mentor the site knows, is held with a
-mark and never merged. The thank-you page shows the application's reference (MAPP-2026-0007), and
-every application but one filed as spam is acknowledged by email with a link that confirms the
-address, unless the day's ceiling on acknowledgements has been reached or the email could not be
-handed to the mail queue; the addresses under **Who is mailed**, or every Administrator, are told of
-each one the checks did not hold, with the applicant's name and profile and the way to the tab.
+- **Applications from mentors** (**Take mentor applications through the form on this site**) opens the form. While it is off, the page says applications are closed.
+- **Make mentors from applications** makes a mentor of a selected applicant whose course is done. While it is off, they wait under **Selected (course pending)**.
 
-**WPCredits Program > Mentors** opens on **Waiting for review** while any application waits there,
-and on **Accounts** while none does; the tab is first in the bar either way. It lists the
-applications oldest first, fifty at a time, in six views, each with its count: **Waiting**, every
-application not decided yet; **Asked for more information** and **Second opinion**, those two kinds
-among them; **Selected (course pending)**, the applicants sent to the mentors' course;
-**Activated**, the applicants made mentors, which orders its list differently (see *Becoming a
-mentor*); and **Lapsed**. Under the list, in every view, **Recently decided** lists the fifty
-applications most recently declined or filed as spam, newest first, until they are deleted. Each
-application shows the name and reference, how long it has waited (for a selected one, the day it was
-selected and the day it lapses; for an activated one, the day it was made a mentor; for a decided
-one, the day it was declined or filed as spam), its marks (**held**, **possible duplicate**,
-**already a mentor**, **address not confirmed** and **acknowledgement not sent**), every answer, its
-history (each decision with its day, who took it and their note) and the decisions its state allows.
-The Administrator Dashboard counts the applications waiting beside **Mentors** in its menu and in a row under **Waiting for you**, whose **Review** opens this tab.
+Step by step: [[From application to mentoring: the whole path]]; [[Open applications to mentor]].
 
-Since 1.123.67 an applicant who answers Yes to **Are you a teacher from a WordPress Credits
-participating institution?** is asked **Which institution do you teach at?**, and picks it from the
-Confirmed institutions the site holds by typing part of its name. The answer is required beside a Yes
-and dropped beside a No; a teacher whose institution is not on the list is told to answer No, since
-it is not in the program yet. Each application names the institution among its answers, and one
-taken out of the base since shows its Airtable record ID and says so. A test institution is offered
-only to an Administrator, so the form can be tried on the live site. The list is the one the student
-registration form offers, read by the same rule.
+#### The mentor application form
 
-**Find by reference**, above the views, takes the reference an application carries, such as
-MAPP-2026-0007, the one the applicant saw on the thank-you page and the one Claude gives for an
-applicant in place of a name. It looks among every application the tab lists, in any view: those
-waiting, asked for more information, awaiting a second opinion, selected or lapsed, those made
-mentors under **Activated**, and the declined ones under **Recently decided**; not one filed as spam.
-It draws the application whole, with its decisions, at the top of the tab, whatever its age, so one
-past the fiftieth of a view can be reached, and the page opens at the answer. The application is not
-drawn a second time in its own list. A reference that no such application has, and one filed as spam,
-get the same sentence, "No application was found for that reference.", and nothing of any
-application is shown. The field changes nothing, and only an Administrator who can see the tab sees
-it.
+The site makes the page if none is at `/become-a-mentor/`: two paragraphs of introduction, then the **Mentor Application Form** block. A page already there is used as it is, so add the block to it.
 
-A selected application also shows what the Mentor Status Checker last found on the applicant's
-WordPress.org profile: *Not checked yet*, or the day of the last check and whether the course shows,
-does not show yet, or the profile could not be read, and why. While **Make mentors from
-applications** is off it says the applicant waits; and when the account for an applicant whose
-course showed could not be made, it says on which day and why, and the application stays selected.
+- Edit the page to change the introduction.
+- The sentence after sending is the block's **Thank-you sentence**, in its **Thank you** panel. Left empty, the site's own shows.
+- While the countries or contribution teams list is empty, the public see nothing. An Administrator who opens the page reads why.
 
-The decisions, each with a box for a note where it takes one; a note stays on this site and is
-never sent:
+The questions:
 
-- **Select** sends the selection email, with the link set under **Mentors' course invitation link**,
-  and moves the application to **Selected (course pending)**. It is refused while that setting is
-  empty, and it is offered on a lapsed application too, for an applicant who comes back, and on a
-  declined one, for an applicant who appeals: an appeal is either a new application, if you ask
-  them to apply again, or a note and Select on the same row.
-- **Ask for more information** sends the request for more information; the application stays in the
-  queue, under **Asked for more information**, with the day it was asked.
-- **Second opinion** marks the application for a colleague and sends nothing. Its note, which says
-  what to look at, is needed.
-- **Decline** sends the decline email and moves the application to **Recently decided**.
-- **Mark as spam** moves the application to **Recently decided** and sends nothing.
-- **Put back in the queue**, on an application filed as spam, returns it to **Waiting**, with a line
-  in its history. One that was never acknowledged, and so carries the mark **acknowledgement not
-  sent**, is sent the acknowledgement then, once, with the link that confirms the address; one
-  acknowledged when it came, marked as spam by mistake, is sent nothing.
-- **Send the acknowledgement**, on an application still in the queue that carries the mark
-  **acknowledgement not sent**, sends it now, once, with the link that confirms the address, and
-  leaves the application where it is. It is for an application past the day's ceiling on
-  acknowledgements, or whose hand-off to the mail queue was refused; one filed as spam is sent it by
-  Put back in the queue. An application acknowledged already, or holding no address, is sent
-  nothing, and two presses at one moment send it once.
-- **Send the confirmation link again**, since 1.123.77, on an application still in the queue that
-  was acknowledged and carries the mark **address not confirmed**, sends the acknowledgement once
-  more, with the same link, and leaves the application where it is. It is drawn first, before Select,
-  on the application's row, and it is also in the notice that says nothing was sent because the
-  address is not confirmed, so an Administrator who was refused can send it there and then. It is not
-  offered once the address is confirmed, for an application that never had its acknowledgement (Send
-  the acknowledgement is its press), one that is no longer in the queue, or one holding no address.
-  Each send counts against the same day's limit on acknowledgements as the form's, and when the limit
-  is reached nothing is sent and the notice says so. The history records **sent the confirmation link
-  again**, with the Administrator who pressed it and the day, once for each send. The link in the first
-  email still works, and two presses at one moment send it once.
-- **The course is completed**, on a selected application, and offered only while **Make mentors
-  from applications** is on: for an applicant an Administrator knows has completed the mentors'
-  course, whatever the profile shows. Its note, how you know, is optional and never sent. It makes
-  the applicant a mentor at once, by the Administrator who pressed it, as *Becoming a mentor*
-  describes.
-- **Withdraw**, on a selected application alone, moves it to **Lapsed** now and sends nothing. Its
-  note, what the applicant wrote, is needed, and the public figures count it as lapsed. An
-  application that another request is making a mentor at that moment is left as it is, and the
-  press says so.
-- **Write the Airtable row again**, on an activated application whose Mentors row Airtable refused
-  or never finished, writes it as the activation did; it takes no note, and a second press makes no
-  second row (see *Becoming a mentor*).
+- **Full name**, **Email** and **WordPress.org profile URL**. The profile takes a username, an @username or a profile address, and keeps the username.
+- **Country**: type a few letters and pick one.
+- **Are you a teacher from a WordPress Credits participating institution?** A Yes needs **Which institution do you teach at?**, picked from the Confirmed institutions. Test institutions show to Administrators only.
+- **Languages in which you could mentor students** is required; **In which WordPress contribution areas do you have expertise?** may be left empty.
+- **Available hours per week to mentor students**: 1 to 40, one decimal place.
+- **Are you sponsored to contribute to WordPress?** A Yes needs **Which company sponsors you?**.
+- **Would you like to be on the list of mentors looking for a sponsor?** Sponsors see the list once the person is an active mentor and not sponsored.
+- **Compliance declaration** and **Privacy policy**: two boxes, both required. Nothing at all is stored without the second.
+- **Anything else you'd like us to know?**: refused if WordPress would remove part of it, such as a tag. The form says how to keep every word.
 
-Select, Ask for more information and Decline wait until the applicant has confirmed the address with
-the link in the acknowledgement: until then each is refused and says so. An application whose
-address is never confirmed is closed with Mark as spam, and a spam application counts for nothing in
-the public figures, so that applicant is not counted as having applied. An application marked
-**acknowledgement not sent**, one the form's checks filed as spam, one past the day's ceiling on
-acknowledgements, or one whose acknowledgement could not be handed to the mail queue when it was
-submitted, was never sent the link, so its address cannot be confirmed and the three decisions that
-email the applicant stay refused until it is: Put back in the queue sends it to an application filed
-as spam, and Send the acknowledgement to one still in the queue, past the ceiling or after a refused
-hand-off, and the mark goes either way. Select, Decline, Mark as spam, Withdraw, The course is
-completed, Send the acknowledgement and Send the confirmation link again ask before they act. The five emails are the **Mentor
-applications** area of **Tools > Emails**, where their words can be edited.
+A company or an institution given beside a No is not kept.
 
-Since 1.123.58 Select, Ask for more information and Decline each check the application again at the
-moment they send, so two Administrators deciding the same application at once send one email: the
-second is told who decided it, how, and when, and nothing is sent. Every outcome names the applicant
-and the reference, and the page comes back to the application, or to the next one in the view. A
-note the screen refuses is marked at its box.
+#### Checks on the mentor form
 
-A selected application whose course has not shown after the days under **Selected applications
-lapse after (days)**, 90 by default, moves to **Lapsed** by itself, with a line in its history, in
-the daily run that also keeps the days under **Applications** on the Advanced tab: spam is
-deleted after 30 days, and declined, lapsed and held applications after a year, by default. A
-selected application that is being made a mentor at that moment is left to that and does not lapse.
-The figures for the Credits Monthly Report and the WPCredits Tracker are public at
-`/wp-json/wpcpm/v1/mentor-applications`: for each month since the first application, how many
-applications were received, selected, activated (made a mentor), declined and lapsed, and how many
-applications are open and how many selected today, with nothing about any person. An application
-filed as spam is not counted as received. Each application
-counts once per figure in a month: one selected twice in a month counts once there, a withdrawal and
-a lapse in one month are one lapse, and one selected again in a later month, after a lapse or an
-appeal, counts in both months, so the months are not to be added up as if each application counted
-once. An applicant filed as already a mentor is not counted as made a mentor, and what happens to
-the Airtable row counts for nothing.
+- One connection can send five submissions an hour, a form sent back for a missing answer included. The sixth is refused and not kept.
+- Past 40 a day for the whole site, the rest are kept and held.
+- Also held: one sent too soon after the page opened, one matching the site's comment disallowed list, and one with three or more links in its free text.
+- Held, never merged: one whose address or username matches an application waiting or selected, or a mentor the site knows.
+- A filled hidden field or a bad form token files it as spam. The sender sees the usual thank-you page.
+
+The thank-you page shows the reference, such as *MAPP-2026-0007*. Every application not filed as spam gets the acknowledgement, with the link that confirms the address. The form sends at most 200 a day; past that, or if the email cannot be handed off, the page says none went.
+
+The people under **Who is mailed**, else every Administrator, are emailed only about an application no check held.
+
+#### The queue of mentor applications
+
+`WPCredits Program > Mentors` opens on **Waiting for review** while an application waits, else on **Accounts**. The Administrator Dashboard counts waiting applications beside **Mentors** in its side menu and under **Waiting for you**.
+
+| View | What it lists |
+|---|---|
+| **Waiting** | Every application not decided yet, held ones too |
+| **Asked for more information** | Those you asked for more |
+| **Second opinion** | Those marked for a colleague |
+| **Selected (course pending)** | Those sent to the mentors' course |
+| **Activated** | Those made mentors (see *Becoming a mentor*) |
+| **Lapsed** | Course not shown in time, or withdrawn |
+
+- Each view shows its count. Each but **Activated** lists only the oldest 50; the next appear as these are decided, and **Find by reference** reaches any other.
+- **Recently decided**, under every view, lists the 50 newest declined or spam applications.
+- An application shows its name and reference, its age or decision day, its marks, every answer, its **History** and its decisions.
+- A selected one also shows what the Mentor Status Checker last found on the profile, and the day it lapses.
+- **Find by reference** opens any application by its reference, whatever its view or age. One filed as spam is not found.
+
+| Mark | What it means |
+|---|---|
+| **held** | The form's checks held it. Administrators were not emailed. |
+| **possible duplicate** | An application waiting or selected has the same address or username. |
+| **already a mentor** | A current or former mentor the site knows has this address or username. |
+| **address not confirmed** | The applicant has not followed the link in the acknowledgement. |
+| **acknowledgement not sent** | The applicant never got the link: filed as spam, past the day's limit, or not handed off. |
+
+Step by step: [[A mentor applied]]; [[Bring back a declined, lapsed or spam application]].
+
+#### Decisions on a mentor application
+
+| Decision | Offered on | Sent to the applicant | Then |
+|---|---|---|---|
+| **Select** | Not decided yet, lapsed, declined | The selection email, with the course link | **Selected (course pending)** |
+| **Ask for more information** | Not decided yet | The request for more information | Stays in **Waiting** |
+| **Second opinion** | Not decided yet | Nothing | Stays in **Waiting** |
+| **Decline** | Not decided yet | The decline email | **Recently decided** |
+| **Mark as spam** | Not decided yet | Nothing | **Recently decided** |
+| **Withdraw** | Selected | Nothing | **Lapsed** |
+| **Put back in the queue** | Filed as spam | The acknowledgement, if it never had one | **Waiting** |
+| **Send the acknowledgement** | Not decided yet, **acknowledgement not sent** | The acknowledgement | Stays |
+| **Send the confirmation link again** | Not decided yet, **address not confirmed** | The acknowledgement again | Stays |
+| **The course is completed** | Selected, while **Make mentors from applications** is on | The invitation, unless held | **Activated** |
+| **Write the Airtable row again** | Activated, row not written | Nothing | Stays |
+
+- **Select** is refused while **Mentors' course invitation link** is empty.
+- A note stays on the site and is never sent, up to 2,000 characters. **Second opinion** and **Withdraw** need one of at least 10.
+- **Select**, **Decline**, **Mark as spam**, **Withdraw**, **The course is completed**, **Send the acknowledgement** and **Send the confirmation link again** ask before they act.
+- If another Administrator decided it first, **Select**, **Ask for more information** and **Decline** say who, how and when, and send nothing.
+- If an email cannot be handed off, nothing changes. The **Log** tab of `Tools > Emails` says why.
+
+Step by step: [[A mentor applied]]; [[The course is completed: make the applicant a mentor]].
+
+#### The confirmation link
+
+**Select**, **Ask for more information** and **Decline** are refused until the applicant follows the link in the acknowledgement. **Second opinion** and **Mark as spam** still work.
+
+- **Send the confirmation link again** is the first button on the application, and the refusal notice carries it too. The first link keeps working.
+- It counts against the day's 200 acknowledgements. **Send the acknowledgement** does not.
+- Close an application whose address is never confirmed with **Mark as spam**.
+
+Step by step: [[The applicant's address is not confirmed]].
+
+#### Lapsing and deleting mentor applications
+
+A daily run does both.
+
+- A selected application moves to **Lapsed** once more days than **Selected applications lapse after (days)** have passed since it was selected, whether or not the course shows. It is 90 by default, 14 to 365, under **Mentor applications** on the **Students and mentors** tab.
+- Spam goes after **Spam kept for (days)**, 30 by default.
+- Declined, lapsed and held applications go after **Rejected kept for (days)**, 365 by default.
+- Activated ones go after **Approved kept for (days)**. The default, 0, keeps them. One waiting for its Airtable row is kept.
+- Other applications in **Waiting** are never deleted.
+
+The three kept-for settings are under **Applications** on the **Advanced** tab of Settings.
+
+Step by step: [[Change how long applications and files are kept]].
+
+#### Mentor application figures
+
+The counts are public at `/wp-json/wpcpm/v1/mentor-applications`, with nothing about any person.
+
+- Per month: applications received, selected, activated, declined and lapsed. Today: how many are open and how many selected.
+- Each application counts once per figure in a month. Do not add the months up.
+- Spam is not counted, a withdrawal is a lapse, and one filed as already a mentor is not counted as activated.
+
+#### Mentor application emails
+
+Edited in `Tools > Emails`, area **Mentor applications**.
+
+| Email | Who gets it | When |
+|---|---|---|
+| **Mentor application received, to the applicant** | The applicant | They apply |
+| **Selected to mentor: the mentors' course** | The applicant | You press **Select** |
+| **More information asked of a mentor applicant** | The applicant | You press **Ask for more information** |
+| **Mentor application declined** | The applicant | You press **Decline** |
+| **New mentor application, to Administrators** | **Who is mailed**, else every Administrator | An application passes every check |
+
+The new mentor's invitation is **Invitation: mentor**, area **Invitations**.
+
+Step by step: [[Change the words of an email and test it]].
 
 #### Becoming a mentor
 
-With **Make mentors from applications** on, a selected applicant becomes a mentor in one of two
-ways: the Mentor Status Checker finds the mentors' course on their WordPress.org profile when it
-promotes (the daily check does so when **Let the daily check also promote mentors** is ticked in the
-tool's settings, and **Run check and promote to** the target status and `wp wpcredits check_mentors --promote` always
-do), or an Administrator presses **The course is completed** on their application, which asks first.
-It is one step either way, and the mentors sync makes a mentor the same way. It runs in this order,
-so that a mentor is never kept waiting on Airtable:
+With **Make mentors from applications** on, a selected applicant becomes a mentor when:
 
-1. **The account.** The applicant's account is the one that has their email address, else the one
-   named after their WordPress.org username, else the one that holds their profile; where the
-   Mentors row that holds their address is already linked to an account, that account is theirs.
-   With none, an account is made, named after the username, with the Mentor role. An account that
-   exists is linked and given the Mentor role besides its own: no role is taken away, and an
-   Administrator's roles are never touched. A former mentor is a mentor again on their own account.
-   If the account cannot be made, the application stays selected, with the reason on it.
-2. **The application** moves to **Activated**, with a line in its history.
-3. **The invitation.** One invitation, which carries the welcome, is queued whatever **Invitation
-   emails** says, and goes out with the queue, a few at a time. None goes to an Administrator's
-   account, which signs in already, and none goes yet in two cases where the site cannot be sure
-   whose address it would reach: when the account was found by the WordPress.org username alone,
-   which may be somebody else's, and when the Mentors row that holds the applicant's address belongs
-   to one account while another account also answered for the applicant. The mentor is made all the
-   same. The notice after the press, the application's history and its row under Activated say the
-   invitation is held and why, and once an Administrator has confirmed which account is the
-   person's, **Send invite** or **Resend invite** on its row in the Mentors screen's **Accounts**
-   tab sends it. Until then the **Invitations** card's button, **Send invite** and **Resend invite**
-   on ticked accounts and the email queue pass the account over, and the card and the notice after a
-   press say how many they left out. After the invitation, whether it was queued or held, the Mentor
-   Status Checker's Slack message names the new mentor.
-4. **The Airtable row**, last. An account that holds its own Mentors row already, a former
-   mentor's, has that row's Status set back to Active, the status the mentors sync reads, and no
-   search is made; only if Airtable says that row is gone is the table searched, as for anyone
-   else. Otherwise the Mentors table is searched for the applicant's address first. A row that
-   holds it, whatever its Status, is set back to Active and linked to the account; only its Status
-   changes. When two or more rows hold the address, or the row is linked to another account on this
-   site, nothing is written, and the application waits under Activated with the reason and **Write the
-   Airtable row again**. While **Mentor status to sync** is blank, nothing is written at all. With none, one new row is written, with the applicant's name, WordPress.org profile,
-   email and Status and their answers whose columns the table has, each shaped as its column takes
-   it. A country, language or contribution area the base does not hold is left out by name, the
-   application says so, and the rest of the row is written. Writing needs the token's
-   `data.records:write` scope, and reading each column's type its `schema.bases:read` scope; where
-   the token lacks the second, the row holds the name, profile, email and Status alone. Nothing else
-   in Airtable is ever changed and nothing is deleted; after this the row is Airtable's, and the
-   site never updates it again.
+- the Mentor Status Checker finds the course on their WordPress.org profile when it promotes (the daily check promotes only with **Let the daily check also promote mentors** ticked); or
+- you press **The course is completed**.
 
-An applicant who is a mentor already, an account with the Mentor role, or an Administrator's, that
-is active and linked to its Mentors row, is filed under **Activated** as already a mentor, with a
-note in the history: nothing is sent, nothing is written to Airtable, and the public figures do not
-count them as made a mentor. An Administrator who applied keeps their roles and is sent no
-invitation. Two presses, or a press and the daily check, on one application at the same moment do
-the step once: the second is told it is in hand. While **Make mentors from applications** is off
-nothing is made, and an applicant whose course shows waits under Selected (course pending).
+The step, in order:
 
-**Activated** lists the mentors made from applications. The applications still waiting for their
-Airtable row come first, oldest first; the others follow, the newest mentor first. Fifty are drawn,
-and a line says how many there are when there are more. Each row shows the account, linked to its
-profile screen, and the invitation's fate and the Airtable row's. The invitation line counts from
-the moment the applicant was made a mentor, never from an older invitation to the same address: it
-says the invitation waits in the email queue; or was sent on a day; or was handed over on a day and
-the mail log does not say whether it went; or that the site's mail host refused it, so that nothing
-was sent and the link in any earlier invitation no longer works, with where Send invite or Resend
-invite is; or that none has gone since, because it was held for a person to confirm the account or
-was passed over, with where Send invite or Resend invite is. For an Administrator's account it says
-none is sent, for an account that is gone that none can reach it, and for an applicant filed as
-already a mentor it says nothing. The Airtable line says whether the row was written, set back to
-Active or linked, and what was left out of it.
+1. The account: the one with their address, else named after their WordPress.org username, else holding their profile. A found account that holds its own Mentors row is used. If it holds none, and the one Mentors row with their address is linked to another account, that one. With none, a new account named after the username.
+2. The account gets the Mentor role. No role is taken away, and an Administrator's roles are never touched.
+3. The application moves to **Activated**.
+4. The invitation, which carries the welcome, is queued whatever **Invitation emails** says. The queue sends ten at a time. The Mentor Status Checker's Slack message names the mentor.
+5. The Airtable row. The mentor's own Mentors row, or the one row with their address, has its Status set to the value of **Mentor status to sync** (tab **Students and mentors**, section **Who is on the program**; *Active* by default). Else a new row is written, with that Status and the answers the table has columns for.
 
-If Airtable refuses the row (a token without write access, a column that refuses a value, a table
-that cannot be read, the network, or no Airtable connection at all), the mentor is made and invited
-all the same. The application says Airtable's words, and **Write the Airtable row again** waits on
-it under Activated. It searches the table by the address before it writes anything, so a row that a
-request which died had made is found and never made twice. Meanwhile the mentors sync does not
-unmake the mentor. If it links the account to an Active row itself, that ends the wait, and the
-application then reads as linked by the mentors sync or by hand, with nothing more to write. An
-account that is gone has nothing to write for, and the application says so. The Mentors screen's
-**Sync** tab says how many mentors are waiting for their row.
+- If the account cannot be made, the application stays selected, with the reason.
+- No invitation goes to an Administrator. It is held when the account was found by username alone, or another account also answered for the applicant. The **Invitations** card and **Send invite** on ticked accounts skip it.
+- No row is written while the value of **Mentor status to sync** is blank, when two rows hold the address, or when the row is linked to another account.
+- A country, language or contribution area the base lacks is left out by name. Without the token's `schema.bases:read` scope, the row holds the name, profile, email and Status only.
+- Nothing else in Airtable is changed or deleted, and the site never updates the row again.
+- An applicant who is an active mentor already is only filed under **Activated**. Nothing is sent or written.
+
+If Airtable refuses the row, the mentor is made all the same. The application shows Airtable's words and **Write the Airtable row again**. For a returning mentor it sets their own row, and searches by address only if Airtable says that row is gone; it never makes a second row. The mentors sync leaves the mentor alone meanwhile. The **Sync** tab counts mentors waiting for their row.
+
+**Activated** shows 50: those waiting for their row first, oldest first, then the newest mentors. Each has three lines:
+
+| Line | What it says |
+|---|---|
+| Account | The account, linked to its profile, or that it is gone |
+| Invitation | Since the activation: in the queue, sent, handed over with no word, refused by the mail host, held, or none sent |
+| Airtable | Written, set back, linked, or refused with Airtable's words; and what was left out |
+
+Step by step: [[The course is completed: make the applicant a mentor]]; [[The Mentor Status Checker: check, then promote]]; [[A held invitation, and an Airtable row that was refused]].
 
 #### Switching it on
 
-**Make mentors from applications** ships off, and a person switches it on at the launch, in this
-order:
+**Make mentors from applications** ships off. The person who runs the site switches it on in this order:
 
-1. Before the release that carries it is deployed, the mentor coordinator edits **Invitation:
-   mentor** in **Tools > Emails**. Until the deploy the live editor shows the earlier text, with no
-   welcome, so they add the welcome after the invitation's own lines, copied from the release's
-   shipped text of that email, which shows it with one bracketed line where the private links go.
-   They type the courses' invitation links and the mentor resource folder's link in where that line
-   stands, and save. A saved edit is sent in place of the shipped text, welcome or none, so they
-   check that the edit in place is the one they just saved, not an older one. **Contact address in
-   emails** is set as well, since the welcome asks mentors to reply and a reply reaches that
-   address. From the deploy on, every invitation the mentor's template sends carries the welcome: an
-   activation's, one sent from the Mentors screen, and one the mentors sync queues, for a mentor
-   whose account it creates and for one whose account already existed that it makes an active
-   mentor, while **Invitation emails** is on.
-2. The person running the launch reads the Airtable base's automations, which the site cannot see,
-   so that none fires on the check row of the next step.
-3. They run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>`, by
-   hand, once. It writes one synthetic row to the Mentors table, with that address and a Status that
-   neither the mentors sync nor the Mentor Status Checker reads, reads it back, deletes it, and says
-   which columns the base kept and which names it would leave out. It may be run against the live
-   base because it only ever deletes the row it just wrote. It changes nothing on the site, and it
-   ends in an error while a row may be left behind, which then has to be deleted in Airtable by
-   hand, and while a column did not take what the site sends. A create that failed on its way to
-   Airtable is said to have failed, never to have been refused, since it may still have reached the
-   base. `wp wpcredits mentor_airtable_row <reference>` prints the row an application would write,
-   with why the base's columns could not be read when they could not, and writes nothing; it prints
-   the applicant's answers, so use it on a test application.
-4. They switch **Make mentors from applications** on, and switch off the Airtable automation that
-   emails the welcome, so that a new mentor is not welcomed twice.
+1. In `Tools > Emails`, edit **Invitation: mentor**. Replace the bracketed line with each course's invitation link and the mentor resource folder's link. Save. It is the email for every new mentor: an activation's, one sent from the Mentors screen, and one the mentors sync queues.
+2. A saved edit is sent instead of the shipped text. If the email was edited before, check your edit holds the welcome.
+3. Set **Contact address in emails**: the welcome asks mentors to reply, and a reply goes to that address.
+4. In Airtable, make sure no automation fires on the check row.
+5. Run `wp wpcredits mentor_airtable_row --check --email=<the test mailbox's address>` once. It writes a test row to the Mentors table, reads it back, deletes it, and lists the columns the base kept.
+6. If it reports a row it could not delete, delete it in Airtable by hand. If it says the base would not take the whole row, put that right first.
+7. Switch **Make mentors from applications** on. In Airtable, switch off the automation that emails the welcome.
+
+The check changes nothing on the site. `wp wpcredits mentor_airtable_row <reference>` prints the row an application would write and writes nothing. Run it on a test application: it prints the applicant's answers.
+
+Step by step: [[Set the contact address the emails name]]; [[Change the words of an email and test it]].
 
 ### Institutions
 
-The Institutions screen is six tabs, and a press on any of them comes back to it, with what came of it said above the tabs. **Waiting for review**, the tab **WPCredits Program > Institutions** opens on, holds the queue; the others are **Pipeline**, **Accounts**, **Semester reports**, **Agreements** and **Sync and storage**. While Airtable is not connected, every tab says so above the tabs, with the way to the setting. The menu entry carries a bubble counting the applications, the signed agreements and the requests from institutions waiting.
+The program's schools, at `WPCredits Program > Institutions`, in six tabs: **Waiting for review**, **Pipeline**, **Accounts**, **Semester reports**, **Agreements** and **Sync and storage**. The screen opens on **Waiting for review**.
 
-**Waiting for review** lists the applications from institutions, the signed agreements and the requests from institutions in one list, oldest first, each with how long it has waited and, in a line with its country, the Administrator it is assigned to, or that nobody is, for information (a row with no country has no such line; an application filed before the Administrators were assigned shows the country's contact it was given then). An application or a signed agreement is marked *overdue* once it has waited longer than the days set under **Agreement review** on the Institutions tab of Settings, and a request from an institution once it has waited longer than fourteen days; an application the anti-spam checks held is marked *held*, and one that names the same institution or the same address as another in the queue *possible duplicate*. The queue is read here and decided on the Administrator Dashboard: every row ends with **Open on the Administrator Dashboard**, the way to the card there that decides it. An application's row also has **Open this application**, a mentor request's says who the mentor is wanted for and who asked, a school's request to correct its details is labeled **Details to correct** and says what it asks and who raised it, any other request's says what it asks, the student it is about and who raised it, and a signed agreement's row is the review block the dashboard draws, its checklist, what the scan noticed and the download link, with **Open on the Administrator Dashboard** where the dashboard's block has **Accept it** and **Return it with this note**. While the Administrator Dashboard's page is missing, the list says so once above the rows, and no row links there.
+- The result of a press is said above the tabs.
+- While Airtable is not connected, a warning above the tabs says so, with **Open settings**.
+- The menu entry's bubble counts the applications, signed agreements and requests waiting. At 200 or more it reads *200+*.
 
-**Open this application** shows one application in the list's place, with **Back to the queue**: what the anti-spam checks noticed, whether the applicant has confirmed the address, every answer with the consent (the sentence the applicant agreed to, when, and the policy's address: the WordPress.org privacy policy since 1.123.24, this site's own page, with the date it last changed, for an application filed before), each under the Airtable column it is written to, and what Airtable already holds under the same name or address. Since 1.123.29 the answers include the five the form keeps on this site and never sends to Airtable, in the order the form asks them: the contact's role, the languages the students study in, who will sign the agreement, their title and the institution's page about WordPress Credits. They have no column under them, and an application filed before they were asked shows them unanswered. The Administrator Dashboard's **Read the application** shows the same answers. Under **Where it is decided**, an open application that the Administrator Dashboard's **Institution applications** card lists says it is decided there, with the way there. That card lists the fifty oldest open applications, so one past them is decided here, with the same four decisions, **Approve**, **Send this question**, **Reject** and **Reject as spam**, and each press comes back to the queue. Since 1.123.26 an open application whose address is not confirmed also has **Send the confirmation link again**, before the four, wherever they are drawn: **Approve** is refused until the applicant follows the link in the acknowledgement, and this sends the acknowledgement again, with the same link the first one carried, so that one keeps working too. It counts against the day's limit on acknowledgements as the form's own send does; past the limit nothing is sent and the notice says so. The application stays where it is, its history records the send, and the notice says "The confirmation link was sent again." **Put back in the queue** on an application filed as spam that was never sent the acknowledgement sends it the acknowledgement as well, once; any other application is put back with nothing sent. An application whose approval stopped halfway, after the Airtable record was created and maybe the account, is finished by pressing **Approve** again: since 1.123.26 it is marked *approval stopped partway* here and on its row in the list, with "Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.", and on the dashboard's card with the same sentences in a note, and **Reject**, **Reject as spam** and **Put back in the queue** refuse it, so no decline goes to an institution whose record already stands. The acknowledgement itself says the link is needed: "Please follow this link: we cannot take your application further until you do." The record-keeping on a closed application stays here: one rejected or marked as spam has **Put back in the queue** and **Delete for good**, since the dashboard folds in only the oldest fifty of those, and an approved one has **Delete for good**, since the dashboard never lists it. **Delete for good** keeps only the application's reference and the date.
+#### The Waiting for review tab
 
-Since 1.123.58 a question to an applicant that could not be sent stays in its box. A rejection says
-whether the applicant was sent the acknowledgement.
+The queue: applications, signed agreements and requests from institutions in one list, oldest first. It is read here and decided on the Administrator Dashboard. The list shows the oldest 50.
 
-**Pipeline** lists every institution record by stage, as the last institutions sync read it, and says when that was. Each row gives the institution's name, which opens its Institution Dashboard as an Administrator sees it, its country, marked *no area* where no area of responsibility covers it, and city, whether Airtable holds a contact address for it, never the address itself, whether it carries the consent tick, when the record was created and the state of its agreement. Since 1.123.29 the counts leave out the records at SPAM, Not Moving Forward and Revisit Later, and those with no stage: the number beside the card's heading, each stage's own count, **Confirmed with no agreement recorded**, **Institutions with no live member**, the countries line and **Consent** count only the rest. A stage is read without the spaces around it, so "SPAM " is SPAM, and a stage the plugin does not know is counted. Those four stages are still listed, under the line "Not counted above" after the others, each folded with its count; open one to see its records. **Confirmed with no agreement recorded** narrows the list to those institutions, and **Show every stage** brings the rest back. Above the stages, **Institutions with no live member** counts the institutions nobody can act for on this site, with the way to give one an account on the **Accounts** tab, and a line lists the countries named by institutions that no area of responsibility gives an Administrator. Under them, **Find an institution** finds any record, whatever its stage, by typing part of its name; each entry reads its name, its city and its stage, and **Open its page** opens that institution's Institution Dashboard. While the Institution Dashboard's page is missing, the names are not links and the field is not shown. Under the list, **Consent** counts the records collected before the form asked for consent, and the ones created without the tick since, which is how a record entered by hand in Airtable looks.
+Each row gives its kind: **Application**, **Signed agreement**, **Mentor request**, **Details to correct** or **Request**. It says how long it has waited, and ends with **Open on the Administrator Dashboard**.
 
-Since 1.123.56 the Pipeline also says where the students are. A row whose institution has students enrolled now carries a small "N students now" beside its name, and each stage's heading reads, after its count, "N with students now": how many of that stage's institutions have any. The students behind both figures are the roster's own, the ones the institution's own **Students** section files under **Current** and **Waiting for a mentor**, every semester together, so a number an Administrator reads here and a number the school reads on its own dashboard cannot disagree; a student counts whether or not a mentor has been assigned yet. A row with no students shows no mark, and a stage whose institutions have none between them shows no figure, rather than a zero. The stage's figure is read over the stage's real institutions, as its count is, so a test institution is left out of it, while the mark on a row is that row's own count and a test institution's row carries it beside its Test mark. Neither figure is stored or kept up by hand anywhere: the stages are what the last institutions sync read, the students are the rosters as they stand, and how many partnerships have students on the program now is read off this screen rather than counted school by school.
+A line gives the row's country and the Administrator it is assigned to, for information, or says nobody is assigned. A row with no country has no such line.
 
-**Accounts** holds the **Invitations** card, whose button invites every institution account never invited, except one that also mentors and whose invitation was held when an application made it a mentor (the card says how many it left out, and only that account's own row sends it), and the **Institution accounts** list, under a warning naming any institution account locked out of roster changes for the rest of the day, a lock that lifts by itself the next day. The list works as the **Student accounts** list does: every institution account, a page at a time, with no email address printed, though the search finds one. **Search institutions** finds an account by name, username, email address or the name of the institution it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Institution** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
+| Mark | What it means |
+|---|---|
+| *overdue* | An application or agreement waited longer than **Agreement review** (`WPCredits Program > Settings`, tab **Institutions**; 3 days by default). A request waited over 14 days. |
+| *held* | The anti-spam checks held the application. |
+| *possible duplicate* | Another application in the queue names the same institution or address. Nothing is merged. |
+| *approval stopped partway* | Approving stopped after the Airtable record was made. Press **Approve** again to finish. |
 
-Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens the Institution Dashboard as the institution the account acts for, while that page exists, **Send invite** or **Resend invite**, which emails that one account at once, and **Manage members**. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue, and come back to the list as it was. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
+- An application's row has **Open this application** and its state.
+- A request's row says what it asks and who raised it, and names the student when it is about one.
+- A signed agreement's row shows its checklist and **Download the signed agreement**.
+- While the Administrator Dashboard page is missing, the list says so and no row links there.
 
-**No account**, the fourth view, lists institutions rather than accounts: the Confirmed institutions that have no account yet, the ones ready for one first, then by name. Each is shown by its name over its Airtable record ID, with whether Airtable holds a contact address for it under **Contact**, and under **Account** either **Ready** or why it cannot be given one yet, in the words the institutions sync uses. **Search institutions** finds an institution here by its name, and **Institution** sorts the view by it. To create the missing accounts, tick the ready institutions, choose **Create account** under **Bulk actions** and press **Apply**, or press **Create account** under one institution's name. **View page**, under every institution's name here as under an account's, opens the Institution Dashboard as that institution, while that page exists. Each account is made from the Contact Email Airtable holds, with an invitation queued for it: a password-set link to that address, which cannot be recalled once sent, as the view says above the list. One press creates at most 25 accounts, and the rest stay listed. While any institution on the view has no agreement recorded, the view names it above the list, with the way to the **Agreements** tab, and no account is created in bulk until it is recorded. Under the list, the view says whether the institutions sync creates these accounts too, which the **Create accounts automatically** setting decides, and when the institution records it lists were last read.
+Step by step: [[A school applied]]; [[A signed Collaboration Agreement arrived]]; [[A school asks to correct its details]]; [[A school's other requests (a student to add, a mentor wanted)]].
 
-**Manage members** is under every row of the **No account** view, and under an account's row after its invitation; for an account whose membership ended, it opens the institution the account left, where the account is listed with its **Re-add**. It shows that institution's members in the list's place, under the institution's name and **Back to the accounts**, which returns to the list as it stood when **Manage members** was opened until **Remove**, **Re-add** or **Add account** is pressed on the view, after which it opens the **Accounts** tab's first page; uploading or withdrawing a signed agreement there keeps the list as it stood. The view shows each member with **Remove**, which ends their access and keeps their account; the contact Airtable names, when no member holds that address; each former member with **Re-add**; and **Add an account**, a name and an email address. **Add account** creates a new account with a random password and queues its invitation. An address that already has an account is adopted only when that account was a member of this institution before or belongs to a mentor; any other is refused as a conflict, naming the account's username, since an account made by hand is somebody's to explain. An adopted or re-added account that was invited before is not sent another invitation, and the notice says so.
+#### One application
 
-Under the members, a signed agreement that reached the program by email is uploaded on the institution's behalf, and lands in the review queue as the institution's own upload does. Invitations the institution's members have sent their colleagues and that are still pending are not on this view: they are on the Institution Dashboard, where they can be resent or canceled. Since 1.123.26 **Remove** cancels the invitations the removed member sent that are still pending, and removing the last member cancels every invitation the institution has waiting, as the sync does when it ends a membership. An invitation whose sender is no longer a member of the institution, or no longer an Administrator, cannot be accepted: its link answers with the same sentence as an expired or canceled one. Unlike the list, the view prints the members' email addresses, because accounts are added and removed by address. For a record the pipeline index does not hold, it says "No institution record has that ID." and points to the institutions sync on the **Sync and storage** tab.
+**Open this application** shows one application, with **Back to the queue**:
+- its state, when it arrived, and whether the address is confirmed;
+- **What the checks made of it**, or **Why this application is held**;
+- every answer under its Airtable column, and the consent: the sentence, when, and the policy's address;
+- five answers kept on this site only: the contact's role, the students' languages, who will sign, their title and the school's page about WordPress Credits;
+- **What Airtable already has**: records with the same name or address. Approving adopts the first instead of creating one.
 
-**Semester reports** lists every report the site holds, the drafts first, then the sixty most recently edited approved ones: each with its institution, a link that opens the report on the Institution Dashboard as that institution, its semester, whether it is a draft or approved, when it was drafted and whether by the site or an Administrator, when it was last edited, and **Ask the students**, which writes to the semester's students who wrote feedback and have not said whether it may be used. The number beside the card's heading is the drafts waiting for review, the number the Administrator Dashboard's strip gives as *Semester reports to review* and its *Semester reports* card lists under *To review*; the dashboard card's own number adds the semesters due for drafting. Under the list, **Due for drafting** lists the semesters the nightly job would draft, each with **Draft now**; **Draft any semester** drafts one the job has not reached, its **Institution** found by typing part of the name; and **Report log** lists the last twenty things that happened to a report.
+**Where it is decided** says where the decisions are. The dashboard's **Institution applications** card lists the 50 oldest open applications. One past them is decided here. A rejected, spam or approved one has its record-keeping here.
 
-**Agreements** holds four cards. **Agreements on file** lists every Confirmed institution with no agreement recorded, each name opening that institution's Institution Dashboard at its **Collaboration Agreement** panel, where **Record an agreement the program already holds** records its one agreement with the Drive link to the signed copy: the institution gets its recorded agreement, its line in the audit log and its Airtable cells, and its account can then be created. Under the list the card says "Record each one from its own page, with the signed copy the program holds." Until 1.123.26 a button under the list recorded every one of them as signed in one press, with one link; it was retired, because an institution confirmed since the site began taking applications has not signed by being Confirmed. **Agreements in force** lists every institution whose agreement stands, by name, whatever its stage: each name opens that institution's Institution Dashboard, and the line beside it says whether the agreement was accepted on the site or recorded on file, and on what day. Under each line, **Revoke this agreement** opens a form with a required note of 20 to 2,000 characters, **Why it is revoked, in your own words**, under which the form says that every member of the institution receives the note by email. The button asks before it acts: it names the institution and says that its members keep their accounts but reach only the agreement panel, that pending invitations are canceled and that every member receives your note. Airtable's Agreement Status is set to Revoked first, and when that fails nothing else changes; the institution's stage is not touched, so if the partnership has ended, change the stage in Airtable yourself. A note that is refused, because it is too short or too long, because WordPress would remove part of it, because Airtable could not be updated or because another write to the institution's agreement holds the lock, comes back to its box as you typed it with its form open, under a sentence above the tabs that says why nothing was revoked. A second press of the same form, from another tab, is refused: the agreement is no longer in force, so nothing is written and nobody is emailed again. A revoked agreement is put back in force with **Reinstate** on the Administrator Dashboard. The note is also kept with the revocation in the institution's audit log. **Agreement discrepancies** lists the institutions whose agreement the site and Airtable's Agreement Status disagree about, each locked until the two agree. **Agreement template** shows the plugin's copy of the Collaboration Agreement, its version, when it was copied from the Doc and its checksum, and which institutions signed which version.
+- **Approve** creates the Airtable record and the account, and emails a password-set link. It is refused until the applicant follows the link in the acknowledgement.
+- **Approve** is also refused when the contact's address already has an account on the site.
+- **Send the confirmation link again**, while the address is unconfirmed. The site sends at most 200 acknowledgements a day.
+- **Send this question**: 10 to 2,000 characters, emailed with your address to reply to. If it cannot be sent, it stays in its box.
+- **Reject**: the applicant is told, with no reason. Your reason stays on the site. With no usable address, or if the mail host refuses, the notice says nothing was sent.
+- **Reject as spam**: nothing is sent.
+- **Put back in the queue**, on a rejected or spam one. A spam one never acknowledged is sent the acknowledgement, once.
+- **Delete for good** keeps only the reference and the date. It cannot be undone.
 
-**Sync and storage** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync institutions now**, or the run's progress and **Cancel sync** while one is going, then **Reconciliation**, the rows where the Students table and Students Reports disagree, as the last students sync found them, with the Students rows that name no institution and a **Link** for each where linking is safe, its institution found by typing part of the name among every record but the SPAM ones (a **Link** pressed with no institution chosen says to choose one first and writes nothing), and **Storage**, which says how the signed agreements are kept and whether the host refuses a stranger's request for them, with **Run probe** to ask the host again.
+While *approval stopped partway* shows, **Reject**, **Reject as spam** and **Put back in the queue** are refused.
+
+Step by step: [[The application's address is not confirmed]]; [[Finish an approval that stopped halfway]]; [[Find an application or agreement past the fifty the dashboard lists]].
+
+#### The Pipeline tab
+
+Every institution record by stage, as the last institutions sync read it. Each row: **Institution** (it opens the Institution Dashboard), **Country**, **City**, **Contact** (*email on record* or *no email*), **Consent**, **Created** and **Agreement**.
+
+- *N students now* beside a name: students enrolled now, with or without a mentor. Each stage's heading adds *N with students now*.
+- *no area* beside a country: no area of responsibility covers it. A line lists those countries.
+- SPAM, Not Moving Forward, Revisit Later and no stage are not counted. They are folded under **Not counted above**.
+- **Confirmed with no agreement recorded** narrows the list. **Show every stage** brings the rest back.
+- **Institutions with no live member** counts those nobody can act for on this site.
+- **Find an institution** finds any record by part of its name. **Open its page** opens it.
+- The **Consent** card counts the records with no consent tick, from before and since the form asked for it.
+
+While the Institution Dashboard page is missing, names are not links and **Find an institution** is not shown.
+
+Step by step: [[Open a school's Institution Dashboard]]; [[Close a "no area" gap]]; [[Where a school stands]].
+
+#### The Accounts tab
+
+The **Invitations** card and the **Institution accounts** list.
+
+- **Invitations** invites every institution account never invited. An account that also mentors and whose invitation is held is left out, and counted.
+- A warning names any account locked out of roster changes today. The lock lifts by itself tomorrow.
+- **Search institutions** finds a name, username, email address or institution.
+- Views: **All**, **Invited**, **Never invited**, and **No account**.
+- **Screen Options**: rows a page (20 by default) and columns. **Name** cannot be hidden.
+- Columns: **Name**, **Username**, **Institution**, **Member since** and **Status** (**Active** or **Membership ended**, with *locked today*). Each sorts the whole list; the list opens by name, A to Z.
+
+Under each name: **Edit**, **View page** (the Institution Dashboard as that school), **Send invite** or **Resend invite**, and **Manage members**. A new invitation replaces the link in any earlier one.
+
+To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**. Nobody gets a second invitation within 15 minutes.
+
+#### The No account view for institutions
+
+Confirmed institutions with no account yet, ready ones first. **Contact** says whether Airtable holds an address. **Account** says **Ready**, or why not.
+
+- **Create account**, under a ready name or under **Bulk actions**, uses the Contact Email in Airtable and queues an invitation. It cannot be recalled once sent.
+- One press creates at most 25 accounts.
+- While any Confirmed institution here has no agreement recorded, nothing is created in bulk.
+- **Manage members** is under every row here, to add a person by name and address.
+- Under the list, the view says whether the sync creates these accounts too: **Create accounts automatically**, tab **Institutions** in Settings.
+
+Step by step: [[Give a school its first account]].
+
+#### Manage members
+
+One institution's people, under **Representatives and tutors**, with **Back to the accounts**.
+
+- **Remove** ends a member's access and keeps the account. Nobody is emailed. The invitations they sent that are still pending are canceled.
+- After the last member goes, every pending invitation is canceled and **Institution has no members left, to Administrators** is sent. It goes to **Who is emailed about institutions** (tab **Institutions** in Settings), or to every Administrator when that is empty.
+- **Former members** have **Re-add**. For an account whose membership ended, **Manage members** opens the institution it left.
+- **Add an account**: **Name**, **Email address**, then **Add account**. It makes an account with a random password and queues an invitation.
+- An address with an account is taken only from a former member of this institution or a mentor. Any other is refused, naming its username. A current member is told it is already on the list.
+- An account invited before is not sent another invitation.
+- **Upload a signed agreement on the institution's behalf**, for a copy sent by email. It joins the queue, and the school is emailed. While one is waiting for review, **Download the copy waiting for review** and a withdraw control replace it.
+
+Pending invitations are on the Institution Dashboard. An invitation from someone no longer a member, or no longer an Administrator, cannot be accepted.
+
+#### The Semester reports tab
+
+All drafts, then the 60 most recently edited approved reports. The heading counts the drafts.
+
+- Each row: **Institution** (it opens the report), **Semester**, **State**, **Drafted** (*by the site* or *by an Administrator*) and **Last edited**.
+- **Ask the students** writes to the semester's students who gave feedback and have not said if it may be used. Nobody is asked twice in 30 days.
+- **Due for drafting**: the semesters the nightly job would draft, each with **Draft now**.
+- **Draft any semester**: choose an **Institution** and a semester, then **Draft now**.
+- **Report log**: the last 20 things that happened to a report.
+
+Step by step: [[A semester report: draft, review, approve, reopen]].
+
+#### The Agreements tab
+
+- **Agreements on file**: Confirmed institutions with no agreement recorded. Each opens the school's **Collaboration Agreement** panel, with **Record an agreement the program already holds**.
+- **Agreements in force**: each standing agreement, **Accepted on the site** or **Recorded on file**, and the day.
+- **Agreement discrepancies**: where the site and Airtable's Agreement Status disagree. Each is locked until they agree.
+- **Agreement template**: the site's copy of the agreement, its version, the date it was copied from the program's Doc, and which institutions signed which version.
+
+**Revoke this agreement**, under an agreement in force:
+- It needs **Why it is revoked, in your own words**: 20 to 2,000 characters, emailed to every member.
+- Members keep their accounts but reach only the agreement panel. Pending invitations are canceled.
+- Airtable is updated first. If that fails, nothing changes.
+- The stage stays. If the partnership ended, change it in Airtable.
+- A refused note comes back to its box.
+- **Reinstate**, on the Administrator Dashboard, puts it back.
+
+Step by step: [[Record an agreement the program already holds]]; [[Take an agreement out of force, or put it back]].
+
+#### The Sync and storage tab
+
+- The last sync's error, if it ended in one.
+- **Airtable sync**: when the last sync finished, and **Sync institutions now**. While one runs, its progress and **Cancel sync**.
+- **Reconciliation**: where the Students table and Students Reports disagree, from the last students sync. A Students row with no institution has **Link** where linking is safe, and otherwise says why not. SPAM records are not offered.
+- **Storage**: how signed agreements are kept, and whether the host refuses strangers. **Run probe** checks again.
+
+Step by step: [[Run a sync by hand and read its report]]; [[A student with no institution]]; [[Check that agreement files are safe on the host]].
 
 #### Test institutions
 
-Since 1.123.55 an institution can be a test institution, so that the Administrators who try the Institutions tool have one to try it on. An institution whose name, trimmed, starts with the word TEST in capitals, followed by nothing or by a character that is neither a letter nor a digit, is a test institution. "TEST - Example" and "TEST: Example" are; "Test College", "Contest Labs", "TESTAMENT" and "TEST2 Labs" are not. It is the rule test sponsors follow. There is no box: the name decides, and renaming the institution in Airtable changes what it is at the next institutions sync.
+An institution to try the tools on. Its name decides it: there is no box.
 
-A test institution is marked, not hidden. Its application, agreement, requests, semester reports, representatives and students are listed where a real institution's are, with a small "Test" beside the name, or "(Test)" after it in a picker or an email, on the Institutions and Students screens and the Administrator Dashboard. A picker on the Students screen still offers the test institution with "(Test)" and no count, and a status only test students hold, also with no count (the status option reads the status words alone). A test institution's registration on the Registrations tab is listed with its institution marked "(Test)". The Programs card on the Administrator Dashboard lists its row, marked. Its own Institution Dashboard looks like any institution's.
+- The trimmed name starts with TEST in capitals, then nothing or a character that is not a letter or digit.
+- *TEST: Example* and *TEST (Demo)* are tests. *Test College*, *Contest Labs*, *TESTAMENT* and *TEST2 Labs* are not.
+- Renaming it in Airtable takes effect at the next institutions sync.
+- Keep it below Confirmed in Airtable, so no public page lists it.
 
-It is left out of every count, total, tile and figure: the Administrator Dashboard and the menu bubble, the Programs card's totals and its "N institutions", the Institutions screen's totals, the Students screen's counts, the Registrations tab's too, the sponsor report's numbers, the reminder digest's counts and the answers Claude access gives (`wpcpm-institution-summary` says `test`). Two counts are not program figures and do include it: an Invitations button counts every account it would invite, and a running sync's progress line counts what that sync read. A heading or a sentence above a list counts real institutions only, so it can read fewer than the rows listed under it, even 0 (a Pipeline stage's heading, "Agreement discrepancies", or "0 Confirmed institutions have no agreement recorded:" above a list holding only the test institution); that is not a bug. Everything else works as for any institution: its emails, its report's drafting, its agreement, its enrollments and its syncs, except that the area Administrator is not emailed when the sync assigns it, its students are sent no reminder when they go quiet, and the Slack message about a newly Confirmed institution leaves it out.
+It is listed wherever a real one is, marked **Test**, or *(Test)* in a picker or an email. It is left out of every count, total and figure, except the **Invitations** button and a running sync's progress. So a heading can count fewer than its rows, even 0.
 
-Accepting a test institution's agreement never moves its Airtable stage to Confirmed, so the public pages that list Confirmed institutions never show it. Keep the shared test institution at Under Review until testing ends.
+Everything else works as for a real one, except:
+- Accepting its agreement never moves its Airtable stage to Confirmed, so public pages never list it.
+- The area Administrator is not emailed when the sync assigns it.
+- Its students get no reminder when they go quiet.
+- The Slack message about a newly Confirmed institution leaves it out.
 
-When testing ends, a person removes, in Airtable, the test students' rows, their report rows and the test institution's row, and on the site the test representatives' accounts. Never give a test student a mentor: the mentors' figures count students by mentor. The site remembers the test institution after its row is gone (the option `wpcpm_test_institutions`), so its agreement, requests and reports stay uncounted.
+When testing ends, remove in Airtable the test students' rows, their report rows and the institution's row. Remove the test representatives' accounts on the site. Its agreement, requests and reports stay uncounted.
+
+Step by step: [[Set up a test institution]].
 
 ### Sponsors
 
-The Sponsors screen is eight tabs, and a press on any of them comes back to it, with what came of it said above the tabs. **Waiting for review**, the tab **WPCredits Program > Sponsors** opens on, holds the queue; the others are **Sponsors**, **Accounts**, **Offers and codes**, **Interests**, **Reports**, **Agreements** and **Handbook listing**, which is in the bar only while the sponsor tiers are announced, with **Sponsor tiers** on in Settings. The sponsors' records live on this site: they are listed, added and edited on the **Sponsors** tab, an approved application creates its sponsor's account and any other sponsor's account is created on the **Accounts** tab's **No account** view, and no tab waits for a connection to another service. The menu entry carries a bubble counting the sponsor applications, the signed agreements, the sponsor posts and the sponsor offers waiting and, while **Sponsor tiers** is on, the events waiting.
+`WPCredits Program > Sponsors` is where you look after the sponsors, which are this site's own records. Each press comes back here, with the outcome above the tabs.
 
-**Waiting for review** holds a card for each kind of item waiting, in the order the Administrator Dashboard draws them, each listing what waits oldest first: **Sponsor applications**, **Sponsor posts to review**, **Sponsor offers to review**, **Events**, only while **Sponsor tiers** is on in Settings, and **Signed agreements**. The queue is read here and decided on the Administrator Dashboard, and every item links to its own place there. **Sponsor applications** lists the companies that applied through the form on the site, each with how long it has waited, its website and contact, and its state. An application the anti-spam checks held is marked *held*, one that names the same company or the same address as another in the queue *possible duplicate*, one from a company the site already holds under the same name or website *already on the site*, one whose contact address already belongs to an account on this site *already an account*, and one whose approval stopped halfway *approval half done*. Each row has **Open this application** and **Open on the Administrator Dashboard**, the way to its own item on that page's **Sponsor applications** card, and under the list the same link opens that card. Under it, **Recently decided** lists the fifty most recently decided applications, marked as spam, rejected or approved, newest decision first, each with **Open this application**, where one is put back in the queue or deleted for good, and no link to the Administrator Dashboard, which lists open applications only.
+#### The Sponsors screen's tabs
 
-**Sponsor posts to review** lists the posts sponsors wrote and submitted for review, each with its sponsor, who wrote it, when it was submitted and **Preview**, the way to read it first. **Sponsor offers to review** lists the offers sponsors sent for review and the changes they made to what students see of live ones, the codes they added to an approved offer among them, each saying whether it is a new offer or changes, whose offer it is, who sent it and how long ago. **Events** lists the co-hosted events sponsors planned that wait for the program's approval, each with its sponsor, who planned it, how long ago and when it takes place, on your own clock. **Signed agreements** lists each document a company uploaded as the review block a reviewer reads: who uploaded it, when and how large it is, what to read it for, what the scan noticed in the file and **Download the signed agreement**. Every post, offer, event and document ends with **Open on the Administrator Dashboard**, the way to its own item there, where a post is published or returned, an offer or a change approved or returned, an event approved or returned, and a document accepted with **Accept it** or returned with **Return it with this note**. **Accept it** asks before it acts: it names the company, says that the agreement is recorded as accepted with the day's date and how many people at the company are emailed, and that it can be taken out of force on this screen's **Agreements** tab. **Sponsor applications**, **Sponsor posts to review**, **Sponsor offers to review** and **Signed agreements** each list no more than the fifty oldest, the ones the dashboard's card lists, and while more are waiting, a line above the list says how many of them it shows and that the next take their place as these are decided on the Administrator Dashboard; on **Sponsor applications** it adds that the list stops there so that a burst of applications cannot make the screen too slow to open. **Events** lists every event that waits, as the Administrator Dashboard's card does. The posts, the offers, the events and the agreements are counted up to 200, and past that their count reads 200+. While the Administrator Dashboard's page is missing, the tab says so once above the cards, and nothing on it links there.
+The screen has seven tabs, and an eighth while **Sponsor tiers** is on in Settings. It opens on **Waiting for review**.
 
-**Open this application** shows one application in the cards' place, with its state, when it arrived and **Back to the queue**: what the anti-spam checks made of it, every answer with the consent (read as on the Institutions screen), the logo files, and what the site already holds under the same name or website. Under **Where it is decided**, an open application that the Administrator Dashboard's **Sponsor applications** card lists says it is decided there, with **Open on the Administrator Dashboard**, the way to its own item on that card. That card lists the fifty oldest open applications, so an open application past them keeps its decisions here, every decision its state allows, **Approve**, **Send this question**, **Reject** and **Reject as spam**, and **Put back in the queue** for one held or waiting on the applicant, and each press comes back to the queue. The record-keeping on a decided application stays here, since the dashboard lists open applications only: one rejected or marked as spam has **Put back in the queue** and **Delete for good**, and an approved one has **Delete for good**. **Delete for good** keeps only the application's reference and the date, and takes the logo files with it unless the application was approved, when they are the sponsor's logo. An application in a state no decision writes is told only that applications are decided on the Administrator Dashboard, with the way to that card, and while that page is missing, the opened application says so in the link's place.
+| Tab | What it holds |
+|---|---|
+| **Waiting for review** | What sponsors sent that waits for a decision |
+| **Sponsors** | Every sponsor, its Edit form, and the form to add one |
+| **Accounts** | The people who act for sponsors, and their invitations |
+| **Offers and codes** | Every offer, its codes and who claimed them |
+| **Interests** | What sponsors said they would like to support |
+| **Reports** | Each sponsor's yearly reports |
+| **Agreements** | Each *Approved* sponsor's agreement |
+| **Handbook listing** | The partners' listing, only while **Sponsor tiers** is on |
 
-**Sponsors** holds, while the move of the sponsor records onto the site is incomplete, the **Moving sponsors onto the site** box: how far the move got, the sponsors whose old Administrator matched no Administrator on this site, each to be given one on its Edit form, the sponsors still waiting for the first offer in draft that keeps the move open, and **Run again**. The move runs by itself, trying again at most once a minute, and the box goes once every sponsor has moved. Then the **Sponsors** card lists every sponsor on the site in a table, with its status, its tier, its product, its program contact, how many accounts act for it and whether its logo is on the site, and **Edit** and **Manage accounts** in each row's last cell. A sponsor's name opens the Sponsor Dashboard as that sponsor, while that page exists, and **Manage accounts** opens its accounts on the **Accounts** tab. **Edit** opens the sponsor's form in the card's place, a view of this tab, under **Back to the sponsors**: what an Administrator owns of the record, with **Save** and **Cancel**, then the sponsor's key and listing handle, which nobody edits. Right after Status, on the Edit form and the Add form alike, the box *Test sponsor: not listed publicly* makes the sponsor a test sponsor, left out of the Partners page, the logo strip, the handbook listing and the public feed, with its offers, posts and events shown to no student or mentor, while its own accounts see their Sponsor Dashboard as usual; the table marks its row "(test sponsor, not listed publicly)", and *Test sponsors (1.123.18)*, in the part of this guide on sponsors further on, says how to test with one. An address that names no sponsor draws the card under a notice that says so. Under the table, **Add a sponsor** is the form for a company that never applied on the site; nothing else happens when one is added, and the press opens the new sponsor's Edit form. Once its status is Approved, its account is made with **Create account** on the **Accounts** tab's **No account** view.
+The menu entry's bubble counts the applications, signed agreements, posts and offers waiting. While **Sponsor tiers** is on, it counts the events waiting too. At 200 or more it reads *200+*.
 
-Since 1.123.58 a refused sponsor names the field that needs a change, at the field, and keeps
-everything typed. A sponsor somebody saved after you opened the form is not overwritten: the form
-says who changed it and when, and keeps what you typed. Only a change to a field the form carries
-counts as a change made since.
+#### Waiting for review on the Sponsors screen
 
-Since 1.123.59 a website that is not a web address is refused at its field, with the typing kept:
-one with a space in it, or whose host has no dot, or with a user name before the host, such as "not a site" or "example". The field says
-"Enter a web address such as example.com.", the sentence the Sponsor Dashboard's profile and the two
-application forms say too. Before, such a value was saved as https://not%20a%20site.
+A card for each kind of item waiting, oldest first. You read them here and decide them on the Administrator Dashboard.
 
-**Accounts** holds the **Invitations** card, whose button invites every sponsor account never invited, except one that also mentors and whose invitation was held when an application made it a mentor (the card says how many it left out, and only that account's own row sends it), and the **Sponsor accounts** list, under a warning naming any sponsor account locked out of changes for the rest of the day, a lock that lifts by itself the next day. The card and the list's **Send invite** and **Resend invite** are new for sponsor accounts in 1.122.0: before, a sponsor account was sent only the invitation queued when it was created or attached. The list works as the **Student accounts** list does: every sponsor account, a page at a time, with no email address printed, though the search finds one. **Search sponsor accounts** finds an account by name, username, email address or the name of the sponsor it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. **Sponsor** names the sponsor each account acts for, with the sponsor's status after it in parentheses when it is not Approved, since such a sponsor keeps its accounts until they are removed. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Sponsor** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
+| Card | Each item shows |
+|---|---|
+| **Sponsor applications** | Name, how long it waited, website, contact, marks |
+| **Sponsor posts to review** | Sponsor, writer, when, and **Preview** |
+| **Sponsor offers to review** | A new offer or changes to a live one, whose, who sent it, when |
+| **Events** | Sponsor, planner, when, and the event's time in your time zone. Only while **Sponsor tiers** is on |
+| **Signed agreements** | Uploader, date, size, what to check, what the scan noticed, **Download the signed agreement** |
 
-Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens the Sponsor Dashboard as the sponsor the account acts for, while its membership lasts and that page exists, **Send invite** or **Resend invite**, which emails that one account at once, and **Manage accounts**, for an account whose **Sponsor** names one. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue, and come back to the list as it was. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
+- Each open item has **Open on the Administrator Dashboard**, which opens its own item there.
+- Each card but **Events** lists the 50 oldest, as the dashboard does. A line says so when more wait.
+- While the Administrator Dashboard page is missing, the tab says so and links nowhere.
 
-**No account**, the fourth view, lists sponsors rather than accounts: every Approved sponsor that no account acts for yet, the ones ready for one first, then by name. Each is shown by its name over its key, the one the site holds it by, with its contact address under **Contact**, masked, or *no email* when it has none, and under **Account** whether it is **Ready**, ready with "the account that already uses this address will be attached", or why it cannot be given one yet: the sponsor's record holds no contact address, which is added on its Edit form, or the address belongs to an administrator, who already reaches every sponsor. **Search sponsor accounts** finds a sponsor here by its name, and **Sponsor** sorts the view by it. To create the missing accounts, tick the ready sponsors, choose **Create account** under **Bulk actions** and press **Apply**, or press **Create account** under one sponsor's name; a sponsor that is not ready has no box to tick. Each account is made from the sponsor's contact address, or the account that already uses that address is attached, and an invitation is queued for it unless it was invited before, as the view says above the list while a sponsor on it is ready: "Creating an account emails a password-set link to the sponsor's contact address. An invitation cannot be recalled once sent." The sponsor's first offer is created in draft, and the sponsor's log has a line for it. One press creates at most 10 accounts, and the rest stay listed: when more were ticked, the notice says "One press creates at most 10; tick the rest and press again." It names any sponsor it could not give an account, with why. A ticked sponsor that has had its account since the page was drawn is left alone, and when that leaves no ticked sponsor to give one, the notice says "There was nothing to create."; **Create account** pressed under such a sponsor's name says "That sponsor already has an account." Under the list, the view says "An approved application creates its sponsor's account. For any other Approved sponsor, this view is the way one is made." Under each sponsor's name are also **View page**, which opens the Sponsor Dashboard as that sponsor, while that page exists, and **Manage accounts**.
+| Mark on an application | What it means |
+|---|---|
+| *held* | The anti-spam checks held it |
+| *possible duplicate* | Another one in the queue names the same company or address |
+| *already on the site* | A sponsor with this name or website exists |
+| *already an account* | The contact address belongs to an account here |
+| *approval half done* | An earlier **Approve** stopped. Press **Approve** again to finish |
 
-**Manage accounts** is under every row of the **No account** view, under an account's row when its **Sponsor** names a sponsor, and in the last cell of each row of the **Sponsors** tab's table; an Administrator reaches the same view from the Sponsor Dashboard's **People** card. It shows that sponsor's accounts in the list's place, a view of this tab, under the sponsor's name and **Back to the accounts**, which returns to the list as it stood when **Manage accounts** was opened until something is pressed on the view, after which it opens the **Accounts** tab's first page, as it does for a view opened from the **Sponsors** tab or the **People** card. Every press on the view comes back to it. Each account is listed by name and email address with **Remove**, which ends its membership and its right to write posts, and keeps the account. For an Approved sponsor, **Attach account** attaches the existing account that uses the address typed, and queues an invitation for it unless it was invited before; an address no account uses is refused, since a sponsor's first account is made with **Create account** on the **No account** view. Any account can be attached but an administrator's, a student's, an institution representative's or one that acts for another sponsor; a mentor's can. Every account attached to a sponsor has equal power on the Sponsor Dashboard. Under it, the posting switch says whether the sponsor's accounts can write posts in wp-admin, for an Administrator to publish, and **Turn posting off** or **Turn posting on** switches it; posting is switched here and nowhere else. A sponsor that is not Approved keeps its accounts, listed with **Remove**, and the view says no account can be attached to it and its posting cannot be switched. Unlike the list, the view prints the accounts' email addresses, because accounts are attached and removed by address. For an address that names no sponsor, it says "That link names no sponsor on this site." and that a sponsor is added on the **Sponsors** tab, with the way there.
+**Recently decided** lists the 50 latest decided applications, newest first, with **Open this application**.
 
-**Offers and codes** lists every sponsor offer, the oldest hundred at most, with its sponsor, its kind, codes or one shared for everyone, its state, how many codes are available, claimed and void, the count it warns at and its last day, and, for support, who claimed from it: each person's name and address, the date and the code's last four characters, with **Void**, which lets the person claim again and keeps the code void for the count. A sponsor's primary offer is marked *(primary)*, and sponsors see counts only. Above the table, a sponsor that has an account and no offer has a button that creates its first offer, in draft, for the sponsor to complete and send for review from the Sponsor Dashboard.
+Step by step: [[A company applied to sponsor]]; [[A sponsor sent a post for review]]; [[A sponsor sent an offer for review]]; [[A sponsor planned an event]]; [[A sponsor uploaded its signed agreement]].
 
-**Interests** lists what sponsors said they would like to support from the Sponsor Dashboard, the last fifty, newest first, each with when it was sent, the sponsor, who sent it and what it said; each was mailed when it was sent, to the sponsor's assigned Administrator, or, for a sponsor with none, to the addresses in the **Interest mail** setting or to every Administrator.
+#### An opened sponsor application
 
-**Reports** holds the **Reports** card: each sponsor's report, drafted, edited and marked final in an editor that opens in the card's place, a view of this tab, with the way back to the tab.
+**Open this application** shows the application's state, anti-spam findings, answers, consent, logo files and **What the site already has**, with **Back to the queue**.
 
-**Agreements** shows the standing state of every Approved sponsor's agreement, which is optional: a company's Sponsor Dashboard, offers and codes work without one. Each sponsor's block says what this site holds and offers the one thing that can be done next. An agreement accepted or recorded as on file has **Take it out of force**, with a note that is emailed to everybody at the company exactly as it is written. An agreement out of force is reinstated on the Administrator Dashboard, under **Out of force** in its **Sponsor Collaboration Agreements** card, as the block says, with the way to its own item there, or, while that page is missing, the sentence that says so in the link's place; that page lists the fifty oldest agreements out of force, so one past them has **Reinstate** here, under a sentence that says why. **Reinstate** asks before it acts, here and on the Administrator Dashboard alike: "Put this agreement back in force? Everybody at the company is emailed." Any other sponsor has **Record it as on file**, for a signed copy that predates this site: the link to it in the program's Drive folder, and the day it was signed if the copy says so. A document a company uploaded is not here: it waits on the **Waiting for review** tab, which this tab links.
+Under **Where it is decided**:
 
-**Handbook listing**, the last tab, holds the sponsors' listing for the handbook while the sponsor tiers are announced.
+| Application | What you can do here |
+|---|---|
+| Open, among the dashboard's 50 oldest | Follow the link to its item on the dashboard |
+| Open, past the 50 oldest | **Approve**, **Send this question**, **Reject**, **Reject as spam**; **Put back in the queue** if held or waiting on the applicant |
+| Rejected or marked as spam | **Put back in the queue**, **Delete for good** |
+| Approved | **Delete for good** |
+
+On an application marked *approval half done*, **Reject**, **Reject as spam** and **Put back in the queue** are refused until **Approve** finishes it.
+
+**Delete for good** keeps only the reference and the date, and cannot be undone. The logo files go too, unless the application was approved.
+
+Step by step: [[A company applied to sponsor]].
+
+#### The sponsor list and the Edit form
+
+The tab **Sponsors** lists every sponsor. The name opens its Sponsor Dashboard; a test sponsor is marked *(test sponsor, not listed publicly)*. The columns are **Status**, **Tier**, **Product**, **Program contact**, **Accounts** (how many) and **Logo** (*On the site* or *None*). Each row ends with **Edit** and **Manage accounts**.
+
+**Edit** opens the sponsor's form, with **Save**, **Cancel** and **Back to the sponsors**.
+
+- The box **Test sponsor: not listed publicly**, right after **Status** on both forms: the sponsor is left out of the Partners page, the logo strip, the handbook listing and the public feed. No student or mentor sees its offers, posts or events. Its own accounts still see its Sponsor Dashboard.
+- A refused field is named at the field, and your typing is kept. A bad website reads "Enter a web address such as example.com."
+- If someone saved the sponsor after you opened the form, nothing is saved. The form says when, and keeps your typing.
+
+**Add a sponsor**, under the table, is for a company that never applied. Its **Status** box starts at *In review*; nothing else happens, and its Edit form opens. Once it is *Approved*, make its account with **Create account** on the **No account** view.
+
+While the box **Moving sponsors onto the site** shows, the move runs by itself at most once a minute. **Run again** runs it now.
+
+Step by step: [[Add a company that never applied]]; [[Pause or stop a sponsorship]].
+
+#### Sponsor accounts and invitations
+
+The tab **Accounts** holds the **Invitations** card and the **Sponsor accounts** list.
+
+- A warning names any sponsor account locked out of changes for today. The lock lifts by itself the next day.
+- **Invitations** invites every account never invited. It leaves out, and counts, one whose invitation is held until an Administrator confirms it.
+- **Search sponsor accounts** finds a name, username, email address or sponsor. The list itself shows no address.
+- The views are **All**, **Invited**, **Never invited** and **No account**, each with a count.
+- **Sponsor** adds the sponsor's status in parentheses when it is not *Approved*.
+- **Status** is *Active* or *Membership ended*, with *locked today* added.
+- The list opens by **Name**, A to Z. Every column sorts the whole list; a second press reverses it.
+- **Screen Options** sets the rows a page, 20 by default, and the columns. **Name** cannot be hidden.
+
+Under each name: **Edit** (the account in wp-admin), **View page** (its Sponsor Dashboard, while the membership lasts), **Send invite** or **Resend invite** (at once) and **Manage accounts**.
+
+For several, tick them and use **Send invite** or **Resend invite** under **Bulk actions**. Nobody gets a second invitation within 15 minutes, and the notice says how many were left out.
+
+Step by step: [[Give a sponsor an account, and manage its people]].
+
+#### The No account view for sponsors
+
+The view **No account** lists every *Approved* sponsor that no account acts for yet. Ready ones come first, then by name. An approved application makes its sponsor's account itself; this view is for any other *Approved* sponsor.
+
+- **Sponsor**: the name over its key.
+- **Contact**: the contact address, partly hidden, or *no email*.
+- **Account**: **Ready**, or ready with an existing account to attach, or why not: no contact address (add one on the Edit form), or an administrator's address.
+
+**Create account**, under a ready sponsor or under **Bulk actions**, does this:
+
+- It makes the account at the contact address, or attaches the account already using it.
+- It queues an invitation, unless the account was invited before. An invitation cannot be recalled.
+- It makes the sponsor's first offer, in draft, if it has none yet, and writes a line in the sponsor's log.
+- One press makes at most 10 accounts. The notice names any sponsor it could not serve, and why.
+
+Step by step: [[Give a sponsor an account, and manage its people]].
+
+#### One sponsor's accounts
+
+**Manage accounts** shows one sponsor's accounts, under its name and **Back to the accounts**. The Sponsor Dashboard's **People** card leads here too.
+
+- Each account shows its name and email address. **Remove** asks first, then ends the membership and the right to write posts. The account stays.
+- **Attach account** attaches the existing account at the address you type, and queues its invitation if it never had one. An address no account uses is refused: a first account is made with **Create account** on **No account**.
+- An administrator's, a student's, an institution's or another sponsor's account is refused, as is one already attached here. A mentor's can be attached.
+- **Turn posting on** or **Turn posting off** lets the accounts write posts in wp-admin, or stops them. It is switched only here.
+- For a sponsor that is not *Approved*, you can only remove accounts.
+
+Step by step: [[Give a sponsor an account, and manage its people]].
+
+#### Offers and codes on the Sponsors screen
+
+Every sponsor offer, the oldest 100 at most, for support. Sponsors see counts only.
+
+- The columns: **Sponsor**, **Offer** (the sponsor's primary offer is marked **(primary)**), **Kind**, **State**, **Available**, **Claimed**, **Void**, **Warns at** and **Last day**.
+- **Claimed by**: each person's name, address, date and the code's last four characters, with **Void**.
+- **Void** asks first, then lets the person claim again. The code stays void in the count.
+- A sponsor with an account and no offer gets **Create the first offer for** and its name. It makes a draft.
+
+Step by step: [[Void a code claim]].
+
+#### Interests on the Sponsors screen
+
+The last 50 things sponsors said they would like to support, newest first. Each was emailed when sent: to the sponsor's assigned Administrator, else to **Who is mailed** (`WPCredits Program > Settings`, tab **Sponsors**), else to every Administrator.
+
+Step by step: [[A sponsor would like to sponsor a mentor]].
+
+#### Reports on the Sponsors screen
+
+The **Reports** card lists each *Approved* sponsor's yearly reports, with their state and **Open**, which opens the editor. **Draft a report** drafts one for the term's last day you choose, where the tier carries a report.
+
+Step by step: [[A sponsor's annual report]].
+
+#### Agreements on the Sponsors screen
+
+Each *Approved* sponsor's agreement, with the next step. An agreement is optional: the Sponsor Dashboard and offers work without one.
+
+| The site holds | You can |
+|---|---|
+| An accepted agreement, or one on file | **Take it out of force**, with a note of 20 to 2,000 characters emailed to everybody at the company |
+| One out of force | Reinstate it on the Administrator Dashboard, under **Out of force** in its **Sponsor Collaboration Agreements** card. Past the dashboard's 50 oldest, **Reinstate** is here |
+| Anything else | **Record it as on file**: the Drive link to the signed copy, and the signing day if known |
+
+**Reinstate** asks first, since everybody at the company is emailed. An uploaded document waits on **Waiting for review**.
+
+Step by step: [[A sponsor's agreement: record, take out of force, put back]].
+
+#### Handbook listing on the Sponsors screen
+
+**Listing for the handbook** holds the partners as the Partners page lists them, as plain HTML, with **Copy**. The tab shows only while **Sponsor tiers** is on.
 
 ### Tools
 
-The **Tools** submenu lists the parts of the program that are run and configured on their own
-rather than belonging to one audience - currently **Header notices**, **Emails**, **Need help?**, the
-**Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
-behind an *Open tool* button. Four of them, the **Mentor Status Checker**, the
-**Student Duplicate Finder**, **Need help?** and **Emails**, keep their settings in a **Settings**
-section on that screen, rather than on the Settings screen.
+`WPCredits Program > Tools` has a card for each tool, with **Open tool**: **Header notices**, **Emails**, **Need help?**, **Mentor Status Checker**, **Student Duplicate Finder** and **Track Builder**.
+
+Four keep their settings in a **Settings** section on their own screen, not on the Settings screen. **Need help?**, **Mentor Status Checker** and **Student Duplicate Finder** have it at the top; **Emails** has it on its tab **Signature and footer**.

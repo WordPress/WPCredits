@@ -1168,7 +1168,7 @@ $json = json_decode( (string) file_get_contents( __DIR__ . '/../blocks/sponsors/
 ck( 'block.json names the block, its two attributes and their defaults', array( $json['name'], $json['version'], $json['attributes']['variant']['default'], $json['attributes']['variant']['enum'], $json['attributes']['floor']['default'], $json['supports']['align'], $json['supports']['html'], $json['editorScript'] ), array( 'wpcpm/sponsors', '1.123.18', 'full', array( 'full', 'strip' ), 'mentor', array( 'wide', 'full' ), false, 'file:./editor.js' ) );
 // The block lists the partners of the Partners page in one alphabetical list since 1.123.18, so its
 // description in the inserter says so, and names no grouping and no ladder.
-ck( 'block.json describes the one alphabetical list on the Partners page, and no group', array( $json['description'], preg_match( '/group|ladder|sponsors page/i', $json['description'] ) ), array( 'The program\'s partners, in alphabetical order: the full list for the Partners page, or the strip of logos for the landing page. Prints nothing until the program turns the listing on in Settings.', 0 ) );
+ck( 'block.json describes the one alphabetical list on the Partners page, and no group', array( $json['description'], preg_match( '/group|ladder|sponsors page/i', $json['description'] ) ), array( 'The program\'s partners, in alphabetical order: the full list for the Partners page, or the strip of logos for the landing page. Visitors see nothing until the program turns the listing on in Settings; Administrators see it under a note.', 0 ) );
 // The attribute schema is data every editor user receives, a sponsor member with posting on among
 // them, whoever may insert the block: so it lists no value of the floor, which would name the
 // tiers. render() guards the floor itself, reading any value that is not a tier as the ladder's.
@@ -1185,7 +1185,7 @@ ck( 'the editor script registers the block, previews it server-side and stores n
 // The preview is empty until the switch is on and a sponsor is Approved: both are needed, so the
 // placeholder says "and", and names the setting by the name the Settings screen gives it.
 ck( 'the editor names the full shape without a grouping, and its floor the lowest tier shown', array( false !== strpos( $js, "label: __( 'Full list', 'wpcredits-program-manager' ), value: 'full'" ), strpos( $js, 'grouped' ), false !== strpos( $js, "label: __( 'Lowest tier shown', 'wpcredits-program-manager' )" ), strpos( $js, 'Lowest group' ) ), array( true, false, true, false ) );
-ck( 'the editor\'s placeholder names the setting and says both things the list waits for', array( false !== strpos( $js, "'The sponsors list shows here once Sponsor tiers is switched on in Settings and there is a sponsor to show.'" ), strpos( $js, 'or when there is a sponsor to show' ) ), array( true, false ) );
+ck( 'the editor\'s placeholder names the setting and says both things the list waits for', array( false !== strpos( $js, "'The sponsors list shows here once there is a sponsor to show and, for anyone but an Administrator, once Sponsor tiers is switched on in Settings.'" ), strpos( $js, 'or when there is a sponsor to show' ) ), array( true, false ) );
 
 echo "=== House rules ===\n";
 $src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-listing.php' );

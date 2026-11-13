@@ -20,7 +20,7 @@
 1. Open `WPCredits Program > Students` and choose the **Registrations** tab.
 2. Read the line under the student's name. **Written to Airtable** means the row is in Airtable's Students table.
 3. Open **Answers and consent** to read the answers, among them the track the student asked for, when the form asked for one.
-4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**.
+4. In Airtable, on the student's row in the Students table, set **Status** to the track and choose the **Mentor**. To move the student to another mentor later, change the **Mentor** on their Students Reports row: the site reads it from there.
 5. Wait for the next students sync, or open the **Sync** tab and press **Sync students now**.
 6. Open the **Accounts** tab, find the student and press **Send invite** under their name.
 
@@ -34,7 +34,7 @@
 
 - **Already has an account** and **Already registered** need nothing from you: the student was emailed a sign-in link or told they are registered already, and no row was written.
 - **Could not be written**, and **Waiting to be written** with "Held for an Administrator", have a **Write it now** button that tries again at once. **Spam** has **Put back** and **Delete for good**.
-- With **Invitation emails** on, the sync has already queued the invitation, so skip step 6. The site never changes the Students row after it writes it: correct it in Airtable. The form itself must be switched on: see Step by step: running the site.
+- With **Invitation emails** on, the sync has already queued the invitation, so skip step 6. The site never changes the Students row after it writes it: correct it in Airtable. The form itself must be switched on, and it stays closed while Airtable is not connected, no school is at a ticked stage or the languages are not read yet: see Step by step: running the site.
 
 ### A student is interested in a school that is not in the program
 
@@ -56,7 +56,7 @@
 
 - **Held** holds an interest one of the form's checks flagged. Read the reason on the row, then press **Mark contacted**, **Close** or **Mark as spam**.
 - **Put back to New** works on a held, a spam or a closed interest, and emails nobody.
-- A new interest is emailed to the people in **Who hears of a new interest**, or to every Administrator when nobody is set there.
+- A new interest is emailed to the people in **Who hears of a new interest**, or to every Administrator when nobody is set there. Nobody in the program is emailed about one held for review or filed as spam.
 
 ### Invite a student, or several
 
@@ -77,7 +77,7 @@
 
 - Nobody is sent a second invitation within fifteen minutes of the last one. Ask the student to use their newest email.
 - Each new invitation replaces the link in the one before it.
-- With **Invitation emails** switched on, the sync invites each account as it creates it: see Step by step: running the site.
+- With **Invitation emails** switched on, the sync invites each account as it creates it: the switch is **Invitation emails**, `Settings`, tab **Students and mentors**, section **Accounts**, off by default.
 
 ### A student the sync skipped, and a held invitation
 
@@ -217,7 +217,7 @@ You can change:
 **What happens next**
 
 - The forms are **Getting started**, **Half way** and **Finishing up**, or **Leaving the program** alone for a student who left without finishing.
-- The next form opens only when the one before is fully answered.
+- The next form opens only when every question of the one before has been answered, unless the student has already started it. A follow-up that was never shown, and **Permissions**, do not count.
 
 **Good to know**
 

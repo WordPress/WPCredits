@@ -267,7 +267,7 @@ final class WPCPM_Track_Definition {
 		}
 
 		if ( ! isset( $definition['hue'] ) || ! WPCPM_Track_Palette::is_hue( $definition['hue'] ) ) {
-			$errors[] = self::error( 'hue', '', __( 'Choose one of the chip colors.', 'wpcredits-program-manager' ) );
+			$errors[] = self::error( 'hue', '', __( 'Type one of the chip colors: blue, cyan, teal, green, red, pink or purple.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( isset( $definition['sponsors'] ) ) {

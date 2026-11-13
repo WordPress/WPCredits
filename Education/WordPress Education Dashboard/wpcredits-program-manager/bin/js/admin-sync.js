@@ -26,7 +26,7 @@ const STALLED = 'No progress for over two minutes. The run may have been interru
 const FINISHED = 'The sync has finished. The page will show its report.';
 const STOPPED = 'Airtable returned no mentors. That is under half of the 140 accounts linked to a mentor\'s record, so the mentors sync stopped before taking anyone\'s Mentor role, and every account was kept.';
 
-const HINT = 'Reload this page to choose Run anyway or Cancel.';
+const HINT = 'Reload this page to choose Run anyway.';
 
 let ran = 0;
 let failed = 0;

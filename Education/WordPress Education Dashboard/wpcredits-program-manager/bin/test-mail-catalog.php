@@ -55,12 +55,12 @@ ck( 'the test of the signature and footer belongs to no area, and goes to an Adm
 
 ck( 'an unknown id is "Other email" in the Other area', array( WPCPM_Mail_Catalog::label( 'no-such' ), WPCPM_Mail_Catalog::module_of( 'no-such' ), WPCPM_Mail_Catalog::label( '' ) ), array( 'Other email', 'other', 'Other email' ) );
 
-ck( 'a known id reads back', array( WPCPM_Mail_Catalog::label( 'call-booked' ), WPCPM_Mail_Catalog::module_of( 'call-booked' ) ), array( 'Call booked (until 1.122.21)', 'calls' ) );
+ck( 'a known id reads back', array( WPCPM_Mail_Catalog::label( 'call-booked' ), WPCPM_Mail_Catalog::module_of( 'call-booked' ) ), array( 'Call booked (no longer sent)', 'calls' ) );
 
 // Each email of the Mentor calls area that says words of its own has an id of its own, named for who
 // receives it; the two a group session sends its mentor and its students in the same words are one
 // each, and the account decides who it is to. The five ids the area was sent under before 1.122.21
-// keep their names with " (until 1.122.21)" after them, so the Log's Email field, which lists them
+// keep their names with " (no longer sent)" after them, so the Log's Email field, which lists them
 // beside the new names, tells the old from the new.
 $calls = array();
 foreach ( $emails as $id => $e ) {
@@ -72,11 +72,11 @@ ck(
 	'the Mentor calls area names its five ids of before 1.122.21, each labeled as one of before, and the nineteen emails it sends since, each with who receives it',
 	$calls,
 	array(
-		'call-booked'                   => 'Call booked (until 1.122.21) / the account decides',
-		'series-joined'                 => 'Joined a session series (until 1.122.21) / the account decides',
-		'session-moved'                 => 'Group session moved (until 1.122.21) / the account decides',
-		'call-cancelled'                => 'Call canceled (until 1.122.21) / the account decides',
-		'call-reminder'                 => 'Call reminder (until 1.122.21) / the account decides',
+		'call-booked'                   => 'Call booked (no longer sent) / the account decides',
+		'series-joined'                 => 'Joined a session series (no longer sent) / the account decides',
+		'session-moved'                 => 'Group session moved (no longer sent) / the account decides',
+		'call-cancelled'                => 'Call canceled (no longer sent) / the account decides',
+		'call-reminder'                 => 'Call reminder (no longer sent) / the account decides',
 		'call-booked-mentor'            => 'Call booked, to the mentor / mentor',
 		'call-booked-mentor-no-link'    => 'Call booked, to a mentor with no meeting link / mentor',
 		'call-booked-student'           => 'Call booked, to the student / student',

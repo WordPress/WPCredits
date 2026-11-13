@@ -40,7 +40,7 @@ A student's state shows on the Students screen in wp-admin, in its **Registratio
 | The student in the **Invited** view of `Students > Accounts` | The invitation went. | Nothing, unless the student cannot sign in. |
 | "-" in the **Mentor** column of `Students > Accounts` | Airtable gives the student no mentor. | Give the student a mentor in Airtable. The site shows it after the next students sync. |
 | A track's name in the **Status** column of `Students > Accounts` | The student is on that track. | Nothing. |
-| The student's row on **Students gone quiet** (**Watch**) | Nothing on record from the student for the days in **Days quiet**. | See [[Students who have gone quiet]]. |
+| The student's row on **Students gone quiet** (**Watch**) | Nothing on record from the student for the days set in **Days of quiet**. The card's **Days quiet** column says how long. | See [[Students who have gone quiet]]. |
 | The student counted on **Duplicated students** (**Watch**) | The student has more than one row in Airtable. | See [[A student has duplicate rows]]. |
 | *Paused* or *Pending graduation* in the **Status** column | The status comes from Airtable. The student is on no track, so **Students gone quiet** leaves them out. | Nothing on the site. The status is changed in Airtable. |
 | *Graduated* or *Dropped out* in the **Status** column | The student finished or left the program. | Nothing. |
@@ -52,14 +52,14 @@ An applicant's state shows on `Mentors > Waiting for review`, in its views. A me
 | What you see | What it means | What to do next |
 |---|---|---|
 | *address not confirmed* on a row of the **Waiting** view | The applicant has not followed the link in the acknowledgement. **Select**, **Ask for more information** and **Decline** wait. | See [[The applicant's address is not confirmed]]. |
-| *acknowledgement not sent* on a row of the **Waiting** view | The acknowledgement email did not go. | See [[A mentor applied]]. |
+| *acknowledgement not sent* on a row of the **Waiting** view | The acknowledgement email did not go. | See [[The applicant's address is not confirmed]]. |
 | *held* on a row of the **Waiting** view | The form's checks held the application. | See [[A mentor applied]]. |
 | A row in the **Waiting** view with none of these marks | A new row with no mark waits for your decision. A row you asked for more information, or marked for a second opinion, also appears in **Waiting** and is listed again in its own view. | See [[A mentor applied]]. |
 | "Asked for more information on" a date, in the **Asked for more information** view | You asked the applicant a question. | Wait for the answer, then see [[A mentor applied]]. |
 | A row in the **Second opinion** view | An Administrator marked the row for a colleague to read, with a note. Nobody is told by the site. | See [[A mentor applied]]. |
 | "Checked on" a date, "the course does not show on the profile yet", in the **Selected (course pending)** view | You selected the applicant. The course is not done. The row tells the day it lapses. | See [[The Mentor Status Checker: check, then promote]]. |
 | "Checked on" a date, "the course shows on the profile", in the **Selected (course pending)** view | The course is done. | See [[The course is completed: make the applicant a mentor]]. |
-| "Making mentors from applications is off until the launch: this applicant waits." | **Make mentors from applications** is off on `Settings > Students and mentors`. | Ask the Administrator who runs the site. |
+| "Make mentors from applications is off in Settings: this applicant waits." | **Make mentors from applications** is off on `Settings > Students and mentors`. | Ask the Administrator who runs the site. |
 | "Declined on" or "Filed as spam on" a date, under **Recently decided** | You declined it, or it was filed as spam, by you or by the form's checks. | See [[Bring back a declined, lapsed or spam application]]. |
 | "Lapsed on" a date, in the **Lapsed** view | The course did not show in time, or the applicant withdrew. | See [[Bring back a declined, lapsed or spam application]]. |
 | "Made a mentor on" a date, in the **Activated** view | The applicant has a mentor account, and the invitation was queued. | Nothing. |

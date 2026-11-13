@@ -15,11 +15,11 @@
 **Good to know**
 
 - The agreement is optional. A sponsor's Sponsor Dashboard, offers and codes work without one.
-- Steps 1 and 2 happen only while **Applications from sponsors** is on in `WPCredits Program > Settings`, tab **Sponsors**. It is off by default.
+- Step 1 happens only while **Applications from sponsors** is on in `WPCredits Program > Settings`, tab **Sponsors**. It is off by default. Applications already filed can still be decided when it is off.
 
 ### A company applied to sponsor
 
-*When:* **Applications from sponsors** is on in Settings, and `Administrator Dashboard > Overview` shows **Sponsor applications** under **Waiting for you**. You may get the email "New sponsor application from {company}".
+*When:* `Administrator Dashboard > Overview` shows **Sponsor applications** under **Waiting for you**. You may get the email "New sponsor application from {company}".
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Sponsor applications** row.
 2. Press **Read the application** and read the answers.
@@ -171,7 +171,7 @@
 
 ### A sponsor planned an event
 
-*When:* only while **Sponsor tiers** is on in Settings. You get the email "{company} planned an event", and `Administrator Dashboard > Overview` shows **Events** under **Waiting for you**.
+*When:* only while **Sponsor tiers** is on in Settings. `Administrator Dashboard > Overview` shows **Events** under **Waiting for you**. The sponsor's **Assigned Administrator** gets the email "{company} planned an event"; with none assigned, the people in **Who is mailed** on the **Sponsors** tab of Settings do, or every Administrator.
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Events** row.
 2. Read the event under **Waiting for the program's OK**.
@@ -187,7 +187,7 @@
 
 - An event an Administrator plans for a sponsor through its Sponsor Dashboard waits here too and needs the same approval. The email has the same subject.
 - If the sponsor no longer offers events, there is no **Approve**: use **Return with a note**, which needs a note.
-- To call off an approved event, press **Cancel with a note** under **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. **Coming up** is on the same row, so it shows only while an event waits for the program's OK.
+- To call off an approved event, press **Cancel with a note** under **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. **Coming up** is on the same row, so it shows only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
 
 ### Plan or cancel an event of the program's own
 
@@ -202,13 +202,13 @@
 
 **What happens next**
 
-- The event needs no approval. Students, mentors, Administrators and school contacts can join it at once.
+- The event needs no approval. Current students, active mentors, Administrators and a school's accounts other than tutors can join it at once.
 - A change of time, length, title or call link emails everyone who joined, with a new calendar file.
 - A cancel emails everyone who joined, with a calendar file that takes it off their calendar.
 
 **Good to know**
 
-- With no sponsor event waiting, the **Events** row is not shown, and you cannot reach these controls. Right after a decision on that row it shows once more, then goes.
+- With no sponsor event waiting, the **Events** row is not shown, and you cannot reach these controls. Right after any press on that row it shows once more, then goes.
 - Only **Places** may stay empty. **Description** shows on the Partners page. **Call link** is seen only by the people who join, and the program.
 - The day and time must still be to come, and **Places** cannot go below the number already joined. A cancel cannot be undone.
 

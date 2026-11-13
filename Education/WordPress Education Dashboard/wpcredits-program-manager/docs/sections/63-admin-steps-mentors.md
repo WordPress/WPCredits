@@ -9,7 +9,7 @@
 3. You read the application on the Mentors screen and press **Select** (see *A mentor applied*).
 4. The applicant takes the mentors' course from the link in the selection email, then writes back that it is done.
 5. The site, with the Mentor Status Checker, or you, with **The course is completed**, makes the applicant a mentor (see *The course is completed: make the applicant a mentor* and *The Mentor Status Checker: check, then promote*).
-6. The site makes or links the account, sends the invitation, and writes the mentor's row in Airtable (see *A held invitation, and an Airtable row that was refused*).
+6. The site makes or links the account, sends the invitation, and writes or updates the mentor's row in Airtable (see *A held invitation, and an Airtable row that was refused*).
 7. In Airtable, the program gives the mentor students; the next mentors sync puts them on the mentor's Mentor Report Card (see *Open a mentor's Mentor Report Card*).
 8. The mentor sets their hours for calls; you watch who has not (see *Find mentors who have gone quiet or have no hours*).
 
@@ -88,14 +88,15 @@
 - The site makes the mentor's account, or links the one they have, and gives it the Mentor role. An Administrator's account keeps its own roles.
 - The application moves to **Activated**, with "Made a mentor on ...".
 - The mentor gets the email "Your mentor account is ready" (the subject starts with the site's name in square brackets), with a link to set a password and the welcome. It is never sent to an Administrator's account, and it is held in two cases: see *A held invitation, and an Airtable row that was refused*.
-- The site writes the mentor's row in the Mentors table in Airtable, or sets the row that already holds their address back to active.
+- The site writes the mentor's row in the Mentors table in Airtable, or sets the **Status** of the row that already holds their address to the value of **Mentor status to sync**, *Active* by default.
+- It writes nothing to Airtable while that setting is blank, when two rows hold the address, or when the row is linked to another account. The mentor is made all the same.
 - If the applicant is a mentor already, the application is only filed under **Activated** with a note. Nothing is sent or written to Airtable.
 
 **Good to know**
 
-- **The course is completed** shows only while **Make mentors from applications** is on. While it is off, the application says "Making mentors from applications is off until the launch: this applicant waits." Switching it on is for the person who runs the site.
+- **The course is completed** shows only while **Make mentors from applications** is on. While it is off, the application says "Make mentors from applications is off in Settings: this applicant waits." Switching it on is for the person who runs the site.
 - A selected applicant who drops out: press **Withdraw** with a note of what they wrote. The application moves to **Lapsed** and nothing is sent.
-- A selected application whose course has not shown after the days in **Selected applications lapse after (days)**, 90 by default, moves to **Lapsed** by itself.
+- A selected application moves to **Lapsed** by itself once the days in **Selected applications lapse after (days)**, 90 by default, have passed since it was selected. The daily run counts the days only and does not look at the course.
 
 ### The Mentor Status Checker: check, then promote
 
@@ -118,7 +119,7 @@
 
 - **Run check and promote to Active** checks and promotes in one go, after one question. Its last word is the status chosen under **Promote them to**, at the top of this screen. Use it only when you do not need to read the report first.
 - While **Make mentors from applications** is off, an applicant whose course shows reads **Waiting** and is not promoted.
-- The daily check and the Slack message after a promotion are set up by the person who runs the site: see *Step by step: running the site*.
+- The daily check and the Slack webhook are set in the settings at the top of `WPCredits Program > Tools > Mentor Status Checker`: see [[Mentor Status Checker]].
 
 ### A held invitation, and an Airtable row that was refused
 

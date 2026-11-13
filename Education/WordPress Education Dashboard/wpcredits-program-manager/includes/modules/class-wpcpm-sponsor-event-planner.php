@@ -745,7 +745,7 @@ final class WPCPM_Sponsor_Event_Planner {
 			esc_attr( self::FIELD_LINK ),
 			esc_attr( $values['link'] ),
 			(int) WPCPM_Sponsor_Event::MAX_LINK,
-			esc_html__( 'Only the people who join, and the program, see this link.', 'wpcredits-program-manager' ),
+			esc_html__( 'Only the people who join, your own accounts and the program see this link.', 'wpcredits-program-manager' ),
 			$marks( 'link', 'link-note' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
 			$why( 'link' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
 		);

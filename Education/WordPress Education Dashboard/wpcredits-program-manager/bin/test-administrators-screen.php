@@ -598,7 +598,7 @@ ck( 'Ada\'s row: her name to her account\'s editor, in bold, her username, and Y
 	array( '<strong><a href="https://example.test/wp-admin/user-edit.php?user_id=11">Ada Kowalski</a></strong>', '<code>akowalski</code>', 'Yes' ) );
 ck( 'Cleo\'s, an administrator without the program\'s capability: No, and what to do about it, as the screen has always said it',
 	array( cell( $cleo, 'name' ), cell( $cleo, 'login' ), cell( $cleo, 'manage' ) ),
-	array( '<strong><a href="https://example.test/wp-admin/user-edit.php?user_id=13">Cleo Ahn</a></strong>', '<code>cahn</code>', 'No - re-activate the plugin' ) );
+	array( '<strong><a href="https://example.test/wp-admin/user-edit.php?user_id=13">Cleo Ahn</a></strong>', '<code>cahn</code>', 'No: re-activate the plugin' ) );
 
 $ada_actions = actions_in( $ada );
 

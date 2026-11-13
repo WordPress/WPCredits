@@ -231,7 +231,7 @@ $wpcpm_placeholders = static function () use ( $wpcpm_sample_changes ) {
 			'body_only' => true,
 		),
 		'country_contact'    => array(
-			'means'   => __( 'The address of the program\'s contact for the institution\'s country, which this email is sent only with.', 'wpcredits-program-manager' ),
+			'means'   => __( 'The address of the institution\'s assigned Administrator, which this email is sent only with.', 'wpcredits-program-manager' ),
 			'example' => 'contact@example.test',
 		),
 		'dashboard_link'     => array(
@@ -567,7 +567,7 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'institution_name', 'reference', 'verify_link', 'applicant_email' ), array( 'verify_link' ), $wpcpm_as_applied ),
 	),
 	'institution-application'       => array(
-		'trigger'      => __( 'When an institution\'s application passes every check: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an institution\'s application passes every check and no Administrator with an address is assigned to it: to the addresses in "Who is emailed about institutions", or, with none set, to every Administrator. An assigned application tells that Administrator alone, with Institution assigned.', 'wpcredits-program-manager' ),
 		'subject'      => sprintf(
 			/* translators: 1: site name, 2: institution name. */
 			__( '[%1$s] New institution application from %2$s', 'wpcredits-program-manager' ),
@@ -765,14 +765,14 @@ return array(
 		'placeholders' => $wpcpm_take( array( 'site_name', 'returned_on', 'administrator_name', 'note' ), array( 'note' ) ),
 	),
 	'agreement-revoked'             => array(
-		'trigger'      => __( 'When an Administrator revokes an institution\'s Collaboration Agreement and its country has a program contact: to every member of the institution.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an Administrator revokes an institution\'s Collaboration Agreement and its assigned Administrator has an address on file: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_revoked_subject,
 		'body'         => $wpcpm_revoked( true ),
 		'eol'          => "\r\n",
 		'placeholders' => $wpcpm_take( array( 'site_name', 'revoked_on', 'administrator_name', 'note', 'country', 'country_contact' ), array( 'note', 'country_contact' ) ),
 	),
 	'agreement-revoked-no-contact'  => array(
-		'trigger'      => __( 'When an Administrator revokes an institution\'s Collaboration Agreement and its country has no program contact on file: to every member of the institution.', 'wpcredits-program-manager' ),
+		'trigger'      => __( 'When an Administrator revokes an institution\'s Collaboration Agreement and it has no assigned Administrator with an address on file: to every member of the institution.', 'wpcredits-program-manager' ),
 		'subject'      => $wpcpm_revoked_subject,
 		'body'         => $wpcpm_revoked( false ),
 		'eol'          => "\r\n",

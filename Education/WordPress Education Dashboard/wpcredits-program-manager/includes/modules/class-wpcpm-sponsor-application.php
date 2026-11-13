@@ -4095,7 +4095,7 @@ class WPCPM_Sponsor_Application {
 			// The in-base flag, said again where it matters most: approving a company the site
 			// already holds creates a second record.
 			if ( in_array( self::SIGNAL_IN_BASE, self::signals_of( $post ), true ) ) {
-				$confirm = __( 'The site already holds a sponsor with this name or website, and approving creates a second one. If it is the same company, reject this application and use Create account on the Sponsors screen\'s Accounts tab instead.', 'wpcredits-program-manager' ) . ' ' . $confirm;
+				$confirm = __( 'The site already holds a sponsor with this name or website, and approving creates a second one. If it is the same company, reject this application and attach the person\'s account from Manage accounts on the Sponsors screen\'s Accounts tab, or use Create account on its No account view for an Approved sponsor with no account.', 'wpcredits-program-manager' ) . ' ' . $confirm;
 			}
 
 			// The test box beside Approve (1.123.18): ticked already for a company named by the
@@ -4540,7 +4540,7 @@ class WPCPM_Sponsor_Application {
 			esc_html__( 'Sponsor applications', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( $waiting ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, where approving creates the sponsor record, the account, the category, the logo record and the first offer in one press.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Companies that applied through the form on the site, oldest first. Open one to read its answers, its logo files and what the site already holds. Applications are decided on the Administrator Dashboard, and one past the oldest it lists is decided here; approving creates the sponsor record, the account, the category, the logo record and the first offer in one press.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'Nothing is waiting. New applications appear here.', 'wpcredits-program-manager' ) . '</p>';
@@ -4757,7 +4757,7 @@ class WPCPM_Sponsor_Application {
 				'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--account" title="%1$s">%2$s</span> %3$s</p>',
 				esc_attr__( 'The contact address on this application already belongs to an account on this site.', 'wpcredits-program-manager' ),
 				esc_html__( 'already an account', 'wpcredits-program-manager' ),
-				esc_html__( 'Approving would open the Sponsor Dashboard to that account; look at it before deciding.', 'wpcredits-program-manager' )
+				esc_html__( 'Approve is refused while the address belongs to an account on this site: look at that account before deciding.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -5090,7 +5090,7 @@ class WPCPM_Sponsor_Application {
 			return;
 		}
 
-		echo '<p>' . esc_html__( 'These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and use Create account on the Sponsors screen\'s Accounts tab instead.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p>' . esc_html__( 'These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and attach the person\'s account from Manage accounts on the Sponsors screen\'s Accounts tab, or use Create account on its No account view for an Approved sponsor with no account.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<ul class="wpcpm-app-matches">';
 
 		foreach ( $matches as $record => $row ) {

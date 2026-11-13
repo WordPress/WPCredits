@@ -9,7 +9,8 @@
  * from a string with a placeholder ("placeholder", with that string as its pattern), or a run-in
  * heading of the guide's own fixed build ("heading").
  *
- * Later tasks add 30 to 35 and 00 to the covered list as each is rewritten.
+ * The reference (30 to 35) joined the covered list when it was rewritten into entries, where bold is
+ * a name on the screen and nothing else. 00 (signing in) is shared with the other guides and is not covered.
  *
  * Run from the plugin root:  php bin/test-guide-labels.php
  */
@@ -28,6 +29,12 @@ $covered = array(
 	'65-admin-steps-site',
 	'66-admin-where-it-stands',
 	'67-admin-other-guides',
+	'30-admin-wpadmin',
+	'31-admin-settings',
+	'32-admin-tools',
+	'33-admin-access',
+	'34-admin-operations',
+	'35-admin-feedback',
 );
 
 $fail = 0;

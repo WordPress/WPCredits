@@ -1344,7 +1344,9 @@ ck( 'the docs README counts five guides and names the Institution guide, with th
     array( true, false, true, true, true ) );
 
 $built = file_get_contents( __DIR__ . '/../docs/build/administrators.html' );
-ck( 'the docs build escapes a section\'s text: a literal <record> reaches the HTML as text, never as a tag (1.98.1)', array( false !== strpos( $built, 'wpcpm_roster_&lt;record&gt;' ), strpos( $built, 'wpcpm_roster_<record>' ) ), array( true, false ) );
+// The literal is the command's own, `wp wpcredits setting set <list> everyone` in the Settings part, since
+// the reference's rewrite (1.123.88) took the stored names with <record> out of the prose.
+ck( 'the docs build escapes a section\'s text: a literal <list> reaches the HTML as text, never as a tag (1.98.1)', array( false !== strpos( $built, 'setting set &lt;list&gt; everyone' ), strpos( $built, 'setting set <list> everyone' ) ), array( true, false ) );
 // Links in a section, added 1.102.2. Before it, a section that wrote one got the Markdown
 // printed at the reader: 35-admin-feedback had carried a raw `[#123](…)` since it was written.
 // A link's address is the one place a section's prose reaches an HTML attribute, so the scheme
@@ -1353,11 +1355,10 @@ $hrefs = preg_match_all( '/<a href="([^"]*)"/', $built, $found ) ? $found[1] : a
 
 ck( 'a section\'s Markdown link becomes a link in the built guide, and none is left raw (1.102.2)',
     array(
-		false !== strpos( $built, '<a href="https://github.com/WordPress/WPCredits/issues/123">#123</a>' ),
 		false !== strpos( $built, '<a href="https://wordpresseducation.org/duplicate-students-at-the-source/">Stopping duplicate students at the source</a>' ),
 		preg_match( '/\[[^\]]+\]\(http[^)]*\)/', $built ),
 	),
-    array( true, true, 0 ) );
+    array( true, 0 ) );
 
 ck( 'and every address a guide links to is http or https, a page of this site by its path, or a heading of the same guide, so no section can write a javascript: link',
     array(
@@ -1390,7 +1391,9 @@ ck( 'and it names every kind of site record that locks a row, audit log entries 
 ck( 'and it tells an Administrator not to delete duplicates by hand in Airtable, and why',
     array(
 		false !== strpos( $built, '>Delete duplicates here, not by hand in Airtable</h4>' ),
-		false !== strpos( $built, 'stops showing their program' ),
+		// Not "stops showing their program": the card keeps what the site saved, and it is the report
+		// form that cannot load the row (the reference's check against the code, 1.123.88).
+		false !== strpos( $built, 'keeps the program it last saved' ),
 	),
     array( true, true ) );
 

@@ -2069,10 +2069,10 @@ $seeded_b = WPCPM_Sponsor_Offers::offers_of( $B );
 ck( 'the manager presses B\'s Seed button: one draft offer, marked primary, logged as seeded, and the press comes back to the Offers and codes tab', array( $r[2], count( $seeded_b ), reset( $seeded_b )['state'], reset( $seeded_b )['primary'], end( $GLOBALS['audit'] )['kind'], $r[1] ), array( 'offer-seeded', 1, 'draft', true, WPCPM_Sponsor_Offers::LOG_SEEDED, $home . '&tab=offers' ) );
 // The first offer is created in draft for the sponsor to complete, not seeded from the base, and
 // its audit line names nobody by role.
-ck( 'and the audit line says the first offer was created in draft for the sponsor to complete', end( $GLOBALS['audit'] )['message'], 'The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard.' );
+ck( 'and the audit line says the first offer was created in draft for the sponsor to complete', end( $GLOBALS['audit'] )['message'], 'The first offer was created in draft; the sponsor completes it and sends it for review from the Sponsor Dashboard.' );
 WPCPM_Flash::set( WPCPM_Sponsors::FLASH, (string) $r[2] );
 $seeded_page = render_screen( link_of( (string) $r[1] )[1] );
-ck( 'and the Offers and codes tab it lands on says so in Seed\'s own words, once, above the bar', array( notices_in( $seeded_page ), (int) strpos( $seeded_page, 'is-dismissible' ) < (int) strpos( $seeded_page, '<nav class="nav-tab-wrapper' ), bar_of( $seeded_page ) === $bar_for( 'offers' ) ), array( '<div class="notice notice-success is-dismissible"><p>The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard.</p></div>', true, true ) );
+ck( 'and the Offers and codes tab it lands on says so in Seed\'s own words, once, above the bar', array( notices_in( $seeded_page ), (int) strpos( $seeded_page, 'is-dismissible' ) < (int) strpos( $seeded_page, '<nav class="nav-tab-wrapper' ), bar_of( $seeded_page ) === $bar_for( 'offers' ) ), array( '<div class="notice notice-success is-dismissible"><p>The first offer was created in draft; the sponsor completes it and sends it for review from the Sponsor Dashboard.</p></div>', true, true ) );
 $r = post( array( 'wpcpm_sponsor' => $B ), array( $module, 'handle_seed' ) );
 ck( 'seeding it again does nothing, since it already has one', $r[2], 'offer-seed-none' );
 $r = post( array( 'wpcpm_sponsor' => 'recNOTINDEXED0001' ), array( $module, 'handle_seed' ) );
@@ -2747,7 +2747,7 @@ ck( 'an application filed before 1.123.24 reads as it did: headed with the sente
 ck( 'one filed since names WordPress.org\'s policy and says nothing of a change it cannot know', $consent_row( $opened_since ), array( esc_html( $newer_sentence ), 'Agreed 2026-09-01 12:00. ' . esc_html( $newer_sentence ) . ' Policy: https://wordpress.org/about/privacy/' ) );
 ck( 'the two logos are shown from the Media Library', array( false !== strpos( $opened, 'data-id="640"' ), false !== strpos( $opened, 'data-id="641"' ), false !== strpos( $opened, 'In white' ) ), array( true, true, true ) );
 ck( 'what the site already has: the row that matches by website, with its record and its status', array( false !== strpos( $opened, 'What the site already has' ), false !== strpos( $opened, 'recSPONSORTEST002' ), false !== strpos( $opened, 'creates a second record' ) ), array( true, true, true ) );
-ck( 'and for the same company, the way to its account is Create account on this screen\'s Accounts tab', array( false !== strpos( $opened, 'use Create account on the Sponsors screen&#039;s Accounts tab instead.' ), strpos( $opened, 'Sponsors card' ) ), array( true, false ) );
+ck( 'and for the same company, the way to its account is Manage accounts, or Create account, on this screen\'s Accounts tab', array( false !== strpos( $opened, 'attach the person&#039;s account from Manage accounts on the Sponsors screen&#039;s Accounts tab, or use Create account on its No account view for an Approved sponsor with no account.' ), strpos( $opened, 'Sponsors card' ) ), array( true, false ) );
 ck( 'the checks are printed, and the in-base one in words', false !== strpos( $opened, 'already holds a sponsor with this name or website' ), true );
 // The Administrator Dashboard's card lists the oldest open applications, and this one among them, so
 // it is decided there: the opened application draws no decision, says so under one heading, and links
@@ -3497,7 +3497,7 @@ ck( 'the Edit form lists what the company told the program, newest first, escape
 	strpos( $told_none, '<tr><th scope="row">Interests</th>' ),
 	strpos( $told_add, '<tr><th scope="row">Interests</th>' ),
 ), array(
-	'<tr><th scope="row">Interests</th><td><ul><li>2026-10-22 by Rep Quill: note: wants to move to Backer</li><li>2026-09-01 by Rep Quill: Sponsor tools or services; note: Mentors &lt;b&gt;first&lt;/b&gt;</li></ul><p class="description">What the company told the program from its Sponsor Dashboard, newest first: on the Offer more card while the dashboard had one, and through Talk to your program contact. Read only: it is kept on the company&#039;s record as it was sent.</p></td></tr>',
+	'<tr><th scope="row">Interests</th><td><ul><li>2026-10-22 by Rep Quill: note: wants to move to Backer</li><li>2026-09-01 by Rep Quill: Sponsor tools or services; note: Mentors &lt;b&gt;first&lt;/b&gt;</li></ul><p class="description">What the company told the program from its Sponsor Dashboard, such as through Talk to your program contact, newest first. Read only: it is kept on the company&#039;s record as it was sent.</p></td></tr>',
 	true,
 	true,
 	false,

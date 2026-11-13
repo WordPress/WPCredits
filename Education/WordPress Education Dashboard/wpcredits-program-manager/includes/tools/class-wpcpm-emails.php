@@ -85,7 +85,7 @@ class WPCPM_Emails extends WPCPM_Tool {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'The plugin\'s emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email the plugin sends ends with the signature and footer. The Log holds every email the site sent in the last 30 days.', 'wpcredits-program-manager' );
+		return __( 'The plugin\'s emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email in these tables ends with the signature and footer. The Log holds every email the site sent in the last 30 days.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -340,7 +340,7 @@ class WPCPM_Emails extends WPCPM_Tool {
 			return;
 		}
 
-		printf( '<p class="description">%s</p>', esc_html__( 'The plugin\'s emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email the plugin sends ends with the signature and footer.', 'wpcredits-program-manager' ) );
+		printf( '<p class="description">%s</p>', esc_html__( 'The plugin\'s emails you can edit, by area. One you have not edited is sent as the plugin ships it. Every email in these tables ends with the signature and footer.', 'wpcredits-program-manager' ) );
 
 		$by_area = array();
 
@@ -543,7 +543,7 @@ class WPCPM_Emails extends WPCPM_Tool {
 				'<p class="description">%s</p>',
 				sprintf(
 					/* translators: %s: the separator line, two hyphens and a space, shown as code. */
-					esc_html__( 'Every email the plugin sends ends with this block, after a line holding %s. It is not added to the emails WordPress and the Two Factor plugin send themselves.', 'wpcredits-program-manager' ),
+					esc_html__( 'Every email listed on this screen ends with this block, after a line holding %s. It is not added to the emails WordPress and the Two Factor plugin send themselves.', 'wpcredits-program-manager' ),
 					'<code>-- </code>'
 				)
 			);

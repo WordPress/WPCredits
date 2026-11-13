@@ -980,7 +980,7 @@ final class WPCPM_Administrators_Dashboard {
 				'value' => number_format_i18n( (int) $mentors['active'] ),
 				'label' => _n( 'active mentor', 'active mentors', (int) $mentors['active'], 'wpcredits-program-manager' ),
 				/* translators: %s: a number of mentors. */
-				'base'  => sprintf( _n( '%s signed in during the last 30 days', '%s signed in during the last 30 days', (int) $mentors['seen_30'], 'wpcredits-program-manager' ), number_format_i18n( (int) $mentors['seen_30'] ) ),
+				'base'  => sprintf( _n( '%s seen in the last 30 days', '%s seen in the last 30 days', (int) $mentors['seen_30'], 'wpcredits-program-manager' ), number_format_i18n( (int) $mentors['seen_30'] ) ),
 			);
 		}
 

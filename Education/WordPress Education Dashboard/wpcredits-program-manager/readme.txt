@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.87
+Stable tag: 1.123.88
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,17 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.88 =
+
+* The Administrator guide's reference (the screens, the settings, the tools, who can read what, running the site, the feedback surveys) is rewritten into short entries. A setting is one line: what it changes, its choices, its default. Tabs, columns, states and emails are tables. Each part ends with links to the jobs done there.
+* Every statement of the reference was written from the code and checked against it by a second reader. Release history and code names are gone from it, except in the one table kept for whoever maintains the site.
+* The Emails part lists every email the site sends, by area, with who gets it and when.
+* The long Sponsors part now has thirteen parts of its own (the record, accounts, the application form, offers and codes, posts, tiers, the Partners page, reports, events, test sponsors and more), so it folds like the rest of the reference.
+* Corrected in the step-by-step jobs: what else stops an approval, when a public form is closed, what a selected mentor application's lapse depends on, who is emailed about a sponsor's event, and a few more.
+* About fifty help texts, notices and confirm questions on the plugin's own screens said something the code does not do, or were out of date. They now say what happens. Examples: removing a member of an institution emails nobody, the toolbar link to a dashboard is there whatever the landing page switch says, and Largest upload also limits a sponsor report's PDF. Two choices are renamed to say what they do: Remove the Mentor role (the student list is cleared with either choice) and, under Who can ask, Students, institutions and sponsors as well. Five retired emails in the Log end (no longer sent). Nothing behaves differently.
+* On a phone the guide's tables keep tighter cells, so most fit the screen without scrolling.
+* For developers: `bin/test-guide-labels.php` now covers the reference too, so a name it prints in bold must be a name in the code.
 
 = 1.123.87 =
 

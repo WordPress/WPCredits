@@ -671,7 +671,7 @@ ck(
 		'mapp-activated-linked-refused' => array( 'warning', 'The applicant is a mentor now: their existing account is linked and the invitation with the welcome is on its way. Airtable refused the row, so Write the Airtable row again waits on it under Activated.' ),
 		'mapp-already'             => array( 'warning', 'That application was made a mentor already. Nothing was changed.' ),
 		'mapp-already-mentor'      => array( 'success', 'That applicant is a mentor on this site already: the application is filed under Activated with a note, and nothing was sent or written to Airtable.' ),
-		'mapp-off'                 => array( 'error', 'Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings. It is switched on at the launch.' ),
+		'mapp-off'                 => array( 'error', 'Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings.' ),
 		'mapp-busy'                => array( 'warning', 'Another request is making that applicant a mentor at this moment. Reload the page in a minute to see where it got to.' ),
 		'mapp-no-account'          => array( 'error', 'The account could not be made, so the application waits under Selected (course pending), with the reason on it.' ),
 		'mapp-airtable-written'    => array( 'success', 'The Airtable row is written, and the mentor\'s account holds its record.' ),
@@ -732,7 +732,7 @@ foreach ( array(
 ck( 'and what the daily check last found, in each of its words',
 	$checked,
 	array(
-		'never'     => 'Not checked yet: the daily check reads the profile next.',
+		'never'     => 'Not checked yet: the Mentor Status Checker reads the profile on its next run.',
 		'completed' => 'Checked on October 16, 2026: the course shows on the profile.',
 		'not found' => 'Checked on October 16, 2026: the profile could not be read (The profile page was not found.).',
 		'error'     => 'Checked on October 16, 2026: the profile could not be read (HTTP 503).',
@@ -744,7 +744,7 @@ ck( 'a selected row whose account could not be made says when and why', false !=
 WPCPM_Mentor_Activation::$enabled = false;
 $waiting_tab                      = view_part( tab( 'selected' ) );
 ck( 'while Make mentors from applications is off, the row says the applicant waits and offers no press',
-	array( false !== strpos( $waiting_tab, 'Making mentors from applications is off until the launch: this applicant waits.' ), count_forms( $waiting_tab, WPCPM_Mentor_Application_Queue::ACTION_COMPLETE ) ),
+	array( false !== strpos( $waiting_tab, 'Make mentors from applications is off in Settings: this applicant waits.' ), count_forms( $waiting_tab, WPCPM_Mentor_Application_Queue::ACTION_COMPLETE ) ),
 	array( true, 0 ) );
 WPCPM_Mentor_Activation::$enabled = true;
 $done                             = press( WPCPM_Mentor_Application_Queue::ACTION_COMPLETE, $sel, array( 'note' => 'Wrote in on Monday.', 'view' => 'selected' ) );
@@ -934,8 +934,8 @@ foreach ( array(
 ck( 'the Airtable line of every other fate the row can have, with what was left out of it after',
 	$airtable_lines,
 	array(
-		'reactivated' => 'The mentor\'s own Airtable row was set back to Active on October 16, 2026.',
-		'adopted'     => 'The Mentors row that held this address was set back to Active and linked on October 16, 2026.',
+		'reactivated' => 'The mentor\'s own Airtable row was given the Mentor status to sync on October 16, 2026.',
+		'adopted'     => 'The Mentors row that held this address was given the Mentor status to sync and linked on October 16, 2026.',
 		'gone'        => 'The account made for this mentor no longer exists, so no Airtable row is written for it.',
 		'already'     => 'A mentor already: nothing was written.',
 		'pending'     => 'The Airtable row has not been written yet.',

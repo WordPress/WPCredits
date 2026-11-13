@@ -43,7 +43,7 @@ final class WPCPM_Track_Builder_Screen {
 		}
 
 		if ( empty( $rows ) ) {
-			echo '<p>' . esc_html__( 'No tracks yet. The four the program runs today appear here the first time this site loads after the update.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'No tracks yet. The four the program runs today appear here the next time this site loads a page.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}

@@ -479,7 +479,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 				$since > 0
 					/* translators: %s: a date. */
 					? sprintf( __( 'Sign-ins before %s are approximate: they were read from the site\'s sessions, Two Factor and the activity log on the day of the release.', 'wpcredits-program-manager' ), wp_date( (string) get_option( 'date_format' ), $since ) )
-					: __( 'Sign-ins are recorded from this release on; earlier ones are read once, the first time an Administrator opens wp-admin after the update.', 'wpcredits-program-manager' )
+					: __( 'Sign-ins are recorded as they happen; earlier ones are read once, the first time an Administrator opens wp-admin.', 'wpcredits-program-manager' )
 			)
 		);
 		echo '</div>';
@@ -964,7 +964,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		// WordPress's own script leaves it inside the panel.
 		printf(
 			'<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="%s" hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>',
-			esc_attr__( 'Reload this page to choose Run anyway or Cancel.', 'wpcredits-program-manager' )
+			esc_attr__( 'Reload this page to choose Run anyway.', 'wpcredits-program-manager' )
 		);
 
 		echo '<p class="description">' . esc_html__( 'The sync works in short bursts so it never hits a PHP timeout. Progress above updates every few seconds; you can safely leave this page and come back.', 'wpcredits-program-manager' ) . '</p>';

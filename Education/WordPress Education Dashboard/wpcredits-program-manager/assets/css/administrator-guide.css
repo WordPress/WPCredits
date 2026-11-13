@@ -281,6 +281,12 @@
 	padding: 1px 5px;
 }
 
+/* In a table's first column a name in code is what the row is about (a scope, an option): it stays whole
+   unless the cell truly cannot hold it, so a short name is not cut in two to make the column narrow. */
+.wpcpm-frame .wpcpm-guide__body td:first-child :is( code, kbd ) {
+	overflow-wrap: break-word;
+}
+
 /* Core draws a 3px rule under a table's head and over its foot; in the frame every line is a hairline. */
 .wpcpm-frame .wpcpm-guide__body :is( thead, tfoot ) {
 	border: 0;
@@ -604,8 +610,19 @@
 	padding-inline-start: 18px;
 }
 
-/* Where the reading column is narrow the mark sits on the name's line and the list takes the full width. */
+/* Where the reading column is narrow the mark sits on the name's line and the list takes the full width.
+   A table's cells give up some of their room there too: most of the guide's three-column tables then fit
+   a phone, where they were a few pixels too wide and lost their last column's edge with nothing to say
+   they scroll. One that is still too wide scrolls inside its own box, as before. */
 @container wpcpm-main ( max-width: 479px ) {
+
+	.wpcpm-frame .wpcpm-guide__body table {
+		font-size: 13px;
+	}
+
+	.wpcpm-frame .wpcpm-guide__body :is( th, td ) {
+		padding: 6px 8px;
+	}
 
 	.wpcpm-frame .wpcpm-guide__body .wpcpm-guide-note {
 		padding-inline-start: 16px;

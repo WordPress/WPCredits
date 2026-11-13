@@ -3876,7 +3876,7 @@ ck( 'and Need help?\'s Who can ask names them Administrators too, beside the men
     array_column( $asking, 2, 1 ),
     array(
 		'mentor'  => 'Mentors and administrators',
-		'program' => 'Students and institutions as well',
+		'program' => 'Students, institutions and sponsors as well',
 		'any'     => 'Anybody logged in to this site',
 		'manage'  => 'Administrators only',
 	) );
@@ -4027,14 +4027,14 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         'Invitation emails'                  => array(
             array( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.' ),
             array(
-                'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.',
-                'A mentor whose account already existed gets the same email, once each time they become active. An Administrator is never sent it, and an account matched by username alone waits until it is sent from its row. A run that would send it to more than five such mentors at once sends none, and those accounts wait in the Accounts tab too.',
+                'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens and from the Accounts tabs of the Institutions and Sponsors screens, or tick several in the Students or Mentors screen\'s list and invite them together.',
+                'A mentor whose account already existed gets the same email, once each time they become active. An Administrator is never sent it, and an account matched by username alone is not linked until Confirm is pressed under Needs confirming on the Mentors screen. A run that would send it to more than five such mentors at once sends none, and those accounts wait in the Accounts tab too.',
                 'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.',
             ),
         ),
         'Automatic sync'                     => array(
             array( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.' ),
-            array( 'The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.' ),
+            array( 'The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads the Mentors, Students Reports and Students tables and the names in the tables they link to, and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.' ),
         ),
         'Enrollment lists from institutions' => array(
             array( 'Adds an "Enroll students" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV.' ),
@@ -4063,7 +4063,7 @@ ck( 'the setting who gets the institution emails is named for them, and says in 
         isset( $institution_mail[0] ) ? $institution_mail[0] : null,
         null === help_of( $states['institutions'], 'Who reviews agreements' ),
     ),
-    array( true, array( 'New applications, agreements to review, reminders, template problems and an institution\'s last member leaving; with nobody named, all Administrators get them.' ), true ) );
+    array( true, array( 'Unassigned applications, agreements, reminders, template problems, details changes and a last member leaving; with nobody named, all Administrators get them.' ), true ) );
 ck( 'with nobody named, a notice under the field says what that means, before the fold, and it posts under the key it always had',
     array(
         isset( $institution_mail_row[0] ) && false !== strpos( $institution_mail_row[0], '<p class="description wpcpm-warning">Nobody is named, so every Administrator account gets these emails.</p><details' ),
@@ -4072,7 +4072,7 @@ ck( 'with nobody named, a notice under the field says what that means, before th
     array( true, true ) );
 ck( 'its fold lists the emails one by one',
     isset( $institution_mail[1][0] ) ? $institution_mail[1][0] : null,
-    'They are: a new application from an institution, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, and an institution\'s last member leaving.' );
+    'They are: a new application from an institution that no area gives to an Administrator with an address, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, an institution\'s details corrected, a request to correct them and its withdrawal, and an institution\'s last member leaving.' );
 // The Check against the Doc button this row named was drawn on no screen; the address is linked
 // from the Agreement template card, and the row and the guide say so.
 $settings_guide = (string) preg_replace( '/\s+/', ' ', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/31-admin-settings.md' ) );
@@ -4116,7 +4116,7 @@ ck( 'the Mentor applications section draws Make mentors from applications after 
         strpos( $states['people'], '>Applications from mentors</th>' ) < strpos( $states['people'], '>Make mentors from applications</th>' ) && strpos( $states['people'], '>Make mentors from applications</th>' ) < strpos( $states['people'], 'Who is mailed' ),
     ),
     array(
-        '<tr><th scope="row">Make mentors from applications</th><td><label><input type="checkbox" name="mentor_activation_enabled" value="1"> Make a mentor of each selected applicant whose course shows, or for whom The course is completed is pressed</label><p class="description">Off until the launch.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Make mentors from applications</span></summary><p>While it is off, an applicant whose course shows waits under Selected (course pending).</p></details></td></tr>',
+        '<tr><th scope="row">Make mentors from applications</th><td><label><input type="checkbox" name="mentor_activation_enabled" value="1"> Make a mentor of each selected applicant whose course shows, or for whom The course is completed is pressed</label><p class="description">Off by default.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Make mentors from applications</span></summary><p>While it is off, an applicant whose course shows waits under Selected (course pending).</p></details></td></tr>',
         true,
     ) );
 
@@ -4189,10 +4189,10 @@ preg_match( '#<tr><th scope="row">Automatic sync</th>.*?</tr>#s', $states['peopl
 
 ck( 'the Token scopes row says one sentence, and its fold holds the scopes, each with what it is for, the schema scope with every list the screens draw from Airtable, and the line saying the list is the reference',
     isset( $scopes_row[0] ) ? $scopes_row[0] : null,
-    '<tr><th scope="row">Token scopes</th><td><p class="description">Set the scopes listed under Details on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Token scopes</span></summary><ul class="wpcpm-scopes"><li><code>data.records:read</code> <strong>Required</strong><br /><span class="description">Reading mentors, students and tutors.</span></li><li><code>data.records:write</code> <strong>Required by the Mentor Status Checker</strong><br /><span class="description">Changing a mentor&#039;s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable&#039;s refusal waits on the application. The launch&#039;s check row, which WP-CLI writes and deletes, needs it too.</span></li><li><code>schema.bases:read</code> <strong>Optional</strong><br /><span class="description">Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker&#039;s screen offer, and reading each column&#039;s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant&#039;s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.</span></li></ul><p>Scopes cannot be checked from here without writing to the base, so this list is the reference.</p></details></td></tr>' );
+    '<tr><th scope="row">Token scopes</th><td><p class="description">Set the scopes listed under Details on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Token scopes</span></summary><ul class="wpcpm-scopes"><li><code>data.records:read</code> <strong>Required</strong><br /><span class="description">Reading mentors, students and tutors.</span></li><li><code>data.records:write</code> <strong>Required for anything the site writes to Airtable</strong><br /><span class="description">Everything the site writes to Airtable needs it, student registrations among them. Changing a mentor&#039;s status when you promote them: without it the Mentor Status Checker can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable&#039;s refusal waits on the application. The launch&#039;s check row, which WP-CLI writes and deletes, needs it too.</span></li><li><code>schema.bases:read</code> <strong>Required for student registrations, optional otherwise</strong><br /><span class="description">Student registrations are written to Airtable only with it: without it they wait on this site. Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker&#039;s screen offer, and reading each column&#039;s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant&#039;s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.</span></li></ul><p>Scopes cannot be checked from here without writing to the base, so this list is the reference.</p></details></td></tr>' );
 ck( 'and the Automatic sync row its switch, one sentence, and its fold',
     isset( $sync_row[0] ) ? $sync_row[0] : null,
-    '<tr><th scope="row">Automatic sync</th><td><label><input type="checkbox" name="auto_sync" value="1" checked=\'checked\'> Read Airtable on a schedule</label><p class="description">Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Automatic sync</span></summary><p>The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.</p></details></td></tr>' );
+    '<tr><th scope="row">Automatic sync</th><td><label><input type="checkbox" name="auto_sync" value="1" checked=\'checked\'> Read Airtable on a schedule</label><p class="description">Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.</p><details class="wpcpm-settings__details"><summary>Details<span class="screen-reader-text"> about Automatic sync</span></summary><p>The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads the Mentors, Students Reports and Students tables and the names in the tables they link to, and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.</p></details></td></tr>' );
 
 // The save keeps one valid address or none (`WPCPM_Settings::save()`), so a range typed in comes back
 // empty: the help says so where the address is typed.
@@ -4200,7 +4200,7 @@ ck( 'the trusted proxy\'s help says it is one address, not a range, and its fold
     help_of( $states['advanced'], 'Trusted proxy' ),
     array(
         array( 'The one IP address, not a range, of the proxy whose forwarded header the application forms believe for a sender\'s address.' ),
-        array( 'The forms\' limits count by the sender\'s address, so leave it empty unless the site sits behind a proxy: anybody can send that header. Anything but one address, a range included, is saved as empty.' ),
+        array( 'The forms\' limits count by the sender\'s address, so leave it empty unless the site sits behind a proxy: anybody can send that header. Anything but one address, a range included, is refused, and the address saved before is kept.' ),
     ) );
 
 // Two helps joined from two sentences into one keep the referent the second sentence had: it is the
@@ -4428,7 +4428,7 @@ ck( 'the Student landing page names the Student Report Card, as the Mentor landi
     ),
     array(
         'Use the Student Report Card page as the student dashboard',
-        'Students go there when they log in and in place of the wp-admin Dashboard, and get a "Student Report Card" link in the toolbar.',
+        'Students go there when they log in and in place of the wp-admin Dashboard; their "Student Report Card" toolbar link is there either way.',
         false,
     ) );
 
@@ -4498,7 +4498,7 @@ $rules = array(
 // The two answers each rule offers, the one that takes the role or the access away first, then the
 // one that leaves it: value and words.
 $remove_then_leave = array(
-	'on_inactive'             => array( array( 'revoke', 'Remove the Mentor role and clear their student list' ), array( 'keep', 'Leave the role in place' ) ),
+	'on_inactive'             => array( array( 'revoke', 'Remove the Mentor role' ), array( 'keep', 'Leave the role in place' ) ),
 	'student_on_inactive'     => array( array( 'revoke', 'Remove the Student role, so they lose access to Student-level content' ), array( 'keep', 'Leave the role in place' ) ),
 	'institution_on_inactive' => array( array( 'revoke', 'Remove its people, so they lose access to its students' ), array( 'keep', 'Leave their access in place' ) ),
 	'sponsor_on_inactive'     => array( array( 'revoke', 'Remove its accounts from the sponsor, so they lose access to its Sponsor Dashboard' ), array( 'keep', 'Leave their access in place' ) ),

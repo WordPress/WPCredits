@@ -658,8 +658,11 @@ $must_name = array(
 	'WPCredits Program' => array( 'WPCredits Program', 'Overview', 'Settings' ),
 	'Audiences'         => array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Administrators' ),
 	'Tools'             => $tool_names,
-	'Landing page'      => array( 'Mentor', 'Student', 'Institution', 'Sponsor landing page' ),
-	'Remove and Leave'  => array( 'Remove', 'Leave' ),
+	// In full, as the Settings screen prints them (the reference's rewrite, 1.123.88): bold in the guide
+	// is a name a screen prints, so the row no longer shortens the four switches to their first word,
+	// nor the two answers to Remove and Leave.
+	'Landing page'      => array( 'Mentor landing page', 'Student landing page', 'Institution landing page', 'Sponsor landing page' ),
+	'Remove and Leave'  => array( 'Remove the Mentor role', 'Leave the role in place' ),
 );
 
 foreach ( $must_name as $row => $names ) {
@@ -946,12 +949,15 @@ ck( 'and says that each release republishes both pages, the Institution guide\'s
 ck( 'the sentence sits with the pages the plugin owns, not in the paragraph labeled 1.98.0, and beside the Institution Dashboard\'s',
 	array( false !== strpos( $paragraph_of( $operations, $sponsor_at ), '(1.98.0)' ), false !== strpos( $pages_section, $sponsor_sentence ), false !== strpos( $paragraph_of( $operations, $sponsor_at ), "The Institution Dashboard's guide button follows" ) ),
 	array( false, true, true ) );
-ck( 'and the paragraph labeled 1.98.0 no longer leaves a reader thinking the button still opens the handbook',
-	false !== strpos( $operations, "published on the handbook beside the other three, where the Sponsor Dashboard's guide button pointed at it (since 1.123.44 the button follows this site's own page, as the Pages the plugin owns part above says)" ), true );
+// The paragraph labeled 1.98.0 went with the release history when the reference was rewritten (1.123.88):
+// no paragraph is labeled with a release, and nothing says the button once opened the handbook.
+ck( 'and no paragraph labeled with a release is left to make a reader think the button still opens the handbook',
+	array( preg_match( '/\(1\.\d+\.\d+\)/', $operations ), false !== strpos( $operations, 'guide button pointed at it' ) ), array( 0, false ) );
 ck( 'the built Administrator guide, in Markdown and as block markup, carries the sentence as it is now',
 	array( false !== strpos( $built_admin_md, $sponsor_sentence ), false !== strpos( $built_admin_html, 'The Sponsor Dashboard\'s guide button follows a published page at <code>sponsor-guide</code> on this site' ) ),
 	array( true, true ) );
-ck( 'and the sentence on a withdrawn request ends before the next begins', array( false !== strpos( $operations, 'when an Administrator took it back) Each decision' ), false !== strpos( $operations, 'when an Administrator took it back). Each decision' ) ), array( false, true ) );
+// The sentence on a withdrawn request ran into the next one once; the rewrite (1.123.88) keeps neither.
+ck( 'and the run-on sentence on a withdrawn request is not back', false !== strpos( $operations, 'when an Administrator took it back) Each decision' ), false );
 
 echo "\n=== The plugin's description, its readme and its blocks use the same words ===\n";
 

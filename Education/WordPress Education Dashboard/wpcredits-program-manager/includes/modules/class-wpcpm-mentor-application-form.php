@@ -956,7 +956,7 @@ final class WPCPM_Mentor_Application_Form {
 		}
 
 		if ( empty( self::countries() ) ) {
-			return __( 'This form is not shown yet: the countries list is empty, and every application names a country. Read the lists again on the Connection tab of WPCredits Program > Settings.', 'wpcredits-program-manager' );
+			return __( 'This form is not shown yet: the countries list is empty, and every application names a country. Run the institutions sync on the Institutions screen\'s Sync and storage tab.', 'wpcredits-program-manager' );
 		}
 
 		if ( empty( self::teams() ) ) {

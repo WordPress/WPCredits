@@ -28,7 +28,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 *When:* the **Sync** tab shows **Last sync error:** with a sentence such as "Airtable returned no current students." and a **Run anyway** button.
 
-1. If the page was open when the run stopped, it shows the sentence and says "Reload this page to choose Run anyway or Cancel." Reload the page.
+1. If the page was open when the run stopped, it shows the sentence and says "Reload this page to choose Run anyway." Reload the page.
 2. Read the sentence. It says how many records Airtable returned, and how many accounts the site has linked.
 3. Check in Airtable why so few came back: a status renamed, a status deleted, a view or column changed.
 4. If Airtable was wrong, put it right there, then press **Sync students now** (or **Sync mentors now**) to start a new run.
@@ -65,7 +65,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 **Good to know**
 
-- The scope `schema.bases:read` is optional. Without it, the site cannot list the bases, tables, columns, statuses and stages, so each of those settings becomes a box you type in.
+- The scope `schema.bases:read` is optional for the lists. Without it, the site cannot list the bases, tables, columns, statuses and stages, so each of those settings becomes a box you type in. Student registrations need it, though: without it, a registration waits on the site.
 - `data.records:read` is required. `data.records:write` is needed wherever the site writes to Airtable: among others, promoting mentors in the Mentor Status Checker, a Mentors row for a mentor made from an application, and student registrations.
 
 ### Replace the Airtable token
@@ -124,7 +124,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 **Good to know**
 
-- With no stage ticked, or no school at a ticked stage, the form says registrations are closed.
+- With no stage ticked, no school at a ticked stage, Airtable not connected, or the languages not yet read from Airtable, the form says registrations are closed. The languages are read within the hour. An Administrator who opens the page reads which reason it is.
 - Without those two scopes, a registration waits on the site and is not written to Airtable.
 - A new partner school appears on the form after the next institutions sync.
 - If the address line says "The page is missing: re-activate the plugin to recreate it.", do that before you switch on.
@@ -169,6 +169,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 - **Select** is refused while the course link is empty, because the selection email would have no link.
 - **Make mentors from applications** is a separate switch. While it is off, a selected applicant whose course shows waits under *Selected (course pending)*.
+- The form also stays closed while the countries list or the contribution teams list is empty. An Administrator who opens the page reads which. For the countries, run **Sync institutions now** on the Institutions screen's **Sync and storage** tab. For the teams, run the mentors sync on the Mentors screen's **Sync** tab.
 
 ### Open the institution application form
 
@@ -190,6 +191,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 - **Enrollment lists from institutions** is a separate switch. It lets a school send a list of students from its Institution Dashboard.
 - While **Applications from institutions** is off, the page shows one sentence saying applications are closed.
+- The form also stays closed while the site's countries list is empty. Run **Sync institutions now** on the Institutions screen's **Sync and storage** tab.
 
 ### Give a country or a region to an Administrator
 
@@ -241,6 +243,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
    - **Who is emailed about institutions**: tab **Institutions**, section **Collaboration Agreements**.
    - **Who is mailed**: tab **Students and mentors**, section **Mentor applications**.
    - **Who hears of a new interest**: tab **Students and mentors**, section **Interest from students**.
+   - **Who is mailed**, a second list of the same name: tab **Sponsors**, section **Interest mail**, for a sponsor with no assigned Administrator and for every new sponsor application.
 2. Untick **Mail every Administrator account instead of the people below** if it is ticked. While it is ticked, the names and addresses below it are ignored.
 3. Tick the Administrators who should get the emails, or type other addresses on the **Other addresses** line.
 4. Press **Save settings**.
@@ -249,7 +252,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The next email of that kind goes to the people you named.
-- **Who is mailed** gets each new mentor application. **Who hears of a new interest** gets each new student interest.
+- **Who is mailed** on the **Students and mentors** tab gets each new mentor application. **Who hears of a new interest** gets each new student interest.
 - **Who is emailed about institutions** gets a new application from a school nobody is assigned to, and, for every school, a signed agreement uploaded for review, the nightly reminder of agreements waiting, the notice that the agreement template cannot be used, a school's last member leaving, and a school's request to change its details.
 
 **Good to know**
@@ -399,18 +402,19 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 **What happens next**
 
-- *answered* means the site answered. *failed* means the site could not build the answer.
+- *answered* means the site answered. *failed* means the site could not build the answer; the table gives no reason for it.
 - *refused* is followed by the reason:
-  - *switch_off*: **Turn it on** is not ticked.
   - *not_allowed*: the person is not ticked under **Who may connect**.
   - *wrong_password*: the password's name does not begin with *Claude*.
   - *not_manager*: the account cannot manage the program.
+  - *error*: the site could not check the sign-in. Try again.
   - *hour_limit*, *day_limit* or *people_limit*: the person reached one of the **Limits**.
   - *fenced*: a Claude password was used for another address. **Asked** says "Refused: another address".
 
 **Good to know**
 
-- A call with no signed-in account writes no row. If nothing shows, check the password itself.
+- A call writes no row when no account is signed in, when **Turn it on** is not ticked, or when the MCP Adapter plugin is not active or is too old. If nothing shows, check these and the password itself.
+- An account's refusals past 60 in one hour write no row either.
 
 ### Change how long applications and files are kept
 
@@ -569,7 +573,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The site says "Saved. Every email ends with the signature and footer as you wrote it from now on."
-- Every email the plugin sends ends with this block, after a line holding `-- `.
+- Every email listed on the **Emails** screen ends with this block, after a line holding `-- `.
 
 **Good to know**
 
@@ -703,8 +707,8 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 
 **Good to know**
 
-- The **Airtable status** must be one no other track has. Once the track is published, its status and its key cannot change.
-- The **Key** is 2 to 20 lowercase letters, digits or hyphens.
+- The **Name**, the **Airtable status** and the **Key** must each be one no other track has, drafts included. A status that is another track's name, or that already means something else to the program, such as finished or paused, is refused. Once the track is published, its status and its key cannot change.
+- The **Key** is 2 to 20 lowercase letters, digits or hyphens, and not the key of one of the program's four original tracks, *sensei*, *paused* or *pending*.
 - To start from an existing track, press **Duplicate** on its row, type a new name, status and key, and press **Make the copy**. The questions come with the copy; the Learn course, hours target, partners and partners' narrative do not.
 
 ### Add, move or remove a question
@@ -753,6 +757,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 - While a line is listed under **This track cannot be published yet:**, or columns are missing and no schema token is set, the screen has no **Publish this track** button. Lines under **Worth knowing before you publish:** do not stop the publish, but read them.
 - The three Airtable steps are **Add the status to the reports automation**, **Create the welcome email automation** and **Add the two Status choices**, with the exact values on the screen. Without the first, no student on the track gets a report row and their Student Report Card stays empty.
 - Columns publishing creates in Airtable can never be removed by the site. That is why it asks for the track's name, and a wrong name publishes nothing.
+- While another publish runs, or for up to 20 minutes after a publish page timed out, the site says "Another track is being published right now. Wait for that to finish and try again." Press it again later: it creates only the columns still missing.
 
 ### Change a track that is live
 
@@ -874,7 +879,7 @@ These jobs are done in the WordPress admin area, under `WPCredits Program`. They
 **What happens next**
 
 - The answer under **Try a question** is exactly what somebody on the program would see.
-- People ask from [[Need help?]] in the site header and from the Resources section of the Mentor Report Card.
+- People ask from [[Need help?]] in the site header and from **Resources** on the Mentor Report Card, the Student Report Card and the Institution Dashboard, when **Who can ask** includes them.
 - Each question, and the pages found for it, go to the provider's company. Nothing is stored on this site.
 
 **Good to know**

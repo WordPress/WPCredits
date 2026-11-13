@@ -581,8 +581,8 @@ echo "\n=== The nonce is keyed to the subject, and the confirm names everybody =
 ck( 'the viewer\'s own row is Leave', has( $card, '>Leave</button>' ), true );
 ck( 'somebody else\'s is Remove', has( $card, '>Remove</button>' ), true );
 ck( 'the confirm names the person and the institution', has( $card, "Remove Grace Third&#039;s access to TEST - Institution 20&#039;s students" ), true );
-ck( 'it says who else is emailed', has( $card, 'and so will the other 2 members' ), true );
-ck( 'and that the account is kept', has( $card, 'The account is kept.' ), true );
+ck( 'it says the others keep access', has( $card, 'The other 2 members keep access' ), true );
+ck( 'and that the account is kept', has( $card, 'and the account is kept.' ), true );
 ck( 'leaving says the same about your own account', has( $card, 'your account is kept' ), true );
 
 echo "\n=== A member whose agreement is not settled sees no card at all ===\n";

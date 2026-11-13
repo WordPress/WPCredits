@@ -1109,21 +1109,21 @@ class WPCPM_Settings_Screen {
 
 		WPCPM_Settings_Rows::select_row( 'mentors_table', __( 'Mentors table', 'wpcredits-program-manager' ), $settings['mentors_table'], $tables, '', $by_id );
 		WPCPM_Settings_Rows::select_row( 'reports_table', __( 'Students Reports table', 'wpcredits-program-manager' ), $settings['reports_table'], $tables, __( 'Holds the internship dates, links and contribution team shown on the mentor page.', 'wpcredits-program-manager' ), $by_id );
-		WPCPM_Settings_Rows::select_row( 'students_table', __( 'Students table', 'wpcredits-program-manager' ), $settings['students_table'], $tables, __( 'Read only for the Tutor column, which does not exist on Students Reports.', 'wpcredits-program-manager' ), $by_id );
+		WPCPM_Settings_Rows::select_row( 'students_table', __( 'Students table', 'wpcredits-program-manager' ), $settings['students_table'], $tables, __( 'The students and mentors syncs read it, and an institution\'s student edits are written to it.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'institutions_table', __( 'Institutions table', 'wpcredits-program-manager' ), $settings['institutions_table'], $tables, '', $by_id );
 		WPCPM_Settings_Rows::select_row(
 			'institutions_name_field',
 			__( 'Institutions name column', 'wpcredits-program-manager' ),
 			$settings['institutions_name_field'],
 			self::name_columns( $settings['institutions_table'] ),
-			__( 'Only used when the token lacks <code>schema.bases:read</code>: with that scope the primary column is detected automatically.', 'wpcredits-program-manager' ),
+			__( 'The institutions sync reads each institution\'s name from it; the mentors sync uses it only when the token lacks <code>schema.bases:read</code>.', 'wpcredits-program-manager' ),
 			WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['institutions_table'] ) )
 		);
 		WPCPM_Settings_Rows::select_row( 'teams_table', __( 'Contribution areas table', 'wpcredits-program-manager' ), $settings['teams_table'], $tables, '', $by_id );
 		WPCPM_Settings_Rows::select_row( 'teams_name_field', __( 'Contribution areas name column', 'wpcredits-program-manager' ), $settings['teams_name_field'], WPCPM_Settings_Choices::columns( $settings['teams_table'] ), '', WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['teams_table'] ) ) );
-		WPCPM_Settings_Rows::select_row( 'tutors_table', __( 'Tutors table', 'wpcredits-program-manager' ), $settings['tutors_table'], $tables, __( 'Read when an institution enrolls students, for that institution\'s own tutors.', 'wpcredits-program-manager' ), $by_id );
+		WPCPM_Settings_Rows::select_row( 'tutors_table', __( 'Tutors table', 'wpcredits-program-manager' ), $settings['tutors_table'], $tables, __( 'Read only by the seed command, which copies each school\'s tutors to this site; schools keep their tutors here.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'feedback_table', __( 'Feedback table', 'wpcredits-program-manager' ), $settings['feedback_table'], $tables, __( 'Where the students\' survey answers are written: one row per student, with a column per question.', 'wpcredits-program-manager' ), $by_id );
-		WPCPM_Settings_Rows::select_row( 'countries_table', __( 'Countries table', 'wpcredits-program-manager' ), $settings['countries_table'], $tables, __( 'Read for the name of each institution\'s country and the Administrator who looks after it.', 'wpcredits-program-manager' ), $by_id );
+		WPCPM_Settings_Rows::select_row( 'countries_table', __( 'Countries table', 'wpcredits-program-manager' ), $settings['countries_table'], $tables, __( 'Read for the name of each institution\'s country, and for its contact until any area is set under Areas of responsibility.', 'wpcredits-program-manager' ), $by_id );
 		WPCPM_Settings_Rows::select_row( 'countries_name_field', __( 'Countries name column', 'wpcredits-program-manager' ), $settings['countries_name_field'], self::name_columns( $settings['countries_table'] ), __( 'The column of the Countries table that holds each country\'s name.', 'wpcredits-program-manager' ), WPCPM_Settings_Rows::typed( 'column', WPCPM_Settings_Choices::why_empty( 'columns', $settings['countries_table'] ) ) );
 
 		$this->close_section();
@@ -1307,10 +1307,10 @@ class WPCPM_Settings_Screen {
 			'<tr><th scope="row">%1$s</th><td><fieldset><legend class="screen-reader-text"><span>%1$s</span></legend><label><input type="radio" name="on_inactive" value="revoke"%2$s> %3$s</label><br><label><input type="radio" name="on_inactive" value="keep"%4$s> %5$s</label></fieldset><p class="description">%6$s</p></td></tr>',
 			esc_html__( 'When a mentor is no longer active', 'wpcredits-program-manager' ),
 			checked( $settings['on_inactive'], 'revoke', false ),
-			esc_html__( 'Remove the Mentor role and clear their student list', 'wpcredits-program-manager' ),
+			esc_html__( 'Remove the Mentor role', 'wpcredits-program-manager' ),
 			checked( $settings['on_inactive'], 'keep', false ),
 			esc_html__( 'Leave the role in place', 'wpcredits-program-manager' ),
-			esc_html__( 'The account itself is never deleted either way.', 'wpcredits-program-manager' )
+			esc_html__( 'Their student list is cleared either way, and the account itself is never deleted.', 'wpcredits-program-manager' )
 		);
 
 		printf(
@@ -1343,8 +1343,8 @@ class WPCPM_Settings_Screen {
 		WPCPM_Settings_Rows::close_row(
 			$invitations,
 			array(
-				__( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.', 'wpcredits-program-manager' ),
-				__( 'A mentor whose account already existed gets the same email, once each time they become active. An Administrator is never sent it, and an account matched by username alone waits until it is sent from its row. A run that would send it to more than five such mentors at once sends none, and those accounts wait in the Accounts tab too.', 'wpcredits-program-manager' ),
+				__( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens and from the Accounts tabs of the Institutions and Sponsors screens, or tick several in the Students or Mentors screen\'s list and invite them together.', 'wpcredits-program-manager' ),
+				__( 'A mentor whose account already existed gets the same email, once each time they become active. An Administrator is never sent it, and an account matched by username alone is not linked until Confirm is pressed under Needs confirming on the Mentors screen. A run that would send it to more than five such mentors at once sends none, and those accounts wait in the Accounts tab too.', 'wpcredits-program-manager' ),
 				__( 'A mentor made from an application is sent theirs whatever this says, since it carries the welcome, except an Administrator, and a mentor whose account is not yet confirmed as the person\'s.', 'wpcredits-program-manager' ),
 			)
 		);
@@ -1357,7 +1357,7 @@ class WPCPM_Settings_Screen {
 		//
 		// The WordPress.org profile reads are the *students* run's, phase 2, where a mentor's card is
 		// built (`WPCPM_Students_Sync`); the mentors run makes no WordPress.org request at all, it
-		// reads three Airtable tables. The fold says which run is the expensive one and why.
+		// reads Airtable tables only. The fold says which run is the expensive one and why.
 		$auto_sync = __( 'Automatic sync', 'wpcredits-program-manager' );
 
 		printf(
@@ -1367,7 +1367,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Read Airtable on a schedule', 'wpcredits-program-manager' ),
 			esc_html__( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $auto_sync, __( 'The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $auto_sync, __( 'The student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads the Mentors, Students Reports and Students tables and the names in the tables they link to, and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 
@@ -1382,7 +1382,7 @@ class WPCPM_Settings_Screen {
 			__( 'Mentor landing page', 'wpcredits-program-manager' ),
 			! empty( $settings['mentor_home'] ),
 			__( 'Use the Mentor Report Card page as the mentor dashboard', 'wpcredits-program-manager' ),
-			__( 'Mentors go there when they log in and in place of the wp-admin Dashboard, and get a "Mentor Report Card" link in the toolbar.', 'wpcredits-program-manager' ),
+			__( 'Mentors go there when they log in and in place of the wp-admin Dashboard; their "Mentor Report Card" toolbar link is there either way.', 'wpcredits-program-manager' ),
 			(string) WPCPM_Mentors_Dashboard::page_url(),
 			__( 'They keep access to their own profile screen, and a mentor who followed a link to somewhere specific still lands there instead. Administrators are unaffected.', 'wpcredits-program-manager' )
 		);
@@ -1392,9 +1392,9 @@ class WPCPM_Settings_Screen {
 			__( 'Student landing page', 'wpcredits-program-manager' ),
 			! empty( $settings['student_home'] ),
 			__( 'Use the Student Report Card page as the student dashboard', 'wpcredits-program-manager' ),
-			__( 'Students go there when they log in and in place of the wp-admin Dashboard, and get a "Student Report Card" link in the toolbar.', 'wpcredits-program-manager' ),
+			__( 'Students go there when they log in and in place of the wp-admin Dashboard; their "Student Report Card" toolbar link is there either way.', 'wpcredits-program-manager' ),
 			(string) WPCPM_Students_Dashboard::page_url(),
-			__( 'Same exceptions as for mentors: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone.', 'wpcredits-program-manager' )
+			__( 'Same exceptions as for mentors: a requested destination wins, their own profile screen stays reachable, and anyone who can edit others\' posts is left alone.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -1557,7 +1557,7 @@ class WPCPM_Settings_Screen {
 			isset( $settings['student_quiet_days'] ) ? (int) $settings['student_quiet_days'] : 14,
 			7,
 			60,
-			__( 'A student with no sign-in, visit, call or report for this many days, from 7 to 60, is quiet.', 'wpcredits-program-manager' )
+			__( 'A student is quiet after this many days, from 7 to 60, with no sign-in, visit, call or report, no press of "We\'ve already talked" and nothing booked ahead.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -1610,7 +1610,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Show new students the "Your first weeks" card', 'wpcredits-program-manager' ),
 			esc_html__( 'A card of the first things to do, shown only to new students.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $label, array( __( 'Students whose track began in the four weeks before this was turned on, and everyone who joins after, see it. It gates nothing.', 'wpcredits-program-manager' ) ) );
+		WPCPM_Settings_Rows::close_row( $label, array( __( 'Students whose track began in the four weeks before this was first turned on, and everyone who joins after, see it. It gates nothing.', 'wpcredits-program-manager' ) ) );
 
 		$this->close_section();
 	}
@@ -1655,7 +1655,7 @@ class WPCPM_Settings_Screen {
 			esc_html( $activation ),
 			checked( ! empty( $settings['mentor_activation_enabled'] ), true, false ),
 			esc_html__( 'Make a mentor of each selected applicant whose course shows, or for whom The course is completed is pressed', 'wpcredits-program-manager' ),
-			esc_html__( 'Off until the launch.', 'wpcredits-program-manager' )
+			esc_html__( 'Off by default.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $activation, __( 'While it is off, an applicant whose course shows waits under Selected (course pending).', 'wpcredits-program-manager' ) );
 
@@ -1784,7 +1784,7 @@ class WPCPM_Settings_Screen {
 			__( 'Institution landing page', 'wpcredits-program-manager' ),
 			! empty( $settings['institution_home'] ),
 			__( 'Use the Institution Dashboard page as the institution dashboard', 'wpcredits-program-manager' ),
-			__( 'Institution accounts go there when they log in and in place of the wp-admin Dashboard, and get an "Institution Dashboard" link in the toolbar.', 'wpcredits-program-manager' ),
+			__( 'Institution accounts go there when they log in and in place of the wp-admin Dashboard; their "Institution Dashboard" toolbar link is there either way.', 'wpcredits-program-manager' ),
 			class_exists( 'WPCPM_Institutions_Dashboard' ) ? (string) WPCPM_Institutions_Dashboard::page_url() : '',
 			__( 'Same exceptions as for mentors and students.', 'wpcredits-program-manager' )
 		);
@@ -1840,9 +1840,9 @@ class WPCPM_Settings_Screen {
 			(string) $settings['agreement_notify'],
 			// A row's help is one sentence of 160 characters at most, so the items are named short
 			// here and in full in the fold below.
-			__( 'New applications, agreements to review, reminders, template problems and an institution\'s last member leaving; with nobody named, all Administrators get them.', 'wpcredits-program-manager' ),
+			__( 'Unassigned applications, agreements, reminders, template problems, details changes and a last member leaving; with nobody named, all Administrators get them.', 'wpcredits-program-manager' ),
 			array(
-				__( 'They are: a new application from an institution, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, and an institution\'s last member leaving.', 'wpcredits-program-manager' ),
+				__( 'They are: a new application from an institution that no area gives to an Administrator with an address, a signed agreement uploaded for review, the nightly reminder of agreements waiting past the review days, the notice that the agreement template cannot be used, an institution\'s details corrected, a request to correct them and its withdrawal, and an institution\'s last member leaving.', 'wpcredits-program-manager' ),
 				__( 'Every Administrator account means every account with the WordPress Administrator role, technical ones too, so name somebody.', 'wpcredits-program-manager' ),
 			),
 			__( 'Nobody is named, so every Administrator account gets these emails.', 'wpcredits-program-manager' ),
@@ -1945,7 +1945,7 @@ class WPCPM_Settings_Screen {
 			__( 'Sponsor landing page', 'wpcredits-program-manager' ),
 			! empty( $settings['sponsor_home'] ),
 			__( 'Send sponsor accounts to the Sponsor Dashboard when they log in', 'wpcredits-program-manager' ),
-			__( 'Instead of the wp-admin Dashboard; accounts that can also edit content or manage the program are left where WordPress sends them.', 'wpcredits-program-manager' ),
+			__( 'Instead of the wp-admin Dashboard; mentors and accounts that can edit others\' posts or manage the program are left where WordPress sends them.', 'wpcredits-program-manager' ),
 			class_exists( 'WPCPM_Sponsors_Dashboard' ) ? (string) WPCPM_Sponsors_Dashboard::page_url() : ''
 		);
 
@@ -2030,7 +2030,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Show the section on the Mentor Report Card', 'wpcredits-program-manager' ),
 			esc_html__( 'The section lists the live offers, each with its claim button.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $sponsor_tools, __( 'A student always sees offers open to students; a mentor sees the offers whose sponsor opened them to mentors. The Administrator Dashboard shows every live offer whatever these say.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $sponsor_tools, __( 'With the first box ticked, a student sees the offers open to students; with the second, a mentor sees the offers whose sponsor opened them to mentors. The Administrator Dashboard shows every live offer whatever these say.', 'wpcredits-program-manager' ) );
 
 		$low_stock = __( 'Low-stock warning', 'wpcredits-program-manager' );
 
@@ -2585,13 +2585,13 @@ class WPCPM_Settings_Screen {
 			),
 			array(
 				'scope'    => 'data.records:write',
-				'required' => __( 'Required by the Mentor Status Checker', 'wpcredits-program-manager' ),
-				'note'     => __( 'Changing a mentor\'s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable\'s refusal waits on the application. The launch\'s check row, which WP-CLI writes and deletes, needs it too.', 'wpcredits-program-manager' ),
+				'required' => __( 'Required for anything the site writes to Airtable', 'wpcredits-program-manager' ),
+				'note'     => __( 'Everything the site writes to Airtable needs it, student registrations among them. Changing a mentor\'s status when you promote them: without it the Mentor Status Checker can still run in report-only mode, but promoting fails. It also writes the Mentors row a mentor made from an application gets, a new row or the Status of the row that already holds the person: without it that mentor is made and invited all the same, and Airtable\'s refusal waits on the application. The launch\'s check row, which WP-CLI writes and deletes, needs it too.', 'wpcredits-program-manager' ),
 			),
 			array(
 				'scope'    => 'schema.bases:read',
-				'required' => __( 'Optional', 'wpcredits-program-manager' ),
-				'note'     => __( 'Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker\'s screen offer, and reading each column\'s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant\'s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.', 'wpcredits-program-manager' ),
+				'required' => __( 'Required for student registrations, optional otherwise', 'wpcredits-program-manager' ),
+				'note'     => __( 'Student registrations are written to Airtable only with it: without it they wait on this site. Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker\'s screen offer, and reading each column\'s description from Airtable. Without it each of those settings is typed, and the built-in descriptions are shown instead. It also lets the Mentors row a mentor made from an application gets carry the applicant\'s answers: without it the row holds the name, profile, email and Status alone, and the site never updates it later.', 'wpcredits-program-manager' ),
 			),
 		);
 
@@ -2667,7 +2667,7 @@ class WPCPM_Settings_Screen {
 
 		$this->open_section(
 			__( 'Applications', 'wpcredits-program-manager' ),
-			__( 'How long a decided application from any of the three forms is kept, and the one proxy the forms believe about a sender\'s address.', 'wpcredits-program-manager' ),
+			__( 'How long a decided application or student registration is kept, and the one proxy the forms believe about a sender\'s address.', 'wpcredits-program-manager' ),
 			'keeping-applications'
 		);
 
@@ -2684,7 +2684,7 @@ class WPCPM_Settings_Screen {
 			'text',
 			'',
 			'',
-			__( 'The forms\' limits count by the sender\'s address, so leave it empty unless the site sits behind a proxy: anybody can send that header. Anything but one address, a range included, is saved as empty.', 'wpcredits-program-manager' )
+			__( 'The forms\' limits count by the sender\'s address, so leave it empty unless the site sits behind a proxy: anybody can send that header. Anything but one address, a range included, is refused, and the address saved before is kept.', 'wpcredits-program-manager' )
 		);
 
 		$this->close_section();
@@ -2695,7 +2695,7 @@ class WPCPM_Settings_Screen {
 			'agreement-files'
 		);
 
-		WPCPM_Settings_Rows::number_row( 'agreement_max_mb', __( 'Largest upload (MB)', 'wpcredits-program-manager' ), $settings['agreement_max_mb'], 1, 50, __( 'The largest signed agreement an institution or a sponsor can upload.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::number_row( 'agreement_max_mb', __( 'Largest upload (MB)', 'wpcredits-program-manager' ), $settings['agreement_max_mb'], 1, 50, __( 'The largest signed agreement an institution or a sponsor can upload, and the largest PDF of a sponsor report.', 'wpcredits-program-manager' ) );
 		WPCPM_Settings_Rows::number_row( 'agreement_uploads_per_day', __( 'Uploads per day', 'wpcredits-program-manager' ), $settings['agreement_uploads_per_day'], 1, 50, __( 'How many files one institution or one sponsor can upload in a day.', 'wpcredits-program-manager' ) );
 		WPCPM_Settings_Rows::number_row( 'agreement_generations_per_day', __( 'Generations per day', 'wpcredits-program-manager' ), $settings['agreement_generations_per_day'], 1, 100, __( 'How many times one institution can generate its agreement from the template in a day.', 'wpcredits-program-manager' ) );
 		WPCPM_Settings_Rows::number_row( 'agreement_discard_days', __( 'Discarded files kept for (days)', 'wpcredits-program-manager' ), $settings['agreement_discard_days'], 7, 365, __( 'A withdrawn or returned file is deleted this many days after it was set aside; an accepted agreement never is.', 'wpcredits-program-manager' ) );

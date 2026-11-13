@@ -1041,7 +1041,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				),
 				sprintf(
 					/* translators: %s: how many selected accounts were left out because their invitation is held. */
-					_n( '%s whose invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it', '%s whose invitations wait for an Administrator to confirm each account on the Mentors screen, where each account\'s own row sends it', $held, 'wpcredits-program-manager' ),
+					_n( '%s whose invitation waits for an Administrator to confirm the account is the person\'s, and then its own row sends it', '%s whose invitations wait for an Administrator to confirm each account is the person\'s, and then each account\'s own row sends it', $held, 'wpcredits-program-manager' ),
 					number_format_i18n( $held )
 				)
 			);
@@ -1059,7 +1059,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 		if ( $held > 0 ) {
 			$sentence .= ' ' . sprintf(
 				/* translators: %s: how many selected accounts were left out because their invitation is held. */
-				_n( '%s selected account was left out: its invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', '%s selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', $held, 'wpcredits-program-manager' ),
+				_n( '%s selected account was left out: its invitation waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.', '%s selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.', $held, 'wpcredits-program-manager' ),
 				number_format_i18n( $held )
 			);
 		}
@@ -1129,8 +1129,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 
 		if ( 'held' === $why ) {
 			return empty( $detail['resend'] )
-				? __( 'Nothing to send: the invitation of each selected account never invited waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', 'wpcredits-program-manager' )
-				: __( 'Nothing to send: the invitation of each selected account invited before waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.', 'wpcredits-program-manager' );
+				? __( 'Nothing to send: the invitation of each selected account never invited waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.', 'wpcredits-program-manager' )
+				: __( 'Nothing to send: the invitation of each selected account invited before waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.', 'wpcredits-program-manager' );
 		}
 
 		// The sentence after it says who was left out, and why.

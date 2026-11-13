@@ -815,7 +815,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'refused'            => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 			'posting-on'         => array( 'success', __( 'Posting is on for this sponsor: its accounts can write posts and submit them for review.', 'wpcredits-program-manager' ) ),
 			'posting-off'        => array( 'success', __( 'Posting is off for this sponsor: its accounts can no longer write posts.', 'wpcredits-program-manager' ) ),
-			'offer-seeded'       => array( 'success', __( 'The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ) ),
+			'offer-seeded'       => array( 'success', __( 'The first offer was created in draft; the sponsor completes it and sends it for review from the Sponsor Dashboard.', 'wpcredits-program-manager' ) ),
 			'offer-seed-none'    => array( 'info', __( 'That sponsor already has an offer; nothing was seeded.', 'wpcredits-program-manager' ) ),
 			'offer-seed-failed'  => array( 'error', __( 'The offer could not be seeded: the index does not hold that sponsor.', 'wpcredits-program-manager' ) ),
 			'claim-voided'       => array( 'success', __( 'The claim was voided. The person may claim again; the code stays void for the count.', 'wpcredits-program-manager' ) ),
@@ -2540,7 +2540,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				'actor'    => get_current_user_id(),
 				'ground'   => WPCPM_Institution_Audit::GROUND_MANAGER,
 				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
-				'message'  => __( 'The first offer was created in draft; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ),
+				'message'  => __( 'The first offer was created in draft; the sponsor completes it and sends it for review from the Sponsor Dashboard.', 'wpcredits-program-manager' ),
 				'data'     => array( 'offer' => (int) $seeded ),
 			)
 		);
@@ -3814,7 +3814,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		echo '<div class="wpcpm-card" id="wpcpm-sponsors-migration">';
 		echo '<h2>' . esc_html__( 'Moving sponsors onto the site', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Since 1.111.0 every sponsor is a record of its own on this site. The move runs by itself and tries again at most once a minute until every sponsor has moved; this box goes away when it has.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Each sponsor becomes a record of its own on this site. The move runs by itself and tries again at most once a minute until every sponsor has moved; this box goes away when it has.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( $report['runs'] < 1 ) {
 			echo '<p>' . esc_html__( 'The move has not run yet.', 'wpcredits-program-manager' ) . '</p>';
@@ -4482,7 +4482,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		printf(
 			'</ul><p class="description">%s</p></td></tr>',
-			esc_html__( 'What the company told the program from its Sponsor Dashboard, newest first: on the Offer more card while the dashboard had one, and through Talk to your program contact. Read only: it is kept on the company\'s record as it was sent.', 'wpcredits-program-manager' )
+			esc_html__( 'What the company told the program from its Sponsor Dashboard, such as through Talk to your program contact, newest first. Read only: it is kept on the company\'s record as it was sent.', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -4811,7 +4811,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		echo '<div class="wpcpm-card">';
 		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Interests', 'wpcredits-program-manager' ), esc_html( number_format_i18n( count( $entries ) ) ) );
-		echo '<p class="description">' . esc_html__( 'What sponsors said they would like to support, from the Sponsor Dashboard. Each was mailed to the assigned Administrator when it was sent.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'What sponsors said they would like to support, from the Sponsor Dashboard. Each was mailed when it was sent to the sponsor\'s assigned Administrator, else to Who is mailed in Settings, else to every Administrator.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $entries ) ) {
 			echo '<p>' . esc_html__( 'Nothing yet.', 'wpcredits-program-manager' ) . '</p></div>';

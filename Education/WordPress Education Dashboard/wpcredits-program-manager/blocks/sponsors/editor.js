@@ -79,7 +79,7 @@
 								components.Placeholder,
 								{ label: __( 'Sponsors', 'wpcredits-program-manager' ) },
 								__(
-									'The sponsors list shows here once Sponsor tiers is switched on in Settings and there is a sponsor to show.',
+									'The sponsors list shows here once there is a sponsor to show and, for anyone but an Administrator, once Sponsor tiers is switched on in Settings.',
 									'wpcredits-program-manager'
 								)
 							);

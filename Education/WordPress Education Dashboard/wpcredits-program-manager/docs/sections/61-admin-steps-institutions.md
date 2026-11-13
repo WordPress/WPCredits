@@ -43,6 +43,7 @@
 
 - The site does not check that a call took place. Talking first is the program's rule.
 - **Approve** is refused until the applicant has confirmed the address. See [[The application's address is not confirmed]].
+- **Approve** is also refused when the applicant's address already has an account on the site: "Nothing was created. An account on this site already holds that address." Look at that account first.
 - The Airtable record that **Approve** creates cannot be removed from the site.
 
 ### The application's address is not confirmed
@@ -189,6 +190,7 @@
 
 - Revoking does not change Current Stage in Airtable. If the partnership has ended, change the stage there.
 - **Reinstate** is refused when an accepted agreement already stands for the school. It works only on the school's most recently revoked agreement.
+- The **Collaboration Agreements** card, and so **Reinstate**, shows only while a signed agreement waits for review. At other times no screen offers **Reinstate**.
 
 ### Assign a school to another Administrator, or to nobody
 
@@ -266,7 +268,7 @@
 
 **Good to know**
 
-- Other ways in: a school's name on the **Pipeline** tab, **Find an institution** with **Open its page** on the same tab, or a school's name on an Administrator Dashboard card.
+- Other ways in: a school's name on the **Pipeline** tab, **Find an institution** with **Open its page** on the same tab, or a school's name on an Administrator Dashboard card. On the **Institution applications** card, a name opens the application on the Institutions screen instead.
 
 ### Correct a school's details yourself, and set the tracks it offers
 
@@ -314,7 +316,7 @@
 
 ### Enroll students for a school
 
-*When:* a school sends you its students. **Let an institution send a list of students to enroll** must be on in `Settings > Institutions`. It is off unless changed.
+*When:* a school sends you its students. **Enrollment lists from institutions** ("Let an institution send a list of students to enroll") must be on in `Settings > Institutions`. It is off unless changed.
 
 1. Open the school's Institution Dashboard and find **Enroll students**.
 2. Choose the **Program** and the **Start date**, and the end date if you know it.
@@ -360,7 +362,7 @@
 
 ### Find an application or agreement past the fifty the dashboard lists
 
-*When:* the **Institution applications** card says "N more are waiting; they are listed here as these are decided."
+*When:* the **Institution applications** card says "N more are waiting; they are listed here as these are decided." The steps are for applications: agreements have no such line.
 
 1. Decide the oldest applications. The next ones move onto the card as you do.
 2. To decide a newer one now, open the link in the email about it. It opens the application on the Institutions screen.
@@ -374,4 +376,4 @@
 **Good to know**
 
 - The **Waiting for review** tab also lists only the 50 oldest items.
-- **Awaiting review** on the **Collaboration Agreements** card lists up to 200 agreements. Its folds of returned and revoked agreements list 50 each.
+- **Awaiting review** on the **Collaboration Agreements** card lists up to 200 agreements, and the **Requests from institutions** card up to 200 requests. Neither says when more wait. The folds of returned and revoked agreements list 50 each.

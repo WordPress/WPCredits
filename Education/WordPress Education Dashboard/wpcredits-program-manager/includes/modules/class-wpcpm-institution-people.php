@@ -423,8 +423,8 @@ class WPCPM_Institution_People {
 			return sprintf(
 				/* translators: 1: institution name, 2: number of other members. */
 				_n(
-					'Leave %1$s on this site? You will lose access to its students, the other %2$s member will be emailed, and your account is kept.',
-					'Leave %1$s on this site? You will lose access to its students, the other %2$s members will be emailed, and your account is kept.',
+					'Leave %1$s on this site? You will lose access to its students, the other %2$s member keeps access, and your account is kept.',
+					'Leave %1$s on this site? You will lose access to its students, the other %2$s members keep access, and your account is kept.',
 					(int) $others,
 					'wpcredits-program-manager'
 				),
@@ -436,7 +436,7 @@ class WPCPM_Institution_People {
 		if ( 0 === (int) $others ) {
 			return sprintf(
 				/* translators: 1: member name, 2: institution name. */
-				__( 'Remove %1$s\'s access to %2$s\'s students on this site? They will be emailed that their access was removed, nobody will be left who can act for the institution, the Administrators will be told, and the account is kept.', 'wpcredits-program-manager' ),
+				__( 'Remove %1$s\'s access to %2$s\'s students on this site? Nobody will be left who can act for the institution, the Administrators will be told, and the account is kept.', 'wpcredits-program-manager' ),
 				$who,
 				$name
 			) . $note;
@@ -445,8 +445,8 @@ class WPCPM_Institution_People {
 		return sprintf(
 			/* translators: 1: member name, 2: institution name, 3: number of other members. */
 			_n(
-				'Remove %1$s\'s access to %2$s\'s students on this site? They will be emailed that their access was removed, and so will the other %3$s member. The account is kept.',
-				'Remove %1$s\'s access to %2$s\'s students on this site? They will be emailed that their access was removed, and so will the other %3$s members. The account is kept.',
+				'Remove %1$s\'s access to %2$s\'s students on this site? The other %3$s member keeps access, and the account is kept.',
+				'Remove %1$s\'s access to %2$s\'s students on this site? The other %3$s members keep access, and the account is kept.',
 				(int) $others,
 				'wpcredits-program-manager'
 			),

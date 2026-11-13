@@ -1394,7 +1394,7 @@ echo "\n=== House rules ===\n";
 $offer_guides = (string) file_get_contents( __DIR__ . '/../docs/sections/42-sponsor-offers.md' ) . (string) file_get_contents( __DIR__ . '/../docs/sections/34-admin-operations.md' ) . (string) file_get_contents( __DIR__ . '/../docs/sections/31-admin-settings.md' );
 ck( 'the guides say offers are separate from the tiers and name no cap on live offers by tier', array(
 	false !== strpos( $offer_guides, 'Above it, a line says "Offers are separate from the tiers: your company may have any number of live offers, whatever its tier." As the Partners page says, partners at any level may offer free access to their products.' ),
-	false !== strpos( $offer_guides, 'since 1.123.18 no tier caps live offers' ),
+	false !== strpos( $offer_guides, 'no tier caps live offers' ),
 	preg_match_all( '/one live offer at a time|includes no live offers?|live offers? (?:your|its) tier includes|caps a tier puts on live offers|one at a time for a Supporter/i', $offer_guides ),
 ), array( true, true, 0 ) );
 foreach ( array( 'class-wpcpm-sponsor-codes.php', 'class-wpcpm-sponsor-offers.php' ) as $file ) {

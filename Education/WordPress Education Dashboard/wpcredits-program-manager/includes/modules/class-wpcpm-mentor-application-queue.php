@@ -1172,7 +1172,7 @@ final class WPCPM_Mentor_Application_Queue {
 			'mapp-activated-admin-refused'  => array( 'warning', $admin . ' ' . $refused ),
 			'mapp-already'                  => array( 'warning', __( 'That application was made a mentor already. Nothing was changed.', 'wpcredits-program-manager' ) ),
 			'mapp-already-mentor'           => array( 'success', __( 'That applicant is a mentor on this site already: the application is filed under Activated with a note, and nothing was sent or written to Airtable.', 'wpcredits-program-manager' ) ),
-			'mapp-off'                      => array( 'error', __( 'Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings. It is switched on at the launch.', 'wpcredits-program-manager' ) ),
+			'mapp-off'                      => array( 'error', __( 'Nothing was done: Make mentors from applications is off, under Mentor applications on the Students and mentors tab of Settings.', 'wpcredits-program-manager' ) ),
 			'mapp-busy'                     => array( 'warning', __( 'Another request is making that applicant a mentor at this moment. Reload the page in a minute to see where it got to.', 'wpcredits-program-manager' ) ),
 			'mapp-no-account'               => array( 'error', __( 'The account could not be made, so the application waits under Selected (course pending), with the reason on it.', 'wpcredits-program-manager' ) ),
 			'mapp-airtable-written'         => array( 'success', __( 'The Airtable row is written, and the mentor\'s account holds its record.', 'wpcredits-program-manager' ) ),
@@ -1631,11 +1631,11 @@ final class WPCPM_Mentor_Application_Queue {
 		$problem = WPCPM_Mentor_Application::problem_of( $post );
 
 		if ( ! WPCPM_Mentor_Activation::enabled() ) {
-			printf( '<p class="wpcpm-mapp-waits">%s</p>', esc_html__( 'Making mentors from applications is off until the launch: this applicant waits.', 'wpcredits-program-manager' ) );
+			printf( '<p class="wpcpm-mapp-waits">%s</p>', esc_html__( 'Make mentors from applications is off in Settings: this applicant waits.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( array() === $check ) {
-			$line = __( 'Not checked yet: the daily check reads the profile next.', 'wpcredits-program-manager' );
+			$line = __( 'Not checked yet: the Mentor Status Checker reads the profile on its next run.', 'wpcredits-program-manager' );
 		} elseif ( 'completed' === $check['state'] ) {
 			/* translators: %s: the day the profile was last checked. */
 			$line = sprintf( __( 'Checked on %s: the course shows on the profile.', 'wpcredits-program-manager' ), wp_date( $format, $check['at'] ) );
@@ -1837,13 +1837,13 @@ final class WPCPM_Mentor_Application_Queue {
 				break;
 
 			case 'reactivated':
-				/* translators: %s: the day the mentor's own Mentors row was set back to Active. */
-				$line = sprintf( __( 'The mentor\'s own Airtable row was set back to Active on %s.', 'wpcredits-program-manager' ), $day );
+				/* translators: %s: the day the mentor's own Mentors row was given the Mentor status to sync. */
+				$line = sprintf( __( 'The mentor\'s own Airtable row was given the Mentor status to sync on %s.', 'wpcredits-program-manager' ), $day );
 				break;
 
 			case 'adopted':
-				/* translators: %s: the day the Mentors row that held the address was set back to Active and linked. */
-				$line = sprintf( __( 'The Mentors row that held this address was set back to Active and linked on %s.', 'wpcredits-program-manager' ), $day );
+				/* translators: %s: the day the Mentors row that held the address was given the Mentor status to sync and linked. */
+				$line = sprintf( __( 'The Mentors row that held this address was given the Mentor status to sync and linked on %s.', 'wpcredits-program-manager' ), $day );
 				break;
 
 			case 'found':

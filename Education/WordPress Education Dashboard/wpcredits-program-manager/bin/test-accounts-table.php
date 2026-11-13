@@ -2535,12 +2535,12 @@ ck( 'an invitation an activation held is said to wait for an Administrator to co
 		worded( array( 'resend' => true, 'recent' => 2, 'held' => 3, 'queued' => 1 ) ),
 	),
 	array(
-		'Nothing to send: the invitation of each selected account never invited waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
-		'Nothing to send: the invitation of each selected account invited before waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
-		'1 invitation queued. It goes out in the background - the progress is shown below. 1 selected account was left out: its invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
-		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 2 selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
-		'Nothing to send. 2 selected accounts were left out: 1 that was sent an invitation less than 15 minutes ago, whose link another one now would cancel, and 1 whose invitation waits for an Administrator to confirm the account on the Mentors screen, where its own row sends it.',
-		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 5 selected accounts were left out: 2 that were each sent an invitation less than 15 minutes ago, whose links another one now would cancel, and 3 whose invitations wait for an Administrator to confirm each account on the Mentors screen, where each account\'s own row sends it.',
+		'Nothing to send: the invitation of each selected account never invited waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.',
+		'Nothing to send: the invitation of each selected account invited before waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.',
+		'1 invitation queued. It goes out in the background - the progress is shown below. 1 selected account was left out: its invitation waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.',
+		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 2 selected accounts were left out: each one\'s invitation waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.',
+		'Nothing to send. 2 selected accounts were left out: 1 that was sent an invitation less than 15 minutes ago, whose link another one now would cancel, and 1 whose invitation waits for an Administrator to confirm the account is the person\'s, and then its own row sends it.',
+		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 5 selected accounts were left out: 2 that were each sent an invitation less than 15 minutes ago, whose links another one now would cancel, and 3 whose invitations wait for an Administrator to confirm each account is the person\'s, and then each account\'s own row sends it.',
 	) );
 
 // Each module's code with its comments left out, as above, and the method that prints a press on

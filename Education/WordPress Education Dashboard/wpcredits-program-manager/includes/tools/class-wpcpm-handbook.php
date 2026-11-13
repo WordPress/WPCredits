@@ -68,7 +68,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Answers questions from the WordPress documentation, for logged-in mentors and Administrators. The AI provider does the searching; nothing is stored on this site.', 'wpcredits-program-manager' );
+		return __( 'Answers questions from the WordPress documentation, for the logged-in people its Who can ask setting names. The AI provider does the searching; nothing is stored on this site.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -280,7 +280,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		// the people holding the program's capability, whatever role gives it to them.
 		$audiences = array(
 			'mentor'  => __( 'Mentors and administrators', 'wpcredits-program-manager' ),
-			'program' => __( 'Students and institutions as well', 'wpcredits-program-manager' ),
+			'program' => __( 'Students, institutions and sponsors as well', 'wpcredits-program-manager' ),
 			'any'     => __( 'Anybody logged in to this site', 'wpcredits-program-manager' ),
 			'manage'  => __( 'Administrators only', 'wpcredits-program-manager' ),
 		);
@@ -312,9 +312,9 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			'<tr><th scope="row"><label for="wpcpm-handbook-limit">%1$s</label></th><td><input type="number" id="wpcpm-handbook-limit" name="handbook_limit" value="%2$d" min="0" max="200" step="1" class="small-text"><p class="description">%3$s</p>',
 			esc_html( $limit ),
 			(int) $settings['handbook_limit'],
-			esc_html__( 'How many questions one person may have answered in an hour, so a free tier cannot be spent in an afternoon; 0 removes the limit.', 'wpcredits-program-manager' )
+			esc_html__( 'How many questions one person may have answered in an hour, so a free tier cannot be spent in an afternoon; 0 removes this limit.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $limit, __( 'Past the limit they are asked to come back shortly.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $limit, __( 'Past the limit they are asked to come back shortly. Whatever this says, the site answers at most 300 questions a day.', 'wpcredits-program-manager' ) );
 	}
 
 	/**

@@ -2964,7 +2964,7 @@ final class WPCPM_Administrators_Cards {
 
 		printf(
 			'<p class="wpcpm-administrator__quiet">%s</p>',
-			esc_html__( 'Students on a track who have not signed in, visited, had a call or saved their report. Pressing We\'ve already talked records that somebody has been in touch.', 'wpcredits-program-manager' )
+			esc_html__( 'Students on a track who have not signed in, visited, had a call or group session, or saved or edited their report. Pressing We\'ve already talked records that somebody has been in touch.', 'wpcredits-program-manager' )
 		);
 
 		// Own students, then the other program managers by name, then nobody's.

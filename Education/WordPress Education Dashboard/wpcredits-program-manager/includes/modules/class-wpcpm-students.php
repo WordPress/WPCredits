@@ -610,7 +610,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			// WordPress's own script leaves it inside the panel.
 			printf(
 				'<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="%s" hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>',
-				esc_attr__( 'Reload this page to choose Run anyway or Cancel.', 'wpcredits-program-manager' )
+				esc_attr__( 'Reload this page to choose Run anyway.', 'wpcredits-program-manager' )
 			);
 
 			echo '<noscript><meta http-equiv="refresh" content="15" /></noscript>';

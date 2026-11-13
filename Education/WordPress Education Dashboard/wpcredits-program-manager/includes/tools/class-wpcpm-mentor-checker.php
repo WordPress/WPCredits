@@ -957,7 +957,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				<tbody id="wpcpm-checker-results-body">
 					<?php if ( empty( $rows ) ) : ?>
 						<tr class="wpcpm-checker-empty-row">
-							<td colspan="5"><?php esc_html_e( 'No results yet. Run a check to see where each vetted mentor stands.', 'wpcredits-program-manager' ); ?></td>
+							<td colspan="5"><?php esc_html_e( 'No results yet. Run a check to see where each vetted mentor and each selected application stands.', 'wpcredits-program-manager' ); ?></td>
 						</tr>
 					<?php else : ?>
 						<?php foreach ( $rows as $row ) : ?>

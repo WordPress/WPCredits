@@ -132,13 +132,13 @@ final class WPCPM_Mail_Catalog {
 			'test-sponsor'                       => array( __( 'Sample invitation: sponsor', 'wpcredits-program-manager' ), $i, self::TYPE_ADMIN, true ),
 			// Mentor calls. Until 1.122.21 these five named every email of the area, to the mentor and to
 			// the students alike, about a call and a session alike; they stay so the Log names the rows
-			// they left, which it keeps for 30 days, and nothing sends them now. Their labels say so,
+			// they left, which it keeps for 30 days, and nothing sends them now. Their labels say so, "(no longer sent)",
 			// since the Log's Email field lists them beside the new names.
-			'call-booked'                        => array( __( 'Call booked (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
-			'series-joined'                      => array( __( 'Joined a session series (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
-			'session-moved'                      => array( __( 'Group session moved (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
-			'call-cancelled'                     => array( __( 'Call canceled (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
-			'call-reminder'                      => array( __( 'Call reminder (until 1.122.21)', 'wpcredits-program-manager' ), $c, '' ),
+			'call-booked'                        => array( __( 'Call booked (no longer sent)', 'wpcredits-program-manager' ), $c, '' ),
+			'series-joined'                      => array( __( 'Joined a session series (no longer sent)', 'wpcredits-program-manager' ), $c, '' ),
+			'session-moved'                      => array( __( 'Group session moved (no longer sent)', 'wpcredits-program-manager' ), $c, '' ),
+			'call-cancelled'                     => array( __( 'Call canceled (no longer sent)', 'wpcredits-program-manager' ), $c, '' ),
+			'call-reminder'                      => array( __( 'Call reminder (no longer sent)', 'wpcredits-program-manager' ), $c, '' ),
 			// Since 1.122.21, one email each, as the template registry holds them.
 			'call-booked-mentor'                 => array( __( 'Call booked, to the mentor', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),
 			'call-booked-mentor-no-link'         => array( __( 'Call booked, to a mentor with no meeting link', 'wpcredits-program-manager' ), $c, self::TYPE_MENTOR ),

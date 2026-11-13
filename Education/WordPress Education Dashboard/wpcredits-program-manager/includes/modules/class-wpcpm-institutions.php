@@ -4857,7 +4857,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( $before ),
 			sprintf(
 				/* translators: 1: opening link tag to the Accounts tab, 2: closing link tag. */
-				esc_html__( 'For a Confirmed institution, give it an account on %1$sthe Accounts tab%2$s: create one for its Contact Email under No account, or add a person by name and address under Manage members. An institution at an earlier stage gets its first account when its application is approved or it reaches Confirmed.', 'wpcredits-program-manager' ),
+				esc_html__( 'For a Confirmed institution, give it an account on %1$sthe Accounts tab%2$s: create one for its Contact Email under No account, or add a person by name and address under Manage members. An institution at an earlier stage gets its first account when its application is approved, or, while Create accounts automatically is ticked, once it is Confirmed with its agreement recorded.', 'wpcredits-program-manager' ),
 				'<a href="' . esc_url( $this->tab_url( self::TAB_ACCOUNTS ) ) . '">',
 				'</a>'
 			),

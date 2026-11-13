@@ -3167,7 +3167,7 @@ ck( 'the tab drawn there, which says the run started, above the progress it poin
 	array( shown_tab( $landed ), notices_in( $landed ), has( $landed, 'data-wpcpm-progress' ) ),
 	array( 'Sync', '<div class="notice notice-success is-dismissible"><p>Sync started. Progress is shown below and updates as it runs.</p></div>', true ) );
 ck( 'and the panel holds the notice the poller prints when the count check stops the run, hidden, kept in place, with the way to Run anyway',
-	has( $landed, '<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="Reload this page to choose Run anyway or Cancel." hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>' ),
+	has( $landed, '<div class="notice notice-error inline wpcpm-progress__stopped" data-wpcpm-stopped data-hint="Reload this page to choose Run anyway." hidden><p data-wpcpm-stopped-sentence></p><p data-wpcpm-stopped-hint></p></div>' ),
 	true );
 
 manager( 211 );
