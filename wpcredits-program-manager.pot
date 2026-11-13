@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.123.89\n"
+"Project-Id-Version: WPCredits Program Manager 1.123.90\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-13T06:58:18+00:00\n"
+"POT-Creation-Date: 2026-11-13T10:13:44+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -459,7 +459,7 @@ msgstr ""
 
 #: includes/class-wpcpm-notices.php:79
 #: includes/class-wpcpm-settings-choices.php:623
-#: includes/class-wpcpm-settings-screen.php:2154
+#: includes/class-wpcpm-settings-screen.php:2167
 #: includes/mail/class-wpcpm-mail-templates.php:1112
 #: includes/modules/class-wpcpm-administrators.php:82
 #: includes/modules/class-wpcpm-mentor-engagement.php:300
@@ -505,7 +505,7 @@ msgstr ""
 msgid "%1$s of %2$s"
 msgstr ""
 
-#: includes/class-wpcpm-program.php:433
+#: includes/class-wpcpm-program.php:437
 #: includes/modules/class-wpcpm-institution-export.php:175
 #: includes/modules/class-wpcpm-institution-import-form.php:257
 #: includes/modules/class-wpcpm-institution-import-form.php:465
@@ -519,7 +519,7 @@ msgid "Details"
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1273
-#: includes/class-wpcpm-settings.php:1697
+#: includes/class-wpcpm-settings.php:1701
 #: includes/modules/class-wpcpm-mentors-dashboard.php:700
 msgid "Currently mentoring"
 msgstr ""
@@ -529,13 +529,13 @@ msgstr ""
 msgid "Past students"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:2022
+#: includes/class-wpcpm-settings-screen.php:2035
 #: includes/modules/class-wpcpm-sponsor-tools.php:420
 #: includes/modules/class-wpcpm-students-dashboard.php:420
 msgid "Tools from our sponsors"
 msgstr ""
 
-#: includes/class-wpcpm-settings-screen.php:2583
+#: includes/class-wpcpm-settings-screen.php:2596
 #: includes/modules/class-wpcpm-institution-application.php:1677
 #: includes/modules/class-wpcpm-institution-application.php:1754
 #: includes/modules/class-wpcpm-institution-details-card.php:523
@@ -660,6 +660,7 @@ msgstr ""
 #: includes/mail/templates/events.php:53
 #: includes/mail/templates/institutions.php:77
 #: includes/mail/templates/invitations.php:35
+#: includes/mail/templates/invitations.php:257
 #: includes/mail/templates/mentor-applications.php:38
 #: includes/mail/templates/reports.php:20
 #: includes/mail/templates/sponsors.php:55
@@ -1296,67 +1297,114 @@ msgstr ""
 msgid "Your students:"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:231
+#: includes/mail/templates/invitations.php:234
+msgid "When the mentors sync finds a current student assigned to a mentor who has not been emailed about them: one email per mentor per sync, listing every such student."
+msgstr ""
+
+#. translators: 1: the site's name, 2: a number of students, such as "3 students".
+#: includes/mail/templates/invitations.php:237
+#, php-format
+msgid "[%1$s] %2$s assigned to you"
+msgstr ""
+
+#. translators: %s: a number of students, such as "3 students".
+#: includes/mail/templates/invitations.php:246
+#, php-format
+msgid "%s assigned to you:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:250
+msgid "The next step is a first call. Write to each student to introduce yourself and agree a time, or wait for their message."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:251
+msgid "Their details, your notes and your calendar are on your Mentor Report Card:"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:252
+msgid "Thank you for mentoring."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:264
+msgid "How many students are on the list, as a phrase: \"1 student\" or \"3 students\". The email needs it."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:269
+msgid "The students just assigned to the mentor, one to a line: name, track, institution, start date and email address. The students' names and addresses go in the body alone, never in the subject, which the mail log keeps. The email needs it."
+msgstr ""
+
+#. translators: %s: the day a student starts, in the site's date format.
+#: includes/mail/templates/invitations.php:274
+#: includes/modules/class-wpcpm-mentor-assigned.php:366
+#, php-format
+msgid "starts %s"
+msgstr ""
+
+#: includes/mail/templates/invitations.php:282
+msgid "The mentor's Mentor Report Card. The email needs it."
+msgstr ""
+
+#: includes/mail/templates/invitations.php:291
 msgid "When an institution's member is sent the invitation to its account before the institution's Collaboration Agreement is on file."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/templates/invitations.php:234
-#: includes/mail/templates/invitations.php:250
+#: includes/mail/templates/invitations.php:294
+#: includes/mail/templates/invitations.php:310
 #, php-format
 msgid "[%s] Your institution account is ready"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:238
+#: includes/mail/templates/invitations.php:298
 msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:239
+#: includes/mail/templates/invitations.php:299
 msgid "Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program's or upload your own, sign it, and upload the signed copy. An Administrator then accepts it and the rest of the site opens."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:241
+#: includes/mail/templates/invitations.php:301
 msgid "Where the agreement is uploaded:"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:247
+#: includes/mail/templates/invitations.php:307
 msgid "When an institution's member is sent the invitation to its account once the institution's Collaboration Agreement is on file."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:254
+#: includes/mail/templates/invitations.php:314
 msgid "Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, your students and their progress all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:255
+#: includes/mail/templates/invitations.php:315
 msgid "Set your password using the link below. Your Collaboration Agreement is on file, so your account is open."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:257
+#: includes/mail/templates/invitations.php:317
 msgid "Your Institution Dashboard:"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:263
+#: includes/mail/templates/invitations.php:323
 msgid "When a sponsor's member is sent the invitation to its account, from the Sponsors screen."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/mail/templates/invitations.php:266
+#: includes/mail/templates/invitations.php:326
 #, php-format
 msgid "[%s] Your sponsor account is ready"
 msgstr ""
 
-#: includes/mail/templates/invitations.php:270
+#: includes/mail/templates/invitations.php:330
 msgid "Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there."
 msgstr ""
 
-#: includes/mail/templates/invitations.php:271
+#: includes/mail/templates/invitations.php:331
 msgid "Set your password using the link below, then check your company profile."
 msgstr ""
 
 #. translators: The line above the address of the person's dashboard. Keep the colon at the end; the site leaves this line out with the address under it.
-#: includes/mail/templates/invitations.php:273
+#: includes/mail/templates/invitations.php:333
 msgid "Your Sponsor Dashboard:"
 msgstr ""
 
@@ -2437,8 +2485,8 @@ msgid "Leaving…"
 msgstr ""
 
 #. translators: who sent a Collaboration Agreement back or revoked it, when the Administrator's account holds no name: "... by an Administrator, with this note:".
-#: includes/modules/class-wpcpm-institution-agreement.php:3873
-#: includes/modules/class-wpcpm-institution-agreement.php:3923
+#: includes/modules/class-wpcpm-institution-agreement.php:3885
+#: includes/modules/class-wpcpm-institution-agreement.php:3935
 #: includes/modules/class-wpcpm-mentor-application-queue.php:1996
 #: includes/modules/class-wpcpm-mentor-calls.php:1947
 msgid "an Administrator"
@@ -3026,6 +3074,17 @@ msgstr ""
 msgid "Choose the institution you teach at."
 msgstr ""
 
+#. translators: %s: a number of students.
+#. translators: %s: number of students attending.
+#: includes/modules/class-wpcpm-mentor-assigned.php:405
+#: includes/modules/class-wpcpm-mentor-calls.php:2098
+#: includes/modules/class-wpcpm-semester-report-screen.php:1715
+#, php-format
+msgid "%s student"
+msgid_plural "%s students"
+msgstr[0] ""
+msgstr[1] ""
+
 #: includes/modules/class-wpcpm-mentor-availability.php:597
 msgid "You cannot change that mentor's availability."
 msgstr ""
@@ -3419,16 +3478,6 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentor-calls.php:1945
 msgid "the site, because you now have another mentor"
 msgstr ""
-
-#. translators: %s: number of students attending.
-#. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-mentor-calls.php:2098
-#: includes/modules/class-wpcpm-semester-report-screen.php:1715
-#, php-format
-msgid "%s student"
-msgid_plural "%s students"
-msgstr[0] ""
-msgstr[1] ""
 
 #. translators: %s: mentor name.
 #: includes/modules/class-wpcpm-mentor-calls.php:2158
