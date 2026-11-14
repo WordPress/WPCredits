@@ -610,44 +610,51 @@ final class WPCPM_Sponsors_Dashboard {
 
 		WPCPM_Dashboard_Card::forget();
 
-		ob_start();
+		// The page names itself to the switch of the shared parts while it draws (design 3.5): off until its release.
+		WPCPM_UI::enter( 'sponsor' );
 
-		// The frame (1.123.78): the menu down the side, a view per item, and the main area as wide as the window,
-		// as the Administrator Dashboard's.
-		WPCPM_Dashboard_Frame::open( self::frame_args( $view, $record, $row, $context ) );
+		try {
+			ob_start();
 
-		printf( '<div class="wpcpm-dashboard wpcpm-sponsor wpcpm-sponsor--%s">', esc_attr( $view ) );
+			// The frame (1.123.78): the menu down the side, a view per item, and the main area as wide as the window,
+			// as the Administrator Dashboard's.
+			WPCPM_Dashboard_Frame::open( self::frame_args( $view, $record, $row, $context ) );
 
-		WPCPM_Two_Factor::prompt( $viewer );
+			printf( '<div class="wpcpm-dashboard wpcpm-sponsor wpcpm-sponsor--%1$s%2$s">', esc_attr( $view ), esc_attr( WPCPM_UI::root_class() ) );
 
-		// The heading is the block's or the shortcode's own attribute, empty by default so the
-		// page's title is not printed twice; the page title itself is title()'s business.
-		$atts = shortcode_atts( array( 'title' => '' ), is_array( $attributes ) ? $attributes : array(), self::SHORTCODE );
+			WPCPM_Two_Factor::prompt( $viewer );
 
-		if ( '' !== trim( (string) $atts['title'] ) ) {
-			printf( '<h2 class="wpcpm-dashboard__title">%s</h2>', esc_html( trim( (string) $atts['title'] ) ) );
+			// The heading is the block's or the shortcode's own attribute, empty by default so the
+			// page's title is not printed twice; the page title itself is title()'s business.
+			$atts = shortcode_atts( array( 'title' => '' ), is_array( $attributes ) ? $attributes : array(), self::SHORTCODE );
+
+			if ( '' !== trim( (string) $atts['title'] ) ) {
+				printf( '<h2 class="wpcpm-dashboard__title">%s</h2>', esc_html( trim( (string) $atts['title'] ) ) );
+			}
+
+			if ( $can_manage ) {
+				self::render_switcher( $record, $view );
+			}
+
+			// The outcome is held for the card the handler named, which prints it at the top of its body; the
+			// slot says it here only when no card did (1.123.58), such as a card on another view.
+			list( $tone, $text ) = self::message_of( $flash );
+
+			WPCPM_Dashboard_Card::hold( WPCPM_Dashboard_Card::targeted(), $tone, $text );
+			echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
+
+			if ( self::VIEW_OVERVIEW === $view ) {
+				self::render_overview( $record, $row, is_array( $stored ) ? $stored : null, $context );
+			} else {
+				self::render_view( $view, $record, $row, is_array( $stored ) ? $stored : null, $context );
+			}
+
+			echo '</div>';
+
+			WPCPM_Dashboard_Frame::close();
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		if ( $can_manage ) {
-			self::render_switcher( $record, $view );
-		}
-
-		// The outcome is held for the card the handler named, which prints it at the top of its body; the
-		// slot says it here only when no card did (1.123.58), such as a card on another view.
-		list( $tone, $text ) = self::message_of( $flash );
-
-		WPCPM_Dashboard_Card::hold( WPCPM_Dashboard_Card::targeted(), $tone, $text );
-		echo WPCPM_Dashboard_Card::SLOT; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed comment.
-
-		if ( self::VIEW_OVERVIEW === $view ) {
-			self::render_overview( $record, $row, is_array( $stored ) ? $stored : null, $context );
-		} else {
-			self::render_view( $view, $record, $row, is_array( $stored ) ? $stored : null, $context );
-		}
-
-		echo '</div>';
-
-		WPCPM_Dashboard_Frame::close();
 
 		return WPCPM_Dashboard_Card::settle( (string) ob_get_clean() );
 	}

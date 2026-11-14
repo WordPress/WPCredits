@@ -397,10 +397,12 @@ final class WPCPM_Sponsor_Event_Queue {
 	 */
 
 	/**
-	 * The card's three parts, inside the frame the Administrator Dashboard's cards draw: the first
-	 * two keep their headings, with one sentence under each when it is empty, so the card has one
-	 * shape whatever the day holds, and the third, the program's own plan, is always drawn. Nothing
-	 * while the card is not in use.
+	 * The card, inside the frame the Administrator Dashboard's cards draw, on the shared parts: the outcome of the
+	 * manager's own Join or Leave first, then the events waiting for the program's OK and the events coming up, each by
+	 * `render_item_parts()`, its group's words its status tag and no heading over a group (design 2.10, "No heading above
+	 * it"; Task 18d), in that order, one item from the next by the item's own hairline; a group with no event says so in
+	 * its sentence, the parts' muted line, so the card has one shape whatever the day holds; then the program's own plan,
+	 * always drawn (`render_program_plan_parts()`). Nothing while the card is not in use.
 	 *
 	 * @param array $data What `data()` answered.
 	 */
@@ -413,21 +415,18 @@ final class WPCPM_Sponsor_Event_Queue {
 		$upcoming = isset( $data['upcoming'] ) ? (array) $data['upcoming'] : array();
 		$zone     = WPCPM_Mentor_Availability::viewer_timezone( get_current_user_id() );
 
-		self::subtitle( __( 'Waiting for the program\'s OK', 'wpcredits-program-manager' ) );
+		// The outcome of the manager's own Join or Leave, pressed on an event coming up: the card's first line, where its
+		// own message is.
+		if ( class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
+			WPCPM_Sponsor_Event_List::render_message();
+		}
 
 		if ( array() === $waiting ) {
 			self::empty_line( __( 'Nothing is waiting for the program\'s OK.', 'wpcredits-program-manager' ) );
 		}
 
 		foreach ( $waiting as $row ) {
-			self::render_item( (array) $row, $zone, false );
-		}
-
-		self::subtitle( __( 'Coming up', 'wpcredits-program-manager' ) );
-
-		// The outcome of the manager's own Join or Leave, pressed on an event under this heading.
-		if ( class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
-			WPCPM_Sponsor_Event_List::render_message();
+			self::render_item_parts( (array) $row, $zone, false );
 		}
 
 		if ( array() === $upcoming ) {
@@ -435,91 +434,471 @@ final class WPCPM_Sponsor_Event_Queue {
 		}
 
 		foreach ( $upcoming as $row ) {
-			self::render_item( (array) $row, $zone, true );
+			self::render_item_parts( (array) $row, $zone, true );
 		}
 
-		self::render_program_plan( $zone );
+		self::render_program_plan_parts( $zone );
 	}
 
 	/**
-	 * One event, under its own id: its title and its sponsor, or the program for an event of its own;
-	 * when it runs on the manager's clock with the zone named, and its length (`time_fact()`); its
-	 * places, approved, how many joined, and, for a sponsor that no longer offers events, that it is
-	 * no longer offered; its description, folded when it is long; its call link; approved, who
-	 * joined; then its decisions, where such a sponsor's waiting event has no Approve and an approved
-	 * one carries the manager's own Join or Leave before its Cancel. An event of the program's own
-	 * carries the Join or Leave, then Change the event and Cancel the event in place of Cancel with a
-	 * note: there is no sponsor to write to.
+	 * One event on the shared parts (design 2.10, 2.3, 2.6, 4.1): its
+	 * article and anchor as today; the item header, its title (not a link, as today), its group's words as its neutral
+	 * status tag ("Waiting for the program's OK" or "Coming up", the headings the card no longer prints; Task 18d), then
+	 * its sponsor, when it runs, its places, how many joined once approved, today's mark "You are on it." for a manager
+	 * on it, "No longer offered" for a sponsor that no longer offers events, and the call link last, as muted facts (a
+	 * link that decides nothing joins the facts); its description, folded as an inner fold when it is long; on an
+	 * approved event who joined, an inner fold; then one Decide area holding today's decisions and, on an approved
+	 * event, the manager's own Join or Leave (`render_decide_area()`, `WPCPM_Sponsor_Event_List::decision_parts()`).
 	 *
 	 * @param array        $row      A row of `data()`.
 	 * @param DateTimeZone $zone     The viewing manager's clock.
 	 * @param bool         $approved Whether the event is approved, under Coming up.
 	 */
-	private static function render_item( array $row, DateTimeZone $zone, $approved ) {
-		$id      = (int) $row['id'];
-		$title   = (string) $row['title'];
-		$link    = (string) $row['link'];
-		$offered = (bool) $row['offered'];
-
-		// The id the Sponsors screen's queue tab links to, as the sponsor posts' items carry theirs.
-		printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-event" id="wpcpm-sponsor-event-%d">', (int) $id );
-		printf(
-			'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
-			esc_html( $title ),
-			esc_html( (string) $row['sponsor_name'] )
-		);
-
-		echo '<p class="wpcpm-administrator__facts">';
-		self::fact( self::time_fact( $row, $zone ) );
-		self::fact( self::places( (int) $row['places'] ) );
+	private static function render_item_parts( array $row, DateTimeZone $zone, $approved ) {
+		$id    = (int) $row['id'];
+		$link  = (string) $row['link'];
+		$facts = array( (string) $row['sponsor_name'], self::time_fact( $row, $zone ), self::places( (int) $row['places'] ) );
+		$mine  = self::own_press( $id, $approved );
 
 		if ( $approved ) {
-			self::fact( self::joined( (int) $row['joined'] ) );
+			$facts[] = self::joined( (int) $row['joined'] );
 		}
 
-		// Said on the card, so a manager knows why a waiting event has no Approve, and that nobody can
-		// join an approved one now.
-		if ( ! $offered ) {
-			self::fact( __( 'No longer offered', 'wpcredits-program-manager' ) );
+		// Today's mark that the manager is on the event, a fact, not a line of its own over the row (Task 18d).
+		if ( $mine['joined'] ) {
+			$facts[] = __( 'You are on it.', 'wpcredits-program-manager' );
 		}
 
-		echo '</p>';
+		if ( ! (bool) $row['offered'] ) {
+			$facts[] = __( 'No longer offered', 'wpcredits-program-manager' );
+		}
 
-		self::render_description( (string) $row['description'] );
-
-		// The link is the program's to vet before it approves, and a manager may join the call.
+		// A link that decides nothing joins the facts (design 2.6), in today's words.
 		if ( '' !== $link ) {
-			printf(
-				'<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">%1$s <a href="%2$s" target="_blank" rel="noopener noreferrer">%3$s</a></span></p>',
-				esc_html__( 'Call link:', 'wpcredits-program-manager' ),
-				esc_url( $link ),
-				esc_html( $link )
+			$facts[] = array(
+				'html' => sprintf(
+					'%1$s <a href="%2$s" target="_blank" rel="noopener noreferrer">%3$s</a>',
+					esc_html__( 'Call link:', 'wpcredits-program-manager' ),
+					esc_url( $link ),
+					esc_html( $link )
+				),
 			);
 		}
 
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => (string) $row['title'],
+				// The group the card no longer heads, as the event's state (design 2.10), neutral.
+				'tag'   => array(
+					'words' => $approved ? __( 'Coming up', 'wpcredits-program-manager' ) : __( 'Waiting for the program\'s OK', 'wpcredits-program-manager' ),
+					'tone'  => '',
+				),
+				'facts' => $facts,
+			)
+		);
+
+		echo WPCPM_UI::item_open( 'wpcpm-sponsor-event', 'wpcpm-sponsor-event-' . (int) $id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); the one html fact above escapes its words and its link.
+
+		self::render_description_parts( (string) $row['description'] );
+
 		if ( $approved ) {
-			self::render_people( (array) $row['people'] );
+			self::render_people_parts( (array) $row['people'] );
 		}
 
-		echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide">';
+		self::render_decide_area( $row, $zone, $approved, $mine['decision'] );
+		echo '</article>';
+	}
+
+	/**
+	 * An event's description on the shared parts: whole when it is short, as today; folded under "Read the description"
+	 * as an inner fold (design 2.3) when it is long. Escaped.
+	 *
+	 * @param string $text The description.
+	 */
+	private static function render_description_parts( $text ) {
+		if ( '' === trim( $text ) ) {
+			return;
+		}
+
+		if ( mb_strlen( $text ) <= self::DESCRIPTION_SHOWN ) {
+			echo WPCPM_UI::note( $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
+
+			return;
+		}
+
+		echo WPCPM_UI::inner_open( array( 'title' => __( 'Read the description', 'wpcredits-program-manager' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
+		echo WPCPM_UI::note( $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
+		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup of its own.
+	}
+
+	/**
+	 * Who joined an approved event on the shared parts: folded under "Who joined" as an inner fold (design 2.3), one
+	 * list row per person, the name alone, in today's order (design 2.8). Nothing when nobody has.
+	 *
+	 * @param string[] $names The names, in the order to draw them.
+	 */
+	private static function render_people_parts( array $names ) {
+		if ( array() === $names ) {
+			return;
+		}
+
+		echo WPCPM_UI::inner_open( array( 'title' => __( 'Who joined', 'wpcredits-program-manager' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
+		// One list row per person, the name alone (Task 17b, ruling 2), in the layout of a list with no tag (Task 18c).
+		echo WPCPM_UI::list_open( array( 'facts' => 'under' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+
+		foreach ( $names as $name ) {
+			echo WPCPM_UI::row( array( 'name' => (string) $name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row().
+		}
+
+		echo WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup of its own.
+	}
+
+	/**
+	 * An event's decisions as one Decide area (`WPCPM_UI::decide()`, design 2.6), id `wpcpm-decide-event-{ID}`, in
+	 * today's words. Waiting: Approve, the one primary, at once (none for a sponsor that no longer offers events, as
+	 * today), and Return with a note, a secondary opener of its panel. Approved, a sponsor's: Cancel with a note, red, an
+	 * opener, its panel's button asking today's question. Approved, the program's own: Change the event, a secondary
+	 * opener of a panel holding today's sentence and the planner's form, and Cancel the event, red, an opener of a panel
+	 * holding today's sentence and the button asking today's question. On an approved event the manager's own Join joins
+	 * the row after the other secondary decisions, and Leave before the other red ones, each at once with its own form
+	 * (Task 18d). Each note's panel: today's label for the box made
+	 * visible, today's sentence as its hint, the box's name, id and bound as today. Every opener and every press at once
+	 * names its event to a screen reader, as today's buttons did; a panel that cancels the event is dismissed with "Keep
+	 * the event".
+	 *
+	 * Every form posts what today's posts: the same address, guard and busy words, the same hidden fields under the same
+	 * nonce actions, the nonce printed with no id (`WPCPM_UI::nonce()`), since the card holds one per event. A panel is
+	 * printed open when the last press left typing for its form; a note's box is tied to the refusal only when the
+	 * outcome is one of its own refusals and its form is the one the last refusal kept (`note_state()`).
+	 *
+	 * @param array        $row      A row of `data()`.
+	 * @param DateTimeZone $zone     The viewing manager's clock.
+	 * @param bool         $approved Whether the event is approved, under Coming up.
+	 * @param array|null   $mine     The manager's own Join or Leave as a decision, or null for none.
+	 */
+	private static function render_decide_area( array $row, DateTimeZone $zone, $approved, $mine = null ) {
+		$id     = (int) $row['id'];
+		$form   = static function ( $busy ) {
+			// No class: the parts dress the decision, and the planner's rows are the field part (Task 13e).
+			return array(
+				'method'          => 'post',
+				'action'          => admin_url( 'admin-post.php' ),
+				'data-wpcpm-once' => true,
+				'data-wpcpm-busy' => $busy,
+			);
+		};
+		$hidden = static function ( $action ) use ( $id ) {
+			return static function () use ( $action, $id ) {
+				self::print_hidden( $action, $id );
+			};
+		};
+		$asks   = __( 'Cancel this event for everyone? This cannot be undone.', 'wpcredits-program-manager' );
+		// What dismisses a panel that cancels the event, so it does not read "Cancel" beside a cancel.
+		$keep = __( 'Keep the event', 'wpcredits-program-manager' );
+
+		$decisions = array();
 
 		if ( $approved && ! empty( $row['program'] ) ) {
-			self::render_join( $id );
-			self::render_program_change( $row, $zone );
-			self::render_program_cancel( $id, $title );
-		} elseif ( $approved ) {
-			self::render_join( $id );
-			self::render_cancel( $id, $title );
-		} else {
-			// The store refuses the approval of an event its sponsor no longer offers, so none is drawn.
-			if ( $offered ) {
-				self::render_approve( $id, $title );
+			$change = self::program_change_parts( $row, $zone );
+
+			if ( null !== $change ) {
+				$decisions[] = array(
+					'key'           => 'change',
+					'label'         => __( 'Change the event', 'wpcredits-program-manager' ),
+					'kind'          => 'secondary',
+					'form_attrs'    => $form( __( 'Saving', 'wpcredits-program-manager' ) ),
+					'hidden'        => $hidden( self::ACTION_PROGRAM_CHANGE ),
+					'fields'        => $change['fields'],
+					'confirm_label' => __( 'Save the changes', 'wpcredits-program-manager' ),
+					'open'          => $change['open'],
+				);
 			}
 
-			self::render_return( $id, $title, $offered );
+			// An opener of its own panel, not a press at once: the cancel cannot be taken back and tells everyone who
+			// joined, which the browser's question alone does not say (controller's ruling, Task 13c fix round 1).
+			$decisions[] = array(
+				'key'          => 'cancel',
+				'label'        => __( 'Cancel the event', 'wpcredits-program-manager' ),
+				'kind'         => 'danger',
+				'form_attrs'   => $form( __( 'Canceling', 'wpcredits-program-manager' ) ),
+				'hidden'       => $hidden( self::ACTION_PROGRAM_CANCEL ),
+				'fields'       => WPCPM_UI::intro( __( 'The event is canceled for everyone, and everyone who joined is told, with the calendar file that takes it off their calendar.', 'wpcredits-program-manager' ) ),
+				'confirm'      => $asks,
+				'cancel_label' => $keep,
+			);
+		} elseif ( $approved ) {
+			$note        = self::note_state( 'cancel', $id );
+			$decisions[] = array(
+				'key'           => 'cancel',
+				'label'         => __( 'Cancel with a note', 'wpcredits-program-manager' ),
+				'kind'          => 'danger',
+				'form_attrs'    => $form( __( 'Canceling', 'wpcredits-program-manager' ) ),
+				'hidden'        => $hidden( self::ACTION_CANCEL ),
+				'fields'        => self::note_field( 'cancel', $id, __( 'The event is canceled for everyone: your note is emailed to the sponsor\'s members, and everyone who joined is told.', 'wpcredits-program-manager' ), __( 'Why the event is canceled', 'wpcredits-program-manager' ), $note ),
+				'confirm_label' => __( 'Cancel with this note', 'wpcredits-program-manager' ),
+				'confirm'       => $asks,
+				'cancel_label'  => $keep,
+				'open'          => null !== $note['kept'],
+			);
+		} else {
+			// The store refuses the approval of an event its sponsor no longer offers, so none is drawn.
+			if ( (bool) $row['offered'] ) {
+				$decisions[] = array(
+					'key'        => 'approve',
+					'label'      => __( 'Approve', 'wpcredits-program-manager' ),
+					'kind'       => 'primary',
+					'form_attrs' => $form( __( 'Approving', 'wpcredits-program-manager' ) ),
+					'hidden'     => $hidden( self::ACTION_APPROVE ),
+					'fields'     => '',
+				);
+			}
+
+			$note        = self::note_state( 'return', $id );
+			$decisions[] = array(
+				'key'           => 'return',
+				'label'         => __( 'Return with a note', 'wpcredits-program-manager' ),
+				'kind'          => 'secondary',
+				'form_attrs'    => $form( __( 'Returning', 'wpcredits-program-manager' ) ),
+				'hidden'        => $hidden( self::ACTION_RETURN ),
+				'fields'        => self::note_field(
+					'return',
+					$id,
+					(bool) $row['offered']
+						? __( 'The event is canceled and goes back to the sponsor, and your note is emailed to the sponsor\'s members, who can plan again.', 'wpcredits-program-manager' )
+						: __( 'The event is canceled, and your note is emailed to the sponsor\'s members. The sponsor no longer holds the tier that includes events.', 'wpcredits-program-manager' ),
+					__( 'What should change before it can be approved', 'wpcredits-program-manager' ),
+					$note
+				),
+				'confirm_label' => __( 'Return it with this note', 'wpcredits-program-manager' ),
+				'open'          => null !== $note['kept'],
+			);
 		}
 
-		echo '</div></article>';
+		// The manager's own press: Join after the other secondary decisions (the row keeps kinds in the order given), Leave
+		// before the other red ones.
+		if ( is_array( $mine ) ) {
+			$decisions = 'danger' === ( $mine['kind'] ?? '' ) ? array_merge( array( $mine ), $decisions ) : array_merge( $decisions, array( $mine ) );
+		}
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-event-' . $id,
+				'level'     => 'h5',
+				// Each opener and each press at once names its event to a screen reader, as today's buttons did.
+				'context'   => (string) $row['title'],
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => $decisions,
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in print_hidden().
+	}
+
+	/**
+	 * What a note's box holds on the shared parts, and whether it is tied to a refusal. The note a refused return or
+	 * cancel kept for this event's form (`refuse_note()`), or null; and the refusal sentence, read from the outcome the
+	 * press left on the Administrator Dashboard's channel, which the card's message reads too (`WPCPM_Flash::take()`
+	 * memoizes, so it is the sentence the card prints). The outcome names no event, a note too long is refused in the
+	 * same words for a return and a cancel, and another event's box may hold typing an earlier press kept: the refusal is
+	 * this box's only when it is one of this form's own and this form is the last one kept
+	 * (`WPCPM_Typed_Text::is_last()`). Then the card's message leads to the box.
+	 *
+	 * @param string $kind `return` or `cancel`.
+	 * @param int    $id   The event.
+	 * @return array{kept: string|null, problem: string}
+	 */
+	private static function note_state( $kind, $id ) {
+		$typed   = WPCPM_Typed_Text::box_form( 'cancel' === $kind ? self::TYPED_CANCEL : self::TYPED_RETURN, $id );
+		$kept    = WPCPM_Typed_Text::kept_box( $typed, 'note' );
+		$problem = '';
+
+		if ( null !== $kept && class_exists( 'WPCPM_Institutions' ) ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$messages = self::messages();
+			$own      = array( 'sevent-note-long', 'cancel' === $kind ? 'sevent-cancel-note-loss' : 'sevent-return-note-loss' );
+
+			if ( in_array( $status, $own, true ) && isset( $messages[ $status ][1] ) && WPCPM_Typed_Text::is_last( $typed ) ) {
+				$problem = (string) $messages[ $status ][1];
+			}
+		}
+
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( 'wpcpm-sevent-' . $kind . '-' . (int) $id );
+		}
+
+		return array(
+			'kept'    => $kept,
+			'problem' => $problem,
+		);
+	}
+
+	/**
+	 * A note's box on the shared parts (`WPCPM_UI::field()`): today's label for it made visible, Required, today's
+	 * sentence as the hint, and its id, name, rows, bound and placeholder as today; holding what a refusal kept, tied to
+	 * the refusal when it is this box's.
+	 *
+	 * @param string $kind        `return` or `cancel`, for the box's id.
+	 * @param int    $id          The event.
+	 * @param string $hint        What the press does, and who is told.
+	 * @param string $placeholder What the note is for.
+	 * @param array  $note        What `note_state()` answered.
+	 * @return string Escaped markup.
+	 */
+	private static function note_field( $kind, $id, $hint, $placeholder, array $note ) {
+		return WPCPM_UI::field(
+			array(
+				'id'      => 'wpcpm-sevent-' . $kind . '-' . (int) $id,
+				'name'    => self::FIELD_NOTE,
+				'label'   => self::note_label(),
+				'hint'    => $hint,
+				'need'    => 'required',
+				'type'    => 'textarea',
+				'rows'    => 2,
+				'value'   => null === $note['kept'] ? '' : (string) $note['kept'],
+				'attrs'   => array(
+					'maxlength'   => (int) WPCPM_Sponsor_Event::MAX_NOTE,
+					'placeholder' => $placeholder,
+				),
+				'problem' => (string) $note['problem'],
+			)
+		);
+	}
+
+	/**
+	 * The program's Change the event on the shared parts: the panel's content, today's sentence as the line over the
+	 * form and the planner's rows, filled with the event as it stands or with the typing a refusal kept, and whether a refusal of this change
+	 * brought typing back. Null when the planner is not loaded, whose rows these are.
+	 *
+	 * @param array        $row  A row of `data()`.
+	 * @param DateTimeZone $zone The viewing manager's clock.
+	 * @return array{fields: string, open: bool}|null
+	 */
+	private static function program_change_parts( array $row, DateTimeZone $zone ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Event_Planner' ) ) {
+			return null;
+		}
+
+		$id    = (int) $row['id'];
+		$start = ( new DateTimeImmutable( '@' . (int) $row['start'] ) )->setTimezone( $zone );
+		$drawn = $start->format( 'Y-m-d' );
+		$today = WPCPM_Sponsor_Tiers::today();
+		$kept  = WPCPM_Sponsor_Event_Planner::kept_for( '', $id );
+
+		ob_start();
+		// A kept typing is drawn over the event's own values, which give its boxes their room.
+		WPCPM_Sponsor_Event_Planner::render_fields(
+			'wpcpm-sevent-program-' . $id,
+			array(
+				'date'        => $drawn,
+				'time'        => $start->format( 'H:i' ),
+				'minutes'     => (string) (int) $row['minutes'],
+				'places'      => (int) $row['places'] > 0 ? (string) (int) $row['places'] : '',
+				'title'       => (string) $row['title'],
+				'description' => (string) $row['description'],
+				'link'        => (string) $row['link'],
+			),
+			$zone,
+			max( 1, (int) $row['joined'] ),
+			strcmp( $drawn, $today ) < 0 ? $drawn : $today,
+			'',
+			$kept
+		);
+		$rows = (string) ob_get_clean();
+
+		return array(
+			'fields' => WPCPM_UI::intro( __( 'Everyone who joined is told of a new time, length, title or call link, with the calendar file that brings theirs up to date.', 'wpcredits-program-manager' ) ) . $rows,
+			'open'   => array() !== $kept,
+		);
+	}
+
+	/**
+	 * The card's third part on the shared parts: the program's plan folded under today's heading, "Plan an event of the
+	 * program's", as one inner fold (design 2.3) with no heading above it repeating it (task V1, ruling 9), drawn open
+	 * when a refusal of the plan brought typing back,
+	 * holding today's sentence as the line over the form, the planner's rows, empty or filled with the typing a refusal
+	 * kept, drawn on the field part, and "Plan the event", the form's one primary. The form posts what
+	 * `handle_program_plan()` reads and carries no class. Nothing when the planner is not loaded, whose rows these are.
+	 *
+	 * @param DateTimeZone $zone The viewing manager's clock.
+	 */
+	private static function render_program_plan_parts( DateTimeZone $zone ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Event_Planner' ) ) {
+			return;
+		}
+
+		$kept = WPCPM_Sponsor_Event_Planner::kept_for( '', 0 );
+
+		$fold = WPCPM_UI::inner_open(
+			array(
+				'title' => __( 'Plan an event of the program\'s', 'wpcredits-program-manager' ),
+				'open'  => array() !== $kept,
+			)
+		);
+		$plan = WPCPM_UI::actions(
+			array(
+				WPCPM_UI::button(
+					array(
+						'label' => __( 'Plan the event', 'wpcredits-program-manager' ),
+						'kind'  => 'primary',
+						// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+						'side'  => 'front',
+					)
+				),
+			)
+		);
+
+		echo $fold; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
+		echo WPCPM_UI::intro( __( 'An event of the WordPress Credits Program\'s own, with no sponsor: it is approved as you plan it, and the program\'s students, mentors, Administrators and institution contacts can join it at once, as they join a sponsor\'s.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		// No class: the planner's rows are the field part, which the planner's form classes would paint over (Task 13e).
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Planning', 'wpcredits-program-manager' )
+		);
+		self::print_hidden( self::ACTION_PROGRAM_PLAN, 0 );
+		// A kept typing is drawn over the empty form's values, which give its boxes their room.
+		WPCPM_Sponsor_Event_Planner::render_fields(
+			'wpcpm-sevent-program-new',
+			array(
+				'date'        => '',
+				'time'        => '',
+				'minutes'     => (string) WPCPM_Sponsor_Event_Planner::DEFAULT_MINUTES,
+				'places'      => '',
+				'title'       => '',
+				'description' => '',
+				'link'        => '',
+			),
+			$zone,
+			1,
+			WPCPM_Sponsor_Tiers::today(),
+			'',
+			$kept
+		);
+		echo $plan; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::actions() and WPCPM_UI::button().
+		echo '</form>';
+		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup of its own.
+	}
+
+	/**
+	 * The hidden fields one form of the card posts on the shared parts, in the order the old forms posted them: the nonce
+	 * keyed to the event, or the action's alone for the program's plan, printed with no id (`WPCPM_UI::nonce()`); the
+	 * action; the event, when the form names one; the way back to this card.
+	 *
+	 * @param string $action One of the ACTION_* presses.
+	 * @param int    $id     The event, or 0 for the program's plan.
+	 */
+	private static function print_hidden( $action, $id ) {
+		echo WPCPM_UI::nonce( (int) $id > 0 ? $action . '_' . (int) $id : $action ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+
+		if ( (int) $id > 0 ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_EVENT ), (int) $id );
+		}
+
+		WPCPM_Return::field( WPCPM_Return::DASHBOARD, self::CARD );
 	}
 
 	/**
@@ -546,320 +925,27 @@ final class WPCPM_Sponsor_Event_Queue {
 	}
 
 	/**
-	 * An event's description as it was written, escaped: whole when it is short, folded under a
-	 * disclosure when it is long, so one long description does not push the rest of the queue away.
+	 * The manager's own Join or Leave on an approved event, as the list the other three dashboards draw has it: an
+	 * Administrator joins an event as themselves, never on somebody's behalf, and comes back to this card.
+	 * `WPCPM_Sponsor_Event_List::decision_parts()`'s answer: whether they are on it, and the decision for the event's
+	 * Decide row, or null when there is nothing to press; nothing for an event not approved. The call link is on the
+	 * card already.
 	 *
-	 * @param string $text The description.
+	 * @param int  $id       The event.
+	 * @param bool $approved Whether the event is approved, under Coming up.
+	 * @return array{joined: bool, decision: array|null}
 	 */
-	private static function render_description( $text ) {
-		if ( '' === trim( $text ) ) {
-			return;
-		}
-
-		if ( mb_strlen( $text ) <= self::DESCRIPTION_SHOWN ) {
-			printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html( $text ) );
-
-			return;
-		}
-
-		printf(
-			'<details class="wpcpm-administrator__details"><summary>%1$s</summary><p class="wpcpm-administrator__note">%2$s</p></details>',
-			esc_html__( 'Read the description', 'wpcredits-program-manager' ),
-			esc_html( $text )
-		);
-	}
-
-	/**
-	 * Who joined an approved event, by name, folded: a list that may run to hundreds of names.
-	 * Nothing when nobody has.
-	 *
-	 * @param string[] $names The names, in the order to draw them.
-	 */
-	private static function render_people( array $names ) {
-		if ( array() === $names ) {
-			return;
-		}
-
-		printf( '<details class="wpcpm-administrator__details"><summary>%s</summary><ul class="wpcpm-administrator__list">', esc_html__( 'Who joined', 'wpcredits-program-manager' ) );
-
-		foreach ( $names as $name ) {
-			printf( '<li>%s</li>', esc_html( (string) $name ) );
-		}
-
-		echo '</ul></details>';
-	}
-
-	/**
-	 * Approve: one button, named for its event to a screen reader.
-	 *
-	 * @param int    $id    The event.
-	 * @param string $title The event's title.
-	 */
-	private static function render_approve( $id, $title ) {
-		self::open_form( self::ACTION_APPROVE, $id, __( 'Approving', 'wpcredits-program-manager' ) );
-		printf(
-			'<button type="submit" class="button button-primary">%1$s<span class="screen-reader-text"> %2$s</span></button>',
-			esc_html__( 'Approve', 'wpcredits-program-manager' ),
-			esc_html( $title )
-		);
-		echo '</form>';
-	}
-
-	/**
-	 * The manager's own Join or Leave on an approved event, and the mark that they are on it, as the
-	 * list the other three dashboards draw has them: a program manager joins an event as themselves,
-	 * never on somebody's behalf, and comes back to this card. The call link is on the card already.
-	 *
-	 * @param int $id The event.
-	 */
-	private static function render_join( $id ) {
+	private static function own_press( $id, $approved ) {
 		$event = get_post( (int) $id );
 
-		if ( class_exists( 'WPCPM_Sponsor_Event_List' ) && WPCPM_Sponsor_Event::is_event( $event ) ) {
-			WPCPM_Sponsor_Event_List::render_actions( $event, wp_get_current_user(), WPCPM_Sponsor_Event_List::BACK_ADMIN );
-		}
-	}
-
-	/**
-	 * Return with a note: folded until chosen, as the sponsor posts' is, and a note required, and
-	 * sent with the posts' own button, "Return it with this note", so the same decision reads the
-	 * same on every card that sends a sponsor's own work back, a sponsor's Collaboration Agreement
-	 * among them, which goes back in the words the institutions' agreements do. Its sentence says the
-	 * sponsor can plan again only while it still offers events, as the mail the press sends says it.
-	 * A refused return comes back with the note as it was typed, its fold open
-	 * (`WPCPM_Typed_Text::kept_box()`).
-	 *
-	 * @param int    $id      The event.
-	 * @param string $title   The event's title.
-	 * @param bool   $offered Whether the sponsor still offers events.
-	 */
-	private static function render_return( $id, $title, $offered ) {
-		$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $id ), 'note' );
-
-		self::open_fold(
-			__( 'Return with a note', 'wpcredits-program-manager' ),
-			$title,
-			$offered
-				? __( 'The event is canceled and goes back to the sponsor, and your note is emailed to the sponsor\'s members, who can plan again.', 'wpcredits-program-manager' )
-				: __( 'The event is canceled, and your note is emailed to the sponsor\'s members. The sponsor no longer holds the tier that includes events.', 'wpcredits-program-manager' ),
-			null !== $kept
-		);
-		self::open_form( self::ACTION_RETURN, $id, __( 'Returning', 'wpcredits-program-manager' ) );
-		self::note_box( 'return', $id, __( 'What should change before it can be approved', 'wpcredits-program-manager' ), $kept );
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
-		echo '</form></details>';
-	}
-
-	/**
-	 * Cancel with a note: folded until chosen, a note required, and a question before it posts, since
-	 * a cancel cannot be taken back and everyone on the event is told. A refused cancel comes back
-	 * with the note as it was typed, its fold open (`WPCPM_Typed_Text::kept_box()`).
-	 *
-	 * @param int    $id    The event.
-	 * @param string $title The event's title.
-	 */
-	private static function render_cancel( $id, $title ) {
-		$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_CANCEL, $id ), 'note' );
-
-		self::open_fold( __( 'Cancel with a note', 'wpcredits-program-manager' ), $title, __( 'The event is canceled for everyone: your note is emailed to the sponsor\'s members, and everyone who joined is told.', 'wpcredits-program-manager' ), null !== $kept );
-		self::open_form( self::ACTION_CANCEL, $id, __( 'Canceling', 'wpcredits-program-manager' ) );
-		self::note_box( 'cancel', $id, __( 'Why the event is canceled', 'wpcredits-program-manager' ), $kept );
-		printf(
-			'<button type="submit" class="button" data-wpcpm-confirm="%1$s">%2$s</button>',
-			esc_attr__( 'Cancel this event for everyone? This cannot be undone.', 'wpcredits-program-manager' ),
-			esc_html__( 'Cancel with this note', 'wpcredits-program-manager' )
-		);
-		echo '</form></details>';
-	}
-
-	/**
-	 * Plan an event of the program's own: the card's third part, its heading, and the planner's form
-	 * folded under Plan an event with a sentence saying what such an event is. The form's rows are the
-	 * planner's (`WPCPM_Sponsor_Event_Planner::render_fields()`), on the viewing manager's clock: the
-	 * day from the site's today, as a sponsor's plan starts it, and no last day, since no term binds
-	 * the program. Its boxes are empty but for the suggested length, or hold what the manager typed
-	 * when a refusal of their plan brought the page back, the title and the description exactly as
-	 * typed (`WPCPM_Sponsor_Event_Planner::kept_for()`), the fold then drawn open. Nothing when the
-	 * planner is not loaded, whose rows these are.
-	 *
-	 * The fold sits in the decide row every item's decisions sit in, and the form carries the
-	 * planner's form classes beside the card's, as the Change form does: the rules that dress a
-	 * decision's fold, its buttons and its box, and the planner's own rules for its rows, reach the
-	 * plan part with nothing drawn for it alone.
-	 *
-	 * @param DateTimeZone $zone The viewing manager's clock.
-	 */
-	private static function render_program_plan( DateTimeZone $zone ) {
-		if ( ! class_exists( 'WPCPM_Sponsor_Event_Planner' ) ) {
-			return;
+		if ( ! $approved || ! class_exists( 'WPCPM_Sponsor_Event_List' ) || ! WPCPM_Sponsor_Event::is_event( $event ) ) {
+			return array(
+				'joined'   => false,
+				'decision' => null,
+			);
 		}
 
-		$kept = WPCPM_Sponsor_Event_Planner::kept_for( '', 0 );
-
-		self::subtitle( __( 'Plan an event of the program\'s', 'wpcredits-program-manager' ) );
-		echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide">';
-		self::open_fold( __( 'Plan an event', 'wpcredits-program-manager' ), '', __( 'An event of the WordPress Credits Program\'s own, with no sponsor: it is approved as you plan it, and the program\'s students, mentors, Administrators and institution contacts can join it at once, as they join a sponsor\'s.', 'wpcredits-program-manager' ), array() !== $kept );
-		self::open_form( self::ACTION_PROGRAM_PLAN, 0, __( 'Planning', 'wpcredits-program-manager' ), self::PROGRAM_FORM );
-		// A kept typing is drawn over the empty form's values, which give its boxes their room.
-		WPCPM_Sponsor_Event_Planner::render_fields(
-			'wpcpm-sevent-program-new',
-			array(
-				'date'        => '',
-				'time'        => '',
-				'minutes'     => (string) WPCPM_Sponsor_Event_Planner::DEFAULT_MINUTES,
-				'places'      => '',
-				'title'       => '',
-				'description' => '',
-				'link'        => '',
-			),
-			$zone,
-			1,
-			WPCPM_Sponsor_Tiers::today(),
-			'',
-			$kept
-		);
-		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Plan the event', 'wpcredits-program-manager' ) );
-		echo '</form></details></div>';
-	}
-
-	/**
-	 * Change the event, for an event of the program's own: the planner's form, folded, every row
-	 * filled from the event on the viewing manager's clock, the one the handler reads it back on, or
-	 * with what the manager typed when a refusal of this change brought the page back, the title and
-	 * the description exactly as typed (`WPCPM_Sponsor_Event_Planner::kept_for()`), the fold then
-	 * drawn open. The places cannot be set below the people on it, so the store's refusal is the
-	 * browser's first. The day box starts on the site's today, or on the day the event is drawn on
-	 * when that is earlier, so the form as drawn can always be saved, and has no last day. The store
-	 * tells everyone on the event of a new time, length, title or call link.
-	 *
-	 * @param array        $row  A row of `data()`.
-	 * @param DateTimeZone $zone The viewing manager's clock.
-	 */
-	private static function render_program_change( array $row, DateTimeZone $zone ) {
-		if ( ! class_exists( 'WPCPM_Sponsor_Event_Planner' ) ) {
-			return;
-		}
-
-		$id    = (int) $row['id'];
-		$start = ( new DateTimeImmutable( '@' . (int) $row['start'] ) )->setTimezone( $zone );
-		$drawn = $start->format( 'Y-m-d' );
-		$today = WPCPM_Sponsor_Tiers::today();
-		$kept  = WPCPM_Sponsor_Event_Planner::kept_for( '', $id );
-
-		self::open_fold( __( 'Change the event', 'wpcredits-program-manager' ), (string) $row['title'], __( 'Everyone who joined is told of a new time, length, title or call link, with the calendar file that brings theirs up to date.', 'wpcredits-program-manager' ), array() !== $kept );
-		self::open_form( self::ACTION_PROGRAM_CHANGE, $id, __( 'Saving', 'wpcredits-program-manager' ), self::PROGRAM_FORM );
-		// A kept typing is drawn over the event's own values, which give its boxes their room.
-		WPCPM_Sponsor_Event_Planner::render_fields(
-			'wpcpm-sevent-program-' . $id,
-			array(
-				'date'        => $drawn,
-				'time'        => $start->format( 'H:i' ),
-				'minutes'     => (string) (int) $row['minutes'],
-				'places'      => (int) $row['places'] > 0 ? (string) (int) $row['places'] : '',
-				'title'       => (string) $row['title'],
-				'description' => (string) $row['description'],
-				'link'        => (string) $row['link'],
-			),
-			$zone,
-			max( 1, (int) $row['joined'] ),
-			strcmp( $drawn, $today ) < 0 ? $drawn : $today,
-			'',
-			$kept
-		);
-		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Save the changes', 'wpcredits-program-manager' ) );
-		echo '</form></details>';
-	}
-
-	/**
-	 * Cancel the event, for an event of the program's own: folded until chosen, with no note, since
-	 * there is no sponsor to write one to, and a question before it posts, since a cancel cannot be
-	 * taken back and everyone on the event is told.
-	 *
-	 * @param int    $id    The event.
-	 * @param string $title The event's title.
-	 */
-	private static function render_program_cancel( $id, $title ) {
-		self::open_fold( __( 'Cancel the event', 'wpcredits-program-manager' ), $title, __( 'The event is canceled for everyone, and everyone who joined is told, with the calendar file that takes it off their calendar.', 'wpcredits-program-manager' ) );
-		self::open_form( self::ACTION_PROGRAM_CANCEL, $id, __( 'Canceling', 'wpcredits-program-manager' ) );
-		printf(
-			'<button type="submit" class="button" data-wpcpm-confirm="%1$s">%2$s</button>',
-			esc_attr__( 'Cancel this event for everyone? This cannot be undone.', 'wpcredits-program-manager' ),
-			esc_html__( 'Cancel the event', 'wpcredits-program-manager' )
-		);
-		echo '</form></details>';
-	}
-
-	/**
-	 * A decision folded until chosen: its summary a button named for its event to a screen reader,
-	 * when it is about one, and a sentence saying what the press does. Drawn open when the form in
-	 * it came back with what the manager typed, so the typing is in view.
-	 *
-	 * @param string $label     The summary's words.
-	 * @param string $title     The event's title, or '' for a fold about no event, as the program's
-	 *                          plan is.
-	 * @param string $explained What the press does.
-	 * @param bool   $open      Whether the form in it holds what a refusal kept.
-	 */
-	private static function open_fold( $label, $title, $explained, $open = false ) {
-		printf( '<details class="wpcpm-sponsor-post__return"%1$s><summary class="button">%2$s', $open ? ' open' : '', esc_html( $label ) );
-
-		if ( '' !== (string) $title ) {
-			printf( '<span class="screen-reader-text"> %s</span>', esc_html( $title ) );
-		}
-
-		printf( '</summary><p class="wpcpm-administrator__note">%s</p>', esc_html( $explained ) );
-	}
-
-	/**
-	 * A form's opening, the same for every press: posted to admin-post.php, guarded against a second
-	 * press, the nonce keyed to the event, the event it names, and the way back to this card. The
-	 * program's plan names no event, so its nonce is its action's alone and it posts no event.
-	 *
-	 * @param string $action  One of the ACTION_* presses.
-	 * @param int    $id      The event, or 0 for the program's plan.
-	 * @param string $busy    What the pressed button says while the request is in flight.
-	 * @param string $classes The form's classes: the card's own, or `PROGRAM_FORM` for a form of the
-	 *                        planner's rows.
-	 */
-	private static function open_form( $action, $id, $busy, $classes = 'wpcpm-sponsor-post__form' ) {
-		printf(
-			'<form class="%1$s" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
-			esc_attr( $classes ),
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr( $busy )
-		);
-		wp_nonce_field( (int) $id > 0 ? $action . '_' . (int) $id : $action );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
-
-		if ( (int) $id > 0 ) {
-			printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_EVENT ), (int) $id );
-		}
-
-		WPCPM_Return::field( WPCPM_Return::DASHBOARD, self::CARD );
-	}
-
-	/**
-	 * The note's box, required, as long as the store keeps a note: drawn empty, or with what a
-	 * refusal of its form kept, exactly as typed.
-	 *
-	 * @param string      $kind        `return` or `cancel`, for the box's id.
-	 * @param int         $id          The event.
-	 * @param string      $placeholder What the note is for.
-	 * @param string|null $kept        What a refusal of this form kept, or null.
-	 */
-	private static function note_box( $kind, $id, $placeholder, $kept = null ) {
-		printf(
-			'<label class="screen-reader-text" for="wpcpm-sevent-%1$s-%2$d">%3$s</label><textarea id="wpcpm-sevent-%1$s-%2$d" name="%4$s" rows="2" maxlength="%5$d" required placeholder="%6$s">%7$s</textarea>',
-			esc_attr( $kind ),
-			(int) $id,
-			esc_html( self::note_label() ),
-			esc_attr( self::FIELD_NOTE ),
-			(int) WPCPM_Sponsor_Event::MAX_NOTE,
-			esc_attr( $placeholder ),
-			// The parser drops one line feed right after the opening tag, so a kept note that
-			// begins with a line break keeps it.
-			null === $kept ? '' : "\n" . esc_textarea( $kept )
-		);
+		return WPCPM_Sponsor_Event_List::decision_parts( $event, wp_get_current_user() );
 	}
 
 	/**
@@ -872,30 +958,13 @@ final class WPCPM_Sponsor_Event_Queue {
 	}
 
 	/**
-	 * A part's heading, as the other cards' parts have.
-	 *
-	 * @param string $text The heading.
-	 */
-	private static function subtitle( $text ) {
-		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html( $text ) );
-	}
-
-	/**
-	 * The sentence an empty part says, so it does not read as something that failed to load.
+	 * The sentence an empty part says, so it does not read as something that failed to load: the parts' muted line
+	 * (`WPCPM_UI::list_empty()`), as the cards class's own empty line prints it.
 	 *
 	 * @param string $text The sentence.
 	 */
 	private static function empty_line( $text ) {
-		printf( '<p class="wpcpm-administrator__empty">%s</p>', esc_html( $text ) );
-	}
-
-	/**
-	 * One of an event's facts.
-	 *
-	 * @param string $text The fact.
-	 */
-	private static function fact( $text ) {
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( $text ) );
+		echo WPCPM_UI::list_empty( (string) $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
 	}
 
 	/**

@@ -74,6 +74,9 @@ final class WPCPM_Typed_Text {
 	/**
 	 * The flash channel a refused form's typing waits on, before the form's own name.
 	 *
+	 * The channel alone, with no form's name after it, holds the record of the last form kept (`is_last()`). No
+	 * form reaches it: a form has a name, and `keep()` keeps nothing for one that has none.
+	 *
 	 * @var string
 	 */
 	const KEPT_CHANNEL = 'typed:';
@@ -537,7 +540,18 @@ final class WPCPM_Typed_Text {
 	 * A typing whose form is never drawn again would stay in the person's user meta for good, hidden
 	 * by `kept()` but stored, and it can hold a contact's address or a note. So every keep first
 	 * clears, for whatever form, each of the person's kept typings older than `KEPT_FOR`, and any
-	 * value on such a channel that is not a kept typing at all (`WPCPM_Flash::sweep()`).
+	 * value on such a channel that is not a kept typing at all (`WPCPM_Flash::sweep()`), the record of the last
+	 * form kept among them.
+	 *
+	 * What it keeps, it also records as the last form kept (`is_last()`), so that a page which draws more than one
+	 * box holding kept typing ties the refusal to this form's box alone. When it keeps nothing, it records nothing.
+	 * A form with no name keeps nothing: its channel would be the record's.
+	 *
+	 * The record holds the form's name and the time, never anything typed. It answers for `KEPT_FOR` and no longer:
+	 * past that, `is_last()` answers false for every form. It is not removed when it goes stale, though. It stays in
+	 * the person's flash until a page reads it (`is_last()` takes it), until their next form post clears it
+	 * (`forget()`, or a `keep_box()` with nothing to keep), or until the next `keep()` sweeps it with the other stale
+	 * typings, whichever comes first.
 	 *
 	 * @param string $form  The form, by what it is and the record it edits, such as
 	 *                      `offer:recXXXXXXXXXXXXXX:new`.
@@ -579,7 +593,7 @@ final class WPCPM_Typed_Text {
 			$kept[ $field ] = mb_substr( str_replace( "\r\n", "\n", (string) $value ), 0, max( 0, (int) $room[ $field ] ), 'UTF-8' );
 		}
 
-		if ( empty( $kept ) ) {
+		if ( empty( $kept ) || '' === (string) $form ) {
 			return;
 		}
 
@@ -588,6 +602,15 @@ final class WPCPM_Typed_Text {
 			array(
 				'at'    => time(),
 				'typed' => $kept,
+			)
+		);
+
+		// The last form kept, shaped as a typing is (`at`), so the sweep above clears it once it is stale.
+		WPCPM_Flash::set(
+			self::KEPT_CHANNEL,
+			array(
+				'at'   => time(),
+				'form' => (string) $form,
 			)
 		);
 	}
@@ -603,6 +626,11 @@ final class WPCPM_Typed_Text {
 	 * @return array Each field and what was kept for it, or an empty array when nothing is.
 	 */
 	public static function kept( $form ) {
+		// No form has no name: the channel alone is the record of the last form kept, not a typing.
+		if ( '' === (string) $form ) {
+			return array();
+		}
+
 		$entry = WPCPM_Flash::take( self::KEPT_CHANNEL . $form );
 
 		if ( ! is_array( $entry ) || ! isset( $entry['at'], $entry['typed'] ) || ! is_array( $entry['typed'] ) ) {
@@ -623,10 +651,64 @@ final class WPCPM_Typed_Text {
 	 * draw it, the typing would wait for the next time it does, after a save that went through, and
 	 * fill the boxes with what that save replaced. Every post of a form calls this first.
 	 *
+	 * It also clears the record of the last form kept, whatever form it names (`is_last()`): a post has begun, and
+	 * has kept nothing yet. Only a handler calls this, at the start of a post; a page never does.
+	 *
 	 * @param string $form The form, named as `keep()` was given it.
 	 */
 	public static function forget( $form ) {
-		WPCPM_Flash::take( self::KEPT_CHANNEL . $form );
+		if ( '' !== (string) $form ) {
+			WPCPM_Flash::take( self::KEPT_CHANNEL . $form );
+		}
+
+		self::forget_last();
+	}
+
+	/**
+	 * Whether a form is the one the last refusal kept typing for: the only box a refusal read from the shared
+	 * outcome may be tied to.
+	 *
+	 * A refusal's outcome names no form, and every box on a page that holds kept typing reads the same outcome.
+	 * One of them can be a form whose typing an earlier press kept and no page drew (its card closed, or past a
+	 * list's limit), which waits for up to `KEPT_FOR`. So `keep()` records the form it kept last, `forget()` and a
+	 * blank `keep_box()` clear the record, and a box is tied to the refusal only when it is that form.
+	 *
+	 * Read through `WPCPM_Flash::take()`, which hands every caller in one request the same value: every box on a
+	 * page gets the same answer, and the record is gone after that page. A record older than `KEPT_FOR` names no
+	 * form, as its typing is not handed back.
+	 *
+	 * How long the record lives: it holds a form's name and the time it was kept, never typing. This answers false
+	 * once it is older than `KEPT_FOR`, but going stale does not remove it: it stays in the person's flash until a
+	 * page asks this (which takes it), until their next form post clears it (`forget()`, or a `keep_box()` with
+	 * nothing to keep), or until the next `keep()` sweeps it.
+	 *
+	 * @param string $form The form, named as `keep()` was given it.
+	 * @return bool
+	 */
+	public static function is_last( $form ) {
+		if ( '' === (string) $form ) {
+			return false;
+		}
+
+		$last = WPCPM_Flash::take( self::KEPT_CHANNEL );
+
+		return is_array( $last )
+			&& isset( $last['at'], $last['form'] )
+			&& is_string( $last['form'] )
+			&& (string) $form === $last['form']
+			&& time() - (int) $last['at'] <= self::KEPT_FOR;
+	}
+
+	/**
+	 * Clear the record of the last form kept (`is_last()`), unread: through `WPCPM_Flash::sweep()`, so nothing
+	 * a page asks later in the same request is answered from a value taken here.
+	 */
+	private static function forget_last() {
+		WPCPM_Flash::sweep(
+			static function ( $channel ) {
+				return self::KEPT_CHANNEL === $channel;
+			}
+		);
 	}
 
 	/**
@@ -685,7 +767,9 @@ final class WPCPM_Typed_Text {
 	 * The box is drawn empty, so its room is its limit (`kept_room()`): the typing is kept as it was
 	 * typed, a line break read as the one LF its box counts, and cut at the limit in characters. A
 	 * box left empty, or holding only white space, has nothing to give back, and nothing is kept for
-	 * it. A box drawn from a stored text keeps through `keep()`, with the room that text gives it.
+	 * it; the record of the last form kept is cleared, so that the refusal is tied to no older box
+	 * (`is_last()`). A box drawn from a stored text keeps through `keep()`, with the room that text
+	 * gives it.
 	 *
 	 * @param string $form  The form, as `box_form()` names it.
 	 * @param string $field The box's field, which `kept_box()` reads it back by.
@@ -695,6 +779,8 @@ final class WPCPM_Typed_Text {
 	 */
 	public static function keep_box( $form, $field, $typed, $limit ) {
 		if ( '' === trim( (string) $typed ) ) {
+			self::forget_last();
+
 			return;
 		}
 

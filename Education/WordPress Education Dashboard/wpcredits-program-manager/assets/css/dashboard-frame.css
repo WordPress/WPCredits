@@ -12,28 +12,6 @@
  */
 
 .wpcpm-frame {
-	--wpcpm-f-brand: var( --wpc-brand, #3858e9 );
-	--wpcpm-f-brand-tint: var( --wpc-brand-tint, #eff2ff );
-	--wpcpm-f-brand-border: var( --wpc-brand-border, #c7d1ff );
-	--wpcpm-f-ink: var( --wpc-ink, #1e1e1e );
-	--wpcpm-f-ink-2: var( --wpc-ink-70, #40464d );
-	--wpcpm-f-muted: var( --wpc-ink-60, #656a71 );
-	--wpcpm-f-icon: #979aa1;
-	--wpcpm-f-line: var( --wpc-line, #e6e6e6 );
-	--wpcpm-f-line-soft: #ededed;
-	--wpcpm-f-control: #8d8d8d;
-	--wpcpm-f-surface: var( --wpc-surface, #ffffff );
-	--wpcpm-f-band: var( --wpc-surface-band, #f4f4f4 );
-	--wpcpm-f-red: var( --wpc-red, #cc1818 );
-	--wpcpm-f-red-tint: var( --wpc-red-tint, #fff6f5 );
-	--wpcpm-f-red-border: var( --wpc-red-border, #daa39b );
-	--wpcpm-f-amber: var( --wpc-amber, #926300 );
-	--wpcpm-f-amber-tint: var( --wpc-amber-tint, #fff7e1 );
-	--wpcpm-f-amber-border: var( --wpc-amber-border, #d0b481 );
-	--wpcpm-f-green: var( --wpc-green, #008030 );
-	--wpcpm-f-green-tint: var( --wpc-green-tint, #ebffed );
-	--wpcpm-f-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	--wpcpm-f-serif: "EB Garamond", Georgia, "Times New Roman", serif;
 	--wpcpm-f-menu: 256px;
 	--wpcpm-f-rail: 64px;
 	--wpcpm-f-top: var( --wp-admin--admin-bar--height, 0px );
@@ -718,72 +696,6 @@
 	flex-wrap: wrap;
 	gap: 12px;
 	margin-top: 8px;
-}
-
-.wpcpm-frame .wpcpm-btn {
-	align-items: center;
-	background: var( --wpcpm-f-brand );
-	border: 1px solid var( --wpcpm-f-brand );
-	border-radius: 2px;
-	color: #ffffff;
-	display: inline-flex;
-	font: 600 14px/20px var( --wpcpm-f-sans );
-	gap: 6px;
-	padding: 9px 16px;
-	text-decoration: none;
-	white-space: nowrap;
-}
-
-.wpcpm-frame .wpcpm-btn:hover {
-	background: var( --wpc-brand-dark, #213fd4 );
-	border-color: var( --wpc-brand-dark, #213fd4 );
-	color: #ffffff;
-}
-
-.wpcpm-frame .wpcpm-btn--secondary {
-	background: var( --wpcpm-f-surface );
-	color: var( --wpcpm-f-brand );
-}
-
-.wpcpm-frame .wpcpm-btn--secondary:hover {
-	background: var( --wpcpm-f-brand-tint );
-	color: var( --wpc-brand-dark, #213fd4 );
-}
-
-/* ---------- The status tag: the homepage's program-card tag, the one way the frame marks what waits ----------
-
-   What waits is a plain card with this tag in words, "67 days waiting", in the status's tint, border and ink:
-   never a colored edge, and never the color alone (the owner, 10 November 2026). The homepage's "Live" and
-   "In development" tags, value for value. */
-
-.wpcpm-status {
-	background: var( --wpcpm-f-band );
-	border: 1px solid transparent;
-	border-radius: 2px;
-	color: var( --wpcpm-f-ink-2 );
-	display: inline-block;
-	font: 500 12px/18px var( --wpcpm-f-sans );
-	letter-spacing: 0.06em;
-	padding: 1px 8px;
-	text-transform: uppercase;
-	white-space: nowrap;
-}
-
-.wpcpm-status--red {
-	background: var( --wpcpm-f-red-tint );
-	border-color: var( --wpcpm-f-red-border );
-	color: var( --wpcpm-f-red );
-}
-
-.wpcpm-status--amber {
-	background: var( --wpcpm-f-amber-tint );
-	border-color: var( --wpcpm-f-amber-border );
-	color: var( --wpcpm-f-amber );
-}
-
-.wpcpm-status--green {
-	background: var( --wpcpm-f-green-tint );
-	color: var( --wpcpm-f-green );
 }
 
 /* ---------- The figures band: hairlines from the 1px gap over a line-colored grid ---------- */

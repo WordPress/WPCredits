@@ -234,28 +234,37 @@ class WPCPM_Administrator_Guide_View {
 		wp_enqueue_script( self::SCRIPT );
 		wp_localize_script( self::SCRIPT, 'wpcpmGuideStrings', self::strings() );
 
-		ob_start();
+		// The guide is drawn in its dashboard's frame, so it names that dashboard's surface of the shared parts while
+		// it draws (design 3.5), as the dashboard's other views do: the frame's buttons and tags look the same on
+		// every item of its menu.
+		WPCPM_UI::enter( 'WPCPM_Sponsors_Dashboard' === $guide['dashboard'] ? 'sponsor' : 'administrator' );
 
-		// The guide's dashboard's own menu, with the guide marked as where the reader is.
-		WPCPM_Dashboard_Frame::open( call_user_func( array( $guide['dashboard'], 'menu_args' ), 'guide' ) );
+		try {
+			ob_start();
 
-		// What the script names a table that scrolls sideways, for a screen reader.
-		printf( '<div class="wpcpm-guide" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );
+			// The guide's dashboard's own menu, with the guide marked as where the reader is.
+			WPCPM_Dashboard_Frame::open( call_user_func( array( $guide['dashboard'], 'menu_args' ), 'guide' ) );
 
-		printf(
-			'<header class="wpcpm-head wpcpm-guide__head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__title">%s</h1></div></header>',
-			esc_html( '' !== trim( $title ) ? $title : $guide['title'] )
-		);
+			// What the script names a table that scrolls sideways, for a screen reader.
+			printf( '<div class="wpcpm-guide" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );
 
-		self::contents( $found['sections'] );
+			printf(
+				'<header class="wpcpm-head wpcpm-guide__head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__title">%s</h1></div></header>',
+				esc_html( '' !== trim( $title ) ? $title : $guide['title'] )
+			);
 
-		// The guide as the page holds it, after `the_content`: what a reader may see, already through
-		// every filter core and the theme put on it.
-		echo '<div class="wpcpm-guide__body">' . self::fold( $found['content'] ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The page's own content, filtered by the_content.
+			self::contents( $found['sections'] );
 
-		echo '</div>';
+			// The guide as the page holds it, after `the_content`: what a reader may see, already through
+			// every filter core and the theme put on it.
+			echo '<div class="wpcpm-guide__body">' . self::fold( $found['content'] ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The page's own content, filtered by the_content.
 
-		WPCPM_Dashboard_Frame::close();
+			echo '</div>';
+
+			WPCPM_Dashboard_Frame::close();
+		} finally {
+			WPCPM_UI::leave();
+		}
 
 		return (string) ob_get_clean();
 	}

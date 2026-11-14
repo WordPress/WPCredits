@@ -392,7 +392,9 @@ final class WPCPM_Sponsor_Tools {
 
 	/**
 	 * The section, on a person's own card. Echoes nothing when the audience's switch is off or
-	 * there is nothing to show: no live offer open to them, no claim of theirs, no flash.
+	 * there is nothing to show: no live offer open to them, no claim of theirs, no flash. On a
+	 * surface that is on (the Administrator Dashboard in this build) it draws today's offers under its view's group
+	 * title, its buttons the button part (task V1, ruling 5); both Report Cards (`report-cards`) draw today's markup.
 	 *
 	 * @param string           $audience One of the AUDIENCE_* constants: whose card this is.
 	 * @param int|WP_User|null $viewer   The person whose card it is.
@@ -416,8 +418,18 @@ final class WPCPM_Sponsor_Tools {
 			return;
 		}
 
-		printf( '<section class="wpcpm-student__section wpcpm-tools" id="%s">', esc_attr( self::ANCHOR ) );
-		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Tools from our sponsors', 'wpcredits-program-manager' ) . '</h3>';
+		// The Administrator Dashboard on the shared parts draws today's offers too (task V1, ruling 5), under the group
+		// title its view prints, so the section prints neither its own frame's inset nor its heading, and every button
+		// in it is the button part. Both Report Cards name the surface `report-cards`, off for this whole build, so they
+		// take today's markup, byte for byte.
+		$parts = class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on();
+
+		if ( $parts ) {
+			printf( '<section class="wpcpm-tools" id="%s">', esc_attr( self::ANCHOR ) );
+		} else {
+			printf( '<section class="wpcpm-student__section wpcpm-tools" id="%s">', esc_attr( self::ANCHOR ) );
+			echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Tools from our sponsors', 'wpcredits-program-manager' ) . '</h3>';
+		}
 
 		self::render_message( $flash );
 
@@ -460,13 +472,13 @@ final class WPCPM_Sponsor_Tools {
 
 				$shown[ $offer['sponsor'] ] = true;
 
-				self::render_offer( $offer, $viewer, $audience, $first );
+				self::render_offer( $offer, $viewer, $audience, $first, $parts );
 			}
 
 			echo '</ul>';
 		}
 
-		self::render_codes( $viewer, $claims );
+		self::render_codes( $viewer, $claims, $parts );
 
 		echo '</section>';
 	}
@@ -524,8 +536,10 @@ final class WPCPM_Sponsor_Tools {
 	 * @param bool    $with_posts Whether to draw the sponsor's guides on this card: only its
 	 *                            first offer in the list does, so two offers from one company
 	 *                            do not list the same guides twice (S3).
+	 * @param bool    $parts      Whether the surface drawing it is on the shared parts: its claim button is then the
+	 *                            button part.
 	 */
-	private static function render_offer( array $offer, WP_User $viewer, $audience, $with_posts = true ) {
+	private static function render_offer( array $offer, WP_User $viewer, $audience, $with_posts = true, $parts = false ) {
 		$row  = WPCPM_Sponsors_Index::row( $offer['sponsor'] );
 		$row  = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
 		$logo = WPCPM_Sponsors_Index::display_logo( $offer['sponsor'] );
@@ -568,7 +582,7 @@ final class WPCPM_Sponsor_Tools {
 				// link has the row to its button alone.
 				echo '<div class="wpcpm-tools__actions">';
 				self::render_more( $offer );
-				self::render_claim_form( $offer );
+				self::render_claim_form( $offer, $parts );
 				echo '</div>';
 			} else {
 				self::render_more( $offer );
@@ -627,42 +641,88 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
-	 * The form that posts a claim, its nonce keyed to this offer.
+	 * The form that posts a claim, its nonce keyed to this offer. On the shared parts its button is the button part, the
+	 * primary as today's, and its nonce prints no id (`WPCPM_UI::nonce()`), since the section may hold several; it posts
+	 * the same fields.
 	 *
 	 * @param array $offer The offer.
+	 * @param bool  $parts Whether the surface drawing it is on the shared parts.
 	 */
-	private static function render_claim_form( array $offer ) {
+	private static function render_claim_form( array $offer, $parts = false ) {
+		$label = WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? __( 'Get my code', 'wpcredits-program-manager' ) : __( 'Show me the code', 'wpcredits-program-manager' );
+
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-tools__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Getting your code', 'wpcredits-program-manager' )
 		);
-		wp_nonce_field( self::ACTION_CLAIM . '_' . $offer['id'] );
+
+		if ( $parts ) {
+			echo WPCPM_UI::nonce( self::ACTION_CLAIM . '_' . $offer['id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+		} else {
+			wp_nonce_field( self::ACTION_CLAIM . '_' . $offer['id'] );
+		}
+
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CLAIM ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? __( 'Get my code', 'wpcredits-program-manager' ) : __( 'Show me the code', 'wpcredits-program-manager' ) )
-		);
+
+		if ( $parts ) {
+			// Drawn on the Administrator Dashboard alone in this build, which is never wp-admin.
+			$button = WPCPM_UI::button(
+				array(
+					'label' => $label,
+					'kind'  => 'primary',
+					'side'  => 'front',
+				)
+			);
+
+			echo $button; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button().
+		} else {
+			printf( '<button type="submit" class="wpcpm-button">%s</button>', esc_html( $label ) );
+		}
+
 		echo '</form>';
 	}
 
 	/**
 	 * The form that reports a problem with a code already claimed, printed beside that code
-	 * under Your codes.
+	 * under Your codes. On the shared parts its button is the button part, the secondary as today's, and its nonce prints
+	 * no id; it posts the same fields.
 	 *
 	 * @param array $offer The offer.
+	 * @param bool  $parts Whether the surface drawing it is on the shared parts.
 	 */
-	private static function render_problem_form( array $offer ) {
+	private static function render_problem_form( array $offer, $parts = false ) {
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-tools__form wpcpm-tools__form--problem" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Sending', 'wpcredits-program-manager' )
 		);
-		wp_nonce_field( self::ACTION_PROBLEM . '_' . $offer['id'] );
+
+		if ( $parts ) {
+			echo WPCPM_UI::nonce( self::ACTION_PROBLEM . '_' . $offer['id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+		} else {
+			wp_nonce_field( self::ACTION_PROBLEM . '_' . $offer['id'] );
+		}
+
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_PROBLEM ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-		printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html__( 'Report a problem with this code', 'wpcredits-program-manager' ) );
+
+		if ( $parts ) {
+			$button = WPCPM_UI::button(
+				array(
+					'label' => __( 'Report a problem with this code', 'wpcredits-program-manager' ),
+					'kind'  => 'secondary',
+					// Drawn on the Administrator Dashboard alone in this build, which is never wp-admin.
+					'side'  => 'front',
+				)
+			);
+
+			echo $button; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button().
+		} else {
+			printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html__( 'Report a problem with this code', 'wpcredits-program-manager' ) );
+		}
+
 		echo '</form>';
 	}
 
@@ -678,8 +738,10 @@ final class WPCPM_Sponsor_Tools {
 	 *
 	 * @param WP_User $viewer The person.
 	 * @param array   $claims Their claims.
+	 * @param bool    $parts  Whether the surface drawing it is on the shared parts: each problem button is then the
+	 *                        button part.
 	 */
-	private static function render_codes( WP_User $viewer, array $claims ) {
+	private static function render_codes( WP_User $viewer, array $claims, $parts = false ) {
 		if ( empty( $claims ) ) {
 			return;
 		}
@@ -699,25 +761,36 @@ final class WPCPM_Sponsor_Tools {
 			echo '<li>';
 			printf( '<span class="wpcpm-tools__codes-offer">%1$s: %2$s</span> ', esc_html( self::sponsor_name( $offer['sponsor'] ) ), esc_html( $offer['title'] ) );
 
-			if ( preg_match( '#^https?://#i', $code ) ) {
-				printf( '<a class="wpcpm-tools__code" href="%1$s" rel="external noopener">%2$s</a>', esc_url( $code ), esc_html( $code ) );
-			} else {
-				printf(
-					'<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="%1$s">%2$s</button>',
-					esc_attr( self::HINT_ID ),
-					esc_html( $code )
-				);
-			}
+			echo self::code_markup( $code ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in code_markup().
 
 			printf( ' <span class="wpcpm-tools__when">%s</span>', esc_html( wp_date( 'Y-m-d', (int) $claim['at'] ) ) );
 
 			// The code and its problem button belong together, and this row is the one place every
 			// code is listed: an offer since paused or ended has no card above to carry the button.
-			self::render_problem_form( $offer );
+			self::render_problem_form( $offer, $parts );
 			echo '</li>';
 		}
 
 		echo '</ul>';
+	}
+
+	/**
+	 * A claimed code as both branches draw it: a link when it is one, else a button whose contents forms.js selects,
+	 * described by the section's one hint (deep check FFRNT-6), with no aria-label (WCAG 2.5.3, Label in Name).
+	 *
+	 * @param string $code The code.
+	 * @return string Escaped markup.
+	 */
+	private static function code_markup( $code ) {
+		if ( preg_match( '#^https?://#i', $code ) ) {
+			return sprintf( '<a class="wpcpm-tools__code" href="%1$s" rel="external noopener">%2$s</a>', esc_url( $code ), esc_html( $code ) );
+		}
+
+		return sprintf(
+			'<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="%1$s">%2$s</button>',
+			esc_attr( self::HINT_ID ),
+			esc_html( $code )
+		);
 	}
 
 	/**

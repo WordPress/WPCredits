@@ -621,19 +621,27 @@ trait WPCPM_Accounts_Screen {
 	public function render_admin_page() {
 		$tab = self::tab();
 
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+		// The tab names itself to the switch of the shared parts while it draws (design 3.5): every tab is off until
+		// a release turns it on, and that release puts the switch's class on the wrap.
+		WPCPM_UI::enter( $this->page_slug() . '/' . $tab );
 
-		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+		try {
+			echo '<div class="wrap wpcpm-wrap">';
+			echo '<h1>' . esc_html( $this->label() ) . '</h1>';
+			echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
-		if ( static::TAB_SYNC === $tab ) {
-			$this->render_tab_sync();
-		} else {
-			$this->render_tab_accounts();
+			WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+
+			if ( static::TAB_SYNC === $tab ) {
+				$this->render_tab_sync();
+			} else {
+				$this->render_tab_accounts();
+			}
+
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		echo '</div>';
 	}
 
 	/**

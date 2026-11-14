@@ -55,6 +55,14 @@ class WPCPM_Institution_Panel {
 	const MAX_NAME = 200;
 
 	/**
+	 * The decisions `render_accept_form()` and `render_return_form()` hand on while `render_decide_area()` is
+	 * collecting them, or null when nothing is.
+	 *
+	 * @var array[]|null
+	 */
+	private static $decide_into = null;
+
+	/**
 	 * Every outcome the agreement handlers can flash, in the words the reader gets.
 	 *
 	 * Kept here rather than in each screen, because the forms are drawn in four places (this
@@ -520,6 +528,35 @@ class WPCPM_Institution_Panel {
 		$name    = '' !== $name ? $name : trim( (string) ( isset( $facts['institution'] ) ? $facts['institution'] : '' ) );
 		$members = (int) ( isset( $facts['members'] ) ? $facts['members'] : 0 );
 
+		// The block that decides, drawn by the Administrator Dashboard alone, on the shared parts (design 2.6, 2.10,
+		// 4.1): the heading as the parts' h5 the Decide heading is too (under the item's h4), the facts, then one
+		// Decide area. The one caller that draws it to be read, the Institutions screen's queue, is on a tab that
+		// is off for this whole release, so a read block keeps its own markup below.
+		if ( $decide ) {
+			$heading = WPCPM_UI::heading(
+				sprintf(
+					/* translators: %s: institution name. */
+					__( 'Review the signed agreement from %s', 'wpcredits-program-manager' ),
+					$name
+				),
+				'h5'
+			);
+
+			// The section keeps its anchor, which the dashboard's links point at, and no class of the old block: its
+			// sentences are the parts' intro lines and its checklist the checklist part (Tasks 17b and 18a).
+			// It is a block of its item, 16px under the item's facts line (task V1, ruling 12).
+			printf( '<section class="wpcpm-ui-item__part" id="wpcpm-review-%d">', (int) $post_id );
+			echo $heading; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+			self::render_review_facts( $facts, true );
+			self::render_checklist( $facts, $name, true );
+			self::render_flags( isset( $facts['flags'] ) ? (array) $facts['flags'] : array(), true );
+			self::render_download_link( $post_id, __( 'Download the signed agreement', 'wpcredits-program-manager' ), true );
+			self::render_decide_area( $post_id, $name, $members, $where );
+			echo '</section>';
+
+			return;
+		}
+
 		printf( '<section class="wpcpm-review" id="wpcpm-review-%d">', (int) $post_id );
 
 		printf(
@@ -537,15 +574,118 @@ class WPCPM_Institution_Panel {
 		self::render_checklist( $facts, $name );
 		self::render_flags( isset( $facts['flags'] ) ? (array) $facts['flags'] : array() );
 		self::render_download_link( $post_id, __( 'Download the signed agreement', 'wpcredits-program-manager' ) );
-
-		if ( $decide ) {
-			self::render_accept_form( $post_id, $name, $members, $where );
-			self::render_return_form( $post_id, $where );
-		} else {
-			self::render_decided_elsewhere( $post_id );
-		}
+		self::render_decided_elsewhere( $post_id );
 
 		echo '</section>';
+	}
+
+	/**
+	 * The two decisions on one document as one Decide area (`WPCPM_UI::decide()`, design 2.6), drawn on the
+	 * Administrator Dashboard: Accept it, the one primary, acting at once with the question
+	 * it asks today; Return with a note, a secondary opener whose panel holds the note and keeps "Return it with
+	 * this note". Nothing is red: returning removes nothing.
+	 *
+	 * The decisions are the ones the two forms draw, posting the same fields: each form hands its decision here
+	 * instead of printing itself. The area's id and the box's id carry the document's ID, so two agreements on
+	 * the card repeat none. The one panel is printed open when the last press left its typing or a refusal for
+	 * this document's box; with one panel there is no other for a refusal to outrank.
+	 *
+	 * @param int    $post_id Agreement post ID.
+	 * @param string $name    Institution name, as the confirm prints it.
+	 * @param int    $members How many people Accept emails.
+	 * @param string $where   Where a decision comes back to.
+	 */
+	private static function render_decide_area( $post_id, $name, $members, $where ) {
+		self::$decide_into = array();
+
+		try {
+			self::render_accept_form( $post_id, $name, $members, $where );
+			self::render_return_form( $post_id, $where );
+			$decisions = self::$decide_into;
+		} finally {
+			self::$decide_into = null;
+		}
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-agr-' . (int) $post_id,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => $decisions,
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in decision()'s callable.
+	}
+
+	/**
+	 * One decision as `WPCPM_UI::decide()` takes it, from what the form it stands for posts: the same address,
+	 * encoding and guard as `form_start()` prints, and the same hidden fields under the same nonce, its field
+	 * printed with no id (`WPCPM_UI::nonce()`), since the card holds one per document.
+	 *
+	 * @param int    $post_id The document.
+	 * @param string $action  The `admin_post_` action, whose nonce is keyed to the document.
+	 * @param string $busy    What the pressed control says while the request is in flight.
+	 * @param string $where   Where the decision comes back to.
+	 * @param array  $args    The rest of the decision: key, label, kind, fields, confirm_label, confirm, open.
+	 * @return array
+	 */
+	private static function decision( $post_id, $action, $busy, $where, array $args ) {
+		return array_merge(
+			$args,
+			array(
+				'form_attrs' => array(
+					'method'          => 'post',
+					'action'          => admin_url( 'admin-post.php' ),
+					'enctype'         => 'application/x-www-form-urlencoded',
+					'data-wpcpm-once' => true,
+					'data-wpcpm-busy' => $busy,
+				),
+				'hidden'     => static function () use ( $post_id, $action, $where ) {
+					echo WPCPM_UI::nonce( $action . '_' . (int) $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+					printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+					printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
+
+					if ( class_exists( 'WPCPM_Return' ) ) {
+						WPCPM_Return::field( (string) $where, 'agreements' );
+					}
+				},
+			)
+		);
+	}
+
+	/**
+	 * The sentence a refused return note says beside its box, or '' when this document's box was not refused.
+	 *
+	 * The press left its outcome on the Institutions screen's channel, which the dashboard's message reads too
+	 * (`WPCPM_Flash::take()` memoizes, so the sentence is the one it prints), and the handler kept the typing
+	 * for the document the press was made for (`WPCPM_Institution_Agreement::handle_return()`). Another
+	 * document's box may hold typing an earlier press kept, which no page drew: the refusal is this box's only when
+	 * this document's form is the last one kept (`WPCPM_Typed_Text::is_last()`). A refused note that kept nothing,
+	 * one of white space only, names no document, so no box is said to be refused.
+	 *
+	 * @param string|null $kept    What the refusal kept for this document's box, or null.
+	 * @param int         $post_id The document.
+	 * @return string
+	 */
+	private static function return_problem( $kept, $post_id ) {
+		if ( ! is_string( $kept ) ) {
+			return '';
+		}
+
+		$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+		$messages = self::messages();
+
+		if ( ! in_array( $status, array( 'agreement-note', 'agreement-return-loss' ), true ) || ! isset( $messages[ $status ][1] ) ) {
+			return '';
+		}
+
+		if ( ! WPCPM_Typed_Text::is_last( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $post_id ) ) ) {
+			return '';
+		}
+
+		return (string) $messages[ $status ][1];
 	}
 
 	/**
@@ -573,31 +713,29 @@ class WPCPM_Institution_Panel {
 	 * is. The facts hold the stored day, `Y-m-d`, which a sentence a person reads never prints.
 	 *
 	 * @param array $facts From `WPCPM_Institution_Agreement::review_facts()`.
+	 * @param bool  $parts True on the Administrator Dashboard's parts: each sentence the parts' intro line.
 	 */
-	private static function render_review_facts( array $facts ) {
-		$kind = isset( $facts['kind'] ) ? (string) $facts['kind'] : '';
-
-		printf(
-			'<p class="wpcpm-review__facts">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: the uploader's name, 2: date, 3: file size. */
-					__( 'Uploaded by %1$s on %2$s, %3$s.', 'wpcredits-program-manager' ),
-					trim( (string) ( isset( $facts['uploaded_by'] ) ? $facts['uploaded_by'] : '' ) ),
-					WPCPM_Dates::day( trim( (string) ( isset( $facts['uploaded_at'] ) ? $facts['uploaded_at'] : '' ) ) ),
-					size_format( (int) ( isset( $facts['size'] ) ? $facts['size'] : 0 ) )
-				)
-			)
+	private static function render_review_facts( array $facts, $parts = false ) {
+		$kind     = isset( $facts['kind'] ) ? (string) $facts['kind'] : '';
+		$uploaded = sprintf(
+			/* translators: 1: the uploader's name, 2: date, 3: file size. */
+			__( 'Uploaded by %1$s on %2$s, %3$s.', 'wpcredits-program-manager' ),
+			trim( (string) ( isset( $facts['uploaded_by'] ) ? $facts['uploaded_by'] : '' ) ),
+			WPCPM_Dates::day( trim( (string) ( isset( $facts['uploaded_at'] ) ? $facts['uploaded_at'] : '' ) ) ),
+			size_format( (int) ( isset( $facts['size'] ) ? $facts['size'] : 0 ) )
 		);
+		$said = WPCPM_Institution_Agreement::KIND_OWN === $kind
+			? __( 'The institution says this is an agreement of its own, not the program\'s template.', 'wpcredits-program-manager' )
+			: __( 'The institution says this is the program\'s template, signed.', 'wpcredits-program-manager' );
 
-		printf(
-			'<p class="wpcpm-review__kind">%s</p>',
-			esc_html(
-				WPCPM_Institution_Agreement::KIND_OWN === $kind
-					? __( 'The institution says this is an agreement of its own, not the program\'s template.', 'wpcredits-program-manager' )
-					: __( 'The institution says this is the program\'s template, signed.', 'wpcredits-program-manager' )
-			)
-		);
+		if ( $parts ) {
+			echo WPCPM_UI::intro( $uploaded ) . WPCPM_UI::intro( $said ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+
+			return;
+		}
+
+		printf( '<p class="wpcpm-review__facts">%s</p>', esc_html( $uploaded ) );
+		printf( '<p class="wpcpm-review__kind">%s</p>', esc_html( $said ) );
 	}
 
 	/**
@@ -610,45 +748,48 @@ class WPCPM_Institution_Panel {
 	 *
 	 * @param array  $facts         From `WPCPM_Institution_Agreement::review_facts()`.
 	 * @param string $airtable_name Airtable's `Name` for the institution, as the index read it.
+	 * @param bool   $parts         True on the Administrator Dashboard's parts: the sentences as `WPCPM_UI::checklist()`.
 	 */
-	private static function render_checklist( array $facts, $airtable_name ) {
+	private static function render_checklist( array $facts, $airtable_name, $parts = false ) {
 		$own      = WPCPM_Institution_Agreement::KIND_OWN === (string) ( isset( $facts['kind'] ) ? $facts['kind'] : '' );
 		$version  = trim( (string) ( isset( $facts['template_version'] ) ? $facts['template_version'] : '' ) );
 		$on_paper = trim( (string) ( isset( $facts['name_on_document'] ) ? $facts['name_on_document'] : '' ) );
 
-		echo '<ul class="wpcpm-review__checklist">';
-
 		if ( $own ) {
-			printf( '<li>%s</li>', esc_html__( 'Read the whole document. There is no shortcut for this one.', 'wpcredits-program-manager' ) );
-			printf( '<li>%s</li>', esc_html__( 'It names the WordPress Foundation and the institution.', 'wpcredits-program-manager' ) );
-			printf( '<li>%s</li>', esc_html__( 'It does not commit the program to anything the program\'s own template does not.', 'wpcredits-program-manager' ) );
-			echo '</ul>';
-
-			return;
-		}
-
-		printf(
-			'<li>%s</li>',
-			esc_html(
+			$lines = array(
+				__( 'Read the whole document. There is no shortcut for this one.', 'wpcredits-program-manager' ),
+				__( 'It names the WordPress Foundation and the institution.', 'wpcredits-program-manager' ),
+				__( 'It does not commit the program to anything the program\'s own template does not.', 'wpcredits-program-manager' ),
+			);
+		} else {
+			$lines = array(
 				sprintf(
 					/* translators: %s: template version, or a phrase saying none was recorded. */
 					__( 'The footer on the signed copy names template version %s.', 'wpcredits-program-manager' ),
 					'' !== $version ? $version : __( 'nothing this site recorded', 'wpcredits-program-manager' )
-				)
-			)
-		);
-		printf(
-			'<li>%s</li>',
-			esc_html(
+				),
 				sprintf(
 					/* translators: 1: the name printed on the document, 2: Airtable's Name for the institution. */
 					__( 'The name on the document is %1$s. Airtable\'s Name for this institution is %2$s.', 'wpcredits-program-manager' ),
 					'' !== $on_paper ? $on_paper : __( '(not recorded)', 'wpcredits-program-manager' ),
 					$airtable_name
-				)
-			)
-		);
-		printf( '<li>%s</li>', esc_html__( 'The institution\'s signature block is filled in.', 'wpcredits-program-manager' ) );
+				),
+				__( 'The institution\'s signature block is filled in.', 'wpcredits-program-manager' ),
+			);
+		}
+
+		// On the Administrator Dashboard's parts the helper prints the list (Task 18a); today's list everywhere else.
+		if ( $parts ) {
+			echo WPCPM_UI::checklist( $lines ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::checklist().
+
+			return;
+		}
+
+		echo '<ul class="wpcpm-review__checklist">';
+
+		foreach ( $lines as $line ) {
+			printf( '<li>%s</li>', esc_html( $line ) );
+		}
 
 		echo '</ul>';
 	}
@@ -657,31 +798,32 @@ class WPCPM_Institution_Panel {
 	 * What the courtesy scan noticed, and what it is worth.
 	 *
 	 * @param array $flags The names the scan recorded, `/JavaScript` and its kind.
+	 * @param bool  $parts True on the Administrator Dashboard's parts: each sentence the parts' intro line.
 	 */
-	private static function render_flags( array $flags ) {
-		$flags = array_values( array_filter( array_map( 'strval', $flags ) ) );
-
-		printf(
-			'<p class="wpcpm-review__flags">%s</p>',
-			esc_html(
-				$flags
-					? sprintf(
-						/* translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets. */
-						__( 'The scan noticed these in the file: %s.', 'wpcredits-program-manager' ),
-						WPCPM_Pdf_Check::in_words( $flags )
-					)
-					: __( 'The scan noticed none of the features it looks for in the file.', 'wpcredits-program-manager' )
+	private static function render_flags( array $flags, $parts = false ) {
+		$flags   = array_values( array_filter( array_map( 'strval', $flags ) ) );
+		$noticed = $flags
+			? sprintf(
+				/* translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets. */
+				__( 'The scan noticed these in the file: %s.', 'wpcredits-program-manager' ),
+				WPCPM_Pdf_Check::in_words( $flags )
 			)
-		);
+			: __( 'The scan noticed none of the features it looks for in the file.', 'wpcredits-program-manager' );
+		$courtesy = __( 'The scan is a courtesy and not evidence: a PDF can carry things a bounded scan will not find. What protects you is that this site never opens the file in your browser, and that the download is handed to a viewer of your own choosing.', 'wpcredits-program-manager' );
 
-		printf(
-			'<p class="wpcpm-review__courtesy">%s</p>',
-			esc_html__( 'The scan is a courtesy and not evidence: a PDF can carry things a bounded scan will not find. What protects you is that this site never opens the file in your browser, and that the download is handed to a viewer of your own choosing.', 'wpcredits-program-manager' )
-		);
+		if ( $parts ) {
+			echo WPCPM_UI::intro( $noticed ) . WPCPM_UI::intro( $courtesy ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+
+			return;
+		}
+
+		printf( '<p class="wpcpm-review__flags">%s</p>', esc_html( $noticed ) );
+		printf( '<p class="wpcpm-review__courtesy">%s</p>', esc_html( $courtesy ) );
 	}
 
 	/**
-	 * Accept, with a confirm that names everything that leaves the building.
+	 * Accept, handed to the Decide area `render_decide_area()` is collecting, with a confirm that names
+	 * everything that leaves the building.
 	 *
 	 * The institution, `Confirmed`, and how many people are emailed: three consequences the
 	 * reviewer cannot see from the button, one of which reaches other people's inboxes. The
@@ -689,49 +831,49 @@ class WPCPM_Institution_Panel {
 	 * a dialog listing three irreversible-sounding things is a dialog people dismiss without
 	 * reading.
 	 *
+	 * Called only while `render_decide_area()` is collecting: outside it there is no area to hand the decision to,
+	 * so it hands nothing on and returns, rather than starting a list nobody prints.
+	 *
 	 * @param int    $post_id Agreement post ID.
 	 * @param string $name    Institution name, as printed.
 	 * @param int    $members How many people are emailed.
 	 * @param string $where   Where the decision comes back to, as `render_review()` was told.
 	 */
 	private static function render_accept_form( $post_id, $name, $members, $where = '' ) {
-		self::form_start(
-			'wpcpm-review__form wpcpm-review__form--accept',
-			WPCPM_Institution_Agreement::ACTION_ACCEPT,
-			WPCPM_Institution_Agreement::ACTION_ACCEPT . '_' . (int) $post_id,
-			__( 'Accepting...', 'wpcredits-program-manager' ),
-			false
-		);
-
-		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
-
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $where, 'agreements' );
+		if ( ! is_array( self::$decide_into ) ) {
+			return;
 		}
 
-		printf(
-			'<button type="submit" class="wpcpm-button" data-wpcpm-confirm="%1$s">%2$s</button>',
-			esc_attr(
-				sprintf(
-					/* translators: 1: institution name, 2: number of people emailed. */
-					_n(
-						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s person at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.',
-						'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s people at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.',
-						(int) $members,
-						'wpcredits-program-manager'
-					),
-					$name,
-					number_format_i18n( (int) $members )
-				)
+		$question = sprintf(
+			/* translators: 1: institution name, 2: number of people emailed. */
+			_n(
+				'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s person at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.',
+				'Accept the signed agreement from %1$s? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the %2$s people at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.',
+				(int) $members,
+				'wpcredits-program-manager'
 			),
-			esc_html__( 'Accept it', 'wpcredits-program-manager' )
+			$name,
+			number_format_i18n( (int) $members )
 		);
 
-		echo '</form>';
+		// No note, so the decision acts at once from the row, with the question.
+		self::$decide_into[] = self::decision(
+			$post_id,
+			WPCPM_Institution_Agreement::ACTION_ACCEPT,
+			__( 'Accepting...', 'wpcredits-program-manager' ),
+			$where,
+			array(
+				'key'     => 'accept',
+				'label'   => __( 'Accept it', 'wpcredits-program-manager' ),
+				'kind'    => 'primary',
+				'confirm' => $question,
+			)
+		);
 	}
 
 	/**
-	 * Return, with the note that is the whole of what the institution is told.
+	 * Return, handed to the Decide area `render_decide_area()` is collecting, with the note that is the
+	 * whole of what the institution is told.
 	 *
 	 * The one free-text field anywhere on this page, and the reason it is allowed where the
 	 * upload form's is not: this text is written to be read by a person, is mailed verbatim,
@@ -741,42 +883,59 @@ class WPCPM_Institution_Panel {
 	 * A return refused for its own words comes back with the note as it was typed, in this
 	 * document's box only (`WPCPM_Institution_Agreement::kept_return_note()`).
 	 *
+	 * Called only while `render_decide_area()` is collecting: outside it there is no area to hand the decision to,
+	 * so it hands nothing on, leads no message to a box, and returns.
+	 *
 	 * @param int    $post_id Agreement post ID.
 	 * @param string $where   Where the decision comes back to, as `render_review()` was told.
 	 */
 	private static function render_return_form( $post_id, $where = '' ) {
+		if ( ! is_array( self::$decide_into ) ) {
+			return;
+		}
+
 		$base = 'wpcpm-return-' . (int) $post_id;
 		$kept = WPCPM_Institution_Agreement::kept_return_note( $post_id );
 
-		self::form_start(
-			'wpcpm-review__form',
-			WPCPM_Institution_Agreement::ACTION_RETURN,
-			WPCPM_Institution_Agreement::ACTION_RETURN . '_' . (int) $post_id,
-			__( 'Returning...', 'wpcredits-program-manager' ),
-			false
-		);
+		// An opener, and the note in its panel, the label split into label and hint (design 5). Opened on load where
+		// the box holds what the last press kept, or says why it was refused; a refusal leads the card's message to
+		// the box.
+		$problem = self::return_problem( $kept, $post_id );
 
-		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
-
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $where, 'agreements' );
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( $base );
 		}
 
-		printf(
-			'<p class="wpcpm-review__note"><label for="%1$s">%2$s</label> <textarea class="wpcpm-agreement-panel__input" id="%1$s" name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required>%3$s</textarea></p>',
-			esc_attr( $base ),
-			esc_html__( 'What has to change, in your own words. This is emailed to everybody at the institution exactly as you write it, with your address to reply to.', 'wpcredits-program-manager' ),
-			// The parser drops one line feed right after the opening tag, so a kept note that
-			// begins with a line break keeps it.
-			null === $kept ? '' : "\n" . esc_textarea( $kept )
+		self::$decide_into[] = self::decision(
+			$post_id,
+			WPCPM_Institution_Agreement::ACTION_RETURN,
+			__( 'Returning...', 'wpcredits-program-manager' ),
+			$where,
+			array(
+				'key'           => 'return',
+				'label'         => __( 'Return with a note', 'wpcredits-program-manager' ),
+				'kind'          => 'secondary',
+				'confirm_label' => __( 'Return it with this note', 'wpcredits-program-manager' ),
+				'fields'        => WPCPM_UI::field(
+					array(
+						'id'      => $base,
+						'name'    => 'wpcpm_agreement_note',
+						'label'   => __( 'What has to change', 'wpcredits-program-manager' ),
+						'hint'    => __( 'In your own words. It is emailed to everybody at the institution exactly as you write it, with your address to reply to.', 'wpcredits-program-manager' ),
+						'need'    => 'required',
+						'type'    => 'textarea',
+						'rows'    => 4,
+						'value'   => null === $kept ? '' : $kept,
+						'attrs'   => array(
+							'minlength' => WPCPM_Institution_Agreement::MIN_NOTE,
+							'maxlength' => WPCPM_Institution_Agreement::MAX_NOTE,
+						),
+						'problem' => $problem,
+					)
+				),
+				'open'          => null !== $kept || '' !== $problem,
+			)
 		);
-
-		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
-			esc_html__( 'Return it with this note', 'wpcredits-program-manager' )
-		);
-
-		echo '</form>';
 	}
 
 	/**
@@ -787,6 +946,12 @@ class WPCPM_Institution_Panel {
 	 * @return string
 	 */
 	private static function return_label() {
+		// On the shared parts the box's label is "What has to change" alone, its second half the hint (design 5).
+		if ( class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
+			/* translators: The name of the box an Administrator types why a signed agreement is returned in: its label. */
+			return __( 'What has to change', 'wpcredits-program-manager' );
+		}
+
 		/* translators: The name of the box an Administrator types why a signed agreement is returned in, the first words of its label. */
 		return __( 'What has to change, in your own words', 'wpcredits-program-manager' );
 	}
@@ -1265,16 +1430,22 @@ class WPCPM_Institution_Panel {
 	 *
 	 * @param int    $post_id Agreement post ID.
 	 * @param string $label   The link text.
+	 * @param bool   $bare    True from the review block's parts branch: the line prints no class of its own.
 	 */
-	public static function render_download_link( $post_id, $label ) {
+	public static function render_download_link( $post_id, $label, $bare = false ) {
 		$post_id = (int) $post_id;
 
 		if ( ! $post_id || ! self::may_act_on_post( $post_id ) ) {
 			return;
 		}
 
+		// Drawn by the review block that decides on the Administrator Dashboard's parts, the line carries no class: its
+		// rules live in sheets that page never loads, and no script reads it (Task 17b, ruling 5). Every other caller
+		// keeps it.
 		printf(
-			'<p class="wpcpm-agreement-panel__download"><a href="%1$s" rel="nofollow">%2$s</a></p>',
+			$bare
+				? '<p><a href="%1$s" rel="nofollow">%2$s</a></p>'
+				: '<p class="wpcpm-agreement-panel__download"><a href="%1$s" rel="nofollow">%2$s</a></p>',
 			esc_url( self::download_url( $post_id ) ),
 			esc_html( $label )
 		);

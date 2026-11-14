@@ -356,6 +356,22 @@ class WPCPM_Sponsor_Application {
 	private static $ticked = false;
 
 	/**
+	 * The decisions `render_decision_form()` hands on instead of printing a form, while `render_decide_area()` builds
+	 * a Decide area on the Administrator Dashboard's shared parts; null at every other time, which prints today's forms.
+	 *
+	 * @var array[]|null
+	 */
+	private static $decide_into = null;
+
+	/**
+	 * The outcome the last press left on the Administrator Dashboard's channel, read once by `render_decide_area()` for
+	 * the area it builds, so the question's box and the reason's read the same one.
+	 *
+	 * @var string
+	 */
+	private static $decide_status = '';
+
+	/**
 	 * Hooks.
 	 *
 	 * The submit handler is registered for logged-out visitors as well, which is the whole
@@ -4107,12 +4123,15 @@ class WPCPM_Sponsor_Application {
 			self::render_decision_form(
 				$post,
 				array(
-					'return'  => (string) $return,
-					'action'  => self::ACTION_APPROVE,
-					'label'   => __( 'Approve', 'wpcredits-program-manager' ),
-					'class'   => 'button button-primary',
-					'confirm' => $confirm,
-					'test'    => $test,
+					'return'        => (string) $return,
+					'action'        => self::ACTION_APPROVE,
+					'label'         => __( 'Approve', 'wpcredits-program-manager' ),
+					'class'         => 'button button-primary',
+					'confirm'       => $confirm,
+					'test'          => $test,
+					// Read by the Decide area alone (`decision()`): the forms below print none of these.
+					'kind'          => 'primary',
+					'confirm_label' => __( 'Approve the application', 'wpcredits-program-manager' ),
 				)
 			);
 
@@ -4122,13 +4141,19 @@ class WPCPM_Sponsor_Application {
 			self::render_decision_form(
 				$post,
 				array(
-					'return'   => (string) $return,
-					'action'   => self::ACTION_INFO,
-					'label'    => __( 'Send this question', 'wpcredits-program-manager' ),
-					'field'    => 'wpcpm_question',
-					'prompt'   => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
-					'required' => true,
-					'kept'     => $kept,
+					'return'     => (string) $return,
+					'action'     => self::ACTION_INFO,
+					'label'      => __( 'Send this question', 'wpcredits-program-manager' ),
+					'field'      => 'wpcpm_question',
+					'prompt'     => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+					'required'   => true,
+					'kept'       => $kept,
+					'kind'       => 'secondary',
+					'opener'     => __( 'Ask a question', 'wpcredits-program-manager' ),
+					'note_label' => self::question_label(),
+					'note_hint'  => __( 'It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+					'form'       => WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ),
+					'refused'    => array( 'sapp-loss', 'sapp-question', 'sapp-too-long' ),
 				)
 			);
 
@@ -4138,13 +4163,19 @@ class WPCPM_Sponsor_Application {
 			self::render_decision_form(
 				$post,
 				array(
-					'return'  => (string) $return,
-					'action'  => self::ACTION_REJECT,
-					'label'   => __( 'Reject', 'wpcredits-program-manager' ),
-					'field'   => 'wpcpm_reason',
-					'prompt'  => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
-					'kept'    => $kept,
-					'confirm' => sprintf(
+					'return'        => (string) $return,
+					'action'        => self::ACTION_REJECT,
+					'label'         => __( 'Reject', 'wpcredits-program-manager' ),
+					'field'         => 'wpcpm_reason',
+					'prompt'        => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
+					'kept'          => $kept,
+					'kind'          => 'danger',
+					'confirm_label' => __( 'Reject the application', 'wpcredits-program-manager' ),
+					'note_label'    => self::reason_label(),
+					'note_hint'     => __( 'It is never sent to the applicant.', 'wpcredits-program-manager' ),
+					'form'          => WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ),
+					'refused'       => array( 'sapp-reason-loss', 'sapp-reason-long' ),
+					'confirm'       => sprintf(
 						/* translators: %s: company name. */
 						__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
 						$name
@@ -4158,6 +4189,7 @@ class WPCPM_Sponsor_Application {
 					'return'  => (string) $return,
 					'action'  => self::ACTION_SPAM,
 					'label'   => __( 'Reject as spam', 'wpcredits-program-manager' ),
+					'kind'    => 'danger',
 					'confirm' => sprintf(
 						/* translators: %s: company name. */
 						__( 'Mark the application from %s as spam? Nothing at all is sent to the address on it, and its logo files go with it when it is deleted.', 'wpcredits-program-manager' ),
@@ -4174,6 +4206,7 @@ class WPCPM_Sponsor_Application {
 					'return' => (string) $return,
 					'action' => self::ACTION_REOPEN,
 					'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
+					'kind'   => 'secondary',
 				)
 			);
 		}
@@ -4185,6 +4218,7 @@ class WPCPM_Sponsor_Application {
 					'return'  => (string) $return,
 					'action'  => self::ACTION_PURGE,
 					'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
+					'kind'    => 'danger',
 					// Two sentences, chosen by the state: `forget()` deletes the logo files of
 					// an application nobody approved and leaves an approved one's, because
 					// those are the sponsor's logo in the Media Library.
@@ -4316,6 +4350,29 @@ class WPCPM_Sponsor_Application {
 			),
 			$args
 		);
+
+		// A Decide area is being built (the Administrator Dashboard on the shared parts, `render_decide_area()`): the
+		// decision goes to it, with the words only the parts print, and this form is not drawn. Nothing else sets the
+		// collector, so the wp-admin Sponsors screen, which draws these forms through `render_open()`, never comes here.
+		if ( is_array( self::$decide_into ) ) {
+			self::$decide_into[] = self::decision(
+				$post,
+				array_merge(
+					array(
+						'kind'          => 'secondary',
+						'opener'        => '',
+						'confirm_label' => '',
+						'note_label'    => '',
+						'note_hint'     => '',
+						'form'          => '',
+						'refused'       => array(),
+					),
+					$args
+				)
+			);
+
+			return;
+		}
 
 		printf(
 			'<form class="wpcpm-app-action" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%3$s"%2$s>',
@@ -4854,9 +4911,13 @@ class WPCPM_Sponsor_Application {
 			return;
 		}
 
-		self::render_answers( $post );
-		self::render_logos( $post );
-		self::render_base_matches( $post );
+		// Drawn only on the Administrator Dashboard's card, on the shared parts: the answers are a key and value table
+		// with no stored column name (design 2.7, 4.1, controller's ruling F, as the institution applications' answers
+		// are), and the two headings in-card headings. The Sponsors screen's opened application draws the same three
+		// through `render_open()`, as today.
+		self::render_answers( $post, true );
+		self::render_logos( $post, true );
+		self::render_base_matches( $post, true );
 	}
 
 	/**
@@ -4877,20 +4938,28 @@ class WPCPM_Sponsor_Application {
 	 * question stood just before the tier question. An application filed since it went has no row
 	 * for it at all, rather than a "no answer" for a question nobody was asked.
 	 *
-	 * @param WP_Post $post The application.
+	 * On the shared parts (`$parts`, the Administrator Dashboard's card, `render_details()`) the table is the table
+	 * part's key and value table, and the column names are not printed.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param bool    $parts Whether to draw on the shared parts.
 	 */
-	public static function render_answers( WP_Post $post ) {
+	public static function render_answers( WP_Post $post, $parts = false ) {
 		$fields = self::fields_of( $post );
 		$logos  = self::logos_of( (int) $post->ID );
 
-		echo '<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>';
+		if ( $parts ) {
+			echo WPCPM_UI::table_open( self::answer_columns(), array( 'keyvalue' => true ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::table_open().
+		} else {
+			echo '<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>';
+		}
 
 		foreach ( self::fields() as $column => $spec ) {
 			$column = (string) $column;
 			$label  = ! empty( $spec['label'] ) ? (string) $spec['label'] : $column;
 
 			if ( self::COL_TIER === $column ) {
-				self::render_older_answers( $fields );
+				self::render_older_answers( $fields, $parts );
 			}
 
 			if ( self::COL_CONSENT === $column ) {
@@ -4915,10 +4984,31 @@ class WPCPM_Sponsor_Application {
 				$value  = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
 			}
 
-			self::render_answer_row( $label, $column, $value );
+			self::render_answer_row( $label, $column, $value, $parts );
 		}
 
-		echo '</tbody></table>';
+		echo $parts ? WPCPM_UI::table_close() : '</tbody></table>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+	}
+
+	/**
+	 * The answers table's two columns on the shared parts: the question, a row header, and the answer.
+	 *
+	 * @return array[]
+	 */
+	private static function answer_columns() {
+		return array(
+			array(
+				'key'    => 'question',
+				'label'  => '',
+				'kind'   => 'text',
+				'header' => true,
+			),
+			array(
+				'key'   => 'answer',
+				'label' => '',
+				'kind'  => 'text',
+			),
+		);
 	}
 
 	/**
@@ -4930,8 +5020,9 @@ class WPCPM_Sponsor_Application {
 	 * and never checked against `OPTION_CHOICES`: it is what the applicant was offered then.
 	 *
 	 * @param array $fields The stored answers, keyed by column name.
+	 * @param bool  $parts  Whether to draw on the shared parts.
 	 */
-	private static function render_older_answers( array $fields ) {
+	private static function render_older_answers( array $fields, $parts = false ) {
 		foreach ( self::retired() as $column => $label ) {
 			$answer = isset( $fields[ $column ] ) && is_scalar( $fields[ $column ] ) ? trim( (string) $fields[ $column ] ) : '';
 
@@ -4939,7 +5030,7 @@ class WPCPM_Sponsor_Application {
 				continue;
 			}
 
-			self::render_answer_row( $label, (string) $column, $answer );
+			self::render_answer_row( $label, (string) $column, $answer, $parts );
 		}
 	}
 
@@ -4950,8 +5041,22 @@ class WPCPM_Sponsor_Application {
 	 * @param string $label  The question's words.
 	 * @param string $column The column the answer is stored under.
 	 * @param string $value  The answer, as text.
+	 * @param bool   $parts  Whether to draw on the shared parts: a row of the key and value table, with no column.
 	 */
-	private static function render_answer_row( $label, $column, $value ) {
+	private static function render_answer_row( $label, $column, $value, $parts = false ) {
+		if ( $parts ) {
+			list( $question, $answer ) = self::answer_columns();
+
+			$empty = '' === trim( (string) $value );
+			$row   = WPCPM_UI::row_open() . WPCPM_UI::cell( $question, esc_html( $label ) )
+				. WPCPM_UI::cell( $answer, $empty ? esc_html__( 'no answer', 'wpcredits-program-manager' ) : esc_html( $value ), $empty ? 'empty' : '' )
+				. WPCPM_UI::row_close();
+
+			echo $row; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped here and in WPCPM_UI.
+
+			return;
+		}
+
 		printf(
 			'<tr><th scope="row">%1$s<br /><code class="wpcpm-inst-record">%2$s</code></th><td>%3$s</td></tr>',
 			esc_html( $label ),
@@ -5032,19 +5137,27 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The logo files, from the Media Library.
 	 *
-	 * @param WP_Post $post The application.
+	 * @param WP_Post $post  The application.
+	 * @param bool    $parts Whether to draw on the shared parts: the heading an in-card heading.
 	 */
-	private static function render_logos( WP_Post $post ) {
+	private static function render_logos( WP_Post $post, $parts = false ) {
 		$logos  = self::logos_of( (int) $post->ID );
 		$labels = array(
 			'colour' => __( 'In color', 'wpcredits-program-manager' ),
 			'white'  => __( 'In white, for a dark background', 'wpcredits-program-manager' ),
 		);
 
-		echo '<h3>' . esc_html__( 'Logo', 'wpcredits-program-manager' ) . '</h3>';
+		echo $parts ? WPCPM_UI::heading( __( 'Logo', 'wpcredits-program-manager' ), 'h5' ) : '<h3>' . esc_html__( 'Logo', 'wpcredits-program-manager' ) . '</h3>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading() and here.
 
 		if ( $logos['colour'] < 1 && $logos['white'] < 1 ) {
-			echo '<p>' . esc_html__( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval.', 'wpcredits-program-manager' ) . '</p>';
+			// On the shared parts the parts' muted empty line, as the base matches' (Task 18f); today's paragraph elsewhere.
+			echo $parts ? WPCPM_UI::list_empty( __( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval.', 'wpcredits-program-manager' ) ) : '<p>' . esc_html__( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval.', 'wpcredits-program-manager' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty() and here.
+
+			return;
+		}
+
+		if ( $parts ) {
+			self::render_logos_parts( $logos, $labels );
 
 			return;
 		}
@@ -5070,19 +5183,54 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
+	 * The logo files on the shared parts (`render_details()`, the Administrator Dashboard's card): the
+	 * logos part, each figure framed, the white version on the ink ground, its caption muted under it.
+	 *
+	 * @param array    $logos  `logos_of()`'s two attachment IDs.
+	 * @param string[] $labels Each half's caption.
+	 */
+	private static function render_logos_parts( array $logos, array $labels ) {
+		echo '<div class="wpcpm-ui-logos">';
+
+		foreach ( $labels as $half => $label ) {
+			if ( $logos[ $half ] < 1 ) {
+				continue;
+			}
+
+			printf(
+				'<figure class="wpcpm-ui-logo%3$s">%1$s<figcaption class="wpcpm-ui-logo__caption">%2$s</figcaption></figure>',
+				wp_get_attachment_image( (int) $logos[ $half ], 'medium', false, array( 'class' => 'wpcpm-ui-logo__img' ) ),
+				esc_html( $label ),
+				'white' === $half ? ' wpcpm-ui-logo--white' : ''
+			);
+		}
+
+		echo '</div>';
+	}
+
+	/**
 	 * What the sponsors index already holds under this company's name or website.
 	 *
 	 * The name is the one in `META_FIELDS`, as it is in `has_open_duplicate()` and for the same
 	 * reason: `post_title` has been through kses, so "Smith & Jones" is stored
 	 * there as "Smith &amp; Jones" and matches nothing in the index.
 	 *
-	 * @param WP_Post $post The application.
+	 * @param WP_Post $post  The application.
+	 * @param bool    $parts Whether to draw on the shared parts: the heading an in-card heading.
 	 */
-	private static function render_base_matches( WP_Post $post ) {
+	private static function render_base_matches( WP_Post $post, $parts = false ) {
 		$fields  = self::fields_of( $post );
 		$matches = self::index_matches( self::name_of( $fields ), self::website_of( $fields ) );
 
-		echo '<h3>' . esc_html__( 'What the site already has', 'wpcredits-program-manager' ) . '</h3>';
+		echo $parts ? WPCPM_UI::heading( __( 'What the site already has', 'wpcredits-program-manager' ), 'h5' ) : '<h3>' . esc_html__( 'What the site already has', 'wpcredits-program-manager' ) . '</h3>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading() and here.
+
+		// On the shared parts the sentences are the parts' intro, and each match a list row: its name and status, never
+		// its record key (design ruling F: a stored record's key is not printed on the parts).
+		if ( $parts ) {
+			self::render_base_matches_parts( $matches );
+
+			return;
+		}
 
 		if ( empty( $matches ) ) {
 			echo '<p>' . esc_html__( 'No sponsor on the site carries this name or this website. Approving creates one.', 'wpcredits-program-manager' ) . '</p>';
@@ -5103,6 +5251,35 @@ class WPCPM_Sponsor_Application {
 		}
 
 		echo '</ul>';
+	}
+
+	/**
+	 * The matches on the shared parts: today's sentences as the parts' intro, each match a list row.
+	 *
+	 * @param array $matches `index_matches()`'s rows, by record key.
+	 */
+	private static function render_base_matches_parts( array $matches ) {
+		if ( empty( $matches ) ) {
+			// The parts' muted empty line, as the logo's (Task 18f).
+			echo WPCPM_UI::list_empty( __( 'No sponsor on the site carries this name or this website. Approving creates one.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
+
+			return;
+		}
+
+		$out = WPCPM_UI::intro( __( 'These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and attach the person\'s account from Manage accounts on the Sponsors screen\'s Accounts tab, or use Create account on its No account view for an Approved sponsor with no account.', 'wpcredits-program-manager' ) )
+			// No row carries a tag, so each row's status sits under its name (Task 18c).
+			. WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $matches as $row ) {
+			$out .= WPCPM_UI::row(
+				array(
+					'name'  => '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : __( '(no name)', 'wpcredits-program-manager' ),
+					'facts' => array( '' !== (string) $row['status'] ? (string) $row['status'] : __( 'no status', 'wpcredits-program-manager' ) ),
+				)
+			);
+		}
+
+		echo $out . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI.
 	}
 
 	/**
@@ -5223,7 +5400,189 @@ class WPCPM_Sponsor_Application {
 			return;
 		}
 
-		self::render_actions( $post, self::state_of( $post ), $return );
+		// Called only from the Administrator Dashboard, on the shared parts. The wp-admin Sponsors screen draws the same
+		// forms through `render_open()`, which never comes here, so it keeps today's markup.
+		self::render_decide_area( $post, self::state_of( $post ), (string) $return );
+	}
+
+	/**
+	 * Every decision the state allows on one application, as one Decide area (`WPCPM_UI::decide()`, design 2.6), drawn
+	 * on the Administrator Dashboard.
+	 *
+	 * The decisions are the ones `render_actions()` draws as forms, in the same order and posting the same fields: each
+	 * `render_decision_form()` hands its decision to the area instead of printing a form (`decision()`). Approve opens a
+	 * panel of its own, since its Test sponsor box is a field; Ask a question and Reject open a panel each, printed open
+	 * when the last press left typing for this application's box or refused it; Reject as spam and Put back in the
+	 * queue act from the row with the question they ask today. A box the last press refused outranks one that only kept
+	 * its typing for which panel is printed open. The area's id and the boxes' ids carry the application's ID, so two
+	 * applications on one card repeat none. No heading of today's is printed over it: "Decide" is the area's own.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 * @param string  $where `WPCPM_Return::DASHBOARD`.
+	 */
+	private static function render_decide_area( WP_Post $post, $state, $where ) {
+		// What the press was refused for, read once from the outcome it left on the channel the dashboard's message
+		// reads (`WPCPM_Flash::take()` memoizes, so it is the sentence the card prints).
+		self::$decide_status = class_exists( 'WPCPM_Institutions' ) ? sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) ) : '';
+		self::$decide_into   = array();
+
+		try {
+			self::render_actions( $post, $state, $where, false );
+
+			$decisions = self::decided();
+		} finally {
+			self::$decide_into   = null;
+			self::$decide_status = '';
+		}
+
+		if ( empty( $decisions ) ) {
+			return;
+		}
+
+		$refusal = in_array( true, array_column( $decisions, 'refused' ), true );
+
+		foreach ( $decisions as $i => $decision ) {
+			if ( $refusal && empty( $decision['refused'] ) ) {
+				$decisions[ $i ]['open'] = false;
+			}
+		}
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-sapp-' . (int) $post->ID,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => $decisions,
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in decision()'s callable, the Test sponsor box in decision().
+	}
+
+	/**
+	 * The decisions handed on since `render_decide_area()` began collecting them.
+	 *
+	 * @return array[]
+	 */
+	private static function decided() {
+		return is_array( self::$decide_into ) ? self::$decide_into : array();
+	}
+
+	/**
+	 * One decision as `WPCPM_UI::decide()` takes it, from the arguments `render_decision_form()` draws its form with:
+	 * the same hidden fields under the same nonce (printed with no id, `WPCPM_UI::nonce()`), the same box under the same
+	 * name and bounds (its id the field's name and the application's ID, as today), Approve's Test sponsor box as
+	 * today, and the same question before it posts.
+	 *
+	 * A box holding typing is tied to the refusal only when the outcome is one of its own form's refusals and its form
+	 * is the one the last refusal kept (`WPCPM_Typed_Text::is_last()`): the outcome names no application, and another
+	 * application's box may hold typing an earlier press kept, which no page drew. Asked here, in the dashboard's path
+	 * alone; the forms the Sponsors screen draws read neither.
+	 *
+	 * @param WP_Post $post The application.
+	 * @param array   $args `render_decision_form()`'s, merged with its defaults and the parts' own.
+	 * @return array
+	 */
+	private static function decision( WP_Post $post, array $args ) {
+		$keys    = array(
+			self::ACTION_APPROVE => 'approve',
+			self::ACTION_INFO    => 'info',
+			self::ACTION_REJECT  => 'reject',
+			self::ACTION_SPAM    => 'spam',
+			self::ACTION_REOPEN  => 'reopen',
+			self::ACTION_PURGE   => 'purge',
+		);
+		$post_id = (int) $post->ID;
+		$fields  = '';
+		$open    = false;
+		$refused = false;
+
+		if ( '' !== $args['field'] ) {
+			$field_id = $args['field'] . '-' . $post_id;
+			$kept     = is_string( $args['kept'] ) ? $args['kept'] : null;
+			$problem  = '';
+			$messages = self::manager_messages();
+
+			if ( null !== $kept && in_array( self::$decide_status, (array) $args['refused'], true ) && isset( $messages[ self::$decide_status ][1] ) && WPCPM_Typed_Text::is_last( (string) $args['form'] ) ) {
+				$problem = (string) $messages[ self::$decide_status ][1];
+			}
+
+			$attrs = array( 'maxlength' => (int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ) );
+
+			if ( $args['required'] ) {
+				$attrs['minlength'] = (int) self::MIN_NOTE;
+			}
+
+			$fields  = WPCPM_UI::field(
+				array(
+					'id'      => $field_id,
+					'name'    => $args['field'],
+					'label'   => (string) $args['note_label'],
+					'hint'    => (string) $args['note_hint'],
+					// Required where today's box is; Optional otherwise: `handle_reject()` takes an empty reason (Task 18a).
+					'need'    => $args['required'] ? 'required' : 'optional',
+					'type'    => 'textarea',
+					'rows'    => 3,
+					'value'   => null !== $kept ? $kept : '',
+					'attrs'   => $attrs,
+					'problem' => $problem,
+				)
+			);
+			$open    = null !== $kept;
+			$refused = '' !== $problem;
+
+			// The card's message, the refusal sentence, leads to this box.
+			if ( $refused && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+				WPCPM_Dashboard_Card::lead_to( $field_id );
+			}
+		} elseif ( is_bool( $args['test'] ) ) {
+			// Approve's own box (1.123.18): one checkbox that is its own question, in today's words, under today's name
+			// and value, ticked exactly when today's is.
+			$fields = WPCPM_UI::choices(
+				array(
+					'id'      => 'wpcpm_test-' . $post_id,
+					'name'    => 'wpcpm_test',
+					'type'    => 'checkbox',
+					'options' => array( '1' => __( 'Test sponsor: not listed publicly', 'wpcredits-program-manager' ) ),
+					'checked' => $args['test'] ? '1' : '',
+				)
+			);
+		}
+
+		$opener = (string) $args['opener'];
+		$return = (string) $args['return'];
+		$action = (string) $args['action'];
+
+		return array(
+			'key'           => isset( $keys[ $action ] ) ? $keys[ $action ] : $action,
+			'label'         => '' !== $opener ? $opener : (string) $args['label'],
+			'confirm_label' => '' !== $opener ? (string) $args['label'] : (string) $args['confirm_label'],
+			'kind'          => (string) $args['kind'],
+			// No class: the old form's `wpcpm-app-action` is styled by the old screens, and the area's row lays its
+			// forms out itself. The guard against a second press is the form's, as today.
+			'form_attrs'    => array(
+				'method'          => 'post',
+				'action'          => admin_url( 'admin-post.php' ),
+				'data-wpcpm-once' => true,
+				'data-wpcpm-busy' => __( 'Working', 'wpcredits-program-manager' ),
+			),
+			'hidden'        => static function () use ( $post_id, $action, $return ) {
+				echo WPCPM_UI::nonce( $action . '_' . $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+				printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_APPLICATION ), (int) $post_id );
+
+				if ( class_exists( 'WPCPM_Return' ) ) {
+					WPCPM_Return::field( $return, self::RETURN_ANCHOR );
+				}
+			},
+			'fields'        => $fields,
+			'confirm'       => (string) $args['confirm'],
+			'open'          => $open,
+			// Read by render_decide_area() alone, which lets a refusal outrank kept typing; decide() ignores it.
+			'refused'       => $refused,
+		);
 	}
 
 	/*

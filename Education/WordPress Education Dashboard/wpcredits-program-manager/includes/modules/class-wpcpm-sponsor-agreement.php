@@ -510,15 +510,14 @@ final class WPCPM_Sponsor_Agreement {
 
 	/**
 	 * A manager's decision on one document, in the request cards' own shape for the
-	 * Administrator Dashboard (1.96.1): Download, Accept it, and a folded "Return with a note"
-	 * whose button is "Return it with this note" for a document waiting for review; Reinstate for
-	 * one out of force. The words are the ones the institutions' Collaboration Agreement card uses
-	 * on the same page, so the same decision reads the same whoever signed the agreement; the fold
-	 * keeps the name the posts' and the events' folds carry. Accept it and Reinstate ask before they
-	 * post (`accept_question()`, `reinstate_question()`). The forms post to this class's handlers,
-	 * each under the nonce keyed to the document; of the three, the wp-admin Sponsors screen draws
-	 * only Reinstate, for a document past this card's list. The return field brings the manager back
-	 * to this card.
+	 * Administrator Dashboard (1.96.1), on the shared parts: Accept it and "Return with a note",
+	 * whose button is "Return it with this note", as one Decide area for a document waiting for
+	 * review (`render_decide_area()`); nothing for any other state (an agreement out of force is the card's list row,
+	 * its Reinstate `reinstate_form()`). The words are the ones the institutions' Collaboration Agreement card uses
+	 * on the same page, so the same decision reads the same whoever signed the agreement; the opener
+	 * keeps the name the posts' and the events' openers carry. Accept it asks before it posts
+	 * (`accept_question()`). The forms post to this class's handlers, each under the nonce keyed to the document.
+	 * The return field brings the manager back to this card.
 	 *
 	 * @param int    $post_id The document.
 	 * @param string $return  `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -533,112 +532,219 @@ final class WPCPM_Sponsor_Agreement {
 
 		$state = (string) get_post_meta( $post_id, self::META_STATE, true );
 
-		if ( ! in_array( $state, array( self::STATE_SUBMITTED, self::STATE_REVOKED ), true ) ) {
+		// Drawn by the Administrator Dashboard alone, on the shared parts. An agreement out of force is a list row of the
+		// card, its Reinstate `reinstate_form()` (task V1, ruling 14).
+		if ( self::STATE_SUBMITTED !== $state ) {
 			return;
 		}
 
-		echo '<div class="wpcpm-request__decide wpcpm-sponsor-agreement__decide">';
-
-		// Only an uploaded copy has a file to download; a legacy row is a Drive link.
-		if ( self::KIND_OWN === (string) get_post_meta( $post_id, self::META_KIND, true ) ) {
-			printf(
-				'<a class="button" href="%1$s">%2$s</a>',
-				esc_url(
-					wp_nonce_url(
-						add_query_arg(
-							array(
-								'action' => self::ACTION_DOWNLOAD,
-								'post'   => $post_id,
-							),
-							admin_url( 'admin-post.php' )
-						),
-						self::ACTION_DOWNLOAD . '_' . $post_id
-					)
-				),
-				esc_html__( 'Download', 'wpcredits-program-manager' )
-			);
-		}
-
-		if ( self::STATE_REVOKED === $state ) {
-			self::render_decision_form( self::ACTION_REINSTATE, $post_id, __( 'Reinstate', 'wpcredits-program-manager' ), 'button', $return, self::reinstate_question() );
-			echo '</div>';
-			return;
-		}
-
-		self::render_decision_form( self::ACTION_ACCEPT, $post_id, __( 'Accept it', 'wpcredits-program-manager' ), 'button button-primary', $return, self::accept_question( $post_id ) );
-
-		// A refused return comes back with the note as it was typed, its fold open so the box is
-		// where it was left.
-		$note = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id ), 'note' );
-
-		echo null === $note ? '<details class="wpcpm-sponsor-agreement__return">' : '<details class="wpcpm-sponsor-agreement__return" open>';
-		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
-		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The document goes back to the company, and your note is emailed to everybody there, with your address to reply to.', 'wpcredits-program-manager' ) );
-		printf( '<form class="wpcpm-sponsor-agreement__form wpcpm-sponsor-agreement__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
-		wp_nonce_field( self::ACTION_RETURN . '_' . $post_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RETURN ) );
-		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_POST ), (int) $post_id );
-
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $return, 'sponsor-agreements' );
-		}
-
-		printf(
-			'<label class="screen-reader-text" for="wpcpm-agr-note-%1$d">%2$s</label><textarea id="wpcpm-agr-note-%1$d" name="%3$s" rows="2" minlength="%4$d" maxlength="%5$d" required placeholder="%6$s">%7$s</textarea>',
-			(int) $post_id,
-			esc_html( self::note_label() ),
-			esc_attr( self::FIELD_NOTE ),
-			(int) self::MIN_NOTE,
-			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
-			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
-			esc_attr__( 'What has to change before the program can accept it', 'wpcredits-program-manager' ),
-			// The parser drops one line feed right after the opening tag, so a kept note that
-			// begins with a line break keeps it.
-			null === $note ? '' : "\n" . esc_textarea( $note )
-		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
-		echo '</form>';
-		echo '</details>';
-		echo '</div>';
+		self::render_decide_area( $post_id, (string) $return );
 	}
 
 	/**
-	 * One decision form of the dashboard row: the action, the nonce keyed to the document, the
-	 * document, the return field and one button, which may ask a question first.
+	 * The decision on one document waiting for review as one Decide area (`WPCPM_UI::decide()`, design 2.6), drawn
+	 * on the Administrator Dashboard: Accept it, the one primary, acting at once with the
+	 * question it asks today; Return with a note, a secondary opener whose panel holds the note, today's label for
+	 * the box ("A note for the company") made visible, today's sentence that says what happens and who receives the
+	 * note as its hint, and the button that keeps "Return it with this note". Download is not in the row: the card's
+	 * item header carries it as a fact (`download_url()`). Nothing is red: returning removes nothing.
 	 *
-	 * The question rides on the button, as the institution side's Accept asks on the same page: a
-	 * No stops the press before the form is sent, so the page's double-submit guard never sees a
-	 * press that went nowhere.
+	 * Both forms post what `handle_accept()` and `handle_return()` read: admin-post.php under the once guard, the
+	 * hidden fields under each action's nonce keyed to the document (the nonce printed with no id, `WPCPM_UI::nonce()`, since the card holds one per document),
+	 * the box under its name, id and bounds. The panel is printed open when the last press left typing for this
+	 * document's box (`handle_return()` keeps it for a note too short or too long and for one the cleaner would take
+	 * words from); when the outcome is one of those refusals, the box is tied to its sentence and the card's message
+	 * leads to it.
+	 *
+	 * @param int    $post_id The document waiting for review.
+	 * @param string $where   `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 */
+	private static function render_decide_area( $post_id, $where ) {
+		$post_id  = (int) $post_id;
+		$field_id = 'wpcpm-agr-note-' . $post_id;
+		$typed    = WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id );
+		$note     = WPCPM_Typed_Text::kept_box( $typed, 'note' );
+		$problem  = '';
+
+		// What the press was refused for, read from the outcome it left on the dashboard's channel under the class's
+		// prefix (`bounce()`), which the dashboard's message reads too (`WPCPM_Flash::take()` memoizes, so it is the
+		// sentence the card prints). The outcome names no document, and another document's box may hold typing an
+		// earlier press kept: the refusal is this box's only when this document's form is the last one kept
+		// (`WPCPM_Typed_Text::is_last()`).
+		if ( null !== $note && class_exists( 'WPCPM_Institutions' ) ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$messages = self::manager_messages();
+
+			foreach ( array( 'agreement-note', 'agreement-note-loss' ) as $refusal ) {
+				if ( self::DASHBOARD_PREFIX . $refusal === $status && isset( $messages[ $refusal ][1] ) && WPCPM_Typed_Text::is_last( $typed ) ) {
+					$problem = (string) $messages[ $refusal ][1];
+				}
+			}
+		}
+
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( $field_id );
+		}
+
+		$form   = array(
+			'method'          => 'post',
+			'action'          => admin_url( 'admin-post.php' ),
+			'data-wpcpm-once' => true,
+		);
+		$hidden = static function ( $action ) use ( $post_id, $where ) {
+			return static function () use ( $action, $post_id, $where ) {
+				self::print_hidden( $action, $post_id, $where );
+			};
+		};
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-sagr-' . $post_id,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => array(
+					array(
+						'key'        => 'accept',
+						'label'      => __( 'Accept it', 'wpcredits-program-manager' ),
+						'kind'       => 'primary',
+						'form_attrs' => $form,
+						'hidden'     => $hidden( self::ACTION_ACCEPT ),
+						'fields'     => '',
+						'confirm'    => self::accept_question( $post_id ),
+					),
+					array(
+						'key'           => 'return',
+						'label'         => __( 'Return with a note', 'wpcredits-program-manager' ),
+						'kind'          => 'secondary',
+						'form_attrs'    => $form,
+						'hidden'        => $hidden( self::ACTION_RETURN ),
+						'fields'        => WPCPM_UI::field(
+							array(
+								'id'      => $field_id,
+								'name'    => self::FIELD_NOTE,
+								'label'   => self::note_label(),
+								'hint'    => __( 'The document goes back to the company, and your note is emailed to everybody there, with your address to reply to.', 'wpcredits-program-manager' ),
+								'need'    => 'required',
+								'type'    => 'textarea',
+								'rows'    => 2,
+								'value'   => null === $note ? '' : $note,
+								'attrs'   => array(
+									'minlength'   => (int) self::MIN_NOTE,
+									// Drawn empty, so the room is the limit: nothing in it is held as an entity.
+									'maxlength'   => (int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
+									'placeholder' => __( 'What has to change before the program can accept it', 'wpcredits-program-manager' ),
+								),
+								'problem' => $problem,
+							)
+						),
+						'confirm_label' => __( 'Return it with this note', 'wpcredits-program-manager' ),
+						'open'          => null !== $note,
+					),
+				),
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in print_hidden().
+	}
+
+	/**
+	 * Reinstate's one form on the parts, the quiet button asking today's question, for the action cell of the
+	 * agreement's list row on the Administrator Dashboard (task V1, ruling 14: a row's action sits at the row's end).
+	 * It posts what `handle_reinstate()` reads, the nonce printed with no id (`WPCPM_UI::nonce()`), since the card may
+	 * hold more than one. Nothing for a document that is not out of force, or for an account that may not manage the
+	 * program.
+	 *
+	 * @param int    $post_id The agreement out of force.
+	 * @param string $where   `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 * @return string Escaped markup, or ''.
+	 */
+	public static function reinstate_form( $post_id, $where = '' ) {
+		$post_id = absint( $post_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return '';
+		}
+
+		if ( self::STATE_REVOKED !== (string) get_post_meta( $post_id, self::META_STATE, true ) ) {
+			return '';
+		}
+
+		return self::reinstate_form_parts( $post_id, (string) $where );
+	}
+
+	/**
+	 * The markup of Reinstate's form on the parts.
+	 *
+	 * @param int    $post_id The agreement out of force.
+	 * @param string $where   `WPCPM_Return::DASHBOARD` or ''.
+	 * @return string Escaped markup.
+	 */
+	private static function reinstate_form_parts( $post_id, $where ) {
+		ob_start();
+		self::print_hidden( self::ACTION_REINSTATE, (int) $post_id, $where );
+		$hidden = (string) ob_get_clean();
+
+		return sprintf( '<form method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) )
+			. $hidden
+			. WPCPM_UI::button(
+				array(
+					'label'   => __( 'Reinstate', 'wpcredits-program-manager' ),
+					'kind'    => 'quiet',
+					'confirm' => self::reinstate_question(),
+					// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+					'side'    => 'front',
+				)
+			)
+			. '</form>';
+	}
+
+	/**
+	 * The hidden fields one decision form of the dashboard posts, on the parts: the nonce keyed to the document
+	 * (printed with no id, `WPCPM_UI::nonce()`), the action, the document and the return field, in the order the old
+	 * forms posted them.
 	 *
 	 * @param string $action  The admin-post action.
 	 * @param int    $post_id The document.
-	 * @param string $label   The button.
-	 * @param string $css     The button's classes.
-	 * @param string $return  `WPCPM_Return::DASHBOARD` or ''.
-	 * @param string $confirm The question asked before the form posts, or '' for none.
+	 * @param string $where   `WPCPM_Return::DASHBOARD` or ''.
 	 */
-	private static function render_decision_form( $action, $post_id, $label, $css, $return, $confirm = '' ) {
-		printf( '<form class="wpcpm-sponsor-agreement__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
-		wp_nonce_field( $action . '_' . (int) $post_id );
+	private static function print_hidden( $action, $post_id, $where ) {
+		echo WPCPM_UI::nonce( $action . '_' . (int) $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
 		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_POST ), (int) $post_id );
 
 		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $return, 'sponsor-agreements' );
+			WPCPM_Return::field( (string) $where, 'sponsor-agreements' );
+		}
+	}
+
+	/**
+	 * The nonced address of an uploaded copy's bytes, for the Administrator Dashboard's item header on the parts,
+	 * or '' for a document with no file to download (a Drive copy) or a reader who may not manage the program. The
+	 * address the Download link in the item's facts carries.
+	 *
+	 * @param int $post_id The document.
+	 * @return string Not escaped.
+	 */
+	public static function download_url( $post_id ) {
+		$post_id = absint( $post_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) || self::KIND_OWN !== (string) get_post_meta( $post_id, self::META_KIND, true ) ) {
+			return '';
 		}
 
-		if ( '' !== (string) $confirm ) {
-			printf(
-				'<button type="submit" class="%1$s" data-wpcpm-confirm="%2$s">%3$s</button>',
-				esc_attr( $css ),
-				esc_attr( (string) $confirm ),
-				esc_html( $label )
-			);
-		} else {
-			printf( '<button type="submit" class="%1$s">%2$s</button>', esc_attr( $css ), esc_html( $label ) );
-		}
-
-		echo '</form>';
+		return wp_nonce_url(
+			add_query_arg(
+				array(
+					'action' => self::ACTION_DOWNLOAD,
+					'post'   => $post_id,
+				),
+				admin_url( 'admin-post.php' )
+			),
+			self::ACTION_DOWNLOAD . '_' . $post_id
+		);
 	}
 
 	/**

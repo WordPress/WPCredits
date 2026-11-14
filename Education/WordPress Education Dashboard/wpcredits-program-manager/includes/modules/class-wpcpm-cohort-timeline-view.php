@@ -118,12 +118,11 @@ final class WPCPM_Cohort_Timeline_View {
 		self::render_stats( $summary, true );
 		self::render_chart( $report, WPCPM_Cohort_Timeline::HORIZON, true );
 
+		// The way to the view ends the body as every Watch card's way to its home does, the fold's foot, drawn by the fold
+		// part, in today's words, to today's address and, as today, with no hidden words; the four figures and the small
+		// chart above it are today's, since no part draws a tile or a chart.
 		if ( null !== $action ) {
-			printf(
-				'<p class="wpcpm-administrator__more"><a href="%1$s">%2$s</a></p>',
-				esc_url( $action['href'] ),
-				esc_html( $action['label'] )
-			);
+			echo WPCPM_UI::fold_foot( $action['href'], $action['label'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::fold_foot().
 		}
 
 		WPCPM_Dashboard_Card::close();
@@ -142,7 +141,8 @@ final class WPCPM_Cohort_Timeline_View {
 				/* translators: 1: how many more mentors, 2: a month and year, as "March 2027". */
 				_n( '%1$s more mentor needed by %2$s', '%1$s more mentors needed by %2$s', max( 1, (int) $summary['recruit_confirmed'] ), 'wpcredits-program-manager' ),
 				number_format_i18n( max( 1, (int) $summary['recruit_confirmed'] ) ),
-				self::month_long( $summary['first_short'] )
+				// The card head's phrase: its month and year whole (Task 18f, fix round 2).
+				str_replace( ' ', "\u{00A0}", self::month_long( $summary['first_short'] ) )
 			);
 		}
 
@@ -150,7 +150,7 @@ final class WPCPM_Cohort_Timeline_View {
 			return sprintf(
 				/* translators: %s: a month and year, as "March 2027". */
 				__( 'Tight from %s if the registrations in review are placed', 'wpcredits-program-manager' ),
-				self::month_long( $summary['first_tight'] )
+				str_replace( ' ', "\u{00A0}", self::month_long( $summary['first_tight'] ) )
 			);
 		}
 
@@ -171,6 +171,11 @@ final class WPCPM_Cohort_Timeline_View {
 	 * in the serif. It has no way back of its own (1.123.70): the menu beside it is the way back, and a
 	 * link naming the Administrator Dashboard a third time was one name too many (the owner, 11 November
 	 * 2026: "Duplicated").
+	 *
+	 * Called from `WPCPM_Administrators_Dashboard::render()` alone, as the dashboard's cohort timeline view. The body
+	 * after the four figures is drawn on the shared parts (`render_view_parts()`) and a roster not read yet is said by
+	 * the parts' muted note (there is no list to be empty); the head, the four figures, the chart, the intakes and the
+	 * notes' lines are today's.
 	 *
 	 * @param array  $report  What `WPCPM_Cohort_Timeline::report()` returned.
 	 * @param string $eyebrow The page's name, as the dashboard prints it, or '' for none. Markup.
@@ -202,8 +207,7 @@ final class WPCPM_Cohort_Timeline_View {
 		echo '</div></header>';
 
 		if ( empty( $report['months'] ) || empty( $report['read'] ) ) {
-			printf( '<p>%s</p>', esc_html__( 'Nothing to show yet: the students sync has not read the Students table.', 'wpcredits-program-manager' ) );
-			echo '</div>';
+			echo WPCPM_UI::intro( __( 'Nothing to show yet: the students sync has not read the Students table.', 'wpcredits-program-manager' ), 'muted' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 
 			return;
 		}
@@ -211,26 +215,117 @@ final class WPCPM_Cohort_Timeline_View {
 		$summary = $report['summary'];
 
 		self::render_stats( $summary, false );
-		self::render_outlook( $summary );
 
-		echo '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-chart-title">';
-		printf( '<h3 id="wpcpm-timeline-chart-title" class="wpcpm-timeline-view__heading">%s</h3>', esc_html__( 'Students on the program each month', 'wpcredits-program-manager' ) );
+		self::render_view_parts( $report );
+	}
+
+	/**
+	 * The view's body after the four figures on the shared parts (design 2.2, 2.7, 2.11, 4.1; builder's call 25), and
+	 * the view's end.
+	 *
+	 * The outlook's state is the parts' tag in its tone and today's sentence, word for word, the parts' plain line,
+	 * still a status for a screen reader: the box and its icon were the state's colour, which the tag carries now. Each
+	 * section keeps today's named region and its spacing (no part draws a view's section), its heading through the
+	 * heading part at today's level with today's id. The chart is today's. The month table is the table part (see
+	 * `render_table_parts()`). The intakes are today's tiles (no part draws an intake's tile, its split bar or a chip
+	 * with a count); with none, today's sentence is the parts' muted note, with no empty list before it. The notes keep
+	 * today's box and lines (sentences, one with a link inside it, which no part draws) under the heading part.
+	 *
+	 * @param array $report The report, read and with its months.
+	 */
+	private static function render_view_parts( array $report ) {
+		$summary = $report['summary'];
+		$state   = (string) $summary['state'];
+		$starts  = array_filter(
+			$report['months'],
+			static function ( $month ) {
+				return (int) $month['starts']['confirmed'] + (int) $month['starts']['review'] > 0;
+			}
+		);
+
+		printf(
+			'<div role="status">%1$s%2$s</div>',
+			WPCPM_UI::tag( self::state_word( $state ), self::tone( $state ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::tag().
+			WPCPM_UI::intro( self::outlook_text( $summary ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		);
+
+		echo '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-chart-title">' . WPCPM_UI::heading( __( 'Students on the program each month', 'wpcredits-program-manager' ), 'h3', 'wpcpm-timeline-chart-title' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
 		self::render_chart( $report, count( $report['months'] ), false );
 		echo '</section>';
 
-		echo '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-table-title">';
-		printf( '<h3 id="wpcpm-timeline-table-title" class="wpcpm-timeline-view__heading">%s</h3>', esc_html__( 'Month by month', 'wpcredits-program-manager' ) );
-		self::render_table( $report );
+		echo '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-table-title">' . WPCPM_UI::heading( __( 'Month by month', 'wpcredits-program-manager' ), 'h3', 'wpcpm-timeline-table-title' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+		self::render_table_parts( $report );
 		echo '</section>';
 
-		echo '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-intakes-title">';
-		printf( '<h3 id="wpcpm-timeline-intakes-title" class="wpcpm-timeline-view__heading">%s</h3>', esc_html__( 'Intakes', 'wpcredits-program-manager' ) );
-		self::render_intakes( $report );
+		echo '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-intakes-title">' . WPCPM_UI::heading( __( 'Intakes', 'wpcredits-program-manager' ), 'h3', 'wpcpm-timeline-intakes-title' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $starts ) ) {
+			echo WPCPM_UI::intro( __( 'No students start in the next twelve months yet.', 'wpcredits-program-manager' ), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		} else {
+			self::render_intakes( $report );
+		}
+
 		echo '</section>';
 
-		self::render_notes( $summary );
+		echo '<aside class="wpcpm-timeline-notes">' . WPCPM_UI::heading( __( 'How these numbers are made', 'wpcredits-program-manager' ), 'h3' ) . '<ul>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+		self::render_note_lines( $summary );
+		echo '</ul></aside></div>';
+	}
 
-		echo '</div>';
+	/**
+	 * The month table on the shared parts (design 2.7): named by its heading as today's box was, with no box that
+	 * scrolls, since the table part stacks on a phone. The month is each row's header; the counts are numbers, the
+	 * registrations in review the starting cell's second line in today's words; the balance is today's words, plain,
+	 * since the state is said in the next cell; the outlook is the state's tag in its tone, in place of today's chip
+	 * and its icon.
+	 *
+	 * @param array $report The report.
+	 */
+	private static function render_table_parts( array $report ) {
+		$column  = static function ( $key, $label, $kind, $header = false ) {
+			return array(
+				'key'    => $key,
+				'label'  => $label,
+				'kind'   => $kind,
+				'header' => $header,
+			);
+		};
+		$name    = $column( 'month', __( 'Month', 'wpcredits-program-manager' ), 'date', 'row' );
+		$start   = $column( 'starting', __( 'Starting', 'wpcredits-program-manager' ), 'num' );
+		$finish  = $column( 'finishing', __( 'Finishing', 'wpcredits-program-manager' ), 'num' );
+		$total   = $column( 'total', __( 'On the program', 'wpcredits-program-manager' ), 'num' );
+		$alone   = $column( 'unassigned', __( 'Without a mentor', 'wpcredits-program-manager' ), 'num' );
+		$places  = $column( 'places', __( 'Places', 'wpcredits-program-manager' ), 'num' );
+		$balance = $column( 'balance', __( 'Balance', 'wpcredits-program-manager' ), 'num' );
+		$outlook = $column( 'outlook', __( 'Outlook', 'wpcredits-program-manager' ), 'short' );
+		// The outlook is a status tag that speaks for itself: stacked, it joins the month's line (Task 18f, fix round 3).
+		$outlook['joins'] = true;
+		// Eight columns: the sheet stacks it while the dashboard's main area is too narrow for it.
+		$out = WPCPM_UI::table_open(
+			array( $name, $start, $finish, $total, $alone, $places, $balance, $outlook ),
+			array(
+				'labelledby' => 'wpcpm-timeline-table-title',
+				'wide'       => true,
+			)
+		);
+
+		foreach ( $report['months'] as $month ) {
+			$review = (int) $month['starts']['review'];
+			$state  = (string) $month['state'];
+
+			$out .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $name, esc_html( self::month_long( $month['key'] ) ) )
+				. WPCPM_UI::cell( $start, esc_html( number_format_i18n( (int) $month['starts']['confirmed'] ) ) . ( $review > 0 ? WPCPM_UI::cell_sub( sprintf( /* translators: %s: registrations in review. */ __( '+%s in review', 'wpcredits-program-manager' ), number_format_i18n( $review ) ) ) : '' ) )
+				. WPCPM_UI::cell( $finish, esc_html( number_format_i18n( (int) $month['ending'] ) ) )
+				. WPCPM_UI::cell( $total, esc_html( number_format_i18n( (int) $month['total'] ) ) )
+				. WPCPM_UI::cell( $alone, esc_html( number_format_i18n( (int) $month['unassigned'] ) ) )
+				. WPCPM_UI::cell( $places, esc_html( number_format_i18n( (int) $month['places'] ) ) )
+				. WPCPM_UI::cell( $balance, esc_html( self::balance_words( (int) $month['balance_total'] ) ) )
+				. WPCPM_UI::cell( $outlook, WPCPM_UI::tag( self::state_word( $state ), self::tone( $state ) ) )
+				. WPCPM_UI::row_close();
+		}
+
+		echo $out . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() above, the second line in WPCPM_UI::cell_sub(), the tag in WPCPM_UI::tag().
 	}
 
 	/**
@@ -314,11 +409,12 @@ final class WPCPM_Cohort_Timeline_View {
 	}
 
 	/**
-	 * One sentence on the next six months, in the state's color with its icon and its word.
+	 * The outlook's sentence on the next six months.
 	 *
 	 * @param array $summary The report's summary.
+	 * @return string
 	 */
-	private static function render_outlook( array $summary ) {
+	private static function outlook_text( array $summary ) {
 		$state = (string) $summary['state'];
 
 		if ( WPCPM_Cohort_Timeline::STATE_SHORT === $state ) {
@@ -339,13 +435,7 @@ final class WPCPM_Cohort_Timeline_View {
 			$text = __( 'The active mentors have places for every student in the next six months, the registrations in review included.', 'wpcredits-program-manager' );
 		}
 
-		printf(
-			'<div class="wpcpm-timeline-outlook wpcpm-timeline-outlook--%1$s" role="status">%2$s<p><strong>%3$s</strong> %4$s</p></div>',
-			esc_attr( $state ),
-			self::icon( $state ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed inline SVG.
-			esc_html( self::state_word( $state ) ),
-			esc_html( $text )
-		);
+		return $text;
 	}
 
 	/**
@@ -621,55 +711,6 @@ final class WPCPM_Cohort_Timeline_View {
 	}
 
 	/**
-	 * The month table: every number the chart draws, and the state in a word and an icon.
-	 *
-	 * @param array $report The report.
-	 */
-	private static function render_table( array $report ) {
-		echo '<div class="wpcpm-timeline-table" tabindex="0" role="region" aria-labelledby="wpcpm-timeline-table-title">';
-		echo '<table><thead><tr>';
-
-		$heads = array(
-			__( 'Month', 'wpcredits-program-manager' ),
-			__( 'Starting', 'wpcredits-program-manager' ),
-			__( 'Finishing', 'wpcredits-program-manager' ),
-			__( 'On the program', 'wpcredits-program-manager' ),
-			__( 'Without a mentor', 'wpcredits-program-manager' ),
-			__( 'Places', 'wpcredits-program-manager' ),
-			__( 'Balance', 'wpcredits-program-manager' ),
-			__( 'Outlook', 'wpcredits-program-manager' ),
-		);
-
-		foreach ( $heads as $head ) {
-			printf( '<th scope="col">%s</th>', esc_html( $head ) );
-		}
-
-		echo '</tr></thead><tbody>';
-
-		foreach ( $report['months'] as $month ) {
-			$review = (int) $month['starts']['review'];
-			$state  = (string) $month['state'];
-
-			printf(
-				'<tr><th scope="row">%1$s</th><td class="is-num">%2$s%3$s</td><td class="is-num">%4$s</td><td class="is-num">%5$s</td><td class="is-num">%6$s</td><td class="is-num">%7$s</td><td class="is-num wpcpm-timeline-table__balance--%8$s">%9$s</td><td><span class="wpcpm-timeline-chip wpcpm-timeline-chip--%8$s">%10$s%11$s</span></td></tr>',
-				esc_html( self::month_long( $month['key'] ) ),
-				esc_html( number_format_i18n( (int) $month['starts']['confirmed'] ) ),
-				$review > 0 ? ' <span class="wpcpm-timeline-table__more">' . esc_html( sprintf( /* translators: %s: registrations in review. */ __( '+%s in review', 'wpcredits-program-manager' ), number_format_i18n( $review ) ) ) . '</span>' : '',
-				esc_html( number_format_i18n( (int) $month['ending'] ) ),
-				esc_html( number_format_i18n( (int) $month['total'] ) ),
-				esc_html( number_format_i18n( (int) $month['unassigned'] ) ),
-				esc_html( number_format_i18n( (int) $month['places'] ) ),
-				esc_attr( $state ),
-				esc_html( self::balance_words( (int) $month['balance_total'] ) ),
-				self::icon( $state, 14 ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A fixed inline SVG.
-				esc_html( self::state_word( $state ) )
-			);
-		}
-
-		echo '</tbody></table></div>';
-	}
-
-	/**
 	 * The intakes: each month with students starting, how many, from which institutions, on which
 	 * tracks. A month with none is not listed.
 	 *
@@ -763,13 +804,11 @@ final class WPCPM_Cohort_Timeline_View {
 	}
 
 	/**
-	 * How the numbers are made, in a few lines, with the way to the setting.
+	 * The notes' lines: sentences, the first with the way to the setting inside it.
 	 *
 	 * @param array $summary The report's summary.
 	 */
-	private static function render_notes( array $summary ) {
-		echo '<aside class="wpcpm-timeline-notes"><h3 class="wpcpm-timeline-view__heading">' . esc_html__( 'How these numbers are made', 'wpcredits-program-manager' ) . '</h3><ul>';
-
+	private static function render_note_lines( array $summary ) {
 		printf(
 			'<li>%1$s <a href="%2$s">%3$s</a></li>',
 			esc_html(
@@ -815,8 +854,6 @@ final class WPCPM_Cohort_Timeline_View {
 		}
 
 		printf( '<li>%s</li>', esc_html__( 'Test institutions are left out of every number.', 'wpcredits-program-manager' ) );
-
-		echo '</ul></aside>';
 	}
 
 	/*
@@ -908,6 +945,21 @@ final class WPCPM_Cohort_Timeline_View {
 		}
 
 		return __( 'Covered', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * A state's tone as the parts' tag draws it (design 2.2): short is red, as today's mark of it is, and as the four
+	 * figures above, which keep today's tiles, still draw it; tight is the warning, amber; covered is all well, green.
+	 *
+	 * @param string $state A STATE_* value.
+	 * @return string
+	 */
+	private static function tone( $state ) {
+		if ( WPCPM_Cohort_Timeline::STATE_SHORT === $state ) {
+			return 'red';
+		}
+
+		return WPCPM_Cohort_Timeline::STATE_TIGHT === $state ? 'amber' : 'green';
 	}
 
 	/**

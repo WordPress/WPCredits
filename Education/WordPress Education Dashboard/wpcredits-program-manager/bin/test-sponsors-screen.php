@@ -594,7 +594,8 @@ function get_posts( array $args ) {
 	}
 	return $out;
 }
-function get_current_user_id() { return $GLOBALS['uid']; }
+// 0 while nobody is signed in, as core answers: the fixture's index is written before the suite signs anybody in.
+function get_current_user_id() { return $GLOBALS['uid'] ?? 0; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) {
 	$GLOBALS['nonce_checked'][] = $action;
@@ -834,6 +835,19 @@ function flash_left() {
 	}
 	return $left;
 }
+/**
+ * What waits in the flash for anybody but the record of the last form kept (`WPCPM_Typed_Text::is_last()`, Task
+ * 13x), which only the Administrator Dashboard's parts take: a wp-admin screen leaves it for the next press to clear.
+ * It names a form and holds no typing, which the record's own keys say.
+ *
+ * @return array
+ */
+function flash_left_but_last() {
+	$left = flash_left();
+	$last = isset( $left[ WPCPM_Typed_Text::KEPT_CHANNEL ] ) && is_array( $left[ WPCPM_Typed_Text::KEPT_CHANNEL ] ) ? array_keys( $left[ WPCPM_Typed_Text::KEPT_CHANNEL ] ) : array( 'at', 'form' );
+	unset( $left[ WPCPM_Typed_Text::KEPT_CHANNEL ] );
+	return array( 'at', 'form' ) === $last ? $left : array( 'a record that is not one' => $last );
+}
 class WPCPM_Request {
 	public static function posted_text( $n, $f = '' ) { return isset( $GLOBALS['post'][ $n ] ) && is_scalar( $GLOBALS['post'][ $n ] ) ? trim( sanitize_text_field( (string) $GLOBALS['post'][ $n ] ) ) : $f; }
 	public static function posted_lines( $n, $f = '' ) { return isset( $GLOBALS['post'][ $n ] ) && is_scalar( $GLOBALS['post'][ $n ] ) ? trim( sanitize_textarea_field( (string) $GLOBALS['post'][ $n ] ) ) : $f; }
@@ -868,6 +882,9 @@ class WPCPM_Mentors { public static function format_duration( $s ) { return $s .
 // every press's way back: a form that says it came from the dashboard goes back there (a sponsor
 // report's draft, 1.115.0), and anything else comes back to this screen.
 require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 require_once __DIR__ . '/../includes/class-wpcpm-return.php';
 // What the courtesy scan noticed, in words (`WPCPM_Pdf_Check::in_words()`).
 require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
@@ -4923,7 +4940,7 @@ ck( 'Save keeps a narrative of five thousand characters as typed whole, and refu
 	$r_over,
 	$sr_after === $sr_at,
 	notices_in( $sr_long_html ),
-	flash_left(),
+	flash_left_but_last(),
 ), array(
 	'sreport-saved',
 	true,
@@ -5054,7 +5071,7 @@ ck( 'another report\'s editor and another manager\'s view of this one never see 
 	post_diff( $sr_other, $sr_other_after ),
 	post_diff( $sr_drawn, $sr_theirs ),
 	post_diff( $sr_drawn, sr_posts( $sr_a26_id ) ),
-	flash_left(),
+	flash_left_but_last(),
 ), array( array(), array(), array(), array() ) );
 // A track's box is named as the editor heads it, with the track's name.
 $r_track_loss = post( array_merge( $sr_other, array( 'wpcpm_sreport_text_track_150h' => 'Mentors <Sales> team' ) ), array( $S, 'handle_save' ) );
@@ -7054,6 +7071,22 @@ ck( 'a refused attach says why when the policy gives a reason, and keeps the typ
 	false !== strpos( $view, 'value="role.holder@example.test"' ),
 ), array( 'attach-refused', true, true ) );
 unset( $GLOBALS['users'][7], $GLOBALS['users'][9] );
+
+
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, every wp-admin tab
+// off in this release. With no set_live() at all the Sponsors screen's Waiting for review tab is its off drawing of this run,
+// byte for byte, with no switch class and no part, and the screen leaves the surface it named.
+WPCPM_UI::set_live( array() );
+$tab_off = render_tab( 'queue' );
+WPCPM_UI::set_live( null );
+$tab_real = render_tab( 'queue' );
+ck( 'under the real switch the Sponsors screen\'s Waiting for review tab is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$tab_real === $tab_off,
+	'' !== trim( (string) $tab_real ),
+	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
+	WPCPM_UI::surface(),
+), array( array( 'administrator' ), true, true, 0, '' ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

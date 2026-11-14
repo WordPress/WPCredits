@@ -20,13 +20,16 @@ define( 'ABSPATH', __DIR__ . '/' );
 $GLOBALS['today'] = '2026-11-10';
 
 function __( $s, $d = null ) { return $s; }
-function wp_date( $f, $t = null ) { return 'Y-m-d' === $f ? $GLOBALS['today'] : gmdate( $f, null === $t ? time() : $t ); }
+// `clock_shift` moves the real clock this stand-in reads when no moment is given, so a check can prove a drawing holds
+// nothing from it (Task 18c).
+function wp_date( $f, $t = null ) { return 'Y-m-d' === $f ? $GLOBALS['today'] : gmdate( $f, null === $t ? time() + (int) ( $GLOBALS['clock_shift'] ?? 0 ) : $t ); }
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
 require_once __DIR__ . '/stubs/compiled-seeds.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
@@ -229,6 +232,10 @@ function current_user_can( $cap ) { return true; }
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/stubs/guide-jobs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-cohort-timeline-view.php';
+// The shared parts, which the view and the card are drawn on alone since their old branches left (Task 18b).
+function is_admin() { return false; }
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 
 function draw( $fn ) {
 	ob_start();
@@ -269,7 +276,7 @@ ck( 'with no roster read yet the view draws no chart, no table and no outlook bu
 $report['read'] = strtotime( $today . ' 06:00:00 UTC' );
 
 $view = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_view( $report ); } );
-ck( 'the view has its title, chart, table and intakes', array( substr_count( $view, 'Cohort timeline</h2>' ), substr_count( $view, '<figure class="wpcpm-timeline"' ), substr_count( $view, '<table>' ), substr_count( $view, 'wpcpm-timeline-intakes__item' ) ), array( 1, 1, 1, 2 ) );
+ck( 'the view has its title, chart, table and intakes', array( substr_count( $view, 'Cohort timeline</h2>' ), substr_count( $view, '<figure class="wpcpm-timeline"' ), substr_count( $view, '<table class="wpcpm-ui-table' ), substr_count( $view, 'wpcpm-timeline-intakes__item' ) ), array( 1, 1, 1, 2 ) );
 // The head is the frame's, the Reference view's (1.123.70): the page's name as the dashboard hands it in,
 // the view's in the serif, the lede and when the records were read; and no way back of its own, which
 // named the Administrator Dashboard a third time (the owner, 11 November 2026: "Duplicated").
@@ -283,10 +290,8 @@ ck( 'the view opens with the frame\'s head, the page\'s name in it once when the
 	),
 	array( true, true, array( 1, 0 ), array( 0, 0 ) ) );
 ck( 'twelve columns, each a tab stop with a name', array( substr_count( $view, 'class="wpcpm-timeline__month ' ), substr_count( $view, 'tabindex="0" aria-label="' ) ), array( 12, 12 ) );
-ck( 'twelve rows in the month table', substr_count( $view, '<tr><th scope="row">' ), 12 );
 ck( 'an institution\'s name is escaped', array( false !== strpos( $view, '<b>Evil</b>' ), false !== strpos( $view, '&lt;b&gt;Evil&lt;/b&gt; &amp; Co' ) ), array( false, true ) );
 ck( 'the tracks are named, the unplaced under their own words', array( false !== strpos( $view, 'Developer Track <span>' ), false !== strpos( $view, 'Track not assigned yet <span>' ) ), array( true, true ) );
-ck( 'the outlook says tight in a word, with its icon', array( false !== strpos( $view, 'wpcpm-timeline-outlook--tight' ), false !== strpos( $view, '<strong>Tight</strong>' ) ), array( true, true ) );
 ck( 'a tight month carries its flag', substr_count( $view, 'wpcpm-timeline__flag' ) > 0, true );
 ck( 'the notes link the setting', false !== strpos( $view, 'admin.php?page=wpcpm-settings&amp;tab=people#cohort-planning' ), true );
 ck( 'the estimated end date is owned up to', false !== strpos( $view, 'have no end date and are counted for 4 months' ) || false !== strpos( $view, 'has no end date and is counted for 4 months' ), true );
@@ -312,23 +317,16 @@ ck( 'the Upcoming cohorts card carries one help link, after its disclosure, to t
 	array( 1, true, 0 ) );
 ck( 'the card lands on its anchor, in the Administrator Dashboard\'s shell', false !== strpos( $card, '<section class="wpcpm-administrator__card" id="wpcpm-cohort-timeline">' ), true );
 ck( 'the card counts the starts of the next six months', false !== strpos( $card, '<span class="wpcpm-group__count">8</span>' ), true );
-ck( 'the card\'s phrase says the first tight month', false !== strpos( $card, 'Tight from February 2027 if the registrations in review are placed' ), true );
+// Task 18f, fix round 2: the month and its year are whole in the head's phrase.
+ck( 'the card\'s phrase says the first tight month, the month and its year whole', false !== strpos( $card, "Tight from February\u{00A0}2027 if the registrations in review are placed" ), true );
 ck( 'the card is folded while nothing is short', false !== strpos( $card, ' open>' ), false );
 ck( 'the card draws six columns and the way to the view', array( substr_count( $card, 'class="wpcpm-timeline__month ' ), substr_count( $card, '?wpcpm_view=cohort-timeline' ) ), array( 6, 2 ) );
 
 $short_report = WPCPM_Cohort_Timeline::compute( $students, 1, 3, $today );
 $short_report['read'] = $report['read'];
 $short_card   = draw( static function () use ( $short_report ) { WPCPM_Cohort_Timeline_View::render_card( $short_report ); } );
-ck( 'short: the card is drawn open and says how many and by when', array( false !== strpos( $short_card, ' open>' ), false !== strpos( $short_card, '1 more mentor needed by February 2027' ) ), array( true, true ) );
+ck( 'short: the card is drawn open and says how many and by when', array( false !== strpos( $short_card, ' open>' ), false !== strpos( $short_card, "1 more mentor needed by February\u{00A0}2027" ) ), array( true, true ) );
 
-$short_view = draw( static function () use ( $short_report ) { WPCPM_Cohort_Timeline_View::render_view( $short_report ); } );
-ck( 'short: the outlook says when, and leaves the how-many to the Mentors to recruit figure',
-	array(
-		false !== strpos( $short_view, '<strong>Short</strong> From February 2027 the confirmed students alone need more places than the mentors have.</p>' ),
-		false !== strpos( $short_view, 'Recruit' ),
-		false !== strpos( $short_view, 'if the registrations in review are placed too' ),
-	),
-	array( true, false, false ) );
 
 ck( 'an empty report draws no card', draw( static function () { WPCPM_Cohort_Timeline_View::render_card( array() ); } ), '' );
 
@@ -337,5 +335,238 @@ $none['read'] = $report['read'];
 ck( 'nothing ahead: the phrase says the mentors cover it', WPCPM_Cohort_Timeline_View::phrase( $none['summary'] ), 'The mentors cover the next six months' );
 ck( 'nothing ahead: the view says no intakes yet', false !== strpos( draw( static function () use ( $none ) { WPCPM_Cohort_Timeline_View::render_view( $none ); } ), 'No students start in the next twelve months yet.' ), true );
 
+function ct_has( $h, $n ) { return false !== strpos( (string) $h, (string) $n ); }
+
+// ---------------------------------------------------------------------------------------------
+// The card on the shared parts, behind the switch (UI shared parts, Task 15b).
+// ---------------------------------------------------------------------------------------------
+
+// Each state of the card that changes its markup, and the view, drawn with the switch off, with it on but no surface
+// named, on a wp-admin tab, and on the Administrator Dashboard.
+$ct_draw = static function () use ( $report, $short_report ) {
+	$out = array(
+		'card tight' => draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_card( $report ); } ),
+		'card short' => draw( static function () use ( $short_report ) { WPCPM_Cohort_Timeline_View::render_card( $short_report ); } ),
+	);
+	WPCPM_Administrators_Dashboard::$url = '';
+	$out['card no view'] = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_card( $report ); } );
+	WPCPM_Administrators_Dashboard::$url = 'https://example.test/administrator-dashboard/';
+	$out['view'] = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_view( $report, '<h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1>' ); } );
+	return $out;
+};
+// The card and the view are drawn on the parts alone since their old branches left (Task 18b), and their off digests
+// with them.
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$ct_on = $ct_draw();
+parts_inventory_add( $ct_on );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+
+
+$ct_card = $ct_on['card tight'];
+ck( 'on, the card\'s head is the card shell\'s, as every other card\'s: the parts\' card fold at the card\'s anchor, its title with its id, the phrase, the help slot and the chevron; folded while nothing is short, open when it is', array(
+	ct_has( str_replace( "\u{00A0}", ' ', $ct_card ), '<section class="wpcpm-administrator__card wpcpm-ui-fold-card" id="wpcpm-cohort-timeline"><details class="wpcpm-ui-fold"><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title" id="wpcpm-cohort-timeline-title">Upcoming cohorts</h3><span class="wpcpm-ui-fold__phrase">Tight from February 2027 if the registrations in review are placed</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-ui-fold__help-slot" aria-hidden="true"></span></span>' ),
+	ct_has( str_replace( "\u{00A0}", ' ', $ct_on['card short'] ), '<details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title" id="wpcpm-cohort-timeline-title">Upcoming cohorts</h3><span class="wpcpm-ui-fold__phrase">1 more mentor needed by February 2027</span>' ),
+	strpos( $ct_card . $ct_on['card short'], 'wpcpm-group' ),
+), array( true, true, false ) );
+$ct_foot = '<p class="wpcpm-ui-fold__foot"><a href="https://example.test/administrator-dashboard/?wpcpm_view=cohort-timeline">Open the cohort timeline</a></p></div></details>';
+// Nothing after the fold (task V1, ruling 2): the foot is the card's one way out.
+$ct_act  = '</section>';
+ck( 'on, the card\'s body ends with the fold\'s foot in today\'s words, to today\'s address, with no hidden words as today, in place of today\'s own line, and nothing after the fold; with no view to open, no foot', array(
+	ct_has( $ct_card, '</figure>' . $ct_foot . $ct_act ),
+	ct_has( $ct_on['card short'], '</figure>' . $ct_foot . $ct_act ),
+	strpos( $ct_card, 'wpcpm-administrator__more' ),
+	ct_has( $ct_on['card no view'], '</figure></div></details></section>' ),
+	strpos( $ct_on['card no view'], 'wpcpm_view=cohort-timeline' ),
+), array( true, true, false, true, false ) );
+// The four figures and the small chart: no part draws a tile or a chart, so they are today's, byte for byte.
+$ct_body = static function ( $html ) { return preg_match( '#<ul class="wpcpm-timeline-stats.*</figure>#s', $html, $m ) ? $m[0] : null; };
+// Drawn by the same printers the old card used (`render_stats()`, `render_chart()`); the old card left (Task 18b).
+ck( 'on, the four figures and the small chart are drawn, in every state', array_map( static function ( $state ) use ( $ct_on, $ct_body ) { return null !== $ct_body( $ct_on[ $state ] ); }, array( 'card tight', 'card short', 'card no view' ) ), array_fill( 0, 3, true ) );
+
+// ---------------------------------------------------------------------------------------------
+// The view on the shared parts, behind the switch (UI shared parts, Task 17).
+// ---------------------------------------------------------------------------------------------
+
+// The view's other states, each drawn off, with the switch on but no surface named, on a wp-admin tab and on the
+// Administrator Dashboard: short (the outlook and the months short), nothing ahead (no intake: the quiet line) and no
+// roster read yet (the sentence alone).
+$ct_unread         = $report;
+$ct_unread['read'] = 0;
+$ct_views          = static function () use ( $short_report, $none, $ct_unread ) {
+	$eyebrow = '<h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1>';
+	return array(
+		'view short'  => draw( static function () use ( $short_report, $eyebrow ) { WPCPM_Cohort_Timeline_View::render_view( $short_report, $eyebrow ); } ),
+		'view none'   => draw( static function () use ( $none, $eyebrow ) { WPCPM_Cohort_Timeline_View::render_view( $none, $eyebrow ); } ),
+		'view unread' => draw( static function () use ( $ct_unread, $eyebrow ) { WPCPM_Cohort_Timeline_View::render_view( $ct_unread, $eyebrow ); } ),
+	);
+};
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$cv_on = $ct_views();
+parts_inventory_add( $cv_on );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+$cv_on['view tight'] = $ct_on['view'];
+
+// What is today's on the parts too: the frame's head, the four figures and the chart (no part draws a tile or a chart),
+// the intakes (no part draws an intake's tile, its split bar or a chip with a count) and the notes' lines (sentences, one
+// with a link inside it, which no part draws). Drawn by the same printers the old view used; the old view left with its
+// branch (Task 18b), so each is pinned to where it stands.
+$cv_cut = static function ( $html, $pattern ) { return preg_match( $pattern, $html, $m ) ? $m[0] : null; };
+$cv_today = static function ( $state, $pattern ) use ( $cv_on, $cv_cut ) {
+	return null !== $cv_cut( $cv_on[ $state ], $pattern );
+};
+ck( 'on, the frame\'s head, the four figures, the chart, the intakes and the notes\' lines are drawn where they stand, in every state that draws them', array(
+	array_map( static function ( $s ) use ( $cv_today ) { return $cv_today( $s, '#^<div class="wpcpm-timeline-view"><header .*?</header>#s' ); }, array( 'view tight', 'view short', 'view none', 'view unread' ) ),
+	array_map( static function ( $s ) use ( $cv_today ) { return $cv_today( $s, '#<ul class="wpcpm-timeline-stats">.*?</ul>#s' ); }, array( 'view tight', 'view short', 'view none' ) ),
+	array_map( static function ( $s ) use ( $cv_today ) { return $cv_today( $s, '#<figure .*?</figure>#s' ); }, array( 'view tight', 'view short', 'view none' ) ),
+	array_map( static function ( $s ) use ( $cv_today ) { return $cv_today( $s, '#<ol class="wpcpm-timeline-intakes">.*?</ol>#s' ); }, array( 'view tight', 'view short' ) ),
+	array_map( static function ( $s ) use ( $cv_today ) { return $cv_today( $s, '#</h3><ul><li>.*?</ul></aside></div>$#s' ); }, array( 'view tight', 'view short', 'view none' ) ),
+), array( array_fill( 0, 4, true ), array_fill( 0, 3, true ), array_fill( 0, 3, true ), array_fill( 0, 2, true ), array_fill( 0, 3, true ) ) );
+// Pinned where they stand (Task 18c: the review of Task 18b found these sections pinned for presence only once the old
+// view left): each section's bytes, in every state that draws it. Nothing in them comes from the real clock: the
+// fixture's day is this suite's constant, read through the wp_date( 'Y-m-d' ) stand-in; every month is a key counted
+// from it, its name drawn from the key; the read time is built from that day and printed through the date and time
+// formats, which this suite leaves empty. Proven: the same states drawn with the stand-in's clock moved a day earlier,
+// a day later and 400 days earlier give the same bytes.
+$cv_sections = array(
+	'head'    => '#^<div class="wpcpm-timeline-view"><header .*?</header>#s',
+	'stats'   => '#<ul class="wpcpm-timeline-stats">.*?</ul>#s',
+	'chart'   => '#<figure .*?</figure>#s',
+	'intakes' => '#<ol class="wpcpm-timeline-intakes">.*?</ol>#s',
+	'notes'   => '#</h3><ul><li>.*?</ul></aside></div>$#s',
+);
+$cv_digest = static function ( array $views ) use ( $cv_sections, $cv_cut ) {
+	$out = array();
+	foreach ( $cv_sections as $name => $pattern ) {
+		foreach ( array( 'view tight', 'view short', 'view none', 'view unread' ) as $state ) {
+			$cut = $cv_cut( $views[ $state ], $pattern );
+			if ( null !== $cut ) {
+				$out[ $name . ' ' . $state ] = md5( $cut );
+			}
+		}
+	}
+	return $out;
+};
+$cv_pins = array(
+	'head view tight'     => '85c4c41ca04bb8ff457531857b249338',
+	'head view short'     => '85c4c41ca04bb8ff457531857b249338',
+	'head view none'      => '85c4c41ca04bb8ff457531857b249338',
+	'head view unread'    => '47121837b1685b7343f07f3a1e10f252',
+	'stats view tight'    => 'f426572e322b04b4ac50d6559d37f7a8',
+	'stats view short'    => '13657bb44f8f1f3694dc9c2740a383f4',
+	'stats view none'     => '89e708b9778d2bc2f46a198a6da3b379',
+	'chart view tight'    => '54d715ee9f90032212de932590b9112a',
+	'chart view short'    => 'abe2f8fa0b6235f653053ac1a618990c',
+	'chart view none'     => '49a4f188a07f043d1fde6dc2b68142d5',
+	'intakes view tight'  => '95dff237cab11185712df66934ad76d3',
+	'intakes view short'  => '95dff237cab11185712df66934ad76d3',
+	'notes view tight'    => '61adbca31d58c82ddc6122f6fd7a80ad',
+	'notes view short'    => '003420566b37d1bd948610a992255df0',
+	'notes view none'     => '5d18a2b72ba9d84ca8a8288a97a60a33',
+);
+$cv_moved = array();
+foreach ( array( -86400, 86400, -400 * 86400 ) as $shift ) {
+	$GLOBALS['clock_shift'] = $shift;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	$moved              = $ct_views();
+	$moved['view tight'] = draw( static function () use ( $report ) { WPCPM_Cohort_Timeline_View::render_view( $report, '<h1 class="wpcpm-head__eyebrow">Administrator Dashboard</h1>' ); } );
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( null );
+	$cv_moved[] = $cv_digest( $moved );
+}
+unset( $GLOBALS['clock_shift'] );
+ck( 'on, the frame\'s head, the four figures, the chart, the intakes and the notes\' lines are pinned where they stand, in every state that draws them, and the real clock moved a day either way or 400 days back moves none of them', array( $cv_digest( $cv_on ), $cv_moved ), array( $cv_pins, array_fill( 0, 3, $cv_pins ) ) );
+
+$cv_t = $cv_on['view tight'];
+ck( 'on, the outlook is the state as the parts\' tag, its tone the state\'s (Short red, Tight amber, Covered green), then today\'s sentence word for word as the parts\' plain line, still a status for a screen reader; no box, no icon', array(
+	ct_has( $cv_t, '</ul><div role="status"><span class="wpcpm-status wpcpm-status--amber">Tight</span><p class="wpcpm-ui-intro">The confirmed students fit. From February 2027 the registrations in review would need more places: 1 more mentor covers them.</p></div><section ' ),
+	ct_has( $cv_on['view short'], '</ul><div role="status"><span class="wpcpm-status wpcpm-status--red">Short</span><p class="wpcpm-ui-intro">From February 2027 the confirmed students alone need more places than the mentors have.</p></div><section ' ),
+	ct_has( $cv_on['view none'], '</ul><div role="status"><span class="wpcpm-status wpcpm-status--green">Covered</span><p class="wpcpm-ui-intro">The active mentors have places for every student in the next six months, the registrations in review included.</p></div><section ' ),
+	strpos( implode( '', $cv_on ), 'wpcpm-timeline-outlook' ),
+	// Today's outlook put its word in bold; the chart's tooltips keep their own bold month names.
+	strpos( implode( '', $cv_on ), '<p><strong>' ),
+), array( true, true, true, false, false ) );
+ck( 'on, each section is today\'s named region, its heading through the heading part at today\'s level with today\'s id; the notes\' heading too, with no id as today', array(
+	ct_has( $cv_t, '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-chart-title"><h3 class="wpcpm-ui-h" id="wpcpm-timeline-chart-title">Students on the program each month</h3><figure ' ),
+	ct_has( $cv_t, '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-table-title"><h3 class="wpcpm-ui-h" id="wpcpm-timeline-table-title">Month by month</h3><table ' ),
+	ct_has( $cv_t, '<section class="wpcpm-timeline-view__section" aria-labelledby="wpcpm-timeline-intakes-title"><h3 class="wpcpm-ui-h" id="wpcpm-timeline-intakes-title">Intakes</h3><ol class="wpcpm-timeline-intakes">' ),
+	ct_has( $cv_t, '<aside class="wpcpm-timeline-notes"><h3 class="wpcpm-ui-h">How these numbers are made</h3><ul><li>' ),
+	strpos( implode( '', $cv_on ), 'wpcpm-timeline-view__heading' ),
+), array( true, true, true, true, false ) );
+
+// The month table through the table part.
+$cv_doc = static function ( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+};
+$cv_x = $cv_doc( $cv_t );
+ck( 'on, the month table is the table part, named by its heading as today\'s box was, with no box that scrolls (the part stacks on a phone): the month as each row\'s header, the counts as numbers, the outlook as a short cell; every value under its column\'s name for the phone', array(
+	ct_has( $cv_t, '<h3 class="wpcpm-ui-h" id="wpcpm-timeline-table-title">Month by month</h3><table class="wpcpm-ui-table wpcpm-ui-table--wide wpcpm-ui-table--pairs-6" role="table" aria-labelledby="wpcpm-timeline-table-title"><thead role="rowgroup">' ),
+	strpos( $cv_t, 'class="wpcpm-timeline-table"' ),
+	array_map( static function ( $th ) { return $th->getAttribute( 'class' ) . ' ' . $th->textContent; }, iterator_to_array( $cv_x->query( '//table/thead//th' ) ) ),
+	$cv_x->query( '//table/tbody/tr' )->length,
+	array_map( static function ( $th ) { return $th->getAttribute( 'scope' ) . ' ' . $th->getAttribute( 'role' ) . ' ' . $th->getAttribute( 'class' ) . ' ' . $th->textContent; }, iterator_to_array( $cv_x->query( '//table/tbody/tr/th' ) ) ),
+	array_values( array_unique( array_map( static function ( $td ) { return $td->getAttribute( 'data-label' ); }, iterator_to_array( $cv_x->query( '//table/tbody//td' ) ) ) ) ),
+	$cv_x->query( '//table/tbody//td[not(@data-label)]' )->length,
+), array(
+	true,
+	false,
+	array( 'wpcpm-ui-cell--date Month', 'wpcpm-ui-cell--num Starting', 'wpcpm-ui-cell--num Finishing', 'wpcpm-ui-cell--num On the program', 'wpcpm-ui-cell--num Without a mentor', 'wpcpm-ui-cell--num Places', 'wpcpm-ui-cell--num Balance', 'wpcpm-ui-cell--short Outlook' ),
+	12,
+	array_map( static function ( $key ) { return 'row rowheader wpcpm-ui-cell--date wpcpm-ui-cell--rowhead ' . WPCPM_Cohort_Timeline_View::month_long( $key ); }, array_column( $report['months'], 'key' ) ),
+	array( 'Starting', 'Finishing', 'On the program', 'Without a mentor', 'Places', 'Balance', 'Outlook' ),
+	0,
+) );
+ck( 'on, a row: today\'s numbers, the registrations in review as the starting cell\'s second line, the balance in today\'s words with no colour, the outlook as the state\'s tag in its tone; no chip, no icon, no colour class of today\'s', array(
+	ct_has( $cv_t, '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--date wpcpm-ui-cell--rowhead">February 2027</th><td class="wpcpm-ui-cell--num" role="cell" data-label="Starting">4 <span class="wpcpm-ui-cell__sub">+3 in review</span></td><td class="wpcpm-ui-cell--num" role="cell" data-label="Finishing">0</td><td class="wpcpm-ui-cell--num" role="cell" data-label="On the program">8</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Without a mentor">7</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Places">6</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Balance">2 short</td><td class="wpcpm-ui-cell--short wpcpm-ui-cell--joins" role="cell" data-label="Outlook"><span class="wpcpm-status wpcpm-status--amber">Tight</span></td></tr>' ),
+	ct_has( $cv_t, '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--date wpcpm-ui-cell--rowhead">November 2026</th><td class="wpcpm-ui-cell--num" role="cell" data-label="Starting">0</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Finishing">0</td><td class="wpcpm-ui-cell--num" role="cell" data-label="On the program">3</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Without a mentor">1</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Places">6</td><td class="wpcpm-ui-cell--num" role="cell" data-label="Balance">3 free</td><td class="wpcpm-ui-cell--short wpcpm-ui-cell--joins" role="cell" data-label="Outlook"><span class="wpcpm-status wpcpm-status--green">Covered</span></td></tr>' ),
+	ct_has( $cv_on['view short'], '<td class="wpcpm-ui-cell--short wpcpm-ui-cell--joins" role="cell" data-label="Outlook"><span class="wpcpm-status wpcpm-status--red">Short</span></td>' ),
+	array_map( static function ( $s ) use ( $cv_doc ) { $x = $cv_doc( $s ); return array( $x->query( '//table/tbody/tr' )->length, $x->query( '//table//svg' )->length ); }, array( $cv_on['view short'], $cv_on['view none'] ) ),
+	array( strpos( implode( '', $cv_on ), 'wpcpm-timeline-chip' ), strpos( implode( '', $cv_on ), 'wpcpm-timeline-table__' ), strpos( implode( '', $cv_on ), 'is-num' ) ),
+), array( true, true, true, array( array( 12, 0 ), array( 12, 0 ) ), array( false, false, false ) ) );
+ck( 'on, with nothing ahead the intakes say so in today\'s words as the parts\' muted note (design call 25), with no empty list before it; with no roster read the one sentence is the parts\' muted note too (there is no list), nothing else after the head', array(
+	ct_has( $cv_on['view none'], '<h3 class="wpcpm-ui-h" id="wpcpm-timeline-intakes-title">Intakes</h3><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">No students start in the next twelve months yet.</p></section>' ),
+	strpos( $cv_on['view none'], 'class="wpcpm-timeline-intakes' ),
+	strpos( implode( '', $cv_on ), 'wpcpm-administrator__quiet' ),
+	substr( $cv_on['view unread'], (int) strpos( $cv_on['view unread'], '</header>' ) ),
+), array( true, false, false, '</header><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Nothing to show yet: the students sync has not read the Students table.</p></div>' ) );
+
+// No part outside the switch: the dashboard's root prints `wpcpm-ui-on` around the view while it is on, as the
+// Administrator Dashboard's suite's parts_outside_switch() walks it.
+$cv_outside = static function ( $html ) use ( $cv_doc ) {
+	$x       = $cv_doc( $html );
+	$outside = array();
+	$all     = 0;
+	foreach ( $x->query( '//*[@class]' ) as $node ) {
+		$part = array_filter( preg_split( '/\s+/', trim( (string) $node->getAttribute( 'class' ) ) ), static function ( $c ) { return 'wpcpm-ui-on' !== $c && 1 === preg_match( '/^wpcpm-(ui-|btn$|btn--|status$|status--)/', $c ); } );
+		if ( empty( $part ) ) {
+			continue;
+		}
+		++$all;
+		$inside = false;
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			if ( in_array( 'wpcpm-ui-on', preg_split( '/\s+/', (string) $up->getAttribute( 'class' ) ), true ) ) {
+				$inside = true;
+				break;
+			}
+		}
+		if ( ! $inside ) {
+			$outside[] = $node->nodeName . '.' . implode( '.', $part );
+		}
+	}
+	return array( array_values( array_unique( $outside ) ), $all > 0 );
+};
+ck( 'on, inside the dashboard\'s root every part of the view is under the switch\'s class', array_map( static function ( $html ) use ( $cv_outside ) { return $cv_outside( '<div class="wpcpm-dashboard wpcpm-administrator wpcpm-ui-on">' . $html . '</div>' ); }, $cv_on ), array_fill_keys( array_keys( $cv_on ), array( array(), true ) ) );
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'cohort-timeline' ) );
 echo "\n" . ( $fail ? "$fail FAILED" : 'ALL PASS' ) . "\n";
 exit( $fail ? 1 : 0 );

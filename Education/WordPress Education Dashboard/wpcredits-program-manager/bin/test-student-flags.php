@@ -654,9 +654,12 @@ function card_press( $as, $button_markup, $student_override = null ) {
 	return $outcome;
 }
 talked_setup();
-$button_one = WPCPM_Student_Flags::talked_button( 1, 'Student 1' );
-$button_two = WPCPM_Student_Flags::talked_button( 2, 'Student 2' );
-ck( 'talked_card_form_button: a row\'s button posts the student in its value and that student\'s nonce in its formaction address', array(
+// A row's press as the Students gone quiet card's row action prints it on the parts: the student in its value and the
+// address `talked_url()` builds (`talked_button()`, which printed today's button, left with its last caller, Task 18c).
+$talked_press = static function ( $id ) { return '<button type="submit" name="student" value="' . (int) $id . '" formaction="' . esc_url( WPCPM_Student_Flags::talked_url( $id ) ) . '">'; };
+$button_one   = $talked_press( 1 );
+$button_two   = $talked_press( 2 );
+ck( 'talked_card_form_button: a row\'s press posts the student in its value and that student\'s nonce in its formaction address', array(
 	false !== strpos( $button_one, 'name="student" value="1"' ),
 	false !== strpos( $button_one, 'formaction="https://example.test/wp-admin/admin-post.php?_wpnonce=nonce-wpcpm_student_talked_1"' ),
 ), array( true, true ) );

@@ -367,6 +367,14 @@ final class WPCPM_Sponsor_Report_Screen {
 		// screen a manager may draft for any day the tier carried a report on.
 		$hidden = '' !== $until && '' !== $where;
 
+		// The form drawn for another page, on the shared parts while that page's switch is on: only the Administrator
+		// Dashboard's Sponsor reports card draws it so; this screen's own form, with its date box, is today's.
+		if ( $hidden && class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
+			self::render_draft_form_parts( $record, $until, $where );
+
+			return;
+		}
+
 		printf(
 			'<form method="post" action="%1$s" class="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -410,6 +418,50 @@ final class WPCPM_Sponsor_Report_Screen {
 			printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Draft a report', 'wpcredits-program-manager' ) );
 		}
 
+		echo '</form>';
+	}
+
+	/**
+	 * The draft form for a term's own day, drawn for another page, on the shared parts (design 2.7): the same address,
+	 * guard and busy words, the same hidden fields in today's order under the same nonce action (printed with no id,
+	 * `WPCPM_UI::nonce()`, since the card may hold one per term), and one button, "Draft now", the quiet row action,
+	 * naming the sponsor and the day for a screen reader as today.
+	 *
+	 * @param string $record Sponsor key.
+	 * @param string $until  The term's last day.
+	 * @param string $where  The page the press comes back to.
+	 */
+	private static function render_draft_form_parts( $record, $until, $where ) {
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Drafting', 'wpcredits-program-manager' )
+		);
+		echo WPCPM_UI::nonce( self::ACTION_DRAFT . '_' . $record ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DRAFT ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_RECORD ), esc_attr( $record ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_UNTIL ), esc_attr( $until ) );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( $where, 'sponsor-reports' );
+		}
+
+		$button = WPCPM_UI::button(
+			array(
+				'label'   => __( 'Draft now', 'wpcredits-program-manager' ),
+				'kind'    => 'quiet',
+				'context' => sprintf(
+					/* translators: 1: the sponsor's name, 2: the last day of its term, in the site's date format. */
+					__( 'for %1$s, the term ending %2$s', 'wpcredits-program-manager' ),
+					self::sponsor_name( $record, WPCPM_Sponsors_Index::row( $record ) ),
+					WPCPM_Sponsor_Tiers::format_day( $until )
+				),
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'    => 'front',
+			)
+		);
+
+		echo $button; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button().
 		echo '</form>';
 	}
 

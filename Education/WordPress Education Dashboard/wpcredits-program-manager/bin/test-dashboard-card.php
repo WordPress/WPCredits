@@ -121,6 +121,14 @@ function wp_script_is( $handle, $list = 'enqueued' ) { return 'registered' === $
 function wp_register_script( $handle, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['script_src'][ $handle ] = $src; $GLOBALS['script_args'][ $handle ] = array( $deps, $ver, $footer ); $GLOBALS['script_registrations'][] = $handle; }
 function wp_enqueue_script( $handle ) { $GLOBALS['scripts'][] = $handle; }
 
+// The parts' branch of the shell (Task 9 of the shared parts) prints the parts' helpers: the switch, the fold
+// head, the button and the tag, with the icons they draw and the few words they translate.
+function is_admin() { return false; }
+function __( $s, $d = null ) { return $s; }
+function esc_html__( $s, $d = null ) { return esc_html( $s ); }
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+
 // Loaded only when it is there, so that before the class exists its checks fail as checks.
 if ( file_exists( __DIR__ . '/../includes/class-wpcpm-dashboard-card.php' ) ) {
 	require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
@@ -527,6 +535,156 @@ ck( 'age() with no words takes the age back, and forget() clears every age, the 
 	array( $administrator_today['open, with its count'], $administrator_today['open, with its count'] )
 );
 
+echo "\n=== The parts' branch, behind the switch (shared parts, Task 9) ===\n";
+// Every check above ran with the switch empty and no surface named: the shell printed today's markup. Here the
+// Administrator Dashboard is switched on and named, and the shell prints the card fold of design 2.3 through
+// WPCPM_UI::fold_head(): the heading a direct child of the summary, the phrase (or the count, only without one),
+// the end group (the age tag, the cue, the help slot) and the chevron; the help link outside the summary, laid
+// into the slot by the section's grid, with a copy as the body's first line for the phone.
+$chev     = '<span class="wpcpm-ui-fold__chev" aria-hidden="true">' . WPCPM_Icons::ui( 'chevron', 20 ) . '</span>';
+$help     = '<a class="wpcpm-job-link" href="https://example.test/guide/#a-job">How to do this<span class="screen-reader-text">: Institution applications</span></a>';
+// On the parts the link carries the part's own class beside its old one (task V1, ruling 3).
+$ui_help  = '<a class="wpcpm-job-link wpcpm-ui-fold__help-link" href="https://example.test/guide/#a-job">How to do this<span class="screen-reader-text">: Institution applications</span></a>';
+$slot     = '<span class="wpcpm-ui-fold__help-slot" aria-hidden="true"></span>';
+$off_seen = array(
+	administrator_card( 'applications', 'Institution applications', 2 ),
+	shell( array( 'key' => 'offers', 'title' => 'Offers and codes', 'count' => 3, 'state' => 'Two live.', 'action' => array( 'label' => 'New offer' ) ) ),
+);
+WPCPM_UI::set_live( array( 'administrator' ) );
+ck( 'the switch on but no surface named: today\'s markup, byte for byte', array( administrator_card( 'applications', 'Institution applications', 2 ), WPCPM_UI::surface() ), array( $administrator_today['open, with its count'], '' ) );
+WPCPM_UI::enter( 'sponsor' );
+ck( 'the Administrator Dashboard on and the Sponsor Dashboard drawing: today\'s markup, byte for byte (Review Focus 5)',
+	array( administrator_card( 'applications', 'Institution applications', 2 ), shell( array( 'key' => 'offers', 'title' => 'Offers and codes', 'count' => 3, 'state' => 'Two live.', 'action' => array( 'label' => 'New offer' ) ) ) ),
+	$off_seen
+);
+WPCPM_UI::leave();
+WPCPM_UI::set_live( array() );
+WPCPM_UI::enter( 'administrator' );
+ck( 'the Administrator Dashboard drawing while the switch is empty: today\'s markup, byte for byte', administrator_card( 'applications', 'Institution applications', 2 ), $administrator_today['open, with its count'] );
+WPCPM_UI::set_live( array( 'administrator' ) );
+
+$fold( true, 'Review' );
+$age( 'wpcpm-applications', '65 days waiting' );
+$on_card = administrator_card( 'applications', 'Institution applications', 2, array( 'state' => '2 waiting', 'help' => $help, 'title_id' => true, 'action' => array( 'label' => 'Open the queue' ) ) );
+$age( 'wpcpm-applications', '' );
+$fold( false );
+ck( 'on: a folded Overview card is the card fold: the section keeps its class and anchor, the disclosure only folds, the head in Task 6\'s order with the cue hidden from a screen reader, the help link\'s phone copy the body\'s first line, the help link after the fold, and no action on the Overview',
+	$on_card,
+	'<section class="wpcpm-administrator__card wpcpm-ui-fold-card" id="wpcpm-applications"><details class="wpcpm-ui-fold"><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title" id="wpcpm-applications-title">Institution applications</h3><span class="wpcpm-ui-fold__phrase">2 waiting</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-status wpcpm-status--red">65 days waiting</span><span class="wpcpm-ui-fold__cue" aria-hidden="true">Review</span>' . $slot . '</span>' . $chev . '</summary><div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-fold__help wpcpm-ui-fold__help--phone">' . $ui_help . '</p><p>Body.</p></div></details><p class="wpcpm-ui-fold__help">' . $ui_help . '</p></section>'
+);
+$summary_of = static function ( $html ) {
+	$from = strpos( $html, '<summary' );
+	$to   = strpos( $html, '</summary>' );
+	return false === $from || false === $to ? '' : substr( $html, $from, $to - $from );
+};
+$dom_of = static function ( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div id="root">' . $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+};
+$x = $dom_of( $on_card );
+ck( 'Review Focus 4: no link in the summary; the help link is a sibling of the disclosure, and its phone copy is the body\'s first child',
+	array(
+		'' !== $summary_of( $on_card ) && false === strpos( $summary_of( $on_card ), '<a' ),
+		$x->query( '//section/p[@class="wpcpm-ui-fold__help"]/a[@class="wpcpm-job-link wpcpm-ui-fold__help-link"]' )->length,
+		$x->query( '//section/details/div[contains(@class,"wpcpm-ui-fold__body")]/*[1][@class="wpcpm-ui-fold__help wpcpm-ui-fold__help--phone"]/a' )->length,
+		strpos( $on_card, 'wpcpm-group__disclosure' ),
+		strpos( $on_card, 'wpcpm-group__summary' ),
+		strpos( $on_card, 'wpcpm-administrator__disclosure' ),
+		strpos( $on_card, 'wpcpm-sponsor__row-action' ),
+	),
+	array( true, 1, 1, false, false, false, false )
+);
+// The opener reads only a section's first child: on the parts it is still the disclosure.
+ck( 'the anchor stays on the section, whose first child is the disclosure, as assets/js/dashboard-open.js reads it',
+	array( $x->query( '//section[@id="wpcpm-applications"]' )->length, $x->query( '//section[@id="wpcpm-applications"]/*[1]' )->item( 0 )->nodeName ?? '' ),
+	array( 1, 'details' )
+);
+
+// Review Focus 4: a link from a mail or a decision's way back lands on a card that holds the outcome.
+WPCPM_Dashboard_Card::hold( 'wpcpm-applications', 'success', 'The application is approved.' );
+$fold( true, 'Review' );
+$held_on = administrator_card( 'applications', 'Institution applications', 0, array( 'state' => 'Nothing waits', 'help' => $help ) );
+$fold( false );
+WPCPM_Dashboard_Card::forget();
+$xh = $dom_of( $held_on );
+ck( 'Review Focus 4: the card holding the page\'s outcome is drawn open, the outcome the body\'s first block after the phone help line, and the help link still outside the summary',
+	array(
+		false !== strpos( $held_on, '<details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head">' ),
+		false !== strpos( $held_on, '<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-fold__help wpcpm-ui-fold__help--phone">' . $ui_help . '</p><p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The application is approved.</p><p>Body.</p></div>' ),
+		$xh->query( '//section/p[@class="wpcpm-ui-fold__help"]' )->length,
+		false === strpos( $summary_of( $held_on ), '<a' ),
+	),
+	array( true, true, 1, true )
+);
+
+// The cue is said only while fold() draws the cards folded, and "Close" never is (design 2.3, 12.6).
+$fold( true, 'Review' );
+$cued = administrator_card( 'reports', 'Semester reports', 1 );
+$fold( false );
+$uncued = administrator_card( 'reports', 'Semester reports', 1 );
+ck( 'fold( true, \'Review\' ) prints the cue while the cards are drawn folded, none once fold( false ) is called, and never "Close"',
+	array( substr_count( $cued, '<span class="wpcpm-ui-fold__cue" aria-hidden="true">Review</span>' ), strpos( $cued, ' open>' ), strpos( $uncued, 'wpcpm-ui-fold__cue' ), false !== strpos( $uncued, '<details class="wpcpm-ui-fold" open>' ), stripos( $cued . $uncued, 'Close' ) ),
+	array( 1, false, false, true, false )
+);
+
+// Watch draws its cards folded with no cue, and The program open. Nothing is printed after the fold, whatever action
+// the card asks for: the foot inside the body is the card's one way out (task V1, ruling 2; builder's call 21's
+// quiet button after the fold is gone).
+$fold( true );
+$watch = administrator_card( 'duplicates', 'Duplicated students', 2, array( 'state' => '2 pairs', 'action' => array( 'label' => 'Open <b>it</b>', 'context' => 'the students & more' ) ) );
+$fold( false );
+$program = administrator_card( 'programs', 'Programs', 3, array( 'action' => array( 'label' => 'Open the Institutions screen', 'href' => 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions' ) ) );
+ck( 'on Watch and The program nothing is printed after the fold, though the card asks for an action, and no help link where the card has none',
+	array(
+		substr( $watch, -strlen( '</div></details></section>' ) ),
+		substr( $program, -strlen( '</div></details></section>' ) ),
+		strpos( $watch . $program, 'wpcpm-ui-fold__action' ),
+		strpos( $watch . $program, 'Open &lt;b&gt;it' ),
+		strpos( $watch . $program, 'Open the Institutions screen' ),
+		strpos( $watch . $program, '<p class="wpcpm-ui-fold__help' ),
+		substr_count( $watch . $program, $slot ),
+	),
+	array( '</div></details></section>', '</div></details></section>', false, false, false, false, 2 )
+);
+
+// The count is said once, in words: only a head with no phrase prints it, formatted, or the words a card gives.
+ck( 'the count is printed only without a phrase, formatted, in the words a card gives for it, and not at all when there is none',
+	array(
+		false !== strpos( administrator_card( 'sponsor-reports', 'Sponsor reports', 1234 ), '<h3 class="wpcpm-ui-fold__title">Sponsor reports</h3><span class="wpcpm-ui-count">1,234</span><span class="wpcpm-ui-fold__end">' ),
+		false !== strpos( administrator_card( 'posts', 'Posts', 201, array( 'shown' => '200+' ) ), '<span class="wpcpm-ui-count">200+</span>' ),
+		strpos( administrator_card( 'posts', 'Posts', 2, array( 'state' => '2 posts' ) ), 'wpcpm-ui-count' ),
+		strpos( shell( array( 'key' => 'profile', 'title' => 'Profile', 'prefix' => 'wpcpm-' ) ), 'wpcpm-ui-count' ),
+		false !== strpos( administrator_card( 'health', 'Syncs and health', 0 ), '<span class="wpcpm-ui-count">0</span>' ),
+	),
+	array( true, true, false, false, true )
+);
+ck( 'the anchor on the disclosure where a card asks for it there, the open state on the disclosure, and a body class after the shared one',
+	shell( array( 'key' => 'agreement', 'title' => 'Collaboration Agreement', 'open' => true, 'body_class' => 'wpcpm-agreement' ) ),
+	'<section class="wpcpm-sponsor__card wpcpm-ui-fold-card"><details class="wpcpm-ui-fold" id="wpcpm-sponsor-agreement" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Collaboration Agreement</h3><span class="wpcpm-ui-fold__end">' . $slot . '</span>' . $chev . '</summary><div class="wpcpm-ui-fold__body wpcpm-agreement"><p>Body.</p></div></details></section>'
+);
+$loud_on = shell( array( 'key' => 'x" y', 'title' => 'Offers <b>and</b> codes', 'state' => 'Two <b>live</b>.', 'section_class' => 'a" b', 'body_class' => 'c" d', 'id_on' => 'section', 'prefix' => 'wpcpm-' ) );
+ck( 'on, every value is escaped too',
+	array( strpos( $loud_on, '<b>' ), 0 === strpos( $loud_on, '<section class="a&quot; b wpcpm-ui-fold-card" id="wpcpm-x&quot; y"><details class="wpcpm-ui-fold">' ), false !== strpos( $loud_on, '<div class="wpcpm-ui-fold__body c&quot; d">' ) ),
+	array( false, true, true )
+);
+// close() prints the branch the card it closes was opened in, whatever the switch says by then.
+$mixed = printed(
+	static function () {
+		WPCPM_Dashboard_Card::open( array( 'key' => 'a', 'title' => 'A', 'action' => array( 'label' => 'Go' ) ) );
+		WPCPM_UI::leave();
+		WPCPM_Dashboard_Card::close();
+		WPCPM_UI::enter( 'administrator' );
+	}
+);
+// The old branch would print today's row action for the card's 'Go'; the parts' branch prints nothing after the fold.
+ck( 'close() ends a card in the branch it was opened in', array( substr( $mixed, -strlen( '</div></details></section>' ) ), strpos( $mixed, 'wpcpm-sponsor__row-action' ) ), array( '</div></details></section>', false ) );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+ck( 'and with the surface left and the switch put back, today\'s markup again', array( administrator_card( 'applications', 'Institution applications', 2 ), WPCPM_UI::surface() ), array( $administrator_today['open, with its count'], '' ) );
+
 echo "\n=== Every card is drawn in the shell ===\n";
 // The Sponsor Dashboard's twelve cards and the Administrator Dashboard's nineteen, by the file that
 // draws them and how many it draws: the tier card draws Sponsorship and Events, the mentors class its
@@ -534,7 +692,8 @@ echo "\n=== Every card is drawn in the shell ===\n";
 // nineteen of that page, Sponsor offers to review among them since 1.123.18. Each opens the shell once per card, closes it wherever a card ends, and
 // prints no piece of the shell by hand, so a change to the row reaches every card on both pages at
 // once. Some cards end early: Usage when there is no offer, and on the Administrator Dashboard
-// Offers running low, Sponsor terms ending, Sponsor reports and Students gone quiet when they hold nothing.
+// Offers running low, Sponsor terms ending, Sponsor reports and Students gone quiet when they hold nothing. Every
+// other card of the page ends once since the cards' old branches left (Task 18b).
 $early    = array(
 	'class-wpcpm-sponsor-usage.php'        => 1,
 	'class-wpcpm-administrators-cards.php' => 4,
@@ -874,11 +1033,12 @@ ck( 'and one whose cards print something is its wrapper, its heading in the eyeb
 // version 3 concepts (1.123.69) it calls the printer once for each of its three groups, Waiting for you
 // and Watch on the Overview and Reference on its own view, where it called it once in a loop: each call
 // merges the page's classes into what it asks. Calls are read where a statement starts, so the class's
-// own docblock, which names the printer, is not one.
+// own docblock, which names the printer, is not one. Task V1, ruling 5: Tools from our sponsors is a fourth group on
+// the shared parts, after Reference on its view.
 preg_match_all( '/WPCPM_Dashboard_Card::group\(\s*array_merge\(\s*self::GROUP,\s*array\(\s*\'id\'\s*=>\s*\'([a-z-]+)\'/', $admin_page, $admin_groups );
 // Since 1.123.78 the Sponsor Dashboard's sections are views of its own in the frame, so it draws neither
 // a group nor a module.
-ck( 'the Administrator Dashboard prints each of its three groups through the shell, Waiting for you, Watch and Reference, each asking for the page\'s own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as views, neither groups nor modules',
+ck( 'the Administrator Dashboard prints each of its four groups through the shell, Waiting for you, Watch, Reference and Tools from our sponsors, each asking for the page\'s own classes, and neither dashboard prints a group by hand; the Sponsor Dashboard draws its sections as views, neither groups nor modules',
 	array(
 		substr_count( $sponsors_page, 'WPCPM_Dashboard_Card::group(' ),
 		substr_count( $sponsors_page, 'WPCPM_Module_Order::render_module(' ),
@@ -887,8 +1047,58 @@ ck( 'the Administrator Dashboard prints each of its three groups through the she
 		substr_count( $sponsors_page . $admin_page, '__group--%' ) + substr_count( $sponsors_page . $admin_page, '__group-lead">%' ) + substr_count( $sponsors_page . $admin_page, '__group-title">%' ),
 		strpos( $admin_page, 'function render_group(' ),
 	),
-	array( 0, 0, 3, array( 'waiting', 'watch', 'reference' ), 0, false )
+	array( 0, 0, 4, array( 'waiting', 'watch', 'reference', 'tools' ), 0, false )
 );
+
+// UI shared parts, Task 14: with the Administrator Dashboard's switch on, a group keeps its wrapper and its classes,
+// which the theme's rules and the views' anchors key on, adds the group's part, and draws its heading and its lead
+// as the group's own parts (design 2.3's gaps: 4px heading to lead, 12px lead to the first row, in parts.css), no
+// lead when it has none, and the heading's modifier for the 4px to a lead only when one follows (fix round 1, ruling 4);
+// nothing at all for a group whose cards print nothing, as today. Off, with the switch on
+// but no surface named, and on the Sponsor Dashboard (surface `sponsor`, off in this release), today's markup.
+$group_fixtures = array(
+	'administrator, with a lead'    => array_merge( $administrator_group, array( 'id' => 'waiting', 'title' => 'Waiting <b>for</b> you', 'lead' => 'What needs a decision & more.', 'cards' => static function () { echo '<section class="wpcpm-administrator__card" id="wpcpm-x"></section>'; } ) ),
+	'administrator, with no lead'   => array_merge( $administrator_group, array( 'id' => 'watch', 'title' => 'Watch', 'lead' => '', 'cards' => static function () { echo '<section class="wpcpm-administrator__card" id="wpcpm-y"></section>'; } ) ),
+	'sponsor\'s classes, a lead'    => array( 'id' => 'offer', 'title' => 'What you offer', 'lead' => 'Lead.', 'cards' => static function () { echo '<section class="wpcpm-sponsor__card"></section>'; } ),
+	'sponsor\'s classes, no lead'   => array( 'id' => 'offer', 'title' => 'What you offer', 'lead' => '', 'cards' => static function () { echo '<section class="wpcpm-sponsor__card"></section>'; } ),
+);
+$group_all = static function () use ( $group_fixtures ) {
+	return array_map( 'group_printed', $group_fixtures );
+};
+$group_off = $group_all();
+WPCPM_UI::set_live( array( 'administrator' ) );
+$group_unnamed = $group_all();
+WPCPM_UI::enter( 'sponsor' );
+$group_sponsor = $group_all();
+WPCPM_UI::leave();
+WPCPM_UI::enter( 'administrator' );
+$group_on    = $group_all();
+$group_empty = group_printed( array_merge( $administrator_group, array( 'id' => 'watch', 'title' => 'Watch', 'lead' => 'Lead.', 'cards' => static function () { echo " \n\t"; } ) ) );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+// The digests are of the group as it was printed at 4425185d, before Task 14: these same fixtures run on that
+// commit's code, before the printer was changed.
+ck( 'off, with the switch on but no surface named, and on the Sponsor Dashboard, a group is the one printed before Task 14, byte for byte, with a lead and without', array(
+	$group_unnamed === $group_off,
+	$group_sponsor === $group_off,
+	array_map( 'md5', $group_off ),
+	strpos( implode( '', $group_off ), 'wpcpm-ui-' ),
+), array( true, true, array( 'administrator, with a lead' => '6383d5db0c9e4edcaf95e6211bd1b40c', 'administrator, with no lead' => '96a1616e1db8ae9146112592a7b93e9a', 'sponsor\'s classes, a lead' => '394336d0aa3434dd72f088574fec8d31', 'sponsor\'s classes, no lead' => '995394409ce94d11e8bd40fea875f1f0' ), false ) );
+ck( 'on, a group keeps its wrapper and its classes and adds the group\'s part; its heading and its lead are the group\'s parts, escaped, the lead left out when it has none; none of today\'s heading classes is printed', array(
+	$group_on['administrator, with a lead'],
+	$group_on['administrator, with no lead'],
+	strpos( implode( '', $group_on ), 'wpcpm-student__' ),
+	strpos( implode( '', $group_on ), '__group-title' ),
+	strpos( implode( '', $group_on ), '__group-lead' ),
+	$group_empty,
+), array(
+	'<div class="wpcpm-administrator__group wpcpm-administrator__group--waiting wpcpm-ui-group"><h2 class="wpcpm-ui-group__title wpcpm-ui-group__title--lead">Waiting &lt;b&gt;for&lt;/b&gt; you</h2><p class="wpcpm-ui-group__lead">What needs a decision &amp; more.</p><section class="wpcpm-administrator__card" id="wpcpm-x"></section></div>',
+	'<div class="wpcpm-administrator__group wpcpm-administrator__group--watch wpcpm-ui-group"><h2 class="wpcpm-ui-group__title">Watch</h2><section class="wpcpm-administrator__card" id="wpcpm-y"></section></div>',
+	false,
+	false,
+	false,
+	'',
+) );
 
 echo "\n=== Wiring and house rules ===\n";
 $loader    = (string) file_get_contents( __DIR__ . '/../wpcredits-program-manager.php' );

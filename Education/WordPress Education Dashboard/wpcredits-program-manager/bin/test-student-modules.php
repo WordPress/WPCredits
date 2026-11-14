@@ -191,6 +191,9 @@ class WPCPM_Sponsor_Tools {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-start-pages.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
@@ -366,6 +369,20 @@ $GLOBALS['enqueued'] = array();
 $_GET                = array( 'wpcpm_student_view' => '30' );
 $html                = WPCPM_Students_Dashboard::render();
 ck( 'the modules, in the student\'s saved order', module_ids( $html ), array( 'course', 'forms', 'updates', 'calls', 'tools' ) );
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, the Report Cards are
+// off for this whole build. With no set_live() at all the Student Report Card is its off drawing of this run, byte for
+// byte, with no switch class and no part.
+WPCPM_UI::set_live( array() );
+$card_off = WPCPM_Students_Dashboard::render();
+WPCPM_UI::set_live( null );
+$card_real = WPCPM_Students_Dashboard::render();
+ck( 'under the real switch the Student Report Card is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$card_real === $card_off,
+	$card_real === $html,
+	false !== strpos( $card_real, '<div class="wpcpm-dashboard wpcpm-student">' ),
+	preg_match( '/wpcpm-ui-/', $card_real ),
+), array( array( 'administrator' ), true, true, true, 0 ) );
 ck(
 	'a manager\'s page hands the shared switcher every student, with the one being viewed as its choice',
 	array( $GLOBALS['switcher']['id'] ?? null, $GLOBALS['switcher']['name'] ?? null, $GLOBALS['switcher']['options'] ?? null, $GLOBALS['switcher']['current'] ?? null, $GLOBALS['switcher']['find'] ?? null ),

@@ -151,7 +151,7 @@ final class WPCPM_Form_Errors {
 				? sprintf(
 					/* translators: 1: a link to the field, its label as the words, 2: the sentence saying why it was refused. */
 					__( '%1$s: %2$s', 'wpcredits-program-manager' ),
-					sprintf( '<a href="#%1$s">%2$s</a>', esc_attr( $id ), esc_html( $label ) ),
+					self::link( $id, $label ),
 					esc_html( $problems[ $field ] )
 				)
 				: esc_html( $problems[ $field ] );
@@ -173,6 +173,20 @@ final class WPCPM_Form_Errors {
 			esc_html( $title ),
 			implode( '</li><li>', $items )
 		);
+	}
+
+	/**
+	 * A link to a refused field, as the summary prints each of its links: following it moves the focus into
+	 * the control, which the browser focuses as the fragment's target. The Administrator Dashboard's card
+	 * message prints one too, on the shared parts, so its sentence leads to the box it refused
+	 * (`WPCPM_Dashboard_Card::lead_to()`).
+	 *
+	 * @param string $field_id The control's id.
+	 * @param string $words    The link's words, as text.
+	 * @return string
+	 */
+	public static function link( $field_id, $words ) {
+		return sprintf( '<a href="#%1$s">%2$s</a>', esc_attr( (string) $field_id ), esc_html( (string) $words ) );
 	}
 
 	/**

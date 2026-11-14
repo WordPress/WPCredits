@@ -190,6 +190,9 @@ class WPCPM_Students_Sync {
 // compiled tracks', reached through their filters.
 require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
@@ -344,6 +347,20 @@ ck( 'the account\'s copy is preferred over the mentee row\'s', hours_row( page_f
 $GLOBALS['umeta'][41][ WPCPM_Students_Sync::META_PROGRAM ]['hours'] = '0';
 
 ck( 'and a count cleared to 0 there wins rather than falling through to the older one', hours_row( page_for( 30 ), 'Ada Example' ), '0 of 150' );
+
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, the Report Cards are
+// off for this whole build. With no set_live() at all the Mentor Report Card is its off drawing of this run, byte for
+// byte, with no switch class and no part.
+WPCPM_UI::set_live( array() );
+$card_off = page_for( 30 );
+WPCPM_UI::set_live( null );
+$card_real = page_for( 30 );
+ck( 'under the real switch the Mentor Report Card is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$card_real === $card_off,
+	false !== strpos( $card_real, '<div class="wpcpm-dashboard">' ),
+	preg_match( '/wpcpm-ui-/', $card_real ),
+), array( array( 'administrator' ), true, true, 0 ) );
 
 echo "\n--- The count the card shows, read on its own (the abilities read it too) ---\n";
 

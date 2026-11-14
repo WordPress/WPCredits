@@ -50,6 +50,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		load_screen as private load_accounts_list;
 	}
 
+	/**
+	 * The decisions `render_decision_form()` hands on instead of printing, while one Decide area is being
+	 * built (`render_decide_area()`); null the rest of the time, when every decision prints its own form.
+	 *
+	 * @var array[]|null
+	 */
+	private $decide_into = null;
+
 	const ACTION_SYNC   = 'wpcpm_institutions_sync';
 	const ACTION_CANCEL = 'wpcpm_institutions_cancel';
 	const ACTION_PROBE  = 'wpcpm_institutions_probe';
@@ -2087,7 +2095,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		if ( class_exists( 'WPCPM_Return' ) && WPCPM_Return::DASHBOARD === (string) $where ) {
-			printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) );
+			// On the Administrator Dashboard, the note part (Task 17b, ruling 1).
+			echo WPCPM_UI::note( __( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
 
 			return;
 		}
@@ -2736,36 +2745,44 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	public function render_admin_page() {
 		$tab = self::tab();
 
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+		// The tab names itself to the switch of the shared parts while it draws (design 3.5): every tab is off until
+		// a release turns it on, and that release puts the switch's class on the wrap.
+		WPCPM_UI::enter( $this->page_slug() . '/' . $tab );
 
-		$this->render_status_notice( $this->outcome_messages( $tab ) );
-		$this->render_not_connected();
+		try {
+			echo '<div class="wrap wpcpm-wrap">';
+			echo '<h1>' . esc_html( $this->label() ) . '</h1>';
+			echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
-		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+			$this->render_status_notice( $this->outcome_messages( $tab ) );
+			$this->render_not_connected();
 
-		switch ( $tab ) {
-			case 'pipeline':
-				$this->render_tab_pipeline();
-				break;
-			case 'accounts':
-				$this->render_tab_accounts();
-				break;
-			case 'reports':
-				$this->render_tab_reports();
-				break;
-			case 'agreements':
-				$this->render_tab_agreements();
-				break;
-			case 'sync':
-				$this->render_tab_sync();
-				break;
-			default:
-				$this->render_tab_queue();
+			WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+
+			switch ( $tab ) {
+				case 'pipeline':
+					$this->render_tab_pipeline();
+					break;
+				case 'accounts':
+					$this->render_tab_accounts();
+					break;
+				case 'reports':
+					$this->render_tab_reports();
+					break;
+				case 'agreements':
+					$this->render_tab_agreements();
+					break;
+				case 'sync':
+					$this->render_tab_sync();
+					break;
+				default:
+					$this->render_tab_queue();
+			}
+
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		echo '</div>';
 	}
 
 	/**
@@ -3554,8 +3571,26 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$site    = WPCPM_Institution_Application::site_answers( (int) $post->ID );
 		$columns = WPCPM_Institutions_Sync::fields();
 		$country = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY, true );
+		// On the shared parts (the Administrator Dashboard while its switch is on), a key and value table with no
+		// Airtable column name (design 2.7, 4.1, controller's ruling F); the wp-admin queue keeps today's table.
+		$parts       = class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on();
+		$question_at = array(
+			'key'    => 'question',
+			'label'  => '',
+			'kind'   => 'text',
+			'header' => true,
+		);
+		$answer_at   = array(
+			'key'   => 'answer',
+			'label' => '',
+			'kind'  => 'text',
+		);
 
-		echo '<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>';
+		if ( $parts ) {
+			echo WPCPM_UI::table_open( array( $question_at, $answer_at ), array( 'keyvalue' => true ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::table_open().
+		} else {
+			echo '<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>';
+		}
 
 		foreach ( WPCPM_Institution_Application::fields() as $column => $spec ) {
 			$column  = (string) $column;
@@ -3576,6 +3611,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				$value  = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
 			}
 
+			if ( $parts ) {
+				$empty = '' === trim( $value );
+				$row   = WPCPM_UI::row_open() . WPCPM_UI::cell( $question_at, esc_html( $label ) )
+					. WPCPM_UI::cell( $answer_at, $empty ? esc_html__( 'no answer', 'wpcredits-program-manager' ) : esc_html( $value ), $empty ? 'empty' : '' )
+					. WPCPM_UI::row_close();
+
+				echo $row; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped here and in WPCPM_UI.
+
+				continue;
+			}
+
 			printf(
 				'<tr><th scope="row">%1$s%2$s</th><td>%3$s</td></tr>',
 				esc_html( $label ),
@@ -3586,7 +3632,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			);
 		}
 
-		echo '</tbody></table>';
+		echo $parts ? WPCPM_UI::table_close() : '</tbody></table>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 	}
 
 	/**
@@ -4002,21 +4048,176 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			return;
 		}
 
-		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
+		// The Administrator Dashboard, on the shared parts: one Decide area holding every decision the state
+		// allows (design 2.6, 4.1), under its own heading, "Decide".
+		$this->render_decide_area( $post, (string) $state, $name, (string) $return );
+	}
 
-		self::render_half_done_mark( (int) $post->ID, (string) $return );
+	/**
+	 * Every decision the state allows on one application, as one Decide area (`WPCPM_UI::decide()`, design
+	 * 2.6), drawn on the Administrator Dashboard.
+	 *
+	 * The decisions are the ones the forms below draw, in the same order and posting the same fields: each
+	 * `render_decision_form()` hands its decision to the area instead of printing a form. A decision with no
+	 * note acts from the row with the question it asks today; Ask a question and Reject open a panel, which
+	 * is printed open when the last press left typing or a refusal for this application's box. The area's
+	 * id and the boxes' ids carry the application's ID, so two applications on one card repeat none.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 * @param string  $name  Its name as the confirms print it.
+	 * @param string  $where WPCPM_Return::DASHBOARD.
+	 */
+	private function render_decide_area( WP_Post $post, $state, $name, $where ) {
+		self::render_half_done_mark( (int) $post->ID, $where );
 
-		if ( in_array( $state, self::open_states(), true ) ) {
-			$this->render_open_decisions( $post, $name, (string) $return );
+		$this->decide_into = array();
+
+		try {
+			if ( in_array( $state, self::open_states(), true ) ) {
+				$this->render_open_decisions( $post, $name, $where );
+			}
+
+			if ( in_array( $state, self::reopen_states(), true ) ) {
+				$this->render_reopen_form( $post, $where );
+			}
+
+			if ( in_array( $state, self::purgeable_states(), true ) ) {
+				$this->render_purge_form( $post, $name, $where );
+			}
+
+			$decisions = $this->decided();
+		} finally {
+			$this->decide_into = null;
 		}
 
-		if ( in_array( $state, self::reopen_states(), true ) ) {
-			$this->render_reopen_form( $post, (string) $return );
+		if ( empty( $decisions ) ) {
+			return;
 		}
 
-		if ( in_array( $state, self::purgeable_states(), true ) ) {
-			$this->render_purge_form( $post, $name, (string) $return );
+		// One panel opens on load, and a box the last press refused outranks one that only kept its typing:
+		// the sentence beside it is what the reader came back to.
+		$refusal = in_array( true, array_column( $decisions, 'refused' ), true );
+
+		foreach ( $decisions as $i => $decision ) {
+			if ( $refusal && empty( $decision['refused'] ) ) {
+				$decisions[ $i ]['open'] = false;
+			}
 		}
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-app-' . (int) $post->ID,
+				'level'     => 'h5',
+				'decisions' => $decisions,
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in decision()'s callable.
+	}
+
+	/**
+	 * The decisions handed on since `render_decide_area()` began collecting them, taken: collecting stops.
+	 *
+	 * @return array[]
+	 */
+	private function decided() {
+		$taken             = is_array( $this->decide_into ) ? $this->decide_into : array();
+		$this->decide_into = null;
+
+		return $taken;
+	}
+
+	/**
+	 * One decision as `WPCPM_UI::decide()` takes it, from the arguments `render_decision_form()` draws its form
+	 * with: the same hidden fields under the same nonce, the same box under the same name (its id the field's
+	 * name and the application's ID), and the same question before it posts.
+	 *
+	 * @param WP_Post $post The application.
+	 * @param array   $args `render_decision_form()`'s, merged with its defaults.
+	 * @return array
+	 */
+	private function decision( WP_Post $post, array $args ) {
+		$keys    = array(
+			self::ACTION_RESEND_LINK => 'resend',
+			self::ACTION_APPROVE     => 'approve',
+			self::ACTION_INFO        => 'info',
+			self::ACTION_REJECT      => 'reject',
+			self::ACTION_SPAM        => 'spam',
+			self::ACTION_REOPEN      => 'reopen',
+			self::ACTION_PURGE       => 'purge',
+		);
+		$fields  = '';
+		$open    = false;
+		$refused = false;
+
+		if ( '' !== $args['field'] ) {
+			$problem = $this->box_problem( $post, $args['kept'], (array) $args['refused'] );
+
+			// On the parts, a box holding typing is the refused one only when its form is the last one kept: another
+			// application's box may hold typing an earlier press kept, which no page drew, and the outcome names no
+			// application (`WPCPM_Typed_Text::is_last()`). Asked here, not in `box_problem()`, which today's forms
+			// read too.
+			if ( '' !== $problem && is_string( $args['kept'] ) && ! WPCPM_Typed_Text::is_last( (string) $args['form'] ) ) {
+				$problem = '';
+			}
+
+			// Required or Optional in words alone: today's boxes carry no `required`, so the browser refuses nothing new.
+			$fields = WPCPM_UI::field(
+				array(
+					'id'            => $args['field'] . '-' . (int) $post->ID,
+					'name'          => $args['field'],
+					'label'         => (string) $args['note_label'],
+					'hint'          => (string) $args['note_hint'],
+					'type'          => 'textarea',
+					'rows'          => 4,
+					'value'         => is_string( $args['kept'] ) ? $args['kept'] : '',
+					'need'          => (string) $args['need'],
+					'required_attr' => false,
+					'attrs'         => array( 'maxlength' => self::MAX_NOTE ),
+					'problem'       => $problem,
+				)
+			);
+			// Opened on load where the box holds what the last press kept, or says why it was refused.
+			$open    = is_string( $args['kept'] ) || '' !== $problem;
+			$refused = '' !== $problem;
+
+			// The card's message, the refusal sentence, leads to this box (follow-up round of Task 10).
+			if ( $refused && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+				WPCPM_Dashboard_Card::lead_to( $args['field'] . '-' . (int) $post->ID );
+			}
+		}
+
+		$opener = (string) $args['opener'];
+
+		return array(
+			'key'           => isset( $keys[ $args['action'] ] ) ? $keys[ $args['action'] ] : (string) $args['action'],
+			'label'         => '' !== $opener ? $opener : (string) $args['label'],
+			'confirm_label' => '' !== $opener ? (string) $args['label'] : (string) $args['confirm_label'],
+			'kind'          => (string) $args['kind'],
+			// No class: the old form's `wpcpm-app-action` is styled by the old screens, and the area's row lays
+			// its forms out itself. The guard against a second press is the form's, as today.
+			'form_attrs'    => array(
+				'method'          => 'post',
+				'action'          => admin_url( 'admin-post.php' ),
+				'data-wpcpm-once' => true,
+				'data-wpcpm-busy' => __( 'Working', 'wpcredits-program-manager' ),
+			),
+			'hidden'        => static function () use ( $post, $args ) {
+				echo WPCPM_UI::nonce( $args['action'] . '_' . (int) $post->ID ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
+				printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_APPLICATION ), (int) $post->ID );
+
+				if ( class_exists( 'WPCPM_Return' ) ) {
+					WPCPM_Return::field( (string) $args['return'], 'applications' );
+				}
+			},
+			'fields'        => $fields,
+			'confirm'       => (string) $args['confirm'],
+			'open'          => $open,
+			// Read by render_decide_area() alone, which lets a refusal outrank kept typing; decide() ignores it.
+			'refused'       => $refused,
+		);
 	}
 
 	/**
@@ -4136,17 +4337,22 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @param string  $where WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
 	 */
 	private function render_open_decisions( WP_Post $post, $name, $where ) {
-		$email = self::application_email( $post );
+		$email     = self::application_email( $post );
+		$confirmed = self::address_confirmed( $post );
 
-		// First, since Approve waits on the link it carries: offered while the address is
-		// unconfirmed and there is an address to send it to (1.123.26).
-		if ( ! self::address_confirmed( $post ) && is_email( $email ) ) {
+		// Approve waits on the link it carries, and is refused until the address is confirmed
+		// (`app-unverified`): offered while the address is unconfirmed and there is an address to
+		// send it to (1.123.26). Today's forms print it first. On the shared parts the Decide area
+		// orders its row by kind, primary first, so the link is the row's primary while the address
+		// is unconfirmed, and Approve a secondary until it is (controller's ruling, Task 16).
+		if ( ! $confirmed && is_email( $email ) ) {
 			$this->render_decision_form(
 				$post,
 				array(
 					'return'  => (string) $where,
 					'action'  => self::ACTION_RESEND_LINK,
 					'label'   => __( 'Send the confirmation link again', 'wpcredits-program-manager' ),
+					'kind'    => 'primary',
 					'confirm' => sprintf(
 						/* translators: %s: the contact email address on the application. */
 						__( 'Email the acknowledgement to %s again, with the link that confirms the address?', 'wpcredits-program-manager' ),
@@ -4166,6 +4372,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'action'  => self::ACTION_APPROVE,
 				'label'   => __( 'Approve', 'wpcredits-program-manager' ),
 				'class'   => 'button button-primary',
+				'kind'    => $confirmed ? 'primary' : 'secondary',
 				'confirm' => sprintf(
 					/* translators: 1: institution name, 2: contact email address. */
 					__( 'Create an Airtable record and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
@@ -4179,13 +4386,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$this->render_decision_form(
 			$post,
 			array(
-				'return'  => (string) $where,
-				'action'  => self::ACTION_INFO,
-				'label'   => __( 'Send this question', 'wpcredits-program-manager' ),
-				'field'   => 'wpcpm_question',
-				'prompt'  => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
-				'kept'    => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ), 'question' ),
-				'refused' => self::QUESTION_REFUSALS,
+				'return'     => (string) $where,
+				'action'     => self::ACTION_INFO,
+				'label'      => __( 'Send this question', 'wpcredits-program-manager' ),
+				'kind'       => 'secondary',
+				'opener'     => __( 'Ask a question', 'wpcredits-program-manager' ),
+				'field'      => 'wpcpm_question',
+				'prompt'     => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+				'note_label' => self::question_label(),
+				'note_hint'  => __( 'It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+				// Required in words on the parts: `handle_info()` refuses a question under MIN_NOTE characters, an
+				// empty one included; the box stays without `required`, as today's (Task 18a).
+				'need'       => 'required',
+				'kept'       => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ), 'question' ),
+				'form'       => WPCPM_Typed_Text::box_form( self::TYPED_QUESTION, $post->ID ),
+				'refused'    => self::QUESTION_REFUSALS,
 			)
 		);
 
@@ -4193,14 +4408,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$this->render_decision_form(
 			$post,
 			array(
-				'return'  => (string) $where,
-				'action'  => self::ACTION_REJECT,
-				'label'   => __( 'Reject', 'wpcredits-program-manager' ),
-				'field'   => 'wpcpm_reason',
-				'prompt'  => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
-				'kept'    => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ), 'reason' ),
-				'refused' => self::REASON_REFUSALS,
-				'confirm' => sprintf(
+				'return'        => (string) $where,
+				'action'        => self::ACTION_REJECT,
+				'label'         => __( 'Reject', 'wpcredits-program-manager' ),
+				'kind'          => 'danger',
+				'confirm_label' => __( 'Reject the application', 'wpcredits-program-manager' ),
+				'field'         => 'wpcpm_reason',
+				'prompt'        => __( 'Why, for the next Administrator who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
+				'note_label'    => self::reason_label(),
+				'note_hint'     => __( 'It is never sent to the applicant.', 'wpcredits-program-manager' ),
+				// Optional in words on the parts: `handle_reject()` takes an empty reason (Task 18a).
+				'need'          => 'optional',
+				'kept'          => WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ), 'reason' ),
+				'form'          => WPCPM_Typed_Text::box_form( self::TYPED_REASON, $post->ID ),
+				'refused'       => self::REASON_REFUSALS,
+				'confirm'       => sprintf(
 					/* translators: %s: institution name. */
 					__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
 					$name
@@ -4214,6 +4436,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'return'  => (string) $where,
 				'action'  => self::ACTION_SPAM,
 				'label'   => __( 'Reject as spam', 'wpcredits-program-manager' ),
+				'kind'    => 'danger',
 				'confirm' => sprintf(
 					/* translators: %s: institution name. */
 					__( 'Mark the application from %s as spam? Nothing at all is sent to the address on it.', 'wpcredits-program-manager' ),
@@ -4237,6 +4460,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'return' => (string) $where,
 				'action' => self::ACTION_REOPEN,
 				'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
+				'kind'   => 'secondary',
 			)
 		);
 	}
@@ -4256,6 +4480,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'return'  => (string) $where,
 				'action'  => self::ACTION_PURGE,
 				'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
+				'kind'    => 'danger',
 				'confirm' => sprintf(
 					/* translators: %s: institution name. */
 					__( 'Delete the application from %s for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.', 'wpcredits-program-manager' ),
@@ -4276,8 +4501,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * these confirm-guarded forms is not left looking at a form stuck reading "Working".
 	 *
 	 * @param WP_Post $post The application.
-	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`,
-	 *                      `kept`: what a refusal of the form kept for its box, or null; and
+	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`, `need` (the
+	 *                      parts' Required or Optional for the box, in words only; today's form prints none),
+	 *                      `kept`: what a refusal of the form kept for its box, or null; `form`: the
+	 *                      box's form, as `WPCPM_Typed_Text::box_form()` names it; and
 	 *                      `refused`: the outcomes that refuse the box, which mark it when the last
 	 *                      press left one for this application.
 	 */
@@ -4292,10 +4519,32 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				'field'   => '',
 				'prompt'  => '',
 				'kept'    => null,
+				'form'    => '',
 				'refused' => array(),
 			),
 			$args
 		);
+
+		// A Decide area is being built (the Administrator Dashboard on the shared parts): the decision goes to
+		// it, with the words only the parts print, and this form is not drawn.
+		if ( is_array( $this->decide_into ) ) {
+			$this->decide_into[] = $this->decision(
+				$post,
+				array_merge(
+					array(
+						'kind'          => 'secondary',
+						'opener'        => '',
+						'confirm_label' => '',
+						'note_label'    => '',
+						'note_hint'     => '',
+						'need'          => '',
+					),
+					$args
+				)
+			);
+
+			return;
+		}
 
 		$problem = '' !== $args['field'] ? $this->box_problem( $post, $args['kept'], (array) $args['refused'] ) : '';
 

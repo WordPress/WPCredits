@@ -100,6 +100,9 @@ class WPCPM_Administrator_Updates_View {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
@@ -1310,6 +1313,22 @@ ck( 'while the page is missing, neither tab offers the button, the bar stands un
 
 echo "\n";
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
+
+
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, every wp-admin tab
+// off in this release. With no set_live() at all the Administrators screen's Accounts tab is its off drawing of this run,
+// byte for byte, with no switch class and no part, and the screen leaves the surface it named.
+WPCPM_UI::set_live( array() );
+$tab_off = html_of( page_for( screen() ) );
+WPCPM_UI::set_live( null );
+$tab_real = html_of( page_for( screen() ) );
+ck( 'under the real switch the Administrators screen\'s Accounts tab is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$tab_real === $tab_off,
+	'' !== trim( (string) $tab_real ),
+	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
+	WPCPM_UI::surface(),
+), array( array( 'administrator' ), true, true, 0, '' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 exit( $fails ? 1 : 0 );

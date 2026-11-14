@@ -277,68 +277,117 @@ final class WPCPM_Sponsor_Offer_Review {
 	/**
 	 * One item of the queue, as the Administrator Dashboard's card draws it: the title and the company,
 	 * whether it is a new offer or changes to a live one, who sent it and when, what students would
-	 * read, the codes it adds (1.123.20), and the decision. Every value is the sponsor's or the
-	 * member's and is escaped; a code is printed as text in `code`, never as a link.
+	 * read, the codes it adds (1.123.20), and the decision, on the shared parts (`render_item_parts()`).
+	 * Every value is the sponsor's or the member's and is escaped; a code is printed as text in `code`,
+	 * never as a link.
 	 *
 	 * @param array  $row    One row of `waiting_all()`.
 	 * @param string $back   `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
 	 */
 	public static function render_item( array $row, $back = '' ) {
-		printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-offer" id="wpcpm-sponsor-offer-%d">', (int) $row['id'] );
-		printf(
-			'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
-			esc_html( (string) $row['title'] ),
-			esc_html( (string) $row['company'] )
+		self::render_item_parts( $row, $back );
+	}
+
+	/**
+	 * One item on the shared parts (design 2.10, 2.6, 4.1): the item
+	 * header (the offer's title; then the company, whether it is a new offer or changes to a live one, "Sent ..." and
+	 * "By ..." as muted facts), what students would read and the codes it adds, as today, then the decision as one
+	 * Decide area. The item keeps its article and its anchor, as today.
+	 *
+	 * @param array  $row  One row of `waiting_all()`.
+	 * @param string $back `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 */
+	private static function render_item_parts( array $row, $back ) {
+		$facts = array(
+			(string) $row['company'],
+			'new' === $row['change'] ? __( 'A new offer', 'wpcredits-program-manager' ) : __( 'Changes to a live offer', 'wpcredits-program-manager' ),
 		);
-		echo '<p class="wpcpm-administrator__facts">';
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( 'new' === $row['change'] ? __( 'A new offer', 'wpcredits-program-manager' ) : __( 'Changes to a live offer', 'wpcredits-program-manager' ) ) );
 
 		if ( (int) $row['at'] > 0 ) {
 			/* translators: %s: how long ago. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Sent %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ) ) );
+			$facts[] = sprintf( __( 'Sent %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) );
 		}
 
 		if ( '' !== (string) $row['by'] ) {
 			/* translators: %s: the account's name. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'By %s', 'wpcredits-program-manager' ), (string) $row['by'] ) ) );
+			$facts[] = sprintf( __( 'By %s', 'wpcredits-program-manager' ), (string) $row['by'] );
 		}
 
-		echo '</p><dl class="wpcpm-offer__details">';
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => (string) $row['title'],
+				'facts' => $facts,
+			)
+		);
 
-		foreach ( (array) $row['fields'] as $field ) {
-			if ( null === $field[1] ) {
-				printf( '<div class="wpcpm-offer__detail"><dt>%1$s</dt><dd>%2$s</dd></div>', esc_html( (string) $field[0] ), '' !== trim( (string) $field[2] ) ? nl2br( esc_html( (string) $field[2] ) ) : esc_html__( 'Not written yet.', 'wpcredits-program-manager' ) );
-				continue;
-			}
-
-			printf(
-				'<div class="wpcpm-offer__detail"><dt>%1$s</dt><dd><span class="wpcpm-offer__was">%2$s</span> <span class="wpcpm-offer__now">%3$s</span></dd></div>',
-				esc_html( (string) $field[0] ),
-				/* translators: %s: what students see of the offer now. */
-				nl2br( esc_html( sprintf( __( 'Now: %s', 'wpcredits-program-manager' ), (string) $field[1] ) ) ),
-				/* translators: %s: what the sponsor asks students to see instead. */
-				nl2br( esc_html( sprintf( __( 'Asked for: %s', 'wpcredits-program-manager' ), (string) $field[2] ) ) )
-			);
-		}
-
-		self::render_codes_added( self::codes_added( (int) $row['id'], (string) $row['change'] ) );
-		echo '</dl>';
+		echo WPCPM_UI::item_open( 'wpcpm-sponsor-offer', 'wpcpm-sponsor-offer-' . (int) $row['id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header().
+		self::render_details( $row );
 		self::render_decision( (int) $row['id'], $back );
 		echo '</article>';
 	}
 
 	/**
-	 * The Codes added line of an item: how many in all and how many are web addresses, then the codes
-	 * themselves, escaped, then how many more there are. Nothing for null.
+	 * What students would read of an item, and the codes it adds, as the key and value table part (design 2.7; task
+	 * V1, ruling 8): one row per field, its label in the label column, its value as students would read it, an empty
+	 * value kept in today's words and muted; a change as what students see now and what it would be, on two lines; then
+	 * Codes added. Today's words, every value escaped.
 	 *
-	 * @param array|null $codes What `codes_added()` answered.
+	 * @param array $row One row of `waiting_all()`.
 	 */
-	private static function render_codes_added( $codes ) {
-		if ( ! is_array( $codes ) ) {
-			return;
+	private static function render_details( array $row ) {
+		$label = array(
+			'key'    => 'label',
+			'label'  => '',
+			'kind'   => 'text',
+			'header' => true,
+		);
+		$value = array(
+			'key'   => 'value',
+			'label' => '',
+			'kind'  => 'text',
+		);
+		$out   = WPCPM_UI::table_open( array( $label, $value ), array( 'keyvalue' => true ) );
+
+		foreach ( (array) $row['fields'] as $field ) {
+			if ( null === $field[1] ) {
+				$written = '' !== trim( (string) $field[2] );
+				$html    = $written ? nl2br( esc_html( (string) $field[2] ) ) : esc_html__( 'Not written yet.', 'wpcredits-program-manager' );
+				$out    .= WPCPM_UI::row_open() . WPCPM_UI::cell( $label, esc_html( (string) $field[0] ) ) . WPCPM_UI::cell( $value, $html, $written ? '' : 'empty' ) . WPCPM_UI::row_close();
+				continue;
+			}
+
+			$html = nl2br(
+				/* translators: %s: what students see of the offer now. */
+				esc_html( sprintf( __( 'Now: %s', 'wpcredits-program-manager' ), (string) $field[1] ) )
+			) . '<br>' . nl2br(
+				/* translators: %s: what the sponsor asks students to see instead. */
+				esc_html( sprintf( __( 'Asked for: %s', 'wpcredits-program-manager' ), (string) $field[2] ) )
+			);
+			$out .= WPCPM_UI::row_open() . WPCPM_UI::cell( $label, esc_html( (string) $field[0] ) ) . WPCPM_UI::cell( $value, $html ) . WPCPM_UI::row_close();
 		}
 
-		printf( '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>%s</dt><dd>', esc_html__( 'Codes added', 'wpcredits-program-manager' ) );
+		$codes = self::codes_added_html( self::codes_added( (int) $row['id'], (string) $row['change'] ) );
+
+		if ( '' !== $codes ) {
+			$out .= WPCPM_UI::row_open() . WPCPM_UI::cell( $label, esc_html__( 'Codes added', 'wpcredits-program-manager' ) ) . WPCPM_UI::cell( $value, $codes ) . WPCPM_UI::row_close();
+		}
+
+		echo $out . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() above.
+	}
+
+	/**
+	 * The value of an item's Codes added row: how many in all and how many are web addresses, then each code whole on
+	 * a line of its own, as text and never as a link (a long checkout link wraps inside its cell), then how many more
+	 * there are. '' for null.
+	 *
+	 * @param array|null $codes What `codes_added()` answered.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function codes_added_html( $codes ) {
+		if ( ! is_array( $codes ) ) {
+			return '';
+		}
 
 		$said = array(
 			/* translators: %s: how many codes. */
@@ -348,28 +397,25 @@ final class WPCPM_Sponsor_Offer_Review {
 				? sprintf( _n( 'Of these, %s is a web address, listed first.', 'Of these, %s are web addresses, listed first.', (int) $codes['links'], 'wpcredits-program-manager' ), number_format_i18n( (int) $codes['links'] ) )
 				: __( 'None of these is a web address.', 'wpcredits-program-manager' ),
 		);
-
-		printf( '<p>%s</p><ul class="wpcpm-sponsor-offer__codes">', esc_html( implode( ' ', $said ) ) );
+		$html = esc_html( implode( ' ', $said ) );
 
 		foreach ( (array) $codes['shown'] as $code ) {
-			printf( '<li><code>%s</code></li>', esc_html( (string) $code ) );
+			$html .= '<code class="wpcpm-ui-code">' . esc_html( (string) $code ) . '</code>';
 		}
-
-		echo '</ul>';
 
 		if ( 0 < (int) $codes['more'] ) {
 			/* translators: %s: how many codes the list leaves out. */
-			printf( '<p>%s</p>', esc_html( sprintf( _n( '%s more code is not shown.', '%s more codes are not shown.', (int) $codes['more'], 'wpcredits-program-manager' ), number_format_i18n( (int) $codes['more'] ) ) ) );
+			$html .= WPCPM_UI::cell_sub( sprintf( _n( '%s more code is not shown.', '%s more codes are not shown.', (int) $codes['more'], 'wpcredits-program-manager' ), number_format_i18n( (int) $codes['more'] ) ) );
 		}
 
-		echo '</dd></div>';
+		return $html;
 	}
 
 	/**
-	 * An Administrator's decision on what waits, in the posts' own shape: Approve, and a folded
-	 * "Return with a note" whose form opens only when chosen. A refused return comes back with the
-	 * note as it was typed, its fold open. Both forms carry the fingerprint of what waits as it is
-	 * drawn (1.123.23).
+	 * An Administrator's decision on what waits, in the posts' own shape, as one Decide area
+	 * (`render_decide_area()`): Approve, and "Return with a note" whose panel opens only when chosen. A
+	 * refused return comes back with the note as it was typed, its panel open. Both forms carry the
+	 * fingerprint of what waits as it is drawn (1.123.23).
 	 *
 	 * @param int    $offer_id The offer.
 	 * @param string $back     `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -386,59 +432,126 @@ final class WPCPM_Sponsor_Offer_Review {
 		// One reading for both forms: what the item shows as it is drawn.
 		$seen = self::fingerprint( $offer );
 
-		echo '<div class="wpcpm-request__decide wpcpm-sponsor-offer__decide">';
-		printf( '<form class="wpcpm-sponsor-offer__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
-		wp_nonce_field( self::ACTION_APPROVE . '_' . (int) $offer['id'] );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_APPROVE ) );
-		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_SEEN ), esc_attr( $seen ) );
+		self::render_decide_area( $offer, $new, $seen, (string) $back );
+	}
 
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $back, self::CARD );
+	/**
+	 * The decision on what waits as one Decide area (`WPCPM_UI::decide()`, design 2.6), drawn on the Administrator
+	 * Dashboard: Approve, the one primary, acting at once as today; Return with a note, a
+	 * secondary opener whose panel holds the note, its label "A note for the sponsor" visible, today's sentence
+	 * (for a new offer, or for changes, with the line about codes added when any are held) as its hint, and the
+	 * button that keeps "Return it with this note". Nothing is red: returning removes nothing.
+	 *
+	 * Both forms post what `handle_approve()` and `handle_return()` read: admin-post.php under the once guard, the
+	 * hidden fields under each action's nonce keyed to the offer (printed with no id, `WPCPM_UI::nonce()`), the
+	 * fingerprint of what the item shows, and the box under its name, id and bound. The panel is printed open when the last press left typing for this
+	 * offer's box (`handle_return()` keeps it for a note refused, for a pool another request holds and for an offer
+	 * that changed since it was drawn); only a refusal of the note itself, too long or one the cleaner would take
+	 * words from, ties the box to its sentence and leads the card's message to it.
+	 *
+	 * @param array  $offer  The offer, as read.
+	 * @param bool   $is_new Whether it is a new offer sent for review, rather than changes to a live one.
+	 * @param string $seen   The fingerprint of what the item shows (`fingerprint()`).
+	 * @param string $back   `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 */
+	private static function render_decide_area( array $offer, $is_new, $seen, $back ) {
+		$offer_id = (int) $offer['id'];
+		$field_id = 'wpcpm-offer-note-' . $offer_id;
+		$typed    = WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $offer_id );
+		$note     = WPCPM_Typed_Text::kept_box( $typed, 'note' );
+		$problem  = '';
+
+		// What the press was refused for, read from the outcome it left on the Institutions screen's channel, which the
+		// dashboard's message reads too (`WPCPM_Flash::take()` memoizes, so it is the sentence the card prints). The
+		// outcome names no offer, and another offer's box may hold typing an earlier press kept: the refusal is this
+		// box's only when this offer's form is the last one kept (`WPCPM_Typed_Text::is_last()`).
+		if ( null !== $note && class_exists( 'WPCPM_Institutions' ) ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$messages = self::messages();
+
+			if ( in_array( $status, array( 'offer-note-long', 'offer-note-loss' ), true ) && isset( $messages[ $status ][1] ) && WPCPM_Typed_Text::is_last( $typed ) ) {
+				$problem = (string) $messages[ $status ][1];
+			}
 		}
 
-		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Approve', 'wpcredits-program-manager' ) );
-		echo '</form>';
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( $field_id );
+		}
 
-		$note = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $offer['id'] ), 'note' );
-
-		echo null === $note ? '<details class="wpcpm-sponsor-offer__return">' : '<details class="wpcpm-sponsor-offer__return" open>';
-		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
-		$said = $new
+		$said = $is_new
 			? __( 'The offer goes back to the sponsor\'s account as a draft, and your note is sent by email to the person who sent it for review.', 'wpcredits-program-manager' )
 			: __( 'The changes go back to the sponsor\'s account, students still seeing the offer as it reads, and your note is sent by email to the person who sent them.', 'wpcredits-program-manager' );
 
 		// Codes a member added are not kept with a returned change (1.123.20).
-		if ( ! $new && (int) $offer['codes_held'] > 0 ) {
+		if ( ! $is_new && (int) $offer['codes_held'] > 0 ) {
 			$said .= ' ' . __( 'The codes added are taken out of the offer.', 'wpcredits-program-manager' );
 		}
 
-		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html( $said ) );
-		printf( '<form class="wpcpm-sponsor-offer__form wpcpm-sponsor-offer__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
-		wp_nonce_field( self::ACTION_RETURN . '_' . (int) $offer['id'] );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RETURN ) );
-		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_SEEN ), esc_attr( $seen ) );
-
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $back, self::CARD );
-		}
-
-		printf(
-			'<label class="screen-reader-text" for="wpcpm-offer-note-%1$d">%2$s</label><textarea id="wpcpm-offer-note-%1$d" name="wpcpm_note" rows="2" maxlength="%3$d" required placeholder="%4$s">%5$s</textarea>',
-			(int) $offer['id'],
-			esc_html( self::note_label() ),
-			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
-			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
-			esc_attr__( 'What should change before students see it', 'wpcredits-program-manager' ),
-			// The parser drops one line feed right after the opening tag, so a kept note that begins
-			// with a line break keeps it.
-			null === $note ? '' : "\n" . esc_textarea( $note )
+		$form   = array(
+			'method'          => 'post',
+			'action'          => admin_url( 'admin-post.php' ),
+			'data-wpcpm-once' => true,
 		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
-		echo '</form>';
-		echo '</details>';
-		echo '</div>';
+		$hidden = static function ( $action ) use ( $offer_id, $seen, $back ) {
+			return static function () use ( $action, $offer_id, $seen, $back ) {
+				echo WPCPM_UI::nonce( $action . '_' . $offer_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+				printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer_id );
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_SEEN ), esc_attr( $seen ) );
+
+				if ( class_exists( 'WPCPM_Return' ) ) {
+					WPCPM_Return::field( $back, self::CARD );
+				}
+			};
+		};
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-offer-' . $offer_id,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => array(
+					array(
+						'key'        => 'approve',
+						'label'      => __( 'Approve', 'wpcredits-program-manager' ),
+						'kind'       => 'primary',
+						'form_attrs' => $form,
+						'hidden'     => $hidden( self::ACTION_APPROVE ),
+						'fields'     => '',
+					),
+					array(
+						'key'           => 'return',
+						'label'         => __( 'Return with a note', 'wpcredits-program-manager' ),
+						'kind'          => 'secondary',
+						'form_attrs'    => $form,
+						'hidden'        => $hidden( self::ACTION_RETURN ),
+						'fields'        => WPCPM_UI::field(
+							array(
+								'id'      => $field_id,
+								'name'    => 'wpcpm_note',
+								'label'   => self::note_label(),
+								'hint'    => $said,
+								'need'    => 'required',
+								'type'    => 'textarea',
+								'rows'    => 2,
+								'value'   => null === $note ? '' : $note,
+								'attrs'   => array(
+									// Drawn empty, so the room is the limit: nothing in it is held as an entity.
+									'maxlength'   => (int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
+									'placeholder' => __( 'What should change before students see it', 'wpcredits-program-manager' ),
+								),
+								'problem' => $problem,
+							)
+						),
+						'confirm_label' => __( 'Return it with this note', 'wpcredits-program-manager' ),
+						'open'          => null !== $note,
+					),
+				),
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in the decisions' callables.
 	}
 
 	/**

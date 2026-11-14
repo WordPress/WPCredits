@@ -406,6 +406,9 @@ class WPCPM_Semester_Report_Screen {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 // The sentences that refuse a question or a reason the cleaner would take words from are worded
 // there, and the screen's map of outcomes holds them.

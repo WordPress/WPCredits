@@ -242,6 +242,45 @@ $GLOBALS['uid'] = 7;
 ck( 'and its owner still is', WPCPM_Flash::kept( 'kept-fresh' )['values'], array( 'a' => 'b' ) );
 unset( $GLOBALS['umeta'][7]['wpcpm_flash'] );
 
+// The record of the last form a refusal kept (`WPCPM_Typed_Text::is_last()`, Task 13x), through this real flash
+// and the real store: one answer for every box on a page, and gone on the page after. Each request is a user id of
+// its own holding what the person's meta held, since a request's memo cannot be reset from here.
+if ( ! function_exists( 'absint' ) ) {
+	function absint( $n ) { return abs( (int) $n ); }
+}
+require_once __DIR__ . '/stubs/specialchars.php';
+require_once dirname( __DIR__ ) . '/includes/class-wpcpm-typed-text.php';
+/**
+ * Hand what one request left in the person's meta to the next, a fresh reader of the flash.
+ *
+ * @param int $from The request before.
+ * @param int $to   The next.
+ */
+function last_next_request( $from, $to ) {
+	$GLOBALS['umeta'][ $to ] = $GLOBALS['umeta'][ $from ] ?? array();
+	unset( $GLOBALS['umeta'][ $from ] );
+	$GLOBALS['uid'] = $to;
+}
+$last_form  = WPCPM_Typed_Text::box_form( 'post-return', 61 );
+$other_form = WPCPM_Typed_Text::box_form( 'post-return', 62 );
+$GLOBALS['uid'] = 41;
+WPCPM_Typed_Text::keep_box( $other_form, 'note', 'An older refusal, never drawn.', 2000 );
+// The press: the handler forgets its form first, then keeps what was refused.
+WPCPM_Typed_Text::forget( $last_form );
+WPCPM_Typed_Text::keep_box( $last_form, 'note', 'Refused just now.', 2000 );
+last_next_request( 41, 42 );
+ck( 'on the page after the press, every box asks the same question and gets the same answer: the refused form is the last, the older one is not', array(
+	WPCPM_Typed_Text::is_last( $other_form ),
+	WPCPM_Typed_Text::is_last( $last_form ),
+	WPCPM_Typed_Text::is_last( $last_form ),
+	WPCPM_Typed_Text::is_last( $other_form ),
+), array( false, true, true, false ) );
+ck( 'and the record is gone from the person\'s meta once that page asked, while the typing waits for its box', array( isset( $GLOBALS['umeta'][42]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL ] ), WPCPM_Typed_Text::kept_box( $last_form, 'note' ) ), array( false, 'Refused just now.' ) );
+last_next_request( 42, 43 );
+ck( 'so on the next request it names no form', array( WPCPM_Typed_Text::is_last( $last_form ), WPCPM_Typed_Text::is_last( $other_form ) ), array( false, false ) );
+ck( 'and the typing nobody drew still waits for its own box, untied', WPCPM_Typed_Text::kept_box( $other_form, 'note' ), 'An older refusal, never drawn.' );
+unset( $GLOBALS['umeta'][43] );
+
 // No status is left in the redirect URLs any more. Each file is asserted to be there first:
 // a check that reads a module which no longer exists passes on an empty string and warns on
 // every run, which is what the student profile row here did until the deep check of

@@ -657,7 +657,7 @@ WPCPM_Typed_Text::keep( 'test:one', array( 'title' => $typed_line, 'text' => $ty
 $back = WPCPM_Typed_Text::kept( 'test:one' );
 ck( 'what was typed comes back exactly, a line break as the one LF a box counts', $back, array( 'title' => $typed_line, 'text' => "Kids <12 free,\nadults >18 pay & 10%cashback", 'audience' => array( 'mentors', 'managers' ) ) );
 ck( 'and only once: the form drawn again has nothing kept', WPCPM_Typed_Text::kept( 'test:one' ), array() );
-ck( 'nor is anything left waiting', $GLOBALS['flash'][5] ?? array(), array() );
+ck( 'nor is any typing left waiting: only the record of the last form kept, which names the form and holds no typing (Task 13x)', array( array_keys( $GLOBALS['flash'][5] ?? array() ), array_keys( $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL ] ?? array() ) ), array( array( WPCPM_Typed_Text::KEPT_CHANNEL ), array( 'at', 'form' ) ) );
 
 WPCPM_Typed_Text::keep( 'test:two', array( 'title' => 'Mine' ), array( 'title' => 120 ) );
 ck( 'another form never sees it', WPCPM_Typed_Text::kept( 'test:other' ), array() );
@@ -705,7 +705,7 @@ $GLOBALS['flash'][6]['typed:test:abandoned']       = array(
 );
 WPCPM_Typed_Text::keep( 'test:next', array( 'title' => 'Next' ), array( 'title' => 120 ) );
 ck( 'the next keep() clears a typing older than KEPT_FOR, and a value on a typing\'s channel that is not one, whatever form they were kept for', array( isset( $GLOBALS['flash'][5]['typed:test:abandoned'] ), isset( $GLOBALS['flash'][5]['typed:test:odd'] ) ), array( false, false ) );
-ck( 'while a fresh one for another form, the person\'s other channels and its own typing stay, and so does another person\'s', array( array_keys( $GLOBALS['flash'][5] ), WPCPM_Typed_Text::kept( 'test:waiting' ), isset( $GLOBALS['flash'][6]['typed:test:abandoned'] ) ), array( array( 'typed:test:waiting', 'sponsor_dashboard', 'typed:test:next' ), array( 'note' => 'Still on its way' ), true ) );
+ck( 'while a fresh one for another form, the person\'s other channels and its own typing stay, and so does another person\'s (and the fresh record of the last form kept, Task 13x)', array( array_keys( $GLOBALS['flash'][5] ), WPCPM_Typed_Text::kept( 'test:waiting' ), isset( $GLOBALS['flash'][6]['typed:test:abandoned'] ) ), array( array( WPCPM_Typed_Text::KEPT_CHANNEL, 'typed:test:waiting', 'sponsor_dashboard', 'typed:test:next' ), array( 'note' => 'Still on its way' ), true ) );
 $GLOBALS['flash'] = array();
 
 // The form posted again, whatever comes of it, makes what an earlier refusal kept stale.
@@ -790,6 +790,102 @@ WPCPM_Typed_Text::forget( $box_form );
 ck( 'forget() takes the name box_form() gives, and drops what keep_box() kept under it', WPCPM_Typed_Text::kept_box( $box_form, 'note' ), null );
 $GLOBALS['flash'] = array();
 $GLOBALS['uid']   = 0;
+
+echo "\n=== is_last(): the one form the last refusal kept, the only box a refusal is tied to (Task 13x) ===\n";
+
+// The outcome a refusal leaves names no form, and every box holding kept typing reads it. So the store also
+// remembers which form it kept last, on a channel of its own, and a box ties itself to the refusal only when it
+// is that form. This suite's flash hands a value back once and remembers nothing, so each question below is
+// asked as a page of its own asks it: on what the person's flash holds, put back after (the real flash's memo
+// within a request, and the record gone on the next one, are pinned in bin/test-flash.php).
+/**
+ * Whether a form is the last one kept, asked as the next page asks it, leaving the flash as it was.
+ *
+ * @param string $form The form.
+ * @return bool
+ */
+function asks_last( $form ) {
+	$held   = $GLOBALS['flash'];
+	$answer = WPCPM_Typed_Text::is_last( $form );
+	$GLOBALS['flash'] = $held;
+	return $answer;
+}
+/**
+ * The record of the last form kept, as the person's flash holds it, or null.
+ *
+ * @return mixed
+ */
+function last_record() {
+	return $GLOBALS['flash'][ $GLOBALS['uid'] ][ WPCPM_Typed_Text::KEPT_CHANNEL ] ?? null;
+}
+
+$GLOBALS['uid']   = 5;
+$GLOBALS['flash'] = array();
+$last_a           = WPCPM_Typed_Text::box_form( 'test-return', 51 );
+$last_b           = WPCPM_Typed_Text::box_form( 'test-return', 52 );
+
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept for the first.', 2000 );
+$record = last_record();
+ck( 'keep() names its form as the last one kept, with when, on the channel KEPT_CHANNEL itself, beside the typing', array(
+	is_array( $record ) ? array_keys( $record ) : null,
+	$record['form'] ?? null,
+	is_int( $record['at'] ?? null ) && abs( time() - $record['at'] ) < 5,
+	array_keys( $GLOBALS['flash'][5] ),
+), array( array( 'at', 'form' ), $last_a, true, array( WPCPM_Typed_Text::KEPT_CHANNEL . $last_a, WPCPM_Typed_Text::KEPT_CHANNEL ) ) );
+ck( 'is_last() says so for that form, and for no other: another post, another form on the same post', array( asks_last( $last_a ), asks_last( $last_b ), asks_last( WPCPM_Typed_Text::box_form( 'test-revoke', 51 ) ) ), array( true, false, false ) );
+
+WPCPM_Typed_Text::keep_box( $last_b, 'note', 'Kept for the second.', 2000 );
+ck( 'a second keep() of another form moves the record to it, and both typings still wait', array( asks_last( $last_b ), asks_last( $last_a ), isset( $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . $last_a ], $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . $last_b ] ) ), array( true, false, true ) );
+WPCPM_Typed_Text::keep( 'test:many', array( 'title' => 'One', 'text' => 'Two' ), array( 'title' => 120, 'text' => 500 ) );
+ck( 'keep() of a form of many fields names it the same way', array( asks_last( 'test:many' ), asks_last( $last_b ) ), array( true, false ) );
+
+WPCPM_Typed_Text::forget( WPCPM_Typed_Text::box_form( 'test-return', 99 ) );
+ck( 'forget() of any form clears the record, a post having begun that has kept nothing yet; the typings it did not name still wait', array( last_record(), asks_last( 'test:many' ), isset( $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . $last_a ], $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . $last_b ], $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . 'test:many' ] ) ), array( null, false, true ) );
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept again.', 2000 );
+WPCPM_Typed_Text::forget( $last_a );
+ck( 'and forget() of the form it names clears it with that form\'s typing', array( last_record(), isset( $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . $last_a ] ) ), array( null, false ) );
+
+WPCPM_Typed_Text::forget( $last_b );
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept before a blank refusal.', 2000 );
+WPCPM_Typed_Text::keep_box( $last_b, 'note', " \r\n\t ", 2000 );
+ck( 'keep_box() with only white space clears the record and keeps nothing, so a refusal that kept nothing leaves no older form named', array( last_record(), asks_last( $last_a ), asks_last( $last_b ), isset( $GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL . $last_b ] ) ), array( null, false, false, false ) );
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept before an empty refusal.', 2000 );
+WPCPM_Typed_Text::keep_box( $last_b, 'note', '', 2000 );
+ck( 'and so does an empty box', last_record(), null );
+
+WPCPM_Typed_Text::keep( 'test:nothing', array( 'title' => "\xC3\x28" ), array( 'title' => 120 ) );
+ck( 'a keep() that keeps nothing records nothing', last_record(), null );
+
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept a while ago.', 2000 );
+$GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL ]['at'] = time() - WPCPM_Typed_Text::KEPT_FOR - 1;
+ck( 'a record older than KEPT_FOR answers false, as its typing is not given back', asks_last( $last_a ), false );
+$GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL ]['at'] = time() - WPCPM_Typed_Text::KEPT_FOR + 5;
+ck( 'one within it answers true', asks_last( $last_a ), true );
+$GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL ]['at'] = time() - WPCPM_Typed_Text::KEPT_FOR - 1;
+WPCPM_Typed_Text::keep( 'test:nothing', array( 'title' => "\xC3\x28" ), array( 'title' => 120 ) );
+ck( 'the next keep() sweeps a stale record away, as it sweeps a stale typing, even one that keeps nothing itself', last_record(), null );
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept just now.', 2000 );
+WPCPM_Typed_Text::keep( 'test:nothing', array( 'title' => "\xC3\x28" ), array( 'title' => 120 ) );
+ck( 'while a fresh record stays', last_record()['form'] ?? null, $last_a );
+$GLOBALS['flash'][5][ WPCPM_Typed_Text::KEPT_CHANNEL ] = array( 'at' => time(), 'form' => array( $last_a ) );
+ck( 'a record that names no form as text names none', asks_last( $last_a ), false );
+
+// The record's channel is KEPT_CHANNEL itself, which only an empty form name would reach: no form is named so.
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'Kept beside a nameless form.', 2000 );
+WPCPM_Typed_Text::keep( '', array( 'title' => 'No form' ), array( 'title' => 120 ) );
+$last_keys = array_keys( $GLOBALS['flash'][5] );
+sort( $last_keys );
+ck( 'no form name can collide with the record\'s channel: a form named \'\' keeps nothing, and the record stays as it was', array( last_record()['form'] ?? null, in_array( WPCPM_Typed_Text::KEPT_CHANNEL . $last_a, $last_keys, true ), count( array_filter( $last_keys, static function ( $key ) { return WPCPM_Typed_Text::KEPT_CHANNEL === $key; } ) ) ), array( $last_a, true, 1 ) );
+ck( 'nor does kept() of it read the record as a typing, or take it', array( WPCPM_Typed_Text::kept( '' ), WPCPM_Typed_Text::kept_box( '', 'form' ), last_record()['form'] ?? null ), array( array(), null, $last_a ) );
+ck( 'and is_last() of it is false', asks_last( '' ), false );
+ck( 'every name box_form() gives is a form of its own beyond the record\'s channel', array( WPCPM_Typed_Text::KEPT_CHANNEL !== WPCPM_Typed_Text::KEPT_CHANNEL . WPCPM_Typed_Text::box_form( '', 0 ), WPCPM_Typed_Text::box_form( '', 0 ) ), array( true, ':0' ) );
+
+$GLOBALS['uid'] = 6;
+ck( 'another person has no last form', asks_last( $last_a ), false );
+$GLOBALS['uid'] = 0;
+WPCPM_Typed_Text::keep_box( $last_a, 'note', 'A guest.', 2000 );
+ck( 'and a guest records nothing and is told false', array( $GLOBALS['flash'][0] ?? array(), WPCPM_Typed_Text::is_last( $last_a ) ), array( array(), false ) );
+$GLOBALS['flash'] = array();
 
 echo "\n=== Every typing, refused or kept ===\n";
 

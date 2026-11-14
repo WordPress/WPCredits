@@ -26,9 +26,9 @@
 
 1. Open `Administrator Dashboard > Overview` and find the school on the **Institution applications** card.
 2. Press **Read the application** and read the answers.
-3. To ask the applicant something, type it in the box above **Send this question** and press it. The question must be 10 to 2000 characters.
+3. To ask the applicant something, press **Ask a question**, type it in **Ask the applicant something** and press **Send this question**. The question must be 10 to 2000 characters.
 4. Once you have talked with the school and the program wants to take it, press **Approve** and confirm.
-5. If the program will not take it, type the reason for the next Administrator, press **Reject** and confirm.
+5. If the program will not take it, press **Reject**, type a reason in **Why, for the next Administrator who reads this** if you like, then press **Reject the application** and confirm.
 6. If it is not a real application, press **Reject as spam** and confirm.
 
 **What happens next**
@@ -36,7 +36,7 @@
 - **Approve** creates the school in Airtable, at the stage set in **Institution starting stage** (*First Contact Made* unless changed), with Agreement Status *Not started*. If Airtable already holds the school by name or contact address, that record is used instead. It keeps its own stage and Agreement Status.
 - It also makes the school's first account from the contact's address, and queues the email "Your institution account is ready". It tells them to set a password and then do the Collaboration Agreement.
 - **Send this question** emails your words as written, with your address to reply to. The state becomes *waiting on the applicant*, and **Put back in the queue** appears on the application: it puts the application back in the queue as a new one.
-- **Reject** sends the applicant "About your application to the WordPress Credits Program", with no reason in it. Your reason stays on the site.
+- **Reject the application** sends the applicant "About your application to the WordPress Credits Program", with no reason in it. Your reason stays on the site.
 - **Reject as spam** sends nothing at all.
 
 **Good to know**
@@ -130,13 +130,13 @@
 
 ### A signed Collaboration Agreement arrived
 
-*When:* `Administrator Dashboard > Overview`, card **Collaboration Agreements**, shows the school under **Awaiting review**. The people in **Who is emailed about institutions**, or every Administrator, get "Signed agreement from {school} is waiting for review".
+*When:* `Administrator Dashboard > Overview`, card **Collaboration Agreements**, shows the school tagged **Awaiting review**. The people in **Who is emailed about institutions**, or every Administrator, get "Signed agreement from {school} is waiting for review".
 
-1. Open the **Collaboration Agreements** card and find the school under **Awaiting review**.
+1. Open the **Collaboration Agreements** card and find the school tagged **Awaiting review**.
 2. Press **Download the signed agreement** and open the file in your own PDF viewer.
 3. Check it against the list under "Review the signed agreement from {school}".
 4. If it is right, press **Accept it** and confirm.
-5. If something must change, write it in the box (20 to 2000 characters) and press **Return it with this note**.
+5. If something must change, press **Return with a note**, write it in **What has to change** (20 to 2000 characters) and press **Return it with this note**.
 
 **What happens next**
 
@@ -147,7 +147,7 @@
 **Good to know**
 
 - **Accept it** is refused while Airtable's Current Stage is *Not Moving Forward*, *SPAM* or *Revisit Later*. Change the stage in Airtable first.
-- A signed copy that came by email: open the school's Institution Dashboard, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands under **Awaiting review** like the school's own.
+- A signed copy that came by email: open the school's Institution Dashboard, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands on the card, tagged **Awaiting review**, like the school's own.
 - An agreement is marked *Overdue* after the days set in **Agreement review** (3 unless changed).
 
 ### Record an agreement the program already holds
@@ -221,12 +221,12 @@
 1. Open the **Requests from institutions** card and find the request.
 2. Read the table: **Detail**, **On record now** and **Asked for**.
 3. To make the change, press **Approve and update the records**.
-4. To refuse, write a note in **A note for the school (required to decline)** (20 to 2000 characters) and press **Decline**.
+4. To refuse, press **Decline**, write a note in **A note for the school** (20 to 2000 characters) and press **Decline the request**.
 
 **What happens next**
 
 - **Approve and update the records** writes Airtable first, then the site. The person who asked is emailed "Your institution's details are updated".
-- **Decline**: the person who asked is emailed your note, and every account at the school reads it on the details card.
+- **Decline the request**: the person who asked is emailed your note, and every account at the school reads it on the details card.
 
 **Good to know**
 
@@ -241,8 +241,9 @@
 1. Open the **Requests from institutions** card and find the request.
 2. Read "The student is {name}. Raised by {who}."
 3. Do the work in Airtable, such as assigning the student a mentor.
-4. If you like, write what you did in the note box. It is for the log and is not sent to the school.
-5. Press **Mark as handled**, or **Decline**.
+4. Press **Mark as handled**, or **Decline**.
+5. If you like, write what you did in **What you did about it**. It is for the log and is not sent to the school.
+6. Press **Mark the request as handled**, or **Decline the request**.
 
 **What happens next**
 
@@ -368,7 +369,7 @@
 1. Decide the oldest applications. The next ones move onto the card as you do.
 2. To decide a newer one now, open the link in the email about it. It opens the application on the Institutions screen.
 3. Read "The Administrator Dashboard's card lists the 50 oldest open applications, and this one is past them, so it is decided here."
-4. Use the same buttons as on the card: **Approve**, **Send this question**, **Reject** or **Reject as spam**.
+4. Decide with **Approve**, **Send this question**, **Reject** or **Reject as spam**. Here each box is already open above its button.
 
 **What happens next**
 
@@ -377,4 +378,4 @@
 **Good to know**
 
 - The **Waiting for review** tab also lists only the 50 oldest items.
-- **Awaiting review** on the **Collaboration Agreements** card lists up to 200 agreements, and the **Requests from institutions** card up to 200 requests. Neither says when more wait. The folds of returned and revoked agreements list 50 each.
+- The **Collaboration Agreements** card lists up to 200 agreements awaiting review, and the **Requests from institutions** card up to 200 requests. Neither says when more wait. The folds of returned and revoked agreements list 50 each.

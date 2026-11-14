@@ -55,7 +55,8 @@
  *   switch goes off is taken and not drawn.
  * - The manager's actions on the program's card: Join for an event they are not on, the mark and
  *   Leave for one they are, no call link of the list's (the card has its own), nothing to join on an
- *   event whose sponsor no longer offers events or that is full, and nothing on a waiting one.
+ *   event whose sponsor no longer offers events or that is full, and nothing on a waiting one. With the
+ *   Administrator Dashboard's switch on they are a decision of the event's Decide row (`decision_parts()`).
  * - The program's own events: listed beside a sponsor's and named for the WordPress Credits
  *   Program, under "Events from our sponsors and the program" while one is listed, in each place's
  *   markup; the Partner's own mentor sees and joins one, being nobody's own; the join and leave
@@ -262,7 +263,27 @@ function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) {
 	}
 	return 1;
 }
-function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $echo = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $action ) . '" />'; }
+// The nonce as the suite has always read it: the nonce keyed to its action, alone. With `$GLOBALS['faithful_nonces']`
+// set, as WordPress prints it: the field with the id core gives it and the referer beside it, so a form drawn through
+// `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field (Task 13c).
+function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $echo = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $action ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( wp_create_nonce( $action ) ) . '" />';
+	if ( $referer ) {
+		wp_referer_field();
+	}
+}
+function wp_create_nonce( $action = -1 ) { return 'nonce-' . $action; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
 function wp_die( $message = '', $title = '', $args = array() ) {
 	$GLOBALS['died_code'] = is_int( $title ) ? $title : null;
 	throw new List_Test_Die( (string) $message );
@@ -528,6 +549,9 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-report.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event.php';
+// The surface switch and the shared parts: `render_actions()` draws its buttons through them on the Administrator
+// Dashboard while its switch is on, and today's markup everywhere else (UI shared parts, Task 13c).
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 
 // Loaded only when it is there, so that before it exists every check below fails on its own.
 $list_file = __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-list.php';
@@ -877,11 +901,12 @@ ck(
 ck(
 	'the Institution Dashboard calls it behind class_exists() after its modules and before the read line, for a contact of the institution drawn',
 	array(
-		false !== strpos( $modules, "if ( \$own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {\n\t\t\t\tWPCPM_Sponsor_Event_List::render( \$viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );" ),
+		// One tab deeper since the render is one try, whose finally leaves the surface (shared parts, Task 9).
+		false !== strpos( $modules, "if ( \$own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {\n\t\t\t\t\tWPCPM_Sponsor_Event_List::render( \$viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );" ),
 		strpos( $modules, 'self::render_module( $key' ) < strpos( $modules, 'WPCPM_Sponsor_Event_List::render(' ),
 		strpos( $modules, 'WPCPM_Sponsor_Event_List::render(' ) < strpos( $modules, 'read_line(' ),
 		// A contact on their own page, a tutor of the school not among them (Institutions release 1): a Join would put a tutor on the event.
-		false !== strpos( $modules, "\$own_page = (string) WPCPM_Institution_Members::institution_of( \$viewer ) === \$record\n\t\t\t\t&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( \$viewer );" ),
+		false !== strpos( $modules, "\$own_page = (string) WPCPM_Institution_Members::institution_of( \$viewer ) === \$record\n\t\t\t\t\t&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( \$viewer );" ),
 	),
 	array( true, true, true, true )
 );
@@ -1694,6 +1719,284 @@ ck(
 
 attempt( static function () use ( $signs ) { return WPCPM_Sponsor_Event::cancel( $signs, MANAGER ); } );
 $GLOBALS['sent'] = array();
+
+/* ---- Join and Leave on the shared parts (UI shared parts, Task 13c) ------------ */
+
+echo "\n=== Join and Leave on the Administrator Dashboard's parts, today's markup everywhere else (UI shared parts, Task 13c) ===\n";
+
+// `render_actions()` is drawn by the program's Events card on the Administrator Dashboard, and by the list on the
+// Student and Mentor Report Cards (surface `report-cards`) and on the Institution Dashboard (surface `institution`),
+// both off for this whole release. With the dashboard's switch on, Join and Leave are drawn through
+// `WPCPM_UI::button()`, in today's words, posting what today's forms post; everywhere else, today's markup byte for
+// byte. Two events of the program's own (a sponsor plans one at a time): one nobody here is on, one the student, the mentor, the institution's contact and
+// the second manager are on.
+set_now( utc( '2026-10-06 12:00' ) );
+$ra_open   = attempt( static function () { return WPCPM_Sponsor_Event::plan_program( event_fields( utc( '2026-12-15 10:00' ), array( 'title' => 'Parts webinar & "more"', 'places' => 0, 'link' => 'https://meet.example/parts-open', 'zone' => 'Europe/Warsaw' ) ), MANAGER ); } );
+$ra_joined = attempt(
+	static function () {
+		// Its title is stored with the tag taken out, as the store's cleaner keeps a title.
+		$id = WPCPM_Sponsor_Event::plan_program( event_fields( utc( '2026-12-16 10:00' ), array( 'title' => 'Parts <b>talk</b>', 'places' => 9, 'link' => 'https://meet.example/parts-joined?a=1&b=2', 'zone' => 'Europe/Warsaw' ) ), MANAGER );
+		foreach ( array( STUDENT, MENTOR, CONTACT, MANAGER_TWO ) as $person ) {
+			add_post_meta( $id, '_wpcpm_sevent_person', $person );
+		}
+		return $id;
+	}
+);
+// Each page's viewer: on the joined event, and not on the open one. The Administrator Dashboard's viewer on the open
+// event is the manager nobody put on it.
+$ra_viewers = array(
+	'student'     => array( STUDENT, STUDENT ),
+	'mentor'      => array( MENTOR, MENTOR ),
+	'institution' => array( CONTACT, CONTACT ),
+	'admin'       => array( MANAGER_TWO, MANAGER ),
+);
+
+/**
+ * Join or Leave for one event, as one person sees them on one page, with the Administrator Dashboard's switch on and
+ * a surface named, or with the switch as it ships and no surface named ('').
+ *
+ * @param int    $id      The event.
+ * @param int    $uid     Who looks.
+ * @param string $back    Which page.
+ * @param string $surface The surface drawing, or ''.
+ * @return string
+ */
+function ra_actions( $id, $uid, $back, $surface ) {
+	$GLOBALS['uid'] = (int) $uid;
+	if ( '' !== $surface ) {
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Sponsor_Event_List::render_actions( get_post( $id ), $GLOBALS['users'][ (int) $uid ], $back );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+			WPCPM_UI::set_live( null );
+		}
+	}
+	return $html;
+}
+
+/**
+ * Every form a render holds: how it posts, its guard, its hidden fields as `name=value` in the order a browser posts
+ * them, its submits and the question it asks.
+ *
+ * @param string $html Markup.
+ * @return array[]
+ */
+function ra_posted( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	$x   = new DOMXPath( $doc );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+		}
+		$submits = array();
+		$asks    = '';
+		foreach ( $x->query( './/button', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'type' ) . ' ' . $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' ) . ' ' . trim( $button->textContent );
+			$asks      = $button->getAttribute( 'data-wpcpm-confirm' );
+		}
+		$out[] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	return $out;
+}
+
+// Check 4: off, and on the two surfaces that share the renderer (off in this release), today's markup. The digests
+// are of `render_actions()` as the code at 6125f645 drew it, before Task 13c: this fixture, run on that commit's
+// renderer before it was changed. Nothing in them is random per run: the post IDs are this suite's counter, the
+// nonces its stand-in's.
+$ra_off   = array();
+$ra_pins  = array();
+foreach ( $ra_viewers as $ra_back => $ra_who ) {
+	foreach ( array( 'on it' => array( $ra_joined, $ra_who[0] ), 'not on it' => array( $ra_open, $ra_who[1] ) ) as $ra_state => $ra_case ) {
+		$ra_off[ $ra_back . ', ' . $ra_state ] = ra_actions( $ra_case[0], $ra_case[1], $ra_back, '' );
+		foreach ( array( 'report-cards', 'institution', 'wpcpm-sponsors/queue' ) as $ra_surface ) {
+			$ra_pins[ $ra_back . ', ' . $ra_state . ', ' . $ra_surface ] = ra_actions( $ra_case[0], $ra_case[1], $ra_back, $ra_surface ) === $ra_off[ $ra_back . ', ' . $ra_state ];
+		}
+	}
+}
+ck(
+	'off, and on the Report Cards, the Institution Dashboard and a wp-admin tab (each off in this release), Join and Leave are today\'s, byte for byte, for every page and both states, as before Task 13c',
+	static function () use ( $ra_off, $ra_pins ) {
+		return array( array_map( 'md5', $ra_off ), array_keys( array_filter( $ra_pins, static function ( $same ) { return ! $same; } ) ), strpos( implode( '', $ra_off ), 'wpcpm-ui-' ), strpos( implode( '', $ra_off ), 'wpcpm-btn' ) );
+	},
+	array(
+		array(
+			'student, on it'         => '92f2c1866382915a0d7379a0673b0529',
+			'student, not on it'     => '40331a138978a7d48fa1aa1545b400af',
+			'mentor, on it'          => '50e8662db24c08cce2bcd740318ec49d',
+			'mentor, not on it'      => 'bcfb18a9138f20dc86834995b5e3b253',
+			'institution, on it'     => '926b9c81786b7966cb17f7340b2f6358',
+			'institution, not on it' => 'c6a2263d1422376ae0a90d0801763721',
+			'admin, on it'           => '1f24348fe60dc526a3aa05d535fb3718',
+			'admin, not on it'       => 'e5243f06db17f022e21ac84795f74aaa',
+		),
+		array(),
+		false,
+		false,
+	)
+);
+ck(
+	'and the whole list each of the three pages draws is the same off and with the Administrator Dashboard\'s switch on and its own surface named, Join, Leave and the call link as today',
+	static function () {
+		$out = array();
+		foreach ( array( 'student' => array( STUDENT, 'report-cards' ), 'mentor' => array( MENTOR, 'report-cards' ), 'institution' => array( CONTACT, 'institution' ) ) as $back => $case ) {
+			// Each draw a page of its own, with no outcome of an earlier press waiting to be said on one of them alone.
+			unset( $GLOBALS['flash'][ $case[0] ] );
+			$off = draw( $case[0], $back );
+			WPCPM_UI::set_live( array( 'administrator' ) );
+			WPCPM_UI::enter( $case[1] );
+			try {
+				$pinned = draw( $case[0], $back );
+			} finally {
+				WPCPM_UI::leave();
+				WPCPM_UI::set_live( null );
+			}
+			$out[ $back ] = array( $pinned === $off, false !== strpos( $off, 'class="wpcpm-sevent__actions"' ), false !== strpos( $off, '>Join the call<' ) );
+		}
+		return $out;
+	},
+	array( 'student' => array( true, true, true ), 'mentor' => array( true, true, true ), 'institution' => array( true, true, true ) )
+);
+
+// Fix round 1, ruling 5: the parts draw Join and Leave for the Administrator Dashboard's card alone. A page that lists
+// the events and carries the call link (the Institution Dashboard, whose surface takes the parts in a later release)
+// keeps today's markup even once its own surface is on, until that surface's release converts it: drawn here with the
+// `institution` surface set live for this check only.
+ck(
+	'with the Institution Dashboard\'s own surface live and named, its Join, its Leave and the call link are today\'s, byte for byte (fix round 1, ruling 5)',
+	static function () use ( $ra_joined, $ra_open, $ra_off ) {
+		$off = draw( CONTACT, 'institution' );
+		WPCPM_UI::set_live( array( 'administrator', 'institution' ) );
+		WPCPM_UI::enter( 'institution' );
+		try {
+			unset( $GLOBALS['flash'][ CONTACT ] );
+			$list = draw( CONTACT, 'institution' );
+			ob_start();
+			WPCPM_Sponsor_Event_List::render_actions( get_post( $ra_joined ), $GLOBALS['users'][ CONTACT ], 'institution' );
+			$on_it = (string) ob_get_clean();
+			ob_start();
+			WPCPM_Sponsor_Event_List::render_actions( get_post( $ra_open ), $GLOBALS['users'][ CONTACT ], 'institution' );
+			$not_on_it = (string) ob_get_clean();
+		} finally {
+			WPCPM_UI::leave();
+			WPCPM_UI::set_live( null );
+		}
+		return array( $list === $off, $on_it === $ra_off['institution, on it'], $not_on_it === $ra_off['institution, not on it'], false !== strpos( $on_it, '>Join the call<' ) );
+	},
+	array( true, true, true, true )
+);
+
+// The Administrator Dashboard with its switch on: the card puts Join or Leave in the event's own Decide row (Task 18d),
+// a decision that acts at once (`decision_parts()`), drawn here as the card draws it, in a Decide area named for the
+// event; `render_actions()` prints nothing there.
+/**
+ * The manager's own press for one event as the Administrator Dashboard's card draws it: `decision_parts()`'s decision
+ * in a Decide area of its own, the area named for the event, with the switch on; and whether they are on it.
+ *
+ * @param int $id  The event.
+ * @param int $uid Who looks.
+ * @return array{0: string, 1: bool}
+ */
+function ra_decide( $id, $uid ) {
+	$GLOBALS['uid'] = (int) $uid;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	try {
+		$mine = WPCPM_Sponsor_Event_List::decision_parts( get_post( $id ), $GLOBALS['users'][ (int) $uid ] );
+		$html = null === $mine['decision'] ? '' : WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-event-' . (int) $id,
+				'level'     => 'h5',
+				'context'   => get_post( $id )->post_title,
+				'side'      => 'front',
+				'decisions' => array( $mine['decision'] ),
+			)
+		);
+	} finally {
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( null );
+	}
+	return array( $html, $mine['joined'] );
+}
+$GLOBALS['faithful_nonces'] = true;
+$ra_old_join  = ra_actions( $ra_open, MANAGER, 'admin', '' );
+$ra_old_leave = ra_actions( $ra_joined, MANAGER_TWO, 'admin', '' );
+list( $ra_new_join, $ra_join_on )   = ra_decide( $ra_open, MANAGER );
+list( $ra_new_leave, $ra_leave_on ) = ra_decide( $ra_joined, MANAGER_TWO );
+$ra_printed                         = ra_actions( $ra_open, MANAGER, 'admin', 'administrator' ) . ra_actions( $ra_joined, MANAGER_TWO, 'admin', 'administrator' );
+unset( $GLOBALS['faithful_nonces'] );
+ck(
+	'on the Administrator Dashboard, Join and Leave post exactly what today\'s forms post: the same address, guard and busy words, the hidden fields in order with the nonce keyed to the event and its referer, the event and the way back to the card (posted fields)',
+	static function () use ( $ra_old_join, $ra_old_leave, $ra_new_join, $ra_new_leave, $ra_open, $ra_joined ) {
+		return array( ra_posted( $ra_new_join ) === ra_posted( $ra_old_join ), ra_posted( $ra_new_leave ) === ra_posted( $ra_old_leave ), ra_posted( $ra_old_join )[0]['hidden'] ?? null, ra_posted( $ra_old_leave )[0]['hidden'] ?? null, ra_posted( $ra_old_leave )[0]['asks'] ?? null, ra_posted( $ra_old_join )[0]['guard'] ?? null );
+	},
+	array(
+		true,
+		true,
+		array( '_wpnonce=nonce-wpcpm_sevent_join_' . $ra_open, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_sevent_join', 'wpcpm_sevent_id=' . $ra_open, 'wpcpm_sevent_back=admin' ),
+		array( '_wpnonce=nonce-wpcpm_sevent_leave_' . $ra_joined, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_sevent_leave', 'wpcpm_sevent_id=' . $ra_joined, 'wpcpm_sevent_back=admin' ),
+		'Leave this event? Your place goes back.',
+		'once Joining',
+	)
+);
+ck(
+	'Join is a decision of the event\'s Decide row that acts at once: the button part, the secondary (the card\'s one primary is the row\'s Approve: task V1, ruling 9), in today\'s word and named for its event to a screen reader, in its own form; nothing of today\'s classes is left, the nonce has no id, and no line of its own says anything (Task 18d)',
+	static function () use ( $ra_new_join, $ra_open, $ra_join_on ) {
+		return array(
+			false !== strpos( $ra_new_join, '<div class="wpcpm-ui-actions"><form method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Joining">' ),
+			false !== strpos( $ra_new_join, '<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Join<span class="screen-reader-text"> ' . esc_html( get_post( $ra_open )->post_title ) . '</span></button></form></div>' ),
+			strpos( $ra_new_join, 'wpcpm-button' ),
+			strpos( $ra_new_join, 'wpcpm-sevent__' ),
+			strpos( $ra_new_join, 'wpcpm-inline-form' ),
+			substr_count( $ra_new_join, ' id=' ),
+			strpos( $ra_new_join, 'wpcpm-ui-intro' ),
+			$ra_join_on,
+		);
+	},
+	array( true, true, false, false, false, 1, false, false )
+);
+ck(
+	'for a manager on the event: Leave, red (it leaves), at once in the Decide row, asking today\'s question before it posts, named for its event, its form today\'s; the card says "You are on it." among the event\'s facts (`joined`), so no line of its own over the row; no call link (the card has one)',
+	static function () use ( $ra_new_leave, $ra_leave_on ) {
+		return array(
+			$ra_new_leave,
+			strpos( $ra_new_leave, 'Join the call' ),
+			$ra_leave_on,
+		);
+	},
+	array(
+		'<div class="wpcpm-ui-decide" id="wpcpm-decide-event-' . $ra_joined . '"><h5 class="wpcpm-ui-h">Decide</h5><div class="wpcpm-ui-actions"><form method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Leaving"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_sevent_leave_' . $ra_joined . '"><input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" /><input type="hidden" name="action" value="wpcpm_sevent_leave" /><input type="hidden" name="wpcpm_sevent_id" value="' . $ra_joined . '" /><input type="hidden" name="wpcpm_sevent_back" value="admin" /><button type="submit" class="wpcpm-btn wpcpm-btn--danger" data-wpcpm-confirm="Leave this event? Your place goes back.">Leave<span class="screen-reader-text"> Parts talk</span></button></form></div></div>',
+		false,
+		true,
+	)
+);
+ck(
+	'and on the parts as today, nothing for an event with nothing to press: one that is full, for a manager not on it; and with the switch on render_actions() prints nothing for the card, whose Decide row carries the press',
+	static function () use ( $ra_joined, $ra_printed ) {
+		$full = ra_decide( $ra_joined, MANAGER )[0];
+		update_post_meta( $ra_joined, '_wpcpm_sevent_places', 4 );
+		$now_full = ra_decide( $ra_joined, MANAGER );
+		update_post_meta( $ra_joined, '_wpcpm_sevent_places', 9 );
+		return array( '' !== $full, $now_full, $ra_printed );
+	},
+	array( true, array( '', false ), '' )
+);
 
 /* ---- the house rules ---------------------------------------------------------- */
 

@@ -48,9 +48,10 @@
  *   file, which names them, and never the note, a member's name or a member's address (the queue's
  *   own mailer to them is gone, so nobody is told twice); an account that is gone is counted on the
  *   event, named nowhere and mailed nothing.
- * - Coming up carries the manager's own Join or Leave on each approved event, drawn by the list the
- *   dashboards share, before Cancel, and the list's outcome right under its heading; the names of
- *   the people on an event are read after one query warms their accounts.
+ * - Each approved event carries the manager's own Join or Leave in its Decide row, a decision the list
+ *   the dashboards share gives (Join after the secondary decisions, Leave before the red ones), and the
+ *   list's outcome is the card's first line; the names of the people on an event are read after one
+ *   query warms their accounts.
  * - Across the run, no mail to a sponsor's member names a person on an event, though the waiting
  *   events approved and returned here carry one.
  * - The mails give a member's words as typed: WordPress stores a member's title and description
@@ -226,6 +227,7 @@ function apply_filters( $hook, $value, ...$args ) {
 // area keeps each one as a browser posts it, two bytes. `wp_check_invalid_utf8()` stands beside
 // them, as the plugin calls it itself.
 require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 function wp_check_invalid_utf8( $text, $strip = false ) { return (string) $text; }
 function is_email( $value ) { return is_string( $value ) && filter_var( $value, FILTER_VALIDATE_EMAIL ) ? $value : false; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
@@ -298,7 +300,40 @@ function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) {
 	}
 	return 1;
 }
-function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $echo = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $action ) . '" />'; }
+// The nonce as the suite has always read it: the nonce keyed to its action, alone. With `$GLOBALS['faithful_nonces']`
+// set, as WordPress prints it: the field with the id core gives it and the referer beside it, so a form drawn through
+// `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field (Task 13c).
+function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $echo = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $action ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( wp_create_nonce( $action ) ) . '" />';
+	if ( $referer ) {
+		wp_referer_field();
+	}
+}
+function wp_create_nonce( $action = -1 ) { return 'nonce-' . $action; }
+// The referer field: none in the suite's own reading, the dashboard's address as WordPress prints it with faithful
+// nonces, so `WPCPM_UI::nonce()` (which asks for it) and today's field print the same.
+function wp_referer_field( $display = true ) {
+	$field = empty( $GLOBALS['faithful_nonces'] ) ? '' : '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
+// What the shared parts (`WPCPM_UI`) ask of WordPress: a refusal said to the developer, and the parts' sheet and
+// script, registered once each before the script is asked for (Task 13c).
+function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_scripts'][ $h ] ); }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
+function is_admin() { return false; }
+define( 'WPCPM_PLUGIN_URL', 'https://site.example/wp-content/plugins/wpcredits-program-manager/' );
+define( 'WPCPM_VERSION', '0.0.0-test' );
 function wp_die( $message = '', $title = '', $args = array() ) {
 	$GLOBALS['died_code'] = is_int( $title ) ? $title : null;
 	throw new Queue_Test_Die( (string) $message );
@@ -701,6 +736,10 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-report.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
 require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event.php';
+// The surface switch and the shared parts, which the card draws on the Administrator Dashboard while its switch is on
+// (UI shared parts, Task 13c).
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 
 // Loaded only when it is there, so that before it exists every check below fails on its own.
 $queue_file = __DIR__ . '/../includes/modules/class-wpcpm-sponsor-event-queue.php';
@@ -1363,66 +1402,19 @@ $card_for = static function ( $uid ) {
 };
 
 ck(
-	'a manager who is not on an approved event gets its Join, inside its decisions and before Cancel, posting the event under a nonce keyed to it and coming back to this card; no call link of its own, since the card has one',
-	static function () use ( $card_for, $new ) {
+	'the approved event of a sponsor that no longer offers events gets no Join, and a waiting event neither: one Join or Leave form on the card, the Partner\'s, in its own Decide row (Task 18d), and none of today\'s list markup',
+	static function () use ( $card_for ) {
 		$html = $card_for( MANAGER );
-		$join = '<div class="wpcpm-sevent__actions"><form class="wpcpm-inline-form wpcpm-sevent__join" method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Joining"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_sevent_join_' . $new . '" /><input type="hidden" name="action" value="wpcpm_sevent_join" /><input type="hidden" name="wpcpm_sevent_id" value="' . $new . '" /><input type="hidden" name="wpcpm_sevent_back" value="admin" /><button type="submit" class="wpcpm-button">Join<span class="screen-reader-text"> Partners &quot;Q&amp;A&quot; in C:\\talks</span></button></form></div>';
-		return array(
-			false !== strpos( $html, '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide">' . $join . '<details class="wpcpm-sponsor-post__return"><summary class="button">Cancel with a note' ),
-			substr_count( $html, 'wpcpm-sevent__link' ),
-			substr_count( $html, 'wpcpm_sevent_leave' ),
-		);
+		return array( substr_count( $html, '<input type="hidden" name="action" value="wpcpm_sevent_join" />' ) + substr_count( $html, '<input type="hidden" name="action" value="wpcpm_sevent_leave" />' ), substr_count( $html, 'class="wpcpm-sevent__actions"' ) );
 	},
-	array( true, 0, 0 )
-);
-ck(
-	'a manager on it gets the mark and Leave instead, asking before it posts, and still no call link of the list\'s',
-	static function () use ( $card_for, $new ) {
-		$html = $card_for( MANAGER_TWO );
-		return array(
-			false !== strpos( $html, '<div class="wpcpm-sevent__actions"><p class="wpcpm-sevent__joined">You are on it.</p><form class="wpcpm-inline-form wpcpm-sevent__leave" method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Leaving"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_sevent_leave_' . $new . '" /><input type="hidden" name="action" value="wpcpm_sevent_leave" /><input type="hidden" name="wpcpm_sevent_id" value="' . $new . '" /><input type="hidden" name="wpcpm_sevent_back" value="admin" /><button type="submit" class="wpcpm-button wpcpm-button--secondary" data-wpcpm-confirm="Leave this event? Your place goes back.">Leave<span class="screen-reader-text"> Partners &quot;Q&amp;A&quot; in C:\\talks</span></button></form></div><details class="wpcpm-sponsor-post__return">' ),
-			substr_count( $html, 'wpcpm-sevent__link' ),
-			substr_count( $html, 'wpcpm_sevent_join' ),
-		);
-	},
-	array( true, 0, 0 )
-);
-ck(
-	'the approved event of a sponsor that no longer offers events gets no Join, and a waiting event neither: one action form on the card, the Partner\'s',
-	static function () use ( $card_for ) { return substr_count( $card_for( MANAGER ), 'class="wpcpm-sevent__actions"' ); },
-	1
+	array( 1, 0 )
 );
 // The same decision reads the same on every card that sends a sponsor's own work back: a post, a
 // sponsor's Collaboration Agreement and an event each go back with Return it with this note, the
 // words the institutions' agreements use.
-ck(
-	'a waiting event goes back with the button the sponsor posts card uses: Return it with this note',
-	static function () use ( $card_for ) {
-		$html = $card_for( MANAGER );
-		return array( substr_count( $html, 'data-wpcpm-busy="Returning">' ) > 0, substr_count( $html, 'data-wpcpm-busy="Returning">' ) === substr_count( $html, '<button type="submit" class="button">Return it with this note</button>' ), strpos( $html, 'Send back with this note' ) );
-	},
-	array( true, true, false )
-);
 // Cancel with this note cannot be taken back, and everyone on the event is told, so it asks first: the
 // sentence rides on its button as a data-wpcpm-confirm mark, escaped for the attribute. Approve and
 // Return it with this note, which the sponsor can follow with a new plan, ask nothing.
-ck(
-	'every Cancel with this note asks "Cancel this event for everyone?" on its button, the sentence escaped with esc_attr(), one for each Cancel with a note; Approve and Return it with this note ask nothing',
-	static function () use ( $card_for ) {
-		$html    = $card_for( MANAGER );
-		$mark    = ' data-wpcpm-confirm="' . esc_attr( 'Cancel this event for everyone? This cannot be undone.' ) . '"';
-		$cancels = preg_match_all( '#<button\b[^>]*>Cancel with this note</button>#', $html, $found ) ? $found[0] : array();
-		$others  = preg_match_all( '#<button\b[^>]*>(?:Approve<span\b[^<]*</span>|Return it with this note)</button>#', $html, $found ) ? $found[0] : array();
-		return array(
-			count( $cancels ) >= 1,
-			count( array_filter( $cancels, static function ( $button ) use ( $mark ) { return false !== strpos( $button, $mark ); } ) ) === count( $cancels ),
-			count( $cancels ) === substr_count( $html, '<summary class="button">Cancel with a note' ),
-			count( $others ) >= 2,
-			substr_count( implode( '', $others ), 'data-wpcpm-confirm' ),
-		);
-	},
-	array( true, true, true, true, 0 )
-);
 // The Sponsors screen's Waiting for review tab links each event it lists to its own item here, as it
 // links each sponsor post and application to theirs: the item carries the id the link names, and the
 // page's opener opens the card around it.
@@ -1430,7 +1422,8 @@ ck(
 	'each event\'s item carries its own id, wpcpm-sponsor-event and the event\'s ID, what waits and what is coming up alike, once each',
 	static function () use ( $card_for, $old, $new, $soon ) {
 		$html = $card_for( MANAGER );
-		preg_match_all( '#<article class="wpcpm-administrator__item wpcpm-sponsor-event" id="wpcpm-sponsor-event-(\d+)">#', $html, $ids );
+		// The item as the parts draw it (`WPCPM_UI::item_open()`), since the old card left (Task 18b).
+		preg_match_all( '#<article class="wpcpm-sponsor-event wpcpm-ui-item" id="wpcpm-sponsor-event-(\d+)">#', $html, $ids );
 		return array( array_map( 'intval', $ids[1] ), substr_count( $html, '<article ' ), substr_count( $html, 'id="wpcpm-sponsor-event-' . $old . '"' ) );
 	},
 	array( array( $old, $soon, $new ), 3, 1 )
@@ -1438,26 +1431,12 @@ ck(
 // That tab says when each event takes place in the words its item here opens with: one reader, on the
 // viewing manager's clock unless another is given.
 ck(
-	'an event\'s time is read by one reader, on the viewing manager\'s clock unless another is given: the day, the times and the length, the zone named, the fact its item opens with',
-	static function () use ( $card_for, $old ) {
-		$row  = WPCPM_Sponsor_Event_Queue::data()['waiting'][0];
-		$html = $card_for( MANAGER );
-		return array(
-			$row['id'] === $old,
-			WPCPM_Sponsor_Event_Queue::time_fact( $row ),
-			WPCPM_Sponsor_Event_Queue::time_fact( $row, new DateTimeZone( 'Asia/Tokyo' ) ),
-			false !== strpos( $html, 'id="wpcpm-sponsor-event-' . $old . '"><h4 class="wpcpm-administrator__item-title">Champion webinar <span class="wpcpm-administrator__kind">Champion Example</span></h4><p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">' . WPCPM_Sponsor_Event_Queue::time_fact( $row ) . '</span>' ),
-		);
-	},
-	array( true, 'December 1, 2026 11:00 am to 12:30 pm, 90 minutes, in your time zone (Europe / Warsaw)', 'December 1, 2026 7:00 pm to 8:30 pm, 90 minutes, in your time zone (Asia / Tokyo)', true )
-);
-ck(
-	'the outcome of the manager\'s own press is said right under Coming up, taken once, and nowhere else on the card',
+	'the outcome of the manager\'s own press is said first on the card, where the group headings no longer are (Task 18d), taken once, and nowhere else on the card',
 	static function () use ( $card_for ) {
 		$GLOBALS['flash'][ MANAGER ]['sevent-list'] = 'joined';
 		$first                                      = $card_for( MANAGER );
 		$second                                     = $card_for( MANAGER );
-		return array( false !== strpos( $first, '<h4 class="wpcpm-administrator__subtitle">Coming up</h4><p class="wpcpm-sevent__message is-success" role="status">You joined the event.</p>' ), substr_count( $first, 'wpcpm-sevent__message' ), substr_count( $second, 'wpcpm-sevent__message' ) );
+		return array( 0 === strpos( $first, '<p class="wpcpm-sevent__message is-success" role="status">You joined the event.</p>' ), substr_count( $first, 'wpcpm-sevent__message' ), substr_count( $second, 'wpcpm-sevent__message' ) );
 	},
 	array( true, 1, 0 )
 );
@@ -1879,30 +1858,6 @@ $paused_planned = attempt(
 );
 
 ck(
-	'its waiting event is read as no longer offered, and the card draws it so, with Return alone: no Approve, and no nonce to approve it with',
-	static function () use ( $paused_planned ) {
-		$GLOBALS['uid'] = MANAGER;
-		$row            = null;
-		foreach ( WPCPM_Sponsor_Event_Queue::data()['waiting'] as $waiting ) {
-			if ( $paused_planned === $waiting['id'] ) {
-				$row = $waiting;
-			}
-		}
-		ob_start();
-		WPCPM_Sponsor_Event_Queue::render( array( 'waiting' => array( $row ), 'upcoming' => array() ) );
-		$html = (string) ob_get_clean();
-		return array(
-			is_int( $paused_planned ),
-			$row['offered'],
-			false !== strpos( $html, '<span class="wpcpm-administrator__fact">Open to everyone</span><span class="wpcpm-administrator__fact">No longer offered</span></p>' ),
-			false !== strpos( $html, 'name="_wpnonce" value="nonce-wpcpm_sevent_return_' . $paused_planned . '"' ),
-			strpos( $html, 'wpcpm_sevent_approve' ),
-			false !== strpos( $html, 'your note is emailed to the sponsor&#039;s members. The sponsor no longer holds the tier that includes events.</p>' ),
-		);
-	},
-	array( true, false, true, true, false, true )
-);
-ck(
 	'an approval posted anyway is refused with its own sentence, and nothing is written or mailed',
 	static function () use ( $paused_planned ) {
 		$before = store_state();
@@ -1954,16 +1909,6 @@ $drawn = attempt(
 	}
 );
 
-ck(
-	'the names reach the card, escaped, in the order they were read, under Who joined; the call link is a link that opens apart',
-	static function () use ( $drawn ) {
-		return array(
-			false !== strpos( (string) $drawn, '<summary>Who joined</summary><ul class="wpcpm-administrator__list"><li>Ann &lt;i&gt;One&lt;/i&gt;</li><li>Bob Two</li></ul>' ),
-			false !== strpos( (string) $drawn, 'Call link: <a href="https://call.example/x?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">https://call.example/x?a=1&amp;b=2</a>' ),
-		);
-	},
-	array( true, true )
-);
 ck( 'and nothing at all is drawn while the launch switch is off', static function () { $GLOBALS['settings']['sponsor_tiers_live'] = false; ob_start(); WPCPM_Sponsor_Event_Queue::render( WPCPM_Sponsor_Event_Queue::data() ); $html = (string) ob_get_clean(); $GLOBALS['settings']['sponsor_tiers_live'] = true; return $html; }, '' );
 
 /* ---- the program's own events ---------------------------------------------------- */
@@ -1990,33 +1935,9 @@ function program_form( array $over = array() ) {
 	);
 }
 
-/** The card's article about one event, found by its title, from the heading the article opens with, or ''. */
-function article_of( $html, $title ) {
-	foreach ( preg_split( '#<article class="wpcpm-administrator__item wpcpm-sponsor-event" id="wpcpm-sponsor-event-\d+">#', (string) $html ) as $part ) {
-		if ( false !== strpos( $part, '<h4 class="wpcpm-administrator__item-title">' . $title . ' ' ) ) {
-			$end = strpos( $part, '</article>' );
-			return false === $end ? $part : substr( $part, 0, $end );
-		}
-	}
-	return '';
-}
 
 $program_sentence = 'An event of the WordPress Credits Program\'s own, with no sponsor: it is approved as you plan it, and the program\'s students, mentors, Administrators and institution contacts can join it at once, as they join a sponsor\'s.';
 
-ck(
-	'the card has a third part after Coming up, Plan an event of the program\'s: the planner\'s form folded under Plan an event inside the decide row every item\'s decisions sit in, with a sentence saying what the program\'s own event is, posting wpcpm_sevent_program_plan under a nonce of its own and back to this card',
-	static function () use ( $card_for, $program_sentence ) {
-		$html  = $card_for( MANAGER );
-		$part  = strpos( $html, '<h4 class="wpcpm-administrator__subtitle">Plan an event of the program&#039;s</h4>' );
-		$after = strpos( $html, '<h4 class="wpcpm-administrator__subtitle">Coming up</h4>' );
-		return array(
-			false !== $part && false !== $after && $part > $after,
-			false !== strpos( $html, '<h4 class="wpcpm-administrator__subtitle">Plan an event of the program&#039;s</h4><div class="wpcpm-request__decide wpcpm-sponsor-post__decide"><details class="wpcpm-sponsor-post__return"><summary class="button">Plan an event</summary><p class="wpcpm-administrator__note">' . esc_html( $program_sentence ) . '</p><form class="wpcpm-sponsor-post__form wpcpm-sponsor__form wpcpm-sevent__form" method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Planning"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_sevent_program_plan" /><input type="hidden" name="action" value="wpcpm_sevent_program_plan" /><input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="sponsor-events" /><p class="wpcpm-sponsor__field wpcpm-sevent__row">' ),
-			false !== strpos( $html, '<button type="submit" class="button button-primary">Plan the event</button></form></details></div>' ),
-		);
-	},
-	array( true, true, true )
-);
 ck(
 	'its rows are the planner\'s own, on the manager\'s clock: the day from the site\'s today with no last day, no term binding the program; the start time with the clock named; the length; the places from one; the title, the description and the call link, each once',
 	static function () use ( $card_for ) {
@@ -2112,94 +2033,8 @@ ck(
 	},
 	array( array( $soon, $program_event ), '', 'the WordPress Credits Program', true, true, 1, array( 'Zelda Privacywalk' ) )
 );
-ck(
-	'the card draws it with the program\'s name where a sponsor\'s is, its facts, its call link and who joined, the manager\'s own Join, then Change the event and Cancel the event, each folded and asking no note; nothing says it is no longer offered',
-	static function () use ( $card_for, $program_event ) {
-		$item = article_of( $card_for( MANAGER ), 'The partners session' );
-		return array(
-			0 === strpos( $item, '<h4 class="wpcpm-administrator__item-title">The partners session <span class="wpcpm-administrator__kind">the WordPress Credits Program</span></h4><p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">November 20, 2026 3:00 pm to 4:00 pm, 60 minutes, in your time zone (Europe / Warsaw)</span><span class="wpcpm-administrator__fact">Open to everyone</span><span class="wpcpm-administrator__fact">1 person has joined</span></p>' ),
-			false !== strpos( $item, 'Call link: <a href="https://meet.example/partners?pwd=a%2Fb"' ),
-			false !== strpos( $item, '<li>Zelda Privacywalk</li>' ),
-			false !== strpos( $item, 'nonce-wpcpm_sevent_join_' . $program_event ),
-			false !== strpos( $item, '<details class="wpcpm-sponsor-post__return"><summary class="button">Change the event<span class="screen-reader-text"> The partners session</span></summary>' ),
-			false !== strpos( $item, '<details class="wpcpm-sponsor-post__return"><summary class="button">Cancel the event<span class="screen-reader-text"> The partners session</span></summary>' ),
-			strpos( $item, 'nonce-wpcpm_sevent_join_' ) < strpos( $item, 'Change the event' ) && strpos( $item, 'Change the event' ) < strpos( $item, 'Cancel the event' ),
-			array( strpos( $item, 'Cancel with a note' ), strpos( $item, 'wpcpm_sevent_note' ), strpos( $item, 'No longer offered' ), strpos( $item, 'wpcpm_sevent_manager_cancel' ) ),
-		);
-	},
-	array( true, true, true, true, true, true, true, array( false, false, false, false ) )
-);
-ck(
-	'Change the event holds the planner\'s form filled from the event on the manager\'s clock, the places no fewer than the people on it, posting wpcpm_sevent_program_change under a nonce keyed to the event',
-	static function () use ( $card_for, $program_event ) {
-		$item = article_of( $card_for( MANAGER ), 'The partners session' );
-		return array(
-			false !== strpos( $item, '<form class="wpcpm-sponsor-post__form wpcpm-sponsor__form wpcpm-sevent__form" method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Saving"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_sevent_program_change_' . $program_event . '" /><input type="hidden" name="action" value="wpcpm_sevent_program_change" /><input type="hidden" name="wpcpm_sevent_id" value="' . $program_event . '" /><input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="sponsor-events" />' ),
-			false !== strpos( $item, 'id="wpcpm-sevent-program-' . $program_event . '-date" name="wpcpm_sevent_date" value="2026-11-20" min="2026-10-06" required' ),
-			false !== strpos( $item, 'name="wpcpm_sevent_time" value="15:00"' ),
-			false !== strpos( $item, 'name="wpcpm_sevent_places" value="" min="1"' ),
-			false !== strpos( $item, 'name="wpcpm_sevent_title" value="The partners session"' ),
-			false !== strpos( $item, 'name="wpcpm_sevent_link" value="https://meet.example/partners?pwd=a%2Fb"' ),
-			false !== strpos( $item, '<button type="submit" class="button button-primary">Save the changes</button></form></details>' ),
-		);
-	},
-	array( true, true, true, true, true, true, true )
-);
-ck(
-	'Cancel the event says what it does and asks before it posts wpcpm_sevent_program_cancel under a nonce keyed to the event',
-	static function () use ( $card_for, $program_event ) {
-		$item = article_of( $card_for( MANAGER ), 'The partners session' );
-		return false !== strpos( $item, '<summary class="button">Cancel the event<span class="screen-reader-text"> The partners session</span></summary><p class="wpcpm-administrator__note">The event is canceled for everyone, and everyone who joined is told, with the calendar file that takes it off their calendar.</p><form class="wpcpm-sponsor-post__form" method="post" action="https://site.example/wp-admin/admin-post.php" data-wpcpm-once data-wpcpm-busy="Canceling"><input type="hidden" name="_wpnonce" value="nonce-wpcpm_sevent_program_cancel_' . $program_event . '" /><input type="hidden" name="action" value="wpcpm_sevent_program_cancel" /><input type="hidden" name="wpcpm_sevent_id" value="' . $program_event . '" /><input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="sponsor-events" /><button type="submit" class="button" data-wpcpm-confirm="Cancel this event for everyone? This cannot be undone.">Cancel the event</button></form></details>' );
-	},
-	true
-);
-/**
- * How many elements an XPath query finds in a piece of the card, read by libxml's HTML parser as a
- * browser reads the markup into a tree: which of the card's rules reach a control depends on the
- * elements around it, which the text alone does not show.
- *
- * @param string $html  The markup.
- * @param string $query An XPath 1.0 query.
- * @return int How many it finds, or -1 for a query that is not one.
- */
-function card_count( $html, $query ) {
-	$doc      = new DOMDocument();
-	$previous = libxml_use_internal_errors( true );
-	$doc->loadHTML( '<?xml encoding="utf-8"?><body>' . $html . '</body>' );
-	libxml_clear_errors();
-	libxml_use_internal_errors( $previous );
-	$found = ( new DOMXPath( $doc ) )->query( $query );
-	return false === $found ? -1 : (int) $found->length;
-}
 
-/** An XPath test that an element carries a class among its classes. */
-function has_class( $name ) { return "contains(concat(' ', normalize-space(@class), ' '), ' " . $name . " ')"; }
 
-ck(
-	'the plan part sits in a decide row, the one every item\'s decisions sit in: its fold\'s summary, its submit and its description box are the row\'s own, as the Change form\'s box is, so the card\'s rules for a decision\'s fold, button and box reach them; both of the program\'s forms carry the planner\'s form classes beside the card\'s; and no button on the card, nor a fold whose summary is a button, is outside a decide row (the people\'s fold, Who joined, is a disclosure of its own)',
-	static function () use ( $card_for ) {
-		$html = $card_for( MANAGER );
-		$row  = 'div[' . has_class( 'wpcpm-request__decide' ) . ' and ' . has_class( 'wpcpm-sponsor-post__decide' ) . ']';
-		$fold = 'details[' . has_class( 'wpcpm-sponsor-post__return' ) . ']';
-		return array(
-			card_count( $html, "//{$row}/{$fold}/summary[" . has_class( 'button' ) . " and normalize-space(.) = 'Plan an event']" ),
-			card_count( $html, "//{$row}/{$fold}/form[input[@name = 'action' and @value = 'wpcpm_sevent_program_plan']]/button[@type = 'submit' and " . has_class( 'button-primary' ) . " and normalize-space(.) = 'Plan the event']" ),
-			card_count( $html, "//{$row}//form[input[@name = 'action' and @value = 'wpcpm_sevent_program_plan']]//textarea[@name = 'wpcpm_sevent_description']" ),
-			card_count( $html, "//{$row}//form[input[@name = 'action' and @value = 'wpcpm_sevent_program_change']]//textarea[@name = 'wpcpm_sevent_description']" ),
-			card_count( $html, '//form[' . has_class( 'wpcpm-sponsor-post__form' ) . ' and ' . has_class( 'wpcpm-sponsor__form' ) . ' and ' . has_class( 'wpcpm-sevent__form' ) . ']' ),
-			card_count( $html, '//summary[' . has_class( 'button' ) . " and not(ancestor::{$row})] | //button[not(ancestor::{$row})]" ),
-		);
-	},
-	array( 1, 1, 1, 1, 2, 0 )
-);
-ck(
-	'a sponsor\'s event keeps what it had: Cancel with a note, and no Change or Cancel of the program\'s',
-	static function () use ( $card_for, $soon ) {
-		$item = article_of( $card_for( MANAGER ), 'Paused workshop' );
-		return array( '' !== $item, false !== strpos( $item, 'nonce-wpcpm_sevent_manager_cancel_' . $soon ), strpos( $item, 'wpcpm_sevent_program_' ), strpos( $item, 'the WordPress Credits Program' ) );
-	},
-	array( true, true, false, false )
-);
 ck(
 	'a change is stopped on its nonce keyed to the event before anything else, a stranger\'s too; then the capability, the switch and an event; and a sponsor\'s event, whose nonce the card never prints, is refused: nothing written or mailed',
 	static function () use ( $program_event, $soon, $admin_card ) {
@@ -2487,41 +2322,7 @@ ck(
 	array( array( 'Why 2 &lt; 3, and &quot;Q&amp;A&quot;', 'Is 2 &lt; 3? &quot;Yes&quot;' ), 'Why 2 < 3, and "Q&A"', 'Is 2 < 3? "Yes"' )
 );
 
-/** Whether the card draws the fold whose summary opens with these words open, closed, or not at all. */
-function fold_state( $html, $summary ) {
-	foreach ( array( 'open' => ' open', 'closed' => '' ) as $state => $attribute ) {
-		if ( false !== strpos( (string) $html, '<details class="wpcpm-sponsor-post__return"' . $attribute . '><summary class="button">' . $summary ) ) {
-			return $state;
-		}
-	}
-	return 'missing';
-}
 
-ck(
-	'the fold holding the program\'s Plan form is drawn open when the form comes back with what was typed, and closed before the refusal, for another manager and on the next draw',
-	static function () use ( $card_for ) {
-		$plan   = 'Plan an event</summary>';
-		$before = fold_state( $card_for( MANAGER ), $plan );
-		press( 'handle_program_plan', program_typed(), MANAGER );
-		$other = fold_state( $card_for( MANAGER_TWO ), $plan );
-		$typed = fold_state( $card_for( MANAGER ), $plan );
-		$after = fold_state( $card_for( MANAGER ), $plan );
-		return array( $before, $other, $typed, $after );
-	},
-	array( 'closed', 'closed', 'open', 'closed' )
-);
-ck(
-	'of the program\'s events, only the refused one\'s Change fold is drawn open: the sooner one\'s, drawn before it on the same page, and the Plan fold stay closed, and all are closed on the next draw',
-	static function () use ( $card_for, $program_first, $program_second ) {
-		$first  = 'Change the event<span class="screen-reader-text"> ' . get_post( $program_first )->post_title . '</span></summary>';
-		$second = 'Change the event<span class="screen-reader-text"> ' . get_post( $program_second )->post_title . '</span></summary>';
-		press( 'handle_program_change', array_merge( program_typed(), decision( $program_second ) ), MANAGER );
-		$typed = $card_for( MANAGER );
-		$after = $card_for( MANAGER );
-		return array( array( fold_state( $typed, $first ), fold_state( $typed, $second ), fold_state( $typed, 'Plan an event</summary>' ) ), array( fold_state( $after, $first ), fold_state( $after, $second ), fold_state( $after, 'Plan an event</summary>' ) ), strpos( $typed, $first ) < strpos( $typed, $second ) );
-	},
-	array( array( 'closed', 'open', 'closed' ), array( 'closed', 'closed', 'closed' ), true )
-);
 
 // What comes back is what was typed, through the plugin's own flash over user meta that unslashes
 // what it writes, as core's does: a backslash in the title, two in a row in the call link and a
@@ -2853,10 +2654,6 @@ function area_shown( $markup ) {
 	return htmlspecialchars_decode( (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", (string) $markup ) ), ENT_QUOTES );
 }
 
-/** What a note box shows, read from the markup as area_shown() reads a text area; null when the card draws no such box. */
-function note_text( $html, $kind, $id ) {
-	return preg_match( '/<textarea id="wpcpm-sevent-' . $kind . '-' . (int) $id . '"[^>]*>(.*?)<\/textarea>/s', (string) $html, $found ) ? area_shown( $found[1] ) : null;
-}
 
 /** The newest event of the program's own. */
 function newest_program_event() {
@@ -2886,18 +2683,6 @@ ck(
 		return array( $left, store_state() === $before, isset( $messages['sevent-program-plan-title-loss'] ) ? $messages['sevent-program-plan-title-loss'] : null );
 	},
 	array( array( 'sevent-program-plan-title-loss', $admin_card ), true, array( 'error', sprintf( $loss_words['plan'], 'Title' ) ) )
-);
-ck(
-	'the Plan form comes back once, its fold open, with the title exactly as typed and every other box as posted; another manager is drawn it empty, and so is the next draw',
-	static function () use ( $card_for, $program_empty_rows ) {
-		press( 'handle_program_plan', program_form( array( 'wpcpm_sevent_date' => '2026-12-08', 'wpcpm_sevent_title' => LOSS_TITLE ) ), MANAGER );
-		$other  = rows_of( $card_for( MANAGER_TWO ), 'wpcpm-sevent-program-new' );
-		$html   = $card_for( MANAGER );
-		$first  = rows_of( $html, 'wpcpm-sevent-program-new' );
-		$again  = $card_for( MANAGER );
-		return array( htmlspecialchars_decode( (string) $first['title'], ENT_QUOTES ), array( $first['date'], $first['time'], $first['minutes'], area_shown( $first['description'] ) ), fold_state( $html, 'Plan an event</summary>' ), $other === $program_empty_rows, rows_of( $again, 'wpcpm-sevent-program-new' ) === $program_empty_rows, fold_state( $again, 'Plan an event</summary>' ) );
-	},
-	array( LOSS_TITLE, array( '2026-12-08', '15:00', '60', "What the program plans with its partners.\nBring questions." ), 'open', true, true, 'closed' )
 );
 ck(
 	'a description the cleaner would take words from is refused the same way, the description named, and comes back as typed, each line break one',
@@ -2936,11 +2721,14 @@ ck(
 ck(
 	'and its Change form comes back once, its fold open, with the title exactly as typed; the next draw has the event\'s own title, the fold closed',
 	static function () use ( $card_for, $loss_program ) {
-		$summary = 'Change the event<span class="screen-reader-text"> ' . esc_html( SPACED_TITLE ) . '</span></summary>';
+		// The Change panel as the parts draw it (`WPCPM_UI::decide()`), since the old fold left with its branch (Task 18b).
+		$panel = static function ( $html ) use ( $loss_program ) {
+			return false !== strpos( $html, 'id="wpcpm-decide-event-' . $loss_program . '-change-panel" data-wpcpm-panel data-wpcpm-open>' ) ? 'open' : 'closed';
+		};
 		press( 'handle_program_change', program_change_as_drawn( $card_for, MANAGER, $loss_program, array( 'wpcpm_sevent_title' => LOSS_TITLE ) ), MANAGER );
 		$html  = $card_for( MANAGER );
 		$again = $card_for( MANAGER );
-		return array( htmlspecialchars_decode( (string) rows_of( $html, 'wpcpm-sevent-program-' . $loss_program )['title'], ENT_QUOTES ), fold_state( $html, $summary ), htmlspecialchars_decode( (string) rows_of( $again, 'wpcpm-sevent-program-' . $loss_program )['title'], ENT_QUOTES ), fold_state( $again, $summary ) );
+		return array( htmlspecialchars_decode( (string) rows_of( $html, 'wpcpm-sevent-program-' . $loss_program )['title'], ENT_QUOTES ), $panel( $html ), htmlspecialchars_decode( (string) rows_of( $again, 'wpcpm-sevent-program-' . $loss_program )['title'], ENT_QUOTES ), $panel( $again ) );
 	},
 	array( LOSS_TITLE, 'open', SPACED_TITLE, 'closed' )
 );
@@ -2982,27 +2770,6 @@ ck(
 	array( array( 'sevent-return-note-loss', $admin_card ), true, 'planned', array( 'error', sprintf( $loss_words['return'], 'A note for the sponsor' ) ) )
 );
 ck(
-	'the event\'s Return fold comes back open once, with the note exactly as typed, each line break one; another manager draws it closed and empty, and so does the next draw',
-	static function () use ( $card_for, $loss_waiting, $return_fold ) {
-		press( 'handle_return', decision( $loss_waiting, LOSS_NOTE ), MANAGER );
-		$other = $card_for( MANAGER_TWO );
-		$html  = $card_for( MANAGER );
-		$again = $card_for( MANAGER );
-		return array( fold_state( $html, $return_fold ), note_text( $html, 'return', $loss_waiting ), fold_state( $other, $return_fold ), note_text( $other, 'return', $loss_waiting ), fold_state( $again, $return_fold ), note_text( $again, 'return', $loss_waiting ) );
-	},
-	array( 'open', str_replace( "\r\n", "\n", LOSS_NOTE ), 'closed', '', 'closed', '' )
-);
-ck(
-	'a note refused for its length comes back as typed too, in the room its box has',
-	static function () use ( $card_for, $admin_card, $loss_waiting, $return_fold ) {
-		$long = str_repeat( 'x', 2001 );
-		$left = press( 'handle_return', decision( $loss_waiting, $long ), MANAGER );
-		$html = $card_for( MANAGER );
-		return array( $left, fold_state( $html, $return_fold ), note_text( $html, 'return', $loss_waiting ) );
-	},
-	array( array( 'sevent-note-long', $admin_card ), 'open', str_repeat( 'x', 2000 ) )
-);
-ck(
 	'with a space after each "<" the note keeps every word: the event is returned, and the member reads the note as typed',
 	static function () use ( $admin_card, $loss_waiting ) {
 		$GLOBALS['sent'] = array();
@@ -3032,16 +2799,6 @@ ck(
 	array( array( 'sevent-cancel-note-loss', $admin_card ), true, 'approved', array( 'error', sprintf( $loss_words['cancel'], 'A note for the sponsor' ) ) )
 );
 ck(
-	'the event\'s Cancel fold comes back open once with the note exactly as typed, and the Return fold of another event stays closed',
-	static function () use ( $card_for, $loss_approved, $cancel_fold ) {
-		press( 'handle_cancel', decision( $loss_approved, CASHBACK ), MANAGER );
-		$html  = $card_for( MANAGER );
-		$again = $card_for( MANAGER );
-		return array( fold_state( $html, $cancel_fold ), note_text( $html, 'cancel', $loss_approved ), fold_state( $again, $cancel_fold ), note_text( $again, 'cancel', $loss_approved ) );
-	},
-	array( 'open', CASHBACK, 'closed', '' )
-);
-ck(
 	'with a space after the "%" the note keeps every word: the event is canceled, and the member reads the note as typed',
 	static function () use ( $admin_card, $loss_approved ) {
 		$GLOBALS['sent'] = array();
@@ -3063,26 +2820,22 @@ $third_fold  = 'Return with a note<span class="screen-reader-text"> Loss worksho
 $third_inner = static function ( $html ) use ( $loss_third ) {
 	return preg_match( '/<textarea id="wpcpm-sevent-return-' . (int) $loss_third . '"[^>]*>(.*?)<\/textarea>/s', (string) $html, $found ) ? $found[1] : null;
 };
-
+// Read off the parts' box (Task 18c: the old fold's check left in Task 18b, and the parts draw the same typing back).
 ck(
-	'a kept note holding "</textarea><b>x</b> Q&amp;A" is drawn escaped in its box, the closing tag and the ampersand as text, and the box shows it exactly as typed',
-	static function () use ( $card_for, $admin_card, $loss_third, $third_inner ) {
+	'a kept note holding "</textarea><b>x</b> Q&amp;A" is drawn escaped in its box on the parts, the closing tag and the ampersand as text',
+	static function () use ( $card_for, $loss_third ) {
 		$left = press( 'handle_return', decision( $loss_third, MARKUP_NOTE ), MANAGER );
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		WPCPM_UI::enter( 'administrator' );
 		$html = $card_for( MANAGER );
-		return array( $left, $third_inner( $html ), note_text( $html, 'return', $loss_third ) );
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( array() );
+		$box = preg_match( '/<textarea [^>]*id="wpcpm-sevent-return-' . (int) $loss_third . '"[^>]*>(.*?)<\/textarea>/s', $html, $found ) ? $found[1] : null;
+		return array( $left, $box, substr_count( $html, '</textarea><b>x</b>' ) );
 	},
-	array( array( 'sevent-return-note-loss', $admin_card ), "\n" . '&lt;/textarea&gt;&lt;b&gt;x&lt;/b&gt; Q&amp;amp;A', MARKUP_NOTE )
+	array( array( 'sevent-return-note-loss', $admin_card ), "\n" . '&lt;/textarea&gt;&lt;b&gt;x&lt;/b&gt; Q&amp;amp;A', 0 )
 );
-ck(
-	'a note an earlier refusal kept, whose page was never drawn, is dropped when the form is posted again: refused once for its words and pressed again with no note, the form draws closed and empty',
-	static function () use ( $card_for, $admin_card, $loss_third, $third_fold ) {
-		$first  = press( 'handle_return', decision( $loss_third, LOSS_NOTE ), MANAGER );
-		$second = press( 'handle_return', decision( $loss_third, '' ), MANAGER );
-		$html   = $card_for( MANAGER );
-		return array( $first, $second, fold_state( $html, $third_fold ), note_text( $html, 'return', $loss_third ), meta( $loss_third, '_wpcpm_sevent_state' ) );
-	},
-	array( array( 'sevent-return-note-loss', $admin_card ), array( 'sevent-note-empty', $admin_card ), 'closed', '', 'planned' )
-);
+
 // A note is a text area's typing, so the cleaner asked of it is the text area's. Today the two
 // cleaners give one answer on every typing (they differ only in folding white space, which the
 // check folds on both sides, and whatever either takes away holds a character that is not white
@@ -3379,6 +3132,1087 @@ ck(
 		),
 	)
 );
+
+/* ---- the card on the shared parts (UI shared parts, Task 13c) -------------------- */
+
+echo "\n=== The Events card on the Administrator Dashboard's parts, behind the switch (UI shared parts, Task 13c) ===\n";
+
+// The Administrator Dashboard suite draws this card with the real queue over a stand-in store; the checks that need
+// the store, the list's Join and Leave, the planner's forms and the handlers' refusals are here. A store of its own:
+// two events waiting, one of a sponsor set to Paused since; two approved, the second of a sponsor Paused since; and one
+// of the program's own.
+const PARTS_A = 'spoAAAA0000000011';
+const PARTS_B = 'spoAAAA0000000012';
+set_now( utc( '2026-10-06 12:00' ) );
+$GLOBALS['posts']    = array();
+$GLOBALS['pmeta']    = array();
+$GLOBALS['flash']    = array();
+$GLOBALS['settings'] = array( 'sponsor_tiers_live' => true );
+$GLOBALS['uid']      = MANAGER;
+$GLOBALS['index']    = array(
+	CHAMPION => array( 'record_id' => CHAMPION, 'name' => 'Champion Example', 'status' => 'Approved', 'tier' => 'champion', 'tier_until' => '', 'manager' => '' ),
+	PARTNER  => array( 'record_id' => PARTNER, 'name' => 'Partner Example', 'status' => 'Approved', 'tier' => 'partner', 'tier_until' => '2027-01-31', 'manager' => '' ),
+	PAUSED   => array( 'record_id' => PAUSED, 'name' => 'Paused Example', 'status' => 'Approved', 'tier' => 'champion', 'tier_until' => '', 'manager' => '' ),
+	PARTS_A  => array( 'record_id' => PARTS_A, 'name' => 'Parts & "Sponsor" A', 'status' => 'Approved', 'tier' => 'champion', 'tier_until' => '', 'manager' => '' ),
+	PARTS_B  => array( 'record_id' => PARTS_B, 'name' => 'Parts Sponsor B', 'status' => 'Approved', 'tier' => 'champion', 'tier_until' => '', 'manager' => '' ),
+);
+$pc_desc = str_repeat( 'Every <session> & "detail" of the day. ', 12 );
+$pc_w1   = attempt( static function () use ( $pc_desc ) { return WPCPM_Sponsor_Event::plan( CHAMPION, event_fields( utc( '2026-12-01 10:00' ), array( 'title' => 'Parts waiting & "one"', 'places' => 0, 'link' => 'https://meet.example/w1?a=1&b=2', 'zone' => 'Europe/Warsaw', 'description' => $pc_desc ) ), MANAGER, 'manager' ); } );
+$pc_w2   = attempt( static function () { return WPCPM_Sponsor_Event::plan( PARTNER, event_fields( utc( '2026-11-20 10:00' ), array( 'title' => 'Parts waiting two', 'places' => 25, 'link' => 'https://meet.example/w2', 'zone' => 'Europe/Warsaw', 'description' => 'Short, with <i>tags</i>.' ) ), MANAGER, 'manager' ); } );
+$pc_wp   = attempt( static function () { return WPCPM_Sponsor_Event::plan( PAUSED, event_fields( utc( '2026-11-25 10:00' ), array( 'title' => 'Parts paused waiting', 'places' => 12, 'link' => 'https://meet.example/wp', 'zone' => 'Europe/Warsaw', 'description' => 'Paused.' ) ), MANAGER, 'manager' ); } );
+$pc_a1   = attempt(
+	static function () {
+		$id = WPCPM_Sponsor_Event::plan( PARTS_A, event_fields( utc( '2026-12-10 10:00' ), array( 'title' => 'Parts approved & joined', 'places' => 30, 'link' => 'https://meet.example/a1', 'zone' => 'Europe/Warsaw', 'description' => 'Cake.' ) ), MANAGER, 'manager' );
+		WPCPM_Sponsor_Event::approve( $id, MANAGER );
+		foreach ( array( JOINER, MANAGER_TWO ) as $person ) {
+			add_post_meta( $id, '_wpcpm_sevent_person', $person );
+		}
+		return $id;
+	}
+);
+$pc_a2   = attempt(
+	static function () {
+		$id = WPCPM_Sponsor_Event::plan( PARTS_B, event_fields( utc( '2026-12-12 10:00' ), array( 'title' => 'Parts lapsed', 'places' => 10, 'link' => 'https://meet.example/a2', 'zone' => 'Europe/Warsaw', 'description' => 'Still on.' ) ), MANAGER, 'manager' );
+		WPCPM_Sponsor_Event::approve( $id, MANAGER );
+		return $id;
+	}
+);
+$pc_pp   = attempt( static function () { return WPCPM_Sponsor_Event::plan_program( event_fields( utc( '2026-12-14 10:00' ), array( 'title' => 'Parts program session', 'places' => 0, 'link' => 'https://meet.example/pp', 'zone' => 'Europe/Warsaw', 'description' => 'The program\'s own.' ) ), MANAGER ); } );
+$GLOBALS['index'][ PAUSED ]['status']  = 'Paused';
+$GLOBALS['index'][ PARTS_B ]['status'] = 'Paused';
+
+/**
+ * The card as one manager sees it on the next page: as it ships (''), with the Administrator Dashboard's switch on and
+ * no surface named ('unnamed'), or with the switch on and a surface named. The dashboard takes its own channel at the
+ * top of the page, before any card.
+ *
+ * @param int    $uid     Who looks.
+ * @param string $surface '', 'unnamed', or the surface drawing.
+ * @return string
+ */
+function pc_card( $uid, $surface = '' ) {
+	$GLOBALS['uid'] = (int) $uid;
+	WPCPM_Flash::new_request();
+	WPCPM_Flash::take( WPCPM_Institutions::FLASH );
+	if ( '' !== $surface ) {
+		WPCPM_UI::set_live( array( 'administrator' ) );
+	}
+	if ( '' !== $surface && 'unnamed' !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Sponsor_Event_Queue::render( WPCPM_Sponsor_Event_Queue::data() );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( 'administrator' === $surface ) {
+			parts_inventory_add( $html );
+		}
+		if ( '' !== $surface && 'unnamed' !== $surface ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+		$GLOBALS['uid'] = MANAGER;
+	}
+	return $html;
+}
+
+/** A refused note, as the first manager presses it on the card: `handle_return` or `handle_cancel`. */
+function pc_refuse( $method, $id, $note ) {
+	return press( $method, decision( $id, $note ), MANAGER );
+}
+
+// The states an event can be drawn in. The card is drawn on the parts alone since its old branch left (Task 18b), and
+// its off digests with it.
+$pc_lossy = 'Ages 8 <12 welcome, adults >18 pay';
+$pc_long  = str_repeat( 'n', WPCPM_Sponsor_Event::MAX_NOTE + 1 );
+$pc_cases = array(
+	'clean, a manager not on the approved event'   => array( MANAGER, null ),
+	'clean, a manager on the approved event'       => array( MANAGER_TWO, null ),
+	'a return refused for its words, kept'         => array( MANAGER, static function () use ( $pc_w1, $pc_lossy ) { pc_refuse( 'handle_return', $pc_w1, $pc_lossy ); } ),
+	'a return refused for its length, kept'        => array( MANAGER, static function () use ( $pc_wp, $pc_long ) { pc_refuse( 'handle_return', $pc_wp, $pc_long ); } ),
+	'a cancel refused for its length, kept'        => array( MANAGER, static function () use ( $pc_a1, $pc_long ) { pc_refuse( 'handle_cancel', $pc_a1, $pc_long ); } ),
+	'a blank note refused, nothing kept'           => array( MANAGER, static function () use ( $pc_w2 ) { pc_refuse( 'handle_return', $pc_w2, " \n " ); } ),
+	'the program\'s change refused, kept'         => array( MANAGER, static function () use ( $pc_pp ) { press( 'handle_program_change', array_merge( decision( $pc_pp ), program_form( array( 'wpcpm_sevent_title' => '' ) ) ), MANAGER ); } ),
+	'the program\'s plan refused, kept'           => array( MANAGER, static function () { press( 'handle_program_plan', program_form( array( 'wpcpm_sevent_minutes' => '0' ) ), MANAGER ); } ),
+);
+$pc_empty = static function ( $surface ) {
+	WPCPM_Flash::new_request();
+	if ( '' !== $surface ) {
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Sponsor_Event_Queue::render( array( 'waiting' => array(), 'upcoming' => array() ) );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+			WPCPM_UI::set_live( null );
+		}
+	}
+	return $html;
+};
+
+
+/**
+ * A render read as a document.
+ *
+ * @param string $html Markup.
+ * @return DOMXPath
+ */
+function pc_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * Every form a render holds, by the admin-post action it posts and the event it names: how it posts, its guard and
+ * busy words, its hidden fields as `name=value` in the order a browser posts them (the nonce among them), every box it
+ * posts with its bounds, its submits and the question it asks.
+ *
+ * @param string $html Markup.
+ * @return array<string, array[]>
+ */
+function pc_posted( $html ) {
+	$x   = pc_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		$event  = '';
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+			if ( 'wpcpm_sevent_id' === $input->getAttribute( 'name' ) ) {
+				$event = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea|.//select|.//input[not(@type="hidden")]', $form ) as $box ) {
+			// Task 13e: the id, the step, the pattern, the rows and the value too, now that the planner's rows move; a text
+			// area's value after the one line feed a browser drops right after its opening tag.
+			$value   = 'textarea' === $box->nodeName ? preg_replace( '/^\n/', '', $box->textContent ) : $box->getAttribute( 'value' );
+			$boxes[] = $box->nodeName . ' ' . $box->getAttribute( 'type' ) . ' ' . $box->getAttribute( 'name' ) . ' id=' . $box->getAttribute( 'id' ) . ' min=' . $box->getAttribute( 'min' ) . ' max=' . $box->getAttribute( 'max' ) . ' step=' . $box->getAttribute( 'step' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ' pattern=' . $box->getAttribute( 'pattern' ) . ' rows=' . $box->getAttribute( 'rows' ) . ( $box->hasAttribute( 'required' ) ? ' required' : '' ) . ' value=' . json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		}
+		$submits = array();
+		$asks    = '';
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			$asks      = '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ? $button->getAttribute( 'data-wpcpm-confirm' ) : $asks;
+		}
+		$out[ $action . ':' . $event ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ) . ' ' . $form->getAttribute( 'enctype' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * The kinds and words of the buttons a path holds, in order: `kind: words`, a screen reader's words left out.
+ *
+ * @param DOMXPath $x    The document.
+ * @param string   $path Where to look.
+ * @return string[]
+ */
+function pc_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : ( false !== strpos( $class, ' wpcpm-btn ' ) ? 'primary' : 'old' ) ) );
+		$words = '';
+		foreach ( $button->childNodes as $child ) {
+			$words .= $child instanceof DOMText ? $child->textContent : '';
+		}
+		$out[] = $kind . ': ' . trim( $words );
+	}
+	return $out;
+}
+
+/** Whether no id repeats, and every aria-controls, for and aria-describedby that names no element in the document. */
+function pc_ids( DOMXPath $x ) {
+	$ids   = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@id]' ) ) );
+	$loose = array();
+	foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+		foreach ( $x->query( '//*[@' . $attr . ']' ) as $node ) {
+			if ( ! in_array( $node->getAttribute( $attr ), $ids, true ) ) {
+				$loose[] = $attr . '=' . $node->getAttribute( $attr );
+			}
+		}
+	}
+	foreach ( $x->query( '//*[@aria-describedby]' ) as $node ) {
+		foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+			if ( ! in_array( $described, $ids, true ) ) {
+				$loose[] = 'aria-describedby=' . $described;
+			}
+		}
+	}
+	return array( count( $ids ) === count( array_unique( $ids ) ), array_values( array_diff( $ids, array_unique( $ids ) ) ), $loose );
+}
+
+/** The parts drawn outside the switch's root, as bin/test-administrators-dashboard.php's `parts_outside_switch()` reads them, and how many parts in all. */
+function pc_outside( $html ) {
+	$x       = pc_doc( $html );
+	$outside = array();
+	$all     = 0;
+	foreach ( $x->query( '//*[@class]' ) as $node ) {
+		$classes = preg_split( '/\s+/', trim( (string) $node->getAttribute( 'class' ) ) );
+		$part    = array_filter( $classes, static function ( $c ) { return 'wpcpm-ui-on' !== $c && 1 === preg_match( '/^wpcpm-(ui-|btn$|btn--|status$|status--)/', $c ); } );
+		if ( empty( $part ) ) {
+			continue;
+		}
+		++$all;
+		$inside = false;
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			if ( in_array( 'wpcpm-ui-on', preg_split( '/\s+/', (string) $up->getAttribute( 'class' ) ), true ) ) {
+				$inside = true;
+				break;
+			}
+		}
+		if ( ! $inside ) {
+			$outside[] = $node->nodeName . '.' . implode( '.', $part );
+		}
+	}
+	return array( array_values( array_unique( $outside ) ), $all );
+}
+
+/** One event's row as the card reads it, as the first manager. */
+function pc_row( $id ) {
+	foreach ( array_merge( WPCPM_Sponsor_Event_Queue::data()['waiting'], WPCPM_Sponsor_Event_Queue::data()['upcoming'] ) as $row ) {
+		if ( (int) $row['id'] === (int) $id ) {
+			return $row;
+		}
+	}
+	return array();
+}
+
+/**
+ * An event's item header as the parts print it: its title, then its sponsor, when, and the other facts given, and the
+ * call link last, each a muted fact.
+ *
+ * @param int      $id    The event.
+ * @param string[] $words The facts between the time and the call link.
+ * @return string
+ */
+function pc_header( $id, array $words, $tag = '' ) {
+	$row   = pc_row( $id );
+	$facts = array_merge( array( esc_html( $row['sponsor_name'] ?? '' ), esc_html( WPCPM_Sponsor_Event_Queue::time_fact( $row ) ) ), $words );
+	if ( '' !== (string) ( $row['link'] ?? '' ) ) {
+		$facts[] = 'Call link: <a href="' . esc_url( $row['link'] ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $row['link'] ) . '</a>';
+	}
+	$run = '';
+	foreach ( $facts as $fact ) {
+		$run .= '<span class="wpcpm-ui-item__fact">' . $fact . '</span>';
+	}
+	return '<h4 class="wpcpm-ui-item__title">' . esc_html( $row['title'] ?? '' ) . '</h4><p class="wpcpm-ui-item__facts">' . ( '' !== $tag ? '<span class="wpcpm-status">' . esc_html( $tag ) . '</span>' : '' ) . '<span class="wpcpm-ui-item__run">' . $run . '</span></p>';
+}
+
+/** The article of one event in a render, after its opening tag, or ''. */
+function pc_item( $html, $id ) {
+	return preg_match( '#<article class="wpcpm-sponsor-event wpcpm-ui-item" id="wpcpm-sponsor-event-' . (int) $id . '">(.*?)</article>#s', (string) $html, $found ) ? $found[1] : '';
+}
+
+$pc_on    = pc_card( MANAGER, 'administrator' );
+$pc_on2   = pc_card( MANAGER_TWO, 'administrator' );
+$pc_x     = pc_doc( $pc_on );
+$pc_ids   = array( $pc_w1, $pc_w2, $pc_wp, $pc_a1, $pc_a2, $pc_pp );
+$pc_area  = static function ( $id ) { return '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-event-' . $id . '"]'; };
+$pc_panel = static function ( $id, $key ) { return '//div[@id="wpcpm-decide-event-' . $id . '-' . $key . '-panel"]'; };
+
+// Check 1: posted fields, in every state. The old card left with its branch (Task 18b), so what every form posts is
+// pinned to what the old card's forms posted, read at 76b5ecff, where this check compared the two: in each state, the
+// digest of `pc_posted()` (every form's address, guard and busy words, hidden fields in order with the nonce keyed to
+// the event and its referer, boxes and bounds, questions), as that commit's old card gave it, and the count of forms.
+// Nothing in it moves with the day: the suite's clock is fixed (`$GLOBALS['now']`), and so is every event's moment.
+$GLOBALS['faithful_nonces'] = true;
+$pc_compare = array();
+foreach ( $pc_cases as $pc_name => $pc_case ) {
+	if ( $pc_case[1] ) {
+		$pc_case[1]();
+	}
+	$pc_new                  = pc_card( $pc_case[0], 'administrator' );
+	$pc_compare[ $pc_name ] = array( md5( var_export( pc_posted( $pc_new ), true ) ), count( pc_posted( $pc_new ) ) );
+}
+$pc_new_clean = pc_card( MANAGER, 'administrator' );
+unset( $GLOBALS['faithful_nonces'] );
+ck(
+	'on, every form on the card posts exactly what the handlers read, in every state an event is drawn in: the same address, guard and busy words, the hidden fields in order with the nonce keyed to the event and its referer, the same boxes and bounds, the same questions (posted fields)',
+	$pc_compare,
+	array(
+		// Twelve forms: two waiting events' Approve and Return, Return on the third, Join and Cancel on the first approved,
+		// Cancel on the second (nothing to join: its sponsor no longer offers events), Join, Change and Cancel on the
+		// program's own, and the program's plan; for the manager on the first approved event, Leave in place of Join.
+		'clean, a manager not on the approved event' => array( '5f0f5d52e5eb118876be54d6d042118f', 12 ),
+		'clean, a manager on the approved event'     => array( 'b53cf372a6d299546b1618ed9d40270e', 12 ),
+		'a return refused for its words, kept'       => array( '115d9fda86cec8bffb7f96b197cac019', 12 ),
+		'a return refused for its length, kept'      => array( '6ff9ba6a8f97125ea03452f53f1f7225', 12 ),
+		'a cancel refused for its length, kept'      => array( 'acc8529e8e096de7bc5a88718fde8452', 12 ),
+		'a blank note refused, nothing kept'         => array( '5f0f5d52e5eb118876be54d6d042118f', 12 ),
+		'the program\'s change refused, kept'        => array( 'd10cbde5716f5340bf1bfaa1919e8953', 12 ),
+		'the program\'s plan refused, kept'          => array( '20a2f7f03405d6f37694eeadc4224fe7', 12 ),
+	)
+);
+ck(
+	'and what it posts is what the handlers read: each decision names its event and its way back to this card, the notes their box, required and bounded',
+	static function () use ( $pc_new_clean, $pc_w1, $pc_a1, $pc_pp ) {
+		$old = pc_posted( $pc_new_clean );
+		return array(
+			$old[ 'wpcpm_sevent_approve:' . $pc_w1 ][0]['hidden'] ?? null,
+			$old[ 'wpcpm_sevent_return:' . $pc_w1 ][0]['boxes'] ?? null,
+			$old[ 'wpcpm_sevent_manager_cancel:' . $pc_a1 ][0]['asks'] ?? null,
+			$old[ 'wpcpm_sevent_program_cancel:' . $pc_pp ][0]['asks'] ?? null,
+			$old[ 'wpcpm_sevent_return:' . $pc_w1 ][0]['guard'] ?? null,
+		);
+	},
+	array(
+		array( '_wpnonce=nonce-wpcpm_sevent_approve_' . $pc_w1, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_sevent_approve', 'wpcpm_sevent_id=' . $pc_w1, 'wpcpm_return=dashboard', 'wpcpm_return_to=sponsor-events' ),
+		array( 'textarea  wpcpm_sevent_note id=wpcpm-sevent-return-' . $pc_w1 . ' min= max= step= maxlength=2000 pattern= rows=2 required value=""' ),
+		'Cancel this event for everyone? This cannot be undone.',
+		'Cancel this event for everyone? This cannot be undone.',
+		'once Returning',
+	)
+);
+
+// The card's parts.
+ck(
+	'on, each event keeps its article and its anchor, the one the Sponsors screen\'s queue tab links to, waiting ones first, one item after the next with no heading between (design 2.10: the group is each event\'s tag; Task 18d); each empty group its sentence as the card\'s muted line; the plan\'s heading is its fold\'s title, with no heading over it (task V1, ruling 9)',
+	static function () use ( $pc_on, $pc_ids, $pc_empty, $pc_wp, $pc_a1 ) {
+		preg_match_all( '#<article class="wpcpm-sponsor-event wpcpm-ui-item" id="wpcpm-sponsor-event-(\d+)">#', $pc_on, $found );
+		$empty = $pc_empty( 'administrator' );
+		return array(
+			array_map( 'intval', $found[1] ) === $pc_ids,
+			substr_count( $pc_on, '<h4 class="wpcpm-ui-h">' ),
+			false !== strpos( $pc_on, '</article><article class="wpcpm-sponsor-event wpcpm-ui-item" id="wpcpm-sponsor-event-' . $pc_a1 . '">' ) && false !== strpos( $pc_on, 'id="wpcpm-sponsor-event-' . $pc_wp . '">' ),
+			0 === strpos( $pc_on, '<article ' ),
+			substr_count( $pc_on, '<h4 class="wpcpm-ui-h">Plan an event of the program&#039;s</h4>' ) . ' ' . substr_count( $pc_on, '<span class="wpcpm-ui-fold__title">Plan an event of the program&#039;s</span>' ),
+			// The parts' muted line since Task 13e, as the cards class's own empty line prints.
+			0 === strpos( $empty, '<p class="wpcpm-ui-list__empty">Nothing is waiting for the program&#039;s OK.</p><p class="wpcpm-ui-list__empty">No event is coming up.</p>' ),
+		);
+	},
+	array( true, 0, true, true, '0 1', true )
+);
+ck(
+	'each event opens with the item header: its title, not a link as today, then its group\'s words as its neutral tag ("Waiting for the program\'s OK" or "Coming up", Task 18d), then its sponsor, when on the manager\'s clock, its places, how many joined once approved, today\'s "You are on it." for a manager on it, "No longer offered" for a sponsor that no longer offers events, and the call link last, as muted facts',
+	static function () use ( $pc_on, $pc_on2, $pc_w1, $pc_w2, $pc_wp, $pc_a1, $pc_a2, $pc_pp ) {
+		$wait = 'Waiting for the program\'s OK';
+		return array(
+			0 === strpos( pc_item( $pc_on, $pc_w1 ), pc_header( $pc_w1, array( 'Open to everyone' ), $wait ) ),
+			0 === strpos( pc_item( $pc_on, $pc_w2 ), pc_header( $pc_w2, array( '25 places' ), $wait ) ),
+			0 === strpos( pc_item( $pc_on, $pc_wp ), pc_header( $pc_wp, array( '12 places', 'No longer offered' ), $wait ) ),
+			0 === strpos( pc_item( $pc_on, $pc_a1 ), pc_header( $pc_a1, array( '30 places', '2 people have joined' ), 'Coming up' ) ),
+			0 === strpos( pc_item( $pc_on2, $pc_a1 ), pc_header( $pc_a1, array( '30 places', '2 people have joined', 'You are on it.' ), 'Coming up' ) ),
+			0 === strpos( pc_item( $pc_on, $pc_a2 ), pc_header( $pc_a2, array( '10 places', 'Nobody has joined yet', 'No longer offered' ), 'Coming up' ) ),
+			0 === strpos( pc_item( $pc_on, $pc_pp ), pc_header( $pc_pp, array( 'Open to everyone', 'Nobody has joined yet' ), 'Coming up' ) ),
+			substr_count( $pc_on, '<span class="wpcpm-status">' ),
+			substr_count( $pc_on, 'wpcpm-status--' ),
+		);
+	},
+	array( true, true, true, true, true, true, true, 6, 0 )
+);
+ck(
+	'a long description is folded under "Read the description" as an inner fold, a short one shown as it is, both escaped; who joined an approved event is folded under "Who joined" as an inner fold, the list as today',
+	static function () use ( $pc_on, $pc_w1, $pc_w2, $pc_a1 ) {
+		return array(
+			mb_strlen( pc_row( $pc_w1 )['description'] ) > WPCPM_Sponsor_Event_Queue::DESCRIPTION_SHOWN,
+			false !== strpos( pc_item( $pc_on, $pc_w1 ), '</span></span></p>' . WPCPM_UI::inner_open( array( 'title' => 'Read the description' ) ) . '<p class="wpcpm-ui-note">' . esc_html( pc_row( $pc_w1 )['description'] ) . '</p>' . WPCPM_UI::inner_close() ),
+			false !== strpos( pc_item( $pc_on, $pc_w2 ), '</span></span></p><p class="wpcpm-ui-note">' . esc_html( pc_row( $pc_w2 )['description'] ) . '</p>' ),
+			false !== strpos( pc_item( $pc_on, $pc_a1 ), WPCPM_UI::inner_open( array( 'title' => 'Who joined' ) ) . '<ul class="wpcpm-ui-list wpcpm-ui-list--under"><li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">Mo Manager</span><span class="wpcpm-ui-list__facts"></span></div></li><li class="wpcpm-ui-list__row"><div class="wpcpm-ui-list__line"><span class="wpcpm-ui-list__name">Zelda Privacywalk</span><span class="wpcpm-ui-list__facts"></span></div></li></ul>' . WPCPM_UI::inner_close() ),
+			substr_count( $pc_on, '<details' ) === substr_count( $pc_on, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner"' ),
+		);
+	},
+	array( true, true, true, true, true )
+);
+ck(
+	'on an approved event, the manager\'s own Join, the secondary (task V1, ruling 9), or Leave, red, asking today\'s question, is a decision at once in the event\'s one Decide area (Task 18d), nothing alone on a line between the event\'s text and the row; one Decide area per event, id wpcpm-decide-event-{ID}, headed "Decide" under the item\'s heading',
+	static function () use ( $pc_on, $pc_on2, $pc_x, $pc_ids, $pc_area, $pc_a1, $pc_pp, $pc_w1 ) {
+		$areas = array();
+		foreach ( $pc_ids as $id ) {
+			$areas[] = $pc_x->query( $pc_area( $id ) )->length . ' ' . trim( (string) $pc_x->evaluate( 'string(' . $pc_area( $id ) . '/h5[@class="wpcpm-ui-h"])' ) );
+		}
+		return array(
+			$areas,
+			$pc_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+			1 === preg_match( '#<div class="wpcpm-ui-decide" id="wpcpm-decide-event-' . $pc_a1 . '"><h5 class="wpcpm-ui-h">Decide</h5><div class="wpcpm-ui-actions"><form method="post" action="[^"]*" data-wpcpm-once data-wpcpm-busy="Joining">(?:(?!</form>).)*<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Join<span class="screen-reader-text"> [^<]*</span></button></form><button [^>]*>Cancel with a note<span class="screen-reader-text"> [^<]*</span></button></div>#s', pc_item( $pc_on, $pc_a1 ) ),
+			1 === preg_match( '#<div class="wpcpm-ui-decide" id="wpcpm-decide-event-' . $pc_a1 . '"><h5 class="wpcpm-ui-h">Decide</h5><div class="wpcpm-ui-actions"><form method="post" action="[^"]*" data-wpcpm-once data-wpcpm-busy="Leaving">(?:(?!</form>).)*<button type="submit" class="wpcpm-btn wpcpm-btn--danger" data-wpcpm-confirm="Leave this event\? Your place goes back.">Leave<span class="screen-reader-text"> [^<]*</span></button></form><button [^>]*>Cancel with a note<span #s', pc_item( $pc_on2, $pc_a1 ) ),
+			false !== strpos( pc_item( $pc_on, $pc_pp ), '>Join<span' ),
+			strpos( pc_item( $pc_on, $pc_w1 ), 'wpcpm_sevent_join' ),
+			// Nothing of the press is left between the event's text and its row: no action row, no line of its own.
+			strpos( $pc_on . $pc_on2, '</ul></div></details><div class="wpcpm-ui-actions">' ),
+			strpos( $pc_on . $pc_on2, '<p class="wpcpm-ui-intro">You are on it.</p>' ),
+			substr_count( pc_item( $pc_on, $pc_a1 ), '<div class="wpcpm-ui-actions">' ) - substr_count( pc_item( $pc_on, $pc_a1 ), '<div class="wpcpm-ui-panel"' ),
+		);
+	},
+	array( array( '1 Decide', '1 Decide', '1 Decide', '1 Decide', '1 Decide', '1 Decide' ), 6, true, true, true, false, false, false, 1 )
+);
+ck(
+	'each area\'s row, in today\'s words: Approve, the one primary, at once, and Return with a note, a secondary opener; Return alone where the sponsor no longer offers events; Cancel with a note, red, an opener; for the program\'s own, Change the event, a secondary opener, and Cancel the event, red, an opener of its own panel (fix round 1), the one form in its row Join\'s (design 2.6, 5; Task 18d)',
+	static function () use ( $pc_x, $pc_ids, $pc_area, $pc_pp ) {
+		$out = array();
+		foreach ( $pc_ids as $id ) {
+			$out[] = pc_buttons( $pc_x, $pc_area( $id ) . '/div[@class="wpcpm-ui-actions"]//button' );
+		}
+		$out[] = $pc_x->query( $pc_area( $pc_pp ) . '/div[@class="wpcpm-ui-actions"]/form' )->length;
+		$out[] = $pc_x->query( '//*[@data-wpcpm-open]' )->length;
+		return $out;
+	},
+	array(
+		array( 'primary: Approve', 'secondary: Return with a note' ),
+		array( 'primary: Approve', 'secondary: Return with a note' ),
+		array( 'secondary: Return with a note' ),
+		// Task 18d: the manager's own Join joins the row of an approved event, after the other secondary decisions and
+		// before the red ones; none where the sponsor no longer offers events.
+		array( 'secondary: Join', 'danger: Cancel with a note' ),
+		array( 'danger: Cancel with a note' ),
+		array( 'secondary: Change the event', 'secondary: Join', 'danger: Cancel the event' ),
+		1,
+		0,
+	)
+);
+ck(
+	'the return panels: today\'s label for the box, "A note for the sponsor", made visible with Required; today\'s sentence as the hint, the one that promises a new plan only where the sponsor still offers events; the button that keeps "Return it with this note", and Cancel',
+	static function () use ( $pc_x, $pc_panel, $pc_w1, $pc_wp ) {
+		$out = array();
+		foreach ( array( $pc_w1, $pc_wp ) as $id ) {
+			$out[] = array(
+				trim( (string) $pc_x->evaluate( 'string(' . $pc_panel( $id, 'return' ) . '//label[@for="wpcpm-sevent-return-' . $id . '"])' ) ),
+				trim( (string) $pc_x->evaluate( 'string(//p[@id="wpcpm-sevent-return-' . $id . '-hint"])' ) ),
+				pc_buttons( $pc_x, $pc_panel( $id, 'return' ) . '//button' ),
+			);
+		}
+		return $out;
+	},
+	array(
+		array( 'A note for the sponsor Required', 'The event is canceled and goes back to the sponsor, and your note is emailed to the sponsor\'s members, who can plan again.', array( 'secondary: Return it with this note', 'quiet: Cancel' ) ),
+		array( 'A note for the sponsor Required', 'The event is canceled, and your note is emailed to the sponsor\'s members. The sponsor no longer holds the tier that includes events.', array( 'secondary: Return it with this note', 'quiet: Cancel' ) ),
+	)
+);
+ck(
+	'the cancel panel: the same label, today\'s sentence as the hint, "Cancel with this note", red, asking today\'s question before it posts, and "Keep the event" to dismiss it (fix round 1)',
+	static function () use ( $pc_x, $pc_panel, $pc_a1 ) {
+		return array(
+			trim( (string) $pc_x->evaluate( 'string(' . $pc_panel( $pc_a1, 'cancel' ) . '//label[@for="wpcpm-sevent-cancel-' . $pc_a1 . '"])' ) ),
+			trim( (string) $pc_x->evaluate( 'string(//p[@id="wpcpm-sevent-cancel-' . $pc_a1 . '-hint"])' ) ),
+			pc_buttons( $pc_x, $pc_panel( $pc_a1, 'cancel' ) . '//button' ),
+			$pc_x->evaluate( 'string(' . $pc_panel( $pc_a1, 'cancel' ) . '//button[@type="submit"]/@data-wpcpm-confirm)' ),
+		);
+	},
+	array( 'A note for the sponsor Required', 'The event is canceled for everyone: your note is emailed to the sponsor\'s members, and everyone who joined is told.', array( 'danger: Cancel with this note', 'quiet: Keep the event' ), 'Cancel this event for everyone? This cannot be undone.' )
+);
+ck(
+	'each note box keeps its name, its id (wpcpm-sevent-{return|cancel}-{ID}, unique per event already), its two rows, its bound and its placeholder, required, tied to its hint, empty',
+	static function () use ( $pc_x ) {
+		return array_map(
+			static function ( $box ) {
+				return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . ( $box->hasAttribute( 'required' ) ? 'required' : '' ) . ' ' . $box->getAttribute( 'placeholder' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . json_encode( $box->textContent );
+			},
+			iterator_to_array( $pc_x->query( '//textarea[@name="wpcpm_sevent_note"]' ) )
+		);
+	},
+	array(
+		'wpcpm-sevent-return-' . $pc_w1 . ' wpcpm_sevent_note 2 2000 required What should change before it can be approved wpcpm-sevent-return-' . $pc_w1 . '-hint "\n"',
+		'wpcpm-sevent-return-' . $pc_w2 . ' wpcpm_sevent_note 2 2000 required What should change before it can be approved wpcpm-sevent-return-' . $pc_w2 . '-hint "\n"',
+		'wpcpm-sevent-return-' . $pc_wp . ' wpcpm_sevent_note 2 2000 required What should change before it can be approved wpcpm-sevent-return-' . $pc_wp . '-hint "\n"',
+		'wpcpm-sevent-cancel-' . $pc_a1 . ' wpcpm_sevent_note 2 2000 required Why the event is canceled wpcpm-sevent-cancel-' . $pc_a1 . '-hint "\n"',
+		'wpcpm-sevent-cancel-' . $pc_a2 . ' wpcpm_sevent_note 2 2000 required Why the event is canceled wpcpm-sevent-cancel-' . $pc_a2 . '-hint "\n"',
+	)
+);
+ck(
+	'the program\'s Change the event: its panel holds today\'s sentence as the line over the form, the planner\'s rows filled from the event, and "Save the changes", then Cancel',
+	static function () use ( $pc_x, $pc_panel, $pc_pp ) {
+		return array(
+			trim( (string) $pc_x->evaluate( 'string(' . $pc_panel( $pc_pp, 'change' ) . '//p[@class="wpcpm-ui-intro"])' ) ),
+			$pc_x->evaluate( 'string(' . $pc_panel( $pc_pp, 'change' ) . '//input[@name="wpcpm_sevent_title"]/@value)' ),
+			pc_buttons( $pc_x, $pc_panel( $pc_pp, 'change' ) . '//button' ),
+		);
+	},
+	array( 'Everyone who joined is told of a new time, length, title or call link, with the calendar file that brings theirs up to date.', 'Parts program session', array( 'secondary: Save the changes', 'quiet: Cancel' ) )
+);
+ck(
+	'the program\'s plan, after the events: one inner fold titled with today\'s heading, "Plan an event of the program\'s" (task V1, ruling 9), folded, holding today\'s sentence over the planner\'s form and "Plan the event", the one primary of its form',
+	static function () use ( $pc_on ) {
+		$x    = pc_doc( $pc_on );
+		$fold = '//details[@class="wpcpm-ui-fold wpcpm-ui-fold--inner"][.//span[@class="wpcpm-ui-fold__title"][normalize-space(.)="Plan an event of the program\'s"]]';
+		return array(
+			$x->query( $fold )->length,
+			$x->query( $fold . '[@open]' )->length,
+			trim( (string) $x->evaluate( 'string(' . $fold . '//p[@class="wpcpm-ui-intro"])' ) ),
+			pc_buttons( $x, $fold . '//button' ),
+			$x->query( $fold . '//form//input[@name="wpcpm_sevent_title"]' )->length,
+		);
+	},
+	array( 1, 0, 'An event of the WordPress Credits Program\'s own, with no sponsor: it is approved as you plan it, and the program\'s students, mentors, Administrators and institution contacts can join it at once, as they join a sponsor\'s.', array( 'primary: Plan the event' ), 1 )
+);
+ck(
+	'one primary in each area at most, red only on what cancels, and nothing of today\'s markup left on the card: no WordPress button, no fold of today\'s, no class of today\'s heading, facts or decisions',
+	static function () use ( $pc_on, $pc_on2, $pc_x, $pc_ids, $pc_area ) {
+		$primaries = array();
+		$red       = array();
+		foreach ( $pc_ids as $id ) {
+			$all         = pc_buttons( $pc_x, $pc_area( $id ) . '//button' );
+			$primaries[] = count( array_filter( $all, static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) );
+			$red         = array_merge( $red, array_values( array_filter( $all, static function ( $b ) { return 0 === strpos( $b, 'danger: ' ); } ) ) );
+		}
+		return array(
+			$primaries,
+			array_values( array_unique( $red ) ),
+			strpos( $pc_on, 'class="button' ),
+			strpos( $pc_on, 'wpcpm-button' ),
+			strpos( $pc_on, 'wpcpm-sponsor-post__' ),
+			strpos( $pc_on, 'wpcpm-request__decide' ),
+			strpos( $pc_on, 'wpcpm-administrator__item-title' ),
+			strpos( $pc_on, 'wpcpm-administrator__kind' ),
+			strpos( $pc_on, 'wpcpm-administrator__fact' ),
+			strpos( $pc_on, 'wpcpm-administrator__subtitle' ),
+			strpos( $pc_on, 'wpcpm-administrator__details' ),
+			strpos( $pc_on . $pc_on2, 'wpcpm-sevent__actions' ),
+			strpos( $pc_on . $pc_on2, 'wpcpm-sevent__joined' ),
+			strpos( $pc_on, 'class=""' ),
+		);
+	},
+	array( array( 1, 1, 0, 0, 0, 0 ), array( 'danger: Cancel with a note', 'danger: Cancel with this note', 'danger: Cancel the event' ), false, false, false, false, false, false, false, false, false, false, false, false )
+);
+
+// Check 2: six events on one card.
+ck(
+	'six events on one card: no id repeats, every aria-controls, for and aria-describedby names an element on the page, each opener controls its own event\'s panel, and no nonce has an id',
+	static function () use ( $pc_x, $pc_on ) {
+		return array(
+			pc_ids( $pc_x ),
+			array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $pc_x->query( '//button[@aria-controls]' ) ) ),
+			$pc_x->query( '//input[@name="_wpnonce"][@id]' )->length,
+		);
+	},
+	array(
+		array( true, array(), array() ),
+		array(
+			'wpcpm-decide-event-' . $pc_w1 . '-return-panel',
+			'wpcpm-decide-event-' . $pc_w2 . '-return-panel',
+			'wpcpm-decide-event-' . $pc_wp . '-return-panel',
+			'wpcpm-decide-event-' . $pc_a1 . '-cancel-panel',
+			'wpcpm-decide-event-' . $pc_a2 . '-cancel-panel',
+			'wpcpm-decide-event-' . $pc_pp . '-change-panel',
+			'wpcpm-decide-event-' . $pc_pp . '-cancel-panel',
+		),
+		0,
+	)
+);
+
+// Check 3: a refused or a kept note, on this suite's flash, which memoizes what a request took as the real one does.
+$pc_tie = static function ( $html ) {
+	$x     = pc_doc( $html );
+	$boxes = array();
+	foreach ( $x->query( '//textarea[@name="wpcpm_sevent_note"]' ) as $box ) {
+		$id   = $box->getAttribute( 'id' );
+		$said = $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 );
+		if ( $box->hasAttribute( 'aria-invalid' ) || "\n" !== $box->textContent ) {
+			$boxes[ $id ] = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' ) . ' | ' . ( $said ? trim( $said->textContent ) : '' ) . ' | ' . ( mb_strlen( $box->textContent ) > 80 ? '[' . mb_strlen( $box->textContent ) . ' characters]' : $box->textContent );
+		}
+	}
+	return array(
+		'open'  => array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'boxes' => $boxes,
+	);
+};
+$pc_said = static function ( $status ) {
+	return (string) WPCPM_Sponsor_Event_Queue::messages()[ $status ][1];
+};
+$pc_tied = static function ( $id, $status, $typing ) use ( $pc_said ) {
+	return 'invalid ' . WPCPM_Form_Errors::problem_id( $id ) . ' ' . $id . '-hint | ' . $pc_said( $status ) . ' | ' . $typing;
+};
+ck(
+	'a return refused for its words: that event\'s Return panel is printed open, its opener expanded, the typing kept as typed, the box marked invalid and tied to the refusal sentence before its hint; nothing else open or marked',
+	static function () use ( $pc_cases, $pc_tie, $pc_tied, $pc_w1, $pc_lossy ) {
+		$pc_cases['a return refused for its words, kept'][1]();
+		$html = pc_card( MANAGER, 'administrator' );
+		return array( $pc_tie( $html ), pc_doc( $html )->evaluate( 'string(//button[@aria-expanded="true"]/@aria-controls)' ) );
+	},
+	array(
+		array(
+			'open'  => array( 'wpcpm-decide-event-' . $pc_w1 . '-return-panel' ),
+			'boxes' => array( 'wpcpm-sevent-return-' . $pc_w1 => $pc_tied( 'wpcpm-sevent-return-' . $pc_w1, 'sevent-return-note-loss', "\n" . $pc_lossy ) ),
+		),
+		'wpcpm-decide-event-' . $pc_w1 . '-return-panel',
+	)
+);
+ck(
+	'a return refused for its length on the event whose sponsor no longer offers events: the same, tied to the length\'s sentence',
+	static function () use ( $pc_cases, $pc_tie ) {
+		$pc_cases['a return refused for its length, kept'][1]();
+		return $pc_tie( pc_card( MANAGER, 'administrator' ) );
+	},
+	array(
+		'open'  => array( 'wpcpm-decide-event-' . $pc_wp . '-return-panel' ),
+		'boxes' => array( 'wpcpm-sevent-return-' . $pc_wp => $pc_tied( 'wpcpm-sevent-return-' . $pc_wp, 'sevent-note-long', '[' . ( WPCPM_Sponsor_Event::MAX_NOTE + 1 ) . ' characters]' ) ),
+	)
+);
+ck(
+	'a cancel refused for its length: that event\'s Cancel panel is printed open, the box tied to the sentence; the waiting events\' Return boxes, which read the same outcome, are neither opened nor marked',
+	static function () use ( $pc_cases, $pc_tie ) {
+		$pc_cases['a cancel refused for its length, kept'][1]();
+		return $pc_tie( pc_card( MANAGER, 'administrator' ) );
+	},
+	array(
+		'open'  => array( 'wpcpm-decide-event-' . $pc_a1 . '-cancel-panel' ),
+		'boxes' => array( 'wpcpm-sevent-cancel-' . $pc_a1 => $pc_tied( 'wpcpm-sevent-cancel-' . $pc_a1, 'sevent-note-long', '[' . ( WPCPM_Sponsor_Event::MAX_NOTE + 1 ) . ' characters]' ) ),
+	)
+);
+ck(
+	'a blank note refused keeps nothing: no panel is opened and no box is marked, as nothing tells which event it was for',
+	static function () use ( $pc_cases, $pc_tie ) {
+		$pc_cases['a blank note refused, nothing kept'][1]();
+		return $pc_tie( pc_card( MANAGER, 'administrator' ) );
+	},
+	array( 'open' => array(), 'boxes' => array() )
+);
+ck(
+	'the program\'s change refused: its Change panel is printed open with what was typed; the program\'s plan refused: its fold is drawn open; nothing else',
+	static function () use ( $pc_cases, $pc_pp ) {
+		$pc_cases['the program\'s change refused, kept'][1]();
+		$change = pc_doc( pc_card( MANAGER, 'administrator' ) );
+		$pc_cases['the program\'s plan refused, kept'][1]();
+		$plan = pc_doc( pc_card( MANAGER, 'administrator' ) );
+		return array(
+			array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $change->query( '//*[@data-wpcpm-open]' ) ) ),
+			$change->evaluate( 'string(//div[@id="wpcpm-decide-event-' . $pc_pp . '-change-panel"]//input[@name="wpcpm_sevent_title"]/@value)' ),
+			$change->query( '//details[@open]' )->length,
+			$plan->query( '//*[@data-wpcpm-open]' )->length,
+			$plan->query( '//details[@open]//span[@class="wpcpm-ui-fold__title"][normalize-space(.)="Plan an event of the program\'s"]' )->length,
+		);
+	},
+	array( array( 'wpcpm-decide-event-' . $pc_pp . '-change-panel' ), '', 0, 0, 1 )
+);
+ck(
+	'every part the card draws sits inside the switch\'s root, and none is drawn but inside one',
+	static function () use ( $pc_on, $pc_on2 ) {
+		list( $outside, $all ) = pc_outside( '<div class="wpcpm-dashboard wpcpm-ui-on">' . $pc_on . $pc_on2 . '</div>' );
+		list( $bare )          = pc_outside( $pc_on );
+		return array( $all > 0, $outside, count( $bare ) > 0 );
+	},
+	array( true, array(), true )
+);
+// Fix round 1, rulings 1 to 4.
+ck(
+	'every opener and every decision that acts at once names its event to a screen reader, as today\'s did; a panel\'s confirming and dismissing buttons do not; the plan names none (fix round 1, ruling 1)',
+	static function () use ( $pc_x, $pc_ids, $pc_area ) {
+		$out = array();
+		foreach ( $pc_ids as $id ) {
+			$title = (string) pc_row( $id )['title'];
+			$named = array();
+			foreach ( $pc_x->query( $pc_area( $id ) . '/div[@class="wpcpm-ui-actions"]//button' ) as $button ) {
+				$sr      = $pc_x->query( './span[@class="screen-reader-text"]', $button )->item( 0 );
+				$named[] = $sr ? ' ' . $title === $sr->textContent : 'none';
+			}
+			$out[ $id ] = array( $named, $pc_x->query( $pc_area( $id ) . '/div[@class="wpcpm-ui-panel"]//span[@class="screen-reader-text"]' )->length );
+		}
+		$plan    = '//details[.//span[@class="wpcpm-ui-fold__title"][normalize-space(.)="Plan an event of the program\'s"]]//button';
+		$out[]   = $pc_x->query( $plan . '/span[@class="screen-reader-text"]' )->length;
+		return $out;
+	},
+	array(
+		$pc_w1 => array( array( true, true ), 0 ),
+		$pc_w2 => array( array( true, true ), 0 ),
+		$pc_wp => array( array( true ), 0 ),
+		// Task 18d: Join is in the row of the approved event that offers one and of the program's own, named as the rest.
+		$pc_a1 => array( array( true, true ), 0 ),
+		$pc_a2 => array( array( true ), 0 ),
+		$pc_pp => array( array( true, true, true ), 0 ),
+		0,
+	)
+);
+ck(
+	'the panels\' dismissing buttons: "Keep the event" on the two that cancel an event, "Cancel" on every other (fix round 1, ruling 2)',
+	static function () use ( $pc_x ) {
+		$out = array();
+		foreach ( $pc_x->query( '//div[@data-wpcpm-panel]' ) as $panel ) {
+			$out[ preg_replace( '/^wpcpm-decide-event-\d+-/', '', $panel->getAttribute( 'id' ) ) ][] = trim( (string) $pc_x->evaluate( 'string(.//button[@data-wpcpm-cancel])', $panel ) );
+		}
+		return array_map( 'array_unique', $out );
+	},
+	array( 'return-panel' => array( 'Cancel' ), 'cancel-panel' => array( 'Keep the event' ), 'change-panel' => array( 'Cancel' ) )
+);
+ck(
+	'the program\'s Cancel the event opens its own panel first: today\'s sentence as the line over it, then "Cancel the event", red, asking today\'s question, then "Keep the event"; with no script the panel and its confirming button are on the page, its form posting (fix round 1, ruling 3)',
+	static function () use ( $pc_x, $pc_panel, $pc_pp ) {
+		$panel = $pc_panel( $pc_pp, 'cancel' );
+		return array(
+			$pc_x->query( $panel )->length,
+			$pc_x->query( $panel . '[@hidden]' )->length,
+			trim( (string) $pc_x->evaluate( 'string(' . $panel . '/form/p[@class="wpcpm-ui-intro"])' ) ),
+			pc_buttons( $pc_x, $panel . '//button' ),
+			$pc_x->evaluate( 'string(' . $panel . '/form//button[@type="submit"]/@data-wpcpm-confirm)' ),
+			$pc_x->query( $panel . '/form//button[@type="submit"][not(@hidden)]' )->length,
+			$pc_x->evaluate( 'string(' . $panel . '/form//input[@name="action"]/@value)' ),
+		);
+	},
+	array( 1, 0, 'The event is canceled for everyone, and everyone who joined is told, with the calendar file that takes it off their calendar.', array( 'danger: Cancel the event', 'quiet: Keep the event' ), 'Cancel this event for everyone? This cannot be undone.', 1, 'wpcpm_sevent_program_cancel' )
+);
+ck(
+	'no event on the card prints two primary buttons, in any of the eight states, for either manager (fix round 1, ruling 4)',
+	static function () use ( $pc_cases, $pc_ids ) {
+		$two = array();
+		foreach ( $pc_cases as $name => $case ) {
+			if ( $case[1] ) {
+				$case[1]();
+			}
+			$html = pc_card( $case[0], 'administrator' );
+			foreach ( $pc_ids as $id ) {
+				$x         = pc_doc( pc_item( $html, $id ) );
+				$primaries = 0;
+				foreach ( $x->query( '//button' ) as $button ) {
+					$primaries += 'wpcpm-btn' === trim( $button->getAttribute( 'class' ) ) ? 1 : 0;
+				}
+				if ( $primaries > 1 ) {
+					$two[] = $name . ': ' . $id;
+				}
+			}
+		}
+		return $two;
+	},
+	array()
+);
+ck( 'the parts\' script is asked for, where a panel is drawn', in_array( WPCPM_UI::SCRIPT, (array) ( $GLOBALS['enqueued'] ?? array() ), true ), true );
+
+echo "\n=== The card's empty parts and the planner's rows on the parts (UI shared parts, Task 13e) ===\n";
+
+// The empty line, as the cards class's `empty_line()` draws it: the parts' muted line on, today's paragraph off.
+ck(
+	'on, an empty part says its sentence in the parts\' muted line, as every converted card\'s empty part does; today\'s class is not printed',
+	static function () use ( $pc_empty ) {
+		$html = $pc_empty( 'administrator' );
+		return array(
+			// Task 18d: no group heading; each group's sentence is the card's muted line, in the groups' order.
+			substr_count( $html, WPCPM_UI::list_empty( 'Nothing is waiting for the program\'s OK.' ) . WPCPM_UI::list_empty( 'No event is coming up.' ) ),
+			strpos( $html, 'wpcpm-administrator__empty' ),
+			strpos( $html, 'wpcpm-ui-h"' ),
+		);
+	},
+	array( 1, false, false )
+);
+
+/**
+ * The planner's rows one form on the card draws, as the field part reads them: each field's label words and the word
+ * for whether it is needed, its box's id, and whether the box is marked refused; then today's rows left in the form, by
+ * their box's name.
+ *
+ * @param DOMXPath $x    The card.
+ * @param string   $form Where the form is.
+ * @return array
+ */
+function pc_planner_rows( DOMXPath $x, $form ) {
+	$fields = array();
+	foreach ( $x->query( $form . '//div[@class="wpcpm-ui-field"]' ) as $field ) {
+		$box      = $x->query( './input|./textarea', $field )->item( 0 );
+		$fields[] = trim( (string) $x->query( './label', $field )->item( 0 )->firstChild->textContent ) . ' ' . $x->evaluate( 'string(./label/span[@class="wpcpm-ui-field__need"])', $field ) . ' ' . ( $box ? $box->getAttribute( 'id' ) . ( $box->hasAttribute( 'aria-invalid' ) ? ' invalid' : '' ) : '' );
+	}
+	$old = array();
+	foreach ( $x->query( $form . '//p[contains(@class, "wpcpm-sevent__row")]//input' ) as $box ) {
+		$old[] = $box->getAttribute( 'name' );
+	}
+	return array( $fields, $old, $x->evaluate( 'string(' . $form . '/@class)' ) );
+}
+
+ck(
+	'on, the program\'s change and the program\'s plan draw every one of the planner\'s rows on the field part, today\'s label and Required or Optional as today, the ids as today; no row of today\'s is left, and the forms print neither of the planner\'s form classes, so the theme\'s rule for them no longer reaches the boxes (Task 13e fix round 1)',
+	static function () use ( $pc_x, $pc_panel, $pc_pp ) {
+		$plan = '//details[.//span[@class="wpcpm-ui-fold__title"][normalize-space(.)="Plan an event of the program\'s"]]//form';
+		return array( pc_planner_rows( $pc_x, $pc_panel( $pc_pp, 'change' ) . '/form' ), pc_planner_rows( $pc_x, $plan ) );
+	},
+	array(
+		array(
+			array(
+				'Date Required wpcpm-sevent-program-' . $pc_pp . '-date',
+				'Start time Required wpcpm-sevent-program-' . $pc_pp . '-time',
+				'Length in minutes Required wpcpm-sevent-program-' . $pc_pp . '-minutes',
+				'Places Optional wpcpm-sevent-program-' . $pc_pp . '-places',
+				'Title Required wpcpm-sevent-program-' . $pc_pp . '-title',
+				'Description Required wpcpm-sevent-program-' . $pc_pp . '-description',
+				'Call link Required wpcpm-sevent-program-' . $pc_pp . '-link',
+			),
+			array(),
+			'',
+		),
+		array(
+			array(
+				'Date Required wpcpm-sevent-program-new-date',
+				'Start time Required wpcpm-sevent-program-new-time',
+				'Length in minutes Required wpcpm-sevent-program-new-minutes',
+				'Places Optional wpcpm-sevent-program-new-places',
+				'Title Required wpcpm-sevent-program-new-title',
+				'Description Required wpcpm-sevent-program-new-description',
+				'Call link Required wpcpm-sevent-program-new-link',
+			),
+			array(),
+			'',
+		),
+	)
+);
+ck(
+	'on, nothing the card draws carries the planner\'s form, row or note classes (Task 13e fix round 1)',
+	static function () use ( $pc_on, $pc_on2 ) {
+		return array(
+			strpos( $pc_on . $pc_on2, 'wpcpm-sponsor__form' ),
+			strpos( $pc_on . $pc_on2, 'wpcpm-sevent__form' ),
+			strpos( $pc_on . $pc_on2, 'wpcpm-sponsor__field' ),
+			strpos( $pc_on . $pc_on2, 'wpcpm-sevent__row' ),
+			strpos( $pc_on . $pc_on2, 'wpcpm-student__note' ),
+		);
+	},
+	array( false, false, false, false, false )
+);
+ck(
+	'on, a refused change and a refused plan come back in the field part\'s boxes with what was typed, as today\'s rows do, and no box is marked: the card hands the planner no refusal, as today',
+	static function () use ( $pc_cases, $pc_panel, $pc_pp ) {
+		$pc_cases['the program\'s change refused, kept'][1]();
+		$change = pc_doc( pc_card( MANAGER, 'administrator' ) );
+		$pc_cases['the program\'s plan refused, kept'][1]();
+		$plan = pc_doc( pc_card( MANAGER, 'administrator' ) );
+		$fold = '//details[.//span[@class="wpcpm-ui-fold__title"][normalize-space(.)="Plan an event of the program\'s"]]//form';
+		return array(
+			$change->evaluate( 'string(' . $pc_panel( $pc_pp, 'change' ) . '//div[@class="wpcpm-ui-field"]/input[@name="wpcpm_sevent_date"]/@value)' ),
+			$change->evaluate( 'string(' . $pc_panel( $pc_pp, 'change' ) . '//div[@class="wpcpm-ui-field"]/input[@name="wpcpm_sevent_title"]/@value)' ),
+			$change->query( '//*[@aria-invalid]' )->length,
+			$plan->evaluate( 'string(' . $fold . '//div[@class="wpcpm-ui-field"]/input[@name="wpcpm_sevent_minutes"]/@value)' ),
+			$plan->evaluate( 'string(' . $fold . '//div[@class="wpcpm-ui-field"]/input[@name="wpcpm_sevent_title"]/@value)' ),
+			preg_replace( '/^\n/', '', (string) $plan->evaluate( 'string(' . $fold . '//div[@class="wpcpm-ui-field"]/textarea[@name="wpcpm_sevent_description"])' ) ),
+			$plan->query( '//*[@aria-invalid]' )->length,
+			$plan->query( '//div[contains(@class, "wpcpm-errors")]' )->length,
+		);
+	},
+	array( '2026-11-20', '', 0, '0', 'The partners session', "What the program plans with its partners.\nBring questions.", 0, 0 )
+);
+
+// A refusal is tied only to the box it was for (Task 13x), through the plugin's own, memoized flash: an event whose
+// kept typing an earlier press left and no page drew, beside an event refused just now, drawn in both orders, and a
+// refused Cancel beside a kept Return, whose refusal shares its sentence for a note too long ('sevent-note-long'):
+// each box has its own form name (`TYPED_RETURN`, `TYPED_CANCEL`), and a refusal of one never marks the other.
+const PARTS_MANAGER = 50;
+a_user( PARTS_MANAGER, 'Pia Partsmanager', array( 'administrator' ) );
+$GLOBALS['manage'][] = PARTS_MANAGER;
+
+/**
+ * What the next request does, as a fresh user id holding the user meta the person held, so the real flash's memo of an
+ * earlier request (a function's static for the life of the process) does not hide what that request left. What the
+ * request took from the meta is gone for the person's request after it.
+ *
+ * @param Closure $run What the next request does.
+ * @return mixed What it returns.
+ */
+function pc_next( Closure $run ) {
+	static $next = 900;
+	$from = (int) $GLOBALS['uid'];
+	++$next;
+	$GLOBALS['umeta'][ $next ] = $GLOBALS['umeta'][ $from ] ?? array();
+	$GLOBALS['users'][ $next ] = clone $GLOBALS['users'][ $from ];
+	$GLOBALS['users'][ $next ]->ID = $next;
+	$GLOBALS['manage'][]       = $next;
+	$GLOBALS['uid']            = $next;
+	try {
+		return $run( $next );
+	} finally {
+		$GLOBALS['umeta'][ $from ] = $GLOBALS['umeta'][ $next ];
+		unset( $GLOBALS['umeta'][ $next ], $GLOBALS['users'][ $next ] );
+		$GLOBALS['manage'] = array_values( array_diff( $GLOBALS['manage'], array( $next ) ) );
+		$GLOBALS['uid']    = $from;
+	}
+}
+
+/** A press as the parts manager, a request of its own, through the plugin's own flash: where it went. */
+function pc_real_press( $method, $id, $note ) {
+	return pc_next(
+		static function ( $uid ) use ( $method, $id, $note ) {
+			$went = press( $method, decision( $id, $note ), $uid );
+			return $went[1] ?? $went[0];
+		}
+	);
+}
+
+/**
+ * The Events card on the Administrator Dashboard's parts, as the next request, holding the outcome the last press
+ * left as the dashboard holds it (one `WPCPM_Flash::take()`, the sentence from the queue's messages), the events drawn
+ * in the order given.
+ *
+ * @param array $data `waiting` and `upcoming`, in the order to draw them.
+ * @return string
+ */
+function pc_real_card( array $data ) {
+	return pc_next(
+		static function () use ( $data ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$messages = WPCPM_Sponsor_Event_Queue::messages();
+			WPCPM_Dashboard_Card::forget();
+			if ( isset( $messages[ $status ] ) ) {
+				WPCPM_Dashboard_Card::hold( 'wpcpm-sponsor-events', $messages[ $status ][0], $messages[ $status ][1] );
+			}
+			WPCPM_UI::set_live( array( 'administrator' ) );
+			WPCPM_UI::enter( 'administrator' );
+			ob_start();
+			try {
+				WPCPM_Dashboard_Card::open(
+					array(
+						'key'           => 'sponsor-events',
+						'title'         => 'Events',
+						'prefix'        => 'wpcpm-',
+						'id_on'         => 'section',
+						'section_class' => 'wpcpm-administrator__card',
+					)
+				);
+				WPCPM_Sponsor_Event_Queue::render( $data );
+				WPCPM_Dashboard_Card::close();
+			} finally {
+				$html = (string) ob_get_clean();
+				WPCPM_UI::leave();
+				WPCPM_UI::set_live( null );
+				WPCPM_Dashboard_Card::forget();
+			}
+			return $html;
+		}
+	);
+}
+
+/** What a card says about each note box: which panels are open, each box's state, and where the card's message leads. */
+function pc_tie_read( $html ) {
+	$x     = pc_doc( $html );
+	$boxes = array();
+	foreach ( $x->query( '//textarea[@name="wpcpm_sevent_note"]' ) as $box ) {
+		$id           = $box->getAttribute( 'id' );
+		$said         = $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 );
+		$text         = $box->textContent;
+		$boxes[ $id ] = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' ) . ' | ' . ( $said ? trim( $said->textContent ) : '' ) . ' | ' . ( mb_strlen( $text ) > 80 ? '[' . mb_strlen( $text ) . ' characters]' : $text );
+	}
+	return array(
+		'open'  => array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'boxes' => $boxes,
+		'leads' => array_map( static function ( $node ) { return $node->getAttribute( 'href' ) . ' ' . $node->textContent; }, iterator_to_array( $x->query( '//p[@data-wpcpm-card-message]//a' ) ) ),
+	);
+}
+
+/** A box as `pc_tie_read()` reads it: refused, marked invalid and tied to the sentence; else tied to its hint alone. */
+function pc_tie_box( $id, $said, $typing ) {
+	return null === $said
+		? $id . '-hint |  | ' . $typing
+		: 'invalid ' . WPCPM_Form_Errors::problem_id( $id ) . ' ' . $id . '-hint | ' . $said . ' | ' . $typing;
+}
+
+$pc_real_long = str_repeat( 'n', WPCPM_Sponsor_Event::MAX_NOTE + 1 );
+$pc_real_rows = array();
+foreach ( $pc_ids as $pc_id ) {
+	$pc_real_rows[ $pc_id ] = pc_row( $pc_id );
+}
+$pc_long_said = (string) WPCPM_Sponsor_Event_Queue::messages()['sevent-note-long'][1];
+$pc_real_runs = through_real_flash(
+	static function () use ( $pc_w1, $pc_w2, $pc_a1, $pc_real_rows, $pc_real_long ) {
+		$GLOBALS['uid'] = PARTS_MANAGER;
+		$runs           = array();
+		$keep           = static function ( $typed_form, $id ) {
+			WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( $typed_form, $id ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Event::MAX_NOTE );
+		};
+		// Two returns: the kept-only event drawn first, then last.
+		foreach ( array( 'first' => array( $pc_w2, $pc_w1 ), 'last' => array( $pc_w1, $pc_w2 ) ) as $where => $order ) {
+			$keep( WPCPM_Sponsor_Event_Queue::TYPED_RETURN, $pc_w2 );
+			$went               = pc_real_press( 'handle_return', $pc_w1, $pc_real_long );
+			$runs[ 'return, ' . $where ] = array( $went, pc_tie_read( pc_real_card( array( 'waiting' => array( $pc_real_rows[ $order[0] ], $pc_real_rows[ $order[1] ] ), 'upcoming' => array() ) ) ) );
+		}
+		// A kept return drawn before a refused cancel, and a kept cancel drawn after a refused return.
+		$keep( WPCPM_Sponsor_Event_Queue::TYPED_RETURN, $pc_w2 );
+		$went                        = pc_real_press( 'handle_cancel', $pc_a1, $pc_real_long );
+		$runs['cancel refused, return kept'] = array( $went, pc_tie_read( pc_real_card( array( 'waiting' => array( $pc_real_rows[ $pc_w2 ] ), 'upcoming' => array( $pc_real_rows[ $pc_a1 ] ) ) ) ) );
+		$keep( WPCPM_Sponsor_Event_Queue::TYPED_CANCEL, $pc_a1 );
+		$went                        = pc_real_press( 'handle_return', $pc_w1, $pc_real_long );
+		$runs['return refused, cancel kept'] = array( $went, pc_tie_read( pc_real_card( array( 'waiting' => array( $pc_real_rows[ $pc_w1 ] ), 'upcoming' => array( $pc_real_rows[ $pc_a1 ] ) ) ) ) );
+		// A blank note, refused and keeping nothing, beside older kept typing.
+		$keep( WPCPM_Sponsor_Event_Queue::TYPED_RETURN, $pc_w2 );
+		$went                        = pc_real_press( 'handle_return', $pc_w1, " \n " );
+		$runs['blank']               = array( $went, pc_tie_read( pc_real_card( array( 'waiting' => array( $pc_real_rows[ $pc_w1 ], $pc_real_rows[ $pc_w2 ] ), 'upcoming' => array() ) ) ) );
+		$GLOBALS['uid'] = MANAGER;
+		return $runs;
+	}
+);
+$pc_n      = '[' . ( WPCPM_Sponsor_Event::MAX_NOTE + 1 ) . ' characters]';
+$pc_kept   = "\nKept, and not refused.";
+$pc_return = static function ( $id ) { return 'wpcpm-sevent-return-' . $id; };
+foreach ( array( 'first' => array( $pc_w2, $pc_w1 ), 'last' => array( $pc_w1, $pc_w2 ) ) as $pc_where => $pc_order ) {
+	$pc_boxes = array();
+	foreach ( $pc_order as $pc_id ) {
+		$pc_boxes[ $pc_return( $pc_id ) ] = pc_tie_box( $pc_return( $pc_id ), $pc_id === $pc_w1 ? $pc_long_said : null, $pc_id === $pc_w1 ? $pc_n : $pc_kept );
+	}
+	ck(
+		'through the real flash, two returns, the kept-only event drawn ' . $pc_where . ': only the refused event\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only event\'s panel is open with its typing, its box tied to its hint alone (Task 13x)',
+		$pc_real_runs[ 'return, ' . $pc_where ] ?? null,
+		array(
+			$admin_card,
+			array(
+				'open'  => array_map( static function ( $id ) { return 'wpcpm-decide-event-' . $id . '-return-panel'; }, $pc_order ),
+				'boxes' => $pc_boxes,
+				'leads' => array( '#' . $pc_return( $pc_w1 ) . ' ' . $pc_long_said ),
+			),
+		)
+	);
+}
+ck(
+	'through the real flash, a Cancel refused for its length beside a Return holding older kept typing, the Return drawn first: the same sentence would fit both boxes, and only the Cancel\'s is tied to it and led to',
+	$pc_real_runs['cancel refused, return kept'] ?? null,
+	array(
+		$admin_card,
+		array(
+			'open'  => array( 'wpcpm-decide-event-' . $pc_w2 . '-return-panel', 'wpcpm-decide-event-' . $pc_a1 . '-cancel-panel' ),
+			'boxes' => array(
+				$pc_return( $pc_w2 )             => pc_tie_box( $pc_return( $pc_w2 ), null, $pc_kept ),
+				'wpcpm-sevent-cancel-' . $pc_a1 => pc_tie_box( 'wpcpm-sevent-cancel-' . $pc_a1, $pc_long_said, $pc_n ),
+			),
+			'leads' => array( '#wpcpm-sevent-cancel-' . $pc_a1 . ' ' . $pc_long_said ),
+		),
+	)
+);
+ck(
+	'and a Return refused for its length beside a Cancel holding older kept typing, the Cancel drawn last: only the Return\'s box is tied and led to',
+	$pc_real_runs['return refused, cancel kept'] ?? null,
+	array(
+		$admin_card,
+		array(
+			'open'  => array( 'wpcpm-decide-event-' . $pc_w1 . '-return-panel', 'wpcpm-decide-event-' . $pc_a1 . '-cancel-panel' ),
+			'boxes' => array(
+				$pc_return( $pc_w1 )             => pc_tie_box( $pc_return( $pc_w1 ), $pc_long_said, $pc_n ),
+				'wpcpm-sevent-cancel-' . $pc_a1 => pc_tie_box( 'wpcpm-sevent-cancel-' . $pc_a1, null, $pc_kept ),
+			),
+			'leads' => array( '#' . $pc_return( $pc_w1 ) . ' ' . $pc_long_said ),
+		),
+	)
+);
+ck(
+	'through the real flash, a blank note, refused and keeping nothing, beside an event holding older kept typing: no box is marked invalid, the message leads nowhere, and the older typing comes back untied (Task 13x)',
+	$pc_real_runs['blank'] ?? null,
+	array(
+		$admin_card,
+		array(
+			'open'  => array( 'wpcpm-decide-event-' . $pc_w2 . '-return-panel' ),
+			'boxes' => array(
+				$pc_return( $pc_w1 ) => pc_tie_box( $pc_return( $pc_w1 ), null, "\n" ),
+				$pc_return( $pc_w2 ) => pc_tie_box( $pc_return( $pc_w2 ), null, $pc_kept ),
+			),
+			'leads' => array(),
+		),
+	)
+);
+
+// The inventory of old classes on the parts (bin/stubs/parts-inventory.php): the outcome of the manager's own Join,
+// said under Coming up, as the card draws it with the switch on.
+$GLOBALS['flash'][ MANAGER ]['sevent-list'] = 'joined';
+pc_card( MANAGER, 'administrator' );
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'sponsor-event-queue' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

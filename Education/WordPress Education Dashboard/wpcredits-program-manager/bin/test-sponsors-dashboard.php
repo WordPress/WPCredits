@@ -438,6 +438,7 @@ require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 // The frame of the version 3 concepts the page is drawn in since 1.123.78: the top bar, the menu and the
 // main area, with the few WordPress functions it asks that the page did not ask before.
 require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 require_once __DIR__ . '/../includes/class-wpcpm-dashboard-frame.php';
 require_once __DIR__ . '/stubs/sponsor-card-url.php';
 function get_theme_support( $feature ) { return $GLOBALS['theme_support'][ $feature ] ?? false; }
@@ -1345,42 +1346,32 @@ foreach ( $sponsor_sheet as $key => $body ) {
 		$usage_table[] = $key;
 	}
 }
-ck( 'on a phone the Usage table scrolls inside its own box, by the Administrator Dashboard\'s rule for its boxes, value for value at the same width, and no rule of this sheet sets the table\'s own box', array(
+// The Administrator Dashboard's box rules left with its old tables (Task 18c: the parts' table needs no box), so the
+// box is pinned to its own values, the ones that page's rule held, and that page's rule is gone.
+ck( 'on a phone the Usage table scrolls inside its own box, by the values the Administrator Dashboard\'s boxes had, and no rule of this sheet sets the table\'s own box', array(
 	$sponsor_sheet['( max-width: 782px )|.wpcpm-usage__scroll'] ?? null,
-	( $sponsor_sheet['( max-width: 782px )|.wpcpm-usage__scroll'] ?? 'a' ) === ( $admin_sheet['( max-width: 782px )|.wpcpm-administrator__scroll'] ?? 'b' ),
+	isset( $admin_sheet['( max-width: 782px )|.wpcpm-administrator__scroll'] ),
 	$usage_table,
 ), array(
 	'display: block; overflow-x: auto; position: relative;',
-	true,
+	false,
 	array(),
 ) );
-ck( 'and the box\'s focus ring is that page\'s for its boxes, weightless inside :where(), at every width', array(
+ck( 'and the box\'s focus ring is weightless inside :where(), at every width, as that page\'s boxes had it', array(
 	$sponsor_sheet['|:where( .wpcpm-usage__scroll:focus-visible )'] ?? null,
-	( $sponsor_sheet['|:where( .wpcpm-usage__scroll:focus-visible )'] ?? 'a' ) === ( $admin_sheet['|:where( .wpcpm-administrator__scroll:focus-visible )'] ?? 'b' ),
+	isset( $admin_sheet['|:where( .wpcpm-administrator__scroll:focus-visible )'] ),
 	array_values( array_filter( array_keys( $sponsor_sheet ), static function ( $key ) { return false !== strpos( $key, '.wpcpm-usage__scroll:focus' ) && false === strpos( $key, ':where(' ); } ) ),
 ), array(
 	'outline: 2px solid currentColor; outline-offset: 2px;',
-	true,
+	false,
 	array(),
 ) );
-// A phone's strip (1.123.22), in the Administrator Dashboard's sheet, which this page's own strip wore
-// until 1.123.78 and that page's still does: one tile a row,
-// the number beside its words. The theme sets the number's font with a shorthand at two classes, which
-// resets its figures, so the one-width figures are asked at three classes to hold. A level's name at
-// 28px, "Supporter" or "Champion", can leave the words too little room on a narrow phone, so the words
-// take at least 7em beside the number or drop under it, 4px below, and break a long word anywhere
-// rather than run out of the tile.
-ck( 'on a phone the tile sets its number beside its words, the words dropping under it when they do not fit, and the number\'s one-width figures are asked at three classes, past the theme\'s font shorthand', array(
-	$admin_sheet['( max-width: 480px )|.wpcpm-attention__link'] ?? null,
-	$admin_sheet['( max-width: 480px )|.wpcpm-attention__n'] ?? null,
-	$admin_sheet['( max-width: 480px )|.wpcpm-attention__tiles .wpcpm-attention__link .wpcpm-attention__n'] ?? null,
-	$admin_sheet['( max-width: 480px )|.wpcpm-attention__l'] ?? null,
-), array(
-	'align-items: baseline; column-gap: 12px; display: flex; flex-wrap: wrap; padding: 12px 16px; row-gap: 4px;',
-	'flex: none; min-width: 1.25em;',
-	'font-variant-numeric: tabular-nums;',
-	'flex: 1 1 7em; min-width: 0; overflow-wrap: anywhere;',
-) );
+// The strip's tiles (1.123.22) left the Administrator Dashboard's sheet with the strip (Task 18c): neither dashboard
+// prints one since this page's own strip went in 1.123.78 and that page's in Task 18b.
+ck( 'no rule of the Administrator Dashboard\'s sheet dresses the strip, and no renderer prints it', array(
+	array_values( array_filter( array_keys( $admin_sheet ), static function ( $key ) { return false !== strpos( $key, 'wpcpm-attention__' ); } ) ),
+	count( array_filter( iterator_to_array( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( __DIR__ . '/../includes', FilesystemIterator::SKIP_DOTS ) ) ), static function ( $file ) { return false !== strpos( (string) file_get_contents( (string) $file ), 'wpcpm-attention__' ); } ) ),
+), array( array(), 0 ) );
 // Read off the source as the Administrator Dashboard's suite reads its cards: the Usage card prints
 // the box right before its one table and closes it right after, and it is the card's one box.
 $usage_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-usage.php' );
@@ -2133,12 +2124,12 @@ ck( 'all eight at once, in the approved order, each a row that lands on a card i
 // each row carries the red tag, and no row a class of its own that would set it apart; nothing of the
 // retired strip's tiles is printed. The tag is the frame's, a rule of its sheet, the row the page's own.
 $eight_views = implode( '', every_view() );
-ck( 'every row of the eight carries the red status tag in words, and no row a class of its own; nothing of the strip\'s tiles is on any view, and the tag and the row are dressed by the frame\'s sheet and the page\'s', array(
+ck( 'every row of the eight carries the red status tag in words, and no row a class of its own; nothing of the strip\'s tiles is on any view, and the tag and the row are dressed by the parts\' sheet and the page\'s', array(
 	substr_count( waiting_of( $eight ), '<span class="wpcpm-status wpcpm-status--red">Waits</span>' ),
 	preg_match_all( '#<div class="wpcpm-sponsor__wait">#', $eight ),
 	preg_match_all( '#class="wpcpm-sponsor__wait [^"]*"#', $eight_views ),
 	strpos( $eight_views, 'wpcpm-attention' ),
-	isset( sheet_rules( 'dashboard-frame.css' )['|.wpcpm-status--red'] ),
+	isset( sheet_rules( 'parts.css' )['|.wpcpm-status--red'] ),
 	isset( sheet_rules( 'sponsor.css' )['|.wpcpm-sponsor__wait'] ),
 ), array( 8, 8, 0, false, true, true ) );
 ck( 'and the menu counts what waits in each view: eight beside Overview, the term and the event beside Your sponsorship, the three offers and the post beside Offers, the profile beside Your company and the agreement beside Agreement, each in red, on every view alike', array( menu_counts( $eight ), menu_counts( in_view( 'company' ) ) === menu_counts( $eight ) ), array( array( 'Overview' => '8 wait (red)', 'Your sponsorship' => '2 wait (red)', 'Offers' => '4 wait (red)', 'Your company' => '1 waits (red)', 'Agreement' => '1 waits (red)' ), true ) );
@@ -2575,6 +2566,40 @@ ck( 'every card on every view is drawn open, for a member and for an Administrat
 	array_keys( array_filter( $manager_cards, static function ( $open ) { return ! $open; } ) ),
 	$inner_open,
 ), array( true, array(), array(), 0 ) );
+
+// The shared parts' switch (Task 9): the page names itself `sponsor` while it draws, and leaves after. With the
+// Administrator Dashboard switched on, the Sponsor Dashboard is still off (its release is the third), so every view
+// is byte for byte the page drawn with the switch empty, and prints neither the switch's class nor a part
+// (Review Focus 5).
+// The switch empty, said here (Task 18a): the real switch has the Administrator Dashboard on.
+WPCPM_UI::set_live( array() );
+$switch_off_views = array_map( static function ( $view ) { return in_view( $view ); }, the_views() );
+WPCPM_UI::set_live( array( 'administrator' ) );
+$admin_on_views = array_map( static function ( $view ) { return in_view( $view ); }, the_views() );
+$surface_after  = WPCPM_UI::surface();
+WPCPM_UI::set_live( null );
+ck( 'with the Administrator Dashboard on, every view of the Sponsor Dashboard is today\'s, byte for byte, with no switch class and no part, and the page leaves its surface once drawn', array(
+	$admin_on_views === $switch_off_views,
+	preg_match( '/wpcpm-ui-/', implode( '', $admin_on_views ) ),
+	$surface_after,
+), array( true, 0, '' ) );
+WPCPM_UI::set_live( array( 'sponsor' ) );
+$sponsor_on_views = implode( '', array_map( static function ( $view ) { return in_view( $view ); }, the_views() ) );
+WPCPM_UI::set_live( null );
+ck( 'and the page does name itself: with its own switch on, its root and the frame\'s carry the switch\'s class', array(
+	false !== strpos( $sponsor_on_views, '<div class="wpcpm-dashboard wpcpm-sponsor wpcpm-sponsor--overview wpcpm-ui-on">' ),
+	false !== strpos( $sponsor_on_views, ' wpcpm-ui-on" data-wpcpm-frame>' ),
+), array( true, true ) );
+
+// Under the real switch, with no set_live() at all (Task 18a): every view of the Sponsor Dashboard is its off drawing
+// of this run, byte for byte, with no switch class and no part.
+$real_views = array_map( static function ( $view ) { return in_view( $view ); }, the_views() );
+ck( 'under the real switch (the Administrator Dashboard on) every view of the Sponsor Dashboard is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$real_views === $switch_off_views,
+	count( $real_views ) > 0,
+	preg_match( '/wpcpm-ui-/', implode( '', $real_views ) ),
+), array( array( 'administrator' ), true, true, 0 ) );
 
 // Counted by ck() itself: a literal here read 45 while the file carried 49 (1.93.2), and a count
 // nobody maintains is a count nobody should trust.

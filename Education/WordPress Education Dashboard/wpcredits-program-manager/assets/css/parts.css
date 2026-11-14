@@ -1,0 +1,2955 @@
+/**
+ * The parts' sheet (handle wpcpm-parts): the one set of shared interface parts the dashboards and the
+ * wp-admin screens draw their buttons, folds and forms from.
+ *
+ * It styles only the parts' own classes (`wpcpm-ui-*`) and the frame's button and tag it took over from
+ * dashboard-frame.css, never an element by type and never another legacy class. A change to an existing
+ * shared class (`.wpcpm-btn`, `.wpcpm-status`) is scoped under `.wpcpm-ui-on`, the class a surface's root
+ * carries while its switch is on (WPCPM_UI), so a surface that is off changes by nothing.
+ *
+ * Loaded before the sheets that use it (dashboard.css, dashboard-frame.css, admin.css depend on it).
+ */
+
+/* ---------- Tokens: the frame's, each falling back to the theme's --wpc-*, now shared with the Institution
+   Dashboard outside the frame and with wp-admin. Zero specificity, so a sheet's own value still wins. ---------- */
+
+:where( .wpcpm-frame, .wpcpm-dashboard, .wpcpm-wrap ) {
+	--wpcpm-f-brand: var( --wpc-brand, #3858e9 );
+	--wpcpm-f-brand-tint: var( --wpc-brand-tint, #eff2ff );
+	--wpcpm-f-brand-border: var( --wpc-brand-border, #c7d1ff );
+	--wpcpm-f-ink: var( --wpc-ink, #1e1e1e );
+	--wpcpm-f-ink-2: var( --wpc-ink-70, #40464d );
+	--wpcpm-f-muted: var( --wpc-ink-60, #656a71 );
+	--wpcpm-f-icon: #979aa1;
+	--wpcpm-f-line: var( --wpc-line, #e6e6e6 );
+	--wpcpm-f-line-soft: #ededed;
+	--wpcpm-f-control: #8d8d8d;
+	--wpcpm-f-surface: var( --wpc-surface, #ffffff );
+	--wpcpm-f-band: var( --wpc-surface-band, #f4f4f4 );
+	--wpcpm-f-red: var( --wpc-red, #cc1818 );
+	--wpcpm-f-red-tint: var( --wpc-red-tint, #fff6f5 );
+	--wpcpm-f-red-border: var( --wpc-red-border, #daa39b );
+	--wpcpm-f-amber: var( --wpc-amber, #926300 );
+	--wpcpm-f-amber-tint: var( --wpc-amber-tint, #fff7e1 );
+	--wpcpm-f-amber-border: var( --wpc-amber-border, #d0b481 );
+	--wpcpm-f-green: var( --wpc-green, #008030 );
+	--wpcpm-f-green-tint: var( --wpc-green-tint, #ebffed );
+	--wpcpm-f-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	--wpcpm-f-serif: "EB Garamond", Georgia, "Times New Roman", serif;
+	--wpcpm-f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	--wpcpm-f-green-border: var( --wpc-green-border, #8ac894 );
+	--wpcpm-f-neutral: #f6f6f6;
+	--wpcpm-f-line-card: #e4e4e4;
+	--wpcpm-f-primary-hover: var( --wpc-brand-dark, #213fd4 );
+	--wpcpm-f-field: 14px;
+	--wpcpm-f-block: 16px;
+	--wpcpm-f-apart: 24px;
+	--wpcpm-f-module: 22px;
+	--wpcpm-f-fold: 10px;
+	--wpcpm-f-tie: 6px;
+	--wpcpm-f-gap: 12px;
+}
+
+/* ---------- No text a part prints makes its card wider than its container (Task 18f). Every text part breaks a word
+   only where the word would overflow its line (`overflow-wrap: break-word`, inherited by everything inside it). Unlike
+   `anywhere`, it leaves an element's min-content its longest word, so no grid or flex column shares its room
+   differently for ordinary words, and no word is broken where a break at a space would do. Each flex or grid child that
+   holds text may be narrower than a long word (`min-width: 0`, or a track whose least size is 0; see each part). A table
+   lays its columns out by its cells' min-content, which break-word does not lower: a key and value table's value, its one
+   flexible column beside the 320px label, breaks anywhere, so a long address or token stays in the card; a data table's
+   cells keep their words whole (see the report of Task 18f for why). An item, its title and facts, a note and a
+   checklist are always inside a fold's body and take the fold's break-word from it. ---------- */
+
+.wpcpm-ui-fold,
+.wpcpm-ui-list,
+.wpcpm-ui-table,
+.wpcpm-ui-intro,
+.wpcpm-ui-decide {
+	overflow-wrap: break-word;
+}
+
+/* ---------- The frame's button and status tag, moved here from dashboard-frame.css value for value ---------- */
+
+.wpcpm-frame .wpcpm-btn {
+	align-items: center;
+	background: var( --wpcpm-f-brand );
+	border: 1px solid var( --wpcpm-f-brand );
+	border-radius: 2px;
+	color: #ffffff;
+	display: inline-flex;
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	gap: 6px;
+	padding: 9px 16px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpcpm-frame .wpcpm-btn:hover {
+	background: var( --wpc-brand-dark, #213fd4 );
+	border-color: var( --wpc-brand-dark, #213fd4 );
+	color: #ffffff;
+}
+
+.wpcpm-frame .wpcpm-btn--secondary {
+	background: var( --wpcpm-f-surface );
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-frame .wpcpm-btn--secondary:hover {
+	background: var( --wpcpm-f-brand-tint );
+	color: var( --wpc-brand-dark, #213fd4 );
+}
+
+/* ---------- The status tag: the homepage's program-card tag, the one way the frame marks what waits ----------
+
+   What waits is a plain card with this tag in words, "67 days waiting", in the status's tint, border and ink:
+   never a colored edge, and never the color alone (the owner, 10 November 2026). The homepage's "Live" and
+   "In development" tags, value for value. */
+
+.wpcpm-status {
+	background: var( --wpcpm-f-band );
+	border: 1px solid transparent;
+	border-radius: 2px;
+	color: var( --wpcpm-f-ink-2 );
+	display: inline-block;
+	font: 500 12px/18px var( --wpcpm-f-sans );
+	letter-spacing: 0.06em;
+	padding: 1px 8px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.wpcpm-status--red {
+	background: var( --wpcpm-f-red-tint );
+	border-color: var( --wpcpm-f-red-border );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-status--amber {
+	background: var( --wpcpm-f-amber-tint );
+	border-color: var( --wpcpm-f-amber-border );
+	color: var( --wpcpm-f-amber );
+}
+
+.wpcpm-status--green {
+	background: var( --wpcpm-f-green-tint );
+	color: var( --wpcpm-f-green );
+}
+
+/* ---------- The button (design 2.1). The new looks of the frame's .wpcpm-btn are all under .wpcpm-ui-on, so a
+   surface that is off keeps the frame's own, hover included. In wp-admin the helpers print WordPress's .button
+   and these rules add only the danger and quiet looks, the white secondary fill and the pressed tints. ---------- */
+
+.wpcpm-ui-on .wpcpm-btn {
+	align-items: center;
+	background: var( --wpcpm-f-brand );
+	border: 1px solid var( --wpcpm-f-brand );
+	border-radius: 2px;
+	box-sizing: border-box;
+	color: #ffffff;
+	cursor: pointer;
+	display: inline-flex;
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	gap: 6px;
+	justify-content: center;
+	min-height: 40px;
+	padding: 9px 16px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpcpm-ui-on .wpcpm-btn:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: var( --wpcpm-f-primary-hover );
+	border-color: var( --wpcpm-f-primary-hover );
+	color: #ffffff;
+}
+
+.wpcpm-ui-on .wpcpm-btn--secondary {
+	background: var( --wpcpm-f-surface );
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-ui-on .wpcpm-btn--secondary:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: var( --wpcpm-f-primary-hover );
+	border-color: var( --wpcpm-f-primary-hover );
+	color: #ffffff;
+}
+
+.wpcpm-ui-on .wpcpm-btn--danger {
+	background: var( --wpcpm-f-surface );
+	border-color: var( --wpcpm-f-red );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-ui-on .wpcpm-btn--danger:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: var( --wpcpm-f-red-tint );
+	border-color: var( --wpcpm-f-red );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-ui-on .wpcpm-btn--quiet {
+	background: transparent;
+	border: 0;
+	color: var( --wpcpm-f-brand );
+	padding: 10px 8px;
+}
+
+.wpcpm-ui-on .wpcpm-btn--quiet:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: transparent;
+	color: var( --wpcpm-f-primary-hover );
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.wpcpm-ui-on .wpcpm-btn--quiet.wpcpm-btn--danger {
+	background: transparent;
+	border: 0;
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-ui-on .wpcpm-btn--quiet.wpcpm-btn--danger:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: transparent;
+	color: var( --wpcpm-f-red );
+}
+
+/* Pressed: an opener whose panel or row form is open. */
+
+.wpcpm-ui-on .wpcpm-btn[aria-expanded="true"] {
+	background: var( --wpcpm-f-primary-hover );
+	border-color: var( --wpcpm-f-primary-hover );
+	color: #ffffff;
+}
+
+.wpcpm-ui-on .wpcpm-btn--secondary[aria-expanded="true"] {
+	background: var( --wpcpm-f-brand-tint );
+	border-color: var( --wpcpm-f-brand );
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-ui-on .wpcpm-btn--danger[aria-expanded="true"] {
+	background: var( --wpcpm-f-red-tint );
+	border-color: var( --wpcpm-f-red );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-ui-on .wpcpm-btn--quiet[aria-expanded="true"] {
+	background: var( --wpcpm-f-brand-tint );
+	border: 0;
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-ui-on .wpcpm-btn--quiet.wpcpm-btn--danger[aria-expanded="true"] {
+	background: var( --wpcpm-f-red-tint );
+	border: 0;
+	color: var( --wpcpm-f-red );
+}
+
+/* A pressed quiet button keeps no underline when it is hovered: it shows its tint. */
+
+.wpcpm-ui-on .wpcpm-btn--quiet[aria-expanded="true"]:hover:where(:not(:disabled):not([aria-disabled="true"])),
+.wpcpm-ui-on .button.wpcpm-btn--quiet[aria-expanded="true"]:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	text-decoration: none;
+}
+
+/* The row action rule: in a list row or a table row the action is the quiet button, with no side padding at
+   rest so its words line up with the row's text; pressed, it takes 8px each side and gives them back as margin. */
+
+.wpcpm-ui-on .wpcpm-ui-list__act .wpcpm-btn--quiet,
+.wpcpm-ui-on td.wpcpm-ui-cell--action .wpcpm-btn--quiet {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.wpcpm-ui-on .wpcpm-ui-list__act .wpcpm-btn--quiet[aria-expanded="true"],
+.wpcpm-ui-on td.wpcpm-ui-cell--action .wpcpm-btn--quiet[aria-expanded="true"] {
+	margin-left: -8px;
+	margin-right: -8px;
+	padding-left: 8px;
+	padding-right: 8px;
+}
+
+/* wp-admin: WordPress's .button keeps its height, padding and corners; only these looks are added. */
+
+.wpcpm-ui-on .button:not( .button-primary ) {
+	background: var( --wpcpm-f-surface );
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--danger {
+	background: var( --wpcpm-f-surface );
+	border-color: var( --wpcpm-f-red );
+	color: var( --wpcpm-f-red );
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--danger:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: var( --wpcpm-f-red-tint );
+	border-color: var( --wpcpm-f-red );
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--quiet {
+	background: transparent;
+	border-color: transparent;
+	box-shadow: none;
+	color: var( --wpcpm-f-brand );
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--quiet:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: transparent;
+	color: var( --wpcpm-f-primary-hover );
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--quiet.wpcpm-btn--danger,
+.wpcpm-ui-on .button.wpcpm-btn--quiet.wpcpm-btn--danger:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	background: transparent;
+	color: var( --wpcpm-f-red );
+}
+
+.wpcpm-ui-on .button[aria-expanded="true"]:not( .button-primary ) {
+	background: var( --wpcpm-f-brand-tint );
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--danger[aria-expanded="true"] {
+	background: var( --wpcpm-f-red-tint );
+}
+
+.wpcpm-ui-on .button.wpcpm-btn--quiet.wpcpm-btn--danger[aria-expanded="true"] {
+	background: var( --wpcpm-f-red-tint );
+}
+
+/* Focus and disabled, on every interactive part. */
+
+.wpcpm-ui-on .wpcpm-btn:focus-visible,
+.wpcpm-ui-on .button:focus-visible {
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
+}
+
+.wpcpm-ui-on .wpcpm-btn:disabled,
+.wpcpm-ui-on .wpcpm-btn[aria-disabled="true"] {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+.wpcpm-ui-on .button:disabled,
+.wpcpm-ui-on .button[aria-disabled="true"] {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+/* ---------- The status tag's new looks (design 2.2): the neutral tag gains its border and the green tag its
+   border. Under .wpcpm-ui-on, so a surface that is off keeps the frame's tags as they were. ---------- */
+
+.wpcpm-ui-on .wpcpm-status {
+	border-color: var( --wpcpm-f-line );
+}
+
+.wpcpm-ui-on .wpcpm-status--red {
+	border-color: var( --wpcpm-f-red-border );
+}
+
+.wpcpm-ui-on .wpcpm-status--amber {
+	border-color: var( --wpcpm-f-amber-border );
+}
+
+.wpcpm-ui-on .wpcpm-status--green {
+	border-color: var( --wpcpm-f-green-border );
+}
+
+/* ---------- The topic chip (design 2.2) ---------- */
+
+.wpcpm-ui-chip {
+	background: var( --wpcpm-f-brand-tint );
+	border: 0;
+	border-radius: 999px;
+	color: var( --wpcpm-f-ink );
+	display: inline-block;
+	font: 500 12px/20px var( --wpcpm-f-sans );
+	padding: 1px 10px;
+	white-space: nowrap;
+}
+
+/* ---------- The in-card heading (design 2.11): the first one in a card or a panel takes no room above ---------- */
+
+.wpcpm-ui-h {
+	color: var( --wpcpm-f-ink );
+	font: 600 16px/22px var( --wpcpm-f-sans );
+	margin: var( --wpcpm-f-apart ) 0 8px;
+}
+
+.wpcpm-ui-h:first-child {
+	margin-top: 0;
+}
+
+/* The block a heading names sits the heading's own 8px under it: it takes no room of its own above, where a card's
+   body would set 16px between blocks (task V1, ruling 7): a table, a list, a muted or plain intro line, the logos, the
+   answers' table, a note, a checklist, an item, an inner fold. A heading right after a heading names nothing: it keeps
+   its own 24px (Task 18c). :where() keeps the rule's weight what it was, one class. */
+
+.wpcpm-ui-h + :where( :not( .wpcpm-ui-h ) ) {
+	margin-top: 0;
+}
+
+.wpcpm-wrap .wpcpm-ui-h {
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+/* ---------- The intro line and the action row (design 2.5) ---------- */
+
+.wpcpm-ui-intro {
+	color: var( --wpcpm-f-ink-2 );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: 0 0 8px;
+}
+
+.wpcpm-wrap .wpcpm-ui-intro {
+	font-family: inherit;
+	font-size: 13px;
+}
+
+/* The muted note a card prints under a list it cut ("N more are waiting"): 16px under the list, as the body's blocks
+   are, with no hairline. After the intro's own rule, which it ties. */
+
+.wpcpm-ui-intro--muted {
+	color: var( --wpcpm-f-muted );
+	margin: var( --wpcpm-f-block ) 0 0;
+}
+
+/* Under an in-card heading the muted line is what the heading names, 8px under it, as any block is (task V1, ruling 7:
+   the cohort view's Intakes when no intake is coming). */
+
+.wpcpm-ui-h + .wpcpm-ui-intro--muted {
+	margin-top: 0;
+}
+
+/* An in-card heading is 24px under the block above it and 8px over the block it heads, whatever the block (design
+   2.11; Task 18f): the empty line's own 12px over its words go under a heading, and a heading after the empty line
+   takes 12px, which its 12px under its words make 24px. */
+
+.wpcpm-ui-h + .wpcpm-ui-list__empty {
+	padding-top: 0;
+}
+
+.wpcpm-ui-list__empty + .wpcpm-ui-h {
+	margin-top: 12px;
+}
+
+/* A card body's blocks are 16px apart, by a weightless rule an intro line's own margin and a list's own outweigh: an
+   intro line right after a table, and a list right after the muted line, keep that 16px by these (Task 18e: Syncs and
+   health's lines under its table, its locked accounts under their sentence). */
+
+.wpcpm-ui-table + .wpcpm-ui-intro,
+.wpcpm-ui-intro--muted + .wpcpm-ui-list {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --wpcpm-f-gap );
+	justify-content: flex-start;
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-consequence {
+	color: var( --wpcpm-f-muted );
+	flex: 1 0 100%;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: calc( var( --wpcpm-f-tie ) - var( --wpcpm-f-gap ) ) 0 0;
+}
+
+.wpcpm-wrap .wpcpm-ui-consequence {
+	font-family: inherit;
+}
+
+/* ---------- The field (design 2.4): the label over the box, Required or Optional in words, the hint tied to the
+   box. One width rule on both sides of the site; wp-admin takes 13px for the label and the hint.
+
+   The box is styled under the part's own wrapper, two classes of weight, and its focus rule three: in wp-admin
+   WordPress's own form rules (an element with an attribute, and their focus rules heavier still) would
+   otherwise win. Never !important. ---------- */
+
+.wpcpm-ui-field + .wpcpm-ui-field {
+	margin-top: var( --wpcpm-f-field );
+}
+
+.wpcpm-ui-field__label {
+	color: var( --wpcpm-f-ink );
+	display: block;
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	margin: 0 0 var( --wpcpm-f-tie );
+}
+
+/* The word follows one ordinary space (WPCPM_UI::need_gap()), so a screen reader keeps the two words apart; the
+   margin is the design's 6px less that space, about a quarter of an em in the label's 14px face, so the gap stays
+   6px as nearly as the face allows (Task 18c). */
+.wpcpm-ui-field__need {
+	color: var( --wpcpm-f-muted );
+	font-weight: 400;
+	margin-left: calc( var( --wpcpm-f-tie ) - 0.25em );
+}
+
+.wpcpm-ui-field .wpcpm-ui-field__control {
+	background-color: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-control );
+	border-radius: 2px;
+	box-sizing: border-box;
+	color: var( --wpcpm-f-ink );
+	font-family: inherit;
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 20px;
+	max-width: 640px;
+	min-height: 40px;
+	padding: 9px 12px;
+	width: 100%;
+}
+
+/* A disabled box does not change on hover (the guard adds no weight). */
+
+.wpcpm-ui-field .wpcpm-ui-field__control:hover:where(:not(:disabled):not([aria-disabled="true"])) {
+	border-color: var( --wpcpm-f-ink-2 );
+}
+
+.wpcpm-ui-field .wpcpm-ui-field__control:focus {
+	border-color: var( --wpcpm-f-brand );
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
+}
+
+.wpcpm-ui-field .wpcpm-ui-field__control--select {
+	appearance: none;
+	background-image: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2340464d' stroke-width='1.6'/%3E%3C/svg%3E" );
+	background-position: right 10px center;
+	background-repeat: no-repeat;
+	background-size: 12px 8px;
+	max-width: 320px;
+	min-width: 200px;
+	padding-right: 36px;
+	width: auto;
+}
+
+.wpcpm-ui-field .wpcpm-ui-field__control--long {
+	max-width: 640px;
+}
+
+.wpcpm-ui-field .wpcpm-ui-field__control--date,
+.wpcpm-ui-field .wpcpm-ui-field__control--number {
+	max-width: 100%;
+	width: 200px;
+}
+
+/* The browser's own date and time controls grow past their minimum: the box is set to 40px, as every box is
+   (task V1, ruling 9). */
+
+.wpcpm-ui-field .wpcpm-ui-field__control--date {
+	height: 40px;
+}
+
+/* A text area is a block, so its hint sits 6px under it as under every box, not on its baseline (task V1,
+   ruling 10). */
+
+.wpcpm-ui-field .wpcpm-ui-field__control--textarea {
+	display: block;
+	max-width: none;
+	min-height: 96px;
+	resize: vertical;
+}
+
+.wpcpm-ui-field__hint {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: var( --wpcpm-f-tie ) 0 0;
+}
+
+/* The refusal paragraph: WPCPM_Form_Errors::problem() prints it with the legacy class wpcpm-field__problem, so
+   this is the one place the sheet names a legacy class, and only inside the field's own wrapper. */
+
+.wpcpm-ui-field .wpcpm-field__problem {
+	color: var( --wpcpm-f-red );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: var( --wpcpm-f-tie ) 0 0;
+}
+
+.wpcpm-wrap .wpcpm-ui-field__label,
+.wpcpm-wrap .wpcpm-ui-field__hint {
+	font-family: inherit;
+	font-size: 13px;
+}
+
+/* ---------- The choice group, and a checkbox that is its own question (design 2.4): a fieldset with no border, its
+   legend the field's label 6px over the first option; each option a label holding a 16px box and its words beside
+   it, a second line of words starting under the first word, line 20px, a target at least 24px high, 8px between
+   options, the option's hint muted under its words. A checkbox alone is a field of its own, 14px from the fields
+   around it.
+
+   The theme's element rules for a label holding a checkbox or a radio, and for the box, reach this markup until
+   its next release leaves .wpcpm-ui-choice out (they weigh more): they center the box on the words, keep the 8px
+   gap and the 24px height and give the box 16px and no margin, so a one-line option looks the same either way. ---------- */
+
+.wpcpm-ui-choices {
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	padding: 0;
+}
+
+.wpcpm-ui-field + .wpcpm-ui-choices,
+.wpcpm-ui-choices + .wpcpm-ui-field,
+.wpcpm-ui-choices + .wpcpm-ui-choices {
+	margin-top: var( --wpcpm-f-field );
+}
+
+.wpcpm-ui-choices__legend {
+	color: var( --wpcpm-f-ink );
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	margin: 0 0 var( --wpcpm-f-tie );
+	padding: 0;
+}
+
+.wpcpm-ui-choice {
+	align-items: flex-start;
+	box-sizing: border-box;
+	color: var( --wpcpm-f-ink );
+	cursor: pointer;
+	display: flex;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	gap: 8px;
+	margin: 0;
+	min-height: 24px;
+	padding: 2px 0;
+}
+
+.wpcpm-ui-choice + .wpcpm-ui-choice {
+	margin-top: 8px;
+}
+
+.wpcpm-ui-choice .wpcpm-ui-choice__input {
+	flex: none;
+	height: 16px;
+	margin: 2px 0 0;
+	width: 16px;
+}
+
+.wpcpm-ui-choice__text {
+	display: block;
+	min-width: 0;
+}
+
+.wpcpm-ui-choice__words {
+	display: block;
+}
+
+.wpcpm-ui-choice__hint {
+	color: var( --wpcpm-f-muted );
+	display: block;
+}
+
+/* ---------- The logos (a small part of the sponsor application's details): a row that wraps, each figure at most
+   160px wide with its image framed, the white logo on the ink ground, the caption muted under it. ---------- */
+
+.wpcpm-ui-logos {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --wpcpm-f-block );
+	margin: 8px 0 0;
+}
+
+.wpcpm-ui-logo {
+	margin: 0;
+	max-width: 160px;
+	text-align: center;
+}
+
+.wpcpm-ui-logo__img {
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	box-sizing: border-box;
+	display: block;
+	height: auto;
+	margin: 0 auto;
+	max-width: 100%;
+	padding: 8px;
+}
+
+.wpcpm-ui-logo--white .wpcpm-ui-logo__img {
+	background: var( --wpcpm-f-ink );
+	border-color: var( --wpcpm-f-ink );
+}
+
+.wpcpm-ui-logo__caption {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: 4px 0 0;
+}
+
+/* ---------- The fold (design 2.3): one grammar at two sizes. Nothing in a head is placed absolutely. The card is
+   the base; the inner fold (--inner) overrides it a size smaller. ---------- */
+
+.wpcpm-ui-fold {
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+}
+
+.wpcpm-ui-fold + .wpcpm-ui-fold {
+	margin-top: var( --wpcpm-f-fold );
+}
+
+.wpcpm-ui-fold__head {
+	align-items: center;
+	box-sizing: border-box;
+	cursor: pointer;
+	display: flex;
+	gap: var( --wpcpm-f-gap );
+	list-style: none;
+	min-height: 56px;
+	padding: 8px 16px;
+}
+
+.wpcpm-ui-fold__head::-webkit-details-marker {
+	display: none;
+}
+
+/* The title may shrink and wrap on a narrow desktop; the end group, not the title, takes the free room. */
+
+.wpcpm-ui-fold__title {
+	color: var( --wpcpm-f-ink );
+	flex: 0 1 auto;
+	font: 600 13px/20px var( --wpcpm-f-sans );
+	letter-spacing: 0.06em;
+	margin: 0;
+	min-width: 0;
+	text-transform: uppercase;
+}
+
+/* The phrase takes the room between the title and the end group, so the end group sits at the right. */
+
+.wpcpm-ui-fold__phrase,
+.wpcpm-ui-count {
+	color: var( --wpcpm-f-muted );
+	flex: 1 1 auto;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	min-width: 0;
+}
+
+/* A phrase that wraps (on a phone, under its title) leaves no word alone on its last line (Task 18f). */
+
+.wpcpm-ui-fold__phrase {
+	text-wrap: pretty;
+}
+
+/* The inner head's text column: the title and a second piece stacked under it. */
+
+.wpcpm-ui-fold__lead {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The end group takes the room left on its left, so with no phrase and no count it and the chevron still sit at
+   the right; a head with no end group gives that room to the chevron or the leaving icon. */
+
+.wpcpm-ui-fold__end {
+	align-items: center;
+	display: flex;
+	flex: none;
+	gap: var( --wpcpm-f-gap );
+	margin-left: auto;
+}
+
+.wpcpm-ui-fold__head > :not( .wpcpm-ui-fold__end ) + .wpcpm-ui-fold__chev,
+.wpcpm-ui-fold__head > :not( .wpcpm-ui-fold__end ) + .wpcpm-ui-fold__ext {
+	margin-left: auto;
+}
+
+/* The cue is drawn as the secondary button and shown while the card is folded; open, it keeps its place. */
+
+.wpcpm-ui-fold__cue {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-brand );
+	border-radius: 2px;
+	box-sizing: border-box;
+	color: var( --wpcpm-f-brand );
+	display: inline-flex;
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	justify-content: center;
+	min-height: 40px;
+	min-width: 84px;
+	padding: 9px 16px;
+	white-space: nowrap;
+}
+
+.wpcpm-ui-fold__head:hover .wpcpm-ui-fold__cue {
+	background: var( --wpcpm-f-primary-hover );
+	border-color: var( --wpcpm-f-primary-hover );
+	color: #ffffff;
+}
+
+.wpcpm-ui-fold[open] > .wpcpm-ui-fold__head .wpcpm-ui-fold__cue {
+	visibility: hidden;
+}
+
+/* The help link, in a 104px slot that stays when it is empty, so every cue lines up. */
+
+.wpcpm-ui-fold__help-slot,
+.wpcpm-ui-fold__help {
+	flex: none;
+	text-align: right;
+	width: 104px;
+}
+
+.wpcpm-ui-fold__help-slot {
+	display: inline-block;
+}
+
+.wpcpm-ui-fold__help {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	text-decoration: underline;
+	text-decoration-color: var( --wpcpm-f-line-card );
+	text-underline-offset: 3px;
+}
+
+.wpcpm-ui-fold__help:hover {
+	color: var( --wpcpm-f-brand );
+}
+
+/* The help link's box is laid over the head's slot (the card's grid, below), so it lets presses through to the
+   head and only the link takes them. The link is the help link's look itself, where it kept the theme's colour. */
+
+.wpcpm-ui-fold__help {
+	pointer-events: none;
+}
+
+.wpcpm-ui-fold__help > * {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	pointer-events: auto;
+	text-decoration: underline;
+	text-decoration-color: var( --wpcpm-f-line-card );
+	text-underline-offset: 3px;
+}
+
+.wpcpm-ui-fold__help > :hover {
+	color: var( --wpcpm-f-brand );
+}
+
+/* The help link carries the part's own class, and the part's look decides by weight, not by which sheet loads
+   last: the old sheet's one-class rule for the link stays for the surfaces that are off (task V1, ruling 3). */
+
+.wpcpm-ui-fold__help .wpcpm-ui-fold__help-link {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	text-decoration: underline;
+	text-decoration-color: var( --wpcpm-f-line-card );
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+	white-space: nowrap;
+}
+
+.wpcpm-ui-fold__help .wpcpm-ui-fold__help-link:hover {
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-ui-fold__help .wpcpm-ui-fold__help-link:focus-visible {
+	outline: 2px solid var( --wpcpm-f-brand );
+	outline-offset: 2px;
+}
+
+.wpcpm-ui-fold__chev,
+.wpcpm-ui-fold__ext {
+	align-items: center;
+	color: var( --wpcpm-f-ink-2 );
+	display: inline-flex;
+	flex: none;
+	height: 20px;
+	justify-content: center;
+	width: 20px;
+}
+
+/* The glyph inside takes the span's ink at full strength (the approved prototype's chevron, ink-2 at opacity 1).
+   Its svg carries the icon set's class, which the theme paints gray (`.wpc-dashboard-page .wpcpm-icon`, 0,2,0) and
+   the plugin's dashboard.css dims (`.wpcpm-icon`, 0,1,0): this rule is 0,3,0, so it wins whichever sheet loads last,
+   and it names the parts' classes alone (Task 18d). */
+
+.wpcpm-ui-on .wpcpm-ui-fold__head .wpcpm-ui-fold__chev > *,
+.wpcpm-ui-on .wpcpm-ui-fold__head .wpcpm-ui-fold__ext > * {
+	color: inherit;
+	opacity: 1;
+}
+
+.wpcpm-ui-fold__chev {
+	transition: transform 150ms;
+}
+
+.wpcpm-ui-fold[open] > .wpcpm-ui-fold__head .wpcpm-ui-fold__chev {
+	transform: rotate( 180deg );
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wpcpm-ui-fold__chev {
+		transition: none;
+	}
+}
+
+/* The open head's hairline is the body's top edge, so the head does not grow by 1px. */
+
+.wpcpm-ui-fold__body {
+	border-top: 1px solid var( --wpcpm-f-line );
+	padding: 20px 16px;
+}
+
+:where( .wpcpm-ui-fold__body > * + * ) {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-fold__body > :first-child {
+	margin-top: 0;
+}
+
+.wpcpm-ui-fold__body > :last-child {
+	margin-bottom: 0;
+}
+
+/* The card's section (builder's call 4): the help link is printed beside the disclosure, never in its summary, and
+   laid into the head's 104px slot by this grid, in normal flow. The disclosure and the link share the first cell;
+   the link sits at its top right, as high as the 56px head, in by the head's 16px padding, the 20px chevron, the
+   12px gap and the box's 1px border. Nothing is printed after the fold (task V1, ruling 2). */
+
+.wpcpm-ui-fold-card {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+.wpcpm-ui-fold-card + .wpcpm-ui-fold-card {
+	margin-top: var( --wpcpm-f-fold );
+}
+
+.wpcpm-ui-fold-card > .wpcpm-ui-fold {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.wpcpm-ui-fold-card > .wpcpm-ui-fold__help {
+	align-items: center;
+	align-self: start;
+	box-sizing: border-box;
+	display: flex;
+	grid-column: 1;
+	grid-row: 1;
+	justify-content: flex-end;
+	justify-self: end;
+	margin: 1px calc( 16px + 20px + var( --wpcpm-f-gap ) + 1px ) 0 0;
+	min-height: 56px;
+}
+
+/* The help link's copy in the body is the phone's: hidden here, and the block after it is the body's first. */
+
+.wpcpm-ui-fold__help--phone {
+	display: none;
+}
+
+.wpcpm-ui-fold__help--phone + * {
+	margin-top: 0;
+}
+
+/* Inside the open card the copy is a link of the card's body, as the approved 390 pictures draw it: Blueberry, its
+   underline its own colour 3px under the words, Deep Blueberry on hover. */
+
+.wpcpm-ui-fold__help--phone .wpcpm-ui-fold__help-link {
+	color: var( --wpcpm-f-brand );
+	text-decoration-color: currentColor;
+}
+
+.wpcpm-ui-fold__help--phone .wpcpm-ui-fold__help-link:hover {
+	color: var( --wpcpm-f-primary-hover );
+}
+
+/* The row that does not open (the Overview's Mentor applications): the card's box and head, its tag, then the
+   Review link at the cues' width, then the help slot and the external-link icon in the chevron's place. */
+
+.wpcpm-ui-fold--row > .wpcpm-ui-fold__head {
+	cursor: default;
+}
+
+.wpcpm-ui-fold--row .wpcpm-ui-fold__end {
+	display: contents;
+}
+
+.wpcpm-ui-fold--row .wpcpm-ui-fold__help-slot {
+	order: 1;
+}
+
+.wpcpm-ui-fold--row .wpcpm-ui-fold__ext {
+	order: 2;
+}
+
+.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-btn {
+	min-width: 84px;
+}
+
+/* The inner fold: no box, a hairline above and below, one size smaller. */
+
+.wpcpm-ui-fold--inner {
+	background: none;
+	border: 0;
+	border-bottom: 1px solid var( --wpcpm-f-line );
+	border-radius: 0;
+	border-top: 1px solid var( --wpcpm-f-line );
+	margin: var( --wpcpm-f-block ) 0 0;
+}
+
+/* A run of inner folds shares its hairlines and has no gap (the card folds' 10px is for card folds); the run
+   is 16px from the block before it (the margin above) and from the block after it. */
+
+.wpcpm-ui-fold--inner + .wpcpm-ui-fold--inner {
+	border-top: 0;
+	margin-top: 0;
+}
+
+.wpcpm-ui-fold--inner + :not( .wpcpm-ui-fold--inner ) {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-table + .wpcpm-ui-fold--inner {
+	border-top: 0;
+}
+
+/* An inner fold right after a card's last item is the card's own block, not the item's: it stands off the item as one
+   item stands off the next, 24px over its hairline (the fold's own top line), its head as every inner head (Task 18f:
+   Plan an event, the returned and revoked folds, Recently closed, the rejected applications). */
+
+.wpcpm-ui-item + .wpcpm-ui-fold--inner {
+	margin-top: var( --wpcpm-f-apart );
+}
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__head {
+	min-height: 44px;
+	padding: 12px 0;
+}
+
+.wpcpm-ui-fold--inner .wpcpm-ui-fold__lead {
+	display: block;
+}
+
+.wpcpm-ui-fold--inner .wpcpm-ui-fold__title {
+	display: block;
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.wpcpm-wrap .wpcpm-ui-fold--inner .wpcpm-ui-fold__title {
+	font-size: 13px;
+}
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__head:hover .wpcpm-ui-fold__title {
+	color: var( --wpcpm-f-brand );
+}
+
+.wpcpm-ui-fold__second {
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin-top: 2px;
+}
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body {
+	border-top: 0;
+	padding: 12px 0 16px;
+}
+
+/* The phone: a card head is two lines (the title and the chevron, then the phrase and the tag) and an inner
+   head a text column and a 20px chevron column. 600px on the front end, 782px under .wpcpm-wrap. The phrase's column
+   may be narrower than a long word (its least size 0, the phrase wrapping); the tag's column is `1fr`, whose least
+   size is the tag's own, so a long phrase never pushes the tag out; the title spans the phrase's and the tag's columns,
+   and an item spanning a flexible column never sizes the columns it spans, so a long title wraps in its two columns and
+   never widens the head (Task 18f, fix round 1). */
+
+@media (max-width: 600px) {
+	.wpcpm-ui-fold__head {
+		display: grid;
+		gap: 6px 12px;
+		grid-template-columns: minmax( 0, auto ) 1fr 20px;
+		padding: 12px 16px;
+	}
+
+	.wpcpm-ui-fold__end {
+		display: contents;
+	}
+
+	/* The status tag on line 2 keeps its own width, at the start of its column (task V1, ruling 1). */
+
+	.wpcpm-ui-on .wpcpm-ui-fold__end > .wpcpm-status {
+		justify-self: start;
+	}
+
+	.wpcpm-ui-fold__title {
+		grid-column: 1 / 3;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold__phrase,
+	.wpcpm-ui-count {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.wpcpm-ui-fold__chev,
+	.wpcpm-ui-fold__ext {
+		grid-column: 3;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold__cue,
+	.wpcpm-ui-fold__help,
+	.wpcpm-ui-fold__help-slot {
+		display: none;
+	}
+
+	/* "How to do this" is the first line inside the open card, 16px over the next block. */
+
+	.wpcpm-ui-fold-card > .wpcpm-ui-fold__help {
+		display: none;
+	}
+
+	.wpcpm-ui-fold__help--phone {
+		display: block;
+		text-align: left;
+		width: auto;
+	}
+
+	.wpcpm-ui-fold__help--phone + * {
+		margin-top: var( --wpcpm-f-block );
+	}
+
+	/* The row that does not open is two lines like every head (title and icon, then the phrase and the tag), and
+	   the whole row is its one press: the Review link's words stay in the page for assistive technology in a 1px
+	   box in the icon's cell, and its hit area is an empty pseudo-element stretched over the row. That hit area is
+	   the one absolute placement of the parts: it has no content, so it hides nothing from a screen reader. The
+	   focus ring the 1px link cannot show is drawn on the row. */
+
+	.wpcpm-ui-fold--row {
+		position: relative;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-ui-fold__end > .wpcpm-status {
+		grid-column: 2;
+		grid-row: 2;
+		justify-self: start;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-btn {
+		align-self: start;
+		border: 0;
+		grid-column: 3;
+		grid-row: 1;
+		height: 1px;
+		margin: 0;
+		min-height: 0;
+		min-width: 0;
+		overflow: hidden;
+		padding: 0;
+		position: static;
+		white-space: nowrap;
+		width: 1px;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-btn::after {
+		content: "";
+		inset: 0;
+		position: absolute;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row:has( .wpcpm-btn:focus-visible ) {
+		outline: 2px solid var( --wpcpm-f-brand );
+		outline-offset: 2px;
+	}
+
+	.wpcpm-ui-fold--inner > .wpcpm-ui-fold__head {
+		align-items: start;
+		grid-template-columns: minmax( 0, 1fr ) 20px;
+		padding: 12px 0;
+	}
+
+	.wpcpm-ui-fold--inner .wpcpm-ui-fold__lead {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold--inner .wpcpm-ui-fold__chev {
+		align-self: start;
+		grid-column: 2;
+		grid-row: 1;
+	}
+}
+
+/* The same two-line head while the frame's main area is under 800px, whatever the window: the one-row head (title,
+   phrase, tag, cue, help link, chevron) needs about 800px, and between a phone and that it would squeeze its title and
+   phrase over each other (Task 18f). The card head, the row that does not open and the inner head take their phone
+   forms here (the inner head's only pins its chevron at the top); the rules are the phone's, repeated for the frame's
+   container (the parts' suite compares the two). */
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-ui-fold__head {
+		display: grid;
+		gap: 6px 12px;
+		grid-template-columns: minmax( 0, auto ) 1fr 20px;
+		padding: 12px 16px;
+	}
+
+	.wpcpm-ui-fold__end {
+		display: contents;
+	}
+
+	/* The status tag on line 2 keeps its own width, at the start of its column (task V1, ruling 1). */
+
+	.wpcpm-ui-on .wpcpm-ui-fold__end > .wpcpm-status {
+		justify-self: start;
+	}
+
+	.wpcpm-ui-fold__title {
+		grid-column: 1 / 3;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold__phrase,
+	.wpcpm-ui-count {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.wpcpm-ui-fold__chev,
+	.wpcpm-ui-fold__ext {
+		grid-column: 3;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold__cue,
+	.wpcpm-ui-fold__help,
+	.wpcpm-ui-fold__help-slot {
+		display: none;
+	}
+
+	/* "How to do this" is the first line inside the open card, 16px over the next block. */
+
+	.wpcpm-ui-fold-card > .wpcpm-ui-fold__help {
+		display: none;
+	}
+
+	.wpcpm-ui-fold__help--phone {
+		display: block;
+		text-align: left;
+		width: auto;
+	}
+
+	.wpcpm-ui-fold__help--phone + * {
+		margin-top: var( --wpcpm-f-block );
+	}
+
+	/* The row that does not open is two lines like every head (title and icon, then the phrase and the tag), and
+	   the whole row is its one press: the Review link's words stay in the page for assistive technology in a 1px
+	   box in the icon's cell, and its hit area is an empty pseudo-element stretched over the row. That hit area is
+	   the one absolute placement of the parts: it has no content, so it hides nothing from a screen reader. The
+	   focus ring the 1px link cannot show is drawn on the row. */
+
+	.wpcpm-ui-fold--row {
+		position: relative;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-ui-fold__end > .wpcpm-status {
+		grid-column: 2;
+		grid-row: 2;
+		justify-self: start;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-btn {
+		align-self: start;
+		border: 0;
+		grid-column: 3;
+		grid-row: 1;
+		height: 1px;
+		margin: 0;
+		min-height: 0;
+		min-width: 0;
+		overflow: hidden;
+		padding: 0;
+		position: static;
+		white-space: nowrap;
+		width: 1px;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row .wpcpm-btn::after {
+		content: "";
+		inset: 0;
+		position: absolute;
+	}
+
+	.wpcpm-ui-on .wpcpm-ui-fold--row:has( .wpcpm-btn:focus-visible ) {
+		outline: 2px solid var( --wpcpm-f-brand );
+		outline-offset: 2px;
+	}
+
+	.wpcpm-ui-fold--inner > .wpcpm-ui-fold__head {
+		align-items: start;
+		grid-template-columns: minmax( 0, 1fr ) 20px;
+		padding: 12px 0;
+	}
+
+	.wpcpm-ui-fold--inner .wpcpm-ui-fold__lead {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.wpcpm-ui-fold--inner .wpcpm-ui-fold__chev {
+		align-self: start;
+		grid-column: 2;
+		grid-row: 1;
+	}
+}
+
+@media (max-width: 782px) {
+	.wpcpm-wrap .wpcpm-ui-fold__head {
+		display: grid;
+		gap: 6px 12px;
+		grid-template-columns: minmax( 0, auto ) 1fr 20px;
+		padding: 12px 16px;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold__end {
+		display: contents;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold__title {
+		grid-column: 1 / 3;
+		grid-row: 1;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold__phrase,
+	.wpcpm-wrap .wpcpm-ui-count {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold__chev,
+	.wpcpm-wrap .wpcpm-ui-fold__ext {
+		grid-column: 3;
+		grid-row: 1;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold__cue,
+	.wpcpm-wrap .wpcpm-ui-fold__help,
+	.wpcpm-wrap .wpcpm-ui-fold__help-slot {
+		display: none;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold--inner > .wpcpm-ui-fold__head {
+		align-items: start;
+		grid-template-columns: minmax( 0, 1fr ) 20px;
+		padding: 12px 0;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold--inner .wpcpm-ui-fold__lead {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-fold--inner .wpcpm-ui-fold__chev {
+		align-self: start;
+		grid-column: 2;
+		grid-row: 1;
+	}
+}
+
+/* An agreement's review checklist: a plain list of sentences with the browser's own disc markers, the field rhythm
+   around it, its words 20px in (the markers about 8px inside the card's text edge), and the tie between two lines keyed
+   on the line's own class (Task 17b fix round; Task 18a). */
+
+.wpcpm-ui-checklist {
+	margin: var( --wpcpm-f-field ) 0;
+	padding-left: 20px;
+}
+
+.wpcpm-ui-checklist__item + .wpcpm-ui-checklist__item {
+	margin-top: var( --wpcpm-f-tie );
+}
+
+/* ---------- The item header (design 2.10) ---------- */
+
+/* One item of a card from the next (an application, an agreement, a request, a post, an event): the sheet's soft
+   hairline, 24px above it and 24px under it. The first item of a card draws none. */
+
+.wpcpm-ui-item + .wpcpm-ui-item {
+	border-top: 1px solid var( --wpcpm-f-line-soft );
+	margin-top: var( --wpcpm-f-apart );
+	padding-top: var( --wpcpm-f-apart );
+}
+
+.wpcpm-ui-item__title {
+	align-items: baseline;
+	color: var( --wpcpm-f-ink );
+	display: flex;
+	flex-wrap: wrap;
+	font: 600 16px/22px var( --wpcpm-f-sans );
+	gap: 4px 12px;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-ui-item__ref {
+	background: none;
+	color: var( --wpcpm-f-muted );
+	font: 400 13px/20px var( --wpcpm-f-mono );
+	padding: 0;
+	white-space: nowrap;
+}
+
+.wpcpm-ui-item__facts {
+	align-items: flex-start;
+	color: var( --wpcpm-f-muted );
+	display: flex;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: 4px 0 0;
+}
+
+.wpcpm-ui-item__facts > :not( .wpcpm-ui-item__run ) {
+	flex: none;
+	margin-right: 8px;
+}
+
+/* A middot never starts a line (design 2.10): each fact draws its own dot centred in a 16px gutter on its left, 8px
+   from the fact before and 8px from the fact after (Task 18d), and the run of facts is shifted left by that gutter and
+   clipped 12px in, so the dot that would begin any line, the first or a wrapped one, its centre 8px out of the text,
+   falls in the clipped part. The clip keeps 4px before the text and reaches
+   4px out on the other three sides, so a 2px focus ring at a 2px offset on a link at any edge stays whole. The
+   list row's facts use the same mechanism. */
+
+.wpcpm-ui-item__run,
+.wpcpm-ui-list__facts {
+	clip-path: inset( -4px -4px -4px 12px );
+	margin-left: -16px;
+}
+
+.wpcpm-ui-item__run {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+/* A fact is an inline-block, as wide as its longest word at least unless capped: it is capped at its run's width less
+   the 16px gutter it stands in, so a word wider than that breaks inside the fact (break-word from the fold) and nothing
+   runs past the run's clip; on a phone, where the facts are flex items, `min-width: 0` lets it shrink the same way
+   (Task 18f and its fix round 1). The item header's facts and a list row's alike. */
+.wpcpm-ui-item__fact {
+	display: inline-block;
+	margin-left: 16px;
+	max-width: calc( 100% - 16px );
+	min-width: 0;
+}
+
+.wpcpm-ui-item__fact::before {
+	color: var( --wpcpm-f-icon );
+	content: "\00b7";
+	display: inline-block;
+	margin-left: -16px;
+	margin-right: 0;
+	text-align: center;
+	width: 16px;
+}
+
+.wpcpm-wrap .wpcpm-ui-item__title {
+	color: var( --wpcpm-f-ink );
+	font-family: inherit;
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 22px;
+}
+
+.wpcpm-wrap .wpcpm-ui-item__facts {
+	margin-bottom: var( --wpcpm-f-block );
+}
+
+/* A table, an in-card heading, an intro line or a block of the item's own (`wpcpm-ui-item__part`: an agreement's
+   review, its heading first) right under an item's facts line sits 16px under it, the room between blocks of a card
+   (task V1, rulings 8 and 12; the approved request and agreement pictures): an item's blocks are its own, not a card
+   body's, so nothing else sets it. */
+
+.wpcpm-ui-item__facts + .wpcpm-ui-table,
+.wpcpm-ui-item__facts + .wpcpm-ui-h,
+.wpcpm-ui-item__facts + .wpcpm-ui-intro,
+.wpcpm-ui-item__facts + .wpcpm-ui-item__part {
+	margin-top: var( --wpcpm-f-block );
+}
+
+/* The phone: the facts wrap under the tag from the item's left edge, 4px between lines, not as a column beside the
+   tag (task V1, ruling 11). The run gives up its box, so each fact is the line's own item, and the line itself is
+   shifted left by the 16px gutter and clipped 12px in, as the run is at desktop widths: the dot that would begin a
+   line falls in the clipped part. The tag is put back on the edge by the same 16px, and the first fact, which
+   follows the tag, draws no dot. The technique (a clip-path with a negative margin, and the tag's margins undoing it)
+   is fragile: a change to the gutter, the dot's width or the tag's margins breaks it unseen. Its proof is the phone
+   pictures of task V1 (the 390px shots of every card with an item header); photograph again after touching it. */
+
+@media (max-width: 600px) {
+	.wpcpm-ui-item__facts {
+		clip-path: inset( -4px -4px -4px 12px );
+		flex-wrap: wrap;
+		margin-left: -16px;
+		row-gap: 4px;
+	}
+
+	.wpcpm-ui-item__facts > :not( .wpcpm-ui-item__run ) {
+		margin-left: 16px;
+		margin-right: -8px;
+	}
+
+	.wpcpm-ui-item__run {
+		display: contents;
+	}
+
+	.wpcpm-ui-item__fact:first-child::before {
+		visibility: hidden;
+	}
+
+	/* A list row's facts that wrap are 4px apart, as an item header's are, so a card's facts keep one step (Task 18e).
+	   The run's shift and clip stay the list facts' own, as at desktop widths. */
+	.wpcpm-ui-list__facts {
+		display: flex;
+		flex-wrap: wrap;
+		row-gap: 4px;
+	}
+}
+
+/* The same phone form while the frame's main area is under 800px, whatever the window (Task 18f, fix round 2: one
+   narrow form); the parts' suite holds the two equal. */
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-ui-item__facts {
+		clip-path: inset( -4px -4px -4px 12px );
+		flex-wrap: wrap;
+		margin-left: -16px;
+		row-gap: 4px;
+	}
+
+	.wpcpm-ui-item__facts > :not( .wpcpm-ui-item__run ) {
+		margin-left: 16px;
+		margin-right: -8px;
+	}
+
+	.wpcpm-ui-item__run {
+		display: contents;
+	}
+
+	.wpcpm-ui-item__fact:first-child::before {
+		visibility: hidden;
+	}
+
+	/* A list row's facts that wrap are 4px apart, as an item header's are, so a card's facts keep one step (Task 18e).
+	   The run's shift and clip stay the list facts' own, as at desktop widths. */
+	.wpcpm-ui-list__facts {
+		display: flex;
+		flex-wrap: wrap;
+		row-gap: 4px;
+	}
+}
+
+/* ---------- The table (design 2.7): one look, no outer border, no fill, no stripes ---------- */
+
+.wpcpm-ui-table {
+	background: none;
+	border: 0;
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.wpcpm-ui-table td {
+	border-bottom: 1px solid var( --wpcpm-f-line-soft );
+	color: var( --wpcpm-f-ink );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	padding: 12px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wpcpm-ui-table th {
+	border-bottom: 1px solid var( --wpcpm-f-line );
+	color: var( --wpcpm-f-muted );
+	font: 600 12px/18px var( --wpcpm-f-sans );
+	padding: 12px;
+	text-align: left;
+	white-space: nowrap;
+}
+
+/* A wide table's column names may wrap (at their spaces, to two lines at most in practice), bottom-aligned on one line
+   with the others, so a column of short numbers under a long name ("Waiting for a mentor") is no wider than its words
+   need while a column of text beside it has room (Task 18f). Any other table's names never wrap (design 2.7). */
+
+.wpcpm-ui-table--wide thead th {
+	vertical-align: bottom;
+	white-space: normal;
+}
+
+.wpcpm-wrap .wpcpm-ui-table td {
+	color: var( --wpcpm-f-ink );
+	font-family: inherit;
+	font-size: 13px;
+	padding: 12px;
+}
+
+.wpcpm-wrap .wpcpm-ui-table th {
+	color: var( --wpcpm-f-muted );
+	font-family: inherit;
+	font-size: 12px;
+	padding: 12px;
+}
+
+/* A table of a family (design 2.7) lays its columns out by the widths its colgroup gives, not by what its cells hold, so
+   the columns of the family's consecutive tables start at the same places (task V1, ruling 14). */
+
+.wpcpm-ui-table--fixed {
+	table-layout: fixed;
+}
+
+/* Inside a card the outer cells have no padding at the table's edges, so the text lines up with the card's. */
+
+.wpcpm-ui-fold__body .wpcpm-ui-table th:first-child,
+.wpcpm-ui-fold__body .wpcpm-ui-table td:first-child {
+	padding-left: 0;
+}
+
+.wpcpm-ui-fold__body .wpcpm-ui-table th:last-child,
+.wpcpm-ui-fold__body .wpcpm-ui-table td:last-child {
+	padding-right: 0;
+}
+
+.wpcpm-ui-fold__body > .wpcpm-ui-table:last-child tr:last-child td,
+.wpcpm-ui-fold__body > .wpcpm-ui-table:last-child tr:last-child .wpcpm-ui-cell--rowhead,
+.wpcpm-ui-fold__body > .wpcpm-ui-table:last-child tr:last-child {
+	border-bottom: 0;
+}
+
+/* A key and value table's label is a plain row header, which its own rule gives a hairline: when the table ends a fold
+   the last label draws none either, so the fold's own line is the one line under it (Task 18d). Only the key and value
+   table, which has no head row: a table's column headers keep theirs. */
+
+.wpcpm-ui-fold__body > .wpcpm-ui-table--keyvalue:last-child tr:last-child th {
+	border-bottom: 0;
+}
+
+/* A table that ends its card from inside something else (the last table of Students gone quiet sits in the card's one
+   form) says so by its modifier, and draws no hairline of its own at the end either. */
+
+.wpcpm-ui-fold__body .wpcpm-ui-table--end tr:last-child td,
+.wpcpm-ui-fold__body .wpcpm-ui-table--end tr:last-child .wpcpm-ui-cell--rowhead,
+.wpcpm-ui-fold__body .wpcpm-ui-table--end tr:last-child {
+	border-bottom: 0;
+}
+
+.wpcpm-ui-table .wpcpm-ui-cell--num {
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	white-space: nowrap;
+}
+
+/* A count that carries a second line (Programs running's In progress, the students by status under it): read from the
+   left as text is, its number in tabular figures, so the breakdown under it is not right-aligned over three lines (task
+   V1, ruling 15). */
+
+.wpcpm-ui-table .wpcpm-ui-cell--count {
+	font-variant-numeric: tabular-nums;
+	text-align: left;
+}
+
+.wpcpm-ui-table .wpcpm-ui-cell--date,
+.wpcpm-ui-table .wpcpm-ui-cell--short,
+.wpcpm-ui-table code {
+	white-space: nowrap;
+}
+
+/* A cell that prints a token, a string typed as one run or made by a machine (a website, an email address, a code, a
+   remote service's error; a column of kind 'token'), breaks anywhere, so one long token never widens its table past the
+   card; at least 10em wide, so an auto-layout table never squeezes it to a few characters while the other columns keep
+   their room. Every other cell (a name, a state, a number, a date) keeps its words whole (Task 18f). */
+
+.wpcpm-ui-table .wpcpm-ui-cell--token {
+	min-width: 10em;
+	overflow-wrap: anywhere;
+}
+
+/* A run of words kept whole (`WPCPM_UI::whole()`): a date in a range that may break between its dates (Task 18d). */
+
+.wpcpm-ui-whole {
+	white-space: nowrap;
+}
+
+/* A wide table's row header names its row (a sponsor, an institution, a student, a month): it reads as a body cell, the
+   row's own words, not as a column's name; a key and value table's label keeps the header's look. After the kinds'
+   rules, so it wraps whatever its kind. */
+
+.wpcpm-ui-table .wpcpm-ui-cell--rowhead {
+	border-bottom: 1px solid var( --wpcpm-f-line-soft );
+	color: var( --wpcpm-f-ink );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	padding: 12px;
+	text-align: left;
+	vertical-align: top;
+	white-space: normal;
+}
+
+.wpcpm-wrap .wpcpm-ui-table .wpcpm-ui-cell--rowhead {
+	color: var( --wpcpm-f-ink );
+	font-family: inherit;
+	font-size: 13px;
+}
+
+.wpcpm-ui-table td.wpcpm-ui-cell--action {
+	padding-bottom: 2px;
+	padding-top: 2px;
+	text-align: right;
+	vertical-align: middle;
+}
+
+.wpcpm-ui-table .wpcpm-ui-cell--empty {
+	color: var( --wpcpm-f-muted );
+}
+
+/* A code in a cell (a sponsor offer's Codes added): whole on a line of its own, in the reference's face, a long one (a
+   checkout link) wrapping inside its cell, never out of the card (task V1, ruling 8). It outweighs the table's own rule
+   that keeps a code on one line. */
+
+.wpcpm-ui-table .wpcpm-ui-code {
+	display: block;
+	font: 400 13px/20px var( --wpcpm-f-mono );
+	margin-top: 4px;
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+/* A cell's second line: its own line under the value, muted, wrapping even in a number cell (whose value stays on one
+   line), aligned as its cell is; on a phone it stays under the value. */
+.wpcpm-ui-cell__sub {
+	color: var( --wpcpm-f-muted );
+	display: block;
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin-top: 2px;
+	white-space: normal;
+}
+
+/* A key and value table's value is its one flexible column beside the 320px label: it may break a word anywhere, so a
+   long address, email or token shrinks the column's least width and the table stays in its card (Task 18f). Words that
+   fit keep the line they had: the column's width is the table's less the label's either way. */
+
+.wpcpm-ui-table--keyvalue td {
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-ui-table--keyvalue th {
+	border-bottom: 1px solid var( --wpcpm-f-line-soft );
+	color: var( --wpcpm-f-muted );
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	vertical-align: top;
+	white-space: normal;
+	width: 320px;
+}
+
+@media (max-width: 600px) {
+	.wpcpm-ui-table thead {
+		clip: rect( 0, 0, 0, 0 );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		width: 1px;
+	}
+
+	.wpcpm-ui-table,
+	.wpcpm-ui-table tbody {
+		display: block;
+	}
+
+	.wpcpm-ui-table tr {
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-ui-table tr {
+		border-bottom: 1px solid var( --wpcpm-f-line-soft );
+		padding: 12px 0;
+	}
+
+	.wpcpm-ui-table tr:first-child {
+		padding-top: 0;
+	}
+
+	.wpcpm-ui-table td {
+		border-bottom: 0;
+		display: block;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table td[data-label]::before {
+		color: var( --wpcpm-f-muted );
+		content: attr( data-label );
+		display: block;
+		font: 600 12px/18px var( --wpcpm-f-sans );
+	}
+
+	.wpcpm-ui-table--keyvalue td[data-label]::before {
+		content: none;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--num,
+	.wpcpm-ui-table td.wpcpm-ui-cell--action {
+		text-align: left;
+	}
+
+	/* The row's last line is its quiet action, a 40px button whose words sit 10px over its edge: that 10px is the
+	   row's own room under the words, so the words are as far over the row's line as the next row's name under it
+	   (Task 18f). */
+	.wpcpm-ui-table td.wpcpm-ui-cell--action {
+		margin-bottom: -10px;
+	}
+
+	/* A blank cell, its column's name with it, is not drawn in a stacked table (Task 18e). */
+	.wpcpm-ui-table td.wpcpm-ui-cell--blank {
+		display: none;
+	}
+
+	.wpcpm-ui-table--keyvalue th {
+		border-bottom: 0;
+		display: block;
+		padding: 0;
+		width: auto;
+	}
+
+	.wpcpm-ui-table .wpcpm-ui-cell--rowhead {
+		border-bottom: 0;
+		display: block;
+		font: 600 14px/20px var( --wpcpm-f-sans );
+		grid-column: 1 / -1;
+		grid-row: 1;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--joins {
+		align-self: center;
+		grid-column: -2 / -1;
+		grid-row: 1;
+		justify-self: end;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--joins::before {
+		content: none;
+	}
+}
+
+/* The same phone form while the frame's main area is under 800px, whatever the window (Task 18f, fix round 2: one
+   narrow form); the parts' suite holds the two equal. */
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-ui-table thead {
+		clip: rect( 0, 0, 0, 0 );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		width: 1px;
+	}
+
+	.wpcpm-ui-table,
+	.wpcpm-ui-table tbody {
+		display: block;
+	}
+
+	.wpcpm-ui-table tr {
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-ui-table tr {
+		border-bottom: 1px solid var( --wpcpm-f-line-soft );
+		padding: 12px 0;
+	}
+
+	.wpcpm-ui-table tr:first-child {
+		padding-top: 0;
+	}
+
+	.wpcpm-ui-table td {
+		border-bottom: 0;
+		display: block;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table td[data-label]::before {
+		color: var( --wpcpm-f-muted );
+		content: attr( data-label );
+		display: block;
+		font: 600 12px/18px var( --wpcpm-f-sans );
+	}
+
+	.wpcpm-ui-table--keyvalue td[data-label]::before {
+		content: none;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--num,
+	.wpcpm-ui-table td.wpcpm-ui-cell--action {
+		text-align: left;
+	}
+
+	/* The row's last line is its quiet action, a 40px button whose words sit 10px over its edge: that 10px is the
+	   row's own room under the words, so the words are as far over the row's line as the next row's name under it
+	   (Task 18f). */
+	.wpcpm-ui-table td.wpcpm-ui-cell--action {
+		margin-bottom: -10px;
+	}
+
+	/* A blank cell, its column's name with it, is not drawn in a stacked table (Task 18e). */
+	.wpcpm-ui-table td.wpcpm-ui-cell--blank {
+		display: none;
+	}
+
+	.wpcpm-ui-table--keyvalue th {
+		border-bottom: 0;
+		display: block;
+		padding: 0;
+		width: auto;
+	}
+
+	.wpcpm-ui-table .wpcpm-ui-cell--rowhead {
+		border-bottom: 0;
+		display: block;
+		font: 600 14px/20px var( --wpcpm-f-sans );
+		grid-column: 1 / -1;
+		grid-row: 1;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--joins {
+		align-self: center;
+		grid-column: -2 / -1;
+		grid-row: 1;
+		justify-self: end;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--joins::before {
+		content: none;
+	}
+}
+
+/* A wide table (seven columns or more) stacks as on a phone while the dashboard's main area, the frame's own container
+   (`wpcpm-main`, dashboard-frame.css), is too narrow for it: its headers and short cells never wrap, so it would run out
+   of its card, and there is no scroll box. The same declarations as the phone's block above, kept identical (the parts'
+   suite compares the two). */
+
+@container wpcpm-main ( max-width: 879.98px ) {
+	.wpcpm-ui-table--wide thead {
+		clip: rect( 0, 0, 0, 0 );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		width: 1px;
+	}
+
+	.wpcpm-ui-table--wide,
+	.wpcpm-ui-table--wide tbody {
+		display: block;
+	}
+
+	.wpcpm-ui-table--wide tr {
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-ui-table--wide tr {
+		border-bottom: 1px solid var( --wpcpm-f-line-soft );
+		padding: 12px 0;
+	}
+
+	.wpcpm-ui-table--wide tr:first-child {
+		padding-top: 0;
+	}
+
+	.wpcpm-ui-table--wide td {
+		border-bottom: 0;
+		display: block;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table--wide td[data-label]::before {
+		color: var( --wpcpm-f-muted );
+		content: attr( data-label );
+		display: block;
+		font: 600 12px/18px var( --wpcpm-f-sans );
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--num,
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--action {
+		text-align: left;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--action {
+		margin-bottom: -10px;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--blank {
+		display: none;
+	}
+
+	.wpcpm-ui-table--wide .wpcpm-ui-cell--rowhead {
+		border-bottom: 0;
+		display: block;
+		font: 600 14px/20px var( --wpcpm-f-sans );
+		grid-column: 1 / -1;
+		grid-row: 1;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--joins {
+		align-self: center;
+		grid-column: -2 / -1;
+		grid-row: 1;
+		justify-self: end;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--joins::before {
+		content: none;
+	}
+}
+
+/* A wide table that needs about 936px of the main area (Programs running: seven columns whose states and dates never
+   wrap; table_open()'s wide 936) stacks while that container is under 936px: the same declarations again, for its own
+   modifier (the parts' suite compares them with the phone's; Task 18d). */
+
+@container wpcpm-main ( max-width: 935.98px ) {
+	.wpcpm-ui-table--wide-936 thead {
+		clip: rect( 0, 0, 0, 0 );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		width: 1px;
+	}
+
+	.wpcpm-ui-table--wide-936,
+	.wpcpm-ui-table--wide-936 tbody {
+		display: block;
+	}
+
+	.wpcpm-ui-table--wide-936 tr {
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpcpm-ui-table--wide-936 tr {
+		border-bottom: 1px solid var( --wpcpm-f-line-soft );
+		padding: 12px 0;
+	}
+
+	.wpcpm-ui-table--wide-936 tr:first-child {
+		padding-top: 0;
+	}
+
+	.wpcpm-ui-table--wide-936 td {
+		border-bottom: 0;
+		display: block;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table--wide-936 td[data-label]::before {
+		color: var( --wpcpm-f-muted );
+		content: attr( data-label );
+		display: block;
+		font: 600 12px/18px var( --wpcpm-f-sans );
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--num,
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--action {
+		text-align: left;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--action {
+		margin-bottom: -10px;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--blank {
+		display: none;
+	}
+
+	.wpcpm-ui-table--wide-936 .wpcpm-ui-cell--rowhead {
+		border-bottom: 0;
+		display: block;
+		font: 600 14px/20px var( --wpcpm-f-sans );
+		grid-column: 1 / -1;
+		grid-row: 1;
+		padding: 2px 0;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--joins {
+		align-self: center;
+		grid-column: -2 / -1;
+		grid-row: 1;
+		justify-self: end;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--joins::before {
+		content: none;
+	}
+}
+
+/* A stacked table in a container 480px wide or more is not one narrow column (Task 18f, point 4; fix rounds 2 and 3):
+   a row's label and value pairs share lines of equal tracks (`minmax( 0, 1fr )`: content never widens a track), the
+   row's name across the row above them, its action on a line of its own across the row, last. A value may wrap at its
+   spaces there, the kinds that never wrap in a table (a date, a short word, a number) too, by rules that outweigh
+   theirs (`td.wpcpm-ui-cell--date`, 0,2,1 against 0,2,0); a date stays whole by its no-break spaces, its time free to
+   go under it, and a whole run (`wpcpm-ui-whole`) stays whole; a word still too long breaks inside it, and a token cell
+   gives up its 10em least width (a table's) for its track's, so nothing runs into the next pair (fix round 4). A blank cell keeps its place (its label, nothing
+   under it), so every row of a table has its pairs in the same places; a blank action takes no line. Every table while
+   the main area is under 800px (the narrow form), a wide table up to its threshold; a key and value table stays label
+   over value. How many pairs share a line is the table's count's rule below. */
+
+@container wpcpm-main ( min-width: 480px ) and ( max-width: 799.98px ) {
+	.wpcpm-ui-table tr {
+		display: grid;
+		gap: 8px 16px;
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table .wpcpm-ui-cell--rowhead {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--action {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--blank:not( .wpcpm-ui-cell--action ) {
+		display: block;
+	}
+
+	.wpcpm-ui-table td,
+	.wpcpm-ui-table td.wpcpm-ui-cell--date,
+	.wpcpm-ui-table td.wpcpm-ui-cell--short,
+	.wpcpm-ui-table td.wpcpm-ui-cell--num {
+		white-space: normal;
+	}
+
+	.wpcpm-ui-table td.wpcpm-ui-cell--token {
+		min-width: 0;
+	}
+
+	.wpcpm-ui-table--keyvalue tr {
+		display: block;
+	}
+}
+
+@container wpcpm-main ( min-width: 480px ) and ( max-width: 879.98px ) {
+	.wpcpm-ui-table--wide tr {
+		display: grid;
+		gap: 8px 16px;
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--wide .wpcpm-ui-cell--rowhead {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--action {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--blank:not( .wpcpm-ui-cell--action ) {
+		display: block;
+	}
+
+	.wpcpm-ui-table--wide td,
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--date,
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--short,
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--num {
+		white-space: normal;
+	}
+
+	.wpcpm-ui-table--wide td.wpcpm-ui-cell--token {
+		min-width: 0;
+	}
+}
+
+@container wpcpm-main ( min-width: 480px ) and ( max-width: 935.98px ) {
+	.wpcpm-ui-table--wide-936 tr {
+		display: grid;
+		gap: 8px 16px;
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--wide-936 .wpcpm-ui-cell--rowhead {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--action {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--blank:not( .wpcpm-ui-cell--action ) {
+		display: block;
+	}
+
+	.wpcpm-ui-table--wide-936 td,
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--date,
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--short,
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--num {
+		white-space: normal;
+	}
+
+	.wpcpm-ui-table--wide-936 td.wpcpm-ui-cell--token {
+		min-width: 0;
+	}
+}
+
+/* How many of a row's pairs share a line (Task 18f, fix round 3), by the count the table says (`wpcpm-ui-table--pairs-N`,
+   table_open(): its columns less the row header, the action and a cell that joins the header line) and how many 150px
+   shares, 16px apart, the row has room for (k: the row is the main area less the card's 34px). All N on one line when
+   they fit; otherwise two lines of ceil(N/2) when they fit and leave no pair alone; otherwise the largest count that
+   fits and leaves no pair alone; otherwise k, a pair alone on the last line. Only a row the stacked rules above make a
+   grid of columns reads these. */
+
+@container wpcpm-main ( min-width: 480px ) and ( max-width: 515.98px ) {
+	.wpcpm-ui-table--pairs-1 tr {
+		grid-template-columns: repeat( 1, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-2 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-3 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-4 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-5 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-6 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-7 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-8 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-9 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+@container wpcpm-main ( min-width: 516px ) and ( max-width: 681.98px ) {
+	.wpcpm-ui-table--pairs-1 tr {
+		grid-template-columns: repeat( 1, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-2 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-3 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-4 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-5 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-6 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-7 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-8 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-9 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+}
+
+@container wpcpm-main ( min-width: 682px ) and ( max-width: 847.98px ) {
+	.wpcpm-ui-table--pairs-1 tr {
+		grid-template-columns: repeat( 1, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-2 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-3 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-4 tr {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-5 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-6 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-7 tr {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-8 tr {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-9 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+}
+
+@container wpcpm-main ( min-width: 848px ) and ( max-width: 935.98px ) {
+	.wpcpm-ui-table--pairs-1 tr {
+		grid-template-columns: repeat( 1, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-2 tr {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-3 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-4 tr {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-5 tr {
+		grid-template-columns: repeat( 5, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-6 tr {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-7 tr {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-8 tr {
+		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	}
+
+	.wpcpm-ui-table--pairs-9 tr {
+		grid-template-columns: repeat( 5, minmax( 0, 1fr ) );
+	}
+}
+
+@media (max-width: 782px) {
+	.wpcpm-wrap .wpcpm-ui-table thead {
+		clip: rect( 0, 0, 0, 0 );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		width: 1px;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table,
+	.wpcpm-wrap .wpcpm-ui-table tbody,
+	.wpcpm-wrap .wpcpm-ui-table tr {
+		display: block;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table tr {
+		border-bottom: 1px solid var( --wpcpm-f-line-soft );
+		padding: 12px 0;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table td {
+		border-bottom: 0;
+		display: block;
+		padding: 2px 0;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table td[data-label]::before {
+		color: var( --wpcpm-f-muted );
+		content: attr( data-label );
+		display: block;
+		font: 600 12px/18px var( --wpcpm-f-sans );
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table--keyvalue td[data-label]::before {
+		content: none;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table td.wpcpm-ui-cell--num,
+	.wpcpm-wrap .wpcpm-ui-table td.wpcpm-ui-cell--action {
+		text-align: left;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table--keyvalue th {
+		border-bottom: 0;
+		display: block;
+		padding: 0;
+		width: auto;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-table .wpcpm-ui-cell--rowhead {
+		border-bottom: 0;
+		display: block;
+		font-size: 14px;
+		font-weight: 600;
+		line-height: 20px;
+		padding: 2px 0;
+	}
+}
+
+/* ---------- The list row with a state and an action (design 2.8) ---------- */
+
+.wpcpm-ui-list {
+	border-top: 1px solid var( --wpcpm-f-line );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-ui-list__row {
+	border-bottom: 1px solid var( --wpcpm-f-line-soft );
+	margin: 0;
+}
+
+/* A list that opens a card's body draws no hairline over it: the body's own top edge is that line (task V1, ruling
+   13). The help link's phone copy, hidden at desktop widths, comes before it. */
+
+.wpcpm-ui-fold__body > .wpcpm-ui-list:first-child,
+.wpcpm-ui-fold__body > .wpcpm-ui-fold__help--phone:first-child + .wpcpm-ui-list {
+	border-top: 0;
+}
+
+/* A list that ends a fold's body draws no hairline of its own at the end, as a table there draws none: the fold's
+   own edge is the one (task V1, ruling 6: Recently closed). */
+
+.wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child {
+	border-bottom: 0;
+}
+
+/* Inside an inner fold the body's own 12px under the head and 16px over the edge are the only room: a list that opens
+   the body draws no padding over its first line, one that ends it none under its last, neither with the row's least
+   height, which would centre a one-line name in room of its own (Task 18d: Who joined). A row between keeps both. */
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:first-child > .wpcpm-ui-list__row:first-child > .wpcpm-ui-list__line {
+	min-height: 0;
+	padding-top: 0;
+}
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child > .wpcpm-ui-list__line {
+	min-height: 0;
+	padding-bottom: 0;
+}
+
+/* No row of a list inside an inner fold keeps the 56px least height, so each row is its content and its line's 8px over
+   and under: every hairline has the same room above and below, and every row-to-row distance is the same, whatever the
+   rows hold (Task 18e). A noted last row ends with its note's words, as on a phone. */
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list > .wpcpm-ui-list__row > .wpcpm-ui-list__line {
+	min-height: 0;
+}
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child > .wpcpm-ui-list__note {
+	padding-bottom: 0;
+}
+
+/* The same rows' own room, where a phone row is the grid in place of its line (Task 18d). */
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:first-child > .wpcpm-ui-list__row:first-child {
+	padding-top: 0;
+}
+
+.wpcpm-ui-fold--inner > .wpcpm-ui-fold__body > .wpcpm-ui-list:last-child > .wpcpm-ui-list__row:last-child {
+	padding-bottom: 0;
+}
+
+.wpcpm-ui-list__line {
+	align-items: center;
+	box-sizing: border-box;
+	display: grid;
+	gap: 8px 16px;
+	grid-template-columns: minmax( 0, 1fr ) 160px minmax( 0, 1fr ) 200px;
+	justify-items: start;
+	min-height: 56px;
+	padding: 8px 0;
+}
+
+/* The name: a span, or a heading (row()'s level) with the same look, its margin taken off. */
+.wpcpm-ui-list__name {
+	color: var( --wpcpm-f-ink );
+	font: 600 14px/20px var( --wpcpm-f-sans );
+	grid-column: 1;
+	justify-self: stretch;
+	margin: 0;
+	min-width: 0;
+}
+
+.wpcpm-ui-list__facts {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	font-variant-numeric: tabular-nums;
+	grid-column: 3;
+	justify-self: stretch;
+	min-width: 0;
+}
+
+.wpcpm-ui-list__act {
+	display: flex;
+	gap: 16px;
+	grid-column: 4;
+	justify-content: flex-end;
+	justify-self: end;
+}
+
+/* A row with no action (row() prints no action cell then) gives the action's column to its facts, so they do not wrap
+   beside an empty column (task V1, ruling 6: Recently closed). */
+
+.wpcpm-ui-list__facts:last-child {
+	grid-column: 3 / -1;
+}
+
+/* A row with media: a 40px box at its start, the line, the note after it 12px on; the row's form spans the row. A list
+   passes media for every row or for none, so its names line up. On a phone the box stays beside the name. */
+.wpcpm-ui-list__row--media {
+	align-items: start;
+	column-gap: var( --wpcpm-f-gap );
+	display: grid;
+	grid-template-columns: 40px minmax( 0, 1fr );
+}
+
+.wpcpm-ui-list__row--media > .wpcpm-ui-list__line {
+	grid-column: 2;
+}
+
+.wpcpm-ui-list__row--media > .wpcpm-ui-list__note {
+	grid-column: 2;
+}
+
+.wpcpm-ui-list__row--media > .wpcpm-ui-list__form {
+	grid-column: 1 / -1;
+}
+
+/* The box: 40px square, a 1px line, 2px corners, a white ground, centered on the 56px line; what it holds is contained,
+   never cropped or stretched. */
+.wpcpm-ui-list__media {
+	align-items: center;
+	background: var( --wpcpm-f-surface );
+	border: 1px solid var( --wpcpm-f-line );
+	border-radius: 2px;
+	box-sizing: border-box;
+	display: flex;
+	grid-column: 1;
+	grid-row: 1;
+	height: 40px;
+	justify-content: center;
+	margin-top: 8px;
+	overflow: hidden;
+	width: 40px;
+}
+
+.wpcpm-ui-list__media-img {
+	display: block;
+	height: auto;
+	max-height: 100%;
+	max-width: 100%;
+	object-fit: contain;
+	width: auto;
+}
+
+.wpcpm-ui-list__media-initials {
+	color: var( --wpcpm-f-ink-2 );
+	font: 600 14px/20px var( --wpcpm-f-sans );
+}
+
+/* A row's note, on a line of its own under the row's line: its left edge on the name's, its line breaks kept. */
+.wpcpm-ui-list__row--note > .wpcpm-ui-list__line {
+	padding-bottom: 0;
+}
+
+/* A note a person typed (WPCPM_UI::note(): an application's notes, a request's note, an event's description) reads as
+   a row's note does: the second ink, its line breaks kept, a long word broken, to its container's right edge like every
+   other line (DESIGN.md: a paragraph's width is never capped inside a container; Task 18c). The note takes the
+   body's 16px above it and nothing under; a row's note its 6px above and the row's 8px under. */
+.wpcpm-ui-note,
+.wpcpm-ui-list__note {
+	color: var( --wpcpm-f-ink-2 );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.wpcpm-ui-note {
+	margin: var( --wpcpm-f-block ) 0 0;
+}
+
+.wpcpm-ui-list__note {
+	margin: 0;
+	padding: 6px 0 8px;
+}
+
+.wpcpm-ui-list__form {
+	background: var( --wpcpm-f-neutral );
+	border-top: 1px solid var( --wpcpm-f-line-soft );
+	padding: 16px;
+}
+
+.wpcpm-ui-list__empty {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: 0;
+	padding: 12px 0;
+}
+
+/* A list with its facts under the name (list_open()'s facts 'under', design 2.8's people rows; Task 18c): line 1 the
+   name, its tag right after it when it has one, and the action at the line's end; line 2 the facts, in the muted ink 4px
+   under line 1, at the row's full width, under the action too; the note under as ever. One rule with or without a tag
+   (Task 18f): the name, the tag and the action share one baseline, so the tag's and the action's words sit on the name's
+   first line however many lines the name takes, and the facts start the same distance under that line in every row.
+   Four columns (Task 18e): the name's, as wide as the name up to the room there is, a long word broken where it would
+   overflow (break-word, Task 18f); the tag's, as wide as the tag; the room left; and the action's. No column gap: the
+   tag and the action keep their 16px as their own margins, so a column with nothing in it costs nothing. The line's
+   tracks are centred, never stretched, so a one-line row keeps its place in the line's least height. Wider than a phone
+   only: on a phone the phone layout below is already this one. */
+@media (min-width: 601px) {
+	@container wpcpm-main ( min-width: 800px ) {
+		.wpcpm-ui-list--under .wpcpm-ui-list__line {
+			align-content: center;
+			column-gap: 0;
+			grid-template-columns: minmax( 0, max-content ) auto minmax( 0, 1fr ) auto;
+			row-gap: 4px;
+		}
+
+		.wpcpm-ui-list--under .wpcpm-ui-list__name {
+			align-self: baseline;
+			grid-column: 1;
+			grid-row: 1;
+		}
+
+		.wpcpm-ui-list--under .wpcpm-ui-list__facts,
+		.wpcpm-ui-list--under .wpcpm-ui-list__facts:last-child {
+			grid-column: 1 / -1;
+			grid-row: 2;
+		}
+
+		.wpcpm-ui-list--under .wpcpm-ui-list__facts:empty {
+			display: none;
+		}
+
+		.wpcpm-ui-list--under .wpcpm-ui-list__act {
+			align-self: baseline;
+			grid-column: 4;
+			grid-row: 1;
+			margin-left: 16px;
+		}
+
+		.wpcpm-ui-on .wpcpm-ui-list--under .wpcpm-ui-list__line > .wpcpm-status {
+			align-self: baseline;
+			grid-column: 2;
+			grid-row: 1;
+			justify-self: start;
+			margin-left: 16px;
+		}
+
+	}
+}
+
+/* On a phone a row of such a list reads its name and tag, its facts, its note, then its action last (Task 18d): the row
+   is the grid and its line gives up its box, so the note, printed after the line, comes before the action, which the
+   grid places after it, and the row's form after that. The row takes the line's room (8px over and under) and gaps. No
+   such list passes media today; a row with media keeps its own grid by the rules above at desktop widths only. */
+@media (max-width: 600px) {
+	/* The tag beside the name's first line, as from 601px up (Task 18f). */
+	.wpcpm-ui-list--under .wpcpm-ui-list__name,
+	.wpcpm-ui-on .wpcpm-ui-list--under .wpcpm-ui-list__line > .wpcpm-status {
+		align-self: baseline;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note {
+		align-items: center;
+		display: grid;
+		gap: 8px 16px;
+		grid-template-columns: minmax( 0, 1fr ) auto;
+		justify-items: start;
+		padding: 8px 0;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__line {
+		display: contents;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__note {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+		padding: 0;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note .wpcpm-ui-list__act {
+		order: 1;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__form {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+		order: 2;
+	}
+}
+
+/* The same phone form while the frame's main area is under 800px, whatever the window (Task 18f, fix round 2: one
+   narrow form); the parts' suite holds the two equal. */
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	/* The tag beside the name's first line, as from 601px up (Task 18f). */
+	.wpcpm-ui-list--under .wpcpm-ui-list__name,
+	.wpcpm-ui-on .wpcpm-ui-list--under .wpcpm-ui-list__line > .wpcpm-status {
+		align-self: baseline;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note {
+		align-items: center;
+		display: grid;
+		gap: 8px 16px;
+		grid-template-columns: minmax( 0, 1fr ) auto;
+		justify-items: start;
+		padding: 8px 0;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__line {
+		display: contents;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__note {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+		padding: 0;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note .wpcpm-ui-list__act {
+		order: 1;
+	}
+
+	.wpcpm-ui-list--under .wpcpm-ui-list__row--note > .wpcpm-ui-list__form {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+		order: 2;
+	}
+}
+
+@media (max-width: 600px) {
+	.wpcpm-ui-list__line {
+		grid-template-columns: minmax( 0, 1fr ) auto;
+	}
+
+	.wpcpm-ui-list__facts,
+	.wpcpm-ui-list__facts:last-child,
+	.wpcpm-ui-list__act {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-list__act {
+		justify-content: flex-start;
+		justify-self: start;
+	}
+
+	.wpcpm-ui-list__facts:empty {
+		display: none;
+	}
+}
+
+/* The same phone form while the frame's main area is under 800px, whatever the window (Task 18f, fix round 2: one
+   narrow form); the parts' suite holds the two equal. */
+
+@container wpcpm-main ( max-width: 799.98px ) {
+	.wpcpm-ui-list__line {
+		grid-template-columns: minmax( 0, 1fr ) auto;
+	}
+
+	.wpcpm-ui-list__facts,
+	.wpcpm-ui-list__facts:last-child,
+	.wpcpm-ui-list__act {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-ui-list__act {
+		justify-content: flex-start;
+		justify-self: start;
+	}
+
+	.wpcpm-ui-list__facts:empty {
+		display: none;
+	}
+}
+
+@media (max-width: 782px) {
+	.wpcpm-wrap .wpcpm-ui-list__line {
+		grid-template-columns: minmax( 0, 1fr ) auto;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-list__facts,
+	.wpcpm-wrap .wpcpm-ui-list__act {
+		grid-column: 1 / -1;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-list__act {
+		justify-content: flex-start;
+		justify-self: start;
+	}
+
+	.wpcpm-wrap .wpcpm-ui-list__facts:empty {
+		display: none;
+	}
+}
+
+/* ---------- The Decide area (design 2.6): a heading, one row of decisions, and for a decision that takes a note
+   one panel under the row. The server prints every panel open and the script folds them, so no rule here hides
+   a panel: with no script every form is on the page. ---------- */
+
+.wpcpm-ui-decide {
+	margin-top: var( --wpcpm-f-apart );
+}
+
+/* After a run of inner folds too, which design 2.3 would set 16px from what follows it. */
+
+.wpcpm-ui-fold--inner + .wpcpm-ui-decide {
+	margin-top: var( --wpcpm-f-apart );
+}
+
+.wpcpm-ui-decide > .wpcpm-ui-h {
+	margin: 0 0 var( --wpcpm-f-gap );
+}
+
+/* The row holds forms and openers side by side; neither is stretched to the other's height. */
+
+.wpcpm-ui-decide > .wpcpm-ui-actions {
+	align-items: flex-start;
+	margin-top: 0;
+}
+
+.wpcpm-ui-panel {
+	border-top: 1px solid var( --wpcpm-f-line );
+	margin-top: var( --wpcpm-f-block );
+	padding-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-panel .wpcpm-ui-actions {
+	margin-top: var( --wpcpm-f-block );
+}
+
+/* wp-admin: 16px from the row, or an open panel's row, to the item box's bottom edge. */
+
+.wpcpm-wrap .wpcpm-ui-decide {
+	padding-bottom: var( --wpcpm-f-block );
+}
+
+/* An action row right before a Decide area sits 16px over it, the room between blocks of a card, not the 24px between
+   two blocks that are not each other's (task V1, ruling 9). Today the one such row is an event's Join or Leave; the rule
+   is the part's, for any action row over a Decide area, which is right: the two are one item's actions. */
+
+.wpcpm-ui-actions + .wpcpm-ui-decide {
+	margin-top: var( --wpcpm-f-block );
+}
+
+/* ---------- A group of cards (the Administrator Dashboard's Waiting for you, This week, The program's numbers): its
+   heading in the card title's size, weight, caps and tracking (design 2.3) in the second ink; its lead muted 4px
+   under it (the heading's modifier when a lead follows); 12px from the lead, or from the heading when there is none,
+   to the first row; and the sentence under the rows a muted line 22px from the last of them. The room is the
+   heading's, the lead's and the sentence's own, since the theme sets the cards' margins. ---------- */
+
+.wpcpm-ui-group__title {
+	color: var( --wpcpm-f-ink-2 );
+	font: 600 13px/20px var( --wpcpm-f-sans );
+	letter-spacing: 0.06em;
+	margin: 0 0 var( --wpcpm-f-gap );
+	text-transform: uppercase;
+}
+
+.wpcpm-ui-group__title--lead {
+	margin-bottom: 4px;
+}
+
+.wpcpm-ui-group__lead {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: 0 0 var( --wpcpm-f-gap );
+}
+
+.wpcpm-ui-group__note {
+	color: var( --wpcpm-f-muted );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: var( --wpcpm-f-module ) 0 0;
+}
+
+/* ---------- Every card's foot, "Open on the ... screen": after a 1px hairline, 24px above it and 16px from it to the
+   link, nothing under it beyond the body's own padding. The link takes the page's link look, as the card's other
+   links do. After the rule that takes the room above the body's first block, which it ties. ---------- */
+
+.wpcpm-ui-fold__foot {
+	border-top: 1px solid var( --wpcpm-f-line );
+	font: 400 14px/20px var( --wpcpm-f-sans );
+	margin: var( --wpcpm-f-apart ) 0 0;
+	padding: var( --wpcpm-f-block ) 0 0;
+}
+
+/* After a block that ends on a hairline of its own (a table's last row, a list's last row, an inner fold), the foot
+   draws none: that hairline is the one before the foot, 16px over the link (task V1, ruling 13). */
+
+.wpcpm-ui-table + .wpcpm-ui-fold__foot,
+.wpcpm-ui-list + .wpcpm-ui-fold__foot,
+.wpcpm-ui-fold--inner + .wpcpm-ui-fold__foot {
+	border-top: 0;
+	margin-top: 0;
+}
+
+/* After a plain line of text the foot's hairline is the block step, 16px, under the text, so every card ends alike
+   (Task 18f): an intro line (its own 8px under it collapses into the 16px), a note, and the empty line, whose own
+   12px under its words make 16px with these 4px. */
+
+.wpcpm-ui-intro + .wpcpm-ui-fold__foot,
+.wpcpm-ui-note + .wpcpm-ui-fold__foot {
+	margin-top: var( --wpcpm-f-block );
+}
+
+.wpcpm-ui-list__empty + .wpcpm-ui-fold__foot {
+	margin-top: 4px;
+}
+
+/* ---------- 22px from a group of card folds to the next module. It weighs one class and comes last, so it
+   breaks ties with the single-class rules of the parts above and loses to nothing heavier. ---------- */
+
+.wpcpm-ui-fold:where( :not( .wpcpm-ui-fold--inner ) ) + :where( :not( .wpcpm-ui-fold ) ) {
+	margin-top: var( --wpcpm-f-module );
+}
+
+/* ---------- Hidden stays hidden inside the parts, which set display ---------- */
+
+.wpcpm-ui-on [hidden] {
+	display: none !important;
+}

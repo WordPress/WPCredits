@@ -1817,9 +1817,10 @@ class WPCPM_Sponsor_Posts {
 	}
 
 	/**
-	 * A manager's decision on a pending sponsor post, in the request cards' own shape: Preview,
-	 * Publish, and a folded "Return with a note" whose form opens only when chosen. Drawn by the
-	 * Administrator Dashboard's queue (spec 7.4); the Sponsor Dashboard carries no controls.
+	 * A manager's decision on a pending sponsor post, in the request cards' own shape, as one Decide
+	 * area (`render_decide_area()`): Publish, and "Return with a note" whose panel opens only when
+	 * chosen. Drawn by the Administrator Dashboard's queue (spec 7.4); the Sponsor Dashboard carries no
+	 * controls.
 	 *
 	 * @param int    $post_id The post.
 	 * @param string $return  `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
@@ -1831,54 +1832,113 @@ class WPCPM_Sponsor_Posts {
 			return;
 		}
 
-		echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide">';
+		self::render_decide_area( $post, (string) $return );
+	}
 
-		printf( '<a class="button" href="%1$s">%2$s</a>', esc_url( get_preview_post_link( $post ) ), esc_html__( 'Preview', 'wpcredits-program-manager' ) );
+	/**
+	 * The decision on one pending post as one Decide area (`WPCPM_UI::decide()`, design 2.6), drawn on the
+	 * Administrator Dashboard: Publish, the one primary, acting at once as today; Return with
+	 * a note, a secondary opener whose panel holds the note, its label "A note for the author" visible, the sentence
+	 * that says what happens as its hint, and the button that keeps "Return it with this note". Preview is not in the
+	 * row: the card's item header carries it as a fact. Nothing is red: returning removes nothing.
+	 *
+	 * Both forms post what the publish and return handlers read: admin-post.php under the once guard, the hidden
+	 * fields under each action's nonce keyed to the post (the nonce printed with no id, `WPCPM_UI::nonce()`, since the card holds one per post), the box
+	 * under its name, id and bound. The panel is printed open when the last press left typing for this post's box
+	 * (`handle_return()` keeps it for a note too long and for one the cleaner would take words from); when the outcome
+	 * is one of those two refusals, the box is tied to its sentence and the card's message leads to it.
+	 *
+	 * @param WP_Post $post  The pending post.
+	 * @param string  $where `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 */
+	private static function render_decide_area( WP_Post $post, $where ) {
+		$post_id  = (int) $post->ID;
+		$field_id = 'wpcpm-post-note-' . $post_id;
+		$typed    = WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post_id );
+		$note     = WPCPM_Typed_Text::kept_box( $typed, 'note' );
+		$problem  = '';
 
-		printf( '<form class="wpcpm-sponsor-post__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
-		wp_nonce_field( self::ACTION_POST_PUBLISH . '_' . (int) $post->ID );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_POST_PUBLISH ) );
-		printf( '<input type="hidden" name="wpcpm_post" value="%d" />', (int) $post->ID );
+		// What the press was refused for, read from the outcome it left on the Institutions screen's channel, which the
+		// dashboard's message reads too (`WPCPM_Flash::take()` memoizes, so it is the sentence the card prints). The
+		// outcome names no post, and another post's box may hold typing an earlier press kept: the refusal is this
+		// box's only when this post's form is the last one kept (`WPCPM_Typed_Text::is_last()`).
+		if ( null !== $note && class_exists( 'WPCPM_Institutions' ) ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$messages = self::messages();
 
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $return, 'sponsor-posts' );
+			if ( in_array( $status, array( 'post-note-long', 'post-note-loss' ), true ) && isset( $messages[ $status ][1] ) && WPCPM_Typed_Text::is_last( $typed ) ) {
+				$problem = (string) $messages[ $status ][1];
+			}
 		}
 
-		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Publish', 'wpcredits-program-manager' ) );
-		echo '</form>';
-
-		// A refused return comes back with the note as it was typed, its fold open so the box is
-		// where it was left.
-		$note = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_RETURN, $post->ID ), 'note' );
-
-		echo null === $note ? '<details class="wpcpm-sponsor-post__return">' : '<details class="wpcpm-sponsor-post__return" open>';
-		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
-		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The post goes back to the sponsor\'s account as a draft, and your note is sent to its author by email.', 'wpcredits-program-manager' ) );
-		printf( '<form class="wpcpm-sponsor-post__form wpcpm-sponsor-post__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
-		wp_nonce_field( self::ACTION_POST_RETURN . '_' . (int) $post->ID );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_POST_RETURN ) );
-		printf( '<input type="hidden" name="wpcpm_post" value="%d" />', (int) $post->ID );
-
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $return, 'sponsor-posts' );
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( $field_id );
 		}
 
-		printf(
-			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" maxlength="%3$d" required placeholder="%4$s">%5$s</textarea>',
-			(int) $post->ID,
-			esc_html( self::note_label() ),
-			// Drawn empty, so the room is the limit: nothing in it is held as an entity.
-			(int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
-			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' ),
-			// The parser drops one line feed right after the opening tag, so a kept note that
-			// begins with a line break keeps it.
-			null === $note ? '' : "\n" . esc_textarea( $note )
+		$form   = array(
+			'method'          => 'post',
+			'action'          => admin_url( 'admin-post.php' ),
+			'data-wpcpm-once' => true,
 		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return it with this note', 'wpcredits-program-manager' ) );
-		echo '</form>';
-		echo '</details>';
+		$hidden = static function ( $action ) use ( $post_id, $where ) {
+			return static function () use ( $action, $post_id, $where ) {
+				echo WPCPM_UI::nonce( $action . '_' . $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+				printf( '<input type="hidden" name="wpcpm_post" value="%d" />', (int) $post_id );
 
-		echo '</div>';
+				if ( class_exists( 'WPCPM_Return' ) ) {
+					WPCPM_Return::field( $where, 'sponsor-posts' );
+				}
+			};
+		};
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-post-' . $post_id,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => array(
+					array(
+						'key'        => 'publish',
+						'label'      => __( 'Publish', 'wpcredits-program-manager' ),
+						'kind'       => 'primary',
+						'form_attrs' => $form,
+						'hidden'     => $hidden( self::ACTION_POST_PUBLISH ),
+						'fields'     => '',
+					),
+					array(
+						'key'           => 'return',
+						'label'         => __( 'Return with a note', 'wpcredits-program-manager' ),
+						'kind'          => 'secondary',
+						'form_attrs'    => $form,
+						'hidden'        => $hidden( self::ACTION_POST_RETURN ),
+						'fields'        => WPCPM_UI::field(
+							array(
+								'id'      => $field_id,
+								'name'    => 'wpcpm_note',
+								'label'   => self::note_label(),
+								'hint'    => __( 'The post goes back to the sponsor\'s account as a draft, and your note is sent to its author by email.', 'wpcredits-program-manager' ),
+								'need'    => 'required',
+								'type'    => 'textarea',
+								'rows'    => 2,
+								'value'   => null === $note ? '' : $note,
+								'attrs'   => array(
+									// Drawn empty, so the room is the limit: nothing in it is held as an entity.
+									'maxlength'   => (int) WPCPM_Typed_Text::drawn_limit( '', self::MAX_NOTE ),
+									'placeholder' => __( 'What should change before it is published', 'wpcredits-program-manager' ),
+								),
+								'problem' => $problem,
+							)
+						),
+						'confirm_label' => __( 'Return it with this note', 'wpcredits-program-manager' ),
+						'open'          => null !== $note,
+					),
+				),
+			)
+		);
+
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in the decisions' callables.
 	}
 
 	/**
@@ -1890,17 +1950,7 @@ class WPCPM_Sponsor_Posts {
 	 * @param string  $name   The company name the offer already printed.
 	 */
 	public static function render_tools( $record, WP_User $viewer, $name ) {
-		$posts = array();
-
-		foreach ( self::posts_of( $record, array( 'publish' ), self::TOOLS_LIMIT * 2 ) as $post ) {
-			if ( WPCPM_Content_Access::can_view( $post, $viewer ) ) {
-				$posts[] = $post;
-			}
-
-			if ( count( $posts ) >= self::TOOLS_LIMIT ) {
-				break;
-			}
-		}
+		$posts = self::tools_posts( $record, $viewer );
 
 		if ( empty( $posts ) ) {
 			return;
@@ -1914,13 +1964,41 @@ class WPCPM_Sponsor_Posts {
 		foreach ( $posts as $post ) {
 			printf(
 				'<li><a href="%1$s">%2$s</a> <span class="wpcpm-tools__posts-when">%3$s</span></li>',
-				esc_url( get_permalink( $post ) ),
-				esc_html( $post->post_title ),
-				esc_html( get_the_date( 'Y-m-d', $post ) )
+				esc_url( $post['url'] ),
+				esc_html( $post['title'] ),
+				esc_html( $post['date'] )
 			);
 		}
 
 		echo '</ul></div>';
+	}
+
+	/**
+	 * The guides `render_tools()` lists, as data: a sponsor's published posts the viewer's level admits, newest
+	 * first, at most TOOLS_LIMIT. The Tools section on the shared parts draws them as an offer's facts.
+	 *
+	 * @param string  $record Sponsor key.
+	 * @param WP_User $viewer Who is reading.
+	 * @return array<int, array{url: string, title: string, date: string}>
+	 */
+	public static function tools_posts( $record, WP_User $viewer ) {
+		$posts = array();
+
+		foreach ( self::posts_of( $record, array( 'publish' ), self::TOOLS_LIMIT * 2 ) as $post ) {
+			if ( WPCPM_Content_Access::can_view( $post, $viewer ) ) {
+				$posts[] = array(
+					'url'   => (string) get_permalink( $post ),
+					'title' => (string) $post->post_title,
+					'date'  => (string) get_the_date( 'Y-m-d', $post ),
+				);
+			}
+
+			if ( count( $posts ) >= self::TOOLS_LIMIT ) {
+				break;
+			}
+		}
+
+		return $posts;
 	}
 
 	/**

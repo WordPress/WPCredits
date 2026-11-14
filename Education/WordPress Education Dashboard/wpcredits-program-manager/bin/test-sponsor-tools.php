@@ -77,6 +77,9 @@ function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
+// WordPress's own list separator (6.0 and later; the plugin requires 6.5): core's translatable ", ", counted, so a check
+// can tell the plugin asked WordPress for it.
+function wp_get_list_item_separator() { $GLOBALS['list_separator_asked'] = ( $GLOBALS['list_separator_asked'] ?? 0 ) + 1; return ', '; }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return (string) $s; }
@@ -88,6 +91,7 @@ function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES )
 // `WPCPM_Typed_Text::cleaner_loses()` of a typing, and a stand-in on `strip_tags()` would make it
 // refuse what core keeps, "We <3 WordPress" among them.
 require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_title( $s ) { return trim( preg_replace( '/[^a-z0-9]+/', '-', strtolower( (string) $s ) ), '-' ); }
 function sanitize_email( $e ) { return trim( (string) $e ); }
@@ -131,7 +135,21 @@ function wp_die( $message = '', $code = 0 ) { throw new WPCPM_Test_Die( (string)
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function add_query_arg( $key, $value, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . rawurlencode( (string) $value ); }
-function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// With `$GLOBALS['faithful_nonces']` set, as WordPress prints them: the nonce field with the id core gives it and the
+// referer beside it, so a form drawn through `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with
+// today's field by field (UI shared parts, Task 16, the seam the Administrator Dashboard's suite has since Task 11).
+function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
+	if ( $r ) {
+		wp_referer_field();
+	}
+}
+function wp_referer_field( $display = true ) { $field = '<input type="hidden" name="_wp_http_referer" value="/student-report-card/" />'; if ( $display ) { echo $field; } return $field; }
+function wp_create_nonce( $action = -1 ) { return 'nonce-' . $action; }
 function selected( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string) $b ) ? ' selected="selected"' : ''; if ( $echo ) { echo $r; } return $r; }
 function checked( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string) $b ) ? ' checked="checked"' : ''; if ( $echo ) { echo $r; } return $r; }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
@@ -306,11 +324,19 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
 class WPCPM_Sponsor_Posts {
 	public static $calls = array();
 	public static function render_tools( $record, $viewer, $name ) { self::$calls[] = array( $record, $name ); echo '<div class="wpcpm-tools__posts"></div>'; }
+	// The guides the real class lists under a sponsor's first offer, as data: the shared parts draw them as the row's
+	// facts (UI shared parts, Task 16). Recorded as render_tools() records its calls.
+	public static function tools_posts( $record, $viewer ) { self::$calls[] = array( $record, 'tools_posts' ); return $GLOBALS['tools_posts'][ (string) $record ] ?? array(); }
 }
 // The shell every outcome is printed through, toned, announced and focused (1.123.58, SPA-16).
 require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
+// The surface switch and the shared parts the Administrator Dashboard draws the section with (UI shared parts, Task 16).
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 
+// Nobody is signed in while the fixture is written: the index stamps each write with the current user's id, read
+// before any check sets one (Task 16 fix round 1: it was read undefined, and PHP warned twice at load).
+$GLOBALS['uid'] = 0;
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
 // 1.111.0: the manager is a site user id now, not a Team Members record.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
@@ -871,5 +897,241 @@ ck( 'the result is a status, a refusal an alert, focusable', array(
 ), array( true, true, true, true ) );
 $GLOBALS['uid'] = 20;
 
+echo "\n=== On the Administrator Dashboard's shared parts; the Report Cards unchanged (UI shared parts, Task 16) ===\n";
+// The section is drawn by three pages. On the Administrator Dashboard with its switch on it is drawn on the shared
+// parts: each offer a list row (its title, then its sponsor, its links, its audiences as topic chips, what it says of a
+// claim or an empty pool, a sponsor's guides as facts; its own words as the row's note; the claim form as the row's
+// quiet action), "Your codes" the heading part over a list of rows, each code exactly as today. Both Report Cards name
+// the surface `report-cards`, off for this whole build: there it is today's markup, byte for byte (Review Focus 5).
+
+/** Whether any element carries a part's class outside the switch's root; and how many carry one. */
+function tools_parts_outside( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . $html . '</div>' );
+	libxml_clear_errors();
+	$outside = array();
+	$all     = 0;
+	foreach ( ( new DOMXPath( $doc ) )->query( '//*[@class]' ) as $node ) {
+		$part = array_filter( preg_split( '/\s+/', trim( (string) $node->getAttribute( 'class' ) ) ), static function ( $c ) { return 'wpcpm-ui-on' !== $c && 1 === preg_match( '/^wpcpm-(ui-|btn$|btn--|status$|status--)/', $c ); } );
+		if ( empty( $part ) ) {
+			continue;
+		}
+		++$all;
+		$inside = false;
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			if ( in_array( 'wpcpm-ui-on', preg_split( '/\s+/', (string) $up->getAttribute( 'class' ) ), true ) ) {
+				$inside = true;
+				break;
+			}
+		}
+		if ( ! $inside ) {
+			$outside[] = $node->nodeName . '.' . implode( '.', $part );
+		}
+	}
+	return array( array_values( array_unique( $outside ) ), $all );
+}
+/** Whether the text holds the needle. */
+function tools_has( $h, $n ) { return false !== strpos( (string) $h, (string) $n ); }
+/** A render read as a document. */
+function tools_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+/** Every form, as it posts: method, address, busy words, the once guard, the hidden name=value pairs in order, and each submit's words. */
+function tools_posts( $html ) {
+	$x   = tools_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $in ) {
+			$hidden[] = $in->getAttribute( 'name' ) . '=' . $in->getAttribute( 'value' );
+		}
+		$press = array();
+		foreach ( $x->query( './/button[@type="submit"]', $form ) as $b ) {
+			$press[] = array( $b->getAttribute( 'name' ), $b->getAttribute( 'value' ), $b->getAttribute( 'data-wpcpm-confirm' ), trim( preg_replace( '/\s+/', ' ', $b->textContent ) ) );
+		}
+		$out[] = array( $form->getAttribute( 'method' ), $form->getAttribute( 'action' ), $form->getAttribute( 'data-wpcpm-busy' ), $form->hasAttribute( 'data-wpcpm-once' ), $hidden, $press );
+	}
+	return $out;
+}
+
+// An offer open to the program team with codes to claim, and a guide of Mango Example's, so the Administrators' list
+// has a claim to make, then a code to show, and a sponsor with guides.
+$GLOBALS['uid'] = 5;
+$tm = $mk( $A, 'Team toolkit', array( 'managers' ), "M-1\nM-2", 'live' );
+$GLOBALS['tools_posts'] = array( $A => array( array( 'url' => 'https://example.test/guide-one/', 'title' => 'Guide <one>', 'date' => '2026-09-01' ), array( 'url' => 'https://example.test/guide-two/', 'title' => 'Guide two', 'date' => '2026-08-20' ) ) );
+$GLOBALS['settings']['tools_mentors'] = true;
+$t16_today = gmdate( 'Y-m-d' );
+// Each audience, each state the fixtures have, drawn raw. A flash is set before the draw that takes it.
+$t16_draw = static function () use ( $tm ) {
+	$out = array();
+	foreach ( array( 'students 20' => array( 'students', 20 ), 'students 22' => array( 'students', 22 ), 'students 23' => array( 'students', 23 ), 'students 24' => array( 'students', 24 ), 'students 21' => array( 'students', 21 ), 'mentors 30' => array( 'mentors', 30 ), 'managers 1' => array( 'managers', 1 ) ) as $key => $who ) {
+		$out[ $key ] = section( $who[0], $who[1] );
+	}
+	WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'claimed' ), 20 );
+	$out['students 20 flash'] = section( 'students', 20 );
+	WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'tool-empty' ), 30 );
+	$out['mentors 30 flash'] = section( 'mentors', 30 );
+	WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'problem-sent' ), 1 );
+	$out['managers 1 flash'] = section( 'managers', 1 );
+	$GLOBALS['settings']['tools_mentors'] = false;
+	$out['mentors 30 off'] = section( 'mentors', 30 );
+	$GLOBALS['settings']['tools_mentors'] = true;
+	return $out;
+};
+// The same draws, each through every way a surface can be named: nothing named, the Administrator Dashboard's switch
+// on but no surface named, and both Report Cards' surface with the Administrator Dashboard's switch on.
+$t16_ways = static function () use ( $t16_draw ) {
+	$ways        = array();
+	$ways['off'] = $t16_draw();
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	$ways['unnamed'] = $t16_draw();
+	WPCPM_UI::enter( 'report-cards' );
+	$ways['report-cards'] = $t16_draw();
+	WPCPM_UI::leave();
+	WPCPM_UI::enter( 'administrator' );
+	$ways['on'] = $t16_draw();
+	parts_inventory_add( $ways['on'] );
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( null );
+	return $ways;
+};
+$t16_before = $t16_ways();
+// What each form posts, old against new, as WordPress prints the nonce (with its id and the referer), drawn now and
+// again once the team's code is claimed.
+$t16_faithful = static function () {
+	$GLOBALS['faithful_nonces'] = true;
+	$old = section( 'managers', 1 );
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	$new = section( 'managers', 1 );
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( null );
+	unset( $GLOBALS['faithful_nonces'] );
+	return array( tools_posts( $new ) === tools_posts( $old ), tools_posts( $new ), strpos( $new, 'id="_wpnonce"' ) );
+};
+$t16_posts_before = $t16_faithful();
+// The Administrators claim the team's offer: from here the managers' list holds a code too.
+$GLOBALS['uid'] = 1;
+WPCPM_Sponsor_Claims::claim( $tm, $GLOBALS['users'][1] );
+$t16_after = $t16_ways();
+$t16_posts_after = $t16_faithful();
+$t16_blank = static function ( array $draws ) use ( $t16_today ) {
+	return array_map( static function ( $html ) use ( $t16_today ) { return str_replace( $t16_today, 'TODAY', $html ); }, $draws );
+};
+$t16_off_all = $t16_blank( $t16_before['off'] ) + array_combine( array_map( static function ( $k ) { return $k . ', the team\'s code claimed'; }, array_keys( $t16_after['off'] ) ), $t16_blank( $t16_after['off'] ) );
+
+// The digests are of the section as it was drawn at 29b5424d, before Task 16: these same fixtures run on that commit's
+// code. The one moment of the run printed is the day a code claimed during the run was claimed (`time()` when claimed),
+// blanked to TODAY; every other date is fixed.
+ck( 'off, the section is the one drawn before Task 16, byte for byte, for every audience and in every state', array_map( 'md5', $t16_off_all ), array(
+	'students 20'                                  => '96e6b081a960499a2bbf9f1c0d437df3',
+	'students 22'                                  => '540954fed92c22eccadcc8bdc3328a42',
+	'students 23'                                  => 'c17d925390960d7d36cb552ef10eeddf',
+	'students 24'                                  => '540954fed92c22eccadcc8bdc3328a42',
+	'students 21'                                  => 'd41d8cd98f00b204e9800998ecf8427e',
+	'mentors 30'                                   => 'a284278fd28f2f3a0156fb852f90b226',
+	'managers 1'                                   => '5e95dec207af144f56f5961ab6635a86',
+	'students 20 flash'                            => '1b0802fb1883ca6735ba22f9ce902415',
+	'mentors 30 flash'                             => '07d958c8e0597d717aff68833674d29c',
+	'managers 1 flash'                             => '74e57fd13bc3c3d75972c0fcc4af3dd8',
+	'mentors 30 off'                               => 'd41d8cd98f00b204e9800998ecf8427e',
+	'students 20, the team\'s code claimed'       => '96e6b081a960499a2bbf9f1c0d437df3',
+	'students 22, the team\'s code claimed'       => '540954fed92c22eccadcc8bdc3328a42',
+	'students 23, the team\'s code claimed'       => 'c17d925390960d7d36cb552ef10eeddf',
+	'students 24, the team\'s code claimed'       => '540954fed92c22eccadcc8bdc3328a42',
+	'students 21, the team\'s code claimed'       => 'd41d8cd98f00b204e9800998ecf8427e',
+	'mentors 30, the team\'s code claimed'        => 'a284278fd28f2f3a0156fb852f90b226',
+	'managers 1, the team\'s code claimed'        => 'd7abf8b3c32f8ed8d757e5c5bdbf1de5',
+	'students 20 flash, the team\'s code claimed' => '1b0802fb1883ca6735ba22f9ce902415',
+	'mentors 30 flash, the team\'s code claimed'  => '07d958c8e0597d717aff68833674d29c',
+	'managers 1 flash, the team\'s code claimed'  => '2d4d35f517b043dfdfe96989e0f735a3',
+	'mentors 30 off, the team\'s code claimed'    => 'd41d8cd98f00b204e9800998ecf8427e',
+) );
+ck( 'and on both Report Cards (`report-cards`, off for this whole build), with the Administrator Dashboard\'s switch on, it is exactly what it is with everything off, for every audience and in every state; so it is with the switch on and no surface named (Review Focus 5)', array(
+	$t16_before['report-cards'] === $t16_before['off'],
+	$t16_after['report-cards'] === $t16_after['off'],
+	$t16_before['unnamed'] === $t16_before['off'],
+	$t16_after['unnamed'] === $t16_after['off'],
+	strpos( implode( '', $t16_before['report-cards'] ) . implode( '', $t16_after['report-cards'] ), 'wpcpm-ui-' ),
+	count( array_filter( $t16_before['off'], static function ( $html ) { return '' !== $html; } ) ),
+), array( true, true, true, true, false, 9 ) );
+ck( 'a student or a mentor drawn while the Administrator Dashboard names itself gets the parts too, as any caller would: the branch asks the surface, never the audience', array(
+	tools_has( $t16_before['on']['students 20'], '<section class="wpcpm-tools" id="wpcpm-tools">' ),
+	tools_has( $t16_before['on']['mentors 30'], '<section class="wpcpm-tools" id="wpcpm-tools">' ),
+), array( true, true ) );
+
+$t16_on     = $t16_before['on']['managers 1'];
+$t16_mine   = $t16_after['on']['managers 1'];
+$t16_mx     = tools_doc( $t16_mine );
+$t16_offers = WPCPM_Sponsor_Tools::offers_for( 'managers', $GLOBALS['users'][1] );
+// Task V1, ruling 5: on the Administrator Dashboard the section is today's offers under the view's group title (the
+// view prints it, bin/test-administrators-dashboard.php), with one change: every button is the button part, posting
+// what it posts. So the section drawn on the parts is today's, byte for byte, once three things are read as today's:
+// its frame (no inset of its own, no heading of its own: the group's title is the heading), each button's class (the
+// claim the primary, the problem the secondary, as today's), and the nonce printed with no id (`WPCPM_UI::nonce()`,
+// two forms never repeat an id), whose posted fields the checks below compare. Every state, every audience, before
+// and after the team's code is claimed.
+$t16_as_today = static function ( $html ) {
+	$html = str_replace( '<section class="wpcpm-student__section wpcpm-tools" id="wpcpm-tools"><h3 class="wpcpm-student__heading">Tools from our sponsors</h3>', '<section class="wpcpm-tools" id="wpcpm-tools">', (string) $html );
+	$html = str_replace( array( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">', '<button type="submit" class="wpcpm-button">' ), array( '<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">', '<button type="submit" class="wpcpm-btn">' ), $html );
+	return (string) preg_replace( '#<input type="hidden"(?: id="_wpnonce")? name="_wpnonce" value="[^"]*" ?/?>(?:<input type="hidden" name="_wp_http_referer" value="[^"]*" ?/?>)?#', 'NONCE', $html );
+};
+$t16_same = array();
+foreach ( array( 'before' => $t16_before, 'after' => $t16_after ) as $t16_when => $t16_ways_drawn ) {
+	foreach ( $t16_ways_drawn['off'] as $t16_state => $t16_html ) {
+		$t16_same[ $t16_when . ' ' . $t16_state ] = $t16_as_today( $t16_html ) === $t16_as_today( $t16_ways_drawn['on'][ $t16_state ] );
+	}
+}
+ck( 'V1: on, the section is today\'s offers, byte for byte, but its frame (no inset, no heading of its own), its buttons (the button part) and its nonces (no id), in every state, for every audience', $t16_same, array_fill_keys( array_keys( $t16_same ), true ) );
+ck( 'V1: on, for the Administrators: the section keeps its anchor and no frame or heading of its own; the grid of offers is today\'s; the claim is the primary button part, the problem the secondary, in today\'s words; no row of the list part, no old button class', array(
+	0 === strpos( $t16_on, '<section class="wpcpm-tools" id="wpcpm-tools"><ul class="wpcpm-tools__list">' ),
+	substr_count( $t16_on, '<li class="wpcpm-tools__offer">' ),
+	1 === preg_match( '#<div class="wpcpm-tools__actions"><p class="wpcpm-tools__more"><a href="[^"]*" rel="external noopener">More information</a></p><form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-tools__form" data-wpcpm-once data-wpcpm-busy="Getting your code">(?:(?!</form>).)*<button type="submit" class="wpcpm-btn">(?:Get my code|Show me the code)</button></form></div>#s', $t16_on . $t16_mine ) || 1 === preg_match( '#<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-tools__form" data-wpcpm-once data-wpcpm-busy="Getting your code">(?:(?!</form>).)*<button type="submit" class="wpcpm-btn">Get my code</button></form>#s', $t16_on ),
+	tools_has( $t16_mine, '<button type="submit" class="wpcpm-btn wpcpm-btn--secondary">Report a problem with this code</button></form>' ),
+	tools_has( $t16_mine, '<h4 class="wpcpm-tools__subheading">Your codes</h4><ul class="wpcpm-tools__codes">' ),
+	strpos( $t16_on . $t16_mine, 'wpcpm-ui-list' ),
+	strpos( $t16_on . $t16_mine, 'wpcpm-button' ),
+	strpos( $t16_on . $t16_mine, 'wpcpm-student__section' ),
+	strpos( $t16_on . $t16_mine, '<h3' ),
+), array( true, count( $t16_offers ), true, true, true, false, false, false, false ) );
+ck( 'the claim form posts exactly what today\'s posts, nonce and referer included, its button the button part in today\'s words; its nonce prints no id to repeat on the page', array( $t16_posts_before[0], $t16_posts_before[2] ), array( true, false ) );
+ck( 'the problem form posts exactly what today\'s posts, and is then the one form on the section that reports', array( $t16_posts_after[0], $t16_posts_after[2] ), array( true, false ) );
+
+$GLOBALS['uid'] = 5;
+$t16_two = array( $mk( $A, 'Team kit two', array( 'managers' ), "T2-1\nT2-2", 'live' ), $mk( $B, 'Team kit three', array( 'managers' ), "T3-1\nT3-2", 'live' ) );
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$t16_both = section( 'managers', 1 );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+$t16_bx  = tools_doc( $t16_both );
+$t16_bid = array_map( static function ( $n ) { return $n->getAttribute( 'id' ); }, iterator_to_array( $t16_bx->query( '//*[@id]' ) ) );
+$t16_claims = array();
+foreach ( tools_posts( $t16_both ) as $t16_form ) {
+	if ( in_array( 'action=' . WPCPM_Sponsor_Tools::ACTION_CLAIM, $t16_form[4], true ) ) {
+		$t16_claims[] = $t16_form[4];
+	}
+}
+ck( 'two claimable offers at once: no id repeats on the section, and each claim form posts its own offer under a nonce keyed to it', array(
+	count( $t16_bid ) === count( array_unique( $t16_bid ) ),
+	$t16_claims,
+), array( true, array_map( static function ( $id ) { return array( '_wpnonce=nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $id, '_wp_http_referer=/student-report-card/', 'action=' . WPCPM_Sponsor_Tools::ACTION_CLAIM, 'wpcpm_offer=' . $id ); }, array( $t16_two[1], $t16_two[0] ) ) ) );
+foreach ( $t16_two as $t16_id ) {
+	WPCPM_Sponsor_Offers::set_state( $t16_id, 'ended' );
+}
+
+list( $t16_out, $t16_parts ) = tools_parts_outside( '<div class="wpcpm-dashboard wpcpm-ui-on">' . $t16_on . $t16_mine . '</div>' );
+list( $t16_bare ) = tools_parts_outside( $t16_on . $t16_mine );
+$t16_ids = array_map( static function ( $n ) { return $n->getAttribute( 'id' ); }, iterator_to_array( $t16_mx->query( '//*[@id]' ) ) );
+ck( 'every part sits inside the switch\'s root and none is drawn but inside one; no id repeats, and the code\'s description resolves', array( $t16_parts > 0, $t16_out, count( $t16_bare ) > 0, count( $t16_ids ) === count( array_unique( $t16_ids ) ), in_array( 'wpcpm-tools-code-hint', $t16_ids, true ) ), array( true, array(), true, true, true ) );
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'sponsor-tools' ) );
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -43,6 +43,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * does, naming its card or where it goes, may follow its label inside the link, visually hidden, so
  * a link read out of its row, in a screen reader's list of links, stands alone.
  *
+ * While the surface drawing is on the shared parts (`WPCPM_UI::on()`, the Administrator Dashboard once its
+ * switch is on), the shell prints the parts' card fold instead (`open_parts()`, `close_parts()`): the same
+ * anchor on the same element, the head through `WPCPM_UI::fold_head()`, the help link beside the disclosure with
+ * a copy as the body's first line for the phone, and the action as the quiet button except on the Overview's
+ * rows, which open in place on their cue. Every other surface, and every page while the switch is empty, gets
+ * the markup described above, byte for byte.
+ *
  * A card calls `open()`, prints its body, then calls `close()`, which prints the action of the
  * card it closes. A page draws its cards in groups through `group()`, one shape for both pages,
  * and asks `enqueue_opener()` for the script that opens a card a link lands on.
@@ -218,7 +225,7 @@ final class WPCPM_Dashboard_Card {
 	 * @return string
 	 */
 	private static function held_markup() {
-		$html = self::message( self::$held['tone'], self::$held['text'] );
+		$html = self::message( self::$held['tone'], self::$held['text'], 'wpcpm-dashboard__message', isset( self::$held['lead'] ) ? (string) self::$held['lead'] : '' );
 
 		foreach ( self::$held['also'] as $more ) {
 			$html .= self::message( $more[0], $more[1] );
@@ -300,19 +307,41 @@ final class WPCPM_Dashboard_Card {
 	 * @param string $text The sentence, as text.
 	 * @param string $base The message's own class, its tone after `--`: `wpcpm-dashboard__message`
 	 *                     by default.
+	 * @param string $lead The id of the box the sentence refused, '' for none: the sentence is then a link
+	 *                     to it, as `WPCPM_Form_Errors::summary()` links its problems (`lead_to()`).
 	 * @return string
 	 */
-	public static function message( $tone, $text, $base = 'wpcpm-dashboard__message' ) {
+	public static function message( $tone, $text, $base = 'wpcpm-dashboard__message', $lead = '' ) {
 		$tone = isset( self::TONES[ $tone ] ) ? (string) $tone : 'info';
 		$base = sanitize_html_class( (string) $base );
+		$said = '' !== (string) $lead && class_exists( 'WPCPM_Form_Errors' )
+			? WPCPM_Form_Errors::link( (string) $lead, (string) $text )
+			: esc_html( (string) $text );
 
 		return sprintf(
 			'<p class="%1$s %1$s--%2$s is-%2$s" role="%3$s" tabindex="-1" data-wpcpm-card-message>%4$s</p>',
 			esc_attr( $base ),
 			esc_attr( $tone ),
 			esc_attr( self::TONES[ $tone ] ),
-			esc_html( (string) $text )
+			$said
 		);
+	}
+
+	/**
+	 * Lead the outcome a card holds to the box it refused (follow-up to Task 10 of the shared parts): called
+	 * by the renderer that draws a refused box inside that card, with the box's id, while the card is being
+	 * drawn on the shared parts. The card's message, printed at the top of its body when the card closes, is
+	 * then the refusal sentence as a link to the box, the form-errors summary's link
+	 * (`WPCPM_Form_Errors::link()`); the focus on load stays on the message, and following the link puts it
+	 * in the box. The first box named wins. Anywhere else (a card on today's markup, no outcome held, a card
+	 * that holds none) it does nothing, so today's message is printed as it is.
+	 *
+	 * @param string $field_id The refused box's id, as `WPCPM_Form_Errors::attrs()` was given it.
+	 */
+	public static function lead_to( $field_id ) {
+		if ( is_array( self::$held ) && ! empty( self::$held['drawing'] ) && '' === (string) self::$held['lead'] && '' !== (string) $field_id ) {
+			self::$held['lead'] = (string) $field_id;
+		}
 	}
 
 	/**
@@ -387,6 +416,29 @@ final class WPCPM_Dashboard_Card {
 		$cards = (string) ob_get_clean();
 
 		if ( '' === trim( $cards ) ) {
+			return;
+		}
+
+		// On the shared parts, while the page's switch is on: the wrapper and its classes as today, which the theme's
+		// rules and the views' anchors key on, with the group's part; the heading and the lead the group's own parts,
+		// with no lead when there is none, and the heading's modifier when one follows (parts.css: 4px heading to lead,
+		// 12px to the first row).
+		if ( self::parts() ) {
+			printf(
+				'<div class="%1$s %1$s--%2$s wpcpm-ui-group"><h2 class="%3$s">%4$s</h2>',
+				esc_attr( (string) $args['group_class'] ),
+				esc_attr( (string) $args['id'] ),
+				'' !== (string) $args['lead'] ? 'wpcpm-ui-group__title wpcpm-ui-group__title--lead' : 'wpcpm-ui-group__title',
+				esc_html( (string) $args['title'] )
+			);
+
+			if ( '' !== (string) $args['lead'] ) {
+				printf( '<p class="wpcpm-ui-group__lead">%s</p>', esc_html( (string) $args['lead'] ) );
+			}
+
+			echo $cards; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The cards' own markup, each escaping what it prints, held until the group knew it had any.
+			echo '</div>';
+
 			return;
 		}
 
@@ -492,11 +544,23 @@ final class WPCPM_Dashboard_Card {
 			$args['open'] = true;
 		}
 
+		$parts = self::parts();
+
 		self::$opened[] = array(
 			'anchor' => $anchor,
 			'action' => is_array( $args['action'] ) ? $args['action'] : null,
 			'help'   => (string) $args['help'],
+			'parts'  => $parts,
+			// On the parts, a card holding the outcome prints it when it closes, so a box drawn in its body
+			// can lead it to itself (`lead_to()`).
+			'holds'  => $parts && $holds,
 		);
+
+		if ( $parts ) {
+			self::open_parts( $args, $anchor, $holds );
+
+			return;
+		}
 
 		// The anchor stays on the element each page has always put it on, so every link, mail and
 		// redirect that lands on a card still lands where it did.
@@ -552,6 +616,96 @@ final class WPCPM_Dashboard_Card {
 	}
 
 	/**
+	 * Whether the surface drawing takes the shared parts (`WPCPM_UI::on()`, design 3.5): the Administrator
+	 * Dashboard once its switch is on. While the switch is empty, or on a surface still off (the Sponsor
+	 * Dashboard until its release), the shell prints today's markup. A page loaded without the switch's class
+	 * prints today's markup too.
+	 *
+	 * @return bool
+	 */
+	private static function parts() {
+		return class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on();
+	}
+
+	/**
+	 * The parts' card fold (design 2.3, 4.1): the section with the page's class and `wpcpm-ui-fold-card`, the
+	 * disclosure with the anchor where the page puts it, the head through `WPCPM_UI::fold_head()` (the title, the
+	 * phrase or the count, the age tag, the cue, the help slot, the chevron) and the body's opening tag. The body
+	 * opens with the help link's phone copy, then the outcome the card holds. The disclosure carries none of
+	 * today's classes, so no rule written for today's card reaches it.
+	 *
+	 * @param array  $args   What the card asked of the shell, merged with the defaults.
+	 * @param string $anchor The card's anchor.
+	 * @param bool   $holds  Whether the card holds the page's outcome.
+	 */
+	private static function open_parts( array $args, $anchor, $holds ) {
+		$section = trim( (string) $args['section_class'] . ' wpcpm-ui-fold-card' );
+
+		if ( 'section' === $args['id_on'] ) {
+			printf( '<section class="%1$s" id="%2$s"><details class="wpcpm-ui-fold"%3$s>', esc_attr( $section ), esc_attr( $anchor ), $args['open'] ? ' open' : '' );
+		} else {
+			printf( '<section class="%1$s"><details class="wpcpm-ui-fold" id="%2$s"%3$s>', esc_attr( $section ), esc_attr( $anchor ), $args['open'] ? ' open' : '' );
+		}
+
+		$count = '';
+
+		if ( null !== $args['count'] ) {
+			$count = '' !== (string) $args['shown'] ? (string) $args['shown'] : number_format_i18n( (int) $args['count'] );
+		}
+
+		$head = WPCPM_UI::fold_head(
+			array(
+				'size'      => 'card',
+				'title'     => (string) $args['title'],
+				'title_id'  => $args['title_id'] ? self::title_id( $anchor ) : '',
+				'phrase'    => (string) $args['state'],
+				'count'     => $count,
+				'tag'       => isset( self::$ages[ $anchor ] ) ? array(
+					'words' => self::$ages[ $anchor ],
+					'tone'  => 'red',
+				) : null,
+				'cue'       => self::$cue,
+				'help_slot' => true,
+			)
+		);
+
+		echo '<summary class="wpcpm-ui-fold__head">' . $head . '</summary>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::fold_head().
+		printf( '<div class="%s">', esc_attr( trim( 'wpcpm-ui-fold__body ' . (string) $args['body_class'] ) ) );
+
+		// The help link's copy for the phone, where the head has no room for it: the body's first line.
+		if ( '' !== (string) $args['help'] ) {
+			echo '<p class="wpcpm-ui-fold__help wpcpm-ui-fold__help--phone">' . WPCPM_UI::help_link( (string) $args['help'] ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Guide_Jobs::link().
+		}
+
+		// The outcome opens the body as today, but it is printed when the card closes (`close()`), in front of
+		// the body held until then: a refused box drawn in the body names itself first (`lead_to()`).
+		if ( $holds ) {
+			self::$held['printed'] = true;
+			self::$held['drawing'] = true;
+			self::$held['lead']    = '';
+
+			ob_start();
+		}
+	}
+
+	/**
+	 * The end of the parts' card fold: the body and the disclosure, the help link laid into the head's slot by
+	 * the section's grid (design builder's call 4), and the section. Nothing is printed after the fold: the foot
+	 * inside the card's body is its one way out (task V1, ruling 2), so a card's `action` is today's alone.
+	 *
+	 * @param array $card What `open()` kept for the card.
+	 */
+	private static function close_parts( array $card ) {
+		echo '</div></details>';
+
+		if ( '' !== $card['help'] ) {
+			echo '<p class="wpcpm-ui-fold__help">' . WPCPM_UI::help_link( (string) $card['help'] ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Guide_Jobs::link().
+		}
+
+		echo '</section>';
+	}
+
+	/**
 	 * The id a card's title words carry when the card asks for one (`title_id`): its anchor and
 	 * `-title`, as `wpcpm-reports-title` on the Administrator Dashboard and
 	 * `wpcpm-sponsor-usage-title` on the Sponsor Dashboard. A scroll box in the card names itself by
@@ -571,7 +725,26 @@ final class WPCPM_Dashboard_Card {
 	 * of the two it is, is the stylesheets' to read, from the disclosure itself.
 	 */
 	public static function close() {
-		$card   = array_pop( self::$opened );
+		$card = array_pop( self::$opened );
+
+		if ( is_array( $card ) && ! empty( $card['parts'] ) ) {
+			if ( ! empty( $card['holds'] ) ) {
+				$body = (string) ob_get_clean();
+
+				if ( is_array( self::$held ) ) {
+					self::$held['drawing'] = false;
+
+					echo self::held_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in message().
+				}
+
+				echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The card's body, escaped as it was drawn.
+			}
+
+			self::close_parts( $card );
+
+			return;
+		}
+
 		$action = is_array( $card ) && is_array( $card['action'] ) ? $card['action'] : array();
 		$label  = isset( $action['label'] ) ? (string) $action['label'] : '';
 

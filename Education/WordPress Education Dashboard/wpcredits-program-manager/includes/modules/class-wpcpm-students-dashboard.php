@@ -248,96 +248,103 @@ class WPCPM_Students_Dashboard {
 		$mentor  = WPCPM_Students_Sync::get_mentor( $student->ID );
 		$updated = (int) get_user_meta( $student->ID, WPCPM_Students_Sync::META_UPDATED, true );
 
-		ob_start();
+		// The Report Cards name themselves to the switch of the shared parts (design 3.5): off for this whole build.
+		WPCPM_UI::enter( 'report-cards' );
 
-		echo '<div class="wpcpm-dashboard wpcpm-student">';
-
-		// The reader's own language, a small switcher at the top of the page (1.123.73): theirs,
-		// never the student's being looked at.
-		WPCPM_Language::picker( $viewer );
-
-		// As on the Mentor Report Card: the setup screen is in wp-admin, and a student has no
-		// reason to go there, so the invitation comes to them. The reader's own account, never
-		// the student being viewed.
-		WPCPM_Two_Factor::prompt( wp_get_current_user() );
-
-		if ( ! empty( $atts['title'] ) ) {
-			echo '<h2 class="wpcpm-student__title">' . esc_html( $atts['title'] ) . '</h2>';
-		}
-
-		if ( $can_manage ) {
-			self::render_switcher( $student );
-		}
-
-		echo '<div class="wpcpm-student__grid">';
-
-		// Unconditional now. The section owns the student's own identity card, so it has to
-		// render even when there is no program data yet - otherwise a student waiting on
-		// their first sync sees a page with nobody on it.
-		self::render_program( $program, $student );
-
-		self::render_mentor( $mentor );
-
-		echo '</div>';
-
-		// Under the reference columns the page is modules - the updates with the resources
-		// first until somebody moves them, then the course, the forms, the mentor call and the
-		// sponsors' tools - in the order this student keeps. The student arranges their own
-		// page, and a program manager arranges it for them, the way the block editor moves
-		// blocks; the arrangement is the student's and nobody else's.
-		$order    = self::module_order( $student->ID );
-		$can_move = $can_manage || $viewer->ID === $student->ID;
-
-		if ( $can_move ) {
-			wp_enqueue_script( self::SCRIPT_MODULES );
-		}
-
-		// The bodies first, the page after. A module with nothing to print is left out, and the
-		// arrows have to belong to the page that is drawn rather than to the saved order: given
-		// the whole order's index and count, the first module on the page still offered Move up
-		// when something above it had been dropped, and the last one's Move down stayed enabled
-		// when something below it had - a student whose program has not synced yet has neither
-		// course nor forms, and most students' Tools module prints nothing while the offers pool
-		// is empty (deep check FADMN-5). The saved order is untouched, and the handler moves
-		// among the modules the page drew (`moved_among()`): what changes is which arrows the page
-		// offers, and the arrows say which modules those are.
-		$rendered = array();
-		$names    = array();
-
-		foreach ( $order as $key ) {
+		try {
 			ob_start();
-			$name = self::render_module_body( $key, $program, $student, $viewer, $can_manage );
-			$body = trim( (string) ob_get_clean() );
 
-			if ( '' !== $body ) {
-				$rendered[ $key ] = $body;
-				$names[ $key ]    = $name;
+			echo '<div class="wpcpm-dashboard wpcpm-student' . esc_attr( WPCPM_UI::root_class() ) . '">';
+
+			// The reader's own language, a small switcher at the top of the page (1.123.73): theirs,
+			// never the student's being looked at.
+			WPCPM_Language::picker( $viewer );
+
+			// As on the Mentor Report Card: the setup screen is in wp-admin, and a student has no
+			// reason to go there, so the invitation comes to them. The reader's own account, never
+			// the student being viewed.
+			WPCPM_Two_Factor::prompt( wp_get_current_user() );
+
+			if ( ! empty( $atts['title'] ) ) {
+				echo '<h2 class="wpcpm-student__title">' . esc_html( $atts['title'] ) . '</h2>';
 			}
-		}
 
-		$index = 0;
-		$count = count( $rendered );
-		$drawn = array_keys( $rendered );
+			if ( $can_manage ) {
+				self::render_switcher( $student );
+			}
 
-		foreach ( $rendered as $key => $body ) {
-			self::render_module( $key, $body, $index, $count, $student, $can_move, $names[ $key ], $drawn );
-			++$index;
-		}
+			echo '<div class="wpcpm-student__grid">';
 
-		if ( $updated ) {
-			printf(
-				'<p class="wpcpm-dashboard__updated">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: human-readable time difference. */
-						__( 'Last updated %s ago.', 'wpcredits-program-manager' ),
-						human_time_diff( $updated, time() )
+			// Unconditional now. The section owns the student's own identity card, so it has to
+			// render even when there is no program data yet - otherwise a student waiting on
+			// their first sync sees a page with nobody on it.
+			self::render_program( $program, $student );
+
+			self::render_mentor( $mentor );
+
+			echo '</div>';
+
+			// Under the reference columns the page is modules - the updates with the resources
+			// first until somebody moves them, then the course, the forms, the mentor call and the
+			// sponsors' tools - in the order this student keeps. The student arranges their own
+			// page, and a program manager arranges it for them, the way the block editor moves
+			// blocks; the arrangement is the student's and nobody else's.
+			$order    = self::module_order( $student->ID );
+			$can_move = $can_manage || $viewer->ID === $student->ID;
+
+			if ( $can_move ) {
+				wp_enqueue_script( self::SCRIPT_MODULES );
+			}
+
+			// The bodies first, the page after. A module with nothing to print is left out, and the
+			// arrows have to belong to the page that is drawn rather than to the saved order: given
+			// the whole order's index and count, the first module on the page still offered Move up
+			// when something above it had been dropped, and the last one's Move down stayed enabled
+			// when something below it had - a student whose program has not synced yet has neither
+			// course nor forms, and most students' Tools module prints nothing while the offers pool
+			// is empty (deep check FADMN-5). The saved order is untouched, and the handler moves
+			// among the modules the page drew (`moved_among()`): what changes is which arrows the page
+			// offers, and the arrows say which modules those are.
+			$rendered = array();
+			$names    = array();
+
+			foreach ( $order as $key ) {
+				ob_start();
+				$name = self::render_module_body( $key, $program, $student, $viewer, $can_manage );
+				$body = trim( (string) ob_get_clean() );
+
+				if ( '' !== $body ) {
+					$rendered[ $key ] = $body;
+					$names[ $key ]    = $name;
+				}
+			}
+
+			$index = 0;
+			$count = count( $rendered );
+			$drawn = array_keys( $rendered );
+
+			foreach ( $rendered as $key => $body ) {
+				self::render_module( $key, $body, $index, $count, $student, $can_move, $names[ $key ], $drawn );
+				++$index;
+			}
+
+			if ( $updated ) {
+				printf(
+					'<p class="wpcpm-dashboard__updated">%s</p>',
+					esc_html(
+						sprintf(
+							/* translators: %s: human-readable time difference. */
+							__( 'Last updated %s ago.', 'wpcredits-program-manager' ),
+							human_time_diff( $updated, time() )
+						)
 					)
-				)
-			);
-		}
+				);
+			}
 
-		echo '</div>';
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
+		}
 
 		return (string) ob_get_clean();
 	}

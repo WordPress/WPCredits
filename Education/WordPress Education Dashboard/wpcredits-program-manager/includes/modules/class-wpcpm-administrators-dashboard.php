@@ -100,9 +100,10 @@ final class WPCPM_Administrators_Dashboard {
 	/**
 	 * Register (but do not enqueue) the stylesheet.
 	 *
-	 * Public because the Sponsor Dashboard's sheet depends on this one: that page's At a glance strip
-	 * wears this page's attention tiles, so it asks this class for the sheet that dresses them, the
-	 * way both pages ask the mentors' class for theirs.
+	 * Public because the Sponsor Dashboard's sheet and the cohort timeline's depend on this one: the
+	 * Sponsor Dashboard's Overview wears this sheet's quiet line (`.wpcpm-overview__quiet`) and its frame
+	 * rules, so it asks this class for the sheet that dresses them, the way both pages ask the mentors'
+	 * class for theirs.
 	 */
 	public static function register_assets() {
 		// The Tools section's whole base look lives in the mentors' stylesheet, as it does for
@@ -325,34 +326,42 @@ final class WPCPM_Administrators_Dashboard {
 
 		$wait = self::waiting( $data, $counts );
 
-		ob_start();
+		// The page names itself to the switch of the shared parts while it draws (design 3.5): the shared renderers it
+		// calls, which other pages draw too, print the parts here; its own cards are on the parts alone.
+		WPCPM_UI::enter( 'administrator' );
 
-		// The frame of the version 3 concepts (1.123.69): the top bar, the menu and the main area. The
-		// page's own wrapper and classes stay inside the main area, so every rule the cards were dressed
-		// by still reaches them.
-		WPCPM_Dashboard_Frame::open( self::frame_args( $view, $wait, $counts ) );
+		try {
+			ob_start();
 
-		printf( '<div class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--%s">', esc_attr( $view ) );
+			// The frame of the version 3 concepts (1.123.69): the top bar, the menu and the main area. The
+			// page's own wrapper and classes stay inside the main area, so every rule the cards were dressed
+			// by still reaches them.
+			WPCPM_Dashboard_Frame::open( self::frame_args( $view, $wait, $counts ) );
 
-		WPCPM_Two_Factor::prompt( $viewer );
+			printf( '<div class="wpcpm-dashboard wpcpm-administrator wpcpm-administrator--%1$s%2$s">', esc_attr( $view ), esc_attr( WPCPM_UI::root_class() ) );
 
-		if ( '' !== trim( (string) $atts['title'] ) ) {
-			printf( '<h2 class="wpcpm-dashboard__title">%s</h2>', esc_html( $atts['title'] ) );
+			WPCPM_Two_Factor::prompt( $viewer );
+
+			if ( '' !== trim( (string) $atts['title'] ) ) {
+				printf( '<h2 class="wpcpm-dashboard__title">%s</h2>', esc_html( $atts['title'] ) );
+			}
+
+			if ( 'cohort-timeline' === $view ) {
+				WPCPM_Cohort_Timeline_View::render_view( ! empty( $data['cohort_timeline'] ) ? (array) $data['cohort_timeline'] : WPCPM_Cohort_Timeline::report(), self::page_name() );
+			} elseif ( self::VIEW_REFERENCE === $view ) {
+				self::render_reference( $data, $viewer );
+			} elseif ( self::VIEW_WATCH === $view ) {
+				self::render_watch( $data );
+			} else {
+				self::render_overview( $data, $wait );
+			}
+
+			echo '</div>';
+
+			WPCPM_Dashboard_Frame::close();
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		if ( 'cohort-timeline' === $view ) {
-			WPCPM_Cohort_Timeline_View::render_view( ! empty( $data['cohort_timeline'] ) ? (array) $data['cohort_timeline'] : WPCPM_Cohort_Timeline::report(), self::page_name() );
-		} elseif ( self::VIEW_REFERENCE === $view ) {
-			self::render_reference( $data, $viewer );
-		} elseif ( self::VIEW_WATCH === $view ) {
-			self::render_watch( $data );
-		} else {
-			self::render_overview( $data, $wait );
-		}
-
-		echo '</div>';
-
-		WPCPM_Dashboard_Frame::close();
 
 		return WPCPM_Dashboard_Card::settle( (string) ob_get_clean() );
 	}
@@ -1059,16 +1068,16 @@ final class WPCPM_Administrators_Dashboard {
 				continue;
 			}
 
+			$age = '';
+
 			if ( $queue['since'] > 0 ) {
 				$days = self::days_since( (int) $queue['since'] );
+				$age  = 0 === $days
+					? __( 'Waiting since today', 'wpcredits-program-manager' )
+					/* translators: %s: a number of days. */
+					: sprintf( _n( '%s day waiting', '%s days waiting', $days, 'wpcredits-program-manager' ), number_format_i18n( $days ) );
 
-				WPCPM_Dashboard_Card::age(
-					$queue['anchor'],
-					0 === $days
-						? __( 'Waiting since today', 'wpcredits-program-manager' )
-						/* translators: %s: a number of days. */
-						: sprintf( _n( '%s day waiting', '%s days waiting', $days, 'wpcredits-program-manager' ), number_format_i18n( $days ) )
-				);
+				WPCPM_Dashboard_Card::age( $queue['anchor'], $age );
 			}
 
 			if ( is_callable( $queue['draw'] ) ) {
@@ -1077,17 +1086,7 @@ final class WPCPM_Administrators_Dashboard {
 			}
 
 			// The mentor applications: decided on the Mentors screen, a row that opens it.
-			printf(
-				'<section class="wpcpm-administrator__card wpcpm-overview__row" id="%1$s"><div class="wpcpm-overview__row-in"><h3 class="wpcpm-group__title">%2$s <span class="wpcpm-group__count">%3$s</span></h3><span class="wpcpm-sponsor__state">%4$s</span><a class="wpcpm-button wpcpm-button--secondary" href="%5$s">%6$s<span class="screen-reader-text"> %7$s</span></a></div></section>',
-				esc_attr( (string) $queue['anchor'] ),
-				esc_html( (string) $queue['title'] ),
-				esc_html( number_format_i18n( (int) $queue['n'] ) ),
-				/* translators: %s: how many applications wait. */
-				esc_html( sprintf( _n( '%s waiting', '%s waiting', (int) $queue['n'], 'wpcredits-program-manager' ), number_format_i18n( (int) $queue['n'] ) ) ),
-				esc_url( (string) $queue['screen'] ),
-				esc_html__( 'Review', 'wpcredits-program-manager' ),
-				esc_html__( 'on the Mentors screen', 'wpcredits-program-manager' )
-			);
+			self::render_mentor_row( $queue, $age );
 		}
 
 		WPCPM_Dashboard_Card::fold( false );
@@ -1098,8 +1097,9 @@ final class WPCPM_Administrators_Dashboard {
 
 		$count = count( $empty );
 
+		// The sentence is the group's note, 22px under the last row (parts.css); its words and links are today's.
 		printf(
-			'<p class="wpcpm-overview__quiet">%s</p>',
+			'<p class="wpcpm-ui-group__note">%s</p>',
 			wp_kses(
 				sprintf(
 					count( $wait['queues'] ) === $count
@@ -1112,6 +1112,53 @@ final class WPCPM_Administrators_Dashboard {
 				),
 				array( 'a' => array( 'href' => array() ) )
 			)
+		);
+	}
+
+	/**
+	 * The Mentor applications row on the shared parts (design 2.3, 4.1, M3): the card fold's box and head, which
+	 * does not open, since the applications are decided on the Mentors screen. Its head holds the title, how many
+	 * wait, how long the oldest has waited, the help slot and the external-link icon in the chevron's place, then
+	 * the Review link to the Mentors screen's queue as the secondary button; the help link to the guide's job is
+	 * printed after the row and laid into the slot by the section's grid, as a card's is.
+	 *
+	 * @param array  $queue The queue, as `waiting()` returned it.
+	 * @param string $age   How long the oldest has waited, in words; '' when no row says.
+	 */
+	private static function render_mentor_row( array $queue, $age ) {
+		$n = (int) $queue['n'];
+
+		$head   = WPCPM_UI::fold_head(
+			array(
+				'size'      => 'card',
+				'title'     => (string) $queue['title'],
+				/* translators: %s: how many applications wait. */
+				'phrase'    => sprintf( _n( '%s waiting', '%s waiting', $n, 'wpcredits-program-manager' ), number_format_i18n( $n ) ),
+				'tag'       => '' !== (string) $age ? array(
+					'words' => (string) $age,
+					'tone'  => 'red',
+				) : null,
+				'help_slot' => true,
+				'leaves'    => true,
+			)
+		);
+		$review = WPCPM_UI::button(
+			array(
+				'label'   => __( 'Review', 'wpcredits-program-manager' ),
+				'kind'    => 'secondary',
+				'href'    => (string) $queue['screen'],
+				'context' => __( 'on the Mentors screen', 'wpcredits-program-manager' ),
+				'side'    => 'front',
+			)
+		);
+		$help   = WPCPM_Guide_Jobs::link( 'mentor-application', (string) $queue['title'] );
+
+		printf(
+			'<section class="wpcpm-administrator__card wpcpm-ui-fold-card" id="%1$s"><div class="wpcpm-ui-fold wpcpm-ui-fold--row"><div class="wpcpm-ui-fold__head">%2$s%3$s</div></div>%4$s</section>',
+			esc_attr( (string) $queue['anchor'] ),
+			$head, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::fold_head().
+			$review, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button().
+			'' !== $help ? '<p class="wpcpm-ui-fold__help">' . WPCPM_UI::help_link( $help ) . '</p>' : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_Guide_Jobs::link().
 		);
 	}
 
@@ -1166,10 +1213,31 @@ final class WPCPM_Administrators_Dashboard {
 
 		$after = (string) ob_get_clean();
 
-		if ( '' !== trim( $after ) ) {
-			printf( '<h2 class="screen-reader-text">%s</h2>', esc_html__( 'From our sponsors', 'wpcredits-program-manager' ) );
-			echo $after; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The Tools section's own markup, which escapes what it prints, held until the page knew it had any.
+		if ( '' === trim( $after ) ) {
+			return;
 		}
+
+		// On the shared parts the section is a group of the view, its title the group title part in today's words, as
+		// "The program's numbers" wears over its cards, with no inset of its own (task V1, ruling 5).
+		if ( class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
+			WPCPM_Dashboard_Card::group(
+				array_merge(
+					self::GROUP,
+					array(
+						'id'    => 'tools',
+						'title' => __( 'Tools from our sponsors', 'wpcredits-program-manager' ),
+						'cards' => static function () use ( $after ) {
+							echo $after; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The Tools section's own markup, which escapes what it prints.
+						},
+					)
+				)
+			);
+
+			return;
+		}
+
+		printf( '<h2 class="screen-reader-text">%s</h2>', esc_html__( 'From our sponsors', 'wpcredits-program-manager' ) );
+		echo $after; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The Tools section's own markup, which escapes what it prints, held until the page knew it had any.
 	}
 
 	/**

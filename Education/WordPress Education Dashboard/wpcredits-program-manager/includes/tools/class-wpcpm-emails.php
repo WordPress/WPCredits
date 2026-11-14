@@ -304,26 +304,34 @@ class WPCPM_Emails extends WPCPM_Tool {
 
 		$tab = self::current_tab();
 
-		echo '<div class="wrap wpcpm-wrap wpcpm-emails">';
-		printf( '<h1>%s</h1>', esc_html( $this->label() ) );
+		// The tab names itself to the switch of the shared parts while it draws (design 3.5): every tab is off until
+		// a release turns it on, and that release puts the switch's class on the wrap.
+		WPCPM_UI::enter( $this->page_slug() . '/' . $tab );
 
-		$notice = WPCPM_Flash::take( self::FLASH );
+		try {
+			echo '<div class="wrap wpcpm-wrap wpcpm-emails">';
+			printf( '<h1>%s</h1>', esc_html( $this->label() ) );
 
-		if ( is_array( $notice ) && isset( $notice['type'], $notice['text'] ) ) {
-			printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( (string) $notice['type'] ), esc_html( (string) $notice['text'] ) );
+			$notice = WPCPM_Flash::take( self::FLASH );
+
+			if ( is_array( $notice ) && isset( $notice['type'], $notice['text'] ) ) {
+				printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( (string) $notice['type'] ), esc_html( (string) $notice['text'] ) );
+			}
+
+			WPCPM_Screen_Tabs::render( $this->page_slug(), self::tabs(), $tab );
+
+			if ( self::TAB_FOOTER === $tab ) {
+				$this->render_footer_tab();
+			} elseif ( self::TAB_LOG === $tab ) {
+				$this->render_log_tab();
+			} else {
+				$this->render_templates_tab();
+			}
+
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tabs(), $tab );
-
-		if ( self::TAB_FOOTER === $tab ) {
-			$this->render_footer_tab();
-		} elseif ( self::TAB_LOG === $tab ) {
-			$this->render_log_tab();
-		} else {
-			$this->render_templates_tab();
-		}
-
-		echo '</div>';
 	}
 
 	/**

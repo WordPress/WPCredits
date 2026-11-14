@@ -150,6 +150,7 @@ function wp_register_script( $h, $s, $d = array(), $v = false, $f = false ) {}
 function wp_enqueue_style( $h ) { $GLOBALS['enqueued'][] = $h; }
 function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/specialchars.php';
@@ -394,6 +395,17 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-tiers.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors-page.php';
 require_once __DIR__ . '/stubs/scroll-regions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsor-application.php';
+// The shared parts, which the Administrator Dashboard's decisions and details are drawn on alone since their old
+// branch left (Task 18b), with what they ask of WordPress.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin() { return false; }
+}
+if ( ! function_exists( '_doing_it_wrong' ) ) {
+	function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+}
 
 $fail = 0; $checks = 0;
 function ck( $label, $actual, $expected ) {
@@ -1883,7 +1895,10 @@ function wp_get_current_user() { return isset( $GLOBALS['users'][ $GLOBALS['uid'
 // account mark here: that mark is the Sponsors screen suite's business, and this one reads the
 // facts for the half-done signal alone.
 function get_user_by( $field, $value ) { return false; }
-function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// With `$GLOBALS['faithful_nonces']` set (Task 13d), the referer field after it, as core prints it, so a form's posted
+// fields compare with the shared parts' `WPCPM_UI::nonce()`.
+function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />' . ( $r && ! empty( $GLOBALS['faithful_nonces'] ) ? wp_referer_field( false ) : '' ); }
+function wp_referer_field( $display = true ) { $field = '<input type="hidden" name="_wp_http_referer" value="/wp-admin/admin.php?page=wpcpm-sponsors" />'; if ( $display ) { echo $field; } return $field; }
 function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) { $GLOBALS['nonce_checked'][] = $action; return true; }
 function wp_delete_attachment( $id, $force = false ) { $GLOBALS['deleted_attachments'][] = (int) $id; unset( $GLOBALS['attachments'][ (int) $id ] ); return true; }
 /**
@@ -2175,7 +2190,8 @@ function app_question_box( $id, $return = WPCPM_Return::DASHBOARD ) {
 		WPCPM_Sponsor_Application::render_actions( $post, WPCPM_Sponsor_Application::state_of( $post ), '', false );
 	}
 	$html = (string) ob_get_clean();
-	if ( ! preg_match( '/<textarea id="wpcpm_question-' . (int) $id . '" name="wpcpm_question"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+	// Today's box on the Sponsors screen, or the parts' (`WPCPM_UI::field()`, its class first) on the card.
+	if ( ! preg_match( '/<textarea (?:class="[^"]*" )?id="wpcpm_question-' . (int) $id . '" name="wpcpm_question"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
 		return null;
 	}
 	return html_entity_decode( (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
@@ -2247,7 +2263,8 @@ function app_reason_box( $id, $return = WPCPM_Return::DASHBOARD ) {
 		WPCPM_Sponsor_Application::render_actions( $post, WPCPM_Sponsor_Application::state_of( $post ), '', false );
 	}
 	$html = (string) ob_get_clean();
-	if ( ! preg_match( '/<textarea id="wpcpm_reason-' . (int) $id . '" name="wpcpm_reason"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+	// Today's box on the Sponsors screen, or the parts' (`WPCPM_UI::field()`, its class first) on the card.
+	if ( ! preg_match( '/<textarea (?:class="[^"]*" )?id="wpcpm_reason-' . (int) $id . '" name="wpcpm_reason"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
 		return null;
 	}
 	return html_entity_decode( (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
@@ -2278,9 +2295,11 @@ $j_seen_other    = app_reason_box( $j_other );
 ob_start();
 WPCPM_Sponsor_Application::render_decision( $j_id, WPCPM_Return::DASHBOARD );
 $j_drawn = (string) ob_get_clean();
-preg_match( '/<textarea id="wpcpm_question-' . $j_id . '" name="wpcpm_question"[^>]*>(.*?)<\/textarea>/s', $j_drawn, $j_q );
-preg_match( '/<textarea id="wpcpm_reason-' . $j_id . '" name="wpcpm_reason"[^>]*>(.*?)<\/textarea>/s', $j_drawn, $j_w );
-ck( 'another manager never sees it on the same application, nor does another application\'s box, nor the question box beside it, while the one who typed it does', array( $j_seen_four, $j_seen_other, $j_q[1] ?? null, html_entity_decode( (string) preg_replace( '/^\n/', '', $j_w[1] ?? '' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), array( '', '', '', str_replace( "\r\n", "\n", $j_why ) ) );
+// The parts' boxes (`WPCPM_UI::field()`), each class first and one line feed after its opening tag, which the
+// parser drops (Task 18b: the old forms are gone).
+preg_match( '/<textarea [^>]*id="wpcpm_question-' . $j_id . '" name="wpcpm_question"[^>]*>(.*?)<\/textarea>/s', $j_drawn, $j_q );
+preg_match( '/<textarea [^>]*id="wpcpm_reason-' . $j_id . '" name="wpcpm_reason"[^>]*>(.*?)<\/textarea>/s', $j_drawn, $j_w );
+ck( 'another manager never sees it on the same application, nor does another application\'s box, nor the question box beside it, while the one who typed it does', array( $j_seen_four, $j_seen_other, isset( $j_q[1] ) ? preg_replace( '/^\n/', '', $j_q[1] ) : null, html_entity_decode( (string) preg_replace( '/^\n/', '', $j_w[1] ?? '' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), array( '', '', '', str_replace( "\r\n", "\n", $j_why ) ) );
 
 $j_here = decide( 'handle_reject', $j_id, array( 'wpcpm_reason' => 'Use code SAVE20<b></b> was their whole offer.' ) );
 ck( 'pressed on the Sponsors screen, the refusal lands on the opened application, where its form is, and the form there draws the reason back', array( flashed( $j_here ), $j_here['url'], app_reason_box( $j_id, '' ) ), array( 'sapp-reason-loss', WPCPM_Sponsor_Application::queue_url( $j_id ), 'Use code SAVE20<b></b> was their whole offer.' ) );
@@ -2415,7 +2434,7 @@ ck( 'a company name with an ampersand is printed from the stored fields as typed
 ob_start();
 WPCPM_Sponsor_Application::render_details( $amp );
 $details_html = (string) ob_get_clean();
-ck( 'render_details() is the open view without its heading and decisions: the answers table, the logo figures, the base matches', array( false !== strpos( $details_html, '<table class="widefat striped wpcpm-list wpcpm-app-answers">' ), false !== strpos( $details_html, 'wpcpm-sapp-logos' ) || false !== strpos( $details_html, 'No logo' ), strpos( $details_html, 'wpcpm-app-action' ), strpos( $details_html, 'Back to the queue' ) ), array( true, true, false, false ) );
+ck( 'render_details() is the open view without its heading and decisions: the answers table, the logo figures, the base matches', array( false !== strpos( $details_html, '<table class="wpcpm-ui-table' ), false !== strpos( $details_html, 'wpcpm-sapp-logos' ) || false !== strpos( $details_html, 'No logo' ), strpos( $details_html, 'wpcpm-app-action' ), strpos( $details_html, 'Back to the queue' ) ), array( true, true, false, false ) );
 ck( 'the Delete for good confirm says the same two things, chosen by the state', array(
 	false !== strpos( $confirm_gone, 'its logo files go with it' ),
 	strpos( $confirm_gone, 'stay in the Media Library' ),
@@ -2540,7 +2559,6 @@ ob_start();
 WPCPM_Sponsor_Application::render_open( $post, $screen );
 $no_open = (string) ob_get_clean();
 ck( 'render_decision() draws the same four forms by ID for a manager, and no renderer of the four draws anything for an account that is not one', array( substr_count( $by_id, '<form' ), $no_decision, $no_details, $no_actions, $no_open ), array( 4, '', '', '', '' ) );
-ck( 'and the Administrator Dashboard\'s call keeps its heading over them', substr_count( $by_id, '<h3>What happens next</h3>' ), 1 );
 as_manager();
 
 echo "\n-- the tier answer, where a manager reads it (1.113.0) -------------------\n";
@@ -2582,7 +2600,9 @@ $tier_cells = static function () use ( $tier_rows ) {
 	$out = array();
 	foreach ( $tier_rows as $company => $id ) {
 		ob_start();
-		WPCPM_Sponsor_Application::render_details( get_post( $id ) );
+		// The answers table as the Sponsors screen's opened application draws it: the dashboard's card draws the
+		// parts' table since its old branch left (Task 18b), pinned in the parts' checks below.
+		WPCPM_Sponsor_Application::render_open( get_post( $id ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
 		// The question as the form asks it, "level" since 1.123.24, over the column, which keeps "tier".
 		$out[ $company ] = preg_match( '#<th scope="row">Which level are you considering\?<br /><code class="wpcpm-inst-record">Tier considered</code></th><td>(.*?)</td></tr>#', (string) ob_get_clean(), $found ) ? $found[1] : null;
 	}
@@ -2628,9 +2648,10 @@ foreach ( $older_answers as $company => $answer ) {
 }
 $older_label = 'How would you like to support WP Credits? (older answer, no longer asked)';
 $older_th    = '<th scope="row">' . $older_label . '<br /><code class="wpcpm-inst-record">Sponsorship options</code></th>';
+// The answers table as the Sponsors screen's opened application draws it (Task 18b: the card's is the parts').
 $older_table = static function ( $id ) {
 	ob_start();
-	WPCPM_Sponsor_Application::render_details( get_post( $id ) );
+	WPCPM_Sponsor_Application::render_open( get_post( $id ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' );
 	return (string) ob_get_clean();
 };
 $older_read = static function () use ( $older_rows, $older_th, $older_table ) {
@@ -3129,5 +3150,584 @@ ck( 'Approve\'s question says what a ticked Test sponsor box does, after what Ap
 	0 === strpos( $t_confirm( $t_real_html ), 'Create a sponsor record with Status Approved and a site account for Gadgetry Real, and email a password-set link to ' ),
 ), array( ' ' . $t_said, ' ' . $t_said, true ) );
 
+echo "\n-- the decisions on the Administrator Dashboard's parts, behind the switch (UI shared parts, Task 13d) --\n";
+
+// The Administrator Dashboard's suite stands in for this class's decision and details, so the real ones on the
+// shared parts are drawn here: `render_decision()` and `render_details()` under `WPCPM_UI::enter( 'administrator' )`
+// with the dashboard's return, as the card calls them. The same decision form is drawn on the wp-admin Sponsors
+// screen through `render_open()` (surface `wpcpm-sponsors/queue`, off for this whole release): there, and with the
+// switch off, it is the markup drawn at 1892a92a, byte for byte. Two applications refused and kept on one card,
+// through the real, memoized flash, are drawn in bin/test-sponsor-offers.php: this suite stands in for the flash
+// with a journal that hands a value back once and keeps no memo.
+
+/**
+ * One application's decisions as a page draws them: on the dashboard with its switch off, on the dashboard with
+ * it on, or on the wp-admin Sponsors screen while only the dashboard is on.
+ *
+ * @param int    $id   The application.
+ * @param string $mode off, on or admin.
+ * @return string
+ */
+function u_drawn( $id, $mode ) {
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( 'on' === $mode ) {
+		WPCPM_UI::enter( 'administrator' );
+	} elseif ( 'admin' === $mode ) {
+		WPCPM_UI::enter( 'wpcpm-sponsors/queue' );
+	}
+	ob_start();
+	WPCPM_Sponsor_Application::render_decision( $id, WPCPM_Return::DASHBOARD );
+	$html = (string) ob_get_clean();
+	if ( 'on' === $mode ) {
+		parts_inventory_add( $html );
+	}
+	if ( 'off' !== $mode ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	return $html;
+}
+/**
+ * The same, for any drawing: `$draw` runs under the mode.
+ *
+ * @param callable $draw What draws.
+ * @param string   $mode off, on or admin.
+ * @return string
+ */
+function u_under( $draw, $mode ) {
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( 'on' === $mode ) {
+		WPCPM_UI::enter( 'administrator' );
+	} elseif ( 'admin' === $mode ) {
+		WPCPM_UI::enter( 'wpcpm-sponsors/queue' );
+	}
+	ob_start();
+	$draw();
+	$html = (string) ob_get_clean();
+	if ( 'off' !== $mode ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	return $html;
+}
+/** A render as a document. */
+function u_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+/**
+ * Every form a render holds, by the admin-post action it posts, in the order drawn: where it posts, its guard, its
+ * hidden fields as `name=value` in the order a browser posts them, its text boxes (name, bounds, whether required,
+ * what they hold), its checkboxes (name, value, ticked), its submits' `name=value`, and the question it asks before
+ * it posts (on the form, or on its submit).
+ *
+ * @param string $html Markup.
+ * @return array
+ */
+function u_posted( $html ) {
+	$x   = u_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ' minlength=' . $box->getAttribute( 'minlength' ) . ' required=' . ( $box->hasAttribute( 'required' ) ? 'yes' : 'no' ) . ' holds=' . preg_replace( '/^\n/', '', $box->textContent );
+		}
+		$ticks = array();
+		foreach ( $x->query( './/input[@type="checkbox"]', $form ) as $box ) {
+			$ticks[] = $box->getAttribute( 'name' ) . '=' . $box->getAttribute( 'value' ) . ( $box->hasAttribute( 'checked' ) ? ' checked' : '' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			if ( '' !== $button->getAttribute( 'name' ) ) {
+				$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			}
+			if ( '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ) {
+				$asks = $button->getAttribute( 'data-wpcpm-confirm' );
+			}
+		}
+		$out[ $action ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ),
+			'guarded' => $form->hasAttribute( 'data-wpcpm-once' ) && 'Working' === $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'ticks'   => $ticks,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+/** The buttons a node holds, in order, as `kind: words`. */
+function u_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : 'primary' ) );
+		$out[] = $kind . ': ' . trim( $button->textContent );
+	}
+	return $out;
+}
+/** A render with the parts that sit outside a `wpcpm-ui-on` root, and how many parts it holds. */
+function u_outside( $html ) {
+	$x       = u_doc( $html );
+	$outside = array();
+	$all     = 0;
+	foreach ( $x->query( '//*[@class]' ) as $node ) {
+		$part = array_filter( preg_split( '/\s+/', trim( $node->getAttribute( 'class' ) ) ), static function ( $c ) { return 'wpcpm-ui-on' !== $c && 1 === preg_match( '/^wpcpm-(ui-|btn$|btn--|status$|status--)/', $c ); } );
+		if ( empty( $part ) ) {
+			continue;
+		}
+		++$all;
+		$inside = false;
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			if ( in_array( 'wpcpm-ui-on', preg_split( '/\s+/', (string) $up->getAttribute( 'class' ) ), true ) ) {
+				$inside = true;
+				break;
+			}
+		}
+		if ( ! $inside ) {
+			$outside[] = $node->nodeName;
+		}
+	}
+	return array( array_values( array_unique( $outside ) ), $all );
+}
+/** What a render says that changes per run: a date and time, and the year in a reference. Blanked for a digest. */
+function u_steady( $html ) {
+	return (string) preg_replace( array( '/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', '/SAPP-\d{4}-/' ), array( 'YYYY-MM-DD HH:MM', 'SAPP-YYYY-' ), (string) $html );
+}
+
+reset_world();
+as_manager();
+$GLOBALS['kept_typing'] = array();
+$GLOBALS['flash']       = array();
+$u_new  = seed_application( array( 'Company Name' => 'Parts New Co', 'Contact Email' => 'new@example.org' ) );
+$u_held = seed_application( array( 'Company Name' => 'Parts Held Co', 'Contact Email' => 'held@example.org' ) );
+$u_info = seed_application( array( 'Company Name' => 'TEST - Parts Info', 'Contact Email' => 'info@example.org' ) );
+update_post_meta( $u_held, WPCPM_Sponsor_Application::META_STATE, 'held' );
+update_post_meta( $u_info, WPCPM_Sponsor_Application::META_STATE, 'info' );
+$u_dash = array( WPCPM_Return::FIELD => WPCPM_Return::DASHBOARD, WPCPM_Return::ANCHOR_FIELD => 'sponsor-applications' );
+$u_ids  = array( 'new' => $u_new, 'held' => $u_held, 'info' => $u_info );
+$u_on   = array();
+foreach ( $u_ids as $u_state => $u_id ) {
+	$u_on[ $u_state ] = u_drawn( $u_id, 'on' );
+}
+
+/**
+ * One refused press and the decisions drawn after it, kept typing and all; the typing is handed back once, so each
+ * mode is pressed for anew.
+ *
+ * @param string $handler The handler.
+ * @param int    $id      The application.
+ * @param string $field   The box posted.
+ * @param string $typed   What was typed.
+ * @param string $mode    off, on or admin.
+ * @return array The outcome on the dashboard's channel, and the drawing.
+ */
+function u_after( $handler, $id, $field, $typed, $mode ) {
+	$GLOBALS['kept_typing'] = array();
+	$went                   = decide( $handler, $id, array( WPCPM_Return::FIELD => WPCPM_Return::DASHBOARD, WPCPM_Return::ANCHOR_FIELD => 'sponsor-applications', $field => wp_slash( $typed ) ) );
+	$html                   = u_drawn( $id, $mode );
+	$GLOBALS['flash']       = array();
+	return array( $went['flash']['institutions'] ?? '', $html );
+}
+$u_long     = str_repeat( 'q', WPCPM_Sponsor_Application::MAX_NOTE + 1 );
+$u_refusals = array(
+	'sapp-question'    => array( 'handle_info', 'wpcpm_question', 'Why?' ),
+	'sapp-loss'        => array( 'handle_info', 'wpcpm_question', 'Is <b>this</b> your whole offer?' ),
+	'sapp-too-long'    => array( 'handle_info', 'wpcpm_question', $u_long ),
+	'sapp-reason-loss' => array( 'handle_reject', 'wpcpm_reason', 'Their <b>offer</b> was empty.' ),
+	'sapp-reason-long' => array( 'handle_reject', 'wpcpm_reason', $u_long ),
+);
+$u_kept = array();
+foreach ( $u_refusals as $u_key => $u_press ) {
+	$u_kept[ $u_key ]['on'] = u_after( $u_press[0], $u_new, $u_press[1], $u_press[2], 'on' );
+}
+
+// The digests are of the opened application as it was drawn at 1892a92a, before Task 13d: this same fixture run on
+// that commit's code. A date and time and a reference's year are blanked (`u_steady()`); nonces are this suite's
+// own, fixed per action.
+$u_open = static function ( $id, $mode ) {
+	return u_under( static function () use ( $id ) { WPCPM_Sponsor_Application::render_open( get_post( $id ), 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors' ); }, $mode );
+};
+$u_here = static function ( $id, $mode ) {
+	return u_under( static function () use ( $id ) { $post = get_post( $id ); WPCPM_Sponsor_Application::render_actions( $post, WPCPM_Sponsor_Application::state_of( $post ), '', false ); }, $mode );
+};
+$u_details = static function ( $id, $mode ) {
+	$html = u_under( static function () use ( $id ) { WPCPM_Sponsor_Application::render_details( get_post( $id ) ); }, $mode );
+	if ( 'on' === $mode ) {
+		parts_inventory_add( $html );
+	}
+	return $html;
+};
+// The details are drawn by the Administrator Dashboard's card alone, on the parts, since their old branch left
+// (Task 18b); the opened application keeps its own drawing of the same three.
+ck( 'the opened application on the Sponsors screen and its decisions under "Where it is decided" are the ones drawn before Task 13d, and the same while the dashboard is on', array(
+	md5( u_steady( $u_open( $u_new, 'admin' ) ) ),
+	$u_open( $u_new, 'admin' ) === $u_open( $u_new, 'off' ),
+	md5( u_steady( $u_here( $u_held, 'admin' ) ) ),
+	$u_here( $u_held, 'admin' ) === $u_here( $u_held, 'off' ),
+), array( '5b0580d02e1207d3f59e3ff613e2696a', true, '1abb10f8b9404659c3e4bfdc66017255', true ) );
+
+// Posted fields (check 1): every form posts what the old forms posted, form by form, in each state and after each
+// refusal. The old forms left with their branch (Task 18b), so the fields are pinned to what they posted, read at
+// 76b5ecff, where this check compared the two: the address and guard, the hidden fields in order with the nonce
+// keyed to the application and its referer, the way back to the card, the boxes and bounds, the Test sponsor box, the
+// question asked.
+$GLOBALS['faithful_nonces'] = true;
+$u_on_f = array();
+foreach ( $u_ids as $u_state => $u_id ) {
+	$u_on_f[ $u_state ] = u_drawn( $u_id, 'on' );
+}
+$u_form   = static function ( $id, $action, array $boxes = array(), array $ticks = array(), $asks = '' ) {
+	return array(
+		array(
+			'posts'   => 'post https://example.test/wp-admin/admin-post.php',
+			'guarded' => true,
+			'hidden'  => array( '_wpnonce=nonce-' . $action . '_' . $id, '_wp_http_referer=/wp-admin/admin.php?page=wpcpm-sponsors', 'action=' . $action, 'wpcpm_sapp=' . $id, 'wpcpm_return=dashboard', 'wpcpm_return_to=sponsor-applications' ),
+			'boxes'   => $boxes,
+			'ticks'   => $ticks,
+			'submits' => array(),
+			'asks'    => $asks,
+		),
+	);
+};
+$u_expect = static function ( $id, $name, $email, $test, $reopen, $question = '', $reason = '' ) use ( $u_form ) {
+	$out = array(
+		'wpcpm_sapp_approve' => $u_form( $id, 'wpcpm_sapp_approve', array(), array( 'wpcpm_test=1' . ( $test ? ' checked' : '' ) ), 'Create a sponsor record with Status Approved and a site account for ' . $name . ', and email a password-set link to ' . $email . '? The record can be edited on the Sponsors screen afterward. If Test sponsor is ticked, the sponsor is approved as a test sponsor: it is left out of the Partners page, the logo strip, the handbook listing and the public feed, its offers, posts and events are shown to no student or mentor, and its own accounts still see its Sponsor Dashboard.' ),
+		'wpcpm_sapp_info'    => $u_form( $id, 'wpcpm_sapp_info', array( 'wpcpm_question maxlength=2000 minlength=10 required=yes holds=' . $question ) ),
+		'wpcpm_sapp_reject'  => $u_form( $id, 'wpcpm_sapp_reject', array( 'wpcpm_reason maxlength=2000 minlength= required=no holds=' . $reason ), array(), 'Reject the application from ' . $name . '? They get a short acknowledgement with no reason in it, and your note stays on this site.' ),
+	);
+	if ( $reopen ) {
+		$out['wpcpm_sapp_reopen'] = $u_form( $id, 'wpcpm_sapp_reopen' );
+	}
+	$out['wpcpm_sapp_spam'] = $u_form( $id, 'wpcpm_sapp_spam', array(), array(), 'Mark the application from ' . $name . ' as spam? Nothing at all is sent to the address on it, and its logo files go with it when it is deleted.' );
+	return $out;
+};
+ck( 'on, every form posts exactly what the handlers read: the same address and guard, the same hidden fields under the same nonce, the same boxes and bounds, the same Test sponsor box ticked as today, the same question asked, in each state; one Decide area per application (check 1)', array(
+	array_map( 'u_posted', $u_on_f ),
+	array_map( static function ( $html ) { return substr_count( $html, '<div class="wpcpm-ui-decide"' ); }, $u_on_f ),
+	array_map( static function ( $html ) { return array_sum( array_map( 'count', u_posted( $html ) ) ); }, $u_on_f ),
+), array(
+	array(
+		'new'  => $u_expect( $u_ids['new'], 'Parts New Co', 'new@example.org', false, false ),
+		'held' => $u_expect( $u_ids['held'], 'Parts Held Co', 'held@example.org', false, true ),
+		'info' => $u_expect( $u_ids['info'], 'TEST - Parts Info', 'info@example.org', true, true ),
+	),
+	array( 'new' => 1, 'held' => 1, 'info' => 1 ),
+	array( 'new' => 4, 'held' => 5, 'info' => 5 ),
+) );
+$u_kept_f = array();
+foreach ( $u_refusals as $u_key => $u_press ) {
+	$u_kept_f[ $u_key ] = u_posted( u_after( $u_press[0], $u_new, $u_press[1], $u_press[2], 'on' )[1] );
+}
+$u_full = str_repeat( 'q', WPCPM_Sponsor_Application::MAX_NOTE );
+ck( 'and after each refusal, with the kept typing in the same box (check 1)', $u_kept_f, array(
+	'sapp-question'    => $u_expect( $u_new, 'Parts New Co', 'new@example.org', false, false, 'Why?' ),
+	'sapp-loss'        => $u_expect( $u_new, 'Parts New Co', 'new@example.org', false, false, 'Is <b>this</b> your whole offer?' ),
+	'sapp-too-long'    => $u_expect( $u_new, 'Parts New Co', 'new@example.org', false, false, $u_full ),
+	'sapp-reason-loss' => $u_expect( $u_new, 'Parts New Co', 'new@example.org', false, false, '', 'Their <b>offer</b> was empty.' ),
+	'sapp-reason-long' => $u_expect( $u_new, 'Parts New Co', 'new@example.org', false, false, '', $u_full ),
+) );
+unset( $GLOBALS['faithful_nonces'] );
+
+// The words (check 5): the Decide area's row and panels.
+$u_x = u_doc( $u_on['held'] );
+$u_area = 'wpcpm-decide-sapp-' . $u_held;
+ck( 'on, one Decide area per application, its id the application\'s, under the heading "Decide" and no other: "What happens next" is not printed', array(
+	$u_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$u_x->evaluate( 'string(//div[@class="wpcpm-ui-decide"]/@id)' ),
+	trim( $u_x->evaluate( 'string(//div[@class="wpcpm-ui-decide"]/h5[@class="wpcpm-ui-h"])' ) ),
+	strpos( $u_on['held'], 'What happens next' ),
+	$u_x->query( '//h3' )->length,
+), array( 1, $u_area, 'Decide', false, 0 ) );
+ck( 'its row holds every decision the state allows in today\'s words, in the one order: Approve the one primary, Ask a question and, while the application is held or waiting on the applicant, Put back in the queue secondary, then Reject and Reject as spam red (check 5)', array(
+	u_buttons( $u_x, '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button' ),
+	u_buttons( u_doc( $u_on['new'] ), '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button' ),
+	$u_x->query( '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button[@aria-controls]' )->length,
+	$u_x->query( '//*[contains(concat(" ", @class, " "), " screen-reader-text ")]' )->length,
+), array(
+	// Task 13d fix round 1: decide() prints the row primary, secondary, danger, so Put back in the queue sits before the red ones.
+	array( 'primary: Approve', 'secondary: Ask a question', 'secondary: Put back in the queue', 'danger: Reject', 'danger: Reject as spam' ),
+	array( 'primary: Approve', 'secondary: Ask a question', 'danger: Reject', 'danger: Reject as spam' ),
+	3,
+	0,
+) );
+ck( 'Approve opens its own panel, as its Test sponsor box is a field today: the box clear for a real company and ticked for one named TEST, then "Approve the application" with today\'s question, and Cancel', array(
+	u_buttons( $u_x, '//div[@id="' . $u_area . '-approve-panel"]//button' ),
+	$u_x->query( '//div[@id="' . $u_area . '-approve-panel"]//input[@type="checkbox"][@name="wpcpm_test"][@value="1"][not(@checked)]' )->length,
+	u_doc( $u_on['info'] )->query( '//div[@id="wpcpm-decide-sapp-' . $u_info . '-approve-panel"]//input[@type="checkbox"][@name="wpcpm_test"][@checked]' )->length,
+	trim( $u_x->evaluate( 'string(//div[@id="' . $u_area . '-approve-panel"]//label)' ) ),
+	0 === strpos( $u_x->evaluate( 'string(//div[@id="' . $u_area . '-approve-panel"]//button[@type="submit"]/@data-wpcpm-confirm)' ), 'Create a sponsor record with Status Approved and a site account for Parts Held Co, and email a password-set link to held@example.org?' ),
+), array( array( 'primary: Approve the application', 'quiet: Cancel' ), 1, 1, 'Test sponsor: not listed publicly', true ) );
+ck( 'Ask a question opens its panel: the label "Ask the applicant something", Required, the hint "It is sent as it is written, with your address to reply to.", the box under its name and an id of its own, and "Send this question" (check 5)', array(
+	trim( $u_x->evaluate( 'string(//div[@id="' . $u_area . '-info-panel"]//label[@for="wpcpm_question-' . $u_held . '"])' ) ),
+	trim( $u_x->evaluate( 'string(//p[@id="wpcpm_question-' . $u_held . '-hint"])' ) ),
+	$u_x->evaluate( 'string(//textarea[@id="wpcpm_question-' . $u_held . '"]/@name)' ),
+	$u_x->evaluate( 'string(//textarea[@id="wpcpm_question-' . $u_held . '"]/@rows)' ),
+	u_buttons( $u_x, '//div[@id="' . $u_area . '-info-panel"]//button' ),
+), array( 'Ask the applicant something Required', 'It is sent as it is written, with your address to reply to.', 'wpcpm_question', '3', array( 'secondary: Send this question', 'quiet: Cancel' ) ) );
+// Task 18a, point 5: the reason is Optional in words, as the institution application's is: `handle_reject()` takes an
+// empty one and today's box is not required.
+ck( 'Reject opens its panel: the label "Why, for the next Administrator who reads this", Optional, the hint "It is never sent to the applicant.", and "Reject the application" in red with today\'s question (check 5)', array(
+	trim( $u_x->evaluate( 'string(//div[@id="' . $u_area . '-reject-panel"]//label[@for="wpcpm_reason-' . $u_held . '"])' ) ),
+	trim( $u_x->evaluate( 'string(//p[@id="wpcpm_reason-' . $u_held . '-hint"])' ) ),
+	$u_x->evaluate( 'string(//textarea[@id="wpcpm_reason-' . $u_held . '"]/@required)' ),
+	u_buttons( $u_x, '//div[@id="' . $u_area . '-reject-panel"]//button' ),
+	$u_x->evaluate( 'string(//div[@id="' . $u_area . '-reject-panel"]//button[@type="submit"]/@data-wpcpm-confirm)' ),
+), array( 'Why, for the next Administrator who reads this Optional', 'It is never sent to the applicant.', '', array( 'danger: Reject the application', 'quiet: Cancel' ), 'Reject the application from Parts Held Co? They get a short acknowledgement with no reason in it, and your note stays on this site.' ) );
+ck( 'nothing is open before it is asked for, and none of today\'s form or note classes is printed', array(
+	$u_x->query( '//*[@data-wpcpm-open]' )->length,
+	strpos( $u_on['held'], 'wpcpm-app-action"' ),
+	strpos( $u_on['held'], 'wpcpm-app-action__note' ),
+	strpos( $u_on['held'], 'wpcpm-field__required' ),
+	strpos( $u_on['held'], 'class="button' ),
+), array( 0, false, false, false, false ) );
+
+// Two applications on one card (check 2).
+$u_two = $u_on['new'] . $u_on['held'];
+$u_tx  = u_doc( $u_two );
+$u_all = array();
+foreach ( $u_tx->query( '//*[@id]' ) as $u_node ) {
+	$u_all[] = $u_node->getAttribute( 'id' );
+}
+$u_dangling = array();
+foreach ( $u_tx->query( '//*[@aria-controls] | //label[@for] | //*[@aria-describedby]' ) as $u_node ) {
+	foreach ( preg_split( '/\s+/', trim( $u_node->getAttribute( 'aria-controls' ) . ' ' . $u_node->getAttribute( 'for' ) . ' ' . $u_node->getAttribute( 'aria-describedby' ) ) ) as $u_ref ) {
+		if ( '' !== $u_ref && ! in_array( $u_ref, $u_all, true ) ) {
+			$u_dangling[] = $u_ref;
+		}
+	}
+}
+$u_owned = array();
+foreach ( $u_tx->query( '//div[@class="wpcpm-ui-decide"]' ) as $u_decide ) {
+	$u_mine = (int) substr( $u_decide->getAttribute( 'id' ), strlen( 'wpcpm-decide-sapp-' ) );
+	foreach ( $u_tx->query( './/input[@name="wpcpm_sapp"]', $u_decide ) as $u_input ) {
+		$u_owned[] = (int) $u_input->getAttribute( 'value' ) === $u_mine;
+	}
+	foreach ( $u_tx->query( './/*[@aria-controls]', $u_decide ) as $u_opener ) {
+		$u_owned[] = 0 === strpos( $u_opener->getAttribute( 'aria-controls' ), $u_decide->getAttribute( 'id' ) . '-' );
+	}
+}
+ck( 'two applications on one card repeat no id, every aria-controls, for and aria-describedby resolves, each opener opens its own application\'s panel and every form posts its own application\'s ID; no nonce field carries an id (check 2)', array(
+	count( $u_all ) === count( array_unique( $u_all ) ),
+	$u_dangling,
+	count( $u_owned ) > 10 && ! in_array( false, $u_owned, true ),
+	$u_tx->query( '//input[@name="_wpnonce"][@id]' )->length,
+), array( true, array(), true, 0 ) );
+
+// A refused or kept note (check 3), one application; two on one card through the real flash are in
+// bin/test-sponsor-offers.php.
+$u_box = static function ( $html, $field, $id ) {
+	$x = u_doc( $html );
+	return array(
+		'open'      => array_map( static function ( $n ) { return $n->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'expanded'  => array_map( static function ( $n ) { return $n->getAttribute( 'aria-controls' ); }, iterator_to_array( $x->query( '//button[@aria-expanded="true"]' ) ) ),
+		'holds'     => preg_replace( '/^\n/', '', $x->evaluate( 'string(//textarea[@id="' . $field . '-' . $id . '"])' ) ),
+		'invalid'   => $x->evaluate( 'string(//textarea[@id="' . $field . '-' . $id . '"]/@aria-invalid)' ),
+		'described' => $x->evaluate( 'string(//textarea[@id="' . $field . '-' . $id . '"]/@aria-describedby)' ),
+		'said'      => trim( $x->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( $field . '-' . $id ) . '"])' ) ),
+		'marked'    => $x->query( '//*[@aria-invalid]' )->length,
+	);
+};
+$u_tied = static function ( $panel, $field, $id, $holds, $status ) {
+	return array(
+		'open'      => array( 'wpcpm-decide-sapp-' . $id . '-' . $panel . '-panel' ),
+		'expanded'  => array( 'wpcpm-decide-sapp-' . $id . '-' . $panel . '-panel' ),
+		'holds'     => $holds,
+		'invalid'   => 'true',
+		'described' => WPCPM_Form_Errors::problem_id( $field . '-' . $id ) . ' ' . $field . '-' . $id . '-hint',
+		'said'      => WPCPM_Sponsor_Application::manager_messages()[ $status ][1],
+		'marked'    => 1,
+	);
+};
+$u_seen = array();
+$u_want = array();
+foreach ( $u_refusals as $u_key => $u_press ) {
+	$u_panel           = 'wpcpm_question' === $u_press[1] ? 'info' : 'reject';
+	$u_seen[ $u_key ]  = $u_box( $u_kept[ $u_key ]['on'][1], $u_press[1], $u_new );
+	$u_want[ $u_key ]  = $u_tied( $u_panel, $u_press[1], $u_new, $u_press[2] === $u_long ? str_repeat( 'q', WPCPM_Sponsor_Application::MAX_NOTE ) : $u_press[2], $u_key );
+}
+ck( 'each refusal of a question or a reason comes back to its own panel, printed open with its opener pressed, the typing kept, the box marked and tied to the refusal\'s sentence after its hint; no other panel opens and no other box is marked (check 3)', $u_seen, $u_want );
+
+// The card's message leads to the refused box.
+$u_card = static function ( $status, $id ) {
+	WPCPM_Dashboard_Card::forget();
+	$said = WPCPM_Sponsor_Application::manager_messages()[ $status ];
+	WPCPM_Dashboard_Card::hold( 'wpcpm-sponsor-applications', $said[0], $said[1] );
+	return u_under(
+		static function () use ( $id ) {
+			WPCPM_Dashboard_Card::open( array( 'key' => 'sponsor-applications', 'title' => 'Sponsor applications', 'prefix' => 'wpcpm-', 'id_on' => 'section', 'section_class' => 'wpcpm-administrator__card' ) );
+			WPCPM_Sponsor_Application::render_decision( $id, WPCPM_Return::DASHBOARD );
+			WPCPM_Dashboard_Card::close();
+		},
+		'on'
+	);
+};
+$GLOBALS['kept_typing'] = array();
+decide( 'handle_reject', $u_new, $u_dash + array( 'wpcpm_reason' => $u_long ) );
+$u_led = u_doc( $u_card( 'sapp-reason-long', $u_new ) );
+WPCPM_Dashboard_Card::forget();
+$GLOBALS['flash'] = array();
+ck( 'the card\'s message, the refusal\'s sentence, is one link to the refused box (check 3)', array_map( static function ( $n ) { return $n->getAttribute( 'href' ) . ' ' . $n->textContent; }, iterator_to_array( $u_led->query( '//p[@data-wpcpm-card-message]//a' ) ) ), array( '#wpcpm_reason-' . $u_new . ' ' . WPCPM_Sponsor_Application::manager_messages()['sapp-reason-long'][1] ) );
+
+// A question kept by an earlier refusal beside a reason refused now, on one application: the refusal outranks the
+// kept typing for the panel printed open, and only the reason's box is tied to it.
+$GLOBALS['kept_typing'] = array();
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Application::TYPED_QUESTION, $u_new ), 'question', 'Kept, and not refused.', WPCPM_Sponsor_Application::MAX_NOTE );
+decide( 'handle_reject', $u_new, $u_dash + array( 'wpcpm_reason' => $u_long ) );
+$u_both = u_drawn( $u_new, 'on' );
+$GLOBALS['flash'] = array();
+ck( 'a question kept earlier beside a reason refused now: only the reason\'s panel is open, its box alone tied to the refusal; the question\'s box keeps its typing, unmarked (a refusal outranks kept typing)', array( $u_box( $u_both, 'wpcpm_reason', $u_new ), $u_box( $u_both, 'wpcpm_question', $u_new )['holds'], $u_box( $u_both, 'wpcpm_question', $u_new )['invalid'] ), array( $u_tied( 'reject', 'wpcpm_reason', $u_new, str_repeat( 'q', WPCPM_Sponsor_Application::MAX_NOTE ), 'sapp-reason-long' ), 'Kept, and not refused.', '' ) );
+// And the reverse: a reason kept earlier, a question refused now.
+$GLOBALS['kept_typing'] = array();
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Application::TYPED_REASON, $u_new ), 'reason', 'Kept, and not refused.', WPCPM_Sponsor_Application::MAX_NOTE );
+decide( 'handle_info', $u_new, $u_dash + array( 'wpcpm_question' => 'Why?' ) );
+$u_rev = u_drawn( $u_new, 'on' );
+$GLOBALS['flash'] = array();
+ck( 'and the reverse: a reason kept earlier beside a question refused now: a refusal of the question never marks the reason', array( $u_box( $u_rev, 'wpcpm_question', $u_new ), $u_box( $u_rev, 'wpcpm_reason', $u_new )['holds'], $u_box( $u_rev, 'wpcpm_reason', $u_new )['invalid'] ), array( $u_tied( 'info', 'wpcpm_question', $u_new, 'Why?', 'sapp-question' ), 'Kept, and not refused.', '' ) );
+// A blank question, refused and keeping nothing, beside a reason kept earlier: no box is marked.
+$GLOBALS['kept_typing'] = array();
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Application::TYPED_REASON, $u_new ), 'reason', 'Kept, and not refused.', WPCPM_Sponsor_Application::MAX_NOTE );
+$u_blank_went = decide( 'handle_info', $u_new, $u_dash + array( 'wpcpm_question' => "  \n " ) );
+$u_blank      = u_drawn( $u_new, 'on' );
+$GLOBALS['flash'] = array();
+ck( 'a blank question, refused and keeping nothing, beside a reason kept earlier: no box is marked invalid; the reason\'s panel is open with its typing, untied', array( $u_blank_went['flash']['institutions'] ?? '', $u_box( $u_blank, 'wpcpm_reason', $u_new ), $u_box( $u_blank, 'wpcpm_question', $u_new )['holds'] ), array( 'sapp-question', array(
+	'open'      => array( 'wpcpm-decide-sapp-' . $u_new . '-reject-panel' ),
+	'expanded'  => array( 'wpcpm-decide-sapp-' . $u_new . '-reject-panel' ),
+	'holds'     => 'Kept, and not refused.',
+	'invalid'   => '',
+	'described' => 'wpcpm_reason-' . $u_new . '-hint',
+	'said'      => '',
+	'marked'    => 0,
+), '' ) );
+
+// The details in the fold: the answers as the table part's key and value table, the column names not printed.
+$u_det = $u_details( $u_new, 'on' );
+$u_dx  = u_doc( $u_det );
+ck( 'on, the application\'s answers are a key and value table on the table part, each question a row header, an empty answer "no answer" muted; the stored column names are not printed; the headings over the logo and the matches are in-card headings', array(
+	$u_dx->query( '//table[contains(@class, "wpcpm-ui-table--keyvalue")]' )->length,
+	trim( $u_dx->evaluate( 'string(//table//tr[1]/th[@scope="row"])' ) ),
+	trim( $u_dx->evaluate( 'string(//table//tr[1]/td)' ) ),
+	$u_dx->query( '//table//td[contains(@class, "empty")]' )->length > 0,
+	strpos( $u_det, 'wpcpm-inst-record' ),
+	strpos( $u_det, 'widefat' ),
+	array_map( static function ( $n ) { return $n->nodeName . ' ' . trim( $n->textContent ); }, iterator_to_array( $u_dx->query( '//*[contains(@class, "wpcpm-ui-h")]' ) ) ),
+	$u_dx->query( '//h3' )->length,
+), array( 1, 'Name of your company', 'Parts New Co', true, false, false, array( 'h5 Logo', 'h5 What the site already has' ), 0 ) );
+
+// The parts sit inside the switch (check 6).
+list( $u_out, $u_count ) = u_outside( '<div class="wpcpm-dashboard wpcpm-ui-on">' . $u_on['held'] . $u_det . '</div>' );
+list( $u_bare )          = u_outside( $u_on['held'] );
+ck( 'every part the decisions and the details draw sits inside the switch\'s root, and none is drawn but inside one; the parts\' script is asked for (check 6)', array( $u_count > 0, $u_out, count( $u_bare ) > 0, in_array( 'wpcpm-parts', $GLOBALS['enqueued'] ?? array(), true ) ), array( true, array(), true, true ) );
+
+echo "\n-- a checkbox part, the row in one order, and the logos and matches on the parts (UI shared parts, Task 13d fix round 1) --\n";
+
+/**
+ * Core's image tag for an attachment, at its contract: the class it is given, or core's own by the size.
+ *
+ * @param int          $id   The attachment.
+ * @param string       $size The size.
+ * @param bool         $icon Unused.
+ * @param array|string $attr The attributes; `class` alone is read.
+ * @return string
+ */
+function wp_get_attachment_image( $id, $size = 'thumbnail', $icon = false, $attr = '' ) {
+	$class = is_array( $attr ) && isset( $attr['class'] ) ? (string) $attr['class'] : 'attachment-' . $size . ' size-' . $size;
+	return '<img src="' . esc_attr( (string) wp_get_attachment_url( (int) $id ) ) . '" class="' . esc_attr( $class ) . '" alt="" decoding="async" />';
+}
+
+reset_world();
+as_manager();
+$GLOBALS['kept_typing'] = array();
+$GLOBALS['flash']       = array();
+$f_logo = seed_application( array( 'Company Name' => 'Widgetry Ltd', 'Contact Email' => 'logo@example.org' ), true );
+$f_rej  = seed_application( array( 'Company Name' => 'Parts Rejected Co', 'Contact Email' => 'rejected@example.org' ) );
+$f_held = seed_application( array( 'Company Name' => 'Parts Held Two', 'Contact Email' => 'held2@example.org' ) );
+update_post_meta( $f_rej, WPCPM_Sponsor_Application::META_STATE, 'rejected' );
+update_post_meta( $f_held, WPCPM_Sponsor_Application::META_STATE, 'held' );
+$f_logos = WPCPM_Sponsor_Application::logos_of( $f_logo );
+$f_screen = 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors';
+$f_open   = static function ( $id, $mode ) use ( $f_screen ) {
+	return u_under( static function () use ( $id, $f_screen ) { WPCPM_Sponsor_Application::render_open( get_post( $id ), $f_screen ); }, $mode );
+};
+$f_details = static function ( $id, $mode ) {
+	$html = u_under( static function () use ( $id ) { WPCPM_Sponsor_Application::render_details( get_post( $id ) ); }, $mode );
+	if ( 'on' === $mode ) {
+		parts_inventory_add( $html );
+	}
+	return $html;
+};
+
+// Ruling 7: the wp-admin forms drawn through render_open() itself, for an application they are drawn for there (a
+// rejected one: Put back in the queue and Delete for good, under "Where it is decided"), and an application with its
+// logos and a match on the site. The digests are of the code at 1892a92a, before Task 13d; dates and a reference's
+// year blanked (`u_steady()`), the image tags are this suite's own.
+$f_rej_admin  = $f_open( $f_rej, 'admin' );
+$f_logo_admin = $f_open( $f_logo, 'admin' );
+ck( 'on the Sponsors screen, with only the Administrator Dashboard on, render_open() draws a rejected application\'s forms and an application\'s logos and matches byte for byte as before Task 13d, and as it does off', array(
+	substr_count( $f_rej_admin, '<form class="wpcpm-app-action"' ),
+	md5( u_steady( $f_rej_admin ) ),
+	$f_rej_admin === $f_open( $f_rej, 'off' ),
+	md5( u_steady( $f_logo_admin ) ),
+	$f_logo_admin === $f_open( $f_logo, 'off' ),
+	strpos( $f_rej_admin . $f_logo_admin, 'wpcpm-ui-' ),
+), array( 2, '56387174cd27286e51be19f03c3f657d', true, '122b4b887281c16c7eb66a9fad5fb5a5', true, false ) );
+
+// Ruling 4: the logos part.
+$f_on = $f_details( $f_logo, 'on' );
+ck( 'on, the logos are the logos part: a row of figures, each image framed through its class, the white logo\'s figure marked, each caption the part\'s; none of today\'s logo classes', array(
+	false !== strpos( $f_on, '<div class="wpcpm-ui-logos"><figure class="wpcpm-ui-logo">' . wp_get_attachment_image( $f_logos['colour'], 'medium', false, array( 'class' => 'wpcpm-ui-logo__img' ) ) . '<figcaption class="wpcpm-ui-logo__caption">In color</figcaption></figure><figure class="wpcpm-ui-logo wpcpm-ui-logo--white">' . wp_get_attachment_image( $f_logos['white'], 'medium', false, array( 'class' => 'wpcpm-ui-logo__img' ) ) . '<figcaption class="wpcpm-ui-logo__caption">In white, for a dark background</figcaption></figure></div>' ),
+	$f_logos['colour'] > 0 && $f_logos['white'] > 0,
+	strpos( $f_on, 'wpcpm-sapp-logo' ),
+), array( true, true, false ) );
+
+// Ruling 5: the matches on the parts.
+// Its rows carry no tag, so the list asks for the facts under the name (Task 18c).
+ck( 'on, "What the site already has": its advice is the parts\' intro, each match a list row with its name and its status as a fact, and no record key', array(
+	false !== strpos( $f_on, WPCPM_UI::heading( 'What the site already has', 'h5' ) . WPCPM_UI::intro( 'These sponsors match on the name or on the website host. Approving creates a second record: if this is the same company, reject the application and attach the person\'s account from Manage accounts on the Sponsors screen\'s Accounts tab, or use Create account on its No account view for an Approved sponsor with no account.' ) . WPCPM_UI::list_open( array( 'facts' => 'under' ) ) . WPCPM_UI::row( array( 'name' => 'Widgetry Ltd', 'facts' => array( 'Approved' ) ) ) . WPCPM_UI::list_close() ),
+	strpos( $f_on, 'recSPN' ),
+	strpos( $f_on, 'wpcpm-inst-' ),
+	strpos( $f_on, 'wpcpm-app-matches' ),
+), array( true, false, false, false ) );
+// Task 18f, point 10c: with no match, and with no logo, the sentence that says so is the parts' muted empty line, the
+// two alike; the Sponsors screen's open view keeps today's paragraph.
+ck( 'on, with no match, the sentence that says so is the parts\' muted empty line', false !== strpos( $f_details( $f_rej, 'on' ), WPCPM_UI::heading( 'What the site already has', 'h5' ) . WPCPM_UI::list_empty( 'No sponsor on the site carries this name or this website. Approving creates one.' ) ), true );
+ck( 'on, with no logo, the sentence that says so is the parts\' muted empty line too', false !== strpos( $f_details( $f_rej, 'on' ), WPCPM_UI::heading( 'Logo', 'h5' ) . WPCPM_UI::list_empty( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval.' ) ), true );
+
+// Ruling 2: the Test sponsor box through choices().
+$GLOBALS['faithful_nonces'] = true;
+$f_test   = seed_application( array( 'Company Name' => 'TEST - Parts Box', 'Contact Email' => 'box@example.org' ) );
+$f_box_on = array( 'clear' => u_drawn( $f_held, 'on' ), 'ticked' => u_drawn( $f_test, 'on' ) );
+unset( $GLOBALS['faithful_nonces'] );
+$f_part = static function ( $id, $ticked ) {
+	return WPCPM_UI::choices( array( 'id' => 'wpcpm_test-' . $id, 'name' => 'wpcpm_test', 'type' => 'checkbox', 'options' => array( '1' => 'Test sponsor: not listed publicly' ), 'checked' => $ticked ? '1' : '' ) );
+};
+// The old form left with its branch (Task 18b): the box posts what the old box posted, read at 76b5ecff, ticked and not.
+ck( 'on, the Test sponsor box is one checkbox through the choice part in Approve\'s panel, in today\'s words, name and value, ticked exactly when today\'s is; the posted fields are today\'s, ticked and not; today\'s class is not printed on the parts', array(
+	false !== strpos( $f_box_on['clear'], '<div class="wpcpm-ui-panel" id="wpcpm-decide-sapp-' . $f_held . '-approve-panel" data-wpcpm-panel>' ) && false !== strpos( $f_box_on['clear'], $f_part( $f_held, false ) ),
+	false !== strpos( $f_box_on['ticked'], $f_part( $f_test, true ) ),
+	array_map( static function ( $html ) { return u_posted( $html )['wpcpm_sapp_approve'][0]['ticks'] ?? null; }, $f_box_on ),
+	strpos( implode( '', $f_box_on ), 'wpcpm-app-action__test' ),
+), array( true, true, array( 'clear' => array( 'wpcpm_test=1' ), 'ticked' => array( 'wpcpm_test=1 checked' ) ), false ) );
+
+// Ruling 3: the row in one order.
+ck( 'on, a held application\'s row is in the one order: Approve, Ask a question, Put back in the queue, then Reject and Reject as spam', u_buttons( u_doc( $f_box_on['clear'] ), '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button' ), array( 'primary: Approve', 'secondary: Ask a question', 'secondary: Put back in the queue', 'danger: Reject', 'danger: Reject as spam' ) );
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'sponsor-application' ) );
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

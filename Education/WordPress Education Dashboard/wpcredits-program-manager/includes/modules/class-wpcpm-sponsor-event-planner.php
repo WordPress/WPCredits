@@ -604,7 +604,9 @@ final class WPCPM_Sponsor_Event_Planner {
 	 * The Administrator Dashboard's card draws the program's own plan and change forms with these
 	 * rows too (`WPCPM_Sponsor_Event_Queue`), with no last day, no term binding the program, so the
 	 * two forms can never come to ask for different fields, and brings them back with what was typed
-	 * the same way.
+	 * the same way. While that dashboard's switch is on (`WPCPM_UI::on()`), its rows are drawn on the
+	 * shared field part (`render_fields_parts()`); everywhere else, the Sponsor Dashboard and wp-admin
+	 * included, today's rows.
 	 *
 	 * @param string       $prefix The ids' prefix, one per form on the page.
 	 * @param array        $values `date`, `time`, `minutes`, `places`, `title`, `description`, `link`:
@@ -657,6 +659,12 @@ final class WPCPM_Sponsor_Event_Planner {
 
 		$title       = isset( $kept['title'] ) && is_string( $kept['title'] ) ? $kept['title'] : null;
 		$description = isset( $kept['description'] ) && is_string( $kept['description'] ) ? $kept['description'] : null;
+
+		if ( class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
+			self::render_fields_parts( $prefix, $values, $names, $zone, $floor, $first, $last, $title, $description, $problems );
+
+			return;
+		}
 
 		printf(
 			'<p class="wpcpm-sponsor__field wpcpm-sevent__row"><label for="%1$s-date">%2$s</label><input type="date" id="%1$s-date" name="%3$s" value="%4$s" min="%5$s"',
@@ -748,6 +756,139 @@ final class WPCPM_Sponsor_Event_Planner {
 			esc_html__( 'Only the people who join, your own accounts and the program see this link.', 'wpcredits-program-manager' ),
 			$marks( 'link', 'link-note' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::attrs() escapes what it prints.
 			$why( 'link' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WPCPM_Form_Errors::problem() escapes what it prints.
+		);
+	}
+
+	/**
+	 * The rows of `render_fields()` on the shared field part (design 2.4), while the Administrator Dashboard's switch is
+	 * on: every row through `WPCPM_UI::field()`, today's label over its box, Required or Optional in words as the row
+	 * asks today, today's sentence as its hint, and the box's id, name, type, bounds, step, pattern, value and room
+	 * exactly as today's. A refused row's sentence is tied to its box as today's is (`WPCPM_Form_Errors`), the summary
+	 * already printed over the rows.
+	 *
+	 * @param string       $prefix      The ids' prefix, one per form on the page.
+	 * @param array        $values      The rows' values, any kept typing of the short rows already in place.
+	 * @param array        $names       Each row's label, by row.
+	 * @param DateTimeZone $zone        The viewer's clock, named in the start time's hint.
+	 * @param int          $floor       The fewest places the box takes.
+	 * @param string       $first       The first day the date box offers, `Y-m-d`.
+	 * @param string       $last        The last day it offers, `Y-m-d`, or '' for no last day.
+	 * @param string|null  $title       The title as typed, when a refusal kept it, or null.
+	 * @param string|null  $description The description as typed, when a refusal kept it, or null.
+	 * @param array        $problems    Why the refusal refused each row it refused, by row, or none.
+	 */
+	private static function render_fields_parts( $prefix, array $values, array $names, DateTimeZone $zone, $floor, $first, $last, $title, $description, array $problems ) {
+		$field = static function ( $row, array $args ) use ( $prefix, $names, $problems ) {
+			$markup = WPCPM_UI::field(
+				array_merge(
+					array(
+						'id'      => $prefix . '-' . $row,
+						'label'   => $names[ $row ],
+						'problem' => isset( $problems[ $row ] ) ? (string) $problems[ $row ] : '',
+					),
+					$args
+				)
+			);
+
+			echo $markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::field().
+		};
+
+		$field(
+			'date',
+			array(
+				'name'  => self::FIELD_DATE,
+				'type'  => 'date',
+				'need'  => 'required',
+				'value' => $values['date'],
+				'attrs' => array(
+					'min' => $first,
+					'max' => $last,
+				),
+			)
+		);
+		$field(
+			'time',
+			array(
+				'name'  => self::FIELD_TIME,
+				'type'  => 'time',
+				'need'  => 'required',
+				'hint'  => sprintf(
+					/* translators: %s: the time zone's name, e.g. America / New York. */
+					__( 'In your time zone, %s. Everyone who joins sees it in theirs.', 'wpcredits-program-manager' ),
+					WPCPM_Mentor_Availability::zone_label( $zone->getName() )
+				),
+				'value' => $values['time'],
+			)
+		);
+		$field(
+			'minutes',
+			array(
+				'name'  => self::FIELD_MINUTES,
+				'type'  => 'number',
+				'need'  => 'required',
+				'value' => $values['minutes'],
+				'attrs' => array(
+					'min'  => (int) WPCPM_Sponsor_Event::MIN_MINUTES,
+					'max'  => (int) WPCPM_Sponsor_Event::MAX_MINUTES,
+					'step' => (int) self::MINUTES_STEP,
+				),
+			)
+		);
+		$field(
+			'places',
+			array(
+				'name'  => self::FIELD_PLACES,
+				'type'  => 'number',
+				'need'  => 'optional',
+				'hint'  => __( 'Leave it blank for no limit.', 'wpcredits-program-manager' ),
+				'value' => $values['places'],
+				'attrs' => array(
+					'min'  => (int) $floor,
+					'max'  => (int) WPCPM_Sponsor_Event::MAX_PLACES,
+					'step' => 1,
+				),
+			)
+		);
+		$field(
+			'title',
+			array(
+				'name'  => self::FIELD_TITLE,
+				'need'  => 'required',
+				// As today's row: the field part escapes it once, as today's esc_attr() did.
+				'value' => null !== $title ? WPCPM_Typed_Text::kept_attr( $title ) : WPCPM_Typed_Text::one_line( WPCPM_Typed_Text::attr_text( $values['title'] ) ),
+				'attrs' => array(
+					'maxlength' => (int) ( null !== $title ? WPCPM_Typed_Text::kept_room( $values['title'], WPCPM_Sponsor_Event::MAX_TITLE ) : WPCPM_Typed_Text::drawn_limit( $values['title'], WPCPM_Sponsor_Event::MAX_TITLE ) ),
+				),
+			)
+		);
+		$field(
+			'description',
+			array(
+				'name'  => self::FIELD_DESCRIPTION,
+				'type'  => 'textarea',
+				'need'  => 'required',
+				'rows'  => 4,
+				'hint'  => __( 'Shown on the Partners page once the event is approved. Put the call link in its own box.', 'wpcredits-program-manager' ),
+				// The field part gives every text area's value the line feed of its own today's row gave a kept typing.
+				'value' => null !== $description ? $description : WPCPM_Typed_Text::typed_text( $values['description'] ),
+				'attrs' => array(
+					'maxlength' => (int) ( null !== $description ? WPCPM_Typed_Text::kept_room( $values['description'], WPCPM_Sponsor_Event::MAX_DESCRIPTION ) : WPCPM_Typed_Text::drawn_limit( $values['description'], WPCPM_Sponsor_Event::MAX_DESCRIPTION ) ),
+				),
+			)
+		);
+		$field(
+			'link',
+			array(
+				'name'  => self::FIELD_LINK,
+				'type'  => 'url',
+				'need'  => 'required',
+				'hint'  => __( 'Only the people who join, your own accounts and the program see this link.', 'wpcredits-program-manager' ),
+				'value' => $values['link'],
+				'attrs' => array(
+					'maxlength' => (int) WPCPM_Sponsor_Event::MAX_LINK,
+					'pattern'   => 'https?://.+',
+				),
+			)
 		);
 	}
 

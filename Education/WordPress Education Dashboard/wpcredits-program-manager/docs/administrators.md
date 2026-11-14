@@ -99,9 +99,9 @@ Where to start:
 
 1. Open `Administrator Dashboard > Overview` and find the school on the **Institution applications** card.
 2. Press **Read the application** and read the answers.
-3. To ask the applicant something, type it in the box above **Send this question** and press it. The question must be 10 to 2000 characters.
+3. To ask the applicant something, press **Ask a question**, type it in **Ask the applicant something** and press **Send this question**. The question must be 10 to 2000 characters.
 4. Once you have talked with the school and the program wants to take it, press **Approve** and confirm.
-5. If the program will not take it, type the reason for the next Administrator, press **Reject** and confirm.
+5. If the program will not take it, press **Reject**, type a reason in **Why, for the next Administrator who reads this** if you like, then press **Reject the application** and confirm.
 6. If it is not a real application, press **Reject as spam** and confirm.
 
 **What happens next**
@@ -109,7 +109,7 @@ Where to start:
 - **Approve** creates the school in Airtable, at the stage set in **Institution starting stage** (*First Contact Made* unless changed), with Agreement Status *Not started*. If Airtable already holds the school by name or contact address, that record is used instead. It keeps its own stage and Agreement Status.
 - It also makes the school's first account from the contact's address, and queues the email "Your institution account is ready". It tells them to set a password and then do the Collaboration Agreement.
 - **Send this question** emails your words as written, with your address to reply to. The state becomes *waiting on the applicant*, and **Put back in the queue** appears on the application: it puts the application back in the queue as a new one.
-- **Reject** sends the applicant "About your application to the WordPress Credits Program", with no reason in it. Your reason stays on the site.
+- **Reject the application** sends the applicant "About your application to the WordPress Credits Program", with no reason in it. Your reason stays on the site.
 - **Reject as spam** sends nothing at all.
 
 **Good to know**
@@ -203,13 +203,13 @@ Where to start:
 
 ### A signed Collaboration Agreement arrived
 
-*When:* `Administrator Dashboard > Overview`, card **Collaboration Agreements**, shows the school under **Awaiting review**. The people in **Who is emailed about institutions**, or every Administrator, get "Signed agreement from {school} is waiting for review".
+*When:* `Administrator Dashboard > Overview`, card **Collaboration Agreements**, shows the school tagged **Awaiting review**. The people in **Who is emailed about institutions**, or every Administrator, get "Signed agreement from {school} is waiting for review".
 
-1. Open the **Collaboration Agreements** card and find the school under **Awaiting review**.
+1. Open the **Collaboration Agreements** card and find the school tagged **Awaiting review**.
 2. Press **Download the signed agreement** and open the file in your own PDF viewer.
 3. Check it against the list under "Review the signed agreement from {school}".
 4. If it is right, press **Accept it** and confirm.
-5. If something must change, write it in the box (20 to 2000 characters) and press **Return it with this note**.
+5. If something must change, press **Return with a note**, write it in **What has to change** (20 to 2000 characters) and press **Return it with this note**.
 
 **What happens next**
 
@@ -220,7 +220,7 @@ Where to start:
 **Good to know**
 
 - **Accept it** is refused while Airtable's Current Stage is *Not Moving Forward*, *SPAM* or *Revisit Later*. Change the stage in Airtable first.
-- A signed copy that came by email: open the school's Institution Dashboard, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands under **Awaiting review** like the school's own.
+- A signed copy that came by email: open the school's Institution Dashboard, press **Add or re-add an account on the Institutions screen**, and use **Upload a signed agreement on the institution's behalf**. It lands on the card, tagged **Awaiting review**, like the school's own.
 - An agreement is marked *Overdue* after the days set in **Agreement review** (3 unless changed).
 
 ### Record an agreement the program already holds
@@ -294,12 +294,12 @@ Where to start:
 1. Open the **Requests from institutions** card and find the request.
 2. Read the table: **Detail**, **On record now** and **Asked for**.
 3. To make the change, press **Approve and update the records**.
-4. To refuse, write a note in **A note for the school (required to decline)** (20 to 2000 characters) and press **Decline**.
+4. To refuse, press **Decline**, write a note in **A note for the school** (20 to 2000 characters) and press **Decline the request**.
 
 **What happens next**
 
 - **Approve and update the records** writes Airtable first, then the site. The person who asked is emailed "Your institution's details are updated".
-- **Decline**: the person who asked is emailed your note, and every account at the school reads it on the details card.
+- **Decline the request**: the person who asked is emailed your note, and every account at the school reads it on the details card.
 
 **Good to know**
 
@@ -314,8 +314,9 @@ Where to start:
 1. Open the **Requests from institutions** card and find the request.
 2. Read "The student is {name}. Raised by {who}."
 3. Do the work in Airtable, such as assigning the student a mentor.
-4. If you like, write what you did in the note box. It is for the log and is not sent to the school.
-5. Press **Mark as handled**, or **Decline**.
+4. Press **Mark as handled**, or **Decline**.
+5. If you like, write what you did in **What you did about it**. It is for the log and is not sent to the school.
+6. Press **Mark the request as handled**, or **Decline the request**.
 
 **What happens next**
 
@@ -441,7 +442,7 @@ Where to start:
 1. Decide the oldest applications. The next ones move onto the card as you do.
 2. To decide a newer one now, open the link in the email about it. It opens the application on the Institutions screen.
 3. Read "The Administrator Dashboard's card lists the 50 oldest open applications, and this one is past them, so it is decided here."
-4. Use the same buttons as on the card: **Approve**, **Send this question**, **Reject** or **Reject as spam**.
+4. Decide with **Approve**, **Send this question**, **Reject** or **Reject as spam**. Here each box is already open above its button.
 
 **What happens next**
 
@@ -450,7 +451,7 @@ Where to start:
 **Good to know**
 
 - The **Waiting for review** tab also lists only the 50 oldest items.
-- **Awaiting review** on the **Collaboration Agreements** card lists up to 200 agreements, and the **Requests from institutions** card up to 200 requests. Neither says when more wait. The folds of returned and revoked agreements list 50 each.
+- The **Collaboration Agreements** card lists up to 200 agreements awaiting review, and the **Requests from institutions** card up to 200 requests. Neither says when more wait. The folds of returned and revoked agreements list 50 each.
 
 ## Step by step: students
 
@@ -978,22 +979,22 @@ To write a refused Airtable row:
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Sponsor applications** row.
 2. Press **Read the application** and read the answers.
-3. To ask the company something, type it in the box under **What happens next** and press **Send this question**. It needs at least 10 characters.
-4. When the program wants this company, press **Approve** and confirm.
-5. If the program will not take it, press **Reject** and confirm. A reason for the next Administrator is optional.
+3. To ask the company something, press **Ask a question**, type it in **Ask the applicant something** and press **Send this question**. It needs at least 10 characters.
+4. When the program wants this company, press **Approve**, then **Approve the application**, and confirm.
+5. If the program will not take it, press **Reject**, type a reason in **Why, for the next Administrator who reads this** if you like, then press **Reject the application** and confirm.
 6. If it is not a real application, press **Reject as spam** and confirm.
 
 **What happens next**
 
 - **Approve** makes the sponsor record with Status *Approved*, its account, its posts category, its logo and a first offer in draft. The company gets "Your sponsor account is ready", with a link to set a password.
 - **Send this question** emails your words as written, with your address to reply to. The state becomes *waiting on the applicant*. The answer comes to your own inbox.
-- **Reject** sends "About your application to sponsor the WordPress Credits Program", with no reason in it. Your reason stays on the site.
+- **Reject the application** sends "About your application to sponsor the WordPress Credits Program", with no reason in it. Your reason stays on the site.
 - **Reject as spam** sends nothing at all.
 
 **Good to know**
 
 - **Approve** is refused when the contact address already belongs to an account on the site. Ask the company for another address, or, if the company is already a sponsor, attach that account with **Manage accounts**. See [Give a sponsor an account, and manage its people](#give-a-sponsor-an-account-and-manage-its-people).
-- Tick **Test sponsor: not listed publicly** beside **Approve** for a trial company; it is ticked already for a name starting with the word "TEST". If **Approve** stops part way, press it again to finish.
+- For a trial company, tick **Test sponsor: not listed publicly** above **Approve the application**; it is ticked already for a name starting with the word "TEST". If approving stops part way, approve again to finish.
 - If the site already holds a sponsor with this name or website, the confirmation says so: check it is not the same company before you approve.
 
 ### Add a company that never applied
@@ -1109,7 +1110,7 @@ To write a refused Airtable row:
 *When:* `Administrator Dashboard > Overview` shows **Sponsor posts to review** under **Waiting for you**. No email tells you.
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Sponsor posts to review** row.
-2. Press **Preview** and read the post.
+2. Press **Preview the post** and read the post.
 3. If it is right, press **Publish**.
 4. If it needs a change, press **Return with a note**, write what should change and press **Return it with this note**.
 
@@ -1129,20 +1130,20 @@ To write a refused Airtable row:
 *When:* only while **Sponsor tiers** is on in Settings. `Administrator Dashboard > Overview` shows **Events** under **Waiting for you**. The sponsor's **Assigned Administrator** gets the email "{company} planned an event"; with none assigned, the people in **Who is mailed** on the **Sponsors** tab of Settings do, or every Administrator.
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Events** row.
-2. Read the event under **Waiting for the program's OK**.
+2. Read the event tagged **Waiting for the program's OK**.
 3. If it is right, press **Approve**.
 4. If it needs a change, press **Return with a note**, write what should change and press **Return it with this note**.
 
 **What happens next**
 
-- **Approve** emails every account of the sponsor "Your event is approved: {title}", with a calendar file. The event moves to **Coming up**.
+- **Approve** emails every account of the sponsor "Your event is approved: {title}", with a calendar file. The event's tag becomes **Coming up**.
 - **Return it with this note** cancels the event and emails every account "Your event was returned: {title}". The sponsor can plan again only while its tier still includes events.
 
 **Good to know**
 
 - An event an Administrator plans for a sponsor through its Sponsor Dashboard waits here too and needs the same approval. The email has the same subject.
 - If the sponsor no longer offers events, there is no **Approve**: use **Return with a note**, which needs a note.
-- To call off an approved event, press **Cancel with a note** under **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. **Coming up** is on the same row, so it shows only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
+- To call off an approved event, press **Cancel with a note** on the event tagged **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. The approved events are on the same row, so they show only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
 
 ### Plan or cancel an event of the program's own
 
@@ -1152,8 +1153,8 @@ To write a refused Airtable row:
 2. Under **Plan an event of the program's**, press **Plan an event**.
 3. Fill in **Date**, **Start time**, **Length in minutes**, **Places**, **Title**, **Description** and **Call link**.
 4. Press **Plan the event**.
-5. To change it later, press **Change the event** on it under **Coming up**, change what you need and press **Save the changes**.
-6. To cancel it, press **Cancel the event** on it under **Coming up**, then **Cancel the event** again, and confirm.
+5. To change it later, press **Change the event** on it (tagged **Coming up**), change what you need and press **Save the changes**.
+6. To cancel it, press **Cancel the event** on it (tagged **Coming up**), read what canceling does, then press **Cancel the event** again and confirm. **Keep the event** leaves it as it is.
 
 **What happens next**
 
@@ -2258,7 +2259,7 @@ A sponsor's state shows on the Administrator Dashboard's cards and on the Sponso
 | "This site: an agreement is accepted" or "the program holds a signed copy, recorded by hand" | The agreement is in force. | Nothing. |
 | *A new offer* or *Changes to a live offer* on the **Sponsor offers to review** card | The sponsor sent an offer for review. | See [A sponsor sent an offer for review](#a-sponsor-sent-an-offer-for-review). |
 | A row on the **Sponsor posts to review** card | The sponsor sent a post for review. | See [A sponsor sent a post for review](#a-sponsor-sent-a-post-for-review). |
-| A row under **Waiting for the program's OK** on the **Events** card | The sponsor planned an event. The card shows only while **Sponsor tiers** is on. | See [A sponsor planned an event](#a-sponsor-planned-an-event). |
+| An event tagged **Waiting for the program's OK** on the **Events** card | The sponsor planned an event. The card shows only while **Sponsor tiers** is on. | See [A sponsor planned an event](#a-sponsor-planned-an-event). |
 | The offer on **Offers running low** (**Watch**) | The offer holds fewer codes than its warning level. | The offer's name opens the sponsor's Sponsor Dashboard. See [Open a sponsor's Sponsor Dashboard](#open-a-sponsor-s-sponsor-dashboard). |
 | The sponsor on **Sponsor terms ending** (**Watch**) | Its term ends within sixty days. | Press its name to open its Edit form, where **Term ends** is set. See [Tiers: launch, grace, extra events](#tiers-launch-grace-extra-events). |
 | A row under **Terms ended with no report** or **Drafts to finish** on the **Sponsor reports** card | A term ended and its report is not final. | See [A sponsor's annual report](#a-sponsor-s-annual-report). |
@@ -4970,6 +4971,9 @@ A line under them says when the two shares were read, and that the mentors and p
 - On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none.
 - A link in an email, a decision's way back and **Review the oldest** each open the card they land on.
 - Each card that waits for a decision has a **How to do this** link to its job in this guide. So do **Upcoming cohorts**, **Duplicated students**, **Syncs and health** and **Students gone quiet**.
+- Each item to decide has one **Decide** row of buttons. Some decisions act when pressed, after any question they ask. Others open a panel under the row: a note's box, marked **Required** or **Optional**, or what the act does, then the button that acts, such as **Reject the application**, and **Cancel**.
+- Only one panel per item is open at a time. **Cancel** closes it, and nothing is sent.
+- When the main area is narrow, as on a phone, a table reads as one block per row. Nothing scrolls sideways.
 
 A card with a home in wp-admin ends its body with a link there. On **The program**, a folded card also shows the link under its box:
 
@@ -5003,7 +5007,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 | **Duplicated students** | What the Student Duplicate Finder's last scan found, as of that day |
 | **New interests** | What sponsors wrote on their dashboards in the last 30 days |
 | **Sponsor terms ending** | Approved sponsors whose term ends in the next 60 days, soonest first |
-| **Syncs and health** | The syncs, each with an **Open** link to its screen; **Locked accounts**; private storage; the last emails |
+| **Syncs and health** | The syncs, each with an **Open** link to its screen; private storage; the last emails; **Locked accounts**, one account a line |
 | **Students gone quiet** | See below; shown only while **Daily list** is not *Off* |
 
 **Syncs and health** counts what needs a look:
@@ -5561,18 +5565,20 @@ The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting 
 - With nothing waiting, the name **Events** in the line of empty queues opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
 - `WPCredits Program > Overview`, card **Waiting for a decision**, counts them as **Events waiting**.
 
+The events are one list, the waiting ones first. Each event's tag names its part.
+
 | Part | What it holds |
 |---|---|
 | **Waiting for the program's OK** | Every sponsor's planned event not over yet, the oldest plan first, with **Approve** and **Return with a note** |
-| **Coming up** | Every approved event not over yet, the soonest first, the program's own included, with **Who joined**, your own **Join** or **Leave**, and, for a sponsor's event, **Cancel with a note** |
+| **Coming up** | Every approved event not over yet, the soonest first, the program's own included, with **Who joined** and, in its **Decide** row, your own **Join** or **Leave** and, for a sponsor's event, **Cancel with a note** |
 | **Plan an event of the program's** | **Plan an event**: see the next part |
 
 Each event shows when it runs on your clock, its places, its description and its call link. A description longer than 300 characters is folded under **Read the description**.
 
 - **Return it with this note** cancels the event and emails the note to the sponsor's accounts. The sponsor sees the note above its planner's form until it plans again or its term is renewed.
-- **Cancel with this note** asks first and cannot be undone. Everyone who joined is told.
+- **Cancel with this note** asks first and cannot be undone. Everyone who joined is told. **Keep the event** closes the note.
 - Both notes are required, up to 2,000 characters.
-- **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays under **Coming up**, and nobody new can join it.
+- **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays tagged **Coming up**, and nobody new can join it.
 - **Who joined** names the people on an event. Sponsors see only how many.
 - You join an event as yourself.
 - While the card is not drawn, you can still cancel a sponsor's approved event on its Sponsor Dashboard, through **Viewing as sponsor**. There is no note, and everyone who joined is told.
@@ -5586,7 +5592,7 @@ An event of the program's own has no sponsor. It is named "the WordPress Credits
 - **Plan the event** saves it approved at once. Nobody is mailed.
 - No tier, term or one-at-a-time rule applies. The program may plan any number, for any day still to come.
 - It is open to the same people as a sponsor's event. A sponsor's account may join it when that account is also a student, a mentor, an Administrator or an institution contact.
-- Under **Coming up** it has **Change the event**, the same form filled in, and **Cancel the event**. The cancel asks first, needs no note and cannot be undone.
+- Tagged **Coming up**, it has **Change the event**, the same form filled in, and **Cancel the event**, which needs no note. After **Cancel the event**, a panel says what canceling does; then **Cancel the event** asks first and cannot be undone, or **Keep the event** closes the panel.
 - It can be planned, changed or canceled only while the card **Events** is drawn.
 - It never counts toward a sponsor's events. It never shows on a Sponsor Dashboard or in a sponsor's annual report.
 
@@ -5601,12 +5607,12 @@ Once approved, an event is listed under **Events from our sponsors** for the peo
 | Current students | Student Report Card, under the group sessions in **My mentor call** |
 | Active mentors | Mentor Report Card, under the sessions panel |
 | Institution contacts, but not tutors | Institution Dashboard, after its sections |
-| Administrators | The card **Events**, part **Coming up**, while that card shows |
+| Administrators | The card **Events**, on each event tagged **Coming up**, while that card shows |
 
 A current student holds a status in **Currently mentoring** and not in **Past students** (`WPCredits Program > Settings`, tab **Students and mentors**).
 
 - Each item gives the title, the host, when on the person's clock, the length, the places left (a number, **Full**, or **Open to everyone** with no limit) and the description.
-- **Join** shows while a place is left. A person on the event sees **You are on it.** and **Leave**. On the three pages other than the card **Events**, they also see **Join the call**; on the card, the call link is on the event.
+- **Join** shows while a place is left. A person on the event sees **You are on it.** and **Leave**. On the three pages other than the card **Events**, they also see **Join the call**; on the card, the call link is on the event, **You are on it.** is among its facts and **Join** or **Leave** is in its **Decide** row.
 - Join and Leave work until the event ends. A Leave frees the place at once.
 - A sponsor's own accounts never see their own event in a list. It is on their Sponsor Dashboard.
 - A test sponsor's events are listed for Administrators alone.
@@ -5742,8 +5748,8 @@ Step by step: [A sponsor's annual report](#a-sponsor-s-annual-report).
 
 A test sponsor is a record for trying the sponsor side of the site. It is never listed publicly.
 
-- **Test sponsor: not listed publicly** is a box on the Add and Edit forms, after **Status**. It is also beside **Approve** on an open application.
-- Beside **Approve**, the box is ticked already for a test name: "TEST" in capitals, alone or followed by a space or a sign. "TEST", "TEST: Acme" and "TEST(1)" are test names; "TESTAMENT" and "Test Acme" are not.
+- **Test sponsor: not listed publicly** is a box on the Add and Edit forms, after **Status**. It is also on an open application: in the panel **Approve** opens on the Administrator Dashboard, and beside **Approve** on the Sponsors screen.
+- There, the box is ticked already for a test name: "TEST" in capitals, alone or followed by a space or a sign. "TEST", "TEST: Acme" and "TEST(1)" are test names; "TESTAMENT" and "Test Acme" are not.
 - On the **Sponsors** tab its row says "(test sponsor, not listed publicly)".
 - A flag you clear stays cleared.
 

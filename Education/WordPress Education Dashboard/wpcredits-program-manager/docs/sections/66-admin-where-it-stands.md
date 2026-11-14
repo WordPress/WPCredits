@@ -88,7 +88,7 @@ A sponsor's state shows on the Administrator Dashboard's cards and on the Sponso
 | "This site: an agreement is accepted" or "the program holds a signed copy, recorded by hand" | The agreement is in force. | Nothing. |
 | *A new offer* or *Changes to a live offer* on the **Sponsor offers to review** card | The sponsor sent an offer for review. | See [[A sponsor sent an offer for review]]. |
 | A row on the **Sponsor posts to review** card | The sponsor sent a post for review. | See [[A sponsor sent a post for review]]. |
-| A row under **Waiting for the program's OK** on the **Events** card | The sponsor planned an event. The card shows only while **Sponsor tiers** is on. | See [[A sponsor planned an event]]. |
+| An event tagged **Waiting for the program's OK** on the **Events** card | The sponsor planned an event. The card shows only while **Sponsor tiers** is on. | See [[A sponsor planned an event]]. |
 | The offer on **Offers running low** (**Watch**) | The offer holds fewer codes than its warning level. | The offer's name opens the sponsor's Sponsor Dashboard. See [[Open a sponsor's Sponsor Dashboard]]. |
 | The sponsor on **Sponsor terms ending** (**Watch**) | Its term ends within sixty days. | Press its name to open its Edit form, where **Term ends** is set. See [[Tiers: launch, grace, extra events]]. |
 | A row under **Terms ended with no report** or **Drafts to finish** on the **Sponsor reports** card | A term ended and its report is not final. | See [[A sponsor's annual report]]. |

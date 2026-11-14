@@ -46,6 +46,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-slack.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-wporg-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-program.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-icons.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ui.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-request.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-return.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-module-order.php';

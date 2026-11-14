@@ -23,22 +23,22 @@
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Sponsor applications** row.
 2. Press **Read the application** and read the answers.
-3. To ask the company something, type it in the box under **What happens next** and press **Send this question**. It needs at least 10 characters.
-4. When the program wants this company, press **Approve** and confirm.
-5. If the program will not take it, press **Reject** and confirm. A reason for the next Administrator is optional.
+3. To ask the company something, press **Ask a question**, type it in **Ask the applicant something** and press **Send this question**. It needs at least 10 characters.
+4. When the program wants this company, press **Approve**, then **Approve the application**, and confirm.
+5. If the program will not take it, press **Reject**, type a reason in **Why, for the next Administrator who reads this** if you like, then press **Reject the application** and confirm.
 6. If it is not a real application, press **Reject as spam** and confirm.
 
 **What happens next**
 
 - **Approve** makes the sponsor record with Status *Approved*, its account, its posts category, its logo and a first offer in draft. The company gets "Your sponsor account is ready", with a link to set a password.
 - **Send this question** emails your words as written, with your address to reply to. The state becomes *waiting on the applicant*. The answer comes to your own inbox.
-- **Reject** sends "About your application to sponsor the WordPress Credits Program", with no reason in it. Your reason stays on the site.
+- **Reject the application** sends "About your application to sponsor the WordPress Credits Program", with no reason in it. Your reason stays on the site.
 - **Reject as spam** sends nothing at all.
 
 **Good to know**
 
 - **Approve** is refused when the contact address already belongs to an account on the site. Ask the company for another address, or, if the company is already a sponsor, attach that account with **Manage accounts**. See [[Give a sponsor an account, and manage its people]].
-- Tick **Test sponsor: not listed publicly** beside **Approve** for a trial company; it is ticked already for a name starting with the word "TEST". If **Approve** stops part way, press it again to finish.
+- For a trial company, tick **Test sponsor: not listed publicly** above **Approve the application**; it is ticked already for a name starting with the word "TEST". If approving stops part way, approve again to finish.
 - If the site already holds a sponsor with this name or website, the confirmation says so: check it is not the same company before you approve.
 
 ### Add a company that never applied
@@ -154,7 +154,7 @@
 *When:* `Administrator Dashboard > Overview` shows **Sponsor posts to review** under **Waiting for you**. No email tells you.
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Sponsor posts to review** row.
-2. Press **Preview** and read the post.
+2. Press **Preview the post** and read the post.
 3. If it is right, press **Publish**.
 4. If it needs a change, press **Return with a note**, write what should change and press **Return it with this note**.
 
@@ -174,20 +174,20 @@
 *When:* only while **Sponsor tiers** is on in Settings. `Administrator Dashboard > Overview` shows **Events** under **Waiting for you**. The sponsor's **Assigned Administrator** gets the email "{company} planned an event"; with none assigned, the people in **Who is mailed** on the **Sponsors** tab of Settings do, or every Administrator.
 
 1. Open `Administrator Dashboard > Overview` and press **Review** on the **Events** row.
-2. Read the event under **Waiting for the program's OK**.
+2. Read the event tagged **Waiting for the program's OK**.
 3. If it is right, press **Approve**.
 4. If it needs a change, press **Return with a note**, write what should change and press **Return it with this note**.
 
 **What happens next**
 
-- **Approve** emails every account of the sponsor "Your event is approved: {title}", with a calendar file. The event moves to **Coming up**.
+- **Approve** emails every account of the sponsor "Your event is approved: {title}", with a calendar file. The event's tag becomes **Coming up**.
 - **Return it with this note** cancels the event and emails every account "Your event was returned: {title}". The sponsor can plan again only while its tier still includes events.
 
 **Good to know**
 
 - An event an Administrator plans for a sponsor through its Sponsor Dashboard waits here too and needs the same approval. The email has the same subject.
 - If the sponsor no longer offers events, there is no **Approve**: use **Return with a note**, which needs a note.
-- To call off an approved event, press **Cancel with a note** under **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. **Coming up** is on the same row, so it shows only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
+- To call off an approved event, press **Cancel with a note** on the event tagged **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. The approved events are on the same row, so they show only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
 
 ### Plan or cancel an event of the program's own
 
@@ -197,8 +197,8 @@
 2. Under **Plan an event of the program's**, press **Plan an event**.
 3. Fill in **Date**, **Start time**, **Length in minutes**, **Places**, **Title**, **Description** and **Call link**.
 4. Press **Plan the event**.
-5. To change it later, press **Change the event** on it under **Coming up**, change what you need and press **Save the changes**.
-6. To cancel it, press **Cancel the event** on it under **Coming up**, then **Cancel the event** again, and confirm.
+5. To change it later, press **Change the event** on it (tagged **Coming up**), change what you need and press **Save the changes**.
+6. To cancel it, press **Cancel the event** on it (tagged **Coming up**), read what canceling does, then press **Cancel the event** again and confirm. **Keep the event** leaves it as it is.
 
 **What happens next**
 

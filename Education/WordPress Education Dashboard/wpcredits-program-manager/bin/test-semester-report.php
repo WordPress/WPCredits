@@ -276,6 +276,7 @@ function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function is_user_logged_in() { return (int) $GLOBALS['uid'] > 0; }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 // The template registry reads every value back as a person reads it (`wp_specialchars_decode()`).
 require_once __DIR__ . '/stubs/specialchars.php';
 function wp_get_current_user() { return new WP_User( (int) $GLOBALS['uid'], 'Member One', 'member@example.test' ); }
@@ -3193,6 +3194,83 @@ WPCPM_Semester_Report_Screen::render_draft_form( $B, '2026-H1', '', WPCPM_Return
 $draft_form_dashboard = ob_get_clean();
 ck( 'given the dashboard return, Draft now carries both of WPCPM_Return\'s hidden fields', has( $draft_form_dashboard, 'name="wpcpm_return" value="dashboard"' ) && has( $draft_form_dashboard, 'name="wpcpm_return_to" value="reports"' ), true );
 
+// UI shared parts, Task 14: drawn for the Administrator Dashboard while its switch is on, Draft now is the Semester
+// reports card's quiet row action (design 2.1, 2.7): the same form, posting the same fields to the same address,
+// with no class of today's on it, its nonce through the parts' helper (no id, so two due rows repeat none), and
+// its one button the quiet button, naming the institution and the semester for a screen reader, since every due
+// row's button says Draft now. Off, with the switch on but no surface named, on a wp-admin tab, and wherever it is
+// drawn without the dashboard return, today's form, byte for byte.
+if ( ! class_exists( 'WPCPM_UI', false ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+}
+if ( ! function_exists( 'wp_referer_field' ) ) {
+	function wp_referer_field( $display = true ) {
+		$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+		if ( $display ) {
+			echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+		}
+		return $field;
+	}
+}
+$df_draw = static function ( $return ) use ( $B ) {
+	ob_start();
+	WPCPM_Semester_Report_Screen::render_draft_form( $B, '2026-H1', '', $return );
+	return (string) ob_get_clean();
+};
+$df_off       = $df_draw( WPCPM_Return::DASHBOARD );
+$df_off_wpadm = $df_draw( '' );
+WPCPM_UI::set_live( array( 'administrator' ) );
+$df_unnamed = $df_draw( WPCPM_Return::DASHBOARD );
+WPCPM_UI::enter( 'wpcpm-institutions/reports' );
+$df_tab       = $df_draw( WPCPM_Return::DASHBOARD );
+$df_tab_wpadm = $df_draw( '' );
+WPCPM_UI::leave();
+WPCPM_UI::enter( 'administrator' );
+$df_on       = $df_draw( WPCPM_Return::DASHBOARD );
+parts_inventory_add( $df_on );
+$df_on_wpadm = $df_draw( '' );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+// The digests are of the form as it was drawn at 4425185d, before Task 14: these same calls run on that commit's code.
+ck( 'off, with the switch on but no surface named, on a wp-admin tab, and without the dashboard return, the Draft now form is the one drawn before Task 14, byte for byte', array(
+	$df_unnamed === $df_off,
+	$df_tab === $df_off,
+	$df_tab_wpadm === $df_off_wpadm,
+	$df_on_wpadm === $df_off_wpadm,
+	md5( $df_off ),
+	md5( $df_off_wpadm ),
+), array( true, true, true, true, '9d8aee71dc843f2d8f84061cd438225a', '6f34c4bc78f3ded151d3de6e28b7da03' ) );
+// What a form posts: its address, its method, its guards, and its hidden fields in order. The suite's
+// wp_nonce_field() prints no referer, which WordPress's does by default: the parts' nonce prints it, as core would.
+$df_posted = static function ( $html ) {
+	preg_match( '#<form ([^>]*)>#', $html, $form );
+	preg_match_all( '#<input type="hidden" name="([^"]*)" value="([^"]*)"#', $html, $hidden, PREG_SET_ORDER );
+	$pairs = array();
+	foreach ( $hidden as $h ) {
+		if ( '_wp_http_referer' !== $h[1] ) {
+			$pairs[] = $h[1] . '=' . $h[2];
+		}
+	}
+	preg_match( '#method="([^"]*)" action="([^"]*)"#', $form[1] ?? '', $where );
+	return array( $where[1] ?? '', $where[2] ?? '', false !== strpos( $form[1] ?? '', 'data-wpcpm-once' ), preg_match( '#data-wpcpm-busy="([^"]*)"#', $form[1] ?? '', $busy ) ? $busy[1] : '', $pairs );
+};
+ck( 'on, Draft now posts exactly what today\'s form posts: the same address and method, the double-press guard and its busy words, the hidden fields in order, the nonce keyed as today and the way back to the card', array(
+	$df_posted( $df_on ),
+	$df_posted( $df_off )[4],
+), array(
+	$df_posted( $df_off ),
+	array( '_wpnonce=nonce-' . WPCPM_Semester_Report_Screen::ACTION_DRAFT, 'action=' . WPCPM_Semester_Report_Screen::ACTION_DRAFT, 'institution=' . $B, 'cohort=2026-H1', 'wpcpm_return=dashboard', 'wpcpm_return_to=reports' ),
+) );
+ck( 'on, its one button is the quiet row action "Draft now", naming the institution and the semester for a screen reader; the form carries no class of today\'s, the nonce no id, and nothing of today\'s button is left', array(
+	has( $df_on, '<button type="submit" class="wpcpm-btn wpcpm-btn--quiet">Draft now<span class="screen-reader-text"> Universidad Beta, ' . WPCPM_Cohort::label( '2026-H1' ) . '</span></button></form>' ),
+	1 === preg_match( '#^<form method="post" action="[^"]*" data-wpcpm-once data-wpcpm-busy="[^"]*">#', $df_on ),
+	strpos( $df_on, 'wpcpm-report-card__generate' ),
+	strpos( $df_on, 'id=' ),
+	strpos( $df_on, 'class="button' ),
+	substr_count( $df_on, '<button' ),
+	substr_count( $df_on, '_wp_http_referer' ),
+), array( true, true, false, false, false, 1, 1 ) );
+
 echo "\n=== Printing ===\n";
 
 $GLOBALS['manage'] = false;
@@ -4076,6 +4154,10 @@ ck(
 	),
 	array( true, true, 'info' )
 );
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'semester-report' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

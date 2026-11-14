@@ -135,7 +135,8 @@ function synthetic_handle( $handle ) {
  * and a silenced call never have. A handle written bare has nothing around it to find it by.
  *
  * Passed over: `wp-admin`, the profiles host's own admin path that the mentor checker posts to,
- * which is not an account; `@page`, the CSS rule two suites look for in a printed document; and
+ * which is not an account; `@page`, the CSS rule two suites look for in a printed document;
+ * `@container`, the CSS rule the parts' sheet suite counts; and
  * a handle under three characters, which the import never looks up and which the suite proving
  * that has to write.
  *
@@ -151,7 +152,7 @@ function handles_in( $body, $at_too ) {
 	}
 
 	if ( $at_too && preg_match_all( '/(?<=[\'",])@([A-Za-z0-9_-]+)(?=[\'",\\\\])/', (string) $body, $found ) ) {
-		$handles = array_merge( $handles, array_diff( $found[1], array( 'page' ) ) );
+		$handles = array_merge( $handles, array_diff( $found[1], array( 'page', 'container' ) ) );
 	}
 
 	return array_values(

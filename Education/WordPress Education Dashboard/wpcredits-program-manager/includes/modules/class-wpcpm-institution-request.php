@@ -1332,6 +1332,8 @@ class WPCPM_Institution_Request {
 		// The note goes on the row and on its audit entry, the record somebody reads a year later:
 		// one the cleaner would take words from is refused before either is written, in the words of
 		// the button that was pressed, and the box gets back what was typed.
+		// The four refusals below are read back by these names, to open the pressed decision's panel, in the map
+		// in `render_decide_area()`: a name changed here is changed there.
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
 			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::finish( self::STATE_DONE === $state ? 'request-done-loss' : 'request-declined-loss' );
@@ -1448,6 +1450,9 @@ class WPCPM_Institution_Request {
 		// Both refusals ahead of the lock, because they need nothing but the posted string, and the
 		// box gets back what was typed. A note the cleaner would take words from would reach the school
 		// missing them without a word said.
+		//
+		// Their two names are read back, to tie the box to its sentence, in `render_details_decide()`: a
+		// name changed here is changed there.
 		if ( WPCPM_Typed_Text::cleaner_loses( $typed, 'lines' ) ) {
 			WPCPM_Typed_Text::keep_box( $form, 'note', $typed, self::MAX_NOTE );
 			self::finish( 'details-declined-loss' );
@@ -1759,15 +1764,17 @@ class WPCPM_Institution_Request {
 	 */
 
 	/**
-	 * The two decisions on one request, for the manager's queue.
+	 * The two decisions on one request, for the Administrator Dashboard's Requests card: who it is
+	 * about and where a mentor is assigned, as the parts' intro lines, then one Decide area
+	 * (`render_decide_area()`).
 	 *
-	 * Drawn by the class that owns them, so the queue row and the handler behind it cannot
-	 * drift apart; the queue calls this the way it calls the agreement panel's review block.
-	 * A closed row draws nothing: the queue lists open rows, and a row somebody closed while
-	 * this screen was open should stop offering buttons that would now be refused.
+	 * Drawn by the class that owns them, so the card's row and the handler behind it cannot
+	 * drift apart; the card calls this the way it calls the agreement panel's review block.
+	 * A closed row draws nothing: the card lists open rows, and a row somebody closed while
+	 * the page was open should stop offering buttons that would now be refused.
 	 *
 	 * @param int    $post_id The request.
-	 * @param string $return  WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
+	 * @param string $return  WPCPM_Return::DASHBOARD, the way back to the Administrator Dashboard.
 	 */
 	public static function render_decisions( $post_id, $return = '' ) {
 		$post = self::post( $post_id );
@@ -1798,67 +1805,244 @@ class WPCPM_Institution_Request {
 			return;
 		}
 
-		printf(
-			'<p class="wpcpm-request__student">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: 1: student name or record ID, 2: who raised it. */
-					__( 'The student is %1$s. Raised by %2$s.', 'wpcredits-program-manager' ),
-					(string) $facts['student_name'],
-					'' !== (string) $facts['actor_name'] ? (string) $facts['actor_name'] : __( 'somebody whose account is gone', 'wpcredits-program-manager' )
-				)
+		$student = sprintf(
+			/* translators: 1: student name or record ID, 2: who raised it. */
+			__( 'The student is %1$s. Raised by %2$s.', 'wpcredits-program-manager' ),
+			(string) $facts['student_name'],
+			'' !== (string) $facts['actor_name'] ? (string) $facts['actor_name'] : __( 'somebody whose account is gone', 'wpcredits-program-manager' )
+		);
+		$where = __( 'Assigning a mentor happens in Airtable, and this site learns about it at the next students sync. Closing the row here only says the queue has dealt with it.', 'wpcredits-program-manager' );
+
+		// The two sentences are the parts' intro lines, the second muted (Task 17b fix round).
+		echo WPCPM_UI::intro( $student ) . WPCPM_UI::intro( $where, 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
+		self::render_decide_area( (int) $post->ID, (string) $return );
+	}
+
+	/**
+	 * The two decisions on one request as one Decide area (`WPCPM_UI::decide()`, design 2.6), drawn on the
+	 * Administrator Dashboard: Mark as handled (primary) and Decline (danger) are two openers sharing one panel,
+	 * whose one form posts what `handle_resolve()` reads: admin-post.php, the once guard, the hidden fields under
+	 * the `ACTION_RESOLVE` nonce keyed to the request, the note under its name and bound, and `state` from two submits, "Mark the request
+	 * as handled" (`done`) and "Decline the request" (`declined`). With no script both submits are on the page;
+	 * the script shows only the pressed opener's.
+	 *
+	 * The panel is printed open when the last press left typing for this request's box (the handler keeps it
+	 * only when it refused the note). The handler's outcome says which button was pressed, so that opener is the
+	 * pressed one and the refusal is said beside the box; a kept typing with no refusal of this box on the
+	 * channel opens the panel as its first opener does. A refusal leads the card's message to the box.
+	 *
+	 * @param int    $post_id The request.
+	 * @param string $where   Where the decision comes back to.
+	 */
+	private static function render_decide_area( $post_id, $where ) {
+		$field_id = 'wpcpm-request-note-' . (int) $post_id;
+		$typed    = WPCPM_Typed_Text::box_form( self::TYPED_NOTE, $post_id );
+		$kept     = WPCPM_Typed_Text::kept_box( $typed, 'note' );
+		$pressed  = '';
+		$problem  = '';
+
+		// What the press was refused for, read from the outcome it left on the Institutions screen's channel, which
+		// the dashboard's message reads too (`WPCPM_Flash::take()` memoizes, so it is the sentence the card prints).
+		// The outcome names no request, and another request's box may hold typing an earlier press kept: the refusal
+		// is this box's only when this request's form is the last one kept (`WPCPM_Typed_Text::is_last()`).
+		if ( null !== $kept && class_exists( 'WPCPM_Institutions' ) ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$refusals = array(
+				'request-done-loss'     => self::STATE_DONE,
+				'request-done-long'     => self::STATE_DONE,
+				'request-declined-loss' => self::STATE_DECLINED,
+				'request-declined-long' => self::STATE_DECLINED,
+			);
+			$messages = self::messages();
+
+			if ( isset( $refusals[ $status ], $messages[ $status ][1] ) && WPCPM_Typed_Text::is_last( $typed ) ) {
+				$pressed = $refusals[ $status ];
+				$problem = (string) $messages[ $status ][1];
+			}
+		}
+
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( $field_id );
+		}
+
+		// Nothing says which button kept a typing that was not refused: the first opener opens the panel.
+		if ( null !== $kept && '' === $pressed ) {
+			$pressed = self::STATE_DONE;
+		}
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-req-' . (int) $post_id,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => array(
+					array(
+						'key'           => 'done',
+						'label'         => __( 'Mark as handled', 'wpcredits-program-manager' ),
+						'kind'          => 'primary',
+						'form_attrs'    => array(
+							'method'          => 'post',
+							'action'          => admin_url( 'admin-post.php' ),
+							'data-wpcpm-once' => true,
+							'data-wpcpm-busy' => __( 'Saving', 'wpcredits-program-manager' ),
+						),
+						'hidden'        => static function () use ( $post_id, $where ) {
+							echo WPCPM_UI::nonce( self::ACTION_RESOLVE . '_' . (int) $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+							printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RESOLVE ) );
+							printf( '<input type="hidden" name="request" value="%d" />', (int) $post_id );
+
+							if ( class_exists( 'WPCPM_Return' ) ) {
+								WPCPM_Return::field( (string) $where, 'requests' );
+							}
+						},
+						'fields'        => WPCPM_UI::field(
+							array(
+								'id'      => $field_id,
+								'name'    => 'wpcpm_request_note',
+								'label'   => self::note_label(),
+								'hint'    => __( 'For the log. It is not sent to the institution.', 'wpcredits-program-manager' ),
+								'need'    => 'optional',
+								'type'    => 'textarea',
+								'rows'    => 2,
+								'value'   => null === $kept ? '' : $kept,
+								'attrs'   => array( 'maxlength' => self::MAX_NOTE ),
+								'problem' => $problem,
+							)
+						),
+						'confirm_label' => __( 'Mark the request as handled', 'wpcredits-program-manager' ),
+						'submit_name'   => 'state',
+						'submit_value'  => self::STATE_DONE,
+						'open'          => self::STATE_DONE === $pressed,
+					),
+					array(
+						'key'           => 'declined',
+						'label'         => __( 'Decline', 'wpcredits-program-manager' ),
+						'kind'          => 'danger',
+						'panel'         => 'done',
+						'confirm_label' => __( 'Decline the request', 'wpcredits-program-manager' ),
+						'submit_name'   => 'state',
+						'submit_value'  => self::STATE_DECLINED,
+						'open'          => self::STATE_DECLINED === $pressed,
+					),
+				),
 			)
 		);
 
-		printf(
-			'<p class="description">%s</p>',
-			esc_html__( 'Assigning a mentor happens in Airtable, and this site learns about it at the next students sync. Closing the row here only says the queue has dealt with it.', 'wpcredits-program-manager' )
-		);
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in the decision's callable.
+	}
 
-		printf(
-			'<form class="wpcpm-request__decide" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Saving', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( self::ACTION_RESOLVE . '_' . (int) $post->ID );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RESOLVE ) );
-		printf( '<input type="hidden" name="request" value="%d" />', (int) $post->ID );
-
-		if ( class_exists( 'WPCPM_Return' ) ) {
-			WPCPM_Return::field( (string) $return, 'requests' );
+	/**
+	 * A school's details request decided on the Administrator Dashboard's parts, as one Decide area
+	 * (`WPCPM_UI::decide()`, design 2.6): "Approve and update the records", the primary, a
+	 * form that posts at once; "Decline", the danger opener of its own panel and form, holding the note the school
+	 * reads. Both forms post what `handle_details_decide()` reads, split per submit: admin-post.php, the once guard,
+	 * the hidden fields under the `ACTION_DETAILS_DECIDE` nonce keyed to the request, and `decision`; Approve posts no
+	 * note, which its path never reads (`handle_details_decide()`, `approve_details()`), and Decline the note under
+	 * its name and bound.
+	 *
+	 * The method asks no switch of its own: its one caller, the card's details request
+	 * (`WPCPM_Administrators_Cards::render_details_request_parts()`), is drawn by the Administrator Dashboard alone.
+	 *
+	 * The panel is printed open when the last press left typing for this request's box. When the outcome is one of
+	 * the note's two refusals, the box is tied to its sentence and the card's message leads to it.
+	 *
+	 * @param int    $post_id The details request.
+	 * @param string $where   Where the decision comes back to.
+	 */
+	public static function render_details_decide( $post_id, $where = '' ) {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
 		}
 
-		// A decision refused for its note comes back with the note as it was typed, in this
-		// request's box only.
-		$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( self::TYPED_NOTE, $post->ID ), 'note' );
+		$post_id  = (int) $post_id;
+		$field_id = 'wpcpm-request-note-' . $post_id;
+		$typed    = WPCPM_Typed_Text::box_form( self::TYPED_NOTE, $post_id );
+		$kept     = WPCPM_Typed_Text::kept_box( $typed, 'note' );
+		$problem  = '';
 
-		printf(
-			'<label class="screen-reader-text" for="wpcpm-request-note-%1$d">%2$s</label>',
-			(int) $post->ID,
-			esc_html( self::note_label() )
+		// The outcomes `handle_details_decide()` refuses a Decline's note with, by their names there. The outcome
+		// names no request, and another request's box may hold typing an earlier press kept: the refusal is this
+		// box's only when this request's form is the last one kept (`WPCPM_Typed_Text::is_last()`).
+		if ( null !== $kept && class_exists( 'WPCPM_Institutions' ) ) {
+			$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+			$messages = self::messages();
+
+			if ( in_array( $status, array( 'details-note', 'details-declined-loss' ), true ) && isset( $messages[ $status ][1] ) && WPCPM_Typed_Text::is_last( $typed ) ) {
+				$problem = (string) $messages[ $status ][1];
+			}
+		}
+
+		if ( '' !== $problem && class_exists( 'WPCPM_Dashboard_Card' ) ) {
+			WPCPM_Dashboard_Card::lead_to( $field_id );
+		}
+
+		$form   = array(
+			'method'          => 'post',
+			'action'          => admin_url( 'admin-post.php' ),
+			'data-wpcpm-once' => true,
+			'data-wpcpm-busy' => __( 'Saving', 'wpcredits-program-manager' ),
 		);
-		printf(
-			'<textarea id="wpcpm-request-note-%1$d" name="wpcpm_request_note" rows="2" maxlength="%2$d" placeholder="%3$s">%4$s</textarea>',
-			(int) $post->ID,
-			(int) self::MAX_NOTE,
-			esc_attr__( 'What you did about it, for the log. Optional, and not sent to the institution.', 'wpcredits-program-manager' ),
-			// The parser drops one line feed right after the opening tag, so a kept note that begins
-			// with a line break keeps it.
-			null === $kept ? '' : "\n" . esc_textarea( $kept )
+		$hidden = static function () use ( $post_id, $where ) {
+			echo WPCPM_UI::nonce( self::ACTION_DETAILS_DECIDE . '_' . $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DETAILS_DECIDE ) );
+			printf( '<input type="hidden" name="request" value="%d" />', (int) $post_id );
+
+			if ( class_exists( 'WPCPM_Return' ) ) {
+				WPCPM_Return::field( (string) $where, 'requests' );
+			}
+		};
+
+		$area = WPCPM_UI::decide(
+			array(
+				'id'        => 'wpcpm-decide-req-' . $post_id,
+				'level'     => 'h5',
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'      => 'front',
+				'decisions' => array(
+					array(
+						'key'          => 'approve',
+						'label'        => __( 'Approve and update the records', 'wpcredits-program-manager' ),
+						'kind'         => 'primary',
+						'form_attrs'   => $form,
+						'hidden'       => $hidden,
+						'fields'       => '',
+						'submit_name'  => 'decision',
+						'submit_value' => 'approve',
+					),
+					array(
+						'key'           => 'decline',
+						'label'         => __( 'Decline', 'wpcredits-program-manager' ),
+						'kind'          => 'danger',
+						'form_attrs'    => $form,
+						'hidden'        => $hidden,
+						'fields'        => WPCPM_UI::field(
+							array(
+								'id'      => $field_id,
+								'name'    => 'wpcpm_request_note',
+								'label'   => self::details_note_label(),
+								'hint'    => __( 'The school reads it.', 'wpcredits-program-manager' ),
+								'need'    => 'required',
+								'type'    => 'textarea',
+								'rows'    => 3,
+								'value'   => null === $kept ? '' : $kept,
+								'attrs'   => array(
+									'minlength' => self::MIN_NOTE,
+									'maxlength' => self::MAX_NOTE,
+								),
+								'problem' => $problem,
+							)
+						),
+						'confirm_label' => __( 'Decline the request', 'wpcredits-program-manager' ),
+						'submit_name'   => 'decision',
+						'submit_value'  => 'decline',
+						'open'          => null !== $kept,
+					),
+				),
+			)
 		);
 
-		printf(
-			'<button type="submit" class="button button-primary" name="state" value="%1$s">%2$s</button> ',
-			esc_attr( self::STATE_DONE ),
-			esc_html__( 'Mark as handled', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<button type="submit" class="button" name="state" value="%1$s">%2$s</button>',
-			esc_attr( self::STATE_DECLINED ),
-			esc_html__( 'Decline', 'wpcredits-program-manager' )
-		);
-
-		echo '</form>';
+		echo $area; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::decide(); the hidden inputs in the decisions' callable.
 	}
 
 	/**

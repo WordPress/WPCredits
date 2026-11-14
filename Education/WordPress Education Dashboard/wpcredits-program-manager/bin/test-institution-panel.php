@@ -133,6 +133,7 @@ function esc_url( $u ) { return (string) $u; }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES, 'UTF-8' ); }
 // Core's two cleaners and its decoder as 7.1.2 writes them, the ones the typed-text rules read.
 require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 // Core's esc_url_raw() and wp_check_invalid_utf8() as 7.1.2 writes them, which a Drive link is
 // read and stored through: an identity stand-in would keep a "%0A" core takes out.
@@ -165,7 +166,36 @@ function size_format( $bytes, $decimals = 0 ) {
 }
 function add_action( $h, $c, $p = 10, $a = 1 ) {}
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
-function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( 'nonce-' . $a ) . '" />'; }
+// The nonce as the suite has always read it: the nonce keyed to its action, alone. With `$GLOBALS['faithful_nonces']`
+// set, as WordPress prints it: the field with the id core gives it and the referer beside it, so a form drawn
+// through `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field.
+function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( 'nonce-' . $a ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />';
+	if ( $r ) {
+		wp_referer_field();
+	}
+}
+function wp_create_nonce( $a = '' ) { return 'nonce-' . $a; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
+// What the shared parts (`WPCPM_UI`) ask of WordPress: which side draws, a refusal said to the developer, and the
+// parts' sheet and script, registered once each before the script is asked for.
+function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
+function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_scripts'][ $h ] ); }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['nonces'][] = $a; return true; }
 require_once __DIR__ . '/stubs/caps.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
@@ -260,6 +290,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-typed-text.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+// The shared parts the review block draws on the Administrator Dashboard while its switch is on (Task 11).
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 // The real way back, which prints nothing for a form drawn anywhere but the Administrator Dashboard.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
@@ -1945,7 +1979,7 @@ ck( 'and not the date as year-month-day', false !== strpos( $template_review, '2
 $GLOBALS['opts']['date_format'] = 'j M Y';
 ck( 'a site with another date format reads its own', false !== strpos( review( $review_id ), 'Uploaded by Wera Rektor on 1 Sep 2025, 234 KB.' ), true );
 $GLOBALS['opts']['date_format'] = 'F j, Y';
-ck( 'the checklist is read, not ticked: three sentences and no boxes', array( substr_count( $template_review, '<li>' ), substr_count( $template_review, 'type="checkbox"' ) ), array( 3, 0 ) );
+ck( 'the checklist is read, not ticked: three sentences and no boxes', array( substr_count( $template_review, '<li class="wpcpm-ui-checklist__item">' ), substr_count( $template_review, 'type="checkbox"' ) ), array( 3, 0 ) );
 ck( 'a template-kind document names the version the footer should carry', false !== strpos( $template_review, 'The footer on the signed copy names template version 2025-11-04.' ), true );
 ck( 'and the two names, side by side', false !== strpos( $template_review, 'The name on the document is Universidad Example Sede Central. Airtable&#039;s Name for this institution is Universidad Example.' ), true );
 ck( 'and asks whether the signature block is filled', false !== strpos( $template_review, 'signature block is filled in' ), true );
@@ -2001,7 +2035,7 @@ ck( 'and the singular dialog ends the same way, with no "from here" in it', arra
 $GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniewski' );
 
 ck( 'the return note is the one free-text field in the block', substr_count( $template_review, '<textarea' ), 1 );
-ck( 'named the way the handler reads it, and bounded the way it refuses', false !== strpos( $template_review, 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required' ), true );
+ck( 'named the way the handler reads it, and bounded the way it refuses', 1 === preg_match( '#<textarea [^>]*name="wpcpm_agreement_note" required minlength="20" maxlength="2000"[^>]* rows="4">#', $template_review ), true );
 ck( 'and said to be mailed verbatim', false !== strpos( $template_review, 'exactly as you write it' ), true );
 
 // A return refused for its own words lands back on this block, and the box gets back the note as it
@@ -2020,13 +2054,17 @@ $GLOBALS['umeta'][23][ WPCPM_Flash::META ] = $GLOBALS['umeta'][21][ WPCPM_Flash:
 $GLOBALS['uid'] = 23;
 $next_review    = review( $review_id );
 $GLOBALS['uid'] = 0;
-$empty_box      = 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required></textarea>';
+// What the note's box holds as the parts draw it (`WPCPM_UI::field()`), the line feed the parser drops after the
+// opening tag included; null with no such box (Task 18b: the old form is gone).
+$note_box       = static function ( $html ) {
+	return preg_match( '#<textarea [^>]*name="wpcpm_agreement_note" required minlength="20" maxlength="2000"[^>]* rows="4">(.*?)</textarea>#s', (string) $html, $m ) ? $m[1] : null;
+};
 ck( 'a refused return\'s note comes back in its box exactly as typed, once, the box bounded as before', array(
-	substr_count( $kept_review, 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required>' . "\n" . esc_textarea( $returned_kept ) . '</textarea>' ),
+	$note_box( $kept_review ) === "\n" . esc_textarea( $returned_kept ),
 	html_entity_decode( esc_textarea( $returned_kept ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ),
 	substr_count( $kept_review, '<textarea' ),
-), array( 1, $returned_kept, 1 ) );
-ck( 'and it is taken: the page after that draws the box empty, as does another person\'s', array( substr_count( $next_review, $empty_box ), substr_count( $someone_else, $empty_box ), $someone_else === $template_review ), array( 1, 1, true ) );
+), array( true, $returned_kept, 1 ) );
+ck( 'and it is taken: the page after that draws the box empty, as does another person\'s', array( $note_box( $next_review ), $note_box( $someone_else ), $someone_else === $template_review ), array( "\n", "\n", true ) );
 ck( 'the refusal names the box by its label and says to return it again', WPCPM_Institution_Panel::messages()['agreement-return-loss'] ?? null, array( 'error', 'Nothing was returned, because WordPress would remove part of what you typed in "What has to change, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then return it again.' ) );
 ck( 'the revoke refusals: a note the cleaner would take words from names its box by its label and says to revoke it again, and the Institutions screen\'s Agreements tab prints both', array(
 	WPCPM_Institution_Panel::messages()['agreement-revoke-loss'] ?? null,
@@ -2106,7 +2144,9 @@ $callers = array(
 	'cards' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ),
 	'queue' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ),
 );
-ck( 'the Administrator Dashboard passes true and its way back, and the Institutions screen passes false, once each', array(
+// The cards call it once, from the card on the shared parts (Task 11; today's card left in Task 18b), to decide and
+// bound for the card.
+ck( 'the Administrator Dashboard passes true and its way back, once, and the Institutions screen passes false, once', array(
 	substr_count( $callers['cards'], 'WPCPM_Institution_Panel::render_review(' ),
 	substr_count( $callers['cards'], "WPCPM_Institution_Panel::render_review( (int) \$row['id'], true, WPCPM_Return::DASHBOARD );" ),
 	substr_count( $callers['queue'], 'WPCPM_Institution_Panel::render_review(' ),
@@ -2289,6 +2329,9 @@ function dressed( $css, $name ) {
 
 $front_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' )
 	. (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' );
+// The parts' own classes are the parts' sheet's, which every dashboard loads first (dashboard.css depends on it): the
+// review block on the Administrator Dashboard's parts prints its checklist with one (Task 17b fix round).
+$parts_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/parts.css' );
 $admin_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' );
 
 $undressed = array();
@@ -2298,14 +2341,15 @@ foreach ( classes_in( $panel_src ) as $name ) {
 	$in_admin = 0 === strpos( $name, 'wpcpm-review' );
 	$review  += $in_admin ? 1 : 0;
 
-	if ( ! dressed( $in_admin ? $admin_css : $front_css, $name ) ) {
+	if ( ! dressed( 0 === strpos( $name, 'wpcpm-ui-' ) ? $parts_css : ( $in_admin ? $admin_css : $front_css ), $name ) ) {
 		$undressed[] = $name;
 	}
 }
 
 sort( $undressed );
 
-ck( 'the review block is eleven classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ), in_array( 'wpcpm-review__open', $undressed, true ) ), array( 11, false, false ) );
+// Eight since the deciding block's old forms left (Task 18b): their two form classes and the note's paragraph went.
+ck( 'the review block is eight classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ), in_array( 'wpcpm-review__open', $undressed, true ) ), array( 8, false, false ) );
 
 // `.wpcpm-link-button` is the mentor dashboard's own button class - the group-sessions cards
 // print it too - so its rule belongs in dashboard.css and not in either file this page owns.
@@ -2487,7 +2531,8 @@ foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
 	}
 }
 
-ck( 'the check finds the scroll boxes the stylesheets draw: the box each admin table sits in on a phone, the Student Duplicate Finder\'s tables, the Need help? panel\'s answers and the Viewing as list', array( in_array( 'administrator.css: .wpcpm-administrator__scroll', $scroll_boxes, true ), in_array( 'duplicate-finder.css: .wpcpm-duplicates__scroll', $scroll_boxes, true ), in_array( 'handbook.css: .wpcpm-hb-panel__body', $scroll_boxes, true ), in_array( 'dashboard.css: .wpcpm-dashboard__switcher-list', $scroll_boxes, true ) ), array( true, true, true, true ) );
+// The Administrator Dashboard's box left its sheet with its old tables (Task 18c); the Usage card's box stands for it.
+ck( 'the check finds the scroll boxes the stylesheets draw: the Usage card\'s box on a phone, the Student Duplicate Finder\'s tables, the Need help? panel\'s answers and the Viewing as list', array( in_array( 'sponsor.css: .wpcpm-usage__scroll', $scroll_boxes, true ), in_array( 'duplicate-finder.css: .wpcpm-duplicates__scroll', $scroll_boxes, true ), in_array( 'handbook.css: .wpcpm-hb-panel__body', $scroll_boxes, true ), in_array( 'dashboard.css: .wpcpm-dashboard__switcher-list', $scroll_boxes, true ) ), array( true, true, true, true ) );
 ck( 'and each of them is positioned, so what is drawn inside it stays inside it', $unheld, array() );
 
 // A box that scrolls sideways around a table is out of a keyboard's reach in Safari when it holds
@@ -2546,8 +2591,11 @@ ksort( $printed );
 // The Settings screen's Security tab joined them in 1.123.30: the Latest calls table, in the box that
 // admin.css lets scroll (the stylesheets are read in file order, and admin.css comes first). The cohort
 // timeline's chart and its month table joined them in 1.123.68: twelve months do not fit a phone.
-ck( 'the boxes the stylesheets let scroll sideways are the seven that hold the wide tables and the wide chart: the Settings screen\'s Latest calls, the Administrator Dashboard\'s, the cohort timeline\'s chart and month table, the Student Duplicate Finder\'s, the Emails tool\'s and the Sponsor Dashboard\'s Usage card\'s', $sideways, array( '.wpcpm-settings__scroll', '.wpcpm-administrator__scroll', '.wpcpm-timeline__scroll', '.wpcpm-timeline-table', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll', '.wpcpm-usage__scroll' ) );
-ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-administrators-cards.php: .wpcpm-administrator__scroll' => 1, 'class-wpcpm-cohort-timeline-view.php: .wpcpm-timeline-table' => 1, 'class-wpcpm-cohort-timeline-view.php: .wpcpm-timeline__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1, 'class-wpcpm-settings-screen.php: .wpcpm-settings__scroll' => 1, 'class-wpcpm-sponsor-usage.php: .wpcpm-usage__scroll' => 1 ), array() ) );
+// The Administrator Dashboard's box left administrator.css in Task 18c, nothing printing it since Task 18b.
+ck( 'the boxes the stylesheets let scroll sideways are the six that hold the wide tables and the wide chart: the Settings screen\'s Latest calls, the cohort timeline\'s chart and month table, the Student Duplicate Finder\'s, the Emails tool\'s and the Sponsor Dashboard\'s Usage card\'s', $sideways, array( '.wpcpm-settings__scroll', '.wpcpm-timeline__scroll', '.wpcpm-timeline-table', '.wpcpm-duplicates__scroll', '.wpcpm-emails__scroll', '.wpcpm-usage__scroll' ) );
+// The Administrator Dashboard's box and the cohort timeline's month table box left with their old branches (Task 18b):
+// their tables are the table part's now. Their rules stay in the sheets until the stylesheet's own clean-up.
+ck( 'and each is printed in one place, as a tab stop with a role and a name', array( $printed, $unnamed ), array( array( 'class-wpcpm-cohort-timeline-view.php: .wpcpm-timeline__scroll' => 1, 'class-wpcpm-duplicate-finder-screen.php: .wpcpm-duplicates__scroll' => 1, 'class-wpcpm-emails.php: .wpcpm-emails__scroll' => 1, 'class-wpcpm-settings-screen.php: .wpcpm-settings__scroll' => 1, 'class-wpcpm-sponsor-usage.php: .wpcpm-usage__scroll' => 1 ), array() ) );
 
 // The two rules the weld hid, each on its own. The file input's room is not scoped to the
 // steps list, because the same form is drawn on five surfaces and only one of them is a step;
@@ -2818,5 +2866,535 @@ $GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
 ck( 'the stand-in is core\'s wp_check_invalid_utf8(): a valid text kept, one that is not emptied', array( wp_check_invalid_utf8( "Colaboraci\u{F3}n" ), wp_check_invalid_utf8( "Colaboraci\xC3n" ) ), array( "Colaboraci\u{F3}n", '' ) );
 ck( 'so a link posted with a byte that is not UTF-8 is refused by name, and nothing is patched', array( on_file( $rec_a, "https://drive.google.com/drive/folders/1AbC?q=Colaboraci\xC3n" ), flashed(), count( $GLOBALS['patched'] ) ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-link', 0 ) );
 
+/* ---- the review block on the shared parts, behind the switch ---------------- */
+
+echo "\n=== The review block on the Administrator Dashboard's parts: Accept it or Return with a note (UI shared parts, Task 11) ===\n";
+
+// The Administrator Dashboard suite draws this block through a stand-in, so the real block is drawn here, under
+// `WPCPM_UI::enter( 'administrator' )` with the dashboard's surface on, as the dashboard draws it: the review's
+// facts as today, then one Decide area. Off the surface, and on the wp-admin Institutions screen, whose tab is
+// off for this whole release, the block is today's, byte for byte.
+
+/**
+ * Every form a render holds, by the admin-post action it posts: how it posts, its guard, its hidden fields as
+ * `name=value` in the order a browser posts them, its boxes with their bounds, its submits and the question it
+ * asks (on the form, or on its submit).
+ *
+ * @param string $html Markup.
+ * @return array<string, array[]>
+ */
+function review_posted( $html ) {
+	$x   = review_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' minlength=' . $box->getAttribute( 'minlength' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ( $box->hasAttribute( 'required' ) ? ' required' : '' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			$asks      = '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ? $button->getAttribute( 'data-wpcpm-confirm' ) : $asks;
+		}
+		$out[ $action ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ) . ' ' . $form->getAttribute( 'enctype' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * A render read as a document.
+ *
+ * @param string $html Markup.
+ * @return DOMXPath
+ */
+function review_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * The kinds and words of the buttons a path holds, in order: `kind: words`.
+ *
+ * @param DOMXPath $x    The document.
+ * @param string   $path Where to look.
+ * @return string[]
+ */
+function review_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : ( false !== strpos( $class, ' wpcpm-btn ' ) ? 'primary' : 'old' ) ) );
+		$out[] = $kind . ': ' . trim( $button->textContent );
+	}
+	return $out;
+}
+
+/**
+ * The review block for one document, with a surface named (or none) and the Administrator Dashboard's switch on.
+ *
+ * @param int    $post_id Agreement post ID.
+ * @param string $surface The surface drawing: 'administrator', a wp-admin tab, or '' for none.
+ * @param bool   $decide  True as the Administrator Dashboard draws it, with its way back; false as the
+ *                        Institutions screen's queue draws it.
+ * @return string
+ */
+function review_drawn( $post_id, $surface, $decide = true ) {
+	$GLOBALS['caps']      = true;
+	$GLOBALS['member_of'] = array();
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( '' !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		if ( $decide ) {
+			WPCPM_Institution_Panel::render_review( $post_id, true, WPCPM_Return::DASHBOARD );
+		} else {
+			WPCPM_Institution_Panel::render_review( $post_id, false );
+		}
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( 'administrator' === $surface && $decide ) {
+			parts_inventory_add( $html );
+		}
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
+}
+
+reset_world();
+$GLOBALS['next_id']   = 5101;
+$GLOBALS['uid']       = 0;
+$GLOBALS['enqueued']  = array();
+seed_index( $rec_a, '' );
+seed_index( $rec_b, '' );
+$GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniewski' );
+$GLOBALS['members'][ $rec_b ] = array( 'Dee Lopez' );
+$agr_one = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+$agr_two = seed_post( $rec_b, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, $file_meta );
+
+// Check 4: on the wp-admin Institutions screen, today's markup. The digest is of the block as it was drawn before
+// Task 11 (the same fixture, the same ids), so a byte changed anywhere in the read block shows. The block drawn to
+// decide is the parts' alone since its old branch left (Task 18b), and its off digests with it.
+$read_admin   = review_drawn( $agr_one, 'wpcpm-institutions/queue', false );
+$read_none    = review_drawn( $agr_one, '', false );
+ck( 'on the Institutions screen\'s queue (its tab is off in this release) the block drawn to be read is today\'s, byte for byte: the same as with no surface named, and as before Task 11', array(
+	$read_admin === $read_none,
+	md5( $read_admin ),
+	strpos( $read_admin, 'wpcpm-ui-' ),
+), array( true, '5704ddbda9b61f7ffdf5dcda2657a203', false ) );
+
+// Fix round 1, ruling 7: the parts' branch draws only to decide. The one caller that draws the block to be read is
+// the Institutions screen's queue (`class-wpcpm-institutions.php`, `render_review( (int) $row['id'], false )`), whose
+// tab is off for this whole release, so a read block is today's even on a surface that is on.
+ck( 'drawn to be read on a surface that is on, the block is still today\'s: the parts draw only the block that decides', review_drawn( $agr_one, 'administrator', false ), $read_none );
+
+$GLOBALS['faithful_nonces'] = true;
+$on_one  = review_drawn( $agr_one, 'administrator' );
+$x_one   = review_doc( $on_one );
+$area    = '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-agr-' . $agr_one . '"]';
+
+// Fix round 1, ruling 3: the loss sentence names the box as its label reads, on the parts and off them.
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$loss_on = WPCPM_Institution_Panel::messages()['agreement-return-loss'][1];
+WPCPM_UI::leave();
+$loss_named = WPCPM_Institution_Panel::messages()['agreement-return-loss'][1];
+WPCPM_UI::set_live( null );
+ck( 'the loss sentence names the box "What has to change" where the parts draw it, and by today\'s words everywhere else', array(
+	false !== strpos( $loss_on, 'what you typed in "What has to change". To keep every word' ),
+	false !== strpos( $loss_named, 'what you typed in "What has to change, in your own words". To keep every word' ),
+	trim( (string) $x_one->evaluate( 'string(//label[@for="wpcpm-return-' . $agr_one . '"]/text())' ) ),
+), array( true, true, 'What has to change' ) );
+
+// Check 1: posted fields. The old forms left with their branch (Task 18b), so what the two forms post is pinned to
+// what the old forms posted, read at 76b5ecff, where this check compared the two: the address and encoding, the guard
+// and busy words, the hidden fields in order with the nonce keyed to the document and its referer, the way back to
+// the card, the box under its name and bounds, the question.
+$agr_posted = static function ( $action, $busy, array $boxes, $asks ) use ( $agr_one ) {
+	return array(
+		array(
+			'posts'   => 'post https://example.test/wp-admin/admin-post.php application/x-www-form-urlencoded',
+			'guard'   => 'once ' . $busy,
+			'hidden'  => array( '_wpnonce=nonce-' . $action . '_' . $agr_one, '_wp_http_referer=/administrator-dashboard/', 'action=' . $action, 'wpcpm_agreement_post=' . $agr_one, 'wpcpm_return=dashboard', 'wpcpm_return_to=agreements' ),
+			'boxes'   => $boxes,
+			'submits' => array( '=' ),
+			'asks'    => $asks,
+		),
+	);
+};
+ck( 'on, Accept and Return post exactly what the handlers read: the same address and encoding, the same guard and busy words, the same hidden fields in order with the nonce keyed to the document and its referer, the same box and bounds, the same question (posted fields)', review_posted( $on_one ), array(
+	WPCPM_Institution_Agreement::ACTION_ACCEPT => $agr_posted( 'wpcpm_agreement_accept', 'Accepting...', array(), 'Accept the signed agreement from ' . $rec_a . '? This opens their account on the site, sets Current Stage to Confirmed in Airtable, and emails the 3 people at the institution. You can revoke it later on the Institutions screen, in the Agreements tab.' ),
+	WPCPM_Institution_Agreement::ACTION_RETURN => $agr_posted( 'wpcpm_agreement_return', 'Returning...', array( 'wpcpm_agreement_note minlength=20 maxlength=2000 required' ), '' ),
+) );
+
+// Check 5: the words, one primary, nothing red.
+ck( 'on, the review keeps its anchor and its heading, today\'s words and name, as the parts\' h5 the Decide heading is too (fix round 1), then today\'s facts, checklist, scan line and download link, and then one Decide area, id wpcpm-decide-agr-{ID}, headed "Decide"', array(
+	// Task 17b fix round, ruling 5: the section keeps its anchor and prints no class of the old block; its sentences are
+	// the parts' intro lines, its checklist today's list with the parts' spacing class; since Task 18a the helper's,
+	// each line with the line's own class.
+	false !== strpos( $on_one, '<section class="wpcpm-ui-item__part" id="wpcpm-review-' . $agr_one . '"><h5 class="wpcpm-ui-h">Review the signed agreement from ' . $rec_a . '</h5><p class="wpcpm-ui-intro">' ),
+	false !== strpos( $on_one, '<p class="wpcpm-ui-intro">Uploaded by Wera Rektor on September 1, 2025, 234 KB.</p><p class="wpcpm-ui-intro">The institution says this is the program&#039;s template, signed.</p><ul class="wpcpm-ui-checklist"><li class="wpcpm-ui-checklist__item">' )
+		&& 1 === preg_match( '#</ul><p class="wpcpm-ui-intro">The scan noticed these in the file: [^<]*</p><p class="wpcpm-ui-intro">The scan is a courtesy and not evidence: [^<]*</p><p><a href="#', $on_one )
+		&& 0 === preg_match( '#class="[^"]*wpcpm-review#', $on_one ),
+	substr_count( $on_one, '<li class="wpcpm-ui-checklist__item">' ),
+	false !== strpos( $on_one, 'The scan is a courtesy and not evidence' ),
+	false !== strpos( $on_one, 'action=wpcpm_agreement_download&post=' . $agr_one ),
+	$x_one->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$x_one->query( $area )->length,
+	trim( (string) $x_one->evaluate( 'string(' . $area . '/h5[@class="wpcpm-ui-h"])' ) ),
+	strrpos( $on_one, '</section>' ) > strpos( $on_one, 'id="wpcpm-decide-agr-' . $agr_one . '"' ),
+), array( true, true, 3, true, true, 1, 1, 'Decide', true ) );
+ck( 'its row: Accept it, the one primary, acting at once with its question; Return with a note, a secondary opener (design 5)', array(
+	review_buttons( $x_one, $area . '/div[@class="wpcpm-ui-actions"]//button' ),
+	$x_one->query( $area . '/div[@class="wpcpm-ui-actions"]/form/button[@type="submit"][@data-wpcpm-confirm]' )->length,
+	$x_one->query( $area . '/div[@class="wpcpm-ui-actions"]/button[@type="button"][@aria-controls="wpcpm-decide-agr-' . $agr_one . '-return-panel"][@aria-expanded="false"]' )->length,
+), array( array( 'primary: Accept it', 'secondary: Return with a note' ), 1, 1 ) );
+ck( 'the panel: label "What has to change" with Required, the hint saying who receives the note, the button that keeps "Return it with this note", and Cancel', array(
+	trim( (string) $x_one->evaluate( 'string(//div[@id="wpcpm-decide-agr-' . $agr_one . '-return-panel"]//label[@for="wpcpm-return-' . $agr_one . '"])' ) ),
+	trim( (string) $x_one->evaluate( 'string(//label[@for="wpcpm-return-' . $agr_one . '"]/span[@class="wpcpm-ui-field__need"])' ) ),
+	trim( (string) $x_one->evaluate( 'string(//p[@id="wpcpm-return-' . $agr_one . '-hint"])' ) ),
+	review_buttons( $x_one, '//div[@id="wpcpm-decide-agr-' . $agr_one . '-return-panel"]//button' ),
+), array(
+	'What has to change Required',
+	'Required',
+	'In your own words. It is emailed to everybody at the institution exactly as you write it, with your address to reply to.',
+	array( 'secondary: Return it with this note', 'quiet: Cancel' ),
+) );
+ck( 'one primary in the whole area, nothing red (returning removes nothing), and no button of the old forms', array(
+	count( array_filter( review_buttons( $x_one, $area . '//button' ), static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) ),
+	count( array_filter( review_buttons( $x_one, '//button' ), static function ( $b ) { return 0 === strpos( $b, 'danger: ' ) || 0 === strpos( $b, 'old: ' ); } ) ),
+	strpos( $on_one, 'wpcpm-button' ),
+), array( 1, 0, false ) );
+ck( 'the box keeps its id and name, wpcpm-return-{ID} and wpcpm_agreement_note, its four rows and its bounds, tied to its hint, empty', array(
+	array_map( static function ( $box ) { return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'minlength' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . json_encode( $box->textContent ); }, iterator_to_array( $x_one->query( '//textarea' ) ) ),
+), array( array( 'wpcpm-return-' . $agr_one . ' wpcpm_agreement_note 4 20 2000 wpcpm-return-' . $agr_one . '-hint "\n"' ) ) );
+ck( 'the parts\' script is asked for, where the panel is drawn', in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ), true );
+
+// Check 2: two agreements on one card.
+$two   = review_drawn( $agr_one, 'administrator' ) . review_drawn( $agr_two, 'administrator' );
+$x_two = review_doc( $two );
+$ids   = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x_two->query( '//*[@id]' ) ) );
+$loose = array();
+foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+	foreach ( $x_two->query( '//*[@' . $attr . ']' ) as $node ) {
+		if ( ! in_array( $node->getAttribute( $attr ), $ids, true ) ) {
+			$loose[] = $attr . '=' . $node->getAttribute( $attr );
+		}
+	}
+}
+foreach ( $x_two->query( '//*[@aria-describedby]' ) as $node ) {
+	foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+		if ( ! in_array( $described, $ids, true ) ) {
+			$loose[] = 'aria-describedby=' . $described;
+		}
+	}
+}
+$return_posts = static function ( $id ) use ( $x_two ) {
+	$form   = $x_two->query( '//div[@id="wpcpm-decide-agr-' . $id . '-return-panel"]/form' )->item( 0 );
+	$fields = array();
+	if ( $form ) {
+		foreach ( $x_two->query( './/input[@type="hidden"]', $form ) as $input ) {
+			if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'wpcpm_agreement_post' ), true ) ) {
+				$fields[ $input->getAttribute( 'name' ) ] = $input->getAttribute( 'value' );
+			}
+		}
+	}
+	return $fields;
+};
+ck( 'two agreements on one card: their areas, panels and boxes have ids of their own, none repeats, and every aria-controls, for and aria-describedby names an element on the page', array(
+	count( $ids ) === count( array_unique( $ids ) ),
+	$x_two->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$x_two->query( '//div[@data-wpcpm-panel]' )->length,
+	$loose,
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $x_two->query( '//button[@aria-controls]' ) ) ),
+), array( true, 2, 2, array(), array( 'wpcpm-decide-agr-' . $agr_one . '-return-panel', 'wpcpm-decide-agr-' . $agr_two . '-return-panel' ) ) );
+ck( 'and each Return panel posts its own agreement\'s ID, under a nonce keyed to it; with nothing refused or kept, no panel is open', array(
+	$return_posts( $agr_one ),
+	$return_posts( $agr_two ),
+	$x_two->query( '//*[@data-wpcpm-open]' )->length,
+	$x_two->query( '//button[@aria-expanded="true"]' )->length,
+), array(
+	array( '_wpnonce' => 'nonce-wpcpm_agreement_return_' . $agr_one, 'wpcpm_agreement_post' => (string) $agr_one ),
+	array( '_wpnonce' => 'nonce-wpcpm_agreement_return_' . $agr_two, 'wpcpm_agreement_post' => (string) $agr_two ),
+	0,
+	0,
+) );
+
+// Check 3: a refused note comes back. The press is the real handler's, from one person; the page after it is
+// drawn for the same person, a fresh reader of the flash (`WPCPM_Flash::take()` memoizes per request).
+/**
+ * Post a return of one document with one note, as the Administrator `$from`, and hand what it left to `$to`.
+ *
+ * @param int    $post_id The document.
+ * @param string $note    The note as typed.
+ * @param int    $from    Who pressed.
+ * @param int    $to      The same person on the next page.
+ * @return string Where the handler sent the press.
+ */
+function return_refused( $post_id, $note, $from, $to ) {
+	$GLOBALS['caps']      = true;
+	$GLOBALS['member_of'] = array();
+	$GLOBALS['uid']       = $from;
+	$GLOBALS['referer']   = 'https://example.test/administrator-dashboard/';
+	$_POST                = array(
+		'wpcpm_agreement_post' => (string) $post_id,
+		'wpcpm_agreement_note' => $note,
+		'wpcpm_return'         => 'dashboard',
+		'wpcpm_return_to'      => 'agreements',
+	);
+	$went = '';
+	try {
+		WPCPM_Institution_Agreement::handle_return();
+	} catch ( Exception $e ) {
+		$went = $e->getMessage();
+	}
+	$_POST = array();
+	$GLOBALS['umeta'][ $to ][ WPCPM_Flash::META ] = $GLOBALS['umeta'][ $from ][ WPCPM_Flash::META ] ?? array();
+	unset( $GLOBALS['umeta'][ $from ] );
+	$GLOBALS['uid'] = $to;
+	return $went;
+}
+
+$short_went = return_refused( $agr_two, "Page 4.\nSign it.", 31, 32 );
+$short_left = $GLOBALS['umeta'][32][ WPCPM_Flash::META ] ?? array();
+$back       = review_drawn( $agr_one, 'administrator' ) . review_drawn( $agr_two, 'administrator' );
+$x_back     = review_doc( $back );
+$box        = $x_back->query( '//textarea[@id="wpcpm-return-' . $agr_two . '"]' )->item( 0 );
+$problem    = WPCPM_Form_Errors::problem_id( 'wpcpm-return-' . $agr_two );
+ck( 'a note too short is refused by the handler, which keeps the typing for that document alone', array(
+	0 === strpos( $short_went, 'redirect: ' ),
+	$short_left[ WPCPM_Institutions::FLASH ] ?? '',
+	isset( $short_left[ WPCPM_Typed_Text::KEPT_CHANNEL . WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $agr_two ) ] ),
+), array( true, 'agreement-note', true ) );
+$GLOBALS['uid'] = 32;
+
+ck( 'back on the card, that agreement\'s Return panel is printed open and its opener reads expanded; the other agreement\'s is not (Review Focus 1)', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x_back->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $x_back->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( 'wpcpm-decide-agr-' . $agr_two . '-return-panel' ), array( 'wpcpm-decide-agr-' . $agr_two . '-return-panel' ) ) );
+ck( 'its box holds the typing, is marked invalid and is tied to its refusal sentence, the handler\'s, before its hint', array(
+	$box ? $box->textContent : null,
+	$box ? $box->getAttribute( 'aria-invalid' ) : null,
+	$box ? $box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $x_back->evaluate( 'string(//*[@id="' . $problem . '"])' ) ),
+	$x_back->query( '//div[@id="wpcpm-decide-agr-' . $agr_two . '-return-panel"]//*[@id="' . $problem . '"]' )->length,
+), array( "\nPage 4.\nSign it.", 'true', $problem . ' wpcpm-return-' . $agr_two . '-hint', WPCPM_Institution_Panel::messages()['agreement-note'][1], 1 ) );
+ck( 'and the other agreement\'s box is neither refused nor filled', array(
+	$x_back->query( '//div[@id="wpcpm-decide-agr-' . $agr_one . '"]//*[@aria-invalid]' )->length,
+	array_map( static function ( $b ) { return $b->textContent; }, iterator_to_array( $x_back->query( '//div[@id="wpcpm-decide-agr-' . $agr_one . '"]//textarea' ) ) ),
+), array( 0, array( "\n" ) ) );
+
+$lossy      = "Clause 4 says kids <12 free, adults >18 pay.\nPlease change it.";
+$lossy_went = return_refused( $agr_one, $lossy, 33, 34 );
+$x_lossy    = review_doc( review_drawn( $agr_one, 'administrator' ) );
+ck( 'a note the cleaner would take words from comes back the same way: open, the typing kept as typed, tied to the sentence that names the box by its label on the parts (fix round 1)', array(
+	0 === strpos( $lossy_went, 'redirect: ' ),
+	$x_lossy->query( '//div[@id="wpcpm-decide-agr-' . $agr_one . '-return-panel"][@data-wpcpm-open]' )->length,
+	$x_lossy->evaluate( 'string(//textarea[@id="wpcpm-return-' . $agr_one . '"])' ),
+	trim( (string) $x_lossy->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-return-' . $agr_one ) . '"])' ) ),
+), array( true, 1, "\n" . $lossy, $loss_on ) );
+
+// A note of nothing but white space is refused as too short, and keeps nothing (`WPCPM_Typed_Text::keep_box()`):
+// the outcome names no document, so no box is said to be the refused one and no panel is opened; the card says
+// the refusal at its top, as today.
+return_refused( $agr_one, '   ', 35, 36 );
+$blank_left = $GLOBALS['umeta'][36][ WPCPM_Flash::META ] ?? array();
+$x_blank    = review_doc( review_drawn( $agr_one, 'administrator' ) . review_drawn( $agr_two, 'administrator' ) );
+ck( 'a blank note is refused as too short and keeps nothing (the outcome and the card to open, no typing), so no panel is opened and no box is said to be refused: nothing tells which document it was for', array(
+	$blank_left[ WPCPM_Institutions::FLASH ] ?? '',
+	array_keys( $blank_left ),
+	$x_blank->query( '//*[@data-wpcpm-open]' )->length,
+	$x_blank->query( '//*[@aria-invalid]' )->length,
+), array( 'agreement-note', array( WPCPM_Institutions::FLASH, 'card-target' ), 0, 0 ) );
+
+// A note kept with no refusal of this box on the channel (the outcome is another's) still comes back, in its
+// open panel, with nothing said beside it.
+$GLOBALS['uid'] = 37;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $agr_two ), 'note', 'Kept, and not refused.', WPCPM_Institution_Agreement::MAX_NOTE );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'agreement-accepted' );
+$x_kept = review_doc( review_drawn( $agr_two, 'administrator' ) );
+ck( 'a kept return note opens its panel with the typing, untied to any refusal', array(
+	$x_kept->query( '//div[@id="wpcpm-decide-agr-' . $agr_two . '-return-panel"][@data-wpcpm-open]' )->length,
+	$x_kept->evaluate( 'string(//textarea[@id="wpcpm-return-' . $agr_two . '"])' ),
+	$x_kept->query( '//*[@aria-invalid]' )->length,
+), array( 1, "\nKept, and not refused.", 0 ) );
+
+// The card's message leads to the refused box. The card shell is the real one, holding the outcome for the
+// Collaboration Agreements card as the dashboard holds it, around the two agreements' review blocks.
+/**
+ * The Collaboration Agreements card as the dashboard draws it, holding one outcome, around two review blocks.
+ *
+ * @param string $text The outcome's sentence, an error.
+ * @param bool   $on   Whether the dashboard's surface is on.
+ * @return string
+ */
+function agreements_card( $text, $on ) {
+	global $agr_one, $agr_two;
+	WPCPM_Dashboard_Card::forget();
+	WPCPM_Dashboard_Card::hold( 'wpcpm-agreements', 'error', $text );
+	$GLOBALS['caps']      = true;
+	$GLOBALS['member_of'] = array();
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( $on ) {
+		WPCPM_UI::enter( 'administrator' );
+	}
+	ob_start();
+	WPCPM_Dashboard_Card::open(
+		array(
+			'key'           => 'agreements',
+			'title'         => 'Collaboration Agreements',
+			'prefix'        => 'wpcpm-',
+			'id_on'         => 'section',
+			'section_class' => 'wpcpm-administrator__card',
+		)
+	);
+	WPCPM_Institution_Panel::render_review( $agr_one, true, WPCPM_Return::DASHBOARD );
+	WPCPM_Institution_Panel::render_review( $agr_two, true, WPCPM_Return::DASHBOARD );
+	WPCPM_Dashboard_Card::close();
+	$html = (string) ob_get_clean();
+	if ( $on ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	WPCPM_Dashboard_Card::forget();
+	return $html;
+}
+
+$note_refused = (string) WPCPM_Institution_Panel::messages()['agreement-note'][1];
+return_refused( $agr_two, 'Too short.', 38, 39 );
+$led_card  = agreements_card( $note_refused, true );
+$x_led     = review_doc( $led_card );
+$led_links = iterator_to_array( $x_led->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'on, the refused note\'s message is the refusal sentence as one link to the refused box, said once, before both agreements, the box inside the panel printed open', array(
+	count( $led_links ),
+	isset( $led_links[0] ) ? $led_links[0]->getAttribute( 'href' ) : null,
+	isset( $led_links[0] ) ? $led_links[0]->textContent : null,
+	substr_count( $led_card, 'data-wpcpm-card-message' ),
+	strpos( $led_card, 'data-wpcpm-card-message' ) < strpos( $led_card, 'id="wpcpm-decide-agr-' . $agr_one . '"' ),
+	$x_led->query( '//div[@data-wpcpm-open]//textarea[@id="wpcpm-return-' . $agr_two . '"]' )->length,
+), array( 1, '#wpcpm-return-' . $agr_two, $note_refused, 1, true, 1 ) );
+return_refused( $agr_one, '   ', 42, 43 );
+ck( 'a blank note\'s message leads nowhere: no box was named', review_doc( agreements_card( $note_refused, true ) )->query( '//p[@data-wpcpm-card-message]//a' )->length, 0 );
+
+// A refusal is tied only to the box it was for (Task 13x). The outcome names no document, and the flash hands every
+// box on the page the same one, so a document whose kept typing no page drew (its card closed, or past the list)
+// would read a later refusal of another as its own. The store remembers which form it kept last, and only that
+// box is tied: here a document holding older kept typing beside one refused just now, drawn first and then last.
+/**
+ * What a card says about each box on it: which panels are printed open, each box's state ('invalid ' when marked,
+ * then what describes it, then the sentence beside it or '', then its typing), and where the card's message leads.
+ *
+ * @param string $html Markup.
+ * @return array
+ */
+function panel_ties( $html ) {
+	$x     = review_doc( $html );
+	$boxes = array();
+	foreach ( $x->query( '//textarea' ) as $box ) {
+		$id           = $box->getAttribute( 'id' );
+		$said         = $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 );
+		$boxes[ $id ] = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' ) . ' | ' . ( $said ? trim( $said->textContent ) : '' ) . ' | ' . $box->textContent;
+	}
+	return array(
+		'open'  => array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'boxes' => $boxes,
+		'leads' => array_map( static function ( $node ) { return $node->getAttribute( 'href' ) . ' ' . $node->textContent; }, iterator_to_array( $x->query( '//p[@data-wpcpm-card-message]//a' ) ) ),
+	);
+}
+/**
+ * A box as `panel_ties()` reads it: refused, marked invalid and described by its sentence then its hint; otherwise
+ * described by its hint alone.
+ *
+ * @param int         $post_id The document.
+ * @param string|null $said    The refusal sentence, or null when it is not the refused box.
+ * @param string      $typing  What it holds.
+ * @return string
+ */
+function panel_tie( $post_id, $said, $typing ) {
+	$id = 'wpcpm-return-' . (int) $post_id;
+	return null === $said ? $id . '-hint |  | ' . "\n" . $typing : 'invalid ' . WPCPM_Form_Errors::problem_id( $id ) . ' ' . $id . '-hint | ' . $said . ' | ' . "\n" . $typing;
+}
+$tie_users = 130;
+foreach ( array( 'first' => array( $agr_one, $agr_two ), 'last' => array( $agr_two, $agr_one ) ) as $tie_where => $tie_pair ) {
+	list( $tie_kept, $tie_refused ) = $tie_pair;
+	$GLOBALS['uid'] = ++$tie_users;
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $tie_kept ), 'note', 'Kept, and not refused.', WPCPM_Institution_Agreement::MAX_NOTE );
+	return_refused( $tie_refused, 'Too short.', $tie_users, ++$tie_users );
+	ck( 'Collaboration Agreements, the kept-only document drawn ' . $tie_where . ': only the refused document\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only document\'s panel is open with its typing, its box tied to its hint alone (Task 13x)', panel_ties( agreements_card( $note_refused, true ) ), array(
+		'open'  => array( 'wpcpm-decide-agr-' . $agr_one . '-return-panel', 'wpcpm-decide-agr-' . $agr_two . '-return-panel' ),
+		'boxes' => array(
+			'wpcpm-return-' . $agr_one => panel_tie( $agr_one, $agr_one === $tie_refused ? $note_refused : null, $agr_one === $tie_refused ? 'Too short.' : 'Kept, and not refused.' ),
+			'wpcpm-return-' . $agr_two => panel_tie( $agr_two, $agr_two === $tie_refused ? $note_refused : null, $agr_two === $tie_refused ? 'Too short.' : 'Kept, and not refused.' ),
+		),
+		'leads' => array( '#wpcpm-return-' . $tie_refused . ' ' . $note_refused ),
+	) );
+}
+$GLOBALS['uid'] = ++$tie_users;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Agreement::TYPED_RETURN, $agr_one ), 'note', 'Kept, and not refused.', WPCPM_Institution_Agreement::MAX_NOTE );
+return_refused( $agr_two, " \n ", $tie_users, ++$tie_users );
+ck( 'Collaboration Agreements: a blank note, refused and keeping nothing, beside a document holding older kept typing: no box is marked invalid, the message leads nowhere, and the older typing comes back untied (Task 13x)', panel_ties( agreements_card( $note_refused, true ) ), array(
+	'open'  => array( 'wpcpm-decide-agr-' . $agr_one . '-return-panel' ),
+	'boxes' => array(
+		'wpcpm-return-' . $agr_one => panel_tie( $agr_one, null, 'Kept, and not refused.' ),
+		'wpcpm-return-' . $agr_two => 'wpcpm-return-' . $agr_two . '-hint |  | ' . "\n",
+	),
+	'leads' => array(),
+) );
+
+unset( $GLOBALS['faithful_nonces'], $GLOBALS['umeta'] );
+$GLOBALS['uid']     = 0;
+$GLOBALS['referer'] = '';
+
+// Task 17b, ruling 5: on the parts the review block that decides prints its download line with no class of its own
+// (its rules live in sheets the Administrator Dashboard never loads); the block drawn to be read keeps it.
+ck( 'ruling 5: the deciding review on the parts prints the download line bare; the read-only block keeps its class', array(
+	1 === preg_match( '#<p><a href="[^"]*action=wpcpm_agreement_download&post=' . $agr_one . '&[^"]*" rel="nofollow">Download the signed agreement</a></p>#', $on_one ),
+	strpos( $on_one, 'wpcpm-agreement-panel__download' ),
+	substr_count( review_drawn( $agr_one, 'administrator', false ), '<p class="wpcpm-agreement-panel__download">' ),
+), array( true, false, 1 ) );
+// Task 18c (the review of Task 18b, minor 4): Accept and Return hand their decision to the area `render_decide_area()`
+// is collecting, and to nothing else. Called outside it, each hands nothing on and prints nothing: the collector stays
+// null, never an array a later area would read as its own.
+$panel_into = new ReflectionProperty( 'WPCPM_Institution_Panel', 'decide_into' );
+$panel_into->setAccessible( true );
+$panel_outside = array();
+foreach ( array( 'render_accept_form' => array( $agr_one, 'Uni A', 3, WPCPM_Return::DASHBOARD ), 'render_return_form' => array( $agr_one, WPCPM_Return::DASHBOARD ) ) as $panel_method => $panel_args ) {
+	$panel_call = new ReflectionMethod( 'WPCPM_Institution_Panel', $panel_method );
+	$panel_call->setAccessible( true );
+	ob_start();
+	$panel_call->invokeArgs( null, $panel_args );
+	$panel_outside[ $panel_method ] = array( ob_get_clean(), $panel_into->getValue() );
+}
+ck( 'outside the Decide area\'s collecting, Accept and Return hand nothing on and print nothing: the collector stays null', $panel_outside, array(
+	'render_accept_form' => array( '', null ),
+	'render_return_form' => array( '', null ),
+) );
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'institution-panel' ) );
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

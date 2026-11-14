@@ -632,6 +632,14 @@ final class WPCPM_Semester_Report_Screen {
 	 *                       else ''.
 	 */
 	public static function render_draft_form( $record, $cohort, $label = '', $return = '' ) {
+		// The form drawn for the Administrator Dashboard, on the shared parts while that page's switch is on: the
+		// Semester reports card's row action. Every other form, the Institutions screen's among them, is today's.
+		if ( WPCPM_Return::DASHBOARD === (string) $return && class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
+			self::render_draft_form_parts( (string) $record, (string) $cohort, (string) $label );
+
+			return;
+		}
+
 		printf(
 			'<form class="wpcpm-report-card__generate" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -650,6 +658,45 @@ final class WPCPM_Semester_Report_Screen {
 
 		printf( '<button type="submit" class="button">%s</button>', esc_html( '' !== $label ? $label : __( 'Draft now', 'wpcredits-program-manager' ) ) );
 
+		echo '</form>';
+	}
+
+	/**
+	 * Draft now on the shared parts (design 2.1, 2.7): the same form, posting the same fields to the same address,
+	 * with no class of today's, the nonce through `WPCPM_UI::nonce()` (no id, so two due rows on the card repeat
+	 * none) and its one button the quiet row action, naming the institution and the semester for a screen reader,
+	 * since every due row's button says the same words.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @param string $cohort Cohort key.
+	 * @param string $label  The button; "Draft now" when empty.
+	 */
+	private static function render_draft_form_parts( $record, $cohort, $label ) {
+		$row  = class_exists( 'WPCPM_Institutions_Index' ) ? WPCPM_Institutions_Index::row( $record ) : null;
+		$name = is_array( $row ) && isset( $row['name'] ) && '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record;
+
+		printf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Reading the program records', 'wpcredits-program-manager' )
+		);
+		echo WPCPM_UI::nonce( self::ACTION_DRAFT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DRAFT ) );
+		printf( '<input type="hidden" name="institution" value="%s" />', esc_attr( $record ) );
+		printf( '<input type="hidden" name="cohort" value="%s" />', esc_attr( $cohort ) );
+		WPCPM_Return::field( WPCPM_Return::DASHBOARD, 'reports' );
+
+		$button = WPCPM_UI::button(
+			array(
+				'label'   => '' !== $label ? $label : __( 'Draft now', 'wpcredits-program-manager' ),
+				'kind'    => 'quiet',
+				'context' => $name . ', ' . WPCPM_Cohort::label( $cohort ),
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'    => 'front',
+			)
+		);
+
+		echo $button; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::button().
 		echo '</form>';
 	}
 

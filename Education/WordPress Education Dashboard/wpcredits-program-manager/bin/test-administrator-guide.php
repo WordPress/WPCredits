@@ -80,7 +80,9 @@ class WPCPM_Dashboard_Frame {
 		$support = get_theme_support( 'wpcpm-dashboard-frame' );
 		return is_array( $support ) && isset( $support[0] ) && in_array( $page, (array) $support[0], true );
 	}
-	public static function open( array $args ) { self::$opened[] = $args; echo '[open]'; }
+	// The surface named and the class the frame's root would carry when it opens (the shared parts' switch).
+	public static $named = array();
+	public static function open( array $args ) { self::$opened[] = $args; self::$named[] = array( WPCPM_UI::surface(), WPCPM_UI::root_class() ); echo '[open]'; }
 	public static function close() { echo '[close]'; }
 }
 
@@ -98,6 +100,10 @@ class WPCPM_Sponsor_Members {
 	public static function is_member( $user = null, $record = '' ) { return ! empty( $GLOBALS['req']['member'] ); }
 }
 
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+// The real switch has the Administrator Dashboard on (Task 18): every drawing below is the switch off, as it was
+// before, unless a block says otherwise; the last block draws under the real switch (Task 18a).
+WPCPM_UI::set_live( array() );
 require_once __DIR__ . '/../includes/modules/class-wpcpm-administrator-guide-view.php';
 
 $fail   = 0;
@@ -541,6 +547,80 @@ ck( 'the stylesheet draws a fold, a clip, steps and the highlight, with a ::high
 	1 === preg_match( '/\x{2014}|\x{2013}/u', $css . $js ),
 ), array( true, true, true, true, true, false ) );
 
+
+/**
+ * The elements a page prints with one of the parts' classes, or with the frame's button or tag that parts.css
+ * restyles under `.wpcpm-ui-on`: how many, and those with no ancestor carrying `wpcpm-ui-on`.
+ *
+ * @param string $html The page.
+ * @return array{0: int, 1: string[]}
+ */
+function parts_in( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . $html . '</div>' );
+	libxml_clear_errors();
+	$all     = 0;
+	$outside = array();
+	foreach ( ( new DOMXPath( $doc ) )->query( '//*[@class]' ) as $node ) {
+		$part = array_filter( preg_split( '/\s+/', trim( (string) $node->getAttribute( 'class' ) ) ), static function ( $c ) { return 'wpcpm-ui-on' !== $c && 1 === preg_match( '/^wpcpm-(ui-|btn$|btn--|status$|status--)/', $c ); } );
+		if ( empty( $part ) ) {
+			continue;
+		}
+		++$all;
+		$inside = false;
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			$inside = $inside || in_array( 'wpcpm-ui-on', preg_split( '/\s+/', (string) $up->getAttribute( 'class' ) ), true );
+		}
+		if ( ! $inside ) {
+			$outside[] = $node->nodeName . '.' . implode( '.', $part );
+		}
+	}
+	return array( $all, $outside );
+}
+
+// The shared parts' switch (Task 9, follow-up round, item 3): the guide opens the dashboard's frame, so it names that
+// dashboard's surface while it draws, and the frame's root carries the switch's class once that surface is on.
+// The guide's own reading layout (its sections and search) is reading content: no part of its own, on or off.
+WPCPM_Dashboard_Frame::$named = array();
+// Off, said here (Task 18a): the real switch has the Administrator Dashboard on.
+WPCPM_UI::set_live( array() );
+$guide_off = WPCPM_Administrator_Guide_View::render( $both, 'Guide' );
+WPCPM_UI::set_live( array( 'administrator' ) );
+$guide_on  = WPCPM_Administrator_Guide_View::render( $both, 'Guide' );
+$sguide_on = WPCPM_Administrator_Guide_View::render( '<h2 id="a">A</h2><p>t</p>', 'Guide', 'sponsor-guide' );
+WPCPM_UI::set_live( array() );
+ck( 'the guide names the Administrator Dashboard\'s surface (the Sponsor Dashboard\'s for the Sponsor guide) while it draws and leaves it after; off its frame carries no switch class, on it does, and its page is the same either way, with no part of its own', array(
+	WPCPM_Dashboard_Frame::$named,
+	WPCPM_UI::surface(),
+	$guide_on === $guide_off,
+	parts_in( $guide_on ),
+	preg_match( '/wpcpm-ui-/', $guide_off . $guide_on . $sguide_on ),
+), array(
+	array( array( 'administrator', '' ), array( 'administrator', ' wpcpm-ui-on' ), array( 'sponsor', '' ) ),
+	'',
+	true,
+	array( 0, array() ),
+	0,
+) );
+
+// Under the real switch, with no set_live() at all (Task 18a): the Administrator guide is drawn on, as the dashboard it
+// opens is; the Sponsor guide, in the Sponsor Dashboard's frame, is drawn as it is with every surface off, byte for byte.
+WPCPM_UI::set_live( array() );
+$sguide_off = WPCPM_Administrator_Guide_View::render( '<h2 id="a">A</h2><p>t</p>', 'Guide', 'sponsor-guide' );
+WPCPM_UI::set_live( null );
+WPCPM_Dashboard_Frame::$named = array();
+$guide_real  = WPCPM_Administrator_Guide_View::render( $both, 'Guide' );
+$sguide_real = WPCPM_Administrator_Guide_View::render( '<h2 id="a">A</h2><p>t</p>', 'Guide', 'sponsor-guide' );
+ck( 'under the real switch the Administrator guide\'s frame is on and the Sponsor guide is its off drawing, byte for byte', array(
+	WPCPM_Dashboard_Frame::$named,
+	$guide_real === $guide_on,
+	$sguide_real === $sguide_off,
+), array(
+	array( array( 'administrator', ' wpcpm-ui-on' ), array( 'sponsor', '' ) ),
+	true,
+	true,
+) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

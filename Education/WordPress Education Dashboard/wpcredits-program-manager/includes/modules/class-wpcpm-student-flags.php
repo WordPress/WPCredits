@@ -1223,7 +1223,7 @@ final class WPCPM_Student_Flags {
 	/**
 	 * The opening of the one form a dashboard card draws for all its "We've already talked" buttons
 	 * (Release B, the trial's F5): the action and the way back to the card, once. The card closes it
-	 * with `</form>` after its table, and each row holds a `talked_button()`.
+	 * with `</form>` after its tables, and each row's press posts to the student's own `talked_url()`.
 	 *
 	 * @param string $card A card key of `WPCPM_Return::ANCHORS`, the card the press lands back on.
 	 * @return string Escaped markup.
@@ -1233,8 +1233,10 @@ final class WPCPM_Student_Flags {
 		WPCPM_Return::field( WPCPM_Return::DASHBOARD, (string) $card );
 		$fields = (string) ob_get_clean();
 
+		// On the Administrator Dashboard's parts the form carries no class: its one rule only set a form's own margin,
+		// and no script reads it (Task 17b, ruling 5).
 		return sprintf(
-			'<form class="wpcpm-quiet__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s"><input type="hidden" name="action" value="%3$s" />%4$s',
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s"><input type="hidden" name="action" value="%3$s" />%4$s',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Saving', 'wpcredits-program-manager' ),
 			esc_attr( self::ACTION_TALKED ),
@@ -1243,24 +1245,15 @@ final class WPCPM_Student_Flags {
 	}
 
 	/**
-	 * One row's "We've already talked" button inside a card's one form (`talked_card_form()`): the
-	 * student in its value, and the student's own nonce in the address it posts to, so the press is
-	 * checked against that student as every press is, with no field of its own and no id to repeat.
+	 * The address one row's "We've already talked" press posts the card's one form to: admin-post.php with that
+	 * student's own nonce, so the press is checked against that student. The Students gone quiet card's row action on the
+	 * shared parts prints it.
 	 *
-	 * @param int    $student_id The student's account.
-	 * @param string $name       The student's name, for the words a screen reader hears after the label.
-	 * @return string Escaped markup.
+	 * @param int $student_id The student's account.
+	 * @return string The address, not yet escaped.
 	 */
-	public static function talked_button( $student_id, $name = '' ) {
-		$student_id = (int) $student_id;
-
-		return sprintf(
-			'<button type="submit" class="wpcpm-button wpcpm-button--secondary" name="student" value="%1$d" formaction="%2$s">%3$s%4$s</button>',
-			$student_id,
-			esc_url( add_query_arg( '_wpnonce', wp_create_nonce( self::ACTION_TALKED . '_' . $student_id ), admin_url( 'admin-post.php' ) ) ),
-			esc_html__( 'We\'ve already talked', 'wpcredits-program-manager' ),
-			'' !== trim( (string) $name ) ? ' <span class="screen-reader-text">' . esc_html( sprintf( /* translators: %s: a student's name. */ __( 'for %s', 'wpcredits-program-manager' ), trim( (string) $name ) ) ) . '</span>' : ''
-		);
+	public static function talked_url( $student_id ) {
+		return add_query_arg( '_wpnonce', wp_create_nonce( self::ACTION_TALKED . '_' . (int) $student_id ), admin_url( 'admin-post.php' ) );
 	}
 
 	/**

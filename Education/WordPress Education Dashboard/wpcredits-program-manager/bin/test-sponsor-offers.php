@@ -48,6 +48,8 @@ $GLOBALS['next_post'] = 900;
 $GLOBALS['flash']     = array();
 $GLOBALS['settings']  = array();
 $GLOBALS['program']   = array();
+// Nobody is signed in until the fixture says who is: get_current_user_id() reads this before then.
+$GLOBALS['uid']       = 0;
 
 class WP_Error {
 	private $c, $m, $d;
@@ -93,6 +95,7 @@ function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES )
 // rule whatever it did, and `WPCPM_Typed_Text::cleaner_loses()` would refuse typings core keeps,
 // "We <3 WordPress" among them.
 require_once __DIR__ . '/stubs/cleaners.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 /**
  * What WordPress does to the title of a post a person without `unfiltered_html` saves
  * (`wp_filter_kses()` on `title_save_pre`), for the text that reaches it after the cleaner: a "&"
@@ -215,7 +218,35 @@ function wp_die( $message = '', $code = 0 ) { throw new WPCPM_Test_Die( (string)
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function add_query_arg( $key, $value, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . rawurlencode( (string) $value ); }
-function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// The nonce as the suite has always read it. With `$GLOBALS['faithful_nonces']` set, as WordPress prints it: the
+// field with the id core gives it and the referer beside it, so a form drawn through `WPCPM_UI::nonce()` (the same
+// name and value, no id) can be compared with today's field by field (Task 13a).
+function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />';
+	wp_referer_field();
+}
+function wp_create_nonce( $a = '' ) { return 'nonce-' . $a; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
+// What the shared parts (`WPCPM_UI`) ask of WordPress: which side draws, a refusal said to the developer, and the
+// parts' sheet and script, registered once each before the script is asked for.
+function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
+function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_scripts'][ $h ] ); }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function selected( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string) $b ) ? ' selected="selected"' : ''; if ( $echo ) { echo $r; } return $r; }
 function checked( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string) $b ) ? ' checked="checked"' : ''; if ( $echo ) { echo $r; } return $r; }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
@@ -344,7 +375,7 @@ class WPCPM_Mail {
 	public static function site_name() { return 'WP Credits'; }
 	public static function reply_to( $person ) { return $person instanceof WP_User ? array( 'Reply-To: ' . $person->user_email ) : array(); }
 }
-class WPCPM_Institutions { public static function notify_managers( $context, $build, $key = 'agreement_notify' ) { $GLOBALS['sent'][] = array( 'managers', $key, $context, call_user_func( $build, null ) ); return 1; } }
+class WPCPM_Institutions { const FLASH = 'institutions'; public static function notify_managers( $context, $build, $key = 'agreement_notify' ) { $GLOBALS['sent'][] = array( 'managers', $key, $context, call_user_func( $build, null ) ); return 1; } }
 class WPCPM_Mentors_Sync {
 	public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); }
 	public static function sponsorship() { return array(); }
@@ -395,6 +426,11 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
 // The review of a sponsor member's offers and changes (1.123.18), and the fields that bring its
 // decisions back to the Administrator Dashboard.
 require_once __DIR__ . '/../includes/class-wpcpm-return.php';
+// The shared parts (Task 13a): an item is drawn on them behind the switch.
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-program-manager/' );
+define( 'WPCPM_VERSION', '0.0.0-test' );
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offer-review.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
@@ -2021,13 +2057,14 @@ $GLOBALS['uid'] = 1;
 ob_start();
 WPCPM_Sponsor_Offer_Review::render_item( WPCPM_Sponsor_Offer_Review::waiting_all()[0], 'dashboard' );
 $item = ob_get_clean();
-ck( 'an item reads the offer as students would, then Approve and the folded Return with a note, in the posts\' own words', array(
-	false !== strpos( $item, '<article class="wpcpm-administrator__item wpcpm-sponsor-offer" id="wpcpm-sponsor-offer-' . $rv4 . '">' ),
+// The item as the parts draw it, since its old branch left (Task 18b).
+ck( 'an item reads the offer as students would, then Approve and Return with a note, in the posts\' own words', array(
+	false !== strpos( $item, '<article class="wpcpm-sponsor-offer wpcpm-ui-item" id="wpcpm-sponsor-offer-' . $rv4 . '">' ),
 	false !== strpos( $item, 'Drawn &amp; &quot;decided&quot;' ),
 	false !== strpos( $item, 'A new offer' ),
-	false !== strpos( $item, '<dt>What you get</dt><dd>A year of hosting.</dd>' ),
+	false !== strpos( $item, '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">What you get</th><td class="wpcpm-ui-cell--text" role="cell">A year of hosting.</td></tr>' ),
 	false !== strpos( $item, 'value="wpcpm_offer_approve"' ) && false !== strpos( $item, '>Approve</button>' ),
-	false !== strpos( $item, '<summary class="button">Return with a note</summary>' ),
+	false !== strpos( $item, '>Return with a note</button>' ),
 	false !== strpos( $item, '>Return it with this note</button>' ),
 	false !== strpos( $item, 'name="wpcpm_return" value="dashboard"' ),
 ), array( true, true, true, true, true, true, true, true ) );
@@ -2065,8 +2102,8 @@ function hc_item( $offer_id ) {
 		return '';
 	} );
 }
-/** The Codes added block of an item, or '' when it has none. */
-function hc_codes_block( $item ) { return preg_match( '#<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added">.*?</dd></div>#s', $item, $m ) ? $m[0] : ''; }
+/** The Codes added row of an item (the key and value table part since task V1, ruling 8), or '' when it has none. */
+function hc_codes_block( $item ) { return preg_match( '#<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Codes added</th>.*?</td></tr>#s', $item, $m ) ? $m[0] : ''; }
 
 // The pool's own rules first.
 ck( 'the pool keeps its version: held codes are a list beside the others, which a pool written by 1.123.19 reads as empty', array( WPCPM_Sponsor_Codes::VERSION, WPCPM_Sponsor_Codes::empty_pool()['held'] ), array( 1, array() ) );
@@ -2135,7 +2172,7 @@ $item = hc_item( $hc );
 ck( 'the review item says it is changes to a live offer and lists the codes added under Codes added: how many, how many are web addresses, and the codes, web addresses first, as text and never as a link', array(
 	false !== strpos( $item, 'Changes to a live offer' ),
 	hc_codes_block( $item ),
-), array( true, '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>Codes added</dt><dd><p>2 codes in all. Of these, 1 is a web address, listed first.</p><ul class="wpcpm-sponsor-offer__codes"><li><code>https://shop.example/checkout?c=HELD1</code></li><li><code>HC-3</code></li></ul></dd></div>' ) );
+), array( true, '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Codes added</th><td class="wpcpm-ui-cell--text" role="cell">2 codes in all. Of these, 1 is a web address, listed first.<code class="wpcpm-ui-code">https://shop.example/checkout?c=HELD1</code><code class="wpcpm-ui-code">HC-3</code></td></tr>' ) );
 ck( 'the fold for a return says the codes added are taken out of the offer', false !== strpos( $item, 'The codes added are taken out of the offer.' ), true );
 $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $hc ] = time();
 $r = post( rv_fields( $hc ), $k_approve );
@@ -2180,7 +2217,7 @@ post( wpcpm_test_unedited( $A, $hc, array( 'wpcpm_text' => 'Two seats in the cou
 post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => "BOTH-1\nBOTH-2" ), $k_codes );
 $GLOBALS['uid'] = 1;
 $item = hc_item( $hc );
-ck( 'an offer with a held change and held codes is one item in the queue, showing both', array( count( array_filter( rv_waiting(), static function ( $w ) use ( $hc ) { return $w[0] === $hc; } ) ), false !== strpos( $item, '<dt>What you get</dt>' ), false !== strpos( $item, '<li><code>BOTH-1</code></li><li><code>BOTH-2</code></li>' ) ), array( 1, true, true ) );
+ck( 'an offer with a held change and held codes is one item in the queue, showing both', array( count( array_filter( rv_waiting(), static function ( $w ) use ( $hc ) { return $w[0] === $hc; } ) ), false !== strpos( $item, '<th scope="row" role="rowheader" class="wpcpm-ui-cell--text">What you get</th>' ), false !== strpos( $item, '<code class="wpcpm-ui-code">BOTH-1</code><code class="wpcpm-ui-code">BOTH-2</code>' ) ), array( 1, true, true ) );
 $r    = post( rv_fields( $hc ), $k_approve );
 $hc_o = WPCPM_Sponsor_Offers::read( $hc );
 ck( 'one Approve puts both in place: the words students see and the codes they can claim', array( $r[0], $hc_o['text'], $hc_o['proposed'], WPCPM_Sponsor_Codes::counts( $hc )['available'], WPCPM_Sponsor_Codes::held_count( $hc ), rv_student_sees( $hc )[1] ), array( 'offer-approved', 'Two seats in the course.', array(), 3, 0, 'Two seats in the course.' ) );
@@ -2197,7 +2234,7 @@ post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_new, 'wpcpm_state' => '
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc_new, 'wpcpm_codes' => 'www.shop.example/new-d' ), $k_codes );
 ck( 'and so do codes added while the new offer waits for review', array( $r[0], WPCPM_Sponsor_Offers::read( $hc_new )['state'], WPCPM_Sponsor_Codes::counts( $hc_new )['available'], WPCPM_Sponsor_Codes::held_count( $hc_new ) ), array( 'codes-added', 'review', 4, 0 ) );
 $GLOBALS['uid'] = 1;
-ck( 'a new pool\'s review shows its codes under the same Codes added', hc_codes_block( hc_item( $hc_new ) ), '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>Codes added</dt><dd><p>4 codes in all. Of these, 1 is a web address, listed first.</p><ul class="wpcpm-sponsor-offer__codes"><li><code>www.shop.example/new-d</code></li><li><code>NEW-A</code></li><li><code>NEW-B</code></li><li><code>NEW-C</code></li></ul></dd></div>' );
+ck( 'a new pool\'s review shows its codes under the same Codes added', hc_codes_block( hc_item( $hc_new ) ), '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Codes added</th><td class="wpcpm-ui-cell--text" role="cell">4 codes in all. Of these, 1 is a web address, listed first.<code class="wpcpm-ui-code">www.shop.example/new-d</code><code class="wpcpm-ui-code">NEW-A</code><code class="wpcpm-ui-code">NEW-B</code><code class="wpcpm-ui-code">NEW-C</code></td></tr>' );
 WPCPM_Sponsor_Offers::set_state( $hc_new, 'ended' );
 
 // Twenty at most, web addresses first, every code escaped.
@@ -2214,10 +2251,10 @@ post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $hc, 'wpcpm_codes' => implo
 $GLOBALS['uid'] = 1;
 $block = hc_codes_block( hc_item( $hc ) );
 ck( 'of twenty-five codes twenty are shown, the three web addresses first, whatever their case, and a line counts the five more', array(
-	false !== strpos( $block, '<p>25 codes in all. Of these, 3 are web addresses, listed first.</p>' ),
-	substr_count( $block, '<li>' ),
-	0 === strpos( substr( $block, (int) strpos( $block, '<ul' ) ), '<ul class="wpcpm-sponsor-offer__codes"><li><code>HTTP://SHOP.EXAMPLE/UPPER</code></li><li><code>WWW.shop.example/w</code></li><li><code>https://shop.example/&lt;script&gt;</code></li><li><code>MANY-01</code></li>' ),
-	false !== strpos( $block, '</ul><p>5 more codes are not shown.</p></dd></div>' ),
+	false !== strpos( $block, '<td class="wpcpm-ui-cell--text" role="cell">25 codes in all. Of these, 3 are web addresses, listed first.<code' ),
+	substr_count( $block, '<code class="wpcpm-ui-code">' ),
+	0 === strpos( substr( $block, (int) strpos( $block, '<code' ) ), '<code class="wpcpm-ui-code">HTTP://SHOP.EXAMPLE/UPPER</code><code class="wpcpm-ui-code">WWW.shop.example/w</code><code class="wpcpm-ui-code">https://shop.example/&lt;script&gt;</code><code class="wpcpm-ui-code">MANY-01</code>' ),
+	false !== strpos( $block, '</code> <span class="wpcpm-ui-cell__sub">5 more codes are not shown.</span></td></tr>' ),
 	strpos( $block, '<a ' ),
 	strpos( $block, '<script>' ),
 ), array( true, 20, true, true, false, false ) );
@@ -2282,7 +2319,7 @@ ck( 'a member\'s codes added to it go in, read with the offer, and take its OK a
 $r = post( array( 'wpcpm_sponsor' => $K, 'wpcpm_offer' => $seeded, 'wpcpm_state' => 'live' ), $k_state );
 ck( 'the press sends it for review, and nobody can claim the link meanwhile', array( $r[0], WPCPM_Sponsor_Offers::read( $seeded )['state'], hc_claimed( $seeded, 20 ), in_array( array( $seeded, 'new' ), rv_waiting(), true ) ), array( 'offer-sent', 'review', 'wpcpm_claim_refused', true ) );
 $GLOBALS['uid'] = 1;
-ck( 'the review lists the code under Codes added', hc_codes_block( hc_item( $seeded ) ), '<div class="wpcpm-offer__detail wpcpm-sponsor-offer__codes-added"><dt>Codes added</dt><dd><p>1 code in all. Of these, 1 is a web address, listed first.</p><ul class="wpcpm-sponsor-offer__codes"><li><code>https://evil.example/checkout</code></li></ul></dd></div>' );
+ck( 'the review lists the code under Codes added', hc_codes_block( hc_item( $seeded ) ), '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Codes added</th><td class="wpcpm-ui-cell--text" role="cell">1 code in all. Of these, 1 is a web address, listed first.<code class="wpcpm-ui-code">https://evil.example/checkout</code></td></tr>' );
 $r = post( rv_fields( $seeded ), $k_approve );
 ck( 'and only once it is approved can a student claim it', array( $r[0], WPCPM_Sponsor_Offers::read( $seeded )['state'], hc_claimed( $seeded, 20 ) ), array( 'offer-approved', 'live', 'https://evil.example/checkout' ) );
 $seed_staff = WPCPM_Sponsor_Offers::create( $K, array( 'title' => 'Drafted by the program', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ), false, true );
@@ -2314,7 +2351,8 @@ $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] = time();
 $r = post( rv_fields( $race, array( 'wpcpm_note' => "Keep this\nnote." ) ), $k_return );
 unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $race ] );
 $race_item = hc_item( $race );
-ck( 'a return the pool\'s lock refuses is told to try again, nothing moves, and the fold opens on the note as it was typed', array( $r[0], WPCPM_Sponsor_Codes::held_count( $race ), false !== strpos( $race_item, '<details class="wpcpm-sponsor-offer__return" open>' ), false !== strpos( $race_item, ">\nKeep this\nnote.</textarea>" ) ), array( 'offer-review-failed', 1, true, true ) );
+// The return's panel as the parts draw it (`WPCPM_UI::decide()`), since the old fold left with its branch (Task 18b).
+ck( 'a return the pool\'s lock refuses is told to try again, nothing moves, and the fold opens on the note as it was typed', array( $r[0], WPCPM_Sponsor_Codes::held_count( $race ), false !== strpos( $race_item, 'id="wpcpm-decide-offer-' . $race . '-return-panel" data-wpcpm-panel data-wpcpm-open>' ), false !== strpos( $race_item, ">\nKeep this\nnote.</textarea>" ) ), array( 'offer-review-failed', 1, true, true ) );
 
 // An offer that ends takes the codes waiting on it along: nothing can claim them again, nobody can
 // discard them from the card, and the queue would find the mark for ever.
@@ -2397,7 +2435,7 @@ WPCPM_Sponsor_Offers::set_state( $fp_new, 'ended' );
 
 $GLOBALS['uid'] = 1;
 $fp_item = hc_item( $fp );
-ck( 'the item\'s Approve and Return forms both carry the fingerprint of what it shows', array( substr_count( $fp_item, '<input type="hidden" name="wpcpm_seen" value="' . fp_now( $fp ) . '" />' ), false !== strpos( $fp_item, '<li><code>SEEN-3</code></li>' ) ), array( 2, true ) );
+ck( 'the item\'s Approve and Return forms both carry the fingerprint of what it shows', array( substr_count( $fp_item, '<input type="hidden" name="wpcpm_seen" value="' . fp_now( $fp ) . '" />' ), false !== strpos( $fp_item, '<code class="wpcpm-ui-code">SEEN-3</code>' ) ), array( 2, true ) );
 ck( 'and the refusal says so, in its own words', isset( WPCPM_Sponsor_Offer_Review::messages()['offer-changed'] ) ? WPCPM_Sponsor_Offer_Review::messages()['offer-changed'] : null, array( 'error', 'This offer changed after you opened it, so nothing was decided. Read it again, then decide.' ) );
 
 // Drawn, then a member adds a code before the press.
@@ -2414,10 +2452,10 @@ $r = post( array( 'wpcpm_offer' => $fp, 'wpcpm_seen' => $fp_seen, 'wpcpm_note' =
 $fp_redrawn = hc_item( $fp );
 ck( 'a Return drawn before it decides nothing either: no code dropped, no note, no stamp, no email, nothing on the trail', array( $r[0], fp_state( $fp ) === $fp_unseen, $GLOBALS['sent'], count( $GLOBALS['audit'] ) - $fp_trail ), array( 'offer-changed', true, array(), 0 ) );
 ck( 'and the item drawn again shows what waits now, with the new fingerprint, and its fold open on the note as it was typed', array(
-	false !== strpos( $fp_redrawn, '<li><code>https://shop.example.test/unseen</code></li>' ),
+	false !== strpos( $fp_redrawn, '<code class="wpcpm-ui-code">https://shop.example.test/unseen</code>' ),
 	substr_count( $fp_redrawn, 'name="wpcpm_seen" value="' . fp_now( $fp ) . '"' ),
 	fp_now( $fp ) !== $fp_seen,
-	false !== strpos( $fp_redrawn, '<details class="wpcpm-sponsor-offer__return" open>' ),
+	false !== strpos( $fp_redrawn, 'id="wpcpm-decide-offer-' . $fp . '-return-panel" data-wpcpm-panel data-wpcpm-open>' ),
 	false !== strpos( $fp_redrawn, ">\nNot the shop link.\nSingle codes only.</textarea>" ),
 ), array( true, 2, true, true, true ) );
 
@@ -2731,5 +2769,806 @@ $mv_on = $mv_said( 'live', $mv_make( 'on' ) );
 ck( 'the switch-on of an approved draft says its own sentence too, naming the offer', $mv_on, array( 'offer-switched-on', 'Switched on: Cloud credits is live.' ) );
 $GLOBALS['uid'] = 5;
 
+echo "\n=== The review item on the Administrator Dashboard's parts: Approve or Return with a note (UI shared parts, Task 13a) ===\n";
+// The Administrator Dashboard suite draws each item through a stand-in, so the real item is drawn here, under
+// `WPCPM_UI::enter( 'administrator' )` with the dashboard's surface on, as the dashboard draws it: an item header (the
+// offer's title, then the company, whether it is new or changes, "Sent ..." and "By ..." as facts), what students would
+// read and the codes it adds as today, then one Decide area, Approve at once and Return with a note in a panel. Off the
+// surface, and on a wp-admin tab (off for this whole release), the item is today's, byte for byte.
+
+/** A render read as a document. */
+function of_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+/** Every form a render holds, by its admin-post action: how it posts, its guard, its hidden fields in order, its boxes, its submits, its question. */
+function of_posted( $html ) {
+	$x   = of_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' minlength=' . $box->getAttribute( 'minlength' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ( $box->hasAttribute( 'required' ) ? ' required' : '' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			$asks      = '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ? $button->getAttribute( 'data-wpcpm-confirm' ) : $asks;
+		}
+		$out[ $action ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ) . ' ' . $form->getAttribute( 'enctype' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+/** The kinds and words of the buttons a path holds, in order. */
+function of_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : ( false !== strpos( $class, ' wpcpm-btn ' ) ? 'primary' : 'old' ) ) );
+		$out[] = $kind . ': ' . trim( $button->textContent );
+	}
+	return $out;
+}
+/** Whether no id repeats, and every aria-controls, for and aria-describedby that names nothing on the page. */
+function of_ids( DOMXPath $x ) {
+	$ids   = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@id]' ) ) );
+	$loose = array();
+	foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+		foreach ( $x->query( '//*[@' . $attr . ']' ) as $node ) {
+			if ( ! in_array( $node->getAttribute( $attr ), $ids, true ) ) {
+				$loose[] = $attr . '=' . $node->getAttribute( $attr );
+			}
+		}
+	}
+	foreach ( $x->query( '//*[@aria-describedby]' ) as $node ) {
+		foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+			if ( ! in_array( $described, $ids, true ) ) {
+				$loose[] = 'aria-describedby=' . $described;
+			}
+		}
+	}
+	return array( count( $ids ) === count( array_unique( $ids ) ), $loose );
+}
+/**
+ * The items for some offers as the next request draws them for the current user, with a surface named (or none) and
+ * the Administrator Dashboard's switch on.
+ *
+ * @param int[]  $ids     The offers, in order.
+ * @param string $surface 'administrator', a wp-admin tab, or '' for none.
+ * @return string
+ */
+function of_drawn( array $ids, $surface ) {
+	return next_request( static function () use ( $ids, $surface ) {
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		if ( '' !== $surface ) {
+			WPCPM_UI::enter( $surface );
+		}
+		ob_start();
+		try {
+			$rows = array();
+			foreach ( WPCPM_Sponsor_Offer_Review::waiting_all() as $row ) {
+				$rows[ (int) $row['id'] ] = $row;
+			}
+			foreach ( $ids as $id ) {
+				if ( isset( $rows[ (int) $id ] ) ) {
+					WPCPM_Sponsor_Offer_Review::render_item( $rows[ (int) $id ], 'dashboard' );
+				}
+			}
+		} finally {
+			$html = (string) ob_get_clean();
+			if ( 'administrator' === $surface ) {
+				parts_inventory_add( $html );
+			}
+			if ( '' !== $surface ) {
+				WPCPM_UI::leave();
+			}
+			WPCPM_UI::set_live( null );
+		}
+		return $html;
+	} );
+}
+/** Press Return with a note on one offer as the Administrator, from the Administrator Dashboard. */
+function of_return( $offer_id, $note ) {
+	$GLOBALS['uid'] = 1;
+	return post( rv_fields( $offer_id, array( 'wpcpm_note' => $note, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => WPCPM_Sponsor_Offer_Review::CARD ) ), array( 'WPCPM_Sponsor_Offer_Review', 'handle_return' ) );
+}
+
+// Two new offers sent for review, and a live pool to which a member added codes that wait.
+$GLOBALS['uid'] = 5;
+post( array_merge( $rv_new, array( 'wpcpm_title' => 'Parts offer one & "two"' ) ), $k_save );
+$of_one = wpcpm_test_newest( $A );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $of_one, 'wpcpm_state' => 'live' ), $k_state );
+post( array_merge( $rv_new, array( 'wpcpm_title' => 'Parts offer two', 'wpcpm_shared' => 'PARTS-TWO' ) ), $k_save );
+$of_two = wpcpm_test_newest( $A );
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $of_two, 'wpcpm_state' => 'live' ), $k_state );
+$GLOBALS['uid'] = 1;
+$of_pool = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Parts pool', 'kind' => 'codes', 'text' => 'A seat in the course.', 'instructions' => 'Use the code at checkout.', 'url' => '', 'audience' => array(), 'low' => 3, 'expires' => '' ), false, true );
+WPCPM_Sponsor_Codes::add( $of_pool, "PP-1\nPP-2" );
+WPCPM_Sponsor_Offers::set_state( $of_pool, 'live' );
+$GLOBALS['uid'] = 5;
+post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $of_pool, 'wpcpm_codes' => "https://shop.example/checkout?c=PARTS1\nPP-3" ), $k_codes );
+$GLOBALS['uid'] = 1;
+$GLOBALS['faithful_nonces'] = true;
+$GLOBALS['enqueued']        = array();
+ck( 'the fixture: two new offers and one live pool with codes waiting are in the queue', array( in_array( array( $of_one, 'new' ), rv_waiting(), true ), in_array( array( $of_two, 'new' ), rv_waiting(), true ), in_array( array( $of_pool, 'changes' ), rv_waiting(), true ), WPCPM_Sponsor_Offers::read( $of_pool )['codes_held'] ), array( true, true, true, 2 ) );
+$of_long  = str_repeat( 'n', WPCPM_Sponsor_Offer_Review::MAX_NOTE + 1 );
+$of_lossy = "Kids <12 free, adults >18 pay.\nPlease change it.";
+
+// The items are drawn on the parts alone since their old branch left (Task 18b), and their off digests with them.
+$GLOBALS['uid'] = 1;
+
+$of_on    = of_drawn( array( $of_one, $of_pool ), 'administrator' );
+$of_x     = of_doc( $of_on );
+$of_area  = '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-offer-' . $of_one . '"]';
+$of_panel = '//div[@id="wpcpm-decide-offer-' . $of_one . '-return-panel"]';
+$of_items = array();
+if ( preg_match_all( '#<article class="wpcpm-sponsor-offer wpcpm-ui-item" id="wpcpm-sponsor-offer-(\d+)">(.*?)</article>#s', $of_on, $of_found, PREG_SET_ORDER ) ) {
+	foreach ( $of_found as $found ) {
+		$of_items[ (int) $found[1] ] = $found[2];
+	}
+}
+// Task V1, ruling 8: what students would read is the key and value table part.
+$of_details = static function ( $html ) { return preg_match( '#<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table"><tbody role="rowgroup">.*?</table>#s', $html, $m ) ? $m[0] : ''; };
+
+// Check 1: posted fields. The old forms left with their branch (Task 18b), so what the forms post is pinned to what
+// the old forms posted, read at 76b5ecff, where this check compared the two: the address, the guard, the hidden
+// fields in order with the nonce keyed to the offer, its referer, the fingerprint of what the item shows (keyed with
+// the site's own key, made afresh each run, so read through `fp_now()`) and the way back to the card, the box and its
+// bound, no question.
+$of_form = static function ( $action, $id, array $boxes ) {
+	return array(
+		'posts'   => 'post https://example.test/wp-admin/admin-post.php ',
+		'guard'   => 'once ',
+		'hidden'  => array( '_wpnonce=nonce-' . $action . '_' . $id, '_wp_http_referer=/administrator-dashboard/', 'action=' . $action, 'wpcpm_offer=' . $id, 'wpcpm_seen=' . fp_now( $id ), 'wpcpm_return=dashboard', 'wpcpm_return_to=sponsor-offers-review' ),
+		'boxes'   => $boxes,
+		'submits' => array( '=' ),
+		'asks'    => '',
+	);
+};
+$of_note = array( 'wpcpm_note minlength= maxlength=2000 required' );
+ck( 'on, Approve and Return post exactly what the handlers read, for a new offer and for codes added to a live one: the same address, guard, hidden fields in order with the nonce keyed to the offer, its referer and the fingerprint of what the item shows, the same box and bounds, no question (posted fields)', of_posted( $of_on ), array(
+	WPCPM_Sponsor_Offer_Review::ACTION_APPROVE => array( $of_form( 'wpcpm_offer_approve', $of_one, array() ), $of_form( 'wpcpm_offer_approve', $of_pool, array() ) ),
+	WPCPM_Sponsor_Offer_Review::ACTION_RETURN  => array( $of_form( 'wpcpm_offer_return', $of_one, $of_note ), $of_form( 'wpcpm_offer_return', $of_pool, $of_note ) ),
+) );
+
+// The item header, and what the item prints of the offer, as today.
+ck( 'on, each item keeps its article and anchor, and opens with the item header: the title, then the company, new or changes, "Sent ..." and "By ..." as muted facts; none of today\'s heading or fact markup is left', array(
+	array_keys( $of_items ),
+	0 === strpos( $of_items[ $of_one ] ?? '', '<h4 class="wpcpm-ui-item__title">Parts offer one &amp; &quot;two&quot;</h4><p class="wpcpm-ui-item__facts"><span class="wpcpm-ui-item__run"><span class="wpcpm-ui-item__fact">Mango Example</span><span class="wpcpm-ui-item__fact">A new offer</span><span class="wpcpm-ui-item__fact">Sent ' ),
+	1 === preg_match( '#^<h4 class="wpcpm-ui-item__title">Parts pool</h4><p class="wpcpm-ui-item__facts"><span class="wpcpm-ui-item__run"><span class="wpcpm-ui-item__fact">Mango Example</span><span class="wpcpm-ui-item__fact">Changes to a live offer</span><span class="wpcpm-ui-item__fact">Sent [^<]+ ago</span><span class="wpcpm-ui-item__fact">By Rep One</span></span></p><table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table">#', $of_items[ $of_pool ] ?? '' ),
+	strpos( $of_on, 'wpcpm-administrator__item-title' ),
+	strpos( $of_on, 'wpcpm-administrator__fact' ),
+	strpos( $of_on, 'wpcpm-administrator__kind' ),
+), array( array( $of_one, $of_pool ), true, true, false, false, false ) );
+// The one printer of what students would read, `render_details()`, drew the old items too; its words are pinned in the
+// checks above, and here where it stands.
+ck( 'what students would read, and the codes it adds, are today\'s words in the key and value table part (task V1, ruling 8), between the header and the Decide area; none of the old definition list is left', array(
+	substr_count( $of_on, '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table">' ),
+	'' !== $of_details( $of_items[ $of_one ] ?? '' ),
+	'' !== $of_details( $of_items[ $of_pool ] ?? '' ),
+	false !== strpos( $of_items[ $of_pool ] ?? '', '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Codes added</th><td class="wpcpm-ui-cell--text" role="cell">' ),
+	strpos( $of_items[ $of_one ] ?? '', '</tbody></table><div class="wpcpm-ui-decide" id="wpcpm-decide-offer-' . $of_one . '">' ) > 0,
+	strpos( $of_on, '<dl' ) . strpos( $of_on, 'wpcpm-offer__detail' ) . strpos( $of_on, 'wpcpm-sponsor-offer__codes' ),
+), array( 2, true, true, true, true, '' ) );
+// Its words as the parts print them for this fixture (Task 18c: the review of Task 18b found them pinned for presence
+// only once the old items left): a new offer's six details in today's order, and a live pool's codes added, the web
+// address first, each code whole on its own line. Nothing in them comes from a clock.
+$of_kv = static function ( array $rows ) {
+	$out = '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table"><tbody role="rowgroup">';
+	foreach ( $rows as $key => $value ) {
+		$out .= '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">' . $key . '</th><td class="wpcpm-ui-cell--text" role="cell">' . $value . '</td></tr>';
+	}
+	return $out . '</tbody></table>';
+};
+ck( 'what students would read, word for word: the new offer\'s details in today\'s order, and the pool\'s codes added, the web address first, each code whole', array(
+	$of_details( $of_items[ $of_one ] ?? '' ),
+	$of_details( $of_items[ $of_pool ] ?? '' ),
+), array(
+	$of_kv( array(
+		'What you get'            => 'A year of hosting.',
+		'How to redeem it'        => 'Use the link.',
+		'Link'                    => 'https://plugins.mango-example.com/reviewed',
+		'Kind'                    => 'One code or link everyone uses',
+		'The shared code or link' => 'https://plugins.mango-example.com/checkout?c=REVIEW1',
+		'Open to'                 => 'Current students',
+	) ),
+	$of_kv( array( 'Codes added' => '2 codes in all. Of these, 1 is a web address, listed first.<code class="wpcpm-ui-code">https://shop.example/checkout?c=PARTS1</code><code class="wpcpm-ui-code">PP-3</code>' ) ),
+) );
+
+// Check 5: the words, one primary, nothing red.
+ck( 'on, each item\'s decision is one Decide area, id wpcpm-decide-offer-{ID}, headed "Decide" under the item\'s heading, and nothing of today\'s block: no fold, no WordPress button', array(
+	$of_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$of_x->query( $of_area )->length,
+	trim( (string) $of_x->evaluate( 'string(' . $of_area . '/h5[@class="wpcpm-ui-h"])' ) ),
+	strpos( $of_on, '<details' ),
+	strpos( $of_on, 'class="button' ),
+	strpos( $of_on, 'wpcpm-sponsor-offer__decide' ),
+	strpos( $of_on, 'wpcpm-sponsor-offer__return' ),
+), array( 2, 1, 'Decide', false, false, false, false ) );
+ck( 'its row: Approve, the one primary, acting at once with no question, as today; Return with a note, a secondary opener of its panel', array(
+	of_buttons( $of_x, $of_area . '/div[@class="wpcpm-ui-actions"]//button' ),
+	$of_x->query( $of_area . '/div[@class="wpcpm-ui-actions"]/form/button[@type="submit"][not(@data-wpcpm-confirm)]' )->length,
+	$of_x->query( $of_area . '/div[@class="wpcpm-ui-actions"]/button[@type="button"][@aria-controls="wpcpm-decide-offer-' . $of_one . '-return-panel"][@aria-expanded="false"]' )->length,
+), array( array( 'primary: Approve', 'secondary: Return with a note' ), 1, 1 ) );
+ck( 'the panel: today\'s label "A note for the sponsor", now visible, with Required, today\'s sentence as the hint, word for word, the button that keeps "Return it with this note", and Cancel', array(
+	trim( (string) $of_x->evaluate( 'string(' . $of_panel . '//label[@for="wpcpm-offer-note-' . $of_one . '"])' ) ),
+	trim( (string) $of_x->evaluate( 'string(//p[@id="wpcpm-offer-note-' . $of_one . '-hint"])' ) ),
+	of_buttons( $of_x, $of_panel . '//button' ),
+), array(
+	'A note for the sponsor Required',
+	'The offer goes back to the sponsor\'s account as a draft, and your note is sent by email to the person who sent it for review.',
+	array( 'secondary: Return it with this note', 'quiet: Cancel' ),
+) );
+ck( 'codes added to a live offer keep their own hint, today\'s sentence for changes and the line that says the codes are taken out', trim( (string) $of_x->evaluate( 'string(//p[@id="wpcpm-offer-note-' . $of_pool . '-hint"])' ) ), 'The changes go back to the sponsor\'s account, students still seeing the offer as it reads, and your note is sent by email to the person who sent them. The codes added are taken out of the offer.' );
+ck( 'one primary per area, nothing red (returning removes nothing)', array(
+	count( array_filter( of_buttons( $of_x, $of_area . '//button' ), static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) ),
+	count( array_filter( of_buttons( $of_x, '//button' ), static function ( $b ) { return 0 === strpos( $b, 'danger: ' ) || 0 === strpos( $b, 'old: ' ); } ) ),
+), array( 1, 0 ) );
+ck( 'the box keeps its id and name, wpcpm-offer-note-{ID} (unique per offer already) and wpcpm_note, its two rows, its bound and its placeholder, required, tied to its hint, empty', array_map( static function ( $box ) {
+	return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . ( $box->hasAttribute( 'required' ) ? 'required' : '' ) . ' ' . $box->getAttribute( 'placeholder' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . json_encode( $box->textContent );
+}, iterator_to_array( $of_x->query( '//textarea[@id="wpcpm-offer-note-' . $of_one . '"]' ) ) ), array( 'wpcpm-offer-note-' . $of_one . ' wpcpm_note 2 2000 required What should change before students see it wpcpm-offer-note-' . $of_one . '-hint "\n"' ) );
+ck( 'the parts\' script is asked for, where the panel is drawn', in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ), true );
+
+// Check 2: two offers on one card.
+$of_x2 = of_doc( of_drawn( array( $of_one, $of_two ), 'administrator' ) );
+$of_own = static function ( $id ) use ( $of_x2 ) {
+	$fields = array();
+	foreach ( array( 'return' => '//div[@id="wpcpm-decide-offer-' . $id . '-return-panel"]/form', 'approve' => '//div[@id="wpcpm-decide-offer-' . $id . '"]/div[@class="wpcpm-ui-actions"]/form' ) as $which => $path ) {
+		$form = $of_x2->query( $path )->item( 0 );
+		if ( $form ) {
+			foreach ( $of_x2->query( './/input[@type="hidden"]', $form ) as $input ) {
+				if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'wpcpm_offer' ), true ) ) {
+					$fields[ $which . ' ' . $input->getAttribute( 'name' ) ] = $input->getAttribute( 'value' );
+				}
+			}
+		}
+	}
+	return $fields;
+};
+ck( 'two offers on one card: their areas, panels and boxes have ids of their own, none repeats, and every aria-controls, for and aria-describedby names an element on the page', array(
+	of_ids( $of_x2 ),
+	$of_x2->query( '//div[@data-wpcpm-panel]' )->length,
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $of_x2->query( '//button[@aria-controls]' ) ) ),
+), array( array( true, array() ), 2, array( 'wpcpm-decide-offer-' . $of_one . '-return-panel', 'wpcpm-decide-offer-' . $of_two . '-return-panel' ) ) );
+ck( 'and each offer\'s two forms post its own ID under nonces keyed to it; with nothing refused or kept, no panel is open', array(
+	$of_own( $of_one ),
+	$of_own( $of_two ),
+	$of_x2->query( '//*[@data-wpcpm-open]' )->length,
+), array(
+	array( 'return _wpnonce' => 'nonce-wpcpm_offer_return_' . $of_one, 'return wpcpm_offer' => (string) $of_one, 'approve _wpnonce' => 'nonce-wpcpm_offer_approve_' . $of_one, 'approve wpcpm_offer' => (string) $of_one ),
+	array( 'return _wpnonce' => 'nonce-wpcpm_offer_return_' . $of_two, 'return wpcpm_offer' => (string) $of_two, 'approve _wpnonce' => 'nonce-wpcpm_offer_approve_' . $of_two, 'approve wpcpm_offer' => (string) $of_two ),
+	0,
+) );
+
+// Check 3: a refused note comes back, for that offer alone.
+$of_went  = of_return( $of_two, $of_long );
+$of_xb    = of_doc( of_drawn( array( $of_one, $of_two ), 'administrator' ) );
+$of_box   = $of_xb->query( '//textarea[@id="wpcpm-offer-note-' . $of_two . '"]' )->item( 0 );
+$of_prob  = WPCPM_Form_Errors::problem_id( 'wpcpm-offer-note-' . $of_two );
+ck( 'a note too long is refused, back to the Administrator Dashboard; back on the card, that offer\'s panel is printed open and its opener reads expanded, the other\'s is not', array(
+	$of_went[0],
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $of_xb->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $of_xb->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( 'redirect', array( 'wpcpm-decide-offer-' . $of_two . '-return-panel' ), array( 'wpcpm-decide-offer-' . $of_two . '-return-panel' ) ) );
+ck( 'its box holds the typing (as much as the box holds, as today), is marked invalid and is tied to the handler\'s refusal sentence, before its hint; the other offer\'s box is neither', array(
+	$of_box ? $of_box->textContent : null,
+	$of_box ? $of_box->getAttribute( 'aria-invalid' ) : null,
+	$of_box ? $of_box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $of_xb->evaluate( 'string(//div[@id="wpcpm-decide-offer-' . $of_two . '-return-panel"]//*[@id="' . $of_prob . '"])' ) ),
+	$of_xb->query( '//div[@id="wpcpm-decide-offer-' . $of_one . '"]//*[@aria-invalid]' )->length,
+), array( "\n" . str_repeat( 'n', WPCPM_Sponsor_Offer_Review::MAX_NOTE ), 'true', $of_prob . ' wpcpm-offer-note-' . $of_two . '-hint', WPCPM_Sponsor_Offer_Review::messages()['offer-note-long'][1], 0 ) );
+of_return( $of_one, $of_lossy );
+$of_xl = of_doc( of_drawn( array( $of_one ), 'administrator' ) );
+ck( 'a note the cleaner would take words from comes back the same way, tied to the sentence that names the box by its label', array(
+	$of_xl->query( '//div[@id="wpcpm-decide-offer-' . $of_one . '-return-panel"][@data-wpcpm-open]' )->length,
+	$of_xl->evaluate( 'string(//textarea[@id="wpcpm-offer-note-' . $of_one . '"])' ),
+	trim( (string) $of_xl->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-offer-note-' . $of_one ) . '"])' ) ),
+), array( 1, "\n" . $of_lossy, WPCPM_Sponsor_Offer_Review::messages()['offer-note-loss'][1] ) );
+of_return( $of_one, '   ' );
+$of_xm = of_doc( of_drawn( array( $of_one, $of_two ), 'administrator' ) );
+ck( 'a blank note keeps nothing: no panel is opened and no box is said to be refused', array( $of_xm->query( '//*[@data-wpcpm-open]' )->length, $of_xm->query( '//*[@aria-invalid]' )->length ), array( 0, 0 ) );
+// A press on an item drawn before the offer changed decides nothing and keeps the note (1.123.23): the panel opens
+// with it, untied to any refusal, since the box was not what was refused.
+$GLOBALS['uid'] = 1;
+$of_stale = post( array( 'wpcpm_offer' => $of_two, 'wpcpm_seen' => 'stale', 'wpcpm_note' => 'Kept through a change.', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => WPCPM_Sponsor_Offer_Review::CARD ), array( 'WPCPM_Sponsor_Offer_Review', 'handle_return' ) );
+$of_xs = of_doc( of_drawn( array( $of_two ), 'administrator' ) );
+ck( 'an offer that changed after the item was drawn keeps the note: its panel opens with the typing, untied to any refusal', array(
+	$of_stale[0],
+	$of_xs->query( '//div[@id="wpcpm-decide-offer-' . $of_two . '-return-panel"][@data-wpcpm-open]' )->length,
+	$of_xs->evaluate( 'string(//textarea[@id="wpcpm-offer-note-' . $of_two . '"])' ),
+	$of_xs->query( '//*[@aria-invalid]' )->length,
+), array( 'redirect', 1, "\nKept through a change.", 0 ) );
+
+// The card's message leads to the refused box: the real card shell, holding the outcome for the card as the dashboard
+// holds it, around the two offers' items, drawn as the next request.
+/**
+ * The Sponsor offers to review card around two items, holding one outcome.
+ *
+ * @param string $text The outcome's sentence, an error.
+ * @param bool   $on   Whether the dashboard's surface is on.
+ * @return string
+ */
+function of_card( $text, $on ) {
+	global $of_one, $of_two;
+	return next_request( static function () use ( $text, $on, $of_one, $of_two ) {
+		WPCPM_Dashboard_Card::forget();
+		WPCPM_Dashboard_Card::hold( 'wpcpm-sponsor-offers-review', 'error', $text );
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		if ( $on ) {
+			WPCPM_UI::enter( 'administrator' );
+		}
+		ob_start();
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => 'sponsor-offers-review',
+				'title'         => 'Sponsor offers to review',
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => 'wpcpm-administrator__card',
+			)
+		);
+		foreach ( WPCPM_Sponsor_Offer_Review::waiting_all() as $row ) {
+			if ( in_array( (int) $row['id'], array( $of_one, $of_two ), true ) ) {
+				WPCPM_Sponsor_Offer_Review::render_item( $row, 'dashboard' );
+			}
+		}
+		WPCPM_Dashboard_Card::close();
+		$html = (string) ob_get_clean();
+		if ( $on ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+		WPCPM_Dashboard_Card::forget();
+		return $html;
+	} );
+}
+$of_said = (string) WPCPM_Sponsor_Offer_Review::messages()['offer-note-long'][1];
+of_return( $of_two, $of_long );
+$of_led   = of_card( $of_said, true );
+$of_links = iterator_to_array( of_doc( $of_led )->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'on, the refused note\'s message is the refusal sentence as one link to the refused box, said once, before both offers', array(
+	count( $of_links ),
+	isset( $of_links[0] ) ? $of_links[0]->getAttribute( 'href' ) : null,
+	isset( $of_links[0] ) ? $of_links[0]->textContent : null,
+	substr_count( $of_led, 'data-wpcpm-card-message' ),
+	strpos( $of_led, 'data-wpcpm-card-message' ) < strpos( $of_led, 'id="wpcpm-sponsor-offer-' . $of_one . '"' ),
+), array( 1, '#wpcpm-offer-note-' . $of_two, $of_said, 1, true ) );
+// A refusal is tied only to the box it was for (Task 13x; `tie_read()`, `tie_box()` and `tie_card()` are in that
+// section, below): an offer whose kept typing no page drew, beside an offer refused just now, in both orders.
+$of_items = static function ( array $ids ) {
+	return static function () use ( $ids ) {
+		$rows = array();
+		foreach ( WPCPM_Sponsor_Offer_Review::waiting_all() as $row ) {
+			$rows[ (int) $row['id'] ] = $row;
+		}
+		foreach ( $ids as $id ) {
+			WPCPM_Sponsor_Offer_Review::render_item( $rows[ (int) $id ], 'dashboard' );
+		}
+	};
+};
+$of_press = static function ( $refused, $kept, $note ) {
+	$GLOBALS['uid'] = 1;
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Offer_Review::TYPED_RETURN, $kept ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Offer_Review::MAX_NOTE );
+	return of_return( $refused, $note );
+};
+foreach ( array( 'first' => array( $of_one, $of_two ), 'last' => array( $of_two, $of_one ) ) as $of_where => $of_order ) {
+	list( $of_kept_id, $of_refused_id ) = 'first' === $of_where ? $of_order : array_reverse( $of_order );
+	$of_press( $of_refused_id, $of_kept_id, $of_long );
+	$of_tie = array();
+	foreach ( $of_order as $of_id ) {
+		$of_tie[ 'wpcpm-offer-note-' . $of_id ] = tie_box( 'wpcpm-offer-note-' . $of_id, $of_id === $of_refused_id ? $of_said : null, $of_id === $of_refused_id ? str_repeat( 'n', WPCPM_Sponsor_Offer_Review::MAX_NOTE ) : 'Kept, and not refused.' );
+	}
+	ck( 'offers to review, the kept-only offer drawn ' . $of_where . ': only the refused offer\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only offer\'s panel is open with its typing, its box tied to its hint alone (Task 13x)', tie_read( tie_card( 'sponsor-offers-review', WPCPM_Sponsor_Offer_Review::messages(), $of_items( $of_order ) ) ), array(
+		'open'  => array_map( static function ( $id ) { return 'wpcpm-decide-offer-' . $id . '-return-panel'; }, $of_order ),
+		'boxes' => $of_tie,
+		'leads' => array( '#wpcpm-offer-note-' . $of_refused_id . ' ' . $of_said ),
+	) );
+}
+$of_press( $of_two, $of_one, '   ' );
+ck( 'offers to review: a blank note, refused and keeping nothing, beside an offer holding older kept typing: no box is marked invalid, the message leads nowhere, and the older typing comes back untied (Task 13x)', tie_read( tie_card( 'sponsor-offers-review', WPCPM_Sponsor_Offer_Review::messages(), $of_items( array( $of_one, $of_two ) ) ) ), array(
+	'open'  => array( 'wpcpm-decide-offer-' . $of_one . '-return-panel' ),
+	'boxes' => array(
+		'wpcpm-offer-note-' . $of_one => tie_box( 'wpcpm-offer-note-' . $of_one, null, 'Kept, and not refused.' ),
+		'wpcpm-offer-note-' . $of_two => 'wpcpm-offer-note-' . $of_two . '-hint |  | ' . "\n",
+	),
+	'leads' => array(),
+) );
+
+unset( $GLOBALS['faithful_nonces'] );
+foreach ( array( $of_one, $of_two, $of_pool ) as $of_id ) {
+	WPCPM_Sponsor_Codes::delete( $of_id );
+	wp_delete_post( $of_id, true );
+}
+$GLOBALS['uid'] = 5;
+
+echo "\n=== A sponsor post refused beside one holding kept typing, through the real flash (UI shared parts, Task 13a fix round 1) ===\n";
+// Here, not in bin/test-sponsor-posts.php: that suite stands in for WPCPM_Flash with a journal its earlier checks read
+// (`end( $GLOBALS['flash'] )`), so the real class, which memoizes what it hands back within a request, cannot be loaded
+// there without changing them. This suite loads the real flash, and draws each page as the next request
+// (`next_request()`). The posts class is loaded here, last: once it exists, the Tools section draws a sponsor's guides
+// (`WPCPM_Sponsor_Tools`), which no check above expects.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php';
+/**
+ * The Sponsor posts to review card around two posts' decisions, holding the outcome the last press left, as the
+ * dashboard holds it (`WPCPM_Flash::take()` once, the sentence from the posts' own messages), drawn as the next request.
+ *
+ * @param int[] $ids The posts.
+ * @return string
+ */
+function fp_card( array $ids ) {
+	return next_request( static function () use ( $ids ) {
+		$status   = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+		$messages = WPCPM_Sponsor_Posts::messages();
+		WPCPM_Dashboard_Card::forget();
+		if ( isset( $messages[ $status ] ) ) {
+			WPCPM_Dashboard_Card::hold( 'wpcpm-sponsor-posts', $messages[ $status ][0], $messages[ $status ][1] );
+		}
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		WPCPM_UI::enter( 'administrator' );
+		ob_start();
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => 'sponsor-posts',
+				'title'         => 'Sponsor posts to review',
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => 'wpcpm-administrator__card',
+			)
+		);
+		foreach ( $ids as $id ) {
+			WPCPM_Sponsor_Posts::render_decision( $id, WPCPM_Return::DASHBOARD );
+		}
+		WPCPM_Dashboard_Card::close();
+		$html = (string) ob_get_clean();
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( null );
+		WPCPM_Dashboard_Card::forget();
+		return $html;
+	} );
+}
+$GLOBALS['uid'] = 1;
+$fp_ids         = array();
+foreach ( array( 'Refused guide', 'Kept guide' ) as $fp_title ) {
+	$fp_id = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 5, 'post_title' => $fp_title ) );
+	update_post_meta( $fp_id, WPCPM_Sponsor_Policy::META_POST_SPONSOR, $A );
+	$fp_ids[] = $fp_id;
+}
+list( $fp_refused, $fp_kept ) = $fp_ids;
+// The kept-only post: typing an earlier press left in its box, with no refusal of it on the channel.
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Posts::TYPED_RETURN, $fp_kept ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Posts::MAX_NOTE );
+// The refused post: the real handler, a note one character too long, back to the Administrator Dashboard.
+$fp_went = post( array( 'wpcpm_post' => $fp_refused, 'wpcpm_note' => str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE + 1 ), 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-posts' ), array( 'WPCPM_Sponsor_Posts', 'handle_return' ) );
+$fp_html  = fp_card( $fp_ids );
+$fp_x     = of_doc( $fp_html );
+$fp_said  = WPCPM_Sponsor_Posts::messages()['post-note-long'][1];
+$fp_prob  = WPCPM_Form_Errors::problem_id( 'wpcpm-post-note-' . $fp_refused );
+$fp_links = iterator_to_array( $fp_x->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'two posts on one card through the real, memoized flash: the refused post\'s box holds its typing, is marked invalid and tied to the refusal, and the card\'s message is one link to it', array(
+	$fp_went[0],
+	$fp_x->query( '//div[@id="wpcpm-decide-post-' . $fp_refused . '-return-panel"][@data-wpcpm-open]' )->length,
+	$fp_x->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $fp_refused . '"])' ),
+	$fp_x->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $fp_refused . '"]/@aria-invalid)' ),
+	$fp_x->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $fp_refused . '"]/@aria-describedby)' ),
+	trim( (string) $fp_x->evaluate( 'string(//*[@id="' . $fp_prob . '"])' ) ),
+	count( $fp_links ),
+	isset( $fp_links[0] ) ? $fp_links[0]->getAttribute( 'href' ) : null,
+	isset( $fp_links[0] ) ? $fp_links[0]->textContent : null,
+), array( 'redirect', 1, "\n" . str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE ), 'true', $fp_prob . ' wpcpm-post-note-' . $fp_refused . '-hint', $fp_said, 1, '#wpcpm-post-note-' . $fp_refused, $fp_said ) );
+ck( 'and the kept-only post\'s panel is open too, with its typing, its box tied to no refusal: not marked invalid, described by its hint alone, no sentence beside it (Task 13x)', array(
+	$fp_x->query( '//div[@id="wpcpm-decide-post-' . $fp_kept . '-return-panel"][@data-wpcpm-open]' )->length,
+	$fp_x->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $fp_kept . '"])' ),
+	$fp_x->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $fp_kept . '"]/@aria-invalid)' ),
+	$fp_x->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $fp_kept . '"]/@aria-describedby)' ),
+	$fp_x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-post-note-' . $fp_kept ) . '"]' )->length,
+), array( 1, "\nKept, and not refused.", '', 'wpcpm-post-note-' . $fp_kept . '-hint', 0 ) );
+
+echo "\n=== A refusal is tied only to the box it was for, in both orders and on each card drawn here (UI shared parts, Task 13x) ===\n";
+// The outcome a refusal leaves names no item, and the flash hands every box on a page the same one, so the store
+// remembers which form it kept last (`WPCPM_Typed_Text::is_last()`) and a box ties itself to a refusal only when it
+// is that form. Each scenario is the real handler, the real, memoized flash and the real card shell: an item whose
+// kept typing an earlier press left and no page drew, then a refusal of another item on the same card, the page
+// drawn as the next request. Sponsor agreements are drawn here too, not in bin/test-sponsor-agreement.php: that
+// suite stands in for the flash with a journal its earlier checks read, which hands a value back once and keeps
+// no memo, so two boxes on one page cannot both read the outcome there.
+/**
+ * What a card says about each box on it: which panels are printed open, each box's state ('invalid ' when marked,
+ * then what describes it, then the sentence beside it or '', then its typing), and where the card's message leads.
+ *
+ * @param string $html Markup.
+ * @return array
+ */
+function tie_read( $html ) {
+	$x     = of_doc( $html );
+	$boxes = array();
+	foreach ( $x->query( '//textarea' ) as $box ) {
+		$id             = $box->getAttribute( 'id' );
+		$said           = $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 );
+		$boxes[ $id ]   = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' ) . ' | ' . ( $said ? trim( $said->textContent ) : '' ) . ' | ' . tie_typing( $box->textContent );
+	}
+	return array(
+		'open'  => array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'boxes' => $boxes,
+		'leads' => array_map( static function ( $node ) { return $node->getAttribute( 'href' ) . ' ' . $node->textContent; }, iterator_to_array( $x->query( '//p[@data-wpcpm-card-message]//a' ) ) ),
+	);
+}
+/**
+ * A box's text as `tie_read()` prints it: a long one by its length, so a failure stays readable.
+ *
+ * @param string $text The box's text.
+ * @return string
+ */
+function tie_typing( $text ) {
+	return mb_strlen( $text ) > 80 ? '[' . mb_strlen( $text ) . ' characters]' : $text;
+}
+/**
+ * A box as `tie_read()` reads it: refused, it is marked invalid, described by its sentence and then its hint, the
+ * sentence printed; otherwise it is described by its hint alone.
+ *
+ * @param string      $id     The box.
+ * @param string|null $said   The refusal sentence, or null when it is not the refused box.
+ * @param string      $typing What it holds, as typed.
+ * @return string
+ */
+function tie_box( $id, $said, $typing ) {
+	return null === $said
+		? $id . '-hint |  | ' . tie_typing( "\n" . $typing )
+		: 'invalid ' . WPCPM_Form_Errors::problem_id( $id ) . ' ' . $id . '-hint | ' . $said . ' | ' . tie_typing( "\n" . $typing );
+}
+/**
+ * A card on the Administrator Dashboard's parts, holding the outcome the last press left as the dashboard holds
+ * it (one `WPCPM_Flash::take()`, the sentence from the class's own messages), drawn as the next request.
+ *
+ * @param string   $key      The card's key.
+ * @param array    $messages The outcome's words, by status.
+ * @param callable $draw     Draws the items, in order.
+ * @return string
+ */
+function tie_card( $key, array $messages, callable $draw ) {
+	return next_request( static function () use ( $key, $messages, $draw ) {
+		$status = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+		WPCPM_Dashboard_Card::forget();
+		if ( isset( $messages[ $status ] ) ) {
+			WPCPM_Dashboard_Card::hold( 'wpcpm-' . $key, $messages[ $status ][0], $messages[ $status ][1] );
+		}
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		WPCPM_UI::enter( 'administrator' );
+		ob_start();
+		WPCPM_Dashboard_Card::open(
+			array(
+				'key'           => $key,
+				'title'         => 'A card',
+				'prefix'        => 'wpcpm-',
+				'id_on'         => 'section',
+				'section_class' => 'wpcpm-administrator__card',
+			)
+		);
+		$draw();
+		WPCPM_Dashboard_Card::close();
+		$html = (string) ob_get_clean();
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( null );
+		WPCPM_Dashboard_Card::forget();
+		return $html;
+	} );
+}
+
+// Sponsor posts to review: the kept-only post drawn first, then last.
+$fp_posts = static function ( array $ids ) {
+	return static function () use ( $ids ) {
+		foreach ( $ids as $id ) {
+			WPCPM_Sponsor_Posts::render_decision( $id, WPCPM_Return::DASHBOARD );
+		}
+	};
+};
+$fp_press = static function ( $refused, $kept, $note ) {
+	$GLOBALS['uid'] = 1;
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Posts::TYPED_RETURN, $kept ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Posts::MAX_NOTE );
+	return post( array( 'wpcpm_post' => $refused, 'wpcpm_note' => $note, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-posts' ), array( 'WPCPM_Sponsor_Posts', 'handle_return' ) );
+};
+$fp_long = str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE + 1 );
+foreach ( array( 'first' => array( $fp_kept, $fp_refused ), 'last' => array( $fp_refused, $fp_kept ) ) as $fp_where => $fp_order ) {
+	$fp_press( $fp_refused, $fp_kept, $fp_long );
+	ck( 'sponsor posts, the kept-only post drawn ' . $fp_where . ': only the refused post\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only post\'s panel is open with its typing, its box tied to its hint alone', tie_read( tie_card( 'sponsor-posts', WPCPM_Sponsor_Posts::messages(), $fp_posts( $fp_order ) ) ), array(
+		'open'  => array_map( static function ( $id ) { return 'wpcpm-decide-post-' . $id . '-return-panel'; }, $fp_order ),
+		'boxes' => array(
+			'wpcpm-post-note-' . $fp_order[0] => tie_box( 'wpcpm-post-note-' . $fp_order[0], $fp_order[0] === $fp_refused ? $fp_said : null, $fp_order[0] === $fp_refused ? str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE ) : 'Kept, and not refused.' ),
+			'wpcpm-post-note-' . $fp_order[1] => tie_box( 'wpcpm-post-note-' . $fp_order[1], $fp_order[1] === $fp_refused ? $fp_said : null, $fp_order[1] === $fp_refused ? str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE ) : 'Kept, and not refused.' ),
+		),
+		'leads' => array( '#wpcpm-post-note-' . $fp_refused . ' ' . $fp_said ),
+	) );
+}
+$fp_press( $fp_refused, $fp_kept, "  \n " );
+ck( 'sponsor posts: a blank note, refused and keeping nothing, beside a post holding older kept typing: no box is marked invalid, the message leads nowhere, and the older typing comes back untied', tie_read( tie_card( 'sponsor-posts', WPCPM_Sponsor_Posts::messages(), $fp_posts( $fp_ids ) ) ), array(
+	'open'  => array( 'wpcpm-decide-post-' . $fp_kept . '-return-panel' ),
+	'boxes' => array(
+		'wpcpm-post-note-' . $fp_refused => 'wpcpm-post-note-' . $fp_refused . '-hint |  | ' . "\n",
+		'wpcpm-post-note-' . $fp_kept    => tie_box( 'wpcpm-post-note-' . $fp_kept, null, 'Kept, and not refused.' ),
+	),
+	'leads' => array(),
+) );
+foreach ( $fp_ids as $fp_id ) {
+	wp_delete_post( $fp_id, true );
+}
+
+// Sponsor agreements to review: the class is loaded here, last, as the posts class is.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement.php';
+$sa_ids = array();
+foreach ( array( 'Refused agreement', 'Kept agreement' ) as $sa_title ) {
+	$sa_id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Agreement::POST_TYPE, 'post_status' => 'private', 'post_author' => 5, 'post_title' => $sa_title ) );
+	// An uploaded document has the date it was uploaded, which this suite's posts do not model: the same post, dated.
+	$GLOBALS['posts'][ $sa_id ] = new class( get_object_vars( $GLOBALS['posts'][ $sa_id ] ) ) extends WP_Post {
+		/** When it was uploaded. @var string */
+		public $post_date = '2026-09-01 10:00:00';
+	};
+	update_post_meta( $sa_id, WPCPM_Sponsor_Agreement::META_STATE, WPCPM_Sponsor_Agreement::STATE_SUBMITTED );
+	update_post_meta( $sa_id, WPCPM_Sponsor_Agreement::META_SPONSOR, $A );
+	$sa_ids[] = $sa_id;
+}
+list( $sa_refused, $sa_kept ) = $sa_ids;
+$sa_said     = (string) WPCPM_Sponsor_Agreement::manager_messages()['agreement-note'][1];
+// The card holds the outcome under the class's prefix, as the dashboard reads it.
+$sa_messages = array();
+foreach ( WPCPM_Sponsor_Agreement::manager_messages() as $sa_status => $sa_words ) {
+	$sa_messages[ WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX . $sa_status ] = $sa_words;
+}
+$sa_items = static function ( array $ids ) {
+	return static function () use ( $ids ) {
+		foreach ( $ids as $id ) {
+			WPCPM_Sponsor_Agreement::render_decision( $id, WPCPM_Return::DASHBOARD );
+		}
+	};
+};
+$sa_press = static function ( $refused, $kept, $note ) {
+	$GLOBALS['uid'] = 1;
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Agreement::TYPED_RETURN, $kept ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Agreement::MAX_NOTE );
+	return post( array( WPCPM_Sponsor_Agreement::FIELD_POST => $refused, WPCPM_Sponsor_Agreement::FIELD_NOTE => $note, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-agreements' ), array( 'WPCPM_Sponsor_Agreement', 'handle_return' ) );
+};
+foreach ( array( 'first' => array( $sa_kept, $sa_refused ), 'last' => array( $sa_refused, $sa_kept ) ) as $sa_where => $sa_order ) {
+	$sa_went = $sa_press( $sa_refused, $sa_kept, 'Too short.' );
+	$sa_tie  = array();
+	foreach ( $sa_order as $sa_id ) {
+		$sa_tie[ 'wpcpm-agr-note-' . $sa_id ] = tie_box( 'wpcpm-agr-note-' . $sa_id, $sa_id === $sa_refused ? $sa_said : null, $sa_id === $sa_refused ? 'Too short.' : 'Kept, and not refused.' );
+	}
+	ck( 'sponsor agreements, the kept-only agreement drawn ' . $sa_where . ': the press was refused; only the refused agreement\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only agreement\'s panel is open with its typing, its box tied to its hint alone', array( $sa_went[0], tie_read( tie_card( 'sponsor-agreements', $sa_messages, $sa_items( $sa_order ) ) ) ), array( 'redirect', array(
+		'open'  => array_map( static function ( $id ) { return 'wpcpm-decide-sagr-' . $id . '-return-panel'; }, $sa_order ),
+		'boxes' => $sa_tie,
+		'leads' => array( '#wpcpm-agr-note-' . $sa_refused . ' ' . $sa_said ),
+	) ) );
+}
+$sa_press( $sa_refused, $sa_kept, " \n " );
+ck( 'sponsor agreements: a blank note, refused and keeping nothing, beside an agreement holding older kept typing: no box is marked invalid, the message leads nowhere, and the older typing comes back untied', tie_read( tie_card( 'sponsor-agreements', $sa_messages, $sa_items( $sa_ids ) ) ), array(
+	'open'  => array( 'wpcpm-decide-sagr-' . $sa_kept . '-return-panel' ),
+	'boxes' => array(
+		'wpcpm-agr-note-' . $sa_refused => 'wpcpm-agr-note-' . $sa_refused . '-hint |  | ' . "\n",
+		'wpcpm-agr-note-' . $sa_kept    => tie_box( 'wpcpm-agr-note-' . $sa_kept, null, 'Kept, and not refused.' ),
+	),
+	'leads' => array(),
+) );
+foreach ( $sa_ids as $sa_id ) {
+	wp_delete_post( $sa_id, true );
+}
+$GLOBALS['uid'] = 5;
+
+echo "\n=== Sponsor applications refused beside ones holding kept typing, through the real flash (UI shared parts, Task 13d) ===\n";
+// Here, not in bin/test-sponsor-application.php, for the reason the posts and the agreements are: that suite stands in
+// for the flash with a journal that hands a value back once and keeps no memo, so two boxes on one page cannot both
+// read the outcome there. The application class is loaded here, last, as the posts and agreement classes are. Each
+// scenario is the real handler, the real, memoized flash and the real card shell, the page drawn as the next request.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-application.php';
+$sx_ids = array();
+foreach ( array( 'Refused Co', 'Kept Co' ) as $sx_name ) {
+	$sx_id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Application::POST_TYPE, 'post_status' => 'private', 'post_title' => $sx_name ) );
+	update_post_meta( $sx_id, WPCPM_Sponsor_Application::META_STATE, 'new' );
+	update_post_meta( $sx_id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $sx_name, 'Contact Email' => 'administrator@example.test' ) );
+	$sx_ids[] = $sx_id;
+}
+list( $sx_refused, $sx_kept ) = $sx_ids;
+$sx_items = static function ( array $ids ) {
+	return static function () use ( $ids ) {
+		foreach ( $ids as $id ) {
+			WPCPM_Sponsor_Application::render_decision( $id, WPCPM_Return::DASHBOARD );
+		}
+	};
+};
+/**
+ * The kept-only application gets typing an earlier press kept in one box, then the refused one is pressed.
+ *
+ * @param int    $refused The application pressed now.
+ * @param int    $kept    The application holding older typing.
+ * @param string $typed   What the press posted.
+ * @param string $press   info or reject: which form is pressed.
+ * @param string $older   question or reason: which box holds the older typing.
+ * @return array What the press came back with.
+ */
+$sx_press = static function ( $refused, $kept, $typed, $press = 'info', $older = 'question' ) {
+	$GLOBALS['uid'] = 1;
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( 'question' === $older ? WPCPM_Sponsor_Application::TYPED_QUESTION : WPCPM_Sponsor_Application::TYPED_REASON, $kept ), $older, 'Kept, and not refused.', WPCPM_Sponsor_Application::MAX_NOTE );
+	return post(
+		array( WPCPM_Sponsor_Application::FIELD_APPLICATION => $refused, ( 'info' === $press ? 'wpcpm_question' : 'wpcpm_reason' ) => $typed, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-applications' ),
+		array( 'WPCPM_Sponsor_Application', 'info' === $press ? 'handle_info' : 'handle_reject' )
+	);
+};
+$sx_messages = WPCPM_Sponsor_Application::manager_messages();
+$sx_said     = (string) $sx_messages['sapp-question'][1];
+foreach ( array( 'first' => array( $sx_kept, $sx_refused ), 'last' => array( $sx_refused, $sx_kept ) ) as $sx_where => $sx_order ) {
+	$sx_went = $sx_press( $sx_refused, $sx_kept, 'Why?' );
+	$sx_tie  = array();
+	foreach ( $sx_order as $sx_id ) {
+		$sx_tie[ 'wpcpm_question-' . $sx_id ] = tie_box( 'wpcpm_question-' . $sx_id, $sx_id === $sx_refused ? $sx_said : null, $sx_id === $sx_refused ? 'Why?' : 'Kept, and not refused.' );
+		$sx_tie[ 'wpcpm_reason-' . $sx_id ]   = 'wpcpm_reason-' . $sx_id . '-hint |  | ' . "\n";
+	}
+	ck( 'sponsor applications, the kept-only application drawn ' . $sx_where . ': the press was refused; only the refused application\'s question box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only application\'s question panel is open with its typing, its box tied to its hint alone; no reason box is marked', array( $sx_went[0], tie_read( tie_card( 'sponsor-applications', $sx_messages, $sx_items( $sx_order ) ) ) ), array( 'redirect', array(
+		'open'  => array_map( static function ( $id ) { return 'wpcpm-decide-sapp-' . $id . '-info-panel'; }, $sx_order ),
+		'boxes' => $sx_tie,
+		'leads' => array( '#wpcpm_question-' . $sx_refused . ' ' . $sx_said ),
+	) ) );
+}
+// A reason refused on one application beside a question kept on the other: the outcome is the reason's, so the
+// question box, older typing and all, is never marked.
+$sx_long = str_repeat( 'r', WPCPM_Sponsor_Application::MAX_NOTE + 1 );
+$sx_rsay = (string) $sx_messages['sapp-reason-long'][1];
+$sx_press( $sx_refused, $sx_kept, $sx_long, 'reject', 'question' );
+ck( 'sponsor applications: a reason refused on one application beside a question kept on the other: only the refused reason\'s box is invalid and tied, the message leads to it, and the kept question is untied', tie_read( tie_card( 'sponsor-applications', $sx_messages, $sx_items( $sx_ids ) ) ), array(
+	'open'  => array( 'wpcpm-decide-sapp-' . $sx_refused . '-reject-panel', 'wpcpm-decide-sapp-' . $sx_kept . '-info-panel' ),
+	'boxes' => array(
+		'wpcpm_question-' . $sx_refused => 'wpcpm_question-' . $sx_refused . '-hint |  | ' . "\n",
+		'wpcpm_reason-' . $sx_refused   => tie_box( 'wpcpm_reason-' . $sx_refused, $sx_rsay, str_repeat( 'r', WPCPM_Sponsor_Application::MAX_NOTE ) ),
+		'wpcpm_question-' . $sx_kept    => tie_box( 'wpcpm_question-' . $sx_kept, null, 'Kept, and not refused.' ),
+		'wpcpm_reason-' . $sx_kept      => 'wpcpm_reason-' . $sx_kept . '-hint |  | ' . "\n",
+	),
+	'leads' => array( '#wpcpm_reason-' . $sx_refused . ' ' . $sx_rsay ),
+) );
+// A reason refused on one application beside a reason kept on the other, drawn kept-first: the same key, tied only to
+// the form the store names last.
+$sx_press( $sx_refused, $sx_kept, $sx_long, 'reject', 'reason' );
+ck( 'sponsor applications: a reason refused beside another application\'s older kept reason, drawn kept-first: only the refused reason is tied', tie_read( tie_card( 'sponsor-applications', $sx_messages, $sx_items( array( $sx_kept, $sx_refused ) ) ) ), array(
+	'open'  => array( 'wpcpm-decide-sapp-' . $sx_kept . '-reject-panel', 'wpcpm-decide-sapp-' . $sx_refused . '-reject-panel' ),
+	'boxes' => array(
+		'wpcpm_question-' . $sx_kept    => 'wpcpm_question-' . $sx_kept . '-hint |  | ' . "\n",
+		'wpcpm_reason-' . $sx_kept      => tie_box( 'wpcpm_reason-' . $sx_kept, null, 'Kept, and not refused.' ),
+		'wpcpm_question-' . $sx_refused => 'wpcpm_question-' . $sx_refused . '-hint |  | ' . "\n",
+		'wpcpm_reason-' . $sx_refused   => tie_box( 'wpcpm_reason-' . $sx_refused, $sx_rsay, str_repeat( 'r', WPCPM_Sponsor_Application::MAX_NOTE ) ),
+	),
+	'leads' => array( '#wpcpm_reason-' . $sx_refused . ' ' . $sx_rsay ),
+) );
+$sx_press( $sx_refused, $sx_kept, "  \n " );
+ck( 'sponsor applications: a blank question, refused and keeping nothing, beside an application holding an older kept question: no box is marked invalid, the message leads nowhere, and the older typing comes back untied', tie_read( tie_card( 'sponsor-applications', $sx_messages, $sx_items( $sx_ids ) ) ), array(
+	'open'  => array( 'wpcpm-decide-sapp-' . $sx_kept . '-info-panel' ),
+	'boxes' => array(
+		'wpcpm_question-' . $sx_refused => 'wpcpm_question-' . $sx_refused . '-hint |  | ' . "\n",
+		'wpcpm_reason-' . $sx_refused   => 'wpcpm_reason-' . $sx_refused . '-hint |  | ' . "\n",
+		'wpcpm_question-' . $sx_kept    => tie_box( 'wpcpm_question-' . $sx_kept, null, 'Kept, and not refused.' ),
+		'wpcpm_reason-' . $sx_kept      => 'wpcpm_reason-' . $sx_kept . '-hint |  | ' . "\n",
+	),
+	'leads' => array(),
+) );
+foreach ( $sx_ids as $sx_id ) {
+	wp_delete_post( $sx_id, true );
+}
+$GLOBALS['uid'] = 5;
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'sponsor-offers' ) );
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

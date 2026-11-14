@@ -137,7 +137,34 @@ function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function wp_login_url( $to = '' ) { return 'https://example.test/wp-login.php?redirect_to=' . rawurlencode( $to ); }
 function add_query_arg( $args, $url = '' ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
 function wp_get_referer() { return $GLOBALS['referer']; }
-function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
+// The nonce as the suite has always read it: its action, alone. With `$GLOBALS['faithful_nonces']` set, as WordPress
+// prints it: the field with the id core gives it and the referer beside it, so a form drawn through
+// `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field (Task 13b).
+function wp_nonce_field( $a ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />';
+	wp_referer_field();
+}
+function wp_create_nonce( $a = '' ) { return 'nonce-' . $a; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
+// What the shared parts (`WPCPM_UI`) ask of WordPress: a refusal said to the developer, which side is drawing, and
+// the parts' sheet and script, registered once each before the script is asked for (Task 13b).
+function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
+function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_scripts'][ $h ] ); }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
 function wp_nonce_url( $url, $a ) { return $url . '&_wpnonce=' . rawurlencode( $a ); }
 function check_admin_referer( $a ) {
 	$GLOBALS['nonce'][] = $a;
@@ -325,12 +352,25 @@ class WPCPM_Flash {
 		}
 		$GLOBALS['flash'][] = array( $channel, $value );
 	}
+	/**
+	 * What this request took, by person and channel: as the real class (`includes/class-wpcpm-flash.php`, `take()`)
+	 * hands every caller in one request the same value, this hands every caller the same value until the suite starts
+	 * the next request (`new_request()`): each press, before and after it (`ran()`), and each page drawn.
+	 *
+	 * @var array<string, mixed>
+	 */
+	public static $taken = array();
 	public static function take( $channel, $user_id = 0 ) {
-		$uid   = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
-		$value = $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] ?? '';
-		unset( $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] );
-		return $value;
+		$uid  = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
+		$memo = $uid . '|' . $channel;
+		if ( ! array_key_exists( $memo, self::$taken ) ) {
+			self::$taken[ $memo ] = $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] ?? '';
+			unset( $GLOBALS['kept_typing'][ $uid ][ (string) $channel ] );
+		}
+		return self::$taken[ $memo ];
 	}
+	/** The next request: nothing taken yet. */
+	public static function new_request() { self::$taken = array(); }
 	public static function sweep( $stale, $user_id = 0 ) {
 		$uid = (int) ( $user_id ? $user_id : $GLOBALS['uid'] );
 		foreach ( $GLOBALS['kept_typing'][ $uid ] ?? array() as $channel => $value ) {
@@ -342,6 +382,7 @@ class WPCPM_Flash {
 }
 class WPCPM_Sponsors { const FLASH = 'sponsors_admin'; }
 require_once __DIR__ . '/stubs/sponsor-card-url.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 class WPCPM_Sponsors_Dashboard {
 	const VIEW_ARG         = 'wpcpm_view';
 	const VIEW_OFFERS      = 'offers';
@@ -367,6 +408,14 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
+// The shared parts, the refusal markup their fields print and the card shell whose message leads to a refused box
+// (Task 13b): the decision is drawn on them behind the switch.
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-program-manager/' );
+define( 'WPCPM_VERSION', '0.0.0-test' );
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+require_once __DIR__ . '/../includes/class-wpcpm-dashboard-card.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement.php';
 
 $fail = 0; $checks = 0;
@@ -437,10 +486,14 @@ function post_file( $path, $name = 'agreement.pdf', $size = null, $error = UPLOA
  * @return string
  */
 function ran( $method ) {
+	// A press is a request of its own, and the page it goes back to another.
+	WPCPM_Flash::new_request();
 	try {
 		call_user_func( array( 'WPCPM_Sponsor_Agreement', $method ) );
 	} catch ( WPCPM_Test_Redirect $e ) {
 		return $e->getMessage();
+	} finally {
+		WPCPM_Flash::new_request();
 	}
 
 	return 'no redirect';
@@ -1125,36 +1178,7 @@ ran( 'handle_upload' );
 $queued = (int) WPCPM_Sponsor_Agreement::posts_for( $T )[0]->ID;
 
 $GLOBALS['uid'] = 1;
-ob_start();
-WPCPM_Sponsor_Agreement::render_decision( $queued, WPCPM_Return::DASHBOARD );
-$row = (string) ob_get_clean();
-ck( 'a document waiting for review gets Download, Accept and the folded Return, all bound for the dashboard', array(
-	false !== strpos( $row, 'class="wpcpm-request__decide wpcpm-sponsor-agreement__decide"' ),
-	false !== strpos( $row, 'action=wpcpm_sponsor_agr_download&post=' . $queued . '&_wpnonce=wpcpm_sponsor_agr_download_' . $queued ),
-	false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ),
-	false !== strpos( $row, 'value="wpcpm_sponsor_agr_return"' ),
-	substr_count( $row, 'name="wpcpm_sponsor_agr_post" value="' . $queued . '"' ),
-	substr_count( $row, 'name="wpcpm_return" value="dashboard" data-anchor="sponsor-agreements"' ),
-	false !== strpos( $row, 'minlength="20" maxlength="2000" required' ),
-	false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ),
-), array( true, true, true, true, 2, 2, true, false ) );
-// The institution side's words, which the sponsor side shares: Accept it, and Return it with this
-// note under the fold, whose summary keeps its own words. Accept it asks first, as the institution
-// side's Accept on the same page does, and in the same place, the button: a No posts nothing, so the
-// page's double-submit guard never sees a press that went nowhere.
-$accept_asks = 'data-wpcpm-confirm="Accept the signed agreement from Other Sponsor? It is recorded as accepted with today&#039;s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company&#039;s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen&#039;s Agreements tab."';
-ck( 'its buttons read Accept it and, under the fold Return with a note, Return it with this note, as the institution side\'s do', array(
-	false !== strpos( $row, '<button type="submit" class="button button-primary" ' . $accept_asks . '>Accept it</button>' ),
-	false !== strpos( $row, '<summary class="button">Return with a note</summary>' ),
-	false !== strpos( $row, '<button type="submit" class="button">Return it with this note</button>' ),
-	strpos( $row, '>Accept<' ),
-	strpos( $row, 'Send back' ),
-), array( true, true, true, false, false ) );
-ck( 'Accept it asks before it acts, naming the company, that it is recorded as accepted, how many people at the company are emailed and where it can be taken out of force; Return asks nothing, its note is the press', array(
-	substr_count( $row, 'data-wpcpm-confirm="' ),
-	false !== strpos( $row, $accept_asks ),
-	false !== strpos( $row, '<form class="wpcpm-sponsor-agreement__form" method="post" action="https://example.test/wp-admin/admin-post.php" data-wpcpm-once>' ),
-), array( 1, true, true ) );
+// The decision's words and forms on the parts are pinned in the parts' checks below (Task 18b: the old block is gone).
 // A second account at the company, for the plural: the question counts the people the press emails.
 $kept_23              = isset( $GLOBALS['umeta'][23] ) ? $GLOBALS['umeta'][23] : null;
 $GLOBALS['umeta'][23] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $T, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
@@ -1178,20 +1202,22 @@ $gone           = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Agreement:
 update_post_meta( $gone, WPCPM_Sponsor_Agreement::META_SPONSOR, $T );
 update_post_meta( $gone, WPCPM_Sponsor_Agreement::META_STATE, WPCPM_Sponsor_Agreement::STATE_REVOKED );
 update_post_meta( $gone, WPCPM_Sponsor_Agreement::META_KIND, WPCPM_Sponsor_Agreement::KIND_LEGACY );
+// Its way back is the card's list row's Reinstate (`reinstate_form()`, task V1); the decision draws nothing for it
+// (Task 18c).
 ob_start();
 WPCPM_Sponsor_Agreement::render_decision( $gone, WPCPM_Return::DASHBOARD );
-$row = (string) ob_get_clean();
+ck( 'the decision draws nothing for an agreement out of force: the card\'s list row carries its Reinstate', (string) ob_get_clean(), '' );
+$row = WPCPM_Sponsor_Agreement::reinstate_form( $gone, WPCPM_Return::DASHBOARD );
 ck( 'an agreement out of force gets the way back and, being a Drive copy, no download', array( false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ), false !== strpos( $row, 'wpcpm_sponsor_agr_download' ), false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ) ), array( true, false, false ) );
-ck( 'and the way back reads Reinstate, the institution side\'s word for it, and asks first', array( false !== strpos( $row, '<button type="submit" class="button" data-wpcpm-confirm="Put this agreement back in force? Everybody at the company is emailed.">Reinstate</button>' ), strpos( $row, 'Put it back in force' ) ), array( true, false ) );
 ck( 'the question is the one the class keeps for every page that reinstates, the Sponsors screen\'s Agreements tab included', WPCPM_Sponsor_Agreement::reinstate_question(), 'Put this agreement back in force? Everybody at the company is emailed.' );
 // The words are the institution's own where the dashboard draws them: its review block's Accept it
 // and Return it with this note, and the Reinstate the Collaboration Agreements card offers a
 // revoked agreement. Read from the two sources, since this suite draws neither.
 $institution_words = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-panel.php' ) . (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-administrators-cards.php' );
 ck( 'and the three are the institution\'s: Accept it and Return it with this note in its review block, Reinstate on its revoked agreements', array(
-	false !== strpos( $institution_words, "esc_html__( 'Accept it', 'wpcredits-program-manager' )" ),
-	false !== strpos( $institution_words, "esc_html__( 'Return it with this note', 'wpcredits-program-manager' )" ),
-	false !== strpos( $institution_words, "esc_html__( 'Reinstate', 'wpcredits-program-manager' )" ),
+	false !== strpos( $institution_words, "__( 'Accept it', 'wpcredits-program-manager' )" ),
+	false !== strpos( $institution_words, "__( 'Return it with this note', 'wpcredits-program-manager' )" ),
+	false !== strpos( $institution_words, "__( 'Reinstate', 'wpcredits-program-manager' )" ),
 ), array( true, true, true ) );
 ck( 'revoked_all() lists it', in_array( $gone, WPCPM_Sponsor_Agreement::revoked_all(), true ), true );
 wp_delete_post( $gone, true );
@@ -1201,6 +1227,496 @@ $_POST = array( 'wpcpm_sponsor_agr_post' => $queued, 'wpcpm_return' => 'dashboar
 // the outcome goes there under the class's prefix and the page reads the company's words under it.
 ck( 'a decision taken on the dashboard lands back there, its sentence on that page\'s channel, under the class\'s prefix', array( ran( 'handle_accept' ), end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::DASHBOARD_PREFIX ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'sponsor-agreement-accepted' ), 'sponsor-' ) );
 $_POST = array();
+
+echo "\n=== The decision on the Administrator Dashboard's parts: Accept it or Return with a note (UI shared parts, Task 13b) ===\n";
+// The Administrator Dashboard suite draws the decision through a stand-in, so the real one is drawn here, under
+// `WPCPM_UI::enter( 'administrator' )` with the dashboard's surface on, as the dashboard draws it: for a document
+// waiting for review one Decide area, Accept it at once and Return with a note in a panel; for an agreement out of
+// force Reinstate, the quiet action, asking first as today. Download leaves the decision: the card's item header
+// carries it as a fact on the parts (bin/test-administrators-dashboard.php). Off the surface, and on a wp-admin tab
+// (off for this whole release), the decision is today's, byte for byte.
+
+/**
+ * A render read as a document.
+ *
+ * @param string $html Markup.
+ * @return DOMXPath
+ */
+function sa_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * Every form a render holds, by the admin-post action it posts: how it posts, its guard, its hidden fields as
+ * `name=value` in the order a browser posts them, its boxes with their bounds, its submits and the question it asks.
+ *
+ * @param string $html Markup.
+ * @return array<string, array[]>
+ */
+function sa_posted( $html ) {
+	$x   = sa_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' minlength=' . $box->getAttribute( 'minlength' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ( $box->hasAttribute( 'required' ) ? ' required' : '' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			$asks      = '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ? $button->getAttribute( 'data-wpcpm-confirm' ) : $asks;
+		}
+		$out[ $action ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ) . ' ' . $form->getAttribute( 'enctype' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * The kinds and words of the buttons a path holds, in order: `kind: words`.
+ *
+ * @param DOMXPath $x    The document.
+ * @param string   $path Where to look.
+ * @return string[]
+ */
+function sa_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : ( false !== strpos( $class, ' wpcpm-btn ' ) ? 'primary' : 'old' ) ) );
+		$out[] = $kind . ': ' . trim( $button->textContent );
+	}
+	return $out;
+}
+
+/**
+ * Whether no id a render holds repeats, and every aria-controls, for and aria-describedby that names no element in it.
+ *
+ * @param DOMXPath $x The document.
+ * @return array{0: bool, 1: string[]}
+ */
+function sa_ids( DOMXPath $x ) {
+	$ids   = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@id]' ) ) );
+	$loose = array();
+	foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+		foreach ( $x->query( '//*[@' . $attr . ']' ) as $node ) {
+			if ( ! in_array( $node->getAttribute( $attr ), $ids, true ) ) {
+				$loose[] = $attr . '=' . $node->getAttribute( $attr );
+			}
+		}
+	}
+	foreach ( $x->query( '//*[@aria-describedby]' ) as $node ) {
+		foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+			if ( ! in_array( $described, $ids, true ) ) {
+				$loose[] = 'aria-describedby=' . $described;
+			}
+		}
+	}
+	return array( count( $ids ) === count( array_unique( $ids ) ), $loose );
+}
+
+/**
+ * One document's decision, as the current user, with a surface named (or none) and the Administrator Dashboard's
+ * switch on.
+ *
+ * @param int    $post_id The document.
+ * @param string $surface 'administrator', a wp-admin tab, or '' for none.
+ * @return string
+ */
+function sa_drawn( $post_id, $surface ) {
+	// Each decision is drawn as a page of its own, as the checks below were written for this suite's flash before it
+	// memoized what a request took (Task 13c): what one draw took is gone for the next.
+	WPCPM_Flash::new_request();
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( '' !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Sponsor_Agreement::render_decision( $post_id, WPCPM_Return::DASHBOARD );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( 'administrator' === $surface ) {
+			parts_inventory_add( $html );
+		}
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
+}
+
+/**
+ * Press Return it with this note on one document as the Administrator, from the Administrator Dashboard, and leave
+ * the outcome where the next page reads it: the handler sets it on the dashboard's channel under the class's prefix,
+ * which the card's message and the decision read with `WPCPM_Flash::take()` (this suite's flash journals what is
+ * set; the next page is handed the last outcome, as the real flash hands it).
+ *
+ * @param int    $post_id The document.
+ * @param string $note    The note as typed.
+ * @return string Where the handler sent the press.
+ */
+function sa_return( $post_id, $note ) {
+	$_POST = array( 'wpcpm_sponsor_agr_post' => $post_id, 'wpcpm_sponsor_agr_note' => $note, 'wpcpm_return' => 'dashboard' );
+	$went  = ran( 'handle_return' );
+	$_POST = array();
+	$last  = end( $GLOBALS['flash'] );
+	if ( is_array( $last ) && WPCPM_Institutions::FLASH === $last[0] ) {
+		$GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] = $last[1];
+	}
+	return $went;
+}
+
+/**
+ * A document of this class in one state, of one kind, for one company.
+ *
+ * @param string $record The company.
+ * @param string $state  A `STATE_*` value.
+ * @param string $kind   `own` or `legacy`.
+ * @return int
+ */
+function sa_document( $record, $state, $kind ) {
+	$id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Agreement::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Parts document' ) );
+	update_post_meta( $id, WPCPM_Sponsor_Agreement::META_SPONSOR, $record );
+	update_post_meta( $id, WPCPM_Sponsor_Agreement::META_STATE, $state );
+	update_post_meta( $id, WPCPM_Sponsor_Agreement::META_KIND, $kind );
+	return (int) $id;
+}
+
+$SA2 = 'recSPN00000000071';
+seed_index( $SA2, 'Parts & "Sponsor" Two' );
+$GLOBALS['uid']             = 1;
+$GLOBALS['kept_typing']     = array();
+$GLOBALS['flash']           = array();
+$GLOBALS['enqueued']        = array();
+$GLOBALS['faithful_nonces'] = true;
+$sa_one    = sa_document( $T, WPCPM_Sponsor_Agreement::STATE_SUBMITTED, WPCPM_Sponsor_Agreement::KIND_OWN );
+$sa_two    = sa_document( $SA2, WPCPM_Sponsor_Agreement::STATE_SUBMITTED, 'legacy' );
+$sa_out    = sa_document( $T, WPCPM_Sponsor_Agreement::STATE_REVOKED, WPCPM_Sponsor_Agreement::KIND_OWN );
+$sa_out2   = sa_document( $SA2, WPCPM_Sponsor_Agreement::STATE_REVOKED, 'legacy' );
+$sa_short  = 'Too short to send.';
+$sa_lossy  = "Page <4> is unsigned, and the name on page 2 is not the company's.";
+
+// The decision is drawn on the parts alone since its old branch left (Task 18b), and its off digests with it.
+
+// The address the item header's "Download" fact carries on the parts (bin/test-administrators-dashboard.php draws it
+// through a stand-in): the one the old Download button carried for an uploaded copy (read at 76b5ecff, where this
+// check compared the two), and none for a Drive copy or for a reader who may not manage the program (Task 13b's
+// review, fixed in Task 13c).
+$sa_href = static function ( $id ) {
+	return 'https://example.test/wp-admin/admin-post.php?action=wpcpm_sponsor_agr_download&post=' . $id . '&_wpnonce=wpcpm_sponsor_agr_download_' . $id;
+};
+$GLOBALS['uid'] = 21;
+$sa_no_manager  = array( WPCPM_Sponsor_Agreement::download_url( $sa_one ), WPCPM_Sponsor_Agreement::download_url( $sa_out ) );
+$GLOBALS['uid'] = 1;
+ck( 'download_url() is the address today\'s Download button carries, for a document waiting for review and for one out of force, and \'\' for a Drive copy, which has no file, and for a reader who may not manage the program', array(
+	WPCPM_Sponsor_Agreement::download_url( $sa_one ) === $sa_href( $sa_one ),
+	WPCPM_Sponsor_Agreement::download_url( $sa_out ) === $sa_href( $sa_out ),
+	WPCPM_Sponsor_Agreement::download_url( $sa_two ),
+	WPCPM_Sponsor_Agreement::download_url( $sa_out2 ),
+	$sa_no_manager,
+), array( true, true, '', '', array( '', '' ) ) );
+// This suite's flash memoizes what a request took, as the real one does: every ask in one request is handed the same
+// value, and the next request (`WPCPM_Flash::new_request()`) reads what is left.
+$GLOBALS['kept_typing'][1]['memo-check'] = 'once';
+ck( 'this suite\'s flash hands every ask in one request the same value, as the real one does, and the next request nothing', array(
+	WPCPM_Flash::take( 'memo-check' ),
+	WPCPM_Flash::take( 'memo-check' ),
+	( static function () { WPCPM_Flash::new_request(); return WPCPM_Flash::take( 'memo-check' ); } )(),
+), array( 'once', 'once', '' ) );
+WPCPM_Flash::new_request();
+
+$sa_on    = sa_drawn( $sa_one, 'administrator' );
+$sa_x     = sa_doc( $sa_on );
+$sa_area  = '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-sagr-' . $sa_one . '"]';
+$sa_panel = '//div[@id="wpcpm-decide-sagr-' . $sa_one . '-return-panel"]';
+$sa_asks  = 'Accept the signed agreement from Other Sponsor? It is recorded as accepted with today\'s date and the 1 person at the company is emailed. Nothing is opened or closed by this: a company\'s Sponsor Dashboard never depended on an agreement. It can be taken out of force on the Sponsors screen\'s Agreements tab.';
+
+// Check 1: posted fields. The old forms left with their branch (Task 18b), so what the forms post is pinned to what
+// the old forms posted, read at 76b5ecff, where this check compared the two: the address, the guard, the hidden fields
+// in order with the nonce keyed to the document and its referer, the way back to the card, the box and bounds, the
+// question on Accept it alone.
+$sa_form = static function ( $action, $id, array $boxes, $asks ) {
+	return array(
+		array(
+			'posts'   => 'post https://example.test/wp-admin/admin-post.php ',
+			'guard'   => 'once ',
+			'hidden'  => array( '_wpnonce=nonce-' . $action . '_' . $id, '_wp_http_referer=/administrator-dashboard/', 'action=' . $action, 'wpcpm_sponsor_agr_post=' . $id, 'wpcpm_return=dashboard' ),
+			'boxes'   => $boxes,
+			'submits' => array( '=' ),
+			'asks'    => $asks,
+		),
+	);
+};
+ck( 'on, Accept it and Return post exactly what the handlers read: the same address, guard, hidden fields in order with the nonce keyed to the document and its referer, the same box and bounds, the same question on Accept it (posted fields)', sa_posted( $sa_on ), array(
+	WPCPM_Sponsor_Agreement::ACTION_ACCEPT => $sa_form( 'wpcpm_sponsor_agr_accept', $sa_one, array(), $sa_asks ),
+	WPCPM_Sponsor_Agreement::ACTION_RETURN => $sa_form( 'wpcpm_sponsor_agr_return', $sa_one, array( 'wpcpm_sponsor_agr_note minlength=20 maxlength=2000 required' ), '' ),
+) );
+
+// Check 5: the words, one primary, nothing red.
+ck( 'on, the decision is one Decide area, id wpcpm-decide-sagr-{ID}, headed "Decide" under the item\'s heading, and nothing of today\'s block: no Download (the item header carries it), no fold, no WordPress button, no class of today\'s', array(
+	$sa_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$sa_x->query( $sa_area )->length,
+	trim( (string) $sa_x->evaluate( 'string(' . $sa_area . '/h5[@class="wpcpm-ui-h"])' ) ),
+	0 === strpos( $sa_on, '<div class="wpcpm-ui-decide" id="wpcpm-decide-sagr-' . $sa_one . '">' ),
+	strpos( $sa_on, 'Download' ),
+	strpos( $sa_on, '<details' ),
+	strpos( $sa_on, 'class="button' ),
+	strpos( $sa_on, 'wpcpm-sponsor-agreement__' ),
+	strpos( $sa_on, 'wpcpm-request__decide' ),
+), array( 1, 1, 'Decide', true, false, false, false, false, false ) );
+ck( 'its row: Accept it, the one primary, acting at once with the question it asks today; Return with a note, a secondary opener of its panel, folded (design 2.6, 5)', array(
+	sa_buttons( $sa_x, $sa_area . '/div[@class="wpcpm-ui-actions"]//button' ),
+	$sa_x->evaluate( 'string(' . $sa_area . '/div[@class="wpcpm-ui-actions"]/form/button[@type="submit"]/@data-wpcpm-confirm)' ),
+	$sa_x->query( $sa_area . '/div[@class="wpcpm-ui-actions"]/button[@type="button"][@aria-controls="wpcpm-decide-sagr-' . $sa_one . '-return-panel"][@aria-expanded="false"]' )->length,
+	$sa_x->query( '//*[@data-wpcpm-open]' )->length,
+), array( array( 'primary: Accept it', 'secondary: Return with a note' ), $sa_asks, 1, 0 ) );
+ck( 'the panel: today\'s label "A note for the company" made visible with Required, today\'s sentence that says what happens and who receives the note as the hint, the button that keeps "Return it with this note", and Cancel', array(
+	trim( (string) $sa_x->evaluate( 'string(' . $sa_panel . '//label[@for="wpcpm-agr-note-' . $sa_one . '"])' ) ),
+	trim( (string) $sa_x->evaluate( 'string(//label[@for="wpcpm-agr-note-' . $sa_one . '"]/span[@class="wpcpm-ui-field__need"])' ) ),
+	trim( (string) $sa_x->evaluate( 'string(//p[@id="wpcpm-agr-note-' . $sa_one . '-hint"])' ) ),
+	sa_buttons( $sa_x, $sa_panel . '//button' ),
+), array(
+	'A note for the company Required',
+	'Required',
+	'The document goes back to the company, and your note is emailed to everybody there, with your address to reply to.',
+	array( 'secondary: Return it with this note', 'quiet: Cancel' ),
+) );
+ck( 'one primary in the whole area, nothing red (returning removes nothing)', array(
+	count( array_filter( sa_buttons( $sa_x, '//button' ), static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) ),
+	count( array_filter( sa_buttons( $sa_x, '//button' ), static function ( $b ) { return 0 === strpos( $b, 'danger: ' ) || 0 === strpos( $b, 'old: ' ); } ) ),
+), array( 1, 0 ) );
+ck( 'the box keeps its id and name, wpcpm-agr-note-{ID} (unique per document already) and wpcpm_sponsor_agr_note, its two rows, its bounds and its placeholder, required, tied to its hint, empty', array_map( static function ( $box ) {
+	return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'minlength' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . ( $box->hasAttribute( 'required' ) ? 'required' : '' ) . ' ' . $box->getAttribute( 'placeholder' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . json_encode( $box->textContent );
+}, iterator_to_array( $sa_x->query( '//textarea' ) ) ), array( 'wpcpm-agr-note-' . $sa_one . ' wpcpm_sponsor_agr_note 2 20 2000 required What has to change before the program can accept it wpcpm-agr-note-' . $sa_one . '-hint "\n"' ) );
+ck( 'the parts\' script is asked for, where the panel is drawn', in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ), true );
+$GLOBALS['uid'] = 21;
+ck( 'a sponsor account is drawn no decision on the parts either', array( sa_drawn( $sa_one, 'administrator' ), sa_drawn( $sa_out, 'administrator' ) ), array( '', '' ) );
+$GLOBALS['uid'] = 1;
+
+// An agreement out of force: Reinstate, the quiet action, asking first, posting what today's form posts. Since task V1
+// it is the card's list row, its Reinstate `reinstate_form()`; the decision draws nothing for it (Task 18c: its old
+// action row left, no product code reaching it).
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$sa_out_on  = WPCPM_Sponsor_Agreement::reinstate_form( $sa_out, WPCPM_Return::DASHBOARD );
+$sa_out2_on = WPCPM_Sponsor_Agreement::reinstate_form( $sa_out2, WPCPM_Return::DASHBOARD );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+$sa_xo      = sa_doc( $sa_out_on );
+// The old form left with its branch (Task 18b): pinned to what it posted, read at 76b5ecff.
+ck( 'on, an agreement out of force is offered Reinstate alone, posting exactly what the handler reads, asking the question today\'s asks (posted fields)', array(
+	sa_posted( $sa_out_on ),
+	sa_posted( $sa_out2_on ),
+), array(
+	array( WPCPM_Sponsor_Agreement::ACTION_REINSTATE => $sa_form( 'wpcpm_sponsor_agr_reinstate', $sa_out, array(), WPCPM_Sponsor_Agreement::reinstate_question() ) ),
+	array( WPCPM_Sponsor_Agreement::ACTION_REINSTATE => $sa_form( 'wpcpm_sponsor_agr_reinstate', $sa_out2, array(), WPCPM_Sponsor_Agreement::reinstate_question() ) ),
+) );
+ck( 'drawn as one form holding the quiet Reinstate, no "Decide" heading over one decision, no Download (the row\'s facts carry it), nothing of today\'s block; the decision draws nothing for it', array(
+	0 === strpos( $sa_out_on, '<form ' ) && '' === sa_drawn( $sa_out, 'administrator' ) && '' === sa_drawn( $sa_out2, 'administrator' ),
+	sa_buttons( $sa_xo, '//button' ),
+	$sa_xo->query( '//h5' )->length,
+	strpos( $sa_out_on, 'Download' ),
+	strpos( $sa_out_on . $sa_out2_on, 'class="button' ),
+	strpos( $sa_out_on . $sa_out2_on, 'wpcpm-sponsor-agreement__' ),
+	$sa_out2_on === str_replace( (string) $sa_out, (string) $sa_out2, $sa_out_on ),
+), array( true, array( 'quiet: Reinstate' ), 0, false, false, false, true ) );
+
+// Task V1, ruling 14: the card draws an agreement out of force as a list row, its Reinstate at the row's end:
+// reinstate_form() is the very form the action row above holds, posting the same; nothing for a document waiting for
+// review, for a sponsor account or for a post that is not an agreement.
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$sa_rf = WPCPM_Sponsor_Agreement::reinstate_form( $sa_out, WPCPM_Return::DASHBOARD );
+$sa_rw = WPCPM_Sponsor_Agreement::reinstate_form( $sa_one, WPCPM_Return::DASHBOARD );
+$GLOBALS['uid'] = 21;
+$sa_rs = WPCPM_Sponsor_Agreement::reinstate_form( $sa_out, WPCPM_Return::DASHBOARD );
+$GLOBALS['uid'] = 1;
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+ck( 'V1: reinstate_form() is the form the list row holds, posting what the handler reads; none for a waiting document, a sponsor account or no agreement', array(
+	$sa_rf === $sa_out_on,
+	sa_posted( $sa_rf ),
+	$sa_rw,
+	$sa_rs,
+	WPCPM_Sponsor_Agreement::reinstate_form( 0 ),
+), array( true, array( WPCPM_Sponsor_Agreement::ACTION_REINSTATE => $sa_form( 'wpcpm_sponsor_agr_reinstate', $sa_out, array(), WPCPM_Sponsor_Agreement::reinstate_question() ) ), '', '', '' ) );
+
+// Check 2: two documents on one card.
+$sa_two_html = sa_drawn( $sa_one, 'administrator' ) . sa_drawn( $sa_two, 'administrator' ) . sa_drawn( $sa_out, 'administrator' );
+$sa_x2       = sa_doc( $sa_two_html );
+$sa_posts_of = static function ( $id ) use ( $sa_x2 ) {
+	$fields = array();
+	foreach ( array( 'return' => '//div[@id="wpcpm-decide-sagr-' . $id . '-return-panel"]/form', 'accept' => '//div[@id="wpcpm-decide-sagr-' . $id . '"]/div[@class="wpcpm-ui-actions"]/form' ) as $which => $path ) {
+		$form = $sa_x2->query( $path )->item( 0 );
+		if ( $form ) {
+			foreach ( $sa_x2->query( './/input[@type="hidden"]', $form ) as $input ) {
+				if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'wpcpm_sponsor_agr_post' ), true ) ) {
+					$fields[ $which . ' ' . $input->getAttribute( 'name' ) ] = $input->getAttribute( 'value' );
+				}
+			}
+		}
+	}
+	return $fields;
+};
+ck( 'two documents and an agreement out of force on one card: their areas, panels and boxes have ids of their own, none repeats, and every aria-controls, for and aria-describedby names an element on the page', array(
+	sa_ids( $sa_x2 ),
+	$sa_x2->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$sa_x2->query( '//div[@data-wpcpm-panel]' )->length,
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $sa_x2->query( '//button[@aria-controls]' ) ) ),
+), array( array( true, array() ), 2, 2, array( 'wpcpm-decide-sagr-' . $sa_one . '-return-panel', 'wpcpm-decide-sagr-' . $sa_two . '-return-panel' ) ) );
+ck( 'and each document\'s two forms post its own ID under nonces keyed to it, the question naming its own company; with nothing refused or kept, no panel is open', array(
+	$sa_posts_of( $sa_one ),
+	$sa_posts_of( $sa_two ),
+	false !== strpos( (string) $sa_x2->evaluate( 'string(//div[@id="wpcpm-decide-sagr-' . $sa_two . '"]//button/@data-wpcpm-confirm)' ), 'from Parts & "Sponsor" Two?' ),
+	$sa_x2->query( '//*[@data-wpcpm-open]' )->length,
+	$sa_x2->query( '//button[@aria-expanded="true"]' )->length,
+), array(
+	array( 'return _wpnonce' => 'nonce-wpcpm_sponsor_agr_return_' . $sa_one, 'return wpcpm_sponsor_agr_post' => (string) $sa_one, 'accept _wpnonce' => 'nonce-wpcpm_sponsor_agr_accept_' . $sa_one, 'accept wpcpm_sponsor_agr_post' => (string) $sa_one ),
+	array( 'return _wpnonce' => 'nonce-wpcpm_sponsor_agr_return_' . $sa_two, 'return wpcpm_sponsor_agr_post' => (string) $sa_two, 'accept _wpnonce' => 'nonce-wpcpm_sponsor_agr_accept_' . $sa_two, 'accept wpcpm_sponsor_agr_post' => (string) $sa_two ),
+	true,
+	0,
+	0,
+) );
+
+// Check 3: a refused note comes back, for that document alone.
+$sa_short_went = sa_return( $sa_two, $sa_short );
+$sa_back       = sa_drawn( $sa_one, 'administrator' ) . sa_drawn( $sa_two, 'administrator' );
+$sa_xb         = sa_doc( $sa_back );
+$sa_box        = $sa_xb->query( '//textarea[@id="wpcpm-agr-note-' . $sa_two . '"]' )->item( 0 );
+$sa_problem    = WPCPM_Form_Errors::problem_id( 'wpcpm-agr-note-' . $sa_two );
+$sa_note_said  = (string) WPCPM_Sponsor_Agreement::manager_messages()['agreement-note'][1];
+ck( 'a note too short is refused by the handler, back on the Administrator Dashboard under the class\'s prefix, the typing kept for that document alone, which still waits', array(
+	$sa_short_went,
+	end( $GLOBALS['flash'] ),
+	(string) get_post_meta( $sa_two, WPCPM_Sponsor_Agreement::META_STATE, true ),
+), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'sponsor-agreement-note' ), 'submitted' ) );
+ck( 'back on the card, that document\'s Return panel is printed open and its opener reads expanded; the other document\'s is not (Review Focus 1)', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $sa_xb->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $sa_xb->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( 'wpcpm-decide-sagr-' . $sa_two . '-return-panel' ), array( 'wpcpm-decide-sagr-' . $sa_two . '-return-panel' ) ) );
+ck( 'its box holds the typing, is marked invalid and is tied to the handler\'s refusal sentence, before its hint, inside the open panel', array(
+	$sa_box ? $sa_box->textContent : null,
+	$sa_box ? $sa_box->getAttribute( 'aria-invalid' ) : null,
+	$sa_box ? $sa_box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $sa_xb->evaluate( 'string(//*[@id="' . $sa_problem . '"])' ) ),
+	$sa_xb->query( '//div[@id="wpcpm-decide-sagr-' . $sa_two . '-return-panel"]//*[@id="' . $sa_problem . '"]' )->length,
+), array( "\n" . $sa_short, 'true', $sa_problem . ' wpcpm-agr-note-' . $sa_two . '-hint', $sa_note_said, 1 ) );
+ck( 'and the other document\'s box is neither refused nor filled', array(
+	$sa_xb->query( '//div[@id="wpcpm-decide-sagr-' . $sa_one . '"]//*[@aria-invalid]' )->length,
+	array_map( static function ( $b ) { return $b->textContent; }, iterator_to_array( $sa_xb->query( '//div[@id="wpcpm-decide-sagr-' . $sa_one . '"]//textarea' ) ) ),
+), array( 0, array( "\n" ) ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+$sa_lossy_went = sa_return( $sa_one, $sa_lossy );
+$sa_xl         = sa_doc( sa_drawn( $sa_one, 'administrator' ) );
+ck( 'a note the cleaner would take words from comes back the same way: open, the typing kept as typed, tied to the sentence that names the box by its label', array(
+	end( $GLOBALS['flash'] ),
+	$sa_xl->query( '//div[@id="wpcpm-decide-sagr-' . $sa_one . '-return-panel"][@data-wpcpm-open]' )->length,
+	$sa_xl->evaluate( 'string(//textarea[@id="wpcpm-agr-note-' . $sa_one . '"])' ),
+	trim( (string) $sa_xl->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-agr-note-' . $sa_one ) . '"])' ) ),
+	false !== strpos( (string) WPCPM_Sponsor_Agreement::manager_messages()['agreement-note-loss'][1], 'A note for the company' ),
+), array( array( 'institutions_dashboard', 'sponsor-agreement-note-loss' ), 1, "\n" . $sa_lossy, WPCPM_Sponsor_Agreement::manager_messages()['agreement-note-loss'][1], true ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+sa_return( $sa_one, '   ' );
+$sa_xm = sa_doc( sa_drawn( $sa_one, 'administrator' ) . sa_drawn( $sa_two, 'administrator' ) );
+ck( 'a blank note is refused and keeps nothing (the box is required, so only a browser without the check sends one): no panel is opened and no box is said to be refused, as nothing tells which document it was for', array(
+	end( $GLOBALS['flash'] ),
+	$sa_xm->query( '//*[@data-wpcpm-open]' )->length,
+	$sa_xm->query( '//*[@aria-invalid]' )->length,
+), array( array( 'institutions_dashboard', 'sponsor-agreement-note' ), 0, 0 ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Agreement::TYPED_RETURN, $sa_two ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Agreement::MAX_NOTE );
+$GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] = 'sponsor-agreement-busy';
+$sa_xk = sa_doc( sa_drawn( $sa_two, 'administrator' ) );
+ck( 'a kept return note with another outcome on the channel (the lock was held) opens its panel with the typing, untied to any refusal', array(
+	$sa_xk->query( '//div[@id="wpcpm-decide-sagr-' . $sa_two . '-return-panel"][@data-wpcpm-open]' )->length,
+	$sa_xk->evaluate( 'string(//textarea[@id="wpcpm-agr-note-' . $sa_two . '"])' ),
+	$sa_xk->query( '//*[@aria-invalid]' )->length,
+), array( 1, "\nKept, and not refused.", 0 ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+// The card's message leads to the refused box: the card shell is the real one, holding the outcome for the Sponsor
+// Collaboration Agreements card as the dashboard holds it, around the two documents' decisions.
+/**
+ * The Sponsor Collaboration Agreements card around two decisions, holding one outcome.
+ *
+ * @param string $text The outcome's sentence, an error.
+ * @param bool   $on   Whether the dashboard's surface is on.
+ * @return string
+ */
+function sa_card( $text, $on ) {
+	global $sa_one, $sa_two;
+	// One page, and one request: both decisions read what it took once.
+	WPCPM_Flash::new_request();
+	WPCPM_Dashboard_Card::forget();
+	WPCPM_Dashboard_Card::hold( 'wpcpm-sponsor-agreements', 'error', $text );
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( $on ) {
+		WPCPM_UI::enter( 'administrator' );
+	}
+	ob_start();
+	WPCPM_Dashboard_Card::open(
+		array(
+			'key'           => 'sponsor-agreements',
+			'title'         => 'Sponsor Collaboration Agreements',
+			'prefix'        => 'wpcpm-',
+			'id_on'         => 'section',
+			'section_class' => 'wpcpm-administrator__card',
+		)
+	);
+	WPCPM_Sponsor_Agreement::render_decision( $sa_one, WPCPM_Return::DASHBOARD );
+	WPCPM_Sponsor_Agreement::render_decision( $sa_two, WPCPM_Return::DASHBOARD );
+	WPCPM_Dashboard_Card::close();
+	$html = (string) ob_get_clean();
+	if ( $on ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	WPCPM_Dashboard_Card::forget();
+	return $html;
+}
+sa_return( $sa_two, $sa_short );
+$sa_led       = sa_card( $sa_note_said, true );
+$sa_xled      = sa_doc( $sa_led );
+$sa_led_links = iterator_to_array( $sa_xled->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'on, the refused note\'s message is the refusal sentence as one link to the refused box, said once, before both documents, the box inside the panel printed open', array(
+	count( $sa_led_links ),
+	isset( $sa_led_links[0] ) ? $sa_led_links[0]->getAttribute( 'href' ) : null,
+	isset( $sa_led_links[0] ) ? $sa_led_links[0]->textContent : null,
+	substr_count( $sa_led, 'data-wpcpm-card-message' ),
+	strpos( $sa_led, 'data-wpcpm-card-message' ) < strpos( $sa_led, 'id="wpcpm-decide-sagr-' . $sa_one . '"' ),
+	$sa_xled->query( '//div[@data-wpcpm-open]//textarea[@id="wpcpm-agr-note-' . $sa_two . '"]' )->length,
+), array( 1, '#wpcpm-agr-note-' . $sa_two, $sa_note_said, 1, true, 1 ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ], $GLOBALS['faithful_nonces'] );
+foreach ( array( $sa_one, $sa_two, $sa_out, $sa_out2 ) as $sa_gone ) {
+	wp_delete_post( $sa_gone, true );
+}
+$GLOBALS['kept_typing'] = array();
 
 echo "\n=== A minted key is accepted everywhere a record id was ===\n";
 $SPO     = 'spoAAAA0000000001';
@@ -1371,14 +1887,18 @@ echo "\n=== The return note: a typing the cleaner would take words from is refus
  * drops the one line feed right after a text area's opening tag.
  */
 function agr_note_box( $post_id ) {
+	// Each look is a page of its own.
+	WPCPM_Flash::new_request();
 	ob_start();
 	WPCPM_Sponsor_Agreement::render_decision( $post_id, WPCPM_Return::DASHBOARD );
 	$html = (string) ob_get_clean();
-	if ( ! preg_match( '/<textarea id="wpcpm-agr-note-' . (int) $post_id . '" name="wpcpm_sponsor_agr_note"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+	// The box and its panel as the parts draw them (`WPCPM_UI::field()`, `WPCPM_UI::decide()`), since the old fold left
+	// with its branch (Task 18b).
+	if ( ! preg_match( '/<textarea [^>]*id="wpcpm-agr-note-' . (int) $post_id . '" name="wpcpm_sponsor_agr_note"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
 		return null;
 	}
 	$shown = (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) );
-	return array( 'shown' => html_entity_decode( $shown, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'open' => false !== strpos( $html, '<details class="wpcpm-sponsor-agreement__return" open>' ) );
+	return array( 'shown' => html_entity_decode( $shown, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'open' => false !== strpos( $html, 'id="wpcpm-decide-sagr-' . (int) $post_id . '-return-panel" data-wpcpm-panel data-wpcpm-open>' ) );
 }
 $GLOBALS['users'][2] = new WP_User( 2, array( 'administrator' ), 'Manager Two', 'administrator+two@example.test' );
 $GLOBALS['manage']   = array( 1, 2 );
@@ -1464,6 +1984,8 @@ $landed = ran( 'handle_revoke' );
 ck( 'a note the cleaner would cut to "Kids 18 pay." is refused, back on the Agreements tab, with the sentence for Take it out of force, naming the box by the first words of its label', array( $landed, end( $GLOBALS['flash'] ), WPCPM_Sponsor_Agreement::manager_messages()['agreement-revoke-loss'] ?? null ), array( $v_tab, array( 'sponsors_admin', 'agreement-revoke-loss' ), array( 'error', 'Nothing was revoked, because WordPress would remove part of what you typed in "Why it is out of force, in your own words". To keep every word, put a space after each "<" (or write "less than") and after each "%", then take it out of force again.' ) ) );
 ck( 'and nothing is done: the agreement stays in force, no note or decision on it, no event, no change to the row, no mail, no audit row, and no lock left on the company', array( (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_NOTE, true ), count( (array) get_post_meta( $v_doc, WPCPM_Sponsor_Agreement::META_EVENT ) ) - $v_event, ( WPCPM_Sponsors_Index::row( $V2 )['agreement'] ?? null ) === $v_block, $GLOBALS['mail'], $GLOBALS['audit'], array_key_exists( WPCPM_Sponsor_Agreement::LOCK_PREFIX . $V2, $GLOBALS['opts'] ), WPCPM_Sponsors_Index::row( $V2 )['agreement']['status'] ), array( 'accepted', '', 0, true, array(), array(), false, 'Accepted' ) );
 ck( 'the form gets the note back as it was typed, a line break as the box counts it', WPCPM_Sponsor_Agreement::kept_revoke_note( $v_doc ), str_replace( "\r\n", "\n", $k_note ) );
+// Asked again on the next page.
+WPCPM_Flash::new_request();
 ck( 'and only once: asked again, there is nothing', WPCPM_Sponsor_Agreement::kept_revoke_note( $v_doc ), null );
 
 $_POST = array( 'wpcpm_sponsor_agr_post' => $v_doc, 'wpcpm_sponsor_agr_note' => $k_note );
@@ -1524,5 +2046,8 @@ ck( 'and the scan is the extraction\'s, not a second copy', preg_match( '/functi
 ck( 'no pending mark, no retry and no mention of Airtable exists in the class', preg_match( '/airtable/i', $source ), 0 );
 ck( 'no Airtable class exists', class_exists( 'WPCPM_Airtable' ), false );
 
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'sponsor-agreement' ) );
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

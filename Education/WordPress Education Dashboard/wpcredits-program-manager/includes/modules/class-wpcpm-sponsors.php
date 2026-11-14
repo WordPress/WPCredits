@@ -2888,41 +2888,49 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$tab = (string) array_key_first( $tabs );
 		}
 
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+		// The tab names itself to the switch of the shared parts while it draws (design 3.5): every tab is off until
+		// a release turns it on, and that release puts the switch's class on the wrap.
+		WPCPM_UI::enter( $this->page_slug() . '/' . $tab );
 
-		$this->render_status_notice( $this->outcome_messages( $tab ) );
+		try {
+			echo '<div class="wrap wpcpm-wrap">';
+			echo '<h1>' . esc_html( $this->label() ) . '</h1>';
+			echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
-		WPCPM_Screen_Tabs::render( $this->page_slug(), $tabs, $tab );
+			$this->render_status_notice( $this->outcome_messages( $tab ) );
 
-		switch ( $tab ) {
-			case 'sponsors':
-				$this->render_tab_sponsors();
-				break;
-			case self::TAB_ACCOUNTS:
-				$this->render_tab_accounts();
-				break;
-			case 'offers':
-				$this->render_tab_offers();
-				break;
-			case 'interests':
-				$this->render_tab_interests();
-				break;
-			case 'reports':
-				$this->render_tab_reports();
-				break;
-			case 'agreements':
-				$this->render_tab_agreements();
-				break;
-			case 'listing':
-				$this->render_tab_listing();
-				break;
-			default:
-				$this->render_tab_queue();
+			WPCPM_Screen_Tabs::render( $this->page_slug(), $tabs, $tab );
+
+			switch ( $tab ) {
+				case 'sponsors':
+					$this->render_tab_sponsors();
+					break;
+				case self::TAB_ACCOUNTS:
+					$this->render_tab_accounts();
+					break;
+				case 'offers':
+					$this->render_tab_offers();
+					break;
+				case 'interests':
+					$this->render_tab_interests();
+					break;
+				case 'reports':
+					$this->render_tab_reports();
+					break;
+				case 'agreements':
+					$this->render_tab_agreements();
+					break;
+				case 'listing':
+					$this->render_tab_listing();
+					break;
+				default:
+					$this->render_tab_queue();
+			}
+
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		echo '</div>';
 	}
 
 	/**

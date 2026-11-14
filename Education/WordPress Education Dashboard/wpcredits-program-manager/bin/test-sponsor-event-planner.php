@@ -3989,6 +3989,370 @@ ck(
 	array( true, true )
 );
 
+/* ---- the rows on the parts ------------------------------------------------------- */
+
+echo "\n=== The planner's rows on the Administrator Dashboard's parts, behind the switch (UI shared parts, Task 13e) ===\n";
+
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+
+// The rows of each form the planner draws, as `render_fields()` is handed them: a sponsor's change filled from its
+// event and its plan, empty, both with the term's last day; the program's change and plan on the Administrator
+// Dashboard's card, with none; and the sponsor's two forms brought back with what was typed, then with every row
+// refused beside that typing. Nothing here is time-bound: the first and last days are given, the clock is named.
+$pr_filled   = array(
+	'date'        => '2026-11-10',
+	'time'        => '14:00',
+	'minutes'     => '90',
+	'places'      => '25',
+	'title'       => "Partners \"Q&A\"\r\nin C:\\talks",
+	'description' => "What we \"cover\" & more.\nBring questions.",
+	'link'        => 'https://meet.example/room?a=1&b=2',
+);
+$pr_empty    = array(
+	'date'        => '',
+	'time'        => '',
+	'minutes'     => '60',
+	'places'      => '',
+	'title'       => '',
+	'description' => '',
+	'link'        => '',
+);
+$pr_kept     = array(
+	'date'        => '2026-12-01',
+	'time'        => '09:30',
+	'minutes'     => '45',
+	'places'      => '7',
+	'title'       => 'Kept &amp; "typed" <title>',
+	'description' => "\nKept & <typed> description",
+	'link'        => 'https://meet.example/kept?x=1&y=2',
+);
+$pr_problems = array(
+	'date'        => 'Pick a day in the term.',
+	'time'        => 'Pick a start time.',
+	'minutes'     => 'Give a length in minutes.',
+	'places'      => 'Give at least as many places as have joined.',
+	'title'       => 'Give the event a title.',
+	'description' => 'Say what the event is about.',
+	'link'        => 'Give a call link that starts with https://.',
+);
+$pr_forms    = array(
+	'a sponsor\'s change, filled from its event'   => array( 'wpcpm-sevent-41', $pr_filled, 3, '2026-10-06', '2027-01-31', array(), array() ),
+	'a sponsor\'s plan, empty'                     => array( 'wpcpm-sevent-new', $pr_empty, 1, '2026-10-06', '2027-01-31', array(), array() ),
+	'the program\'s change, no last day'           => array( 'wpcpm-sevent-program-41', $pr_filled, 1, '2026-10-06', '', array(), array() ),
+	'the program\'s plan, no last day'             => array( 'wpcpm-sevent-program-new', $pr_empty, 1, '2026-10-06', '', array(), array() ),
+	'a sponsor\'s change, with kept typing'        => array( 'wpcpm-sevent-41', $pr_filled, 3, '2026-10-06', '2027-01-31', $pr_kept, array() ),
+	'a sponsor\'s plan, with kept typing'          => array( 'wpcpm-sevent-new', $pr_empty, 1, '2026-10-06', '2027-01-31', $pr_kept, array() ),
+	'a sponsor\'s change, every row refused'       => array( 'wpcpm-sevent-41', $pr_filled, 3, '2026-10-06', '2027-01-31', $pr_kept, $pr_problems ),
+	'a sponsor\'s plan, every row refused'         => array( 'wpcpm-sevent-new', $pr_empty, 1, '2026-10-06', '2027-01-31', $pr_kept, $pr_problems ),
+);
+
+/**
+ * One form's rows as the planner draws them: as it ships (''), with the Administrator Dashboard's switch on and no
+ * surface named ('unnamed'), or with that switch on and a surface named (the Sponsor Dashboard's, a wp-admin tab's,
+ * or the Administrator Dashboard's own).
+ *
+ * @param array  $form    What `render_fields()` is handed, in its order, the clock left out.
+ * @param string $surface '', 'unnamed', or the surface drawing.
+ * @return string
+ */
+function pr_rows( array $form, $surface ) {
+	if ( '' !== $surface ) {
+		WPCPM_UI::set_live( array( 'administrator' ) );
+	}
+	if ( '' !== $surface && 'unnamed' !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Sponsor_Event_Planner::render_fields( $form[0], $form[1], new DateTimeZone( 'America/New_York' ), $form[2], $form[3], $form[4], $form[5], $form[6] );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( '' !== $surface && 'unnamed' !== $surface ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
+}
+
+/** Markup read as a document. */
+function pr_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * Every box the rows hold, as the form posts it: its element, type, name, id, bounds, step, pattern, rows, whether it
+ * is required, and the value it posts (a text area's after the one line feed a browser drops after its opening tag).
+ *
+ * @param string $html Markup.
+ * @return string[]
+ */
+function pr_boxes( $html ) {
+	$x   = pr_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//textarea|//select|//input' ) as $box ) {
+		$value = 'textarea' === $box->nodeName ? preg_replace( '/^\n/', '', $box->textContent ) : $box->getAttribute( 'value' );
+		$line  = $box->nodeName . ' type=' . $box->getAttribute( 'type' ) . ' name=' . $box->getAttribute( 'name' ) . ' id=' . $box->getAttribute( 'id' );
+		foreach ( array( 'min', 'max', 'step', 'maxlength', 'pattern', 'rows' ) as $attr ) {
+			$line .= ' ' . $attr . '=' . $box->getAttribute( $attr );
+		}
+		$out[] = $line . ( $box->hasAttribute( 'required' ) ? ' required' : '' ) . ' value=' . json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+	}
+	return $out;
+}
+
+/**
+ * Each row the field part draws: its label's words, the word saying whether it is needed, its box's id, its hint, the
+ * refusal tied to the box, and what the box is described by.
+ *
+ * @param string $html Markup.
+ * @return array<string, string[]>
+ */
+function pr_fields( $html ) {
+	$x   = pr_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//div[@class="wpcpm-ui-field"]' ) as $field ) {
+		$label = $x->query( './label[@class="wpcpm-ui-field__label"]', $field )->item( 0 );
+		$need  = $x->query( './label/span[@class="wpcpm-ui-field__need"]', $field )->item( 0 );
+		$box   = $x->query( './input|./textarea|./select', $field )->item( 0 );
+		$hint  = $x->query( './p[@class="wpcpm-ui-field__hint"]', $field )->item( 0 );
+		$id    = $box ? $box->getAttribute( 'id' ) : '';
+		$said  = '' !== $id ? $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 ) : null;
+		$words = $label ? trim( (string) $label->firstChild->textContent ) : '';
+
+		$out[ $id ] = array(
+			$words,
+			$need ? $need->textContent : '',
+			$label ? $label->getAttribute( 'for' ) : '',
+			$hint ? $hint->getAttribute( 'id' ) . ': ' . $hint->textContent : '',
+			$box && $box->hasAttribute( 'aria-invalid' ) ? 'invalid' : '',
+			$said ? trim( $said->textContent ) : '',
+			$box ? $box->getAttribute( 'aria-describedby' ) : '',
+		);
+	}
+	return $out;
+}
+
+// Check 4: off, on the Sponsor Dashboard and on a wp-admin tab (both off in this release), and with the switch on but
+// no surface named, the rows are the ones drawn before Task 13e, byte for byte. The digests are of the rows as the code
+// at b86d2086 drew them, before Task 13e: this fixture, run on that commit's planner before it was changed.
+$pr_off  = array();
+$pr_same = array();
+foreach ( $pr_forms as $pr_name => $pr_form ) {
+	$pr_off[ $pr_name ]  = pr_rows( $pr_form, '' );
+	$pr_same[ $pr_name ] = array(
+		pr_rows( $pr_form, 'unnamed' ) === $pr_off[ $pr_name ],
+		pr_rows( $pr_form, 'sponsor' ) === $pr_off[ $pr_name ],
+		pr_rows( $pr_form, 'wpcpm-sponsors/queue' ) === $pr_off[ $pr_name ],
+	);
+}
+ck(
+	'off, on the Sponsor Dashboard, on a wp-admin tab and with the switch on but no surface named, every form\'s rows are the ones drawn before Task 13e, byte for byte: filled, empty, with kept typing, with every row refused',
+	static function () use ( $pr_off, $pr_same, $pr_forms ) {
+		return array( array_map( 'md5', $pr_off ), $pr_same, strpos( implode( '', $pr_off ), 'wpcpm-ui-' ) );
+	},
+	array(
+		array(
+			'a sponsor\'s change, filled from its event' => '0f41966e31b317796591a71efff2534d',
+			'a sponsor\'s plan, empty'                   => '7d9b3dfd48e26a628369b2643102d50a',
+			'the program\'s change, no last day'         => '2d21edfd31d08c6db984efd57ec6f1b5',
+			'the program\'s plan, no last day'           => '7750f301213a989679ba3830f236f549',
+			'a sponsor\'s change, with kept typing'      => '6efe30b6dd171f1457bbebfd57c61c0a',
+			'a sponsor\'s plan, with kept typing'        => 'bbedd41bb51d0c2559dd94a514500f77',
+			'a sponsor\'s change, every row refused'     => '38e1d578da98445f62f2c99bd179a2b7',
+			'a sponsor\'s plan, every row refused'       => '3030dee8fea9be8d10646cb6e94ca1a9',
+		),
+		array_fill_keys( array_keys( $pr_forms ), array( true, true, true ) ),
+		false,
+	)
+);
+ck(
+	'and the fixture draws what it is for: the event\'s values, the kept typing in their place, a sentence at every refused row and the summary over the rows',
+	static function () use ( $pr_off ) {
+		return array(
+			substr_count( $pr_off['a sponsor\'s change, filled from its event'], 'value="2026-11-10"' ),
+			substr_count( $pr_off['a sponsor\'s change, with kept typing'], 'value="2026-12-01"' ),
+			substr_count( $pr_off['a sponsor\'s plan, with kept typing'], 'Kept &amp;amp; &quot;typed&quot; &lt;title&gt;' ),
+			substr_count( $pr_off['a sponsor\'s change, every row refused'], 'aria-invalid="true"' ),
+			substr_count( $pr_off['a sponsor\'s plan, every row refused'], 'Seven answers need a change' ),
+			substr_count( $pr_off['a sponsor\'s plan, empty'], 'aria-invalid' ),
+		);
+	},
+	array( 1, 1, 1, 7, 1, 0 )
+);
+
+$pr_on = array();
+foreach ( $pr_forms as $pr_name => $pr_form ) {
+	$pr_on[ $pr_name ] = pr_rows( $pr_form, 'administrator' );
+}
+
+// Check 1: posted fields.
+ck(
+	'on, every form\'s rows post exactly what they post today, in every state: each box\'s element, type, name, id, min, max, step, maxlength, pattern, rows, required and value, in today\'s order',
+	static function () use ( $pr_off, $pr_on ) {
+		$out = array();
+		foreach ( $pr_off as $name => $html ) {
+			$out[ $name ] = array( pr_boxes( $pr_on[ $name ] ) === pr_boxes( $html ), count( pr_boxes( $html ) ) );
+		}
+		return $out;
+	},
+	array_fill_keys( array_keys( $pr_forms ), array( true, 7 ) )
+);
+ck(
+	'and what today posts holds what the rows are for: the bounds of the day, the length and the places, the title\'s and the link\'s bound, the link\'s pattern',
+	static function () use ( $pr_off ) {
+		return pr_boxes( $pr_off['a sponsor\'s change, filled from its event'] );
+	},
+	array(
+		'input type=date name=wpcpm_sevent_date id=wpcpm-sevent-41-date min=2026-10-06 max=2027-01-31 step= maxlength= pattern= rows= required value="2026-11-10"',
+		'input type=time name=wpcpm_sevent_time id=wpcpm-sevent-41-time min= max= step= maxlength= pattern= rows= required value="14:00"',
+		'input type=number name=wpcpm_sevent_minutes id=wpcpm-sevent-41-minutes min=15 max=480 step=5 maxlength= pattern= rows= required value="90"',
+		'input type=number name=wpcpm_sevent_places id=wpcpm-sevent-41-places min=3 max=' . WPCPM_Sponsor_Event::MAX_PLACES . ' step=1 maxlength= pattern= rows= value="25"',
+		'input type=text name=wpcpm_sevent_title id=wpcpm-sevent-41-title min= max= step= maxlength=' . WPCPM_Sponsor_Event::MAX_TITLE . ' pattern= rows= required value="Partners \\"Q&A\\" in C:\\\\talks"',
+		'textarea type= name=wpcpm_sevent_description id=wpcpm-sevent-41-description min= max= step= maxlength=' . WPCPM_Sponsor_Event::MAX_DESCRIPTION . ' pattern= rows=4 required value="What we \\"cover\\" & more.\\nBring questions."',
+		'input type=url name=wpcpm_sevent_link id=wpcpm-sevent-41-link min= max= step= maxlength=' . WPCPM_Sponsor_Event::MAX_LINK . ' pattern=https?://.+ rows= required value="https://meet.example/room?a=1&b=2"',
+	)
+);
+
+// The rows the field part draws (design 2.4): all seven since Task 13e's fix round 1.
+ck(
+	'on, every row is the field part: today\'s label over the box, Required or Optional in words as the row is today, today\'s sentence as the hint tied to the box, the box\'s id as today',
+	static function () use ( $pr_on ) {
+		return pr_fields( $pr_on['a sponsor\'s change, filled from its event'] );
+	},
+	array(
+		'wpcpm-sevent-41-date'        => array( 'Date', 'Required', 'wpcpm-sevent-41-date', '', '', '', '' ),
+		'wpcpm-sevent-41-time'        => array( 'Start time', 'Required', 'wpcpm-sevent-41-time', 'wpcpm-sevent-41-time-hint: In your time zone, America / New York. Everyone who joins sees it in theirs.', '', '', 'wpcpm-sevent-41-time-hint' ),
+		'wpcpm-sevent-41-minutes'     => array( 'Length in minutes', 'Required', 'wpcpm-sevent-41-minutes', '', '', '', '' ),
+		'wpcpm-sevent-41-places'      => array( 'Places', 'Optional', 'wpcpm-sevent-41-places', 'wpcpm-sevent-41-places-hint: Leave it blank for no limit.', '', '', 'wpcpm-sevent-41-places-hint' ),
+		'wpcpm-sevent-41-title'       => array( 'Title', 'Required', 'wpcpm-sevent-41-title', '', '', '', '' ),
+		'wpcpm-sevent-41-description' => array( 'Description', 'Required', 'wpcpm-sevent-41-description', 'wpcpm-sevent-41-description-hint: Shown on the Partners page once the event is approved. Put the call link in its own box.', '', '', 'wpcpm-sevent-41-description-hint' ),
+		'wpcpm-sevent-41-link'        => array( 'Call link', 'Required', 'wpcpm-sevent-41-link', 'wpcpm-sevent-41-link-hint: Only the people who join, your own accounts and the program see this link.', '', '', 'wpcpm-sevent-41-link-hint' ),
+	)
+);
+ck(
+	'the boxes take the field part\'s widths by its own classes: the day, the start time and the numbers 200px, the description the card\'s width, the title and the call link the text box\'s',
+	static function () use ( $pr_on ) {
+		$x   = pr_doc( $pr_on['the program\'s plan, no last day'] );
+		$out = array();
+		foreach ( $x->query( '//div[@class="wpcpm-ui-field"]/*[self::input or self::textarea]' ) as $box ) {
+			$out[ $box->getAttribute( 'name' ) ] = $box->getAttribute( 'class' );
+		}
+		return $out;
+	},
+	array(
+		'wpcpm_sevent_date'        => 'wpcpm-ui-field__control wpcpm-ui-field__control--date',
+		'wpcpm_sevent_time'        => 'wpcpm-ui-field__control wpcpm-ui-field__control--date',
+		'wpcpm_sevent_minutes'     => 'wpcpm-ui-field__control wpcpm-ui-field__control--number',
+		'wpcpm_sevent_places'      => 'wpcpm-ui-field__control wpcpm-ui-field__control--number',
+		'wpcpm_sevent_title'       => 'wpcpm-ui-field__control',
+		'wpcpm_sevent_description' => 'wpcpm-ui-field__control wpcpm-ui-field__control--textarea',
+		'wpcpm_sevent_link'        => 'wpcpm-ui-field__control',
+	)
+);
+ck(
+	'on, in every state, no row of today\'s is left: every box sits in a field part, in today\'s order, and none of today\'s row or note classes is printed',
+	static function () use ( $pr_on ) {
+		$out = array();
+		foreach ( $pr_on as $name => $html ) {
+			$x     = pr_doc( $html );
+			$order = array_map(
+				static function ( $box ) {
+					return $box->getAttribute( 'name' );
+				},
+				iterator_to_array( $x->query( '//input|//textarea' ) )
+			);
+			$out[ $name ] = array( $x->query( '//div[@class="wpcpm-ui-field"]/*[self::input or self::textarea]' )->length, $order, strpos( $html, 'wpcpm-sponsor__field' ), strpos( $html, 'wpcpm-sevent__row' ), strpos( $html, 'wpcpm-student__note' ) );
+		}
+		return $out;
+	},
+	array_fill_keys( array_keys( $pr_forms ), array( 7, array( 'wpcpm_sevent_date', 'wpcpm_sevent_time', 'wpcpm_sevent_minutes', 'wpcpm_sevent_places', 'wpcpm_sevent_title', 'wpcpm_sevent_description', 'wpcpm_sevent_link' ), false, false, false ) )
+);
+ck(
+	'kept typing comes back in the field part\'s boxes as it does in today\'s: the title as typed, the description after its own line feed, the short rows and the link in place of the event\'s',
+	static function () use ( $pr_on, $pr_kept ) {
+		$x = pr_doc( $pr_on['a sponsor\'s change, with kept typing'] );
+		return array(
+			$x->evaluate( 'string(//input[@id="wpcpm-sevent-41-title"]/@value)' ),
+			$x->evaluate( 'string(//textarea[@id="wpcpm-sevent-41-description"])' ),
+			$x->evaluate( 'string(//input[@id="wpcpm-sevent-41-date"]/@value)' ),
+			$x->evaluate( 'string(//input[@id="wpcpm-sevent-41-time"]/@value)' ),
+			$x->evaluate( 'string(//input[@id="wpcpm-sevent-41-places"]/@value)' ),
+			$x->evaluate( 'string(//input[@id="wpcpm-sevent-41-link"]/@value)' ),
+		);
+	},
+	array( 'Kept &amp; "typed" <title>', "\n\nKept & <typed> description", '2026-12-01', '09:30', '7', 'https://meet.example/kept?x=1&y=2' )
+);
+ck(
+	'every row refused: the summary over the rows as today; each box marked invalid and tied to its sentence, then to its hint',
+	static function () use ( $pr_off, $pr_on ) {
+		$on  = $pr_on['a sponsor\'s plan, every row refused'];
+		$off = $pr_off['a sponsor\'s plan, every row refused'];
+		preg_match( '#^<div class="wpcpm-errors.*?</div>#s', $off, $summary );
+		return array(
+			isset( $summary[0] ) && 0 === strpos( $on, $summary[0] ),
+			pr_fields( $on ),
+		);
+	},
+	array(
+		true,
+		array(
+			'wpcpm-sevent-new-date'        => array( 'Date', 'Required', 'wpcpm-sevent-new-date', '', 'invalid', 'Pick a day in the term.', 'wpcpm-sevent-new-date-problem' ),
+			'wpcpm-sevent-new-time'        => array( 'Start time', 'Required', 'wpcpm-sevent-new-time', 'wpcpm-sevent-new-time-hint: In your time zone, America / New York. Everyone who joins sees it in theirs.', 'invalid', 'Pick a start time.', 'wpcpm-sevent-new-time-problem wpcpm-sevent-new-time-hint' ),
+			'wpcpm-sevent-new-minutes'     => array( 'Length in minutes', 'Required', 'wpcpm-sevent-new-minutes', '', 'invalid', 'Give a length in minutes.', 'wpcpm-sevent-new-minutes-problem' ),
+			'wpcpm-sevent-new-places'      => array( 'Places', 'Optional', 'wpcpm-sevent-new-places', 'wpcpm-sevent-new-places-hint: Leave it blank for no limit.', 'invalid', 'Give at least as many places as have joined.', 'wpcpm-sevent-new-places-problem wpcpm-sevent-new-places-hint' ),
+			'wpcpm-sevent-new-title'       => array( 'Title', 'Required', 'wpcpm-sevent-new-title', '', 'invalid', 'Give the event a title.', 'wpcpm-sevent-new-title-problem' ),
+			'wpcpm-sevent-new-description' => array( 'Description', 'Required', 'wpcpm-sevent-new-description', 'wpcpm-sevent-new-description-hint: Shown on the Partners page once the event is approved. Put the call link in its own box.', 'invalid', 'Say what the event is about.', 'wpcpm-sevent-new-description-problem wpcpm-sevent-new-description-hint' ),
+			'wpcpm-sevent-new-link'        => array( 'Call link', 'Required', 'wpcpm-sevent-new-link', 'wpcpm-sevent-new-link-hint: Only the people who join, your own accounts and the program see this link.', 'invalid', 'Give a call link that starts with https://.', 'wpcpm-sevent-new-link-problem wpcpm-sevent-new-link-hint' ),
+		),
+	)
+);
+ck(
+	'on, in every state, no id repeats and every for and aria-describedby names an element of the rows; the summary\'s links reach the boxes',
+	static function () use ( $pr_on ) {
+		$out = array();
+		foreach ( $pr_on as $name => $html ) {
+			$x     = pr_doc( $html );
+			$ids   = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@id]' ) ) );
+			$loose = array();
+			foreach ( $x->query( '//*[@for]' ) as $node ) {
+				$loose[] = in_array( $node->getAttribute( 'for' ), $ids, true ) ? null : 'for=' . $node->getAttribute( 'for' );
+			}
+			foreach ( $x->query( '//*[@aria-describedby]' ) as $node ) {
+				foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+					$loose[] = in_array( $described, $ids, true ) ? null : 'aria-describedby=' . $described;
+				}
+			}
+			foreach ( $x->query( '//a[starts-with(@href, "#")]' ) as $node ) {
+				$loose[] = in_array( substr( $node->getAttribute( 'href' ), 1 ), $ids, true ) ? null : 'href=' . $node->getAttribute( 'href' );
+			}
+			$out[ $name ] = array( count( $ids ) === count( array_unique( $ids ) ), array_values( array_filter( $loose ) ) );
+		}
+		return $out;
+	},
+	array_fill_keys( array_keys( $pr_forms ), array( true, array() ) )
+);
+ck(
+	'on the Sponsor Dashboard, drawn whole, the planner is the same with the Administrator Dashboard\'s switch on as off',
+	static function () {
+		$off = draw( TYPED_OTHER, MARKED_REP );
+		WPCPM_UI::set_live( array( 'administrator' ) );
+		WPCPM_UI::enter( 'sponsor' );
+		try {
+			$on = draw( TYPED_OTHER, MARKED_REP );
+		} finally {
+			WPCPM_UI::leave();
+			WPCPM_UI::set_live( null );
+		}
+		return array( '' !== $off && $on === $off, substr_count( $off, '<input type="date"' ) > 0, strpos( $on, 'wpcpm-ui-' ) );
+	},
+	array( true, true, false )
+);
+
 /* ---- the house rules ---------------------------------------------------------- */
 
 echo "\n=== The house rules ===\n";

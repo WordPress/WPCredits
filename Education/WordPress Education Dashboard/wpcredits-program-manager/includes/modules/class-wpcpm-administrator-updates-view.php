@@ -154,28 +154,37 @@ class WPCPM_Administrator_Updates_View {
 		wp_enqueue_style( WPCPM_Administrator_Guide_View::STYLE );
 		wp_enqueue_script( WPCPM_Administrator_Guide_View::SCRIPT );
 
-		ob_start();
+		// The view is drawn in the dashboard's frame, so it names that dashboard's surface of the shared parts while it
+		// draws (design 3.5), as the dashboard's other views do: the frame's buttons and tags look the same on every
+		// item of its menu.
+		WPCPM_UI::enter( 'sponsor' === $audience ? 'sponsor' : 'administrator' );
 
-		WPCPM_Dashboard_Frame::open( $menu );
+		try {
+			ob_start();
 
-		printf( '<div class="wpcpm-guide wpcpm-guide--updates" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );
+			WPCPM_Dashboard_Frame::open( $menu );
 
-		// The post's own title, not get_the_title(): core prefixes a private post's with "Private:", and
-		// every update here is one an Administrator may read.
-		printf(
-			'<header class="wpcpm-head wpcpm-guide__head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__title">%1$s</h1><p class="wpcpm-head__facts"><time datetime="%2$s">%3$s</time></p></div></header>',
-			esc_html( '' !== trim( $post->post_title ) ? $post->post_title : __( 'Program update', 'wpcredits-program-manager' ) ),
-			esc_attr( (string) get_post_time( 'c', true, $post ) ),
-			esc_html( (string) get_the_date( '', $post ) )
-		);
+			printf( '<div class="wpcpm-guide wpcpm-guide--updates" data-wpcpm-table-label="%s">', esc_attr__( 'Table, scrolls sideways', 'wpcredits-program-manager' ) );
 
-		self::others( $post, $audience );
+			// The post's own title, not get_the_title(): core prefixes a private post's with "Private:", and
+			// every update here is one an Administrator may read.
+			printf(
+				'<header class="wpcpm-head wpcpm-guide__head"><div class="wpcpm-head__copy"><h1 class="wpcpm-head__title">%1$s</h1><p class="wpcpm-head__facts"><time datetime="%2$s">%3$s</time></p></div></header>',
+				esc_html( '' !== trim( $post->post_title ) ? $post->post_title : __( 'Program update', 'wpcredits-program-manager' ) ),
+				esc_attr( (string) get_post_time( 'c', true, $post ) ),
+				esc_html( (string) get_the_date( '', $post ) )
+			);
 
-		echo '<div class="wpcpm-guide__body">' . $content . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The post's own content, filtered by the_content.
+			self::others( $post, $audience );
 
-		echo '</div>';
+			echo '<div class="wpcpm-guide__body">' . $content . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The post's own content, filtered by the_content.
 
-		WPCPM_Dashboard_Frame::close();
+			echo '</div>';
+
+			WPCPM_Dashboard_Frame::close();
+		} finally {
+			WPCPM_UI::leave();
+		}
 
 		return (string) ob_get_clean();
 	}

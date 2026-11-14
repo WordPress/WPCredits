@@ -1,0 +1,8 @@
+# The UI rig (local Docker copy only)
+
+1. `bin/ui/copy.sh prepare <plugin.zip>`: snapshots the copy at http://localhost:8900, collects the names to refuse into the work folder, installs the zip, scrubs people and puts `wpcpm-ui-rig.php` in mu-plugins.
+2. `node bin/ui/snap.mjs --out <folder>`: makes the invented items (`seed.mjs`; `--skip-seed` reuses them) and photographs every scene of `scenes.mjs` at 1280 and 390 (`--sizes 1280,390,768` adds release 2's tabs at 768); `--only` takes parts of file names. The seed stores a frozen moment (`wpcpm_ui_rig_now`, in ui-ready): the pages' scripts and every relative time the plugin prints through `human_time_diff()` read it, so two runs from one ui-ready are pixel-equal; counts of whole days the plugin works out from `time()` still move with the date.
+3. `node bin/ui/measure.mjs --out <file.json>`: the computed-style counts of design section 8 item 4, one line per screen.
+4. `node bin/ui/compare.mjs <before folder> <after folder>`: `same`, `DIFFERS` or `MISSING` per file, then `N differ`; exit 1 on any.
+5. `bin/ui/copy.sh swap <other.zip>` compares two builds in one prepared session: it puts the database back to `ui-ready` (the same invented items and frozen moment) and installs the other zip beside `.worktrees`; then `snap.mjs --skip-seed` and `compare.mjs`. A baseline is only comparable with pictures from the same seeded state.
+6. `bin/ui/copy.sh restore` puts the copy back, after any number of swaps. Outputs go outside the repository or under `.superpowers/`; tools are found through `WPCPM_DOCKER`, `WPCPM_PLAYWRIGHT`, `WPCPM_UI_WORK`, `WPCPM_FFMPEG` and `WPCPM_FFPROBE`, with home-folder defaults.

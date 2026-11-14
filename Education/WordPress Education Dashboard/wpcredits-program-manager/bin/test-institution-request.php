@@ -126,6 +126,7 @@ function esc_textarea( $s ) { return esc_html( $s ); }
 // closing note the cleaner would take words from is refused, and a stand-in on `strip_tags()` alone
 // writes no `&lt;` and would pass every check made with it.
 require_once __DIR__ . '/stubs/specialchars.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 // What the application's cleaners reach for, which the details class answers a typed answer and a stored
@@ -304,7 +305,37 @@ function get_posts( $a = array() ) {
 	return $out;
 }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['referer'][] = $a; return true; }
-function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
+// The nonce as the suite has always read it: the nonce keyed to its action, alone. With `$GLOBALS['faithful_nonces']`
+// set, as WordPress prints it: the field with the id core gives it and the referer beside it, so a form drawn
+// through `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field.
+function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />';
+	if ( $r ) {
+		wp_referer_field();
+	}
+}
+function wp_create_nonce( $a = '' ) { return 'nonce-' . $a; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
+// What the shared parts (`WPCPM_UI`) and the card shell ask of WordPress (UI shared parts, Task 12).
+function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
+function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_scripts'][ $h ] ); }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
+function sanitize_html_class( $s ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $s ); }
+function wp_kses_post( $s ) { return (string) $s; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function wp_get_referer() { return $GLOBALS['back']; }
@@ -456,6 +487,8 @@ if ( ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
 	class WPCPM_Administrators_Dashboard {
 		public static $url = 'https://example.test/administrator-dashboard/';
 		public static function page_url() { return self::$url; }
+		// The card a decision posted from the dashboard comes back to, on the Overview.
+		public static function card_url( $card, $item = '' ) { return self::$url . '#' . ( '' !== (string) $item ? (string) $item : 'wpcpm-' . $card ); }
 	}
 }
 if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
@@ -481,6 +514,12 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php';
+// The decisions are drawn on the shared parts alone since their old branch left (Task 18b), so the parts are
+// loaded before the first drawing; the card shell and the way back are loaded with the parts' checks below, so
+// the handlers above keep redirecting as they always have.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -564,12 +603,20 @@ function stored_for( $institution ) {
 }
 function flash_for( $uid, $channel ) { return $GLOBALS['umeta'][ (int) $uid ]['wpcpm_flash'][ $channel ] ?? null; }
 function clear_flash( $uid ) { unset( $GLOBALS['umeta'][ (int) $uid ]['wpcpm_flash'] ); }
-/** One queue row's decisions, drawn for one reader. */
+/** One queue row's decisions, drawn for one reader as the Administrator Dashboard draws them, on its surface. */
 function render_decisions( $viewer, $post_id ) {
 	$GLOBALS['uid'] = (int) $viewer;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
 	ob_start();
-	WPCPM_Institution_Request::render_decisions( $post_id );
-	return (string) ob_get_clean();
+	try {
+		WPCPM_Institution_Request::render_decisions( $post_id, 'dashboard' );
+	} finally {
+		$html = (string) ob_get_clean();
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
 }
 /**
  * Whether one call comes before another in a method body, with both of them present.
@@ -1152,18 +1199,20 @@ clear_flash( 1 );
 $elsewhere     = render_decisions( 3, $open_for_decline );
 $given_back    = render_decisions( 3, $open_for_loss );
 $taken         = isset( $GLOBALS['umeta'][3]['wpcpm_flash'][ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $open_for_loss ] );
-$box           = static function ( $id ) {
-	return '<textarea id="wpcpm-request-note-' . (int) $id . '" name="wpcpm_request_note" rows="2" maxlength="' . WPCPM_Institution_Request::MAX_NOTE . '" placeholder="What you did about it, for the log. Optional, and not sent to the institution.">';
+// What one request's box holds as drawn on the parts (`WPCPM_UI::field()`), the line feed the parser drops after
+// the opening tag included; null when the drawing has no box of that request (Task 18b: the old form is gone).
+$box           = static function ( $html, $id ) {
+	return preg_match( '#<textarea [^>]*id="wpcpm-request-note-' . (int) $id . '" name="wpcpm_request_note"[^>]*>(.*?)</textarea>#s', (string) $html, $m ) ? $m[1] : null;
 };
 ck( 'on the Administrator Dashboard the next page gives the typing back exactly, in that request\'s box, once', array(
-	substr_count( $given_back, $box( $open_for_loss ) . "\n" . esc_textarea( $lossy_kept ) . '</textarea>' ),
+	$box( $given_back, $open_for_loss ) === "\n" . esc_textarea( $lossy_kept ),
 	substr_count( $given_back, '<textarea' ),
 	$taken,
-), array( 1, 1, false ) );
+), array( true, 1, false ) );
 ck( 'another request\'s box and another manager never see it', array(
-	substr_count( $elsewhere, $box( $open_for_decline ) . '</textarea>' ),
-	substr_count( $other_manager, $box( $open_for_loss ) . '</textarea>' ),
-), array( 1, 1 ) );
+	$box( $elsewhere, $open_for_decline ),
+	$box( $other_manager, $open_for_loss ),
+), array( "\n", "\n" ) );
 unset( $GLOBALS['umeta'][3] );
 $GLOBALS['uid'] = 1;
 
@@ -2306,6 +2355,851 @@ ck( 'no row names a record ID, a slug or the plugin, so the school\'s history ca
 	return 1 === preg_match( '/rec[A-Za-z0-9]{14}|wpcpm|_/', $words );
 } ) ), array() );
 
+/* ---- the decisions on the shared parts, behind the switch ------------------ */
 
+echo "\n=== A request's decisions on the Administrator Dashboard's parts: Mark as handled or Decline with one optional note (UI shared parts, Task 12) ===\n";
+
+// The Administrator Dashboard suite draws these decisions through a stand-in, so the real ones are drawn here,
+// under `WPCPM_UI::enter( 'administrator' )` with the dashboard's surface on, as the dashboard draws them: the
+// student line and the Airtable sentence as today, then one Decide area whose two openers share one panel, its
+// one form posting `state` from two submits. Off the surface, and on any wp-admin tab, the decisions are
+// today's, byte for byte. The parts, the card shell and the way back are the real classes, loaded here so the
+// blocks above keep drawing as they always have.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
+
+/**
+ * A render read as a document.
+ *
+ * @param string $html Markup.
+ * @return DOMXPath
+ */
+function req_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * Every form a render holds: how it posts, its guard, its hidden fields as `name=value` in the order a browser
+ * posts them, its boxes with their name and bounds, its submits as `name=value` and the question it asks.
+ *
+ * @param string $html Markup.
+ * @return array[]
+ */
+function req_posted( $html ) {
+	$x   = req_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ( $box->hasAttribute( 'required' ) ? ' required' : '' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			$asks     .= $button->getAttribute( 'data-wpcpm-confirm' );
+		}
+		$out[] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ) . ' ' . $form->getAttribute( 'enctype' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	return $out;
+}
+
+/**
+ * The kinds, words and `hidden` state of the buttons a path holds, in order: `kind: words`, with ` (hidden)`.
+ *
+ * @param DOMXPath $x    The document.
+ * @param string   $path Where to look.
+ * @return string[]
+ */
+function req_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : ( false !== strpos( $class, ' wpcpm-btn ' ) ? 'primary' : 'old' ) ) );
+		$out[] = $kind . ': ' . trim( $button->textContent ) . ( $button->hasAttribute( 'hidden' ) ? ' (hidden)' : '' );
+	}
+	return $out;
+}
+
+/**
+ * One request's decisions for one reader, with a surface named (or none) and the dashboard's switch on.
+ *
+ * @param int    $viewer  Who reads.
+ * @param int    $post_id The request.
+ * @param string $surface 'administrator', a wp-admin tab, or '' for none.
+ * @return string
+ */
+function req_drawn( $viewer, $post_id, $surface ) {
+	$GLOBALS['uid'] = (int) $viewer;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( '' !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Institution_Request::render_decisions( $post_id, WPCPM_Return::DASHBOARD );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( 'administrator' === $surface ) {
+			parts_inventory_add( $html );
+		}
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
+}
+
+/**
+ * Post a decision on one request with one note from the dashboard, as the Administrator `$from`, and hand what
+ * the press left to `$to`, a fresh reader of the flash (`WPCPM_Flash::take()` memoizes per request).
+ *
+ * @param int    $post_id The request.
+ * @param string $state   done or declined.
+ * @param string $note    The note as typed.
+ * @param int    $from    Who pressed.
+ * @param int    $to      The same Administrator on the next page.
+ * @return string Where the handler sent the press.
+ */
+function req_refused( $post_id, $state, $note, $from, $to ) {
+	$GLOBALS['uid'] = (int) $from;
+	clear_flash( $from );
+	$_POST = array(
+		'request'            => (int) $post_id,
+		'state'              => $state,
+		'wpcpm_request_note' => $note,
+		'wpcpm_return'       => 'dashboard',
+		'wpcpm_return_to'    => 'requests',
+	);
+	$went  = run( 'handle_resolve' );
+	$_POST = array();
+	$GLOBALS['umeta'][ $to ]['wpcpm_flash'] = $GLOBALS['umeta'][ $from ]['wpcpm_flash'] ?? array();
+	unset( $GLOBALS['umeta'][ $from ] );
+	$GLOBALS['uid'] = (int) $to;
+	return $went;
+}
+
+foreach ( range( 61, 72 ) as $req_reader ) {
+	$GLOBALS['users'][ $req_reader ] = new WP_User( $req_reader, 'Parts Manager ' . $req_reader, 'administrator+parts' . $req_reader . '@example.test', array( 'administrator' ) );
+}
+$GLOBALS['manage']    = array_merge( $GLOBALS['manage'], array( 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72 ) );
+$GLOBALS['enqueued']  = array();
+$req_one              = seed_open( 'add', $B, 'recS0000000000301' );
+$req_two              = seed_open( 'mentor', $B, 'recS0000000000302' );
+$req_area             = static function ( $id ) {
+	return '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-req-' . (int) $id . '"]';
+};
+$req_panel            = static function ( $id ) {
+	return 'wpcpm-decide-req-' . (int) $id . '-done-panel';
+};
+
+// The decisions are drawn on the parts alone since their old branch left (Task 18b); its off checks and digests
+// went with it. What the one form posts is pinned to what the old form posted (read at 76b5ecff, where this check
+// compared the two), so the handler still reads every field it reads.
+$GLOBALS['faithful_nonces'] = true;
+$req_on    = req_drawn( 61, $req_one, 'administrator' );
+
+// Check 1: posted fields.
+$req_x = req_doc( $req_on );
+ck( 'on, the one form posts exactly what the handler reads: admin-post.php, the once guard and its busy words, the hidden fields in order with the nonce keyed to the request and its referer, the way back to the card, the box under its name and bound, and the two submits, state=done and state=declined, asking nothing (posted fields)', req_posted( $req_on ), array(
+	array(
+		'posts'   => 'post https://example.test/wp-admin/admin-post.php ',
+		'guard'   => 'once Saving',
+		'hidden'  => array( '_wpnonce=nonce-wpcpm_resolve_request_' . $req_one, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_resolve_request', 'request=' . $req_one, 'wpcpm_return=dashboard', 'wpcpm_return_to=requests' ),
+		'boxes'   => array( 'wpcpm_request_note maxlength=2000' ),
+		'submits' => array( 'state=done', 'state=declined' ),
+		'asks'    => '',
+	),
+) );
+
+// Check 5: the words, the kinds, the shape (design 2.6, 5; the approved pictures).
+// Task 17b fix round, ruling 3: the two sentences are the parts' intro lines, the second muted, in today's words; their
+// old classes are not printed on the parts.
+ck( 'on, the student line (the intro line) and the Airtable sentence (the muted intro line) come first, in today\'s words, then one Decide area, id wpcpm-decide-req-{ID}, headed "Decide"', array(
+	1 === preg_match( '#<p class="wpcpm-ui-intro">The student is [^<]*\. Raised by [^<]*\.</p><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Assigning a mentor happens in Airtable, and this site learns about it at the next students sync\. Closing the row here only says the queue has dealt with it\.</p><div class="wpcpm-ui-decide"#', $req_on ),
+	false === strpos( $req_on, 'wpcpm-request__student' ) && false === strpos( $req_on, 'class="description"' ),
+	strpos( $req_on, 'The student is' ) < strpos( $req_on, 'Assigning a mentor' ) && strpos( $req_on, 'Assigning a mentor' ) < strpos( $req_on, 'wpcpm-ui-decide' ),
+	$req_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	trim( (string) $req_x->evaluate( 'string(' . $req_area( $req_one ) . '/h5[@class="wpcpm-ui-h"])' ) ),
+), array( true, true, true, 1, 'Decide' ) );
+ck( 'its row: two openers, Mark as handled (primary) and Decline (danger, the one red thing), each controlling the one panel, printed hidden for the script to reveal, neither pressed', array(
+	req_buttons( $req_x, $req_area( $req_one ) . '/div[@class="wpcpm-ui-actions"]/button' ),
+	array_map( static function ( $b ) { return $b->getAttribute( 'type' ) . ' ' . $b->getAttribute( 'aria-controls' ) . ' ' . $b->getAttribute( 'aria-expanded' ) . ' ' . $b->getAttribute( 'data-wpcpm-for' ); }, iterator_to_array( $req_x->query( $req_area( $req_one ) . '/div[@class="wpcpm-ui-actions"]/button' ) ) ),
+	$req_x->query( $req_area( $req_one ) . '/div[@class="wpcpm-ui-actions"]/form' )->length,
+), array(
+	array( 'primary: Mark as handled (hidden)', 'danger: Decline (hidden)' ),
+	array( 'button ' . $req_panel( $req_one ) . ' false done', 'button ' . $req_panel( $req_one ) . ' false declined' ),
+	0,
+) );
+ck( 'one panel, printed open for a page with no script: label "What you did about it" with Optional, the hint saying nobody receives the note, both confirming buttons shown, each naming the act in full and its decision, and a Cancel printed hidden', array(
+	$req_x->query( '//div[@data-wpcpm-panel]' )->length,
+	$req_x->query( '//div[@data-wpcpm-panel][@id="' . $req_panel( $req_one ) . '"]/form' )->length,
+	trim( (string) $req_x->evaluate( 'string(//div[@id="' . $req_panel( $req_one ) . '"]//label[@for="wpcpm-request-note-' . $req_one . '"])' ) ),
+	trim( (string) $req_x->evaluate( 'string(//label[@for="wpcpm-request-note-' . $req_one . '"]/span[@class="wpcpm-ui-field__need"])' ) ),
+	trim( (string) $req_x->evaluate( 'string(//p[@id="wpcpm-request-note-' . $req_one . '-hint"])' ) ),
+	req_buttons( $req_x, '//div[@id="' . $req_panel( $req_one ) . '"]//button' ),
+	array_map( static function ( $b ) { return $b->getAttribute( 'data-wpcpm-for' ); }, iterator_to_array( $req_x->query( '//div[@id="' . $req_panel( $req_one ) . '"]//button[not(@type="button")]' ) ) ),
+	$req_x->query( '//*[@data-wpcpm-open]' )->length,
+), array(
+	1,
+	1,
+	'What you did about it Optional',
+	'Optional',
+	'For the log. It is not sent to the institution.',
+	array( 'primary: Mark the request as handled', 'danger: Decline the request', 'quiet: Cancel (hidden)' ),
+	array( 'done', 'declined' ),
+	0,
+) );
+ck( 'the box keeps its id, name, rows and bound, wpcpm-request-note-{ID} and wpcpm_request_note, has no placeholder, is not required, and is tied to its hint, empty', array(
+	array_map( static function ( $box ) { return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . json_encode( $box->textContent ); }, iterator_to_array( $req_x->query( '//textarea' ) ) ),
+	$req_x->query( '//textarea[@placeholder]|//textarea[@required]' )->length,
+	strpos( $req_on, 'for the log. Optional' ),
+), array( array( 'wpcpm-request-note-' . $req_one . ' wpcpm_request_note 2 2000 wpcpm-request-note-' . $req_one . '-hint "\n"' ), 0, false ) );
+ck( 'no button of the old form, no screen-reader-only label, and the parts\' script is asked for, where the panel is drawn', array(
+	strpos( $req_on, 'class="button' ),
+	strpos( $req_on, 'screen-reader-text' ),
+	in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ),
+), array( false, false, true ) );
+ck( 'a details request draws no Mark as handled or Decline here, on the parts or off them: its own Decide area is render_details_decide()\'s (below)', array( req_drawn( 61, $focus, 'administrator' ), req_drawn( 61, $focus, '' ) ), array( '', '' ) );
+
+// Check 2: two requests on one card.
+$req_both = req_drawn( 61, $req_one, 'administrator' ) . req_drawn( 61, $req_two, 'administrator' );
+$req_xb   = req_doc( $req_both );
+$req_ids  = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $req_xb->query( '//*[@id]' ) ) );
+$req_lost = array();
+foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+	foreach ( $req_xb->query( '//*[@' . $attr . ']' ) as $node ) {
+		if ( ! in_array( $node->getAttribute( $attr ), $req_ids, true ) ) {
+			$req_lost[] = $attr . '=' . $node->getAttribute( $attr );
+		}
+	}
+}
+foreach ( $req_xb->query( '//*[@aria-describedby]' ) as $node ) {
+	foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+		if ( ! in_array( $described, $req_ids, true ) ) {
+			$req_lost[] = 'aria-describedby=' . $described;
+		}
+	}
+}
+$req_posts_of = static function ( $id ) use ( $req_xb ) {
+	$form   = $req_xb->query( '//div[@id="wpcpm-decide-req-' . (int) $id . '-done-panel"]/form' )->item( 0 );
+	$fields = array();
+	if ( $form ) {
+		foreach ( $req_xb->query( './/input[@type="hidden"]', $form ) as $input ) {
+			if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'request' ), true ) ) {
+				$fields[ $input->getAttribute( 'name' ) ] = $input->getAttribute( 'value' );
+			}
+		}
+	}
+	return $fields;
+};
+ck( 'two requests on one card: areas, panels and boxes have ids of their own, none repeats, and every aria-controls, for and aria-describedby names an element on the page', array(
+	count( $req_ids ) === count( array_unique( $req_ids ) ),
+	$req_xb->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$req_xb->query( '//div[@data-wpcpm-panel]' )->length,
+	$req_lost,
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $req_xb->query( '//button[@aria-controls]' ) ) ),
+), array( true, 2, 2, array(), array( $req_panel( $req_one ), $req_panel( $req_one ), $req_panel( $req_two ), $req_panel( $req_two ) ) ) );
+ck( 'and each panel\'s form posts its own request\'s ID, under a nonce keyed to it; with nothing refused or kept, no panel is open and no opener pressed', array(
+	$req_posts_of( $req_one ),
+	$req_posts_of( $req_two ),
+	$req_xb->query( '//*[@data-wpcpm-open]' )->length,
+	$req_xb->query( '//button[@aria-expanded="true"]' )->length,
+), array(
+	array( '_wpnonce' => 'nonce-wpcpm_resolve_request_' . $req_one, 'request' => (string) $req_one ),
+	array( '_wpnonce' => 'nonce-wpcpm_resolve_request_' . $req_two, 'request' => (string) $req_two ),
+	0,
+	0,
+) );
+
+// Check 3: a refused note comes back. The press is the real handler's; the page after it is drawn for the same
+// Administrator, a fresh reader of the flash. The handler says which button was pressed in its outcome
+// (request-done-long or request-declined-long, and the two loss outcomes), and which request in the typing it
+// keeps for that request's box alone.
+$req_long      = str_repeat( 'a', WPCPM_Institution_Request::MAX_NOTE + 1 );
+$req_long_went = req_refused( $req_two, 'declined', $req_long, 63, 64 );
+$req_long_left = $GLOBALS['umeta'][64]['wpcpm_flash'] ?? array();
+ck( 'a note too long for Decline is refused by the handler, back to the card, which keeps the typing for that request alone', array(
+	$req_long_went,
+	$req_long_left['institutions'] ?? '',
+	isset( $req_long_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $req_two ] ),
+	stored()[ $req_two ]['state'],
+), array( 'redirect:https://example.test/administrator-dashboard/#wpcpm-requests', 'request-declined-long', true, 'open' ) );
+$req_back    = req_drawn( 64, $req_one, 'administrator' ) . req_drawn( 64, $req_two, 'administrator' );
+$req_xr      = req_doc( $req_back );
+$req_box     = $req_xr->query( '//textarea[@id="wpcpm-request-note-' . $req_two . '"]' )->item( 0 );
+$req_problem = WPCPM_Form_Errors::problem_id( 'wpcpm-request-note-' . $req_two );
+ck( 'back on the card, that request\'s panel is printed open with Decline the pressed opener, and the other request\'s panel is not open (Review Focus 1)', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $req_xr->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ) . ' ' . $node->getAttribute( 'data-wpcpm-for' ); }, iterator_to_array( $req_xr->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( $req_panel( $req_two ) ), array( $req_panel( $req_two ) . ' declined' ) ) );
+ck( 'its box holds the typing (kept up to the box\'s room), is marked invalid and is tied to the handler\'s refusal sentence before its hint', array(
+	$req_box ? $req_box->textContent : null,
+	$req_box ? $req_box->getAttribute( 'aria-invalid' ) : null,
+	$req_box ? $req_box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $req_xr->evaluate( 'string(//*[@id="' . $req_problem . '"])' ) ),
+	$req_xr->query( '//div[@id="' . $req_panel( $req_two ) . '"]//*[@id="' . $req_problem . '"]' )->length,
+), array( "\n" . substr( $req_long, 0, WPCPM_Institution_Request::MAX_NOTE ), 'true', $req_problem . ' wpcpm-request-note-' . $req_two . '-hint', WPCPM_Institution_Request::messages()['request-declined-long'][1], 1 ) );
+ck( 'and the other request\'s box is neither refused nor filled', array(
+	$req_xr->query( $req_area( $req_one ) . '//*[@aria-invalid]' )->length,
+	array_map( static function ( $b ) { return $b->textContent; }, iterator_to_array( $req_xr->query( $req_area( $req_one ) . '//textarea' ) ) ),
+), array( 0, array( "\n" ) ) );
+
+$req_lossy = "Assigned Dana: kids <12 free, adults >18 pay.\nThe sync will carry it.";
+$req_lossy_went = req_refused( $req_one, 'done', $req_lossy, 65, 66 );
+$req_xl         = req_doc( req_drawn( 66, $req_one, 'administrator' ) );
+ck( 'a note the cleaner would take words from, pressed with Mark as handled, comes back the same way: open, Mark as handled the pressed opener, the typing kept as typed, tied to the sentence that names the box by its label', array(
+	$req_lossy_went,
+	$req_xl->query( '//div[@id="' . $req_panel( $req_one ) . '"][@data-wpcpm-open]' )->length,
+	array_map( static function ( $node ) { return $node->getAttribute( 'data-wpcpm-for' ); }, iterator_to_array( $req_xl->query( '//button[@aria-expanded="true"]' ) ) ),
+	$req_xl->evaluate( 'string(//textarea[@id="wpcpm-request-note-' . $req_one . '"])' ),
+	trim( (string) $req_xl->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-request-note-' . $req_one ) . '"])' ) ),
+), array( 'redirect:https://example.test/administrator-dashboard/#wpcpm-requests', 1, array( 'done' ), "\n" . $req_lossy, WPCPM_Institution_Request::messages()['request-done-loss'][1] ) );
+
+// A note kept with no refusal of this box on the channel (the outcome is another's) still comes back, in its
+// open panel, with nothing said beside it. Nothing says which button kept it, so the panel opens as its first
+// opener, Mark as handled, opens it: the script cannot draw a shared panel open with no opener pressed.
+$GLOBALS['uid'] = 67;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Request::TYPED_NOTE, $req_two ), 'note', 'Kept, and not refused.', WPCPM_Institution_Request::MAX_NOTE );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'request-done' );
+$req_xk = req_doc( req_drawn( 67, $req_two, 'administrator' ) );
+ck( 'a kept note opens its panel with the typing, untied to any refusal, its first opener pressed', array(
+	$req_xk->query( '//div[@id="' . $req_panel( $req_two ) . '"][@data-wpcpm-open]' )->length,
+	$req_xk->evaluate( 'string(//textarea[@id="wpcpm-request-note-' . $req_two . '"])' ),
+	$req_xk->query( '//*[@aria-invalid]' )->length,
+	array_map( static function ( $node ) { return $node->getAttribute( 'data-wpcpm-for' ); }, iterator_to_array( $req_xk->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( 1, "\nKept, and not refused.", 0, array( 'done' ) ) );
+
+// The card's message leads to the refused box. The card shell is the real one, holding the outcome for the
+// requests card as the dashboard holds it, around the two requests' decisions.
+/**
+ * The requests card as the dashboard draws it, holding one outcome, around two requests' decisions.
+ *
+ * @param string $text   The outcome's sentence, an error.
+ * @param bool   $on     Whether the dashboard's surface is on.
+ * @param int    $viewer Who reads.
+ * @return string
+ */
+function requests_card( $text, $on, $viewer ) {
+	global $req_one, $req_two;
+	$GLOBALS['uid'] = (int) $viewer;
+	WPCPM_Dashboard_Card::forget();
+	WPCPM_Dashboard_Card::hold( 'wpcpm-requests', 'error', $text );
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( $on ) {
+		WPCPM_UI::enter( 'administrator' );
+	}
+	ob_start();
+	WPCPM_Dashboard_Card::open(
+		array(
+			'key'           => 'requests',
+			'title'         => 'Requests from institutions',
+			'prefix'        => 'wpcpm-',
+			'id_on'         => 'section',
+			'section_class' => 'wpcpm-administrator__card',
+		)
+	);
+	WPCPM_Institution_Request::render_decisions( $req_one, WPCPM_Return::DASHBOARD );
+	WPCPM_Institution_Request::render_decisions( $req_two, WPCPM_Return::DASHBOARD );
+	WPCPM_Dashboard_Card::close();
+	$html = (string) ob_get_clean();
+	if ( $on ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	WPCPM_Dashboard_Card::forget();
+	return $html;
+}
+
+$req_said = (string) WPCPM_Institution_Request::messages()['request-declined-long'][1];
+req_refused( $req_two, 'declined', $req_long, 70, 71 );
+$req_led   = requests_card( $req_said, true, 71 );
+$req_xc    = req_doc( $req_led );
+$req_links = iterator_to_array( $req_xc->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'on, the refused note\'s message is the refusal sentence as one link to the refused box, said once, before both requests, the box inside the panel printed open', array(
+	count( $req_links ),
+	isset( $req_links[0] ) ? $req_links[0]->getAttribute( 'href' ) : null,
+	isset( $req_links[0] ) ? $req_links[0]->textContent : null,
+	substr_count( $req_led, 'data-wpcpm-card-message' ),
+	strpos( $req_led, 'data-wpcpm-card-message' ) < strpos( $req_led, 'id="wpcpm-decide-req-' . $req_one . '"' ),
+	$req_xc->query( '//div[@data-wpcpm-open]//textarea[@id="wpcpm-request-note-' . $req_two . '"]' )->length,
+), array( 1, '#wpcpm-request-note-' . $req_two, $req_said, 1, true, 1 ) );
+
+unset( $GLOBALS['faithful_nonces'] );
+$GLOBALS['uid'] = 1;
+
+echo "\n=== A request to correct a school's details on the parts: Approve at once or Decline with a note (UI shared parts, Task 12 fix round 1) ===\n";
+
+// The Administrator Dashboard's card draws the details request's header and table (pinned in
+// bin/test-administrators-dashboard.php, which fakes this class); its Decide area is this class's own,
+// `render_details_decide()`, drawn here for real, beside the handler it posts to. Approve is a form that
+// posts at once; Decline is an opener with its own panel and form, holding the note the school reads.
+
+/**
+ * One details request's Decide area for one reader, as the dashboard's card draws it with its switch on.
+ *
+ * @param int $viewer  Who reads.
+ * @param int $post_id The request.
+ * @return string
+ */
+function det_drawn( $viewer, $post_id ) {
+	$GLOBALS['uid'] = (int) $viewer;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	ob_start();
+	try {
+		WPCPM_Institution_Request::render_details_decide( $post_id, WPCPM_Return::DASHBOARD );
+	} finally {
+		$html = (string) ob_get_clean();
+		parts_inventory_add( $html );
+		WPCPM_UI::leave();
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
+}
+
+/**
+ * Post a Decline of one details request from the dashboard with one note, as `$from`, and hand what the press
+ * left to `$to`, a fresh reader of the flash.
+ *
+ * @param int    $post_id The request.
+ * @param string $note    The note as typed.
+ * @param int    $from    Who pressed.
+ * @param int    $to      The same Administrator on the next page.
+ * @return string Where the handler sent the press.
+ */
+function det_refused( $post_id, $note, $from, $to ) {
+	$GLOBALS['uid'] = (int) $from;
+	clear_flash( $from );
+	$_POST = array(
+		'request'            => (int) $post_id,
+		'decision'           => 'decline',
+		'wpcpm_request_note' => $note,
+		'wpcpm_return'       => 'dashboard',
+		'wpcpm_return_to'    => 'requests',
+	);
+	$went  = run( 'handle_details_decide' );
+	$_POST = array();
+	$GLOBALS['umeta'][ $to ]['wpcpm_flash'] = $GLOBALS['umeta'][ $from ]['wpcpm_flash'] ?? array();
+	unset( $GLOBALS['umeta'][ $from ] );
+	$GLOBALS['uid'] = (int) $to;
+	return $went;
+}
+
+/**
+ * What today's one details form posts (`WPCPM_Administrators_Cards::render_details_request()`, the old branch),
+ * split per submit: Approve posts everything but the note, Decline everything with it. The old form's own posts
+ * are pinned against these same values in bin/test-administrators-dashboard.php, which draws it.
+ *
+ * @param int    $id       The request.
+ * @param bool   $note     Whether the note is posted.
+ * @param string $decision approve or decline.
+ * @return array
+ */
+function det_today( $id, $note, $decision ) {
+	return array(
+		'posts'   => 'post https://example.test/wp-admin/admin-post.php ',
+		'guard'   => 'once Saving',
+		'hidden'  => array( '_wpnonce=nonce-wpcpm_decide_details_' . $id, '_wp_http_referer=/administrator-dashboard/', 'action=wpcpm_decide_details', 'request=' . $id, 'wpcpm_return=dashboard', 'wpcpm_return_to=requests' ),
+		'boxes'   => $note ? array( 'wpcpm_request_note maxlength=2000 required' ) : array(),
+		'submits' => array( 'decision=' . $decision ),
+		'asks'    => '',
+	);
+}
+
+// Fresh readers of the flash for each press: `WPCPM_Flash::take()` memoizes per person for the whole run.
+foreach ( range( 83, 89 ) as $det_reader ) {
+	$GLOBALS['users'][ $det_reader ] = new WP_User( $det_reader, 'Details Manager ' . $det_reader, 'administrator+details' . $det_reader . '@example.test', array( 'administrator' ) );
+}
+$GLOBALS['manage'] = array_merge( $GLOBALS['manage'], range( 83, 89 ) );
+det_fresh();
+$GLOBALS['faithful_nonces'] = true;
+$GLOBALS['enqueued']        = array();
+$det_one                    = det_raise( det_school( 71 ) );
+$det_two                    = det_raise( det_school( 72 ) );
+$det_on                     = det_drawn( 61, $det_one );
+$det_x                      = req_doc( $det_on );
+$det_area                   = '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-req-' . $det_one . '"]';
+$det_panel                  = static function ( $id ) {
+	return 'wpcpm-decide-req-' . (int) $id . '-decline-panel';
+};
+
+ck( 'two details requests are open for the checks, each its own school\'s', array( is_int( $det_one ), is_int( $det_two ), $det_one !== $det_two ), array( true, true, true ) );
+
+// Posted fields, per submit.
+ck( 'Approve and Decline post what today\'s one form posts, per submit: the same address, guard and busy words, the same hidden fields in order with the nonce keyed to the request and its referer; Approve posts no note, Decline the note under its name and bound, now Required (posted fields)', req_posted( $det_on ), array( det_today( $det_one, false, 'approve' ), det_today( $det_one, true, 'decline' ) ) );
+ck( 'and Approve is what the handler reads without a note: its path settles the request with no note and never reads wpcpm_request_note', array(
+	has( (string) method_body( $src_all, 'approve_details' ), 'wpcpm_request_note' ),
+	has( (string) method_body( $src_all, 'approve_details' ), "self::STATE_DONE, '', \$actor_id" ),
+	before( (string) method_body( $src_all, 'handle_details_decide' ), "if ( 'approve' === \$choice )", "posted_raw( 'wpcpm_request_note' )" ),
+), array( false, true, true ) );
+
+// The words, the kinds, the shape.
+ck( 'one Decide area, id wpcpm-decide-req-{ID}, headed "Decide": its row holds Approve and update the records, the primary, a form that posts at once, then Decline, the danger opener of its own panel, printed hidden, not pressed', array(
+	$det_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	trim( (string) $det_x->evaluate( 'string(' . $det_area . '/h5[@class="wpcpm-ui-h"])' ) ),
+	req_buttons( $det_x, $det_area . '/div[@class="wpcpm-ui-actions"]//button' ),
+	$det_x->query( $det_area . '/div[@class="wpcpm-ui-actions"]/form/button[@type="submit"][@name="decision"][@value="approve"]' )->length,
+	array_map( static function ( $b ) { return $b->getAttribute( 'type' ) . ' ' . $b->getAttribute( 'aria-controls' ) . ' ' . $b->getAttribute( 'aria-expanded' ) . ' ' . $b->getAttribute( 'data-wpcpm-for' ); }, iterator_to_array( $det_x->query( $det_area . '/div[@class="wpcpm-ui-actions"]/button' ) ) ),
+), array( 1, 'Decide', array( 'primary: Approve and update the records', 'danger: Decline (hidden)' ), 1, array( 'button ' . $det_panel( $det_one ) . ' false ' ) ) );
+ck( 'Decline\'s panel, its own form, printed open for a page with no script: label "A note for the school" with Required, the hint "The school reads it.", the confirming "Decline the request" shown, and Cancel printed hidden', array(
+	$det_x->query( '//div[@data-wpcpm-panel]' )->length,
+	$det_x->query( '//div[@data-wpcpm-panel][@id="' . $det_panel( $det_one ) . '"][not(@hidden)]/form' )->length,
+	trim( (string) $det_x->evaluate( 'string(//label[@for="wpcpm-request-note-' . $det_one . '"])' ) ),
+	trim( (string) $det_x->evaluate( 'string(//p[@id="wpcpm-request-note-' . $det_one . '-hint"])' ) ),
+	req_buttons( $det_x, '//div[@id="' . $det_panel( $det_one ) . '"]//button' ),
+	$det_x->query( '//div[@id="' . $det_panel( $det_one ) . '"]//button[@data-wpcpm-for]' )->length,
+	$det_x->query( '//*[@data-wpcpm-open]' )->length,
+), array( 1, 1, 'A note for the school Required', 'The school reads it.', array( 'danger: Decline the request', 'quiet: Cancel (hidden)' ), 0, 0 ) );
+ck( 'the box keeps its id and name, wpcpm-request-note-{ID} and wpcpm_request_note, three rows, 20 to 2000 characters, Required, tied to its hint, empty, with no placeholder', array_map( static function ( $box ) {
+	return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'minlength' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . ( $box->hasAttribute( 'required' ) ? 'required' : '' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . ( $box->hasAttribute( 'placeholder' ) ? 'placeholder' : '' ) . ' ' . json_encode( $box->textContent );
+}, iterator_to_array( $det_x->query( '//textarea' ) ) ), array( 'wpcpm-request-note-' . $det_one . ' wpcpm_request_note 3 20 2000 required wpcpm-request-note-' . $det_one . '-hint  "\n"' ) );
+ck( 'nothing a person needs is hidden with no script: both forms and both confirming buttons are on the page; only the opener and Cancel wait for the script, which is asked for', array(
+	$det_x->query( '//form' )->length,
+	$det_x->query( '//button[not(@type="button")][@hidden]' )->length,
+	$det_x->query( '//button[@hidden]' )->length,
+	in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ),
+	strpos( $det_on, 'class="button' ),
+), array( 2, 0, 2, true, false ) );
+ck( 'drawn for an account that may not decide, there is no Decide area', det_drawn( 7, $det_one ), '' );
+
+// Two details requests, and a details request beside an ordinary one.
+$det_both = det_drawn( 61, $det_one ) . det_drawn( 61, $det_two ) . req_drawn( 61, $req_one, 'administrator' );
+$det_xb   = req_doc( $det_both );
+$det_ids  = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $det_xb->query( '//*[@id]' ) ) );
+$det_lost = array();
+foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+	foreach ( $det_xb->query( '//*[@' . $attr . ']' ) as $node ) {
+		if ( ! in_array( $node->getAttribute( $attr ), $det_ids, true ) ) {
+			$det_lost[] = $attr . '=' . $node->getAttribute( $attr );
+		}
+	}
+}
+foreach ( $det_xb->query( '//*[@aria-describedby]' ) as $node ) {
+	foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+		if ( ! in_array( $described, $det_ids, true ) ) {
+			$det_lost[] = 'aria-describedby=' . $described;
+		}
+	}
+}
+$det_posts_of = static function ( $id ) use ( $det_xb ) {
+	$out = array();
+	foreach ( $det_xb->query( '//div[@id="wpcpm-decide-req-' . (int) $id . '"]//form' ) as $form ) {
+		$fields = array();
+		foreach ( $det_xb->query( './/input[@type="hidden"]', $form ) as $input ) {
+			if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'request' ), true ) ) {
+				$fields[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			}
+		}
+		$out[] = $fields;
+	}
+	return $out;
+};
+ck( 'two details requests and an ordinary one on one card: their areas, panels and boxes have ids of their own (the post IDs differ), none repeats, and every aria-controls, for and aria-describedby names an element on the page', array(
+	count( $det_ids ) === count( array_unique( $det_ids ) ),
+	$det_xb->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$det_xb->query( '//div[@data-wpcpm-panel]' )->length,
+	$det_lost,
+	$det_xb->query( '//textarea[@id="wpcpm-request-note-' . $req_one . '"]' )->length + $det_xb->query( '//textarea[@id="wpcpm-request-note-' . $det_one . '"]' )->length + $det_xb->query( '//textarea[@id="wpcpm-request-note-' . $det_two . '"]' )->length,
+), array( true, 3, 3, array(), 3 ) );
+ck( 'and each details form posts its own request\'s ID, under a nonce keyed to it', array( $det_posts_of( $det_one ), $det_posts_of( $det_two ) ), array(
+	array( array( '_wpnonce=nonce-wpcpm_decide_details_' . $det_one, 'request=' . $det_one ), array( '_wpnonce=nonce-wpcpm_decide_details_' . $det_one, 'request=' . $det_one ) ),
+	array( array( '_wpnonce=nonce-wpcpm_decide_details_' . $det_two, 'request=' . $det_two ), array( '_wpnonce=nonce-wpcpm_decide_details_' . $det_two, 'request=' . $det_two ) ),
+) );
+
+// Refusals through the real handler. A note too short is `details-note`; one the cleaner would take words from
+// is `details-declined-loss`; both keep the typing for that request's box alone.
+$det_short      = "\nToo short.";
+$det_short_went = det_refused( $det_two, $det_short, 83, 84 );
+$det_short_left = $GLOBALS['umeta'][84]['wpcpm_flash'] ?? array();
+ck( 'a Decline with a note too short is refused, back to the card, and keeps the typing for that request alone; the request stays open', array(
+	$det_short_went,
+	$det_short_left['institutions'] ?? '',
+	isset( $det_short_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'request-close:' . $det_two ] ),
+	det_state( $det_two ),
+), array( 'redirect:https://example.test/administrator-dashboard/#wpcpm-requests', 'details-note', true, 'open' ) );
+$det_back    = det_drawn( 84, $det_one ) . det_drawn( 84, $det_two );
+$det_xr      = req_doc( $det_back );
+$det_box     = $det_xr->query( '//textarea[@id="wpcpm-request-note-' . $det_two . '"]' )->item( 0 );
+$det_problem = WPCPM_Form_Errors::problem_id( 'wpcpm-request-note-' . $det_two );
+ck( 'back on the card, that request\'s Decline panel is printed open and its opener pressed; the other request\'s is not', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $det_xr->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $det_xr->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( $det_panel( $det_two ) ), array( $det_panel( $det_two ) ) ) );
+ck( 'its box holds the typing, its leading line break kept, is marked invalid and is tied to the handler\'s sentence before its hint; the other box is neither', array(
+	$det_box ? $det_box->textContent : null,
+	1 === preg_match( '#<textarea [^>]*id="wpcpm-request-note-' . $det_two . '"[^>]*>' . "\n\nToo short\\.</textarea>#", $det_back ),
+	$det_box ? $det_box->getAttribute( 'aria-invalid' ) : null,
+	$det_box ? $det_box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $det_xr->evaluate( 'string(//*[@id="' . $det_problem . '"])' ) ),
+	$det_xr->query( '//div[@id="wpcpm-decide-req-' . $det_one . '"]//*[@aria-invalid]' )->length,
+), array( "\n" . $det_short, true, 'true', $det_problem . ' wpcpm-request-note-' . $det_two . '-hint', WPCPM_Institution_Request::messages()['details-note'][1], 0 ) );
+
+$det_lossy      = "We cannot use <the new name> yet: the board meets in March, and it votes then.";
+$det_lossy_went = det_refused( $det_one, $det_lossy, 85, 86 );
+$det_xl         = req_doc( det_drawn( 86, $det_one ) );
+ck( 'a note the cleaner would take words from comes back the same way, tied to the sentence that names the box by its label on the parts, "A note for the school"', array(
+	$det_lossy_went,
+	$det_xl->query( '//div[@id="' . $det_panel( $det_one ) . '"][@data-wpcpm-open]' )->length,
+	$det_xl->evaluate( 'string(//textarea[@id="wpcpm-request-note-' . $det_one . '"])' ),
+	trim( (string) $det_xl->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-request-note-' . $det_one ) . '"])' ) ),
+	has( WPCPM_Institution_Request::messages()['details-declined-loss'][1], 'what you typed in "A note for the school". To keep every word' ),
+	trim( (string) $det_xl->evaluate( 'string(//label[@for="wpcpm-request-note-' . $det_one . '"]/text())' ) ),
+), array( 'redirect:https://example.test/administrator-dashboard/#wpcpm-requests', 1, "\n" . $det_lossy, WPCPM_Institution_Request::messages()['details-declined-loss'][1], true, 'A note for the school' ) );
+
+// Typing kept for another reason (the lock was held: `details-busy`) comes back in its open panel, untied.
+$GLOBALS['uid'] = 87;
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Request::TYPED_NOTE, $det_two ), 'note', 'Kept while another decided.', WPCPM_Institution_Request::MAX_NOTE );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'details-busy' );
+$det_xk = req_doc( det_drawn( 87, $det_two ) );
+ck( 'typing kept with no refusal of its box opens the Decline panel with it, untied to any refusal', array(
+	$det_xk->query( '//div[@id="' . $det_panel( $det_two ) . '"][@data-wpcpm-open]' )->length,
+	$det_xk->evaluate( 'string(//textarea[@id="wpcpm-request-note-' . $det_two . '"])' ),
+	$det_xk->query( '//*[@aria-invalid]' )->length,
+), array( 1, "\nKept while another decided.", 0 ) );
+
+// The card's message leads to the refused box.
+det_refused( $det_two, 'Too short.', 88, 89 );
+$GLOBALS['uid'] = 89;
+WPCPM_Dashboard_Card::forget();
+WPCPM_Dashboard_Card::hold( 'wpcpm-requests', 'error', WPCPM_Institution_Request::messages()['details-note'][1] );
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+ob_start();
+WPCPM_Dashboard_Card::open(
+	array(
+		'key'           => 'requests',
+		'title'         => 'Requests from institutions',
+		'prefix'        => 'wpcpm-',
+		'id_on'         => 'section',
+		'section_class' => 'wpcpm-administrator__card',
+	)
+);
+WPCPM_Institution_Request::render_details_decide( $det_one, WPCPM_Return::DASHBOARD );
+WPCPM_Institution_Request::render_details_decide( $det_two, WPCPM_Return::DASHBOARD );
+WPCPM_Dashboard_Card::close();
+$det_card = (string) ob_get_clean();
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+WPCPM_Dashboard_Card::forget();
+$det_links = iterator_to_array( req_doc( $det_card )->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'the refused note\'s message is the refusal sentence as one link to the refused box, said once, before both requests', array(
+	count( $det_links ),
+	isset( $det_links[0] ) ? $det_links[0]->getAttribute( 'href' ) : null,
+	isset( $det_links[0] ) ? $det_links[0]->textContent : null,
+	strpos( $det_card, 'data-wpcpm-card-message' ) < strpos( $det_card, 'id="wpcpm-decide-req-' . $det_one . '"' ),
+), array( 1, '#wpcpm-request-note-' . $det_two, WPCPM_Institution_Request::messages()['details-note'][1], true ) );
+
+// A details request and an ordinary request on one card, as the requests card draws them, both real: a refusal of
+// one opens that item's panel alone, and the other item's box is tied to no refusal, whichever of the two was
+// refused (Task 13b, first step).
+foreach ( range( 91, 94 ) as $mix_reader ) {
+	$GLOBALS['users'][ $mix_reader ] = new WP_User( $mix_reader, 'Mixed Manager ' . $mix_reader, 'administrator+mixed' . $mix_reader . '@example.test', array( 'administrator' ) );
+}
+$GLOBALS['manage'] = array_merge( $GLOBALS['manage'], range( 91, 94 ) );
+$mix_read          = static function ( DOMXPath $x ) {
+	$boxes = array();
+	foreach ( $x->query( '//textarea' ) as $box ) {
+		$boxes[ $box->getAttribute( 'id' ) ] = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' );
+	}
+	return array(
+		array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		$boxes,
+	);
+};
+
+det_refused( $det_one, 'Too short.', 91, 92 );
+$mix_details = req_doc( det_drawn( 92, $det_one ) . req_drawn( 92, $req_one, 'administrator' ) );
+ck( 'a refused details request beside an ordinary request on one card: only the details request\'s Decline panel opens, its box tied to the refusal; the ordinary request\'s panel stays folded and its box is tied to its hint alone', $mix_read( $mix_details ), array(
+	array( $det_panel( $det_one ) ),
+	array(
+		'wpcpm-request-note-' . $det_one => 'invalid ' . WPCPM_Form_Errors::problem_id( 'wpcpm-request-note-' . $det_one ) . ' wpcpm-request-note-' . $det_one . '-hint',
+		'wpcpm-request-note-' . $req_one => 'wpcpm-request-note-' . $req_one . '-hint',
+	),
+) );
+
+req_refused( $req_one, 'declined', str_repeat( 'c', WPCPM_Institution_Request::MAX_NOTE + 1 ), 93, 94 );
+$mix_request = req_doc( det_drawn( 94, $det_one ) . req_drawn( 94, $req_one, 'administrator' ) );
+ck( 'and the reverse: a refused ordinary request beside a details request opens the ordinary request\'s panel alone, its box tied to the refusal; the details request\'s box is tied to its hint alone', $mix_read( $mix_request ), array(
+	array( $req_panel( $req_one ) ),
+	array(
+		'wpcpm-request-note-' . $det_one => 'wpcpm-request-note-' . $det_one . '-hint',
+		'wpcpm-request-note-' . $req_one => 'invalid ' . WPCPM_Form_Errors::problem_id( 'wpcpm-request-note-' . $req_one ) . ' wpcpm-request-note-' . $req_one . '-hint',
+	),
+) );
+
+// A refusal is tied only to the box it was for (Task 13x). The outcome names no request, and the flash hands every
+// box on the page the same one, so a request whose kept typing no page drew would read a later refusal of another
+// as its own. The store remembers which form it kept last, and only that box is tied: a request holding older kept
+// typing beside one refused just now, drawn first and then last, on both of this class's Decide areas.
+foreach ( range( 141, 160 ) as $tie_reader ) {
+	$GLOBALS['users'][ $tie_reader ] = new WP_User( $tie_reader, 'Tie Manager ' . $tie_reader, 'administrator+tie' . $tie_reader . '@example.test', array( 'administrator' ) );
+}
+$GLOBALS['manage'] = array_merge( $GLOBALS['manage'], range( 141, 160 ) );
+$tie_reader        = 140;
+/**
+ * What a card says about each box on it: which panels are printed open, each box's state ('invalid ' when marked,
+ * then what describes it, then the sentence beside it or '', then its typing, a long one by its length), and where
+ * the card's message leads.
+ *
+ * @param string $html Markup.
+ * @return array
+ */
+function req_ties( $html ) {
+	$x     = req_doc( $html );
+	$boxes = array();
+	foreach ( $x->query( '//textarea' ) as $box ) {
+		$id           = $box->getAttribute( 'id' );
+		$said         = $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 );
+		$text         = $box->textContent;
+		$boxes[ $id ] = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' ) . ' | ' . ( $said ? trim( $said->textContent ) : '' ) . ' | ' . ( mb_strlen( $text ) > 80 ? '[' . mb_strlen( $text ) . ' characters]' : $text );
+	}
+	return array(
+		'open'  => array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'boxes' => $boxes,
+		'leads' => array_map( static function ( $node ) { return $node->getAttribute( 'href' ) . ' ' . $node->textContent; }, iterator_to_array( $x->query( '//p[@data-wpcpm-card-message]//a' ) ) ),
+	);
+}
+/**
+ * A box as `req_ties()` reads it: refused, marked invalid and described by its sentence then its hint; otherwise
+ * described by its hint alone.
+ *
+ * @param int         $post_id The request.
+ * @param string|null $said    The refusal sentence, or null when it is not the refused box.
+ * @param string      $typing  What it holds, as `req_ties()` prints it.
+ * @return string
+ */
+function req_tie( $post_id, $said, $typing ) {
+	$id = 'wpcpm-request-note-' . (int) $post_id;
+	return null === $said ? $id . '-hint |  | ' . $typing : 'invalid ' . WPCPM_Form_Errors::problem_id( $id ) . ' ' . $id . '-hint | ' . $said . ' | ' . $typing;
+}
+/**
+ * An earlier press that kept typing for one request and no page drew, then a refused press on another, through
+ * the real handler, as `$from`; what both left is handed to `$to`, a fresh reader of the flash.
+ *
+ * @param int    $kept    The request holding older kept typing.
+ * @param int    $refused The request pressed now.
+ * @param string $handler The handler.
+ * @param array  $posted  What the press posts.
+ * @param int    $from    Who pressed.
+ * @param int    $to      The same Administrator on the next page.
+ * @return string Where the handler sent the press.
+ */
+function req_beside( $kept, $refused, $handler, array $posted, $from, $to ) {
+	$GLOBALS['uid'] = (int) $from;
+	clear_flash( $from );
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Request::TYPED_NOTE, $kept ), 'note', 'Kept, and not refused.', WPCPM_Institution_Request::MAX_NOTE );
+	$_POST = array_merge( array( 'request' => (int) $refused, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'requests' ), $posted );
+	$went  = run( $handler );
+	$_POST = array();
+	$GLOBALS['umeta'][ $to ]['wpcpm_flash'] = $GLOBALS['umeta'][ $from ]['wpcpm_flash'] ?? array();
+	unset( $GLOBALS['umeta'][ $from ] );
+	$GLOBALS['uid'] = (int) $to;
+	return $went;
+}
+/**
+ * The requests card as the dashboard draws it on its parts, holding the outcome the last press left (one
+ * `WPCPM_Flash::take()`, the sentence from the class's messages), around two details requests' Decide areas.
+ *
+ * @param int[] $ids    The details requests, in order.
+ * @param int   $viewer Who reads.
+ * @return string
+ */
+function det_card( array $ids, $viewer ) {
+	$GLOBALS['uid'] = (int) $viewer;
+	$status         = sanitize_key( (string) WPCPM_Flash::take( WPCPM_Institutions::FLASH ) );
+	$messages       = WPCPM_Institution_Request::messages();
+	WPCPM_Dashboard_Card::forget();
+	if ( isset( $messages[ $status ] ) ) {
+		WPCPM_Dashboard_Card::hold( 'wpcpm-requests', $messages[ $status ][0], $messages[ $status ][1] );
+	}
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	ob_start();
+	WPCPM_Dashboard_Card::open(
+		array(
+			'key'           => 'requests',
+			'title'         => 'Requests from institutions',
+			'prefix'        => 'wpcpm-',
+			'id_on'         => 'section',
+			'section_class' => 'wpcpm-administrator__card',
+		)
+	);
+	foreach ( $ids as $id ) {
+		WPCPM_Institution_Request::render_details_decide( $id, WPCPM_Return::DASHBOARD );
+	}
+	WPCPM_Dashboard_Card::close();
+	$html = (string) ob_get_clean();
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( null );
+	WPCPM_Dashboard_Card::forget();
+	return $html;
+}
+
+// The ordinary requests' Decide area (`render_decide_area()`), a Decline refused for a note too long.
+$tie_long = str_repeat( 'd', WPCPM_Institution_Request::MAX_NOTE + 1 );
+foreach ( array( 'first' => array( $req_one, $req_two ), 'last' => array( $req_two, $req_one ) ) as $tie_where => $tie_pair ) {
+	list( $tie_kept, $tie_refused ) = $tie_pair;
+	$tie_went = req_beside( $tie_kept, $tie_refused, 'handle_resolve', array( 'state' => 'declined', 'wpcpm_request_note' => $tie_long ), ++$tie_reader, ++$tie_reader );
+	ck( 'requests from institutions, the kept-only request drawn ' . $tie_where . ': the press was refused; only the refused request\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only request\'s panel is open with its typing, its box tied to its hint alone (Task 13x)', array( $tie_went, req_ties( requests_card( $req_said, true, $tie_reader ) ) ), array( 'redirect:https://example.test/administrator-dashboard/#wpcpm-requests', array(
+		'open'  => array( $req_panel( $req_one ), $req_panel( $req_two ) ),
+		'boxes' => array(
+			'wpcpm-request-note-' . $req_one => req_tie( $req_one, $req_one === $tie_refused ? $req_said : null, $req_one === $tie_refused ? '[2001 characters]' : "\nKept, and not refused." ),
+			'wpcpm-request-note-' . $req_two => req_tie( $req_two, $req_two === $tie_refused ? $req_said : null, $req_two === $tie_refused ? '[2001 characters]' : "\nKept, and not refused." ),
+		),
+		'leads' => array( '#wpcpm-request-note-' . $tie_refused . ' ' . $req_said ),
+	) ) );
+}
+
+// The details requests' Decide area (`render_details_decide()`), a Decline refused for a note too short.
+$tie_short = (string) WPCPM_Institution_Request::messages()['details-note'][1];
+foreach ( array( 'first' => array( $det_one, $det_two ), 'last' => array( $det_two, $det_one ) ) as $tie_where => $tie_pair ) {
+	list( $tie_kept, $tie_refused ) = $tie_pair;
+	$tie_went = req_beside( $tie_kept, $tie_refused, 'handle_details_decide', array( 'decision' => 'decline', 'wpcpm_request_note' => 'Too short.' ), ++$tie_reader, ++$tie_reader );
+	ck( 'details requests, the kept-only request drawn ' . $tie_where . ': the press was refused; only the refused request\'s box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only request\'s panel is open with its typing, its box tied to its hint alone (Task 13x)', array( $tie_went, req_ties( det_card( array( $det_one, $det_two ), $tie_reader ) ) ), array( 'redirect:https://example.test/administrator-dashboard/#wpcpm-requests', array(
+		'open'  => array( $det_panel( $det_one ), $det_panel( $det_two ) ),
+		'boxes' => array(
+			'wpcpm-request-note-' . $det_one => req_tie( $det_one, $det_one === $tie_refused ? $tie_short : null, $det_one === $tie_refused ? "\nToo short." : "\nKept, and not refused." ),
+			'wpcpm-request-note-' . $det_two => req_tie( $det_two, $det_two === $tie_refused ? $tie_short : null, $det_two === $tie_refused ? "\nToo short." : "\nKept, and not refused." ),
+		),
+		'leads' => array( '#wpcpm-request-note-' . $tie_refused . ' ' . $tie_short ),
+	) ) );
+}
+
+// A refusal that kept nothing, beside a request holding older kept typing: a details Decline with a blank note.
+req_beside( $det_one, $det_two, 'handle_details_decide', array( 'decision' => 'decline', 'wpcpm_request_note' => " \n " ), ++$tie_reader, ++$tie_reader );
+ck( 'details requests: a blank note, refused and keeping nothing, beside a request holding older kept typing: no box is marked invalid, the message leads nowhere, and the older typing comes back untied (Task 13x)', req_ties( det_card( array( $det_one, $det_two ), $tie_reader ) ), array(
+	'open'  => array( $det_panel( $det_one ) ),
+	'boxes' => array(
+		'wpcpm-request-note-' . $det_one => req_tie( $det_one, null, "\nKept, and not refused." ),
+		'wpcpm-request-note-' . $det_two => req_tie( $det_two, null, "\n" ),
+	),
+	'leads' => array(),
+) );
+
+unset( $GLOBALS['faithful_nonces'] );
+$GLOBALS['uid'] = 1;
+
+
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'institution-request' ) );
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

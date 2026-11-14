@@ -339,6 +339,9 @@ A line under them says when the two shares were read, and that the mentors and p
 - On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none.
 - A link in an email, a decision's way back and **Review the oldest** each open the card they land on.
 - Each card that waits for a decision has a **How to do this** link to its job in this guide. So do **Upcoming cohorts**, **Duplicated students**, **Syncs and health** and **Students gone quiet**.
+- Each item to decide has one **Decide** row of buttons. Some decisions act when pressed, after any question they ask. Others open a panel under the row: a note's box, marked **Required** or **Optional**, or what the act does, then the button that acts, such as **Reject the application**, and **Cancel**.
+- Only one panel per item is open at a time. **Cancel** closes it, and nothing is sent.
+- When the main area is narrow, as on a phone, a table reads as one block per row. Nothing scrolls sideways.
 
 A card with a home in wp-admin ends its body with a link there. On **The program**, a folded card also shows the link under its box:
 
@@ -372,7 +375,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 | **Duplicated students** | What the Student Duplicate Finder's last scan found, as of that day |
 | **New interests** | What sponsors wrote on their dashboards in the last 30 days |
 | **Sponsor terms ending** | Approved sponsors whose term ends in the next 60 days, soonest first |
-| **Syncs and health** | The syncs, each with an **Open** link to its screen; **Locked accounts**; private storage; the last emails |
+| **Syncs and health** | The syncs, each with an **Open** link to its screen; private storage; the last emails; **Locked accounts**, one account a line |
 | **Students gone quiet** | See below; shown only while **Daily list** is not *Off* |
 
 **Syncs and health** counts what needs a look:
@@ -930,18 +933,20 @@ The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting 
 - With nothing waiting, the name **Events** in the line of empty queues opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
 - `WPCredits Program > Overview`, card **Waiting for a decision**, counts them as **Events waiting**.
 
+The events are one list, the waiting ones first. Each event's tag names its part.
+
 | Part | What it holds |
 |---|---|
 | **Waiting for the program's OK** | Every sponsor's planned event not over yet, the oldest plan first, with **Approve** and **Return with a note** |
-| **Coming up** | Every approved event not over yet, the soonest first, the program's own included, with **Who joined**, your own **Join** or **Leave**, and, for a sponsor's event, **Cancel with a note** |
+| **Coming up** | Every approved event not over yet, the soonest first, the program's own included, with **Who joined** and, in its **Decide** row, your own **Join** or **Leave** and, for a sponsor's event, **Cancel with a note** |
 | **Plan an event of the program's** | **Plan an event**: see the next part |
 
 Each event shows when it runs on your clock, its places, its description and its call link. A description longer than 300 characters is folded under **Read the description**.
 
 - **Return it with this note** cancels the event and emails the note to the sponsor's accounts. The sponsor sees the note above its planner's form until it plans again or its term is renewed.
-- **Cancel with this note** asks first and cannot be undone. Everyone who joined is told.
+- **Cancel with this note** asks first and cannot be undone. Everyone who joined is told. **Keep the event** closes the note.
 - Both notes are required, up to 2,000 characters.
-- **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays under **Coming up**, and nobody new can join it.
+- **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays tagged **Coming up**, and nobody new can join it.
 - **Who joined** names the people on an event. Sponsors see only how many.
 - You join an event as yourself.
 - While the card is not drawn, you can still cancel a sponsor's approved event on its Sponsor Dashboard, through **Viewing as sponsor**. There is no note, and everyone who joined is told.
@@ -955,7 +960,7 @@ An event of the program's own has no sponsor. It is named "the WordPress Credits
 - **Plan the event** saves it approved at once. Nobody is mailed.
 - No tier, term or one-at-a-time rule applies. The program may plan any number, for any day still to come.
 - It is open to the same people as a sponsor's event. A sponsor's account may join it when that account is also a student, a mentor, an Administrator or an institution contact.
-- Under **Coming up** it has **Change the event**, the same form filled in, and **Cancel the event**. The cancel asks first, needs no note and cannot be undone.
+- Tagged **Coming up**, it has **Change the event**, the same form filled in, and **Cancel the event**, which needs no note. After **Cancel the event**, a panel says what canceling does; then **Cancel the event** asks first and cannot be undone, or **Keep the event** closes the panel.
 - It can be planned, changed or canceled only while the card **Events** is drawn.
 - It never counts toward a sponsor's events. It never shows on a Sponsor Dashboard or in a sponsor's annual report.
 
@@ -970,12 +975,12 @@ Once approved, an event is listed under **Events from our sponsors** for the peo
 | Current students | Student Report Card, under the group sessions in **My mentor call** |
 | Active mentors | Mentor Report Card, under the sessions panel |
 | Institution contacts, but not tutors | Institution Dashboard, after its sections |
-| Administrators | The card **Events**, part **Coming up**, while that card shows |
+| Administrators | The card **Events**, on each event tagged **Coming up**, while that card shows |
 
 A current student holds a status in **Currently mentoring** and not in **Past students** (`WPCredits Program > Settings`, tab **Students and mentors**).
 
 - Each item gives the title, the host, when on the person's clock, the length, the places left (a number, **Full**, or **Open to everyone** with no limit) and the description.
-- **Join** shows while a place is left. A person on the event sees **You are on it.** and **Leave**. On the three pages other than the card **Events**, they also see **Join the call**; on the card, the call link is on the event.
+- **Join** shows while a place is left. A person on the event sees **You are on it.** and **Leave**. On the three pages other than the card **Events**, they also see **Join the call**; on the card, the call link is on the event, **You are on it.** is among its facts and **Join** or **Leave** is in its **Decide** row.
 - Join and Leave work until the event ends. A Leave frees the place at once.
 - A sponsor's own accounts never see their own event in a list. It is on their Sponsor Dashboard.
 - A test sponsor's events are listed for Administrators alone.
@@ -1111,8 +1116,8 @@ Step by step: [[A sponsor's annual report]].
 
 A test sponsor is a record for trying the sponsor side of the site. It is never listed publicly.
 
-- **Test sponsor: not listed publicly** is a box on the Add and Edit forms, after **Status**. It is also beside **Approve** on an open application.
-- Beside **Approve**, the box is ticked already for a test name: "TEST" in capitals, alone or followed by a space or a sign. "TEST", "TEST: Acme" and "TEST(1)" are test names; "TESTAMENT" and "Test Acme" are not.
+- **Test sponsor: not listed publicly** is a box on the Add and Edit forms, after **Status**. It is also on an open application: in the panel **Approve** opens on the Administrator Dashboard, and beside **Approve** on the Sponsors screen.
+- There, the box is ticked already for a test name: "TEST" in capitals, alone or followed by a space or a sign. "TEST", "TEST: Acme" and "TEST(1)" are test names; "TESTAMENT" and "Test Acme" are not.
 - On the **Sponsors** tab its row says "(test sponsor, not listed publicly)".
 - A flag you clear stays cleared.
 

@@ -257,28 +257,36 @@ class WPCPM_Administrators extends WPCPM_Module {
 		$tab       = self::tab();
 		$dashboard = $this->dashboard_url();
 
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+		// The tab names itself to the switch of the shared parts while it draws (design 3.5): every tab is off until
+		// a release turns it on, and that release puts the switch's class on the wrap.
+		WPCPM_UI::enter( $this->page_slug() . '/' . $tab );
 
-		if ( '' !== $dashboard ) {
-			printf(
-				'<p><a class="button button-primary" href="%1$s">%2$s</a> %3$s</p>',
-				esc_url( $dashboard ),
-				esc_html__( 'Open the Administrator Dashboard', 'wpcredits-program-manager' ),
-				esc_html__( 'Every queue on one page, with its decisions.', 'wpcredits-program-manager' )
-			);
+		try {
+			echo '<div class="wrap wpcpm-wrap">';
+			echo '<h1>' . esc_html( $this->label() ) . '</h1>';
+			echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+
+			if ( '' !== $dashboard ) {
+				printf(
+					'<p><a class="button button-primary" href="%1$s">%2$s</a> %3$s</p>',
+					esc_url( $dashboard ),
+					esc_html__( 'Open the Administrator Dashboard', 'wpcredits-program-manager' ),
+					esc_html__( 'Every queue on one page, with its decisions.', 'wpcredits-program-manager' )
+				);
+			}
+
+			WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+
+			if ( self::TAB_CAPABILITIES === $tab ) {
+				$this->render_tab_capabilities();
+			} else {
+				$this->render_tab_accounts();
+			}
+
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
-
-		if ( self::TAB_CAPABILITIES === $tab ) {
-			$this->render_tab_capabilities();
-		} else {
-			$this->render_tab_accounts();
-		}
-
-		echo '</div>';
 	}
 
 	/**

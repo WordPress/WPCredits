@@ -429,6 +429,50 @@ function prints_confirm_mark( $src ) {
 }
 
 /**
+ * Whether PHP source calls `WPCPM_UI::button(` with a `'confirm'` key in the argument array: a caller of
+ * the shared button prints no `data-wpcpm-confirm` text of its own, the helper does, so the literal alone
+ * would miss it. The call's argument list is read to its closing parenthesis, and a `'confirm'` string
+ * followed by `=>` anywhere in it counts, a nested array included.
+ *
+ * What it catches: a direct `WPCPM_UI::button(` call whose argument list holds a literal `'confirm'` key.
+ * What it does not: an argument array built in a variable first (`$args['confirm'] = ...;` then
+ * `WPCPM_UI::button( $args )`), a wrapper that calls the button for its caller, an `array_merge()` or a spread
+ * of an array built outside the call (one whose literal arrays sit inside the call is caught), and a dynamic call (`call_user_func`, a variable method name). A file that asks for
+ * a confirm in one of those ways needs its row in the surface table added by hand.
+ *
+ * @param string $src A PHP file.
+ * @return bool
+ */
+function calls_button_with_confirm( $src ) {
+	$tokens = array_values( array_filter( token_get_all( $src ), static function ( $token ) {
+		return ! is_array( $token ) || ! in_array( $token[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true );
+	} ) );
+	$count  = count( $tokens );
+
+	for ( $i = 0; $i + 3 < $count; $i++ ) {
+		if ( ! ( is_array( $tokens[ $i ] ) && 'WPCPM_UI' === ltrim( $tokens[ $i ][1], '\\' ) && T_DOUBLE_COLON === $tokens[ $i + 1 ][0] && is_array( $tokens[ $i + 2 ] ) && 'button' === $tokens[ $i + 2 ][1] && '(' === $tokens[ $i + 3 ] ) ) {
+			continue;
+		}
+
+		$depth = 0;
+		for ( $j = $i + 3; $j < $count; $j++ ) {
+			if ( '(' === $tokens[ $j ] ) {
+				++$depth;
+			} elseif ( ')' === $tokens[ $j ] ) {
+				--$depth;
+				if ( 0 === $depth ) {
+					break;
+				}
+			} elseif ( is_array( $tokens[ $j ] ) && T_CONSTANT_ENCAPSED_STRING === $tokens[ $j ][0] && in_array( $tokens[ $j ][1], array( "'confirm'", '"confirm"' ), true ) && isset( $tokens[ $j + 1 ] ) && is_array( $tokens[ $j + 1 ] ) && T_DOUBLE_ARROW === $tokens[ $j + 1 ][0] ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
  * Where the first `return` of a method's code begins, or its length when it has none.
  *
  * @param string $code A method's code, from `method_code()`.
@@ -607,6 +651,10 @@ $loaders = array(
 
 // File => the pages that draw it, by loader. An empty list says no page draws the file today.
 $surfaces = array(
+	// The shared parts print the mark for a button that asks a question (`button()`, and `decide()` through it) and
+	// the busy guard on the forms their callers hand them; the one surface switched on is the Administrator Dashboard
+	// (WPCPM_UI::LIVE, Task 18), so it is the one page that draws them (Task 18c).
+	'includes/class-wpcpm-ui.php'                                        => array( 'administrator-dashboard' ),
 	'includes/class-wpcpm-mail.php'                                      => array( 'admin' ),
 	'includes/modules/class-wpcpm-call-calendar.php'                     => array( 'calendar' ),
 	'includes/modules/class-wpcpm-group-sessions.php'                    => array( 'calendar' ),
@@ -633,9 +681,6 @@ $surfaces = array(
 	// Cancel the event is drawn by the tier card's planner on the Sponsor Dashboard. The Administrator
 	// Dashboard's Events card draws the planner's rows through render_fields(), which asks nothing.
 	'includes/modules/class-wpcpm-sponsor-event-planner.php'             => array( 'sponsor-dashboard' ),
-	// Cancel with this note and the program's Cancel the event are the Events card's, on the Administrator
-	// Dashboard. The Sponsors screen's queue tab reads the waiting rows and draws none of the queue's forms.
-	'includes/modules/class-wpcpm-sponsor-event-queue.php'               => array( 'administrator-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-logo.php'                      => array( 'sponsor-dashboard' ),
 	'includes/modules/class-wpcpm-sponsor-offers.php'                    => array( 'sponsor-dashboard' ),
 	// The report editor's Remove the PDF, Mark final and Regenerate, and Not a renewal's form, are drawn on
@@ -657,16 +702,27 @@ $surfaces = array(
 $printers = array();
 
 foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root . '/includes', FilesystemIterator::SKIP_DOTS ) ) as $source ) {
-	if ( 'php' === $source->getExtension() && prints_confirm_mark( (string) file_get_contents( $source->getPathname() ) ) ) {
+	$code = 'php' === $source->getExtension() ? (string) file_get_contents( $source->getPathname() ) : '';
+	if ( '' !== $code && ( prints_confirm_mark( $code ) || calls_button_with_confirm( $code ) ) ) {
 		$printers[] = substr( $source->getPathname(), strlen( $root ) + 1 );
 	}
 }
 
 sort( $printers );
 
-ck( 'every file under includes/ that prints a data-wpcpm-confirm mark has a row in the surface table, so a new screen has to say where its script comes from',
+ck( 'the reader of a button call with a confirm key finds one, in a nested array too, and not a comment, another key, another call or another class',
+    array(
+        calls_button_with_confirm( "<?php\necho WPCPM_UI::button( array( 'label' => 'x', 'confirm' => 'Sure?' ) );" ),
+        calls_button_with_confirm( "<?php\n\$a[] = \\WPCPM_UI::button( array(\n'label' => 'x',\n'confirm' => __( 'Sure?' ) ) );" ),
+        calls_button_with_confirm( "<?php\nWPCPM_UI::button( array( 'label' => 'x' ) );" ),
+        calls_button_with_confirm( "<?php\nWPCPM_UI::button( array( 'label' => 'x' ) );\n\$b = array( 'confirm' => 'y' );" ),
+        calls_button_with_confirm( "<?php\n// WPCPM_UI::button( array( 'confirm' => 'x' ) )\n\$x = 1;" ),
+        calls_button_with_confirm( "<?php\nWPCPM_Other::button( array( 'confirm' => 'x' ) );" ),
+    ),
+    array( true, true, false, false, false, false ) );
+ck( 'every file under includes/ that prints a data-wpcpm-confirm mark, or calls WPCPM_UI::button() with a confirm key, has a row in the surface table, so a new screen has to say where its script comes from',
     array_values( array_diff( $printers, array_keys( $surfaces ) ) ), array() );
-ck( 'and every row names a file that still prints one, so a row does not outlive its file',
+ck( 'and every row names a file that still prints one or still asks for one, so a row does not outlive its file',
     array_values( array_diff( array_keys( $surfaces ), $printers ) ), array() );
 ck( 'every page a row names is a loader the table defines',
     array_values( array_unique( array_diff( array_merge( array(), ...array_values( $surfaces ) ), array_keys( $loaders ) ) ) ), array() );

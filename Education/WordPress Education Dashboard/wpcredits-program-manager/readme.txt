@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.90
+Stable tag: 1.123.92
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,15 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.92 =
+
+* Administrator Dashboard: every card is drawn alike. One head holds the title, how many wait, the age and "How to do this"; each item gives its name, a line of facts and its state in words; the card ends with its link to the wp-admin screen.
+* Each item has one "Decide" row of buttons. Some decisions act at once; others open a panel under the row, holding a note or what the act does, with the button that names the act in full, such as "Reject the application", and Cancel. One panel per item is open at a time, and Cancel sends nothing.
+* A school's request: Mark as handled or Decline opens one optional note, "What you did about it", then "Mark the request as handled" or "Decline the request". A sponsor post's "Preview the post" is now a link beside its facts.
+* Canceling an event of the program's own first says what canceling does, with "Cancel the event" and "Keep the event".
+* A wide table reads as one block per row when its area is narrow, as on a phone. Nothing scrolls sideways.
+* Nothing changes on any other screen: the wp-admin screens, the Sponsor Dashboard, the Institution Dashboard and both Report Cards look and work as before.
 
 = 1.123.90 =
 

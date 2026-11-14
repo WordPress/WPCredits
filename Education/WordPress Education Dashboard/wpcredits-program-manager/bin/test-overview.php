@@ -251,6 +251,13 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 // The dashboards' card shell, which draws the Administrator Dashboard's cards whose row actions a
 // check reads.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+// The shared parts, which the Administrator Dashboard's cards are drawn on alone since their old branches left
+// (Task 18b), with what they ask of WordPress.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin() { return false; }
+}
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-outcome-figures.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
@@ -504,49 +511,20 @@ function columns_of( $card ) {
 }
 
 /**
- * The strip's own tiles that have something in them, as the Administrator Dashboard draws them:
- * each one's number and label.
+ * The tiles `counts()` gives, as the Administrator Dashboard's old strip drew them (it left in Task 18b): each one's
+ * number, or the words it carries for its number (`shown`), and its label.
  *
  * @param array $counts What `counts()` returned.
  * @return array[]
  */
-function strip_tiles( array $counts ) {
-	$drawn = capture(
-		static function () use ( $counts ) {
-			WPCPM_Administrators_Cards::render_strip( $counts );
-		}
-	);
-
-	preg_match_all( '#<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="[^"]*"><span class="wpcpm-attention__n">(.*?)</span><span class="wpcpm-attention__l">(.*?)</span></a></li>#s', $drawn['html'], $found, PREG_SET_ORDER );
-
+function count_tiles( array $counts ) {
 	$tiles = array();
 
-	foreach ( $found as $tile ) {
-		$tiles[] = array( words_of( $tile[1] ), words_of( $tile[2] ) );
+	foreach ( $counts as $tile ) {
+		$tiles[] = array( words_of( esc_html( isset( $tile['shown'] ) ? (string) $tile['shown'] : number_format_i18n( (int) $tile['n'] ) ) ), words_of( esc_html( (string) $tile['label'] ) ) );
 	}
 
 	return $tiles;
-}
-
-/**
- * Where each of the strip's tiles links on the Administrator Dashboard, by tile: the strip draws a
- * tile for each entry of `counts()`, in its order, each linking to the id of the card the entry's
- * `card` names.
- *
- * @param array $counts What `counts()` returned.
- * @return array<string, string> Tile key => the address as printed; none when the strip drew more or
- *                               fewer tiles than `counts()` holds.
- */
-function strip_links( array $counts ) {
-	$drawn = capture(
-		static function () use ( $counts ) {
-			WPCPM_Administrators_Cards::render_strip( $counts );
-		}
-	);
-
-	preg_match_all( '#<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="([^"]*)">#', $drawn['html'], $found );
-
-	return count( $found[1] ) === count( $counts ) ? array_combine( array_keys( $counts ), $found[1] ) : array();
 }
 
 /**
@@ -578,25 +556,29 @@ function target_of( $key ) {
 }
 
 /**
- * A card of the Administrator Dashboard, read out of the card as its own renderer draws it: the id
- * its section carries, the first thing drawn, which the strip's tile for the card links to, and the
- * address its row action carries, the link the shell prints after the fold, the last thing in the
- * section.
+ * A card of the Administrator Dashboard, read out of the card as its own renderer draws it on the
+ * dashboard's surface: the id its section carries, the first thing drawn, which the strip's tile for
+ * the card links to, and the address its way out carries: the foot inside its body, the last thing in the
+ * body (nothing is printed after the fold since task V1, ruling 2).
  *
  * @param callable $draw What draws the card.
  * @return string[] The id as printed, or '(no id)', then the address as printed, or '(no action)'
  *                  for a card without one; or, in both places, what drawing it threw.
  */
 function card_drawn( callable $draw ) {
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
 	$drawn = capture( $draw );
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( null );
 
 	if ( '' !== $drawn['threw'] ) {
 		return array( 'threw ' . $drawn['threw'], 'threw ' . $drawn['threw'] );
 	}
 
 	return array(
-		1 === preg_match( '#^<section class="wpcpm-administrator__card" id="([^"]*)">#', $drawn['html'], $id ) ? $id[1] : '(no id)',
-		1 === preg_match( '#</details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="([^"]*)">.*?</a></p></section>$#s', $drawn['html'], $action ) ? $action[1] : '(no action)',
+		1 === preg_match( '#^<section class="wpcpm-administrator__card wpcpm-ui-fold-card" id="([^"]*)">#', $drawn['html'], $id ) ? $id[1] : '(no id)',
+		1 === preg_match( '#<p class="wpcpm-ui-fold__foot"><a href="([^"]*)">(?:(?!</a>).)*</a></p></div></details>(?:<p class="wpcpm-ui-fold__help">.*?</p>)?</section>$#s', $drawn['html'], $action ) ? $action[1] : '(no action)',
 	);
 }
 
@@ -844,9 +826,9 @@ $busy_counts = counts_for( $busy );
 $busy_html   = draw( $busy );
 $busy_links  = waiting_of( card( $busy_html, 'Waiting for a decision' ) );
 
-ck( 'with every queue waiting, the list is the Administrator Dashboard\'s strip, tile for tile: the same numbers, the same labels, the same order',
+ck( 'with every queue waiting, the list is the Administrator Dashboard\'s count of tiles, tile for tile: the same numbers, the same labels, the same order',
 	array( count( $busy_links ), array_map( static function ( $link ) { return array( $link[1], $link[2] ); }, $busy_links ) ),
-	array( 15, strip_tiles( $busy_counts ) ) );
+	array( 15, count_tiles( $busy_counts ) ) );
 
 // A tile that counts two carries the first as its number and says the second in its label, so its
 // chip says both only with the number in front, as the strip's tile reads.
@@ -996,16 +978,16 @@ $cards_drawn               = array(
 	'duplicates'           => card_drawn( static function () { WPCPM_Administrators_Cards::render_duplicates( WPCPM_Administrators_Cards::duplicates() ); } ),
 );
 $GLOBALS['overview_reads'] = array();
-$busy_strip                = strip_links( $busy_counts );
 $tiles_open                = array();
 $cards_open                = array();
 
+// Each tile names the card it is the count of (`card`), the anchor the old strip's tile linked to (it left in Task 18b).
 foreach ( $cards_drawn as $key => $drawn_card ) {
-	$tiles_open[ $key ] = array( isset( $busy_strip[ $key ] ) ? $busy_strip[ $key ] : '(no tile)', target_of( $key ) );
+	$tiles_open[ $key ] = array( isset( $busy_counts[ $key ]['card'] ) ? '#wpcpm-' . $busy_counts[ $key ]['card'] : '(no tile)', target_of( $key ) );
 	$cards_open[ $key ] = array( '#' . $drawn_card[0], $drawn_card[1] );
 }
 
-ck( 'each tile opens the place its card on the Administrator Dashboard opens: the strip\'s tile links to the card, and the chip here to the address the card\'s row action carries, for the eleven cards that carry one, the four institution cards, the six sponsor cards and the Duplicated students card; the syncs and the locked accounts are left out, since their card, Syncs and health, has no row action',
+ck( 'each tile opens the place its card on the Administrator Dashboard opens: the tile names the card, and the chip here to the address the card\'s row action carries, for the eleven cards that carry one, the four institution cards, the six sponsor cards and the Duplicated students card; the syncs and the locked accounts are left out, since their card, Syncs and health, has no row action',
 	$tiles_open,
 	$cards_open );
 

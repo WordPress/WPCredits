@@ -142,6 +142,9 @@ require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
 require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-catalog.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-capture.php';
 require WPCPM_PLUGIN_DIR . 'includes/mail/class-wpcpm-mail-log.php';
@@ -466,6 +469,23 @@ try {
 	$died = $e->getMessage();
 }
 ck( 'anyone else is refused', false !== strpos( $died, 'permission' ), true );
+
+
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, every wp-admin tab
+// off in this release. With no set_live() at all the Emails tool's Log tab is its off drawing of this run,
+// byte for byte, with no switch class and no part, and the screen leaves the surface it named.
+$GLOBALS['can'] = true;
+WPCPM_UI::set_live( array() );
+$tab_off = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log' ) );
+WPCPM_UI::set_live( null );
+$tab_real = screen( array( 'page' => 'wpcpm-tool-emails', 'tab' => 'log' ) );
+ck( 'under the real switch the Emails tool\'s Log tab is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$tab_real === $tab_off,
+	'' !== trim( (string) $tab_real ),
+	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
+	WPCPM_UI::surface(),
+), array( array( 'administrator' ), true, true, 0, '' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

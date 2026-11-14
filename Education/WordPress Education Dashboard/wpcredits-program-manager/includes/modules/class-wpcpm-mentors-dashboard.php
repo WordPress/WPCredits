@@ -282,6 +282,8 @@ class WPCPM_Mentors_Dashboard {
 	 * Register (but do not enqueue) the stylesheet.
 	 */
 	public static function register_assets() {
+		WPCPM_UI::register_assets();
+
 		// Guarded per asset, not with one early return: this runs both on `init`
 		// and again for the editor, and a single guard on the stylesheet would skip
 		// registering the script on the second call.
@@ -291,7 +293,7 @@ class WPCPM_Mentors_Dashboard {
 				WPCPM_PLUGIN_URL . 'assets/css/dashboard.css',
 				// Core registers `dashicons` on the front end too. Declared here rather
 				// than enqueued at each render site, so it cannot be forgotten at one.
-				array( 'dashicons' ),
+				array( 'dashicons', WPCPM_UI::STYLE ),
 				WPCPM_VERSION
 			);
 		}
@@ -579,169 +581,176 @@ class WPCPM_Mentors_Dashboard {
 		$mentees = self::get_mentees( $mentor->ID );
 		$updated = (int) get_user_meta( $mentor->ID, WPCPM_Mentors_Sync::META_UPDATED, true );
 
-		ob_start();
+		// The Report Cards name themselves to the switch of the shared parts (design 3.5): off for this whole build.
+		WPCPM_UI::enter( 'report-cards' );
 
-		echo '<div class="wpcpm-dashboard">';
+		try {
+			ob_start();
 
-		// The reader's own language, a small switcher at the top of the page (1.123.73), as on the
-		// Student Report Card: theirs, never the mentor's being looked at.
-		WPCPM_Language::picker( wp_get_current_user() );
+			echo '<div class="wpcpm-dashboard' . esc_attr( WPCPM_UI::root_class() ) . '">';
 
-		// Where a mentor actually is, which is the only place a prompt to protect the account
-		// will be seen: the plugin's own controls live on the wp-admin profile screen, and
-		// mentors are routed away from wp-admin the moment they sign in. The reader's own
-		// account, never the one being looked at: an administrator inspecting a mentor's list is
-		// being told about their own sign-in, not about somebody else's.
-		WPCPM_Two_Factor::prompt( wp_get_current_user() );
+			// The reader's own language, a small switcher at the top of the page (1.123.73), as on the
+			// Student Report Card: theirs, never the mentor's being looked at.
+			WPCPM_Language::picker( wp_get_current_user() );
 
-		if ( ! empty( $atts['title'] ) ) {
-			echo '<h2 class="wpcpm-dashboard__title">' . esc_html( $atts['title'] ) . '</h2>';
-		}
+			// Where a mentor actually is, which is the only place a prompt to protect the account
+			// will be seen: the plugin's own controls live on the wp-admin profile screen, and
+			// mentors are routed away from wp-admin the moment they sign in. The reader's own
+			// account, never the one being looked at: an administrator inspecting a mentor's list is
+			// being told about their own sign-in, not about somebody else's.
+			WPCPM_Two_Factor::prompt( wp_get_current_user() );
 
-		if ( $can_manage ) {
-			self::render_mentor_switcher( $mentor );
-		}
-
-		echo '<header class="wpcpm-dashboard__mentor">';
-
-		self::render_avatar(
-			self::mentor_username( $mentor ),
-			$mentor->user_email,
-			$mentor->display_name,
-			80
-		);
-
-		echo '<div class="wpcpm-dashboard__mentor-identity">';
-		// A paragraph, not a heading - the same shape as the student card's own name. This
-		// was an `<h1>` while the page had no title of its own; the page is "Mentor Report
-		// Card" now, and that `<h1>` is the page's. Two of them is not a document outline.
-		printf(
-			'<p class="wpcpm-dashboard__mentor-name">%s</p>',
-			esc_html( $mentor->display_name )
-		);
-		// Split by the flag the sync sets from the student's Airtable status, not by
-		// date: a student can be past their end date and still be mentored, or have
-		// graduated early.
-		$current = array();
-		$past    = array();
-
-		foreach ( $mentees as $mentee ) {
-			if ( ! empty( $mentee['is_past'] ) ) {
-				$past[] = $mentee;
-			} else {
-				$current[] = $mentee;
+			if ( ! empty( $atts['title'] ) ) {
+				echo '<h2 class="wpcpm-dashboard__title">' . esc_html( $atts['title'] ) . '</h2>';
 			}
-		}
 
-		// One line, both facts. They answer the same question - "is this list current?" -
-		// and `updated` used to sit alone at the foot of the card, which is why the theme
-		// had to lift it up here with JavaScript.
-		$facts = array(
-			sprintf(
-				/* translators: %s: number of students. */
-				_n(
-					'%s student currently assigned to you.',
-					'%s students currently assigned to you.',
-					count( $current ),
-					'wpcredits-program-manager'
-				),
-				number_format_i18n( count( $current ) )
-			),
-		);
+			if ( $can_manage ) {
+				self::render_mentor_switcher( $mentor );
+			}
 
-		if ( $updated ) {
-			$facts[] = sprintf(
-				/* translators: %s: human-readable time difference, e.g. "2 hours". */
-				__( 'Last updated %s ago.', 'wpcredits-program-manager' ),
-				human_time_diff( $updated, time() )
+			echo '<header class="wpcpm-dashboard__mentor">';
+
+			self::render_avatar(
+				self::mentor_username( $mentor ),
+				$mentor->user_email,
+				$mentor->display_name,
+				80
 			);
-		}
 
-		printf(
-			'<p class="wpcpm-dashboard__intro">%s</p>',
-			esc_html( implode( ' ', $facts ) )
-		);
-		echo '</div>';
-
-		echo '</header>';
-
-		// First, as on the Student Report Card: what the program has to say, and where to ask.
-		// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
-		// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
-		echo WPCPM_Handbook_Assistant::render_resources( 'mentor' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
-
-		// Before the student list: a diary and the hours behind it are what a mentor
-		// acts on, where the list is what they refer to. It sits outside the groups on
-		// purpose - see the note in WPCPM_Call_Calendar::render_mentor().
-		WPCPM_Call_Calendar::render_mentor( $mentor );
-
-		if ( empty( $mentees ) ) {
-			echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No students are assigned to you right now. This page updates automatically when the program data changes.', 'wpcredits-program-manager' ) . '</p>';
-		} else {
-			// Hidden until scripted: without JavaScript each student still opens on
-			// its own, so buttons that could not work should not be offered.
-			if ( count( $mentees ) > 1 ) {
-				printf(
-					'<div class="wpcpm-dashboard__bulk" data-wpcpm-bulk hidden><button type="button" class="wpcpm-button" data-wpcpm-expand>%1$s</button> <button type="button" class="wpcpm-button" data-wpcpm-collapse>%2$s</button></div>',
-					esc_html__( 'Expand all', 'wpcredits-program-manager' ),
-					esc_html__( 'Collapse all', 'wpcredits-program-manager' )
-				);
-			}
-
-			// Whether the reader may press "We've already talked" on this page's quiet lines: one
-			// answer for the page, which lists this mentor's own students, rather than a lookup of each
-			// quiet student's mentor (Release B).
-			$may_say = class_exists( 'WPCPM_Student_Flags' ) && WPCPM_Student_Flags::may_say_talked_as_mentor( (int) $mentor->ID );
-
-			// Current students.
-			echo '<section class="wpcpm-group">';
+			echo '<div class="wpcpm-dashboard__mentor-identity">';
+			// A paragraph, not a heading - the same shape as the student card's own name. This
+			// was an `<h1>` while the page had no title of its own; the page is "Mentor Report
+			// Card" now, and that `<h1>` is the page's. Two of them is not a document outline.
 			printf(
-				'<h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3>',
-				esc_html__( 'Currently mentoring', 'wpcredits-program-manager' ),
-				esc_html( number_format_i18n( count( $current ) ) )
+				'<p class="wpcpm-dashboard__mentor-name">%s</p>',
+				esc_html( $mentor->display_name )
+			);
+			// Split by the flag the sync sets from the student's Airtable status, not by
+			// date: a student can be past their end date and still be mentored, or have
+			// graduated early.
+			$current = array();
+			$past    = array();
+
+			foreach ( $mentees as $mentee ) {
+				if ( ! empty( $mentee['is_past'] ) ) {
+					$past[] = $mentee;
+				} else {
+					$current[] = $mentee;
+				}
+			}
+
+			// One line, both facts. They answer the same question - "is this list current?" -
+			// and `updated` used to sit alone at the foot of the card, which is why the theme
+			// had to lift it up here with JavaScript.
+			$facts = array(
+				sprintf(
+					/* translators: %s: number of students. */
+					_n(
+						'%s student currently assigned to you.',
+						'%s students currently assigned to you.',
+						count( $current ),
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( count( $current ) )
+				),
 			);
 
-			if ( empty( $current ) ) {
-				echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No students are assigned to you at the moment.', 'wpcredits-program-manager' ) . '</p>';
+			if ( $updated ) {
+				$facts[] = sprintf(
+					/* translators: %s: human-readable time difference, e.g. "2 hours". */
+					__( 'Last updated %s ago.', 'wpcredits-program-manager' ),
+					human_time_diff( $updated, time() )
+				);
+			}
+
+			printf(
+				'<p class="wpcpm-dashboard__intro">%s</p>',
+				esc_html( implode( ' ', $facts ) )
+			);
+			echo '</div>';
+
+			echo '</header>';
+
+			// First, as on the Student Report Card: what the program has to say, and where to ask.
+			// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
+			// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
+			echo WPCPM_Handbook_Assistant::render_resources( 'mentor' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
+
+			// Before the student list: a diary and the hours behind it are what a mentor
+			// acts on, where the list is what they refer to. It sits outside the groups on
+			// purpose - see the note in WPCPM_Call_Calendar::render_mentor().
+			WPCPM_Call_Calendar::render_mentor( $mentor );
+
+			if ( empty( $mentees ) ) {
+				echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No students are assigned to you right now. This page updates automatically when the program data changes.', 'wpcredits-program-manager' ) . '</p>';
 			} else {
-				self::render_mentee_list( $current, $mentor->ID, $may_say );
-			}
-			echo '</section>';
+				// Hidden until scripted: without JavaScript each student still opens on
+				// its own, so buttons that could not work should not be offered.
+				if ( count( $mentees ) > 1 ) {
+					printf(
+						'<div class="wpcpm-dashboard__bulk" data-wpcpm-bulk hidden><button type="button" class="wpcpm-button" data-wpcpm-expand>%1$s</button> <button type="button" class="wpcpm-button" data-wpcpm-collapse>%2$s</button></div>',
+						esc_html__( 'Expand all', 'wpcredits-program-manager' ),
+						esc_html__( 'Collapse all', 'wpcredits-program-manager' )
+					);
+				}
 
-			// Finished students, behind their own disclosure: useful to keep, but not
-			// what a mentor came to the page for.
-			if ( ! empty( $past ) ) {
-				$open = self::group_contains_focus( $past );
+				// Whether the reader may press "We've already talked" on this page's quiet lines: one
+				// answer for the page, which lists this mentor's own students, rather than a lookup of each
+				// quiet student's mentor (Release B).
+				$may_say = class_exists( 'WPCPM_Student_Flags' ) && WPCPM_Student_Flags::may_say_talked_as_mentor( (int) $mentor->ID );
 
-				echo '<section class="wpcpm-group wpcpm-group--past">';
+				// Current students.
+				echo '<section class="wpcpm-group">';
 				printf(
-					'<details class="wpcpm-group__disclosure"%s>',
-					$open ? ' open' : ''
+					'<h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3>',
+					esc_html__( 'Currently mentoring', 'wpcredits-program-manager' ),
+					esc_html( number_format_i18n( count( $current ) ) )
 				);
-				printf(
-					'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-					esc_html__( 'Past students', 'wpcredits-program-manager' ),
-					esc_html( number_format_i18n( count( $past ) ) )
-				);
-				echo '<div class="wpcpm-group__body">';
-				printf(
-					'<p class="wpcpm-dashboard__empty">%s</p>',
-					esc_html__( 'Mentoring for these students has finished. Their details and your notes are kept for reference.', 'wpcredits-program-manager' )
-				);
-				self::render_mentee_list( $past, $mentor->ID, $may_say );
-				echo '</div>';
-				echo '</details>';
+
+				if ( empty( $current ) ) {
+					echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'No students are assigned to you at the moment.', 'wpcredits-program-manager' ) . '</p>';
+				} else {
+					self::render_mentee_list( $current, $mentor->ID, $may_say );
+				}
 				echo '</section>';
+
+				// Finished students, behind their own disclosure: useful to keep, but not
+				// what a mentor came to the page for.
+				if ( ! empty( $past ) ) {
+					$open = self::group_contains_focus( $past );
+
+					echo '<section class="wpcpm-group wpcpm-group--past">';
+					printf(
+						'<details class="wpcpm-group__disclosure"%s>',
+						$open ? ' open' : ''
+					);
+					printf(
+						'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+						esc_html__( 'Past students', 'wpcredits-program-manager' ),
+						esc_html( number_format_i18n( count( $past ) ) )
+					);
+					echo '<div class="wpcpm-group__body">';
+					printf(
+						'<p class="wpcpm-dashboard__empty">%s</p>',
+						esc_html__( 'Mentoring for these students has finished. Their details and your notes are kept for reference.', 'wpcredits-program-manager' )
+					);
+					self::render_mentee_list( $past, $mentor->ID, $may_say );
+					echo '</div>';
+					echo '</details>';
+					echo '</section>';
+				}
 			}
-		}
 
-		// Tools from our sponsors, when the program switched the mentors' section on and the
-		// viewer is the mentor whose card this is (spec 6.5): never on a manager's view.
-		if ( class_exists( 'WPCPM_Sponsor_Tools' ) && $viewer->ID === $mentor->ID ) {
-			WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MENTORS, $viewer );
-		}
+			// Tools from our sponsors, when the program switched the mentors' section on and the
+			// viewer is the mentor whose card this is (spec 6.5): never on a manager's view.
+			if ( class_exists( 'WPCPM_Sponsor_Tools' ) && $viewer->ID === $mentor->ID ) {
+				WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MENTORS, $viewer );
+			}
 
-		echo '</div>';
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
+		}
 
 		return (string) ob_get_clean();
 	}

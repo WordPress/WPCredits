@@ -109,7 +109,34 @@ function get_edit_post_link( $id, $c = 'display' ) { return 'https://example.tes
 function get_the_date( $f, $p ) { return '2026-09-06'; }
 function get_post_time( $f = 'U', $gmt = false, $p = null, $translate = false ) { return 1788600000; }
 function get_the_modified_date( $f, $p ) { return '2026-09-06'; }
-function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
+// The nonce as the suite has always read it: its action, alone. With `$GLOBALS['faithful_nonces']` set, as WordPress
+// prints it: the field with the id core gives it and the referer beside it, so a form drawn through
+// `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field (Task 13a).
+function wp_nonce_field( $a ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />';
+		return;
+	}
+	echo '<input type="hidden" id="_wpnonce" name="_wpnonce" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />';
+	wp_referer_field();
+}
+function wp_create_nonce( $a = '' ) { return 'nonce-' . $a; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/administrator-dashboard/" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
+// What the shared parts (`WPCPM_UI`) ask of WordPress: a refusal said to the developer, and the parts' sheet and
+// script, registered once each before the script is asked for.
+function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+function wp_script_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_scripts'][ $h ] ); }
+function wp_register_script( $h, $src, $deps = array(), $ver = false, $footer = false ) { $GLOBALS['registered_scripts'][ $h ] = $src; }
+function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function get_user_by( $f, $v ) { return ( 'id' === $f && isset( $GLOBALS['users'][ (int) $v ] ) ) ? $GLOBALS['users'][ (int) $v ] : false; }
@@ -306,9 +333,16 @@ class WPCPM_Sponsors_Dashboard {
 class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { $GLOBALS['metered'][] = $scope; return 0; } }
 
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 require_once __DIR__ . '/stubs/cleaners.php';
 require_once __DIR__ . '/stubs/specialchars.php';
 require_once __DIR__ . '/../includes/class-wpcpm-typed-text.php';
+// The shared parts and the refusal markup their fields print (Task 13a): the decision is drawn on them behind the switch.
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-program-manager/' );
+define( 'WPCPM_VERSION', '0.0.0-test' );
+require_once __DIR__ . '/../includes/class-wpcpm-form-errors.php';
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
 // The real gate, not a stand-in: three of its five surfaces could be made no-ops with the whole
 // battery green (FSUIT-3), and a stand-in whose can_view() answers a flag is exactly what hid
 // them. Everything below that asks "what does a reader the level refuses see" now says so by
@@ -1104,15 +1138,7 @@ $GLOBALS['pmeta'][ $queued ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
 $unstamped = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'A program post, pending' ) );
 $rows = WPCPM_Sponsor_Posts::pending_all();
 ck( 'pending_all() lists the pending sponsor posts as facts, the company named, and nothing unstamped or in another state', array( in_array( $queued, array_column( $rows, 'id' ), true ), in_array( $unstamped, array_column( $rows, 'id' ), true ), in_array( $pid, array_column( $rows, 'id' ), true ), $rows[ array_search( $queued, array_column( $rows, 'id' ), true ) ]['company'], $rows[ array_search( $queued, array_column( $rows, 'id' ), true ) ]['author'] ), array( true, false, false, 'TEST Sponsor', 'Member One' ) );
-ob_start(); WPCPM_Sponsor_Posts::render_decision( $queued, WPCPM_Return::DASHBOARD ); $decision = ob_get_clean();
-ck( 'the decision block is the request cards\' shape: Preview, Publish, a folded Return with a note that says what it does, both forms carrying the way back to the dashboard', array( 0 === strpos( $decision, '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide"><a class="button" href="https://example.test/?p=' . $queued . '&preview=true">Preview</a>' ), substr_count( $decision, 'name="wpcpm_return" value="dashboard"' ), substr_count( $decision, 'name="wpcpm_return_to" value="sponsor-posts"' ), false !== strpos( $decision, '<details class="wpcpm-sponsor-post__return"><summary class="button">Return with a note</summary><p class="wpcpm-administrator__note">The post goes back to the sponsor&#039;s account as a draft, and your note is sent to its author by email.</p>' ), false !== strpos( $decision, 'name="action" value="wpcpm_sponsor_post_publish"' ), false !== strpos( $decision, 'name="action" value="wpcpm_sponsor_post_return"' ) ), array( true, 2, 2, true, true, true ) );
-// The institution side's words, which the sponsor side shares: the button under the fold reads
-// Return it with this note; Publish, Preview and the fold's summary keep theirs.
-ck( 'the return button reads Return it with this note, as the institution side\'s does, and Publish keeps its word', array(
-	false !== strpos( $decision, '<button type="submit" class="button">Return it with this note</button>' ),
-	false !== strpos( $decision, '<button type="submit" class="button button-primary">Publish</button>' ),
-	strpos( $decision, 'Send back with this note' ),
-), array( true, true, false ) );
+// The decision's words and forms on the parts are pinned in the parts' checks below (Task 18b: the old block is gone).
 $GLOBALS['uid'] = 20;
 ob_start(); WPCPM_Sponsor_Posts::render_decision( $queued, WPCPM_Return::DASHBOARD ); $none = ob_get_clean();
 ck( 'a member gets no decision block', $none, '' );
@@ -1200,7 +1226,7 @@ $ref_over = posts_pending( 'Seventh guide' );
 ck( 'and one character more is refused as too long, and the post waits as it was: no note, no mail, no audit row', array( press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $ref_over, 'wpcpm_note' => $p_at_most . 'x' ) ), get_post( $ref_over )->post_status, get_post_meta( $ref_over, WPCPM_Sponsor_Posts::META_RETURN_NOTE, true ), $GLOBALS['mail'], $GLOBALS['audit'] ), array( 'post-note-long|posts|' . $S . '|', 'pending', '', array(), array() ) );
 $GLOBALS['uid'] = 1;
 ob_start(); WPCPM_Sponsor_Posts::render_decision( $over_post, WPCPM_Return::DASHBOARD ); $r_box = ob_get_clean();
-ck( 'the note\'s box holds no more than that', 1 === preg_match( '/<textarea id="wpcpm-post-note-' . $over_post . '" name="wpcpm_note" rows="2" maxlength="2000" required placeholder="/', $r_box ), true );
+ck( 'the note\'s box holds no more than that', 1 === preg_match( '/<textarea [^>]*id="wpcpm-post-note-' . $over_post . '" name="wpcpm_note" required maxlength="2000"/', $r_box ), true );
 
 echo "\n=== The return note: a typing the cleaner would take words from is refused, and kept ===\n";
 /**
@@ -1212,11 +1238,13 @@ function posts_note_box( $post_id ) {
 	ob_start();
 	WPCPM_Sponsor_Posts::render_decision( $post_id, WPCPM_Return::DASHBOARD );
 	$html = (string) ob_get_clean();
-	if ( ! preg_match( '/<textarea id="wpcpm-post-note-' . (int) $post_id . '" name="wpcpm_note"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
+	// The box and its panel as the parts draw them (`WPCPM_UI::field()`, `WPCPM_UI::decide()`), since the old fold left
+	// with its branch (Task 18b).
+	if ( ! preg_match( '/<textarea [^>]*id="wpcpm-post-note-' . (int) $post_id . '" name="wpcpm_note"[^>]*>(.*?)<\/textarea>/s', $html, $m ) ) {
 		return null;
 	}
 	$shown = (string) preg_replace( '/^\n/', '', str_replace( "\r\n", "\n", $m[1] ) );
-	return array( 'shown' => html_entity_decode( $shown, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'open' => false !== strpos( $html, '<details class="wpcpm-sponsor-post__return" open>' ) );
+	return array( 'shown' => html_entity_decode( $shown, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'open' => false !== strpos( $html, 'id="wpcpm-decide-post-' . (int) $post_id . '-return-panel" data-wpcpm-panel data-wpcpm-open>' ) );
 }
 $GLOBALS['users'][2]    = new WP_User( 2, array( 'administrator' ), 'Manager Two' );
 $GLOBALS['manage']      = array( 1, 2 );
@@ -1495,11 +1523,390 @@ $GLOBALS['pmeta'][ $rw_returned_a ][ WPCPM_Sponsor_Posts::META_RETURN_NOTE ] = '
 ck( 'a return note taken off (a publish clears it) leaves the post a draft, no longer counted', array( WPCPM_Sponsor_Posts::state_of( get_post( $rw_returned_a ) ), WPCPM_Sponsor_Posts::returned_count( $RW ) ), array( 'draft', 1 ) );
 $GLOBALS['uid'] = 20;
 
+echo "\n=== The decision on the Administrator Dashboard's parts: Publish or Return with a note (UI shared parts, Task 13a) ===\n";
+// The Administrator Dashboard suite draws the decision through a stand-in, so the real one is drawn here, under
+// `WPCPM_UI::enter( 'administrator' )` with the dashboard's surface on, as the dashboard draws it: one Decide area,
+// Publish at once and Return with a note in a panel. Off the surface, and on a wp-admin tab (off for this whole
+// release), the decision is today's, byte for byte. Preview leaves the decision: the card's item header carries it
+// as a fact on the parts (bin/test-administrators-dashboard.php).
+
+/**
+ * A render read as a document.
+ *
+ * @param string $html Markup.
+ * @return DOMXPath
+ */
+function pp_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * Every form a render holds, by the admin-post action it posts: how it posts, its guard, its hidden fields as
+ * `name=value` in the order a browser posts them, its boxes with their bounds, its submits and the question it asks.
+ *
+ * @param string $html Markup.
+ * @return array<string, array[]>
+ */
+function pp_posted( $html ) {
+	$x   = pp_doc( $html );
+	$out = array();
+	foreach ( $x->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		foreach ( $x->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $x->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' minlength=' . $box->getAttribute( 'minlength' ) . ' maxlength=' . $box->getAttribute( 'maxlength' ) . ( $box->hasAttribute( 'required' ) ? ' required' : '' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $x->query( './/button[not(@type="button")]', $form ) as $button ) {
+			$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			$asks      = '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ? $button->getAttribute( 'data-wpcpm-confirm' ) : $asks;
+		}
+		$out[ $action ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ) . ' ' . $form->getAttribute( 'enctype' ),
+			'guard'   => ( $form->hasAttribute( 'data-wpcpm-once' ) ? 'once ' : '' ) . $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * The kinds and words of the buttons a path holds, in order: `kind: words`.
+ *
+ * @param DOMXPath $x    The document.
+ * @param string   $path Where to look.
+ * @return string[]
+ */
+function pp_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : ( false !== strpos( $class, ' wpcpm-btn ' ) ? 'primary' : 'old' ) ) );
+		$out[] = $kind . ': ' . trim( $button->textContent );
+	}
+	return $out;
+}
+
+/**
+ * The ids a render holds that repeat, and every aria-controls, for and aria-describedby that names no element in it.
+ *
+ * @param DOMXPath $x The document.
+ * @return array{0: bool, 1: string[]}
+ */
+function pp_ids( DOMXPath $x ) {
+	$ids   = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@id]' ) ) );
+	$loose = array();
+	foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+		foreach ( $x->query( '//*[@' . $attr . ']' ) as $node ) {
+			if ( ! in_array( $node->getAttribute( $attr ), $ids, true ) ) {
+				$loose[] = $attr . '=' . $node->getAttribute( $attr );
+			}
+		}
+	}
+	foreach ( $x->query( '//*[@aria-describedby]' ) as $node ) {
+		foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+			if ( ! in_array( $described, $ids, true ) ) {
+				$loose[] = 'aria-describedby=' . $described;
+			}
+		}
+	}
+	return array( count( $ids ) === count( array_unique( $ids ) ), $loose );
+}
+
+/**
+ * One post's decision, as the current user, with a surface named (or none) and the Administrator Dashboard's switch on.
+ *
+ * @param int    $post_id The post.
+ * @param string $surface 'administrator', a wp-admin tab, or '' for none.
+ * @return string
+ */
+function pp_drawn( $post_id, $surface ) {
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( '' !== $surface ) {
+		WPCPM_UI::enter( $surface );
+	}
+	ob_start();
+	try {
+		WPCPM_Sponsor_Posts::render_decision( $post_id, WPCPM_Return::DASHBOARD );
+	} finally {
+		$html = (string) ob_get_clean();
+		if ( 'administrator' === $surface ) {
+			parts_inventory_add( $html );
+		}
+		if ( '' !== $surface ) {
+			WPCPM_UI::leave();
+		}
+		WPCPM_UI::set_live( null );
+	}
+	return $html;
+}
+
+/**
+ * Press Return with a note on one post as the Administrator, from the Administrator Dashboard, and leave the outcome
+ * where the next page reads it: the handler sets it on the Institutions screen's channel, which the dashboard's
+ * message and the decision read with `WPCPM_Flash::take()` (this suite's flash journals what is set; the next page
+ * is handed the last outcome, as the real flash hands it).
+ *
+ * @param int    $post_id The post.
+ * @param string $note    The note as typed.
+ * @return string Where the handler sent the press.
+ */
+function pp_return( $post_id, $note ) {
+	$went = press( 1, array( 'wpcpm_action' => 'return', 'wpcpm_post' => $post_id, 'wpcpm_note' => $note, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-posts' ) );
+	$_POST = array();
+	$last  = end( $GLOBALS['flash'] );
+	if ( is_array( $last ) && WPCPM_Institutions::FLASH === $last[0] ) {
+		$GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] = $last[1];
+	}
+	return $went;
+}
+
+$GLOBALS['uid']         = 1;
+$GLOBALS['manage']      = array( 1, 2 );
+$GLOBALS['kept_typing'] = array();
+$GLOBALS['flash']       = array();
+$GLOBALS['enqueued']    = array();
+$GLOBALS['faithful_nonces'] = true;
+$pp_one = posts_pending( 'Parts guide one' );
+$pp_two = posts_pending( 'Parts guide two' );
+$pp_long = str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE + 1 );
+$pp_lossy = "Kids <12 free, adults >18 pay.\nPlease change it.";
+
+// The decision is drawn on the parts alone since its old branch left (Task 18b), and its off digests with it.
+$pp_on = pp_drawn( $pp_one, 'administrator' );
+$pp_x  = pp_doc( $pp_on );
+$pp_area = '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-post-' . $pp_one . '"]';
+$pp_panel = '//div[@id="wpcpm-decide-post-' . $pp_one . '-return-panel"]';
+
+// Check 1: posted fields. The old forms left with their branch (Task 18b), so what the two forms post is pinned to
+// what the old forms posted, read at 76b5ecff, where this check compared the two: the address, the guard, the hidden
+// fields in order with the nonce keyed to the post and its referer, the way back to the card, the box and its bound,
+// no question.
+$pp_form = static function ( $action, array $boxes ) use ( $pp_one ) {
+	return array(
+		array(
+			'posts'   => 'post https://example.test/wp-admin/admin-post.php ',
+			'guard'   => 'once ',
+			'hidden'  => array( '_wpnonce=nonce-' . $action . '_' . $pp_one, '_wp_http_referer=/administrator-dashboard/', 'action=' . $action, 'wpcpm_post=' . $pp_one, 'wpcpm_return=dashboard', 'wpcpm_return_to=sponsor-posts' ),
+			'boxes'   => $boxes,
+			'submits' => array( '=' ),
+			'asks'    => '',
+		),
+	);
+};
+ck( 'on, Publish and Return post exactly what the handlers read: the same address, guard, hidden fields in order with the nonce keyed to the post and its referer, the same box and bounds, no question (posted fields)', pp_posted( $pp_on ), array(
+	WPCPM_Sponsor_Posts::ACTION_POST_PUBLISH => $pp_form( 'wpcpm_sponsor_post_publish', array() ),
+	WPCPM_Sponsor_Posts::ACTION_POST_RETURN  => $pp_form( 'wpcpm_sponsor_post_return', array( 'wpcpm_note minlength= maxlength=2000 required' ) ),
+) );
+
+// Check 5: the words, one primary, nothing red.
+ck( 'on, the decision is one Decide area, id wpcpm-decide-post-{ID}, headed "Decide" under the item\'s heading, and nothing of today\'s block: no Preview (the item header carries it), no fold, no WordPress button', array(
+	$pp_x->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$pp_x->query( $pp_area )->length,
+	trim( (string) $pp_x->evaluate( 'string(' . $pp_area . '/h5[@class="wpcpm-ui-h"])' ) ),
+	0 === strpos( $pp_on, '<div class="wpcpm-ui-decide" id="wpcpm-decide-post-' . $pp_one . '">' ),
+	strpos( $pp_on, 'Preview' ),
+	strpos( $pp_on, '<details' ),
+	strpos( $pp_on, 'class="button' ),
+	strpos( $pp_on, 'wpcpm-sponsor-post__' ),
+), array( 1, 1, 'Decide', true, false, false, false, false ) );
+ck( 'its row: Publish, the one primary, acting at once with no question, as today; Return with a note, a secondary opener of its panel (design 2.6, 5)', array(
+	pp_buttons( $pp_x, $pp_area . '/div[@class="wpcpm-ui-actions"]//button' ),
+	$pp_x->query( $pp_area . '/div[@class="wpcpm-ui-actions"]/form/button[@type="submit"][not(@data-wpcpm-confirm)]' )->length,
+	$pp_x->query( $pp_area . '/div[@class="wpcpm-ui-actions"]/button[@type="button"][@aria-controls="wpcpm-decide-post-' . $pp_one . '-return-panel"][@aria-expanded="false"]' )->length,
+), array( array( 'primary: Publish', 'secondary: Return with a note' ), 1, 1 ) );
+ck( 'the panel: the visible label "A note for the author" with Required, the hint that says what happens and who receives the note, the button that keeps "Return it with this note", and Cancel', array(
+	trim( (string) $pp_x->evaluate( 'string(' . $pp_panel . '//label[@for="wpcpm-post-note-' . $pp_one . '"])' ) ),
+	trim( (string) $pp_x->evaluate( 'string(//label[@for="wpcpm-post-note-' . $pp_one . '"]/span[@class="wpcpm-ui-field__need"])' ) ),
+	trim( (string) $pp_x->evaluate( 'string(//p[@id="wpcpm-post-note-' . $pp_one . '-hint"])' ) ),
+	pp_buttons( $pp_x, $pp_panel . '//button' ),
+), array(
+	'A note for the author Required',
+	'Required',
+	'The post goes back to the sponsor\'s account as a draft, and your note is sent to its author by email.',
+	array( 'secondary: Return it with this note', 'quiet: Cancel' ),
+) );
+ck( 'one primary in the whole area, nothing red (returning removes nothing)', array(
+	count( array_filter( pp_buttons( $pp_x, '//button' ), static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) ),
+	count( array_filter( pp_buttons( $pp_x, '//button' ), static function ( $b ) { return 0 === strpos( $b, 'danger: ' ) || 0 === strpos( $b, 'old: ' ); } ) ),
+), array( 1, 0 ) );
+ck( 'the box keeps its id and name, wpcpm-post-note-{ID} (unique per post already) and wpcpm_note, its two rows, its bound and its placeholder, required, tied to its hint, empty', array_map( static function ( $box ) {
+	return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'rows' ) . ' ' . $box->getAttribute( 'maxlength' ) . ' ' . ( $box->hasAttribute( 'required' ) ? 'required' : '' ) . ' ' . $box->getAttribute( 'placeholder' ) . ' ' . $box->getAttribute( 'aria-describedby' ) . ' ' . json_encode( $box->textContent );
+}, iterator_to_array( $pp_x->query( '//textarea' ) ) ), array( 'wpcpm-post-note-' . $pp_one . ' wpcpm_note 2 2000 required What should change before it is published wpcpm-post-note-' . $pp_one . '-hint "\n"' ) );
+ck( 'the parts\' script is asked for, where the panel is drawn', in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ), true );
+$GLOBALS['uid'] = 20;
+ck( 'a member is drawn no decision on the parts either', pp_drawn( $pp_one, 'administrator' ), '' );
+$GLOBALS['uid'] = 1;
+
+// Check 2: two posts on one card.
+$pp_two_html = pp_drawn( $pp_one, 'administrator' ) . pp_drawn( $pp_two, 'administrator' );
+$pp_x2       = pp_doc( $pp_two_html );
+$pp_return_posts = static function ( $id ) use ( $pp_x2 ) {
+	$fields = array();
+	foreach ( array( 'return' => '//div[@id="wpcpm-decide-post-' . $id . '-return-panel"]/form', 'publish' => '//div[@id="wpcpm-decide-post-' . $id . '"]/div[@class="wpcpm-ui-actions"]/form' ) as $which => $path ) {
+		$form = $pp_x2->query( $path )->item( 0 );
+		if ( $form ) {
+			foreach ( $pp_x2->query( './/input[@type="hidden"]', $form ) as $input ) {
+				if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'wpcpm_post' ), true ) ) {
+					$fields[ $which . ' ' . $input->getAttribute( 'name' ) ] = $input->getAttribute( 'value' );
+				}
+			}
+		}
+	}
+	return $fields;
+};
+ck( 'two posts on one card: their areas, panels and boxes have ids of their own, none repeats, and every aria-controls, for and aria-describedby names an element on the page', array(
+	pp_ids( $pp_x2 ),
+	$pp_x2->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$pp_x2->query( '//div[@data-wpcpm-panel]' )->length,
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $pp_x2->query( '//button[@aria-controls]' ) ) ),
+), array( array( true, array() ), 2, 2, array( 'wpcpm-decide-post-' . $pp_one . '-return-panel', 'wpcpm-decide-post-' . $pp_two . '-return-panel' ) ) );
+ck( 'and each post\'s two forms post its own ID under nonces keyed to it; with nothing refused or kept, no panel is open', array(
+	$pp_return_posts( $pp_one ),
+	$pp_return_posts( $pp_two ),
+	$pp_x2->query( '//*[@data-wpcpm-open]' )->length,
+	$pp_x2->query( '//button[@aria-expanded="true"]' )->length,
+), array(
+	array( 'return _wpnonce' => 'nonce-wpcpm_sponsor_post_return_' . $pp_one, 'return wpcpm_post' => (string) $pp_one, 'publish _wpnonce' => 'nonce-wpcpm_sponsor_post_publish_' . $pp_one, 'publish wpcpm_post' => (string) $pp_one ),
+	array( 'return _wpnonce' => 'nonce-wpcpm_sponsor_post_return_' . $pp_two, 'return wpcpm_post' => (string) $pp_two, 'publish _wpnonce' => 'nonce-wpcpm_sponsor_post_publish_' . $pp_two, 'publish wpcpm_post' => (string) $pp_two ),
+	0,
+	0,
+) );
+
+// Check 3: a refused note comes back, for that post alone.
+$pp_long_went = pp_return( $pp_two, $pp_long );
+$pp_back      = pp_drawn( $pp_one, 'administrator' ) . pp_drawn( $pp_two, 'administrator' );
+$pp_xb        = pp_doc( $pp_back );
+$pp_box       = $pp_xb->query( '//textarea[@id="wpcpm-post-note-' . $pp_two . '"]' )->item( 0 );
+$pp_problem   = WPCPM_Form_Errors::problem_id( 'wpcpm-post-note-' . $pp_two );
+ck( 'a note too long is refused by the handler, back on the Administrator Dashboard, the typing kept for that post alone', array(
+	$pp_long_went,
+	end( $GLOBALS['flash'] ),
+), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', array( 'institutions', 'post-note-long' ) ) );
+ck( 'back on the card, that post\'s Return panel is printed open and its opener reads expanded; the other post\'s is not (Review Focus 1)', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $pp_xb->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $pp_xb->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( 'wpcpm-decide-post-' . $pp_two . '-return-panel' ), array( 'wpcpm-decide-post-' . $pp_two . '-return-panel' ) ) );
+ck( 'its box holds the typing (as much as the box holds, as today), is marked invalid and is tied to the handler\'s refusal sentence, before its hint, inside the open panel', array(
+	$pp_box ? $pp_box->textContent : null,
+	$pp_box ? $pp_box->getAttribute( 'aria-invalid' ) : null,
+	$pp_box ? $pp_box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $pp_xb->evaluate( 'string(//*[@id="' . $pp_problem . '"])' ) ),
+	$pp_xb->query( '//div[@id="wpcpm-decide-post-' . $pp_two . '-return-panel"]//*[@id="' . $pp_problem . '"]' )->length,
+), array( "\n" . str_repeat( 'n', WPCPM_Sponsor_Posts::MAX_NOTE ), 'true', $pp_problem . ' wpcpm-post-note-' . $pp_two . '-hint', WPCPM_Sponsor_Posts::messages()['post-note-long'][1], 1 ) );
+ck( 'and the other post\'s box is neither refused nor filled', array(
+	$pp_xb->query( '//div[@id="wpcpm-decide-post-' . $pp_one . '"]//*[@aria-invalid]' )->length,
+	array_map( static function ( $b ) { return $b->textContent; }, iterator_to_array( $pp_xb->query( '//div[@id="wpcpm-decide-post-' . $pp_one . '"]//textarea' ) ) ),
+), array( 0, array( "\n" ) ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+pp_return( $pp_one, $pp_lossy );
+$pp_xl = pp_doc( pp_drawn( $pp_one, 'administrator' ) );
+ck( 'a note the cleaner would take words from comes back the same way: open, the typing kept as typed, tied to the sentence that names the box by its label', array(
+	$pp_xl->query( '//div[@id="wpcpm-decide-post-' . $pp_one . '-return-panel"][@data-wpcpm-open]' )->length,
+	$pp_xl->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $pp_one . '"])' ),
+	trim( (string) $pp_xl->evaluate( 'string(//*[@id="' . WPCPM_Form_Errors::problem_id( 'wpcpm-post-note-' . $pp_one ) . '"])' ) ),
+), array( 1, "\n" . $pp_lossy, WPCPM_Sponsor_Posts::messages()['post-note-loss'][1] ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+pp_return( $pp_one, '   ' );
+$pp_xm = pp_doc( pp_drawn( $pp_one, 'administrator' ) . pp_drawn( $pp_two, 'administrator' ) );
+ck( 'a blank note is refused and keeps nothing (the box is required, so only a browser without the check sends one): no panel is opened and no box is said to be refused, as nothing tells which post it was for', array(
+	end( $GLOBALS['flash'] ),
+	$pp_xm->query( '//*[@data-wpcpm-open]' )->length,
+	$pp_xm->query( '//*[@aria-invalid]' )->length,
+), array( array( 'institutions', 'post-note-missing' ), 0, 0 ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Sponsor_Posts::TYPED_RETURN, $pp_two ), 'note', 'Kept, and not refused.', WPCPM_Sponsor_Posts::MAX_NOTE );
+$GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] = 'post-published';
+$pp_xk = pp_doc( pp_drawn( $pp_two, 'administrator' ) );
+ck( 'a kept return note with another outcome on the channel opens its panel with the typing, untied to any refusal', array(
+	$pp_xk->query( '//div[@id="wpcpm-decide-post-' . $pp_two . '-return-panel"][@data-wpcpm-open]' )->length,
+	$pp_xk->evaluate( 'string(//textarea[@id="wpcpm-post-note-' . $pp_two . '"])' ),
+	$pp_xk->query( '//*[@aria-invalid]' )->length,
+), array( 1, "\nKept, and not refused.", 0 ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ] );
+
+// The card's message leads to the refused box: the card shell is the real one, holding the outcome for the Sponsor
+// posts to review card as the dashboard holds it, around the two posts' decisions.
+/**
+ * The Sponsor posts to review card around two decisions, holding one outcome.
+ *
+ * @param string $text The outcome's sentence, an error.
+ * @param bool   $on   Whether the dashboard's surface is on.
+ * @return string
+ */
+function pp_card( $text, $on ) {
+	global $pp_one, $pp_two;
+	WPCPM_Dashboard_Card::forget();
+	WPCPM_Dashboard_Card::hold( 'wpcpm-sponsor-posts', 'error', $text );
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( $on ) {
+		WPCPM_UI::enter( 'administrator' );
+	}
+	ob_start();
+	WPCPM_Dashboard_Card::open(
+		array(
+			'key'           => 'sponsor-posts',
+			'title'         => 'Sponsor posts to review',
+			'prefix'        => 'wpcpm-',
+			'id_on'         => 'section',
+			'section_class' => 'wpcpm-administrator__card',
+		)
+	);
+	WPCPM_Sponsor_Posts::render_decision( $pp_one, WPCPM_Return::DASHBOARD );
+	WPCPM_Sponsor_Posts::render_decision( $pp_two, WPCPM_Return::DASHBOARD );
+	WPCPM_Dashboard_Card::close();
+	$html = (string) ob_get_clean();
+	if ( $on ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	WPCPM_Dashboard_Card::forget();
+	return $html;
+}
+$pp_long_said = (string) WPCPM_Sponsor_Posts::messages()['post-note-long'][1];
+pp_return( $pp_two, $pp_long );
+$pp_led       = pp_card( $pp_long_said, true );
+$pp_xled      = pp_doc( $pp_led );
+$pp_led_links = iterator_to_array( $pp_xled->query( '//p[@data-wpcpm-card-message]//a' ) );
+ck( 'on, the refused note\'s message is the refusal sentence as one link to the refused box, said once, before both posts, the box inside the panel printed open', array(
+	count( $pp_led_links ),
+	isset( $pp_led_links[0] ) ? $pp_led_links[0]->getAttribute( 'href' ) : null,
+	isset( $pp_led_links[0] ) ? $pp_led_links[0]->textContent : null,
+	substr_count( $pp_led, 'data-wpcpm-card-message' ),
+	strpos( $pp_led, 'data-wpcpm-card-message' ) < strpos( $pp_led, 'id="wpcpm-decide-post-' . $pp_one . '"' ),
+	$pp_xled->query( '//div[@data-wpcpm-open]//textarea[@id="wpcpm-post-note-' . $pp_two . '"]' )->length,
+), array( 1, '#wpcpm-post-note-' . $pp_two, $pp_long_said, 1, true, 1 ) );
+unset( $GLOBALS['kept_typing'][1][ WPCPM_Institutions::FLASH ], $GLOBALS['faithful_nonces'] );
+$GLOBALS['kept_typing'] = array();
+$GLOBALS['uid']         = 20;
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'the caps are never put on a role', preg_match( '/get_role\(|add_role\(/', $src ), 0 );
 ck( 'publish_posts, edit_others_posts and edit_published_posts appear nowhere in the class', preg_match( '/publish_posts|edit_others_posts|edit_published_posts/', $src ), 0 );
 
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'sponsor-posts' ) );
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

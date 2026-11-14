@@ -203,10 +203,12 @@ class WPCPM_Admin {
 			return;
 		}
 
+		WPCPM_UI::register_assets();
+
 		wp_enqueue_style(
 			'wpcpm-admin',
 			WPCPM_PLUGIN_URL . 'assets/css/admin.css',
-			array(),
+			array( WPCPM_UI::STYLE ),
 			WPCPM_VERSION
 		);
 

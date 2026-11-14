@@ -143,6 +143,31 @@
 	padding: 12px 14px;
 }
 
+/* Inside the Administrator Dashboard's parts the four figures of a row share their rows (label, figure, note), so the
+   figures sit on one line however a label wraps (subgrid, only where it is known: elsewhere the figure is drawn exactly
+   as before, fix round 1), and a label and a note balance their lines (Task 18f). */
+@supports ( grid-template-rows: subgrid ) {
+	.wpcpm-ui-on .wpcpm-timeline-stats__item {
+		display: grid;
+		grid-row: span 3;
+		grid-template-rows: subgrid;
+		row-gap: 2px;
+	}
+
+	/* A label shorter than its neighbour's sits at the bottom of the shared row, right over its figure (fix round 2). */
+	.wpcpm-ui-on .wpcpm-timeline-stats__label {
+		align-self: end;
+	}
+}
+
+.wpcpm-ui-on .wpcpm-timeline-stats__label {
+	text-wrap: balance;
+}
+
+.wpcpm-ui-on .wpcpm-timeline-stats__note {
+	text-wrap: balance;
+}
+
 .wpcpm-timeline-stats--compact .wpcpm-timeline-stats__value {
 	font-size: 1.5em;
 }

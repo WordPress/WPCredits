@@ -49,8 +49,10 @@ final class WPCPM_Dashboard_Frame {
 	 * Register (but do not enqueue) the stylesheet and the script.
 	 */
 	public static function register_assets() {
+		WPCPM_UI::register_assets();
+
 		if ( ! wp_style_is( self::STYLE, 'registered' ) ) {
-			wp_register_style( self::STYLE, WPCPM_PLUGIN_URL . 'assets/css/dashboard-frame.css', array(), WPCPM_VERSION );
+			wp_register_style( self::STYLE, WPCPM_PLUGIN_URL . 'assets/css/dashboard-frame.css', array( WPCPM_UI::STYLE ), WPCPM_VERSION );
 		}
 
 		if ( ! wp_script_is( self::SCRIPT, 'registered' ) ) {
@@ -111,9 +113,12 @@ final class WPCPM_Dashboard_Frame {
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
 
+		// While the surface drawing is on, the frame's root carries the switch's class (design 3.5), so the frame's
+		// own buttons and tags take the parts' look with the page's.
 		printf(
-			'<div class="wpcpm-frame wpcpm-frame--%1$s" data-wpcpm-frame>',
-			esc_attr( sanitize_key( (string) $args['page'] ) )
+			'<div class="wpcpm-frame wpcpm-frame--%1$s%2$s" data-wpcpm-frame>',
+			esc_attr( sanitize_key( (string) $args['page'] ) ),
+			esc_attr( WPCPM_UI::root_class() )
 		);
 
 		// A folded menu is put back before the first paint, so it never opens and then folds.

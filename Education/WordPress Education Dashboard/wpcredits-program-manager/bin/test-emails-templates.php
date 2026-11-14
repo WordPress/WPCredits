@@ -163,6 +163,9 @@ require_once __DIR__ . '/stubs/scroll-regions.php';
 
 // The site's date format, which an invitation's example day is printed in.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-errors.php';

@@ -84,6 +84,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/parts-inventory.php';
 require_once __DIR__ . '/stubs/meta-matcher.php';
 require_once __DIR__ . '/stubs/screen-helpers.php';
 
@@ -282,8 +283,29 @@ function add_query_arg( $k, $v = '', $u = '' ) {
 
 	return $url;
 }
-function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
-function wp_create_nonce( $a = '' ) { return 'nonce'; }
+// The nonce and the referer as the suite has always read them: the nonce keyed to its action, alone. With
+// `$GLOBALS['faithful_nonces']` set, as WordPress prints them: the nonce field with the id core gives it, the
+// referer beside it unless asked not to, and wp_create_nonce() keyed to its action too, so a form drawn
+// through `WPCPM_UI::nonce()` (the same name and value, no id) can be compared with today's field by field.
+function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) {
+	if ( empty( $GLOBALS['faithful_nonces'] ) ) {
+		echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />';
+		return;
+	}
+	$n = '' !== (string) $n ? (string) $n : '_wpnonce';
+	echo '<input type="hidden" id="' . esc_attr( $n ) . '" name="' . esc_attr( $n ) . '" value="' . esc_attr( wp_create_nonce( $a ) ) . '" />';
+	if ( $r ) {
+		wp_referer_field();
+	}
+}
+function wp_create_nonce( $a = '' ) { return empty( $GLOBALS['faithful_nonces'] ) ? 'nonce' : 'nonce-' . $a; }
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/wp-admin/admin.php?page=wpcpm-institutions" />';
+	if ( $display ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A constant.
+	}
+	return $field;
+}
 function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true, $other = array() ) {
 	$attrs = '';
 	foreach ( (array) $other as $key => $value ) { $attrs .= ' ' . $key . '="' . esc_attr( $value ) . '"'; }
@@ -409,6 +431,24 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
+// What the parts ask of WordPress, before the first drawing: the decisions an application holds on the
+// Administrator Dashboard are drawn on the parts alone since their old branch left (Task 18b).
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin() { return ! empty( $GLOBALS['is_admin'] ); }
+}
+if ( ! function_exists( '_doing_it_wrong' ) ) {
+	function _doing_it_wrong( $function, $message, $version ) { $GLOBALS['doing_it_wrong'][] = $message; }
+}
+// The parts' sheet and script are registered once each before the script is asked for.
+if ( ! function_exists( 'wp_style_is' ) ) {
+	function wp_style_is( $h, $list = 'enqueued' ) { return isset( $GLOBALS['registered_styles'][ $h ] ); }
+}
+if ( ! function_exists( 'wp_register_style' ) ) {
+	function wp_register_style( $h, $src, $deps = array(), $ver = false ) { $GLOBALS['registered_styles'][ $h ] = $src; }
+}
 require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -4534,6 +4574,21 @@ $first_past = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 )
 $held_past  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 502 ) );
 $info_past  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 503 ) );
 
+// Review Focus 5: the wp-admin queue is not moving in this release. With the Administrator Dashboard's switch
+// on, an application past the card's window, decided here, still draws today's forms, byte for byte, its boxes
+// under today's ids; the tab names itself as wp-admin does, `<page slug>/<tab>`, which is off.
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'wpcpm-institutions/queue' );
+$first_past_live = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+ck( 'with the dashboard\'s switch on, the queue draws an application past the card\'s window with today\'s markup and today\'s ids, unchanged (Review Focus 5)', array(
+	$first_past_live === $first_past,
+	false !== strpos( $first_past_live, 'id="wpcpm_question" name="wpcpm_question"' ),
+	false !== strpos( $first_past_live, 'id="wpcpm_reason" name="wpcpm_reason"' ),
+	strpos( $first_past_live, 'wpcpm-ui-' ),
+), array( true, true, true, false ) );
+
 WPCPM_Administrators_Dashboard::$url = '';
 $past_no_page                        = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
 WPCPM_Administrators_Dashboard::$url = $dashboard;
@@ -4714,19 +4769,9 @@ foreach ( array( 501 => WPCPM_Institution_Application::STATE_NEW, 503 => WPCPM_I
 	$on_dashboard[ $application_id ] = (string) ob_get_clean();
 }
 
-ck( 'on the Administrator Dashboard the same method draws every decision the state allows, as before', array(
-	false !== strpos( $on_dashboard[501], '<h3>What happens next</h3>' ),
-	decisions_on( $on_dashboard[501], 501 ),
-	decisions_on( $on_dashboard[503], 503 ),
-	decisions_on( $on_dashboard[532], 532 ),
-	strpos( implode( '', $on_dashboard ), 'Open on the Administrator Dashboard' ),
-), array(
-	true,
-	array( 'approve' => 1, 'info' => 1, 'reject' => 1, 'spam' => 1, 'reopen' => 0, 'purge' => 0 ),
-	array( 'approve' => 1, 'info' => 1, 'reject' => 1, 'spam' => 1, 'reopen' => 1, 'purge' => 0 ),
-	array( 'approve' => 0, 'info' => 0, 'reject' => 0, 'spam' => 0, 'reopen' => 1, 'purge' => 1 ),
-	false,
-) );
+// Which decisions each state allows on the dashboard's Decide area is pinned with the area itself, in the
+// Task 10 checks below; the old forms' count by form left with their branch (Task 18b).
+ck( 'on the Administrator Dashboard the same method never points to the dashboard itself', strpos( implode( '', $on_dashboard ), 'Open on the Administrator Dashboard' ), false );
 ck( 'each with the fields that bring the press back to the dashboard\'s applications card', form_fields( $on_dashboard[501], 'wpcpm_app_approve' ), array( 'action' => 'wpcpm_app_approve', 'wpcpm_application' => '501', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'applications' ) );
 
 // The dashboard's return alone gets an open application's decisions: anything else is this
@@ -5028,7 +5073,7 @@ $refused_page = dashboard_decisions( 91, 501 );
 $refused_box  = boxes_named( $refused_page, 'wpcpm_question' );
 ck( 'and the box draws that question back, as the application\'s decisions are drawn', $refused_box, array( 'Which term would the first students start in?' ) );
 ck( 'a question that could not be sent is drawn back but not marked invalid: nothing in the box needs a change, and the notice speaks', array(
-	false !== strpos( $refused_page, 'name="wpcpm_question" rows="4" maxlength="2000">' ),
+	1 === count( $refused_box ),
 	false !== strpos( $refused_page, 'wpcpm_question-problem' ),
 	false !== strpos( $refused_page, 'aria-invalid' ),
 ), array( true, false, false ) );
@@ -5054,14 +5099,15 @@ $short_left      = get_user_meta( 1, WPCPM_Flash::META );
 $short_keys      = array_keys( (array) $short_left );
 sort( $short_keys );
 // Refused for its own words, so the press lands on the opened application, where its box is, and
-// the box gets back what was typed.
+// the box gets back what was typed. Beside it waits the record of the last form kept, which names that
+// form (`WPCPM_Typed_Text::is_last()`, Task 13x).
 ck( 'a question too short to be one is refused and nothing is sent, and what was typed comes back to its box', array(
 	$short_went,
 	$short_left['institutions'] ?? '',
 	$short_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ]['typed'] ?? null,
 	$short_keys,
 	$GLOBALS['mail'],
-), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=501', 'app-question', array( 'question' => 'why?' ), array( 'institutions', WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ), array() ) );
+), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&wpcpm_app_id=501', 'app-question', array( 'question' => 'why?' ), array( 'institutions', WPCPM_Typed_Text::KEPT_CHANNEL, WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:501' ), array() ) );
 // The sentence sits beside the kept question, so it says how short is too short, in the words the
 // sponsor application's question uses.
 ck( 'and its sentence says the least a question has to be, as the sponsor application\'s does', WPCPM_Institutions::queue_messages()['app-question'] ?? null, array( 'error', 'Nothing was sent. The question has to be at least 10 characters: it is the whole of what the applicant is told.' ) );
@@ -5602,12 +5648,11 @@ ob_start();
 $module->render_application_actions( get_post( 501 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::DASHBOARD );
 $whole_on_card = (string) ob_get_clean();
 
-$half_note = '<p class="wpcpm-administrator__note">' . esc_html( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.' ) . '</p>';
-ck( 'on the Administrator Dashboard\'s card it is the card\'s note, under the heading, above the decisions', array(
-	substr_count( $half_on_card, $half_note ),
-	strpos( $half_on_card, '<h3>What happens next</h3>' . $half_note ) !== false,
+// On the card it is the note part (pinned in the Task 17b checks below); never the queue's mark.
+ck( 'on the Administrator Dashboard\'s card it is the card\'s note, never the queue\'s mark', array(
+	substr_count( $half_on_card, 'Approving this application stopped partway' ),
 	strpos( $half_on_card, 'wpcpm-inst-mark' ),
-), array( 1, true, false ) );
+), array( 1, false ) );
 ck( 'and on this screen the queue\'s mark, under the heading of where it is decided', array(
 	substr_count( $half_opened, $half_mark ),
 	strpos( $half_opened, '<h3>Where it is decided</h3>' . $half_mark ) !== false,
@@ -6679,7 +6724,584 @@ ck(
 $GLOBALS['students_now'] = array();
 $GLOBALS['opts'][ $IDX ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
 
+echo "\n=== The Administrator Dashboard's Decide area, behind the switch (UI shared parts, Task 10) ===\n";
+
+// The decisions are drawn by the methods above for both surfaces. With the Administrator Dashboard's switch
+// on they are one Decide area per application (design 2.6, 4.1); everywhere else, the wp-admin queue among
+// them, today's forms. Every form posts what it posts today: the hidden fields, the nonce's action, the box's
+// name and the question it asks, read form by form with the switch off and on.
+
+/**
+ * Every form a render holds, by the admin-post action it posts: its hidden fields as `name=value` in the
+ * order a browser posts them, the names of its text boxes, its submits' `name=value`, and the question it
+ * asks before it posts (on the form, or on its submit).
+ *
+ * @param string $html Markup.
+ * @return array<string, array[]> Action => the forms that post it, in the order drawn.
+ */
+function decide_posted( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	$xpath = new DOMXPath( $doc );
+	$out   = array();
+	foreach ( $xpath->query( '//form' ) as $form ) {
+		$hidden = array();
+		$action = '';
+		foreach ( $xpath->query( './/input[@type="hidden"]', $form ) as $input ) {
+			$hidden[] = $input->getAttribute( 'name' ) . '=' . $input->getAttribute( 'value' );
+			if ( 'action' === $input->getAttribute( 'name' ) ) {
+				$action = $input->getAttribute( 'value' );
+			}
+		}
+		$boxes = array();
+		foreach ( $xpath->query( './/textarea', $form ) as $box ) {
+			$boxes[] = $box->getAttribute( 'name' ) . ' maxlength=' . $box->getAttribute( 'maxlength' );
+		}
+		$submits = array();
+		$asks    = $form->getAttribute( 'data-wpcpm-confirm' );
+		foreach ( $xpath->query( './/button[not(@type="button")]', $form ) as $button ) {
+			if ( '' !== $button->getAttribute( 'name' ) ) {
+				$submits[] = $button->getAttribute( 'name' ) . '=' . $button->getAttribute( 'value' );
+			}
+			if ( '' !== $button->getAttribute( 'data-wpcpm-confirm' ) ) {
+				$asks = $button->getAttribute( 'data-wpcpm-confirm' );
+			}
+		}
+		$out[ $action ][] = array(
+			'posts'   => $form->getAttribute( 'method' ) . ' ' . $form->getAttribute( 'action' ),
+			'guarded' => $form->hasAttribute( 'data-wpcpm-once' ) && 'Working' === $form->getAttribute( 'data-wpcpm-busy' ),
+			'hidden'  => $hidden,
+			'boxes'   => $boxes,
+			'submits' => $submits,
+			'asks'    => $asks,
+		);
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * The decisions on one application as the Administrator Dashboard draws them, with its switch on or off.
+ *
+ * @param int  $uid            Who reads the page.
+ * @param int  $application_id The application.
+ * @param bool $on             Whether the dashboard's surface is on.
+ * @return string
+ */
+function decide_drawn( $uid, $application_id, $on ) {
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( $on ) {
+		WPCPM_UI::enter( 'administrator' );
+	}
+	$html = dashboard_decisions( $uid, $application_id );
+	if ( $on ) {
+		parts_inventory_add( $html );
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	return $html;
+}
+
+$GLOBALS['faithful_nonces'] = true;
+$GLOBALS['enqueued']        = array();
+// A new application whose address is not confirmed yet (so Send the confirmation link again is offered),
+// one waiting on the applicant, and a rejected one, which offers Put back in the queue and Delete for good.
+seed_application( 7101, 'Escuela Decide Uno', WPCPM_Institution_Application::STATE_NEW, $now - ( 8 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-7101', WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'uno@example.org' ) ) );
+seed_application( 7102, 'Escuela Decide Dos', WPCPM_Institution_Application::STATE_NEW, $now - ( 7 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-7102', WPCPM_Institution_Application::META_VERIFIED => (string) ( $now - $day ), WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'dos@example.org' ) ) );
+seed_application( 7103, 'Escuela Decide Tres', WPCPM_Institution_Application::STATE_INFO, $now - ( 6 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-7103', WPCPM_Institution_Application::META_VERIFIED => (string) ( $now - $day ) ) );
+seed_application( 7104, 'Escuela Decide Cuatro', WPCPM_Institution_Application::STATE_REJECTED, $now - ( 5 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-7104' ) );
+
+$decide_on = array();
+foreach ( array( 7101, 7103, 7104 ) as $decide_id ) {
+	$decide_on[ $decide_id ] = decide_drawn( 1, $decide_id, true );
+}
+// The inventory of old classes on the parts (bin/stubs/parts-inventory.php): an application whose approval stopped
+// partway, its note as the Administrator Dashboard draws it with its switch on.
+$GLOBALS['half_done'] = array( 7102 );
+WPCPM_UI::set_live( array( 'administrator' ) );
+WPCPM_UI::enter( 'administrator' );
+$half_parts = dashboard_decisions( 1, 7102 );
+parts_inventory_add( $half_parts );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( null );
+$GLOBALS['half_done'] = array();
+$half_words = esc_html( 'Approving this application stopped partway: the institution\'s Airtable record, and maybe its account, already exist. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.' );
+ck( 'ruling 1 (Task 17b): on the parts the half-done note is the note part in today\'s words, once, before the Decide area', array(
+	substr_count( $half_parts, '<p class="wpcpm-ui-note">' . $half_words . '</p>' ),
+	strpos( $half_parts, '<p class="wpcpm-ui-note">' ) < strpos( $half_parts, 'wpcpm-ui-decide' ),
+	strpos( $half_parts, 'wpcpm-administrator__note' ),
+), array( 1, true, false ) );
+
+// The old forms left with their branch (Task 18b), and with them the off checks and the comparison form by form
+// with them. What each form of the Decide area posts is pinned to what the old forms posted, read at 76b5ecff,
+// where this check compared the two: the address, the guard, the hidden fields in order with the nonce keyed to
+// the application and its referer, the way back to the applications card, the box under its name and bound, and
+// the question asked.
+$decide_form = static function ( $id, $action, array $boxes = array(), $asks = '' ) {
+	return array(
+		'posts'   => 'post https://example.test/wp-admin/admin-post.php',
+		'guarded' => true,
+		'hidden'  => array( '_wpnonce=nonce-' . $action . '_' . $id, '_wp_http_referer=/wp-admin/admin.php?page=wpcpm-institutions', 'action=' . $action, 'wpcpm_application=' . $id, 'wpcpm_return=dashboard', 'wpcpm_return_to=applications' ),
+		'boxes'   => $boxes,
+		'submits' => array(),
+		'asks'    => $asks,
+	);
+};
+ck( 'every form posts exactly what the handlers read: the same hidden fields and nonce action, the same box, the same question asked, guarded the same way, form by form, each application one Decide area (Task 10, posted fields)', array(
+	array_map( 'decide_posted', $decide_on ),
+	array_map( static function ( $html ) { return substr_count( $html, '<div class="wpcpm-ui-decide"' ); }, $decide_on ),
+), array(
+	array(
+		7101 => array(
+			'wpcpm_app_approve'     => array( $decide_form( 7101, 'wpcpm_app_approve', array(), 'Create an Airtable record and a site account for Escuela Decide Uno, and email a password-set link to uno@example.org? The Airtable record cannot be removed from here.' ) ),
+			'wpcpm_app_info'        => array( $decide_form( 7101, 'wpcpm_app_info', array( 'wpcpm_question maxlength=2000' ) ) ),
+			'wpcpm_app_reject'      => array( $decide_form( 7101, 'wpcpm_app_reject', array( 'wpcpm_reason maxlength=2000' ), 'Reject the application from Escuela Decide Uno? They get a short acknowledgement with no reason in it, and your note stays on this site.' ) ),
+			'wpcpm_app_resend_link' => array( $decide_form( 7101, 'wpcpm_app_resend_link', array(), 'Email the acknowledgement to uno@example.org again, with the link that confirms the address?' ) ),
+			'wpcpm_app_spam'        => array( $decide_form( 7101, 'wpcpm_app_spam', array(), 'Mark the application from Escuela Decide Uno as spam? Nothing at all is sent to the address on it.' ) ),
+		),
+		7103 => array(
+			'wpcpm_app_approve' => array( $decide_form( 7103, 'wpcpm_app_approve', array(), 'Create an Airtable record and a site account for Escuela Decide Tres, and email a password-set link to the address on the application? The Airtable record cannot be removed from here.' ) ),
+			'wpcpm_app_info'    => array( $decide_form( 7103, 'wpcpm_app_info', array( 'wpcpm_question maxlength=2000' ) ) ),
+			'wpcpm_app_reject'  => array( $decide_form( 7103, 'wpcpm_app_reject', array( 'wpcpm_reason maxlength=2000' ), 'Reject the application from Escuela Decide Tres? They get a short acknowledgement with no reason in it, and your note stays on this site.' ) ),
+			'wpcpm_app_reopen'  => array( $decide_form( 7103, 'wpcpm_app_reopen' ) ),
+			'wpcpm_app_spam'    => array( $decide_form( 7103, 'wpcpm_app_spam', array(), 'Mark the application from Escuela Decide Tres as spam? Nothing at all is sent to the address on it.' ) ),
+		),
+		7104 => array(
+			'wpcpm_app_purge'  => array( $decide_form( 7104, 'wpcpm_app_purge', array(), 'Delete the application from Escuela Decide Cuatro for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.' ) ),
+			'wpcpm_app_reopen' => array( $decide_form( 7104, 'wpcpm_app_reopen' ) ),
+		),
+	),
+	array( 7101 => 1, 7103 => 1, 7104 => 1 ),
+) );
+ck( 'and the comparison reads every form: five on the new application, five on the one waiting on the applicant, two on the rejected one', array_map(
+	static function ( $html ) {
+		return array_sum( array_map( 'count', decide_posted( $html ) ) );
+	},
+	$decide_on
+), array( 7101 => 5, 7103 => 5, 7104 => 2 ) );
+
+/**
+ * A render read as a document, for the checks that ask what is where.
+ *
+ * @param string $html Markup.
+ * @return DOMXPath
+ */
+function decide_doc( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . (string) $html . '</div>' );
+	libxml_clear_errors();
+	return new DOMXPath( $doc );
+}
+
+/**
+ * The words and kinds of the buttons a node holds, in order: `kind: words`.
+ *
+ * @param DOMXPath $x    The document.
+ * @param string   $path Where to look.
+ * @return string[]
+ */
+function decide_buttons( DOMXPath $x, $path ) {
+	$out = array();
+	foreach ( $x->query( $path ) as $button ) {
+		$class = ' ' . $button->getAttribute( 'class' ) . ' ';
+		$kind  = false !== strpos( $class, ' wpcpm-btn--danger ' ) ? 'danger' : ( false !== strpos( $class, ' wpcpm-btn--secondary ' ) ? 'secondary' : ( false !== strpos( $class, ' wpcpm-btn--quiet ' ) ? 'quiet' : 'primary' ) );
+		$out[] = $kind . ': ' . trim( $button->textContent );
+	}
+	return $out;
+}
+
+$x_new    = decide_doc( $decide_on[7101] );
+$x_closed = decide_doc( $decide_on[7104] );
+$area     = '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-app-7101"]';
+ck( 'on, each application has one Decide area, id wpcpm-decide-app-{ID}, headed "Decide", and nothing heads it again', array(
+	$x_new->query( '//div[@class="wpcpm-ui-decide"]' )->length,
+	$x_new->query( $area )->length,
+	trim( (string) $x_new->evaluate( 'string(' . $area . '/h5[@class="wpcpm-ui-h"])' ) ),
+	strpos( $decide_on[7101], 'What happens next' ),
+	$x_closed->query( '//div[@class="wpcpm-ui-decide"][@id="wpcpm-decide-app-7104"]' )->length,
+), array( 1, 1, 'Decide', false, 1 ) );
+// Task 13d fix round 1: decide() prints the row in one order, primary, secondary, danger; and on an application waiting
+// on the applicant Put back in the queue comes before the red ones. Task 16's first step (controller's ruling): while
+// the address is unconfirmed, Approve is always refused (`app-unverified`), so Send the confirmation link again is the
+// row's primary and leads it, and Approve is a secondary; once confirmed, Approve is the primary. The off branch's order
+// is today's.
+ck( 'its one row holds every decision: while the address is unconfirmed, Send the confirmation link again the only primary and first, then Approve and the Ask a question opener as secondaries, then Reject and Reject as spam in red (design 2.5, 5)', decide_buttons( $x_new, $area . '/div[@class="wpcpm-ui-actions"]//button' ), array(
+	'primary: Send the confirmation link again',
+	'secondary: Approve',
+	'secondary: Ask a question',
+	'danger: Reject',
+	'danger: Reject as spam',
+) );
+// Held, and waiting on the applicant, while the address is still unconfirmed: the same rule, the link leads.
+seed_application( 7105, 'Escuela Decide Cinco', WPCPM_Institution_Application::STATE_HELD, $now - ( 4 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-7105', WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'cinco@example.org' ) ) );
+seed_application( 7106, 'Escuela Decide Seis', WPCPM_Institution_Application::STATE_INFO, $now - ( 3 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-7106', WPCPM_Institution_Application::META_FIELDS => array( 'Contact Email' => 'seis@example.org' ) ) );
+$unconfirmed_on  = array();
+$unconfirmed_off = array();
+foreach ( array( 7105, 7106 ) as $decide_id ) {
+	$unconfirmed_off[ $decide_id ] = decide_drawn( 1, $decide_id, false );
+	$unconfirmed_on[ $decide_id ]  = decide_drawn( 1, $decide_id, true );
+}
+ck( 'held, or waiting on the applicant, with the address unconfirmed: Send the confirmation link again is the one primary and leads the row, Approve a secondary; every form posts exactly what it posts off; off, the link\'s form still comes first, before Approve, as today', array(
+	array_map( static function ( $html ) { return decide_buttons( decide_doc( $html ), '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button' ); }, $unconfirmed_on ),
+	array_map( static function ( $html ) { return count( array_filter( decide_buttons( decide_doc( $html ), '//div[@class="wpcpm-ui-decide"]//button' ), static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) ); }, $unconfirmed_on ),
+	array_map( 'decide_posted', $unconfirmed_on ) === array_map( 'decide_posted', $unconfirmed_off ),
+	array_map( static function ( $html ) { return strpos( $html, 'wpcpm_app_resend_link' ) < strpos( $html, 'wpcpm_app_approve' ); }, $unconfirmed_off ),
+), array(
+	array(
+		7105 => array( 'primary: Send the confirmation link again', 'secondary: Approve', 'secondary: Ask a question', 'secondary: Put back in the queue', 'danger: Reject', 'danger: Reject as spam' ),
+		7106 => array( 'primary: Send the confirmation link again', 'secondary: Approve', 'secondary: Ask a question', 'secondary: Put back in the queue', 'danger: Reject', 'danger: Reject as spam' ),
+	),
+	array( 7105 => 1, 7106 => 1 ),
+	true,
+	array( 7105 => true, 7106 => true ),
+) );
+ck( 'once the address is confirmed, Approve is the one primary and leads the row, and no link is offered', decide_buttons( decide_doc( decide_drawn( 1, 7102, true ) ), '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button' ), array(
+	'primary: Approve',
+	'secondary: Ask a question',
+	'danger: Reject',
+	'danger: Reject as spam',
+) );
+ck( 'on an application waiting on the applicant, Put back in the queue sits with the secondary ones, before the red ones', decide_buttons( decide_doc( $decide_on[7103] ), '//div[@class="wpcpm-ui-decide"]/div[@class="wpcpm-ui-actions"]//button' ), array(
+	'primary: Approve',
+	'secondary: Ask a question',
+	'secondary: Put back in the queue',
+	'danger: Reject',
+	'danger: Reject as spam',
+) );
+ck( 'one primary in the whole area, panels included: Send the confirmation link again, while the address is unconfirmed', array_values( array_filter( decide_buttons( $x_new, $area . '//button' ), static function ( $b ) { return 0 === strpos( $b, 'primary: ' ); } ) ), array( 'primary: Send the confirmation link again' ) );
+// Task 18a, point 5: the question is Required in words, as the sponsor application's is: the handler refuses one under
+// MIN_NOTE characters, an empty one included (`handle_info()`, 'app-question'). Today's box carries no `required` and
+// no minlength, and the parts' box neither: what the browser refuses is unchanged. The reason is Optional: the handler
+// takes an empty one (`handle_reject()` refuses only a loss and a reason too long), and today's box is not required.
+ck( 'the question\'s panel: label "Ask the applicant something", Required in words with no required on the box, the hint saying who receives it, the button that keeps "Send this question", and Cancel', array(
+	trim( (string) $x_new->evaluate( 'string(//div[@id="wpcpm-decide-app-7101-info-panel"]//label[@for="wpcpm_question-7101"])' ) ),
+	$x_new->query( '//textarea[@id="wpcpm_question-7101"][@required or @minlength]' )->length,
+	trim( (string) $x_new->evaluate( 'string(//p[@id="wpcpm_question-7101-hint"])' ) ),
+	decide_buttons( $x_new, '//div[@id="wpcpm-decide-app-7101-info-panel"]//button' ),
+), array(
+	'Ask the applicant something Required',
+	0,
+	'It is sent as it is written, with your address to reply to.',
+	array( 'secondary: Send this question', 'quiet: Cancel' ),
+) );
+ck( 'the reason\'s panel: label "Why, for the next Administrator who reads this", Optional in words with no required on the box, the hint that nobody receives it, and "Reject the application", the act in full', array(
+	trim( (string) $x_new->evaluate( 'string(//div[@id="wpcpm-decide-app-7101-reject-panel"]//label[@for="wpcpm_reason-7101"])' ) ),
+	$x_new->query( '//textarea[@id="wpcpm_reason-7101"][@required or @minlength]' )->length,
+	trim( (string) $x_new->evaluate( 'string(//p[@id="wpcpm_reason-7101-hint"])' ) ),
+	decide_buttons( $x_new, '//div[@id="wpcpm-decide-app-7101-reject-panel"]//button' ),
+), array(
+	'Why, for the next Administrator who reads this' . ' Optional',
+	0,
+	'It is never sent to the applicant.',
+	array( 'danger: Reject the application', 'quiet: Cancel' ),
+) );
+ck( 'each box\'s label is the name the queue\'s refusal sentences give it, so the two cannot drift apart (follow-up 2)', array(
+	// The label's own words, its Required or Optional apart (the word is the part's, not the box's name).
+	false !== strpos( (string) WPCPM_Institutions::queue_messages()['app-question-loss'][1], '"' . trim( (string) $x_new->evaluate( 'string(//label[@for="wpcpm_question-7101"]/text())' ) ) . '"' ),
+	false !== strpos( (string) WPCPM_Institutions::queue_messages()['app-reason-loss'][1], '"' . trim( (string) $x_new->evaluate( 'string(//label[@for="wpcpm_reason-7101"]/text())' ) ) . '"' ),
+), array( true, true ) );
+ck( 'the boxes keep the names the handlers read, take ids of their own, `{field}-{ID}`, and keep their room', array(
+	array_map( static function ( $box ) { return $box->getAttribute( 'id' ) . ' ' . $box->getAttribute( 'name' ) . ' ' . $box->getAttribute( 'maxlength' ); }, iterator_to_array( $x_new->query( '//textarea' ) ) ),
+), array( array( 'wpcpm_question-7101 wpcpm_question 2000', 'wpcpm_reason-7101 wpcpm_reason 2000' ) ) );
+ck( 'a closed application\'s area holds Put back in the queue and Delete for good, and nothing else', decide_buttons( $x_closed, '//div[@class="wpcpm-ui-decide"]//button' ), array( 'secondary: Put back in the queue', 'danger: Delete for good' ) );
+ck( 'the parts\' script is asked for where a panel is drawn', in_array( WPCPM_UI::SCRIPT, $GLOBALS['enqueued'], true ), true );
+
+// Review Focus 2: two applications on one card. Nothing repeats an id; every opener, label and hint names
+// an element of its own application; each Reject panel posts its own application's ID under a nonce keyed to it.
+$two     = decide_drawn( 1, 7101, true ) . decide_drawn( 1, 7102, true );
+$x_two   = decide_doc( $two );
+$two_ids = array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x_two->query( '//*[@id]' ) ) );
+$dangle  = array();
+foreach ( array( 'aria-controls', 'for' ) as $attr ) {
+	foreach ( $x_two->query( '//*[@' . $attr . ']' ) as $node ) {
+		if ( ! in_array( $node->getAttribute( $attr ), $two_ids, true ) ) {
+			$dangle[] = $attr . '=' . $node->getAttribute( $attr );
+		}
+	}
+}
+foreach ( $x_two->query( '//*[@aria-describedby]' ) as $node ) {
+	foreach ( explode( ' ', $node->getAttribute( 'aria-describedby' ) ) as $described ) {
+		if ( ! in_array( $described, $two_ids, true ) ) {
+			$dangle[] = 'aria-describedby=' . $described;
+		}
+	}
+}
+$reject_posts = static function ( $id ) use ( $x_two ) {
+	$form   = $x_two->query( '//div[@id="wpcpm-decide-app-' . $id . '-reject-panel"]/form' )->item( 0 );
+	$fields = array();
+	if ( $form ) {
+		foreach ( $x_two->query( './/input[@type="hidden"]', $form ) as $input ) {
+			if ( in_array( $input->getAttribute( 'name' ), array( '_wpnonce', 'wpcpm_application' ), true ) ) {
+				$fields[ $input->getAttribute( 'name' ) ] = $input->getAttribute( 'value' );
+			}
+		}
+	}
+	return $fields;
+};
+ck( 'two applications on one card: their areas, panels and boxes have ids of their own, and none repeats (Review Focus 2)', array( count( $two_ids ) === count( array_unique( $two_ids ) ), $x_two->query( '//div[@class="wpcpm-ui-decide"]' )->length, $x_two->query( '//div[@data-wpcpm-panel]' )->length ), array( true, 2, 4 ) );
+ck( 'every aria-controls, for and aria-describedby names an element on the page', $dangle, array() );
+ck( 'each opener controls its own application\'s panel', array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $x_two->query( '//button[@aria-controls]' ) ) ), array( 'wpcpm-decide-app-7101-info-panel', 'wpcpm-decide-app-7101-reject-panel', 'wpcpm-decide-app-7102-info-panel', 'wpcpm-decide-app-7102-reject-panel' ) );
+ck( 'and each Reject panel\'s form posts its own application\'s ID, under a nonce keyed to it', array( $reject_posts( 7101 ), $reject_posts( 7102 ) ), array(
+	array( '_wpnonce' => 'nonce-wpcpm_app_reject_7101', 'wpcpm_application' => '7101' ),
+	array( '_wpnonce' => 'nonce-wpcpm_app_reject_7102', 'wpcpm_application' => '7102' ),
+) );
+ck( 'with nothing refused or kept, no panel is printed open, and every opener reads collapsed', array( $x_two->query( '//*[@data-wpcpm-open]' )->length, $x_two->query( '//button[@aria-expanded="true"]' )->length ), array( 0, 0 ) );
+
+// Review Focus 1: a Reject refused for its reason comes back to that application's panel, open, its typing
+// kept, the sentence tied to its own box; the other application's panels are not open.
+$too_long        = str_repeat( 'a', WPCPM_Institutions::MAX_NOTE + 1 );
+$_POST           = array( WPCPM_Institutions::FIELD_APPLICATION => 7102, 'wpcpm_reason' => $too_long );
+$refused_reject  = outcome( array( $module, 'handle_reject' ) );
+$refused_flash   = get_user_meta( 1, WPCPM_Flash::META );
+next_request( 1, 96 );
+$back_two        = decide_drawn( 96, 7101, true ) . decide_drawn( 96, 7102, true );
+$x_back          = decide_doc( $back_two );
+$refused_box     = $x_back->query( '//textarea[@id="wpcpm_reason-7102"]' )->item( 0 );
+$refused_problem = WPCPM_Form_Errors::problem_id( 'wpcpm_reason-7102' );
+ck( 'the press was refused for its reason and kept the typing for application 2', array( $refused_flash['institutions'] ?? '', isset( $refused_flash[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-reason:7102' ] ) ), array( 'app-reason-long', true ) );
+ck( 'back on the dashboard, application 2\'s Reject panel is printed open and its opener reads expanded; no other panel is (Review Focus 1)', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x_back->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $x_back->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( 'wpcpm-decide-app-7102-reject-panel' ), array( 'wpcpm-decide-app-7102-reject-panel' ) ) );
+ck( 'its box holds the typing, is marked invalid and is tied to its own refusal sentence before its hint', array(
+	$refused_box ? $refused_box->textContent : null,
+	$refused_box ? $refused_box->getAttribute( 'aria-invalid' ) : null,
+	$refused_box ? $refused_box->getAttribute( 'aria-describedby' ) : null,
+	trim( (string) $x_back->evaluate( 'string(//*[@id="' . $refused_problem . '"])' ) ) === (string) WPCPM_Institutions::queue_messages()['app-reason-long'][1],
+	$x_back->query( '//div[@id="wpcpm-decide-app-7102-reject-panel"]//*[@id="' . $refused_problem . '"]' )->length,
+), array( "\n" . str_repeat( 'a', WPCPM_Institutions::MAX_NOTE ), 'true', $refused_problem . ' wpcpm_reason-7102-hint', true, 1 ) );
+ck( 'and application 1\'s boxes are neither refused nor filled', array(
+	$x_back->query( '//div[@id="wpcpm-decide-app-7101"]//*[@aria-invalid]' )->length,
+	array_map( static function ( $box ) { return $box->textContent; }, iterator_to_array( $x_back->query( '//div[@id="wpcpm-decide-app-7101"]//textarea' ) ) ),
+), array( 0, array( "\n", "\n" ) ) );
+foreach ( array( 1, 96 ) as $reader ) {
+	delete_user_meta( $reader, WPCPM_Flash::META );
+}
+$_POST = array();
+
+// Follow-up round, item 1: after a refused note the card's message leads to the refused box. The card shell
+// is the real one: the outcome is held for the Institution applications card, as the dashboard holds it,
+// and the card is drawn around the two applications' decisions.
+if ( ! class_exists( 'WPCPM_Icons' ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
+}
+if ( ! class_exists( 'WPCPM_Dashboard_Card' ) ) {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboard-card.php';
+}
+
+/**
+ * The Institution applications card as the dashboard draws it, holding one outcome, around two applications'
+ * decisions, with the surface on or off.
+ *
+ * @param int    $uid  Who reads the page.
+ * @param string $tone The outcome's tone.
+ * @param string $text The outcome's sentence.
+ * @param bool   $on   Whether the dashboard's surface is on.
+ * @return string
+ */
+function decide_card( $uid, $tone, $text, $on ) {
+	WPCPM_Dashboard_Card::forget();
+	WPCPM_Dashboard_Card::hold( 'wpcpm-applications', $tone, $text );
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	if ( $on ) {
+		WPCPM_UI::enter( 'administrator' );
+	}
+	ob_start();
+	WPCPM_Dashboard_Card::open(
+		array(
+			'key'           => 'applications',
+			'title'         => 'Institution applications',
+			'prefix'        => 'wpcpm-',
+			'id_on'         => 'section',
+			'section_class' => 'wpcpm-administrator__card',
+		)
+	);
+	echo dashboard_decisions( $uid, 7101 ) . dashboard_decisions( $uid, 7102 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A suite.
+	WPCPM_Dashboard_Card::close();
+	$html = (string) ob_get_clean();
+	if ( $on ) {
+		WPCPM_UI::leave();
+	}
+	WPCPM_UI::set_live( null );
+	WPCPM_Dashboard_Card::forget();
+	return $html;
+}
+
+$reason_refused = (string) WPCPM_Institutions::queue_messages()['app-reason-long'][1];
+$refuse_reason  = static function ( $reader ) use ( $module, $too_long ) {
+	$_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 7102, 'wpcpm_reason' => $too_long );
+	outcome( array( $module, 'handle_reject' ) );
+	$_POST = array();
+	next_request( 1, $reader );
+};
+
+$refuse_reason( 97 );
+$led_card  = decide_card( 97, 'error', $reason_refused, true );
+$x_led     = decide_doc( $led_card );
+$led_links = iterator_to_array( $x_led->query( '//p[@data-wpcpm-card-message]//a' ) );
+$led_href  = isset( $led_links[0] ) ? $led_links[0]->getAttribute( 'href' ) : '';
+ck( 'on, the refused note\'s message holds one link, to the refused box, its words the refusal sentence (follow-up 1)', array(
+	count( $led_links ),
+	$led_href,
+	isset( $led_links[0] ) ? $led_links[0]->textContent : null,
+), array( 1, '#wpcpm_reason-7102', $reason_refused ) );
+ck( 'the link is the one the form-errors summary prints, inside the message forms.js focuses on load', array(
+	false !== strpos( $led_card, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' . WPCPM_Form_Errors::link( 'wpcpm_reason-7102', $reason_refused ) . '</p>' ),
+	WPCPM_Form_Errors::link( 'wpcpm_reason-7102', $reason_refused ),
+	substr_count( $led_card, 'data-wpcpm-card-message' ),
+), array( true, '<a href="#wpcpm_reason-7102">' . esc_html( $reason_refused ) . '</a>', 1 ) );
+ck( 'the box it names is on the page, once, inside the panel printed open, and the message comes before every application', array(
+	$x_led->query( '//*[@id="wpcpm_reason-7102"]' )->length,
+	$x_led->query( '//div[@data-wpcpm-open]//textarea[@id="wpcpm_reason-7102"]' )->length,
+	strpos( $led_card, 'data-wpcpm-card-message' ) < strpos( $led_card, 'id="wpcpm-decide-app-7101"' ),
+), array( 1, 1, true ) );
+delete_user_meta( 97, WPCPM_Flash::META );
+
+ck( 'the message the shell prints for it is still today\'s exactly', WPCPM_Dashboard_Card::message( 'error', $reason_refused ), '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>' . esc_html( $reason_refused ) . '</p>' );
+
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'app-approved' );
+next_request( 1, 99 );
+$approved_card = decide_card( 99, 'success', 'The application is approved.', true );
+ck( 'a message that is no refusal of a box drawn here, an approval, has no link', array(
+	false !== strpos( $approved_card, 'data-wpcpm-card-message>The application is approved.</p>' ),
+	decide_doc( $approved_card )->query( '//p[@data-wpcpm-card-message]//a' )->length,
+), array( true, 0 ) );
+delete_user_meta( 99, WPCPM_Flash::META );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+// Follow-up round, item 3: typing kept in the question box and a refused reason at once. Only one panel is
+// open, and the refusal outranks the kept typing: the Reject panel is the open one.
+$_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 7102, 'wpcpm_question' => 'why?' );
+outcome( array( $module, 'handle_info' ) );
+$_POST = array( WPCPM_Institutions::FIELD_APPLICATION => 7102, 'wpcpm_reason' => $too_long );
+outcome( array( $module, 'handle_reject' ) );
+$_POST = array();
+$both_left = get_user_meta( 1, WPCPM_Flash::META );
+next_request( 1, 100 );
+$x_both = decide_doc( decide_drawn( 100, 7102, true ) );
+ck( 'with a question kept and a reason refused, both boxes hold their typing', array(
+	isset( $both_left[ WPCPM_Typed_Text::KEPT_CHANNEL . 'app-question:7102' ] ),
+	$both_left['institutions'] ?? '',
+	trim( (string) $x_both->evaluate( 'string(//textarea[@id="wpcpm_question-7102"])' ) ),
+), array( true, 'app-reason-long', 'why?' ) );
+ck( 'and the refused Reject panel is the one printed open, its opener alone expanded (follow-up 3)', array(
+	array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x_both->query( '//*[@data-wpcpm-open]' ) ) ),
+	array_map( static function ( $node ) { return $node->getAttribute( 'aria-controls' ); }, iterator_to_array( $x_both->query( '//button[@aria-expanded="true"]' ) ) ),
+), array( array( 'wpcpm-decide-app-7102-reject-panel' ), array( 'wpcpm-decide-app-7102-reject-panel' ) ) );
+delete_user_meta( 100, WPCPM_Flash::META );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+// A refusal is tied only to the box it was for (Task 13x). The outcome names no application, and the flash hands
+// every box on the page the same one, so an application whose kept question no page drew (the card closed, or past
+// the list) would read a later refusal of another's question as its own. The store remembers which form it kept
+// last, and only that box is tied: an application holding an older kept question beside one whose question was
+// refused just now, drawn first and then last.
+/**
+ * What a card says about each box on it: which panels are printed open, each box's state ('invalid ' when marked,
+ * then what describes it, then the sentence beside it or '', then its typing, a long one by its length), and where
+ * the card's message leads.
+ *
+ * @param string $html Markup.
+ * @return array
+ */
+function app_ties( $html ) {
+	$x     = decide_doc( $html );
+	$boxes = array();
+	foreach ( $x->query( '//textarea' ) as $box ) {
+		$id           = $box->getAttribute( 'id' );
+		$said         = $x->query( '//*[@id="' . WPCPM_Form_Errors::problem_id( $id ) . '"]' )->item( 0 );
+		$text         = $box->textContent;
+		$boxes[ $id ] = ( $box->hasAttribute( 'aria-invalid' ) ? 'invalid ' : '' ) . $box->getAttribute( 'aria-describedby' ) . ' | ' . ( $said ? trim( $said->textContent ) : '' ) . ' | ' . ( mb_strlen( $text ) > 80 ? '[' . mb_strlen( $text ) . ' characters]' : $text );
+	}
+	return array(
+		'open'  => array_map( static function ( $node ) { return $node->getAttribute( 'id' ); }, iterator_to_array( $x->query( '//*[@data-wpcpm-open]' ) ) ),
+		'boxes' => $boxes,
+		'leads' => array_map( static function ( $node ) { return $node->getAttribute( 'href' ) . ' ' . $node->textContent; }, iterator_to_array( $x->query( '//p[@data-wpcpm-card-message]//a' ) ) ),
+	);
+}
+/**
+ * A box as `app_ties()` reads it: refused, marked invalid and described by its sentence then its hint; otherwise
+ * described by its hint alone.
+ *
+ * @param string      $id     The box.
+ * @param string|null $said   The refusal sentence, or null when it is not the refused box.
+ * @param string      $typing What it holds, as `app_ties()` prints it.
+ * @return string
+ */
+function app_tie( $id, $said, $typing ) {
+	return null === $said ? $id . '-hint |  | ' . $typing : 'invalid ' . WPCPM_Form_Errors::problem_id( $id ) . ' ' . $id . '-hint | ' . $said . ' | ' . $typing;
+}
+$tie_question = (string) WPCPM_Institutions::queue_messages()['app-question-long'][1];
+$tie_reader   = 110;
+$tie_press    = static function ( $kept, $refused, $question ) use ( $module ) {
+	$GLOBALS['uid'] = 1;
+	delete_user_meta( 1, WPCPM_Flash::META );
+	WPCPM_Typed_Text::keep_box( WPCPM_Typed_Text::box_form( WPCPM_Institutions::TYPED_QUESTION, $kept ), 'question', 'Kept, and not refused: which department?', WPCPM_Institutions::MAX_NOTE );
+	$_POST = array( WPCPM_Institutions::FIELD_APPLICATION => $refused, 'wpcpm_question' => $question );
+	outcome( array( $module, 'handle_info' ) );
+	$_POST = array();
+};
+foreach ( array( 'first' => array( 7101, 7102 ), 'last' => array( 7102, 7101 ) ) as $tie_where => $tie_pair ) {
+	list( $tie_kept, $tie_refused ) = $tie_pair;
+	$tie_press( $tie_kept, $tie_refused, str_repeat( 'q', WPCPM_Institutions::MAX_NOTE + 1 ) );
+	next_request( 1, ++$tie_reader );
+	$tie_boxes = array();
+	foreach ( array( 7101, 7102 ) as $tie_id ) {
+		$tie_boxes[ 'wpcpm_question-' . $tie_id ] = app_tie( 'wpcpm_question-' . $tie_id, $tie_id === $tie_refused ? $tie_question : null, $tie_id === $tie_refused ? '[2001 characters]' : "\nKept, and not refused: which department?" );
+		$tie_boxes[ 'wpcpm_reason-' . $tie_id ]   = app_tie( 'wpcpm_reason-' . $tie_id, null, "\n" );
+	}
+	ck( 'institution applications, the kept-only application drawn ' . $tie_where . ': only the refused application\'s question box is invalid and tied to the sentence, the card\'s message is one link to it, and the kept-only application\'s Ask panel is open with its typing, its box tied to its hint alone (Task 13x)', app_ties( decide_card( $tie_reader, 'error', $tie_question, true ) ), array(
+		'open'  => array( 'wpcpm-decide-app-7101-info-panel', 'wpcpm-decide-app-7102-info-panel' ),
+		'boxes' => $tie_boxes,
+		'leads' => array( '#wpcpm_question-' . $tie_refused . ' ' . $tie_question ),
+	) );
+	delete_user_meta( $tie_reader, WPCPM_Flash::META );
+}
+// A question of nothing but white space is refused as too short and keeps nothing.
+$tie_press( 7101, 7102, " \n " );
+next_request( 1, ++$tie_reader );
+$tie_short = (string) WPCPM_Institutions::queue_messages()['app-question'][1];
+ck( 'institution applications: a blank question, refused and keeping nothing, beside an application holding an older kept question: no box is marked invalid, the message leads nowhere, and the older typing comes back untied (Task 13x)', app_ties( decide_card( $tie_reader, 'error', $tie_short, true ) ), array(
+	'open'  => array( 'wpcpm-decide-app-7101-info-panel' ),
+	'boxes' => array(
+		'wpcpm_question-7101' => app_tie( 'wpcpm_question-7101', null, "\nKept, and not refused: which department?" ),
+		'wpcpm_reason-7101'   => app_tie( 'wpcpm_reason-7101', null, "\n" ),
+		'wpcpm_question-7102' => app_tie( 'wpcpm_question-7102', null, "\n" ),
+		'wpcpm_reason-7102'   => app_tie( 'wpcpm_reason-7102', null, "\n" ),
+	),
+	'leads' => array(),
+) );
+delete_user_meta( $tie_reader, WPCPM_Flash::META );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+foreach ( array( 7101, 7102, 7103, 7104 ) as $decide_id ) {
+	unset( $GLOBALS['posts'][ $decide_id ], $GLOBALS['pmeta'][ $decide_id ] );
+}
+unset( $GLOBALS['faithful_nonces'] );
+
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
+
+// The inventory (UI shared parts, Task 17b; bin/stubs/parts-inventory.php): every old class this suite's drawings on
+// the Administrator Dashboard's parts print inside the switch's root is one the inventory names, and no other.
+ck( 'the inventory: the old classes printed inside the parts are exactly the ones named in bin/stubs/parts-inventory.php', parts_inventory_found(), parts_inventory_pinned( 'institutions-screen' ) );
+
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, every wp-admin tab
+// off in this release. With no set_live() at all the Institutions screen's Waiting for review tab is its off drawing of this run,
+// byte for byte, with no switch class and no part, and the screen leaves the surface it named.
+WPCPM_UI::set_live( array() );
+$tab_off = render_tab( 'queue' );
+WPCPM_UI::set_live( null );
+$tab_real = render_tab( 'queue' );
+ck( 'under the real switch the Institutions screen\'s Waiting for review tab is its off drawing, byte for byte, with no switch class and no part', array(
+	WPCPM_UI::live(),
+	$tab_real === $tab_off,
+	'' !== trim( (string) $tab_real ),
+	preg_match( '/wpcpm-ui-/', (string) $tab_real ),
+	WPCPM_UI::surface(),
+), array( array( 'administrator' ), true, true, 0, '' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

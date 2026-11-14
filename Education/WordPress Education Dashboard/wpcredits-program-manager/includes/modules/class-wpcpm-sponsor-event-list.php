@@ -240,7 +240,10 @@ final class WPCPM_Sponsor_Event_List {
 	 * that they are on it, and on the three pages that draw the list the call link, theirs once they
 	 * are on it; else Join, while there is a place and the sponsor still offers events. Nothing for an
 	 * event that is not approved, for nobody signed in, or with nothing to press. The Administrator
-	 * Dashboard's card draws this on each event under Coming up, and the call link itself.
+	 * Dashboard's card draws this on each event under Coming up, and the call link itself; while that
+	 * dashboard's switch is on, nothing is printed here: the card puts Join or Leave in the event's own
+	 * Decide row (`decision_parts()`, Task 18d). Every page that lists the events draws today's markup,
+	 * whatever surface is on, until its own release.
 	 *
 	 * @param WP_Post      $event  The event, one a list or the program's card read as not over yet.
 	 * @param WP_User|null $viewer The person looking, who presses as themselves; nothing is drawn
@@ -248,24 +251,20 @@ final class WPCPM_Sponsor_Event_List {
 	 * @param string       $back   Which page this is: one of the BACK_* keys.
 	 */
 	public static function render_actions( WP_Post $event, $viewer, $back ) {
-		if ( ! self::live() || ! WPCPM_Sponsor_Event::is_event( $event ) || ! $viewer instanceof WP_User || ! $viewer->exists() ) {
+		$press = self::press_of( $event, $viewer );
+
+		if ( null === $press ) {
 			return;
 		}
 
-		$facts = WPCPM_Sponsor_Event::facts( $event );
-
-		if ( WPCPM_Sponsor_Event::STATE_APPROVED !== $facts['state'] ) {
+		// On the Administrator Dashboard's card while its switch is on, Join or Leave is a decision of the event's own
+		// Decide row, which the card draws (`decision_parts()`). The pages that list the events (the Report Cards and the
+		// Institution Dashboard) draw today's markup below, the call link with it, until their own release.
+		if ( self::BACK_ADMIN === $back && class_exists( 'WPCPM_UI', false ) && WPCPM_UI::on() ) {
 			return;
 		}
 
-		$joined = WPCPM_Sponsor_Event::joined( $event, $viewer );
-		$full   = $facts['places'] > 0 && $facts['joined'] >= $facts['places'];
-
-		// The store's own tests, so no Join is drawn that it would refuse; somebody on the event may
-		// still leave it whatever became of its places or its sponsor.
-		if ( ! $joined && ( $full || ! WPCPM_Sponsor_Event::offers_events( $event ) ) ) {
-			return;
-		}
+		$joined = $press;
 
 		echo '<div class="wpcpm-sevent__actions">';
 
@@ -290,6 +289,89 @@ final class WPCPM_Sponsor_Event_List {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * Whether the person looking has something to press on an event, and which: true for Leave (they are on it), false
+	 * for Join, null for nothing. Nothing while the list is not in use, for an event that is not approved, for nobody
+	 * signed in, and for Join on an event that is full or whose sponsor no longer offers events: the store's own tests,
+	 * so no Join is drawn that it would refuse; somebody on the event may still leave it whatever became of its places
+	 * or its sponsor.
+	 *
+	 * @param WP_Post      $event  The event.
+	 * @param WP_User|null $viewer The person looking.
+	 * @return bool|null
+	 */
+	private static function press_of( WP_Post $event, $viewer ) {
+		if ( ! self::live() || ! WPCPM_Sponsor_Event::is_event( $event ) || ! $viewer instanceof WP_User || ! $viewer->exists() ) {
+			return null;
+		}
+
+		$facts = WPCPM_Sponsor_Event::facts( $event );
+
+		if ( WPCPM_Sponsor_Event::STATE_APPROVED !== $facts['state'] ) {
+			return null;
+		}
+
+		$joined = WPCPM_Sponsor_Event::joined( $event, $viewer );
+		$full   = $facts['places'] > 0 && $facts['joined'] >= $facts['places'];
+
+		if ( ! $joined && ( $full || ! WPCPM_Sponsor_Event::offers_events( $event ) ) ) {
+			return null;
+		}
+
+		return $joined;
+	}
+
+	/**
+	 * Join or Leave on the shared parts (design 2.1, 2.5, 2.6), for the Administrator Dashboard's Events card, which puts
+	 * it in the event's own Decide row (Task 18d): a decision of `WPCPM_UI::decide()` that acts at once, Join the
+	 * secondary (the card's one primary is the row's Approve; task V1, ruling 9), Leave red (it leaves), asking today's
+	 * question, each in today's words. Its form posts what today's posts, the way back to that card among it, the nonce
+	 * printed with no id (`WPCPM_UI::nonce()`), since a card holds one per event; the row names the event to a screen
+	 * reader. No call link: the card prints the event's own. `joined` says whether the person is on the event, for the
+	 * card's facts to say so in today's words ("You are on it."); `decision` is null when there is nothing to press, as
+	 * `render_actions()` draws nothing then.
+	 *
+	 * @param WP_Post      $event  The event.
+	 * @param WP_User|null $viewer The person looking.
+	 * @return array{joined: bool, decision: array|null}
+	 */
+	public static function decision_parts( WP_Post $event, $viewer ) {
+		$press = self::press_of( $event, $viewer );
+
+		if ( null === $press ) {
+			return array(
+				'joined'   => false,
+				'decision' => null,
+			);
+		}
+
+		$action = $press ? self::ACTION_LEAVE : self::ACTION_JOIN;
+		$id     = (int) $event->ID;
+
+		return array(
+			'joined'   => $press,
+			'decision' => array(
+				'key'        => $press ? 'leave' : 'join',
+				'label'      => $press ? __( 'Leave', 'wpcredits-program-manager' ) : __( 'Join', 'wpcredits-program-manager' ),
+				'kind'       => $press ? 'danger' : 'secondary',
+				'form_attrs' => array(
+					'method'          => 'post',
+					'action'          => admin_url( 'admin-post.php' ),
+					'data-wpcpm-once' => true,
+					'data-wpcpm-busy' => $press ? __( 'Leaving', 'wpcredits-program-manager' ) : __( 'Joining', 'wpcredits-program-manager' ),
+				),
+				'hidden'     => static function () use ( $action, $id ) {
+					echo WPCPM_UI::nonce( $action . '_' . $id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::nonce().
+					printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+					printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_EVENT ), (int) $id );
+					printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FIELD_BACK ), esc_attr( self::BACK_ADMIN ) );
+				},
+				'fields'     => '',
+				'confirm'    => $press ? __( 'Leave this event? Your place goes back.', 'wpcredits-program-manager' ) : '',
+			),
+		);
 	}
 
 	/**

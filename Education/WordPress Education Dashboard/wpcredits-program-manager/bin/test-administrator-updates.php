@@ -82,7 +82,9 @@ class WPCPM_Dashboard_Frame {
 		$support = get_theme_support( 'wpcpm-dashboard-frame' );
 		return is_array( $support ) && isset( $support[0] ) && in_array( $page, (array) $support[0], true );
 	}
-	public static function open( array $args ) { self::$opened[] = $args; echo '[open]'; }
+	// The surface named and the class the frame's root would carry when it opens (the shared parts' switch).
+	public static $named = array();
+	public static function open( array $args ) { self::$opened[] = $args; self::$named[] = array( WPCPM_UI::surface(), WPCPM_UI::root_class() ); echo '[open]'; }
 	public static function close() { echo '[close]'; }
 }
 
@@ -105,6 +107,10 @@ class WPCPM_Sponsor_Members {
 	public static function is_member( $user = null, $record = '' ) { return ! empty( $GLOBALS['req']['member'] ); }
 }
 
+require_once __DIR__ . '/../includes/class-wpcpm-ui.php';
+// The real switch has the Administrator Dashboard on (Task 18): every drawing below is the switch off, as it was
+// before, unless a block says otherwise; the last block draws under the real switch (Task 18a).
+WPCPM_UI::set_live( array() );
 require_once __DIR__ . '/../includes/modules/class-wpcpm-administrator-updates-view.php';
 
 $fail   = 0;
@@ -326,6 +332,82 @@ ck( 'an Administrator looking at a sponsor reads a sponsors\' update in the Spon
 	false !== strpos( $managed_page, 'href="https://example.test/welcome/?wpcpm_sponsor_view=recA" aria-current="page">' ),
 	strpos( $member_page, 'wpcpm_sponsor_view' ),
 ), array( true, 3, true, false ) );
+
+/**
+ * The elements a page prints with one of the parts' classes, or with the frame's button or tag that parts.css
+ * restyles under `.wpcpm-ui-on`: how many, and those with no ancestor carrying `wpcpm-ui-on`.
+ *
+ * @param string $html The page.
+ * @return array{0: int, 1: string[]}
+ */
+function parts_in( $html ) {
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<?xml encoding="utf-8"?><div>' . $html . '</div>' );
+	libxml_clear_errors();
+	$all     = 0;
+	$outside = array();
+	foreach ( ( new DOMXPath( $doc ) )->query( '//*[@class]' ) as $node ) {
+		$part = array_filter( preg_split( '/\s+/', trim( (string) $node->getAttribute( 'class' ) ) ), static function ( $c ) { return 'wpcpm-ui-on' !== $c && 1 === preg_match( '/^wpcpm-(ui-|btn$|btn--|status$|status--)/', $c ); } );
+		if ( empty( $part ) ) {
+			continue;
+		}
+		++$all;
+		$inside = false;
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			$inside = $inside || in_array( 'wpcpm-ui-on', preg_split( '/\s+/', (string) $up->getAttribute( 'class' ) ), true );
+		}
+		if ( ! $inside ) {
+			$outside[] = $node->nodeName . '.' . implode( '.', $part );
+		}
+	}
+	return array( $all, $outside );
+}
+
+// The shared parts' switch (Task 9, follow-up round, item 3): the view opens the dashboard's frame, so it names that
+// dashboard's surface while it draws, and the frame's root carries the switch's class once that surface is on.
+// What the view prints itself is reading content: no part of its own, on or off.
+fresh();
+reading( array( 'post' => $older ) );
+WPCPM_Dashboard_Frame::$named = array();
+// Off, said here (Task 18a): the real switch has the Administrator Dashboard on.
+WPCPM_UI::set_live( array() );
+$updates_off = WPCPM_Administrator_Updates_View::render( '<p>The update.</p>', $older );
+WPCPM_UI::set_live( array( 'administrator' ) );
+$updates_on  = WPCPM_Administrator_Updates_View::render( '<p>The update.</p>', $older );
+$sponsor_on  = WPCPM_Administrator_Updates_View::render( '<p>Welcome.</p>', $older, 'sponsor' );
+WPCPM_UI::set_live( array() );
+ck( 'the updates view names the Administrator Dashboard\'s surface (the Sponsor Dashboard\'s for sponsors\' updates) while it draws and leaves it after; off its frame carries no switch class, on it does, and its page is the same either way, with no part of its own', array(
+	WPCPM_Dashboard_Frame::$named,
+	WPCPM_UI::surface(),
+	$updates_on === $updates_off,
+	parts_in( $updates_on ),
+	preg_match( '/wpcpm-ui-/', $updates_off . $updates_on . $sponsor_on ),
+), array(
+	array( array( 'administrator', '' ), array( 'administrator', ' wpcpm-ui-on' ), array( 'sponsor', '' ) ),
+	'',
+	true,
+	array( 0, array() ),
+	0,
+) );
+
+// Under the real switch, with no set_live() at all (Task 18a): the Administrator Dashboard's updates are drawn on; the
+// sponsors' updates, in the Sponsor Dashboard's frame, are drawn as they are with every surface off, byte for byte.
+WPCPM_UI::set_live( array() );
+$sponsor_off = WPCPM_Administrator_Updates_View::render( '<p>Welcome.</p>', $older, 'sponsor' );
+WPCPM_UI::set_live( null );
+WPCPM_Dashboard_Frame::$named = array();
+$updates_real = WPCPM_Administrator_Updates_View::render( '<p>The update.</p>', $older );
+$sponsor_real = WPCPM_Administrator_Updates_View::render( '<p>Welcome.</p>', $older, 'sponsor' );
+ck( 'under the real switch the Administrator Dashboard\'s updates frame is on and the sponsors\' updates are their off drawing, byte for byte', array(
+	WPCPM_Dashboard_Frame::$named,
+	$updates_real === $updates_on,
+	$sponsor_real === $sponsor_off,
+), array(
+	array( array( 'administrator', ' wpcpm-ui-on' ), array( 'sponsor', '' ) ),
+	true,
+	true,
+) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

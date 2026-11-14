@@ -15,19 +15,17 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Each card reads through one static method on the class that owns the data and posts to
  * the handler that already exists (design of 4 September 2026, decision 2): nothing here
  * queries posts or options itself, so the page can never show a count the owner would
- * compute differently. `collect()` reads everything once, because the attention strip and
- * the cards draw the same arrays.
+ * compute differently. `collect()` reads everything once, because the cards and `counts()` (the
+ * waiting list on wp-admin's Overview and the abilities) read the same arrays.
  *
- * A card's row says what the card holds, read from those arrays, so a folded card still tells a
- * manager what is in it, and a card whose work has one home in wp-admin links to it after its fold:
- * to the tab of the Institutions or the Sponsors screen that holds the card's items, and to the
- * card's own place on that tab where it has one. That link shows only while the card is folded, so
- * the card's body ends with the same link as a line, on every draw, an empty card's too, and the way
- * to its tab is in the same place however the card was drawn or opened. Both links carry the card's
- * title after their words for a screen reader alone, so links that read alike on the page still
- * say which card each comes from. The Duplicated students
- * card's home is the Student Duplicate Finder: its row links there in the finder's own words, and
- * its body ends with its own button to the finder instead of that line.
+ * A card's head says what the card holds, read from those arrays, so a folded card still tells a
+ * manager what is in it, and a card whose work has one home in wp-admin ends its body with the way to it,
+ * the fold's foot (`render_screen_line()`): to the tab of the Institutions or the Sponsors screen that
+ * holds the card's items, and to the card's own place on that tab where it has one, on every draw, an
+ * empty card's too. Nothing is printed after the fold (task V1, ruling 2). The foot carries the card's
+ * title after its words for a screen reader alone, so links that read alike on the page still say
+ * which card each comes from. The Duplicated students card's home is the Student Duplicate Finder:
+ * its foot leads there in the finder's own words.
  *
  * A list stops at self::LIMIT rows. Under five of them a line says how many more there are, from a
  * count read apart from the rows, and links nowhere (`render_more_line()`). On the Institution
@@ -77,7 +75,7 @@ final class WPCPM_Administrators_Cards {
 		'section_class' => 'wpcpm-administrator__card',
 		'details_class' => 'wpcpm-administrator__disclosure',
 		'id_on'         => 'section',
-		// The heading's words carry an id, `title_id()`, which names a table's scroll box (1.122.35).
+		// The heading's words carry an id, `title_id()`, which names a card's tables (1.122.35).
 		'title_id'      => true,
 	);
 
@@ -254,9 +252,11 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * The attention strip's tiles, from the arrays the cards draw: one for each count that needs
-	 * a program manager today, in the order of the cards they link to, so the strip reads the
-	 * page from the top. Every card waiting for a decision has a tile, and three of the cards to
+	 * The counts that need an Administrator today, one tile each, from the arrays the cards draw, in
+	 * the order of the cards they link to, so a list of them reads the page from the top. The
+	 * Administrator Dashboard draws no strip of them since Task 18b: wp-admin's Overview lists them
+	 * (`WPCPM_Overview::render_waiting()`) and the abilities answer with them. What follows still
+	 * calls them the strip's tiles, the order and the words they keep. Every card waiting for a decision has a tile, and three of the cards to
 	 * watch: Offers running low, Duplicated students and Syncs and health, which has two, the syncs
 	 * that need a look, counted as its row counts them, and the locked accounts it lists. New
 	 * interests, Sponsor terms ending and the program's numbers have none. A count at zero draws no
@@ -597,67 +597,161 @@ final class WPCPM_Administrators_Cards {
 			self::empty_line( __( 'No sponsor agreement is waiting for review.', 'wpcredits-program-manager' ) );
 		}
 
-		foreach ( $review as $row ) {
-			self::render_sponsor_agreement_item( $row, __( 'Waiting for review', 'wpcredits-program-manager' ) );
-		}
-
-		self::render_sponsor_more_line( $total, count( $review ) );
-
-		if ( ! empty( $revoked ) ) {
-			printf( '<h4 class="wpcpm-administrator__subheading">%s</h4>', esc_html__( 'Out of force', 'wpcredits-program-manager' ) );
-
-			foreach ( $revoked as $row ) {
-				self::render_sponsor_agreement_item( $row, __( 'Revoked', 'wpcredits-program-manager' ) );
-			}
-		}
-
+		self::render_sponsor_agreements_parts( $review, $revoked, $total );
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
-	 * One agreement row: the company, the kind, the facts and the decision.
+	 * The Sponsor Collaboration Agreements card's body on the shared parts (design 2.10, 2.11, 4.1): each document waiting for review, then the line that says how many more
+	 * wait, then today's heading "Out of force" over the agreements out of force, a list of rows, each drawn by
+	 * `sponsor_agreement_row_parts()` with Reinstate at its end. The empty sentence before them and the way to the
+	 * Sponsors screen after them are the caller's, as today.
+	 *
+	 * @param array[] $review  The documents waiting for review, `review_facts()` rows.
+	 * @param array[] $revoked The agreements out of force, the same.
+	 * @param int     $total   How many documents wait.
+	 */
+	private static function render_sponsor_agreements_parts( array $review, array $revoked, $total ) {
+		foreach ( $review as $row ) {
+			self::render_sponsor_agreement_parts( $row, __( 'Waiting for review', 'wpcredits-program-manager' ) );
+		}
+
+		self::render_sponsor_more_line( $total, count( $review ) );
+
+		if ( empty( $revoked ) ) {
+			return;
+		}
+
+		echo WPCPM_UI::heading( __( 'Out of force', 'wpcredits-program-manager' ), 'h4' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		// A list of rows, each with Reinstate at its end (task V1, ruling 14), its facts under its name and tag at the
+		// row's full width (Task 18d), so they are not squeezed into a column between the tag and Reinstate.
+		$list = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $revoked as $row ) {
+			$list .= self::sponsor_agreement_row_parts( $row );
+		}
+
+		echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row() and reinstate_form().
+	}
+
+	/**
+	 * One sponsor agreement on the shared parts: the item header (the company, not a link, as today; its state as the
+	 * tag in today's words; today's facts; and for an uploaded copy the link "Download" as the last fact, since it
+	 * decides nothing, design 2.6), then the decision the agreement class draws: one Decide area for a document
+	 * waiting for review (an agreement out of force is a list row, `sponsor_agreement_row_parts()`). The item keeps its article and its anchor, which the
+	 * Sponsors screen's links point at. The tag is neutral: nothing on this card is overdue today.
 	 *
 	 * @param array  $row  A `review_facts()` row.
-	 * @param string $kind The state word shown beside the company.
+	 * @param string $kind The state word, the item's tag.
 	 */
-	private static function render_sponsor_agreement_item( array $row, $kind ) {
-		printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-agreement" id="wpcpm-sponsor-agreement-%d">', (int) $row['post_id'] );
-		printf(
-			'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
-			esc_html( (string) $row['sponsor_name'] ),
-			esc_html( $kind )
+	private static function render_sponsor_agreement_parts( array $row, $kind ) {
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => (string) $row['sponsor_name'],
+				'tag'   => array(
+					'words' => $kind,
+					'tone'  => '',
+				),
+				'facts' => self::sponsor_agreement_facts( $row ),
+			)
 		);
-		echo '<p class="wpcpm-administrator__facts">';
 
-		if ( '' !== (string) $row['uploaded_by'] ) {
-			/* translators: 1: the account's name, 2: a date. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Uploaded by %1$s on %2$s', 'wpcredits-program-manager' ), (string) $row['uploaded_by'], (string) $row['uploaded_at'] ) ) );
-		} elseif ( '' !== (string) $row['uploaded_at'] ) {
-			/* translators: %s: a date. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Recorded on %s', 'wpcredits-program-manager' ), (string) $row['uploaded_at'] ) ) );
-		}
-
-		if ( (int) $row['size'] > 0 ) {
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( size_format( (int) $row['size'] ) ) );
-		}
-
-		if ( ! empty( $row['flags'] ) ) {
-			/* translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'The scan noticed: %s', 'wpcredits-program-manager' ), WPCPM_Pdf_Check::in_words( array_map( 'strval', (array) $row['flags'] ) ) ) ) );
-		} elseif ( 'own' === (string) $row['kind'] ) {
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html__( 'The scan noticed none of the features it looks for', 'wpcredits-program-manager' ) );
-		}
-
-		/* translators: %d: how many accounts the company has on the site. */
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( _n( '%d account', '%d accounts', (int) $row['members'], 'wpcredits-program-manager' ), (int) $row['members'] ) ) );
-		echo '</p>';
+		echo WPCPM_UI::item_open( 'wpcpm-sponsor-agreement', 'wpcpm-sponsor-agreement-' . (int) $row['post_id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); the one html fact escapes its href and words.
 
 		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
 			WPCPM_Sponsor_Agreement::render_decision( (int) $row['post_id'], WPCPM_Return::DASHBOARD );
 		}
 
 		echo '</article>';
+	}
+
+	/**
+	 * One sponsor agreement out of force on the shared parts (design 2.8; task V1, ruling 14): a list row of a list with
+	 * its facts under the name (Task 18d), the company its name, "Revoked" its neutral tag, the item's facts as the row's
+	 * facts, and Reinstate, the quiet button, at the end of the row's first line like every row action. The row carries the item's anchor, which the Sponsors screen's links point at.
+	 *
+	 * @param array $row A `review_facts()` row of an agreement out of force.
+	 * @return string Escaped markup.
+	 */
+	private static function sponsor_agreement_row_parts( array $row ) {
+		$form = class_exists( 'WPCPM_Sponsor_Agreement' ) ? (string) WPCPM_Sponsor_Agreement::reinstate_form( (int) $row['post_id'], WPCPM_Return::DASHBOARD ) : '';
+
+		return WPCPM_UI::row(
+			array(
+				'id'      => 'wpcpm-sponsor-agreement-' . (int) $row['post_id'],
+				'name'    => (string) $row['sponsor_name'],
+				'tag'     => array(
+					'words' => __( 'Revoked', 'wpcredits-program-manager' ),
+					'tone'  => '',
+				),
+				// A list row's date is kept whole (Task 18f); the waiting item's header keeps today's.
+				'facts'   => self::sponsor_agreement_facts( $row, true ),
+				'actions' => '' !== $form ? array( $form ) : array(),
+			)
+		);
+	}
+
+	/**
+	 * A sponsor agreement's facts, in today's words: who uploaded it and when (the day in the site's date format, as the
+	 * rest of the dashboard prints one; Task 18d), its size, what the scan noticed, how many accounts the company has,
+	 * and for an uploaded copy the link "Download", naming its company to a screen reader.
+	 *
+	 * @param array $row   A `review_facts()` row.
+	 * @param bool  $whole Whether the date is kept whole (a list row's facts; Task 18f).
+	 * @return array The facts, as `WPCPM_UI::item_header()` and `row()` read them.
+	 */
+	private static function sponsor_agreement_facts( array $row, $whole = false ) {
+		$facts = array();
+		$day   = self::site_date( (string) $row['uploaded_at'] );
+		$day   = $whole ? self::whole_text( $day ) : $day;
+
+		if ( '' !== (string) $row['uploaded_by'] ) {
+			/* translators: 1: the account's name, 2: a date. */
+			$facts[] = sprintf( __( 'Uploaded by %1$s on %2$s', 'wpcredits-program-manager' ), (string) $row['uploaded_by'], $day );
+		} elseif ( '' !== (string) $row['uploaded_at'] ) {
+			/* translators: %s: a date. */
+			$facts[] = sprintf( __( 'Recorded on %s', 'wpcredits-program-manager' ), $day );
+		}
+
+		if ( (int) $row['size'] > 0 ) {
+			$facts[] = size_format( (int) $row['size'] );
+		}
+
+		if ( ! empty( $row['flags'] ) ) {
+			$flags = array_map(
+				static function ( $flag ) {
+					return (string) $flag;
+				},
+				(array) $row['flags']
+			);
+			/* translators: %s: what the courtesy scan noticed, in words, each with the PDF's own name for it in brackets. */
+			$facts[] = sprintf( __( 'The scan noticed: %s', 'wpcredits-program-manager' ), WPCPM_Pdf_Check::in_words( $flags ) );
+		} elseif ( 'own' === (string) $row['kind'] ) {
+			$facts[] = __( 'The scan noticed none of the features it looks for', 'wpcredits-program-manager' );
+		}
+
+		/* translators: %d: how many accounts the company has on the site. */
+		$facts[] = sprintf( _n( '%d account', '%d accounts', (int) $row['members'], 'wpcredits-program-manager' ), (int) $row['members'] );
+
+		$download = class_exists( 'WPCPM_Sponsor_Agreement' ) ? (string) WPCPM_Sponsor_Agreement::download_url( (int) $row['post_id'] ) : '';
+
+		// A link that decides nothing joins the facts (design 2.6), in today's words, naming its company to a screen
+		// reader, so two agreements' links on one card do not read alike.
+		if ( '' !== $download ) {
+			$facts[] = array(
+				'html' => sprintf(
+					'<a href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a>',
+					esc_url( $download ),
+					esc_html__( 'Download', 'wpcredits-program-manager' ),
+					esc_html( (string) $row['sponsor_name'] )
+				),
+			);
+		}
+
+		return $facts;
 	}
 
 	/**
@@ -696,34 +790,54 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		foreach ( $rows as $row ) {
-			printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-post" id="wpcpm-sponsor-post-%d">', (int) $row['id'] );
-			printf(
-				'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <span class="wpcpm-administrator__kind">%3$s</span></h4>',
-				esc_url( (string) $row['preview'] ),
-				esc_html( (string) $row['title'] ),
-				esc_html( (string) $row['company'] )
-			);
-			echo '<p class="wpcpm-administrator__facts">';
-			/* translators: %s: how long ago. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Submitted %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ) ) );
-
-			if ( '' !== (string) $row['author'] ) {
-				/* translators: %s: the account's name. */
-				printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'By %s', 'wpcredits-program-manager' ), (string) $row['author'] ) ) );
-			}
-
-			echo '</p>';
-
-			if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
-				WPCPM_Sponsor_Posts::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
-			}
-
-			echo '</article>';
+			self::render_sponsor_post_parts( $row );
 		}
 
 		self::render_sponsor_more_line( $total, count( $rows ) );
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * One sponsor post on the shared parts (design 2.10, 2.6, 4.1): the item header (the title linked to its preview, as today; then the company, "Submitted ...", "By ..."
+	 * and the link "Preview the post" as muted facts, Preview having left the decision's row), then the decision the
+	 * posts class draws, one Decide area. The item keeps its article and its anchor, as today.
+	 *
+	 * @param array $row A `WPCPM_Sponsor_Posts::pending_all()` row.
+	 */
+	private static function render_sponsor_post_parts( array $row ) {
+		$facts = array(
+			(string) $row['company'],
+			/* translators: %s: how long ago. */
+			sprintf( __( 'Submitted %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ),
+		);
+
+		if ( '' !== (string) $row['author'] ) {
+			/* translators: %s: the account's name. */
+			$facts[] = sprintf( __( 'By %s', 'wpcredits-program-manager' ), (string) $row['author'] );
+		}
+
+		// A link that decides nothing joins the facts (design 2.6).
+		$facts[] = array(
+			'html' => sprintf( '<a href="%1$s">%2$s</a>', esc_url( (string) $row['preview'] ), esc_html__( 'Preview the post', 'wpcredits-program-manager' ) ),
+		);
+
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => (string) $row['title'],
+				'href'  => (string) $row['preview'],
+				'facts' => $facts,
+			)
+		);
+
+		echo WPCPM_UI::item_open( 'wpcpm-sponsor-post', 'wpcpm-sponsor-post-' . (int) $row['id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); the one html fact above escapes its href and words.
+
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
+		}
+
+		echo '</article>';
 	}
 
 	/**
@@ -809,7 +923,9 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * Sponsor applications: one compact item per open application, with the six decisions.
+	 * Sponsor applications: one compact item per open application, with every decision its state allows: Approve,
+	 * Ask a question, Reject and Reject as spam on each, and Put back in the queue on one held or waiting on the
+	 * applicant. Delete for good, the sixth decision, is never on this card: it lists open applications only.
 	 *
 	 * The company, the reference, when it arrived, the website, the contact, the state, the tier
 	 * the company is considering when it answered that question, and the marks; then the
@@ -851,77 +967,7 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		foreach ( $rows as $row ) {
-			printf( '<article class="wpcpm-administrator__item wpcpm-sponsor-application" id="wpcpm-sponsor-application-%d">', (int) $row['id'] );
-			printf(
-				'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <span class="wpcpm-administrator__kind">%3$s</span></h4>',
-				esc_url( admin_url( 'admin.php?page=wpcpm-sponsors&' . WPCPM_Sponsor_Application::QUERY_QUEUE . '=' . (int) $row['id'] ) ),
-				esc_html( (string) $row['company'] ),
-				esc_html( (string) $row['reference'] )
-			);
-			echo '<p class="wpcpm-administrator__facts">';
-			/* translators: %s: how long ago. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Applied %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ) ) );
-
-			if ( '' !== (string) $row['website'] ) {
-				printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( (string) $row['website'] ) );
-			}
-
-			/* translators: 1: contact person, 2: contact email address. */
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Contact: %1$s, %2$s', 'wpcredits-program-manager' ), (string) $row['person'], (string) $row['email'] ) ) );
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( (string) $row['state_label'] ) );
-
-			// A manager's card, so the answer is shown whatever the switch says. Branched on the
-			// key, never on the label a translation may reword: not sure yet is an answer and no
-			// tier, so it reads as a sentence of its own. Facts shaped before the question existed
-			// carry no key and show nothing; facts that carry one were built through the tier
-			// ladder, which is loaded wherever they are.
-			$requested = isset( $row['tier_requested'] ) ? (string) $row['tier_requested'] : '';
-
-			if ( '' !== $requested ) {
-				if ( WPCPM_Sponsor_Tiers::UNSURE === $requested ) {
-					printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html__( 'Tier: not sure yet', 'wpcredits-program-manager' ) );
-				} elseif ( ! empty( $row['tier_requested_label'] ) ) {
-					/* translators: %s: the tier the applicant is considering. */
-					printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Considering: %s', 'wpcredits-program-manager' ), (string) $row['tier_requested_label'] ) ) );
-				}
-			}
-
-			echo '</p>';
-
-			if ( ! empty( $row['held'] ) ) {
-				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Held by the anti-spam checks. Open it on the Sponsors screen to read which.', 'wpcredits-program-manager' ) );
-			}
-
-			if ( ! empty( $row['duplicate'] ) ) {
-				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Another open application names this company or this address. Nothing is ever merged.', 'wpcredits-program-manager' ) );
-			}
-
-			if ( ! empty( $row['in_base'] ) ) {
-				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The site already holds a sponsor with this name or website. Approving creates a second record.', 'wpcredits-program-manager' ) );
-			}
-
-			// The one note that says a decision below it will be refused, so it is worth the
-			// line on a card that is otherwise only facts.
-			if ( ! empty( $row['half_done'] ) ) {
-				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The approval of this application is half done: a sponsor record already exists for it. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) );
-			}
-
-			// The answers, the logo files and the base matches, folded (S6): the card stays a
-			// queue, and a manager who wants the whole application has it without leaving. One
-			// guard rather than two, the fold and the decision are the same availability.
-			if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
-				$post = get_post( (int) $row['id'] );
-
-				if ( $post instanceof WP_Post ) {
-					printf( '<details class="wpcpm-administrator__details"><summary>%s</summary>', esc_html__( 'Read the application', 'wpcredits-program-manager' ) );
-					WPCPM_Sponsor_Application::render_details( $post );
-					echo '</details>';
-				}
-
-				WPCPM_Sponsor_Application::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
-			}
-
-			echo '</article>';
+			self::render_sponsor_application_parts( $row );
 		}
 
 		if ( $total > count( $rows ) ) {
@@ -930,6 +976,83 @@ final class WPCPM_Administrators_Cards {
 
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * One sponsor application on the shared parts (design 2.10, 2.3, 2.6, 4.1): the item header (the company linked to the application on the Sponsors screen, as today; its
+	 * reference; the state as a neutral tag in today's words; then when it was applied, the website, the contact and
+	 * the tier answer as muted facts), the notes as today, "Read the application" as an inner fold around the
+	 * application class's details, and the class's one Decide area. No item is overdue: the card has no rule for it
+	 * today, so no tag turns red. The item keeps its article and its anchor, which the opened application on the
+	 * Sponsors screen and a decision's way back link to.
+	 *
+	 * @param array $row A `WPCPM_Sponsor_Application::queue_facts()` row.
+	 */
+	private static function render_sponsor_application_parts( array $row ) {
+		/* translators: %s: how long ago. */
+		$facts = array( sprintf( __( 'Applied %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ) );
+
+		if ( '' !== (string) $row['website'] ) {
+			$facts[] = (string) $row['website'];
+		}
+
+		/* translators: 1: contact person, 2: contact email address. */
+		$facts[] = sprintf( __( 'Contact: %1$s, %2$s', 'wpcredits-program-manager' ), (string) $row['person'], (string) $row['email'] );
+
+		// The tier answer as today: branched on the key, never on the label a translation may reword.
+		$requested = isset( $row['tier_requested'] ) ? (string) $row['tier_requested'] : '';
+
+		if ( '' !== $requested ) {
+			if ( WPCPM_Sponsor_Tiers::UNSURE === $requested ) {
+				$facts[] = __( 'Tier: not sure yet', 'wpcredits-program-manager' );
+			} elseif ( ! empty( $row['tier_requested_label'] ) ) {
+				/* translators: %s: the tier the applicant is considering. */
+				$facts[] = sprintf( __( 'Considering: %s', 'wpcredits-program-manager' ), (string) $row['tier_requested_label'] );
+			}
+		}
+
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => (string) $row['company'],
+				'href'  => admin_url( 'admin.php?page=wpcpm-sponsors&' . WPCPM_Sponsor_Application::QUERY_QUEUE . '=' . (int) $row['id'] ),
+				'ref'   => (string) $row['reference'],
+				'tag'   => array(
+					'words' => (string) $row['state_label'],
+					'tone'  => '',
+				),
+				'facts' => $facts,
+			)
+		);
+
+		echo WPCPM_UI::item_open( 'wpcpm-sponsor-application', 'wpcpm-sponsor-application-' . (int) $row['id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header().
+
+		$notes = array(
+			'held'      => __( 'Held by the anti-spam checks. Open it on the Sponsors screen to read which.', 'wpcredits-program-manager' ),
+			'duplicate' => __( 'Another open application names this company or this address. Nothing is ever merged.', 'wpcredits-program-manager' ),
+			'in_base'   => __( 'The site already holds a sponsor with this name or website. Approving creates a second record.', 'wpcredits-program-manager' ),
+			'half_done' => __( 'The approval of this application is half done: a sponsor record already exists for it. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ),
+		);
+
+		foreach ( $notes as $flag => $note ) {
+			if ( ! empty( $row[ $flag ] ) ) {
+				echo WPCPM_UI::note( $note ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
+			}
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			$post = get_post( (int) $row['id'] );
+
+			if ( $post instanceof WP_Post ) {
+				echo WPCPM_UI::inner_open( array( 'title' => __( 'Read the application', 'wpcredits-program-manager' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
+				WPCPM_Sponsor_Application::render_details( $post );
+				echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+			}
+
+			WPCPM_Sponsor_Application::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
+		}
+
+		echo '</article>';
 	}
 
 	/**
@@ -962,33 +1085,58 @@ final class WPCPM_Administrators_Cards {
 			return;
 		}
 
-		self::scroll_open( array( self::title_id( 'offers-low' ) ) );
-		echo '<table class="wpcpm-admin-table wpcpm-offers-low"><thead><tr>';
+		self::render_offers_low_parts( $rows );
+		self::render_screen_line( $screen );
+		WPCPM_Dashboard_Card::close();
+	}
 
-		foreach ( array( __( 'Offer', 'wpcredits-program-manager' ), __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Codes left', 'wpcredits-program-manager' ), __( 'Warns at', 'wpcredits-program-manager' ) ) as $head ) {
-			printf( '<th scope="col">%s</th>', esc_html( $head ) );
-		}
+	/**
+	 * Offers running low's table on the shared parts (design 2.7, 4.1): the table part, named by the card's title as today's scroll box was (the table part replaces the box). The
+	 * offer is each row's header, linked to its sponsor's Offers and codes card as today, or its title alone where
+	 * there is no Sponsor Dashboard page; the codes left and the number it warns at are numbers. The link is the
+	 * row's name, as today, so the row has no action column. Nothing on the row is a state in colour today, so it
+	 * prints no tag.
+	 *
+	 * @param array[] $rows offers_low()'s rows, at least one.
+	 */
+	private static function render_offers_low_parts( array $rows ) {
+		$offer   = array(
+			'key'    => 'offer',
+			'label'  => __( 'Offer', 'wpcredits-program-manager' ),
+			'kind'   => 'text',
+			'header' => 'row',
+		);
+		$sponsor = array(
+			'key'   => 'sponsor',
+			'label' => __( 'Sponsor', 'wpcredits-program-manager' ),
+			'kind'  => 'text',
+		);
+		$left    = array(
+			'key'   => 'left',
+			'label' => __( 'Codes left', 'wpcredits-program-manager' ),
+			'kind'  => 'num',
+		);
+		$warns   = array(
+			'key'   => 'warns',
+			'label' => __( 'Warns at', 'wpcredits-program-manager' ),
+			'kind'  => 'num',
+		);
 
-		echo '</tr></thead><tbody>';
+		$table = WPCPM_UI::table_open( array( $offer, $sponsor, $left, $warns ), array( 'labelledby' => self::title_id( 'offers-low' ) ) );
 
 		foreach ( $rows as $row ) {
 			$url = (string) $row['url'];
 
-			printf(
-				'<tr><th scope="row">%1$s</th><td>%2$s</td><td>%3$s</td><td>%4$s</td></tr>',
+			$table .= WPCPM_UI::row_open()
 				// No Sponsor Dashboard page, no link: the title alone, not an anchor to nowhere.
-				'' !== $url
-					? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( (string) $row['title'] ) )
-					: esc_html( (string) $row['title'] ),
-				esc_html( (string) $row['sponsor_name'] ),
-				esc_html( number_format_i18n( (int) $row['available'] ) ),
-				esc_html( number_format_i18n( (int) $row['low'] ) )
-			);
+				. WPCPM_UI::cell( $offer, '' !== $url ? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( (string) $row['title'] ) ) : esc_html( (string) $row['title'] ) )
+				. WPCPM_UI::cell( $sponsor, esc_html( (string) $row['sponsor_name'] ) )
+				. WPCPM_UI::cell( $left, esc_html( number_format_i18n( (int) $row['available'] ) ) )
+				. WPCPM_UI::cell( $warns, esc_html( number_format_i18n( (int) $row['low'] ) ) )
+				. WPCPM_UI::row_close();
 		}
 
-		echo '</tbody></table></div>';
-		self::render_screen_line( $screen );
-		WPCPM_Dashboard_Card::close();
+		echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() or esc_url() above.
 	}
 
 	/**
@@ -1035,35 +1183,41 @@ final class WPCPM_Administrators_Cards {
 			)
 		);
 
+		self::render_duplicates_parts( $facts, $action );
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * Duplicated students' body on the shared parts (design 2.5, 2.3, 4.1): before the first scan and after a clean one, today's sentence as the parts' muted line; otherwise today's
+	 * sentence as the parts' intro line. The way to the finder ends the body as every Watch card's way to its home
+	 * does, the fold's foot (`render_screen_line()`), in today's words and to today's address, in place of today's
+	 * bordered button; nothing is printed after the fold (task V1, ruling 2). With no address for the finder there is
+	 * no foot.
+	 *
+	 * @param array      $facts  duplicates()'s answer, merged with its defaults.
+	 * @param array|null $action The card's row action, null with no address for the finder.
+	 */
+	private static function render_duplicates_parts( array $facts, $action ) {
 		if ( empty( $facts['read'] ) ) {
 			self::empty_line( __( 'The Student Duplicate Finder has not scanned Airtable yet.', 'wpcredits-program-manager' ) );
 		} elseif ( 0 === (int) $facts['addresses'] ) {
 			/* translators: %s: date and time of the scan. */
 			self::empty_line( sprintf( __( 'No duplicated students in Airtable, as of %s.', 'wpcredits-program-manager' ), self::when( (int) $facts['read'] ) ) );
 		} else {
-			printf(
-				'<p class="wpcpm-administrator__note">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: 1: duplicated students, 2: how many of them are ready to delete, 3: date and time of the scan. */
-						_n( '%1$s duplicated student in Airtable, %2$s ready to delete, as of %3$s.', '%1$s duplicated students in Airtable, %2$s ready to delete, as of %3$s.', (int) $facts['addresses'], 'wpcredits-program-manager' ),
-						number_format_i18n( (int) $facts['addresses'] ),
-						number_format_i18n( (int) $facts['ready'] ),
-						self::when( (int) $facts['read'] )
-					)
-				)
+			$words = sprintf(
+				/* translators: 1: duplicated students, 2: how many of them are ready to delete, 3: date and time of the scan. */
+				_n( '%1$s duplicated student in Airtable, %2$s ready to delete, as of %3$s.', '%1$s duplicated students in Airtable, %2$s ready to delete, as of %3$s.', (int) $facts['addresses'], 'wpcredits-program-manager' ),
+				number_format_i18n( (int) $facts['addresses'] ),
+				number_format_i18n( (int) $facts['ready'] ),
+				self::when( (int) $facts['read'] )
 			);
+
+			echo WPCPM_UI::intro( $words ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 		}
 
-		if ( '' !== (string) $facts['url'] ) {
-			printf(
-				'<div class="wpcpm-administrator__actions"><a class="wpcpm-button wpcpm-button--secondary" href="%1$s">%2$s</a></div>',
-				esc_url( (string) $facts['url'] ),
-				esc_html__( 'Open the Student Duplicate Finder', 'wpcredits-program-manager' )
-			);
+		if ( is_array( $action ) ) {
+			self::render_screen_line( $action );
 		}
-
-		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
@@ -1093,33 +1247,51 @@ final class WPCPM_Administrators_Cards {
 			self::empty_line( __( 'No sponsor said anything new in the last thirty days.', 'wpcredits-program-manager' ) );
 		}
 
-		foreach ( $rows as $row ) {
-			$url = (string) $row['url'];
-
-			echo '<article class="wpcpm-administrator__item wpcpm-interest">';
-			printf(
-				'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
-				// No Sponsor Dashboard page, no link: the sponsor's name alone, not an anchor to
-				// nowhere.
-				'' !== $url
-					? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( (string) $row['sponsor_name'] ) )
-					: esc_html( (string) $row['sponsor_name'] ),
-				/* translators: %s: how long ago. */
-				esc_html( sprintf( __( '%s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['time'], time() ) ) )
-			);
-			// A sponsor's own words, on a manager's page: escaped, never linked, never trimmed.
-			printf( '<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">%s</span></p>', esc_html( (string) $row['message'] ) );
-			echo '</article>';
-		}
-
+		self::render_interests_parts( $rows );
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
+	 * New interests on the shared parts (design 2.8, 4.1): one list
+	 * row per line a sponsor wrote, the sponsor's name linked to its Sponsorship card as today (its name alone where
+	 * there is no Sponsor Dashboard page), how long ago as the row's fact, and the sponsor's own words as the row's
+	 * note, escaped, never linked, never trimmed. The card lists and links, and decides nothing, so a row has no
+	 * action. The empty sentence before it and the way to the Sponsors screen after it are the caller's, as today.
+	 *
+	 * @param array[] $rows interests()'s rows.
+	 */
+	private static function render_interests_parts( array $rows ) {
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		// No row carries a tag, so each row's facts sit under its name (Task 18c).
+		$list = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $rows as $row ) {
+			$list .= WPCPM_UI::row(
+				array(
+					'name'  => (string) $row['sponsor_name'],
+					// No Sponsor Dashboard page, no link: the sponsor's name alone, not an anchor to nowhere.
+					'href'  => (string) $row['url'],
+					/* translators: %s: how long ago. */
+					'facts' => array( sprintf( __( '%s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['time'], time() ) ) ),
+					// A sponsor's own words, on an Administrator's page: escaped by the row, its line breaks kept.
+					'note'  => (string) $row['message'],
+				)
+			);
+		}
+
+		echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row().
+	}
+
+	/**
 	 * The Sponsors card: four figures on the tiles the programs card draws its tracks with, and,
 	 * once the tier ladder has loaded, the Approved sponsors by their effective tier underneath;
-	 * then the way to the Sponsors screen's Sponsors tab.
+	 * then the way to the Sponsors screen's Sponsors tab. On the shared parts the line over the
+	 * tier tiles is the parts' intro line and the foot the fold's; the tiles stay the card's own,
+	 * since no part draws a figure with its label.
 	 *
 	 * @param array $facts sponsors()'s answer.
 	 */
@@ -1184,7 +1356,8 @@ final class WPCPM_Administrators_Cards {
 		// zero is drawn like every other tile, so a ladder nobody has climbed yet still reads as
 		// five rungs rather than a blank space where a number should be (S8).
 		if ( isset( $facts['tiers'] ) ) {
-			printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Approved sponsors by tier, as the tiers stand today.', 'wpcredits-program-manager' ) );
+			// The line is the parts' intro line; the tiles stay the card's own, which no part draws.
+			echo WPCPM_UI::intro( __( 'Approved sponsors by tier, as the tiers stand today.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 			echo '<ul class="wpcpm-programs__tiles">';
 
 			foreach ( WPCPM_Sponsor_Tiers::KEYS as $key ) {
@@ -1234,30 +1407,61 @@ final class WPCPM_Administrators_Cards {
 			return;
 		}
 
-		self::scroll_open( array( self::title_id( 'tiers-ending' ) ) );
-		echo '<table class="wpcpm-admin-table wpcpm-tiers-ending"><thead><tr>';
-
-		foreach ( array( __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Tier', 'wpcredits-program-manager' ), __( 'Ends on', 'wpcredits-program-manager' ), __( 'Administrator', 'wpcredits-program-manager' ) ) as $head ) {
-			printf( '<th scope="col">%s</th>', esc_html( $head ) );
-		}
-
-		echo '</tr></thead><tbody>';
-
-		foreach ( $rows as $row ) {
-			printf(
-				'<tr><th scope="row"><a href="%1$s">%2$s</a></th><td>%3$s</td><td>%4$s <span class="wpcpm-administrator__fact">%5$s</span></td><td>%6$s</td></tr>',
-				esc_url( (string) $row['url'] ),
-				esc_html( (string) $row['name'] ),
-				esc_html( (string) $row['tier'] ),
-				esc_html( WPCPM_Sponsor_Tiers::format_day( (string) $row['until'] ) ),
-				esc_html( self::term_ends_in( (int) $row['days'] ) ),
-				esc_html( '' !== (string) $row['manager'] ? (string) $row['manager'] : __( 'Nobody yet', 'wpcredits-program-manager' ) )
-			);
-		}
-
-		echo '</tbody></table></div>';
+		self::render_tiers_ending_parts( $rows );
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * Sponsor terms ending's table on the shared parts (design 2.7, 2.2, 4.1): the table part, named by the card's title as today's scroll box was (the table part replaces the
+	 * box). The sponsor is each row's header, linked to its Edit form as today; the link is the row's name, so the row
+	 * has no action column. The day the term ends is a date, followed by the days left in today's words ("today",
+	 * "tomorrow", "in N days") as plain words in the cell's own ink, a space between them as today: every row has
+	 * them, so they are no state and take no tag. A sponsor with no Administrator keeps today's words, "Nobody yet",
+	 * muted as an empty value.
+	 *
+	 * @param array[] $rows tiers_ending()'s rows, at least one.
+	 */
+	private static function render_tiers_ending_parts( array $rows ) {
+		$sponsor = array(
+			'key'    => 'sponsor',
+			'label'  => __( 'Sponsor', 'wpcredits-program-manager' ),
+			'kind'   => 'text',
+			'header' => 'row',
+		);
+		$tier    = array(
+			'key'   => 'tier',
+			'label' => __( 'Tier', 'wpcredits-program-manager' ),
+			'kind'  => 'text',
+		);
+		$ends    = array(
+			'key'   => 'ends',
+			'label' => __( 'Ends on', 'wpcredits-program-manager' ),
+			'kind'  => 'date',
+		);
+		$manager = array(
+			'key'   => 'manager',
+			'label' => __( 'Administrator', 'wpcredits-program-manager' ),
+			'kind'  => 'text',
+		);
+
+		$table = WPCPM_UI::table_open( array( $sponsor, $tier, $ends, $manager ), array( 'labelledby' => self::title_id( 'tiers-ending' ) ) );
+
+		foreach ( $rows as $row ) {
+			$named = '' !== (string) $row['manager'];
+
+			$table .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $sponsor, sprintf( '<a href="%1$s">%2$s</a>', esc_url( (string) $row['url'] ), esc_html( (string) $row['name'] ) ) )
+				. WPCPM_UI::cell( $tier, esc_html( (string) $row['tier'] ) )
+				// The days left after the day, a space between them as today, in the cell's own ink: every row has them,
+				// so they are no state to tag.
+				. WPCPM_UI::cell( $ends, esc_html( self::whole_text( WPCPM_Sponsor_Tiers::format_day( (string) $row['until'] ) ) ) . ' ' . esc_html( self::term_ends_in( (int) $row['days'] ) ) )
+				// An empty value keeps its words, muted (design 2.7).
+				. WPCPM_UI::cell( $manager, esc_html( $named ? (string) $row['manager'] : __( 'Nobody yet', 'wpcredits-program-manager' ) ), $named ? '' : 'empty' )
+				. WPCPM_UI::row_close();
+		}
+
+		echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() or esc_url() above.
 	}
 
 	/**
@@ -1285,7 +1489,7 @@ final class WPCPM_Administrators_Cards {
 
 		$count  = self::sponsor_reports_open( $data );
 		$screen = self::sponsors_screen( 'reports', '', __( 'Sponsor reports', 'wpcredits-program-manager' ) );
-		// Each table's box is named by the card's heading and the subheading above the table, as the
+		// Each table is named by the card's heading and the subheading above the table, as the
 		// Semester reports card's two are (1.122.35).
 		$drafts_title = 'wpcpm-sponsor-reports-drafts-title';
 		$ended_title  = 'wpcpm-sponsor-reports-ended-title';
@@ -1313,92 +1517,143 @@ final class WPCPM_Administrators_Cards {
 			return;
 		}
 
-		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $drafts_title ), esc_html__( 'Drafts to finish', 'wpcredits-program-manager' ) );
-
-		if ( empty( $queue ) ) {
-			self::empty_line( __( 'No draft to finish.', 'wpcredits-program-manager' ) );
-		} else {
-			self::scroll_open( array( self::title_id( 'sponsor-reports' ), $drafts_title ) );
-			echo '<table class="wpcpm-admin-table"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Sponsor', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Report', 'wpcredits-program-manager' ) );
-			echo '<th scope="col"></th></tr></thead><tbody>';
-
-			foreach ( $queue as $row ) {
-				printf( '<tr><th scope="row">%1$s</th><td>%2$s</td><td>', esc_html( (string) $row['name'] ), esc_html( (string) $row['title'] ) );
-				self::render_sponsor_report_open( $row );
-				echo '</td></tr>';
-			}
-
-			echo '</tbody></table></div>';
-		}
-
-		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $ended_title ), esc_html__( 'Terms ended with no report', 'wpcredits-program-manager' ) );
-
-		if ( empty( $due ) ) {
-			self::empty_line( __( 'No term is waiting for its report.', 'wpcredits-program-manager' ) );
-		} else {
-			self::scroll_open( array( self::title_id( 'sponsor-reports' ), $ended_title ) );
-			echo '<table class="wpcpm-admin-table"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Sponsor', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Term ended on', 'wpcredits-program-manager' ) );
-			echo '<th scope="col"></th></tr></thead><tbody>';
-
-			foreach ( $due as $row ) {
-				printf(
-					'<tr><th scope="row">%1$s</th><td>%2$s</td><td>',
-					esc_html( (string) $row['name'] ),
-					esc_html( WPCPM_Sponsor_Tiers::format_day( (string) $row['until'] ) )
-				);
-				WPCPM_Sponsor_Report_Screen::render_draft_form( (string) $row['sponsor'], (string) $row['until'], WPCPM_Return::DASHBOARD );
-				echo '</td></tr>';
-			}
-
-			echo '</tbody></table></div>';
-		}
-
-		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $final_title ), esc_html__( 'Final this semester', 'wpcredits-program-manager' ) );
-
-		if ( empty( $final ) ) {
-			self::empty_line( __( 'None marked final this semester yet.', 'wpcredits-program-manager' ) );
-		} else {
-			self::scroll_open( array( self::title_id( 'sponsor-reports' ), $final_title ) );
-			echo '<table class="wpcpm-admin-table"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Sponsor', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Report', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Marked final', 'wpcredits-program-manager' ) );
-			echo '<th scope="col"></th></tr></thead><tbody>';
-
-			foreach ( $final as $row ) {
-				printf(
-					'<tr><th scope="row">%1$s</th><td>%2$s</td><td>%3$s</td><td>',
-					esc_html( (string) $row['name'] ),
-					esc_html( (string) $row['title'] ),
-					esc_html( self::marked_final( (int) $row['final_at'], (int) $row['final_by'] ) )
-				);
-				self::render_sponsor_report_open( $row );
-				echo '</td></tr>';
-			}
-
-			echo '</tbody></table></div>';
-		}
-
+		self::render_sponsor_reports_parts( $queue, $due, $final, array( $drafts_title, $ended_title, $final_title ) );
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
-	 * Open, to a report's editor on the Sponsors screen, for a draft and a final report alike. Every
-	 * row's button says Open, so each carries its report's title for a screen reader.
+	 * The Sponsor reports card's three parts on the shared parts (design 2.7, 2.11, 4.1): each part's heading through the heading part with its id kept, then its table through
+	 * the table part, named as today by the card's title and that heading (the table part replaces today's scroll
+	 * box), or today's empty sentence. The sponsor is each row's header, as today; the day a term ended is a date;
+	 * a report with no stamp keeps its words, "Not recorded", muted as an empty value. The action column holds the
+	 * quiet row action: Open, the link to the report's editor as today, and Draft now, the Sponsors screen's own form
+	 * (`WPCPM_Sponsor_Report_Screen::render_draft_form()`), which draws its button on the parts for this page.
+	 *
+	 * @param array[]  $queue    The drafts to finish.
+	 * @param array[]  $due      The terms that ended with no report.
+	 * @param array[]  $finished The reports marked final this semester.
+	 * @param string[] $titles   The three headings' ids: drafts, ended, final.
+	 */
+	private static function render_sponsor_reports_parts( array $queue, array $due, array $finished, array $titles ) {
+		$card    = self::title_id( 'sponsor-reports' );
+		$sponsor = array(
+			'key'    => 'sponsor',
+			'label'  => __( 'Sponsor', 'wpcredits-program-manager' ),
+			'kind'   => 'text',
+			'header' => 'row',
+		);
+		$report  = array(
+			'key'   => 'report',
+			'label' => __( 'Report', 'wpcredits-program-manager' ),
+			'kind'  => 'text',
+		);
+		$action  = array(
+			'key'   => 'action',
+			'label' => '',
+			'kind'  => 'action',
+		);
+		$ended   = array(
+			'key'   => 'ended',
+			'label' => __( 'Term ended on', 'wpcredits-program-manager' ),
+			'kind'  => 'date',
+		);
+		$marked  = array(
+			'key'   => 'marked',
+			'label' => __( 'Marked final', 'wpcredits-program-manager' ),
+			'kind'  => 'text',
+		);
+
+		// The three tables are one family (design 2.7; task V1, ruling 14): the sponsor, the second column and the action
+		// start at the same places in all three.
+		// The action column's 12% must hold "Draft now" (about 78px with its cell): the family needs about 650px, which a
+		// main area of 800px holds; under 800px every table stacks (Task 18f, fix round 2).
+		$family                   = array( 'fixed' => true );
+		$sponsor['width']         = '30%';
+		$action['width']          = '12%';
+		$report_in_three          = $report;
+		$report_in_three['width'] = '30%';
+
+		echo WPCPM_UI::heading( __( 'Drafts to finish', 'wpcredits-program-manager' ), 'h4', $titles[0] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $queue ) ) {
+			self::empty_line( __( 'No draft to finish.', 'wpcredits-program-manager' ) );
+		} else {
+			$table = WPCPM_UI::table_open( array( $sponsor, $report, $action ), $family + array( 'labelledby' => $card . ' ' . $titles[0] ) );
+
+			foreach ( $queue as $row ) {
+				$table .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $sponsor, esc_html( (string) $row['name'] ) )
+					. WPCPM_UI::cell( $report, esc_html( self::months_whole( (string) $row['title'] ) ) )
+					. WPCPM_UI::cell( $action, self::sponsor_report_open_parts( $row ) )
+					. WPCPM_UI::row_close();
+			}
+
+			echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() above, the action through WPCPM_UI::button().
+		}
+
+		echo WPCPM_UI::heading( __( 'Terms ended with no report', 'wpcredits-program-manager' ), 'h4', $titles[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $due ) ) {
+			self::empty_line( __( 'No term is waiting for its report.', 'wpcredits-program-manager' ) );
+		} else {
+			$table = WPCPM_UI::table_open( array( $sponsor, $ended, $action ), $family + array( 'labelledby' => $card . ' ' . $titles[1] ) );
+
+			foreach ( $due as $row ) {
+				ob_start();
+				WPCPM_Sponsor_Report_Screen::render_draft_form( (string) $row['sponsor'], (string) $row['until'], WPCPM_Return::DASHBOARD );
+				$form = (string) ob_get_clean();
+
+				$table .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $sponsor, esc_html( (string) $row['name'] ) )
+					. WPCPM_UI::cell( $ended, esc_html( self::whole_text( WPCPM_Sponsor_Tiers::format_day( (string) $row['until'] ) ) ) )
+					. WPCPM_UI::cell( $action, $form )
+					. WPCPM_UI::row_close();
+			}
+
+			echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() above, the form by its renderer.
+		}
+
+		echo WPCPM_UI::heading( __( 'Final this semester', 'wpcredits-program-manager' ), 'h4', $titles[2] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $finished ) ) {
+			self::empty_line( __( 'None marked final this semester yet.', 'wpcredits-program-manager' ) );
+
+			return;
+		}
+
+		$table = WPCPM_UI::table_open( array( $sponsor, $report_in_three, $marked, $action ), $family + array( 'labelledby' => $card . ' ' . $titles[2] ) );
+
+		foreach ( $finished as $row ) {
+			$table .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $sponsor, esc_html( (string) $row['name'] ) )
+				. WPCPM_UI::cell( $report, esc_html( self::months_whole( (string) $row['title'] ) ) )
+				// An empty value keeps its words, muted (design 2.7).
+				. WPCPM_UI::cell( $marked, esc_html( self::marked_final( (int) $row['final_at'], (int) $row['final_by'] ) ), (int) $row['final_at'] > 0 ? '' : 'empty' )
+				. WPCPM_UI::cell( $action, self::sponsor_report_open_parts( $row ) )
+				. WPCPM_UI::row_close();
+		}
+
+		echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() above, the action through WPCPM_UI::button().
+	}
+
+	/**
+	 * Open on the shared parts: the quiet row action, a link to the report's editor on the Sponsors screen as today,
+	 * carrying the report's title for a screen reader.
 	 *
 	 * @param array $row A `queue` or `final` row of sponsor_reports().
+	 * @return string Escaped markup.
 	 */
-	private static function render_sponsor_report_open( array $row ) {
-		printf(
-			'<a class="wpcpm-button wpcpm-button--secondary" href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a>',
-			esc_url( (string) $row['url'] ),
-			esc_html__( 'Open', 'wpcredits-program-manager' ),
-			esc_html( (string) $row['title'] )
+	private static function sponsor_report_open_parts( array $row ) {
+		return WPCPM_UI::button(
+			array(
+				'label'   => __( 'Open', 'wpcredits-program-manager' ),
+				'kind'    => 'quiet',
+				'href'    => (string) $row['url'],
+				'context' => (string) $row['title'],
+				// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+				'side'    => 'front',
+			)
 		);
 	}
 
@@ -2069,41 +2324,6 @@ final class WPCPM_Administrators_Cards {
 	 */
 
 	/**
-	 * The attention strip: a tile for each entry of `counts()`, each a link to its card, which
-	 * the dashboards' opener opens, or, for the one tile with no card here (`url`, the mentor
-	 * applications'), to the screen it is decided on. `counts()` gives no tile at zero, so none is
-	 * drawn muted.
-	 * With no tile at all, one sentence says that nothing is waiting, in the same section, so
-	 * the page keeps the strip's anchor and a screen reader the region's name. A tile prints the
-	 * words it carries for its number (`shown`, a sponsor posts or agreements count as
-	 * `WPCPM_Sponsors::queue_count()` prints it), or its number as it stands.
-	 *
-	 * @param array $counts What `counts()` returned.
-	 */
-	public static function render_strip( array $counts ) {
-		printf( '<section class="wpcpm-administrator__card wpcpm-attention" id="wpcpm-attention" aria-label="%s">', esc_attr__( 'Needs attention', 'wpcredits-program-manager' ) );
-
-		if ( array() === $counts ) {
-			printf( '<p class="wpcpm-attention__none">%s</p></section>', esc_html__( 'Nothing is waiting for you today.', 'wpcredits-program-manager' ) );
-
-			return;
-		}
-
-		echo '<ul class="wpcpm-attention__tiles">';
-
-		foreach ( $counts as $tile ) {
-			printf(
-				'<li class="wpcpm-attention__tile"><a class="wpcpm-attention__link" href="%1$s"><span class="wpcpm-attention__n">%2$s</span><span class="wpcpm-attention__l">%3$s</span></a></li>',
-				isset( $tile['url'] ) ? esc_url( (string) $tile['url'] ) : '#wpcpm-' . esc_attr( $tile['card'] ),
-				esc_html( isset( $tile['shown'] ) ? (string) $tile['shown'] : number_format_i18n( (int) $tile['n'] ) ),
-				esc_html( $tile['label'] )
-			);
-		}
-
-		echo '</ul></section>';
-	}
-
-	/**
 	 * Institution applications: the open ones with the six decisions, the closed ones folded, and
 	 * last the way to the Institutions screen's queue tab, which lists the same open applications.
 	 *
@@ -2155,17 +2375,13 @@ final class WPCPM_Administrators_Cards {
 
 		if ( ! empty( $closed ) ) {
 			$closed_real = WPCPM_Test_Institutions::count_real_rows( $closed, 'post_title' );
-
-			printf(
-				'<details class="wpcpm-administrator__closed"><summary>%s</summary>',
-				esc_html(
-					sprintf(
-						/* translators: %s: a number of applications. */
-						_n( '%s rejected or spam application', '%s rejected or spam applications', $closed_real, 'wpcredits-program-manager' ),
-						number_format_i18n( $closed_real )
-					)
-				)
+			$summary     = sprintf(
+				/* translators: %s: a number of applications. */
+				_n( '%s rejected or spam application', '%s rejected or spam applications', $closed_real, 'wpcredits-program-manager' ),
+				number_format_i18n( $closed_real )
 			);
+			// The inner fold, the summary its title, closed (Task 17b fix round).
+			echo WPCPM_UI::inner_open( array( 'title' => $summary ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
 
 			foreach ( $closed as $post ) {
 				if ( $post instanceof WP_Post ) {
@@ -2177,7 +2393,7 @@ final class WPCPM_Administrators_Cards {
 				self::render_more_line( $closed_total - $closed_real, true );
 			}
 
-			echo '</details>';
+			echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 		}
 
 		self::render_screen_line( $screen );
@@ -2210,10 +2426,10 @@ final class WPCPM_Administrators_Cards {
 			$line = _n( '%s more is waiting; it is listed here as these are decided.', '%s more are waiting; they are listed here as these are decided.', $n, 'wpcredits-program-manager' );
 		}
 
-		printf(
-			'<p class="wpcpm-administrator__more">%s</p>',
-			esc_html( sprintf( $line, '' !== (string) $shown ? (string) $shown : number_format_i18n( $n ) ) )
-		);
+		$words = sprintf( $line, '' !== (string) $shown ? (string) $shown : number_format_i18n( $n ) );
+
+		// The parts' muted note in today's words, with no hairline.
+		echo WPCPM_UI::intro( $words, 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 	}
 
 	/**
@@ -2238,10 +2454,10 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * One application: its title, linking to it in the Institutions screen's queue as a sponsor
-	 * application's links to its own, its facts with the state in the Institutions screen's words,
-	 * a note when the anti-spam checks held it, its answers behind a disclosure, and the module's
-	 * decisions.
+	 * One application, on the shared parts (`render_application_parts()`): its title, linking to it in
+	 * the Institutions screen's queue as a sponsor application's links to its own, its facts with the
+	 * state in the Institutions screen's words, a note when the anti-spam checks held it, its answers
+	 * behind a fold, and the module's decisions.
 	 *
 	 * @param WP_Post     $post   The application.
 	 * @param object|null $module The Institutions module, which owns the answers and the forms.
@@ -2253,50 +2469,67 @@ final class WPCPM_Administrators_Cards {
 		$at      = (int) get_post_time( 'U', true, $post );
 		$manager = WPCPM_Institution_Assignment::application_label( (int) $post->ID );
 
-		printf( '<article class="wpcpm-administrator__item wpcpm-application" id="wpcpm-application-%d">', (int) $post->ID );
-		printf(
-			'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a>%3$s <code class="wpcpm-administrator__ref">%4$s</code></h4>',
-			esc_url( WPCPM_Institution_Application::queue_url( (int) $post->ID ) ),
-			esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),
-			WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mark() escapes its classes, title and word.
-			esc_html( WPCPM_Institutions::application_reference( $post ) )
-		);
-		echo '<p class="wpcpm-administrator__facts">';
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( WPCPM_Institutions::application_state_label( $state ) ) );
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( WPCPM_Institutions::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) ) ) );
+		self::render_application_parts( $post, $module, $state, $country, $name, $at, $manager );
+	}
+
+	/**
+	 * One application on the shared parts (design 2.10, 2.3, 4.1): the item header (the name linked to the queue, the test mark, the reference, the state as a
+	 * neutral tag, then the country, the Administrator and the received date as facts), the held note as
+	 * today, "Read the application" as an inner fold, and the module's one Decide area.
+	 *
+	 * The item keeps its article and its anchor, which a mail, the queue and a decision's way back link to.
+	 * The Decide area follows the fold straight inside it, with no wrapper of its own: the card's body gives
+	 * the room around it.
+	 *
+	 * @param WP_Post     $post    The application.
+	 * @param object|null $module  The Institutions module.
+	 * @param string      $state   Its state.
+	 * @param string      $country Its country's record ID.
+	 * @param string      $name    Its name as filed.
+	 * @param int         $at      When it was received.
+	 * @param string      $manager The Administrator it is assigned to, or ''.
+	 */
+	private static function render_application_parts( WP_Post $post, $module, $state, $country, $name, $at, $manager ) {
+		$facts = array( WPCPM_Institutions::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) ) );
 
 		if ( '' !== $manager ) {
-			printf(
-				'<span class="wpcpm-administrator__fact">%s</span>',
-				esc_html(
-					sprintf(
-						/* translators: %s: an Administrator's name or address. */
-						__( 'Assigned to %s', 'wpcredits-program-manager' ),
-						$manager
-					)
-				)
-			);
+			/* translators: %s: an Administrator's name or address. */
+			$facts[] = sprintf( __( 'Assigned to %s', 'wpcredits-program-manager' ), $manager );
 		}
 
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( self::received( $at ) ) );
-		echo '</p>';
+		$facts[] = self::received( $at );
+
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ),
+				'href'  => WPCPM_Institution_Application::queue_url( (int) $post->ID ),
+				'mark'  => WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ),
+				'ref'   => WPCPM_Institutions::application_reference( $post ),
+				'tag'   => array(
+					'words' => WPCPM_Institutions::application_state_label( $state ),
+					'tone'  => '',
+				),
+				'facts' => $facts,
+			)
+		);
+
+		echo WPCPM_UI::item_open( 'wpcpm-application', 'wpcpm-application-' . (int) $post->ID ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); mark() escapes its classes, title and word.
 
 		if ( WPCPM_Institution_Application::STATE_HELD === $state ) {
-			printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Held by the anti-spam checks. Open it on the Institutions screen to read which.', 'wpcredits-program-manager' ) );
+			echo WPCPM_UI::note( __( 'Held by the anti-spam checks. Open it on the Institutions screen to read which.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
 		}
 
-		printf( '<details class="wpcpm-administrator__answers"><summary>%s</summary>', esc_html__( 'Read the application', 'wpcredits-program-manager' ) );
+		echo WPCPM_UI::inner_open( array( 'title' => __( 'Read the application', 'wpcredits-program-manager' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
 
 		if ( is_object( $module ) && method_exists( $module, 'render_application_answers' ) ) {
 			$module->render_application_answers( $post );
 		}
 
-		echo '</details>';
+		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 
 		if ( is_object( $module ) && method_exists( $module, 'render_application_actions' ) ) {
-			echo '<div class="wpcpm-administrator__actions">';
 			$module->render_application_actions( $post, $state, WPCPM_Return::DASHBOARD );
-			echo '</div>';
 		}
 
 		echo '</article>';
@@ -2332,28 +2565,59 @@ final class WPCPM_Administrators_Cards {
 				)
 			)
 		);
-		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'Awaiting review', 'wpcredits-program-manager' ) );
 
+		self::render_agreements_parts( $awaiting, $returned, $revoked );
+		self::render_screen_line( $screen );
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * The Collaboration Agreements card's body on the shared parts (design 2.10, 2.8, 4.1): each agreement awaiting review is an item header (the name linked
+	 * to the institution, its test mark, the tag "Awaiting review", red while overdue, then the upload and Overdue as facts) with
+	 * no heading above the items, then the panel's review block, whose Decide area the panel draws; the
+	 * returned and the revoked are folded under today's summaries as list rows.
+	 *
+	 * Each item keeps its article, and the overdue one its mark, as today.
+	 *
+	 * @param array $awaiting `id`, `record`, `at`, `overdue`.
+	 * @param array $returned `id`, `record`, `at`, `note`.
+	 * @param array $revoked  The same.
+	 */
+	private static function render_agreements_parts( array $awaiting, array $returned, array $revoked ) {
 		if ( empty( $awaiting ) ) {
 			self::empty_line( __( 'No signed agreement is waiting.', 'wpcredits-program-manager' ) );
 		}
 
 		foreach ( $awaiting as $row ) {
-			printf( '<article class="wpcpm-administrator__item wpcpm-agreement%s">', ! empty( $row['overdue'] ) ? ' wpcpm-administrator__item--overdue' : '' );
-			printf( '<h4 class="wpcpm-administrator__item-title">%s</h4>', self::institution_link( $row['record'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-			echo '<p class="wpcpm-administrator__facts">';
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( self::uploaded( (int) $row['at'] ) ) );
+			$name  = self::institution_name( $row['record'] );
+			$facts = array( self::uploaded( (int) $row['at'] ) );
 
 			if ( ! empty( $row['overdue'] ) ) {
-				printf( '<span class="wpcpm-administrator__fact wpcpm-administrator__fact--overdue">%s</span>', esc_html__( 'Overdue', 'wpcredits-program-manager' ) );
+				$facts[] = __( 'Overdue', 'wpcredits-program-manager' );
 			}
 
-			echo '</p>';
+			$header = WPCPM_UI::item_header(
+				array(
+					'name'  => $name,
+					'href'  => self::institution_href( $row['record'] ),
+					'mark'  => WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ),
+					// Red while it is overdue, which the facts also say in words.
+					'tag'   => array(
+						'words' => __( 'Awaiting review', 'wpcredits-program-manager' ),
+						'tone'  => ! empty( $row['overdue'] ) ? 'red' : '',
+					),
+					'facts' => $facts,
+				)
+			);
+
+			// An overdue item says so by its red tag and its word; the parts draw no side stripe (Task 17b, ruling 7).
+			echo WPCPM_UI::item_open( 'wpcpm-agreement' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+			echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); mark() escapes its classes, title and word.
 			WPCPM_Institution_Panel::render_review( (int) $row['id'], true, WPCPM_Return::DASHBOARD );
 			echo '</article>';
 		}
 
-		self::render_agreement_list(
+		self::render_agreement_rows(
 			$returned,
 			/* translators: %s: a number of institutions. */
 			__( '%s returned, waiting for a new upload', 'wpcredits-program-manager' ),
@@ -2361,7 +2625,7 @@ final class WPCPM_Administrators_Cards {
 			__( '%s returned, waiting for new uploads', 'wpcredits-program-manager' ),
 			false
 		);
-		self::render_agreement_list(
+		self::render_agreement_rows(
 			$revoked,
 			/* translators: %s: a number of institutions. */
 			__( '%s revoked agreement', 'wpcredits-program-manager' ),
@@ -2369,68 +2633,84 @@ final class WPCPM_Administrators_Cards {
 			__( '%s revoked agreements', 'wpcredits-program-manager' ),
 			true
 		);
-
-		self::render_screen_line( $screen );
-		WPCPM_Dashboard_Card::close();
 	}
 
 	/**
-	 * A folded list of returned or revoked agreements; the revoked ones offer Reinstate.
+	 * A folded list of returned or revoked agreements on the shared parts, under today's summary: one list row
+	 * each, the name linked to the institution, the date as a fact, the note on its own line, and on a revoked one Reinstate
+	 * as the quiet row action, a form that posts at once what today's form posts.
 	 *
 	 * @param array  $rows      `id`, `record`, `at`, `note`.
 	 * @param string $singular  The summary, singular, with %s for the count.
 	 * @param string $plural    The summary, plural.
-	 * @param bool   $reinstate Whether to draw the Reinstate form.
+	 * @param bool   $reinstate Whether to offer Reinstate.
 	 */
-	private static function render_agreement_list( array $rows, $singular, $plural, $reinstate ) {
+	private static function render_agreement_rows( array $rows, $singular, $plural, $reinstate ) {
 		if ( empty( $rows ) ) {
 			return;
 		}
 
-		// The sentences are translated by the caller, so _n() would translate them twice;
-		// the count picks the form here.
+		// The sentences are translated by the caller, so _n() would translate them twice; the count picks the form here.
 		$real = WPCPM_Test_Institutions::count_real_rows( $rows, 'record' );
 
-		printf( '<details class="wpcpm-administrator__closed"><summary>%s</summary>', esc_html( sprintf( 1 === $real ? $singular : $plural, number_format_i18n( $real ) ) ) );
+		// The inner fold, today's summary its title, closed as today (Task 17b fix round).
+		echo WPCPM_UI::inner_open( array( 'title' => sprintf( 1 === $real ? $singular : $plural, number_format_i18n( $real ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
+		// No row carries a tag, so each row's date sits under its name (Task 18c).
+		echo WPCPM_UI::list_open( array( 'facts' => 'under' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 
 		foreach ( $rows as $row ) {
-			echo '<article class="wpcpm-administrator__item wpcpm-agreement">';
-			printf( '<h4 class="wpcpm-administrator__item-title">%s</h4>', self::institution_link( $row['record'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-			printf( '<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">%s</span></p>', esc_html( self::when( (int) $row['at'] ) ) );
+			$name = self::institution_name( $row['record'] );
+			$line = WPCPM_UI::row(
+				array(
+					'name'    => $name,
+					'href'    => self::institution_href( $row['record'] ),
+					'mark'    => WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ),
+					'facts'   => array( self::when_whole( (int) $row['at'] ) ),
+					// The Administrator's note on a line of its own, its line breaks kept.
+					'note'    => (string) $row['note'],
+					'actions' => $reinstate ? array( self::reinstate_form( (int) $row['id'] ) ) : array(),
+				)
+			);
 
-			if ( '' !== $row['note'] ) {
-				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html( $row['note'] ) );
-			}
-
-			if ( $reinstate ) {
-				self::render_reinstate_form( (int) $row['id'] );
-			}
-
-			echo '</article>';
+			echo $line; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row(); mark() escapes its classes, title and word; the form in reinstate_form().
 		}
 
-		echo '</details>';
+		echo WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 	}
 
 	/**
-	 * The Reinstate form, drawn here because nothing else draws one: the handler and its nonce
-	 * exist in the agreement class, and the queue never offered the button. Drawn on this page
-	 * alone, so it always carries the way back to this card.
+	 * The Reinstate form on the shared parts, drawn here because nothing else draws one: the handler and its nonce
+	 * exist in the agreement class. It posts to admin-post.php under the once guard, the `ACTION_REINSTATE` nonce
+	 * keyed to the document printed with no id (`WPCPM_UI::nonce()`), since a card may hold more than one, the
+	 * document and the way back to this card; its one button is the quiet row action. It asks nothing before it posts.
 	 *
 	 * @param int $post_id The revoked document.
+	 * @return string Escaped markup.
 	 */
-	private static function render_reinstate_form( $post_id ) {
-		printf(
-			'<form class="wpcpm-administrator__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+	private static function reinstate_form( $post_id ) {
+		ob_start();
+		WPCPM_Return::field( WPCPM_Return::DASHBOARD, 'agreements' );
+		$back = (string) ob_get_clean();
+
+		return sprintf(
+			'<form method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Reinstating', 'wpcredits-program-manager' )
-		);
-		wp_nonce_field( WPCPM_Institution_Agreement::ACTION_REINSTATE . '_' . (int) $post_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_REINSTATE ) );
-		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
-		WPCPM_Return::field( WPCPM_Return::DASHBOARD, 'agreements' );
-		printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html__( 'Reinstate', 'wpcredits-program-manager' ) );
-		echo '</form>';
+		)
+			. WPCPM_UI::nonce( WPCPM_Institution_Agreement::ACTION_REINSTATE . '_' . (int) $post_id )
+			. sprintf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_REINSTATE ) )
+			. sprintf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id )
+			. $back
+			. WPCPM_UI::button(
+				array(
+					'label' => __( 'Reinstate', 'wpcredits-program-manager' ),
+					'kind'  => 'quiet',
+					// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+					'side'  => 'front',
+				)
+			)
+			. '</form>';
 	}
 
 	/**
@@ -2469,97 +2749,157 @@ final class WPCPM_Administrators_Cards {
 			)
 		);
 
-		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $review_title ), esc_html__( 'To review', 'wpcredits-program-manager' ) );
-
-		if ( empty( $queue ) ) {
-			self::empty_line( __( 'No draft is waiting for review.', 'wpcredits-program-manager' ) );
-		} else {
-			self::scroll_open( array( self::title_id( 'reports' ), $review_title ) );
-			echo '<table class="wpcpm-admin-table"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Institution', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Semester', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Drafted', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'Still in progress', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Age', 'wpcredits-program-manager' ) );
-			echo '<th scope="col"></th></tr></thead><tbody>';
-
-			foreach ( $queue as $row ) {
-				printf(
-					'<tr><td>%1$s</td><td>%2$s</td><td>%3$s</td><td class="wpcpm-admin-table__n">%4$s</td><td>%5$s</td><td><a class="wpcpm-button wpcpm-button--secondary" href="%6$s">%7$s</a></td></tr>',
-					self::institution_link( $row['institution'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-					esc_html( WPCPM_Cohort::label( $row['cohort'] ) ),
-					esc_html( self::drafted( (int) $row['generated'], (string) $row['origin'] ) ),
-					esc_html( number_format_i18n( (int) $row['in_progress'] ) ),
-					esc_html( sprintf( /* translators: %s: a number of days. */ _n( '%s day', '%s days', (int) $row['age_days'], 'wpcredits-program-manager' ), number_format_i18n( (int) $row['age_days'] ) ) ),
-					esc_url( self::report_link( $row['institution'], $row['cohort'] ) ),
-					esc_html__( 'Review', 'wpcredits-program-manager' )
-				);
-			}
-
-			echo '</tbody></table></div>';
-		}
-
-		printf( '<h4 class="wpcpm-administrator__subtitle" id="%1$s">%2$s</h4>', esc_attr( $due_title ), esc_html__( 'Due for drafting', 'wpcredits-program-manager' ) );
-
-		if ( empty( $due ) ) {
-			self::empty_line( __( 'Nothing is waiting: every finished semester has a report, or is not finished yet.', 'wpcredits-program-manager' ) );
-		} else {
-			self::scroll_open( array( self::title_id( 'reports' ), $due_title ) );
-			echo '<table class="wpcpm-admin-table"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Institution', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Semester', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Window ended', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'Still in progress', 'wpcredits-program-manager' ) );
-			echo '<th scope="col"></th></tr></thead><tbody>';
-
-			foreach ( $due as $pair ) {
-				printf(
-					'<tr><td>%1$s</td><td>%2$s</td><td>%3$s</td><td class="wpcpm-admin-table__n">%4$s</td><td>',
-					self::institution_link( $pair['institution'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-					esc_html( WPCPM_Cohort::label( $pair['cohort'] ) ),
-					esc_html( $pair['window_end'] ),
-					esc_html( number_format_i18n( (int) $pair['in_progress'] ) )
-				);
-				// The dashboard return: a refusal (the semester already has a report, or the
-				// ceiling for today is spent) comes back here rather than to the wp-admin
-				// default; a successful draft still opens the new draft in the editor either
-				// way (final review, Important 2).
-				WPCPM_Semester_Report_Screen::render_draft_form( $pair['institution'], $pair['cohort'], '', WPCPM_Return::DASHBOARD );
-				echo '</td></tr>';
-			}
-
-			echo '</tbody></table></div>';
-		}
-
-		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'Approved this semester', 'wpcredits-program-manager' ) );
-
-		if ( empty( $approved ) ) {
-			self::empty_line( __( 'No report has been approved this semester yet.', 'wpcredits-program-manager' ) );
-		} else {
-			echo '<ul class="wpcpm-administrator__list">';
-
-			foreach ( $approved as $row ) {
-				$by = ! empty( $row['approved_by'] ) ? get_user_by( 'id', (int) $row['approved_by'] ) : false;
-
-				printf(
-					'<li>%1$s, %2$s: %3$s <a href="%4$s">%5$s</a></li>',
-					self::institution_link( $row['institution'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-					esc_html( WPCPM_Cohort::label( $row['cohort'] ) ),
-					esc_html(
-						$by instanceof WP_User
-							? sprintf( /* translators: 1: a date, 2: an Administrator's name. */ __( 'approved on %1$s by %2$s', 'wpcredits-program-manager' ), self::when( (int) $row['approved_at'] ), $by->display_name )
-							: sprintf( /* translators: %s: a date. */ __( 'approved on %s', 'wpcredits-program-manager' ), self::when( (int) $row['approved_at'] ) )
-					),
-					esc_url( self::report_link( $row['institution'], $row['cohort'] ) ),
-					esc_html__( 'View', 'wpcredits-program-manager' )
-				);
-			}
-
-			echo '</ul>';
-		}
-
+		self::render_reports_parts( $queue, $due, $approved, array( $review_title, $due_title, 'wpcpm-reports-approved-title' ) );
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * The Semester reports card's three parts on the shared parts (design 2.7, 2.11, 4.1): each part's heading through the heading part, the two ids kept and one given to
+	 * "Approved this semester" so its table is named as the other two are, then its table through the table part,
+	 * named by the card's title and that heading (the table part replaces today's scroll box), or today's empty
+	 * sentence as the parts' muted line. The counts and the age are numbers; the day a window ended is a date; when a
+	 * report was approved and by whom is `marked_final()`'s words. The action column holds the quiet row action:
+	 * Review and View, the links to the report's editor as today, each naming its institution and semester for a
+	 * screen reader, and Draft now, the report screen's own form, coming back here as today.
+	 *
+	 * @param array[]  $queue    The drafts to review.
+	 * @param array[]  $due      The semesters due for drafting.
+	 * @param array[]  $approved The reports approved this semester.
+	 * @param string[] $titles   The three headings' ids: to review, due, approved.
+	 */
+	private static function render_reports_parts( array $queue, array $due, array $approved, array $titles ) {
+		$card     = self::title_id( 'reports' );
+		$column   = static function ( $key, $label, $kind ) {
+			return array(
+				'key'   => $key,
+				'label' => $label,
+				'kind'  => $kind,
+			);
+		};
+		$semester = $column( 'semester', __( 'Semester', 'wpcredits-program-manager' ), 'text' );
+		$drafted  = $column( 'drafted', __( 'Drafted', 'wpcredits-program-manager' ), 'text' );
+		$progress = $column( 'progress', __( 'Still in progress', 'wpcredits-program-manager' ), 'num' );
+		$age      = $column( 'age', __( 'Age', 'wpcredits-program-manager' ), 'num' );
+		$ended    = $column( 'ended', __( 'Window ended', 'wpcredits-program-manager' ), 'date' );
+		$when     = $column( 'approved', __( 'Approved', 'wpcredits-program-manager' ), 'text' );
+		$action   = $column( 'action', '', 'action' );
+
+		// The institution is each row's header, as on every other wide table (Task 17b, ruling 4).
+		$school           = $column( 'institution', __( 'Institution', 'wpcredits-program-manager' ), 'text' );
+		$school['header'] = 'row';
+
+		// The three tables are one family (design 2.7; task V1, ruling 14): each column of a kind starts at the same
+		// place in all three, the institution wide enough for a school's name on one line where the card has room.
+		$sized = static function ( array $col, $width ) {
+			$col['width'] = $width;
+			return $col;
+		};
+		// A semester's name is whole (about 150px with its cell): at 20% the family needs about 870px, so it stacks while
+		// the main area is under 936px; the semester takes 2% from the drafted and ended column (Task 18f, fix round 2).
+		$family = array(
+			'fixed' => true,
+			'wide'  => 936,
+		);
+		// Shares that hold each column's longest unbroken content at 902px of table, the narrowest it is drawn as one: the
+		// whole semester (about 174px), a whole date (about 149px), "Still in progress" (about 124px), "441 days" (about
+		// 79px), Review (about 62px); the school takes the rest (Task 18f, fix round 3).
+		$school   = $sized( $school, '23%' );
+		$semester = $sized( $semester, '20%' );
+		$drafted  = $sized( $drafted, '18%' );
+		$ended    = $sized( $ended, '18%' );
+		$progress = $sized( $progress, '15%' );
+		$age      = $sized( $age, '10%' );
+
+		// The row action: a quiet link to the report's editor as that institution, as today, naming the institution
+		// and the semester for a screen reader, since every row's link says the same word.
+		// With no address for the report (the Institution Dashboard's page is missing), the cell holds nothing: a quiet
+		// button with no link would print as a submit outside any form.
+		$open = static function ( $label, array $row ) {
+			$href = self::report_link( $row['institution'], $row['cohort'] );
+
+			if ( '' === $href ) {
+				return '';
+			}
+
+			return WPCPM_UI::button(
+				array(
+					'label'   => $label,
+					'kind'    => 'quiet',
+					'href'    => $href,
+					'context' => self::institution_name( $row['institution'] ) . ', ' . WPCPM_Cohort::label( $row['cohort'] ),
+					// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+					'side'    => 'front',
+				)
+			);
+		};
+
+		echo WPCPM_UI::heading( __( 'To review', 'wpcredits-program-manager' ), 'h4', $titles[0] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $queue ) ) {
+			echo WPCPM_UI::list_empty( __( 'No draft is waiting for review.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
+		} else {
+			$table = WPCPM_UI::table_open( array( $school, $semester, $drafted, $progress, $age, $sized( $action, '14%' ) ), $family + array( 'labelledby' => $card . ' ' . $titles[0] ) );
+
+			foreach ( $queue as $row ) {
+				$table .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $school, self::institution_link( $row['institution'] ) )
+					. WPCPM_UI::cell( $semester, esc_html( self::whole_text( WPCPM_Cohort::label( $row['cohort'] ) ) ) )
+					. WPCPM_UI::cell( $drafted, esc_html( self::drafted( (int) $row['generated'], (string) $row['origin'] ) ) )
+					. WPCPM_UI::cell( $progress, esc_html( number_format_i18n( (int) $row['in_progress'] ) ) )
+					. WPCPM_UI::cell( $age, esc_html( sprintf( /* translators: %s: a number of days. */ _n( '%s day', '%s days', (int) $row['age_days'], 'wpcredits-program-manager' ), number_format_i18n( (int) $row['age_days'] ) ) ) )
+					. WPCPM_UI::cell( $action, $open( __( 'Review', 'wpcredits-program-manager' ), $row ) )
+					. WPCPM_UI::row_close();
+			}
+
+			echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; institution_link() escapes the name and the href, each value through esc_html() above, the action through WPCPM_UI::button().
+		}
+
+		echo WPCPM_UI::heading( __( 'Due for drafting', 'wpcredits-program-manager' ), 'h4', $titles[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $due ) ) {
+			echo WPCPM_UI::list_empty( __( 'Nothing is waiting: every finished semester has a report, or is not finished yet.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
+		} else {
+			$table = WPCPM_UI::table_open( array( $school, $semester, $ended, $progress, $action ), $family + array( 'labelledby' => $card . ' ' . $titles[1] ) );
+
+			foreach ( $due as $pair ) {
+				// The dashboard return, as today: a refusal comes back to this card.
+				ob_start();
+				WPCPM_Semester_Report_Screen::render_draft_form( $pair['institution'], $pair['cohort'], '', WPCPM_Return::DASHBOARD );
+				$form = (string) ob_get_clean();
+
+				$table .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $school, self::institution_link( $pair['institution'] ) )
+					. WPCPM_UI::cell( $semester, esc_html( self::whole_text( WPCPM_Cohort::label( $pair['cohort'] ) ) ) )
+					. WPCPM_UI::cell( $ended, esc_html( $pair['window_end'] ) )
+					. WPCPM_UI::cell( $progress, esc_html( number_format_i18n( (int) $pair['in_progress'] ) ) )
+					. WPCPM_UI::cell( $action, $form )
+					. WPCPM_UI::row_close();
+			}
+
+			echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; institution_link() escapes the name and the href, each value through esc_html() above, the form by its renderer.
+		}
+
+		echo WPCPM_UI::heading( __( 'Approved this semester', 'wpcredits-program-manager' ), 'h4', $titles[2] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
+
+		if ( empty( $approved ) ) {
+			echo WPCPM_UI::list_empty( __( 'No report has been approved this semester yet.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
+
+			return;
+		}
+
+		$table = WPCPM_UI::table_open( array( $school, $semester, $when, $sized( $action, '14%' ) ), $family + array( 'labelledby' => $card . ' ' . $titles[2] ) );
+
+		foreach ( $approved as $row ) {
+			$table .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $school, self::institution_link( $row['institution'] ) )
+				. WPCPM_UI::cell( $semester, esc_html( self::whole_text( WPCPM_Cohort::label( $row['cohort'] ) ) ) )
+				. WPCPM_UI::cell( $when, esc_html( self::marked_final( (int) $row['approved_at'], (int) $row['approved_by'] ) ), (int) $row['approved_at'] > 0 ? '' : 'empty' )
+				. WPCPM_UI::cell( $action, $open( __( 'View', 'wpcredits-program-manager' ), $row ) )
+				. WPCPM_UI::row_close();
+		}
+
+		echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; institution_link() escapes the name and the href, each value through esc_html() above, the action through WPCPM_UI::button().
 	}
 
 	/**
@@ -2604,54 +2944,103 @@ final class WPCPM_Administrators_Cards {
 				continue;
 			}
 
-			printf( '<article class="wpcpm-administrator__item wpcpm-request%s">', ! empty( $facts['overdue'] ) ? ' wpcpm-administrator__item--overdue' : '' );
-			printf( '<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>', self::institution_link( $facts['institution'] ), esc_html( $facts['kind_label'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-			echo '<p class="wpcpm-administrator__facts">';
-			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( /* translators: %s: how long ago. */ __( 'Opened %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $facts['at'], time() ) ) ) );
-
-			if ( ! empty( $facts['overdue'] ) ) {
-				printf( '<span class="wpcpm-administrator__fact wpcpm-administrator__fact--overdue">%s</span>', esc_html__( 'Overdue', 'wpcredits-program-manager' ) );
-			}
-
-			echo '</p>';
-
-			if ( '' !== (string) $facts['note'] ) {
-				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html( $facts['note'] ) );
-			}
-
-			WPCPM_Institution_Request::render_decisions( (int) $facts['id'], WPCPM_Return::DASHBOARD );
-			echo '</article>';
+			self::render_request_parts( $facts );
 		}
 
 		if ( ! empty( $closed ) ) {
-			printf( '<details class="wpcpm-administrator__closed"><summary>%s</summary><ul class="wpcpm-administrator__list">', esc_html__( 'Recently closed', 'wpcredits-program-manager' ) );
-
-			foreach ( $closed as $facts ) {
-				// Which date this is, said in the sentence. The card is "Recently closed" and
-				// the list is in closing order, so a bare date read as the closing one while it
-				// was the opening one, months earlier (deep check FADMN-3). A row closed before
-				// 1.99.0 carries no closing stamp, and says so rather than guessing.
-				$closed_at = isset( $facts['closed_at'] ) ? (int) $facts['closed_at'] : 0;
-				$dated     = $closed_at > 0
-					/* translators: %s: a date and time. */
-					? sprintf( __( 'closed on %s', 'wpcredits-program-manager' ), self::when( $closed_at ) )
-					/* translators: %s: a date and time. */
-					: sprintf( __( 'opened on %s', 'wpcredits-program-manager' ), self::when( (int) $facts['at'] ) );
-
-				printf(
-					'<li>%1$s, %2$s: %3$s, %4$s</li>',
-					self::institution_link( $facts['institution'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-					esc_html( $facts['kind_label'] ),
-					esc_html( self::request_outcome( $facts ) ),
-					esc_html( $dated )
-				);
-			}
-
-			echo '</ul></details>';
+			self::render_closed_requests_parts( $closed );
 		}
 
 		self::render_screen_line( $screen );
 		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * One open request on the shared parts (design 2.10, 4.1):
+	 * the item header (the institution linked, its test mark, the red tag "Overdue" while it is overdue and no tag
+	 * otherwise, then the request's kind and how long ago it was opened as facts), the school's note as today,
+	 * then the request class's decisions, whose Decide area that class draws.
+	 *
+	 * The item keeps its article, and the overdue one its mark, as today. A school's details request is not drawn
+	 * here: it keeps `render_details_request()`.
+	 *
+	 * @param array $facts One open request's facts.
+	 */
+	private static function render_request_parts( array $facts ) {
+		$name   = self::institution_name( $facts['institution'] );
+		$header = WPCPM_UI::item_header(
+			array(
+				'name'  => $name,
+				'href'  => self::institution_href( $facts['institution'] ),
+				'mark'  => WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ),
+				// Today's word for a request past its days, now the item's tag; a request in time has none.
+				'tag'   => ! empty( $facts['overdue'] ) ? array(
+					'words' => __( 'Overdue', 'wpcredits-program-manager' ),
+					'tone'  => 'red',
+				) : null,
+				'facts' => array(
+					(string) $facts['kind_label'],
+					/* translators: %s: how long ago. */
+					sprintf( __( 'Opened %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $facts['at'], time() ) ),
+				),
+			)
+		);
+
+		// An overdue item says so by its red tag and its word; the parts draw no side stripe (Task 17b, ruling 7).
+		echo WPCPM_UI::item_open( 'wpcpm-request' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); mark() escapes its classes, title and word.
+
+		if ( '' !== (string) $facts['note'] ) {
+			echo WPCPM_UI::note( (string) $facts['note'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::note().
+		}
+
+		WPCPM_Institution_Request::render_decisions( (int) $facts['id'], WPCPM_Return::DASHBOARD );
+		echo '</article>';
+	}
+
+	/**
+	 * Recently closed on the shared parts (design 2.8; Task 17b, ruling 2; task V1, ruling 6): under today's fold and
+	 * summary, one list row per request, the institution its name, linked and marked as today; what became of it, in
+	 * today's word, as a neutral tag in the row's tag column; its kind and which date this is as facts, in today's words;
+	 * and the note it was closed with (`WPCPM_Institution_Request::settle()` writes it to the request's note), when there
+	 * is one, as the row's note under it. Who closed it is not drawn: it is not in a request's facts, and this release
+	 * adds no read for it (the controller's ruling on what task V1 left open).
+	 *
+	 * @param array[] $closed The closed requests' facts, in closing order.
+	 */
+	private static function render_closed_requests_parts( array $closed ) {
+		// The inner fold, today's summary its title, closed as today (Task 17b fix round).
+		echo WPCPM_UI::inner_open( array( 'title' => __( 'Recently closed', 'wpcredits-program-manager' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::inner_open().
+		echo WPCPM_UI::list_open(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+
+		foreach ( $closed as $facts ) {
+			// Which date this is, said in the words, as render_requests() says it.
+			$closed_at = isset( $facts['closed_at'] ) ? (int) $facts['closed_at'] : 0;
+			$dated     = $closed_at > 0
+				/* translators: %s: a date and time. */
+				? sprintf( __( 'closed on %s', 'wpcredits-program-manager' ), self::when_whole( $closed_at ) )
+				/* translators: %s: a date and time. */
+				: sprintf( __( 'opened on %s', 'wpcredits-program-manager' ), self::when_whole( (int) $facts['at'] ) );
+			$name = self::institution_name( $facts['institution'] );
+			$line = WPCPM_UI::row(
+				array(
+					'name'  => $name,
+					'href'  => self::institution_href( $facts['institution'] ),
+					'mark'  => WPCPM_Test_Institutions::mark( $name, WPCPM_Test_Institutions::MARK_DASHBOARD ),
+					'tag'   => array(
+						'words' => self::request_outcome( $facts ),
+						'tone'  => '',
+					),
+					'facts' => array( (string) $facts['kind_label'], $dated ),
+					'note'  => isset( $facts['note'] ) ? (string) $facts['note'] : '',
+				)
+			);
+
+			echo $line; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row(); mark() escapes its classes, title and word.
+		}
+
+		echo WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
+		echo WPCPM_UI::inner_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed markup.
 	}
 
 	/**
@@ -2680,105 +3069,111 @@ final class WPCPM_Administrators_Cards {
 	 *
 	 * The school's name linked as every other name here is, who asked and on which day, how long it has
 	 * waited as the other requests say it, the details it asks to change as a table of Detail, On record
-	 * now and Asked for, then the note box and the two buttons. **"On record now" is what the request's
+	 * now and Asked for, then the request class's Decide area (`render_details_request_parts()`). **"On record now" is what the request's
 	 * facts hold, which they read from the index when they were built (`WPCPM_Institution_Request::facts()`),
 	 * so a detail the program team changed in Airtable since the school asked shows as it is.** Approve
 	 * writes the asked values to the program's records and tells the school; Decline needs the note, which
 	 * the school reads. The handler behind both is `WPCPM_Institution_Request::handle_details_decide()`,
 	 * and the form posts the names it reads.
 	 *
-	 * The form is drawn for an account that manages the program and for nobody else, as the other
-	 * requests' is.
+	 * The decisions are drawn for an account that manages the program and for nobody else, as the other
+	 * requests' are.
 	 *
 	 * @param array $facts One open details request's facts, with its `changes` rows.
 	 */
 	private static function render_details_request( array $facts ) {
-		$id      = (int) $facts['id'];
-		$heading = 'wpcpm-request-' . $id . '-title';
+		$heading = 'wpcpm-request-' . (int) $facts['id'] . '-title';
 		$asker   = '' !== (string) $facts['actor_name'] ? (string) $facts['actor_name'] : __( 'a member of the institution', 'wpcredits-program-manager' );
 		$changes = isset( $facts['changes'] ) ? (array) $facts['changes'] : array();
 
-		printf( '<article class="wpcpm-administrator__item wpcpm-request wpcpm-request--details%s">', ! empty( $facts['overdue'] ) ? ' wpcpm-administrator__item--overdue' : '' );
-		// One sentence with the school's name in it, so a translator can put the name where the language wants it.
+		self::render_details_request_parts( $facts, $heading, $asker, $changes );
+	}
+
+	/**
+	 * One open details request on the shared parts (design 2.6, 2.7, 2.10): the item header holding today's sentence with the school's name linked (and its test mark), its
+	 * id kept for the table's label; the red tag "Overdue" while it is overdue; who asked and when, and how long it
+	 * has waited, as facts; the changes in the parts' table, Detail as the row header and what is asked kept strong,
+	 * labelled by the card's title and the request's, with no scroll box (the table stacks on a phone); then the
+	 * request class's own Decide area, Approve at once or Decline with the note the school reads
+	 * (`WPCPM_Institution_Request::render_details_decide()`), for an account that manages the program alone.
+	 *
+	 * @param array  $facts   One open details request's facts.
+	 * @param string $heading The title's id, which the table is labelled by.
+	 * @param string $asker   Who asked, in words.
+	 * @param array  $changes The changes asked for.
+	 */
+	private static function render_details_request_parts( array $facts, $heading, $asker, array $changes ) {
+		$id    = (int) $facts['id'];
 		$title = sprintf(
 			/* translators: %s: the institution's name, as a link to its page. */
 			esc_html__( '%s asks to correct its details', 'wpcredits-program-manager' ),
 			self::institution_link( $facts['institution'] )
 		);
 
-		printf( '<h4 class="wpcpm-administrator__item-title" id="%1$s">%2$s</h4>', esc_attr( $heading ), $title ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href, and the sentence around it is escaped; escaping it again would print its own markup.
-		echo '<p class="wpcpm-administrator__facts">';
-		printf(
-			'<span class="wpcpm-administrator__fact">%s</span>',
-			esc_html(
-				sprintf(
-					/* translators: 1: the name of the person who asked, or "a member of the institution" when their account is gone, 2: the day they asked. */
-					__( 'Asked by %1$s on %2$s', 'wpcredits-program-manager' ),
-					$asker,
-					WPCPM_Dates::day( (int) $facts['at'] )
-				)
+		$header = WPCPM_UI::item_header(
+			array(
+				// The sentence and the linked name are escaped above.
+				'name_html' => $title,
+				'id'        => $heading,
+				'tag'       => ! empty( $facts['overdue'] ) ? array(
+					'words' => __( 'Overdue', 'wpcredits-program-manager' ),
+					'tone'  => 'red',
+				) : null,
+				'facts'     => array(
+					sprintf(
+						/* translators: 1: the name of the person who asked, or "a member of the institution" when their account is gone, 2: the day they asked. */
+						__( 'Asked by %1$s on %2$s', 'wpcredits-program-manager' ),
+						$asker,
+						WPCPM_Dates::day( (int) $facts['at'] )
+					),
+					/* translators: %s: how long ago. */
+					sprintf( __( 'Opened %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $facts['at'], time() ) ),
+				),
 			)
 		);
-		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( /* translators: %s: how long ago. */ __( 'Opened %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $facts['at'], time() ) ) ) );
 
-		if ( ! empty( $facts['overdue'] ) ) {
-			printf( '<span class="wpcpm-administrator__fact wpcpm-administrator__fact--overdue">%s</span>', esc_html__( 'Overdue', 'wpcredits-program-manager' ) );
-		}
-
-		echo '</p>';
+		// An overdue item says so by its red tag and its word; the parts draw no side stripe (Task 17b, ruling 7).
+		echo WPCPM_UI::item_open( 'wpcpm-request wpcpm-request--details' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_open().
+		echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::item_header(); the sentence and institution_link() are escaped above.
 
 		if ( empty( $changes ) ) {
-			self::empty_line( __( 'This request holds no change to approve.', 'wpcredits-program-manager' ) );
+			echo WPCPM_UI::list_empty( __( 'This request holds no change to approve.', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
 		} else {
-			self::scroll_open( array( self::title_id( 'requests' ), $heading ) );
-			echo '<table class="wpcpm-admin-table wpcpm-request__changes"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Detail', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'On record now', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Asked for', 'wpcredits-program-manager' ) );
-			echo '</tr></thead><tbody>';
+			// A detail's value may be a website or an email address: its two columns may break anywhere (Task 18f).
+			$columns = array(
+				array(
+					'key'    => 'detail',
+					'label'  => __( 'Detail', 'wpcredits-program-manager' ),
+					'kind'   => 'text',
+					// A detail's name is its row's name: the row header, not a key and value table's label.
+					'header' => 'row',
+				),
+				array(
+					'key'   => 'now',
+					'label' => __( 'On record now', 'wpcredits-program-manager' ),
+					'kind'  => 'token',
+				),
+				array(
+					'key'   => 'asked',
+					'label' => __( 'Asked for', 'wpcredits-program-manager' ),
+					'kind'  => 'token',
+				),
+			);
+			$table   = WPCPM_UI::table_open( $columns, array( 'labelledby' => self::title_id( 'requests' ) . ' ' . $heading ) );
 
 			foreach ( $changes as $change ) {
-				printf(
-					'<tr><th scope="row">%1$s</th><td>%2$s</td><td><strong>%3$s</strong></td></tr>',
-					esc_html( (string) $change['label'] ),
-					esc_html( (string) $change['now'] ),
-					esc_html( (string) $change['asked'] )
-				);
+				$table .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $columns[0], esc_html( (string) $change['label'] ) )
+					. WPCPM_UI::cell( $columns[1], esc_html( (string) $change['now'] ) )
+					. WPCPM_UI::cell( $columns[2], '<strong>' . esc_html( (string) $change['asked'] ) . '</strong>' )
+					. WPCPM_UI::row_close();
 			}
 
-			echo '</tbody></table></div>';
+			echo $table . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the table parts; each value through esc_html() above.
 		}
 
 		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			printf(
-				'<form class="wpcpm-request__decide" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-				esc_url( admin_url( 'admin-post.php' ) ),
-				esc_attr__( 'Saving', 'wpcredits-program-manager' )
-			);
-			wp_nonce_field( WPCPM_Institution_Request::ACTION_DETAILS_DECIDE . '_' . $id );
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Request::ACTION_DETAILS_DECIDE ) );
-			printf( '<input type="hidden" name="request" value="%d" />', (int) $id );
-			WPCPM_Return::field( WPCPM_Return::DASHBOARD, 'requests' );
-
-			// A decision refused for its note comes back with the note as it was typed, in this
-			// request's box only.
-			$kept = WPCPM_Typed_Text::kept_box( WPCPM_Typed_Text::box_form( WPCPM_Institution_Request::TYPED_NOTE, $id ), 'note' );
-
-			printf(
-				'<p><label for="wpcpm-request-note-%1$d">%2$s</label><br /><textarea id="wpcpm-request-note-%1$d" name="wpcpm_request_note" rows="3" maxlength="%3$d">%4$s</textarea></p>',
-				(int) $id,
-				esc_html__( 'A note for the school (required to decline)', 'wpcredits-program-manager' ),
-				(int) WPCPM_Institution_Request::MAX_NOTE,
-				// The parser drops one line feed right after the opening tag, so a kept note that begins
-				// with a line break keeps it.
-				null === $kept ? '' : "\n" . esc_textarea( $kept )
-			);
-			printf(
-				'<p><button type="submit" class="button button-primary" name="decision" value="approve">%1$s</button> <button type="submit" class="button" name="decision" value="decline">%2$s</button></p>',
-				esc_html__( 'Approve and update the records', 'wpcredits-program-manager' ),
-				esc_html__( 'Decline', 'wpcredits-program-manager' )
-			);
-			echo '</form>';
+			WPCPM_Institution_Request::render_details_decide( $id, WPCPM_Return::DASHBOARD );
 		}
 
 		echo '</article>';
@@ -2786,6 +3181,9 @@ final class WPCPM_Administrators_Cards {
 
 	/**
 	 * The programs running: a tile per track and one for the finished, then the institutions.
+	 *
+	 * On the shared parts (`render_programs_parts()`) the tiles stay the card's own, which no part
+	 * draws; the rest is on the parts.
 	 *
 	 * @param array $programs What `programs()` returned.
 	 */
@@ -2841,19 +3239,59 @@ final class WPCPM_Administrators_Cards {
 		);
 		echo '</ul>';
 
+		self::render_programs_parts( $programs, $rows );
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * Programs running on the shared parts (design 2.7, 4.1), after today's tiles: the institutions as one table through
+	 * the table part, named by the card's title as today's scroll box was (the part replaces the box), or today's empty
+	 * sentence through `empty_line()`. The institution is each row's header, linked as today; "In progress" is a count,
+	 * left-aligned as today's, with the students by status, today's words, as the cell's second line; the mentors and the students waiting
+	 * are numbers; "no end date" keeps its words, muted as an empty value; the agreement and the report in their owners'
+	 * words. Under it the quiet and the read lines, today's words, as the parts' muted line (both are muted today). No
+	 * form, no action.
+	 *
+	 * @param array $programs What `programs()` returned.
+	 * @param array $rows     Its rows.
+	 */
+	private static function render_programs_parts( array $programs, array $rows ) {
 		if ( empty( $rows ) ) {
 			self::empty_line( __( 'No institution has a student in progress.', 'wpcredits-program-manager' ) );
 		} else {
-			self::scroll_open( array( self::title_id( 'programs' ) ) );
-			echo '<table class="wpcpm-admin-table wpcpm-programs__table"><thead><tr>';
-			printf( '<th scope="col">%s</th>', esc_html__( 'Institution', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'In progress', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'Mentors', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'Waiting for a mentor', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'End dates', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Agreement', 'wpcredits-program-manager' ) );
-			printf( '<th scope="col">%s</th>', esc_html__( 'Report', 'wpcredits-program-manager' ) );
-			echo '</tr></thead><tbody>';
+			$column = static function ( $key, $label, $kind, $header = false ) {
+				return array(
+					'key'    => $key,
+					'label'  => $label,
+					'kind'   => $kind,
+					'header' => $header,
+				);
+			};
+			$name   = $column( 'institution', __( 'Institution', 'wpcredits-program-manager' ), 'text', 'row' );
+			// Left-aligned as today's cell was: the number in tabular figures, the students by status under it (task V1,
+			// ruling 15); the other counts are right-aligned numbers.
+			$doing  = $column( 'in_progress', __( 'In progress', 'wpcredits-program-manager' ), 'count' );
+			$guides = $column( 'mentors', __( 'Mentors', 'wpcredits-program-manager' ), 'num' );
+			$wait   = $column( 'waiting', __( 'Waiting for a mentor', 'wpcredits-program-manager' ), 'num' );
+			// A range may break at its words, never inside a date: the dates are whole runs in a cell that wraps; the agreement
+			// and the report are short words that never wrap (Task 18d).
+			$ends   = $column( 'ends', __( 'End dates', 'wpcredits-program-manager' ), 'text' );
+			$agreed = $column( 'agreement', __( 'Agreement', 'wpcredits-program-manager' ), 'short' );
+			$report = $column( 'report', __( 'Report', 'wpcredits-program-manager' ), 'short' );
+
+			// Where the card has room, the school's name keeps one line and the breakdown under In progress its width (task
+			// V1, ruling 14): a wide table's columns are laid out by what they hold, and these two would give way first.
+			$name['width']  = '18%';
+			$doing['width'] = '22%';
+			// Seven columns: the sheet stacks it while the dashboard's main area is too narrow for it, which for this one is
+			// under 936px (Task 18d).
+			$out = WPCPM_UI::table_open(
+				array( $name, $doing, $guides, $wait, $ends, $agreed, $report ),
+				array(
+					'labelledby' => self::title_id( 'programs' ),
+					'wide'       => 936,
+				)
+			);
 
 			foreach ( $rows as $row ) {
 				$breakdown = array();
@@ -2862,47 +3300,38 @@ final class WPCPM_Administrators_Cards {
 					$breakdown[] = number_format_i18n( (int) $n ) . ' ' . $label;
 				}
 
-				printf(
-					'<tr><td>%1$s</td><td class="wpcpm-admin-table__n">%2$s<span class="wpcpm-admin-table__breakdown">%3$s</span></td><td class="wpcpm-admin-table__n">%4$s</td><td class="wpcpm-admin-table__n">%5$s</td><td>%6$s</td><td>%7$s</td><td>%8$s</td></tr>',
-					self::institution_link( $row['record'], (string) $row['name'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
-					esc_html( number_format_i18n( (int) $row['in_progress'] ) ),
-					esc_html( implode( ', ', $breakdown ) ),
-					esc_html( number_format_i18n( (int) $row['mentors'] ) ),
-					esc_html( number_format_i18n( (int) $row['waiting'] ) ),
-					esc_html(
-						'' === $row['earliest']
-							? __( 'no end date', 'wpcredits-program-manager' )
-							: (
-								$row['earliest'] === $row['latest']
-									? $row['earliest']
-									: sprintf( /* translators: 1: earliest end date, 2: latest end date. */ __( '%1$s to %2$s', 'wpcredits-program-manager' ), $row['earliest'], $row['latest'] )
-							)
-					),
-					esc_html( WPCPM_Institution_Agreement::summary_label( (string) $row['agreement'] ) ),
-					esc_html( WPCPM_Semester_Report::state_label( (string) $row['report'] ) )
-				);
+				$none  = '' === $row['earliest'];
+				$dates = $none
+					? esc_html__( 'no end date', 'wpcredits-program-manager' )
+					: (
+						$row['earliest'] === $row['latest']
+							? WPCPM_UI::whole( (string) $row['earliest'] )
+							: sprintf( /* translators: 1: earliest end date, 2: latest end date. */ esc_html__( '%1$s to %2$s', 'wpcredits-program-manager' ), WPCPM_UI::whole( (string) $row['earliest'] ), WPCPM_UI::whole( (string) $row['latest'] ) )
+					);
+
+				$out .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $name, self::institution_link( $row['record'], (string) $row['name'] ) )
+					. WPCPM_UI::cell( $doing, esc_html( number_format_i18n( (int) $row['in_progress'] ) ) . ( empty( $breakdown ) ? '' : WPCPM_UI::cell_sub( implode( ', ', $breakdown ) ) ) )
+					. WPCPM_UI::cell( $guides, esc_html( number_format_i18n( (int) $row['mentors'] ) ) )
+					. WPCPM_UI::cell( $wait, esc_html( number_format_i18n( (int) $row['waiting'] ) ) )
+					. WPCPM_UI::cell( $ends, $dates, $none ? 'empty' : '' )
+					. WPCPM_UI::cell( $agreed, esc_html( WPCPM_Institution_Agreement::summary_label( (string) $row['agreement'] ) ) )
+					. WPCPM_UI::cell( $report, esc_html( WPCPM_Semester_Report::state_label( (string) $row['report'] ) ) )
+					. WPCPM_UI::row_close();
 			}
 
-			echo '</tbody></table></div>';
+			echo $out . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts; institution_link() escapes the name and the href; each value through esc_html() above.
 		}
 
 		if ( ! empty( $programs['quiet'] ) ) {
-			printf(
-				'<p class="wpcpm-administrator__quiet">%s</p>',
-				esc_html( sprintf( /* translators: %s: a number of institutions. */ _n( '%s more institution with no student in progress.', '%s more institutions with no student in progress.', (int) $programs['quiet'], 'wpcredits-program-manager' ), number_format_i18n( (int) $programs['quiet'] ) ) )
-			);
+			echo WPCPM_UI::intro( sprintf( /* translators: %s: a number of institutions. */ _n( '%s more institution with no student in progress.', '%s more institutions with no student in progress.', (int) $programs['quiet'], 'wpcredits-program-manager' ), number_format_i18n( (int) $programs['quiet'] ) ), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 		}
 
-		printf(
-			'<p class="wpcpm-administrator__read">%s</p>',
-			esc_html(
-				empty( $programs['read'] )
-					? __( 'These students have not been read from the program records yet.', 'wpcredits-program-manager' )
-					: sprintf( /* translators: 1: date and time, 2: how long ago. */ __( 'Read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' ), self::when( (int) $programs['read'] ), human_time_diff( (int) $programs['read'], time() ) )
-			)
-		);
+		$read = empty( $programs['read'] )
+			? __( 'These students have not been read from the program records yet.', 'wpcredits-program-manager' )
+			: sprintf( /* translators: 1: date and time, 2: how long ago. */ __( 'Read from the program records on %1$s (%2$s ago).', 'wpcredits-program-manager' ), self::when( (int) $programs['read'] ), human_time_diff( (int) $programs['read'], time() ) );
 
-		WPCPM_Dashboard_Card::close();
+		echo WPCPM_UI::intro( $read, 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 	}
 
 	/**
@@ -2962,18 +3391,115 @@ final class WPCPM_Administrators_Cards {
 			return;
 		}
 
-		printf(
-			'<p class="wpcpm-administrator__quiet">%s</p>',
-			esc_html__( 'Students on a track who have not signed in, visited, had a call or group session, or saved or edited their report. Pressing We\'ve already talked records that somebody has been in touch.', 'wpcredits-program-manager' )
-		);
+		self::render_quiet_students_parts( self::quiet_groups( $rows, $viewer ), $on );
+		WPCPM_Dashboard_Card::close();
+	}
 
+	/**
+	 * Students gone quiet on the shared parts (design 2.7, 2.11, 2.1, 4.1): today's sentence as the parts' muted line, then today's one form around every press (its action and its
+	 * way back to this card, `talked_card_form()`), and in it each group, in today's order, as a heading through the
+	 * heading part with an id of its own (today's group row in the table) over its table through the table part,
+	 * named by the card's title and that heading (the table part replaces today's scroll box). The student is each
+	 * row's header, linked to the Student Report Card as today and a test one marked as today; the days quiet are a
+	 * number; a student with no mentor keeps today's words, "No mentor", muted as an empty value. "We've already
+	 * talked" is the quiet row action: a press of the one form posting the student as its value to the address that
+	 * carries that student's nonce, as today (`WPCPM_Student_Flags::talked_url()`), naming the student for a screen
+	 * reader as today. It records that somebody has been in touch and ends nothing, so it is not red.
+	 *
+	 * @param array[] $groups What `quiet_groups()` returned: `title` and `rows`, in their order.
+	 * @param bool    $on     Whether the reminders' switch is On.
+	 */
+	private static function render_quiet_students_parts( array $groups, $on ) {
+		$column  = static function ( $key, $label, $kind, $header = false ) {
+			return array(
+				'key'    => $key,
+				'label'  => $label,
+				'kind'   => $kind,
+				'header' => $header,
+			);
+		};
+		$student = $column( 'student', __( 'Student', 'wpcredits-program-manager' ), 'text', 'row' );
+		$days    = $column( 'days', __( 'Days quiet', 'wpcredits-program-manager' ), 'num' );
+		$seen    = $column( 'seen', __( 'Last seen', 'wpcredits-program-manager' ), 'text' );
+		$mentor  = $column( 'mentor', __( 'Mentor', 'wpcredits-program-manager' ), 'text' );
+		$remind  = $column( 'reminder', __( 'Reminder', 'wpcredits-program-manager' ), 'text' );
+		$action  = $column( 'action', '', 'action' );
+		$card    = self::title_id( 'quiet-students' );
+		$page    = (string) WPCPM_Students_Dashboard::page_url();
+		$out     = WPCPM_UI::intro( __( 'Students on a track who have not signed in, visited, had a call or group session, or saved or edited their report. Pressing We\'ve already talked records that somebody has been in touch.', 'wpcredits-program-manager' ), 'muted' );
+		$n       = 0;
+
+		// One form around every group, as today, so every press posts the card's action and its way back.
+		$out .= WPCPM_Student_Flags::talked_card_form( 'quiet-students' );
+
+		foreach ( $groups as $group ) {
+			// Today's group row had no id; the heading takes the card's anchor, `-group-` and its place.
+			$heading = self::SHELL['prefix'] . 'quiet-students-group-' . ( ++$n );
+			$out    .= WPCPM_UI::heading( (string) $group['title'], 'h4', $heading )
+				. WPCPM_UI::table_open(
+					array( $student, $days, $seen, $mentor, $remind, $action ),
+					array(
+						'labelledby' => $card . ' ' . $heading,
+						// The last group's table ends the card from inside the form, so it says so for the sheet.
+						'end'        => count( $groups ) === $n,
+						// About 755px as a table by the rules, more with a long name: it stacks under 880px (Task 18f,
+						// fix round 3).
+						'wide'       => true,
+					)
+				);
+
+			foreach ( $group['rows'] as $row ) {
+				$id    = (int) $row['user_id'];
+				$name  = (string) $row['name'];
+				$link  = '' === $page ? esc_html( $name ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( 'wpcpm_student_view', $id, $page ) ), esc_html( $name ) );
+				$user  = ! empty( $row['mentor_id'] ) ? get_userdata( (int) $row['mentor_id'] ) : false;
+				$press = WPCPM_UI::button(
+					array(
+						'label'      => __( 'We\'ve already talked', 'wpcredits-program-manager' ),
+						'kind'       => 'quiet',
+						'name'       => 'student',
+						'value'      => (string) $id,
+						'formaction' => WPCPM_Student_Flags::talked_url( $id ),
+						/* translators: %s: a student's name. */
+						'context'    => '' !== trim( $name ) ? sprintf( __( 'for %s', 'wpcredits-program-manager' ), trim( $name ) ) : '',
+						// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+						'side'       => 'front',
+					)
+				);
+
+				$out .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $student, $link . ( ! empty( $row['test'] ) ? WPCPM_Test_Institutions::badge( WPCPM_Test_Institutions::MARK_DASHBOARD ) : '' ) )
+					. WPCPM_UI::cell( $days, esc_html( (string) (int) $row['days'] ) )
+					. WPCPM_UI::cell( $seen, esc_html( self::quiet_last( $row ) ) )
+					// An empty value keeps its words, muted (design 2.7).
+					. WPCPM_UI::cell( $mentor, esc_html( $user ? (string) $user->display_name : __( 'No mentor', 'wpcredits-program-manager' ) ), $user ? '' : 'empty' )
+					. WPCPM_UI::cell( $remind, esc_html( self::quiet_reminder( $row, $on ) ) )
+					. WPCPM_UI::cell( $action, $press )
+					. WPCPM_UI::row_close();
+			}
+
+			$out .= WPCPM_UI::table_close();
+		}
+
+		echo $out . '</form>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and in talked_card_form(); each value through esc_html() or esc_url() above, the mark in badge().
+	}
+
+	/**
+	 * The Students gone quiet card's groups: the viewer's own students, then each other Administrator's by name, then
+	 * nobody's, each in the snapshot's order.
+	 *
+	 * @param array[] $rows   The snapshot's rows.
+	 * @param int     $viewer The viewer's account.
+	 * @return array[] Each `title` and `rows`, in their order.
+	 */
+	private static function quiet_groups( array $rows, $viewer ) {
 		// Own students, then the other program managers by name, then nobody's.
 		$groups = array();
 
 		foreach ( $rows as $row ) {
 			$manager = isset( $row['manager_id'] ) ? (int) $row['manager_id'] : 0;
 
-			if ( $manager > 0 && $manager === $viewer ) {
+			if ( $manager > 0 && $manager === (int) $viewer ) {
 				$key   = '0';
 				$title = __( 'Your students', 'wpcredits-program-manager' );
 			} elseif ( $manager > 0 ) {
@@ -2997,61 +3523,36 @@ final class WPCPM_Administrators_Cards {
 
 		ksort( $groups, SORT_STRING );
 
-		// One form around the table's box, so the table still opens right after the box does.
-		echo WPCPM_Student_Flags::talked_card_form( 'quiet-students' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- talked_card_form() returns escaped markup.
-		self::scroll_open( array( self::title_id( 'quiet-students' ) ) );
-		echo '<table class="wpcpm-admin-table wpcpm-quiet__table"><thead><tr>';
-		printf( '<th scope="col">%s</th>', esc_html__( 'Student', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col" class="wpcpm-admin-table__n">%s</th>', esc_html__( 'Days quiet', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'Last seen', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'Mentor', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'Reminder', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col"><span class="screen-reader-text">%s</span></th>', esc_html__( 'Action', 'wpcredits-program-manager' ) );
-		echo '</tr></thead>';
+		return $groups;
+	}
 
-		foreach ( $groups as $group ) {
-			printf( '<tbody><tr class="wpcpm-quiet__group"><th colspan="6" scope="colgroup">%s</th></tr>', esc_html( $group['title'] ) );
-
-			foreach ( $group['rows'] as $row ) {
-				$id     = (int) $row['user_id'];
-				$name   = (string) $row['name'];
-				$page   = (string) WPCPM_Students_Dashboard::page_url();
-				$link   = '' === $page ? esc_html( $name ) : sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( 'wpcpm_student_view', $id, $page ) ), esc_html( $name ) );
-				$mentor = ! empty( $row['mentor_id'] ) ? get_userdata( (int) $row['mentor_id'] ) : false;
-				$last   = self::quiet_last( $row );
-
-				// A row that will never be mailed says why, rather than leaving the cell blank. Preview
-				// does not read the switch's time, so only On says "quiet before the switch went On".
-				if ( ! empty( $row['reminded_at'] ) ) {
-					$reminder = sprintf( /* translators: %s: a date. */ __( 'Reminded %s, no reply', 'wpcredits-program-manager' ), wp_date( get_option( 'date_format' ), (int) $row['reminded_at'] ) );
-				} elseif ( ! empty( $row['test'] ) ) {
-					$reminder = __( 'Not mailed: test institution', 'wpcredits-program-manager' );
-				} elseif ( ! $on && ! empty( $row['would_remind'] ) ) {
-					$reminder = __( 'Would remind', 'wpcredits-program-manager' );
-				} elseif ( $on && ! WPCPM_Student_Flags::reached_since_on( (int) $row['last_at'] ) ) {
-					$reminder = __( 'Not mailed: quiet before the switch went On', 'wpcredits-program-manager' );
-				} else {
-					$reminder = '';
-				}
-
-				printf(
-					'<tr><th scope="row">%1$s%2$s</th><td class="wpcpm-admin-table__n">%3$d</td><td>%4$s</td><td>%5$s</td><td>%6$s</td><td>%7$s</td></tr>',
-					$link, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above with esc_html() and esc_url().
-					! empty( $row['test'] ) ? WPCPM_Test_Institutions::badge( WPCPM_Test_Institutions::MARK_DASHBOARD ) : '', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- badge() escapes its classes, title and word.
-					(int) $row['days'],
-					esc_html( $last ),
-					esc_html( $mentor ? (string) $mentor->display_name : __( 'No mentor', 'wpcredits-program-manager' ) ),
-					esc_html( $reminder ),
-					WPCPM_Student_Flags::talked_button( $id, $name ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- talked_button() returns escaped markup.
-				);
-			}
-
-			echo '</tbody>';
+	/**
+	 * A Students gone quiet row's Reminder cell. A row that will never be mailed says why, rather than leaving the
+	 * cell blank. Preview does not read the switch's time, so only On says "quiet before the switch went On".
+	 *
+	 * @param array $row A snapshot row.
+	 * @param bool  $on  Whether the reminders' switch is On.
+	 * @return string
+	 */
+	private static function quiet_reminder( array $row, $on ) {
+		if ( ! empty( $row['reminded_at'] ) ) {
+			return sprintf( /* translators: %s: a date. */ __( 'Reminded %s, no reply', 'wpcredits-program-manager' ), self::whole_text( wp_date( get_option( 'date_format' ), (int) $row['reminded_at'] ) ) );
 		}
 
-		echo '</table></div></form>';
+		if ( ! empty( $row['test'] ) ) {
+			return __( 'Not mailed: test institution', 'wpcredits-program-manager' );
+		}
 
-		WPCPM_Dashboard_Card::close();
+		if ( ! $on && ! empty( $row['would_remind'] ) ) {
+			// A state on one line, as Programs running's (Task 18f, fix round 2).
+			return self::whole_text( __( 'Would remind', 'wpcredits-program-manager' ) );
+		}
+
+		if ( $on && ! WPCPM_Student_Flags::reached_since_on( (int) $row['last_at'] ) ) {
+			return __( 'Not mailed: quiet before the switch went On', 'wpcredits-program-manager' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -3091,7 +3592,8 @@ final class WPCPM_Administrators_Cards {
 			_n( '%1$s student quiet for %2$s days or more, as of %3$s', '%1$s students quiet for %2$s days or more, as of %3$s', $n, 'wpcredits-program-manager' ),
 			number_format_i18n( $n ),
 			number_format_i18n( $days ),
-			wp_date( get_option( 'date_format' ), $at )
+			// The card head's phrase: its date whole (Task 18f, fix round 2).
+			self::whole_text( wp_date( get_option( 'date_format' ), $at ) )
 		);
 	}
 
@@ -3106,7 +3608,8 @@ final class WPCPM_Administrators_Cards {
 	 */
 	private static function quiet_last( array $row ) {
 		$kind = isset( $row['last_kind'] ) ? (string) $row['last_kind'] : '';
-		$date = wp_date( get_option( 'date_format' ), isset( $row['last_at'] ) ? (int) $row['last_at'] : 0 );
+		// A table cell's date, kept whole (Task 18f).
+		$date = self::whole_text( wp_date( get_option( 'date_format' ), isset( $row['last_at'] ) ? (int) $row['last_at'] : 0 ) );
 		$from = isset( $row['start_from'] ) ? (string) $row['start_from'] : '';
 
 		if ( 'start' === $kind && 'track' !== $from && 'account' !== $from ) {
@@ -3151,7 +3654,8 @@ final class WPCPM_Administrators_Cards {
 	 * them were seen in the last 30 days. Its home in wp-admin is the Engagement tab, so it links
 	 * there as every card with a home in wp-admin links its tab: its row action while it is folded,
 	 * and the line its body ends with, in the same words to the same address. The label names the
-	 * tab, so it needs no hidden words after it.
+	 * tab, so it needs no hidden words after it. On the shared parts the line that counts the
+	 * Administrators apart is the parts' muted line; the tiles stay the card's own.
 	 *
 	 * @param array $summary What `WPCPM_Mentor_Engagement::report()` returned as `summary`.
 	 */
@@ -3193,7 +3697,8 @@ final class WPCPM_Administrators_Cards {
 
 		echo '</ul>';
 
-		printf( '<p class="wpcpm-administrator__quiet">%s</p>', esc_html( WPCPM_Mentor_Engagement::apart( $summary ) ) );
+		// The quiet line is the parts' muted line; the tiles stay the card's own, which no part draws.
+		echo WPCPM_UI::intro( WPCPM_Mentor_Engagement::apart( $summary ), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro().
 		self::render_screen_line( $tab );
 		WPCPM_Dashboard_Card::close();
 	}
@@ -3226,55 +3731,140 @@ final class WPCPM_Administrators_Cards {
 			)
 		);
 
-		self::scroll_open( array( self::title_id( 'health' ) ) );
-		echo '<table class="wpcpm-admin-table"><thead><tr>';
-		printf( '<th scope="col">%s</th>', esc_html__( 'Sync', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'State', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'Last run', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'Next run', 'wpcredits-program-manager' ) );
-		printf( '<th scope="col">%s</th>', esc_html__( 'Last error', 'wpcredits-program-manager' ) );
-		echo '<th scope="col"></th></tr></thead><tbody>';
+		self::render_health_parts( $syncs, $locked, $health );
+		WPCPM_Dashboard_Card::close();
+	}
 
-		foreach ( $syncs as $sync ) {
-			$progress = isset( $sync['progress'] ) && is_array( $sync['progress'] ) ? $sync['progress'] : array();
-			$state    = ! empty( $progress['running'] )
-				? sprintf( /* translators: %s: what the sync is doing. */ __( 'Running: %s', 'wpcredits-program-manager' ), isset( $progress['label'] ) ? (string) $progress['label'] : '' )
-				: __( 'Idle', 'wpcredits-program-manager' );
-
-			printf(
-				'<tr class="wpcpm-health__sync"><td>%1$s</td><td>%2$s</td><td>%3$s</td><td>%4$s</td><td>%5$s</td><td><a href="%6$s">%7$s</a></td></tr>',
-				esc_html( $sync['label'] ),
-				esc_html( $state ),
-				esc_html( empty( $sync['last'] ) ? /* translators: A table cell on its own, not a word inside a sentence. */ __( 'Never', 'wpcredits-program-manager' ) : self::when( (int) $sync['last'] ) ),
-				esc_html( empty( $sync['next'] ) ? /* translators: A table cell on its own, not words inside a sentence. */ __( 'Not scheduled', 'wpcredits-program-manager' ) : self::when( (int) $sync['next'] ) ),
-				esc_html( isset( $progress['error'] ) ? (string) $progress['error'] : '' ),
-				esc_url( $sync['screen'] ),
-				esc_html__( 'Open', 'wpcredits-program-manager' )
+	/**
+	 * Syncs and health on the shared parts (design 2.7, 2.2, 2.8, 2.11, 4.1): the syncs as one table through the table part, named by the card's title as today's scroll box was (the
+	 * table part replaces the box), then the card's own facts (`render_health_lines()`: the storage, the email, the
+	 * invitations), which print whether or not an account is locked, then "Locked accounts" through the heading part,
+	 * as today with no id (the strip's tile leads to the card's own anchor), over today's sentence as the parts' muted
+	 * intro and the accounts as a list of rows, one a row (Task 18d), or today's empty sentence as the parts' muted line. The sync is each row's header; its state is today's words, plain in the
+	 * cell's own ink and no tag, since a tag is a short word that never wraps and "Running: <a step's name>" is not one
+	 * (today's markup marks no state either; the error is in its own column, the card's phrase counts the rest); a run
+	 * never made or none booked keeps today's words, muted as empty values; Open is the quiet row action to the sync's
+	 * screen, naming its sync for a screen reader as the row prints it, nothing where it has none. With no
+	 * sync at all no table is drawn, where today drew one with no row. Nothing on the card is a form.
+	 *
+	 * @param array[]   $syncs  `health()`'s `syncs`.
+	 * @param WP_User[] $locked Accounts the roster's refusal ceiling locked today.
+	 * @param array     $health What `health()` returned, for the card's own lines.
+	 */
+	private static function render_health_parts( array $syncs, array $locked, array $health ) {
+		$column = static function ( $key, $label, $kind, $header = false ) {
+			return array(
+				'key'    => $key,
+				'label'  => $label,
+				'kind'   => $kind,
+				'header' => $header,
 			);
+		};
+		$sync   = $column( 'sync', __( 'Sync', 'wpcredits-program-manager' ), 'text', 'row' );
+		$state  = $column( 'state', __( 'State', 'wpcredits-program-manager' ), 'text' );
+		$last   = $column( 'last', __( 'Last run', 'wpcredits-program-manager' ), 'date' );
+		$next   = $column( 'next', __( 'Next run', 'wpcredits-program-manager' ), 'date' );
+		// A remote service's message may hold an address or a token: it may break anywhere (Task 18f).
+		$error  = $column( 'error', __( 'Last error', 'wpcredits-program-manager' ), 'token' );
+		$action = $column( 'action', '', 'action' );
+		$out    = '';
+
+		if ( ! empty( $syncs ) ) {
+			// By the rules about 814px as a table (two dates with their times at about 214px each, a token at least 164px,
+			// the sync, the state and Open): more than a main area of 800px holds, so it stacks under 880px (Task 18f,
+			// fix round 3).
+			$out = WPCPM_UI::table_open(
+				array( $sync, $state, $last, $next, $error, $action ),
+				array(
+					'labelledby' => self::title_id( 'health' ),
+					'wide'       => true,
+				)
+			);
+
+			foreach ( $syncs as $row ) {
+				$progress = isset( $row['progress'] ) && is_array( $row['progress'] ) ? $row['progress'] : array();
+				$words    = ! empty( $progress['running'] )
+					? sprintf( /* translators: %s: what the sync is doing. */ __( 'Running: %s', 'wpcredits-program-manager' ), isset( $progress['label'] ) ? (string) $progress['label'] : '' )
+					: __( 'Idle', 'wpcredits-program-manager' );
+				$screen   = isset( $row['screen'] ) ? (string) $row['screen'] : '';
+
+				$out .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $sync, esc_html( $row['label'] ) )
+					. WPCPM_UI::cell( $state, esc_html( $words ) )
+					// A run never made, or none booked, keeps today's words, muted as an empty value (design 2.7).
+					. WPCPM_UI::cell( $last, esc_html( empty( $row['last'] ) ? /* translators: A table cell on its own, not a word inside a sentence. */ __( 'Never', 'wpcredits-program-manager' ) : self::when_whole( (int) $row['last'] ) ), empty( $row['last'] ) ? 'empty' : '' )
+					. WPCPM_UI::cell( $next, esc_html( empty( $row['next'] ) ? /* translators: A table cell on its own, not words inside a sentence. */ __( 'Not scheduled', 'wpcredits-program-manager' ) : self::when_whole( (int) $row['next'] ) ), empty( $row['next'] ) ? 'empty' : '' )
+					. WPCPM_UI::cell( $error, esc_html( isset( $progress['error'] ) ? (string) $progress['error'] : '' ) )
+					// No screen, no link: a row action with no address prints nothing.
+					. WPCPM_UI::cell(
+						$action,
+						'' === $screen ? '' : WPCPM_UI::button(
+							array(
+								'label'   => __( 'Open', 'wpcredits-program-manager' ),
+								'kind'    => 'quiet',
+								'href'    => $screen,
+								// Three rows say "Open": each names its sync, as its header prints it.
+								'context' => (string) $row['label'],
+								// Drawn on the Administrator Dashboard alone, which is never wp-admin.
+								'side'    => 'front',
+							)
+						)
+					)
+					. WPCPM_UI::row_close();
+			}
+
+			$out .= WPCPM_UI::table_close();
 		}
 
-		echo '</tbody></table></div>';
+		echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts; each value through esc_html() above.
 
-		printf( '<h4 class="wpcpm-administrator__subtitle">%s</h4>', esc_html__( 'Locked accounts', 'wpcredits-program-manager' ) );
+		// The card's own facts come right after the syncs, before the locked accounts' heading (Task 18d).
+		self::render_health_lines( $health );
+
+		echo WPCPM_UI::heading( __( 'Locked accounts', 'wpcredits-program-manager' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::heading().
 
 		if ( empty( $locked ) ) {
 			self::empty_line( __( 'No account is locked today.', 'wpcredits-program-manager' ) );
-		} else {
-			$names = array();
 
-			foreach ( $locked as $user ) {
-				if ( $user instanceof WP_User ) {
-					$names[] = WPCPM_Test_Institutions::label( $user->display_name . ' (' . $user->user_login . ')', WPCPM_Institution_Members::institution_of( (int) $user->ID ) );
-				}
-			}
-
-			printf(
-				'<p class="wpcpm-administrator__note">%1$s %2$s</p>',
-				esc_html( implode( ', ', $names ) ),
-				esc_html__( 'Each was refused more claims than the daily ceiling allows; the lock lifts by itself tomorrow.', 'wpcredits-program-manager' )
-			);
+			return;
 		}
 
+		// Today's sentence leads as the muted intro; the accounts follow, one a row, each name as today wrote it.
+		$list = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $locked as $user ) {
+			if ( $user instanceof WP_User ) {
+				$list .= WPCPM_UI::row( array( 'name' => WPCPM_Test_Institutions::label( $user->display_name . ' (' . $user->user_login . ')', WPCPM_Institution_Members::institution_of( (int) $user->ID ) ) ) );
+			}
+		}
+
+		echo WPCPM_UI::intro( __( 'Each was refused more claims than the daily ceiling allows; the lock lifts by itself tomorrow.', 'wpcredits-program-manager' ), 'muted' ) . $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::intro() and WPCPM_UI::row().
+	}
+
+	/**
+	 * The Syncs and health card's last lines (`health_lines()`): one paragraph per sentence in the intro line's look,
+	 * each sentence's link after its words.
+	 *
+	 * @param array $health What `health()` returned.
+	 */
+	private static function render_health_lines( array $health ) {
+		$lines = self::health_lines( $health );
+
+		// Each line is a sentence of its own (Task 17b, ruling 2): the intro line's look, with the line's link after its
+		// words as today; no bullets.
+		foreach ( $lines as $line ) {
+			echo WPCPM_UI::intro( '', '', '', $line ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Each line is escaped in health_lines(); printed as given by WPCPM_UI::intro().
+		}
+	}
+
+	/**
+	 * The Syncs and health card's last lines, each escaped markup: the private storage's probe, the latest email and
+	 * the last day's failures, each with its link to the Emails tool's Log, and a run of invitations still going.
+	 *
+	 * @param array $health What `health()` returned.
+	 * @return string[]
+	 */
+	private static function health_lines( array $health ) {
 		$probe   = isset( $health['probe'] ) ? (array) $health['probe'] : array(
 			'verdict' => 'unknown',
 			'time'    => 0,
@@ -3285,9 +3875,9 @@ final class WPCPM_Administrators_Cards {
 			'queued' => 0,
 		);
 
-		echo '<ul class="wpcpm-administrator__list">';
-		printf(
-			'<li>%s</li>',
+		$lines   = array();
+		$lines[] = sprintf(
+			'%s',
 			esc_html( sprintf( /* translators: 1: the verdict, 2: a date. */ __( 'Private storage: %1$s (probed %2$s).', 'wpcredits-program-manager' ), $probe['verdict'], empty( $probe['time'] ) ? __( 'never', 'wpcredits-program-manager' ) : self::when( (int) $probe['time'] ) ) )
 		);
 		// The latest email by name, and the last day's failures, each linked to the Emails tool's Log.
@@ -3300,8 +3890,8 @@ final class WPCPM_Administrators_Cards {
 		$tool   = WPCPM_Tools::get( 'emails' );
 		$log    = add_query_arg( 'tab', 'log', $tool ? $tool->admin_url() : admin_url( 'admin.php?page=wpcpm-tool-emails' ) );
 
-		printf(
-			'<li>%1$s <a href="%2$s">%3$s</a></li>',
+		$lines[] = sprintf(
+			'%1$s <a href="%2$s">%3$s</a>',
 			esc_html(
 				empty( $latest )
 					? ( $ready ? __( 'No email has been sent yet.', 'wpcredits-program-manager' ) : __( 'The email log is not ready yet.', 'wpcredits-program-manager' ) )
@@ -3319,8 +3909,8 @@ final class WPCPM_Administrators_Cards {
 		);
 
 		if ( $failed ) {
-			printf(
-				'<li>%1$s <a href="%2$s">%3$s</a></li>',
+			$lines[] = sprintf(
+				'%1$s <a href="%2$s">%3$s</a>',
 				esc_html(
 					sprintf(
 						/* translators: %s: number of failures. */
@@ -3340,15 +3930,13 @@ final class WPCPM_Administrators_Cards {
 			$total = (int) $invites['run']['total'];
 			$sent  = max( 0, $total - (int) $invites['queued'] );
 
-			printf(
-				'<li>%s</li>',
+			$lines[] = sprintf(
+				'%s',
 				esc_html( sprintf( /* translators: 1: messages sent, 2: messages in the run. */ __( 'Invitations: %1$s of %2$s sent.', 'wpcredits-program-manager' ), number_format_i18n( $sent ), number_format_i18n( $total ) ) )
 			);
 		}
 
-		echo '</ul>';
-
-		WPCPM_Dashboard_Card::close();
+		return $lines;
 	}
 
 	/*
@@ -3372,30 +3960,13 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * Open the box a table with column headers scrolls in on a phone (1.122.35); the table's own
-	 * closing tag is followed by the box's.
-	 *
-	 * Below 782px administrator.css lets this box, not the table, scroll sideways, since a table
-	 * cannot be a region without losing what makes it a table. The box is a tab stop, so a keyboard
-	 * reaches it and its arrow keys scroll it (Safari reaches no scroll box that holds no link or
-	 * button), and a region named by the headings above the table, so a screen reader says what
-	 * scrolls, as the Education Hub's table was made in theme 1.24.15. A tab stop at every width,
-	 * as that one is: an attribute cannot follow a media query without a script, and the dashboards
-	 * work without one, so on a wide screen it is one stop more, around a table that fits.
-	 *
-	 * @param string[] $labels The ids of the headings that name the table, the card's first.
-	 */
-	private static function scroll_open( array $labels ) {
-		printf( '<div class="wpcpm-administrator__scroll" tabindex="0" role="region" aria-labelledby="%s">', esc_attr( implode( ' ', $labels ) ) );
-	}
-
-	/**
-	 * An empty half under a heading reads as something that failed to load, so it says so.
+	 * An empty half under a heading reads as something that failed to load, so it says so: the parts' muted line, the
+	 * one every converted card's empty part prints.
 	 *
 	 * @param string $text The sentence.
 	 */
 	private static function empty_line( $text ) {
-		printf( '<p class="wpcpm-administrator__empty">%s</p>', esc_html( $text ) );
+		echo WPCPM_UI::list_empty( (string) $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::list_empty().
 	}
 
 	/**
@@ -3450,7 +4021,8 @@ final class WPCPM_Administrators_Cards {
 			/* translators: 1: how many duplicated students the Student Duplicate Finder's last scan listed, 2: the day of that scan. */
 			_n( '%1$s duplicated student as of %2$s', '%1$s duplicated students as of %2$s', (int) $n, 'wpcredits-program-manager' ),
 			number_format_i18n( (int) $n ),
-			self::site_day( (int) $read )
+			// The card head's phrase: its date whole (Task 18f, fix round 2).
+			self::whole_text( self::site_day( (int) $read ) )
 		);
 	}
 
@@ -3605,13 +4177,12 @@ final class WPCPM_Administrators_Cards {
 	 * action's words and to its address. Printed on every draw of every card whose home there is a
 	 * tab of the Institutions, the Sponsors or the Mentors screen, an empty card's too: the row action
 	 * shows only while the card is folded, and once the card is open its body is what an Administrator
-	 * reads. The Duplicated students card, whose home is the Student Duplicate Finder, ends with its
-	 * own button to the finder instead. It takes the shape of the line under a list this page
-	 * cut (`render_more_line()`), which says how many more there are and links nowhere, and comes
-	 * after that line on a card that prints both. The words that name the card by its title, where the
-	 * action carries them, follow the link's words inside the link for a screen reader alone, as they
-	 * do in the row action, with the space before them inside the hidden span, so the line reads the
-	 * same as before to everyone who sees it; Mentor engagement's link names its tab and carries none.
+	 * reads. The Duplicated students card, whose home is the Student Duplicate Finder, ends with this
+	 * line to the finder. It comes after the line under a list this page cut (`render_more_line()`),
+	 * which says how many more there are and links nowhere, on a card that prints both. The words that
+	 * name the card by its title, where the action carries them, follow the link's words inside the
+	 * link for a screen reader alone, as they do in the row action, with the space before them inside
+	 * the hidden span; Mentor engagement's link names its tab and carries none.
 	 *
 	 * @param array $action The card's row action: `label`, `href` and, optionally, `context`, the
 	 *                      words that name the card by its title.
@@ -3619,12 +4190,9 @@ final class WPCPM_Administrators_Cards {
 	private static function render_screen_line( array $action ) {
 		$context = isset( $action['context'] ) ? trim( (string) $action['context'] ) : '';
 
-		printf(
-			'<p class="wpcpm-administrator__more"><a href="%1$s">%2$s%3$s</a></p>',
-			esc_url( (string) $action['href'] ),
-			esc_html( (string) $action['label'] ),
-			'' === $context ? '' : '<span class="screen-reader-text"> ' . esc_html( $context ) . '</span>'
-		);
+		// The line is the card fold's foot, after a hairline (parts.css), drawn by the fold part, as the cohort timeline's
+		// card draws its own; its link and words are today's.
+		echo WPCPM_UI::fold_foot( (string) $action['href'], (string) $action['label'], $context ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::fold_foot().
 	}
 
 	/**
@@ -3821,6 +4389,53 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
+	 * A day a store keeps as `Y-m-d` on the site's clock (a post's date), in the site's date format; anything else as it
+	 * came. Read at noon on that day, so no zone's offset moves it to the day before or after.
+	 *
+	 * @param string $day The day, as `Y-m-d`.
+	 * @return string
+	 */
+	private static function site_date( $day ) {
+		$day = (string) $day;
+		$at  = 1 === preg_match( '/^\d{4}-\d{2}-\d{2}\z/', $day ) ? date_create_immutable( $day . ' 12:00:00', wp_timezone() ) : false;
+
+		return false === $at ? $day : self::site_day( $at->getTimestamp() );
+	}
+
+	/**
+	 * A date kept whole on its line (Task 18f): its spaces made no-break spaces, so its day, month and year never part.
+	 * For a date printed as text in a table cell or a list row's facts on the shared parts, and a semester's name in a
+	 * table cell ("January to June 2026", fix round 1).
+	 *
+	 * @param string $date The date as words.
+	 * @return string The same words, unescaped.
+	 */
+	private static function whole_text( $date ) {
+		return str_replace( ' ', "\u{00A0}", (string) $date );
+	}
+
+	/**
+	 * A date and time in the site's format, the date kept whole and the time free to go to the next line (Task 18f).
+	 *
+	 * @param int $timestamp Unix time.
+	 * @return string
+	 */
+	private static function when_whole( $timestamp ) {
+		return self::whole_text( self::site_day( (int) $timestamp ) ) . ' ' . (string) wp_date( (string) get_option( 'time_format' ), (int) $timestamp );
+	}
+
+	/**
+	 * Words with every month and its year kept together ("June 2026", "September 2025"), for a report's period in a table
+	 * cell, which may still break at its own "to" (Task 18f). A semester's name is whole instead (`whole_text()`).
+	 *
+	 * @param string $text The words.
+	 * @return string
+	 */
+	private static function months_whole( $text ) {
+		return (string) preg_replace( '/(\p{L}+) (\d{4})(?!\d)/u', "\$1\u{00A0}\$2", (string) $text );
+	}
+
+	/**
 	 * Rows for a folded agreement list.
 	 *
 	 * @param int[] $ids Post IDs.
@@ -3877,18 +4492,36 @@ final class WPCPM_Administrators_Cards {
 	 * @return string
 	 */
 	private static function institution_link( $record, $name = '' ) {
-		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? (string) WPCPM_Institutions_Dashboard::page_url() : '';
+		$href = self::institution_href( $record );
 		// The name a caller holds is used as given and decides the mark with no read; without one, the
 		// index's name does (the record ID where the index lacks the row). Escaped for output only.
 		$plain = '' !== (string) $name ? (string) $name : self::institution_name( $record );
 		$name  = esc_html( $plain );
 		$mark  = WPCPM_Test_Institutions::mark( $plain, WPCPM_Test_Institutions::MARK_DASHBOARD );
 
-		if ( '' === $page || '' === (string) $record ) {
+		if ( '' === $href ) {
 			return $name . $mark;
 		}
 
-		return sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $page ) ), $name ) . $mark;
+		return sprintf( '<a href="%1$s">%2$s</a>', esc_url( $href ), $name ) . $mark;
+	}
+
+	/**
+	 * Where an institution's name links: its dashboard through the switcher argument, or '' while the
+	 * Institution Dashboard's page is missing or the record is empty. Not escaped: for `institution_link()`
+	 * and for the parts' item header and list row, which escape it.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string
+	 */
+	private static function institution_href( $record ) {
+		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? (string) WPCPM_Institutions_Dashboard::page_url() : '';
+
+		if ( '' === $page || '' === (string) $record ) {
+			return '';
+		}
+
+		return (string) add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, (string) $record, $page );
 	}
 
 	/**
@@ -3947,11 +4580,12 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * When a sponsor report was marked final and by whom: "<when> by <name>", the moment alone
-	 * for an account that is no longer on the site, and "Not recorded" for a report with no stamp.
+	 * When a sponsor report was marked final, or a semester report approved, and by whom: "<when> by
+	 * <name>", the moment alone for an account that is no longer on the site, and "Not recorded" for a
+	 * report with no stamp.
 	 *
 	 * @param int $timestamp Unix time, or 0.
-	 * @param int $user_id   The program manager who marked it, or 0.
+	 * @param int $user_id   The Administrator who marked or approved it, or 0.
 	 * @return string
 	 */
 	private static function marked_final( $timestamp, $user_id ) {
@@ -3961,12 +4595,13 @@ final class WPCPM_Administrators_Cards {
 
 		$by = $user_id > 0 ? get_user_by( 'id', $user_id ) : false;
 
+		// Printed in a table cell alone: the date kept whole (Task 18f).
 		if ( ! $by instanceof WP_User ) {
-			return self::when( $timestamp );
+			return self::when_whole( $timestamp );
 		}
 
 		/* translators: 1: a date and time, 2: an Administrator's name. */
-		return sprintf( __( '%1$s by %2$s', 'wpcredits-program-manager' ), self::when( $timestamp ), $by->display_name );
+		return sprintf( __( '%1$s by %2$s', 'wpcredits-program-manager' ), self::when_whole( $timestamp ), $by->display_name );
 	}
 
 	/**
@@ -3977,7 +4612,7 @@ final class WPCPM_Administrators_Cards {
 	 * @return string
 	 */
 	private static function drafted( $timestamp, $origin ) {
-		return self::when( $timestamp ) . ', ' . ( 'auto' === $origin ? __( 'by the site', 'wpcredits-program-manager' ) : __( 'by an Administrator', 'wpcredits-program-manager' ) );
+		return self::when_whole( $timestamp ) . ', ' . ( 'auto' === $origin ? __( 'by the site', 'wpcredits-program-manager' ) : __( 'by an Administrator', 'wpcredits-program-manager' ) );
 	}
 
 	/**

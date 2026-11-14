@@ -404,124 +404,131 @@ class WPCPM_Institutions_Dashboard {
 		$member  = in_array( $decision['ground'], array( WPCPM_Institution_Policy::GROUND_MEMBER, WPCPM_Institution_Policy::GROUND_TUTOR ), true );
 		$profile = self::profile( $record, $member ? $viewer : null );
 
-		ob_start();
+		// The page names itself to the switch of the shared parts while it draws (design 3.5): off until its release.
+		WPCPM_UI::enter( 'institution' );
 
-		echo '<div class="wpcpm-dashboard wpcpm-institution">';
+		try {
+			ob_start();
 
-		// The viewer's own account, never the institution being looked at: chrome rather than
-		// content, which is why it sits above the header and outside the locked branch. Where
-		// a member actually is is the only place a prompt to protect the account is seen, since
-		// members are routed away from wp-admin the moment they sign in.
-		WPCPM_Two_Factor::prompt( $viewer );
+			echo '<div class="wpcpm-dashboard wpcpm-institution' . esc_attr( WPCPM_UI::root_class() ) . '">';
 
-		if ( '' !== $atts['title'] ) {
-			echo '<h2 class="wpcpm-dashboard__title">' . esc_html( $atts['title'] ) . '</h2>';
-		}
+			// The viewer's own account, never the institution being looked at: chrome rather than
+			// content, which is why it sits above the header and outside the locked branch. Where
+			// a member actually is is the only place a prompt to protect the account is seen, since
+			// members are routed away from wp-admin the moment they sign in.
+			WPCPM_Two_Factor::prompt( $viewer );
 
-		if ( $can_manage ) {
-			self::render_switcher( $record );
-		}
-
-		self::render_identity( $profile, $can_manage );
-
-		if ( $can_manage && ! $settled ) {
-			self::render_banner( $record );
-		}
-
-		// Where to go with a question, directly under the institution's name rather than at the
-		// foot of the page. The two Report Cards end on this section, and for them that is
-		// right: a mentor comes to work through a list and the resources are what is left when
-		// they are done. A school arrives with a question more often than with a task, and the
-		// answer was three screens down past a roster they had not come to read. Drawn for a
-		// locked account as well, which is the one most likely to need somebody to ask.
-		self::render_help( $record );
-
-		$context = self::context( $record, $can_manage );
-
-		// The agreement panel first, and for a locked account last as well. It draws itself
-		// from the summary state, so on a settled dashboard it is the piece that draws nothing
-		// and the card at the foot carries the accepted date instead.
-		self::card( 'WPCPM_Institution_Panel', $record, $context );
-
-		// Under the header the page is three modules - the students, the semester report, the
-		// representatives with the agreement - in the order this institution keeps (1.96.4). A
-		// representative arranges the page, and a program manager arranges it for them, the way
-		// the block editor moves blocks; the arrangement is the institution's, shared by
-		// everybody who reads it. Each module says under its title what it is for.
-		if ( ! $locked ) {
-			$order    = self::module_order( $record );
-			// A tutor is on their institution's page and arranges nothing and joins nothing: `$own_page`
-			// is the representative's, and `$can_move` and the sponsors' events follow it.
-			$own_page = (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record
-				&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $viewer );
-			$can_move = $can_manage || $own_page;
-
-			if ( $can_move && wp_script_is( WPCPM_Module_Order::SCRIPT, 'registered' ) ) {
-				wp_enqueue_script( WPCPM_Module_Order::SCRIPT );
+			if ( '' !== $atts['title'] ) {
+				echo '<h2 class="wpcpm-dashboard__title">' . esc_html( $atts['title'] ) . '</h2>';
 			}
 
-			// The bodies first, the page after. A module with nothing to print is left out, and
-			// the arrows have to belong to the page that is drawn rather than to the saved
-			// order: given the whole order's index and count, the first module on the page
-			// still offered Move up when something above it had been dropped, and the last
-			// one's Move down stayed enabled when something below it had. Every card asks the
-			// policy its own narrower question, and the agreement gate in `ground_member()`
-			// exempts only `ACT_AGREEMENT`, so a representative whose Collaboration Agreement
-			// is not settled yet is refused the roster and the semester report and reads this
-			// page as the representatives module alone - which offered a Move up, because the
-			// default order puts it third (deep check FADMN-5, whose Student Report Card half
-			// shipped with it; this is the twin). The saved order is untouched, and the handler
-			// moves among the modules the page drew (`moved_among()`): what changes is which
-			// arrows the page offers, and the arrows say which modules those are.
-			$rendered = array();
+			if ( $can_manage ) {
+				self::render_switcher( $record );
+			}
 
-			foreach ( $order as $key ) {
-				ob_start();
-				self::render_module_body( $key, $record, $context );
-				$body = trim( (string) ob_get_clean() );
+			self::render_identity( $profile, $can_manage );
 
-				if ( '' !== $body ) {
-					$rendered[ $key ] = $body;
+			if ( $can_manage && ! $settled ) {
+				self::render_banner( $record );
+			}
+
+			// Where to go with a question, directly under the institution's name rather than at the
+			// foot of the page. The two Report Cards end on this section, and for them that is
+			// right: a mentor comes to work through a list and the resources are what is left when
+			// they are done. A school arrives with a question more often than with a task, and the
+			// answer was three screens down past a roster they had not come to read. Drawn for a
+			// locked account as well, which is the one most likely to need somebody to ask.
+			self::render_help( $record );
+
+			$context = self::context( $record, $can_manage );
+
+			// The agreement panel first, and for a locked account last as well. It draws itself
+			// from the summary state, so on a settled dashboard it is the piece that draws nothing
+			// and the card at the foot carries the accepted date instead.
+			self::card( 'WPCPM_Institution_Panel', $record, $context );
+
+			// Under the header the page is three modules - the students, the semester report, the
+			// representatives with the agreement - in the order this institution keeps (1.96.4). A
+			// representative arranges the page, and a program manager arranges it for them, the way
+			// the block editor moves blocks; the arrangement is the institution's, shared by
+			// everybody who reads it. Each module says under its title what it is for.
+			if ( ! $locked ) {
+				$order    = self::module_order( $record );
+				// A tutor is on their institution's page and arranges nothing and joins nothing: `$own_page`
+				// is the representative's, and `$can_move` and the sponsors' events follow it.
+				$own_page = (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record
+					&& WPCPM_Institution_Members::LEVEL_TUTOR !== WPCPM_Institution_Members::level_of( $viewer );
+				$can_move = $can_manage || $own_page;
+
+				if ( $can_move && wp_script_is( WPCPM_Module_Order::SCRIPT, 'registered' ) ) {
+					wp_enqueue_script( WPCPM_Module_Order::SCRIPT );
+				}
+
+				// The bodies first, the page after. A module with nothing to print is left out, and
+				// the arrows have to belong to the page that is drawn rather than to the saved
+				// order: given the whole order's index and count, the first module on the page
+				// still offered Move up when something above it had been dropped, and the last
+				// one's Move down stayed enabled when something below it had. Every card asks the
+				// policy its own narrower question, and the agreement gate in `ground_member()`
+				// exempts only `ACT_AGREEMENT`, so a representative whose Collaboration Agreement
+				// is not settled yet is refused the roster and the semester report and reads this
+				// page as the representatives module alone - which offered a Move up, because the
+				// default order puts it third (deep check FADMN-5, whose Student Report Card half
+				// shipped with it; this is the twin). The saved order is untouched, and the handler
+				// moves among the modules the page drew (`moved_among()`): what changes is which
+				// arrows the page offers, and the arrows say which modules those are.
+				$rendered = array();
+
+				foreach ( $order as $key ) {
+					ob_start();
+					self::render_module_body( $key, $record, $context );
+					$body = trim( (string) ob_get_clean() );
+
+					if ( '' !== $body ) {
+						$rendered[ $key ] = $body;
+					}
+				}
+
+				$index = 0;
+				$count = count( $rendered );
+				$drawn = array_keys( $rendered );
+
+				foreach ( $rendered as $key => $body ) {
+					self::render_module( $key, $body, $index, $count, $record, $can_move, $drawn );
+					++$index;
+				}
+
+				// The events from the program's sponsors, after the modules and outside their saved
+				// order, for a contact of this institution on its own page alone: a Join puts whoever
+				// presses it on the event, so a program manager looking through the switcher is not
+				// offered it, and joins on the Administrator Dashboard, as themselves.
+				if ( $own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
+					WPCPM_Sponsor_Event_List::render( $viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );
+				}
+
+				// What the program keeps about this institution that its own people are not shown: the
+				// answers its application gave and its history. After the modules and outside their saved
+				// order, and for a viewer who can manage the program alone, which is why the call is made
+				// here and not left to the section: a member's page never builds it, and so never reads
+				// the history it holds the invited addresses and the Administrators' notes in. Guarded as
+				// the cards are, so a checkout without the class draws the page without it.
+				if ( $can_manage && class_exists( 'WPCPM_Institution_History' ) ) {
+					echo WPCPM_Institution_History::render( $record ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the class, which escapes what it interpolates.
+				}
+
+				// When the records were last read, once, at the foot of the page under its own
+				// line, as the Student Report Card ends (owner, 1.96.5). The roster is told its module
+				// is titled and prints none, and neither does its strip, so the page holds it once.
+				if ( method_exists( 'WPCPM_Institution_Roster_View', 'read_line' ) && method_exists( 'WPCPM_Roster_Index', 'read' ) ) {
+					$read = isset( $context['read'] ) ? (int) $context['read'] : (int) WPCPM_Roster_Index::read( $record )['read'];
+					WPCPM_Institution_Roster_View::read_line( $read, 'wpcpm-dashboard__updated' );
 				}
 			}
 
-			$index = 0;
-			$count = count( $rendered );
-			$drawn = array_keys( $rendered );
-
-			foreach ( $rendered as $key => $body ) {
-				self::render_module( $key, $body, $index, $count, $record, $can_move, $drawn );
-				++$index;
-			}
-
-			// The events from the program's sponsors, after the modules and outside their saved
-			// order, for a contact of this institution on its own page alone: a Join puts whoever
-			// presses it on the event, so a program manager looking through the switcher is not
-			// offered it, and joins on the Administrator Dashboard, as themselves.
-			if ( $own_page && class_exists( 'WPCPM_Sponsor_Event_List' ) ) {
-				WPCPM_Sponsor_Event_List::render( $viewer, WPCPM_Sponsor_Event_List::BACK_INSTITUTION );
-			}
-
-			// What the program keeps about this institution that its own people are not shown: the
-			// answers its application gave and its history. After the modules and outside their saved
-			// order, and for a viewer who can manage the program alone, which is why the call is made
-			// here and not left to the section: a member's page never builds it, and so never reads
-			// the history it holds the invited addresses and the Administrators' notes in. Guarded as
-			// the cards are, so a checkout without the class draws the page without it.
-			if ( $can_manage && class_exists( 'WPCPM_Institution_History' ) ) {
-				echo WPCPM_Institution_History::render( $record ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the class, which escapes what it interpolates.
-			}
-
-			// When the records were last read, once, at the foot of the page under its own
-			// line, as the Student Report Card ends (owner, 1.96.5). The roster is told its module
-			// is titled and prints none, and neither does its strip, so the page holds it once.
-			if ( method_exists( 'WPCPM_Institution_Roster_View', 'read_line' ) && method_exists( 'WPCPM_Roster_Index', 'read' ) ) {
-				$read = isset( $context['read'] ) ? (int) $context['read'] : (int) WPCPM_Roster_Index::read( $record )['read'];
-				WPCPM_Institution_Roster_View::read_line( $read, 'wpcpm-dashboard__updated' );
-			}
+			echo '</div>';
+		} finally {
+			WPCPM_UI::leave();
 		}
-
-		echo '</div>';
 
 		return (string) ob_get_clean();
 	}

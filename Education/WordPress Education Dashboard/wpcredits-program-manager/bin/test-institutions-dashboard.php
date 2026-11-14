@@ -268,6 +268,9 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-p
 define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+// The switch of the shared parts, which each screen and dashboard names itself to while it draws, as the plugin
+// loads it before its modules.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
@@ -2038,6 +2041,23 @@ ck( 'the test institution\'s dashboard names it, with no Test mark, no badge and
 		substr_count( $test_page, '(Test)' ),
 	),
 	array( true, 0, 0, 0 ) );
+
+// The shared parts' switch under the real constant (Task 18a): the Administrator Dashboard is on, the Institution
+// Dashboard off until its own release. With no set_live() at all the page, for a member and for an Administrator
+// viewing a school, is its off drawing of this run, byte for byte, with no switch class and no part.
+WPCPM_UI::set_live( array() );
+$inst_off = array( render_as( 2 ), render_as( 4, array( 'wpcpm_institution_view' => $test_record ) ) );
+WPCPM_UI::set_live( null );
+$inst_real = array( render_as( 2 ), render_as( 4, array( 'wpcpm_institution_view' => $test_record ) ) );
+ck( 'under the real switch the Institution Dashboard is its off drawing, byte for byte, for a member and for an Administrator viewing a school, with no switch class and no part',
+	array(
+		WPCPM_UI::live(),
+		$inst_real === $inst_off,
+		$inst_real[1] === $test_page,
+		false !== strpos( $inst_real[0], '<div class="wpcpm-dashboard wpcpm-institution">' ),
+		preg_match( '/wpcpm-ui-/', implode( '', $inst_real ) ),
+	),
+	array( array( 'administrator' ), true, true, true, 0 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );
