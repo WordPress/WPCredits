@@ -201,6 +201,9 @@ final class WPCPM_Administrators_Cards {
 				'overdue' => $overdue_request,
 			),
 			'locked'               => WPCPM_Institution_Roster::locked_today(),
+			// The students waiting to graduate (1.123.93): the roster rows at Pending graduation, oldest first, each with
+			// when the students sync first saw it so (`graduation()`).
+			'graduation'           => self::graduation(),
 			// Sponsor posts waiting for review (Sponsors module, S3): the facts, never the posts.
 			'sponsor_posts'        => $sponsor_posts,
 			// Sponsor offers, and changes to live ones, waiting for review (1.123.18): the facts the
@@ -362,6 +365,13 @@ final class WPCPM_Administrators_Cards {
 				$requests,
 				$late,
 				'requests'
+			),
+			// The students waiting to graduate (1.123.93), after the institutions' requests and before the mentor
+			// applications, as their card stands: real ones only, a test institution's student left out.
+			'graduation'           => array(
+				'label' => __( 'Students waiting to graduate', 'wpcredits-program-manager' ),
+				'n'     => self::graduation_real( isset( $data['graduation'] ) ? (array) $data['graduation'] : array() ),
+				'card'  => 'graduation',
 			),
 			// Beside the other two kinds of application (1.122.31), between the institutions' tiles
 			// and the sponsors', opening the queue they are decided in, as no card here lists them.
@@ -912,7 +922,7 @@ final class WPCPM_Administrators_Cards {
 					'help'   => WPCPM_Guide_Jobs::link( 'sponsor-event', __( 'Events', 'wpcredits-program-manager' ) ),
 					'count'  => $count,
 					'open'   => $count > 0,
-					'state'  => self::waiting( $count ),
+					'state'  => $count > 0 ? self::waiting( $count ) : self::events_coming_up( isset( $data['upcoming'] ) ? count( (array) $data['upcoming'] ) : 0 ),
 					'action' => $screen,
 				)
 			)
@@ -2250,6 +2260,123 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
+	 * The students waiting to graduate (1.123.93): every roster row whose status is Pending graduation, the Students
+	 * table's status, which the roster index carries and the program's records set together with their email about a
+	 * student pending graduation, so a row of an account whose program row still says otherwise is listed by the
+	 * roster's word. Every roster the site holds: those of the institutions the pipeline index lists, then those the
+	 * roster counts name for an institution the index does not (a record gone from the Institutions table, or an index
+	 * not read yet), whose name the site does not know (`known` false), then the rows that name no institution.
+	 *
+	 * Each row says when the students sync first saw it pending, from the account's stamp
+	 * (`WPCPM_Students_Sync::META_PENDING`): `at`, 0 for a row with no account or no stamp, and `before`, a student
+	 * already pending on the first run that kept the stamps. A test institution's student is listed, marked `test`,
+	 * and left out of every count. Oldest stamp first, a row with none last, then the earlier end of the internship (a
+	 * row with none last), then the name.
+	 *
+	 * The accounts are read in one go, and their meta with them (`cache_users()`), so sixty rows cost one read.
+	 *
+	 * @return array[] `record_id`, `name`, `institution` (an Institutions record ID, or ''), `known` (whether the pipeline
+	 *                 index names it), `test` (for the mark only; the count asks the test helper), `user_id` (0 with no
+	 *                 account), `end` (`Y-m-d` or ''), `hours`, `mentor_name`, `has_mentor`, `at`, `before`.
+	 */
+	public static function graduation() {
+		$tests   = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
+		$sources = array();
+		$known   = array();
+
+		foreach ( WPCPM_Institutions_Index::rows() as $record => $institution ) {
+			$sources[ (string) $record ] = WPCPM_Roster_Index::rows( (string) $record );
+			$known[ (string) $record ]   = true;
+		}
+
+		// A roster the students sync wrote for an institution the pipeline index does not hold: the sync files a Students
+		// row under whatever record its link names, and the counts name every roster it wrote.
+		$counts = WPCPM_Roster_Index::counts();
+
+		foreach ( array_keys( isset( $counts['institutions'] ) ? (array) $counts['institutions'] : array() ) as $record ) {
+			if ( ! isset( $sources[ (string) $record ] ) ) {
+				$sources[ (string) $record ] = WPCPM_Roster_Index::rows( (string) $record );
+			}
+		}
+
+		$sources[''] = WPCPM_Roster_Index::unlinked();
+		$found       = array();
+
+		foreach ( $sources as $record => $roster ) {
+			foreach ( (array) $roster as $row ) {
+				if ( ! is_array( $row ) || WPCPM_Program::STATUS_PENDING !== trim( isset( $row['status'] ) ? (string) $row['status'] : '' ) ) {
+					continue;
+				}
+
+				$found[] = array(
+					'record_id'   => isset( $row['record_id'] ) ? (string) $row['record_id'] : '',
+					'name'        => isset( $row['name'] ) ? trim( (string) $row['name'] ) : '',
+					'institution' => (string) $record,
+					'known'       => isset( $known[ (string) $record ] ),
+					'test'        => '' !== (string) $record && isset( $tests[ (string) $record ] ),
+					'user_id'     => isset( $row['user_id'] ) ? max( 0, (int) $row['user_id'] ) : 0,
+					'end'         => self::day( isset( $row['end'] ) ? $row['end'] : '' ),
+					'hours'       => isset( $row['hours'] ) ? (string) $row['hours'] : '',
+					'mentor_name' => isset( $row['mentor_name'] ) ? trim( (string) $row['mentor_name'] ) : '',
+					'has_mentor'  => ! empty( $row['has_mentor'] ),
+					'at'          => 0,
+					'before'      => false,
+				);
+			}
+		}
+
+		$ids = array_values( array_unique( array_filter( array_column( $found, 'user_id' ) ) ) );
+
+		if ( ! empty( $ids ) && function_exists( 'cache_users' ) ) {
+			cache_users( $ids );
+		}
+
+		foreach ( $found as $n => $row ) {
+			if ( $row['user_id'] < 1 || ! get_userdata( $row['user_id'] ) ) {
+				$found[ $n ]['user_id'] = 0;
+				continue;
+			}
+
+			$stamp = get_user_meta( $row['user_id'], WPCPM_Students_Sync::META_PENDING, true );
+
+			if ( is_array( $stamp ) && ! empty( $stamp['at'] ) ) {
+				$found[ $n ]['at']     = (int) $stamp['at'];
+				$found[ $n ]['before'] = ! empty( $stamp['before'] );
+			}
+		}
+
+		usort(
+			$found,
+			static function ( array $a, array $b ) {
+				$order = array(
+					array( 0 === $a['at'] ? 1 : 0, $a['at'], '' === $a['end'] ? 1 : 0, $a['end'] ),
+					array( 0 === $b['at'] ? 1 : 0, $b['at'], '' === $b['end'] ? 1 : 0, $b['end'] ),
+				);
+
+				if ( $order[0] !== $order[1] ) {
+					return $order[0] < $order[1] ? -1 : 1;
+				}
+
+				$name = strcasecmp( $a['name'], $b['name'] );
+
+				return 0 !== $name ? $name : strcmp( $a['record_id'], $b['record_id'] );
+			}
+		);
+
+		return $found;
+	}
+
+	/**
+	 * The students waiting to graduate that count: real ones, a test institution's left out.
+	 *
+	 * @param array[] $rows What `graduation()` returned.
+	 * @return int
+	 */
+	private static function graduation_real( array $rows ) {
+		return WPCPM_Test_Institutions::count_real_rows( $rows, 'institution' );
+	}
+
+	/**
 	 * The syncs, the outcome figures' weekly read among them, whether Automatic sync is on, the private
 	 * storage probe, the latest email and the last day's failures from the email log (and whether the
 	 * log's table is there yet), and the invitation run.
@@ -3335,6 +3462,153 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
+	 * The students waiting to graduate (1.123.93), a queue of the Overview's Waiting for you, after Requests from
+	 * institutions: what an Administrator does about them in one muted line, then one table on the shared parts, oldest
+	 * first (`graduation()`). The student is each row's header, linked to their Student Report Card when the account
+	 * and the page exist; the institution linked and marked as on every card; the course they wait on, linked to its
+	 * Learn course; the mentor, or "No mentor"; the hours logged, against the track's target when it has one; the end
+	 * of the internship; and when the students sync first saw them pending, or "Before" the date of the first run that
+	 * kept the stamps for a student already pending then. An empty value keeps its words, muted. No row has a button:
+	 * nothing about a graduation is changed on this site (the status is the program's records', the quiz Learn's). The
+	 * card ends with the way to the Students screen, filtered by the status.
+	 *
+	 * A test institution's student is listed, marked, and left out of the card's number and the tile's.
+	 *
+	 * @param array[] $rows What `graduation()` returned.
+	 */
+	public static function render_graduation( array $rows ) {
+		$count  = self::graduation_real( $rows );
+		$screen = array(
+			'label'   => __( 'Open on the Students screen', 'wpcredits-program-manager' ),
+			'href'    => admin_url( 'admin.php?page=wpcpm-students&wpcpm_student_status=' . rawurlencode( WPCPM_Program::STATUS_PENDING ) ),
+			'context' => sprintf(
+				/* translators: %s: the card's title. */
+				__( 'for the %s card', 'wpcredits-program-manager' ),
+				__( 'Students waiting to graduate', 'wpcredits-program-manager' )
+			),
+		);
+
+		WPCPM_Dashboard_Card::open(
+			array_merge(
+				self::SHELL,
+				array(
+					'key'    => 'graduation',
+					'title'  => __( 'Students waiting to graduate', 'wpcredits-program-manager' ),
+					'help'   => WPCPM_Guide_Jobs::link( 'graduation', __( 'Students waiting to graduate', 'wpcredits-program-manager' ) ),
+					'count'  => $count,
+					'open'   => $count > 0,
+					'state'  => self::waiting( $count ),
+					'action' => $screen,
+				)
+			)
+		);
+
+		if ( empty( $rows ) ) {
+			self::empty_line( __( 'No student is waiting to graduate.', 'wpcredits-program-manager' ) );
+		} else {
+			self::render_graduation_parts( $rows );
+		}
+
+		self::render_screen_line( $screen );
+		WPCPM_Dashboard_Card::close();
+	}
+
+	/**
+	 * The students waiting to graduate as one table on the shared parts (design 2.7, 2.11): five columns, the student the
+	 * row's header with their institution under the name as the cell's second line (plain muted text with its Test mark:
+	 * the row's one link is the student's), then Track, Mentor, Hours and Waiting since. The end of the internship
+	 * still orders the rows (`graduation()`) and is on the Student Report Card; it has no column (fix round 3). As
+	 * measured with five columns, the table's least width is about 560px with sixty rows (about 660px with a twenty-
+	 * character name), against 782px of card at 880px of main area: it stacks under 880px, as the other wide tables do.
+	 * Every name a person typed goes through `WPCPM_UI::breakable()`, so one long unbroken run breaks at its break
+	 * points rather than widen the table past the card (fix round 2 of 1.123.93). "Before" may wrap before its date;
+	 * every date stays whole.
+	 *
+	 * @param array[] $rows What `graduation()` returned, in its order.
+	 */
+	private static function render_graduation_parts( array $rows ) {
+		$column  = static function ( $key, $label, $kind, $header = false ) {
+			return array(
+				'key'    => $key,
+				'label'  => $label,
+				'kind'   => $kind,
+				'header' => $header,
+			);
+		};
+		$student = $column( 'student', __( 'Student', 'wpcredits-program-manager' ), 'text', 'row' );
+		$track   = $column( 'track', __( 'Track', 'wpcredits-program-manager' ), 'text' );
+		$mentor  = $column( 'mentor', __( 'Mentor', 'wpcredits-program-manager' ), 'text' );
+		$hours   = $column( 'hours', __( 'Hours', 'wpcredits-program-manager' ), 'short' );
+		$since   = $column( 'since', __( 'Waiting since', 'wpcredits-program-manager' ), 'date' );
+		$page    = (string) WPCPM_Students_Dashboard::page_url();
+		$none    = __( 'Not recorded', 'wpcredits-program-manager' );
+		$out     = WPCPM_UI::intro( __( 'These students have finished and wait for an Administrator: read their Student Report Card, ask the mentor if something is unclear, and approve the quiz on Learn so the certificate goes out. Then set the graduation date in Airtable: the student leaves this list at the first students sync after that date.', 'wpcredits-program-manager' ), 'muted' )
+			. WPCPM_UI::table_open(
+				array( $student, $track, $mentor, $hours, $since ),
+				array(
+					'labelledby' => self::title_id( 'graduation' ),
+					'wide'       => true,
+				)
+			);
+
+		foreach ( $rows as $row ) {
+			$id     = (int) $row['user_id'];
+			$name   = '' !== (string) $row['name'] ? (string) $row['name'] : (string) $row['record_id'];
+			$link   = ( $id > 0 && '' !== $page ) ? sprintf( '<a href="%1$s">%2$s</a>', esc_url( add_query_arg( 'wpcpm_student_view', $id, $page ) ), WPCPM_UI::breakable( $name ) ) : WPCPM_UI::breakable( $name );
+			$record = (string) $row['institution'];
+			// A school the pipeline index does not name, or none, keeps the empty value's words, not its record ID; one the
+			// test list remembers keeps its Test mark too, as it is left out of the count (fix round 4).
+			if ( '' !== $record && ( ! isset( $row['known'] ) || ! empty( $row['known'] ) ) ) {
+				$school = WPCPM_UI::cell_sub( '', self::graduation_school( $record ) );
+			} elseif ( ! empty( $row['test'] ) ) {
+				$school = WPCPM_UI::cell_sub( '', esc_html( $none ) . WPCPM_Test_Institutions::badge( WPCPM_Test_Institutions::MARK_DASHBOARD ) );
+			} else {
+				$school = WPCPM_UI::cell_sub( $none );
+			}
+			$course = WPCPM_Program::course_status( WPCPM_Program::STATUS_PENDING, $id );
+			$url    = '' !== $course ? WPCPM_Program::course_url( $course ) : '';
+			$named  = '' !== $course ? WPCPM_Program::label( $course ) : '';
+			$logged = WPCPM_Program::hours_text( (string) $row['hours'], '' !== $course ? $course : WPCPM_Program::STATUS_PENDING );
+			$who    = (string) $row['mentor_name'];
+			$at     = (int) $row['at'];
+			$day    = $at > 0 ? self::whole_text( self::site_day( $at ) ) : '';
+			// "Before" may go to its own line; the date stays whole.
+			/* translators: %s: the date of the first students sync that saw the student pending; they were pending before it. */
+			$waited = '' === $day ? '' : ( ! empty( $row['before'] ) ? sprintf( __( 'Before %s', 'wpcredits-program-manager' ), $day ) : $day );
+
+			$out .= WPCPM_UI::row_open()
+				. WPCPM_UI::cell( $student, $link . $school )
+				. ( '' !== $named
+					? WPCPM_UI::cell( $track, '' !== $url ? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), WPCPM_UI::breakable( $named ) ) : WPCPM_UI::breakable( $named ) )
+					: WPCPM_UI::cell( $track, esc_html( $none ), 'empty' ) )
+				// A mentor on the Students row whose name has not arrived is not "No mentor": the name is not recorded.
+				. ( '' !== $who
+					? WPCPM_UI::cell( $mentor, WPCPM_UI::breakable( $who ) )
+					: WPCPM_UI::cell( $mentor, esc_html( ! empty( $row['has_mentor'] ) ? $none : __( 'No mentor', 'wpcredits-program-manager' ) ), 'empty' ) )
+				. ( '' !== $logged
+					? WPCPM_UI::cell( $hours, esc_html( $logged ) )
+					: WPCPM_UI::cell( $hours, esc_html( $none ), 'empty' ) )
+				. WPCPM_UI::cell( $since, esc_html( $waited ) )
+				. WPCPM_UI::row_close();
+		}
+
+		echo $out . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts; each value through esc_html(), esc_url() or WPCPM_UI::breakable() above, the school in graduation_school().
+	}
+
+	/**
+	 * A student's institution under their name on the Students waiting to graduate table: its name through
+	 * `WPCPM_UI::breakable()`, as plain text (the row's one link is the student's), then its Test mark.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string Escaped markup.
+	 */
+	private static function graduation_school( $record ) {
+		$plain = self::institution_name( $record );
+
+		return WPCPM_UI::breakable( $plain ) . WPCPM_Test_Institutions::mark( $plain, WPCPM_Test_Institutions::MARK_DASHBOARD );
+	}
+
+	/**
 	 * The students who have gone quiet, from the daily snapshot: the viewer's own students first, then
 	 * each other program manager's by name, then the students with no program manager. Each row says
 	 * how long, what was last seen and when, the mentor, whether a reminder went (or would go, in
@@ -3985,6 +4259,28 @@ final class WPCPM_Administrators_Cards {
 			/* translators: %s: how many things on the card wait for an Administrator's decision, or past a sponsor queue's count's ceiling that ceiling with a plus sign, such as 200+. */
 			_n( '%s waiting', '%s waiting', (int) $n, 'wpcredits-program-manager' ),
 			'' !== (string) $shown ? (string) $shown : number_format_i18n( (int) $n )
+		);
+	}
+
+	/**
+	 * The phrase on the Events card's row when no event waits (1.123.93): that nothing waits, and how many events are
+	 * coming up, or that none is. The card stays on the Overview then, for the events coming up and the plan. Short
+	 * enough to stay one line under its title at 358px of main area, as the other heads' phrases do.
+	 *
+	 * @param int $upcoming How many approved events are still to take place.
+	 * @return string
+	 */
+	private static function events_coming_up( $upcoming ) {
+		$upcoming = max( 0, (int) $upcoming );
+
+		if ( 0 === $upcoming ) {
+			return __( 'Nothing waiting, none coming up', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: %s: how many approved events are still to take place. */
+			_n( 'Nothing waiting, %s coming up', 'Nothing waiting, %s coming up', $upcoming, 'wpcredits-program-manager' ),
+			number_format_i18n( $upcoming )
 		);
 	}
 

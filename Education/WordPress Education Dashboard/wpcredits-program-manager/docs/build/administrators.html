@@ -1358,7 +1358,10 @@
 <li>The student sets a password and works on their Student Report Card, and you follow them: see <em>Open a student's Student Report Card</em> and <em>Students who have gone quiet</em>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>You, in Airtable, change the <strong>Status</strong> when the student finishes, for example to <code>Graduate</code>; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.</li>
+<li>When the student sends their last feedback form, an Airtable automation sets their <strong>Status</strong> to <em>Pending graduation</em>. After the next students sync they are on the <strong>Students waiting to graduate</strong> card: see <em>A student is waiting to graduate</em>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>You set the <em>Graduation date</em> in Airtable. When that date comes, an Airtable automation sets the <strong>Status</strong> to <em>Graduate</em> and the certificate notice goes out; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.</li>
 <!-- /wp:list-item -->
 </ol>
 <!-- /wp:list -->
@@ -1829,6 +1832,80 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A student with a call or group session booked ahead is never on the card.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:heading {"level":3,"anchor":"a-student-is-waiting-to-graduate"} -->
+<h3 class="wp-block-heading" id="a-student-is-waiting-to-graduate">A student is waiting to graduate</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>When:</em> the <strong>Students waiting to graduate</strong> card on <code>Administrator Dashboard &gt; Overview</code> lists students.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the Administrator Dashboard and open the card <strong>Students waiting to graduate</strong>. The top row has waited longest. Each student's institution is under their name.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press the student's name to open their Student Report Card, and read their report and hours.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>If something is unclear, ask the mentor named in <strong>Mentor</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press the course in <strong>Track</strong> to open it on Learn, and approve the student's quiz there, so the certificate goes out.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In Airtable, set the <em>Graduation date</em> on the student's Students Reports row.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--next","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--next"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>What happens next</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>When the <em>Graduation date</em> comes, an Airtable automation sets the student's <strong>Status</strong> to <em>Graduate</em> and sends the certificate notice.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The student leaves the card at the next students sync.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The site sends nothing and changes no status.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list --></div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"wpcpm-guide-note wpcpm-guide-note--know","layout":{"type":"default"}} -->
+<div class="wp-block-group wpcpm-guide-note wpcpm-guide-note--know"><!-- wp:paragraph {"className":"wpcpm-guide-note__title"} -->
+<p class="wpcpm-guide-note__title"><strong>Good to know</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The card lists every student on the site's rosters whose <strong>Status</strong> in Airtable's Students table is <em>Pending graduation</em>. A test institution's student is listed with the <strong>Test</strong> mark and left out of the count.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Waiting since</strong> is the day the students sync first saw the student pending. <em>Before</em> a date means the student was already pending at the first sync that kept these days, so the true day is earlier.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A student with no account on the site, or whose address is on two institutions' rows, has no link and no <strong>Waiting since</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A student on two tracks that are both pending is listed twice, and both lines name the same track, because the site keeps one course for each account.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Open on the Students screen</strong> opens <code>WPCredits Program &gt; Students</code> filtered by <em>Pending graduation</em>. That list reads the Students Reports table, so it can differ from the card for a while.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -3438,7 +3515,7 @@
 <li>If the sponsor no longer offers events, there is no <strong>Approve</strong>: use <strong>Return with a note</strong>, which needs a note.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>To call off an approved event, press <strong>Cancel with a note</strong> on the event tagged <strong>Coming up</strong>, write why, press <strong>Cancel with this note</strong> and confirm. Everyone who joined is told, and <strong>Who joined</strong> lists them. The approved events are on the same row, so they show only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with <strong>Viewing as sponsor</strong> and press <strong>Cancel the event</strong> on the event: it takes no note, and everyone who joined is told.</li>
+<li>To call off an approved event, press <strong>Cancel with a note</strong> on the event tagged <strong>Coming up</strong>, write why, press <strong>Cancel with this note</strong> and confirm. Everyone who joined is told, and <strong>Who joined</strong> lists them. The approved events are on the same card, which stays on the Overview whether or not an event waits.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list --></div>
@@ -3449,13 +3526,13 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><em>When:</em> only while <strong>Sponsor tiers</strong> is on in Settings, and only while the <strong>Events</strong> row is under <strong>Waiting for you</strong>: the row shows only while a sponsor's event waits for the program's OK.</p>
+<p><em>When:</em> only while <strong>Sponsor tiers</strong> is on in Settings.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list {"ordered":true} -->
 <ol class="wp-block-list">
 <!-- wp:list-item -->
-<li>Open <code>Administrator Dashboard &gt; Overview</code> and press <strong>Review</strong> on the <strong>Events</strong> row.</li>
+<li>Open <code>Administrator Dashboard &gt; Overview</code> and press the <strong>Events</strong> row: it reads <strong>Review</strong> while an event waits, <strong>Open</strong> when none does.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Under <strong>Plan an event of the program's</strong>, press <strong>Plan an event</strong>.</li>
@@ -3502,9 +3579,6 @@
 
 <!-- wp:list -->
 <ul class="wp-block-list">
-<!-- wp:list-item -->
-<li>With no sponsor event waiting, the <strong>Events</strong> row is not shown, and you cannot reach these controls. Right after any press on that row it shows once more, then goes.</li>
-<!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Only <strong>Places</strong> may stay empty. <strong>Description</strong> shows on the Partners page. <strong>Call link</strong> is seen only by the people who join, and the program.</li>
 <!-- /wp:list-item -->
@@ -6611,7 +6685,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>What you see</th><th>What it means</th><th>What to do next</th></tr></thead><tbody><tr><td><em>New</em> or <em>Held</em> on <code>Students &gt; Interests</code></td><td>A student asked about a school that is not in the program.</td><td>See <a href="#a-student-is-interested-in-a-school-that-is-not-in-the-program">A student is interested in a school that is not in the program</a>.</td></tr><tr><td><strong>Waiting to be written</strong>, with the reason, on <code>Students &gt; Registrations</code></td><td>The registration is not in Airtable yet. The reason says why, and what the site does next.</td><td>See <a href="#a-student-registered">A student registered</a>.</td></tr><tr><td><strong>Could not be written</strong> on <code>Students &gt; Registrations</code></td><td>The site could not write the registration to Airtable for 72 hours. The line shows the last error. The site keeps trying.</td><td>See <a href="#a-student-registered">A student registered</a>.</td></tr><tr><td><strong>Written to Airtable</strong> on <code>Students &gt; Registrations</code></td><td>The student has a row in Airtable. The student is emailed that the registration arrived, unless the day's email limit was reached; the row says when the email was not sent.</td><td>See <a href="#a-student-registered">A student registered</a>.</td></tr><tr><td><strong>Already has an account</strong> or <strong>Already registered</strong> on <code>Students &gt; Registrations</code></td><td>The same person is already known. Nothing new was written.</td><td>See <a href="#find-a-student">Find a student</a>.</td></tr><tr><td><em>A student to add</em> in <strong>Requests from institutions</strong> (<strong>Overview</strong>)</td><td>A school enrolled this student on its Institution Dashboard.</td><td>See <a href="#a-school-s-other-requests-a-student-to-add-a-mentor-wanted">A school's other requests (a student to add, a mentor wanted)</a>.</td></tr><tr><td>The student in the <strong>Never invited</strong> view of <code>Students &gt; Accounts</code></td><td>The student has an account. No invitation has been sent yet.</td><td>See <a href="#invite-a-student-or-several">Invite a student, or several</a>.</td></tr><tr><td>The student in the <strong>Invited</strong> view of <code>Students &gt; Accounts</code></td><td>The invitation went.</td><td>Nothing, unless the student cannot sign in.</td></tr><tr><td>"-" in the <strong>Mentor</strong> column of <code>Students &gt; Accounts</code></td><td>Airtable gives the student no mentor.</td><td>Give the student a mentor in Airtable. The site shows it after the next students sync.</td></tr><tr><td>A track's name in the <strong>Status</strong> column of <code>Students &gt; Accounts</code></td><td>The student is on that track.</td><td>Nothing.</td></tr><tr><td>The student's row on <strong>Students gone quiet</strong> (<strong>Watch</strong>)</td><td>Nothing on record from the student for the days set in <strong>Days of quiet</strong>. The card's <strong>Days quiet</strong> column says how long.</td><td>See <a href="#students-who-have-gone-quiet">Students who have gone quiet</a>.</td></tr><tr><td>The student counted on <strong>Duplicated students</strong> (<strong>Watch</strong>)</td><td>The student has more than one row in Airtable.</td><td>See <a href="#a-student-has-duplicate-rows">A student has duplicate rows</a>.</td></tr><tr><td><em>Paused</em> or <em>Pending graduation</em> in the <strong>Status</strong> column</td><td>The status comes from Airtable. The student is on no track, so <strong>Students gone quiet</strong> leaves them out.</td><td>Nothing on the site. The status is changed in Airtable.</td></tr><tr><td><em>Graduated</em> or <em>Dropped out</em> in the <strong>Status</strong> column</td><td>The student finished or left the program.</td><td>Nothing.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>What you see</th><th>What it means</th><th>What to do next</th></tr></thead><tbody><tr><td><em>New</em> or <em>Held</em> on <code>Students &gt; Interests</code></td><td>A student asked about a school that is not in the program.</td><td>See <a href="#a-student-is-interested-in-a-school-that-is-not-in-the-program">A student is interested in a school that is not in the program</a>.</td></tr><tr><td><strong>Waiting to be written</strong>, with the reason, on <code>Students &gt; Registrations</code></td><td>The registration is not in Airtable yet. The reason says why, and what the site does next.</td><td>See <a href="#a-student-registered">A student registered</a>.</td></tr><tr><td><strong>Could not be written</strong> on <code>Students &gt; Registrations</code></td><td>The site could not write the registration to Airtable for 72 hours. The line shows the last error. The site keeps trying.</td><td>See <a href="#a-student-registered">A student registered</a>.</td></tr><tr><td><strong>Written to Airtable</strong> on <code>Students &gt; Registrations</code></td><td>The student has a row in Airtable. The student is emailed that the registration arrived, unless the day's email limit was reached; the row says when the email was not sent.</td><td>See <a href="#a-student-registered">A student registered</a>.</td></tr><tr><td><strong>Already has an account</strong> or <strong>Already registered</strong> on <code>Students &gt; Registrations</code></td><td>The same person is already known. Nothing new was written.</td><td>See <a href="#find-a-student">Find a student</a>.</td></tr><tr><td><em>A student to add</em> in <strong>Requests from institutions</strong> (<strong>Overview</strong>)</td><td>A school enrolled this student on its Institution Dashboard.</td><td>See <a href="#a-school-s-other-requests-a-student-to-add-a-mentor-wanted">A school's other requests (a student to add, a mentor wanted)</a>.</td></tr><tr><td>The student in the <strong>Never invited</strong> view of <code>Students &gt; Accounts</code></td><td>The student has an account. No invitation has been sent yet.</td><td>See <a href="#invite-a-student-or-several">Invite a student, or several</a>.</td></tr><tr><td>The student in the <strong>Invited</strong> view of <code>Students &gt; Accounts</code></td><td>The invitation went.</td><td>Nothing, unless the student cannot sign in.</td></tr><tr><td>"-" in the <strong>Mentor</strong> column of <code>Students &gt; Accounts</code></td><td>Airtable gives the student no mentor.</td><td>Give the student a mentor in Airtable. The site shows it after the next students sync.</td></tr><tr><td>A track's name in the <strong>Status</strong> column of <code>Students &gt; Accounts</code></td><td>The student is on that track.</td><td>Nothing.</td></tr><tr><td>The student's row on <strong>Students gone quiet</strong> (<strong>Watch</strong>)</td><td>Nothing on record from the student for the days set in <strong>Days of quiet</strong>. The card's <strong>Days quiet</strong> column says how long.</td><td>See <a href="#students-who-have-gone-quiet">Students who have gone quiet</a>.</td></tr><tr><td>The student counted on <strong>Duplicated students</strong> (<strong>Watch</strong>)</td><td>The student has more than one row in Airtable.</td><td>See <a href="#a-student-has-duplicate-rows">A student has duplicate rows</a>.</td></tr><tr><td><em>Paused</em> in the <strong>Status</strong> column</td><td>The status comes from Airtable. The student is on no track, so <strong>Students gone quiet</strong> leaves them out.</td><td>Nothing on the site. The status is changed in Airtable.</td></tr><tr><td><em>Pending graduation</em> in the <strong>Status</strong> column, or the student on <strong>Students waiting to graduate</strong> (<strong>Overview</strong>)</td><td>The student finished and waits for an Administrator. <strong>Students gone quiet</strong> leaves them out.</td><td>See <a href="#a-student-is-waiting-to-graduate">A student is waiting to graduate</a>.</td></tr><tr><td><em>Graduated</em> or <em>Dropped out</em> in the <strong>Status</strong> column</td><td>The student finished or left the program.</td><td>Nothing.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":3,"anchor":"where-a-mentor-stands"} -->
@@ -12503,7 +12577,7 @@
 <li>The number beside the title is how many things the card holds. The words after it say where it stands, such as "2 waiting".</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". <strong>Mentor applications</strong> shows none.</li>
+<li>On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". <strong>Mentor applications</strong> shows none. <strong>Students waiting to graduate</strong> counts from the day the students sync first saw the student pending.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>A link in an email, a decision's way back and <strong>Review the oldest</strong> each open the card they land on.</li>
@@ -12528,7 +12602,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Card</th><th>Its link opens</th></tr></thead><tbody><tr><td><strong>Institution applications</strong>, <strong>Collaboration Agreements</strong>, <strong>Requests from institutions</strong></td><td><strong>Open on the Institutions screen</strong>, tab <strong>Waiting for review</strong></td></tr><tr><td><strong>Semester reports</strong></td><td><strong>Open on the Institutions screen</strong>, tab <strong>Semester reports</strong></td></tr><tr><td>The sponsor queues</td><td><strong>Open on the Sponsors screen</strong>, tab <strong>Waiting for review</strong>, at that queue's own card</td></tr><tr><td><strong>Offers running low</strong>, <strong>New interests</strong>, <strong>Sponsor reports</strong></td><td><strong>Open on the Sponsors screen</strong>, tab <strong>Offers and codes</strong>, <strong>Interests</strong> or <strong>Reports</strong></td></tr><tr><td><strong>Sponsor terms ending</strong>, <strong>Sponsors</strong></td><td><strong>Open on the Sponsors screen</strong>, tab <strong>Sponsors</strong></td></tr><tr><td><strong>Duplicated students</strong></td><td><strong>Open the Student Duplicate Finder</strong></td></tr><tr><td><strong>Upcoming cohorts</strong></td><td><strong>Open the cohort timeline</strong></td></tr><tr><td><strong>Mentor engagement</strong></td><td><strong>Open the Mentors screen's Engagement tab</strong></td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Card</th><th>Its link opens</th></tr></thead><tbody><tr><td><strong>Institution applications</strong>, <strong>Collaboration Agreements</strong>, <strong>Requests from institutions</strong></td><td><strong>Open on the Institutions screen</strong>, tab <strong>Waiting for review</strong></td></tr><tr><td><strong>Semester reports</strong></td><td><strong>Open on the Institutions screen</strong>, tab <strong>Semester reports</strong></td></tr><tr><td><strong>Students waiting to graduate</strong></td><td><strong>Open on the Students screen</strong>, filtered by <em>Pending graduation</em></td></tr><tr><td>The sponsor queues</td><td><strong>Open on the Sponsors screen</strong>, tab <strong>Waiting for review</strong>, at that queue's own card</td></tr><tr><td><strong>Offers running low</strong>, <strong>New interests</strong>, <strong>Sponsor reports</strong></td><td><strong>Open on the Sponsors screen</strong>, tab <strong>Offers and codes</strong>, <strong>Interests</strong> or <strong>Reports</strong></td></tr><tr><td><strong>Sponsor terms ending</strong>, <strong>Sponsors</strong></td><td><strong>Open on the Sponsors screen</strong>, tab <strong>Sponsors</strong></td></tr><tr><td><strong>Duplicated students</strong></td><td><strong>Open the Student Duplicate Finder</strong></td></tr><tr><td><strong>Upcoming cohorts</strong></td><td><strong>Open the cohort timeline</strong></td></tr><tr><td><strong>Mentor engagement</strong></td><td><strong>Open the Mentors screen's Engagement tab</strong></td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":4,"anchor":"limits-and-what-is-left-out"} -->
@@ -12542,6 +12616,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Collaboration Agreements</strong> and <strong>Requests from institutions</strong> list up to 200, with no such line.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Students waiting to graduate</strong> lists every student on the site's rosters whose <strong>Status</strong> in Airtable's Students table is <em>Pending graduation</em>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Offers running low</strong>, <strong>New interests</strong>, and the folds of returned, revoked or out-of-force agreements stop at 50 without a word.</li>
@@ -12601,13 +12678,13 @@
 <li>A queue your last decision emptied is drawn once more, open, with the outcome.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Events</strong> is a queue only while <strong>Sponsor tiers</strong> is on.</li>
+<li><strong>Events</strong> is a queue only while <strong>Sponsor tiers</strong> is on. Its row stays when nothing waits, with <strong>Open</strong>, and the sentence does not name it.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Queue</th><th>Where you decide it</th></tr></thead><tbody><tr><td><strong>Institution applications</strong>, <strong>Collaboration Agreements</strong>, <strong>Requests from institutions</strong> and the sponsor queues</td><td>On its card here</td></tr><tr><td><strong>Mentor applications</strong></td><td><strong>Review</strong> opens <code>Mentors &gt; Waiting for review</code></td></tr><tr><td><strong>Semester reports</strong></td><td><strong>Review</strong> opens the report, where <strong>Approve this report</strong> is. <strong>Draft now</strong> makes a draft.</td></tr><tr><td><strong>Sponsor reports</strong></td><td><strong>Open</strong> opens a draft to finish. <strong>Draft now</strong> makes one.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Queue</th><th>Where you decide it</th></tr></thead><tbody><tr><td><strong>Institution applications</strong>, <strong>Collaboration Agreements</strong>, <strong>Requests from institutions</strong> and the sponsor queues</td><td>On its card here</td></tr><tr><td><strong>Students waiting to graduate</strong></td><td>Not on the site: you approve the quiz on Learn and set the graduation in Airtable</td></tr><tr><td><strong>Mentor applications</strong></td><td><strong>Review</strong> opens <code>Mentors &gt; Waiting for review</code></td></tr><tr><td><strong>Semester reports</strong></td><td><strong>Review</strong> opens the report, where <strong>Approve this report</strong> is. <strong>Draft now</strong> makes a draft.</td></tr><tr><td><strong>Sponsor reports</strong></td><td><strong>Open</strong> opens a draft to finish. <strong>Draft now</strong> makes one.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:list -->
@@ -12625,7 +12702,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>Step by step: <a href="#a-school-applied">A school applied</a>; <a href="#a-signed-collaboration-agreement-arrived">A signed Collaboration Agreement arrived</a>; <a href="#take-an-agreement-out-of-force-or-put-it-back">Take an agreement out of force, or put it back</a>; <a href="#a-semester-report-draft-review-approve-reopen">A semester report: draft, review, approve, reopen</a>; <a href="#a-company-applied-to-sponsor">A company applied to sponsor</a>; <a href="#a-sponsor-s-annual-report">A sponsor's annual report</a>; <a href="#find-an-application-or-agreement-past-the-fifty-the-dashboard-lists">Find an application or agreement past the fifty the dashboard lists</a>.</p>
+<p>Step by step: <a href="#a-school-applied">A school applied</a>; <a href="#a-signed-collaboration-agreement-arrived">A signed Collaboration Agreement arrived</a>; <a href="#take-an-agreement-out-of-force-or-put-it-back">Take an agreement out of force, or put it back</a>; <a href="#a-semester-report-draft-review-approve-reopen">A semester report: draft, review, approve, reopen</a>; <a href="#a-student-is-waiting-to-graduate">A student is waiting to graduate</a>; <a href="#a-company-applied-to-sponsor">A company applied to sponsor</a>; <a href="#a-sponsor-s-annual-report">A sponsor's annual report</a>; <a href="#find-an-application-or-agreement-past-the-fifty-the-dashboard-lists">Find an application or agreement past the fifty the dashboard lists</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"a-school-s-request-to-correct-its-details"} -->
@@ -13881,13 +13958,16 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The card <strong>Events</strong> is on <code>Administrator Dashboard &gt; Overview</code>, under <strong>Waiting for you</strong>. It is drawn while a sponsor's event waits, and once more right after any press on it. At other times it is not drawn.</p>
+<p>The card <strong>Events</strong> is on <code>Administrator Dashboard &gt; Overview</code>, under <strong>Waiting for you</strong>, whether or not an event waits.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li>With nothing waiting, the name <strong>Events</strong> in the line of empty queues opens the Sponsors screen, tab <strong>Waiting for review</strong>. That tab lists the waiting events but decides nothing.</li>
+<li>With nothing waiting, its row reads "Nothing waiting, 2 coming up" (or "none coming up"), with <strong>Open</strong> and no age tag. It adds nothing to the count at the top or in the menu.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Its last line opens the Sponsors screen, tab <strong>Waiting for review</strong>. That tab lists the waiting events but decides nothing.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><code>WPCredits Program &gt; Overview</code>, card <strong>Waiting for a decision</strong>, counts them as <strong>Events waiting</strong>.</li>
@@ -13926,9 +14006,6 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>You join an event as yourself.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li>While the card is not drawn, you can still cancel a sponsor's approved event on its Sponsor Dashboard, through <strong>Viewing as sponsor</strong>. There is no note, and everyone who joined is told.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->

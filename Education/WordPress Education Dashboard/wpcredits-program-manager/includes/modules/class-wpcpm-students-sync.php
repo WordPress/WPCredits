@@ -101,6 +101,29 @@ class WPCPM_Students_Sync {
 	const META_COURSE = 'wpcpm_student_course';
 
 	/**
+	 * When this sync first saw the student's Students-table status at Pending graduation (1.123.93), for the
+	 * Administrator Dashboard's card of the students waiting to graduate: `at`, a Unix time, and `before`, true when
+	 * the student was already pending on the first run that kept these stamps, so the true moment is unknown and the
+	 * card says "Before" that run's date.
+	 *
+	 * The Students table's status, the one each roster row carries, because that is the one the program's records set
+	 * together with their email about a student pending graduation; the reports row's copy can lag behind it. Written
+	 * by `phase_provision()`, in the pass that already holds both the account and its joined Students rows, and only
+	 * when it changes: kept while the status stays pending, deleted when the run reads any other status, written again
+	 * on a second pending spell. An account whose Students row this run did not read (no row by its address, or one
+	 * address under two institutions) keeps what it had, and so does every account a run that stopped half way did
+	 * not reach. Every stamp one run writes carries the same moment (`pending_at` on the run's state), so stamps of
+	 * one run order by the end date and the name after it.
+	 */
+	const META_PENDING = 'wpcpm_student_pending_since';
+
+	/**
+	 * When the stamps of `META_PENDING` began: the moment of the first run that stamped every account it reached and
+	 * finished. Until it is written, every student a run finds pending is stamped as already pending (`before`).
+	 */
+	const OPT_PENDING_FROM = 'wpcpm_students_pending_from';
+
+	/**
 	 * The Institutions record ID the student belongs to, on its own key (design decision 1).
 	 *
 	 * A record ID and never a name: `resolve_stored()` returns '' for an ID the lookups map
@@ -1392,6 +1415,15 @@ class WPCPM_Students_Sync {
 			$state['governing'] = self::governing_reports( $state );
 		}
 
+		// One moment for every stamp of the students waiting to graduate this run writes (`META_PENDING`), and whether
+		// they are first sights: not while no run that stamped from its first slice has finished. Where the step began,
+		// too: a run already in flight at the deploy, whose first slices stamped nobody, must not end the marking.
+		if ( ! isset( $state['pending_at'] ) ) {
+			$state['pending_at']     = time();
+			$state['pending_before'] = false === get_option( self::OPT_PENDING_FROM, false );
+			$state['pending_cursor'] = $cursor;
+		}
+
 		foreach ( $slice as $index => $student ) {
 			$state['cursor'] = $index + 1;
 
@@ -1489,6 +1521,8 @@ class WPCPM_Students_Sync {
 				$state['rows'][ $record_id ]['user_id'] = (int) $user_id;
 			}
 
+			self::stamp_pending( $user_id, $join['rows'], $state );
+
 			// A student whose pairing has settled on a new mentor leaves the old mentor's upcoming
 			// group sessions, with the mail that takes each out of their calendar: nothing else took
 			// them off, and they kept a series' reminders for as long as it ran (the deep check of
@@ -1507,6 +1541,55 @@ class WPCPM_Students_Sync {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Stamp, keep or clear when the account was first seen waiting to graduate (`META_PENDING`), from the Students rows
+	 * this run read for it: pending when one of them says Pending graduation. No row, no word: the stamp is left as it
+	 * was. Read from the account's meta: usually from the cache the program row's read above filled, and at most one
+	 * read of the account's meta where a write just before it emptied that cache. Written only when it changes, so a
+	 * run costs, per account, at most that one read and a write for each student who became pending or stopped being so.
+	 *
+	 * @param int      $user_id The student's account.
+	 * @param string[] $rows    The Students record IDs this run joined to the account.
+	 * @param array    $state   Sync state: `rows`, `pending_at`, `pending_before`.
+	 */
+	private static function stamp_pending( $user_id, array $rows, array $state ) {
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		$pending = false;
+
+		foreach ( $rows as $record_id ) {
+			if ( isset( $state['rows'][ $record_id ]['status'] ) && WPCPM_Program::STATUS_PENDING === trim( (string) $state['rows'][ $record_id ]['status'] ) ) {
+				$pending = true;
+				break;
+			}
+		}
+
+		$held = get_user_meta( $user_id, self::META_PENDING, true );
+
+		if ( ! $pending ) {
+			if ( '' !== $held && false !== $held ) {
+				delete_user_meta( $user_id, self::META_PENDING );
+			}
+
+			return;
+		}
+
+		if ( is_array( $held ) && ! empty( $held['at'] ) ) {
+			return;
+		}
+
+		update_user_meta(
+			$user_id,
+			self::META_PENDING,
+			array(
+				'at'     => isset( $state['pending_at'] ) ? (int) $state['pending_at'] : time(),
+				'before' => ! empty( $state['pending_before'] ),
+			)
+		);
 	}
 
 	/**
@@ -2526,6 +2609,12 @@ class WPCPM_Students_Sync {
 		// run that stopped. Left in place, the screen would show a half-minute 429 from the
 		// middle of a run as the state of a sync that finished.
 		delete_option( self::OPT_ERROR );
+
+		// The first run that stamped the students waiting to graduate from its first slice, finished: from now on a
+		// student found pending is a first sight (`META_PENDING`).
+		if ( isset( $state['pending_at'] ) && 0 === (int) ( isset( $state['pending_cursor'] ) ? $state['pending_cursor'] : -1 ) && false === get_option( self::OPT_PENDING_FROM, false ) ) {
+			update_option( self::OPT_PENDING_FROM, (int) $state['pending_at'], false );
+		}
 
 		update_option( self::OPT_LAST, time(), false );
 		delete_option( self::OPT_STATE );

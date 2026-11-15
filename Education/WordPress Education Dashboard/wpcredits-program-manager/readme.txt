@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.92
+Stable tag: 1.123.93
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,14 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.93 =
+
+* Administrator Dashboard: the Events card stays on the Overview when no event waits, so the events coming up and "Plan an event of the program's" are always there. Its row then reads "Nothing waiting, 2 coming up" (or "none coming up"), with Open and no age tag.
+* The count of decisions at the top, the menu's count and the line of empty queues count only the events that wait, as before.
+* Administrator Dashboard: a new card, "Students waiting to graduate", in Waiting for you after Requests from institutions. It lists every student whose Status in Airtable's Students table is Pending graduation, oldest first: the student (linked to their Student Report Card), with their institution under the name, then track (linked to its Learn course), mentor, hours and "Waiting since". A very long unbroken name breaks rather than widen the card. Its "How to do this" opens a new guide job, "A student is waiting to graduate". Nothing about a graduation is changed on the site.
+* The students sync now keeps, per student, the day it first saw them pending. A student already pending at the first sync after this release reads "Before" that day.
+* The card's count joins the decisions that wait: the count at the top, the menu's count, the wp-admin Overview's list (to the Students screen filtered by Pending graduation) and the assistant's answer about what waits. A test institution's students are listed and not counted. With nobody pending, the card is not drawn and the line of empty queues names it.
 
 = 1.123.92 =
 

@@ -535,6 +535,10 @@ class WPCPM_Roster_Index {
 	// programs() below share it, which is what keeps the two counts from drifting apart again.
 	public static function is_waiting( array $row ) { return empty( $row['reports'] ) && empty( $row['has_mentor'] ); }
 	public static function rows( $id ) { return self::read( $id )['rows']; }
+	// The rows that name no institution (1.123.93: the students waiting to graduate read them too).
+	public static function unlinked() { return isset( $GLOBALS['unlinked'] ) ? $GLOBALS['unlinked'] : array(); }
+	// The rosters the last sync wrote, as the real counts option names them: every roster this world holds (1.123.93).
+	public static function counts() { return array( 'v' => 4, 'read' => 0, 'institutions' => array_fill_keys( array_keys( $GLOBALS['rosters'] ), array() ), 'reconciliation' => array() ); }
 }
 // The Administrator an application or an institution is assigned to (Institutions off Airtable, R1), at the reads the
 // assignment makes: the institution's record and the booking link. The Countries table's contact below is somebody
@@ -804,6 +808,8 @@ class WPCPM_Institution_Request {
 }
 class WPCPM_Students_Sync {
 	const OPT_LAST = 'wpcpm_students_last_sync'; const CRON_AUTO = 'wpcpm_students_daily';
+	// The two keys the students waiting to graduate are read by (1.123.93), the real class's.
+	const META_PENDING = 'wpcpm_student_pending_since'; const META_COURSE = 'wpcpm_student_course';
 	public static function progress() { return $GLOBALS['sync']['students']; }
 }
 class WPCPM_Institutions_Sync {
@@ -1075,7 +1081,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-assign
 // Core's warm-up of many accounts in one query, which the card asks before it reads the names of
 // the people on an event: nothing to warm here.
 if ( ! function_exists( 'cache_users' ) ) {
-	function cache_users( $user_ids ) {}
+	function cache_users( $user_ids ) { $GLOBALS['gr_cached'][] = array_values( (array) $user_ids ); }
 }
 if ( ! function_exists( 'wp_timezone_string' ) ) {
 	function wp_timezone_string() { return isset( $GLOBALS['tz'] ) ? $GLOBALS['tz'] : 'UTC'; }
@@ -1273,6 +1279,19 @@ function tab_url( $page, $tab, $anchor = '' ) {
 function card_foot( $href, $words ) {
 	// The body's line is the fold's foot since the cards' old branches left (Task 18b); this block draws the shell off.
 	return '<p class="wpcpm-ui-fold__foot"><a href="' . $href . '">' . $words . '</a></p></div></details><p class="wpcpm-sponsor__row-action"><a class="wpcpm-button wpcpm-button--secondary" href="' . $href . '">' . $words . '</a></p></section>';
+}
+
+/**
+ * One student waiting to graduate (1.123.93), on no institution's roster and with no account yet, for the pages drawn
+ * with every queue holding something: the programs' figures read the institutions' rosters only, so they stay as
+ * they are.
+ *
+ * @return array[] The roster rows that name no institution.
+ */
+function pending_unlinked() {
+	return array(
+		'recS0000000000090' => array( 'record_id' => 'recS0000000000090', 'name' => 'Pending Unlinked', 'status' => 'Pending graduation', 'start' => '2026-03-02', 'end' => '', 'reports' => array(), 'mentor_name' => '' ),
+	);
 }
 
 /* ---- the fixture ---------------------------------------------------------- */
@@ -2759,7 +2778,8 @@ $out_watch = WPCPM_Administrators_Dashboard::render( array() );
 unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
 // The Reference view, at the page's own address with ?wpcpm_view=reference, and the Overview with every
 // queue holding something but the Events card's, which is no queue while Sponsor tiers is off: the one
-// sponsor offer waiting for review the fixture read above is put back for it.
+// sponsor offer waiting for review the fixture read above is put back for it, and a student waiting to graduate
+// (1.123.93) is added.
 $GLOBALS['tools']     = array();
 $GLOBALS['resources'] = array();
 $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
@@ -2770,8 +2790,9 @@ $reference_asked      = array(
 	'resources' => $GLOBALS['resources'],
 );
 $GLOBALS['offer_reviews'] = array( array( 'id' => 931, 'record' => 'recSPN00000000001', 'company' => 'TEST Sponsor', 'title' => 'A year of hosting', 'change' => 'new', 'by' => 'Member One', 'at' => time() - 600, 'fields' => array() ) );
+$GLOBALS['unlinked']      = pending_unlinked();
 $out_full                 = both_views();
-unset( $GLOBALS['offer_reviews'] );
+unset( $GLOBALS['offer_reviews'], $GLOBALS['unlinked'] );
 /**
  * The Overview and the Watch view, drawn one after the other with the site as it stands: every card the
  * page draws outside The program and the cohort timeline, the Overview's first (1.123.71: Watch is its
@@ -2887,7 +2908,7 @@ function count_cards( array $counts ) {
 	return array_values( array_filter( array_map( static function ( $tile ) { return isset( $tile['card'] ) ? (string) $tile['card'] : ''; }, $counts ) ) );
 }
 ck( 'every card is drawn in the approved order: on the Overview the head, the figures, the queues waiting for a decision, the mentor applications\' row among them, then the cards to watch; on the Reference view its head, the cards of the program\'s numbers, then the Tools section last, with no Resources column after it (1.123.71)', array(
-	in_order( $out_full, array( '<header class="wpcpm-head">', '<section class="wpcpm-figures', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-mentor-applications"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-offers-review"', 'id="wpcpm-sponsor-agreements"', 'id="wpcpm-sponsor-reports"', 'id="wpcpm-watch"', 'id="wpcpm-offers-low"', 'id="wpcpm-duplicates"', 'id="wpcpm-interests"', 'id="wpcpm-tiers-ending"', 'id="wpcpm-health"' ) ),
+	in_order( $out_full, array( '<header class="wpcpm-head">', '<section class="wpcpm-figures', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-graduation"', 'id="wpcpm-mentor-applications"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-offers-review"', 'id="wpcpm-sponsor-agreements"', 'id="wpcpm-sponsor-reports"', 'id="wpcpm-watch"', 'id="wpcpm-offers-low"', 'id="wpcpm-duplicates"', 'id="wpcpm-interests"', 'id="wpcpm-tiers-ending"', 'id="wpcpm-health"' ) ),
 	in_order( $out_ref, array( '<header class="wpcpm-head">', 'id="wpcpm-sponsors"', 'id="wpcpm-programs"', 'id="wpcpm-mentor-engagement"', 'id="wpcpm-tools"' ) ),
 	false === strpos( $out_ref, 'wpcpm-handbook__resources' ),
 ), array( true, true, true ) );
@@ -3177,7 +3198,7 @@ ck( 'the Overview is Waiting for you under the head and the figures, and Watch i
 	false === strpos( $out_ref, 'wpcpm-handbook__resources' ),
 ), array(
 	array(
-		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
+		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'graduation', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
 		'watch'   => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
 	),
 	array(
@@ -3203,7 +3224,9 @@ $marks_of     = static function ( array $anchors, $key ) use ( $full_marks ) {
 	}
 	return $of;
 };
-$dated_queues = $full_groups['waiting'];
+// The student waiting to graduate on this page has no account, so no moment: that queue's row has no age (1.123.93;
+// its age is pinned with the card's own checks).
+$dated_queues = array_values( array_diff( $full_groups['waiting'], array( 'graduation' ) ) );
 ck( 'on the Overview every card is drawn folded, one row each: each queue\'s with the Review cue and, where its rows say when they came in, how long the oldest has waited, as a red tag, the semester reports as long as the head says; each card to watch with neither', array(
 	array_values( array_unique( array_column( $full_marks, 'open' ) ) ),
 	array_values( array_unique( $marks_of( $full_groups['waiting'], 'cue' ) ) ),
@@ -3231,7 +3254,8 @@ ck( 'the mentor applications are a row in the Waiting group, between the request
 // A queue with nothing in it is not drawn as a card: one sentence after the Waiting group's cards names
 // every empty queue once, each name a link to its screen in wp-admin, so nothing seems to have gone.
 // Drawn here with the mentor applications and the sponsors' queues empty, and Sponsor tiers on, so the
-// Events card is a queue too; then with every queue holding something.
+// Events card is a queue too; then with every queue holding something. The Events card is drawn though no
+// event waits, for the events coming up and the plan, and is not named in the sentence (1.123.93).
 $kept_quiet = array( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['sponsor_apps'], $GLOBALS['mentor_waiting'], isset( $GLOBALS['tiers_live'] ) ? $GLOBALS['tiers_live'] : null );
 $GLOBALS['sponsor_posts']  = array();
 $GLOBALS['agr_review']     = array();
@@ -3243,32 +3267,33 @@ list( $GLOBALS['sponsor_posts'], $GLOBALS['agr_review'], $GLOBALS['sponsor_apps'
 $sponsors_queue = static function ( $card ) {
 	return tab_url( 'wpcpm-sponsors', 'queue', 'wpcpm-' . $card );
 };
-ck( 'a queue with nothing in it is not drawn: one sentence after the Waiting group\'s cards names every empty queue once, in the queues\' order, each name a link to its screen in wp-admin', array(
+ck( 'a queue with nothing in it is not drawn: one sentence after the Waiting group\'s cards names every empty queue once, in the queues\' order, each name a link to its screen in wp-admin; the Events card is drawn and not named', array(
 	quiet_links( $quiet_page ),
 	array_values( array_intersect( page_cards( $quiet_page ), array( 'mentor-applications', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements' ) ) ),
 	has( $quiet_page, 'id="wpcpm-mentor-applications"' ),
 	substr_count( $quiet_page, '<p class="wpcpm-ui-group__note">' ),
-	has( $quiet_page, '</section><p class="wpcpm-ui-group__note">Nothing waits in the 6 other queues: <a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue">Mentor applications</a>, <a href="' . $sponsors_queue( 'sponsor-applications' ) . '">Sponsor applications</a>, ' ),
+	has( $quiet_page, '</section><p class="wpcpm-ui-group__note">Nothing waits in the 6 other queues: <a href="https://example.test/wp-admin/admin.php?page=wpcpm-students&wpcpm_student_status=Pending%20graduation">Students waiting to graduate</a>, <a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue">Mentor applications</a>, <a href="' . $sponsors_queue( 'sponsor-applications' ) . '">Sponsor applications</a>, ' ),
 	has( $quiet_page, ', and <a href="' . $sponsors_queue( 'sponsor-agreements' ) . '">Sponsor Collaboration Agreements</a>. Each name opens its screen in wp-admin.</p></div></div></div>' ),
 ), array(
 	array(
+		// Nobody waits to graduate on this page (1.123.93): the queue is named, before the mentor applications.
+		'Students waiting to graduate'     => 'https://example.test/wp-admin/admin.php?page=wpcpm-students&wpcpm_student_status=Pending%20graduation',
 		'Mentor applications'              => 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=queue',
 		'Sponsor applications'             => $sponsors_queue( 'sponsor-applications' ),
 		'Sponsor posts to review'          => $sponsors_queue( 'sponsor-posts' ),
 		'Sponsor offers to review'         => $sponsors_queue( 'sponsor-offers-review' ),
-		'Events'                           => $sponsors_queue( 'sponsor-events' ),
 		'Sponsor Collaboration Agreements' => $sponsors_queue( 'sponsor-agreements' ),
 	),
-	array(),
+	array( 'sponsor-events' ),
 	false,
 	1,
 	true,
 	true,
 ) );
-ck( 'and the queues that hold something are drawn as before, in their order, the head counting them alone', array(
+ck( 'and the queues that hold something are drawn as before, in their order, the Events card at its place among them, the head counting what waits alone', array(
 	page_groups( $quiet_page )['waiting'],
 	has( $quiet_page, '<p class="wpcpm-head__title">9 decisions wait for you</p>' ),
-), array( array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-reports' ), true ) );
+), array( array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-events', 'sponsor-reports' ), true ) );
 // The Students gone quiet card (student automation): the Watch group's last, after Syncs and health,
 // drawn only while the switch is not off.
 $GLOBALS['opts'][ WPCPM_Student_Flags::OPT_SNAPSHOT ] = $q_snapshot;
@@ -3719,7 +3744,8 @@ ck( 'on every card of the two views the badge is the first number its phrase say
 	isset( $all_rows['mentor-engagement'] ) ? $all_rows['mentor-engagement'] : null,
 	card_badge( capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_programs( array( 'tracks' => array( '150h' => array( 'in_progress' => 4, 'signed_up' => 0 ), '50h' => array( 'in_progress' => 0, 'signed_up' => 2 ) ), 'finished' => 0, 'rows' => array( $data['programs']['rows'][0], $data['programs']['rows'][0] ), 'quiet' => 0, 'read' => 0, 'semester' => '' ) ); } ) ),
 ), array(
-	17,
+	// 1.123.93: Students waiting to graduate's row among them.
+	18,
 	array(),
 	array( 'badge' => 3, 'phrase' => '3 syncs need a look' ),
 	array( 'badge' => 3, 'phrase' => '3 programs running, 1 institution' ),
@@ -3768,7 +3794,7 @@ $module_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/c
 ck( 'the module boots the dashboard, ensures the page on activation and deletes its options on uninstall', array( has( $module_src, 'WPCPM_Administrators_Dashboard::init()' ), has( $module_src, 'WPCPM_Administrators_Dashboard::ensure_page()' ), has( $module_src, 'WPCPM_Administrators_Dashboard::OPT_PAGE' ), has( $module_src, 'WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED' ) ), array( true, true, true, true ) );
 $block = json_decode( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/block.json' ), true );
 $asset = include WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/editor.asset.php';
-ck( 'the block is named for the class and versioned with the release that last changed what its editor script and description say (1.123.27: requests from institutions)', array( $block['name'], $block['version'], $asset['version'] ), array( 'wpcpm/administrator-dashboard', '1.123.27', '1.123.27' ) );
+ck( 'the block is named for the class and versioned with the release that last changed what its description says (1.123.93: students waiting to graduate), its editor script with the release that last changed that script (1.123.27)', array( $block['name'], $block['version'], $asset['version'] ), array( 'wpcpm/administrator-dashboard', '1.123.93', '1.123.27' ) );
 $editor_js = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard/editor.js' );
 ck( 'and the editor\'s empty preview speaks of the Administrator viewing the page, not a manager', array( has( $editor_js, 'for the Administrator viewing it.' ), has( $editor_js, 'for the manager viewing it' ), has( $block['description'], 'Shows Administrators what needs them' ) ), array( true, false, true ) );
 $dashes = array();
@@ -4433,9 +4459,11 @@ $se_card = sponsor_events_card( $se );
 $se_empty = sponsor_events_card( array( 'waiting' => array(), 'upcoming' => array() ) );
 // The Sponsors screen lists the same events on its queue tab, in a card of their own, read-only: the
 // card's way there is its row action, and the last line of its body, at that card, as the posts' is.
-ck( 'its row: open while an event waits, saying how many wait, and folded with none, saying so; after the fold the way to the Sponsors screen\'s queue tab, at the card that lists the events there', array( card_row( $se_card ), card_row( $se_empty ) ), array(
+// With none waiting the row says so and what the card holds (1.123.93), as it stays on the Overview.
+ck( 'its row: open while an event waits, saying how many wait, and folded with none, saying that nothing waits and how many events are coming up; after the fold the way to the Sponsors screen\'s queue tab, at the card that lists the events there', array( card_row( $se_card ), card_row( $se_empty ), card_row( sponsor_events_card( array( 'waiting' => array(), 'upcoming' => isset( $se['upcoming'] ) ? $se['upcoming'] : array() ) ) ) ), array(
 	array( 'open' => true, 'state' => '2 waiting', 'action' => $to_sponsors( 'queue', 'wpcpm-sponsor-events' ) ),
-	array( 'open' => false, 'state' => '0 waiting', 'action' => $to_sponsors( 'queue', 'wpcpm-sponsor-events' ) ),
+	array( 'open' => false, 'state' => 'Nothing waiting, none coming up', 'action' => $to_sponsors( 'queue', 'wpcpm-sponsor-events' ) ),
+	array( 'open' => false, 'state' => 'Nothing waiting, 2 coming up', 'action' => $to_sponsors( 'queue', 'wpcpm-sponsor-events' ) ),
 ) );
 ck( 'and the card ends with the same link as a line, after all the queue class draws in it, whether an event waits or none does', array(
 	ends_with( $se_card, $sponsors_line( 'queue', 'wpcpm-sponsor-events' ) ),
@@ -4444,7 +4472,9 @@ ck( 'and the card ends with the same link as a line, after all the queue class d
 
 // The Overview switched on and off, each with what counts() gives in the same state, which the head and
 // the menu read; the same two with every queue holding something, the one sponsor offer waiting for
-// review put back; and the Reference view, switched on.
+// review put back; and the Reference view, switched on. A student waits to graduate in all of them (1.123.93), on no
+// institution's roster and with no account, so every queue but the one emptied holds something.
+$GLOBALS['unlinked']   = pending_unlinked();
 $GLOBALS['flash']      = array();
 $se_page               = both_views();
 $se_page_counts        = WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() );
@@ -4460,7 +4490,7 @@ $GLOBALS['tiers_live']    = true;
 unset( $GLOBALS['offer_reviews'] );
 $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] = WPCPM_Administrators_Dashboard::VIEW_REFERENCE;
 $se_ref = WPCPM_Administrators_Dashboard::render( array() );
-unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ] );
+unset( $_GET[ WPCPM_Administrators_Dashboard::VIEW_ARG ], $GLOBALS['unlinked'] );
 ck( 'switched on, every count counts() gives leads to a card the Overview or Watch draws, in the order they draw them, the Events count between the sponsor posts\' and the Sponsor Collaboration Agreements\', and Syncs and health\'s two side by side; switched off, no count leads to that card and every count to a card drawn', array(
 	count_cards( $se_page_counts ),
 	array_values( array_diff( count_cards( $se_page_counts ), page_cards( $se_page ) ) ),
@@ -4468,7 +4498,7 @@ ck( 'switched on, every count counts() gives leads to a card the Overview or Wat
 	in_array( 'sponsor-events', count_cards( $se_page_off_counts ), true ),
 	array_values( array_diff( count_cards( $se_page_off_counts ), page_cards( $se_page_off ) ) ),
 ), array(
-	array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports', 'offers-low', 'duplicates', 'health', 'health' ),
+	array( 'applications', 'agreements', 'reports', 'requests', 'graduation', 'sponsor-applications', 'sponsor-posts', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports', 'offers-low', 'duplicates', 'health', 'health' ),
 	array(),
 	true,
 	false,
@@ -4516,6 +4546,7 @@ ck( 'each count\'s words begin with the title of the card it leads to, as the pa
 		array( 'agreements', 'Collaboration Agreements to review, 1 overdue' ),
 		array( 'reports', 'Semester reports to review, 1 due for drafting' ),
 		array( 'requests', 'Requests from institutions open, 1 overdue' ),
+		array( 'graduation', 'Students waiting to graduate' ),
 		array( 'sponsor-applications', 'Sponsor applications waiting' ),
 		array( 'sponsor-posts', 'Sponsor posts to review' ),
 		array( 'sponsor-events', 'Events waiting' ),
@@ -4570,11 +4601,11 @@ ck( 'its place is in Waiting for you, between Sponsor offers to review and the S
 	page_groups( $se_full_off ),
 ), array(
 	array(
-		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports' ),
+		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'graduation', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-events', 'sponsor-agreements', 'sponsor-reports' ),
 		'watch'   => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
 	),
 	array(
-		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
+		'waiting' => array( 'applications', 'agreements', 'reports', 'requests', 'graduation', 'sponsor-applications', 'sponsor-posts', 'sponsor-offers-review', 'sponsor-agreements', 'sponsor-reports' ),
 		'watch'   => array( 'offers-low', 'duplicates', 'interests', 'tiers-ending', 'health' ),
 	),
 ) );
@@ -4598,6 +4629,177 @@ ck( 'a decision on the card comes back with its sentence in the queue\'s words, 
 	has( $se_said, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--success is-success" role="status" tabindex="-1" data-wpcpm-card-message>The event is approved.</p>' ),
 	has( $se_refused, '<p class="wpcpm-dashboard__message wpcpm-dashboard__message--error is-error" role="alert" tabindex="-1" data-wpcpm-card-message>Nothing was changed. Write a note for the sponsor: it is the whole of what the sponsor is told.</p>' ),
 ), array( true, true ) );
+$GLOBALS['flash'] = array();
+
+/* ---- the Events card stays on the Overview when no event waits ----------- */
+
+echo "\n=== The Events card stays on the Overview when no event waits (1.123.93) ===\n";
+
+// The owner's decision of 15 November 2026: the Events card holds the events coming up, with Join or Leave, Change
+// the event and Cancel, and "Plan an event of the program's", so it stays on the Overview whether or not an event
+// waits for the program's OK. Its head then says nothing waits and what it holds, with no red tag and the cue
+// "Open"; the head, the menu and the counts count only what waits. Each page is the Overview on the parts, as the
+// site draws it.
+$st_kept  = array( $GLOBALS['sevents'], $GLOBALS['posts'][1401]->post_date_gmt, $GLOBALS['posts'][1402]->post_date_gmt );
+$st_page  = static function ( array $sevents ) {
+	$GLOBALS['sevents'] = $sevents;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	$page = WPCPM_Administrators_Dashboard::render( array() );
+	WPCPM_UI::set_live( array() );
+	return $page;
+};
+// The Events card's section, whole: from its start to the end tag that closes it.
+$st_card  = static function ( $page ) {
+	$page  = (string) $page;
+	$at    = strpos( $page, '<section class="wpcpm-administrator__card wpcpm-ui-fold-card" id="wpcpm-sponsor-events">' );
+	if ( false === $at ) {
+		return '';
+	}
+	$depth = 0;
+	$k     = $at;
+	do {
+		$open  = strpos( $page, '<section', $k + 1 );
+		$close = strpos( $page, '</section>', $k + 1 );
+		if ( false === $close ) {
+			return '';
+		}
+		if ( false !== $open && $open < $close ) {
+			++$depth;
+			$k = $open;
+		} else {
+			--$depth;
+			$k = $close;
+		}
+	} while ( $depth >= 0 );
+	return substr( $page, $at, $k + strlen( '</section>' ) - $at );
+};
+$st_head  = static function ( $card ) {
+	return 1 === preg_match( '#<summary class="wpcpm-ui-fold__head">(.*?)</summary>#s', (string) $card, $m ) ? $m[1] : '';
+};
+$st_title = static function ( $page ) {
+	return 1 === preg_match( '#<header class="wpcpm-head">.*?</header>#s', (string) $page, $m ) ? $m[0] : '';
+};
+// The head's start, up to the chevron, whose icon markup is the icon set's.
+$st_lead  = static function ( $head ) {
+	return (string) strstr( (string) $head, '<span class="wpcpm-ui-fold__chev"', true );
+};
+
+$st_coming = $st_page( array( 'waiting' => array(), 'upcoming' => array( 1403 ) ) );
+$st_none   = $st_page( array( 'waiting' => array(), 'upcoming' => array() ) );
+$st_two    = $st_page( array( 'waiting' => array(), 'upcoming' => array( 1403, 1404 ) ) );
+$GLOBALS['tiers_live'] = false;
+$st_off    = $st_page( array( 'waiting' => array(), 'upcoming' => array( 1403 ) ) );
+$GLOBALS['tiers_live'] = true;
+$st_coming_card = $st_card( $st_coming );
+$st_none_card   = $st_card( $st_none );
+ck( 'no event waits and one comes up: the Events card is drawn once, at its place between Sponsor offers to review and the Sponsor Collaboration Agreements, folded', array(
+	substr_count( $st_coming, 'id="wpcpm-sponsor-events"' ),
+	in_order( $st_coming, array( 'id="wpcpm-sponsor-posts"', 'id="wpcpm-sponsor-events"', 'id="wpcpm-sponsor-agreements"' ) ),
+	has( $st_coming_card, '<details class="wpcpm-ui-fold">' ),
+	'' !== $st_coming_card,
+), array( 1, true, true, true ) );
+ck( 'its head: the title, the phrase that nothing waits and one event is coming up, no red tag, the cue Open, the help slot', array(
+	$st_lead( $st_head( $st_coming_card ) ),
+	has( $st_head( $st_coming_card ), 'wpcpm-status' ),
+	$st_lead( $st_head( $st_card( $st_two ) ) ),
+), array(
+	'<h3 class="wpcpm-ui-fold__title" id="wpcpm-sponsor-events-title">Events</h3><span class="wpcpm-ui-fold__phrase">Nothing waiting, 1 coming up</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-ui-fold__cue" aria-hidden="true">Open</span><span class="wpcpm-ui-fold__help-slot" aria-hidden="true"></span></span>',
+	false,
+	'<h3 class="wpcpm-ui-fold__title" id="wpcpm-sponsor-events-title">Events</h3><span class="wpcpm-ui-fold__phrase">Nothing waiting, 2 coming up</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-ui-fold__cue" aria-hidden="true">Open</span><span class="wpcpm-ui-fold__help-slot" aria-hidden="true"></span></span>',
+) );
+ck( 'the other cards keep the cue Review, and the sentence that names the empty queues no longer names Events', array(
+	array_values( array_unique( array_map( static function ( $cue ) { return html_entity_decode( $cue, ENT_QUOTES ); }, preg_match_all( '#<span class="wpcpm-ui-fold__cue" aria-hidden="true">([^<]*)</span>#', str_replace( $st_coming_card, '', $st_coming ), $st_cues ) ? $st_cues[1] : array() ) ) ),
+	array_key_exists( 'Events', quiet_links( $st_coming ) ),
+	array_key_exists( 'Events', quiet_links( $st_none ) ),
+	array_keys( quiet_links( $st_coming ) ) === array_keys( quiet_links( $st_off ) ),
+), array( array( 'Review' ), false, false, true ) );
+ck( 'the head of the page, its count and its oldest, and the menu\'s count are the ones of the same page with no Events queue at all: the card adds nothing to any count', array(
+	$st_title( $st_coming ) === $st_title( $st_off ),
+	menu_items( $st_coming )['Overview']['badge'] ?? null,
+	array_key_exists( 'sponsor_events', WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() ) ),
+), array( true, menu_items( $st_off )['Overview']['badge'] ?? 'no badge', false ) );
+// The body is the card's own, as its renderer draws it for the same events away from the Overview: this suite has no
+// planner, so the plan, "Plan an event of the program's", is checked drawn on an empty card in
+// bin/test-sponsor-event-queue.php, which loads the real one.
+$st_body = static function ( $card ) {
+	return (string) strstr( (string) $card, '</summary>' );
+};
+$st_alone = static function ( array $sevents ) {
+	$GLOBALS['sevents'] = $sevents;
+	WPCPM_UI::set_live( array( 'administrator' ) );
+	WPCPM_UI::enter( 'administrator' );
+	ob_start();
+	WPCPM_Administrators_Cards::render_sponsor_events( WPCPM_Sponsor_Event_Queue::data() );
+	$card = (string) ob_get_clean();
+	WPCPM_UI::leave();
+	WPCPM_UI::set_live( array() );
+	return $card;
+};
+ck( 'inside, today\'s body: the empty line of what waits, the event coming up with its Decide area, the foot link, byte for byte what the card draws for the same events on its own', array(
+	has( $st_coming_card, 'Nothing is waiting for the program&#039;s OK.' ),
+	has( $st_coming_card, 'No event is coming up.' ),
+	has( $st_coming_card, 'id="wpcpm-sponsor-event-1403"' ),
+	has( $st_coming_card, 'id="wpcpm-decide-event-1403"' ),
+	has( $st_coming_card, 'tab=queue#wpcpm-sponsor-events' ),
+	$st_body( $st_coming_card ) === $st_body( $st_alone( array( 'waiting' => array(), 'upcoming' => array( 1403 ) ) ) ),
+	'' !== $st_body( $st_coming_card ),
+), array( true, false, true, true, true, true, true ) );
+ck( 'no event at all: the card is drawn with its two empty lines, its head saying no event is coming up, its body the card\'s own', array(
+	substr_count( $st_none, 'id="wpcpm-sponsor-events"' ),
+	$st_lead( $st_head( $st_none_card ) ),
+	has( $st_none_card, 'Nothing is waiting for the program&#039;s OK.</p><p class="wpcpm-ui-list__empty">No event is coming up.</p>' ),
+	has( $st_none_card, '<article ' ),
+	$st_body( $st_none_card ) === $st_body( $st_alone( array( 'waiting' => array(), 'upcoming' => array() ) ) ),
+	$st_title( $st_none ) === $st_title( $st_off ),
+), array(
+	1,
+	'<h3 class="wpcpm-ui-fold__title" id="wpcpm-sponsor-events-title">Events</h3><span class="wpcpm-ui-fold__phrase">Nothing waiting, none coming up</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-ui-fold__cue" aria-hidden="true">Open</span><span class="wpcpm-ui-fold__help-slot" aria-hidden="true"></span></span>',
+	true,
+	false,
+	true,
+	true,
+) );
+list( $st_outside, $st_parts ) = parts_outside_switch( $st_coming );
+ck( 'and every part the page draws sits inside the switch\'s root', array( $st_parts > 0, $st_outside ), array( true, array() ) );
+
+// An event waits: the card is byte for byte what 1.123.92 drew. Pinned as a digest of the card's section, the
+// number of days in its red tag written as N: the tag counts from the posts' fixed dates to now. Drawn with the two
+// waiting posts' dates moved a day earlier, a day later and 400 days earlier, the digest does not move.
+$st_digest = static function ( $card ) {
+	return md5( (string) preg_replace( '#(<span class="wpcpm-status wpcpm-status--red">)\d[\d,]*( days? waiting</span>)#', '${1}N${2}', (string) $card ) );
+};
+$st_waits  = $st_card( $st_page( $st_kept[0] ) );
+$st_moved  = array();
+foreach ( array( '-1 day', '+1 day', '-400 days' ) as $st_shift ) {
+	$GLOBALS['posts'][1401]->post_date_gmt = gmdate( 'Y-m-d H:i:s', (int) strtotime( $st_kept[1] . ' UTC ' . $st_shift ) );
+	$GLOBALS['posts'][1402]->post_date_gmt = gmdate( 'Y-m-d H:i:s', (int) strtotime( $st_kept[2] . ' UTC ' . $st_shift ) );
+	$st_moved[] = $st_digest( $st_card( $st_page( $st_kept[0] ) ) );
+}
+$GLOBALS['posts'][1401]->post_date_gmt = $st_kept[1];
+$GLOBALS['posts'][1402]->post_date_gmt = $st_kept[2];
+ck( 'an event waits: the card is byte for byte 1.123.92\'s, its head "2 waiting" with the red tag and the cue Review, on any day', array(
+	$st_digest( $st_waits ),
+	array_values( array_unique( $st_moved ) ) === array( $st_digest( $st_waits ) ),
+	1 === preg_match( '#<span class="wpcpm-ui-fold__phrase">2 waiting</span><span class="wpcpm-ui-fold__end"><span class="wpcpm-status wpcpm-status--red">\d+ days waiting</span><span class="wpcpm-ui-fold__cue" aria-hidden="true">Review</span>#', $st_head( $st_waits ) ),
+), array( '35e5503389ba00be21e6daaa169c2781', true, true ) );
+
+// The outcome of a decision held for the Events card, with no event left waiting: the card is drawn once, open, the
+// outcome at the top of its body.
+$_POST = array( WPCPM_Return::FIELD => 'dashboard', WPCPM_Return::ANCHOR_FIELD => 'sponsor-events' );
+WPCPM_Return::url( 'https://example.test/wp-admin/' );
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'sevent-approved' );
+$st_held      = $st_page( array( 'waiting' => array(), 'upcoming' => array( 1403 ) ) );
+$_POST        = array();
+$st_held_card = $st_card( $st_held );
+ck( 'the outcome held for the Events card with no event waiting: the card is drawn once, open, its outcome said once, inside it', array(
+	substr_count( $st_held, 'id="wpcpm-sponsor-events"' ),
+	has( $st_held_card, '<details class="wpcpm-ui-fold" open>' ),
+	substr_count( $st_held, 'data-wpcpm-card-message' ),
+	has( $st_held_card, 'data-wpcpm-card-message>The event is approved.</p>' ),
+	array_key_exists( 'Events', quiet_links( $st_held ) ),
+), array( 1, true, 1, true, false ) );
+$GLOBALS['flash']   = array();
+$GLOBALS['sevents'] = $st_kept[0];
 
 /* ---- each link to wp-admin names its card for a screen reader ------------ */
 
@@ -6419,7 +6621,10 @@ $gp_head           = static function ( $html ) {
 	return preg_match( '#<div class="wpcpm-administrator__group wpcpm-administrator__group--waiting[^"]*">.*?</p>#s', $html, $m ) ? $m[0] : '';
 };
 WPCPM_UI::set_live( array( 'administrator' ) );
-$gp_on_page = WPCPM_Administrators_Dashboard::render( array() );
+// A student waits to graduate (1.123.93), so the one empty queue is still the sponsor offers'.
+$GLOBALS['unlinked'] = pending_unlinked();
+$gp_on_page          = WPCPM_Administrators_Dashboard::render( array() );
+unset( $GLOBALS['unlinked'] );
 WPCPM_UI::set_live( array() );
 $GLOBALS['uid']    = 0;
 $GLOBALS['manage'] = array();
@@ -7343,6 +7548,268 @@ ck( 'under the real switch the Administrator Dashboard is drawn on: The program 
 	has( $ov_real, 'wpcpm-administrator wpcpm-administrator--overview wpcpm-ui-on' ),
 	parts_outside_switch( $ov_real )[0],
 ), array( array( 'administrator' ), true, true, false, true, array() ) );
+
+/* ---- the students waiting to graduate (1.123.93) -------------------------- */
+
+echo "\n=== The students waiting to graduate (1.123.93) ===\n";
+
+// The card lists the roster rows whose Students-table status is Pending graduation, oldest first by when the students
+// sync first saw each pending (the account's stamp), then the end of the internship, then the name. Its own world:
+// two institutions, a test one, a few accounts with their stamps, and the rest of the fixture as it stands.
+$gr_kept = array( $GLOBALS['rosters'], $GLOBALS['inst_rows'], $GLOBALS['users'], $GLOBALS['umeta'] ?? array(), $GLOBALS['unlinked'] ?? null, $GLOBALS['student_page'] ?? null, $GLOBALS['uid'], $GLOBALS['manage'] );
+$gr_T    = 'recTESTGRADINST01';
+// The program map, the compiled tracks', for the course and its target (a check above emptied the filters).
+$gr_filters = $GLOBALS['live_filters'];
+foreach ( array( 'wpcpm_program_labels' => 'filter_labels', 'wpcpm_program_courses' => 'filter_courses', 'wpcpm_program_hours_targets' => 'filter_hours', 'wpcpm_program_tracks' => 'filter_tracks', 'wpcpm_program_course_ids' => 'filter_course_ids' ) as $gr_hook => $gr_filter ) {
+	$GLOBALS['live_filters'][ $gr_hook ] = array( array( 'WPCPM_Tracks', $gr_filter ) );
+}
+$GLOBALS['inst_rows'][ $gr_T ] = array( 'record_id' => $gr_T, 'name' => 'TEST - Graduation School', 'stage' => 'Confirmed', 'country' => '', 'country_name' => '' );
+$GLOBALS['student_page']       = 'https://example.test/student-report-card/';
+$GLOBALS['uid']                = 3;
+$GLOBALS['manage']             = array( 3 );
+$gr_now                        = time();
+$gr_row                        = static function ( $record, $name, $status, array $more = array() ) {
+	return array_merge( array( 'record_id' => $record, 'name' => $name, 'status' => $status, 'start' => '2026-03-02', 'end' => '', 'reports' => array( 'recR' . substr( $record, 4 ) ), 'has_mentor' => false, 'mentor_name' => '', 'hours' => '', 'user_id' => 0 ), $more );
+};
+$gr_account                    = static function ( $id, $name, $at, $before, $course = '' ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, $name, 'u' . $id . '@example.test' );
+	if ( $at > 0 ) {
+		$GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PENDING ] = array( 'at' => $at, 'before' => $before );
+	}
+	if ( '' !== $course ) {
+		$GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_COURSE ] = $course;
+	}
+};
+$gr_draw                       = static function ( $rows ) {
+	ob_start();
+	WPCPM_Administrators_Cards::render_graduation( $rows );
+	return (string) ob_get_clean();
+};
+$gr_cells                      = static function ( $html ) {
+	// Each row's cells as text, a no-break space read as a space, by the row's header: the student's name, then the
+	// institution under it (the header cell's second line, fix round 2), then the other cells.
+	preg_match_all( '#<tr role="row"><th scope="row" role="rowheader"[^>]*>(.*?) <span class="wpcpm-ui-cell__sub">(.*?)</span></th>(.*?)</tr>#s', (string) $html, $rows, PREG_SET_ORDER );
+	$out = array();
+	foreach ( $rows as $row ) {
+		preg_match_all( '#<td [^>]*>(.*?)</td>#s', $row[3], $cells );
+		$out[] = array_map( static function ( $cell ) { return trim( str_replace( "\u{00A0}", ' ', html_entity_decode( strip_tags( $cell ), ENT_QUOTES ) ) ); }, array_merge( array( $row[1], $row[2] ), $cells[1] ) );
+	}
+	return $out;
+};
+
+// Nobody pending: no card, the queue named among the empty ones with its link to the Students screen, and the counts
+// as they were.
+$gr_screen = 'https://example.test/wp-admin/admin.php?page=wpcpm-students&wpcpm_student_status=Pending%20graduation';
+$gr_none   = WPCPM_Administrators_Dashboard::render( array() );
+$gr_nd     = WPCPM_Administrators_Cards::collect();
+ck( 'graduation_none: nobody pending draws no card, names the queue among the empty ones with the Students screen filtered by the status, and gives no count', array(
+	has( $gr_none, 'id="wpcpm-graduation"' ),
+	quiet_links( $gr_none )['Students waiting to graduate'] ?? null,
+	$gr_nd['graduation'],
+	array_key_exists( 'graduation', WPCPM_Administrators_Cards::counts( $gr_nd ) ),
+), array( false, $gr_screen, array(), false ) );
+
+// Two pending in two institutions, and one in a test institution whose stamp is the oldest of all; a student on a track
+// and one whose program row says pending while the Students row does not: the roster's word wins both ways.
+$gr_account( 961, 'Ola Older', $gr_now - 9 * DAY_IN_SECONDS, false, 'In Sensei' );
+$gr_account( 962, 'Pia Newer', $gr_now - 2 * DAY_IN_SECONDS, false, 'Developer Track' );
+$gr_account( 963, 'Tess Test', $gr_now - 30 * DAY_IN_SECONDS, false, 'In Sensei' );
+$gr_account( 964, 'Rex Reports', $gr_now - 40 * DAY_IN_SECONDS, false, 'In Sensei' );
+$GLOBALS['umeta'][964][ 'wpcpm_student_program' ] = array( 'program' => 'Pending graduation' );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSGRAD000000001', 'Ola Older', 'Pending graduation', array( 'user_id' => 961, 'end' => '2026-06-30', 'hours' => '152', 'has_mentor' => true, 'mentor_name' => 'Mentor <b>One</b> & Co' ) );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSGRAD000000004', 'Rex Reports', 'In Sensei', array( 'user_id' => 964 ) );
+$GLOBALS['rosters'][ $B ]['rows'][] = $gr_row( 'recSGRAD000000002', 'Pia <i>Newer</i>', ' Pending graduation ', array( 'user_id' => 962, 'end' => '2026-07-15', 'hours' => '12' ) );
+$GLOBALS['rosters'][ $gr_T ]        = array( 'v' => 4, 'read' => 1756900000, 'rows' => array( $gr_row( 'recSGRAD000000003', 'Tess Test', 'Pending graduation', array( 'user_id' => 963, 'end' => '2026-06-01', 'hours' => '150' ) ) ) );
+$gr_data   = WPCPM_Administrators_Cards::collect();
+$gr_counts = WPCPM_Administrators_Cards::counts( $gr_data );
+$gr_card   = $gr_draw( $gr_data['graduation'] );
+ck( 'graduation_two_and_test: two real students and the test one are listed, oldest stamp first, the program row\'s word never used', array_column( $gr_data['graduation'], 'name' ), array( 'Tess Test', 'Ola Older', 'Pia <i>Newer</i>' ) );
+ck( 'the tile counts the two real ones, says the card\'s title and leads to it, right after the requests from institutions and before the mentor applications', array(
+	$gr_counts['graduation'] ?? null,
+	array_slice( array_keys( $gr_counts ), array_search( 'requests', array_keys( $gr_counts ), true ), 3 ),
+), array( array( 'label' => 'Students waiting to graduate', 'n' => 2, 'card' => 'graduation' ), array( 'requests', 'graduation', 'mentor_applications' ) ) );
+ck( 'the card\'s row: open while one waits, its badge the real count, saying how many wait, and after the fold the way to the Students screen filtered by the status', array( card_row( $gr_card ), card_badge( $gr_card ) ), array(
+	array( 'open' => true, 'state' => '2 waiting', 'action' => '<a class="wpcpm-button wpcpm-button--secondary" href="' . $gr_screen . '">Open on the Students screen<span class="screen-reader-text"> for the Students waiting to graduate card</span></a>' ),
+	2,
+) );
+ck( 'its body: one muted line that says what to do, the table, and the foot to the same screen, in the same words', array(
+	has( $gr_card, '<p class="wpcpm-ui-intro wpcpm-ui-intro--muted">These students have finished and wait for an Administrator: read their Student Report Card, ask the mentor if something is unclear, and approve the quiz on Learn so the certificate goes out. Then set the graduation date in Airtable: the student leaves this list at the first students sync after that date.</p><table class="wpcpm-ui-table wpcpm-ui-table--wide wpcpm-ui-table--pairs-4" role="table" aria-labelledby="' . WPCPM_Dashboard_Card::title_id( 'wpcpm-graduation' ) . '">' ),
+	ends_with( seen( $gr_card ), card_foot( $gr_screen, 'Open on the Students screen' ) ),
+), array( true, true ) );
+preg_match_all( '#<th scope="col" role="columnheader" class="([^"]*)">([^<]*)</th>#', $gr_card, $gr_heads );
+ck( 'the columns: Student (the institution under the name, fix round 2), Track, Mentor, Hours and Waiting since (no Ended column, fix round 3), the date as a date and the hours whole', array_map( null, $gr_heads[2], $gr_heads[1] ), array(
+	array( 'Student', 'wpcpm-ui-cell--text' ), array( 'Track', 'wpcpm-ui-cell--text' ), array( 'Mentor', 'wpcpm-ui-cell--text' ),
+	array( 'Hours', 'wpcpm-ui-cell--short' ), array( 'Waiting since', 'wpcpm-ui-cell--date' ),
+) );
+ck( 'each row: the student, the institution, the course they wait on, the mentor, the hours against the track\'s target (none on a track with no target) and the day the sync first saw them pending', $gr_cells( $gr_card ), array(
+	array( 'Tess Test', 'TEST - Graduation School Test', WPCPM_Program::label( 'In Sensei' ), 'No mentor', '150 of 150', gmdate( 'j F Y', $gr_now - 30 * DAY_IN_SECONDS ) ),
+	array( 'Ola Older', 'Uniwersytet Alpha', WPCPM_Program::label( 'In Sensei' ), 'Mentor <b>One</b> & Co', '152 of 150', gmdate( 'j F Y', $gr_now - 9 * DAY_IN_SECONDS ) ),
+	array( 'Pia <i>Newer</i>', 'Universidad Beta', WPCPM_Program::label( 'Developer Track' ), 'No mentor', '12 h', gmdate( 'j F Y', $gr_now - 2 * DAY_IN_SECONDS ) ),
+) );
+ck( 'graduation_links_and_escaping: the name links to the Student Report Card, the course to Learn, the institution under the name is plain text (fix round 3), every name escaped, the test one marked', array(
+	has( $gr_card, '<th scope="row" role="rowheader" class="wpcpm-ui-cell--text wpcpm-ui-cell--rowhead"><a href="https://example.test/student-report-card/?wpcpm_student_view=962">Pia &lt;i&gt;Newer&lt;/i&gt;</a> <span class="wpcpm-ui-cell__sub">Universidad Beta</span></th>' ),
+	has( $gr_card, '<a href="' . WPCPM_Program::course_url( 'Developer Track' ) . '">' . esc_html( WPCPM_Program::label( 'Developer Track' ) ) . '</a>' ),
+	has( $gr_card, 'data-label="Mentor">Mentor &lt;b&gt;One&lt;/b&gt; &amp; Co</td>' ),
+	has( $gr_card, 'Pia <i>' ) || has( $gr_card, '<b>One' ),
+	has( $gr_card, '<span class="wpcpm-ui-cell__sub">Uniwersytet Alpha</span>' ) && ! has( $gr_card, 'wpcpm_institution_view' ),
+	// The Test mark beside the test school's name, inside the line under the student.
+	1 === preg_match( '#<span class="wpcpm-ui-cell__sub">TEST - Graduation School <span class="' . WPCPM_Test_Institutions::MARK_DASHBOARD . '" title="[^"]*">Test</span></span></th>#', $gr_card ) ? 1 : 0,
+	has( $gr_card, '<td class="wpcpm-ui-cell--text wpcpm-ui-cell--empty" role="cell" data-label="Mentor">No mentor</td>' ),
+), array( true, true, true, false, true, 1, true ) );
+ck( 'graduation_dates_whole: the day first seen is whole, its day, month and year never parted; no Institution and no Ended column', array(
+	has( $gr_card, 'data-label="Waiting since">' . str_replace( ' ', "\u{00A0}", gmdate( 'j F Y', $gr_now - 9 * DAY_IN_SECONDS ) ) . '</td>' ),
+	has( $gr_card, '>Institution</th>' ),
+	has( $gr_card, 'data-label="Ended"' ),
+), array( true, false, false ) );
+ck( 'nothing on the card is a form or a button: a graduation is not changed on this site', array( has( $gr_card, '<form' ), has( $gr_card, '<button' ), has( $gr_card, 'wpcpm-ui-decide' ) ), array( false, false, false ) );
+
+// On the Overview: its place, its head like the other queues' heads, and its age from the oldest real stamp, the test
+// institution's left out as it is of every count.
+$gr_page = WPCPM_Administrators_Dashboard::render( array() );
+$gr_mark = 1 === preg_match( '#id="wpcpm-graduation"><details class="wpcpm-ui-fold"( open)?><summary class="wpcpm-ui-fold__head">.*?<span class="wpcpm-ui-fold__phrase">([^<]*)</span><span class="wpcpm-ui-fold__end">(?:<span class="wpcpm-status wpcpm-status--red">([^<]*)</span>)?<span class="wpcpm-ui-fold__cue" aria-hidden="true">([^<]*)</span>#s', $gr_page, $gr_m )
+	? array( 'open' => '' !== $gr_m[1], 'phrase' => $gr_m[2], 'age' => $gr_m[3], 'cue' => $gr_m[4] )
+	: array();
+ck( 'graduation_on_overview: drawn once in Waiting for you, after Requests from institutions and before the mentor applications, folded with the Review cue, nine days waiting from the oldest real stamp', array(
+	substr_count( $gr_page, 'id="wpcpm-graduation"' ),
+	in_order( $gr_page, array( 'id="wpcpm-requests"', 'id="wpcpm-graduation"', 'id="wpcpm-mentor-applications"' ) ),
+	$gr_mark,
+	array_key_exists( 'Students waiting to graduate', quiet_links( $gr_page ) ),
+), array( 1, true, array( 'open' => false, 'phrase' => '2 waiting', 'age' => '9 days waiting', 'cue' => 'Review' ), false ) );
+ck( 'the head counts the two among the decisions that wait', array(
+	1 === preg_match( '#<p class="wpcpm-head__title">([0-9]+) decisions? waits? for you</p>#', $gr_page, $gr_head ) ? (int) $gr_head[1] : null,
+), array( array_sum( array_map( static function ( $key ) use ( $gr_counts ) { return isset( $gr_counts[ $key ] ) ? (int) $gr_counts[ $key ]['n'] : 0; }, array( 'applications', 'agreements', 'reports', 'requests', 'graduation', 'mentor_applications', 'sponsor_applications', 'sponsor_posts', 'sponsor_offers', 'sponsor_events', 'sponsor_agreements', 'sponsor_reports' ) ) ) ) );
+// The same page on the parts: every part inside the switch's root, and the card's head the shell's, as every queue's.
+WPCPM_UI::set_live( array( 'administrator' ) );
+$gr_on   = WPCPM_Administrators_Dashboard::render( array() );
+WPCPM_UI::enter( 'administrator' );
+$gr_card_on = $gr_draw( $gr_data['graduation'] );
+WPCPM_UI::leave();
+WPCPM_UI::set_live( array() );
+$gr_head_of = static function ( $html, $id ) {
+	return 1 === preg_match( '#<section class="wpcpm-administrator__card wpcpm-ui-fold-card" id="' . $id . '"><details class="wpcpm-ui-fold"( open)?><summary class="wpcpm-ui-fold__head">(.*?)</summary>#s', (string) $html, $m ) ? preg_replace( '#id="[^"]*"|>[^<]*<#', '><', $m[2] ) : null;
+};
+ck( 'on the parts every part sits inside the switch\'s root, and the card\'s head is built as the Requests from institutions card\'s', array(
+	parts_outside_switch( $gr_on )[0],
+	null !== $gr_head_of( $gr_on, 'wpcpm-graduation' ),
+	$gr_head_of( $gr_on, 'wpcpm-graduation' ) === $gr_head_of( $gr_on, 'wpcpm-requests' ),
+	has( $gr_card_on, 'wpcpm-ui-table--wide wpcpm-ui-table--pairs-4' ),
+), array( array(), true, true, true ) );
+
+// A pending roster row with no account, one whose account is gone, a mentor on the Students row whose name has not
+// arrived, a student with no hours recorded, and one already pending on the first run that kept the stamps.
+$gr_account( 965, 'Una Before', $gr_now - 3 * DAY_IN_SECONDS, true, 'In Sensei 50h' );
+$GLOBALS['rosters'][ $B ]['rows'][] = $gr_row( 'recSGRAD000000005', 'Una Before', 'Pending graduation', array( 'user_id' => 965, 'end' => '2026-05-01', 'hours' => '50' ) );
+$GLOBALS['unlinked']                = array(
+	'recSGRAD000000006' => $gr_row( 'recSGRAD000000006', 'Vic Noaccount', 'Pending graduation', array( 'end' => '2026-05-20', 'has_mentor' => true ) ),
+	'recSGRAD000000007' => $gr_row( 'recSGRAD000000007', 'Wes Gone', 'Pending graduation', array( 'user_id' => 999 ) ),
+);
+$gr_more      = WPCPM_Administrators_Cards::collect()['graduation'];
+$gr_more_card = $gr_draw( $gr_more );
+$gr_more_rows = $gr_cells( $gr_more_card );
+ck( 'graduation_no_account: a row with no account, or whose account is gone, is drawn after the stamped ones, its name with no link and no day, the account read as none', array(
+	array_column( $gr_more, 'name' ),
+	array_slice( $gr_more_rows, 4 ),
+	array( has( $gr_more_card, '>Vic Noaccount <span class="wpcpm-ui-cell__sub">' ), has( $gr_more_card, '>Wes Gone <span class="wpcpm-ui-cell__sub">' ), array_column( $gr_more, 'user_id' )[5] ),
+), array(
+	array( 'Tess Test', 'Ola Older', 'Una Before', 'Pia <i>Newer</i>', 'Vic Noaccount', 'Wes Gone' ),
+	array(
+		array( 'Vic Noaccount', 'Not recorded', 'Not recorded', 'Not recorded', 'Not recorded', '' ),
+		array( 'Wes Gone', 'Not recorded', 'Not recorded', 'No mentor', 'Not recorded', '' ),
+	),
+	array( true, true, 0 ),
+) );
+ck( 'graduation_before: a student already pending on the first run that kept the stamps reads "Before" that run\'s day, the day whole and "Before" free to go before it', array(
+	$gr_more_rows[2][5],
+	has( $gr_more_card, 'data-label="Waiting since">Before ' . str_replace( ' ', "\u{00A0}", gmdate( 'j F Y', $gr_now - 3 * DAY_IN_SECONDS ) ) . '</td>' ),
+), array( 'Before ' . gmdate( 'j F Y', $gr_now - 3 * DAY_IN_SECONDS ), true ) );
+ck( 'an empty value keeps its words, muted, and an empty date is a blank cell', array(
+	has( $gr_more_card, '>Vic Noaccount <span class="wpcpm-ui-cell__sub">Not recorded</span></th>' ),
+	has( $gr_more_card, '<td class="wpcpm-ui-cell--short wpcpm-ui-cell--empty" role="cell" data-label="Hours">Not recorded</td>' ),
+	has( $gr_more_card, '<td class="wpcpm-ui-cell--date wpcpm-ui-cell--blank" role="cell" data-label="Waiting since"></td>' ),
+), array( true, true, true ) );
+// A roster the sync wrote for an institution the pipeline index does not hold (a record gone from the Institutions table):
+// its pending student is listed, counted, and the school's cell keeps the empty value's words, never the record ID.
+$GLOBALS['rosters']['recGONEINSTITUT01'] = array( 'v' => 4, 'read' => 1756900000, 'rows' => array( $gr_row( 'recSGRAD000000008', 'Xia Elsewhere', 'Pending graduation', array( 'end' => '2026-05-25' ) ) ) );
+$gr_gone      = WPCPM_Administrators_Cards::collect();
+$gr_gone_rows = $gr_cells( $gr_draw( $gr_gone['graduation'] ) );
+$gr_gone_xia  = array_values( array_filter( $gr_gone_rows, static function ( $r ) { return 'Xia Elsewhere' === $r[0]; } ) );
+ck( 'graduation_unindexed_roster: a roster whose institution the pipeline index does not name is read too, its student counted, the school "Not recorded"', array(
+	$gr_gone_xia,
+	has( $gr_draw( $gr_gone['graduation'] ), 'recGONEINSTITUT01' ),
+), array( array( array( 'Xia Elsewhere', 'Not recorded', 'Not recorded', 'No mentor', 'Not recorded', '' ) ), false ) );
+// Fix round 4: a roster the index does not list whose record the test list remembers is drawn with the Test mark beside
+// "Not recorded" and left out of the count; the unknown real school above has no mark and is counted.
+$gr_tests_kept = $GLOBALS['opts']['wpcpm_test_institutions'] ?? null;
+$GLOBALS['opts']['wpcpm_test_institutions']  = array( 'recGONETESTINST01' );
+$GLOBALS['rosters']['recGONETESTINST01']     = array( 'v' => 4, 'read' => 1756900000, 'rows' => array( $gr_row( 'recSGRAD000000009', 'Yan Testgone', 'Pending graduation' ) ) );
+$gr_tg      = WPCPM_Administrators_Cards::collect();
+$gr_tg_card = $gr_draw( $gr_tg['graduation'] );
+unset( $GLOBALS['rosters']['recGONETESTINST01'] );
+$gr_tg_less = WPCPM_Administrators_Cards::collect();
+ck( 'graduation_unindexed_test: a remembered test school the index does not list reads "Not recorded" with the Test mark and is not counted; an unknown real school has no mark and is counted', array(
+	1 === preg_match( '#>Yan Testgone <span class="wpcpm-ui-cell__sub">Not recorded <span class="' . WPCPM_Test_Institutions::MARK_DASHBOARD . '" title="[^"]*">Test</span></span></th>#', $gr_tg_card ),
+	has( $gr_tg_card, '>Xia Elsewhere <span class="wpcpm-ui-cell__sub">Not recorded</span></th>' ),
+	WPCPM_Administrators_Cards::counts( $gr_tg )['graduation']['n'] === WPCPM_Administrators_Cards::counts( $gr_tg_less )['graduation']['n'],
+), array( true, true, true ) );
+if ( null === $gr_tests_kept ) { unset( $GLOBALS['opts']['wpcpm_test_institutions'] ); } else { $GLOBALS['opts']['wpcpm_test_institutions'] = $gr_tests_kept; }
+unset( $GLOBALS['rosters']['recGONEINSTITUT01'] );
+ck( 'and without that roster the count is one fewer', WPCPM_Administrators_Cards::counts( $gr_gone )['graduation']['n'] - WPCPM_Administrators_Cards::counts( WPCPM_Administrators_Cards::collect() )['graduation']['n'], 1 );
+$GLOBALS['student_page'] = '';
+ck( 'graduation_no_page: with the Student Report Card not published every name is plain text', array( has( $gr_draw( $gr_more ), 'wpcpm_student_view' ), has( $gr_draw( $gr_more ), '>Ola Older <span class="wpcpm-ui-cell__sub">' ) ), array( false, true ) );
+$GLOBALS['student_page'] = 'https://example.test/student-report-card/';
+
+// A long unbroken run in a name breaks at its break points, inside its link too (fix round 2): the student's, the
+// school's, the track's and the mentor's; a name of twenty characters is printed as it was.
+$gr_long_run = 'Abcdefghijklmnopqrstuvwxyzabcdefghijklmn';
+$gr_long     = $gr_more;
+$gr_long[1]  = array_merge( $gr_long[1], array( 'name' => 'Stud' . $gr_long_run, 'mentor_name' => 'Ment' . $gr_long_run ) );
+$gr_long[2]  = array_merge( $gr_long[2], array( 'name' => 'Twentycharacterword1', 'mentor_name' => 'Mentor' ) );
+$GLOBALS['inst_rows'][ $A ]['name']                   = 'Inst' . $gr_long_run;
+$GLOBALS['live_filters']['wpcpm_program_labels'][]   = static function ( $labels ) use ( $gr_long_run ) { $labels['In Sensei'] = 'Trak' . $gr_long_run; return $labels; };
+$gr_long_card = $gr_draw( $gr_long );
+array_pop( $GLOBALS['live_filters']['wpcpm_program_labels'] );
+$GLOBALS['inst_rows'][ $A ]['name'] = 'Uniwersytet Alpha';
+ck( 'graduation_long_runs: forty-four characters break every ten in the student\'s, the school\'s, the track\'s and the mentor\'s names, inside the student\'s and the track\'s links; twenty are left as they are', array(
+	has( $gr_long_card, '?wpcpm_student_view=961">StudAbcdef<wbr>ghijklmnop<wbr>qrstuvwxyz<wbr>abcdefghij<wbr>klmn</a>' ),
+	has( $gr_long_card, '<span class="wpcpm-ui-cell__sub">InstAbcdef<wbr>' ),
+	has( $gr_long_card, '">TrakAbcdef<wbr>ghijklmnop<wbr>' ),
+	has( $gr_long_card, 'data-label="Mentor">MentAbcdef<wbr>' ),
+	has( $gr_long_card, '>Twentycharacterword1</a>' ),
+), array( true, true, true, true, true ) );
+
+// Sixty pending: all drawn, by stamp, then end date, then name. Twenty share one stamp, as on the first run after the
+// release; ten of those share an end date too.
+$GLOBALS['unlinked'] = array();
+$GLOBALS['rosters'][ $A ]['rows'] = array_slice( $GLOBALS['rosters'][ $A ]['rows'], 0, 6 );
+$GLOBALS['rosters'][ $B ]['rows'] = array_slice( $GLOBALS['rosters'][ $B ]['rows'], 0, 1 );
+unset( $GLOBALS['rosters'][ $gr_T ] );
+$gr_want = array();
+for ( $n = 1; $n <= 60; $n++ ) {
+	$id    = 1000 + $n;
+	$at    = $n <= 20 ? $gr_now - 50 * DAY_IN_SECONDS : $gr_now - ( 80 - $n ) * HOUR_IN_SECONDS;
+	$end   = $n <= 10 ? '2026-06-30' : sprintf( '2026-%02d-%02d', 1 + ( $n % 12 ), 1 + ( $n % 27 ) );
+	$name  = sprintf( 'Student %s %02d', chr( 90 - ( $n % 26 ) ), $n );
+	$gr_account( $id, $name, $at, $n <= 20, 'In Sensei' );
+	$GLOBALS['rosters'][ 0 === $n % 2 ? $A : $B ]['rows'][] = $gr_row( sprintf( 'recSSIXTY%08d', $n ), $name, 'Pending graduation', array( 'user_id' => $id, 'end' => $end ) );
+	$gr_want[] = array( $at, $end, $name );
+}
+usort( $gr_want, static function ( $a, $b ) { return array( $a[0], $a[1] ) === array( $b[0], $b[1] ) ? strcasecmp( $a[2], $b[2] ) : ( array( $a[0], $a[1] ) < array( $b[0], $b[1] ) ? -1 : 1 ); } );
+$GLOBALS['gr_cached'] = array();
+$gr_sixty      = WPCPM_Administrators_Cards::collect()['graduation'];
+$gr_sixty_card = $gr_draw( $gr_sixty );
+ck( 'graduation_sixty: sixty pending are all drawn, oldest stamp first, then the earlier end, then the name', array(
+	count( $gr_cells( $gr_sixty_card ) ),
+	array_column( $gr_cells( $gr_sixty_card ), 0 ),
+	card_badge( $gr_sixty_card ),
+), array( 60, array_column( $gr_want, 2 ), 60 ) );
+$gr_primed = array_values( array_filter( (array) ( $GLOBALS['gr_cached'] ?? array() ), static function ( $ids ) { return in_array( 1001, $ids, true ); } ) );
+ck( 'and the sixty are read with one priming of the accounts, not one read each', array( count( $gr_primed ), isset( $gr_primed[0] ) ? count( array_intersect( range( 1001, 1060 ), $gr_primed[0] ) ) : 0 ), array( 1, 60 ) );
+
+list( $GLOBALS['rosters'], $GLOBALS['inst_rows'], $GLOBALS['users'], $GLOBALS['umeta'], $gr_unlinked, $gr_page_kept, $GLOBALS['uid'], $GLOBALS['manage'] ) = $gr_kept;
+if ( null === $gr_unlinked ) { unset( $GLOBALS['unlinked'] ); } else { $GLOBALS['unlinked'] = $gr_unlinked; }
+if ( null === $gr_page_kept ) { unset( $GLOBALS['student_page'] ); } else { $GLOBALS['student_page'] = $gr_page_kept; }
+unset( $GLOBALS['gr_cached'] );
+$GLOBALS['live_filters'] = $gr_filters;
 
 // Back to reading the site: the seam was set for this run only.
 WPCPM_Mentor_Engagement::for_tests( null );

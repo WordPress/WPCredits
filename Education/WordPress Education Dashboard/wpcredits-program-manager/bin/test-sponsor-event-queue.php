@@ -3900,6 +3900,21 @@ ck(
 	},
 	array( 1, false, false )
 );
+// The Events card stays on the Administrator Dashboard's Overview with no event at all (1.123.93): its body is then the
+// two empty lines and the program's plan, folded, which the dashboard's suite cannot draw without the planner.
+ck(
+	'with no event at all the card still draws the two empty lines, then the program\'s plan folded under its title, once',
+	static function () use ( $pc_empty ) {
+		$html = $pc_empty( 'administrator' );
+		return array(
+			substr_count( $html, '<span class="wpcpm-ui-fold__title">Plan an event of the program&#039;s</span>' ),
+			strpos( $html, WPCPM_UI::list_empty( 'No event is coming up.' ) ) < strpos( $html, 'Plan an event of the program&#039;s' ),
+			false !== strpos( $html, '<details class="wpcpm-ui-fold wpcpm-ui-fold--inner">' ),
+			strpos( $html, '<article ' ),
+		);
+	},
+	array( 1, true, true, false )
+);
 
 /**
  * The planner's rows one form on the card draws, as the field part reads them: each field's label words and the word

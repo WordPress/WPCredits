@@ -45,8 +45,12 @@ export const SPONSOR_AGREEMENT_WIDTHS = [601, 782, 1015];
 // area's width (a container query at 800px, parts.css): the Overview as it loads, all open and with Institution
 // applications open, Watch and The program as they load and all open, the menu as the frame draws it there.
 export const MID_WIDTHS = [601, 700, 768, 782, 783, 900, 927, 928, 1000, 1024];
-// The Events card at 1015 too: an item header whose call link is too long for one line.
-export const EVENTS_WIDTHS = [1015];
+// The Events card at 1015 too: an item header whose call link is too long for one line; gate 7: at 601, 768, 928
+// and 1024 as well, where its head takes its two forms with no event waiting.
+export const EVENTS_WIDTHS = [601, 768, 928, 1015, 1024];
+// Gate 7 (round 7b): the card Students waiting to graduate (a table from 880px of main area, stacked below) at every
+// width the rig takes.
+export const GRADUATION_WIDTHS = [601, 700, 716, 768, 782, 783, 880, 900, 927, 928, 1000, 1015, 1024, 1110, 1200];
 // Gate 5: the two reports cards (wide fixed tables, the semester reports stacked below 936px of main area) and
 // the Requests card (its Recently closed list in the narrow form) at the widths of the narrow form.
 export const REPORTS_WIDTHS = [601, 768, 1015];
@@ -91,8 +95,12 @@ export const PANELS = [
 // Release 2's wp-admin tabs (design 4.2), the only ones taken at 768 as well.
 export const RELEASE_2_TABS = ['wpcpm-sponsors queue', 'wpcpm-sponsors agreements', 'wpcpm-mentors queue', 'wpcpm-students interests', 'wpcpm-institutions queue', 'wpcpm-institutions pipeline', 'wpcpm-institutions accounts', 'wpcpm-institutions agreements', 'wpcpm-tool-emails log'];
 
-/** Every scene, in the order they are taken. */
-export function scenes() {
+/**
+ * Every scene, in the order they are taken. `graduation` (gate 7, a students state with somebody pending) adds the
+ * card Students waiting to graduate open alone and the two Report Cards of the pending student the state made
+ * ({PENDING_STUDENT}, {PENDING_MENTOR}).
+ */
+export function scenes({ graduation = false } = {}) {
   const list = [];
   const add = (area, screen, state, path, how = {}) => list.push({ area, screen, state, path, ...how });
 
@@ -126,6 +134,11 @@ export function scenes() {
   // The Events card's third part, the program's own planner, is a fold of its own.
   add('admin-dashboard', 'overview-sponsor-events', 'plan-fold-open', DASH, { panelOf: 'sponsor-events', panelBuild: 'after', act: { openHead: '#wpcpm-sponsor-events', openFold: { text: '^Plan an event', scope: '#wpcpm-sponsor-events' } }, note: "the card's own fold and Plan an event of the program's open, nothing else" });
 
+  // Gate 7: the card only a students state with somebody pending draws, on the new build only.
+  if (graduation) {
+    add('admin-dashboard', 'overview-graduation', 'card-open', DASH, { card: 'graduation', panelBuild: 'after', act: { openCard: '#wpcpm-graduation' }, note: 'the card wpcpm-graduation open alone, with every fold inside it', widths: GRADUATION_WIDTHS });
+  }
+
   // B. The Institution Dashboard, as an Administrator viewing the invented school and as its representatives.
   add('institution-dashboard', 'admin-viewing-school', 'all-open', '/institution-dashboard/?wpcpm_institution_view={DESIGN_RECORD}', { act: { open: 'main' }, note: 'Example School of Design: agreement accepted, two students, a report drafted' });
   add('institution-dashboard', 'admin-viewing-school', 'report-draft-open', '/institution-dashboard/?wpcpm_report=2026-H1&wpcpm_institution_view={DESIGN_RECORD}', { act: { open: 'main' }, note: 'the January to June 2026 draft open for editing' });
@@ -140,6 +153,10 @@ export function scenes() {
   // D. Both Report Cards, as the Administrator viewing the second entry of the Viewing as list.
   add('mentor-report-card', 'admin-viewing-mentor', 'all-open', '/mentor-dashboard/', { act: { pick: 'select[name="wpcpm_mentor"]', open: 'main' } });
   add('student-report-card', 'admin-viewing-student', 'all-open', '/student-dashboard/', { act: { pick: 'select[name="wpcpm_student_view"]', open: 'main' } });
+  if (graduation) {
+    add('student-report-card', 'admin-viewing-pending-student', 'all-open', '/student-dashboard/?wpcpm_student_view={PENDING_STUDENT}', { act: { open: 'main' }, note: 'the pending student the state made, Riley Example' });
+    add('mentor-report-card', 'admin-viewing-pending-mentor', 'all-open', '/mentor-dashboard/?wpcpm_mentor={PENDING_MENTOR}', { act: { open: 'main' }, note: "the pending student's mentor, Harper Example" });
+  }
 
   // E. Every wp-admin tab of every plugin screen, and the open states the releases change.
   add('wpadmin', 'overview', 'default', ADMIN('wpcpm'));

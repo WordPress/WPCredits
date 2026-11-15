@@ -609,7 +609,8 @@ ck( 'table_open: "wide" prints the modifier after the table\'s other classes; fa
 	// Task 18f, fix round 2: Programs running and the Semester reports family (936) in the cards, the tables that need
 	// more than a main area of 800px; the month table in the cohort view.
 	// Fix round 3: Syncs and health and Students gone quiet again (true), as their least widths exceed 766px of card.
-	array( 'class-wpcpm-administrators-cards.php 4', 'class-wpcpm-cohort-timeline-view.php 1' ),
+	// 1.123.93: Students waiting to graduate (true, 880), five columns, about 560px least width as measured with sixty rows.
+	array( 'class-wpcpm-administrators-cards.php 5', 'class-wpcpm-cohort-timeline-view.php 1' ),
 	str_replace( '<table class="wpcpm-ui-table ', '<table class="wpcpm-ui-table wpcpm-ui-table--wide wpcpm-ui-table--wide-936 ', $t ),
 	true,
 ) );
@@ -765,6 +766,48 @@ ck( 'the part classes written by hand outside the helpers are only those no help
 	'includes/modules/class-wpcpm-sponsor-application.php'      => array( 'wpcpm-ui-logo', 'wpcpm-ui-logo--white', 'wpcpm-ui-logo__caption', 'wpcpm-ui-logo__img', 'wpcpm-ui-logos' ),
 	'includes/modules/class-wpcpm-sponsor-offer-review.php'     => array( 'wpcpm-ui-code' ),
 ) );
+
+
+// 1.123.93, fix round 2: a long unbroken run in typed words gets a break opportunity after every 10 characters; every
+// shorter word is exactly what esc_html() gives. Characters are grapheme clusters; an entity counts as one.
+$bk_20  = str_repeat( 'abcdefghij', 2 );
+$bk_21  = $bk_20 . 'k';
+$bk_mb  = str_repeat( "\u{0141}o\u{0301}dz\u{0301}", 5 ) . "\u{017B}";
+$bk_mbu = array();
+preg_match_all( '/\X/u', $bk_mb, $bk_mbu );
+ck( 'breakable: twenty characters, a hyphenated or spaced long run, and plain words are byte-identical to esc_html()', array(
+	WPCPM_UI::breakable( $bk_20 ) === esc_html( $bk_20 ),
+	WPCPM_UI::breakable( 'Uniwersytet <Alpha> & Co' ) === esc_html( 'Uniwersytet <Alpha> & Co' ),
+	WPCPM_UI::breakable( 'abcdefghijklmno-pqrstuvwxyz' ) === esc_html( 'abcdefghijklmno-pqrstuvwxyz' ),
+	WPCPM_UI::breakable( 'abcdefghijklmno pqrstuvwxyz' ) === esc_html( 'abcdefghijklmno pqrstuvwxyz' ),
+	WPCPM_UI::breakable( '' ),
+), array( true, true, true, true, '' ) );
+ck( 'breakable: twenty-one characters get a break opportunity after the tenth and the twentieth; forty get three', array(
+	WPCPM_UI::breakable( $bk_21 ),
+	substr_count( WPCPM_UI::breakable( 'Ab' . str_repeat( 'c', 38 ) ), '<wbr>' ),
+	WPCPM_UI::breakable( 'Ola ' . $bk_21 . ' Older' ),
+), array( 'abcdefghij<wbr>abcdefghij<wbr>k', 3, 'Ola abcdefghij<wbr>abcdefghij<wbr>k Older' ) );
+ck( 'breakable: a multibyte run is counted in characters a reader sees, a letter and its combining mark never parted', array(
+	count( $bk_mbu[0] ),
+	WPCPM_UI::breakable( $bk_mb ),
+), array( 21, implode( '', array_slice( $bk_mbu[0], 0, 10 ) ) . '<wbr>' . implode( '', array_slice( $bk_mbu[0], 10, 10 ) ) . '<wbr>' . $bk_mbu[0][20] ) );
+ck( 'breakable: markup in a long run is still escaped, an entity counted as one character, and the output sits inside a link', array(
+	WPCPM_UI::breakable( '<b>' . $bk_20 . '</b>' ),
+	WPCPM_UI::breakable( str_repeat( '&amp;', 21 ) ),
+	'<a href="https://example.test/">' . WPCPM_UI::breakable( $bk_21 ) . '</a>',
+), array(
+	'&lt;b&gt;abcdefg<wbr>hijabcdefg<wbr>hij&lt;/b&gt;',
+	esc_html( str_repeat( '&amp;', 10 ) ) . '<wbr>' . esc_html( str_repeat( '&amp;', 10 ) ) . '<wbr>' . esc_html( '&amp;' ),
+	'<a href="https://example.test/">abcdefghij<wbr>abcdefghij<wbr>k</a>',
+) );
+ck( 'cell_sub: with markup it prints the markup the caller escaped; with none, today\'s line', array(
+	WPCPM_UI::cell_sub( 'ignored', '<a href="x">School</a> <span class="wpcpm-badge wpcpm-badge--test">Test</span>' ),
+	WPCPM_UI::cell_sub( 'A <b>' ) === WPCPM_UI::cell_sub( 'A <b>', '' ),
+), array( ' <span class="wpcpm-ui-cell__sub"><a href="x">School</a> <span class="wpcpm-badge wpcpm-badge--test">Test</span></span>', true ) );
+// Only the table of Students waiting to graduate prints the helper this release.
+ck( 'breakable: called by the Students waiting to graduate table alone', array_values( array_filter( array_map( static function ( $file ) {
+	return preg_match( '/WPCPM_UI::breakable\(/', (string) file_get_contents( $file ) ) ? basename( $file ) : '';
+}, array_merge( glob( __DIR__ . '/../includes/*.php' ), glob( __DIR__ . '/../includes/modules/*.php' ) ) ) ) ), array( 'class-wpcpm-administrators-cards.php' ) );
 
 echo "\n" . ( $fail ? "$fail of $checks checks failed" : "all $checks checks passed" ) . "\n";
 exit( $fail ? 1 : 0 );

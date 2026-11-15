@@ -11,7 +11,8 @@
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
-8. You, in Airtable, change the **Status** when the student finishes, for example to `Graduate`; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
+8. When the student sends their last feedback form, an Airtable automation sets their **Status** to *Pending graduation*. After the next students sync they are on the **Students waiting to graduate** card: see *A student is waiting to graduate*.
+9. You set the *Graduation date* in Airtable. When that date comes, an Airtable automation sets the **Status** to *Graduate* and the certificate notice goes out; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
 
 ### A student registered
 
@@ -165,6 +166,30 @@ You can change:
 - The card shows only while the quiet-students list is in Preview or On: see Step by step: running the site.
 - In Preview nobody is emailed, and the **Reminder** column says **Would remind**. In On the student gets "Checking in" emails and you get a Monday list of your quiet students.
 - A student with a call or group session booked ahead is never on the card.
+
+### A student is waiting to graduate
+
+*When:* the **Students waiting to graduate** card on `Administrator Dashboard > Overview` lists students.
+
+1. Open the Administrator Dashboard and open the card **Students waiting to graduate**. The top row has waited longest. Each student's institution is under their name.
+2. Press the student's name to open their Student Report Card, and read their report and hours.
+3. If something is unclear, ask the mentor named in **Mentor**.
+4. Press the course in **Track** to open it on Learn, and approve the student's quiz there, so the certificate goes out.
+5. In Airtable, set the *Graduation date* on the student's Students Reports row.
+
+**What happens next**
+
+- When the *Graduation date* comes, an Airtable automation sets the student's **Status** to *Graduate* and sends the certificate notice.
+- The student leaves the card at the next students sync.
+- The site sends nothing and changes no status.
+
+**Good to know**
+
+- The card lists every student on the site's rosters whose **Status** in Airtable's Students table is *Pending graduation*. A test institution's student is listed with the **Test** mark and left out of the count.
+- **Waiting since** is the day the students sync first saw the student pending. *Before* a date means the student was already pending at the first sync that kept these days, so the true day is earlier.
+- A student with no account on the site, or whose address is on two institutions' rows, has no link and no **Waiting since**.
+- A student on two tracks that are both pending is listed twice, and both lines name the same track, because the site keeps one course for each account.
+- **Open on the Students screen** opens `WPCredits Program > Students` filtered by *Pending graduation*. That list reads the Students Reports table, so it can differ from the card for a while.
 
 ### Take a student off a group session
 

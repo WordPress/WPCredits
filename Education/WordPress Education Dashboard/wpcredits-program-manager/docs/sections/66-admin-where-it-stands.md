@@ -42,7 +42,8 @@ A student's state shows on the Students screen in wp-admin, in its **Registratio
 | A track's name in the **Status** column of `Students > Accounts` | The student is on that track. | Nothing. |
 | The student's row on **Students gone quiet** (**Watch**) | Nothing on record from the student for the days set in **Days of quiet**. The card's **Days quiet** column says how long. | See [[Students who have gone quiet]]. |
 | The student counted on **Duplicated students** (**Watch**) | The student has more than one row in Airtable. | See [[A student has duplicate rows]]. |
-| *Paused* or *Pending graduation* in the **Status** column | The status comes from Airtable. The student is on no track, so **Students gone quiet** leaves them out. | Nothing on the site. The status is changed in Airtable. |
+| *Paused* in the **Status** column | The status comes from Airtable. The student is on no track, so **Students gone quiet** leaves them out. | Nothing on the site. The status is changed in Airtable. |
+| *Pending graduation* in the **Status** column, or the student on **Students waiting to graduate** (**Overview**) | The student finished and waits for an Administrator. **Students gone quiet** leaves them out. | See [[A student is waiting to graduate]]. |
 | *Graduated* or *Dropped out* in the **Status** column | The student finished or left the program. | Nothing. |
 
 ### Where a mentor stands

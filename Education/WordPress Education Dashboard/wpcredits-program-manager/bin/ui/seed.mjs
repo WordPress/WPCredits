@@ -24,7 +24,7 @@ export const INSTITUTE = { name: 'Example Institute of Technology', city: 'Examp
 export const COMMUNITY = { name: 'Example Community College', city: 'Examplevale', website: 'community.example.org', contact: 'Rowan Example', email: 'rowan.example@example.org' };
 export const TAYLOR = { name: 'Taylor Example', email: 'taylor.example@example.org', profile: 'https://profiles.wordpress.org/taylor-example/', hours: 4 };
 // Every invented school and person the seed makes, the students, colleague and tutor included.
-export const INVENTED = { STATE_COLLEGE, UNIVERSITY, DESIGN, INSTITUTE, COMMUNITY, TAYLOR, OTHERS: { names: 'Drew Example, Sky Example, Pat Example, Lee Example, Ash Example, Blake Example, Emery Example, Finley Example, Example Polytechnic, Example Academy of Arts, Example Technical School, Example Hosting Co, Example Plugins Ltd, Jamie Example, Taylor Sample, Casey Example, Morgan Example, Riley Example' } };
+export const INVENTED = { STATE_COLLEGE, UNIVERSITY, DESIGN, INSTITUTE, COMMUNITY, TAYLOR, OTHERS: { names: 'Drew Example, Sky Example, Pat Example, Lee Example, Ash Example, Blake Example, Emery Example, Finley Example, Example Polytechnic, Example Academy of Arts, Example Technical School, Example Hosting Co, Example Plugins Ltd, Jamie Example, Taylor Sample, Casey Example, Morgan Example, Riley Example' }, GATE_7: { names: 'Riley Example, Examplegraduatewaitingonthefinalquizpass Example, Sage Example, TEST Example Academy, Example Academy of Arts, Harper Example, Exampleinstituteforappliedwebengineering, Christopherexample Wojciechowskaexample, Unlisted Example, TEST Example Academy of Design Media and the Applied Arts, Rowan Mentor Example, Indigo Example, Marlowe Example, Learner Example' } };
 // The two pictures the invented sponsor application's logos are, written into a folder the copy has already.
 export const LOGOS = { colour: 'uploads/2026/10/ui-rig-logo-colour.png', white: 'uploads/2026/10/ui-rig-logo-white.png' };
 const FFMPEG = process.env.WPCPM_FFMPEG || 'ffmpeg';
@@ -342,4 +342,24 @@ export function states() {
     if (out[out.length - 1].startsWith('[')) made.push(...JSON.parse(out[out.length - 1]));
   }
   return made;
+}
+
+/**
+ * Gate 7: put the copy, just restored to ui-ready, in one state of the events and one of the students
+ * (bin/ui/states.php: `a`, `b` or `c`, and `p0`, `p2` or `p60`). Prints what it made; answers the values the
+ * scenes need ({PENDING_STUDENT}, {PENDING_MENTOR}) and the state's own facts.
+ */
+export function applyState(spec) {
+  const [events = 'a', students = 'p0'] = String(spec || '').split(',');
+  if (!/^[abc]$/.test(events) || !/^p(0|2|60)$/.test(students)) throw new Error(`not a state: ${spec}`);
+  const stage = join(DOCKER, 'release/ui-rig');
+  mkdirSync(stage, { recursive: true });
+  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), 'states.php'), join(stage, 'states.php'));
+  const schools = Object.fromEntries([DESIGN, UNIVERSITY, INSTITUTE, COMMUNITY].map(s => [s.name, recordOf(s.name)]));
+  const out = wp(['eval-file', join(stage, 'states.php'), JSON.stringify({ events, students, schools })], { all: true }).trim().split('\n');
+  for (const line of out.slice(0, -1)) console.log('  state: ' + line);
+  const last = out[out.length - 1];
+  if (!last.startsWith('{')) throw new Error(`the state ${spec} was not made: ${last}`);
+  const facts = JSON.parse(last);
+  return { facts, values: { PENDING_STUDENT: facts.pending_student ? String(facts.pending_student) : '', PENDING_MENTOR: facts.pending_mentor ? String(facts.pending_mentor) : '' } };
 }

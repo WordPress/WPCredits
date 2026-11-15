@@ -68,7 +68,8 @@ final class WPCPM_Overview {
 	 * The institutions' counts open the Institutions screen at the tab for each, named even where
 	 * it is the queue the screen opens on, so each address says where it goes: the applications,
 	 * the agreements and the requests from institutions at Waiting for review, the semester reports to review
-	 * and to draft at Semester reports, and the locked accounts at Accounts. The sponsors' counts
+	 * and to draft at Semester reports, and the locked accounts at Accounts. The students waiting to graduate open the
+	 * Students screen filtered by their status (1.123.93), as their card on the Administrator Dashboard does. The sponsors' counts
 	 * open the Sponsors screen the same way: the applications, the sponsor posts, the events and the
 	 * signed agreements at Waiting for review, each at the card there that lists it, the events' at
 	 * the id the Administrator Dashboard's Events card links to as well; the reports to finish at
@@ -99,6 +100,7 @@ final class WPCPM_Overview {
 			'agreements'           => $institution_queue,
 			'reports'              => $institution_reports,
 			'requests'             => $institution_queue,
+			'graduation'           => admin_url( 'admin.php?page=wpcpm-students&wpcpm_student_status=' . rawurlencode( WPCPM_Program::STATUS_PENDING ) ),
 			'mentor_applications'  => admin_url( 'admin.php?page=wpcpm-mentors&tab=queue' ),
 			// Each at its own card on the queue tab, the id the card carries there; the events' card
 			// carries the id the Administrator Dashboard's Events card links to as well.

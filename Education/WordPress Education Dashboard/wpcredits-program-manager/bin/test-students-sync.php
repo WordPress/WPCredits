@@ -161,10 +161,10 @@ function wp_clear_scheduled_hook( $h = '' ) { unset( $GLOBALS['cron'][ $h ] ); r
 // As core's: an ID that is not a number, a row object among them, reads nothing (get_metadata_raw()).
 function get_user_meta( $id, $key, $single = false ) { return is_numeric( $id ) ? ( $GLOBALS['umeta'][ (int) $id ][ $key ] ?? '' ) : false; }
 // As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
-function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value ); return true; }
+function update_user_meta( $id, $key, $value ) { $GLOBALS['meta_writes'][] = array( 'update', (int) $id, $key ); $GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value ); return true; }
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
-function delete_user_meta( $id, $key ) { unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
+function delete_user_meta( $id, $key ) { $GLOBALS['meta_writes'][] = array( 'delete', (int) $id, $key ); unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
 function metadata_exists( $type, $id, $key ) { return 'user' === $type && isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $key, $GLOBALS['umeta'][ (int) $id ] ); }
 
 function get_user_by( $field, $value ) {
@@ -2800,6 +2800,157 @@ ck( 'a run that spans the upgrade (rows with no is_graduate) still leaves a grad
 	array( true, false, 0, 0, 1 ) );
 
 list( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_for_graduates;
+
+echo "\n=== The moment a student is first seen pending (1.123.93) ===\n";
+
+// The Administrator Dashboard's card of the students waiting to graduate reads, per account, when the sync first saw
+// the Students table's status at Pending graduation. Its own small base and its own accounts, as above.
+$kept_for_pending    = array( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] );
+$GLOBALS['airtable'] = array( $students_table => array(), $reports_table => array(), $feedback_table => array() );
+$GLOBALS['users']    = array();
+$GLOBALS['umeta']    = array();
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_PENDING_FROM ] );
+
+$pend_status = static function ( $table, $record, $status ) use ( $students_table, $fields ) {
+	$cell = $table === $students_table ? $fields['student_status'] : $fields['report_status'];
+
+	foreach ( $GLOBALS['airtable'][ $table ] as $i => $row ) {
+		if ( $row['id'] === $record ) {
+			$GLOBALS['airtable'][ $table ][ $i ]['fields'][ $cell ] = $status;
+		}
+	}
+};
+$pend_of     = static function ( $email ) {
+	$id = user_id_for( $email );
+
+	return ( $id && array_key_exists( WPCPM_Students_Sync::META_PENDING, $GLOBALS['umeta'][ $id ] ?? array() ) ) ? $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PENDING ] : '(absent)';
+};
+$pend_writes = static function () {
+	return array_values(
+		array_filter(
+			(array) ( $GLOBALS['meta_writes'] ?? array() ),
+			static function ( $write ) {
+				return WPCPM_Students_Sync::META_PENDING === $write[2];
+			}
+		)
+	);
+};
+
+// Already pending on both tables when the release lands; pending on the Students table alone (the roster's word wins);
+// pending on the reports table alone (it does not); pending with no Students row at all; and one on a track.
+$s_ana = student_row( 'Ana Already', 'ana.already@example.test', 'Pending graduation', $dee, '2026-03-02' );
+$r_ana = report_row( 'Ana Already', 'ana.already@example.test', 'Pending graduation', $dee );
+$s_cy  = student_row( 'Cy Roster', 'cy.roster@example.test', 'Pending graduation', $dee, '2026-03-02' );
+$r_cy  = report_row( 'Cy Roster', 'cy.roster@example.test', 'In Sensei', $dee );
+$s_di  = student_row( 'Di Reports', 'di.reports@example.test', 'In Sensei', $dee, '2026-03-02' );
+$r_di  = report_row( 'Di Reports', 'di.reports@example.test', 'Pending graduation', $dee );
+$r_eve = report_row( 'Eve Unrostered', 'eve.unrostered@example.test', 'Pending graduation', $dee );
+$s_ben = student_row( 'Ben Current', 'ben.current@example.test', 'In Sensei', $dee, '2026-08-03' );
+$r_ben = report_row( 'Ben Current', 'ben.current@example.test', 'In Sensei', $dee );
+// Sixteen more on a track, so one slice of the provision step (fifteen) does not reach everybody.
+for ( $i = 1; $i <= 16; $i++ ) {
+	student_row( "Pending Filler $i", "pending-filler-$i@example.test", 'In Sensei', $dee, '2026-08-03' );
+	report_row( "Pending Filler $i", "pending-filler-$i@example.test", 'In Sensei', $dee );
+}
+
+$t_before = time();
+run_sync();
+$t_after  = time();
+$first    = $pend_of( 'ana.already@example.test' );
+$from     = get_option( WPCPM_Students_Sync::OPT_PENDING_FROM, false );
+
+ck( 'the first run after the release stamps a student already pending, marked as already pending, at the run\'s moment',
+	array( is_array( $first ), $first['before'] ?? null, ( $first['at'] ?? 0 ) >= $t_before && ( $first['at'] ?? 0 ) <= $t_after ),
+	array( true, true, true ) );
+ck( 'and that run, once finished, records the moment the stamps began: later sights are first sights',
+	array( is_int( $from ), $from, ( $first['at'] ?? 0 ) ),
+	array( true, $first['at'] ?? -1, $from ) );
+ck( 'the Students table\'s status is the one read: pending there and not on the reports row is stamped, the other way round is not',
+	array( is_array( $pend_of( 'cy.roster@example.test' ) ), $pend_of( 'cy.roster@example.test' )['before'] ?? null, $pend_of( 'di.reports@example.test' ) ),
+	array( true, true, '(absent)' ) );
+ck( 'an account with no Students row this run is not stamped (its status was not read), nor one on a track',
+	array( user_id_for( 'eve.unrostered@example.test' ) > 0, $pend_of( 'eve.unrostered@example.test' ), $pend_of( 'ben.current@example.test' ) ),
+	array( true, '(absent)', '(absent)' ) );
+ck( 'every stamp of one run carries the same moment, so the card can order them by end date and name after it',
+	( $pend_of( 'cy.roster@example.test' )['at'] ?? -1 ), $first['at'] ?? -2 );
+
+$GLOBALS['meta_writes'] = array();
+$pend_status( $students_table, $s_ben, 'Pending graduation' );
+run_sync();
+$ben = $pend_of( 'ben.current@example.test' );
+$students_reads = array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $students_table ) { return $f['table'] === $students_table; } ) );
+$tables_read    = array_values( array_unique( array_column( $GLOBALS['fetches'], 'table' ) ) );
+sort( $tables_read );
+$tables_known   = array( $students_table, $reports_table, $feedback_table );
+sort( $tables_known );
+
+ck( 'the next run keeps a stamp while the status stays pending, the mark and the moment as they were',
+	$pend_of( 'ana.already@example.test' ), $first );
+ck( 'and stamps a student it sees pending for the first time with that run\'s moment, not marked',
+	array( is_array( $ben ), $ben['before'] ?? null, ( $ben['at'] ?? 0 ) >= $first['at'] ),
+	array( true, false, true ) );
+ck( 'a run writes the stamp only where it changes: one write, Ben\'s, and nothing for the students it kept',
+	array_map( static function ( $write ) { return array( $write[0], $write[1] ); }, $pend_writes() ),
+	array( array( 'update', user_id_for( 'ben.current@example.test' ) ) ) );
+ck( 'and asks Airtable for nothing more: the Students table once, and no table beyond the ones it read before',
+	array( count( $students_reads ), array_values( array_diff( $tables_read, $tables_known ) ) ),
+	array( 1, array() ) );
+ck( 'the moment the stamps began is not moved by a later run', get_option( WPCPM_Students_Sync::OPT_PENDING_FROM, false ), $from );
+
+$pend_status( $students_table, $s_ana, 'Graduate' );
+$pend_status( $reports_table, $r_ana, 'Graduate' );
+run_sync();
+
+ck( 'a status that is no longer pending clears the stamp', $pend_of( 'ana.already@example.test' ), '(absent)' );
+
+$pend_status( $students_table, $s_ana, 'Pending graduation' );
+$pend_status( $reports_table, $r_ana, 'Pending graduation' );
+run_sync();
+$again = $pend_of( 'ana.already@example.test' );
+
+ck( 'a second pending spell is stamped again, as a first sight, from the run that saw it',
+	array( is_array( $again ), $again['before'] ?? null, ( $again['at'] ?? 0 ) >= $ben['at'] ),
+	array( true, false, true ) );
+
+// A run that stops half way: the state the Students-table pass left for the provision step, one slice provisioned, and
+// the run never finished. Ben is reached and is now on a track; Cy, also on a track by then, is not reached.
+$mid_states = array_values( array_filter( $GLOBALS['states'], static function ( $s ) { return 'provision' === ( $s['phase'] ?? '' ) && 0 === (int) ( $s['cursor'] ?? -1 ); } ) );
+$half       = $mid_states[0];
+$cy_before  = $pend_of( 'cy.roster@example.test' );
+$ben_key    = null;
+$cy_key     = null;
+foreach ( $half['students'] as $n => $row ) {
+	if ( $r_ben === $row['record_id'] ) { $ben_key = $n; }
+	if ( $r_cy === $row['record_id'] ) { $cy_key = $n; }
+}
+$ben_row = $half['students'][ $ben_key ];
+$cy_row  = $half['students'][ $cy_key ];
+unset( $half['students'][ $ben_key ], $half['students'][ $cy_key ] );
+$half['students'] = array_merge( array( $ben_row ), array_values( $half['students'] ), array( $cy_row ) );
+$half['rows'][ $s_ben ]['status'] = 'In Sensei';
+$half['rows'][ $s_cy ]['status']  = 'In Sensei';
+$half_result = $provision_step->invokeArgs( null, array( &$half, WPCPM_Settings::get(), null ) );
+
+ck( 'a run that stops after one slice clears the stamp of a student it reached and read on a track',
+	array( true === $half_result, $half['cursor'] < count( $half['students'] ), $pend_of( 'ben.current@example.test' ) ),
+	array( true, true, '(absent)' ) );
+ck( 'and a student it did not reach keeps the stamp they had', $pend_of( 'cy.roster@example.test' ), $cy_before );
+
+// A run already in flight at the deploy: its first slices were provisioned by the release before, which stamped nobody.
+// It finishes under this one and must not record that the stamps began, or the students of those slices would be
+// stamped as first seen by the next run instead of as already pending.
+unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_PENDING_FROM ] );
+$crossing_run           = $mid_states[0];
+$crossing_run['cursor'] = 15;
+update_option( WPCPM_Students_Sync::OPT_STATE, $crossing_run );
+WPCPM_Students_Sync::run_tick( 60 );
+
+ck( 'a run whose first slices ran before the release finishes without recording that the stamps began',
+	array( isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), get_option( WPCPM_Students_Sync::OPT_PENDING_FROM, false ) ),
+	array( false, false ) );
+
+$GLOBALS['meta_writes'] = array();
+list( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_for_pending;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

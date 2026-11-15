@@ -30,7 +30,9 @@
  * - `offers`, ID => offer, and `codes`, ID => the offer's code counts;
  * - `mentor_applications`: how many mentor applications wait in the Mentors screen's queue;
  * - `duplicates`: the Student Duplicate Finder's last report, or none before its first scan;
- * - `progress`: audience => where its sync is (`running`, `label`, `error`).
+ * - `progress`: audience => where its sync is (`running`, `label`, `error`);
+ * - `institutions`, record ID => the pipeline index's row; `roster`, record ID => that institution's roster rows; and
+ *   `unlinked`: the roster rows that name no institution (1.123.93, the students waiting to graduate).
  *
  * When each sync last ran is the option it keeps (`OPT_LAST`) and when it runs next is the cron, both
  * the suite's own, since the cards read those through WordPress. The rest of WordPress is each
@@ -245,10 +247,13 @@ class WPCPM_Institution_Roster {
 	}
 }
 
-/** The pipeline index, read for the programs' figures, which the Overview does not show: no row. */
+/**
+ * The pipeline index, read for the programs' figures, which the Overview does not show, and for the students waiting
+ * to graduate (1.123.93): the institutions under `institutions`, none on a new site.
+ */
 class WPCPM_Institutions_Index {
 	public static function rows() {
-		return array();
+		return (array) wpcpm_overview_holds( 'institutions', array() );
 	}
 
 	public static function row( $record_id ) {
@@ -256,8 +261,42 @@ class WPCPM_Institutions_Index {
 	}
 }
 
+/**
+ * The roster index, read for the students waiting to graduate (1.123.93): each institution's rows under `roster`,
+ * by record ID, and the rows that name no institution under `unlinked`; none on a new site.
+ */
+class WPCPM_Roster_Index {
+	public static function rows( $record_id ) {
+		$roster = (array) wpcpm_overview_holds( 'roster', array() );
+
+		return isset( $roster[ (string) $record_id ] ) ? (array) $roster[ (string) $record_id ] : array();
+	}
+
+	public static function read( $record_id ) {
+		return array(
+			'v'    => 4,
+			'read' => 0,
+			'rows' => self::rows( $record_id ),
+		);
+	}
+
+	public static function unlinked() {
+		return (array) wpcpm_overview_holds( 'unlinked', array() );
+	}
+
+	public static function counts() {
+		return array(
+			'v'            => 4,
+			'read'         => 0,
+			'institutions' => array_fill_keys( array_keys( (array) wpcpm_overview_holds( 'roster', array() ) ), array() ),
+		);
+	}
+}
+
 /** The program map, read for the same figures: no track. */
 class WPCPM_Program {
+	const STATUS_PENDING = 'Pending graduation';
+
 	public static function labels() {
 		return array();
 	}

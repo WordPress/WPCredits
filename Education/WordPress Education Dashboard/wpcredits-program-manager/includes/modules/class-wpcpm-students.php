@@ -165,6 +165,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Students_Sync::OPT_LAST );
 		delete_option( WPCPM_Students_Sync::OPT_ERROR );
 		delete_option( WPCPM_Students_Sync::OPT_LOCK );
+		// When the stamps of the students waiting to graduate began (1.123.93).
+		delete_option( WPCPM_Students_Sync::OPT_PENDING_FROM );
 		delete_option( WPCPM_Students_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Students_Dashboard::OPT_TITLE_FIXED );
 		delete_option( WPCPM_Student_Registration_Form::OPT_PAGE );
@@ -189,6 +191,8 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			WPCPM_Students_Sync::META_MENTOR,
 			WPCPM_Students_Sync::META_UPDATED,
 			WPCPM_Students_Sync::META_COURSE,
+			// When the sync first saw the student waiting to graduate (1.123.93).
+			WPCPM_Students_Sync::META_PENDING,
 			WPCPM_Student_Feedback::META_RECORD,
 			WPCPM_Student_Feedback::META_RECORD_PLACEMENT,
 			'wpcpm_student_invited',

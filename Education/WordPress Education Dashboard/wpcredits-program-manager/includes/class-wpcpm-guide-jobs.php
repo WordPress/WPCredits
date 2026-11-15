@@ -41,6 +41,10 @@ class WPCPM_Guide_Jobs {
 			'anchor' => 'a-school-s-other-requests-a-student-to-add-a-mentor-wanted',
 			'title'  => "A school's other requests (a student to add, a mentor wanted)",
 		),
+		'graduation'              => array(
+			'anchor' => 'a-student-is-waiting-to-graduate',
+			'title'  => 'A student is waiting to graduate',
+		),
 		'sponsor-application'     => array(
 			'anchor' => 'a-company-applied-to-sponsor',
 			'title'  => 'A company applied to sponsor',

@@ -187,13 +187,13 @@
 
 - An event an Administrator plans for a sponsor through its Sponsor Dashboard waits here too and needs the same approval. The email has the same subject.
 - If the sponsor no longer offers events, there is no **Approve**: use **Return with a note**, which needs a note.
-- To call off an approved event, press **Cancel with a note** on the event tagged **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. The approved events are on the same row, so they show only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
+- To call off an approved event, press **Cancel with a note** on the event tagged **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. The approved events are on the same card, which stays on the Overview whether or not an event waits.
 
 ### Plan or cancel an event of the program's own
 
-*When:* only while **Sponsor tiers** is on in Settings, and only while the **Events** row is under **Waiting for you**: the row shows only while a sponsor's event waits for the program's OK.
+*When:* only while **Sponsor tiers** is on in Settings.
 
-1. Open `Administrator Dashboard > Overview` and press **Review** on the **Events** row.
+1. Open `Administrator Dashboard > Overview` and press the **Events** row: it reads **Review** while an event waits, **Open** when none does.
 2. Under **Plan an event of the program's**, press **Plan an event**.
 3. Fill in **Date**, **Start time**, **Length in minutes**, **Places**, **Title**, **Description** and **Call link**.
 4. Press **Plan the event**.
@@ -208,7 +208,6 @@
 
 **Good to know**
 
-- With no sponsor event waiting, the **Events** row is not shown, and you cannot reach these controls. Right after any press on that row it shows once more, then goes.
 - Only **Places** may stay empty. **Description** shows on the Partners page. **Call link** is seen only by the people who join, and the program.
 - The day and time must still be to come, and **Places** cannot go below the number already joined. A cancel cannot be undone.
 

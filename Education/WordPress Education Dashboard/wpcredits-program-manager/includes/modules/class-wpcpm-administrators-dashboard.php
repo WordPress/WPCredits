@@ -485,6 +485,18 @@ final class WPCPM_Administrators_Dashboard {
 					WPCPM_Administrators_Cards::render_requests( $data['requests'] );
 				},
 			),
+			// The students waiting to graduate (1.123.93): people first, the program's own students, before the mentor
+			// applications. Their status is recorded in the program's records, so the screen is the Students screen
+			// filtered by it.
+			'graduation'           => array(
+				'card'   => 'graduation',
+				'title'  => __( 'Students waiting to graduate', 'wpcredits-program-manager' ),
+				'screen' => admin_url( 'admin.php?page=wpcpm-students&wpcpm_student_status=' . rawurlencode( WPCPM_Program::STATUS_PENDING ) ),
+				'rows'   => isset( $data['graduation'] ) ? (array) $data['graduation'] : array(),
+				'draw'   => static function () use ( $data ) {
+					WPCPM_Administrators_Cards::render_graduation( isset( $data['graduation'] ) ? (array) $data['graduation'] : array() );
+				},
+			),
 			'mentor_applications'  => array(
 				'card'   => 'mentor-applications',
 				'title'  => __( 'Mentor applications', 'wpcredits-program-manager' ),
@@ -1047,7 +1059,8 @@ final class WPCPM_Administrators_Dashboard {
 	 * The Waiting group's body: a card for each queue with something in it, its row saying how long the
 	 * oldest has waited; the mentor applications as a row that opens their screen; and one sentence that
 	 * names every empty queue, each name a link to its screen, so nothing seems to have gone. A card whose
-	 * queue is empty is drawn after all while it holds the outcome of the decision just taken.
+	 * queue is empty is drawn after all while it holds the outcome of the decision just taken. The Events card
+	 * is drawn whether or not an event waits, and is never named among the empty queues (1.123.93).
 	 *
 	 * @param array $wait What `waiting()` returned.
 	 */
@@ -1060,11 +1073,23 @@ final class WPCPM_Administrators_Dashboard {
 		// Every card with work is a row, folded, that opens in place on Review (the concepts' inbox).
 		WPCPM_Dashboard_Card::fold( true, __( 'Review', 'wpcredits-program-manager' ) );
 
-		foreach ( $wait['queues'] as $queue ) {
+		foreach ( $wait['queues'] as $key => $queue ) {
 			$held = '' !== $target && $target === $queue['anchor'];
 
-			if ( $queue['n'] <= 0 && ! $held ) {
+			// The Events card holds the events coming up and the plan of the program's own too, so it stays when no
+			// event waits, at its place, with the cue Open: nothing on it waits for a decision (the owner, 15 November
+			// 2026). It counts nothing more: `waiting()` counted only what waits.
+			$stays = 'sponsor_events' === $key && $queue['n'] <= 0;
+
+			if ( $queue['n'] <= 0 && ! $held && ! $stays ) {
 				$empty[] = sprintf( '<a href="%1$s">%2$s</a>', esc_url( (string) $queue['screen'] ), esc_html( (string) $queue['title'] ) );
+				continue;
+			}
+
+			if ( $stays ) {
+				WPCPM_Dashboard_Card::fold( true, __( 'Open', 'wpcredits-program-manager' ) );
+				call_user_func( $queue['draw'] );
+				WPCPM_Dashboard_Card::fold( true, __( 'Review', 'wpcredits-program-manager' ) );
 				continue;
 			}
 

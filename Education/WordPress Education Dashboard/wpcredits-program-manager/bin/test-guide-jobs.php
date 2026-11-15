@@ -63,7 +63,7 @@ foreach ( $m as $h ) {
 	$headings[ $h[1] ] = html_entity_decode( trim( strip_tags( $h[2] ) ), ENT_QUOTES, 'UTF-8' );
 }
 
-ck( 'the list holds the seventeen jobs', count( WPCPM_Guide_Jobs::JOBS ), 17 );
+ck( 'the list holds the eighteen jobs', count( WPCPM_Guide_Jobs::JOBS ), 18 );
 foreach ( WPCPM_Guide_Jobs::JOBS as $key => $job ) {
 	ck( "$key: the anchor is an h3 of the guide", isset( $headings[ $job['anchor'] ] ), true );
 	ck( "$key: that heading's words are the title, exactly", $headings[ $job['anchor'] ] ?? null, $job['title'] );

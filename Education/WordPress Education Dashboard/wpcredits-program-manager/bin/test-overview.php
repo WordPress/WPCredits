@@ -698,6 +698,14 @@ $busy = array(
 		),
 	),
 	'mentor_applications'  => 2,
+	// A student waiting to graduate (1.123.93), on no institution's roster.
+	'unlinked'             => array(
+		'recS0000000000090' => array(
+			'record_id' => 'recS0000000000090',
+			'name'      => 'Pending Student',
+			'status'    => 'Pending graduation',
+		),
+	),
 	'offers'               => array(
 		941 => array(
 			'id'      => 941,
@@ -828,7 +836,14 @@ $busy_links  = waiting_of( card( $busy_html, 'Waiting for a decision' ) );
 
 ck( 'with every queue waiting, the list is the Administrator Dashboard\'s count of tiles, tile for tile: the same numbers, the same labels, the same order',
 	array( count( $busy_links ), array_map( static function ( $link ) { return array( $link[1], $link[2] ); }, $busy_links ) ),
-	array( 15, count_tiles( $busy_counts ) ) );
+	// Sixteen since 1.123.93: the students waiting to graduate.
+	array( 16, count_tiles( $busy_counts ) ) );
+
+// The students waiting to graduate (1.123.93): their chip, right after the requests from institutions, counts them and
+// opens the Students screen filtered by their status, as their card on the Administrator Dashboard does.
+ck( 'the students waiting to graduate are a chip of their own, after the requests from institutions: one waits, and it opens the Students screen filtered by Pending graduation',
+	array_values( array_filter( $busy_links, static function ( $link ) { return 'Students waiting to graduate' === $link[2]; } ) ),
+	array( array( 'https://site.example/wp-admin/admin.php?page=wpcpm-students&#038;wpcpm_student_status=Pending%20graduation', '1', 'Students waiting to graduate' ) ) );
 
 // A tile that counts two carries the first as its number and says the second in its label, so its
 // chip says both only with the number in front, as the strip's tile reads.
@@ -911,9 +926,9 @@ $targets = attempt(
 		return WPCPM_Overview::targets();
 	}
 );
-$tiles   = array( 'applications', 'agreements', 'reports', 'requests', 'mentor_applications', 'sponsor_applications', 'sponsor_posts', 'sponsor_offers', 'sponsor_events', 'sponsor_agreements', 'sponsor_reports', 'offers_low', 'duplicates', 'syncs', 'locked' );
+$tiles   = array( 'applications', 'agreements', 'reports', 'requests', 'graduation', 'mentor_applications', 'sponsor_applications', 'sponsor_posts', 'sponsor_offers', 'sponsor_events', 'sponsor_agreements', 'sponsor_reports', 'offers_low', 'duplicates', 'syncs', 'locked' );
 
-ck( 'the map places the fifteen tiles the strip can draw, in the strip\'s order, and nothing else',
+ck( 'the map places the sixteen tiles the strip can draw, in the strip\'s order, and nothing else',
 	is_array( $targets ) ? array_keys( $targets ) : $targets,
 	$tiles );
 
@@ -932,6 +947,7 @@ ck( 'today the institutions\' queues open the Institutions screen at the tab for
 		'agreements'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
 		'reports'              => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=reports',
 		'requests'             => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
+		'graduation'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-students&wpcpm_student_status=Pending%20graduation',
 		'mentor_applications'  => 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=queue',
 		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-applications',
 		'sponsor_posts'        => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors&tab=queue#wpcpm-sponsor-posts',
@@ -960,7 +976,7 @@ ck( 'and the syncs open the Syncs card on this page: the Overview\'s own address
 // Duplicated students card from what its reader gives a site with no scan yet, which carries the
 // finder's address, and the Events card while Sponsor tiers is on, which it waits for; its id and its
 // row action are read out of it. The strip's tile has to open that card, so a tile pointed at another
-// card fails here too. Twelve cards carry a row action; the syncs and the locked accounts are left
+// card fails here too. Thirteen cards carry a row action (the students waiting to graduate since 1.123.93); the syncs and the locked accounts are left
 // out, since their card, Syncs and health, has none.
 $GLOBALS['overview_reads'] = array( 'events_shown' => true );
 $cards_drawn               = array(
@@ -968,6 +984,7 @@ $cards_drawn               = array(
 	'agreements'           => card_drawn( static function () { WPCPM_Administrators_Cards::render_agreements( array() ); } ),
 	'reports'              => card_drawn( static function () { WPCPM_Administrators_Cards::render_reports( array() ); } ),
 	'requests'             => card_drawn( static function () { WPCPM_Administrators_Cards::render_requests( array() ); } ),
+	'graduation'           => card_drawn( static function () { WPCPM_Administrators_Cards::render_graduation( array() ); } ),
 	'sponsor_applications' => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_applications( array() ); } ),
 	'sponsor_posts'        => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_posts( array() ); } ),
 	'sponsor_offers'       => card_drawn( static function () { WPCPM_Administrators_Cards::render_sponsor_offers( array() ); } ),
@@ -987,7 +1004,7 @@ foreach ( $cards_drawn as $key => $drawn_card ) {
 	$cards_open[ $key ] = array( '#' . $drawn_card[0], $drawn_card[1] );
 }
 
-ck( 'each tile opens the place its card on the Administrator Dashboard opens: the tile names the card, and the chip here to the address the card\'s row action carries, for the eleven cards that carry one, the four institution cards, the six sponsor cards and the Duplicated students card; the syncs and the locked accounts are left out, since their card, Syncs and health, has no row action',
+ck( 'each tile opens the place its card on the Administrator Dashboard opens: the tile names the card, and the chip here to the address the card\'s row action carries, for the twelve cards that carry one, the four institution cards, the Students waiting to graduate card, the six sponsor cards and the Duplicated students card; the syncs and the locked accounts are left out, since their card, Syncs and health, has no row action',
 	$tiles_open,
 	$cards_open );
 
@@ -1223,7 +1240,7 @@ $everything = draw( array_merge( $busy, $syncs_world ) );
 
 ck( 'nothing on the screen says module, with every queue waiting, every sync and every tool on it',
 	array( count( waiting_of( card( $everything, 'Waiting for a decision' ) ) ), count( rows_of( card( $everything, 'Syncs' ) ) ), modules_in( words_of( $everything ) ) ),
-	array( 15, 4, array() ) );
+	array( 16, 4, array() ) );
 
 // Decisions have one home, the Administrator Dashboard: this screen links to it and to the queues,
 // and posts nothing itself.

@@ -3,7 +3,10 @@
 // (scale 1) and 390 wide (scale 2), and 768 for release 2's wp-admin tabs when --sizes asks for it; nothing
 // drawn over the page. On the local copy only, prepared by bin/ui/copy.sh prepare.
 //
-//   node bin/ui/snap.mjs --out <folder> [--only <comma list>] [--skip-seed] [--sizes 1280,390] [--no-extra]
+//   node bin/ui/snap.mjs --out <folder> [--only <comma list>] [--skip-seed] [--sizes 1280,390] [--no-extra] [--state a,p0]
+//
+// --state (gate 7, with --skip-seed) puts the copy, once ui-ready is back, in one state of the events and one of
+// the students (bin/ui/states.php), and a students state with somebody pending adds its scenes.
 //
 // --out is a folder outside this repository or under .superpowers/ (never committed); it gets the pictures and
 // results.json. --only takes comma-separated parts of file names. Without --skip-seed the copy is restored to
@@ -21,7 +24,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ADMIN_LOGIN, BASE, DOCKER, cookiesFor, frozenNow, refreshRig, refuseUnlessCopy, rigLoaded, waitForCopy, wp } from './copy.mjs';
 import { SIZES, brokenImages, fileName, fill, overflowFacts, overflowLines, prepare, scenes, sectionBox, sizeOf, stage, still, takenAt, widthsOf } from './scenes.mjs';
-import { INVENTED, WORK, lookups, seed } from './seed.mjs';
+import { INVENTED, WORK, applyState, lookups, seed } from './seed.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PLAYWRIGHT = process.env.WPCPM_PLAYWRIGHT || join(homedir(), 'Projects/wpcredits-release/a11y/node_modules/playwright-core/index.mjs');
@@ -34,9 +37,12 @@ if (!OUT) { console.error('usage: node bin/ui/snap.mjs --out <folder> [--only <c
 const inRepo = !relative(REPO, OUT).startsWith('..');
 if (inRepo && !(OUT + sep).startsWith(join(REPO, '.superpowers') + sep)) throw new Error('refusing: --out is inside the repository but not under .superpowers/ (pictures are never committed)');
 const only = typeof opt('only') === 'string' ? opt('only').split(',').filter(Boolean) : null;
+const STATE = typeof opt('state') === 'string' ? opt('state') : '';
+if (STATE && !opt('skip-seed')) throw new Error('refusing: --state goes with --skip-seed (a state is made on ui-ready)');
+const SCENES = scenes({ graduation: /,p(2|60)$/.test(STATE) });
 // --sizes is any list of widths, every scene taken at each (768 for release 2's tabs only); a scene's own
 // widths (the wide tables' views) are added to it. --no-extra leaves those out.
-const { base: widths, all: allWidths } = widthsOf(scenes(), typeof opt('sizes') === 'string' ? opt('sizes') : '');
+const { base: widths, all: allWidths } = widthsOf(SCENES, typeof opt('sizes') === 'string' ? opt('sizes') : '');
 const sizes = (opt('no-extra') ? widths : allWidths).map(sizeOf);
 
 refuseUnlessCopy(BASE);
@@ -137,6 +143,10 @@ try {
   // The copy's own banners stay on the page in the pictures.
   wp(['option', 'update', 'wpcpm_ui_rig_keep_banners', '1']);
   const values = lookups();
+  if (STATE) {
+    console.log(`the state ${STATE}:`);
+    Object.assign(values, applyState(STATE).values);
+  }
 
   // -------------------------------------------------------------- capture
   const results = [];
@@ -196,7 +206,7 @@ try {
     }
   }
 
-  for (const scene of scenes()) for (const size of sizes) if (takenAt(scene, size, widths)) await capture(scene, size);
+  for (const scene of SCENES) for (const size of sizes) if (takenAt(scene, size, widths)) await capture(scene, size);
 
   // With --only, the rows of the files taken again replace their rows in the earlier results.
   const RES = join(OUT, 'results.json');

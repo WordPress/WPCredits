@@ -716,6 +716,7 @@ $named_options = array(
 	'wpcpm_mentees_told',                  // WPCPM_Mentor_Assigned::OPT_TOLD, the students each mentor has been told about.
 	'wpcpm_student_languages',             // WPCPM_Student_Airtable_Row::LANGUAGES_OPTION, through WPCPM_Students::uninstall().
 	'wpcpm_student_interest_page_id',      // WPCPM_Student_Interest_Form::OPT_PAGE (1.123.64), through WPCPM_Students::uninstall().
+	'wpcpm_students_pending_from',         // WPCPM_Students_Sync::OPT_PENDING_FROM (1.123.93), through WPCPM_Students::uninstall().
 	// Three rows a site may still hold from code that is gone (1.123.27), deleted by name: the
 	// stored check against the agreement Doc, the import's check log and the report vocabulary's
 	// version, through WPCPM_Institutions::uninstall(), WPCPM_Institution_Import::delete_all() and
@@ -905,6 +906,7 @@ $student = a_user(
 	array(
 		'wpcpm_student_institution' => 'recSEED0000000001', // WPCPM_Students_Sync::META_INSTITUTION.
 		'wpcpm_student_course'      => 'In Sensei 50h',     // WPCPM_Students_Sync::META_COURSE.
+		'wpcpm_student_pending_since' => array( 'at' => 1792000000, 'before' => true ), // WPCPM_Students_Sync::META_PENDING.
 		'wpcpm_flash'               => array( 'Saved.' ),   // WPCPM_Flash::META.
 		'wpcpm_student_modules'     => array( 'hours' ),
 		'_wpcpm_report_images'      => array( 12 ),         // WPCPM_Student_Report_Form::META_IMAGES.
@@ -1265,6 +1267,8 @@ $names = array(
 	'WPCPM_Institution_Members::META_LEVEL'         => 'wpcpm_institution_level',
 	'WPCPM_Students_Sync::META_INSTITUTION'         => 'wpcpm_student_institution',
 	'WPCPM_Students_Sync::META_COURSE'              => 'wpcpm_student_course',
+	'WPCPM_Students_Sync::META_PENDING'             => 'wpcpm_student_pending_since',
+	'WPCPM_Students_Sync::OPT_PENDING_FROM'         => 'wpcpm_students_pending_from',
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',
 	'WPCPM_Mentors::PER_PAGE_OPTION'                => 'wpcpm_mentors_per_page',
 	'WPCPM_Mentors::ENGAGEMENT_PER_PAGE_OPTION'     => 'wpcpm_mentor_engagement_per_page',

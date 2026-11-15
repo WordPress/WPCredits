@@ -336,7 +336,7 @@ A line under them says when the two shares were read, and that the mentors and p
 **Overview**, **Watch** and **The program** are lists of cards. Each card is one row, folded until you press it.
 
 - The number beside the title is how many things the card holds. The words after it say where it stands, such as "2 waiting".
-- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none.
+- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none. **Students waiting to graduate** counts from the day the students sync first saw the student pending.
 - A link in an email, a decision's way back and **Review the oldest** each open the card they land on.
 - Each card that waits for a decision has a **How to do this** link to its job in this guide. So do **Upcoming cohorts**, **Duplicated students**, **Syncs and health** and **Students gone quiet**.
 - Each item to decide has one **Decide** row of buttons. Some decisions act when pressed, after any question they ask. Others open a panel under the row: a note's box, marked **Required** or **Optional**, or what the act does, then the button that acts, such as **Reject the application**, and **Cancel**.
@@ -349,6 +349,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 |---|---|
 | **Institution applications**, **Collaboration Agreements**, **Requests from institutions** | **Open on the Institutions screen**, tab **Waiting for review** |
 | **Semester reports** | **Open on the Institutions screen**, tab **Semester reports** |
+| **Students waiting to graduate** | **Open on the Students screen**, filtered by *Pending graduation* |
 | The sponsor queues | **Open on the Sponsors screen**, tab **Waiting for review**, at that queue's own card |
 | **Offers running low**, **New interests**, **Sponsor reports** | **Open on the Sponsors screen**, tab **Offers and codes**, **Interests** or **Reports** |
 | **Sponsor terms ending**, **Sponsors** | **Open on the Sponsors screen**, tab **Sponsors** |
@@ -360,6 +361,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 
 - **Institution applications**, **Sponsor applications**, **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** list the 50 oldest. A line under the list says how many more wait, "listed here as these are decided". It links nowhere.
 - **Collaboration Agreements** and **Requests from institutions** list up to 200, with no such line.
+- **Students waiting to graduate** lists every student on the site's rosters whose **Status** in Airtable's Students table is *Pending graduation*.
 - **Offers running low**, **New interests**, and the folds of returned, revoked or out-of-force agreements stop at 50 without a word.
 - **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** count up to 200, then read *200+*, as the Sponsors screen does. **Sponsor applications** counts every one.
 - A test institution, one whose name starts with TEST, has its items listed with the **Test** mark and left out of every count.
@@ -389,11 +391,12 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 **Waiting for you**, on the Overview, holds the queues, oldest first in each. Only a queue with something in it is drawn, as a row with **Review**. One sentence under the rows names the empty queues, each a link to its screen.
 
 - A queue your last decision emptied is drawn once more, open, with the outcome.
-- **Events** is a queue only while **Sponsor tiers** is on.
+- **Events** is a queue only while **Sponsor tiers** is on. Its row stays when nothing waits, with **Open**, and the sentence does not name it.
 
 | Queue | Where you decide it |
 |---|---|
 | **Institution applications**, **Collaboration Agreements**, **Requests from institutions** and the sponsor queues | On its card here |
+| **Students waiting to graduate** | Not on the site: you approve the quiz on Learn and set the graduation in Airtable |
 | **Mentor applications** | **Review** opens `Mentors > Waiting for review` |
 | **Semester reports** | **Review** opens the report, where **Approve this report** is. **Draft now** makes a draft. |
 | **Sponsor reports** | **Open** opens a draft to finish. **Draft now** makes one. |
@@ -402,7 +405,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 - **Reinstate** on an institution's Collaboration Agreement is on `Institutions > Agreements`, under **Revoked agreements**, and on this page's **Collaboration Agreements** card while a signed agreement waits. **Revoke this agreement** is on `Institutions > Agreements` only.
 - An item past the 50 a card lists is decided on its wp-admin screen.
 
-Step by step: [[A school applied]]; [[A signed Collaboration Agreement arrived]]; [[Take an agreement out of force, or put it back]]; [[A semester report: draft, review, approve, reopen]]; [[A company applied to sponsor]]; [[A sponsor's annual report]]; [[Find an application or agreement past the fifty the dashboard lists]].
+Step by step: [[A school applied]]; [[A signed Collaboration Agreement arrived]]; [[Take an agreement out of force, or put it back]]; [[A semester report: draft, review, approve, reopen]]; [[A student is waiting to graduate]]; [[A company applied to sponsor]]; [[A sponsor's annual report]]; [[Find an application or agreement past the fifty the dashboard lists]].
 
 #### A school's request to correct its details
 
@@ -928,9 +931,10 @@ Every box but **Places** is required. A refused plan or change comes back with w
 
 #### The review on the Administrator Dashboard
 
-The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting for you**. It is drawn while a sponsor's event waits, and once more right after any press on it. At other times it is not drawn.
+The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting for you**, whether or not an event waits.
 
-- With nothing waiting, the name **Events** in the line of empty queues opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
+- With nothing waiting, its row reads "Nothing waiting, 2 coming up" (or "none coming up"), with **Open** and no age tag. It adds nothing to the count at the top or in the menu.
+- Its last line opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
 - `WPCredits Program > Overview`, card **Waiting for a decision**, counts them as **Events waiting**.
 
 The events are one list, the waiting ones first. Each event's tag names its part.
@@ -949,7 +953,6 @@ Each event shows when it runs on your clock, its places, its description and its
 - **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays tagged **Coming up**, and nobody new can join it.
 - **Who joined** names the people on an event. Sponsors see only how many.
 - You join an event as yourself.
-- While the card is not drawn, you can still cancel a sponsor's approved event on its Sponsor Dashboard, through **Viewing as sponsor**. There is no note, and everyone who joined is told.
 
 Step by step: [[A sponsor planned an event]].
 

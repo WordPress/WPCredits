@@ -466,7 +466,8 @@ Where to start:
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
-8. You, in Airtable, change the **Status** when the student finishes, for example to `Graduate`; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
+8. When the student sends their last feedback form, an Airtable automation sets their **Status** to *Pending graduation*. After the next students sync they are on the **Students waiting to graduate** card: see *A student is waiting to graduate*.
+9. You set the *Graduation date* in Airtable. When that date comes, an Airtable automation sets the **Status** to *Graduate* and the certificate notice goes out; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
 
 ### A student registered
 
@@ -620,6 +621,30 @@ You can change:
 - The card shows only while the quiet-students list is in Preview or On: see Step by step: running the site.
 - In Preview nobody is emailed, and the **Reminder** column says **Would remind**. In On the student gets "Checking in" emails and you get a Monday list of your quiet students.
 - A student with a call or group session booked ahead is never on the card.
+
+### A student is waiting to graduate
+
+*When:* the **Students waiting to graduate** card on `Administrator Dashboard > Overview` lists students.
+
+1. Open the Administrator Dashboard and open the card **Students waiting to graduate**. The top row has waited longest. Each student's institution is under their name.
+2. Press the student's name to open their Student Report Card, and read their report and hours.
+3. If something is unclear, ask the mentor named in **Mentor**.
+4. Press the course in **Track** to open it on Learn, and approve the student's quiz there, so the certificate goes out.
+5. In Airtable, set the *Graduation date* on the student's Students Reports row.
+
+**What happens next**
+
+- When the *Graduation date* comes, an Airtable automation sets the student's **Status** to *Graduate* and sends the certificate notice.
+- The student leaves the card at the next students sync.
+- The site sends nothing and changes no status.
+
+**Good to know**
+
+- The card lists every student on the site's rosters whose **Status** in Airtable's Students table is *Pending graduation*. A test institution's student is listed with the **Test** mark and left out of the count.
+- **Waiting since** is the day the students sync first saw the student pending. *Before* a date means the student was already pending at the first sync that kept these days, so the true day is earlier.
+- A student with no account on the site, or whose address is on two institutions' rows, has no link and no **Waiting since**.
+- A student on two tracks that are both pending is listed twice, and both lines name the same track, because the site keeps one course for each account.
+- **Open on the Students screen** opens `WPCredits Program > Students` filtered by *Pending graduation*. That list reads the Students Reports table, so it can differ from the card for a while.
 
 ### Take a student off a group session
 
@@ -1143,13 +1168,13 @@ To write a refused Airtable row:
 
 - An event an Administrator plans for a sponsor through its Sponsor Dashboard waits here too and needs the same approval. The email has the same subject.
 - If the sponsor no longer offers events, there is no **Approve**: use **Return with a note**, which needs a note.
-- To call off an approved event, press **Cancel with a note** on the event tagged **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. The approved events are on the same row, so they show only while an event waits for the program's OK, or right after a press on the row. At other times, open the sponsor's Sponsor Dashboard with **Viewing as sponsor** and press **Cancel the event** on the event: it takes no note, and everyone who joined is told.
+- To call off an approved event, press **Cancel with a note** on the event tagged **Coming up**, write why, press **Cancel with this note** and confirm. Everyone who joined is told, and **Who joined** lists them. The approved events are on the same card, which stays on the Overview whether or not an event waits.
 
 ### Plan or cancel an event of the program's own
 
-*When:* only while **Sponsor tiers** is on in Settings, and only while the **Events** row is under **Waiting for you**: the row shows only while a sponsor's event waits for the program's OK.
+*When:* only while **Sponsor tiers** is on in Settings.
 
-1. Open `Administrator Dashboard > Overview` and press **Review** on the **Events** row.
+1. Open `Administrator Dashboard > Overview` and press the **Events** row: it reads **Review** while an event waits, **Open** when none does.
 2. Under **Plan an event of the program's**, press **Plan an event**.
 3. Fill in **Date**, **Start time**, **Length in minutes**, **Places**, **Title**, **Description** and **Call link**.
 4. Press **Plan the event**.
@@ -1164,7 +1189,6 @@ To write a refused Airtable row:
 
 **Good to know**
 
-- With no sponsor event waiting, the **Events** row is not shown, and you cannot reach these controls. Right after any press on that row it shows once more, then goes.
 - Only **Places** may stay empty. **Description** shows on the Partners page. **Call link** is seen only by the people who join, and the program.
 - The day and time must still be to come, and **Places** cannot go below the number already joined. A cancel cannot be undone.
 
@@ -2213,7 +2237,8 @@ A student's state shows on the Students screen in wp-admin, in its **Registratio
 | A track's name in the **Status** column of `Students > Accounts` | The student is on that track. | Nothing. |
 | The student's row on **Students gone quiet** (**Watch**) | Nothing on record from the student for the days set in **Days of quiet**. The card's **Days quiet** column says how long. | See [Students who have gone quiet](#students-who-have-gone-quiet). |
 | The student counted on **Duplicated students** (**Watch**) | The student has more than one row in Airtable. | See [A student has duplicate rows](#a-student-has-duplicate-rows). |
-| *Paused* or *Pending graduation* in the **Status** column | The status comes from Airtable. The student is on no track, so **Students gone quiet** leaves them out. | Nothing on the site. The status is changed in Airtable. |
+| *Paused* in the **Status** column | The status comes from Airtable. The student is on no track, so **Students gone quiet** leaves them out. | Nothing on the site. The status is changed in Airtable. |
+| *Pending graduation* in the **Status** column, or the student on **Students waiting to graduate** (**Overview**) | The student finished and waits for an Administrator. **Students gone quiet** leaves them out. | See [A student is waiting to graduate](#a-student-is-waiting-to-graduate). |
 | *Graduated* or *Dropped out* in the **Status** column | The student finished or left the program. | Nothing. |
 
 ### Where a mentor stands
@@ -4968,7 +4993,7 @@ A line under them says when the two shares were read, and that the mentors and p
 **Overview**, **Watch** and **The program** are lists of cards. Each card is one row, folded until you press it.
 
 - The number beside the title is how many things the card holds. The words after it say where it stands, such as "2 waiting".
-- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none.
+- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none. **Students waiting to graduate** counts from the day the students sync first saw the student pending.
 - A link in an email, a decision's way back and **Review the oldest** each open the card they land on.
 - Each card that waits for a decision has a **How to do this** link to its job in this guide. So do **Upcoming cohorts**, **Duplicated students**, **Syncs and health** and **Students gone quiet**.
 - Each item to decide has one **Decide** row of buttons. Some decisions act when pressed, after any question they ask. Others open a panel under the row: a note's box, marked **Required** or **Optional**, or what the act does, then the button that acts, such as **Reject the application**, and **Cancel**.
@@ -4981,6 +5006,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 |---|---|
 | **Institution applications**, **Collaboration Agreements**, **Requests from institutions** | **Open on the Institutions screen**, tab **Waiting for review** |
 | **Semester reports** | **Open on the Institutions screen**, tab **Semester reports** |
+| **Students waiting to graduate** | **Open on the Students screen**, filtered by *Pending graduation* |
 | The sponsor queues | **Open on the Sponsors screen**, tab **Waiting for review**, at that queue's own card |
 | **Offers running low**, **New interests**, **Sponsor reports** | **Open on the Sponsors screen**, tab **Offers and codes**, **Interests** or **Reports** |
 | **Sponsor terms ending**, **Sponsors** | **Open on the Sponsors screen**, tab **Sponsors** |
@@ -4992,6 +5018,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 
 - **Institution applications**, **Sponsor applications**, **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** list the 50 oldest. A line under the list says how many more wait, "listed here as these are decided". It links nowhere.
 - **Collaboration Agreements** and **Requests from institutions** list up to 200, with no such line.
+- **Students waiting to graduate** lists every student on the site's rosters whose **Status** in Airtable's Students table is *Pending graduation*.
 - **Offers running low**, **New interests**, and the folds of returned, revoked or out-of-force agreements stop at 50 without a word.
 - **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** count up to 200, then read *200+*, as the Sponsors screen does. **Sponsor applications** counts every one.
 - A test institution, one whose name starts with TEST, has its items listed with the **Test** mark and left out of every count.
@@ -5021,11 +5048,12 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 **Waiting for you**, on the Overview, holds the queues, oldest first in each. Only a queue with something in it is drawn, as a row with **Review**. One sentence under the rows names the empty queues, each a link to its screen.
 
 - A queue your last decision emptied is drawn once more, open, with the outcome.
-- **Events** is a queue only while **Sponsor tiers** is on.
+- **Events** is a queue only while **Sponsor tiers** is on. Its row stays when nothing waits, with **Open**, and the sentence does not name it.
 
 | Queue | Where you decide it |
 |---|---|
 | **Institution applications**, **Collaboration Agreements**, **Requests from institutions** and the sponsor queues | On its card here |
+| **Students waiting to graduate** | Not on the site: you approve the quiz on Learn and set the graduation in Airtable |
 | **Mentor applications** | **Review** opens `Mentors > Waiting for review` |
 | **Semester reports** | **Review** opens the report, where **Approve this report** is. **Draft now** makes a draft. |
 | **Sponsor reports** | **Open** opens a draft to finish. **Draft now** makes one. |
@@ -5034,7 +5062,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 - **Reinstate** on an institution's Collaboration Agreement is on `Institutions > Agreements`, under **Revoked agreements**, and on this page's **Collaboration Agreements** card while a signed agreement waits. **Revoke this agreement** is on `Institutions > Agreements` only.
 - An item past the 50 a card lists is decided on its wp-admin screen.
 
-Step by step: [A school applied](#a-school-applied); [A signed Collaboration Agreement arrived](#a-signed-collaboration-agreement-arrived); [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back); [A semester report: draft, review, approve, reopen](#a-semester-report-draft-review-approve-reopen); [A company applied to sponsor](#a-company-applied-to-sponsor); [A sponsor's annual report](#a-sponsor-s-annual-report); [Find an application or agreement past the fifty the dashboard lists](#find-an-application-or-agreement-past-the-fifty-the-dashboard-lists).
+Step by step: [A school applied](#a-school-applied); [A signed Collaboration Agreement arrived](#a-signed-collaboration-agreement-arrived); [Take an agreement out of force, or put it back](#take-an-agreement-out-of-force-or-put-it-back); [A semester report: draft, review, approve, reopen](#a-semester-report-draft-review-approve-reopen); [A student is waiting to graduate](#a-student-is-waiting-to-graduate); [A company applied to sponsor](#a-company-applied-to-sponsor); [A sponsor's annual report](#a-sponsor-s-annual-report); [Find an application or agreement past the fifty the dashboard lists](#find-an-application-or-agreement-past-the-fifty-the-dashboard-lists).
 
 #### A school's request to correct its details
 
@@ -5560,9 +5588,10 @@ Every box but **Places** is required. A refused plan or change comes back with w
 
 #### The review on the Administrator Dashboard
 
-The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting for you**. It is drawn while a sponsor's event waits, and once more right after any press on it. At other times it is not drawn.
+The card **Events** is on `Administrator Dashboard > Overview`, under **Waiting for you**, whether or not an event waits.
 
-- With nothing waiting, the name **Events** in the line of empty queues opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
+- With nothing waiting, its row reads "Nothing waiting, 2 coming up" (or "none coming up"), with **Open** and no age tag. It adds nothing to the count at the top or in the menu.
+- Its last line opens the Sponsors screen, tab **Waiting for review**. That tab lists the waiting events but decides nothing.
 - `WPCredits Program > Overview`, card **Waiting for a decision**, counts them as **Events waiting**.
 
 The events are one list, the waiting ones first. Each event's tag names its part.
@@ -5581,7 +5610,6 @@ Each event shows when it runs on your clock, its places, its description and its
 - **No longer offered** marks an event whose sponsor is not *Approved*, or has no tier with events today. Waiting, it has no **Approve**: return it with a note. Approved, it stays tagged **Coming up**, and nobody new can join it.
 - **Who joined** names the people on an event. Sponsors see only how many.
 - You join an event as yourself.
-- While the card is not drawn, you can still cancel a sponsor's approved event on its Sponsor Dashboard, through **Viewing as sponsor**. There is no note, and everyone who joined is told.
 
 Step by step: [A sponsor planned an event](#a-sponsor-planned-an-event).
 

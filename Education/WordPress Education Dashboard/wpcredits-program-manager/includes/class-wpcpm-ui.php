@@ -998,10 +998,55 @@ final class WPCPM_UI {
 	 * hears the value and the line apart; the line is a block, so the space moves nothing on screen.
 	 *
 	 * @param string $text The words.
+	 * @param string $html The line as markup the caller already escaped (a name with its link and its mark), printed as
+	 *                     given in place of the text, as `intro()` takes one; '' for none, and the text is printed as
+	 *                     before (1.123.93).
 	 * @return string Escaped markup.
 	 */
-	public static function cell_sub( string $text ): string {
-		return ' <span class="wpcpm-ui-cell__sub">' . esc_html( $text ) . '</span>';
+	public static function cell_sub( string $text, string $html = '' ): string {
+		return ' <span class="wpcpm-ui-cell__sub">' . ( '' !== $html ? $html : esc_html( $text ) ) . '</span>';
+	}
+
+	/**
+	 * Words a person typed, escaped, with a break opportunity (`<wbr>`) after every 10 characters inside any run of 21
+	 * characters or more that holds no white space and no hyphen (1.123.93): a long unbroken run in a name may then
+	 * break, at those points only, rather than widen its table past the card, and every shorter word keeps its line as
+	 * it did. Characters are counted as a reader sees them (grapheme clusters), so a letter and its combining marks are
+	 * never parted, and an entity the text already holds (`&amp;`) counts as one. Text with no such run is exactly what
+	 * `esc_html()` gives. Put it in a cell's html, inside a link too.
+	 *
+	 * @param string $text The words, escaped here.
+	 * @return string Escaped markup.
+	 */
+	public static function breakable( string $text ): string {
+		$unit  = '(?:&(?:#[0-9]+|#x[0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);|(?![\s\-])\X)';
+		$parts = preg_split( '/(' . $unit . '{21,})/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE );
+
+		if ( ! is_array( $parts ) || 1 === count( $parts ) ) {
+			return esc_html( $text );
+		}
+
+		$out = '';
+
+		foreach ( $parts as $n => $part ) {
+			if ( 0 === $n % 2 ) {
+				$out .= esc_html( $part );
+				continue;
+			}
+
+			preg_match_all( '/' . $unit . '/u', $part, $units );
+			$out .= implode(
+				'<wbr>',
+				array_map(
+					static function ( array $chunk ): string {
+						return esc_html( implode( '', $chunk ) );
+					},
+					array_chunk( $units[0], 10 )
+				)
+			);
+		}
+
+		return $out;
 	}
 
 	/**

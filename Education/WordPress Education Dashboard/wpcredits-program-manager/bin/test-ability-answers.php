@@ -719,6 +719,20 @@ $built = build( 'waiting' );
 ck( 'no tile: nothing waits, the list is an empty list', array( $built['answer']['nothing_waiting'], json_encode( $built['answer']['tiles'] ) ), array( true, '[]' ) );
 ck( 'and the syncs are still said', count( $built['answer']['syncs'] ), 4 );
 
+// The students waiting to graduate (1.123.93): the tile counts() gives for them is listed as every tile with a card
+// is, and opens their card on the dashboard. The answer gains it only because it lists counts().
+readers_reset();
+$GLOBALS['readers']['tiles'] = array_merge(
+	array_slice( $GLOBALS['readers']['tiles'], 0, 2, true ),
+	array( 'graduation' => array( 'label' => 'Students waiting to graduate', 'n' => 2, 'card' => 'graduation' ) ),
+	array_slice( $GLOBALS['readers']['tiles'], 2, null, true )
+);
+$a = plain( build( 'waiting' )['answer'] );
+ck( 'the students waiting to graduate are a tile of the answer, in counts()\' order, opening their card on the dashboard', array( array_column( $a['tiles'], 'key' ), $a['tiles'][2] ), array(
+	array( 'applications', 'agreements', 'graduation', 'mentor_applications', 'sponsor_posts', 'syncs' ),
+	array( 'key' => 'graduation', 'label' => 'Students waiting to graduate', 'count' => 2, 'shown' => '2', 'open' => 'https://example.test/administrator-dashboard/#wpcpm-graduation' ),
+) );
+
 readers_reset();
 $GLOBALS['readers']['page_url'] = '';
 $a = plain( build( 'waiting' )['answer'] );
