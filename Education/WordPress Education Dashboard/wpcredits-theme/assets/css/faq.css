@@ -1,0 +1,422 @@
+/**
+ * The FAQ page (inc/faq.php): a page on the Landing page template, loaded only at the path `faq`, after
+ * hub.css, and in the editor. The hub draws the page's type (EB Garamond heads over Inter), its section
+ * heads (`.wpc-hub-head`), its lede, its cards (`is-style-card`, white on a 1px hairline, 2px corners),
+ * its buttons and its eyebrows. This sheet draws only what the hub has no part for: the page's title,
+ * the line of jump links, the numbered steps inside the two cards, and the list of questions, each a
+ * core Details block. Every rule names one of the page's own `wpc-faq*` classes, so no other page
+ * changes, in the editor either.
+ *
+ * Read mode: the questions sit in a 720px column (the Group's content width), at 17px with a 1.65 line
+ * height. Logical properties throughout, so a right-to-left page mirrors.
+ *
+ * @package WPCredits_Theme
+ */
+
+/* ==========================================================================
+   The head
+   ========================================================================== */
+
+/* The title in the serif, a step below the homepage's display title, as the Partners page's is: this
+   page opens a section of the site, not the site. */
+.wpc-hub .wpc-faq-title,
+.wpc-faq-title {
+	color: var( --wpc-ink );
+	font-family: var( --wpc-hub-serif );
+	font-size: clamp( 40px, 4.6vw, 60px );
+	font-weight: 400;
+	letter-spacing: -.01em;
+	line-height: 1.05;
+}
+
+/* The head is the Students hero's two columns (hub.css): the copy, an eyebrow over the title, the lede
+   and "On this page" 28px under the lede; the picture beside them. The head ends 48px under the links,
+   so with the next section's own 48px the links stand 96px above "Get connected first", the page's
+   section gap, at every width. The copy's own spacing is set here so the picture's top can be level with
+   the title's: the eyebrow's 18px line and the title 20px under it. */
+.wpc-landing .wp-block-group.wpc-faq-head {
+	padding-block-end: 48px;
+}
+
+.wpc-faq-head .wpc-hub-hero__copy > p.is-style-eyebrow {
+	margin-block: 0;
+}
+
+.wpc-faq-head .wpc-hub-hero__copy > .wpc-faq-title {
+	margin-block: 20px 0;
+}
+
+.wpc-faq-head .wpc-hub-hero__copy > .wpc-faq-nav {
+	margin-block: 28px 0;
+}
+
+/* The picture, from 900px (below it hub.css hides the column). The copy column alone sets the row's
+   height: the picture column stretches to it and the picture is placed in it, out of the flow, so it
+   never makes the head taller. Its top is level with the title's (38px under the column's top, the
+   eyebrow and its gap) and its foot never below the links' foot; it is as large as that height allows
+   and never wider than its column (the column takes the row's last pixels, which the 47% and 49%
+   columns and their 40px gap leave over), keeping its proportions, against the content's right edge.
+   It shows the drawing's own part of the picture's space, the bubble and its label (x 64 to 462 and
+   y 24 to 362 of the svg's view box), scaled to the box (the box is a container of its own, so `cqi`
+   is its width), so nothing is cut. Scoped to the FAQ's head: the other pages' pictures keep hub.css's
+   box and steps. The drawing keeps hub.css's physical left edge (10px left of the box) and is moved
+   across from it, so a right-to-left page does not mirror the picture. */
+.wpc-faq-head .wp-block-columns > .wp-block-column.wpc-hub-hero__art {
+	align-self: stretch;
+	flex-grow: 1;
+	position: relative;
+}
+
+.wpc-faq-head .wp-block-column.wpc-hub-hero__art > .wpc-hub-art {
+	aspect-ratio: 398 / 338;
+	block-size: min( calc( 100% - 38px ), calc( 100cqi * 338 / 398 ) );
+	container-type: inline-size;
+	inline-size: auto;
+	inset-block-start: 38px;
+	inset-inline-end: 0;
+	margin: 0;
+	overflow: hidden;
+	position: absolute;
+	zoom: 1;
+}
+
+.wpc-faq-head .wpc-hub-art > .wpc-hub-art__faq {
+	height: calc( 100cqi * 494 / 398 );
+	inset-block-start: calc( 100cqi * -128 / 398 );
+	translate: calc( 100cqi * -74 / 398 + 10px ) 0;
+	width: calc( 100cqi * 540 / 398 );
+}
+
+/* On a tablet, 900px to 1199px, the copy column is too narrow for the links: the head becomes a grid,
+   the copy column's children take its cells (`display: contents`, so the document keeps one nav, in
+   its place: title, lede, links), and the links run across the full width in a row of their own, 28px
+   under the lede. The picture sits beside the title and the lede only: its top level with the title's,
+   its height the smaller of the title and the lede together and its column's width at its crop, so it
+   never makes the head taller and the links' row stands directly under both. The eyebrow keeps its
+   20px over the title, and the lede its 20px under it. From 1200px the head is round 9's columns, the
+   links under the lede. */
+@media ( min-width: 900px ) and ( max-width: 1199px ) {
+	.wpc-faq-head .wp-block-columns.wpc-hub-hero__cols {
+		column-gap: 40px;
+		display: grid;
+		grid-template-areas:
+			"eyebrow ."
+			"title art"
+			"lede art"
+			"nav nav";
+		grid-template-columns: 47% minmax( 0, 1fr );
+		row-gap: 0;
+	}
+
+	.wpc-faq-head .wp-block-columns > .wp-block-column.wpc-hub-hero__copy {
+		display: contents;
+	}
+
+	.wpc-faq-head .wpc-hub-hero__copy > p.is-style-eyebrow {
+		grid-area: eyebrow;
+		margin-block: 0 20px;
+	}
+
+	.wpc-faq-head .wpc-hub-hero__copy > .wpc-faq-title {
+		grid-area: title;
+		margin-block: 0;
+	}
+
+	.wpc-faq-head .wpc-hub-hero__copy > .wpc-hub-lede {
+		grid-area: lede;
+		margin-block: 20px 0;
+	}
+
+	.wpc-faq-head .wpc-hub-hero__copy > .wpc-faq-nav {
+		grid-area: nav;
+		margin-block: 28px 0;
+	}
+
+	.wpc-faq-head .wp-block-columns > .wp-block-column.wpc-hub-hero__art {
+		grid-area: art;
+	}
+
+	.wpc-faq-head .wp-block-column.wpc-hub-hero__art > .wpc-hub-art {
+		block-size: min( 100%, calc( 100cqi * 338 / 398 ) );
+		inset-block-start: 0;
+	}
+}
+
+/* "On this page:" in the text's own words, 8px over the links. */
+.wpc-faq-nav > .wpc-faq-nav__label {
+	font-weight: 600;
+	margin-block: 0 8px;
+}
+
+/* The line of jump links: the sections' names in a row that wraps, 20px apart, no bullets. */
+.wp-block-list.wpc-faq-jump {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 20px;
+	list-style: none;
+	margin-block: 0;
+	padding-inline-start: 0;
+}
+
+.wp-block-list.wpc-faq-jump > li {
+	margin: 0;
+}
+
+.wp-block-list.wpc-faq-jump a {
+	font-weight: 600;
+	text-underline-offset: .2em;
+}
+
+/* A real address keeps no invisible character, so whatever a reader copies works: the browser wraps it
+   by its own rules, and where an address cannot fit its line (below about 340px) it breaks inside it,
+   as a last resort, rather than widening the page. */
+.wpc-faq-group,
+.wpc-faq-hello {
+	overflow-wrap: break-word;
+}
+
+/* ==========================================================================
+   The two steps
+   ========================================================================== */
+
+/* Each step is a card of an eyebrow, a heading, the steps and a button, nothing that opens, so the two
+   cards side by side always end on one line (hub.css gives a landing page's card its column's height).
+   The card is a column, as the hub's doors are, and its button takes the room left at its foot, so the
+   two buttons sit on one line. Its own spacing is set here, since a column's margins do not collapse:
+   the heading 8px under the eyebrow, as in the hub's section heads; the steps a numbered list 16px under
+   the heading, 8px apart, the numbers in the brand blue and in the text's own weight; the button at
+   least 24px under the steps. */
+.wp-block-group.wpc-faq-step {
+	display: flex;
+	flex-direction: column;
+	overflow-wrap: break-word;
+}
+
+.wp-block-group.wpc-faq-step > * {
+	margin-block: 0;
+}
+
+.wp-block-group.wpc-faq-step > .wp-block-heading {
+	margin-block: 8px 0;
+}
+
+.wp-block-group.wpc-faq-step > .wpc-faq-buttons {
+	margin-block: auto 0;
+}
+
+.wp-block-group.wpc-faq-step > .wp-block-list.wpc-faq-step__list {
+	font-size: 16px;
+	line-height: 1.6;
+	margin-block: 16px 24px;
+	padding-inline-start: 24px;
+}
+
+.wp-block-list.wpc-faq-step__list > li + li {
+	margin-block-start: 8px;
+}
+
+.wp-block-list.wpc-faq-step__list > li::marker {
+	color: var( --wpc-brand );
+	font-weight: 600;
+}
+
+/* The hello line 24px under the cards, and "Stuck on a step?", the faults people hit, 48px under the
+   hello line, in the two columns below. */
+.wp-block-group.wpc-faq-connect > .wpc-faq-hello {
+	margin-block-start: 24px;
+}
+
+.wp-block-group.wpc-faq-connect > .wpc-faq-stuck {
+	margin-block-start: 48px;
+}
+
+/* ==========================================================================
+   The buttons: the hub's large button (style.css `wpc-button--large`, 14px), one height for all
+   ========================================================================== */
+
+/* Core's outline style pads by em and the theme gives it a 1px border, so the outline button stood
+   about 3px taller than the filled ones. Every button here has a 1px border (transparent on a filled
+   one, whose background shows through it) and 10px by 19px of padding: 43.6px tall, the height of the
+   hub's own large filled button (21.6px of text, 11px above and below). */
+.wpc-faq-buttons .wp-block-button.wpc-button--large > .wp-block-button__link {
+	border-style: solid;
+	border-width: 1px;
+	font-size: 14px;
+	line-height: 1.54;
+	padding: 10px 19px;
+}
+
+.wpc-faq-buttons .wp-block-button.wpc-button--large:not( .is-style-outline ) > .wp-block-button__link {
+	border-color: transparent;
+}
+
+/* ==========================================================================
+   A section's two columns: the heading in a rail, the questions beside it
+   ========================================================================== */
+
+/* A section of questions (and the school section, "Stuck on a step?" and "Still have a question?") is
+   its heading, then what it holds. Below 900px what it holds takes the content's width, as the
+   paragraphs and the head do; the 720px reading column is the two-column layout's (below). */
+
+/* From 900px, where the step cards go side by side: two columns, the heading in a rail of the rest of
+   the width (a third at 1240px) and what it holds in the right column, 720px at most, 44px apart. The
+   rail's heading is 30px EB Garamond, the hub's section heading at its smallest (hub.css,
+   `clamp( 30px, 3.4vw, 44px )`, the size the group headings have below 900px), so a long one wraps to
+   two lines and stays an H2 (an H3 for "Stuck on a step?"). The heading's first line and the first
+   line of what stands beside it, a question or a paragraph, share a baseline. Below 900px the heading
+   sits over its list, as hub.css draws a section head. */
+@media ( min-width: 900px ) {
+	.wp-block-group.wpc-faq-group {
+		align-items: baseline;
+		column-gap: 44px;
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr ) min( 720px, calc( ( 100% - 44px ) * 2 / 3 ) );
+	}
+
+	.wp-block-group.wpc-faq-group > .wpc-hub-head {
+		grid-column: 1;
+		grid-row: 1 / span 4;
+		margin-block: 0;
+	}
+
+	.wp-block-group.wpc-faq-group > :not( .wpc-hub-head ) {
+		grid-column: 2;
+		margin-block: 0;
+		max-inline-size: 720px;
+	}
+
+	.wp-block-group.wpc-faq-group > :not( .wpc-hub-head ) + :not( .wpc-hub-head ) {
+		margin-block-start: 24px;
+	}
+
+	.wpc-hub .wpc-faq-group > .wpc-hub-head h2,
+	.wpc-hub .wpc-faq-group > .wpc-hub-head h3 {
+		font-size: 30px;
+		line-height: 1.15;
+	}
+}
+
+/* ==========================================================================
+   The questions
+   ========================================================================== */
+
+/* A list of questions between hairlines: one over the first, one under each. Its children sit flush,
+   the hairlines being the rhythm, over the flow layout's block gap. Two classes deep. */
+.wp-block-group.wpc-faq__list {
+	border-block-start: 1px solid var( --wpc-line );
+	overflow-wrap: break-word;
+}
+
+.wp-block-group.wpc-faq__list > * {
+	margin-block: 0;
+}
+
+.wpc-faq__list > .wp-block-details {
+	border-block-end: 1px solid var( --wpc-line );
+	box-sizing: border-box;
+	max-inline-size: 100%;
+	padding: 0;
+	/* A question an address names lands below the sticky header. */
+	scroll-margin-block-start: var( --wpc-landing-offset );
+}
+
+
+/* The question: a full-width row at least 48px tall, the words at 17px weight 600, a chevron at the
+   end. The browser's own triangle is hidden; the chevron is the theme's icon, drawn in the text's color
+   so it follows the hover. A question reached with Tab is scrolled into view with room above
+   it (the sticky header's offset) and 24px below, so its focus ring is never cut at the window's edge. */
+.wpc-faq__list > .wp-block-details > summary {
+	align-items: center;
+	color: var( --wpc-ink );
+	cursor: pointer;
+	display: flex;
+	font-size: 17px;
+	font-weight: 600;
+	gap: 16px;
+	justify-content: space-between;
+	line-height: 1.4;
+	list-style: none;
+	min-block-size: 48px;
+	padding-block: 12px;
+	scroll-margin-block: var( --wpc-landing-offset ) 24px;
+}
+
+/* A link to something inside an answer lands below the sticky header too: a scroll margin is not
+   inherited from the question, so the element the address names carries it. */
+.wpc-faq__list :target {
+	scroll-margin-block-start: var( --wpc-landing-offset );
+}
+
+.wpc-faq__list > .wp-block-details > summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpc-faq__list > .wp-block-details > summary::after {
+	background-color: currentcolor;
+	block-size: 24px;
+	content: "";
+	flex: none;
+	inline-size: 24px;
+	mask: var( --wpc-icon-chevron-down ) center / 24px 24px no-repeat;
+	-webkit-mask: var( --wpc-icon-chevron-down ) center / 24px 24px no-repeat;
+}
+
+/* Open, the chevron points up: the state shows in the shape and in the answer under it, never in the
+   color alone. */
+.wpc-faq__list > .wp-block-details[open] > summary::after {
+	transform: rotate( 180deg );
+}
+
+.wpc-faq__list > .wp-block-details > summary:hover {
+	color: var( --wpc-brand );
+}
+
+/* The theme's one focus ring (style.css, DESIGN.md): 2px solid with a 2px offset. Nothing clips it: the
+   list and its cards have no overflow rule, an outline is painted over the next question's hairline, and
+   the 2px it reaches past the column fall in the page's gutter or the card's padding. */
+.wpc-faq__list > .wp-block-details > summary:focus-visible {
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 2px;
+}
+
+/* In forced-colors mode the browser paints a background in Canvas, so the masked chevron would be Canvas
+   on Canvas and the open and closed shapes would vanish: draw it in the text's system color. */
+@media ( forced-colors: active ) {
+	.wpc-faq__list > .wp-block-details > summary::after {
+		background-color: CanvasText;
+		forced-color-adjust: none;
+	}
+}
+
+/* The answer: the page's body text, its color and its size and line height (inherited), as the
+   paragraphs outside the questions read; 12px between its paragraphs, 20px under the last, nothing
+   wider than the column. */
+.wpc-faq__list > .wp-block-details > :not( summary ) {
+	color: var( --wpc-ink );
+	margin-block: 0 12px;
+	max-inline-size: 100%;
+}
+
+.wpc-faq__list > .wp-block-details > summary + * {
+	margin-block-start: 4px;
+}
+
+.wpc-faq__list > .wp-block-details > :last-child:not( summary ) {
+	margin-block-end: 20px;
+}
+
+/* In the editor the answer's blocks are inside the block list's own wrapper. */
+.wpc-faq__list > .wp-block-details > .block-editor-inner-blocks {
+	margin-block-end: 20px;
+}
+
+.wpc-faq__list > .wp-block-details a {
+	text-underline-offset: .2em;
+}
+
+/* The chevron's turn, the sheet's only motion, for a reader who has not asked for less. */
+@media ( prefers-reduced-motion: no-preference ) {
+	.wpc-faq__list > .wp-block-details > summary::after {
+		transition: transform .2s ease-out;
+	}
+}

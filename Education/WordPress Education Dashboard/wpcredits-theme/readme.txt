@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.27
+Stable tag: 1.32.28
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -220,6 +220,15 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.28 =
+
+* A FAQ page for students: a page published at the path `faq` on the Landing page template draws its questions, each a Details block, as a list between hairlines, a question to a row with a chevron. Every question has an address of its own, and the page's script opens the question an address names and brings it into view below the sticky header.
+* A new pattern, Speech bubble of words (`wpcredits/faq-question`), is the picture for the FAQ page's head: a speech bubble cut from the homepage's field of role words, a question mark in the brand blue inside it and one label. It is decoration, hidden from screen readers, and not shown below 900px.
+* A visitor's header reads "FAQ" while a page is published at the path `faq`.
+* On a landing page the plugin's Student Interest Form lands below the sticky header when a link leads to it.
+* For developers: `inc/faq.php` loads `assets/css/faq.css` and `assets/js/faq.js` on the top-level page at `faq` alone (`wpcredits_is_faq_page()`); `wpcredits_hub_faq_question_svg()` draws the picture with the graduation cap's helpers. New suites: `bin/test-faq.php` and `bin/test-faq-js.php`.
+* For developers: `bin/check-selectors.php` reads each dashboard's phone table the way the plugin draws it, a box the plugin prints held to the 782px rule and a dashboard on the shared parts to the parts' stacked table, and lists the rules of the old Administrator Dashboard markup as kept for a plugin rolled back to 1.123.90; `bin/test-check-selectors.php` proves both directions.
 
 = 1.32.27 =
 

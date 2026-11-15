@@ -10,6 +10,9 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 
+// The FAQ page's path, as inc/faq.php defines it (functions.php loads that file after this one).
+define( 'WPCREDITS_FAQ_SLUG', 'faq' );
+
 $GLOBALS['pages']     = array();
 $GLOBALS['logged_in'] = false;
 $GLOBALS['filters']   = array();
@@ -140,10 +143,34 @@ ck( 'they go first among the items core draws from the site\'s saved menu, befor
 	array( array_column( $drawn, 'blockName' ), isset( $GLOBALS['filters']['block_core_navigation_render_fallback'] ), wpcredits_site_menu_navigation( 'not blocks' ) ),
 	array( array( 'core/navigation-link', 'core/navigation-link', 'core/navigation-link', 'core/navigation-submenu', 'core/navigation-link', 'wpcredits/get-involved' ), true, 'not blocks' ) );
 
+page( 9, 'faq' );
+ck( 'a visitor is offered FAQ last, after Impact, while a page is published at the path faq',
+	keys(),
+	array( 'students', 'mentors', 'institutions', 'impact: student-impact, stats', 'faq' ) );
+
+$faq_blocks = wpcredits_site_menu_blocks();
+ck( 'the FAQ entry is a link to its page by ID, labeled FAQ, with its own key class',
+	end( $faq_blocks )['attrs'],
+	array( 'label' => 'FAQ', 'className' => 'wpc-nav__site wpc-nav__site--faq', 'type' => 'page', 'kind' => 'post-type', 'id' => 9, 'url' => 'https://site.example/faq/' ) );
+
+$GLOBALS['logged_in'] = true;
+ck( 'a signed-in reader, whose bar is full, is not offered FAQ, as not Institutions', keys(), array( 'students', 'mentors', 'impact: student-impact, stats' ) );
+$GLOBALS['logged_in'] = false;
+
+page( 9, 'faq', 'draft' );
+ck( 'a draft FAQ page is not offered', keys(), array( 'students', 'mentors', 'institutions', 'impact: student-impact, stats' ) );
+
+unset( $GLOBALS['pages']['faq'] );
+ck( 'and with no page at the path faq there is no FAQ link', keys(), array( 'students', 'mentors', 'institutions', 'impact: student-impact, stats' ) );
+
 $sheet = (string) file_get_contents( dirname( __DIR__ ) . '/style.css' );
 ck( 'without JavaScript a submenu opens under the pointer and while the focus is in it, so Impact\'s two rows are always reached, at their own height and unclipped',
 	preg_match( '#html:not\( \.wpc-js \) \.wpc-nav \.has-child:hover > \.wp-block-navigation__submenu-container,\s*html:not\( \.wpc-js \) \.wpc-nav \.has-child:focus-within > \.wp-block-navigation__submenu-container \{[^}]*display: flex;[^}]*height: auto;[^}]*overflow: visible;[^}]*visibility: visible;#', $sheet ),
 	1 );
+
+ck( 'the FAQ entry is looked up by inc/faq.php\'s constant, not a second spelling of the path, and that constant is the path faq',
+	array( substr_count( (string) file_get_contents( dirname( __DIR__ ) . '/inc/site-menu.php' ), 'wpcredits_site_menu_page( WPCREDITS_FAQ_SLUG )' ), (bool) preg_match( "/const WPCREDITS_FAQ_SLUG = 'faq';/", (string) file_get_contents( dirname( __DIR__ ) . '/inc/faq.php' ) ) ),
+	array( 1, true ) );
 
 $functions = (string) file_get_contents( dirname( __DIR__ ) . '/functions.php' );
 ck( 'functions.php loads the file', substr_count( $functions, "inc/site-menu.php" ), 1 );

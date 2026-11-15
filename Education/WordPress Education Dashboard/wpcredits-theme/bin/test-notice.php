@@ -553,6 +553,57 @@ ck( 'the students\' graduation cap (theme 1.32.15) is cut from the mountain\'s o
 	),
 	array( true, 3, 0, 3, 0, 1, 1, true, 1, 0 ) );
 
+$faq_art     = (string) theme_call( 'wpcredits_hub_faq_question_svg' );
+$faq_pattern = pattern( 'faq-question.php' );
+$faq_x       = dom_of( $faq_pattern );
+
+ck( 'the FAQ page\'s speech bubble is the graduation cap\'s sibling: cut from the same field of words, written once, in the mountain\'s box and classes, with IDs of its own (three masks and the words), the bubble in the grey, the question mark in the blue with its blue edge, no person, one label',
+	array(
+		function_exists( 'wpcredits_hub_faq_question_svg' ),
+		1 === substr_count( $faq_art, (string) theme_call( 'wpcredits_hub_word_rows' ) ),
+		0 === strpos( $faq_art, '<svg class="wpc-hub-art__mountain wpc-hub-art__faq" viewBox="-10 -104 540 494" focusable="false">' ),
+		substr_count( $faq_art, 'id="wpc-hub-faq-' ),
+		substr_count( $faq_art, 'wpc-hub-mountain-' ) + substr_count( $faq_art, 'wpc-hub-graduation-' ),
+		substr_count( $faq_art, 'class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-faq-bubble)"' ),
+		substr_count( $faq_art, 'class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-faq-mark)"' ),
+		substr_count( $faq_art, 'class="wpc-hub-art__pennant"' ),
+		substr_count( $faq_art, 'wpc-hub-art__person ' ),
+		substr_count( $faq_art, 'class="wpc-hub-art__tag ' ),
+		substr_count( $faq_art, '>Questions and answers</text>' ),
+	),
+	array( true, true, true, 4, 0, 1, 1, 1, 0, 1, 1 ) );
+
+ck( 'the word WordPress is nowhere in the FAQ\'s picture, the cap or the mountain: their field of words is the pathway\'s step names, none of which names it',
+	array(
+		stripos( $faq_art, 'wordpress' ),
+		stripos( $graduation, 'wordpress' ),
+		stripos( $mountain, 'wordpress' ),
+		preg_grep( '/wordpress/i', array_column( (array) theme_call( 'wpcredits_hub_steps' ), 'name' ) ),
+	),
+	array( false, false, false, array() ) );
+
+ck( 'its pattern, wpcredits/faq-question in the theme\'s category, is one Custom HTML block whose one element is hidden from screen readers and holds the picture, with no title read out and nothing to focus',
+	array(
+		array_intersect_key( header_of( 'faq-question.php' ), array_flip( array( 'Title', 'Slug', 'Categories', 'Viewport Width' ) ) ),
+		isset( header_of( 'faq-question.php' )['Description'], header_of( 'faq-question.php' )['Keywords'] ),
+		substr_count( $faq_pattern, '<!-- wp:html -->' ),
+		found( $faq_x, '/html/body/div', 'class' ),
+		found( $faq_x, '/html/body/div', 'aria-hidden' ),
+		1 === substr_count( $faq_pattern, $faq_art ),
+		count( $faq_x->query( '//a | //button | //input | //*[@tabindex] | //title | //desc' ) ),
+		found( $faq_x, '//svg', 'focusable' ),
+	),
+	array(
+		array( 'Title' => 'Speech bubble of words', 'Slug' => 'wpcredits/faq-question', 'Categories' => 'wpcredits', 'Viewport Width' => '1400' ),
+		true,
+		1,
+		array( 'wpc-hub-art' ),
+		array( 'true' ),
+		true,
+		0,
+		array( 'false' ),
+	) );
+
 $hub_css = theme_file( 'assets/css/hub.css' );
 
 ck( 'hub.css dresses every class the party is drawn with',

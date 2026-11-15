@@ -264,6 +264,33 @@ $kept = array(
 	// The Sponsor Dashboard's outcome detail line went into the card's own message in plugin 1.123.58
 	// (every dashboard outcome inside the card it came from), so 1.123.57 was the last to print it.
 	'wpcpm-dashboard__detail'    => '1.123.57',
+	// The old Administrator Dashboard markup went with its move to the shared parts in plugin 1.123.92, so 1.123.90,
+	// the release before it, was the last to print these; they are removed with the theme release that follows the
+	// Institution Dashboard's frame.
+	'wpcpm-admin-table'                  => '1.123.90',
+	'wpcpm-administrator__details'       => '1.123.90',
+	'wpcpm-administrator__item'          => '1.123.90',
+	'wpcpm-administrator__note'          => '1.123.90',
+	'wpcpm-administrator__scroll'        => '1.123.90',
+	'wpcpm-administrator__subheading'    => '1.123.90',
+	'wpcpm-attention__l'                 => '1.123.90',
+	'wpcpm-attention__n'                 => '1.123.90',
+	'wpcpm-attention__none'              => '1.123.90',
+	'wpcpm-attention__tile'              => '1.123.90',
+	'wpcpm-overview__row'                => '1.123.90',
+	'wpcpm-request__decide'              => '1.123.90',
+	'wpcpm-review__form--accept'         => '1.123.90',
+	'wpcpm-sponsor-agreement__decide'    => '1.123.90',
+	'wpcpm-sponsor-agreement__form'      => '1.123.90',
+	'wpcpm-sponsor-agreement__return'    => '1.123.90',
+	'wpcpm-sponsor-offer__decide'        => '1.123.90',
+	'wpcpm-sponsor-offer__form'          => '1.123.90',
+	'wpcpm-sponsor-offer__return'        => '1.123.90',
+	'wpcpm-sponsor-post__decide'         => '1.123.90',
+	'wpcpm-sponsor-post__return'         => '1.123.90',
+	'wpcpm-timeline-chip'                => '1.123.90',
+	'wpcpm-timeline-outlook'             => '1.123.90',
+	'wpcpm-timeline-table'               => '1.123.90',
 );
 
 // Since plugin 1.123.58 every dashboard outcome is printed by one builder, `WPCPM_Dashboard_Card::message()`,
@@ -797,12 +824,42 @@ foreach ( $hidden as $open_action => $is_hidden ) {
 // rule of the plugin's may give either table's own box a display, an overflow or a position, which
 // would put the scroll back on the table, and no rule of this theme may give a table's own box or a
 // scroll box one, which would undo the scroll on one page and widen it again.
+//
+// Since plugin 1.123.92 the Administrator Dashboard draws its tables through the shared interface
+// parts (`WPCPM_UI::LIVE` holds `administrator`): its queues are `.wpcpm-ui-table`, which the parts'
+// sheet stacks row by row on a phone, and the plugin prints no `.wpcpm-administrator__scroll` and
+// says no rule for it (the markup went in its b4436e1e, the rule in its 2dce1c5b). Read against that
+// plugin, the old comparison held the Usage card's box to a rule nobody writes any more and failed
+// on every theme (theme 1.32.28). So each dashboard is read the way the plugin it is given draws it:
+//   - a dashboard whose box the plugin's source still prints draws the old way, whatever its switch
+//     says (an old branch behind the switch still runs), and its box under 782px has to read the
+//     queues' rule of plugin 1.122.35 value for value, so two old-way dashboards still agree with
+//     each other and with what the theme's frame on the box was written for;
+//   - a dashboard the plugin prints no box for has to be one the parts draw (its name in
+//     `WPCPM_UI::LIVE`, read off includes/class-wpcpm-ui.php), and then the parts' sheet has to
+//     stack `.wpcpm-ui-table` from a phone's width down (display block on the table and a grid on
+//     each row, in a `max-width` query of 782px or less), which is what keeps that page from
+//     widening; it is left out of the box comparison, since it has no box;
+//   - a dashboard with neither a box nor the parts fails: its wide table has nothing that keeps a
+//     phone's page from widening.
+// `bin/test-check-selectors.php` runs this against made-up plugins for both directions.
 $box_props = array( 'display', 'overflow', 'overflow-x', 'position' );
 $phone_box = array();
 $said      = array();
-$boxes     = array( 'administrator.css' => '.wpcpm-administrator__scroll', 'sponsor.css' => '.wpcpm-usage__scroll' );
+$boxes     = array(
+	'administrator.css' => array( '.wpcpm-administrator__scroll', 'administrator', 'the Administrator Dashboard\'s boxes' ),
+	'sponsor.css'       => array( '.wpcpm-usage__scroll', 'sponsor', 'the Usage card\'s box' ),
+);
+$queues_box = array( 'display' => 'block', 'overflow-x' => 'auto', 'position' => 'relative' );
+$ui_file    = $plugin . '/includes/class-wpcpm-ui.php';
+$on_parts   = array();
 
-foreach ( $boxes as $sheet => $box ) {
+if ( is_file( $ui_file ) && preg_match( '/const LIVE = array\((.*?)\);/s', wpcredits_without_comments( (string) file_get_contents( $ui_file ), 'php' ), $found ) && preg_match_all( '/\'([a-z0-9-]+)\'/', $found[1], $live ) ) {
+	$on_parts = $live[1];
+}
+
+foreach ( $boxes as $sheet => $dashboard ) {
+	$box               = $dashboard[0];
 	$phone_box[ $box ] = array();
 	$file              = $plugin . '/assets/css/' . $sheet;
 
@@ -816,10 +873,38 @@ foreach ( $boxes as $sheet => $box ) {
 	$said[ $box ] = $phone_box[ $box ] ? implode( '; ', array_map( static function ( $prop, $value ) { return $prop . ': ' . $value; }, array_keys( $phone_box[ $box ] ), $phone_box[ $box ] ) ) : 'unset';
 }
 
-$queues_box = array( 'display' => 'block', 'overflow-x' => 'auto', 'position' => 'relative' );
+$stacked = array(
+	'table' => false,
+	'row'   => false,
+);
+$parts   = $plugin . '/assets/css/parts.css';
 
-if ( $queues_box !== $phone_box['.wpcpm-administrator__scroll'] || $phone_box['.wpcpm-administrator__scroll'] !== $phone_box['.wpcpm-usage__scroll'] ) {
-	$misplaced[] = sprintf( 'the Usage card\'s box under 782px is %s in the plugin\'s sponsor.css, the Administrator Dashboard\'s boxes\' %s in its administrator.css', $said['.wpcpm-usage__scroll'], $said['.wpcpm-administrator__scroll'] );
+foreach ( wpcredits_rules( is_file( $parts ) ? (string) file_get_contents( $parts ) : '' ) as $rule ) {
+	if ( ! preg_match( '/^@media\s*\(\s*max-width:\s*(\d+)px\s*\)$/', $rule['media'], $max ) || (int) $max[1] > 782 || ! isset( $rule['decls']['display'] ) ) {
+		continue;
+	}
+
+	if ( in_array( '.wpcpm-ui-table', $rule['selectors'], true ) && 'block' === $rule['decls']['display'] ) {
+		$stacked['table'] = true;
+	}
+
+	if ( in_array( '.wpcpm-ui-table tr', $rule['selectors'], true ) && 'grid' === $rule['decls']['display'] ) {
+		$stacked['row'] = true;
+	}
+}
+
+foreach ( $boxes as $sheet => $dashboard ) {
+	list( $box, $surface, $name ) = $dashboard;
+
+	if ( wpcredits_printed( $plugin_corpus, substr( $box, 1 ) ) ) {
+		if ( $queues_box !== $phone_box[ $box ] ) {
+			$misplaced[] = sprintf( '%s under 782px read %s in the plugin\'s %s, not the old-way boxes\' display: block; overflow-x: auto; position: relative', $name, $said[ $box ], $sheet );
+		}
+	} elseif ( ! in_array( $surface, $on_parts, true ) ) {
+		$misplaced[] = sprintf( 'the %s dashboard\'s box %s is printed by nothing and the dashboard is not on the shared parts, so its table has nothing that keeps a phone\'s page from widening', $surface, $box );
+	} elseif ( ! $stacked['table'] || ! $stacked['row'] ) {
+		$misplaced[] = sprintf( 'the %s dashboard draws its tables through the shared parts, and the plugin\'s parts.css does not stack .wpcpm-ui-table on a phone (display block on the table and grid on .wpcpm-ui-table tr, in a max-width query of 782px or less)', $surface );
+	}
 }
 
 foreach ( array_keys( $boxes ) as $sheet ) {
@@ -853,6 +938,9 @@ foreach ( $sheets as $path ) {
 				$misplaced[] = sprintf( '%s  %s sets %s on the table\'s own box, which sits in a box that scrolls on a phone', substr( $path, strlen( $theme ) + 1 ), $selector, implode( ', ', array_keys( $set ) ) );
 			} elseif ( preg_match( '/\.wpcpm-(usage|administrator)__scroll$/', $selector ) ) {
 				$misplaced[] = sprintf( '%s  %s sets %s on the box the plugin lets scroll on a phone', substr( $path, strlen( $theme ) + 1 ), $selector, implode( ', ', array_keys( $set ) ) );
+			} elseif ( preg_match( '/\.wpcpm-ui-table(?: tr)?$/', $selector ) ) {
+				// A dashboard on the shared parts keeps its page from widening by the parts' stacked table, not a box.
+				$misplaced[] = sprintf( '%s  %s sets %s on the parts\' table, which the parts stack on a phone', substr( $path, strlen( $theme ) + 1 ), $selector, implode( ', ', array_keys( $set ) ) );
 			}
 		}
 	}

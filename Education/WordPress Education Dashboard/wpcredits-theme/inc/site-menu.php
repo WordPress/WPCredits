@@ -2,7 +2,8 @@
 /**
  * The header menu's own links (theme 1.32.20, the product owner's choice of 10 November 2026).
  *
- * The bar reads: the site's name, Students, Mentors, Institutions (for a visitor), Impact, and then
+ * The bar reads: the site's name, Students, Mentors, Institutions (for a visitor), Impact, FAQ (for a
+ * visitor, while the FAQ page is published, inc/faq.php), and then
  * what was there (the Partners link while it is public, Get involved, Log in, or a signed-in reader's
  * own links). Students and Mentors lead
  * to their landing pages, Institutions to the institution application, and Impact opens two rows, the
@@ -99,6 +100,18 @@ function wpcredits_site_menu_entries() {
 			'key'   => 'impact',
 			'label' => __( 'Impact', 'wpcredits-theme' ),
 			'rows'  => $rows,
+		);
+	}
+
+	// The FAQ page (inc/faq.php), while it is published, for a visitor alone, as Institutions is: a
+	// signed-in reader's bar is full, and the page speaks to people not yet in a program.
+	$faq = is_user_logged_in() ? null : wpcredits_site_menu_page( WPCREDITS_FAQ_SLUG );
+
+	if ( null !== $faq ) {
+		$entries[] = array(
+			'key'   => 'faq',
+			'label' => __( 'FAQ', 'wpcredits-theme' ),
+			'page'  => $faq,
 		);
 	}
 

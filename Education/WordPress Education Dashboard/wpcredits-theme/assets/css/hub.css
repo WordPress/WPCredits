@@ -158,6 +158,12 @@
 	scroll-margin-top: var( --wpc-landing-offset );
 }
 
+/* On a landing page, the plugin's Student Interest Form, which the FAQ page's "Tell us about your
+   school" links to on the Students page, lands below the sticky header by the same offset. */
+.wpc-landing #wpcpm-student-interest {
+	scroll-margin-block-start: var( --wpc-landing-offset );
+}
+
 /* Two or three columns side by side from 900px, one below: the hero, the closing band, and the doors a
    saved template keeps.
    Core stacks columns below 782px; these stack below 900px. */

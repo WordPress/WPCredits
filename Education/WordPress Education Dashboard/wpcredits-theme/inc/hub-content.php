@@ -306,6 +306,39 @@ function wpcredits_hub_graduation_svg() {
 }
 
 /**
+ * The FAQ page's picture: a speech bubble cut from the hub's field of words, the graduation cap's
+ * sibling. Inside the bubble a large question mark is set in the brand blue, as the cap's board is, with
+ * a gap in the words around it and a thin blue line along its edge, so it reads at a glance. The bubble's
+ * tail points down to the left; one label sits beside it. It is drawn in the mountain's space and with
+ * its classes, so hub.css dresses it as it dresses the cap; its IDs are its own. It is decoration all the
+ * same. The field holds the pathway's step names only, so the word WordPress is never in it.
+ *
+ * @return string
+ */
+function wpcredits_hub_faq_question_svg() {
+	$rows = wpcredits_hub_word_rows();
+
+	// The bubble, a rounded box with its tail at the lower left; the question mark, one stroke and a dot,
+	// drawn as a mask of its own (the words in blue), as a gap in the bubble's words a little wider, and
+	// as a thin edge between the two.
+	$bubble = 'M136 30 H384 Q450 30 450 96 V234 Q450 300 384 300 H232 L124 356 L164 300 H136 Q70 300 70 234 V96 Q70 30 136 30 Z';
+	$mark   = 'M204 134 C204 100 230 80 262 80 C296 80 320 104 320 132 C320 158 298 168 282 178 C269 186 262 190 262 190';
+	$area   = 'maskUnits="userSpaceOnUse" x="-10" y="-104" width="540" height="494"';
+	$shape  = static function ( $width, $radius, $fill ) use ( $mark ) {
+		return '<path d="' . esc_attr( $mark ) . '" fill="none" stroke="' . $fill . '" stroke-width="' . $width . '" stroke-linecap="round" stroke-linejoin="round"/><circle cx="262" cy="262" r="' . $radius . '" fill="' . $fill . '"/>';
+	};
+
+	return '<svg class="wpc-hub-art__mountain wpc-hub-art__faq" viewBox="-10 -104 540 494" focusable="false"><defs><g id="wpc-hub-faq-words">' . $rows . '</g>'
+		. '<mask id="wpc-hub-faq-bubble" ' . $area . '><path d="' . esc_attr( $bubble ) . '" fill="#fff"/>' . $shape( 88, 40, '#000' ) . '</mask>'
+		. '<mask id="wpc-hub-faq-mark" ' . $area . '>' . $shape( 56, 24, '#fff' ) . '</mask>'
+		. '<mask id="wpc-hub-faq-edge" ' . $area . '>' . $shape( 64, 28, '#fff' ) . $shape( 59, 25.5, '#000' ) . '</mask></defs>'
+		. '<use href="#wpc-hub-faq-words" class="wpc-hub-art__mountain-body" mask="url(#wpc-hub-faq-bubble)"/><use href="#wpc-hub-faq-words" class="wpc-hub-art__mountain-cap" mask="url(#wpc-hub-faq-mark)"/>'
+		. '<rect class="wpc-hub-art__pennant" x="-10" y="-104" width="540" height="494" mask="url(#wpc-hub-faq-edge)"/>'
+		. wpcredits_hub_art_tag( 286, 330, __( 'Questions and answers', 'wpcredits-theme' ), 'wpc-hub-art__tag--faq' )
+		. '</svg>';
+}
+
+/**
  * The homepage's band of role cards (theme 1.32.12, the product owner's design of 5 November 2026), as
  * block markup: what the "Ways to take part" pattern prints (patterns/hub-roles.php) and what the 1.32.12
  * migration writes in place of a saved template's "Who this is for" section (inc/migrate-1-32-12.php), so

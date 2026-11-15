@@ -4589,6 +4589,13 @@ ck( 'anchored sections land below the sticky header',
 	array( rules_for( '.wpc-hub-anchored' ), count( $page->query( '//*[contains(@class,"wpc-hub-anchored")][@id]' ) ) ),
 	array( array( 'scroll-margin-top: var( --wpc-landing-offset );' ), 3 ) );
 
+ck( 'on a landing page, the plugin\'s Student Interest Form (id wpcpm-student-interest, which the FAQ\'s "Tell us about your school" links to) lands below the sticky header too, by the same offset, written logically; no other rule names it',
+	array(
+		rules_for( '.wpc-landing #wpcpm-student-interest' ),
+		substr_count( theme_file( 'assets/css/hub.css' ), 'wpcpm-student-interest' ),
+	),
+	array( array( 'scroll-margin-block-start: var( --wpc-landing-offset );' ), 1 ) );
+
 $has_classes = static function ( $one, $other ) use ( $page ) {
 	return count( $page->query( '//div[contains(concat(" ", @class, " "), " ' . $one . ' ")][contains(concat(" ", @class, " "), " ' . $other . ' ")]' ) );
 };
