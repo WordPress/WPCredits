@@ -2,14 +2,14 @@
 # This file is distributed under the GNU General Public License v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits 1.32.27\n"
+"Project-Id-Version: WPCredits 1.32.28\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T05:57:13+00:00\n"
+"POT-Creation-Date: 2026-11-15T14:14:19+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-theme\n"
@@ -40,8 +40,8 @@ msgid "Stay on this page"
 msgstr ""
 
 #: blocks/sign-in/render.php:65
-#: inc/hub-content.php:326
-#: inc/site-menu.php:48
+#: inc/hub-content.php:359
+#: inc/site-menu.php:49
 #: patterns/audiences.php:20
 msgid "Students"
 msgstr ""
@@ -52,8 +52,8 @@ msgid "Student Report Card"
 msgstr ""
 
 #: blocks/sign-in/render.php:69
-#: inc/hub-content.php:334
-#: inc/site-menu.php:49
+#: inc/hub-content.php:367
+#: inc/site-menu.php:50
 #: patterns/audiences.php:26
 msgid "Mentors"
 msgstr ""
@@ -65,8 +65,8 @@ msgid "Mentor Report Card"
 msgstr ""
 
 #: blocks/sign-in/render.php:73
-#: inc/hub-content.php:341
-#: inc/site-menu.php:74
+#: inc/hub-content.php:374
+#: inc/site-menu.php:75
 #: patterns/audiences.php:32
 msgid "Institutions"
 msgstr ""
@@ -169,7 +169,7 @@ msgstr ""
 #: blocks/sign-in/render.php:173
 #: inc/get-involved.php:179
 #: inc/get-involved.php:205
-#: inc/hub-content.php:368
+#: inc/hub-content.php:401
 msgid "Get involved"
 msgstr ""
 
@@ -236,14 +236,18 @@ msgstr ""
 msgid "Code is poetry."
 msgstr ""
 
-#: inc/site-menu.php:81
+#: inc/site-menu.php:82
 msgid "Student impact"
 msgstr ""
 
-#: inc/site-menu.php:82
+#: inc/site-menu.php:83
 msgid "The program in numbers"
 msgstr ""
 
-#: inc/site-menu.php:100
+#: inc/site-menu.php:101
 msgid "Impact"
+msgstr ""
+
+#: inc/site-menu.php:113
+msgid "FAQ"
 msgstr ""
