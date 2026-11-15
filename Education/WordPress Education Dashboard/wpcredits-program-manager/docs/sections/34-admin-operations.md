@@ -22,6 +22,7 @@ Three syncs bring the site in line with Airtable: students, mentors and institut
 | Institutions | The Countries and Institutions tables | The site's copy of each institution, a first account while **Create accounts automatically** is ticked (tab **Institutions**), and removes the members of a school that left the pipeline |
 
 - A student in **Past students** keeps an existing account but is never given a new one.
+- The students sync notes the day it first sees a student at *Pending graduation*, for **Waiting since** in [[The card of students waiting to graduate]]. Another status clears it.
 - An institution's first account is made from its Contact Email, only for a *Confirmed* school whose agreement is recorded and that never had a member. An address already on an account is left alone.
 - A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; **Its people** (tab **Institutions**) decides.
 
@@ -336,7 +337,7 @@ A line under them says when the two shares were read, and that the mentors and p
 **Overview**, **Watch** and **The program** are lists of cards. Each card is one row, folded until you press it.
 
 - The number beside the title is how many things the card holds. The words after it say where it stands, such as "2 waiting".
-- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none. **Students waiting to graduate** counts from the day the students sync first saw the student pending.
+- On the Overview, a row also shows its oldest item's wait in red, as "67 days waiting". **Mentor applications** shows none. **Students waiting to graduate** counts from its oldest **Waiting since**.
 - A link in an email, a decision's way back and **Review the oldest** each open the card they land on.
 - Each card that waits for a decision has a **How to do this** link to its job in this guide. So do **Upcoming cohorts**, **Duplicated students**, **Syncs and health** and **Students gone quiet**.
 - Each item to decide has one **Decide** row of buttons. Some decisions act when pressed, after any question they ask. Others open a panel under the row: a note's box, marked **Required** or **Optional**, or what the act does, then the button that acts, such as **Reject the application**, and **Cancel**.
@@ -361,7 +362,7 @@ A card with a home in wp-admin ends its body with a link there. On **The program
 
 - **Institution applications**, **Sponsor applications**, **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** list the 50 oldest. A line under the list says how many more wait, "listed here as these are decided". It links nowhere.
 - **Collaboration Agreements** and **Requests from institutions** list up to 200, with no such line.
-- **Students waiting to graduate** lists every student on the site's rosters whose **Status** in Airtable's Students table is *Pending graduation*.
+- **Students waiting to graduate** lists every student waiting, with no limit. See [[The card of students waiting to graduate]].
 - **Offers running low**, **New interests**, and the folds of returned, revoked or out-of-force agreements stop at 50 without a word.
 - **Sponsor posts to review**, **Sponsor offers to review** and **Sponsor Collaboration Agreements** count up to 200, then read *200+*, as the Sponsors screen does. **Sponsor applications** counts every one.
 - A test institution, one whose name starts with TEST, has its items listed with the **Test** mark and left out of every count.
@@ -469,6 +470,34 @@ Step by step: [[Read the cohort timeline: do we need more mentors?]].
 **We've already talked** counts as activity and takes the student off the list at once. The student, their mentor or any Administrator may press it. On the Report Cards it shows only while **Daily list** is *On*.
 
 Step by step: [[Students who have gone quiet]]; [[Try the quiet-students list in Preview]]; [[Switch the quiet-students reminders on]].
+
+### The card of students waiting to graduate
+
+**Students waiting to graduate** is a queue on the Overview, after **Requests from institutions**. It lists every student on the site's rosters whose **Status** in Airtable's Students table is *Pending graduation*.
+
+- Airtable sets that status when the student submits the third feedback form. The site sees it at the next students sync.
+- The student leaves the card at the first students sync after Airtable sets *Graduate*, which its automation does when the *Graduation date* comes.
+- The site sets no status and sends no email about it.
+- Rows are oldest first by **Waiting since**, then by the earlier end date, then by name.
+- A test institution's student has the **Test** mark and is left out of the card's count, the page's headline and the menu's count.
+- When no student or only a test institution's waits, the card is not drawn, and the line under the queues names it.
+- The red age is the oldest **Waiting since**. `WPCredits Program > Overview` lists the card in **Waiting for a decision**, linked to the Students screen filtered by *Pending graduation*.
+
+| Column | What it shows |
+|---|---|
+| **Student** | The name, linked to the Student Report Card when the account and the page exist; the institution under it |
+| **Track** | The course, linked to Learn when it has a course there, or **Not recorded** |
+| **Mentor** | The mentor, or **No mentor**; **Not recorded** when the Students row names a mentor the site has not read |
+| **Hours** | The hours logged, against the track's target when it has one, as "120 of 150"; or **Not recorded** |
+| **Waiting since** | The day the students sync first saw the student pending, so up to one sync late. *Before* a date: already pending at the first sync that kept these days. Empty with no account, or when the address is on two institutions' rows. |
+
+- A student on two tracks that are both pending is listed twice, both lines naming the same track.
+- A school the site's pipeline does not know reads **Not recorded** under the name.
+- **Open on the Students screen** lists by the Students Reports table, so the two counts can differ for a while.
+- A very long word in a name breaks inside the table.
+- Airtable finds the student by the address typed into the third feedback form. A student who types another address is never marked and never listed: look for their Students row in Airtable.
+
+Step by step: [[A student is waiting to graduate]].
 
 ### The program view's cards
 

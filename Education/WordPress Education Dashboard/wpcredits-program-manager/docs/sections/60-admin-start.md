@@ -59,6 +59,8 @@ Where to start:
 
 ### If you are stuck
 
+{{clip:find-a-job}}
+
 - To find a job in this guide, use **Search the guide** (press `/` to reach it), or the list **On this page** beside the guide.
 - To ask, use **Ask about the program** under **Help**, when it is there, or **#wpcredits on Slack**.
 - If a screen refuses you, ask the Administrator who runs the site.

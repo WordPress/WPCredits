@@ -22,6 +22,8 @@
 
 ### A school applied
 
+{{clip:a-school-applied}}
+
 *When:* the school is on `Administrator Dashboard > Overview`, card **Institution applications**. You may also get an email "{school} is assigned to you" or "New institution application from {school}".
 
 1. Open `Administrator Dashboard > Overview` and find the school on the **Institution applications** card.
@@ -130,6 +132,8 @@
 
 ### A signed Collaboration Agreement arrived
 
+{{clip:a-signed-agreement-arrived}}
+
 *When:* `Administrator Dashboard > Overview`, card **Collaboration Agreements**, shows the school tagged **Awaiting review**. The people in **Who is emailed about institutions**, or every Administrator, get "Signed agreement from {school} is waiting for review".
 
 1. Open the **Collaboration Agreements** card and find the school tagged **Awaiting review**.
@@ -235,6 +239,8 @@
 - A request is marked *Overdue* after 14 days.
 
 ### A school's other requests (a student to add, a mentor wanted)
+
+{{clip:a-schools-other-requests}}
 
 *When:* the **Requests from institutions** card shows *A student to add* or *A mentor is wanted*. A school's enrollment raises *A student to add* for each student it creates. For a request that says "{school} asks to correct its details", see [[A school asks to correct its details]].
 

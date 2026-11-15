@@ -169,6 +169,8 @@ You can change:
 
 ### A student is waiting to graduate
 
+{{clip:a-student-is-waiting-to-graduate}}
+
 *When:* the **Students waiting to graduate** card on `Administrator Dashboard > Overview` lists students.
 
 1. Open the Administrator Dashboard and open the card **Students waiting to graduate**. The top row has waited longest. Each student's institution is under their name.

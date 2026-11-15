@@ -1,1 +1,56 @@
-{}
+{
+  "a-school-applied": {
+    "id": 2722,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-school-applied.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-school-applied.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-school-applied.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "A school applied: reading the application and approving it (33 seconds, no sound)."
+  },
+  "a-signed-agreement-arrived": {
+    "id": 2725,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-signed-agreement-arrived.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-signed-agreement-arrived.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-signed-agreement-arrived.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "A signed Collaboration Agreement arrived: checking it against the list and accepting it (32 seconds, no sound)."
+  },
+  "a-schools-other-requests": {
+    "id": 2728,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-schools-other-requests.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-schools-other-requests.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-schools-other-requests.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "A school's other requests: reading a request and marking it as handled (31 seconds, no sound)."
+  },
+  "a-student-is-waiting-to-graduate": {
+    "id": 2731,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-student-is-waiting-to-graduate.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-student-is-waiting-to-graduate.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-a-student-is-waiting-to-graduate.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "A student is waiting to graduate: the card and what each column tells you (34 seconds, no sound)."
+  },
+  "read-the-cohort-timeline": {
+    "id": 2734,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-read-the-cohort-timeline.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-read-the-cohort-timeline.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-read-the-cohort-timeline.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Read the cohort timeline: the four figures, the sentence under them and the table (29 seconds, no sound)."
+  },
+  "find-a-job": {
+    "id": 2737,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-find-a-job.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-find-a-job.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-find-a-job.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Find a job in this guide: from a card's How to do this link, or by searching (22 seconds, no sound)."
+  }
+}

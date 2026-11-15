@@ -235,6 +235,8 @@ To write a refused Airtable row:
 
 ### Read the cohort timeline: do we need more mentors?
 
+{{clip:read-the-cohort-timeline}}
+
 *When:* `Administrator Dashboard > Watch`, **Upcoming cohorts**, says "... more mentors needed by ..." or "Tight from ...".
 
 1. Open the Administrator Dashboard and choose **Cohort timeline** in the side menu, or press **Open the cohort timeline** on the **Upcoming cohorts** card.

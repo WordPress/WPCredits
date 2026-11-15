@@ -1247,7 +1247,8 @@ class WPCPM_Institution_Agreement {
 		// institution generated and then answered with its own lawyers' paper instead: the
 		// step was answered either way, and a generated row left standing beside a document
 		// in review would read as a second thing still to do.
-		$version = self::supersede_generated( $record, $post_id );
+		$printed = self::supersede_generated( $record, $post_id );
+		$version = $printed['version'];
 
 		// The version travels with the program's own template and nothing else. It is what
 		// lets the reviewer's checklist say which template the copy in front of them was cut
@@ -1256,6 +1257,12 @@ class WPCPM_Institution_Agreement {
 		// `Agreement Kind` = `Institution-specific`, which is a sentence the base cannot mean.
 		if ( self::KIND_TEMPLATE === $kind && '' !== $version ) {
 			update_post_meta( $post_id, self::META_TEMPLATE_VERSION, $version );
+		}
+
+		// The name the school typed on that same generated document goes the same way, so the
+		// Administrator's review can say what it was.
+		if ( self::KIND_TEMPLATE === $kind && '' !== $printed['name'] ) {
+			update_post_meta( $post_id, self::META_NAME_ON_DOCUMENT, wp_slash( $printed['name'] ) );
 		}
 
 		$settings = WPCPM_Settings::get();
@@ -3309,20 +3316,23 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
-	 * Retire the generated templates an upload has just answered, and say which version.
+	 * Retire the generated templates an upload has just answered, and say which version and name.
 	 *
 	 * A template the institution generated and then signed is the same agreement, so the
 	 * generated row stops being an outstanding step. The version comes back so the uploaded
 	 * copy can carry it: that is what lets the reviewer's checklist say which template the
 	 * paper in front of them was cut from, on a copy that arrived as a scan with nothing
-	 * machine-readable in it.
+	 * machine-readable in it. The name the school typed on that document comes back with it.
 	 *
 	 * @param string $record Institutions record ID.
 	 * @param int    $except The new post, which is not to be touched.
-	 * @return string The newest generated document's template version, or ''.
+	 * @return array{version: string, name: string} The newest generated document's template
+	 *                                              version and name on the document, each '' when none.
 	 */
 	private static function supersede_generated( $record, $except ) {
 		$version = '';
+		$name    = '';
+		$found   = false;
 
 		foreach ( self::posts_for( $record ) as $post ) {
 			if ( (int) $post->ID === (int) $except ) {
@@ -3333,15 +3343,24 @@ class WPCPM_Institution_Agreement {
 				continue;
 			}
 
-			// `posts_for()` is newest first, so the first one found is the one they printed.
+			// `posts_for()` is newest first, so the first one found is the one they printed. The
+			// version is the newest one recorded, as before; the name is the newest document's.
 			if ( '' === $version ) {
 				$version = (string) get_post_meta( $post->ID, self::META_TEMPLATE_VERSION, true );
+			}
+
+			if ( ! $found ) {
+				$found = true;
+				$name  = (string) get_post_meta( $post->ID, self::META_NAME_ON_DOCUMENT, true );
 			}
 
 			self::supersede( (int) $post->ID );
 		}
 
-		return $version;
+		return array(
+			'version' => $version,
+			'name'    => $name,
+		);
 	}
 
 	/**

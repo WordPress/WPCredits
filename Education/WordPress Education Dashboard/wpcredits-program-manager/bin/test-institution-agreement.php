@@ -1893,6 +1893,51 @@ ck( 'the retired row still says why', array_map( function ( $e ) { return $e['ev
 ck( 'but no version came with it: an own document was cut from no template, and the retired row keeps its own', array( get_post_meta( $own_id, '_wpcpm_agr_template_version', true ), get_post_meta( $answered, '_wpcpm_agr_template_version', true ) ), array( '', '2025-11-04' ) );
 ck( 'and the base is told whose paper it is', patched_cells()['Agreement Kind'], 'Institution-specific' );
 
+/* ---- the name the school typed travels with the version ----------------- */
+
+echo "\n=== handle_upload(): the name typed on the generated document travels with its version ===\n";
+
+$name_key    = WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT;
+$version_key = WPCPM_Institution_Agreement::META_TEMPLATE_VERSION;
+
+upload_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'generated', 'template', array( $version_key => '2025-11-04', $name_key => wp_slash( 'Example University Main Campus' ) ) );
+run( 'handle_upload' );
+$named_id = WPCPM_Institution_Agreement::summary( 'recAAAAAAAAAAAAA1' )['pending_id'];
+
+ck( 'a template upload carries the version and the name the school typed', array( get_post_meta( $named_id, $version_key, true ), get_post_meta( $named_id, $name_key, true ) ), array( '2025-11-04', 'Example University Main Campus' ) );
+ck( 'and the review facts of the uploaded post print that name', WPCPM_Institution_Agreement::review_facts( $named_id )['name_on_document'], 'Example University Main Campus' );
+
+upload_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'generated', 'template', array( $version_key => '2025-11-04', $name_key => wp_slash( 'Example University Main Campus' ) ) );
+$_POST['wpcpm_agreement_kind'] = 'own';
+run( 'handle_upload' );
+$own_named_id = WPCPM_Institution_Agreement::summary( 'recAAAAAAAAAAAAA1' )['pending_id'];
+
+ck( 'an own document carries neither the version nor the name', array( get_post_meta( $own_named_id, $version_key, true ), get_post_meta( $own_named_id, $name_key, true ) ), array( '', '' ) );
+
+upload_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'generated', 'template', array( $version_key => '2025-11-04', $name_key => '' ) );
+run( 'handle_upload' );
+$unnamed_id = WPCPM_Institution_Agreement::summary( 'recAAAAAAAAAAAAA1' )['pending_id'];
+
+ck( 'an empty name carries the version and writes no name row', array( get_post_meta( $unnamed_id, $version_key, true ), array_key_exists( $name_key, $GLOBALS['pmeta'][ $unnamed_id ] ) ), array( '2025-11-04', false ) );
+
+upload_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'generated', 'template', array( $version_key => '2024-01-01', $name_key => wp_slash( 'Example University Old Name' ) ) );
+seed_post( 'recAAAAAAAAAAAAA1', 'generated', 'template', array( $version_key => '2025-11-04', $name_key => wp_slash( 'Example University Newest Name' ) ) );
+run( 'handle_upload' );
+$newest_id = WPCPM_Institution_Agreement::summary( 'recAAAAAAAAAAAAA1' )['pending_id'];
+
+ck( 'with two generated posts the upload carries the newest one\'s name, the post its version comes from', array( get_post_meta( $newest_id, $version_key, true ), get_post_meta( $newest_id, $name_key, true ) ), array( '2025-11-04', 'Example University Newest Name' ) );
+
+upload_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'generated', 'template', array( $version_key => '2025-11-04', $name_key => wp_slash( "Example University of O'Brien \\ Partners" ) ) );
+run( 'handle_upload' );
+$quoted_id = WPCPM_Institution_Agreement::summary( 'recAAAAAAAAAAAAA1' )['pending_id'];
+
+ck( 'an apostrophe and a backslash in the name survive unchanged', get_post_meta( $quoted_id, $name_key, true ), "Example University of O'Brien \\ Partners" );
+
 /* ---- Airtable is not allowed to fail the upload ------------------------- */
 
 echo "\n=== handle_upload(): a base that is down does not fail an institution's upload ===\n";

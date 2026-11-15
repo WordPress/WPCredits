@@ -31,6 +31,9 @@ $made   = array();
 /**
  * A scratch tree with the builder, its table, the sections and a clips table, and the sections edited by $edit.
  *
+ * A case that brings its own clips table tests the builder, not the guide: the real sections' own
+ * clip tokens are taken out of its copy, so only the case's tokens meet the case's table.
+ *
  * @param string|null $clips JSON for docs/clips.json, or null to copy the real one.
  * @param array       $edit  Section slug => text to append.
  * @return string The root.
@@ -55,6 +58,9 @@ function scratch_tree( $clips = null, array $edit = array() ) {
 		}
 	} else {
 		file_put_contents( $root . '/docs/clips.json', $clips );
+		foreach ( (array) glob( $root . '/docs/sections/*.md' ) as $f ) {
+			file_put_contents( $f, preg_replace( '/^\{\{clip:[a-z0-9-]+\}\}\n/m', '', (string) file_get_contents( $f ) ) );
+		}
 	}
 	foreach ( $edit as $slug => $text ) {
 		file_put_contents( $root . '/docs/sections/' . $slug . '.md', "\n\n" . $text . "\n", FILE_APPEND );
@@ -127,6 +133,27 @@ ck( 'a job part\'s ## heading does not',
 	array( true, true )
 );
 ck( 'the Markdown carries no marker, and the other guides\' blocks none', array( substr_count( $md, 'wpcpm-guide-ref' ), substr_count( (string) @file_get_contents( $root . '/docs/build/students.html' ), 'wpcpm-guide-ref' ) ), array( 0, 0 ) );
+// The guide's own clips (1.123.94): every token in a section has its entry, and each is drawn once.
+$real_clips = json_decode( (string) @file_get_contents( $plugin . '/docs/clips.json' ), true );
+$real_clips = is_array( $real_clips ) ? $real_clips : array();
+$tokens     = array();
+foreach ( (array) glob( $plugin . '/docs/sections/*.md' ) as $f ) {
+	if ( preg_match_all( '/^\{\{clip:([a-z0-9-]+)\}\}$/m', (string) file_get_contents( $f ), $found ) ) {
+		$tokens = array_merge( $tokens, $found[1] );
+	}
+}
+sort( $tokens );
+$listed = array_keys( $real_clips );
+sort( $listed );
+ck( 'every clip in the table is in a section once, and every token has its entry', $tokens, $listed );
+ck( 'the built Administrator guide draws each clip once, never autoplaying', array( substr_count( $html, 'wpcpm-guide-clip' ), stripos( $html, 'autoplay' ) ), array( count( $listed ), false ) );
+$clip_urls = array();
+foreach ( $real_clips as $clip ) {
+	foreach ( array( 'src', 'poster', 'captions' ) as $field ) {
+		$clip_urls[] = 0 === strpos( (string) ( $clip[ $field ] ?? '' ), 'https://wordpresseducation.org/wp-content/uploads/' );
+	}
+}
+ck( 'each clip, its poster and its captions are files in the site\'s own media library, over https', in_array( false, $clip_urls, true ), false );
 $first = outputs( $root );
 build( $root );
 ck( 'a second build changes nothing', outputs( $root ), $first );

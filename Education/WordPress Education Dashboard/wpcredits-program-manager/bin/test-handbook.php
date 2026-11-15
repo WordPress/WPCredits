@@ -1253,6 +1253,11 @@ $fresh_html   = '';
 if ( @mkdir( $fresh_root . '/bin', 0700, true ) && @mkdir( $fresh_root . '/docs/sections', 0700, true ) && @mkdir( $fresh_root . '/docs/build', 0700, true ) ) {
     copy( __DIR__ . '/build-docs.php', $fresh_root . '/bin/build-docs.php' );
     copy( __DIR__ . '/docs-guides.php', $fresh_root . '/bin/docs-guides.php' );
+    // The clips table travels with the sections (1.123.94): a section's clip token needs its entry,
+    // or the build stops before it writes any guide.
+    if ( is_file( __DIR__ . '/../docs/clips.json' ) ) {
+        copy( __DIR__ . '/../docs/clips.json', $fresh_root . '/docs/clips.json' );
+    }
     foreach ( (array) glob( __DIR__ . '/../docs/sections/*.md' ) as $fresh_section ) {
         copy( $fresh_section, $fresh_root . '/docs/sections/' . basename( $fresh_section ) );
     }
@@ -1261,7 +1266,7 @@ if ( @mkdir( $fresh_root . '/bin', 0700, true ) && @mkdir( $fresh_root . '/docs/
     $fresh_html = is_file( $fresh_root . '/docs/build/sponsors.html' ) ? (string) file_get_contents( $fresh_root . '/docs/build/sponsors.html' ) : '';
 }
 
-foreach ( array_merge( (array) glob( $fresh_root . '/docs/sections/*' ), (array) glob( $fresh_root . '/docs/build/*' ), (array) glob( $fresh_root . '/docs/*.md' ), (array) glob( $fresh_root . '/bin/*' ) ) as $fresh_file ) {
+foreach ( array_merge( (array) glob( $fresh_root . '/docs/sections/*' ), (array) glob( $fresh_root . '/docs/build/*' ), (array) glob( $fresh_root . '/docs/*.md' ), (array) glob( $fresh_root . '/docs/*.json' ), (array) glob( $fresh_root . '/bin/*' ) ) as $fresh_file ) {
     @unlink( $fresh_file );
 }
 foreach ( array( '/docs/sections', '/docs/build', '/docs', '/bin', '' ) as $fresh_dir ) {

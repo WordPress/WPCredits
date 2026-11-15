@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.93
+Stable tag: 1.123.94
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,12 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.94 =
+
+* Administrator guide: six short clips show a job done on the Administrator Dashboard, from the first press to the result: a school applied, a signed Collaboration Agreement arrived, a school's other requests, a student is waiting to graduate, reading the cohort timeline, and finding a job in the guide. Each plays only when pressed, has no sound, shows the guide's own words in the picture and carries a captions file.
+* Administrator guide: a new reference section, "The card of students waiting to graduate": what the card lists, how a student comes onto it and leaves it, its columns, how it counts, what "Waiting since" and "Before" mean, and its limits.
+* Collaboration Agreements: the review of a signed agreement now shows the name the institution typed when it generated the agreement. Until now that line read "(not recorded)" every time. An agreement uploaded before this version still reads "(not recorded)".
 
 = 1.123.93 =
 
