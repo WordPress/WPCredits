@@ -103,6 +103,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-report-form.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-feedback.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-graduation.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-activity.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-flags.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-start-pages.php';

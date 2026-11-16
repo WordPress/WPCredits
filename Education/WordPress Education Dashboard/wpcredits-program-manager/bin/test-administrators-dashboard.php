@@ -304,7 +304,7 @@ function get_user_by( $field, $value ) {
 	}
 	return false;
 }
-function get_users( $args = array() ) { return array_values( $GLOBALS['users'] ); }
+function get_users( $args = array() ) { $GLOBALS['users_asked'][] = $args; return array_values( $GLOBALS['users'] ); }
 function user_can( $u, $c ) {
 	$id = is_object( $u ) ? $u->ID : (int) $u;
 	if ( 'edit_posts' === $c ) { return in_array( $id, $GLOBALS['editors'], true ); }
@@ -810,6 +810,8 @@ class WPCPM_Students_Sync {
 	const OPT_LAST = 'wpcpm_students_last_sync'; const CRON_AUTO = 'wpcpm_students_daily';
 	// The two keys the students waiting to graduate are read by (1.123.93), the real class's.
 	const META_PENDING = 'wpcpm_student_pending_since'; const META_COURSE = 'wpcpm_student_course';
+	// And the three an account owing a Pending graduation is drawn from when no roster row is its (1.123.95).
+	const META_INSTITUTION = 'wpcpm_student_institution'; const META_PROGRAM = 'wpcpm_student_program'; const META_MENTOR = 'wpcpm_student_mentor';
 	public static function progress() { return $GLOBALS['sync']['students']; }
 }
 class WPCPM_Institutions_Sync {
@@ -1150,6 +1152,8 @@ if ( ! function_exists( 'wp_sprintf' ) ) {
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
+// What an account owes when a Feedback form 3 finished on the site could not set its status (1.123.95): the real class.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-graduation.php';
 // The one helper that decides which institutions are tests, over the stand-ins of the index and of the
 // sponsors' rule above (Ruling 21).
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-test-institutions.php';
@@ -7804,6 +7808,117 @@ ck( 'graduation_sixty: sixty pending are all drawn, oldest stamp first, then the
 ), array( 60, array_column( $gr_want, 2 ), 60 ) );
 $gr_primed = array_values( array_filter( (array) ( $GLOBALS['gr_cached'] ?? array() ), static function ( $ids ) { return in_array( 1001, $ids, true ); } ) );
 ck( 'and the sixty are read with one priming of the accounts, not one read each', array( count( $gr_primed ), isset( $gr_primed[0] ) ? count( array_intersect( range( 1001, 1060 ), $gr_primed[0] ) ) : 0 ), array( 1, 60 ) );
+
+// A student who finished Feedback form 3 on the site while the base refused the status (1.123.95): the account owes it
+// (`WPCPM_Student_Graduation::META_OWED`) and their roster row still says the track. Listed all the same, with the words
+// that the status is not recorded yet, waiting since the form was sent, and counted; one the site holds no Students row
+// for is drawn from the account; one the roster already holds at Pending graduation is listed once, without the words.
+$GLOBALS['rosters'][ $A ]['rows'] = array();
+$GLOBALS['rosters'][ $B ]['rows'] = array();
+$GLOBALS['unlinked']              = array();
+$gr_owe = static function ( $id, $name, $at, $course, $kind = 'retry' ) use ( $gr_account ) {
+	$gr_account( $id, $name, 0, false, $course );
+	$GLOBALS['umeta'][ $id ][ WPCPM_Student_Graduation::META_OWED ] = array( 'at' => $at, 'by' => $id, 'as' => 'student', 'reason' => 'Airtable request failed (HTTP 503).', 'tried' => $at, 'kind' => $kind );
+};
+$gr_owe( 971, 'Owen Owed', $gr_now - 2 * DAY_IN_SECONDS, 'In Sensei' );
+$GLOBALS['umeta'][971][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei' );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSOWED000000001', 'Owen Owed', 'In Sensei', array( 'user_id' => 971, 'hours' => '151', 'has_mentor' => true, 'mentor_name' => 'Mentor One' ) );
+$gr_owe( 972, 'Nia Norow', $gr_now - 1 * DAY_IN_SECONDS, '', 'no-row' );
+$GLOBALS['umeta'][972][ WPCPM_Students_Sync::META_INSTITUTION ] = $B;
+$GLOBALS['umeta'][972][ WPCPM_Students_Sync::META_PROGRAM ]     = array( 'program' => 'Developer Track', 'hours' => '40', 'end' => '2026-07-01' );
+$GLOBALS['umeta'][972][ WPCPM_Students_Sync::META_MENTOR ]      = array( 'record_id' => 'recMENTOR00000001', 'name' => 'Mentor Two' );
+$gr_owe( 973, 'Ray Recorded', $gr_now - 3 * DAY_IN_SECONDS, 'In Sensei' );
+// N5: pending on the roster while the program row still says the track (the reports row lags): listed once, by the roster.
+$GLOBALS['umeta'][973][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei' );
+// N4: a debt for a row whose address is another's.
+$gr_owe( 976, 'Zed Elsewhere', $gr_now - 12 * HOUR_IN_SECONDS, '', 'other-email' );
+$GLOBALS['umeta'][976][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'In Sensei' );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSOWED000000006', 'Zed Elsewhere', 'In Sensei', array( 'user_id' => 976, 'hours' => '146' ) );
+// An owing account whose program status is no longer a track: a debt that can no longer be paid is not listed.
+$gr_owe( 975, 'Pat Pastdone', $gr_now - 4 * DAY_IN_SECONDS, 'In Sensei' );
+$GLOBALS['umeta'][975][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'program' => 'Graduate' );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSOWED000000005', 'Pat Pastdone', 'In Sensei', array( 'user_id' => 975 ) );
+$GLOBALS['umeta'][973][ WPCPM_Students_Sync::META_PENDING ] = array( 'at' => $gr_now - 3 * DAY_IN_SECONDS, 'before' => false );
+$GLOBALS['rosters'][ $B ]['rows'][] = $gr_row( 'recSOWED000000003', 'Ray Recorded', 'Pending graduation', array( 'user_id' => 973 ) );
+$gr_account( 974, 'Tom Track', 0, false, 'In Sensei' );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSOWED000000004', 'Tom Track', 'In Sensei', array( 'user_id' => 974 ) );
+unset( $GLOBALS['rosters'][ $gr_T ] );
+$GLOBALS['users_asked'] = array();
+$gr_owed      = WPCPM_Administrators_Cards::collect();
+$gr_owed_card = $gr_draw( $gr_owed['graduation'] );
+$gr_asked_once = $GLOBALS['users_asked'];
+$gr_words     = 'Finished Feedback form 3 on this site. The program\'s records do not say Pending graduation yet: each students sync tries again.';
+$gr_no_row    = 'Finished Feedback form 3 on this site. The site finds no Students row for this student in the program\'s records, so the status cannot be set: check the student\'s row there, and the next students sync sets it.';
+$gr_other     = 'Finished Feedback form 3 on this site. The Students row on their track holds an email address other than this student\'s, so the status was not set: correct the row in the program\'s records, and the next students sync sets it.';
+$gr_owed_rows = array();
+foreach ( $gr_owed['graduation'] as $gr_r ) {
+	$gr_owed_rows[ $gr_r['name'] ] = array( $gr_r['institution'], $gr_r['owed'] ?? null, $gr_r['at'], $gr_r['user_id'] );
+}
+ck( 'graduation_owed: an owed student is listed although the roster says a track, and one with no Students row from the account; one the roster holds pending once; a student on a track who owes nothing never', array(
+	array_column( $gr_owed['graduation'], 'name' ),
+	$gr_owed_rows,
+	WPCPM_Administrators_Cards::counts( $gr_owed )['graduation']['n'] ?? null,
+), array(
+	array( 'Ray Recorded', 'Owen Owed', 'Nia Norow', 'Zed Elsewhere' ),
+	array(
+		'Ray Recorded'  => array( $B, false, $gr_now - 3 * DAY_IN_SECONDS, 973 ),
+		'Owen Owed'     => array( $A, 'retry', $gr_now - 2 * DAY_IN_SECONDS, 971 ),
+		'Nia Norow'     => array( $B, 'no-row', $gr_now - 1 * DAY_IN_SECONDS, 972 ),
+		'Zed Elsewhere' => array( $A, 'other-email', $gr_now - 12 * HOUR_IN_SECONDS, 976 ),
+	),
+	4,
+) );
+// Printed escaped, the apostrophe an entity.
+$gr_words  = esc_html( $gr_words );
+$gr_no_row = esc_html( $gr_no_row );
+$gr_other  = esc_html( $gr_other );
+ck( 'I2 card_words: an owed row with a Students row says the sync tries again; one with no Students row says what to do instead; the recorded one says neither', array(
+	substr_count( $gr_owed_card, $gr_words ),
+	substr_count( $gr_owed_card, $gr_no_row ),
+	has( $gr_owed_card, '?wpcpm_student_view=971">Owen Owed</a> <span class="wpcpm-ui-cell__sub">Uniwersytet Alpha</span> <span class="wpcpm-ui-cell__sub">' . $gr_words . '</span></th>' ),
+	has( $gr_owed_card, '>Nia Norow</a> <span class="wpcpm-ui-cell__sub">' ) && has( substr( $gr_owed_card, (int) strpos( $gr_owed_card, '>Nia Norow</a>' ), 600 ), $gr_no_row ),
+	has( substr( $gr_owed_card, (int) strpos( $gr_owed_card, 'Ray Recorded' ), 400 ), 'Finished Feedback form 3' ),
+	has( $gr_owed_card, 'Pat Pastdone' ),
+	substr_count( $gr_owed_card, $gr_other ),
+	has( substr( $gr_owed_card, (int) strpos( $gr_owed_card, '>Zed Elsewhere</a>' ), 700 ), $gr_other ),
+), array( 1, 1, true, true, false, false, 1, true ) );
+
+// The trial's point: an owed student is still on their track, and no course is kept for them yet. Their Track and Hours
+// come from the track they are on today, drawn as a recorded student's are.
+$gr_cells_of = static function ( $html, $name ) use ( $gr_cells ) {
+	foreach ( $gr_cells( $html ) as $cells ) {
+		if ( $name === $cells[0] ) {
+			return array( $cells[2], $cells[4] );
+		}
+	}
+	return array();
+};
+ck( 'owed_track: an owed row\'s Track and Hours are the track it is on today, from the roster row or, with no row, the program row', array(
+	$gr_cells_of( $gr_owed_card, 'Zed Elsewhere' ),
+	$gr_cells_of( $gr_owed_card, 'Nia Norow' ),
+), array(
+	array( WPCPM_Program::label( 'In Sensei' ), WPCPM_Program::hours_text( '146', 'In Sensei' ) ),
+	array( WPCPM_Program::label( 'Developer Track' ), WPCPM_Program::hours_text( '40', 'Developer Track' ) ),
+) );
+
+// N6: a row a run moved from the unlinked list onto a roster, with a copy of it still in the unlinked list: one line.
+$GLOBALS['unlinked'] = array( 'recSOWED000000003' => $gr_row( 'recSOWED000000003', 'Ray Recorded', 'Pending graduation', array( 'user_id' => 973 ) ) );
+ck( 'N6 listed_once: a student whose row is on a roster and still in the unlinked list is listed once', array_count_values( array_column( WPCPM_Administrators_Cards::collect()['graduation'], 'name' ) )['Ray Recorded'] ?? 0, 1 );
+// m5 (j): the same for a student who owes nothing: one Students record on a roster and in the unlinked list, one line.
+$gr_account( 978, 'Uma Twice', $gr_now - 5 * DAY_IN_SECONDS, false, 'In Sensei' );
+$GLOBALS['rosters'][ $A ]['rows'][] = $gr_row( 'recSTWICE00000001', 'Uma Twice', 'Pending graduation', array( 'user_id' => 978 ) );
+$GLOBALS['unlinked']                = array( 'recSTWICE00000001' => $gr_row( 'recSTWICE00000001', 'Uma Twice', 'Pending graduation', array( 'user_id' => 978 ) ) );
+ck( 'm5 listed_once_no_debt: a student who owes nothing, their row on a roster and in the unlinked list, is listed once', array_count_values( array_column( WPCPM_Administrators_Cards::collect()['graduation'], 'name' ) )['Uma Twice'] ?? 0, 1 );
+array_pop( $GLOBALS['rosters'][ $A ]['rows'] );
+$GLOBALS['unlinked'] = array();
+$gr_owed_asks = array_values( array_filter( $gr_asked_once, static function ( $a ) { return ( $a['meta_key'] ?? '' ) === WPCPM_Student_Graduation::META_OWED; } ) );
+ck( 'M4 one_query: the owing accounts are read in one query, their meta primed with it', array( count( $gr_owed_asks ), $gr_owed_asks[0]['fields'] ?? null ), array( 1, 'all_with_meta' ) );
+ck( 'the one drawn from the account names the track, the mentor, the hours and the day the form was sent', array(
+	has( $gr_owed_card, '>Nia Norow</a>' ),
+	has( $gr_owed_card, 'data-label="Mentor">Mentor Two</td>' ),
+	has( $gr_owed_card, 'data-label="Hours">40' ),
+	has( $gr_owed_card, 'data-label="Waiting since">' . str_replace( ' ', "\u{00A0}", gmdate( 'j F Y', $gr_now - 1 * DAY_IN_SECONDS ) ) . '</td>' ),
+), array( true, true, true, true ) );
 
 list( $GLOBALS['rosters'], $GLOBALS['inst_rows'], $GLOBALS['users'], $GLOBALS['umeta'], $gr_unlinked, $gr_page_kept, $GLOBALS['uid'], $GLOBALS['manage'] ) = $gr_kept;
 if ( null === $gr_unlinked ) { unset( $GLOBALS['unlinked'] ); } else { $GLOBALS['unlinked'] = $gr_unlinked; }

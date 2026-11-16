@@ -474,7 +474,7 @@ Where to start:
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
-8. When the student sends their last feedback form, an Airtable automation sets their **Status** to *Pending graduation*. After the next students sync they are on the **Students waiting to graduate** card: see *A student is waiting to graduate*.
+8. When the student sends their last feedback form, an Airtable automation sets their **Status** to *Pending graduation*. After the next students sync they are on the **Students waiting to graduate** card: see *A student is waiting to graduate*. Since 1.123.95 a student who finishes it on their Student Report Card is set to *Pending graduation* by the site and is on the card at once.
 9. You set the *Graduation date* in Airtable. When that date comes, an Airtable automation sets the **Status** to *Graduate* and the certificate notice goes out; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
 
 ### A student registered
@@ -646,7 +646,7 @@ You can change:
 
 - When the *Graduation date* comes, an Airtable automation sets the student's **Status** to *Graduate* and sends the certificate notice.
 - The student leaves the card at the next students sync.
-- The site sends nothing and changes no status.
+- The site sends nothing and changes no status here.
 
 **Good to know**
 
@@ -655,6 +655,9 @@ You can change:
 - A student with no account on the site, or whose address is on two institutions' rows, has no link and no **Waiting since**.
 - A student on two tracks that are both pending is listed twice, and both lines name the same track, because the site keeps one course for each account.
 - **Open on the Students screen** opens `WPCredits Program > Students` filtered by *Pending graduation*. That list reads the Students Reports table, so it can differ from the card for a while.
+- Since 1.123.95 a student with the line "Finished Feedback form 3 on this site. The program's records do not say Pending graduation yet: each students sync tries again." finished the form on the site while Airtable did not take the status. Treat them like the others; the students sync writes the status when Airtable takes it.
+- A student with the line "Finished Feedback form 3 on this site. The site finds no Students row for this student in the program's records, so the status cannot be set: check the student's row there, and the next students sync sets it." has no Students row the site can match in Airtable. Check their row there; the next students sync sets the status.
+- A student with the line "Finished Feedback form 3 on this site. The Students row on their track holds an email address other than this student's, so the status was not set: correct the row in the program's records, and the next students sync sets it." has a Students row holding another address. Correct the row in Airtable; the next students sync sets the status.
 
 ### Take a student off a group session
 
@@ -4692,6 +4695,7 @@ Three syncs bring the site in line with Airtable: students, mentors and institut
 
 - A student in **Past students** keeps an existing account but is never given a new one.
 - The students sync notes the day it first sees a student at *Pending graduation*, for **Waiting since** in [The card of students waiting to graduate](#the-card-of-students-waiting-to-graduate). Another status clears it.
+- Since 1.123.95, at the end of each run, the students sync tries again every *Pending graduation* the site still owes for a Feedback form 3 finished on the site. A refusal is named in the run's report.
 - An institution's first account is made from its Contact Email, only for a *Confirmed* school whose agreement is recorded and that never had a member. An address already on an account is left alone.
 - A school that leaves the stages in **Institution pipeline stages** (tab **Advanced**) loses its open agreement; one with no stage at all has not left and is left alone. By default its people lose their access; **Its people** (tab **Institutions**) decides.
 
@@ -5146,7 +5150,7 @@ Step by step: [Students who have gone quiet](#students-who-have-gone-quiet); [Tr
 
 - Airtable sets that status when the student submits the third feedback form. The site sees it at the next students sync.
 - The student leaves the card at the first students sync after Airtable sets *Graduate*, which its automation does when the *Graduation date* comes.
-- The site sets no status and sends no email about it.
+- The site sends no email about it.
 - Rows are oldest first by **Waiting since**, then by the earlier end date, then by name.
 - A test institution's student has the **Test** mark and is left out of the card's count, the page's headline and the menu's count.
 - When no student or only a test institution's waits, the card is not drawn, and the line under the queues names it.
@@ -5158,13 +5162,31 @@ Step by step: [Students who have gone quiet](#students-who-have-gone-quiet); [Tr
 | **Track** | The course, linked to Learn when it has a course there, or **Not recorded** |
 | **Mentor** | The mentor, or **No mentor**; **Not recorded** when the Students row names a mentor the site has not read |
 | **Hours** | The hours logged, against the track's target when it has one, as "120 of 150"; or **Not recorded** |
-| **Waiting since** | The day the students sync first saw the student pending, so up to one sync late. *Before* a date: already pending at the first sync that kept these days. Empty with no account, or when the address is on two institutions' rows. |
+| **Waiting since** | The day the students sync first saw the student pending, so up to one sync late; for a status the site set, the day the student finished Feedback form 3. *Before* a date: already pending at the first sync that kept these days. Empty with no account, or when the address is on two institutions' rows. |
 
 - A student on two tracks that are both pending is listed twice, both lines naming the same track.
 - A school the site's pipeline does not know reads **Not recorded** under the name.
 - **Open on the Students screen** lists by the Students Reports table, so the two counts can differ for a while.
 - A very long word in a name breaks inside the table.
 - Airtable finds the student by the address typed into the third feedback form. A student who types another address is never marked and never listed: look for their Students row in Airtable.
+
+Since 1.123.95 a student who finishes Feedback form 3 on their Student Report Card is set to *Pending graduation* by the site, and is on the card at once. It is the same whether the student or an Administrator saves the form.
+
+- The site writes the **Status** of the student's own Students row, found by its record, never by an address.
+- It writes only over a track, read in Airtable first, and only a row that still holds the address of the student's Students Reports row. A *Graduate* or a drop-out is never written over.
+- It sets the status once for each program. After that, a later save of the form never sets it again while the student is on the same Students Reports row and track, so a student you put back on that track stays there. A student on a new program or another track is set again when they finish its form.
+- A form finished before 1.123.95 is not touched.
+- The status never costs the student anything. The answers are saved first, and the status adds at most about ten seconds to the save. If Airtable is slow or refuses, the students sync sets it.
+- **Waiting since** is the day the student finished the form, also when the students sync set the status later.
+
+If the status is not set at once, the student is listed all the same, with one of three lines under the name:
+
+- "Finished Feedback form 3 on this site. The program's records do not say Pending graduation yet: each students sync tries again." Airtable refused, was slow, or something went wrong. The students sync tries again at the end of each run. It writes only a row still on a track in Airtable, read first. A run that finds Airtable not answering stops trying and says how many students wait for the next run.
+- "Finished Feedback form 3 on this site. The site finds no Students row for this student in the program's records, so the status cannot be set: check the student's row there, and the next students sync sets it." No Students row matched: there is none, the address is on two institutions' rows, or the site holds no address for the student. Check the student's row in Airtable; the next students sync sets the status.
+- "Finished Feedback form 3 on this site. The Students row on their track holds an email address other than this student's, so the status was not set: correct the row in the program's records, and the next students sync sets it." The row on the student's track holds an address other than the one on their Students Reports row. Correct the row in Airtable; the next students sync sets the status.
+- An owed student's **Track** and **Hours** are the track they are on today.
+
+The student leaves the card without a write when their status is no longer a track, for example *Graduate*, or when the students sync no longer reads them.
 
 Step by step: [A student is waiting to graduate](#a-student-is-waiting-to-graduate).
 
@@ -5905,6 +5927,7 @@ It lists many of the names the plugin stores things under, each with the name it
 | `sponsor_report_pdf` | `WPCPM_Sponsor_Report::LOG_PDF` (audit kind: a sponsor report's PDF was attached, replaced or removed) |
 | `sponsor_report_reopened` | `WPCPM_Sponsor_Report::LOG_REOPENED` (audit kind: a final sponsor report was reopened as a draft) |
 | `sponsor_tier_run` | `WPCPM_Sponsor_Tiers_Run::LOG_KIND` (audit kind: the daily run's row for a sponsor whose posts it put to dormant, or whose offers or posts it woke; no offer has gone dormant since 1.123.18) |
+| `student_pending` | `WPCPM_Student_Graduation::KIND_LOG` (audit kind, since 1.123.95: the site set a student's Students row to *Pending graduation* after a Feedback form 3 finished on the site; a row about the program's own work) |
 | `wpcpm_administrator_page_id` | `WPCPM_Administrators_Dashboard::OPT_PAGE` |
 | `wpcpm_administrator_page_title_fixed` | `WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_agreement_` | `WPCPM_Institution_Agreement::OPT_PREFIX` |
@@ -6012,6 +6035,8 @@ It lists many of the names the plugin stores things under, each with the name it
 | `wpcpm_student_languages` | `WPCPM_Student_Airtable_Row::LANGUAGES_OPTION` (the site's copy of the Airtable Languages table, record ID to name, read at most once a day, which the registration form's two language questions and the row written to Airtable use) |
 | `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
 | `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_student_pending_owed` | `WPCPM_Student_Graduation::META_OWED` (user meta, since 1.123.95: a *Pending graduation* the site owes Airtable for a Feedback form 3 finished on the site, with when, who saved the form, why it was not written and which line the card shows; cleared when written, or when a students sync finds the student no longer on a track or no longer read) |
+| `wpcpm_student_pending_set` | `WPCPM_Student_Graduation::META_SET` (user meta, since 1.123.95: when the site set the student's Students row to *Pending graduation*, the day the form was finished, who saved the form, as the student or an Administrator, which rows, and the Students Reports row and track it was set for; while those are the student's, a later save of the form never sets the status again) |
 | `wpcpm_student_registration_page_id` | `WPCPM_Student_Registration_Form::OPT_PAGE` |
 | `wpcpm_students_last_error` | `WPCPM_Students_Sync::OPT_ERROR` |
 | `wpcpm_students_last_sync` | `WPCPM_Students_Sync::OPT_LAST` |
@@ -6064,6 +6089,8 @@ To Airtable's Feedback table, chosen as **Feedback table** on `WPCredits Program
 - One row per student, with a column per question, starting `F1` to `F4` for the form. **Getting started**, **Half way** and **Finishing up** also record the student's mentor at that time, when they have one.
 - The row is matched on the roster's email address. Another address makes a second row.
 - Mentors never see the answers.
+
+Since 1.123.95 the save that finishes **Finishing up** also sets the student's **Status** to *Pending graduation*, as Airtable's own form does: see [The card of students waiting to graduate](#the-card-of-students-waiting-to-graduate).
 
 ### Changing a question
 

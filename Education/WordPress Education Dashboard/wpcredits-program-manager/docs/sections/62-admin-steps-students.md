@@ -11,7 +11,7 @@
 5. The site's students sync, every three hours while automatic sync is on or when you press **Sync students now**, creates the account from that Students Reports row: see *A student the sync skipped, and a held invitation*.
 6. You send the invitation: see *Invite a student, or several*.
 7. The student sets a password and works on their Student Report Card, and you follow them: see *Open a student's Student Report Card* and *Students who have gone quiet*.
-8. When the student sends their last feedback form, an Airtable automation sets their **Status** to *Pending graduation*. After the next students sync they are on the **Students waiting to graduate** card: see *A student is waiting to graduate*.
+8. When the student sends their last feedback form, an Airtable automation sets their **Status** to *Pending graduation*. After the next students sync they are on the **Students waiting to graduate** card: see *A student is waiting to graduate*. Since 1.123.95 a student who finishes it on their Student Report Card is set to *Pending graduation* by the site and is on the card at once.
 9. You set the *Graduation date* in Airtable. When that date comes, an Airtable automation sets the **Status** to *Graduate* and the certificate notice goes out; a graduate keeps the Student role and the Student Report Card, whatever the setting. The sync does not give the role back to a graduate who had already lost it.
 
 ### A student registered
@@ -183,7 +183,7 @@ You can change:
 
 - When the *Graduation date* comes, an Airtable automation sets the student's **Status** to *Graduate* and sends the certificate notice.
 - The student leaves the card at the next students sync.
-- The site sends nothing and changes no status.
+- The site sends nothing and changes no status here.
 
 **Good to know**
 
@@ -192,6 +192,9 @@ You can change:
 - A student with no account on the site, or whose address is on two institutions' rows, has no link and no **Waiting since**.
 - A student on two tracks that are both pending is listed twice, and both lines name the same track, because the site keeps one course for each account.
 - **Open on the Students screen** opens `WPCredits Program > Students` filtered by *Pending graduation*. That list reads the Students Reports table, so it can differ from the card for a while.
+- Since 1.123.95 a student with the line "Finished Feedback form 3 on this site. The program's records do not say Pending graduation yet: each students sync tries again." finished the form on the site while Airtable did not take the status. Treat them like the others; the students sync writes the status when Airtable takes it.
+- A student with the line "Finished Feedback form 3 on this site. The site finds no Students row for this student in the program's records, so the status cannot be set: check the student's row there, and the next students sync sets it." has no Students row the site can match in Airtable. Check their row there; the next students sync sets the status.
+- A student with the line "Finished Feedback form 3 on this site. The Students row on their track holds an email address other than this student's, so the status was not set: correct the row in the program's records, and the next students sync sets it." has a Students row holding another address. Correct the row in Airtable; the next students sync sets the status.
 
 ### Take a student off a group session
 

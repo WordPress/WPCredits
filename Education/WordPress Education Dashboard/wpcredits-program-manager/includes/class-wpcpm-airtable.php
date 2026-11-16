@@ -186,6 +186,28 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * Seconds one request of this client may take before WordPress gives up on it (1.123.95).
+	 *
+	 * Twenty for every client, as before; a caller that has a person waiting on a bounded errand, the status a finished
+	 * Feedback form 3 sets, asks its own client for less (`set_timeout()`), and no other client changes.
+	 *
+	 * @var float
+	 */
+	private $timeout = 20;
+
+	/**
+	 * Set how long each request of this client may take, from one second up to the usual twenty.
+	 *
+	 * @param float $seconds Seconds.
+	 * @return $this
+	 */
+	public function set_timeout( $seconds ) {
+		$this->timeout = max( 1, min( 20, (float) $seconds ) );
+
+		return $this;
+	}
+
+	/**
 	 * Fetch a single page of records.
 	 *
 	 * @param string $table  Table ID or name.
@@ -1239,7 +1261,7 @@ class WPCPM_Airtable {
 
 		$args = array(
 			'method'  => $method,
-			'timeout' => 20,
+			'timeout' => $this->timeout,
 			'headers' => array(
 				'Authorization' => 'Bearer ' . ( '' !== (string) $token ? (string) $token : $this->settings['api_token'] ),
 				'Accept'        => 'application/json',

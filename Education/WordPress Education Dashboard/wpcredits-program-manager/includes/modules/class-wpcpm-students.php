@@ -193,6 +193,9 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 			WPCPM_Students_Sync::META_COURSE,
 			// When the sync first saw the student waiting to graduate (1.123.93).
 			WPCPM_Students_Sync::META_PENDING,
+			// When this site set the status after a finished Feedback form 3, and a status it still owes (1.123.95).
+			WPCPM_Student_Graduation::META_SET,
+			WPCPM_Student_Graduation::META_OWED,
 			WPCPM_Student_Feedback::META_RECORD,
 			WPCPM_Student_Feedback::META_RECORD_PLACEMENT,
 			'wpcpm_student_invited',

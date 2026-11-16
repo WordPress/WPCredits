@@ -82,6 +82,9 @@ class WPCPM_Student_Feedback {
 	/** Longest a free-text answer may be. */
 	const MAX_TEXT = 5000;
 
+	/** The form a track ends with: finished on this site, it sets the student's status to Pending graduation (1.123.95). */
+	const FINAL_FORM = 'f3';
+
 	/**
 	 * Hooks.
 	 */
@@ -780,6 +783,27 @@ class WPCPM_Student_Feedback {
 		set_transient( $key, $fields, self::CACHE_TTL );
 
 		return $fields;
+	}
+
+	/**
+	 * The answers on a record before a save of the last form (1.123.95): the record cache when it holds them, else one
+	 * read on a short timeout (`WPCPM_Student_Graduation::REQUEST_MAX`), so the save waits on it for seconds at most.
+	 *
+	 * @param string $record Airtable record ID.
+	 * @return array Field name => value; empty when the row could not be read.
+	 */
+	private static function prior_answers( $record ) {
+		$cached = get_transient( self::CACHE_PREFIX . md5( (string) $record ) );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$settings = WPCPM_Settings::get();
+		$airtable = new WPCPM_Airtable( $settings );
+		$read     = $airtable->set_timeout( WPCPM_Student_Graduation::REQUEST_MAX )->get_record( $settings['feedback_table'], (string) $record );
+
+		return ( ! is_wp_error( $read ) && isset( $read['fields'] ) && is_array( $read['fields'] ) ) ? $read['fields'] : array();
 	}
 
 	/**
@@ -1682,6 +1706,23 @@ class WPCPM_Student_Feedback {
 			}
 		}
 
+		// The last form's answers before this save, so a save that finishes it can be told from one that changes it once
+		// it was finished (1.123.95). Asked only of a student on a track the site has not set the status for already, and
+		// usually answered by the record cache the page filled; a read goes on a short timeout and counts against the
+		// status's budget. A row that cannot be read is taken as unfinished: the status is still read live before it is
+		// written, and once the site has set it for this program, it never sets it again from a later save.
+		//
+		// A choice, ruled in review: when the earlier answers cannot be read (an expired cache and a failed read), the
+		// save still treats the form as finishing now. In that rare state a missed finisher (the gap this release closes)
+		// costs more than a student who re-saves an already complete form 3 from a track and lands on the card, where an
+		// Administrator decides; and a program the site has already set stays blocked by the set meta (`blocks()`).
+		$finishing = self::FINAL_FORM === $form_key && class_exists( 'WPCPM_Student_Graduation' )
+			&& ! WPCPM_Student_Graduation::blocks( $student_id, $program )
+			&& WPCPM_Program::is_track( WPCPM_Students_Sync::status_of( $program ) );
+		$started   = $finishing ? WPCPM_Student_Graduation::now() : 0.0;
+		$prior     = $finishing ? self::prior_answers( $record ) : array();
+		$spent     = $finishing ? WPCPM_Student_Graduation::now() - $started : 0.0;
+
 		$settings = WPCPM_Settings::get();
 		$airtable = new WPCPM_Airtable( $settings );
 		$result   = $airtable->update_records(
@@ -1709,6 +1750,14 @@ class WPCPM_Student_Feedback {
 		// Only the student reaches this: `$cells` cannot hold a permissions field otherwise.
 		if ( $is_self ) {
 			self::stamp_permissions( $student_id, $form, $cells );
+		}
+
+		// A save that finishes the last form sets the student's status to Pending graduation, as the base's own form
+		// does (1.123.95), whoever saved it. After the answers and the consent stamp, so they are kept whatever the status
+		// write does; it never throws, a fault being a debt, and the student's message is the answers' own, since a status
+		// the site owes is the Administrators' to see, on their card.
+		if ( $finishing && ! self::is_complete( $form, $prior ) && self::is_complete( $form, array_merge( $prior, $cells ) ) ) {
+			WPCPM_Student_Graduation::form_finished( $student_id, get_current_user_id(), $spent );
 		}
 
 		if ( $dropped ) {

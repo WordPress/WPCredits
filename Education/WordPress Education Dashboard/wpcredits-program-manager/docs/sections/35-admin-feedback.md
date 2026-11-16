@@ -42,6 +42,8 @@ To Airtable's Feedback table, chosen as **Feedback table** on `WPCredits Program
 - The row is matched on the roster's email address. Another address makes a second row.
 - Mentors never see the answers.
 
+Since 1.123.95 the save that finishes **Finishing up** also sets the student's **Status** to *Pending graduation*, as Airtable's own form does: see [[The card of students waiting to graduate]].
+
 ### Changing a question
 
 Questions are in the plugin's code: a change needs a developer and a new plugin version.

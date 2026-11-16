@@ -161,7 +161,7 @@ function wp_clear_scheduled_hook( $h = '' ) { unset( $GLOBALS['cron'][ $h ] ); r
 // As core's: an ID that is not a number, a row object among them, reads nothing (get_metadata_raw()).
 function get_user_meta( $id, $key, $single = false ) { return is_numeric( $id ) ? ( $GLOBALS['umeta'][ (int) $id ][ $key ] ?? '' ) : false; }
 // As core's: what is written is unslashed first, at any depth, so words reach it as slashed copies.
-function update_user_meta( $id, $key, $value ) { $GLOBALS['meta_writes'][] = array( 'update', (int) $id, $key ); $GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value ); return true; }
+function update_user_meta( $id, $key, $value ) { if ( ! empty( $GLOBALS['meta_throw'][ $key ] ) ) { throw new RuntimeException( 'The database refused the write.' ); } if ( ! empty( $GLOBALS['meta_false'][ $key ] ) ) { return false; } $GLOBALS['meta_writes'][] = array( 'update', (int) $id, $key ); $GLOBALS['umeta'][ (int) $id ][ $key ] = stripslashes_deep( $value ); return true; }
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
 function stripslashes_deep( $v ) { return is_array( $v ) ? array_map( 'stripslashes_deep', $v ) : ( is_string( $v ) ? stripslashes( $v ) : $v ); }
 function delete_user_meta( $id, $key ) { $GLOBALS['meta_writes'][] = array( 'delete', (int) $id, $key ); unset( $GLOBALS['umeta'][ (int) $id ][ $key ] ); return true; }
@@ -226,7 +226,8 @@ function get_users( $args = array() ) {
 
 	foreach ( $GLOBALS['umeta'] as $id => $meta ) {
 		if ( isset( $args['meta_key'] ) ) {
-			if ( ! isset( $meta[ $args['meta_key'] ] ) || $meta[ $args['meta_key'] ] !== $args['meta_value'] ) {
+			// A key with no value asked for is "has the key", as core reads it (the owing accounts, 1.123.95).
+			if ( ! isset( $meta[ $args['meta_key'] ] ) || ( array_key_exists( 'meta_value', $args ) && $meta[ $args['meta_key'] ] !== $args['meta_value'] ) ) {
 				continue;
 			}
 		} elseif ( isset( $args['meta_query'][0]['key'] ) ) {
@@ -271,6 +272,15 @@ class WPCPM_Airtable {
 	const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
 	public static function is_record_id( $value ) { return is_scalar( $value ) && 1 === preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) ); }
 	public function __construct( $settings = null ) {}
+	/** The timeout a caller gave this client (1.123.95), recorded with each read and write; 20 as the real one's. */
+	private $timeout = 20;
+	public function set_timeout( $seconds ) { $this->timeout = max( 1, min( 20, (float) $seconds ) ); return $this; }
+	/** A slow base: each read or write moves the retry's clock on by `$GLOBALS['g_step']` seconds. */
+	private static function tick() {
+		if ( ! empty( $GLOBALS['g_step'] ) ) {
+			$GLOBALS['g_clock'] += $GLOBALS['g_step'];
+		}
+	}
 	public function formula_in( $field, array $values, $lower = false ) {
 		$values = array_values( array_map( 'strval', $values ) );
 
@@ -284,7 +294,17 @@ class WPCPM_Airtable {
 	 * tells "this one record is gone" from "the base is refusing me" by.
 	 */
 	public function get_record( $table, $id ) {
-		$GLOBALS['fetches'][] = array( 'table' => $table, 'get' => $id );
+		$GLOBALS['fetches'][] = array( 'table' => $table, 'get' => $id, 'timeout' => $this->timeout );
+		self::tick();
+
+		// A fault inside the read, or the base not answering, for one record (the retry's step, 1.123.95).
+		if ( ! empty( $GLOBALS['throw_on'][ $id ] ) ) {
+			throw new RuntimeException( 'A fault inside the read.' );
+		}
+
+		if ( isset( $GLOBALS['transport_on'][ $id ] ) ) {
+			return $GLOBALS['transport_on'][ $id ] instanceof WP_Error ? $GLOBALS['transport_on'][ $id ] : new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
+		}
 
 		if ( isset( $GLOBALS['get_record_error'] ) && $GLOBALS['get_record_error'] instanceof WP_Error ) {
 			return $GLOBALS['get_record_error'];
@@ -292,7 +312,8 @@ class WPCPM_Airtable {
 
 		foreach ( $GLOBALS['airtable'][ $table ] ?? array() as $record ) {
 			if ( $record['id'] === $id ) {
-				return array( 'id' => $record['id'], 'createdTime' => $record['createdTime'] ?? '2026-01-05T10:00:00.000Z', 'fields' => $record['fields'] );
+				// `$GLOBALS['live'][ id ]`: what the records hold now, read after the run's own read of the table (1.123.95).
+				return array( 'id' => $record['id'], 'createdTime' => $record['createdTime'] ?? '2026-01-05T10:00:00.000Z', 'fields' => array_merge( $record['fields'], $GLOBALS['live'][ $id ] ?? array() ) );
 			}
 		}
 
@@ -353,6 +374,34 @@ class WPCPM_Airtable {
 
 		return is_wp_error( $page ) ? $page : $page['records'];
 	}
+	/**
+	 * Cells written to records, as the real client answers: record ID => true for each record sent, or the error
+	 * `$GLOBALS['update_error']` holds. Kept in `$GLOBALS['writes']`; written into the fixture only when
+	 * accepted, so the next run reads what the base would hold (1.123.95: the status a finished Form 3 owes).
+	 */
+	public function update_records( $table, array $records ) {
+		$GLOBALS['writes'][] = array( 'table' => $table, 'records' => $records, 'timeout' => $this->timeout );
+		self::tick();
+
+		if ( isset( $GLOBALS['update_error'] ) && $GLOBALS['update_error'] instanceof WP_Error ) {
+			return $GLOBALS['update_error'];
+		}
+
+		$done = array();
+
+		// As the real client answers: every record sent is named in the answer, once Airtable took the request.
+		foreach ( $records as $record ) {
+			$done[ $record['id'] ] = true;
+
+			foreach ( $GLOBALS['airtable'][ $table ] ?? array() as $i => $row ) {
+				if ( $row['id'] === $record['id'] ) {
+					$GLOBALS['airtable'][ $table ][ $i ]['fields'] = array_merge( $row['fields'], $record['fields'] );
+				}
+			}
+		}
+
+		return $done;
+	}
 	public static function flatten( $value, $glue = ', ' ) {
 		if ( is_array( $value ) ) {
 			if ( isset( $value['name'] ) && is_scalar( $value['name'] ) ) {
@@ -405,6 +454,20 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 // The surveys own the Feedback table, the row a Pending graduation student's course is seeded from.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-feedback.php';
+// The status a Feedback form 3 finished on the site owes the base, tried again on each run (1.123.95).
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-graduation.php';
+// The audit trail, as far as the status write reaches it: its rows, kept for the checks (round 6). The real class is
+// held to these names in bin/test-feedback.php.
+if ( ! class_exists( 'WPCPM_Institution_Audit' ) ) {
+	class WPCPM_Institution_Audit {
+		const GROUND_SYSTEM = 'system';
+		const EVIDENCE_LIVE = 'live';
+		public static function record_program( array $entry ) {
+			$GLOBALS['audit_rows'][] = $entry;
+			return 1;
+		}
+	}
+}
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-activity.php';
 // The name order the reconciliation lists its status disagreements in is the switchers' own.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
@@ -736,7 +799,14 @@ function run_sync() {
 
 	$when = $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ]['started'];
 
-	WPCPM_Students_Sync::run_tick( 60 );
+	// A throw out of the tick is a stalled run: kept for the checks to name, never a crash of the suite (1.123.95).
+	$GLOBALS['run_crash'] = '';
+
+	try {
+		WPCPM_Students_Sync::run_tick( 60 );
+	} catch ( Throwable $e ) {
+		$GLOBALS['run_crash'] = $e->getMessage();
+	}
 
 	return $when;
 }
@@ -2582,9 +2652,11 @@ ck( 'and the one that got it lets it go', isset( $GLOBALS['opts'][ WPCPM_Student
 
 students_lock( 'acquire_lock' );
 // The lock ran out under this tick, and a second tick took it over.
-$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] = (string) ( time() + 500 );
+// One reading of the clock for both sides: two readings can fall on either side of a second and fail the check.
+$successor_until                                  = time() + 500;
+$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] = (string) $successor_until;
 students_lock( 'release_lock' );
-ck( 'a tick whose lock was taken over does not let go of its successor\'s', WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ), time() + 500 );
+ck( 'a tick whose lock was taken over does not let go of its successor\'s', WPCPM_Lock::until( WPCPM_Students_Sync::OPT_LOCK ), $successor_until );
 unset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_LOCK ] );
 
 $tutors_step                                = new ReflectionMethod( 'WPCPM_Students_Sync', 'phase_tutors' );
@@ -2951,6 +3023,499 @@ ck( 'a run whose first slices ran before the release finishes without recording 
 
 $GLOBALS['meta_writes'] = array();
 list( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_for_pending;
+
+echo "\n=== A Pending graduation owed for a Form 3 finished on the site is tried again on each run (1.123.95) ===\n";
+
+// A student who finished Feedback form 3 on the site while the records refused the status: the account says what is
+// owed (`WPCPM_Student_Graduation::META_OWED`). At the end of each run every owing account is looked at: written when
+// its rows are still on a track and still the student's, read live first; cleared when it can no longer be paid; kept
+// with the no-row reason when it has no Students row.
+$kept_for_owed       = array( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] );
+$GLOBALS['airtable'] = array( $students_table => array(), $reports_table => array(), $feedback_table => array() );
+$GLOBALS['users']    = array();
+$GLOBALS['umeta']    = array();
+$GLOBALS['writes']   = array();
+$GLOBALS['live']     = array();
+$GLOBALS['mail_log'] = array();
+
+$s_fay = student_row( 'Fay Finished', 'fay.finished@example.test', 'In Sensei', $dee, '2026-03-02' );
+report_row( 'Fay Finished', 'fay.finished@example.test', 'In Sensei', $dee );
+$s_gus = student_row( 'Gus Graduated', 'gus.graduated@example.test', 'In Sensei', $dee, '2026-03-02' );
+report_row( 'Gus Graduated', 'gus.graduated@example.test', 'In Sensei', $dee );
+$s_hal = student_row( 'Hal Basesform', 'hal.basesform@example.test', 'In Sensei', $dee, '2026-03-02' );
+report_row( 'Hal Basesform', 'hal.basesform@example.test', 'In Sensei', $dee );
+report_row( 'Ivy Norow', 'ivy.norow@example.test', 'In Sensei', $dee );
+$s_jon = student_row( 'Jon Liveread', 'jon.liveread@example.test', 'In Sensei', $dee, '2026-03-02' );
+report_row( 'Jon Liveread', 'jon.liveread@example.test', 'In Sensei', $dee );
+$s_kim = student_row( 'Kim Reportsdone', 'kim.reportsdone@example.test', 'In Sensei', $dee, '2026-03-02' );
+$r_kim = report_row( 'Kim Reportsdone', 'kim.reportsdone@example.test', 'In Sensei', $dee );
+$s_mia = student_row( 'Mia Moved', 'mia.moved@example.test', 'In Sensei', $dee, '2026-03-02' );
+report_row( 'Mia Moved', 'mia.moved@example.test', 'In Sensei', $dee );
+$s_ned = student_row( 'Ned Neighbour', 'ned.neighbour@example.test', 'In Sensei', $dee, '2026-03-02' );
+report_row( 'Ned Neighbour', 'ned.neighbour@example.test', 'In Sensei', $dee );
+
+run_sync();
+
+$owe_on  = static function ( $id ) {
+	// What the debt was made for (round 4): the account's reports record and the track it was on.
+	$GLOBALS['umeta'][ $id ][ WPCPM_Student_Graduation::META_OWED ] = array( 'at' => 1790000000, 'by' => $id, 'as' => 'student', 'reason' => 'Refused.', 'tried' => 1790000000, 'report' => (string) ( $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_RECORD_ID ] ?? '' ), 'track' => 'In Sensei' );
+	return $id;
+};
+$owed_of = static function ( $id ) {
+	return $GLOBALS['umeta'][ $id ][ WPCPM_Student_Graduation::META_OWED ] ?? '(absent)';
+};
+$cell_of = static function ( $record ) use ( $students_table, $fields ) {
+	foreach ( $GLOBALS['airtable'][ $students_table ] as $row ) {
+		if ( $row['id'] === $record ) {
+			return $row['fields'][ $fields['student_status'] ] ?? '';
+		}
+	}
+	return '(no row)';
+};
+$live_reads = static function () use ( $students_table ) {
+	return array_values( array_map( static function ( $f ) { return $f['get']; }, array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $students_table ) { return $f['table'] === $students_table && isset( $f['get'] ); } ) ) );
+};
+$written_ids = static function () {
+	$ids = array();
+	foreach ( $GLOBALS['writes'] as $w ) {
+		foreach ( $w['records'] as $r ) { $ids[] = $r['id']; }
+	}
+	return $ids;
+};
+$fay = $owe_on( user_id_for( 'fay.finished@example.test' ) );
+$gus = $owe_on( user_id_for( 'gus.graduated@example.test' ) );
+$hal = $owe_on( user_id_for( 'hal.basesform@example.test' ) );
+$ivy = $owe_on( user_id_for( 'ivy.norow@example.test' ) );
+$jon = $owe_on( user_id_for( 'jon.liveread@example.test' ) );
+$kim = $owe_on( user_id_for( 'kim.reportsdone@example.test' ) );
+$mia = $owe_on( user_id_for( 'mia.moved@example.test' ) );
+$ned = user_id_for( 'ned.neighbour@example.test' );
+// An owing account no run reads any more: a student the program no longer knows.
+$GLOBALS['users'][990] = array( 'login' => 'leo-left', 'email' => 'leo.left@example.test', 'name' => 'Leo Left', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][990] = array( WPCPM_Students_Sync::META_RECORD_ID => 'recRNOTREADANY001', WPCPM_Students_Sync::META_PROGRAM => array( 'program' => 'In Sensei', 'email' => 'leo.left@example.test' ) );
+$owe_on( 990 );
+
+$pend_status( $students_table, $s_gus, 'Graduate' );
+$pend_status( $students_table, $s_hal, 'Pending graduation' );
+$pend_status( $reports_table, $r_kim, 'Graduate' );
+// What the records say when the row is read again, after the run's own read of the table.
+$GLOBALS['live'][ $s_jon ] = array( $fields['student_status'] => 'Graduate' );
+$GLOBALS['live'][ $s_mia ] = array( $fields['student_email'] => 'mia.elsewhere@example.test' );
+
+$GLOBALS['writes']       = array();
+$GLOBALS['update_error'] = new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 422): INVALID_MULTIPLE_CHOICE_OPTIONS', array( 'status' => 422 ) );
+$t_tried                 = time();
+run_sync();
+unset( $GLOBALS['update_error'] );
+$fay_owed = $owed_of( $fay );
+$report   = get_option( WPCPM_Students_Sync::OPT_REPORT );
+$reads    = $live_reads();
+sort( $reads );
+$want_reads = array( $s_fay, $s_hal, $s_jon, $s_mia );
+sort( $want_reads );
+
+ck( 'I2/I3 retry_failed: the run reads the owed rows on a track live, writes only Fay\'s, and a refusal keeps her debt with the new reason and time', array(
+	$reads,
+	$written_ids(),
+	$fay_owed['reason'] ?? null,
+	( $fay_owed['tried'] ?? 0 ) >= $t_tried,
+	$fay_owed['at'] ?? null,
+	$cell_of( $s_fay ),
+	isset( $GLOBALS['umeta'][ $fay ][ WPCPM_Student_Graduation::META_SET ] ),
+), array( $want_reads, array( $s_fay ), 'Airtable request failed (HTTP 422): INVALID_MULTIPLE_CHOICE_OPTIONS', true, 1790000000, 'In Sensei', false ) );
+ck( 'and the run report says so in the program\'s words, naming the student, and the run still finishes', array(
+	array_values( array_filter( (array) ( $report['notices'] ?? array() ), static function ( $n ) { return false !== strpos( $n, 'Fay Finished' ); } ) ),
+	isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ),
+), array( array( 'Fay Finished finished Feedback form 3 on this site, and their status could not be set to Pending graduation in the program\'s records (Airtable request failed (HTTP 422): INVALID_MULTIPLE_CHOICE_OPTIONS). The next run tries again.' ), false ) );
+ck( 'I2 retry_settled_elsewhere: a row the run read at Graduate settles the debt with nothing read or written, and no set meta', array(
+	$owed_of( $gus ),
+	$cell_of( $s_gus ),
+	isset( $GLOBALS['umeta'][ $gus ][ WPCPM_Student_Graduation::META_SET ] ),
+	in_array( $s_gus, $reads, true ),
+), array( '(absent)', 'Graduate', false, false ) );
+$audit_of = static function ( $record ) {
+	foreach ( array_reverse( $GLOBALS['audit_rows'] ?? array() ) as $entry ) {
+		if ( ( $entry['subject'] ?? '' ) === $record ) {
+			return $entry['message'] ?? '';
+		}
+	}
+	return '(none)';
+};
+$hal_set = $GLOBALS['umeta'][ $hal ][ WPCPM_Student_Graduation::META_SET ] ?? array();
+ck( 'R6.1 found_row: the audit row for a status the retry found already pending says so', $audit_of( $s_hal ), 'Status: In Sensei to Pending graduation (found already set in the program\'s records).' );
+ck( 'R4.4 landed_is_ours: a row already at Pending graduation for the debt\'s own program is the site\'s write that landed: set meta from the debt\'s first day, waiting stamp that day, course kept, debt cleared, no second write', array(
+	$owed_of( $hal ),
+	array( $hal_set['finished'] ?? null, $hal_set['via'] ?? null, $hal_set['records'] ?? null, $hal_set['track'] ?? null ),
+	$GLOBALS['umeta'][ $hal ][ WPCPM_Students_Sync::META_PENDING ]['at'] ?? null,
+	$GLOBALS['umeta'][ $hal ][ WPCPM_Students_Sync::META_COURSE ] ?? null,
+	in_array( $s_hal, $written_ids(), true ),
+), array( '(absent)', array( 1790000000, 'sync', array( $s_hal ), 'In Sensei' ), 1790000000, 'In Sensei', false ) );
+ck( 'I3 retry_live: a row the run read on a track and the records now hold at Graduate is not written, and the debt is cleared', array( $owed_of( $jon ), $cell_of( $s_jon ), in_array( $s_jon, $written_ids(), true ) ), array( '(absent)', 'In Sensei', false ) );
+ck( 'I4 retry_reports_done: Students rows on a track with the reports row not on a track are not written: the debt is cleared', array( $owed_of( $kim ), $cell_of( $s_kim ), in_array( $s_kim, $reads, true ) ), array( '(absent)', 'In Sensei', false ) );
+ck( 'I2 retry_unknown: an owing account the run no longer reads as a student is cleared, nothing read or written', $owed_of( 990 ), '(absent)' );
+ck( 'I2 retry_no_row: a student the run joins to no Students row keeps the debt, with the no-row reason, and nothing is written', array(
+	$owed_of( $ivy )['reason'] ?? null,
+	$owed_of( $ivy )['at'] ?? null,
+), array( 'The site holds no Students row for this student.', 1790000000 ) );
+ck( 'M3 retry_address: a row whose address read now is not the student\'s is not written; the debt stays and says why', array(
+	$owed_of( $mia )['reason'] ?? null,
+	in_array( $s_mia, $written_ids(), true ),
+), array( 'The Students row on a track holds an email address other than this student\'s, so it was not written.', false ) );
+ck( 'I4 the neighbour: an account owing nothing has its row neither read nor written', array( in_array( $s_ned, $reads, true ), $cell_of( $s_ned ) ), array( false, 'In Sensei' ) );
+
+$GLOBALS['writes'] = array();
+$t_written         = time();
+run_sync();
+$fay_set = $GLOBALS['umeta'][ $fay ][ WPCPM_Student_Graduation::META_SET ] ?? array();
+$roster  = WPCPM_Roster_Index::rows( $dee );
+
+ck( 'retry_written: the next run writes it, and the account is cleared and records the write as the sync\'s, for the student who saved the form', array(
+	$cell_of( $s_fay ),
+	$owed_of( $fay ),
+	$fay_set['by'] ?? null,
+	$fay_set['as'] ?? null,
+	$fay_set['via'] ?? null,
+	$fay_set['records'] ?? null,
+	( $fay_set['at'] ?? 0 ) >= $t_written,
+), array( 'Pending graduation', '(absent)', $fay, 'student', 'sync', array( $s_fay ), true ) );
+ck( 'I6 retry_finished_day: the day the form was finished is kept: "finished" and "Waiting since" are the debt\'s first day, not the retry\'s', array(
+	$fay_set['finished'] ?? null,
+	$GLOBALS['umeta'][ $fay ][ WPCPM_Students_Sync::META_PENDING ] ?? null,
+), array( 1790000000, array( 'at' => 1790000000, 'before' => false ) ) );
+ck( 'and the same run puts the student on the card: the roster row it writes says Pending graduation, its course kept', array(
+	$roster[ $s_fay ]['status'] ?? null,
+	$GLOBALS['umeta'][ $fay ][ WPCPM_Students_Sync::META_COURSE ] ?? null,
+), array( 'Pending graduation', 'In Sensei' ) );
+ck( 'one write, Fay\'s', $written_ids(), array( $s_fay ) );
+ck( 'R6.1 own_write_sync: the audit row for a status the retry wrote itself reads as before', $audit_of( $s_fay ), 'Status: In Sensei to Pending graduation.' );
+
+$GLOBALS['writes'] = array();
+run_sync();
+ck( 'once settled, a run writes nothing more, and the waiting stamp stays the day the form was finished', array( $GLOBALS['writes'], $GLOBALS['umeta'][ $fay ][ WPCPM_Students_Sync::META_PENDING ]['at'] ?? null ), array( array(), 1790000000 ) );
+ck( 'the sync sends no mail for any of it', $GLOBALS['mail_log'], array() );
+
+// I5: a run already in flight when the site set the status read the row on a track. It must not take the waiting
+// stamp away from an account the site set after the run began; one set before the run began is the run's to judge.
+$flight = array_values( array_filter( $GLOBALS['states'], static function ( $st ) { return 'provision' === ( $st['phase'] ?? '' ) && 0 === (int) ( $st['cursor'] ?? -1 ); } ) )[0];
+$flight['rows'][ $s_fay ]['status'] = 'In Sensei';
+$flight['started']                  = time() - 600;
+$GLOBALS['umeta'][ $fay ][ WPCPM_Student_Graduation::META_SET ]['at'] = time() - 60;
+$GLOBALS['umeta'][ $fay ][ WPCPM_Students_Sync::META_PENDING ]        = array( 'at' => 1790000000, 'before' => false );
+$flight_copy = $flight;
+$provision_step->invokeArgs( null, array( &$flight, WPCPM_Settings::get(), null ) );
+ck( 'I5 in_flight_stamp: a run that began before the site set the status keeps the account\'s waiting stamp', $GLOBALS['umeta'][ $fay ][ WPCPM_Students_Sync::META_PENDING ] ?? '(absent)', array( 'at' => 1790000000, 'before' => false ) );
+$GLOBALS['umeta'][ $fay ][ WPCPM_Student_Graduation::META_SET ]['at'] = time() - 6000;
+$provision_step->invokeArgs( null, array( &$flight_copy, WPCPM_Settings::get(), null ) );
+ck( 'and one set before the run began is cleared by it as before, when the run reads a track', $GLOBALS['umeta'][ $fay ][ WPCPM_Students_Sync::META_PENDING ] ?? '(absent)', '(absent)' );
+
+$GLOBALS['meta_writes'] = array();
+unset( $GLOBALS['live'] );
+list( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_for_owed;
+
+echo "\n=== The retry step never stalls the run (1.123.95, fix round 2) ===\n";
+
+// Four owing students, one a run no longer reads (the departed account, which proves the run reached its revoke), and
+// the step's faults: a throw in one account's retry, a slow base, the base not answering. Each run must reach its end.
+$kept_for_step       = array( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] );
+$GLOBALS['airtable'] = array( $students_table => array(), $reports_table => array(), $feedback_table => array() );
+$GLOBALS['users']    = array();
+$GLOBALS['umeta']    = array();
+$step_rows           = array();
+
+foreach ( array( 'Abe', 'Bea', 'Cal', 'Dot' ) as $step_name ) {
+	$step_rows[ $step_name ] = student_row( "$step_name Stepper", strtolower( $step_name ) . '.stepper@example.test', 'In Sensei', $dee, '2026-03-02' );
+	report_row( "$step_name Stepper", strtolower( $step_name ) . '.stepper@example.test', 'In Sensei', $dee );
+}
+
+run_sync();
+
+$step_ids  = array();
+foreach ( array( 'Abe', 'Bea', 'Cal', 'Dot' ) as $step_name ) {
+	$step_ids[ $step_name ] = user_id_for( strtolower( $step_name ) . '.stepper@example.test' );
+}
+$step_owe  = static function () use ( $step_ids ) {
+	foreach ( $step_ids as $id ) {
+		$GLOBALS['umeta'][ $id ][ WPCPM_Student_Graduation::META_OWED ] = array( 'at' => 1790000000, 'by' => $id, 'as' => 'student', 'reason' => 'Refused.', 'tried' => 1790000000, 'kind' => 'retry', 'report' => (string) ( $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_RECORD_ID ] ?? '' ), 'track' => 'In Sensei' );
+		unset( $GLOBALS['umeta'][ $id ][ WPCPM_Student_Graduation::META_SET ] );
+	}
+	// A linked account no run reads: the run's revoke takes its Student role, which is how a check sees the end reached.
+	$GLOBALS['users'][991] = array( 'login' => 'gone-student', 'email' => 'gone.student@example.test', 'name' => 'Gone Student', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+	$GLOBALS['umeta'][991] = array( WPCPM_Students_Sync::META_RECORD_ID => 'recRDEPARTED00001' );
+	$GLOBALS['writes']     = array();
+};
+$step_end  = static function () {
+	return array(
+		isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ),
+		in_array( WPCPM_Roles::ROLE_STUDENT, $GLOBALS['users'][991]['roles'], true ),
+		$GLOBALS['run_crash'] ?? '',
+	);
+};
+$step_note = static function ( $needle ) {
+	$report = get_option( WPCPM_Students_Sync::OPT_REPORT );
+	return array_values( array_filter( (array) ( $report['notices'] ?? array() ), static function ( $n ) use ( $needle ) { return false !== strpos( $n, $needle ); } ) );
+};
+$step_owed = static function ( $name ) use ( $step_ids ) {
+	return $GLOBALS['umeta'][ $step_ids[ $name ] ][ WPCPM_Student_Graduation::META_OWED ] ?? '(absent)';
+};
+
+$step_owe();
+$GLOBALS['throw_on'] = array( $step_rows['Abe'] => true );
+run_sync();
+unset( $GLOBALS['throw_on'] );
+ck( 'N1 retry_throws: a fault in one account\'s retry is that account\'s debt, kept with its words and one notice; the others are written; the run reaches its end', array(
+	$step_owed( 'Abe' )['reason'] ?? null,
+	$step_note( 'A fault inside the read.' ),
+	array( $step_owed( 'Bea' ), $step_owed( 'Cal' ), $step_owed( 'Dot' ) ),
+	$step_end(),
+), array(
+	'A fault inside the read.',
+	array( 'Abe Stepper finished Feedback form 3 on this site, and their status could not be set to Pending graduation in the program\'s records (A fault inside the read.). The next run tries again.' ),
+	array( '(absent)', '(absent)', '(absent)' ),
+	array( false, false, '' ),
+) );
+
+// Put the four back on a track, each owing again.
+foreach ( $step_rows as $step_record ) {
+	$pend_status( $students_table, $step_record, 'In Sensei' );
+}
+$step_owe();
+$GLOBALS['transport_on'] = array( $step_rows['Abe'] => true );
+$GLOBALS['fetches']      = array();
+run_sync();
+unset( $GLOBALS['transport_on'] );
+$step_gets = array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $students_table ) { return $f['table'] === $students_table && isset( $f['get'] ); } ) );
+ck( 'N1 retry_transport: the base not answering stops the step at the first account: no other row is read, every debt stays, one notice says how many wait; the run reaches its end', array(
+	array_column( $step_gets, 'get' ),
+	array( $step_owed( 'Abe' )['reason'] ?? null, is_array( $step_owed( 'Bea' ) ), is_array( $step_owed( 'Cal' ) ), is_array( $step_owed( 'Dot' ) ) ),
+	$step_note( 'still owe their status' ),
+	$GLOBALS['writes'],
+	$step_end(),
+), array(
+	array( $step_rows['Abe'] ),
+	array( 'cURL error 28: Operation timed out', true, true, true ),
+	array( '3 students still owe their status: the next run goes on.' ),
+	array(),
+	array( false, false, '' ),
+) );
+
+$GLOBALS['g_clock']                = 5000.0;
+$GLOBALS['g_step']                 = 6;
+WPCPM_Student_Graduation::$clock   = static function () { return (float) $GLOBALS['g_clock']; };
+$GLOBALS['fetches']                = array();
+run_sync();
+WPCPM_Student_Graduation::$clock   = null;
+$GLOBALS['g_step']                 = 0;
+$step_gets = array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $students_table ) { return $f['table'] === $students_table && isset( $f['get'] ); } ) );
+$step_left = array_filter( array( 'Abe', 'Bea', 'Cal', 'Dot' ), static function ( $n ) use ( $step_owed ) { return is_array( $step_owed( $n ) ); } );
+ck( 'N1 retry_slow: on a slow base each retry request is given five seconds at most, the step stops at its twenty, what is left is left to the next run with one notice; the run reaches its end', array(
+	count( $step_gets ) > 0 && max( array_merge( array_column( $step_gets, 'timeout' ), array_column( $GLOBALS['writes'], 'timeout' ), array( 0 ) ) ) <= 5,
+	count( $step_gets ) + count( $GLOBALS['writes'] ) <= 4,
+	count( $step_left ) >= 2,
+	$step_note( 'still owe their status' ),
+	$step_end(),
+), array(
+	true,
+	true,
+	true,
+	array( sprintf( '%d students still owe their status: the next run goes on.', count( $step_left ) ) ),
+	array( false, false, '' ),
+) );
+
+// Round 3: put the four back on a track, each owing again, before each case below.
+$step_reset = static function () use ( $step_rows, $step_owe, $pend_status, $students_table ) {
+	foreach ( $step_rows as $step_record ) {
+		$pend_status( $students_table, $step_record, 'In Sensei' );
+	}
+	$step_owe();
+	$GLOBALS['fetches'] = array();
+};
+
+$step_reset();
+$GLOBALS['throw_on']                                         = array( $step_rows['Abe'] => true );
+$GLOBALS['meta_throw'][ WPCPM_Student_Graduation::META_OWED ] = true;
+run_sync();
+unset( $GLOBALS['throw_on'], $GLOBALS['meta_throw'] );
+ck( 'm1 keep_owed_throws: a fault while keeping a fault\'s debt still leaves the step and the run reaching its end, with a notice; the others are written', array(
+	$step_end(),
+	count( $step_note( 'Abe Stepper' ) ) >= 1,
+	array( $step_owed( 'Bea' ), $step_owed( 'Cal' ), $step_owed( 'Dot' ) ),
+), array( array( false, false, '' ), true, array( '(absent)', '(absent)', '(absent)' ) ) );
+
+foreach ( array( 401, 403 ) as $step_code ) {
+	$step_reset();
+	$GLOBALS['transport_on'] = array( $step_rows['Abe'] => new WP_Error( 'wpcpm_airtable_error', "Airtable request failed (HTTP $step_code): NOT_AUTHORIZED", array( 'status' => $step_code ) ) );
+	run_sync();
+	unset( $GLOBALS['transport_on'] );
+	$step_gets = array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $students_table ) { return $f['table'] === $students_table && isset( $f['get'] ); } ) );
+	ck( "m3 retry_$step_code: a $step_code refuses every row alike, so it stops the step like a timeout; the run reaches its end", array(
+		array_column( $step_gets, 'get' ),
+		$step_note( 'still owe their status' ),
+		$step_end(),
+	), array( array( $step_rows['Abe'] ), array( '3 students still owe their status: the next run goes on.' ), array( false, false, '' ) ) );
+}
+
+$step_reset();
+$step_settings = $GLOBALS['opts']['wpcpm_settings'];
+// Taken away once the run has read the Students table: the retry finds the setting missing, the run's own reads did not.
+$GLOBALS['after_read'][ $students_table ] = static function () {
+	$GLOBALS['opts']['wpcpm_settings']['students_table'] = '';
+};
+run_sync();
+$GLOBALS['opts']['wpcpm_settings'] = $step_settings;
+ck( 'm3 retry_no_setting: a missing setting stops the step at the first account, its debt saying so; the run reaches its end', array(
+	$step_owed( 'Abe' )['reason'] ?? null,
+	$step_note( 'still owe their status' ),
+	$step_end(),
+), array( 'The settings name no Students table or status column.', array( '3 students still owe their status: the next run goes on.' ), array( false, false, '' ) ) );
+
+echo "\n=== Round 4: a debt is for one program, the gate holds, the marker is checked, a shared refusal stops ===\n";
+
+$step_gets_now = static function () use ( $students_table ) {
+	return array_column( array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $students_table ) { return $f['table'] === $students_table && isset( $f['get'] ); } ) ), 'get' );
+};
+$abe = $step_ids['Abe'];
+
+// 1. Same program: retried. A new reports record, or the same record on another track: cleared, nothing written.
+$step_reset();
+$GLOBALS['umeta'][ $step_ids['Bea'] ][ WPCPM_Student_Graduation::META_OWED ]['report'] = 'recROLDPROGRAM001';
+$GLOBALS['umeta'][ $step_ids['Cal'] ][ WPCPM_Student_Graduation::META_OWED ]['track']  = 'Developer Track';
+unset( $GLOBALS['umeta'][ $step_ids['Dot'] ][ WPCPM_Student_Graduation::META_OWED ]['report'] );
+run_sync();
+ck( 'R4.1 one_program: a debt is retried only for the program and track it was made for; another program, another track or a debt naming none is cleared, nothing read or written', array(
+	array( $step_owed( 'Abe' ), isset( $GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ] ) ),
+	array( $step_owed( 'Bea' ), isset( $GLOBALS['umeta'][ $step_ids['Bea'] ][ WPCPM_Student_Graduation::META_SET ] ) ),
+	array( $step_owed( 'Cal' ), isset( $GLOBALS['umeta'][ $step_ids['Cal'] ][ WPCPM_Student_Graduation::META_SET ] ) ),
+	array( $step_owed( 'Dot' ), isset( $GLOBALS['umeta'][ $step_ids['Dot'] ][ WPCPM_Student_Graduation::META_SET ] ) ),
+	$step_gets_now(),
+	$written_ids(),
+), array(
+	array( '(absent)', true ),
+	array( '(absent)', false ),
+	array( '(absent)', false ),
+	array( '(absent)', false ),
+	array( $step_rows['Abe'] ),
+	array( $step_rows['Abe'] ),
+) );
+
+// 3. A debt beside a set meta that blocks this program: cleared without a read or a write.
+$step_reset();
+$GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ] = array( 'at' => 1790000000, 'finished' => 1790000000, 'by' => $abe, 'as' => 'student', 'records' => array( $step_rows['Abe'] ), 'via' => 'form', 'report' => (string) $GLOBALS['umeta'][ $abe ][ WPCPM_Students_Sync::META_RECORD_ID ], 'track' => 'In Sensei' );
+run_sync();
+ck( 'R4.3 gate_holds: a debt beside a set meta for the same program is cleared without a read or a write', array(
+	$step_owed( 'Abe' ),
+	in_array( $step_rows['Abe'], $step_gets_now(), true ),
+	in_array( $step_rows['Abe'], $written_ids(), true ),
+), array( '(absent)', false, false ) );
+
+// 5. The marker could not be written: the debt is kept, with a reason.
+$step_reset();
+$GLOBALS['meta_false'][ WPCPM_Student_Graduation::META_SET ] = true;
+run_sync();
+unset( $GLOBALS['meta_false'] );
+ck( 'R4.5 marker_checked: a set meta the database did not keep leaves the debt in place, with a reason', array(
+	is_array( $step_owed( 'Abe' ) ),
+	$step_owed( 'Abe' )['reason'] ?? null,
+	isset( $GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ] ),
+	$step_end(),
+), array( true, 'The status was set in the program\'s records, but the site could not record that it set it: the next students sync looks again.', false, array( false, false, '' ) ) );
+
+// 4. A write whose answer timed out had landed: the next run finds the row pending and settles it as the site's.
+$step_reset();
+$pend_status( $students_table, $step_rows['Abe'], 'Pending graduation' );
+run_sync();
+ck( 'R4.4 landed_after_timeout: the row reads pending: set meta made with the finished day kept, the debt cleared, no write', array(
+	$step_owed( 'Abe' ),
+	$GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ]['finished'] ?? null,
+	in_array( $step_rows['Abe'], $written_ids(), true ),
+), array( '(absent)', 1790000000, false ) );
+
+// 6. The same refusal twice running is one every row meets: the step stops. One row's own refusal lets the next go.
+foreach ( array( 404 => 'NOT_FOUND', 422 => 'UNKNOWN_FIELD_NAME' ) as $step_code => $step_type ) {
+	$step_reset();
+	$step_error = new WP_Error( 'wpcpm_airtable_error', "Airtable request failed (HTTP $step_code): $step_type", array( 'status' => $step_code, 'error_type' => $step_type ) );
+	$GLOBALS['transport_on'] = array_fill_keys( array_values( $step_rows ), $step_error );
+	run_sync();
+	unset( $GLOBALS['transport_on'] );
+	ck( "R4.6 shared_refusal_$step_code: the same $step_code twice running stops the step: two requests, then the notice of how many wait", array(
+		count( $step_gets_now() ),
+		$step_note( 'still owe their status' ),
+		$step_end(),
+	), array( 2, array( '2 students still owe their status: the next run goes on.' ), array( false, false, '' ) ) );
+}
+
+$step_reset();
+$GLOBALS['transport_on'] = array( $step_rows['Abe'] => new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 422): INVALID_VALUE_FOR_COLUMN', array( 'status' => 422, 'error_type' => 'INVALID_VALUE_FOR_COLUMN' ) ) );
+run_sync();
+unset( $GLOBALS['transport_on'] );
+ck( 'R4.6 own_refusal: a 422 for one row, then a success for the next: every account is tried', array(
+	count( $step_gets_now() ),
+	is_array( $step_owed( 'Abe' ) ),
+	array( $step_owed( 'Bea' ), $step_owed( 'Cal' ), $step_owed( 'Dot' ) ),
+	$step_note( 'still owe their status' ),
+), array( 4, true, array( '(absent)', '(absent)', '(absent)' ), array() ) );
+
+echo "\n=== Round 5: the landed write, once the records have copied it to the reports row ===\n";
+
+// The order things really happen: the write landed, its answer timed out, and the records' automation copied the
+// Students row's status to the reports row before the next run. The program status the site reads is then Pending
+// graduation, and the debt for this same reports record is the site's own write, settled with no read and no write.
+$abe_report = (string) $GLOBALS['umeta'][ $abe ][ WPCPM_Students_Sync::META_RECORD_ID ];
+$r5_case    = static function ( $report_status, $debt_report = null ) use ( $step_reset, $pend_status, $students_table, $reports_table, $step_rows, $abe, $abe_report ) {
+	$step_reset();
+	$pend_status( $students_table, $step_rows['Abe'], 'Pending graduation' );
+	$pend_status( $reports_table, $abe_report, $report_status );
+	if ( null !== $debt_report ) {
+		$GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_OWED ]['report'] = $debt_report;
+	}
+	run_sync();
+	$pend_status( $reports_table, $abe_report, 'In Sensei' );
+};
+
+$r5_case( 'Pending graduation' );
+$r5_set = $GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ] ?? array();
+ck( 'R5 (a) landed_and_copied: program status Pending graduation, debt for this reports record: settled as ours with no read and no write; the set meta holds the debt\'s track and first day; waiting since that day', array(
+	$step_owed( 'Abe' ),
+	in_array( $step_rows['Abe'], $step_gets_now(), true ),
+	in_array( $step_rows['Abe'], $written_ids(), true ),
+	array( $r5_set['track'] ?? null, $r5_set['report'] ?? null, $r5_set['finished'] ?? null, $r5_set['via'] ?? null, $r5_set['records'] ?? null ),
+	$GLOBALS['umeta'][ $abe ][ WPCPM_Students_Sync::META_PENDING ]['at'] ?? null,
+	$GLOBALS['umeta'][ $abe ][ WPCPM_Students_Sync::META_COURSE ] ?? null,
+), array( '(absent)', false, false, array( 'In Sensei', $abe_report, 1790000000, 'sync', array( $step_rows['Abe'] ) ), 1790000000, 'In Sensei' ) );
+ck( 'and the set meta then blocks the same program once an Administrator puts the student back on that track', WPCPM_Student_Graduation::blocks( $abe, array( 'record_id' => $abe_report, 'program' => 'In Sensei' ) ), true );
+
+ck( 'R6.1 found_program: the audit row for a status found pending on the program row says so', $audit_of( $step_rows['Abe'] ), 'Status: In Sensei to Pending graduation (found already set in the program\'s records).' );
+
+$r5_case( 'Graduate' );
+ck( 'R5 (b) graduated: program status Graduate: the debt is cleared with no set meta', array( $step_owed( 'Abe' ), isset( $GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ] ) ), array( '(absent)', false ) );
+
+$r5_case( 'Pending graduation', 'recROLDPROGRAM001' );
+ck( 'R5 (c) other_report: program status Pending graduation but a debt for another reports record: cleared, no set meta', array( $step_owed( 'Abe' ), isset( $GLOBALS['umeta'][ $abe ][ WPCPM_Student_Graduation::META_SET ] ) ), array( '(absent)', false ) );
+
+echo "\n=== Round 6: the accounts not reached go first next time ===\n";
+
+// The first two refused the same way, so the step stops before the last two; the next run tries those two first.
+$step_reset();
+$r6_error = new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 404): NOT_FOUND', array( 'status' => 404, 'error_type' => 'NOT_FOUND' ) );
+$GLOBALS['transport_on'] = array( $step_rows['Abe'] => $r6_error, $step_rows['Bea'] => $r6_error );
+$r6_now = time();
+run_sync();
+$r6_first = $step_gets_now();
+$r6_tried = array( ( $step_owed( 'Abe' )['tried'] ?? 0 ) >= $r6_now, ( $step_owed( 'Bea' )['tried'] ?? 0 ) >= $r6_now, $step_owed( 'Cal' )['tried'] ?? null );
+$GLOBALS['fetches'] = array();
+run_sync();
+unset( $GLOBALS['transport_on'] );
+ck( 'R6.2 fair_order: the step stops after the two the same refusal met, stamps them tried, and the next run tries the two not reached first', array(
+	$r6_first,
+	$r6_tried,
+	array_slice( $step_gets_now(), 0, 2 ),
+), array(
+	array( $step_rows['Abe'], $step_rows['Bea'] ),
+	array( true, true, 1790000000 ),
+	array( $step_rows['Cal'], $step_rows['Dot'] ),
+) );
+
+$GLOBALS['meta_writes'] = array();
+list( $GLOBALS['airtable'], $GLOBALS['users'], $GLOBALS['umeta'], $GLOBALS['opts'], $GLOBALS['cron'] ) = $kept_for_step;
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

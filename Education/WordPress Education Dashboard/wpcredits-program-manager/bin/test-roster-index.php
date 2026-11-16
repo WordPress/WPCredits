@@ -428,6 +428,56 @@ WPCPM_Roster_Index::write_all(
 ck( 'a stored row from before the key existed is replaced like an unstamped one', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['status'], 'Graduate' );
 ck( 'rubbish under the key cleans to 0', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['touched'], 0 );
 
+echo "\n=== touched, on the rows that name no institution too (1.123.95) ===\n";
+
+// The status a finished Feedback form 3 sets is put on the student's roster row at once, the unlinked rows included
+// (`update_unlinked()`). A students run that read the table before that write must not put the old status back.
+$GLOBALS['opts'] = array();
+$rec_u           = 'recSTUDENT0000009';
+$rec_v           = 'recSTUDENT0000010';
+$un_row          = static function ( $record, $email, array $extra = array() ) { return row( $record, $email, array_merge( array( 'institution' => '' ), $extra ) ); };
+
+WPCPM_Roster_Index::write_all( array(), array( $un_row( $rec_u, 'una@example.test' ), $un_row( $rec_v, 'val@example.test', array( 'touched' => 1700000001 ) ) ), array(), array(), $first_read );
+ck( 'the sync\'s own unlinked rows carry no stamp, whatever the caller sent', array( WPCPM_Roster_Index::unlinked()[ $rec_u ]['touched'], WPCPM_Roster_Index::unlinked()[ $rec_v ]['touched'] ), array( 0, 0 ) );
+
+$now_u = time();
+ck( 'update_unlinked() writes a status on an unlinked row and stamps it', array(
+	WPCPM_Roster_Index::update_unlinked( $rec_u, array( 'status' => 'Pending graduation' ) ),
+	WPCPM_Roster_Index::unlinked()[ $rec_u ]['status'],
+	WPCPM_Roster_Index::unlinked()[ $rec_u ]['touched'] >= $now_u,
+	WPCPM_Roster_Index::update_unlinked( 'recNOSUCHROW00001', array( 'status' => 'Pending graduation' ) ),
+	WPCPM_Roster_Index::update_unlinked( $rec_u, array( 'institution' => $inst_a ) ),
+), array( true, 'Pending graduation', true, false, false ) );
+
+WPCPM_Roster_Index::write_all( array(), array( $un_row( $rec_u, 'una@example.test' ), $un_row( $rec_v, 'val@example.test' ) ), array(), array(), $now_u - 1 );
+ck( 'I5 unlinked_in_flight: a run that began before the write keeps the unlinked row as written here', array(
+	WPCPM_Roster_Index::unlinked()[ $rec_u ]['status'],
+	WPCPM_Roster_Index::unlinked()[ $rec_u ]['touched'] >= $now_u,
+	WPCPM_Roster_Index::unlinked()[ $rec_v ]['status'],
+), array( 'Pending graduation', true, 'In Sensei' ) );
+
+WPCPM_Roster_Index::write_all( array(), array( $un_row( $rec_u, 'una@example.test' ) ), array(), array(), $now_u + 5 );
+ck( 'and the run after it, which read the table after the write, replaces it with its own copy', array(
+	WPCPM_Roster_Index::unlinked()[ $rec_u ]['status'],
+	WPCPM_Roster_Index::unlinked()[ $rec_u ]['touched'],
+	array_keys( WPCPM_Roster_Index::unlinked() ),
+), array( 'In Sensei', 0, array( $rec_u ) ) );
+
+// N6: a run that read the row linked to an institution now puts it on that roster: a touched copy left in the unlinked
+// list would list the student twice, so it is not kept.
+WPCPM_Roster_Index::update_unlinked( $rec_u, array( 'status' => 'Pending graduation' ) );
+WPCPM_Roster_Index::write_all( array( $inst_a => array( row( $rec_u, 'una@example.test' ) ) ), array(), array( $inst_a => array() ), array(), time() - 1 );
+ck( 'N6 moved_row: a touched unlinked row the run put on a roster is not kept in the unlinked list', array(
+	array_keys( WPCPM_Roster_Index::unlinked() ),
+	array_keys( WPCPM_Roster_Index::rows( $inst_a ) ),
+), array( array(), array( $rec_u ) ) );
+
+// The same rule on an institution's roster, for the status write (it was there before this release).
+WPCPM_Roster_Index::write_all( array( $inst_a => array( row( $rec_1, 'ada@example.test' ) ) ), array(), array( $inst_a => array() ), array(), $first_read );
+WPCPM_Roster_Index::update( $inst_a, $rec_1, array( 'status' => 'Pending graduation' ) );
+WPCPM_Roster_Index::write_all( array( $inst_a => array( row( $rec_1, 'ada@example.test' ) ) ), array(), array( $inst_a => array() ), array(), $now_u - 1 );
+ck( 'I5 institution_in_flight: and on an institution\'s roster a run that began before the write keeps it too', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['status'], 'Pending graduation' );
+
 echo "\n=== delete_all() sweeps by prefix and by name ===\n";
 
 $GLOBALS['opts'] = array(

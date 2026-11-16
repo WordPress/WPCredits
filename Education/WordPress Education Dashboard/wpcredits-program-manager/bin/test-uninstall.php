@@ -907,6 +907,8 @@ $student = a_user(
 		'wpcpm_student_institution' => 'recSEED0000000001', // WPCPM_Students_Sync::META_INSTITUTION.
 		'wpcpm_student_course'      => 'In Sensei 50h',     // WPCPM_Students_Sync::META_COURSE.
 		'wpcpm_student_pending_since' => array( 'at' => 1792000000, 'before' => true ), // WPCPM_Students_Sync::META_PENDING.
+		'wpcpm_student_pending_set'   => array( 'at' => 1792000000, 'by' => 7, 'as' => 'student' ), // WPCPM_Student_Graduation::META_SET.
+		'wpcpm_student_pending_owed'  => array( 'at' => 1792000000, 'by' => 7, 'as' => 'student' ), // WPCPM_Student_Graduation::META_OWED.
 		'wpcpm_flash'               => array( 'Saved.' ),   // WPCPM_Flash::META.
 		'wpcpm_student_modules'     => array( 'hours' ),
 		'_wpcpm_report_images'      => array( 12 ),         // WPCPM_Student_Report_Form::META_IMAGES.
@@ -1268,6 +1270,8 @@ $names = array(
 	'WPCPM_Students_Sync::META_INSTITUTION'         => 'wpcpm_student_institution',
 	'WPCPM_Students_Sync::META_COURSE'              => 'wpcpm_student_course',
 	'WPCPM_Students_Sync::META_PENDING'             => 'wpcpm_student_pending_since',
+	'WPCPM_Student_Graduation::META_SET'            => 'wpcpm_student_pending_set',
+	'WPCPM_Student_Graduation::META_OWED'           => 'wpcpm_student_pending_owed',
 	'WPCPM_Students_Sync::OPT_PENDING_FROM'         => 'wpcpm_students_pending_from',
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',
 	'WPCPM_Mentors::PER_PAGE_OPTION'                => 'wpcpm_mentors_per_page',

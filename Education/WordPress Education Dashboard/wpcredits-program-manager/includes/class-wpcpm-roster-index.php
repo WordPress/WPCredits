@@ -447,6 +447,7 @@ class WPCPM_Roster_Index {
 	 * reads the table after the edit and replaces the kept row with its own. An
 	 * institution whose only rows are kept ones stays in the counts, with no participation
 	 * to report yet, so `index_subject()`'s walk and the sweep below both still reach it.
+	 * Since 1.123.95 the rows that name no institution are kept by the same rule.
 	 *
 	 * @param array $by_institution Rows grouped by Institutions record ID, each keyed by Students record ID.
 	 * @param array $unlinked       Rows with no institution, keyed by Students record ID.
@@ -484,12 +485,26 @@ class WPCPM_Roster_Index {
 			}
 		}
 
+		// The same rule for the rows that name no institution (1.123.95): the status a finished Feedback form 3 sets is
+		// written on them at once (`update_unlinked()`), and a run that read the table before it must not put it back.
+		// A row the run put on an institution's roster is that roster's now: a touched copy of it here would list the
+		// student twice, so it is not kept.
+		$kept_unlinked = 0;
+		$on_rosters    = array();
+
+		foreach ( $by_institution as $rows ) {
+			foreach ( is_array( $rows ) ? $rows : array() as $key => $row ) {
+				$record                = is_array( $row ) && isset( $row['record_id'] ) ? trim( (string) $row['record_id'] ) : trim( (string) $key );
+				$on_rosters[ $record ] = true;
+			}
+		}
+
 		update_option(
 			self::OPT_UNLINKED,
 			array(
 				'v'    => self::VERSION,
 				'read' => $read,
-				'rows' => self::clean_rows( $unlinked ),
+				'rows' => self::keep_touched( self::clean_rows( $unlinked ), array_diff_key( self::read_option( self::OPT_UNLINKED )['rows'], $on_rosters ), $read, $kept_unlinked ),
 			),
 			false
 		);
@@ -515,33 +530,8 @@ class WPCPM_Roster_Index {
 	 * @return int How many stored rows were kept over the sync's copy.
 	 */
 	private static function write_institution( $record_id, array $rows, $read ) {
-		$rows = self::clean_rows( $rows );
 		$kept = 0;
-
-		// The sync's copy is by definition not a write made here, whatever the caller put
-		// under the key: a stamp that arrived with it would make the next run keep a row
-		// nobody on this site had touched.
-		foreach ( $rows as $students_record => $row ) {
-			$rows[ $students_record ]['touched'] = 0;
-		}
-
-		foreach ( self::read_option( self::option_name( $record_id ) )['rows'] as $students_record => $stored ) {
-			if ( ! is_array( $stored ) ) {
-				continue;
-			}
-
-			// At or after, not strictly after: the read time is the run's start, and the
-			// table was paged some minutes into it, so a row written in the run's first
-			// second was written before the read as well as after the start.
-			$touched = isset( $stored['touched'] ) ? (int) $stored['touched'] : 0;
-
-			if ( $touched < $read ) {
-				continue;
-			}
-
-			$rows[ $students_record ] = $stored;
-			++$kept;
-		}
+		$rows = self::keep_touched( self::clean_rows( $rows ), self::read_option( self::option_name( $record_id ) )['rows'], $read, $kept );
 
 		update_option(
 			self::option_name( $record_id ),
@@ -554,6 +544,44 @@ class WPCPM_Roster_Index {
 		);
 
 		return $kept;
+	}
+
+	/**
+	 * The sync's rows, unstamped, with every stored row written here at or after the run's read time kept over them.
+	 *
+	 * @param array $rows   The sync's rows, cleaned, keyed by Students record ID.
+	 * @param array $stored The rows the option holds now.
+	 * @param int   $read   Unix time the Students table was read.
+	 * @param int   $kept   How many stored rows were kept, by reference.
+	 * @return array
+	 */
+	private static function keep_touched( array $rows, array $stored, $read, &$kept ) {
+		// The sync's copy is by definition not a write made here, whatever the caller put
+		// under the key: a stamp that arrived with it would make the next run keep a row
+		// nobody on this site had touched.
+		foreach ( $rows as $students_record => $row ) {
+			$rows[ $students_record ]['touched'] = 0;
+		}
+
+		foreach ( $stored as $students_record => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			// At or after, not strictly after: the read time is the run's start, and the
+			// table was paged some minutes into it, so a row written in the run's first
+			// second was written before the read as well as after the start.
+			$touched = isset( $row['touched'] ) ? (int) $row['touched'] : 0;
+
+			if ( $touched < (int) $read ) {
+				continue;
+			}
+
+			$rows[ $students_record ] = $row;
+			++$kept;
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -675,6 +703,58 @@ class WPCPM_Roster_Index {
 		$stored['rows'][ $students_record ] = $row;
 
 		update_option( self::option_name( $record_id ), $stored, false );
+
+		return true;
+	}
+
+	/**
+	 * Merge named keys into one of the rows that name no institution, as `update()` does on an institution's roster
+	 * (1.123.95): the same keys refused, the row stamped `touched`, the read time left where it was. For the status a
+	 * finished Feedback form 3 sets (`WPCPM_Student_Graduation`), on a student whose Students row has no institution.
+	 *
+	 * @param string $students_record Students record ID of the row.
+	 * @param array  $changes         Values to merge, keyed by the index's own key names.
+	 * @return bool Whether the option was written.
+	 */
+	public static function update_unlinked( $students_record, array $changes ) {
+		$students_record = trim( (string) $students_record );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $students_record ) ) {
+			return false;
+		}
+
+		$stored = self::read_option( self::OPT_UNLINKED );
+
+		if ( ! isset( $stored['rows'][ $students_record ] ) || ! is_array( $stored['rows'][ $students_record ] ) ) {
+			return false;
+		}
+
+		$row     = $stored['rows'][ $students_record ];
+		$changed = false;
+
+		foreach ( $changes as $key => $value ) {
+			if ( ! in_array( $key, self::KEYS, true ) || in_array( $key, array( 'record_id', 'institution', 'touched' ), true ) ) {
+				continue;
+			}
+
+			$row[ $key ] = $value;
+			$changed     = true;
+		}
+
+		if ( ! $changed ) {
+			return false;
+		}
+
+		$row['touched'] = time();
+		$row            = self::clean( $row );
+
+		if ( 0 !== strcmp( $row['record_id'], $students_record ) ) {
+			return false;
+		}
+
+		$stored['rows'][ $students_record ] = $row;
+
+		update_option( self::OPT_UNLINKED, $stored, false );
 
 		return true;
 	}

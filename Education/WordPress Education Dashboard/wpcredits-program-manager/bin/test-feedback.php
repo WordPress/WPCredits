@@ -83,7 +83,7 @@ function get_transient( $k ) { return $GLOBALS['opts'][ 'T_' . $k ] ?? false; }
 function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; return true; }
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
-function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
+function update_user_meta( $id, $k, $v ) { if ( ! empty( $GLOBALS['meta_false'][ $k ] ) ) { return false; } $GLOBALS['umeta'][ (int) $id ][ $k ] = stripslashes_deep( $v ); return true; }
 // Core's own, beside a user meta stand-in that unslashes what it is handed as core's does: the
 // flash and the permissions stamp hand it a slashed copy, and it reads back as it was given.
 function wp_slash( $v ) { if ( is_array( $v ) ) { return array_map( 'wp_slash', $v ); } return is_string( $v ) ? addslashes( $v ) : $v; }
@@ -139,12 +139,26 @@ $GLOBALS['queue'] = array();
 
 function wp_remote_request( $url, $args = array() ) {
 	$GLOBALS['sent'][] = array( 'url' => $url, 'args' => $args );
+	// Whether the student's consent stamp was already written when this request left (1.123.95).
+	$GLOBALS['stamped_then'][] = defined( 'STUDENT' ) && isset( $GLOBALS['umeta'][ STUDENT ]['wpcpm_report_permissions'] );
+
+	// A clock that moves on with every request, when a check sets a step: how long the status may make a save take.
+	if ( ! empty( $GLOBALS['clock_step'] ) ) {
+		$GLOBALS['clock_now'] += $GLOBALS['clock_step'];
+	}
 
 	if ( empty( $GLOBALS['queue'] ) ) {
 		throw new Exception( 'wp_remote_request() called with nothing queued: ' . $url );
 	}
 
-	return array_shift( $GLOBALS['queue'] );
+	$next = array_shift( $GLOBALS['queue'] );
+
+	// A queued Throwable is a fault inside the call, which a check means to see thrown.
+	if ( $next instanceof Throwable ) {
+		throw $next;
+	}
+
+	return $next;
 }
 function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) ? ( $r['response']['code'] ?? 200 ) : 0; }
 function wp_remote_retrieve_body( $r ) { return is_array( $r ) ? ( $r['body'] ?? '' ) : ''; }
@@ -198,6 +212,33 @@ class WPCPM_Semester_Report {
 		$GLOBALS['forgotten'][] = (string) $institution;
 	}
 }
+
+/*
+ * The audit trail, as far as the status a finished Form 3 sets reaches it (1.123.95): one row about the program's
+ * own work. Defined here for the reason the report's stand-in is, and held to the real class further down.
+ */
+$GLOBALS['logged'] = array();
+
+class WPCPM_Institution_Audit {
+	const GROUND_SYSTEM = 'system';
+	const EVIDENCE_LIVE = 'live';
+	public static function record_program( array $entry ) {
+		// A fault on the audit trail, after the status was written (round 4).
+		if ( ! empty( $GLOBALS['audit_throw'] ) ) {
+			throw new RuntimeException( 'The audit trail refused the row.' );
+		}
+		$GLOBALS['logged'][] = $entry;
+		return 1;
+	}
+}
+
+// The site sends no mail when a finished Form 3 sets the status (1.123.95): a mail would be one here.
+$GLOBALS['mails'] = array();
+function wp_mail() { $GLOBALS['mails'][] = func_get_args(); return true; }
+
+// The roster index the Administrator Dashboard's card reads, and the status a finished Form 3 sets (1.123.95).
+require_once __DIR__ . '/../includes/class-wpcpm-roster-index.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-student-graduation.php';
 
 /*
  * The feedback class is loaded through a rewrite rather than required: `handle_save()` ends in
@@ -882,6 +923,10 @@ function post_form( $actor, $manage, array $answers, $expect = true, $form = 'f3
 		$GLOBALS['umeta'][ STUDENT ]['wpcpm_report_permissions'] = $stamp;
 	}
 
+	// The row's answers before the save, from the record cache, so the save reads nothing first: Form 3's state before
+	// it is what decides whether it was finished by it (1.123.95). Empty, as for a student who has answered nothing yet.
+	$GLOBALS['opts'][ 'T_wpcpm_feedback_' . md5( 'recFB0000000000AA' ) ] = array();
+
 	unset( $GLOBALS['umeta'][ MANAGER ] );
 
 	$posted = array();
@@ -1133,6 +1178,9 @@ function feedback_post( array $answers, $form, $code ) {
 		'wpcpm_feedback_record_for' => HERE,
 	);
 
+	// As in post_form(): the answers before the save come from the record cache (1.123.95).
+	$GLOBALS['opts'][ 'T_wpcpm_feedback_' . md5( 'recFB0000000000AA' ) ] = array();
+
 	$posted = array();
 
 	// Slashed, as WordPress hands a post over.
@@ -1318,6 +1366,470 @@ ck( 'every choice a form offers has words for the reader', array_values( array_d
 ck( 'and the list holds no choice no form offers', array_values( array_diff( array_keys( $labels ), $offered ) ), array() );
 ck( 'in English a choice reads as the base spells it', WPCPM_Student_Feedback::choice_label( 'Yes, by my blog address only' ), 'Yes, by my blog address only' );
 ck( 'a choice with no words is read as it is stored', WPCPM_Student_Feedback::choice_label( 'A choice added later' ), 'A choice added later' );
+
+echo "\n=== A Form 3 finished on the site sets Pending graduation (1.123.95) ===\n";
+
+/*
+ * A track ends with Form 3. Sent through the base's own form, its automation sets the student's Students row to
+ * Pending graduation, and the Administrator Dashboard's card "Students waiting to graduate" lists them. Sent here, the
+ * site does the same: the student's own Students row, found by the record ID the roster index holds for the account,
+ * read again first, written only from a track. These drive the real handler and the real client over canned
+ * responses, and read what left the site.
+ */
+define( 'STUDENTS_ROW', 'recSTUDENTROW0001' );
+define( 'OLD_ROW', 'recSTUDENTROW0002' );
+
+$GLOBALS['opts']['wpcpm_settings']['students_table'] = 'tblStudents';
+
+$f3_all  = fill( 'f3', $forms );
+$f3_last = 'F3 - One main change that would improve the program';
+
+/**
+ * Save Form 3 as somebody, over a world set up for it, and say what happened.
+ *
+ * @param int    $actor   Who is logged in.
+ * @param bool   $manage  Whether they hold the manage capability.
+ * @param array  $prior   Column name => the answers already on the Feedback row, in the record cache.
+ * @param array  $answers Column name => posted value.
+ * @param array  $queue   The responses after the Feedback write's own, in order.
+ * @param array  $world   `status` (the program row's), `rows` (Students record ID => roster status), `pending` (the
+ *                        account's waiting stamp, or none), `institution`.
+ * @return array `flash`, `sent` (method and URL each), `bodies` (each request's decoded body), `meta` (the account's).
+ */
+function finish_f3( $actor, $manage, array $prior, array $answers, array $queue, array $world = array() ) {
+	$world = array_merge(
+		array(
+			'status'      => 'In Sensei',
+			'rows'        => array( STUDENTS_ROW => 'In Sensei' ),
+			'institution' => HERE,
+		),
+		$world
+	);
+
+	$GLOBALS['uid']          = $actor;
+	$GLOBALS['caps']         = $manage;
+	$GLOBALS['sent']         = array();
+	$GLOBALS['stamped_then'] = array();
+	$GLOBALS['redirect']     = '';
+	$GLOBALS['logged']       = array();
+	$GLOBALS['mails']        = array();
+	$GLOBALS['queue']        = array_merge( isset( $world['before'] ) ? $world['before'] : array(), array( response( 200, array( 'records' => array( array( 'id' => 'recFB0000000000AA' ) ) ) ) ), $queue );
+
+	$GLOBALS['umeta'][ STUDENT ] = array(
+		'wpcpm_student_program'     => array_merge( program_row(), array( 'program' => $world['status'], 'record_id' => isset( $world['report'] ) ? $world['report'] : 'recREPORTROW00001', 'email' => isset( $world['email'] ) ? $world['email'] : 'ana@institution-3.example' ) ),
+		'wpcpm_student_institution' => $world['institution'],
+		'wpcpm_feedback_record'     => 'recFB0000000000AA',
+		'wpcpm_feedback_record_for' => $world['institution'],
+	);
+	unset( $GLOBALS['umeta'][ MANAGER ] );
+
+	if ( isset( $world['pending'] ) ) {
+		$GLOBALS['umeta'][ STUDENT ]['wpcpm_student_pending_since'] = $world['pending'];
+	}
+
+	if ( isset( $world['set'] ) ) {
+		$GLOBALS['umeta'][ STUDENT ]['wpcpm_student_pending_set'] = $world['set'];
+	}
+
+	$rows = array();
+
+	foreach ( $world['rows'] as $record => $status ) {
+		$rows[ $record ] = array( 'record_id' => $record, 'name' => 'Ana Nowak', 'status' => $status, 'institution' => $world['institution'], 'user_id' => STUDENT, 'reports' => array(), 'touched' => 0 );
+	}
+
+	// Somebody else's rows on the same roster, joined to another account.
+	foreach ( isset( $world['others'] ) ? $world['others'] : array() as $record => $status ) {
+		$rows[ $record ] = array( 'record_id' => $record, 'name' => 'Ola Other', 'status' => $status, 'institution' => $world['institution'], 'user_id' => 8, 'reports' => array(), 'touched' => 0 );
+	}
+
+	$GLOBALS['opts']['wpcpm_roster_counts']          = array( 'v' => 4, 'read' => 1700000000, 'institutions' => array( HERE => array() ), 'reconciliation' => array() );
+	$GLOBALS['opts'][ 'wpcpm_roster_' . HERE ]       = array( 'v' => 4, 'read' => 1700000000, 'rows' => $rows );
+	$GLOBALS['opts']['wpcpm_roster_unlinked']        = array( 'v' => 4, 'read' => 1700000000, 'rows' => array() );
+	$GLOBALS['opts'][ 'T_wpcpm_feedback_' . md5( 'recFB0000000000AA' ) ] = $prior;
+
+	// The answers before the save not in the record cache: the save reads them, which is the first request.
+	if ( ! empty( $world['uncached'] ) ) {
+		unset( $GLOBALS['opts'][ 'T_wpcpm_feedback_' . md5( 'recFB0000000000AA' ) ] );
+	}
+
+	$posted = array();
+
+	foreach ( $answers as $column => $value ) {
+		$posted[ WPCPM_Student_Feedback::key( $column ) ] = $value;
+	}
+
+	$_POST = array( 'student' => (string) STUDENT, 'form' => 'f3', 'feedback' => $posted );
+	$crash = '';
+
+	try {
+		WPCPM_Student_Feedback::handle_save();
+	} catch ( Left $e ) {
+		// Where the handler meant to end.
+	} catch ( Throwable $e ) {
+		// A request nobody queued, or a fault that got out: named by the checks, never a crash of the suite.
+		$crash = $e->getMessage();
+	}
+
+	$pending = isset( $GLOBALS['umeta'][ $actor ]['wpcpm_flash'] ) ? $GLOBALS['umeta'][ $actor ]['wpcpm_flash'] : array();
+
+	return array(
+		'crash'  => $crash,
+		'flash'  => isset( $pending['feedback'] ) ? (string) $pending['feedback'] : '',
+		'sent'   => array_map( static function ( $s ) { return $s['args']['method'] . ' ' . $s['url']; }, $GLOBALS['sent'] ),
+		'bodies' => array_map( static function ( $s ) { return isset( $s['args']['body'] ) ? json_decode( $s['args']['body'], true ) : null; }, $GLOBALS['sent'] ),
+		'meta'   => $GLOBALS['umeta'][ STUDENT ],
+		'left'   => count( $GLOBALS['queue'] ),
+		'waits'  => array_map( static function ( $s ) { return isset( $s['args']['timeout'] ) ? $s['args']['timeout'] : null; }, $GLOBALS['sent'] ),
+	);
+}
+
+/** The live read of a Students row, saying `$status`. */
+function students_read( $record, $status ) {
+	return response( 200, array( 'id' => $record, 'fields' => array( 'Status' => $status, 'Email' => 'ana@institution-3.example' ) ) );
+}
+
+/** Airtable's answer to the status write. */
+function students_written( $record ) {
+	return response( 200, array( 'records' => array( array( 'id' => $record, 'fields' => array( 'Status' => 'Pending graduation' ) ) ) ) );
+}
+
+$students_url = 'https://api.airtable.com/v0/appTest/tblStudents/';
+$write_body   = array( 'records' => array( array( 'id' => STUDENTS_ROW, 'fields' => array( 'Status' => 'Pending graduation' ) ) ) );
+$roster_of    = static function () { return $GLOBALS['opts'][ 'wpcpm_roster_' . HERE ]['rows']; };
+
+$before = time();
+$one    = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) ) );
+
+ck( 'complete_on_this_save: a save that finishes Form 3 reads the student\'s Students row by its record ID, then writes Pending graduation to it alone', array(
+	$one['flash'],
+	array_slice( $one['sent'], 1 ),
+	$one['bodies'][2] ?? null,
+	$one['left'],
+), array(
+	'feedback-saved',
+	array( 'GET ' . $students_url . STUDENTS_ROW, 'PATCH ' . 'https://api.airtable.com/v0/appTest/tblStudents' ),
+	$write_body,
+	0,
+) );
+ck( 'the answers are written first, as before: the Feedback row\'s PATCH is the first request', 0 === strpos( $one['sent'][0], 'PATCH https://api.airtable.com/v0/appTest/tblFeedback' ), true );
+ck( 'record_by_id: no request looks the student up by an address', count( array_filter( $one['sent'], static function ( $s ) { return false !== stripos( $s, 'filterByFormula' ); } ) ), 0 );
+
+$set = $one['meta']['wpcpm_student_pending_set'] ?? array();
+ck( 'the account records when the site set the status, who saved the form, as whom, and on which rows', array(
+	isset( $set['at'] ) && $set['at'] >= $before,
+	$set['by'] ?? null,
+	$set['as'] ?? null,
+	$set['records'] ?? null,
+	isset( $one['meta']['wpcpm_student_pending_owed'] ),
+), array( true, STUDENT, 'student', array( STUDENTS_ROW ), false ) );
+ck( 'card_at_once: the roster row the card reads says Pending graduation now, stamped as a write made here', array(
+	$roster_of()[ STUDENTS_ROW ]['status'],
+	$roster_of()[ STUDENTS_ROW ]['touched'] >= $before,
+), array( 'Pending graduation', true ) );
+ck( 'and the account is stamped waiting since now, as the students sync stamps a first sight', array(
+	( $one['meta']['wpcpm_student_pending_since']['at'] ?? 0 ) >= $before,
+	$one['meta']['wpcpm_student_pending_since']['before'] ?? null,
+), array( true, false ) );
+ck( 'course_kept: the account keeps the track the student finished, for the card\'s Track column', array(
+	$one['meta']['wpcpm_student_course'] ?? null,
+	WPCPM_Program::course_status( 'Pending graduation', STUDENT ),
+), array( 'In Sensei', 'In Sensei' ) );
+ck( 'the account\'s own program row is left as the base\'s reports row last said: the sync carries the status over', $one['meta']['wpcpm_student_program']['program'], 'In Sensei' );
+ck( 'no_mail: nothing is mailed', $GLOBALS['mails'], array() );
+ck( 'R6.1 own_write_form: the save path\'s own write keeps today\'s audit message', $GLOBALS['logged'][0]['message'] ?? null, 'Status: In Sensei to Pending graduation.' );
+ck( 'the write is on the audit trail, as the program\'s own row: who, which row, from which status', array(
+	count( $GLOBALS['logged'] ),
+	$GLOBALS['logged'][0]['kind'] ?? null,
+	$GLOBALS['logged'][0]['subject'] ?? null,
+	$GLOBALS['logged'][0]['actor'] ?? null,
+	$GLOBALS['logged'][0]['ground'] ?? null,
+	$GLOBALS['logged'][0]['evidence'] ?? null,
+	$GLOBALS['logged'][0]['data'] ?? null,
+), array( 1, 'student_pending', STUDENTS_ROW, STUDENT, 'system', 'live', array( 'field' => 'Status', 'from' => 'In Sensei', 'to' => 'Pending graduation', 'students_record' => STUDENTS_ROW, 'as' => 'student' ) ) );
+
+// The real audit class offers what the stand-in above stands in for.
+$audit_file = __DIR__ . '/../includes/modules/class-wpcpm-institution-audit.php';
+$audit_text = (string) file_get_contents( $audit_file );
+ck( 'the real audit trail offers record_program() and the ground and evidence named', array(
+	(bool) preg_match( '/public static function record_program\(/', $audit_text ),
+	false !== strpos( $audit_text, "const GROUND_SYSTEM  = 'system';" ),
+	false !== strpos( $audit_text, "const EVIDENCE_LIVE  = 'live';" ),
+), array( true, true, true ) );
+
+$partial = $f3_all;
+unset( $partial[ $f3_last ] );
+
+$sitting = finish_f3( STUDENT, false, $partial, array( $f3_last => 'Shorter calls.' ), array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) ) );
+ck( 'second_sitting: a form sent in two sittings counts when the last required answer arrives', array( array_slice( $sitting['sent'], 1 ), $sitting['bodies'][2] ?? null ), array( array( 'GET ' . $students_url . STUDENTS_ROW, 'PATCH https://api.airtable.com/v0/appTest/tblStudents' ), $write_body ) );
+
+$unfinished = finish_f3( STUDENT, false, array(), $partial, array() );
+ck( 'not_complete: a save that leaves Form 3 unfinished writes nothing more and stamps nothing', array(
+	$unfinished['flash'],
+	count( $unfinished['sent'] ),
+	isset( $unfinished['meta']['wpcpm_student_pending_set'] ),
+	isset( $unfinished['meta']['wpcpm_student_pending_owed'] ),
+	$roster_of()[ STUDENTS_ROW ]['status'],
+), array( 'feedback-saved', 1, false, false, 'In Sensei' ) );
+
+$again = finish_f3( STUDENT, false, $f3_all, array( $f3_last => 'A second thought.' ), array() );
+ck( 'already_complete: a save that changes an already finished Form 3 does nothing more', array( count( $again['sent'] ), isset( $again['meta']['wpcpm_student_pending_set'] ) ), array( 1, false ) );
+
+$earlier = array();
+
+foreach ( array( 'f1', 'f2' ) as $earlier_form ) {
+	post_form( STUDENT, false, fill( $earlier_form, $forms ), true, $earlier_form );
+	$earlier[ $earlier_form ] = array( count( $GLOBALS['sent'] ), isset( $GLOBALS['umeta'][ STUDENT ]['wpcpm_student_pending_set'] ) );
+}
+
+ck( 'and finishing Form 1 or Form 2 never does', $earlier, array( 'f1' => array( 1, false ), 'f2' => array( 1, false ) ) );
+
+foreach ( array( 'Graduate', 'Dropped out', 'Pending graduation', 'Paused', 'Not a status the site knows' ) as $not_track ) {
+	$off = finish_f3( STUDENT, false, array(), $f3_all, array(), array( 'status' => $not_track ) );
+	ck( 'not_track: a student whose status on the site is "' . $not_track . '" gets no read and no write', array( count( $off['sent'] ), isset( $off['meta']['wpcpm_student_pending_set'] ), isset( $off['meta']['wpcpm_student_pending_owed'] ), $off['flash'] ), array( 1, false, false, 'feedback-saved' ) );
+}
+
+$stale = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'Graduate' ) ) );
+ck( 'stale_local: a track on the site but Graduate in the base, read live before the write, is not written over', array(
+	array_slice( $stale['sent'], 1 ),
+	isset( $stale['meta']['wpcpm_student_pending_set'] ),
+	isset( $stale['meta']['wpcpm_student_pending_owed'] ),
+	$roster_of()[ STUDENTS_ROW ]['status'],
+	$stale['flash'],
+), array( array( 'GET ' . $students_url . STUDENTS_ROW ), false, false, 'Graduate', 'feedback-saved' ) );
+
+$already = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'Pending graduation' ) ) );
+ck( 'and one the base already holds at Pending graduation is not written again; the card reads it so at once', array( count( $already['sent'] ), $roster_of()[ STUDENTS_ROW ]['status'], isset( $already['meta']['wpcpm_student_pending_owed'] ) ), array( 2, 'Pending graduation', false ) );
+
+$two_rows = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_read( OLD_ROW, 'Graduate' ), students_written( STUDENTS_ROW ) ), array( 'rows' => array( STUDENTS_ROW => 'In Sensei', OLD_ROW => 'Graduate' ) ) );
+ck( 'a student with two Students rows has only the one on a track written', array( array_slice( $two_rows['sent'], 1 ), $two_rows['bodies'][3] ?? null ), array( array( 'GET ' . $students_url . STUDENTS_ROW, 'GET ' . $students_url . OLD_ROW, 'PATCH https://api.airtable.com/v0/appTest/tblStudents' ), $write_body ) );
+
+$no_row = finish_f3( STUDENT, false, array(), $f3_all, array(), array( 'rows' => array() ) );
+ck( 'no_record: a student the site holds no Students row for gets no read and no write, and is stamped as owed', array(
+	count( $no_row['sent'] ),
+	$no_row['flash'],
+	isset( $no_row['meta']['wpcpm_student_pending_set'] ),
+	( $no_row['meta']['wpcpm_student_pending_owed']['at'] ?? 0 ) >= $before,
+	$no_row['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+), array( 1, 'feedback-saved', false, true, 'The site holds no Students row for this student.' ) );
+
+$GLOBALS['umeta'][ MANAGER ] = array();
+$typed = finish_f3( MANAGER, true, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) ) );
+ck( 'by_administrator: an Administrator typing up a paper Form 3 has the same effect, recorded as theirs', array(
+	$typed['flash'],
+	$typed['bodies'][2] ?? null,
+	$typed['meta']['wpcpm_student_pending_set']['by'] ?? null,
+	$typed['meta']['wpcpm_student_pending_set']['as'] ?? null,
+	$GLOBALS['logged'][0]['actor'] ?? null,
+), array( 'feedback-saved', $write_body, MANAGER, 'administrator', MANAGER ) );
+
+$refused = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), response( 422, array( 'error' => array( 'type' => 'INVALID_MULTIPLE_CHOICE_OPTIONS', 'message' => 'Insufficient permissions to create new select option.' ) ) ) ) );
+$owed    = $refused['meta']['wpcpm_student_pending_owed'] ?? array();
+ck( 'write_refused: the base refusing the status keeps the answers saved and the student\'s message as it was', array( $refused['flash'], 0 === strpos( $refused['sent'][0], 'PATCH https://api.airtable.com/v0/appTest/tblFeedback' ) ), array( 'feedback-saved', true ) );
+ck( 'and stamps the account with what is owed: when, by whom, and the base\'s reason', array(
+	( $owed['at'] ?? 0 ) >= $before,
+	$owed['by'] ?? null,
+	$owed['as'] ?? null,
+	'' !== (string) ( $owed['reason'] ?? '' ),
+	isset( $refused['meta']['wpcpm_student_pending_set'] ),
+	isset( $refused['meta']['wpcpm_student_pending_since'] ),
+	$roster_of()[ STUDENTS_ROW ]['status'],
+	$GLOBALS['logged'],
+), array( true, STUDENT, 'student', true, false, false, 'In Sensei', array() ) );
+
+$errored = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' ) ) );
+ck( 'write_errored: a write the network lost is owed the same way, its reason kept', array( $errored['flash'], $errored['meta']['wpcpm_student_pending_owed']['reason'] ?? null, isset( $errored['meta']['wpcpm_student_pending_set'] ) ), array( 'feedback-saved', 'cURL error 28: Operation timed out', false ) );
+
+$unread = finish_f3( STUDENT, false, array(), $f3_all, array( response( 404, array( 'error' => 'NOT_FOUND' ) ) ) );
+ck( 'and so is one whose Students row could not be read (a row deleted in the base): nothing is written blind', array( count( $unread['sent'] ), $unread['flash'], isset( $unread['meta']['wpcpm_student_pending_owed'] ), isset( $unread['meta']['wpcpm_student_pending_set'] ) ), array( 2, 'feedback-saved', true, false ) );
+
+$GLOBALS['opts']['wpcpm_roster_unlinked'] = array( 'v' => 4, 'read' => 1700000000, 'rows' => array() );
+$unlinked_world = array( 'rows' => array(), 'institution' => '' );
+$GLOBALS['uid'] = STUDENT;
+finish_f3( STUDENT, false, array(), $f3_all, array(), $unlinked_world );
+$GLOBALS['opts']['wpcpm_roster_unlinked']['rows'][ STUDENTS_ROW ] = array( 'record_id' => STUDENTS_ROW, 'name' => 'Ana Nowak', 'status' => 'In Sensei', 'institution' => '', 'user_id' => STUDENT, 'reports' => array(), 'touched' => 0 );
+$GLOBALS['umeta'][ STUDENT ]['wpcpm_feedback_record_for'] = '';
+$GLOBALS['umeta'][ STUDENT ]['wpcpm_student_institution'] = '';
+unset( $GLOBALS['umeta'][ STUDENT ]['wpcpm_student_pending_owed'] );
+$GLOBALS['sent']  = array();
+$GLOBALS['queue'] = array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) );
+$unlinked_out     = WPCPM_Student_Graduation::form_finished( STUDENT, STUDENT );
+ck( 'a student whose Students row names no institution is found among the unlinked rows, written, and that row says so at once', array(
+	$unlinked_out,
+	$GLOBALS['opts']['wpcpm_roster_unlinked']['rows'][ STUDENTS_ROW ]['status'] ?? null,
+), array( 'set', 'Pending graduation' ) );
+
+
+echo "\n=== Fix round 1: the status never costs the student anything, and is set once (1.123.95) ===\n";
+
+$f3_consent = array_merge( $f3_all, array( $list_column => 'Yes, with my name' ) );
+$consent    = finish_f3( STUDENT, false, array(), $f3_consent, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) ) );
+ck( 'I1 consent_first: the student\'s consent stamp is written before the status is read or written', array(
+	count( $consent['sent'] ),
+	array_slice( $GLOBALS['stamped_then'], 1 ),
+	$consent['flash'],
+), array( 3, array( true, true ), 'feedback-saved' ) );
+
+$fault = finish_f3( STUDENT, false, array(), $f3_consent, array( new RuntimeException( 'A fault inside the status write.' ) ) );
+ck( 'I1 fault_owed: a fault inside the status write is a debt with its words; the student gets the normal message and keeps their consent stamp', array(
+	$fault['crash'],
+	$fault['flash'],
+	$fault['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+	isset( $fault['meta']['wpcpm_report_permissions'] ),
+), array( '', 'feedback-saved', 'A fault inside the status write.', true ) );
+
+$time_reason = 'The program\'s records were slow to answer, so the students sync sets the status instead.';
+$has_clock   = property_exists( 'WPCPM_Student_Graduation', 'clock' );
+if ( $has_clock ) {
+	WPCPM_Student_Graduation::$clock = static function () { return (float) $GLOBALS['clock_now']; };
+}
+$GLOBALS['clock_now']  = 1000.0;
+$GLOBALS['clock_step'] = 5;
+$slow = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_read( OLD_ROW, 'In Sensei' ) ), array( 'rows' => array( STUDENTS_ROW => 'In Sensei', OLD_ROW => 'In Sensei' ) ) );
+ck( 'I1 time_bound: each status request is given five seconds at most, and with no room left the write is not sent but owed to the sync', array(
+	$has_clock,
+	array_slice( $slow['sent'], 1 ),
+	array_slice( $slow['waits'], 1 ),
+	$slow['flash'],
+	$slow['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+), array( true, array( 'GET ' . $students_url . STUDENTS_ROW, 'GET ' . $students_url . OLD_ROW ), array( 5.0, 5.0 ), 'feedback-saved', $time_reason ) );
+
+ck( 'and the answers\' own write keeps the client\'s usual twenty seconds: no other caller\'s timeout changes', $slow['waits'][0] ?? null, 20 );
+
+$GLOBALS['clock_now'] = 1000.0;
+$cold = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ) ), array( 'uncached' => true, 'before' => array( response( 200, array( 'id' => 'recFB0000000000AA', 'fields' => array() ) ) ) ) );
+ck( 'and the answers\' read before the save counts against the same ten seconds: five for it, five for the row, nothing more', array(
+	$cold['sent'][0] ?? null,
+	$cold['waits'][0] ?? null,
+	array_slice( $cold['sent'], 2 ),
+	array_slice( $cold['waits'], 2 ),
+	$cold['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+), array( 'GET https://api.airtable.com/v0/appTest/tblFeedback/recFB0000000000AA', 5.0, array( 'GET ' . $students_url . STUDENTS_ROW ), array( 5.0 ), $time_reason ) );
+$GLOBALS['clock_step'] = 0;
+if ( $has_clock ) {
+	WPCPM_Student_Graduation::$clock = null;
+}
+
+$GLOBALS['opts']['wpcpm_settings']['students_table'] = '';
+$no_table = finish_f3( STUDENT, false, array(), $f3_all, array() );
+$GLOBALS['opts']['wpcpm_settings']['students_table'] = 'tblStudents';
+ck( 'M1 settings_first: with no Students table set, nothing is read: the debt names the settings', array(
+	count( $no_table['sent'] ),
+	$no_table['crash'],
+	$no_table['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+), array( 1, '', 'The settings name no Students table or status column.' ) );
+
+$other_mail = finish_f3( STUDENT, false, array(), $f3_all, array( response( 200, array( 'id' => STUDENTS_ROW, 'fields' => array( 'Status' => 'In Sensei', 'Email' => 'someone.else@institution-3.example' ) ) ) ) );
+ck( 'M3 address_check: a row whose address read now is not the student\'s reports-row address is not written; the debt says so', array(
+	array_slice( $other_mail['sent'], 1 ),
+	$other_mail['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+	isset( $other_mail['meta']['wpcpm_student_pending_set'] ),
+), array( array( 'GET ' . $students_url . STUDENTS_ROW ), 'The Students row on a track holds an email address other than this student\'s, so it was not written.', false ) );
+
+$set_before = array( 'at' => 1790000000, 'finished' => 1790000000, 'by' => STUDENT, 'as' => 'student', 'records' => array( STUDENTS_ROW ), 'via' => 'form' );
+$once       = finish_f3( STUDENT, false, array(), $f3_all, array(), array( 'set' => $set_before ) );
+ck( 'M5 set_once: once the site has set the status, a later save of Form 3 never runs the write again, whatever the earlier answers read', array(
+	count( $once['sent'] ),
+	$once['crash'],
+	$once['meta']['wpcpm_student_pending_set'],
+	isset( $once['meta']['wpcpm_student_pending_owed'] ),
+), array( 1, '', $set_before, false ) );
+
+$others = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) ), array( 'others' => array( 'recOTHERSROW00001' => 'In Sensei' ) ) );
+ck( 'I4 others_row: another account\'s row on a track in the same roster is neither read nor written', array(
+	array_slice( $others['sent'], 1 ),
+	$others['bodies'][2] ?? null,
+	$roster_of()['recOTHERSROW00001']['status'],
+), array( array( 'GET ' . $students_url . STUDENTS_ROW, 'PATCH https://api.airtable.com/v0/appTest/tblStudents' ), $write_body, 'In Sensei' ) );
+
+$t_save = time();
+$dated  = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) ) );
+ck( 'I6 finished_day: the save path records the day the form was finished, the save\'s own time, and "Waiting since" is that day', array(
+	( $dated['meta']['wpcpm_student_pending_set']['finished'] ?? 0 ) >= $t_save,
+	( $dated['meta']['wpcpm_student_pending_set']['finished'] ?? -1 ) === ( $dated['meta']['wpcpm_student_pending_since']['at'] ?? -2 ),
+), array( true, true ) );
+
+echo "\n=== Fix round 2: once per program, and an empty address is its own case (1.123.95) ===\n";
+
+$set_of = static function ( $report, $track ) { return array( 'at' => 1790000000, 'finished' => 1790000000, 'by' => STUDENT, 'as' => 'student', 'records' => array( STUDENTS_ROW ), 'via' => 'form', 'report' => $report, 'track' => $track ); };
+$full   = array( students_read( STUDENTS_ROW, 'In Sensei' ), students_written( STUDENTS_ROW ) );
+
+$same = finish_f3( STUDENT, false, array(), $f3_all, array(), array( 'set' => $set_of( 'recREPORTROW00001', 'In Sensei' ) ) );
+ck( 'N2 same_program: set once for this reports record and this track, a later save never sets it again', array( count( $same['sent'] ), $same['crash'] ), array( 1, '' ) );
+
+$new_program = finish_f3( STUDENT, false, array(), $f3_all, $full, array( 'set' => $set_of( 'recREPORTROW00009', 'In Sensei' ) ) );
+ck( 'N2 new_program: a student on a new program (a new reports record) who finishes Form 3 again is set again, and the set meta says what for', array(
+	array_slice( $new_program['sent'], 1 ),
+	$new_program['meta']['wpcpm_student_pending_set']['report'] ?? null,
+	$new_program['meta']['wpcpm_student_pending_set']['track'] ?? null,
+), array( array( 'GET ' . $students_url . STUDENTS_ROW, 'PATCH https://api.airtable.com/v0/appTest/tblStudents' ), 'recREPORTROW00001', 'In Sensei' ) );
+
+$new_track = finish_f3( STUDENT, false, array(), $f3_all, $full, array( 'set' => $set_of( 'recREPORTROW00001', 'Developer Track' ) ) );
+ck( 'N2 new_track: the same reports record on another track is set again', array_slice( $new_track['sent'], 1 ), array( 'GET ' . $students_url . STUDENTS_ROW, 'PATCH https://api.airtable.com/v0/appTest/tblStudents' ) );
+
+$old_shape = finish_f3( STUDENT, false, array(), $f3_all, array(), array( 'set' => array( 'at' => 1790000000, 'by' => STUDENT, 'as' => 'student', 'records' => array( STUDENTS_ROW ), 'via' => 'form' ) ) );
+ck( 'N2 old_shape: a set meta of round 1\'s shape, naming no program, blocks as it did', array( count( $old_shape['sent'] ), $old_shape['crash'] ), array( 1, '' ) );
+
+$no_mail = finish_f3( STUDENT, false, array(), $f3_all, array( students_read( STUDENTS_ROW, 'In Sensei' ) ), array( 'email' => '' ) );
+ck( 'N3 empty_address: a student with no address on their program row is not written, with its own reason and line', array(
+	array_slice( $no_mail['sent'], 1 ),
+	$no_mail['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+	$no_mail['meta']['wpcpm_student_pending_owed']['kind'] ?? null,
+), array( array( 'GET ' . $students_url . STUDENTS_ROW ), 'The site holds no email address for this student, so their Students row cannot be matched to them and was not written.', 'no-row' ) );
+ck( 'N4 debt_kinds: the debt says which line the card draws: another address, no row, or one the sync pays itself', array(
+	$other_mail['meta']['wpcpm_student_pending_owed']['kind'] ?? null,
+	$no_row['meta']['wpcpm_student_pending_owed']['kind'] ?? null,
+	$refused['meta']['wpcpm_student_pending_owed']['kind'] ?? null,
+	$fault['meta']['wpcpm_student_pending_owed']['kind'] ?? null,
+	$slow['meta']['wpcpm_student_pending_owed']['kind'] ?? null,
+), array( 'other-email', 'no-row', 'retry', 'retry', 'retry' ) );
+
+echo "\n=== Round 4: what a debt is for, and nothing after a write makes one (1.123.95) ===\n";
+
+ck( 'R4.1 debt_for: a debt records the reports record and the track it was made for', array(
+	$refused['meta']['wpcpm_student_pending_owed']['report'] ?? null,
+	$refused['meta']['wpcpm_student_pending_owed']['track'] ?? null,
+), array( 'recREPORTROW00001', 'In Sensei' ) );
+
+$GLOBALS['audit_throw'] = true;
+$audited = finish_f3( STUDENT, false, array(), $f3_all, $full );
+unset( $GLOBALS['audit_throw'] );
+ck( 'R4.3 audit_after_write: a fault on the audit trail after the write leaves the set meta and no debt; the student is told the answers were saved', array(
+	isset( $audited['meta']['wpcpm_student_pending_set'] ),
+	isset( $audited['meta']['wpcpm_student_pending_owed'] ),
+	$audited['flash'],
+	$audited['crash'],
+), array( true, false, 'feedback-saved', '' ) );
+
+$GLOBALS['meta_false']['wpcpm_student_pending_set'] = true;
+$unmarked = finish_f3( STUDENT, false, array(), $f3_all, $full );
+unset( $GLOBALS['meta_false'] );
+ck( 'R4.5 marker_checked: when the set meta is not kept, the debt stays, saying the records were set and the site could not record it', array(
+	isset( $unmarked['meta']['wpcpm_student_pending_set'] ),
+	$unmarked['meta']['wpcpm_student_pending_owed']['reason'] ?? null,
+	$unmarked['flash'],
+), array( false, 'The status was set in the program\'s records, but the site could not record that it set it: the next students sync looks again.', 'feedback-saved' ) );
+
+echo "\n=== The save's own checks are as they were ===\n";
+
+$GLOBALS['referer'] = array();
+finish_f3( STUDENT, false, array(), $partial, array() );
+ck( 'the nonce is checked for this student and this form, before anything else', $GLOBALS['referer'], array( 'wpcpm_save_feedback_' . STUDENT . '_f3' ) );
+
+$GLOBALS['uid']  = 99;
+$GLOBALS['caps'] = false;
+$GLOBALS['sent'] = array();
+$_POST           = array( 'student' => (string) STUDENT, 'form' => 'f3', 'feedback' => array() );
+$denied          = '';
+
+try {
+	WPCPM_Student_Feedback::handle_save();
+} catch ( Denied $e ) {
+	$denied = $e->getMessage();
+} catch ( Left $e ) {
+	$denied = 'left';
+}
+
+ck( 'somebody who may not fill in the form is refused before anything is read or written', array( $denied, count( $GLOBALS['sent'] ) ), array( 'You cannot fill in that feedback form.', 0 ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

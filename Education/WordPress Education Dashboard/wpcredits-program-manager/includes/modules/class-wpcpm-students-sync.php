@@ -1401,6 +1401,7 @@ class WPCPM_Students_Sync {
 			}
 
 			self::seed_courses( $state, $settings, $airtable );
+			self::settle_owed( $state );
 			self::revoke_departed( $state, $settings );
 
 			$state['phase'] = 'done';
@@ -1544,6 +1545,180 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
+	 * At the end of a run, look at every account that owes a Pending graduation for a Feedback form 3 finished on the
+	 * site (1.123.95, `WPCPM_Student_Graduation::retry()`), not only the ones this run provisioned.
+	 *
+	 * Each is given the Students rows this run joined to it, as the run read them, and whether the run read its reports
+	 * row at all. A row written is marked Pending graduation in the run's own rows, so the roster `finish()` writes says
+	 * so from this run.
+	 *
+	 * **It never stalls the run.** Each account is tried inside its own catch: a fault is that account's debt, kept
+	 * with its words, and one notice. The step has `STEP_BUDGET` seconds and each read or write five at most; the first
+	 * time the base does not answer (anything but a refusal of one row), or the second time running it gives the same
+	 * refusal (status and error type), the step stops. What is left is left for the
+	 * next run, in one notice. Nothing here stops the run: its revoke and its end are always reached, so nothing may
+	 * throw out of this method (`settle_owed_step()` holds the work, and this the last catch).
+	 *
+	 * @param array $state Sync state, by reference.
+	 */
+	private static function settle_owed( array &$state ) {
+		if ( ! class_exists( 'WPCPM_Student_Graduation' ) ) {
+			return;
+		}
+
+		try {
+			self::settle_owed_step( $state );
+		} catch ( \Throwable $fault ) {
+			$state['notices'][] = $fault->getMessage();
+		}
+	}
+
+	/**
+	 * The work of `settle_owed()`, every account in its own catch.
+	 *
+	 * @param array $state Sync state, by reference.
+	 */
+	private static function settle_owed_step( array &$state ) {
+		$owing = WPCPM_Student_Graduation::owing();
+
+		if ( empty( $owing ) ) {
+			return;
+		}
+
+		$deadline = WPCPM_Student_Graduation::now() + WPCPM_Student_Graduation::STEP_BUDGET;
+		$known    = array();
+
+		foreach ( (array) $state['students'] as $student ) {
+			if ( ! empty( $student['record_id'] ) ) {
+				$known[ (string) $student['record_id'] ] = isset( $student['name'] ) ? (string) $student['name'] : '';
+			}
+		}
+
+		$rows = array();
+
+		foreach ( isset( $state['rows'] ) ? (array) $state['rows'] : array() as $record_id => $row ) {
+			$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
+			$status  = isset( $row['status'] ) ? trim( (string) $row['status'] ) : '';
+
+			if ( $user_id > 0 && ! in_array( $status, WPCPM_Roster_Index::NEVER_SHOWN, true ) ) {
+				$rows[ $user_id ][ (string) $record_id ] = $status;
+			}
+		}
+
+		// Oldest attempt first (a debt never tried first, ties by account), so the accounts a stopped step did not reach
+		// go first in the next run; every account tried is stamped `tried` now by its outcome.
+		uksort(
+			$owing,
+			static function ( $a, $b ) use ( $owing ) {
+				return array( (int) $owing[ $a ]['tried'], (int) $a ) <=> array( (int) $owing[ $b ]['tried'], (int) $b );
+			}
+		);
+
+		$ids  = array_keys( $owing );
+		$left = 0;
+		// The last account's refusal, as status and error type: the same one twice running is met by every row.
+		$last = '';
+
+		foreach ( $ids as $n => $user_id ) {
+			// Under a second of the step left: this account and every one after it wait for the next run.
+			if ( $deadline - WPCPM_Student_Graduation::now() < 1 ) {
+				$left = count( $ids ) - $n;
+				break;
+			}
+
+			$name = (string) $user_id;
+
+			try {
+				$report  = trim( (string) get_user_meta( $user_id, self::META_RECORD_ID, true ) );
+				$name    = '' !== $report && ! empty( $known[ $report ] ) ? $known[ $report ] : ( '' !== $report ? $report : $name );
+				$written = WPCPM_Student_Graduation::retry( $user_id, isset( $rows[ $user_id ] ) ? $rows[ $user_id ] : array(), '' !== $report && isset( $known[ $report ] ), $deadline );
+			} catch ( \Throwable $fault ) {
+				$written = new WP_Error( 'wpcpm_pending_fault', $fault->getMessage() );
+
+				// The debt is kept with the fault's words; a fault while keeping it leaves the debt as it was.
+				try {
+					WPCPM_Student_Graduation::keep_owed( $user_id, $fault->getMessage() );
+				} catch ( \Throwable $also ) {
+					$written = new WP_Error( 'wpcpm_pending_fault', $fault->getMessage() . ' ' . $also->getMessage() );
+				}
+			}
+
+			if ( ! is_wp_error( $written ) ) {
+				foreach ( $written as $record_id ) {
+					$state['rows'][ $record_id ]['status'] = WPCPM_Program::STATUS_PENDING;
+				}
+
+				$last = '';
+
+				continue;
+			}
+
+			$state['notices'][] = sprintf(
+				/* translators: 1: student name, 2: the error message the program's records, or the HTTP client, returned. */
+				__( '%1$s finished Feedback form 3 on this site, and their status could not be set to Pending graduation in the program\'s records (%2$s). The next run tries again.', 'wpcredits-program-manager' ),
+				$name,
+				$written->get_error_message()
+			);
+
+			$data  = $written->get_error_data();
+			$cause = is_array( $data ) && isset( $data['cause'] ) && $data['cause'] instanceof WP_Error ? $data['cause'] : null;
+
+			// The base not answering, as against a refusal of one row: the others would wait on it too.
+			if ( $cause && ! self::refuses_one( $cause ) ) {
+				$left = count( $ids ) - $n - 1;
+				break;
+			}
+
+			// The same refusal as the account before (a missing table, a column or a value the base refuses): one every
+			// row meets, so the step stops. One row's own refusal lets the next account go.
+			$refusal = $cause ? self::refusal_of( $cause ) : '';
+
+			if ( '' !== $refusal && $refusal === $last ) {
+				$left = count( $ids ) - $n - 1;
+				break;
+			}
+
+			$last = $refusal;
+		}
+
+		if ( $left > 0 ) {
+			$state['notices'][] = sprintf(
+				/* translators: %s: how many students still owe their status. */
+				_n( '%s student still owes their status: the next run goes on.', '%s students still owe their status: the next run goes on.', $left, 'wpcredits-program-manager' ),
+				number_format_i18n( $left )
+			);
+		}
+	}
+
+	/**
+	 * A refusal's signature, its status and the error type the records gave, for telling a repeat.
+	 *
+	 * @param WP_Error $error The client's error.
+	 * @return string
+	 */
+	private static function refusal_of( WP_Error $error ) {
+		$data = $error->get_error_data();
+
+		return ( is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0 ) . '|' . ( is_array( $data ) && isset( $data['error_type'] ) ? (string) $data['error_type'] : '' );
+	}
+
+	/**
+	 * Whether an error is the base refusing one record (a 4xx other than 401, 403 and a rate limit), as against an error
+	 * every row would meet alike: a timeout, a server error, a rate limit, a broken connection, a token the base refuses
+	 * (401, 403: a missing scope refuses every row) or a missing setting (`WPCPM_Student_Graduation` answers one with
+	 * its own error, `wpcpm_pending_no_column`).
+	 *
+	 * @param WP_Error $error The client's error.
+	 * @return bool
+	 */
+	private static function refuses_one( WP_Error $error ) {
+		$data   = $error->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+
+		return 'wpcpm_airtable_error' === $error->get_error_code() && $status >= 400 && $status < 500 && ! in_array( $status, array( 401, 403, 429 ), true );
+	}
+
+	/**
 	 * Stamp, keep or clear when the account was first seen waiting to graduate (`META_PENDING`), from the Students rows
 	 * this run read for it: pending when one of them says Pending graduation. No row, no word: the stamp is left as it
 	 * was. Read from the account's meta: usually from the cache the program row's read above filled, and at most one
@@ -1569,6 +1744,16 @@ class WPCPM_Students_Sync {
 		}
 
 		$held = get_user_meta( $user_id, self::META_PENDING, true );
+
+		// The site set the status after this run began (1.123.95, `WPCPM_Student_Graduation::META_SET`): the run read the
+		// row before that write, and its word is older than the stamp's.
+		if ( ! $pending && class_exists( 'WPCPM_Student_Graduation' ) ) {
+			$set = get_user_meta( $user_id, WPCPM_Student_Graduation::META_SET, true );
+
+			if ( is_array( $set ) && isset( $set['at'] ) && (int) $set['at'] >= ( isset( $state['started'] ) ? (int) $state['started'] : PHP_INT_MAX ) ) {
+				return;
+			}
+		}
 
 		if ( ! $pending ) {
 			if ( '' !== $held && false !== $held ) {

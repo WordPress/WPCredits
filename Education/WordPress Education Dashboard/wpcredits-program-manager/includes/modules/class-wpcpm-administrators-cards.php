@@ -2275,9 +2275,13 @@ final class WPCPM_Administrators_Cards {
 	 *
 	 * The accounts are read in one go, and their meta with them (`cache_users()`), so sixty rows cost one read.
 	 *
+	 * Since 1.123.95 a student who finished Feedback form 3 on this site while the base did not take the status
+	 * (`WPCPM_Student_Graduation::META_OWED`) is listed as well, whatever their roster row says, `owed` set and `at` the
+	 * time the form was sent (`graduation_owed()`); counted like the others.
+	 *
 	 * @return array[] `record_id`, `name`, `institution` (an Institutions record ID, or ''), `known` (whether the pipeline
 	 *                 index names it), `test` (for the mark only; the count asks the test helper), `user_id` (0 with no
-	 *                 account), `end` (`Y-m-d` or ''), `hours`, `mentor_name`, `has_mentor`, `at`, `before`.
+	 *                 account), `end` (`Y-m-d` or ''), `hours`, `mentor_name`, `has_mentor`, `at`, `before`, `owed`.
 	 */
 	public static function graduation() {
 		$tests   = array_fill_keys( WPCPM_Test_Institutions::test_ids(), true );
@@ -2301,12 +2305,23 @@ final class WPCPM_Administrators_Cards {
 
 		$sources[''] = WPCPM_Roster_Index::unlinked();
 		$found       = array();
+		$seen        = array();
 
 		foreach ( $sources as $record => $roster ) {
 			foreach ( (array) $roster as $row ) {
 				if ( ! is_array( $row ) || WPCPM_Program::STATUS_PENDING !== trim( isset( $row['status'] ) ? (string) $row['status'] : '' ) ) {
 					continue;
 				}
+
+				// One line a Students row, whatever the lists hold (1.123.95): a row a run moved onto a roster and a copy
+				// still in the unlinked list are the same student, and the roster's, read first, is the one listed.
+				$students_record = isset( $row['record_id'] ) ? trim( (string) $row['record_id'] ) : '';
+
+				if ( '' !== $students_record && isset( $seen[ $students_record ] ) ) {
+					continue;
+				}
+
+				$seen[ $students_record ] = true;
 
 				$found[] = array(
 					'record_id'   => isset( $row['record_id'] ) ? (string) $row['record_id'] : '',
@@ -2321,9 +2336,14 @@ final class WPCPM_Administrators_Cards {
 					'has_mentor'  => ! empty( $row['has_mentor'] ),
 					'at'          => 0,
 					'before'      => false,
+					'owed'        => false,
 				);
 			}
 		}
+
+		// A student who finished Feedback form 3 on this site while the base did not take the status (1.123.95): listed
+		// all the same, marked `owed`, waiting since the form was sent, whatever their roster row says.
+		$found = array_merge( $found, self::graduation_owed( $found, $sources, $known, $tests ) );
 
 		$ids = array_values( array_unique( array_filter( array_column( $found, 'user_id' ) ) ) );
 
@@ -2334,6 +2354,10 @@ final class WPCPM_Administrators_Cards {
 		foreach ( $found as $n => $row ) {
 			if ( $row['user_id'] < 1 || ! get_userdata( $row['user_id'] ) ) {
 				$found[ $n ]['user_id'] = 0;
+				continue;
+			}
+
+			if ( $row['owed'] ) {
 				continue;
 			}
 
@@ -2364,6 +2388,111 @@ final class WPCPM_Administrators_Cards {
 		);
 
 		return $found;
+	}
+
+	/**
+	 * The students who owe a Pending graduation and are not on the list by their roster row (1.123.95): each from the
+	 * roster row the account is joined to, whatever its status, or from the account itself when the site holds no
+	 * Students row for it (its name, its institution, and its program row's end and hours, its mentor card's name).
+	 * `at` is when the form was sent. `owed` is the debt's kind, which picks the line: `retry` (the students sync writes
+	 * it when the records take it), `no-row` (no Students row matched, so an Administrator checks the row) or
+	 * `other-email` (the row holds another address, so an Administrator corrects it). `course` is the track the student
+	 * is on today, from the roster row's status or else the program row's, for the Track and Hours cells. An account
+	 * whose program status is no longer a track is not listed: that debt can no longer be paid.
+	 *
+	 * @param array[] $found   The rows already listed.
+	 * @param array   $sources Institutions record ID, or '' for the rows that name none => that roster's rows.
+	 * @param array   $known   Institutions record ID => true, for the ones the pipeline index names.
+	 * @param array   $tests   Institutions record ID => true, for the test ones.
+	 * @return array[] Rows in `graduation()`'s shape, `owed` the debt's kind, and `course`.
+	 */
+	private static function graduation_owed( array $found, array $sources, array $known, array $tests ) {
+		if ( ! class_exists( 'WPCPM_Student_Graduation' ) ) {
+			return array();
+		}
+
+		$listed = array_fill_keys( array_filter( array_column( $found, 'user_id' ) ), true );
+		$out    = array();
+
+		foreach ( WPCPM_Student_Graduation::owing() as $user_id => $owed ) {
+			$user = get_userdata( $user_id );
+
+			// A debt that can no longer be paid, the status no longer a track, is not a student waiting (the students
+			// sync clears it at its next run).
+			if ( isset( $listed[ $user_id ] ) || ! $user || ! WPCPM_Student_Graduation::on_track( $user_id ) ) {
+				continue;
+			}
+
+			$row    = array();
+			$record = '';
+
+			foreach ( $sources as $institution => $roster ) {
+				foreach ( (array) $roster as $candidate ) {
+					if ( is_array( $candidate ) && (int) ( isset( $candidate['user_id'] ) ? $candidate['user_id'] : 0 ) === (int) $user_id
+						&& ! in_array( trim( isset( $candidate['status'] ) ? (string) $candidate['status'] : '' ), WPCPM_Roster_Index::NEVER_SHOWN, true ) ) {
+						$row    = $candidate;
+						$record = (string) $institution;
+						break 2;
+					}
+				}
+			}
+
+			if ( empty( $row ) ) {
+				$program = get_user_meta( $user_id, WPCPM_Students_Sync::META_PROGRAM, true );
+				$program = is_array( $program ) ? $program : array();
+				$mentor  = get_user_meta( $user_id, WPCPM_Students_Sync::META_MENTOR, true );
+				$mentor  = is_array( $mentor ) ? $mentor : array();
+				$placed  = trim( (string) get_user_meta( $user_id, WPCPM_Students_Sync::META_INSTITUTION, true ) );
+				$record  = WPCPM_Mentors_Sync::is_record_id( $placed ) ? $placed : '';
+				$row     = array(
+					'name'        => ! empty( $program['name'] ) ? (string) $program['name'] : (string) $user->display_name,
+					'end'         => isset( $program['end'] ) ? $program['end'] : '',
+					'hours'       => isset( $program['hours'] ) ? $program['hours'] : '',
+					'mentor_name' => isset( $mentor['name'] ) ? $mentor['name'] : '',
+					'has_mentor'  => ! empty( $mentor['record_id'] ),
+				);
+			}
+
+			$out[] = array(
+				'record_id'   => isset( $row['record_id'] ) ? (string) $row['record_id'] : '',
+				'name'        => isset( $row['name'] ) ? trim( (string) $row['name'] ) : '',
+				'institution' => $record,
+				'known'       => isset( $known[ $record ] ),
+				'test'        => '' !== $record && isset( $tests[ $record ] ),
+				'user_id'     => (int) $user_id,
+				'end'         => self::day( isset( $row['end'] ) ? $row['end'] : '' ),
+				'hours'       => isset( $row['hours'] ) && is_scalar( $row['hours'] ) ? (string) $row['hours'] : '',
+				'mentor_name' => isset( $row['mentor_name'] ) && is_scalar( $row['mentor_name'] ) ? trim( (string) $row['mentor_name'] ) : '',
+				'has_mentor'  => ! empty( $row['has_mentor'] ),
+				'at'          => (int) $owed['at'],
+				'before'      => false,
+				'owed'        => isset( $row['record_id'] ) ? $owed['kind'] : WPCPM_Student_Graduation::KIND_NO_ROW,
+				// The track they are on today, as a recorded student's course is drawn: no course is kept for them yet.
+				'course'      => self::graduation_track( isset( $row['status'] ) ? $row['status'] : '', $user_id ),
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The track an owed student is on today: their roster row's status when it is a track, else their program row's.
+	 *
+	 * @param string $status  The roster row's status, or '' with no row.
+	 * @param int    $user_id The account.
+	 * @return string A track's status, or ''.
+	 */
+	private static function graduation_track( $status, $user_id ) {
+		$status = trim( (string) $status );
+
+		if ( WPCPM_Program::is_track( $status ) ) {
+			return $status;
+		}
+
+		$program = get_user_meta( (int) $user_id, WPCPM_Students_Sync::META_PROGRAM, true );
+		$held    = is_array( $program ) && isset( $program['program'] ) && is_scalar( $program['program'] ) ? trim( (string) $program['program'] ) : '';
+
+		return WPCPM_Program::is_track( $held ) ? $held : '';
 	}
 
 	/**
@@ -3565,7 +3694,18 @@ final class WPCPM_Administrators_Cards {
 			} else {
 				$school = WPCPM_UI::cell_sub( $none );
 			}
-			$course = WPCPM_Program::course_status( WPCPM_Program::STATUS_PENDING, $id );
+			// A status the site owes the program's records (1.123.95): the student is listed, and the line says why it is not
+			// recorded yet and who acts on it.
+			if ( 'no-row' === $row['owed'] ) {
+				$school .= WPCPM_UI::cell_sub( __( 'Finished Feedback form 3 on this site. The site finds no Students row for this student in the program\'s records, so the status cannot be set: check the student\'s row there, and the next students sync sets it.', 'wpcredits-program-manager' ) );
+			} elseif ( 'other-email' === $row['owed'] ) {
+				$school .= WPCPM_UI::cell_sub( __( 'Finished Feedback form 3 on this site. The Students row on their track holds an email address other than this student\'s, so the status was not set: correct the row in the program\'s records, and the next students sync sets it.', 'wpcredits-program-manager' ) );
+			} elseif ( ! empty( $row['owed'] ) ) {
+				$school .= WPCPM_UI::cell_sub( __( 'Finished Feedback form 3 on this site. The program\'s records do not say Pending graduation yet: each students sync tries again.', 'wpcredits-program-manager' ) );
+			}
+			// An owed student is still on their track: their Track and Hours are that track's, as a recorded student's are
+			// the kept course's.
+			$course = ! empty( $row['course'] ) ? (string) $row['course'] : WPCPM_Program::course_status( WPCPM_Program::STATUS_PENDING, $id );
 			$url    = '' !== $course ? WPCPM_Program::course_url( $course ) : '';
 			$named  = '' !== $course ? WPCPM_Program::label( $course ) : '';
 			$logged = WPCPM_Program::hours_text( (string) $row['hours'], '' !== $course ? $course : WPCPM_Program::STATUS_PENDING );

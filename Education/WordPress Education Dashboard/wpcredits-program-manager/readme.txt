@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.94
+Stable tag: 1.123.95
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,11 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.95 =
+
+* Feedback forms: a student who finishes Finishing up (Feedback form 3) on their Student Report Card is now set to Pending graduation in Airtable's Students table, as Airtable's own form does, and is on the Administrator Dashboard's card "Students waiting to graduate" at once. The site finds the student's row by its record, writes only over a track, and sends no email.
+* The status is set once, never costs the student their answers or more than a few seconds, and is never written over a status that is not a track. If it cannot be set at once, the student is listed on the card with a line saying why, and the students sync tries again at the end of each run. A form finished before this version is not touched.
 
 = 1.123.94 =
 
