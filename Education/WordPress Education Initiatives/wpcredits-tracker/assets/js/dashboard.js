@@ -31,7 +31,12 @@
 	function scaleHTML( g ) {
 		var countryCount = Object.keys( g.instCountries || {} ).length;
 		var grad = g.graduates || 0, drop = g.dropouts || 0, act = g.activeStudents || 0;
-		var started = grad + drop + act;
+		// "Students who have joined to date" is the sync's own count (studentsJoined, see
+		// WPCT_Sync::has_joined()), the rule the growth chart counts with, so the card and
+		// the chart show one number. Data stored before 1.8.3 (an older sync, the bundled
+		// snapshot) has no such figure: until the next sync the card adds up the three it
+		// has, which leaves out a student who paused or failed.
+		var started = typeof g.studentsJoined === 'number' ? g.studentsJoined : grad + drop + act;
 		return '<div class="act-label">Scale &amp; momentum</div>'
 			+ '<div class="cards">'
 			+   '<div class="card"><div class="num">' + ( g.activeStudents || 0 ) + '</div><div class="lbl">Students currently in the program</div></div>'

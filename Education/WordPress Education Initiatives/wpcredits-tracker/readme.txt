@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.8.2
+Stable tag: 1.8.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,10 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.8.3 =
+* "Students who have joined to date" and the growth chart count the same students. The card added up graduates, dropouts and students in the program, which left out a student whose Status is Paused or Fail, so it read lower than the chart beside it (1034 against 1040 on 16 November 2026). A sync now counts everyone who started, by the rule the chart already used (every Status except Interested, Not moving forward and SPAM, or none), and the card shows that count, as the upstream dashboard does since 9 November 2026.
+* The card changes with the next sync, not with the update. Until then it shows the old sum.
 
 = 1.8.2 =
 * Section blocks placed one after another keep 32px before a block that opens a new group (What students produce, Skills, What students say), on any page template, instead of leaving that to the page's own styles.

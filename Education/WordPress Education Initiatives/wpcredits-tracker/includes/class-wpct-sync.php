@@ -494,6 +494,7 @@ class WPCT_Sync {
 		$active_count      = 0;
 		$graduate_count    = 0;
 		$dropout_count     = 0;
+		$joined_count      = 0; // Every student who started, whatever came of it.
 		$not_forward_count = 0;
 		$total_hours       = 0.0;
 		$fos_stats         = array();
@@ -525,6 +526,13 @@ class WPCT_Sync {
 
 			$status   = self::select_name( $status_obj );
 			$status_n = self::status_key( $status_obj );
+
+			// "Students who have joined to date": the rule the growth chart counts with, so the
+			// card and the chart show one number. Graduates, dropouts and students in the
+			// program do not add up to it: a student who paused or failed joined too.
+			if ( self::has_joined( $status_n ) ) {
+				$joined_count++;
+			}
 
 			// Tally exits before filtering.
 			if ( $status_n === $dropout_key ) {
@@ -748,6 +756,7 @@ class WPCT_Sync {
 
 		$global = array(
 			'activeStudents'      => $active_count,
+			'studentsJoined'      => $joined_count,
 			'graduates'           => $graduate_count,
 			'dropouts'            => $dropout_count,
 			'notMovingForward'    => $not_forward_count,
