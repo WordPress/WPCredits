@@ -9,10 +9,18 @@
  * aggregates the GitHub dashboard shows, and stores the resulting data blob for
  * the front-end to render.
  *
- * The sync is a resumable state machine: each invocation works within a
- * wall-clock budget and, if there is more to do, reschedules itself. This keeps
+ * The sync is a resumable state machine: each invocation (a step) works within a
+ * wall-clock budget and, if there is more to do, hands on to the next step. This keeps
  * every request short so it survives restrictive host timeouts (e.g. WordPress.com).
- * The pattern mirrors ESS_Sync in the sibling education-student-stories plugin.
+ *
+ * How a step hands on (since 1.8.4): it calls the site's own admin-ajax address with the
+ * sync's key and does not wait for the answer, so the next step starts at once. It does not
+ * lean on WordPress's scheduler for that: a step run by the scheduler cannot wake the
+ * scheduler again (spawn_cron() refuses inside a scheduler run), and on a host that runs
+ * the scheduler itself, minutes apart (DISABLE_WP_CRON), a sync of thirty steps stood still.
+ * The scheduler is the safety net only: every step moves one watchdog event a few minutes
+ * ahead, which picks the sync up again if a call is lost or a step dies. A lock keeps the
+ * watchdog and a call from running a step at the same time.
  *
  * @package WPCredits_Tracker
  */
@@ -28,6 +36,26 @@ class WPCT_Sync {
 
 	/** Profiles scraped per invocation cap (belt-and-suspenders with the time budget). */
 	const BATCH_CAP = 40;
+
+	/** The admin-ajax action a step calls to hand on to the next one. */
+	const AJAX_ACTION = 'wpct_sync_step';
+
+	/** Seconds until the watchdog event picks up a sync whose call was lost or whose step died. */
+	const WATCHDOG = 180;
+
+	/** The step lock's name, and the age (seconds) at which a lock belongs to a step that died. */
+	const LOCK       = 'wpct_sync_step';
+	const LOCK_STALE = 300;
+
+	/** A sync that has not ended after this many steps is stopped. A full sync takes about thirty. */
+	const MAX_STEPS = 600;
+
+	/**
+	 * The value of the lock row this request holds, null while it holds none.
+	 *
+	 * @var string|null
+	 */
+	private static $lock_value = null;
 
 	/** Airtable API root. */
 	const API_URL = 'https://api.airtable.com/v0';
@@ -291,15 +319,27 @@ class WPCT_Sync {
 	 * ------------------------------------------------------------------- */
 
 	/**
-	 * Kick off a fresh sync (called by "Sync now" and by the scheduled event).
+	 * Kick off a fresh sync (called by "Sync now") and hand on to its first step.
 	 */
 	public static function start() {
+		self::begin();
+		self::watch();
+		self::call_next();
+	}
+
+	/**
+	 * The state of a sync that has just begun: nothing fetched yet, and a key of its own, which
+	 * the call for each next step has to carry.
+	 */
+	private static function begin() {
 		update_option(
 			WPCT_OPT_STATE,
 			array(
 				'phase'   => 'fetch',
 				'cursor'  => 0,
 				'started' => time(),
+				'steps'   => 0,
+				'key'     => wp_generate_password( 32, false ),
 			),
 			false
 		);
@@ -307,19 +347,123 @@ class WPCT_Sync {
 		// A note describes the sync that stored it; without this a stale note from a sync that
 		// failed the feed can sit beside a later sync's unrelated "Last sync error" (finding 5).
 		delete_option( WPCT_OPT_FEEDNOTE );
-		self::schedule_next();
 	}
 
 	/**
-	 * Schedule the next sync step ASAP and nudge WP-Cron to run it.
+	 * Move the watchdog ahead: one single event on the scheduler, WATCHDOG seconds from now.
+	 * While the steps hand on to each other it never comes due. If a call is lost or a step
+	 * dies, the scheduler runs it and the sync goes on from where its state says it is.
 	 */
-	private static function schedule_next() {
-		if ( ! wp_next_scheduled( WPCT_CRON_RUN ) ) {
-			wp_schedule_single_event( time(), WPCT_CRON_RUN );
+	private static function watch() {
+		wp_clear_scheduled_hook( WPCT_CRON_RUN );
+		wp_schedule_single_event( time() + self::WATCHDOG, WPCT_CRON_RUN );
+	}
+
+	/**
+	 * Call for the next step: a request to the site's own admin-ajax address that carries the
+	 * sync's key and is not waited for (the way WordPress wakes its own scheduler).
+	 */
+	private static function call_next() {
+		$state = get_option( WPCT_OPT_STATE, array() );
+		if ( ! is_array( $state ) || empty( $state['key'] ) ) {
+			return;
 		}
-		if ( function_exists( 'spawn_cron' ) ) {
-			spawn_cron();
+		wp_remote_post(
+			admin_url( 'admin-ajax.php' ),
+			array(
+				'timeout'   => 0.01,
+				'blocking'  => false,
+				// WordPress's own filter for a request a site makes to itself (as spawn_cron() asks it).
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+				'body'      => array(
+					'action' => self::AJAX_ACTION,
+					'key'    => $state['key'],
+				),
+			)
+		);
+	}
+
+	/**
+	 * The call for the next step arrives here (admin-ajax, signed in or not). Only the key of
+	 * the sync that is running opens it; it runs one step and nothing else.
+	 */
+	public static function ajax_step() {
+		$state = get_option( WPCT_OPT_STATE, array() );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- a call from the site to itself: the running sync's key stands in for a nonce.
+		$key = isset( $_POST['key'] ) && is_string( $_POST['key'] ) ? sanitize_text_field( wp_unslash( $_POST['key'] ) ) : '';
+		if ( '' === $key || ! self::is_running() || ! is_array( $state ) || empty( $state['key'] ) || ! hash_equals( (string) $state['key'], $key ) ) {
+			wp_die( '', '', array( 'response' => 403 ) );
 		}
+		ignore_user_abort( true ); // The caller has already hung up.
+		self::run_step( false );
+		wp_die( '', '', array( 'response' => 200 ) );
+	}
+
+	/**
+	 * The watchdog event: one step of the sync that is running, and nothing when none is.
+	 * (run_step() would start a sync on an idle site; only the weekly event may do that.)
+	 */
+	public static function continue_sync() {
+		if ( self::is_running() ) {
+			self::run_step( false );
+		}
+	}
+
+	/**
+	 * Take the step lock, or learn that another step holds it. One row in the options table,
+	 * added with INSERT IGNORE so that two requests arriving together cannot both take it.
+	 *
+	 * The lock talks to the table directly and never through the options API: that API answers
+	 * from a cache, which on a host with a persistent object cache can go on saying "no such
+	 * option" about a row that exists, and a lock that cannot be read can neither be respected
+	 * nor given up.
+	 *
+	 * A lock older than LOCK_STALE was left by a step that died. It is taken over by deleting
+	 * that very row (name and value): of two requests that find the same stale lock, only the
+	 * one whose DELETE removes it goes on.
+	 *
+	 * @return bool Whether this request holds the lock now.
+	 */
+	private static function lock() {
+		global $wpdb;
+		$option = self::LOCK . '.lock';
+		$mine   = time() . '.' . wp_generate_password( 8, false );
+		$insert = "INSERT IGNORE INTO `$wpdb->options` ( `option_name`, `option_value`, `autoload` ) VALUES (%s, %s, 'no') /* LOCK */";
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the atomic statements are the lock; only the table's name is interpolated.
+		if ( ! $wpdb->query( $wpdb->prepare( $insert, $option, $mine ) ) ) {
+			$theirs = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM `$wpdb->options` WHERE option_name = %s", $option ) );
+			if ( null !== $theirs ) {
+				if ( (int) $theirs > time() - self::LOCK_STALE ) {
+					return false; // Held by a step that is running.
+				}
+				if ( ! $wpdb->query( $wpdb->prepare( "DELETE FROM `$wpdb->options` WHERE option_name = %s AND option_value = %s", $option, $theirs ) ) ) {
+					return false; // Another request took the stale lock over first.
+				}
+			}
+			// Free now (given up just above, or let go between the two statements): once more.
+			if ( ! $wpdb->query( $wpdb->prepare( $insert, $option, $mine ) ) ) {
+				return false;
+			}
+		}
+		// phpcs:enable
+
+		self::$lock_value = $mine;
+		return true;
+	}
+
+	/**
+	 * Let the step lock go: this request's own row only. A step that ran past LOCK_STALE and
+	 * had its lock taken over leaves the new holder's lock alone.
+	 */
+	private static function unlock() {
+		global $wpdb;
+		if ( null === self::$lock_value ) {
+			return;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- see lock().
+		$wpdb->query( $wpdb->prepare( "DELETE FROM `$wpdb->options` WHERE option_name = %s AND option_value = %s", self::LOCK . '.lock', self::$lock_value ) );
+		self::$lock_value = null;
 	}
 
 	/**
@@ -358,27 +502,62 @@ class WPCT_Sync {
 	}
 
 	/**
-	 * One step of the sync. Registered on both cron hooks.
+	 * One step of the sync. The weekly event calls it as it is, and so starts a sync on an idle
+	 * site. The call for the next step and the watchdog pass false: they asked whether a sync
+	 * was running before they got the lock, and the last step may have ended it in between.
+	 *
+	 * @param bool $may_start Whether to start a sync when none is running.
 	 */
-	public static function run_step() {
+	public static function run_step( $may_start = true ) {
 		$settings = wpct_get_settings();
 		if ( '' === wpct_airtable_token() ) {
 			self::fail( __( 'No Airtable Personal Access Token configured.', 'wpcredits-tracker' ) );
 			return;
 		}
 
-		$state = get_option( WPCT_OPT_STATE, array() );
-		if ( ! is_array( $state ) || empty( $state['phase'] ) || in_array( $state['phase'], array( 'done', 'error' ), true ) ) {
-			self::start();
-			$state = get_option( WPCT_OPT_STATE, array() );
+		if ( ! self::lock() ) {
+			// Another step is running, and hands on itself when it ends. If it has died instead,
+			// its lock is not stale yet: keep a watchdog ahead so the sync is tried again later
+			// (the event that brought us here was a single one and is used up).
+			if ( self::is_running() ) {
+				self::watch();
+			}
+			return;
 		}
 
-		@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		$deadline = time() + self::TIME_BUDGET;
-
+		$more = false;
 		try {
+			$state = get_option( WPCT_OPT_STATE, array() );
+			if ( ! is_array( $state ) || empty( $state['phase'] ) || in_array( $state['phase'], array( 'done', 'error' ), true ) ) {
+				if ( ! $may_start ) {
+					return; // Nothing is running any more. The lock is let go below.
+				}
+				self::begin();
+				$state = get_option( WPCT_OPT_STATE, array() );
+			}
+
+			// The watchdog first: if this step dies, the scheduler picks the sync up again.
+			self::watch();
+
+			// A sync that was in flight when the plugin was updated to 1.8.4 has no key and no count yet.
+			$state['key']   = empty( $state['key'] ) ? wp_generate_password( 32, false ) : $state['key'];
+			$state['steps'] = isset( $state['steps'] ) ? (int) $state['steps'] + 1 : 1;
+			update_option( WPCT_OPT_STATE, $state, false );
+			if ( $state['steps'] > self::MAX_STEPS ) {
+				/* translators: %d: a number of steps. */
+				self::fail( sprintf( __( 'The sync had not ended after %d steps and was stopped.', 'wpcredits-tracker' ), self::MAX_STEPS ) );
+				return; // The lock is let go below.
+			}
+			$carried = array(
+				'key'   => $state['key'],
+				'steps' => $state['steps'],
+			);
+
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			$deadline = time() + self::TIME_BUDGET;
+
 			if ( 'fetch' === $state['phase'] ) {
-				$state = self::phase_fetch( $settings );
+				$state = array_merge( self::phase_fetch( $settings ), $carried );
 				update_option( WPCT_OPT_STATE, $state, false );
 			}
 
@@ -389,14 +568,22 @@ class WPCT_Sync {
 
 			if ( 'finalize' === $state['phase'] ) {
 				self::phase_finalize( $state );
-				return; // Done.
+				// Done: no watchdog left behind, or it would find an idle site later.
+				wp_clear_scheduled_hook( WPCT_CRON_RUN );
 			}
 
-			if ( self::is_running() ) {
-				self::schedule_next();
-			}
-		} catch ( Exception $e ) {
+			$more = self::is_running();
+		} catch ( Throwable $e ) {
+			// A PHP Error too, not only an Exception: left uncaught it would leave the sync
+			// "running" with a watchdog, and the same step would fail again every few minutes.
 			self::fail( $e->getMessage() );
+		} finally {
+			self::unlock();
+		}
+
+		// Only now, with the lock let go, or the next step would find it held and stop.
+		if ( $more ) {
+			self::call_next();
 		}
 	}
 
@@ -1371,5 +1558,7 @@ class WPCT_Sync {
 		$state          = is_array( $state ) ? $state : array();
 		$state['phase'] = 'error';
 		update_option( WPCT_OPT_STATE, $state, false );
+		// A sync that has stopped is not picked up again by the watchdog.
+		wp_clear_scheduled_hook( WPCT_CRON_RUN );
 	}
 }

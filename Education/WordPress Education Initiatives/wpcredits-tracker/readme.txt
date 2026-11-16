@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.8.3
+Stable tag: 1.8.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,10 @@ Yes. A Personal Access Token with read access to the WordPress Credits base is r
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count), the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.8.4 =
+* A sync runs to its end by itself. On a host that runs WordPress's scheduled tasks only every few minutes, a sync stood still after its first steps, because every step waited for the next scheduled run. Each step now starts the next one itself. The scheduler only picks a sync up again if a step is lost, and never starts a sync on its own account (the weekly sync and "Sync now" do).
+* Two steps of a sync can no longer run at the same time, a PHP error inside a step ends the sync with a note instead of being tried again, and a sync that has not ended after 600 steps is stopped with a note.
 
 = 1.8.3 =
 * "Students who have joined to date" and the growth chart count the same students. The card added up graduates, dropouts and students in the program, which left out a student whose Status is Paused or Fail, so it read lower than the chart beside it (1034 against 1040 on 16 November 2026). A sync now counts everyone who started, by the rule the chart already used (every Status except Interested, Not moving forward and SPAM, or none), and the card shows that count, as the upstream dashboard does since 9 November 2026.

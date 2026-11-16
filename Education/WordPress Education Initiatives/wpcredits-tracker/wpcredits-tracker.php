@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits-Tracker
  * Plugin URI:        https://wpeducationalinitiatives.app/
  * Description:       A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, and student voices), with no iframe. Data is synced weekly from Airtable and profiles.wordpress.org, and displayed via a "WPCredits-Tracker" block or the [wpcredits_tracker] shortcode. A PHP port of the wordpress/WPCredits-Tracker build.
- * Version:           1.8.3
+ * Version:           1.8.4
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Maciej (Matt) Pilarski, Isotta Peira
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPCT_VERSION', '1.8.3' );
+define( 'WPCT_VERSION', '1.8.4' );
 define( 'WPCT_FILE', __FILE__ );
 define( 'WPCT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCT_URL', plugin_dir_url( __FILE__ ) );
@@ -76,9 +76,13 @@ function wpct_init() {
 	WPCT_Settings::instance();
 	WPCT_Block::instance();
 
-	// Cron handlers (both point at the resumable step runner).
+	// The weekly event starts a sync and runs its first step. Each step calls for the next
+	// through admin-ajax (signed in or not: the running sync's key is what opens it); the
+	// single event is the watchdog, which only ever continues a sync that is running.
 	add_action( WPCT_CRON_WEEKLY, array( 'WPCT_Sync', 'run_step' ) );
-	add_action( WPCT_CRON_RUN, array( 'WPCT_Sync', 'run_step' ) );
+	add_action( WPCT_CRON_RUN, array( 'WPCT_Sync', 'continue_sync' ) );
+	add_action( 'wp_ajax_' . WPCT_Sync::AJAX_ACTION, array( 'WPCT_Sync', 'ajax_step' ) );
+	add_action( 'wp_ajax_nopriv_' . WPCT_Sync::AJAX_ACTION, array( 'WPCT_Sync', 'ajax_step' ) );
 
 	// Shortcode + a back-compat alias for the pre-rename slug, so pages that
 	// used the previous plugin's [education_credits_dashboard] keep working.
