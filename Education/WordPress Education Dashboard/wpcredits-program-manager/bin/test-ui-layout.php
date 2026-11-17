@@ -21,6 +21,10 @@
  * - **In Chrome**, a theme button in a drawing computes to theme.json's button look as the fixture prints it
  *   (background, text color, corners, padding, weight, no underline) and a link to its link color. A machine
  *   without node, Playwright or Chrome gets one `skip` line for that part.
+ * - **The head beside a school's site icon** (1.123.97), on `render_head()`'s own markup as the dashboard suite keeps
+ *   it, at main 960 and 358: the icon drawn (the icon in the first column, the copy in the second), the icon refused
+ *   (it takes itself off the page, and the copy, alone in a head that keeps the logo's two columns, is as wide as the
+ *   head) and no icon at all. The check answers the icon's address itself.
  *
  * Nothing here touches a site, Docker or the network.
  *
@@ -780,6 +784,135 @@ JS;
 		sort( $step_gaps );
 		ck( 'the Agreement\'s signer tick, drawn by the panel, stands 14px under the kind\'s choice group in every kept case at 960 and 358 (' . count( $tick_cases ) . ' cases)', array_values( array_filter( array_keys( $tick_gaps ), 'is_int' ) ), array( 14 ) );
 		ck( 'two of the Agreement\'s steps stand 16px apart where either holds a form', $step_gaps, array( 'with a form 16' ) );
+	}
+	// 1.123.97: the head beside a school's site icon. The markup is `render_head()`'s own, kept by the dashboard suite
+	// for a school with a short name: once with its site icon and once with none (the same school, its site cached as
+	// offering no icon). The first is drawn twice: with the icon's address answered by a picture, and with it answered
+	// 404, when the icon takes itself off the page (its own `onerror`) and leaves the copy the head's only child, in a
+	// head that still carries the two columns of `wpcpm-head--logo`. Before the hotfix the copy then fell into the
+	// logo's column (88px, and 64px in the narrow form) and the title broke word by word. At main 960 and 358, in
+	// windows of 1280 and 390. The icon's address is the only one the page asks for that is not a file of this
+	// machine, and the check answers it itself; any other is refused and listed, so nothing reaches the network.
+	$head_keys  = array(
+		'icon'  => 'institutions-dashboard | Institution Dashboard Overview, representative: short name, site icon',
+		'plain' => 'institutions-dashboard | Institution Dashboard Overview, representative: short name, no site icon',
+	);
+	$head_cases = array();
+	foreach ( $head_keys as $head_key => $head_name ) {
+		$head_cases[ $head_key ] = isset( $all_cases[ $head_name ] ) ? $all_cases[ $head_name ] : array( 'html' => '', 'surface' => '' );
+	}
+	$head_open = static function ( $html ) {
+		return preg_match( '#<header class="wpcpm-head[^>]*>.*?<div class="wpcpm-head__copy">#s', (string) $html, $m ) ? $m[0] : '';
+	};
+	$icon_tag  = '<img class="wpcpm-institution__icon" src="https://www.example.org/icon.png" alt="" width="48" height="48" loading="lazy" decoding="async" onerror="this.remove()" />';
+	ck( 'the dashboard suite keeps the head beside a site icon as render_head() prints it: the logo class, the icon that takes itself off when it does not load, then the copy', $head_open( $head_cases['icon']['html'] ), '<header class="wpcpm-head wpcpm-head--logo">' . $icon_tag . '<div class="wpcpm-head__copy">' );
+	ck( 'and the same school with no site icon: no class and no picture', $head_open( $head_cases['plain']['html'] ), '<header class="wpcpm-head"><div class="wpcpm-head__copy">' );
+	ck( 'the two pages differ in the icon and the class, and in nothing else', '' !== $head_cases['plain']['html'] && str_replace( array( ' wpcpm-head--logo', $icon_tag ), '', (string) $head_cases['icon']['html'] ) === (string) $head_cases['plain']['html'] );
+	file_put_contents( $census_dir . 'heads.json', json_encode( (object) $head_cases ) );
+	$head_js = <<<'JS'
+import { pathToFileURL } from 'node:url';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+const [plugin, dir] = process.argv.slice(2);
+const mod = await import(pathToFileURL(join(plugin, 'bin/ui/layout/page.mjs')).href);
+const { chromium } = await import(pathToFileURL(process.env.WPCPM_PLAYWRIGHT || join(homedir(), 'Projects/wpcredits-release/a11y/node_modules/playwright-core/index.mjs')).href);
+const kept = JSON.parse(readFileSync(join(dir, 'heads.json'), 'utf8'));
+const ICON = 'https://www.example.org/icon.png';
+// The picture the icon's address is answered with: a plain square, drawn here.
+const PICTURE = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#3858e9"/></svg>';
+const got = { answered: {}, refused: {}, none: {}, iconAsked: { answered: 0, refused: 0, none: 0 }, asked: [] };
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--allow-file-access-from-files'] });
+try {
+	for (const [w, win] of [[960, 1280], [358, 390]]) {
+		for (const [state, which] of [['answered', 'icon'], ['refused', 'icon'], ['none', 'plain']]) {
+			const f = join(dir, `head-${state}-${w}.html`);
+			writeFileSync(f, mod.page([{ name: state, html: kept[which].html, surface: kept[which].surface || 'institution' }], [w], { pluginDir: plugin }));
+			const r = await browser.newPage({ viewport: { width: win, height: 900 } });
+			// Every address that is not a file of this machine stops here: the icon's is answered as the state says,
+			// any other is refused and listed.
+			await r.route(u => 'file:' !== u.protocol, route => {
+				const url = route.request().url();
+				if (url !== ICON) { got.asked.push(url); return route.abort(); }
+				got.iconAsked[state]++;
+				return 'answered' === state ? route.fulfill({ status: 200, contentType: 'image/svg+xml', body: PICTURE }) : route.fulfill({ status: 404, contentType: 'text/html', body: '<!doctype html><title>Not found</title>' });
+			});
+			await r.goto(pathToFileURL(f).href, { waitUntil: 'load' });
+			await r.evaluate(() => document.fonts.ready);
+			// The icon is lazy: the browser asks for it once the head is laid out in view. Answered, it is drawn; refused,
+			// its own onerror takes it off the page. The check waits for either, and says so when neither came.
+			let settled = true;
+			if ('none' !== state) {
+				try { await r.waitForFunction(drawn => { const i = document.querySelector('.wpcpm-institution__icon'); return drawn ? !!i && i.complete && i.naturalWidth > 0 : !i; }, 'answered' === state, { timeout: 5000 }); } catch (e) { settled = false; }
+			}
+			got[state][w] = await r.evaluate(ok => {
+				const round = v => Math.round(v * 100) / 100;
+				const head = document.querySelector('.wpcpm-institution > .wpcpm-head');
+				const h = head.getBoundingClientRect();
+				const at = e => { const b = e.getBoundingClientRect(); return [round(b.left - h.left), round(b.top - h.top), round(b.width), round(b.height)]; };
+				const icon = head.querySelector(':scope > .wpcpm-institution__icon');
+				const copy = head.querySelector(':scope > .wpcpm-head__copy');
+				const range = document.createRange();
+				range.selectNodeContents(head.querySelector('.wpcpm-head__title'));
+				return {
+					settled: ok,
+					logo: head.classList.contains('wpcpm-head--logo'),
+					children: [...head.children].map(e => e.className.split(' ')[0]),
+					head: round(h.width),
+					icon: icon ? [at(icon)[0], at(icon)[2]] : null,
+					copy: [at(copy)[0], at(copy)[2]],
+					titleLines: new Set([...range.getClientRects()].filter(x => x.width > 0).map(x => Math.round(x.top))).size,
+					boxes: { head: round(h.height), ...Object.fromEntries(['eyebrow', 'title', 'facts', 'actions'].map(k => [k, head.querySelector('.wpcpm-head__' + k) ? at(head.querySelector('.wpcpm-head__' + k)) : null])) },
+				};
+			}, settled);
+			await r.close();
+		}
+	}
+} finally {
+	await browser.close();
+}
+console.log(JSON.stringify(got));
+JS;
+	file_put_contents( $census_dir . 'heads.mjs', $head_js );
+	$head_out = trim( (string) shell_exec( 'cd ' . escapeshellarg( $root ) . ' && ' . escapeshellarg( $node_run ) . ' ' . escapeshellarg( $census_dir . 'heads.mjs' ) . ' ' . escapeshellarg( $root ) . ' ' . escapeshellarg( rtrim( $census_dir, '/' ) ) . ' 2>&1' ) );
+	$head_got = json_decode( $head_out, true );
+	if ( ! is_array( $head_got ) ) {
+		echo 'skip the head beside a site icon was not drawn: ' . $head_out . "\n";
+	} else {
+		// What one state measured at each width, without the boxes: whether the icon settled, the head's class and
+		// children, the icon's and the copy's left edge and width inside the head, and the lines the title takes.
+		$head_at = static function ( $state ) use ( $head_got ) {
+			$out = array();
+			foreach ( array( 960, 358 ) as $w ) {
+				$v         = isset( $head_got[ $state ][ $w ] ) && is_array( $head_got[ $state ][ $w ] ) ? $head_got[ $state ][ $w ] : array();
+				$out[ $w ] = array_intersect_key( $v, array_flip( array( 'settled', 'logo', 'children', 'head', 'icon', 'copy', 'titleLines' ) ) );
+			}
+			return $out;
+		};
+		// The head's two columns beside a school's site icon: the icon's own 48px (institution.css, since 1.123.98; the
+		// frame's logo column is 88px, and 64px in a main area of 760px or less, which left the copy 112px and 84px in)
+		// and the frame's gap, 24px, and 20px in the narrow form.
+		$head_want = static function ( $logo, array $children, $icon, array $copy ) {
+			$out = array();
+			foreach ( array( 960, 358 ) as $w ) {
+				$out[ $w ] = array( 'settled' => true, 'logo' => $logo, 'children' => $children, 'head' => $w, 'icon' => $icon, 'copy' => array( $copy[ $w ], $w - $copy[ $w ] ), 'titleLines' => 1 );
+			}
+			return $out;
+		};
+		ck( 'the icon drawn: it stands in the first column and the copy in the second, 72px in at main 960 and 68px in at 358 (the icon\'s 48px and the gap, 1.123.98), the short name on one line', $head_at( 'answered' ), $head_want( true, array( 'wpcpm-institution__icon', 'wpcpm-head__copy' ), array( 0, 48 ), array( 960 => 72, 358 => 68 ) ) );
+		ck( 'the icon refused: the browser takes it off the page, and the copy, the only child of a head that keeps the logo class, is as wide as the head, the short name on one line (1.123.97)', $head_at( 'refused' ), $head_want( true, array( 'wpcpm-head__copy' ), null, array( 960 => 0, 358 => 0 ) ) );
+		ck( 'no icon at all: no logo class, the copy as wide as the head, as before', $head_at( 'none' ), $head_want( false, array( 'wpcpm-head__copy' ), null, array( 960 => 0, 358 => 0 ) ) );
+		$head_boxes = static function ( $state ) use ( $head_got ) {
+			return array_map(
+				static function ( $v ) {
+					return isset( $v['boxes'] ) ? $v['boxes'] : null;
+				},
+				isset( $head_got[ $state ] ) && is_array( $head_got[ $state ] ) ? $head_got[ $state ] : array()
+			);
+		};
+		ck( 'a head whose icon is gone is drawn as the head that never had one: the head\'s height and the eyebrow, the title, the facts and the button, box for box, at both widths', array( $head_boxes( 'refused' ) === $head_boxes( 'none' ), count( $head_boxes( 'none' ) ), in_array( null, $head_boxes( 'none' ), true ) ), array( true, 2, false ) );
+		ck( 'the icon\'s address was asked for once a drawing, and answered by the check', $head_got['iconAsked'] ?? null, array( 'answered' => 2, 'refused' => 2, 'none' => 0 ) );
+		ck( 'and the pages asked for nothing else that is not a file of this machine', $head_got['asked'] ?? null, array() );
 	}
 	$run_lines  = array();
 	$run_status = 0;

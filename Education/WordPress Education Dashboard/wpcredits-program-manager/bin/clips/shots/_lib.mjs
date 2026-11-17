@@ -179,24 +179,23 @@ export function workDir() {
 }
 
 /**
- * The Administrator enrolls invented students for a school on its Institution Dashboard (Enroll students), as the
+ * The Administrator enrolls invented students for a school on its Institution Dashboard's Enroll students view, as the
  * guide's "Enroll students for a school" says: program, dates, the notified box, a pasted list, Check the list,
- * Create these student records.
+ * Create these student records. The view is the form itself (no fold of its own).
  */
 export async function enrollStudents(newContext, BASE, schoolName, students, { program = 'WordPress Credits Program 150h', start, end } = {}) {
   const record = recordOf(schoolName);
   const context = await newContext();
   const page = await context.newPage();
-  await page.goto(`${BASE}/institution-dashboard/?wpcpm_institution_view=${record}`, { waitUntil: 'networkidle' });
-  const sum = page.locator('summary', { hasText: 'Enroll students' }).first();
-  const det = page.locator('details', { has: sum }).last();
-  if (!(await det.evaluate(d => d.open))) await sum.click();
-  await det.getByLabel('Program', { exact: true }).selectOption({ label: program });
-  await det.locator('input[type=date]').first().fill(start);
-  if (end) await det.locator('input[type=date]').nth(1).fill(end);
-  await det.getByLabel('These students have been notified', { exact: false }).check();
-  await det.getByLabel('Or paste the same thing here').fill('name,email\n' + students.map(s => `${s.name},${s.email}`).join('\n'));
-  await Promise.all([page.waitForLoadState('networkidle'), det.getByRole('button', { name: 'Check the list' }).click()]);
+  await page.goto(`${BASE}/institution-dashboard/?wpcpm_view=enroll&wpcpm_institution_view=${record}`, { waitUntil: 'networkidle' });
+  const form = page.locator('main form', { has: page.getByRole('button', { name: 'Check the list', exact: true }) }).first();
+  if (!(await form.count())) throw new Error('the Enroll students view shows no form with Check the list');
+  await form.getByLabel('Program', { exact: false }).first().selectOption({ label: program });
+  await form.getByLabel('Start date', { exact: false }).fill(start);
+  if (end) await form.getByLabel('End date', { exact: false }).fill(end);
+  await form.getByLabel('These students have been notified', { exact: false }).check();
+  await form.getByLabel('Or paste the same thing here', { exact: false }).fill('name,email\n' + students.map(s => `${s.name},${s.email}`).join('\n'));
+  await Promise.all([page.waitForLoadState('networkidle'), form.getByRole('button', { name: 'Check the list', exact: true }).click()]);
   const create = page.getByRole('button', { name: 'Create these student records' }).first();
   await create.waitFor({ timeout: 20000 });
   page.once('dialog', d => d.accept()); // the screen's own question, on invented students
@@ -224,18 +223,29 @@ export async function draftReport(newContext, BASE, schoolName, semester) {
   if (!ok) throw new Error('the report was not drafted');
 }
 
-/** The school's own account invites a colleague and adds a tutor on its Institution Dashboard. */
+/**
+ * The school's own account invites a colleague and adds a tutor on its Institution Dashboard's view Your institution,
+ * in the card Representatives and tutors: Invite a colleague and Add a tutor are folds there, each opened first.
+ */
 export async function inviteAndTutor(newContext, BASE, login) {
   const context = await newContext({ login });
   const page = await context.newPage();
-  await page.goto(BASE + '/institution-dashboard/', { waitUntil: 'networkidle' });
-  const invite = page.locator('form', { has: page.getByRole('button', { name: 'Send invitation' }) }).first();
-  await invite.getByLabel('Their email address').fill('pat.example@example.org');
+  const view = BASE + '/institution-dashboard/?wpcpm_view=institution';
+  const open = async title => {
+    const fold = page.locator('details', { has: page.locator(':scope > summary', { hasText: title }) }).last();
+    if (!(await fold.count())) throw new Error(`the view Your institution shows no ${title}`);
+    if (!(await fold.evaluate(d => d.open))) await fold.locator(':scope > summary').click();
+    return fold;
+  };
+  await page.goto(view, { waitUntil: 'networkidle' });
+  const invite = await open('Invite a colleague');
+  await invite.getByLabel('Email address', { exact: false }).fill('pat.example@example.org');
   await Promise.all([page.waitForLoadState('networkidle'), invite.getByRole('button', { name: 'Send invitation' }).click()]);
   await page.getByText('The invitation is on its way', { exact: false }).first().waitFor({ timeout: 20000 });
-  const tutor = page.locator('form', { has: page.getByRole('button', { name: 'Add', exact: true }) }).first();
-  await tutor.getByLabel('Name', { exact: true }).fill('Lee Example');
-  await tutor.getByLabel('Email', { exact: true }).fill('lee.example@example.org');
+  await page.goto(view, { waitUntil: 'networkidle' });
+  const tutor = await open('Add a tutor');
+  await tutor.getByLabel('Name', { exact: false }).fill('Lee Example');
+  await tutor.getByLabel('Email', { exact: false }).fill('lee.example@example.org');
   await Promise.all([page.waitForLoadState('networkidle'), tutor.getByRole('button', { name: 'Add', exact: true }).click()]);
   await page.getByText('The tutor was added to the list.', { exact: false }).first().waitFor({ timeout: 20000 });
   await context.close();

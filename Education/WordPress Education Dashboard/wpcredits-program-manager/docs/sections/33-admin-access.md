@@ -214,6 +214,7 @@ Since 1.123.96 the Institution Dashboard has nothing to arrange. A menu down the
 - Through **Viewing as institution**, the school stays as you change views, and the view stays as you change schools.
 - The order a school saved with the old arrows stays stored and unused.
 - On the **Overview** you see *Stage:* in the head, and no news under **Good to know**: news is the school's own.
+- Since 1.123.98, on a school's **Overview** you see its four facts about students under **Good to know** as the school does, with no tag, and nothing of them is counted: the students who have not signed in yet, those who finish within 30 days, the placements that ended and are still open, and the students waiting to graduate. You see **What your students work on** as the school does. A school whose agreement is not settled shows none of them. **See them** opens the school's **Students** view with those students alone.
 
 The Sponsor Dashboard has nothing to arrange. A menu down the side opens one view per part: **Overview**, **Your sponsorship** (while **Sponsor tiers** is on), **Offers**, **Students reached**, **Mentors to sponsor**, **Your company** and **Agreement**. It also holds **Program updates** while there is an update for sponsors, and **Sponsor guide** while its page is published. Through the switcher, the sponsor stays as you change views, and the view stays as you change sponsors.
 

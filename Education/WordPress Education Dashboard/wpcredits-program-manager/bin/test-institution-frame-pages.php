@@ -157,6 +157,9 @@ $GLOBALS['members'] = array();
 $GLOBALS['settled'] = array();
 
 class WPCPM_Institution_Policy {
+	// 1.123.98: the two acts the Overview's rows that wait ask for.
+	const ACT_RESEND_INVITE = 'resend_invite';
+	const ACT_EDIT_STUDENT  = 'edit_student';
 	const ACT_VIEW_ROSTER          = 'view_roster';
 	const ACT_ADD_STUDENT          = 'add_student';
 	const ACT_VIEW_SEMESTER_REPORT = 'view_semester_report';
@@ -206,6 +209,8 @@ class WPCPM_Institution_Agreement {
 }
 
 class WPCPM_Settings {
+	// 1.123.98: the tracked statuses the Overview's rows read (`WPCPM_Mentors_Sync::tracked_statuses()`), none here.
+	public static function get() { return array(); }
 	public static function get_value( $key ) { return 'import_enabled' === $key ? true : null; }
 }
 
@@ -285,6 +290,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import-form.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-semester-report-screen.php';
+// 1.123.98: what the Overview's new rows ask, where this suite stands in for none of it.
+require_once __DIR__ . '/stubs/overview-more.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ui.php';
 WPCPM_UI::set_live( array() );

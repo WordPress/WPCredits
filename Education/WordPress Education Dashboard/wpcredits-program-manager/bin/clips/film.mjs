@@ -39,7 +39,7 @@ const slug = argv.find(a => !a.startsWith('--'));
 const opt = n => { const i = argv.indexOf('--' + n); return i >= 0 ? (argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : true) : null; };
 if (!slug || !/^[a-z0-9-]+$/.test(slug)) { console.error('usage: node bin/clips/film.mjs <slug> [--skip-prepare]'); process.exit(2); }
 
-const OUT = resolve(opt('out') || join(REPO, '.superpowers/guides/clips/out-94'));
+const OUT = resolve(opt('out') || join(REPO, '.superpowers/guides/clips/out'));
 const WORK = join(REPO, '.superpowers/guides/clips/work', slug);
 const NAMES = resolve(opt('names') || join(REPO, '.superpowers/guides/clips/work/real-names.json'));
 

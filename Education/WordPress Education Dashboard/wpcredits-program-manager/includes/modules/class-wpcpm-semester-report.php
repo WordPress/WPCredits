@@ -2311,6 +2311,47 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
+	 * The contribution teams of a cohort's students and how many students are on each, counted as the report's
+	 * Contribution Teams are, from the roster index's rows rather than the Students Reports rows, with no read of the
+	 * base (the Institution Dashboard's Overview, 1.123.98): a student once however many rows they have (by address),
+	 * counted for each team their row names, ranked most first (`rank()`).
+	 *
+	 * @param array  $rows   The institution's roster index rows.
+	 * @param string $cohort A `WPCPM_Cohort` key.
+	 * @return array[] Each `array( 'team', 'count' )`.
+	 */
+	public static function team_counts( array $rows, $cohort ) {
+		$teams = array();
+		$seen  = array();
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$status = trim( isset( $row['status'] ) ? (string) $row['status'] : '' );
+
+			if ( in_array( $status, WPCPM_Cohort::NOT_SIGNED_UP, true ) || WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) !== $cohort ) {
+				continue;
+			}
+
+			$id = self::student_id( isset( $row['email_key'] ) ? (string) $row['email_key'] : '' );
+
+			if ( '' === $id || isset( $seen[ $id ] ) ) {
+				continue;
+			}
+
+			$seen[ $id ] = true;
+
+			foreach ( self::team_names( isset( $row['team'] ) ? (string) $row['team'] : '', array() ) as $team ) {
+				$teams[ $team ] = isset( $teams[ $team ] ) ? $teams[ $team ] + 1 : 1;
+			}
+		}
+
+		return self::rank( $teams, 'team' );
+	}
+
+	/**
 	 * A name => count map as a ranked list.
 	 *
 	 * Count descending, then the name ascending, so the order is stable across generations: a

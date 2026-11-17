@@ -10,7 +10,7 @@ Under the form, headed with the semester's name, is a summary of the cohort: how
 
 The students are filed in four groups. Each group is a card of its own, with its count in words beside its name, such as "2 students", and a line under it that says what it holds. A group folds and unfolds with one press on its title; **Current** and **Waiting for a mentor** start open, unless a group holds more than twelve students, and **Finished** and **Not on the program now** start closed.
 
-- **Current**: "On the program now, with a mentor assigned or a progress record already started."
+- **Current**: "With a mentor assigned or a progress record already started, students waiting to graduate included." Since 1.123.98 the Overview's figure "on the program now" leaves out the students waiting to graduate, who have a figure of their own, so this group can hold more students than that figure.
 - **Waiting for a mentor**: "Signed up, with no mentor assigned and no progress record yet." That is the whole of what the group says. It lists the students the program's records show as signed up with neither, and the page says no more than that.
 - **Finished**: "Mentoring has finished. Their details are kept for reference."
 - **Not on the program now**: "Students who have not started yet, never began the program, or stopped before finishing it."
@@ -18,6 +18,10 @@ The students are filed in four groups. Each group is a card of its own, with its
 A fifth list, **Enrollment not recorded yet**, appears only when students are reporting their progress and the program's records hold no enrollment for them. They are not counted in the groups, and the list says an Administrator needs to complete the record.
 
 Each student is a row that opens. The closed row shows the student's photo, or the first letter of their name, the name, the program they are on as a tag, their dates and the name of their mentor when the page has one. A group that holds one student shows that row open. For a student who has an account on this site the name is a link that opens the student's own card, described below. For a student who has none the name is not a link and there is no card of their own; their row in the roster still opens like any other. Opened, a row lists **Program**, **Dates**, **Days left**, **Mentor**, **WordPress.org**, **Team**, **Website**, **Field of study**, **Tutor** and **Hours**. A row with nothing in it reads "Not recorded". The **Mentor** row reads "No mentor yet." for a student with none on record. When the program's records name a mentor and the name has not reached the page, the row says so in a sentence of its own instead.
+
+### A narrowed list from the Overview
+
+**See them**, on a row of the Overview, opens **Students** with that row's students alone (since 1.123.98): one sentence that says what the list is, such as "2 students have not signed in yet.", then **Show all students**, which brings the whole roster back, then one list with a row per student: the name, a link to the student's card when the student has an account here, the program they are on as a tag, the semester they started in and their dates. There is no form, no group and no semester to choose. The list of students who have not signed in yet adds one line under its sentence: "Accounts made before" the day the site began recording sign-ins "are not counted: the site kept no sign-in record before then." When the list is empty, or the address names a list the Overview does not offer you, **Students** shows the whole roster. A student's card opened from the list is the ordinary card: **Students** in the menu leads to the whole roster, and your browser's Back returns to the list.
 
 ### Opening a student's card
 

@@ -119,6 +119,16 @@ class WPCPM_Institution_Roster_View {
 			}
 		}
 
+		// A narrowed list the Overview's row opens (1.123.98), in place of the roster, when the request names one the reader
+		// is offered and it holds a student; otherwise the roster as ever.
+		$only = self::only_from_request( $record_id );
+
+		if ( '' !== $only ) {
+			self::render_only( $record_id, $only, $context );
+
+			return;
+		}
+
 		$columns = WPCPM_Institution_Policy::scope( $decision, self::columns() );
 		$rows    = WPCPM_Roster_Index::rows( $record_id );
 		$read    = isset( $context['read'] ) ? (int) $context['read'] : (int) WPCPM_Roster_Index::read( $record_id )['read'];
@@ -187,6 +197,101 @@ class WPCPM_Institution_Roster_View {
 		// titles the module this roster sits in (1.96.5); anywhere else the roster closes with it.
 		if ( empty( $context['module_titled'] ) ) {
 			self::read_line( $read, 'wpcpm-roster__read wpcpm-roster__read--footer' );
+		}
+
+		echo '</section>';
+	}
+
+	/**
+	 * The narrowed list the request names (`WPCPM_Institutions_Dashboard::ONLY_ARG`), when it is one of the four, the
+	 * reader is offered it (`only_offered()`: a tutor is not offered the two that wait) and it holds a student; '' for
+	 * anything else, which draws the ordinary roster.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string A key of `WPCPM_Institutions_Dashboard::ONLY_KEYS`, or ''.
+	 */
+	private static function only_from_request( $record_id ) {
+		if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+			return '';
+		}
+
+		$key    = WPCPM_Request::key( WPCPM_Institutions_Dashboard::ONLY_ARG );
+		$viewer = wp_get_current_user();
+
+		if ( ! in_array( $key, WPCPM_Institutions_Dashboard::ONLY_KEYS, true ) || ! $viewer instanceof WP_User || ! WPCPM_Institutions_Dashboard::only_offered( $key, (string) $record_id, $viewer, self::$manages ) ) {
+			return '';
+		}
+
+		return array() === WPCPM_Institutions_Dashboard::only_rows( (string) $record_id, $key ) ? '' : $key;
+	}
+
+	/**
+	 * One narrowed list on the parts (1.123.98), in the roster's place and under its anchor: one sentence that says what
+	 * the list is, in its Overview row's words with its count, then "Show all students", a quiet link to the Students
+	 * view; then one list, a student per row: the name (to the student's card when there is an account), the program as
+	 * the roster's tag, and as facts the cohort and the dates. No filter bar, no groups, no cohort picker.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param string $key       A key of `WPCPM_Institutions_Dashboard::ONLY_KEYS`.
+	 * @param array  $context   What the roster is handed.
+	 */
+	private static function render_only( $record_id, $key, array $context ) {
+		$rows    = WPCPM_Institutions_Dashboard::only_rows( (string) $record_id, $key );
+		$here    = remove_query_arg( self::ARG_STUDENT );
+		$managed = self::$manages ? (string) $record_id : '';
+
+		// The list's own class keys the narrow form of its rows (a name keeps its line, its tag goes under it).
+		echo '<section class="wpcpm-roster__view wpcpm-roster__view--only" id="wpcpm-roster">';
+		// The way back to the whole roster: a quiet link in a line of its own, at the text's edge, as the people card's
+		// link to the Institutions screen is (a quiet button's own padding set its words 8px in from the lines around it).
+		$all = WPCPM_UI::intro( '', '', '', sprintf( '<a href="%1$s">%2$s</a>', esc_url( WPCPM_Institutions_Dashboard::view_url( WPCPM_Institutions_Dashboard::VIEW_STUDENTS, $managed ) ), esc_html__( 'Show all students', 'wpcredits-program-manager' ) ) );
+
+		// The list of students who have not signed in yet counts accounts made since the sign-in record began alone, and
+		// says so, with the day the record began (fix round 1, B2): the record's day, never a student's.
+		$record_line = '';
+
+		if ( WPCPM_Institutions_Dashboard::ONLY_NO_SIGN_IN === $key && WPCPM_Sign_Ins::since() > 0 ) {
+			/* translators: %s: the day the site began recording sign-ins, in the site's date format. */
+			$record_line = WPCPM_UI::intro( '', 'muted', '', sprintf( esc_html__( 'Accounts made before %s are not counted: the site kept no sign-in record before then.', 'wpcredits-program-manager' ), WPCPM_UI::whole( (string) wp_date( (string) get_option( 'date_format' ), WPCPM_Sign_Ins::since() ) ) ) );
+		}
+
+		echo WPCPM_UI::intro( WPCPM_Institutions_Dashboard::only_title( $key, count( $rows ) ) . '.' ) . $record_line . $all; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts.
+
+		$list = WPCPM_UI::list_open( array( 'facts' => 'under' ) );
+
+		foreach ( $rows as $row ) {
+			$name    = trim( (string) ( $row['name'] ?? '' ) );
+			$name    = '' === $name ? __( 'Unnamed student', 'wpcredits-program-manager' ) : $name;
+			$user_id = (int) ( $row['user_id'] ?? 0 );
+			$start   = (string) ( $row['start'] ?? '' );
+			$program = self::program_of( $row );
+			$facts   = array();
+
+			if ( '' !== trim( $start ) ) {
+				$facts[] = WPCPM_Cohort::label( WPCPM_Cohort::key( $start ) );
+			}
+
+			$facts[] = array( 'html' => self::dates_line( trim( $start ), trim( (string) ( $row['end'] ?? '' ) ) ) );
+
+			$list .= WPCPM_UI::row(
+				array(
+					'name'  => $name,
+					// A row whose account no longer exists has no card to open: its name is drawn without a link.
+					'href'  => $user_id > 0 && get_userdata( $user_id ) instanceof WP_User ? (string) add_query_arg( self::ARG_STUDENT, $user_id, $here ) : '',
+					'tag'   => '' === $program ? null : array(
+						'words' => WPCPM_Program::status_words( $program ),
+						'tone'  => WPCPM_Program::tone( $program ),
+					),
+					'facts' => $facts,
+				)
+			);
+		}
+
+		echo $list . WPCPM_UI::list_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in WPCPM_UI::row().
+
+		// The Institution Dashboard prints the read line once, at the foot of the page, as for the roster.
+		if ( empty( $context['module_titled'] ) ) {
+			self::read_line( (int) WPCPM_Roster_Index::read( $record_id )['read'], 'wpcpm-roster__read wpcpm-roster__read--footer' );
 		}
 
 		echo '</section>';
@@ -1039,7 +1144,7 @@ class WPCPM_Institution_Roster_View {
 	 */
 	private static function group_note( $key ) {
 		$notes = array(
-			'current'     => __( 'On the program now, with a mentor assigned or a progress record already started.', 'wpcredits-program-manager' ),
+			'current'     => __( 'With a mentor assigned or a progress record already started, students waiting to graduate included.', 'wpcredits-program-manager' ),
 			'waiting'     => __( 'Signed up, with no mentor assigned and no progress record yet.', 'wpcredits-program-manager' ),
 			'finished'    => __( 'Mentoring has finished. Their details are kept for reference.', 'wpcredits-program-manager' ),
 			'not_started' => __( 'Students who have not started yet, never began the program, or stopped before finishing it.', 'wpcredits-program-manager' ),

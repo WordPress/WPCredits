@@ -148,11 +148,22 @@ add('admin-dashboard', 'cohort-timeline', 'all-open', DASH + '?wpcpm_view=cohort
 add('admin-dashboard', 'the-program', 'all-open', DASH + '?wpcpm_view=reference', { act: p => openAll(p, 'main') });
 // One file per card, found on the page: added at run time (cardScenes below).
 
-// B. Institution Dashboard.
-add('institution-dashboard', 'admin-viewing-school', 'all-open', `/institution-dashboard/?wpcpm_institution_view=${DESIGN_REC}`, { act: p => openAll(p, 'main'), note: 'Administrator viewing Example School of Design (agreement accepted, 2 students, report drafted)' });
-add('institution-dashboard', 'admin-viewing-school', 'report-draft-open', `/institution-dashboard/?wpcpm_report=2026-H1&wpcpm_institution_view=${DESIGN_REC}`, { act: p => openAll(p, 'main'), note: 'the January to June 2026 draft open for editing' });
-add('institution-dashboard', 'representative', 'all-open', '/institution-dashboard/', { login: DESIGN_LOGIN, act: p => openAll(p, 'main'), note: "signed in as the school's own representative (Quinn Example)" });
-add('institution-dashboard', 'representative-agreement-in-review', 'all-open', '/institution-dashboard/', { login: UNIVERSITY_LOGIN, act: p => openAll(p, 'main'), note: 'representative of Example University, whose signed agreement waits for review' });
+// B. Institution Dashboard: a frame with a side menu since 1.123.97, one view per menu item (`?wpcpm_view=`; the
+// Overview has none), each view with every card open. An Administrator's chosen school rides as
+// `wpcpm_institution_view`. Each reader gets the views of its own menu: an Administrator For Administrators and no
+// Events; a school whose agreement is not settled only the Overview and the Agreement. Events is not in the invented
+// school's menu (`?wpcpm_view=events` opens its Overview), so it is not a scene.
+const IDASH = (view, extra = '') => { const q = [view ? `wpcpm_view=${view}` : '', extra].filter(Boolean).join('&'); return '/institution-dashboard/' + (q ? '?' + q : ''); };
+for (const v of ['', 'students', 'enroll', 'reports', 'institution', 'agreement', 'administrators']) {
+  add('institution-dashboard', `admin-viewing-school-${v || 'overview'}`, 'all-open', IDASH(v, `wpcpm_institution_view=${DESIGN_REC}`), { act: p => openAll(p, 'main'), note: 'Administrator viewing Example School of Design (agreement accepted, 2 students, report drafted)' });
+}
+add('institution-dashboard', 'admin-viewing-school-reports', 'report-draft-open', IDASH('reports', `wpcpm_report=2026-H1&wpcpm_institution_view=${DESIGN_REC}`), { act: p => openAll(p, 'main'), note: 'the January to June 2026 draft open for editing' });
+for (const v of ['', 'students', 'enroll', 'reports', 'institution', 'agreement']) {
+  add('institution-dashboard', `representative-${v || 'overview'}`, 'all-open', IDASH(v), { login: DESIGN_LOGIN, act: p => openAll(p, 'main'), note: "signed in as the school's own representative (Quinn Example)" });
+}
+for (const v of ['', 'agreement']) {
+  add('institution-dashboard', `representative-agreement-in-review-${v || 'overview'}`, 'all-open', IDASH(v), { login: UNIVERSITY_LOGIN, act: p => openAll(p, 'main'), note: 'representative of Example University, whose signed agreement waits for review' });
+}
 
 // C. Sponsor Dashboard, as the copy holds it (the first sponsor, names replaced).
 for (const [v, label] of [['', 'overview'], ['sponsorship', 'your-sponsorship'], ['offers', 'offers'], ['reached', 'students-reached'], ['mentors', 'mentors-to-sponsor'], ['company', 'your-company'], ['agreement', 'agreement']]) {

@@ -313,12 +313,13 @@
 /* What follows the head, at the frame's own room between its rows (`.wpcpm-frame__main`'s gap: 28px, 24px in a window
    of 782px or less), as the Administrator and Sponsor Dashboards' views stand under theirs: every view's first block
    (Gate B, B4: the Students, Enroll students, Semester reports and student card views touched the lede), and the
-   Overview's blocks under the head and under each other. One rule, so every view takes the head alike. */
+   Overview's blocks under the head and under each other (1.123.98: What your students work on among them). One rule, so every view takes the head alike. */
 .wpcpm-frame .wpcpm-institution > .wpcpm-head + *,
 .wpcpm-frame .wpcpm-institution > .wpcpm-figures,
 .wpcpm-frame .wpcpm-institution > .wpcpm-overview__quiet,
 .wpcpm-frame .wpcpm-institution > .wpcpm-institution__waiting,
 .wpcpm-frame .wpcpm-institution > .wpcpm-institution__news,
+.wpcpm-frame .wpcpm-institution > .wpcpm-institution__work,
 .wpcpm-frame .wpcpm-institution > .wpcpm-institution__contact {
 	margin-block-start: 28px;
 }
@@ -329,6 +330,7 @@
 	.wpcpm-frame .wpcpm-institution > .wpcpm-overview__quiet,
 	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__waiting,
 	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__news,
+	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__work,
 	.wpcpm-frame .wpcpm-institution > .wpcpm-institution__contact {
 		margin-block-start: 24px;
 	}
@@ -379,6 +381,7 @@
 
 .wpcpm-frame .wpcpm-institution__waiting,
 .wpcpm-frame .wpcpm-institution__news,
+.wpcpm-frame .wpcpm-institution__work,
 .wpcpm-frame .wpcpm-institution__contact {
 	min-width: 0;
 	overflow-wrap: break-word;
@@ -528,6 +531,31 @@
 	word-spacing: calc( var( --wpcpm-f-tie ) - 3.5px );
 }
 
+/* What your students work on (1.123.98): its table stands on the page with no card around it, so its outer cells have
+   no padding at the table's edges, as a card's table has none (parts.css, "Inside a card the outer cells have no
+   padding"): the team names line up with the heading above them and the line under them (they stood 12px in). */
+.wpcpm-frame .wpcpm-institution__work .wpcpm-ui-table th:first-child,
+.wpcpm-frame .wpcpm-institution__work .wpcpm-ui-table td:first-child {
+	padding-inline-start: 0;
+}
+
+.wpcpm-frame .wpcpm-institution__work .wpcpm-ui-table th:last-child,
+.wpcpm-frame .wpcpm-institution__work .wpcpm-ui-table td:last-child {
+	padding-inline-end: 0;
+}
+
+/* The Students view's narrowed list (1.123.98): its sentence; the muted line that says which accounts the sentence
+   leaves out, 8px under it, as a note of the sentence's own; then the way back to the whole roster, a line of its own
+   16px under what stands above it (the muted line has no margin under it, so the link touched it); then the list, the
+   line's own 8px under it. */
+.wpcpm-frame .wpcpm-institution .wpcpm-roster__view--only > .wpcpm-ui-intro--muted {
+	margin-block-start: 0;
+}
+
+.wpcpm-frame .wpcpm-institution .wpcpm-roster__view--only > .wpcpm-ui-intro + .wpcpm-ui-intro:not( .wpcpm-ui-intro--muted ) {
+	margin-block-start: 16px;
+}
+
 /* A list row's name keeps its line, and its tag goes under it, in the narrow form (Task 28 fix round 2, X12): the parts'
    narrow line is a grid whose first column shrinks below the name, so a short name was broken beside a long tag. Here
    the line is a wrapping row: the name as wide as its words and growing into the room left, the tag after it while
@@ -535,33 +563,33 @@
    row breaks. The facts take a line of their own and the action the next, at its own width, 8px apart, as in the grid: an empty
    break of the line's whole width stands before the action, and the action's -8px takes back the second 8px gap. A row with a note or
    more under it keeps the parts' own grid. Only rows whose title is a person's or an address's name: the people card
-   (`#wpcpm-people`: Representatives and tutors, Invitations waiting, Tutors) and the Students view's unlinked rows
-   (`.wpcpm-roster__group--unlinked`); a row whose title is a sentence (the Overview's, the reports') keeps the grid, its
+   (`#wpcpm-people`: Representatives and tutors, Invitations waiting, Tutors), the Students view's unlinked rows
+   (`.wpcpm-roster__group--unlinked`) and its narrowed lists (`.wpcpm-roster__view--only`, 1.123.98); a row whose title is a sentence (the Overview's, the reports') keeps the grid, its
    tag at the line's end, read down one column with its neighbors'. Owed by the parts at their next release (the list row is shared, and its
    live rows elsewhere do not move); keyed on this page's root. */
 @media (max-width: 600px) {
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) {
 		align-content: center;
 		align-items: center;
 		display: flex;
 		flex-wrap: wrap;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__name {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__name {
 		flex: 1 1 auto;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__facts {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__facts {
 		flex: 1 1 100%;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ):has( > .wpcpm-ui-list__act )::after {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ):has( > .wpcpm-ui-list__act )::after {
 		content: "";
 		flex: 0 0 100%;
 		order: 1;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__act {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__act {
 		flex: 0 1 auto;
 		margin-top: -8px;
 		order: 2;
@@ -569,28 +597,28 @@
 }
 
 @container wpcpm-main ( max-width: 799.98px ) {
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) {
 		align-content: center;
 		align-items: center;
 		display: flex;
 		flex-wrap: wrap;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__name {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__name {
 		flex: 1 1 auto;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__facts {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__facts {
 		flex: 1 1 100%;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ):has( > .wpcpm-ui-list__act )::after {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ):has( > .wpcpm-ui-list__act )::after {
 		content: "";
 		flex: 0 0 100%;
 		order: 1;
 	}
 
-	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__act {
+	.wpcpm-frame .wpcpm-institution :is( #wpcpm-people, .wpcpm-roster__group--unlinked, .wpcpm-roster__view--only ) .wpcpm-ui-list__row:not( .wpcpm-ui-list__row--note, .wpcpm-ui-list__row--more ) > .wpcpm-ui-list__line:has( > .wpcpm-status ) > .wpcpm-ui-list__act {
 		flex: 0 1 auto;
 		margin-top: -8px;
 		order: 2;
@@ -602,4 +630,11 @@
    fell into the logo's 88px column and broke the title word by word. Alone, the copy takes the whole head. */
 .wpcpm-frame .wpcpm-institution .wpcpm-head--logo > .wpcpm-head__copy:only-child {
 	grid-column: 1 / -1;
+}
+
+/* The school's site icon is 48px, where the frame's logo column is made for the Sponsor Dashboard's 88px box
+   (64px in the narrow form): on this page the column is the icon's own width, so the head's words stand one gap
+   from the icon and not 64px from it (owner, 17 Nov 2026: "do it"). The gap is the frame's own. */
+.wpcpm-frame .wpcpm-institution .wpcpm-head--logo {
+	grid-template-columns: 48px minmax( 0, 1fr );
 }

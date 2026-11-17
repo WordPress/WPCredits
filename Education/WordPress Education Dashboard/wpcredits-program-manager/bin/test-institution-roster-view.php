@@ -96,6 +96,8 @@ function untrailingslashit( $s ) { return rtrim( (string) $s, '/\\' ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function get_user_by( $field, $value ) { return false; }
+// The narrowed list asks whether a row's account exists before it links its name (1.123.98, the outside review).
+function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
 function get_queried_object_id() { return 12; }
 // The parts (Task 15): the front end, and the dates as the mentor card formats them, read back as the raw day so the
 // parts' dates read what the formatter stub above prints.
@@ -599,7 +601,7 @@ ck( 'and no mentor name the row does not carry', has( card_summary( $html, 'curr
 // The two notes state the rule the groups are built on, both signals named: a report record
 // with no mentor link left on the Students row is still Current, so "with a mentor assigned"
 // alone would promise a name the mentor cell then denies.
-ck( 'the Current note names both signals', has( $html, 'On the program now, with a mentor assigned or a progress record already started.' ), true );
+ck( 'the Current note names both signals, and says students waiting to graduate are in the group (1.123.98: the Overview\'s "on the program now" no longer counts them, so the note does not use those words)', has( $html, 'With a mentor assigned or a progress record already started, students waiting to graduate included.' ), true );
 ck( 'and the Waiting note says neither is there', has( $html, 'Signed up, with no mentor assigned and no progress record yet.' ), true );
 ck( 'neither note names a report record', has( $html, 'report record' ), false );
 // The last group holds whoever is not on the program now: students who have not started yet,
@@ -1626,7 +1628,7 @@ ck( 'each group\'s count is a phrase in words, never a bare number in a badge', 
 ), array( '3 students', '2 students', '1 student', '0 students', false, false ) );
 ck( 'a group\'s head is the card fold\'s, its title the group\'s name', has( parts_group( $ruling, 'current' ), '<summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Current</h3><span class="wpcpm-ui-fold__phrase">3 students</span>' ), true );
 ck( 'its body opens with the group\'s sentence; an empty group says so in today\'s words', array(
-	has( parts_group( $ruling, 'current' ), '<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">On the program now, with a mentor assigned or a progress record already started.</p>' ),
+	has( parts_group( $ruling, 'current' ), '<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">With a mentor assigned or a progress record already started, students waiting to graduate included.</p>' ),
 	has( parts_group( $ruling, 'not_started' ), '<p class="wpcpm-ui-list__empty">No students in this group.</p>' ),
 	has( parts_group( parts( array( 'wpcpm_roster_search' => 'nobody at all' ), $C ), 'current' ), '<p class="wpcpm-ui-list__empty">No students in this group match the filters.</p>' ),
 ), array( true, true, true ) );
@@ -1877,7 +1879,8 @@ foreach ( array_keys( $tone_table ) as $st ) {
 }
 $GLOBALS['umeta'][701]['wpcpm_student_program'] = $saved_ama;
 ck( 'the roster\'s tag tone, status by status, is the one map\'s, and the map is the student\'s card\'s table', array( $roster_tones, array_map( static function ( $st ) { return method_exists( 'WPCPM_Program', 'tone' ) ? WPCPM_Program::tone( $st ) : 'no map'; }, array_combine( array_keys( $tone_table ), array_keys( $tone_table ) ) ) ), array( $tone_table, $tone_table ) );
-ck( 'and the roster writes no tone of its own: its students and its not-recorded rows ask the map', array( substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ), "'green'" ), substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ), 'WPCPM_Program::tone(' ) ), array( 0, 2 ) );
+// 1.123.98: the narrowed list's rows ask the map too, a third call.
+ck( 'and the roster writes no tone of its own: its students, its not-recorded rows and its narrowed list ask the map', array( substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ), "'green'" ), substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' ), 'WPCPM_Program::tone(' ) ), array( 0, 3 ) );
 
 // The layout harness's cases (bin/ui/layout): the whole view with thirteen students and the long words, the
 // Administrator's filter bar, the enrollment not recorded yet, and a tutor's narrower view.
@@ -1915,6 +1918,84 @@ ob_start();
 WPCPM_Institution_Roster_View::read_line( 0, 'wpcpm-dashboard__updated' );
 $b6_many = ob_get_clean();
 ck( 'the read line for one student says "This student", and for the roster "These students"', array( $b6_one, $b6_many ), array( '<p class="wpcpm-dashboard__updated">This student has not been read from the program records yet.</p>', '<p class="wpcpm-dashboard__updated">These students have not been read from the program records yet.</p>' ) );
+
+echo "\n=== 1.123.98: a narrowed list in the roster's place ===\n";
+
+// The dashboard's answers, standing in (its own suite, bin/test-institution-overview.php, holds what each list holds and
+// who is offered it): declared here, at run time, so every check above ran with no dashboard class at all.
+if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+	class WPCPM_Institutions_Dashboard {
+		const VIEW_STUDENTS = 'students';
+		const ONLY_ARG        = 'wpcpm_only';
+		const ONLY_NO_SIGN_IN = 'no-sign-in';
+		const ONLY_KEYS     = array( 'no-sign-in', 'ended-open', 'pending-graduation', 'finishing' );
+		public static function only_offered( string $key, string $record, $viewer, bool $can_manage ): bool { return ! empty( $GLOBALS['only_offer'][ $key ] ); }
+		public static function only_rows( string $record, string $key ): array { return $GLOBALS['only_rows'][ $key ] ?? array(); }
+		public static function only_title( string $key, int $count ): string { return 'no-sign-in' === $key ? sprintf( 1 === $count ? '%s student has not signed in yet' : '%s students have not signed in yet', $count ) : 'Some students'; }
+		public static function view_url( string $view = 'overview', string $record = '', array $args = array() ): string { return '/institution-dashboard/?wpcpm_view=' . $view . ( '' !== $record ? '&wpcpm_institution_view=' . $record : '' ); }
+	}
+}
+if ( ! class_exists( 'WPCPM_Sign_Ins' ) ) {
+	/** The day the sign-in record began (fix round 1, B2), from the suite's global. */
+	class WPCPM_Sign_Ins { public static function since() { return (int) ( $GLOBALS['sign_ins_since'] ?? 0 ); } }
+}
+$GLOBALS['sign_ins_since'] = 1760486400;
+if ( ! function_exists( 'wp_get_current_user' ) ) {
+	function wp_get_current_user() { return new WP_User( 5 ); }
+}
+$GLOBALS['only_offer'] = array( 'no-sign-in' => true, 'pending-graduation' => true );
+$GLOBALS['only_rows']  = array(
+	'no-sign-in' => array(
+		'recSTUAAA00000901' => row( 'recSTUAAA00000901', 'Ada Example', 'Developer Track', '2026-02-16', array( 'end' => '2026-09-30', 'user_id' => 701 ) ),
+		'recSTUAAA00000902' => row( 'recSTUAAA00000902', 'Bo Example', 'In Sensei', '2026-07-01', array( 'end' => '2026-12-23' ) ),
+		'recSTUAAA00000903' => row( 'recSTUAAA00000903', 'Cy Example', 'In Sensei', '', array( 'end' => '2026-12-23' ) ),
+	),
+);
+$GLOBALS['users'][701] = new WP_User( 701 );
+$only = parts( array( 'wpcpm_view' => 'students', 'wpcpm_only' => 'no-sign-in' ), $A, array( 'module_titled' => true ) );
+ck( 'A8: the sentence in the row\'s words with its count, then Show all students, a quiet link to the Students view', array(
+	has( $only, '<section class="wpcpm-roster__view wpcpm-roster__view--only" id="wpcpm-roster"><p class="wpcpm-ui-intro">3 students have not signed in yet.</p>' ),
+	// Fix round 3: a link in a line of its own at the text's edge, not a quiet button, whose padding set the words 8px in.
+	has( $only, '<p class="wpcpm-ui-intro"><a href="/institution-dashboard/?wpcpm_view=students">Show all students</a></p><ul' ) && ! has( $only, 'wpcpm-btn--quiet' ),
+), array( true, true ) );
+$GLOBALS['only_rows']['pending-graduation'] = array(
+	'recSTUAAA00000904' => row( 'recSTUAAA00000904', 'Di Example', 'Pending graduation', '2026-02-16', array( 'end' => '2026-06-30' ) ),
+	// The outside review, 1.123.98: one row names an account that exists, one an account that is gone.
+	'recSTUAAA00000905' => row( 'recSTUAAA00000905', 'Eli Example', 'Pending graduation', '2026-02-16', array( 'end' => '2026-06-30', 'user_id' => 702 ) ),
+	'recSTUAAA00000906' => row( 'recSTUAAA00000906', 'Fay Example', 'Pending graduation', '2026-02-16', array( 'end' => '2026-06-30', 'user_id' => 799 ) ),
+);
+$GLOBALS['users'][702] = new WP_User( 702 );
+$only_pending = parts( array( 'wpcpm_only' => 'pending-graduation' ), $A, array( 'module_titled' => true ) );
+ck( 'a row whose account is gone has no card to open: its name is drawn without a link, and a row whose account exists keeps its link', array( false !== strpos( $only_pending, 'wpcpm_institution_student=702' ), false !== strpos( $only_pending, 'wpcpm_institution_student=799' ), false !== strpos( $only_pending, 'Fay Example' ) ), array( true, false, true ) );
+unset( $GLOBALS['only_rows']['pending-graduation'] );
+// Fix round 1, B2: on the no-sign-in list alone, one muted line under the sentence and before Show all students: the day the
+// record began, kept whole, the record's and no student's.
+ck( 'B2: the no-sign-in list says which accounts are not counted, with the day the record began, under the sentence; another list does not', array(
+	has( $only, '<p class="wpcpm-ui-intro">3 students have not signed in yet.</p><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">Accounts made before <span class="wpcpm-ui-whole">' . gmdate( 'F j, Y', 1760486400 ) . '</span> are not counted: the site kept no sign-in record before then.</p><p class="wpcpm-ui-intro"><a href=' ),
+	has( $only_pending, 'Accounts made before' ),
+	has( $only_pending, '<p class="wpcpm-ui-intro">Some students.</p><p class="wpcpm-ui-intro"><a href=' ),
+), array( true, false, true ) );
+ck( 'one list on the parts\' rows, a student per row, and no filter bar, no group, no cohort picker', array(
+	substr_count( $only, '<ul class="wpcpm-ui-list wpcpm-ui-list--under">' ),
+	substr_count( $only, '<li class="wpcpm-ui-list__row">' ),
+	has( $only, 'wpcpm-roster__group' ) || has( $only, '<form' ) || has( $only, 'wpcpm_cohort' ),
+), array( 1, 3, false ) );
+preg_match_all( '#<li class="wpcpm-ui-list__row">.*?</li>#s', $only, $only_rows );
+ck( 'a row: the name to the student\'s card where there is an account, the program as the roster\'s tag, the cohort and the dates', array(
+	has( $only_rows[0][0], '<span class="wpcpm-ui-list__name"><a href="/institution-dashboard/?wpcpm_view=students&#038;wpcpm_only=no-sign-in&#038;wpcpm_institution_student=701">Ada Example</a></span>' ) || has( $only_rows[0][0], 'wpcpm_institution_student=701">Ada Example</a></span>' ),
+	1 === preg_match( '#<span class="wpcpm-status[^"]*">#', $only_rows[0][0] ),
+	has( $only_rows[0][0], '<span class="wpcpm-ui-item__fact">January to June 2026</span>' ),
+	has( $only_rows[0][1], '<span class="wpcpm-ui-list__name">Bo Example</span>' ),
+	has( $only_rows[0][2], '<span class="wpcpm-ui-list__name">Cy Example</span>' ) && has( $only_rows[0][2], 'No start date' ) && 1 === substr_count( $only_rows[0][2], 'No start date' ),
+), array( true, true, true, true, true ) );
+ck( 'an unknown key, a key not offered (a tutor\'s ended-open) and an empty list draw the ordinary roster', array(
+	has( parts( array( 'wpcpm_only' => 'everyone' ), $A, array( 'module_titled' => true ) ), 'wpcpm-roster__group' ),
+	has( parts( array( 'wpcpm_only' => 'ended-open' ), $A, array( 'module_titled' => true ) ), 'wpcpm-roster__group' ),
+	has( parts( array( 'wpcpm_only' => 'pending-graduation' ), $A, array( 'module_titled' => true ) ), 'wpcpm-roster__group' ),
+), array( true, true, true ) );
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Students view, parts, 1.123.98: the narrowed list of students with no sign-in on record', $only );
+}
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

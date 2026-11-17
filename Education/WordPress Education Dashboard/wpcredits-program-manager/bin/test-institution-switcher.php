@@ -465,6 +465,9 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 	 * because it must recognize a locked member as a member.
 	 */
 	class WPCPM_Institution_Policy {
+		// 1.123.98: the two acts the Overview's rows that wait ask for.
+		const ACT_RESEND_INVITE = 'resend_invite';
+		const ACT_EDIT_STUDENT  = 'edit_student';
 		const GROUND_MANAGER = 'manager';
 		const GROUND_MEMBER  = 'member';
 		const GROUND_TUTOR   = 'tutor';
@@ -660,6 +663,8 @@ if ( ! class_exists( 'WPCPM_Updates' ) ) {
 }
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php';
 
+// 1.123.98: what the Overview's new rows ask, where this suite stands in for none of it.
+require_once __DIR__ . '/stubs/overview-more.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php';
 // The real rule for a test name and the one helper that asks it, loaded so the guard below bites if the
 // dashboard ever drew a mark (Ruling 7: the institution's own dashboard holds neither mark nor label).
@@ -818,6 +823,8 @@ $GLOBALS['quiet_cards'] = false;
 if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
 	class WPCPM_Semester_Report {
 		const STATE_APPROVED = 'approved';
+		/** 1.123.98: the teams the Overview's block lists, from the suite's global, none by default. */
+		public static function team_counts( array $rows, $cohort ) { return $GLOBALS['team_counts'] ?? array(); }
 		/** No report approved, unless a scene of the Overview (Task 6) holds some: cohort to `state` and `at`. */
 		public static function reports_of( $record ) { return $GLOBALS['reports'][ (string) $record ] ?? array(); }
 		public static function state( $post ) { return (string) ( $post['state'] ?? '' ); }

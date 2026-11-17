@@ -265,6 +265,8 @@ function scenario( name, want, got ) {
 		'enroll-check-13': pair( 'long-words' ), 'enroll-file-chosen': [ R, A ], 'agreement-file-chosen': pair( 'no-agreement' ),
 		'viewing-as': [ A ], 'long-words-overview': pair( 'long-words' ), 'long-words-students': pair( 'long-words' ), 'long-words-institution': pair( 'long-words' ),
 		'overview-contact': [ R, T, A ], 'overview-good-to-know': [ R, T ],
+		'only-no-sign-in': [ R ], 'only-finishing': [ R, T ], 'only-ended-open': [ R ], 'only-pending-graduation': [ R, T ],
+		'only-no-sign-in-student-card': [ R ], 'people-0': [ 'admin-viewing-people0' ],
 	};
 	// The no-script set is a pass of its own (fix round 1), checked below.
 	const gate = all.filter( s => s.area === 'institution-dashboard' && s.gateB && ! s.folded && ! s.noScript );
@@ -281,6 +283,7 @@ function scenario( name, want, got ) {
 		'representative-revoked': [ '{REVOKED_LOGIN}', '' ], 'admin-viewing-revoked': [ undefined, '{REVOKED_RECORD}' ],
 		'representative-newer-copy': [ '{INSTITUTE_LOGIN}', '' ], 'admin-viewing-newer-copy': [ undefined, '{INSTITUTE_RECORD}' ],
 		'representative-long-words': [ '{LONG_LOGIN}', '' ], 'admin-viewing-long-words': [ undefined, '{LONG_RECORD}' ],
+		'admin-viewing-people0': [ undefined, '{PEOPLE_ZERO_RECORD}' ],
 	};
 	scenario( 'each Gate B scene signs in as its reader and names its school only for an Administrator', [], gate.filter( s => {
 		const want = gateReaders[ s.who ];
@@ -436,6 +439,17 @@ function scenario( name, want, got ) {
 		gate.filter( s => s.gateB === 'long-words-overview' ).every( s => JSON.stringify( ( s.expect || {} ).texts ) === JSON.stringify( [ [ '.wpcpm-head', ( inv.LONGWORD || {} ).name ] ] ) ),
 		gate.filter( s => s.gateB === 'long-words-students' ).every( s => JSON.stringify( ( s.expect || {} ).texts ) === JSON.stringify( [ [ '#wpcpm-roster', long40( ( inv.LONG_STUDENT || {} ).name ) ] ] ) ),
 		gate.filter( s => s.gateB === 'long-words-institution' ).every( s => JSON.stringify( ( s.expect || {} ).texts ) === JSON.stringify( [ [ 'body', long40( ( inv.LONG_TUTOR || {} ).name ) ], [ 'body', ( inv.LONG_TUTOR || {} ).email ] ] ) ),
+	] );
+	// 1.123.97: the head beside a school's site icon. The seed gives the design school an icon that loads and the
+	// long-word school one whose address fails (both paths under the copy's own uploads), and an Overview scene of each
+	// school expects its head in that state, for every reader of the scene: no new picture, two more things proved.
+	const iconScenes = k => gate.filter( s => s.gateB === k );
+	scenario( 'the head beside a site icon: the seed gives the design school the icon that loads and the long-word school the one that fails, and each school\'s Overview scene expects its head so, for each of its readers', [ true, true, true, true, true ], [
+		'.wpcpm-institution > .wpcpm-head.wpcpm-head--logo > img.wpcpm-institution__icon:first-child' === sc.SITE_ICON && '.wpcpm-institution > .wpcpm-head.wpcpm-head--logo > .wpcpm-head__copy:only-child' === sc.SITE_ICON_GONE,
+		/^uploads\/[a-z0-9/-]+\.png$/.test( ( seedMod.ICONS || {} ).loads || '' ) && /^uploads\/[a-z0-9/-]+\.png$/.test( ( seedMod.ICONS || {} ).fails || '' ) && seedMod.ICONS.loads !== seedMod.ICONS.fails,
+		seedText.includes( 'const icons = [{ school: DESIGN.name, record: schools[DESIGN.name], picture: ICONS.loads }, { school: LONGWORD.name, record: recordOf(LONGWORD.name), picture: ICONS.fails }];' ),
+		3 === iconScenes( 'overview-contact' ).length && iconScenes( 'overview-contact' ).every( s => ( gateReaders[ s.who ] || [] ).join().includes( 'DESIGN_' ) && ( ( s.expect || {} ).selectors || [] ).includes( sc.SITE_ICON ) && ! ( ( s.expect || {} ).selectors || [] ).includes( sc.SITE_ICON_GONE ) ),
+		2 === iconScenes( 'long-words-overview' ).length && iconScenes( 'long-words-overview' ).every( s => ( gateReaders[ s.who ] || [] ).join().includes( 'LONG_' ) && ( ( s.expect || {} ).selectors || [] ).includes( sc.SITE_ICON_GONE ) && ! ( ( s.expect || {} ).selectors || [] ).includes( sc.SITE_ICON ) ),
 	] );
 	// Point 6. A missing box fails its scene within five seconds, not thirty.
 	scenario( 'openAround() and act.choose ask whether the box is there first and wait five seconds at most', [ true, true ], [

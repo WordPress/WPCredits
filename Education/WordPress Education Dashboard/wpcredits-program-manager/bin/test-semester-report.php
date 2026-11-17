@@ -5048,6 +5048,27 @@ ck( 'a refused save: its outcome after the header and the form\'s intro, directl
 	substr_count( $f2_st, 'data-wpcpm-card-message' ),
 ), array( true, 1 ) );
 
+// 1.123.98: the Institution Dashboard's Overview counts a cohort's teams as this report counts its Contribution Teams,
+// from the roster's rows: a student once by address, for each team the row names, most first, ties by name; another
+// cohort, a lead and a row with no address are not counted.
+$t98_row = static function ( $email, $team, $start = '2026-02-16', $status = 'In Sensei' ) {
+	return array( 'email_key' => $email, 'team' => $team, 'start' => $start, 'status' => $status, 'name' => 'Student' );
+};
+ck( 'team_counts() on roster rows: once a student, each team, most first, ties by name', method_exists( 'WPCPM_Semester_Report', 'team_counts' ) ? WPCPM_Semester_Report::team_counts( array(
+	$t98_row( 'a@example.org', 'Polyglots, Core' ),
+	$t98_row( 'A@example.org', 'Polyglots, Core' ),
+	$t98_row( 'b@example.org', 'Polyglots' ),
+	$t98_row( 'c@example.org', 'Training' ),
+	$t98_row( 'd@example.org', 'Core', '2025-09-01' ),
+	$t98_row( 'e@example.org', 'Core', '2026-02-16', 'Interested' ),
+	$t98_row( '', 'Core' ),
+	$t98_row( 'f@example.org', '' ),
+), '2026-H1' ) : 'no team_counts()', array(
+	array( 'team' => 'Polyglots', 'count' => 2 ),
+	array( 'team' => 'Core', 'count' => 1 ),
+	array( 'team' => 'Training', 'count' => 1 ),
+) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

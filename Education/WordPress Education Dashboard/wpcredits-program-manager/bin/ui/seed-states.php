@@ -10,7 +10,9 @@
  *
  * The argument is a JSON object: `schools` (name => record ID of the invented schools the forms approved),
  * `apps` (name => application post ID), `logos` (`colour` and `white`: paths under wp-content of two
- * pictures seed.mjs wrote), `admin` (the copy's Administrator's login) and `rep` (a representative's login).
+ * pictures seed.mjs wrote), `icons` (a list of `school`, `record` and `picture`: the path under wp-content each
+ * school's site icon is read from, one a picture seed.mjs wrote and one no file at all), `admin` (the copy's
+ * Administrator's login) and `rep` (a representative's login).
  *
  * @package WPCreditsProgramManager
  */
@@ -639,6 +641,162 @@ if ( $rep && class_exists( 'WPCPM_Refusal_Meter' ) ) {
 	$say( 'locked-account', WPCPM_Refusal_Meter::is_locked( WPCPM_Institution_Roster::METER_SCOPE, $rep ) );
 }
 
+endif;
+
+// ------------------------------------------------------------------ site icons (1.123.97): one that loads, one that does not
+// The Institution Dashboard's head prints a school's site icon from what `WPCPM_Institutions_Dashboard::site_icon()`
+// cached for its website's host (the transient `wpcpm_icon_` and the host's md5). On the copy that is always '': the
+// lookup is refused before it is made, so no seeded school's head carried the logo's two columns, and no picture
+// round drew the head whose icon did not load. Each school handed over (`icons`: its name, its record and a
+// picture's path under wp-content) gets an address of the copy itself as its cached icon: a file the seed wrote, which
+// loads, or a file that is not there, which the copy answers 404, so the icon takes itself off the page. It is stored
+// with no expiry, the entry a page view left and its week removed first, so a ui-ready kept longer than a week still
+// draws both heads. Nothing is looked up, and nothing is asked for off this machine.
+if ( $run( 'icons' ) ) :
+foreach ( isset( $in['icons'] ) && is_array( $in['icons'] ) ? $in['icons'] : array() as $icon ) {
+	$school  = isset( $icon['school'] ) ? (string) $icon['school'] : '';
+	$record  = isset( $icon['record'] ) ? (string) $icon['record'] : '';
+	$picture = isset( $icon['picture'] ) ? (string) $icon['picture'] : '';
+	$row     = '' !== $record && class_exists( 'WPCPM_Institutions_Index' ) ? WPCPM_Institutions_Index::row( $record ) : null;
+	$site    = is_array( $row ) && isset( $row['website'] ) ? trim( (string) $row['website'] ) : '';
+	// The host as the dashboard reads it: a website stored without its scheme is an https address (`website_url()`).
+	$host = '' === $site ? '' : strtolower( (string) wp_parse_url( preg_match( '#^https?://#i', $site ) ? $site : 'https://' . $site, PHP_URL_HOST ) );
+	if ( '' === $host || 1 !== preg_match( '#^uploads/[A-Za-z0-9/_.-]+\.png$#', $picture ) ) {
+		$say( "site-icon {$school}", '' === $host ? 'no website on its record' : 'not a picture under uploads' );
+		continue;
+	}
+	$key = 'wpcpm_icon_' . md5( $host );
+	$url = content_url( $picture );
+	delete_transient( $key );
+	set_transient( $key, $url );
+	$say( "site-icon {$school}", get_transient( $key ) === $url && false === get_option( '_transient_timeout_' . $key ) ? true : 'not stored' );
+}
+endif;
+
+// ------------------------------------------------------------------ the Overview's facts (1.123.98)
+// The design school's roster in every state the Overview's facts and figures read, at once: run by seed.mjs once the
+// students' accounts are made (`overviewMore()`), on its own pass (`only`: `overview-more`). The facts count end dates
+// from `WPCPM_Institutions_Dashboard::today()`, which reads `time()` through the filter `wpcpm_institution_now`; the
+// rig does not set that filter, so the dates are written from the real day here, and a round is taken the same day. Every
+// student is invented ("Example", at example.org), written straight into the roster index as states.php writes the
+// pending students; the accounts are made with every hook of a new account taken off first, so nothing is mailed. Then a
+// second school, settled, whose only person is its contact with no account (the people card's "0 people").
+if ( $run( 'overview-more' ) ) :
+remove_all_actions( 'user_register' );
+remove_all_actions( 'profile_update' );
+remove_all_actions( 'set_user_role' );
+remove_all_actions( 'add_user_role' );
+remove_all_actions( 'added_user_meta' );
+remove_all_actions( 'updated_user_meta' );
+$day    = DAY_IN_SECONDS;
+$today  = (string) wp_date( 'Y-m-d' );
+$page   = method_exists( 'WPCPM_Institutions_Dashboard', 'today' ) ? WPCPM_Institutions_Dashboard::today() : '';
+$on     = static function ( $n ) use ( $today, $day ) {
+	return gmdate( 'Y-m-d', (int) strtotime( $today . ' UTC' ) + (int) $n * $day );
+};
+$since  = class_exists( 'WPCPM_Sign_Ins' ) ? WPCPM_Sign_Ins::since() : 0;
+$ok     = '' !== $design && WPCPM_Mentors_Sync::is_record_id( $design ) && $since > 0 && $since < time() - 2 * $day;
+echo "overview-more: today {$today}" . ( '' !== $page ? ", the page's today() {$page}" : '' ) . ", sign-ins recorded since {$since}\n";
+if ( ! $ok ) {
+	$say( 'overview-more', '' === $design ? 'the design school is not on the copy' : 'the copy records no sign-ins from before today' );
+} else {
+	$rid = static function ( $seed ) {
+		$chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+		$hash  = md5( 'ui-rig-overview-more' . $seed );
+		$id    = 'recOvm';
+		for ( $i = 0; $i < 11; $i++ ) {
+			$id .= $chars[ hexdec( substr( $hash, $i * 2, 2 ) ) % strlen( $chars ) ];
+		}
+		return $id;
+	};
+	// The two students the seed enrolled end in the spring: moved to after the 30 days, so neither counts as ended or finishing.
+	foreach ( WPCPM_Roster_Index::rows( $design ) as $row ) {
+		$email = isset( $row['email'] ) ? strtolower( (string) $row['email'] ) : '';
+		$to    = array( 'drew.example@example.org' => $on( 60 ), 'sky.example@example.org' => $on( 75 ) );
+		if ( isset( $to[ $email ] ) ) {
+			$say( "overview-more end date {$email}", WPCPM_Roster_Index::update( $design, (string) $row['record_id'], array( 'end' => $to[ $email ] ) ) );
+		}
+	}
+	// key, name, status, mentor, end (days from today), team, hours, account ('' none, 'new', 'old'), signed in, pending stamp (days ago).
+	$long_team = 'Examplecontributorteamwithanunbrokenname';
+	$people    = array(
+		array( 'nia', 'Nia Example', 'In Sensei', 'Harper Example', 90, 'Core', '12', 'new', false, 0 ),
+		array( 'oakley', 'Oakley Example', 'In Sensei', 'Indigo Example', -40, 'Core', '30', '', false, 0 ),
+		array( 'penn', 'Penn Example', 'In Sensei', 'Marlowe Example', -1, 'Core', '0', '', false, 0 ),
+		array( 'quill', 'Quill Example', 'In Sensei', 'Harper Example', 10, 'Core', '8', '', false, 0 ),
+		array( 'remy', 'Remy Example', 'In Sensei', 'Indigo Example', 30, 'Accessibility', '', '', false, 0 ),
+		array( 'sol', 'Sol Example', 'In Sensei', 'Marlowe Example', 31, 'Accessibility', '5', 'old', false, 0 ),
+		array( 'tam', 'Tam Example', 'Pending graduation', 'Harper Example', -20, 'Core', '', 'new', true, 20 ),
+		array( 'uma', 'Uma Example', 'Pending graduation', 'Indigo Example', -15, $long_team, '', '', false, 0 ),
+		array( 'vale', 'Vale Example', 'Pending graduation', 'Marlowe Example', -10, '', '', 'new', true, 5 ),
+		array( 'wren', 'Wren Example', 'In Sensei', '', 120, '', '', '', false, 0 ),
+		array( 'xan', 'Xan Example', 'Graduate', 'Harper Example', -60, '', '', '', false, 0 ),
+	);
+	foreach ( $people as $p ) {
+		list( $key, $name, $status, $mentor, $end, $team, $hours, $account, $signed, $stamp ) = $p;
+		$email = $key . '.example@example.org';
+		$uid   = 0;
+		if ( '' !== $account ) {
+			$u = get_user_by( 'email', $email );
+			if ( $u ) {
+				$uid = (int) $u->ID;
+			} else {
+				$parts = explode( ' ', $name, 2 );
+				$uid   = wp_insert_user( array( 'user_login' => $key . '.example', 'user_email' => $email, 'user_pass' => wp_generate_password( 32 ), 'display_name' => $name, 'first_name' => $parts[0], 'last_name' => $parts[1], 'role' => WPCPM_Roles::ROLE_STUDENT ) );
+				$uid   = is_wp_error( $uid ) ? 0 : (int) $uid;
+			}
+			if ( $uid > 0 && 'old' === $account ) {
+				// An account made ten days before the site began recording sign-ins: the site cannot speak for it.
+				$GLOBALS['wpdb']->update( $GLOBALS['wpdb']->users, array( 'user_registered' => gmdate( 'Y-m-d H:i:s', $since - 10 * $day ) ), array( 'ID' => $uid ) ); // phpcs:ignore WordPress.DB
+				clean_user_cache( $uid );
+			}
+		}
+		$record = $rid( 'student-' . $key );
+		$row    = array( 'record_id' => $record, 'name' => $name, 'email' => $email, 'status' => $status, 'institution' => $design, 'start' => '2026-02-02', 'end' => $on( $end ), 'has_mentor' => '' !== $mentor, 'username' => '', 'mentor_name' => $mentor, 'team' => $team, 'hours' => $hours, 'reports' => array(), 'user_id' => $uid );
+		WPCPM_Roster_Index::insert( $design, $row );
+		if ( $uid > 0 ) {
+			update_user_meta( $uid, WPCPM_Students_Sync::META_RECORD_ID, $record );
+			update_user_meta( $uid, WPCPM_Students_Sync::META_INSTITUTION, $design );
+			update_user_meta( $uid, 'wpcpm_student_active', '1' );
+			update_user_meta( $uid, 'wpcpm_student_program', array( 'record_id' => $record, 'name' => $name, 'email' => $email, 'program' => $status, 'is_past' => false, 'start' => '2026-02-02', 'end' => $on( $end ), 'institution' => 'Example School of Design', 'profile' => '', 'username' => '', 'slack' => '', 'team' => $team, 'website' => '', 'link' => '', 'tutor' => '', 'field_of_study' => '', 'accessibility' => '' ) );
+			if ( $signed ) {
+				update_user_meta( $uid, WPCPM_Sign_Ins::META_SIGN_IN, time() - 2 * $day );
+			} else {
+				delete_user_meta( $uid, WPCPM_Sign_Ins::META_SIGN_IN );
+			}
+			if ( $stamp > 0 ) {
+				update_user_meta( $uid, WPCPM_Students_Sync::META_PENDING, array( 'at' => time() - $stamp * $day ) );
+			}
+		}
+		$say( "overview-more student {$name}", in_array( $record, array_keys( WPCPM_Roster_Index::rows( $design ) ), true ) && ( '' === $account || $uid > 0 ) );
+	}
+	// The second school: settled (a copy of the design school's accepted agreement, the summary rebuilt from its posts), its
+	// contact named on the index row with no account and nobody a member.
+	$people0 = $rid( 'school-contact-only' );
+	$from    = WPCPM_Institutions_Index::row( $design );
+	$summary = WPCPM_Institution_Agreement::option( $design );
+	if ( ! is_array( $from ) || ! is_array( $summary ) || empty( $summary['agreement_id'] ) ) {
+		$say( 'overview-more school with its contact alone', 'the design school has no index row or no accepted agreement' );
+	} else {
+		$row                   = $from;
+		$row['record_id']      = $people0;
+		$row['name']           = 'Example Conservatory of Media';
+		$row['city']           = 'Examplemere';
+		$row['website']        = 'conservatory.example.org';
+		$row['contact_person'] = 'Kai Example';
+		$row['contact_email']  = 'kai.example@example.org';
+		WPCPM_Institutions_Index::insert( $row );
+		WPCPM_Institutions_Index::forget_cached();
+		// Titled by the school's invented name: the rig's must-use plugin keeps an agreement in a query only when its title
+		// names an invented school or record.
+		if ( ! WPCPM_Institution_Agreement::posts_for( $people0 ) ) {
+			$copy( (int) $summary['agreement_id'], array( 'post_title' => 'Signed Collaboration Agreement (' . $row['name'] . ')' ), array( WPCPM_Institution_Agreement::META_INSTITUTION => $people0 ) );
+		}
+		WPCPM_Institution_Agreement::rebuild( $people0, array( 'status' => isset( $summary['airtable_status'] ) ? (string) $summary['airtable_status'] : '' ) );
+		$say( 'overview-more school with its contact alone', WPCPM_Institutions_Index::has( $people0 ) && WPCPM_Institution_Agreement::is_settled( $people0 ) && ! get_user_by( 'email', 'kai.example@example.org' ) );
+	}
+	wp_cache_flush();
+}
 endif;
 
 echo wp_json_encode( $made ) . "\n";

@@ -71,6 +71,19 @@ class WPCPM_Institutions_Dashboard {
 	const KIND_NEWS    = 'news';
 
 	/**
+	 * The Students view's narrowed lists (1.123.98): the argument that names one, and its keys, each the list behind one
+	 * row of the Overview: students with no sign-in on record, placements that ended and are still open, students
+	 * waiting to graduate, and students who finish within 30 days (`only_rows()`).
+	 */
+	const ONLY_ARG         = 'wpcpm_only';
+	const ONLY_NO_SIGN_IN  = 'no-sign-in';
+	const ONLY_ENDED_OPEN  = 'ended-open';
+	const ONLY_PENDING     = 'pending-graduation';
+	const ONLY_FINISHING   = 'finishing';
+	const ONLY_KEYS        = array( self::ONLY_NO_SIGN_IN, self::ONLY_ENDED_OPEN, self::ONLY_PENDING, self::ONLY_FINISHING );
+	const FINISHING_WITHIN = 30;
+
+	/**
 	 * What `views_for()` and `waiting_items()` worked out in this request, by `memo_key()`. `forget()` clears it.
 	 *
 	 * @var array<string, array>
@@ -672,6 +685,10 @@ class WPCPM_Institutions_Dashboard {
 	 *   row for the school, and a tutor, whom the agreement does not ask, gets none;
 	 * - a checked list of students not yet created waits; a creation in progress carries on by itself and is
 	 *   "In progress";
+	 * - the school's facts (1.123.98), with the news and only when `$news` asks: the students who have not signed in
+	 *   yet, those who finish within 30 days, the placements that ended and are still open and the students waiting to
+	 *   graduate, each `kind` 'neutral' with no tag, counted nowhere, for a reader offered its list (`only_offered()`),
+	 *   an Administrator looking at the school included;
 	 * - news, for a reader who is not an Administrator: each semester report approved in the last 30 days,
 	 *   newest first, and the details request approved or declined in the last 30 days while no newer one is
 	 *   sent, for a reader the details card is drawn for (`ACT_EDIT_DETAILS`: never a tutor). A stamp later than now
@@ -791,8 +808,35 @@ class WPCPM_Institutions_Dashboard {
 			);
 		}
 
+		if ( $first ) {
+			return $items;
+		}
+
+		// Facts of the school, said without waiting, with no tag and counted nowhere (1.123.98; fix round 1, B1: the
+		// owner's decision), in the order a placement runs: the students who have not signed in yet, those who finish
+		// within 30 days, the placements that ended and are still open, the students waiting to graduate. Each for a reader
+		// offered its list (`only_offered()`), an Administrator looking at the school included, since they are the school's
+		// facts and not "your" news; worked out only on the Overview, which alone prints them, so the menu's count never
+		// asks for them and no other view reads the school's accounts because of them.
+		$see = __( 'See them', 'wpcredits-program-manager' );
+
+		foreach ( array( self::ONLY_NO_SIGN_IN, self::ONLY_FINISHING, self::ONLY_ENDED_OPEN, self::ONLY_PENDING ) as $only ) {
+			if ( ! self::only_offered( $only, $record, $viewer, $can_manage ) ) {
+				continue;
+			}
+
+			$students = self::only_rows( $record, $only );
+			$count    = count( $students );
+
+			if ( $count < 1 ) {
+				continue;
+			}
+
+			$items[] = $row( 'roster', self::only_title( $only, $count ), self::only_line( $only, $students, $record ), $see, self::KIND_NEUTRAL, '', array( self::ONLY_ARG => $only ) );
+		}
+
 		// News is the school's own: an Administrator looking at a school is told nothing as "your" report or request.
-		if ( $can_manage || $first ) {
+		if ( $can_manage ) {
 			return $items;
 		}
 
@@ -891,6 +935,315 @@ class WPCPM_Institutions_Dashboard {
 	 */
 	private static function now(): int {
 		return (int) apply_filters( 'wpcpm_institution_now', time() );
+	}
+
+	/**
+	 * Today in the site's time zone, `Y-m-d`, read from `now()`: the day the Overview's end dates are counted from.
+	 *
+	 * @return string
+	 */
+	public static function today(): string {
+		return (string) wp_date( 'Y-m-d', self::now() );
+	}
+
+	/**
+	 * The words of one narrowed list (1.123.98), for its row on the Overview and for the sentence that heads it on the
+	 * Students view: how many students it holds, in the row's own words. '' for a key that is none of `ONLY_KEYS`.
+	 *
+	 * @param string $key   One of `ONLY_KEYS`.
+	 * @param int    $count How many students the list holds.
+	 * @return string Not escaped.
+	 */
+	public static function only_title( string $key, int $count ): string {
+		$n = number_format_i18n( $count );
+
+		switch ( $key ) {
+			case self::ONLY_NO_SIGN_IN:
+				/* translators: %s: a number of students. */
+				return sprintf( _n( '%s student has not signed in yet', '%s students have not signed in yet', $count, 'wpcredits-program-manager' ), $n );
+			case self::ONLY_ENDED_OPEN:
+				/* translators: %s: a number of placements. */
+				return sprintf( _n( '%s placement ended and is still open', '%s placements ended and are still open', $count, 'wpcredits-program-manager' ), $n );
+			case self::ONLY_PENDING:
+				/* translators: %s: a number of students. */
+				return sprintf( _n( '%s student is waiting to graduate', '%s students are waiting to graduate', $count, 'wpcredits-program-manager' ), $n );
+			case self::ONLY_FINISHING:
+				/* translators: %s: a number of students. */
+				return sprintf( _n( '%s student finishes within 30 days', '%s students finish within 30 days', $count, 'wpcredits-program-manager' ), $n );
+		}
+
+		return '';
+	}
+
+	/**
+	 * The sentence under one fact's title on the Overview (1.123.98), in words for one student or for several: what to do
+	 * about the students who have not signed in yet and about the placements that ended and are still open, what the
+	 * program is doing about the students waiting to graduate (with the day the longest wait began, when the site knows
+	 * it), and nothing for the students who finish within 30 days.
+	 *
+	 * @param string $key      One of `ONLY_KEYS`.
+	 * @param array  $students The list's students, as `only_rows()` gives them.
+	 * @param string $record   The school's Institutions record ID.
+	 * @return string Not escaped.
+	 */
+	private static function only_line( string $key, array $students, string $record ): string {
+		$count = count( $students );
+
+		switch ( $key ) {
+			case self::ONLY_NO_SIGN_IN:
+				return __( 'Open a student to send them an invitation.', 'wpcredits-program-manager' );
+			case self::ONLY_ENDED_OPEN:
+				return _n( 'The end date has passed and the student is still on the program. Correct the date if the placement goes on.', 'The end dates have passed and the students are still on the program. Correct a date if its placement goes on.', $count, 'wpcredits-program-manager' );
+			case self::ONLY_PENDING:
+				$line    = __( 'The program is checking their work.', 'wpcredits-program-manager' );
+				$longest = self::longest_wait( $students, $record );
+
+				if ( $longest > 0 ) {
+					/* translators: %s: a date, in the site's date format. */
+					$line .= ' ' . sprintf( _n( 'The wait began on %s.', 'The longest wait began on %s.', $count, 'wpcredits-program-manager' ), wp_date( (string) get_option( 'date_format' ), $longest ) );
+				}
+
+				return $line;
+		}
+
+		return '';
+	}
+
+	/**
+	 * Whether this reader is offered one narrowed list: the school's agreement is settled (a school with no settled
+	 * agreement is offered none of them, whoever is looking), the reader may open the Students view, and for the two
+	 * lists a reader acts on, may also act (resend an invitation, edit a student) or is an Administrator, who is told them
+	 * as the school's. A tutor is offered the two lists of facts and not the two that wait. A key that is none of
+	 * `ONLY_KEYS` is offered to nobody.
+	 *
+	 * @param string  $key        The list's key.
+	 * @param string  $record     The school's Institutions record ID.
+	 * @param WP_User $viewer     The person looking.
+	 * @param bool    $can_manage Whether the viewer can manage the program.
+	 * @return bool
+	 */
+	public static function only_offered( string $key, string $record, WP_User $viewer, bool $can_manage ): bool {
+		if ( ! in_array( $key, self::ONLY_KEYS, true ) || ! in_array( self::VIEW_STUDENTS, self::views_for( $record, $viewer, $can_manage ), true ) || ! self::settled( $record ) ) {
+			return false;
+		}
+
+		$acts = array(
+			self::ONLY_NO_SIGN_IN => WPCPM_Institution_Policy::ACT_RESEND_INVITE,
+			self::ONLY_ENDED_OPEN => WPCPM_Institution_Policy::ACT_EDIT_STUDENT,
+		);
+
+		if ( ! isset( $acts[ $key ] ) || $can_manage ) {
+			return true;
+		}
+
+		$decision = WPCPM_Institution_Policy::decide( $acts[ $key ], WPCPM_Institution_Policy::subject_institution( $record ), $viewer );
+
+		return ! empty( $decision['allowed'] );
+	}
+
+	/**
+	 * Whether the school's agreement is settled, asked once a request for a school (`forget()` clears it).
+	 *
+	 * @param string $record The school's Institutions record ID.
+	 * @return bool
+	 */
+	private static function settled( string $record ): bool {
+		$memo = 'settled|' . $record;
+
+		if ( ! isset( self::$memo[ $memo ] ) ) {
+			self::$memo[ $memo ] = array( WPCPM_Institution_Agreement::is_settled( $record ) );
+		}
+
+		return self::$memo[ $memo ][0];
+	}
+
+	/**
+	 * The students of one narrowed list (1.123.98), from the school's roster rows of every cohort, in the roster's
+	 * order, keyed by Students record ID. Worked out once a request for a school and a key (`forget()` clears it).
+	 *
+	 * - `no-sign-in`: on the program now or waiting for a mentor, not waiting to graduate (fix round 2: a finished student
+	 *   needs no invitation), with an account the site can speak for (`unsigned()`: made since the sign-in record began)
+	 *   and no sign-in on record: WHETHER, and nothing more;
+	 * - `ended-open`: on the program now or waiting for a mentor, not waiting to graduate, whose end date is before today;
+	 * - `pending-graduation`: waiting to graduate;
+	 * - `finishing`: on the program now or waiting for a mentor, not waiting to graduate, whose end date is today or within
+	 *   `FINISHING_WITHIN` days.
+	 *
+	 * "On the program now or waiting for a mentor" is the roster's two groups of the statuses the program counts as active
+	 * (`WPCPM_Roster_Index::groups()`). The accounts' meta is read in one go first (`prime_accounts()`).
+	 *
+	 * @param string $record The school's Institutions record ID.
+	 * @param string $key    One of `ONLY_KEYS`.
+	 * @return array<string, array> Rows in the roster index's shape.
+	 */
+	public static function only_rows( string $record, string $key ): array {
+		$memo = 'only|' . $record . '|' . $key;
+
+		if ( isset( self::$memo[ $memo ] ) ) {
+			return self::$memo[ $memo ];
+		}
+
+		$out = array();
+
+		if ( in_array( $key, self::ONLY_KEYS, true ) && WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			$groups = WPCPM_Roster_Index::groups( $record );
+			$active = array_merge( (array) ( $groups['current'] ?? array() ), (array) ( $groups['waiting'] ?? array() ) );
+			$today  = self::today();
+			$until  = gmdate( 'Y-m-d', (int) strtotime( $today . ' UTC' ) + self::FINISHING_WITHIN * DAY_IN_SECONDS );
+
+			if ( self::ONLY_NO_SIGN_IN === $key ) {
+				self::prime_accounts( $record );
+			}
+
+			// The students waiting to graduate are counted under their own fact alone, whichever group holds them; every
+			// other list is of students on the program now or waiting for a mentor (fix round 1, B3).
+
+			foreach ( $active as $id => $row ) {
+				$status  = trim( (string) ( $row['status'] ?? '' ) );
+				$pending = WPCPM_Program::STATUS_PENDING === $status;
+				$end     = self::day_of( $row['end'] ?? '' );
+				$user_id = (int) ( $row['user_id'] ?? 0 );
+
+				switch ( $key ) {
+					case self::ONLY_NO_SIGN_IN:
+						$in = ! $pending && self::unsigned( $user_id );
+						break;
+					case self::ONLY_ENDED_OPEN:
+						$in = ! $pending && '' !== $end && $end < $today;
+						break;
+					case self::ONLY_PENDING:
+						$in = $pending;
+						break;
+					default:
+						$in = ! $pending && '' !== $end && $end >= $today && $end <= $until;
+				}
+
+				if ( $in ) {
+					$out[ (string) $id ] = $row;
+				}
+			}
+		}
+
+		self::$memo[ $memo ] = $out;
+
+		return $out;
+	}
+
+	/**
+	 * Roster rows without the students waiting to graduate: "on the program now" and "waiting for a mentor" on this page
+	 * never count them (fix round 1, B3), since they have a figure and a fact of their own.
+	 *
+	 * @param array $rows Rows in the roster index's shape.
+	 * @return array The same rows less those whose status is Pending graduation, keys kept.
+	 */
+	private static function not_pending( array $rows ): array {
+		return array_filter(
+			$rows,
+			static function ( $row ): bool {
+				return ! is_array( $row ) || WPCPM_Program::STATUS_PENDING !== trim( (string) ( $row['status'] ?? '' ) );
+			}
+		);
+	}
+
+	/**
+	 * Whether a roster row's account is one the site can say has not signed in yet (fix round 1, B2): the account exists,
+	 * holds the Student role and an address that is an address (the student card's own conditions,
+	 * `WPCPM_Institution_Resend::render()`), the site records sign-ins (`WPCPM_Sign_Ins::since()`), the account was made
+	 * at or after the moment the record began, so a sign-in it made would be on record, and none is. WHETHER, and nothing
+	 * more: `user_registered` is read for this comparison only and printed nowhere.
+	 *
+	 * @param int $user_id The roster row's account, or 0.
+	 * @return bool
+	 */
+	private static function unsigned( int $user_id ): bool {
+		$since = WPCPM_Sign_Ins::since();
+		$user  = $user_id > 0 && $since > 0 ? get_userdata( $user_id ) : false;
+
+		if ( ! $user instanceof WP_User || ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_STUDENT ) || ! is_email( (string) $user->user_email ) ) {
+			return false;
+		}
+
+		$made = strtotime( (string) $user->user_registered . ' UTC' );
+
+		return false !== $made && $made >= $since && ! WPCPM_Sign_Ins::has_signed_in( $user_id );
+	}
+
+	/**
+	 * The earliest day the students waiting to graduate were first seen so, from their stamps
+	 * (`WPCPM_Students_Sync::META_PENDING`): 0 when none has a stamp, or when the earliest stamp says the student was
+	 * already waiting before stamping began, since "began on" would then not be true.
+	 *
+	 * @param array  $rows   The students waiting to graduate, as `only_rows()` gives them.
+	 * @param string $record The school's Institutions record ID.
+	 * @return int A Unix timestamp, or 0.
+	 */
+	private static function longest_wait( array $rows, string $record ): int {
+		self::prime_accounts( $record );
+
+		$earliest = 0;
+		$before   = false;
+
+		foreach ( $rows as $row ) {
+			$user_id = (int) ( $row['user_id'] ?? 0 );
+			$stamp   = $user_id > 0 ? get_user_meta( $user_id, WPCPM_Students_Sync::META_PENDING, true ) : '';
+
+			if ( ! is_array( $stamp ) || empty( $stamp['at'] ) ) {
+				continue;
+			}
+
+			if ( 0 === $earliest || (int) $stamp['at'] < $earliest ) {
+				$earliest = (int) $stamp['at'];
+				$before   = ! empty( $stamp['before'] );
+			}
+		}
+
+		return $before ? 0 : $earliest;
+	}
+
+	/**
+	 * Read the meta of the school's account holders in one go (`cache_users()`), once a request for a school, so a list
+	 * that asks each student's meta asks the cache.
+	 *
+	 * @param string $record The school's Institutions record ID.
+	 */
+	private static function prime_accounts( string $record ): void {
+		$memo = 'accounts|' . $record;
+
+		if ( '' === $record || isset( self::$memo[ $memo ] ) ) {
+			return;
+		}
+
+		self::$memo[ $memo ] = array();
+
+		$ids = array();
+
+		foreach ( WPCPM_Roster_Index::rows( $record ) as $row ) {
+			$user_id = is_array( $row ) ? (int) ( $row['user_id'] ?? 0 ) : 0;
+
+			if ( $user_id > 0 ) {
+				$ids[ $user_id ] = $user_id;
+			}
+		}
+
+		if ( array() !== $ids ) {
+			cache_users( array_values( $ids ) );
+		}
+	}
+
+	/**
+	 * A roster date as `Y-m-d`, or '' when it is not a real day.
+	 *
+	 * @param mixed $date The stored value.
+	 * @return string
+	 */
+	private static function day_of( $date ): string {
+		$date = is_scalar( $date ) ? trim( (string) $date ) : '';
+
+		if ( 1 !== preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m ) || ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+			return '';
+		}
+
+		return $date;
 	}
 
 	/**
@@ -1440,6 +1793,12 @@ class WPCPM_Institutions_Dashboard {
 
 		self::render_waiting( self::waiting_items( $record, $viewer, $can_manage ), $managed );
 
+		// What the students work on is the roster's, so it is drawn only for a reader who may open it, as the facts above
+		// (1.123.98): never for a school whose agreement is not settled.
+		if ( self::only_offered( self::ONLY_PENDING, $record, $viewer, $can_manage ) ) {
+			self::render_work( $record );
+		}
+
 		echo self::contact_block( $record ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by contact_block(), which escapes what it interpolates.
 
 		// An old link names only an anchor on the bare page, which is now this view: the map sends it on.
@@ -1580,8 +1939,9 @@ class WPCPM_Institutions_Dashboard {
 
 	/**
 	 * The figures, as the Sponsor Dashboard draws them, for the cohort the Students view opens on: who signed up, who
-	 * graduated, who is on the program now and who waits for a mentor. A figure at zero is left out; with none,
-	 * there is no band. Under it, the roster's read line, once.
+	 * graduated, who is waiting to graduate, who is on the program now and who waits for a mentor (1.123.98: five, each
+	 * student counted under one of the last four at most). A figure at zero is left out; with none, there is no band.
+	 * Under it, the roster's read line, once.
 	 *
 	 * @param string $record  The school's Institutions record ID.
 	 * @param array  $context What every card is handed (`context()`).
@@ -1591,12 +1951,16 @@ class WPCPM_Institutions_Dashboard {
 		$counts = WPCPM_Cohort::participation( WPCPM_Roster_Index::rows( $record ), $cohort );
 		$groups = WPCPM_Roster_Index::groups( $record, $cohort );
 		/* translators: %s: the cohort, e.g. "January to June 2026". */
-		$base  = sprintf( __( 'in %s', 'wpcredits-program-manager' ), WPCPM_Cohort::label( $cohort ) );
+		$base = sprintf( __( 'in %s', 'wpcredits-program-manager' ), WPCPM_Cohort::label( $cohort ) );
+		// The figures are disjoint (1.123.98, fix round 1, B3): a student waiting to graduate is counted under the
+		// participation bucket the semester report calls "Waiting to graduate" alone, beside the graduates, and not as on
+		// the program now or waiting for a mentor, whichever group the roster keeps them in.
 		$cells = array(
 			array( (int) $counts['signed_up'], __( 'signed up', 'wpcredits-program-manager' ) ),
 			array( (int) $counts['graduated'], __( 'graduated', 'wpcredits-program-manager' ) ),
-			array( isset( $groups['current'] ) ? count( (array) $groups['current'] ) : 0, __( 'on the program now', 'wpcredits-program-manager' ) ),
-			array( isset( $groups['waiting'] ) ? count( (array) $groups['waiting'] ) : 0, __( 'waiting for a mentor', 'wpcredits-program-manager' ) ),
+			array( (int) $counts['pending'], __( 'waiting to graduate', 'wpcredits-program-manager' ) ),
+			array( count( self::not_pending( (array) ( $groups['current'] ?? array() ) ) ), __( 'on the program now', 'wpcredits-program-manager' ) ),
+			array( count( self::not_pending( (array) ( $groups['waiting'] ?? array() ) ) ), __( 'waiting for a mentor', 'wpcredits-program-manager' ) ),
 		);
 		$cells = array_values(
 			array_filter(
@@ -1634,8 +1998,9 @@ class WPCPM_Institutions_Dashboard {
 	 *
 	 * "Waiting for you" holds only what waits, with the red tag the other dashboards give it, or the one quiet line
 	 * "Nothing waits for you." when nothing does. "Good to know" follows only when there is something to say without
-	 * waiting: what is said without waiting first, then the news, each with the neutral tag (the controller's ruling 1
-	 * and Task 6's fix round 1). Within a group the rows keep the order `waiting_items()` gave them.
+	 * waiting: the rows that carry a neutral tag first, then the news, then the school's facts with no tag (1.123.98:
+	 * the students who have not signed in yet, those who finish within 30 days, the placements that ended and are still
+	 * open, the students waiting to graduate). Within each of those the rows keep the order `waiting_items()` gave them.
 	 *
 	 * @param array[] $items   What `waiting_items()` returned.
 	 * @param string  $managed The school an Administrator is looking at, or ''.
@@ -1644,12 +2009,15 @@ class WPCPM_Institutions_Dashboard {
 		$waits = array();
 		$known = array();
 		$news  = array();
+		$facts = array();
 
 		foreach ( $items as $item ) {
 			if ( self::KIND_WAITS === $item['kind'] ) {
 				$waits[] = $item;
 			} elseif ( self::KIND_NEWS === $item['kind'] ) {
 				$news[] = $item;
+			} elseif ( '' === (string) $item['tag'] ) {
+				$facts[] = $item;
 			} else {
 				$known[] = $item;
 			}
@@ -1657,11 +2025,115 @@ class WPCPM_Institutions_Dashboard {
 
 		self::render_group( 'waiting', __( 'Waiting for you', 'wpcredits-program-manager' ), $waits, $managed, __( 'Nothing waits for you.', 'wpcredits-program-manager' ) );
 
-		$known = array_merge( $known, $news );
+		// The rows that carry a tag first, in their order, then the school's facts with no tag (1.123.98, fix round 1, B1).
+		$known = array_merge( $known, $news, $facts );
 
 		if ( array() !== $known ) {
 			self::render_group( 'news', __( 'Good to know', 'wpcredits-program-manager' ), $known, $managed );
 		}
+	}
+
+	/**
+	 * What the school's students work on (1.123.98), under Good to know: the teams of the opening cohort's students with
+	 * how many students are on each, most first, in the parts' key and value table, counted as the semester report counts
+	 * its Contribution Teams (`WPCPM_Semester_Report::team_counts()`), from the roster's rows; then one muted line: how
+	 * many mentors work with the students on the program now (the roster's `current` group without the students waiting
+	 * to graduate), and of the opening cohort's students, how many have hours above zero on record. Each piece only when it has something to say; the heading only when one does. Nothing is said about why
+	 * hours are missing: the cause is not known.
+	 *
+	 * @param string $record The school's Institutions record ID.
+	 */
+	private static function render_work( string $record ): void {
+		$rows   = WPCPM_Roster_Index::rows( $record );
+		$cohort = WPCPM_Institution_Roster_View::opening_cohort( $record );
+		$teams  = WPCPM_Semester_Report::team_counts( $rows, $cohort );
+		$groups = WPCPM_Roster_Index::groups( $record );
+
+		$mentors = array();
+
+		foreach ( self::not_pending( (array) ( $groups['current'] ?? array() ) ) as $row ) {
+			$name = trim( (string) ( $row['mentor_name'] ?? '' ) );
+
+			if ( '' !== $name ) {
+				$mentors[ strtolower( $name ) ] = true;
+			}
+		}
+
+		$signed = 0;
+		$hours  = 0;
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) || WPCPM_Cohort::key( $row['start'] ?? '' ) !== $cohort || in_array( trim( (string) ( $row['status'] ?? '' ) ), WPCPM_Cohort::NOT_SIGNED_UP, true ) ) {
+				continue;
+			}
+
+			++$signed;
+
+			// Hours above zero (fix round 1, B4): a zero is no hours to show.
+			$logged = trim( (string) ( $row['hours'] ?? '' ) );
+
+			if ( is_numeric( $logged ) && (float) $logged > 0 ) {
+				++$hours;
+			}
+		}
+
+		$lines = array();
+
+		if ( array() !== $mentors ) {
+			/* translators: %s: a number of mentors. */
+			$lines[] = sprintf( _n( '%s mentor works with your students.', '%s mentors work with your students.', count( $mentors ), 'wpcredits-program-manager' ), number_format_i18n( count( $mentors ) ) );
+		}
+
+		if ( $hours > 0 ) {
+			/* translators: 1: how many of the cohort's students have hours on record, 2: how many students the cohort has. */
+			$lines[] = sprintf( _n( 'Hours are on record for %1$s of %2$s student.', 'Hours are on record for %1$s of %2$s students.', $signed, 'wpcredits-program-manager' ), number_format_i18n( $hours ), number_format_i18n( $signed ) );
+		}
+
+		if ( array() === $teams && array() === $lines ) {
+			return;
+		}
+
+		$id = 'wpcpm-institution-overview-work';
+
+		printf( '<section class="wpcpm-institution__work" aria-labelledby="%s">', esc_attr( $id ) );
+		echo WPCPM_UI::heading( __( 'What your students work on', 'wpcredits-program-manager' ), 'h2', $id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+
+		if ( array() !== $teams ) {
+			$label = array(
+				'key'    => 'label',
+				'label'  => '',
+				'kind'   => 'text',
+				'header' => true,
+			);
+			$value = array(
+				'key'   => 'value',
+				'label' => '',
+				'kind'  => 'text',
+			);
+			$out   = WPCPM_UI::table_open(
+				array( $label, $value ),
+				array(
+					'keyvalue'   => true,
+					'labelledby' => $id,
+				)
+			);
+
+			foreach ( $teams as $team ) {
+				$out .= WPCPM_UI::row_open()
+					. WPCPM_UI::cell( $label, esc_html( (string) $team['team'] ) )
+					/* translators: %s: a number of students. */
+					. WPCPM_UI::cell( $value, esc_html( sprintf( _n( '%s student', '%s students', (int) $team['count'], 'wpcredits-program-manager' ), number_format_i18n( (int) $team['count'] ) ) ) )
+					. WPCPM_UI::row_close();
+			}
+
+			echo $out . WPCPM_UI::table_close(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the parts and above.
+		}
+
+		if ( array() !== $lines ) {
+			echo WPCPM_UI::intro( implode( ' ', $lines ), 'muted' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in the part.
+		}
+
+		echo '</section>';
 	}
 
 	/**

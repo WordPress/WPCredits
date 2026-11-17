@@ -563,7 +563,8 @@ ck( 'under a stated absence rather than an empty line', has( $unnamed, 'Name not
 // One heading, one meaning: the manager screen counts and lists the same way.
 $block = render_manager_block( 1, $D );
 ck( 'the manager screen lists the contact too', has( $block, 'Dana Dean' ), true );
-ck( 'and counts it the same way', has( $block, '<span class="wpcpm-people__count">1</span>' ), true );
+// 1.123.98, A9: and counts the same way as the card, the members only: the contact with no account is listed, not counted.
+ck( 'and counts it the same way, the members only', has( $block, '<span class="wpcpm-people__count">0</span>' ), true );
 ck( 'and still names the gap it can close', has( $block, 'no member holds that address' ), true );
 ck( 'a manager\'s card links Add or re-add to the institution\'s own Manage members view on the Institutions screen', has( $named, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $D . '">Add or re-add an account on the Institutions screen</a>' ), true );
 
@@ -1303,7 +1304,9 @@ const T20_D    = 'recT20D0000000001';
 const T20_MANAGER_BASE = array(
 	'five people, three invitations' => 'af6e8aa949c3ce13a0442e7ca5e6138a',
 	'outcome: five people, three invitations' => 'd41d8cd98f00b204e9800998ecf8427e',
-	'a named contact with no account' => '29361bc52f9fac89318ffc16c3653961',
+	// 1.123.98, A9: the heading counts the members only, 0 here where the base counted the contact's row as 1; that digit is
+	// the whole change (held below: the drawing with the base's digit is the base's digest, 29361bc52f9fac89318ffc16c3653961).
+	'a named contact with no account' => 'c88b81580c16b34c0964bde6eb3fa198',
 	'outcome: a named contact with no account' => 'd41d8cd98f00b204e9800998ecf8427e',
 	'a removal said' => '21d9d27fb329231b32e62f671207ccc9',
 	'outcome: a removal said' => 'cc119aae4a96197058e1898448700ff6',
@@ -1311,7 +1314,8 @@ const T20_MANAGER_BASE = array(
 	'outcome: an address already in use' => '3c167e566953f191b6faae4d22b6c1cc',
 	'an invitation resent' => 'db3ebd27b3c15d3f908e1cd829e03219',
 	'outcome: an invitation resent' => '6231ab343e27a71ef3a32605fbe2b021',
-	'hostile' => 'b5dddd7dfcffd4eff93a0189cbb4a499',
+	// 1.123.98, A9: the hostile contact has no account either: the heading's count is one less than the base's (held below).
+	'hostile' => 'bd6eb44f6ce0492d5aafe35c110e5b1e',
 	'outcome: hostile' => 'd41d8cd98f00b204e9800998ecf8427e',
 );
 // The shell's outcome and the parts' status tag as the Administrator Dashboard calls them, at the base.
@@ -1970,6 +1974,10 @@ if ( getenv( 'T20_PRINT' ) ) {
 // ---- 1. The old branch is today's, byte for byte, under every surface (standing rule 1) ----
 
 ck( 'Manage members (render_manager(), render_outcome()) draws what the base drew', $t20_manager_digests, T20_MANAGER_BASE );
+$a9_base_count = static function ( $html ) {
+	return md5( t20_mask( (string) preg_replace_callback( '#<span class="wpcpm-people__count">(\d+)</span>#', static function ( $m ) { return '<span class="wpcpm-people__count">' . ( (int) $m[1] + 1 ) . '</span>'; }, $html, 1 ) ) );
+};
+ck( 'A9: and the two drawings with a contact who has no account differ from the base\'s by the heading\'s count alone, one less', array( $a9_base_count( $t20_manager_old['a named contact with no account'] ), $a9_base_count( $t20_manager_old['hostile'] ) ), array( '29361bc52f9fac89318ffc16c3653961', 'b5dddd7dfcffd4eff93a0189cbb4a499' ) );
 $t20_manager_moved = array();
 foreach ( $t20_manager_states as $t20_name => $t20_state ) {
 	foreach ( array( false, true ) as $t20_outcome ) {
@@ -2043,7 +2051,8 @@ $t20_moves = array(
 	'a representative'                    => array( array( 'Their' ), array( 'Required' ) ),
 	'a tutor'                             => array( array(), array() ),
 	'an Administrator viewing the school' => array( array( 'Their' ), array( 'Required' ) ),
-	'an Administrator, a contact alone'   => array( array( 'Their' ), array( 'Required', 'person' ) ),
+	// 1.123.98, A9: the head counts no one here, "0 people" ("people" is in today's intro already).
+	'an Administrator, a contact alone'   => array( array( 'Their' ), array( 'Required', '0' ) ),
 	'a locked school\'s representative'   => array( array(), array() ),
 );
 $t20_words_moved = array();
@@ -2052,7 +2061,7 @@ foreach ( $t20_readers as $t20_reader => $t20_name ) {
 		$t20_words_moved[] = $t20_reader;
 	}
 }
-ck( 'per reader, the facts the old card said: no word goes but "Their" (the invite box is "Email address"), and none comes but the parts\' "Required" and the head\'s "person" in words ("people" is in today\'s intro already)', $t20_words_moved, array() );
+ck( 'per reader, the facts the old card said: no word goes but "Their" (the invite box is "Email address"), and none comes but the parts\' "Required" and the head\'s count in words ("people" is in today\'s intro already)', $t20_words_moved, array() );
 $t20_tutor_new = $t20_new['tutor'];
 ck( 'a tutor\'s card on the parts: the head, the short intro, the five people with no Remove or Leave, the tutors with no Remove and no Add, the read line; no invitation, no form at all', array(
 	count( t20_forms( $t20_tutor_new ) ),
@@ -2067,9 +2076,25 @@ ck( 'a tutor\'s card on the parts: the head, the short intro, the five people wi
 
 ck( 'the card is the shell\'s card fold, open, its anchor on the section, its head the name and the count in words', array(
 	0 === strpos( $t20_long_new, '<section class="wpcpm-ui-fold-card" id="wpcpm-people"><details class="wpcpm-ui-fold" open><summary class="wpcpm-ui-fold__head"><h3 class="wpcpm-ui-fold__title">Representatives and tutors</h3><span class="wpcpm-ui-fold__phrase">5 people</span>' ),
-	has( $t20_new['Administrator, a named contact with no account'], '<span class="wpcpm-ui-fold__phrase">1 person</span>' ),
+	// 1.123.98, A9: the head counts the members only, the people with an account here; the contact's row with no account
+	// is drawn and not counted, so a school with that row alone reads 0.
+	has( $t20_new['Administrator, a named contact with no account'], '<span class="wpcpm-ui-fold__phrase">0 people</span>' ),
 	substr( $t20_long_new, -strlen( '</div></details></section>' ) ),
 ), array( true, true, '</div></details></section>' ) );
+$a9_two = t20_play( static function () {
+	t20_fresh();
+	$GLOBALS['users'][220] = new WP_User( 220, 'Eve Example', 'eve@example.org', array( 'subscriber' ) );
+	$GLOBALS['users'][221] = new WP_User( 221, 'Finn Example', 'finn@example.org', array( 'subscriber' ) );
+	WPCPM_Institution_Members::attach( 220, T20_D, 'manager', 1 );
+	WPCPM_Institution_Members::attach( 221, T20_D, 'manager', 1 );
+	return array( 1, T20_D, true );
+}, true );
+ck( 'A9: two members and the contact\'s row with no account count two, and the contact\'s row is still drawn', array(
+	has( $a9_two, '<span class="wpcpm-ui-fold__phrase">2 people</span>' ),
+	has( $a9_two, '>Dana Example<' ),
+	has( $t20_new['Administrator, a named contact with no account'], '>Dana Example<' ),
+	has( $t20_new['Administrator, a named contact with no account'], 'Nobody can act for this institution on this site right now.' ),
+), array( true, true, true, true ) );
 ck( 'today\'s intro sentence first in the body, the whole one where the reader may change the list', has( $t20_long_new, '<div class="wpcpm-ui-fold__body"><p class="wpcpm-ui-intro">Everyone here with an account can see Universidad Example&#039;s students on this site. Representatives can remove anyone, including themselves, and tutors change nothing. A removal keeps the account and tells the people who are left.</p>' ), true );
 ck( 'no class of today\'s card on the parts but the message\'s own (wpcpm-people__message, with its tone)', array_values( array_unique( preg_match_all( '/wpcpm-(people__(?!message\b)[a-z_-]+|tutors__[a-z-]+|institution__[a-z]+|group__[a-z]+|mentee__toggle)\b|button-(primary|secondary|link)|class="(button|description)"/', implode( '', $t20_new ), $t20_m ) ? $t20_m[0] : array() ) ), array() );
 ck( 'no id printed twice on the card, in any state', array_keys( array_filter( array_map( 't20_repeated_ids', $t20_new ) ) ), array() );
@@ -2276,7 +2301,8 @@ ck( 'the rules the card reads are one helper each (an outcome and the kept typin
 	substr_count( $t20_src['tutors'], 'self::message_for(' ) >= 2,
 	substr_count( $t20_src['tutors'], 'self::remove_fields(' ),
 	substr_count( $t20_src['tutors'], 'self::add_fields(' ),
-), array( 1, 1, '1 and drawn by render_message() on both', 2, 2, 2, true, 1, 1, 2, '1, before the form', true, 1, 1 ) );
+// 1.123.98, A9: the count is one helper the card and Manage members both call, two calls.
+), array( 1, 2, '1 and drawn by render_message() on both', 2, 2, 2, true, 1, 1, 2, '1, before the form', true, 1, 1 ) );
 
 // ---- 11. The labels the Enroll students hint names (ruling 7) ----
 

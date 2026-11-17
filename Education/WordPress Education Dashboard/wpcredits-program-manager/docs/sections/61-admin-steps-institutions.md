@@ -303,6 +303,8 @@
 
 ### Invite a representative or a tutor for a school, and keep its tutor list
 
+{{clip:invite-a-representative}}
+
 *When:* a school asks you to add a colleague, or its tutor list needs a name.
 
 1. Open the school's Institution Dashboard, then **Your institution**, and find **Representatives and tutors**.

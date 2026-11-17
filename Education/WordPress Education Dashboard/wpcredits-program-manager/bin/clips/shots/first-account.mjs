@@ -1,7 +1,8 @@
 // Clip: "Give a school its first account" (docs/sections/61-admin-steps-institutions.md).
 // Off camera: an invented school applies, confirms and is approved; then the Administrator removes its only
 // member on Institutions > Accounts (Manage members, Remove, as the guide's own screens do), so the school has
-// no account. The clip gives it one.
+// no account. The clip goes from its Institution Dashboard (Your institution, the card Representatives and tutors)
+// to Manage members on the Institutions screen, where an account is added, and gives it one.
 import { applySchool, approveSchool, recordOf } from './_lib.mjs';
 
 export const STATE_COLLEGE = { name: 'Example State College', city: 'Lakeside', website: 'state.example.org', contact: 'Morgan Example', email: 'morgan.example@example.org' };
@@ -32,10 +33,10 @@ export default {
     { caption: 'Open the school\'s Institution Dashboard.', go: () => `/institution-dashboard/?wpcpm_institution_view=${recordOf(STATE_COLLEGE.name)}`, hold: 1.0 },
     { pointerTo: { role: 'combobox', name: 'Viewing as institution' }, hold: 1.2 },
     { pointerTo: { text: 'Example State College', exact: true }, hold: 1.6 },
-    { caption: 'In Representatives and tutors, press Add or re-add an account on the Institutions screen.', scrollToControl: { css: 'summary', hasText: 'Representatives and tutors' }, offset: 160, hold: 0.4 },
-    { pointerTo: { css: 'summary', hasText: 'Representatives and tutors' }, hold: 1.0 },
-    { scrollToControl: { role: 'link', name: 'Add or re-add an account on the Institutions screen', exact: false }, offset: 380, hold: 1.4 },
-    { press: { role: 'link', name: 'Add or re-add an account on the Institutions screen', exact: false }, hold: 0.6 },
+    { caption: 'In the menu, choose Your institution.', press: { role: 'link', name: 'Your institution', expectUrl: 'wpcpm_view=institution' }, hold: 1.0 },
+    { caption: 'In Representatives and tutors, press Add or re-add an account on the Institutions screen.', scrollToControl: { css: 'summary', hasText: 'Representatives and tutors' }, offset: 72, hold: 0.4 },
+    { pointerTo: { text: 'Nobody can act for this institution on this site right now.', exact: false }, hold: 1.4 },
+    { press: { role: 'link', name: 'Add or re-add an account on the Institutions screen', exact: false, expectUrl: 'page=wpcpm-institutions' }, hold: 0.6 },
     { caption: 'Under Add an account, type the person\'s Name and Email address.', scrollToControl: { role: 'heading', name: 'Add an account' }, offset: 200, hold: 0.8 },
     { type: { within: { css: 'form', hasText: 'Add account' }, label: 'Name', value: 'Casey Example' }, hold: 0.4 },
     { type: { within: { css: 'form', hasText: 'Add account' }, label: 'Email address', value: 'casey.example@example.org' }, hold: 1.0 },

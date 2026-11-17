@@ -52,5 +52,14 @@
     "width": 1920,
     "height": 1080,
     "caption": "Find a job in this guide: from a card's How to do this link, or by searching (22 seconds, no sound)."
+  },
+  "invite-a-representative": {
+    "id": 2785,
+    "src": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-invite-a-representative.mp4",
+    "poster": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-invite-a-representative.jpg",
+    "captions": "https://wordpresseducation.org/wp-content/uploads/2026/11/guide-clip-invite-a-representative.vtt",
+    "width": 1920,
+    "height": 1080,
+    "caption": "Invite a representative or a tutor for a school: sending the invitation and adding a tutor to the list (35 seconds, no sound)."
   }
 }

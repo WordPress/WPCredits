@@ -721,6 +721,12 @@
 	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
 }
 
+/* Five figures stand in one row (1.123.98: the Institution Dashboard's Overview has five since "waiting to graduate").
+   Without this the fifth wrapped under the first and the band's line color filled the three empty places beside it. */
+.wpcpm-figures--5 {
+	grid-template-columns: repeat( 5, minmax( 0, 1fr ) );
+}
+
 .wpcpm-figure {
 	background: var( --wpcpm-f-surface );
 	margin: 0;
@@ -788,7 +794,8 @@
 
 	.wpcpm-figures,
 	.wpcpm-figures--2,
-	.wpcpm-figures--3 {
+	.wpcpm-figures--3,
+	.wpcpm-figures--5 {
 		grid-template-columns: minmax( 0, 1fr );
 	}
 

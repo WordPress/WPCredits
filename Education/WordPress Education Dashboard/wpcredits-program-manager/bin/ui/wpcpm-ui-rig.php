@@ -670,6 +670,25 @@ add_filter(
 );
 
 /*
+ * 4b. How many database queries a page asked (1.123.98's round: the Students view under two builds).
+ *
+ * Only while the option wpcpm_ui_rig_count_queries is set: at the end of each front-end request of the Institution
+ * Dashboard, one line in wpcpm-ui-rig.log with the view the address names and $wpdb's own count of queries, which WordPress
+ * keeps without SAVEQUERIES. Nothing else is written, and nothing on the page changes.
+ */
+add_action(
+	'shutdown',
+	static function () {
+		if ( is_admin() || wp_doing_ajax() || ! get_option( 'wpcpm_ui_rig_count_queries' ) || false === strpos( isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '', '/institution-dashboard/' ) ) { // phpcs:ignore WordPress.Security
+			return;
+		}
+		$view = isset( $_GET['wpcpm_view'] ) ? sanitize_key( wp_unslash( $_GET['wpcpm_view'] ) ) : 'overview'; // phpcs:ignore WordPress.Security
+		wpcpm_ui_rig_log( 'queries', 'view=' . $view . ' queries=' . (int) $GLOBALS['wpdb']->num_queries );
+	},
+	PHP_INT_MAX
+);
+
+/*
  * 5. A picture's sizes the copy does not hold.
  *
  * The copy's uploads hold the original files of the guide's pictures but none of the sizes WordPress made on the

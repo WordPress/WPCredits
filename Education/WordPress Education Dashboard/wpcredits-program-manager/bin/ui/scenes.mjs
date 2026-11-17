@@ -166,6 +166,9 @@ export const GATE_B_STATES = {
   'enroll-check-13': 'enroll', 'enroll-file-chosen': 'enroll', 'agreement-file-chosen': 'agreement',
   'viewing-as': 'overview', 'long-words-overview': 'overview', 'long-words-students': 'students', 'long-words-institution': 'institution',
   'overview-contact': 'overview', 'overview-good-to-know': 'overview',
+  // 1.123.98: the narrowed lists See them opens, a student's card opened from one, and the people card reading "0 people".
+  'only-no-sign-in': 'students', 'only-finishing': 'students', 'only-ended-open': 'students', 'only-pending-graduation': 'students',
+  'only-no-sign-in-student-card': 'students', 'people-0': 'institution',
 };
 // Each reader of a Gate B scene: the account it signs in as, or the school an Administrator names.
 export const GATE_B_READERS = {
@@ -177,12 +180,18 @@ export const GATE_B_READERS = {
   'representative-revoked': { login: '{REVOKED_LOGIN}' }, 'admin-viewing-revoked': { school: '{REVOKED_RECORD}' },
   'representative-newer-copy': { login: '{INSTITUTE_LOGIN}' }, 'admin-viewing-newer-copy': { school: '{INSTITUTE_RECORD}' },
   'representative-long-words': { login: '{LONG_LOGIN}' }, 'admin-viewing-long-words': { school: '{LONG_RECORD}' },
+  // 1.123.98: the settled school whose only person is its contact, with no account (seed.mjs, PEOPLE0): an Administrator alone can look.
+  'admin-viewing-people0': { school: '{PEOPLE_ZERO_RECORD}' },
 };
 // The B2 scenes that are a Gate B state already, by reader and view: each reader's report index. (The agreement states and
 // the compact Viewing as are scenes of their own, each expecting its own words or control, fix round 1.)
 const B2_STATES = {
   'representative reports': 'reports-index', 'tutor reports': 'reports-index', 'admin-viewing-school reports': 'reports-index',
 };
+// 1.123.98: the narrowed lists' keys (WPCPM_Institutions_Dashboard::ONLY_KEYS) and the words each list's sentence begins
+// with after its count (only_title(), class-wpcpm-institutions-dashboard.php), as the plural reads.
+export const ONLY_KEYS = ['no-sign-in', 'finishing', 'ended-open', 'pending-graduation'];
+export const ONLY_WORDS = { 'no-sign-in': 'students have not signed in yet', finishing: 'students finish within 30 days', 'ended-open': 'placements ended and are still open', 'pending-graduation': 'students are waiting to graduate' };
 /** A Gate B scene's address: the view (none for the Overview), its own arguments, then the school an Administrator names. */
 function gatePath(view, reader, args = {}) {
   const q = [];
@@ -217,6 +226,12 @@ const AGREEMENT_STATES = {
 // class-wpcpm-institutions-dashboard.php:2326); with no script, its Show (viewing_show(), :1517).
 export const VIEWING = '.wpcpm-head .wpcpm-ui-head-row form.wpcpm-ui-viewing select[name="wpcpm_institution_view"]';
 const VIEWING_SHOW = '.wpcpm-head form.wpcpm-ui-viewing .wpcpm-ui-viewing__show button';
+// The Overview's head beside the school's site icon (1.123.97; seed.mjs, ICONS; render_head(),
+// class-wpcpm-institutions-dashboard.php): the design school's icon loads and is the first of the head's two children;
+// the long-word school's does not load and takes itself off the page, so the copy is the only child of a head that
+// keeps the logo's class. An icon that did not load is never there, so the first also says the picture was answered.
+export const SITE_ICON = '.wpcpm-institution > .wpcpm-head.wpcpm-head--logo > img.wpcpm-institution__icon:first-child';
+export const SITE_ICON_GONE = '.wpcpm-institution > .wpcpm-head.wpcpm-head--logo > .wpcpm-head__copy:only-child';
 // The long words, the seed's own (seed.mjs), each found on the page as the reader reads it.
 const word40 = v => String(v || '').split(/\s+/).find(w => w.length === 40) || '';
 // The refusals: each its form, the boxes it types with a value its handler refuses, and exactly the problem under that box
@@ -287,14 +302,25 @@ function gateScenes() {
   // The enrollment check: the long-word school's list of thirteen lines, checked and waiting (Create these student records).
   add('enroll-check-13', both('long-words'), { args: { wpcpm_batch: '{LONG_BATCH}' }, state: 'as-loaded', opens: ['#wpcpm-import table.wpcpm-ui-table tbody tr:nth-child(13)'] });
   // The long words: the school's name in the head and the menu, the student's on the roster, the tutor's name and address.
-  add('long-words-overview', both('long-words'), { state: 'as-loaded', opens: [], texts: [['.wpcpm-head', LONGWORD.name]] });
+  // Its site icon is the one that does not load (1.123.97): the head keeps the logo's class with the copy alone in it.
+  add('long-words-overview', both('long-words'), { state: 'as-loaded', opens: [SITE_ICON_GONE], texts: [['.wpcpm-head', LONGWORD.name]] });
   add('long-words-students', both('long-words'), { state: 'all-open', act: { open: 'main' }, opens: [], texts: [['#wpcpm-roster', word40(LONG_STUDENT.name)]] });
   add('long-words-institution', both('long-words'), { state: 'all-open', act: { open: 'main' }, opens: [], texts: [['body', word40(LONG_TUTOR.name)], ['body', LONG_TUTOR.email]] });
   // The Overview's contact card, once an Administrator follows the school up, and "Good to know" with the decided request.
-  add('overview-contact', R3, { state: 'as-loaded', opens: ['.wpcpm-institution__contact'] });
+  // The design school's site icon is the one that loads (1.123.97): the head draws it beside the copy.
+  add('overview-contact', R3, { state: 'as-loaded', opens: ['.wpcpm-institution__contact', SITE_ICON] });
   // A tutor is not given the row "Your request was decided" (1.123.96: its card is not drawn for a tutor): the tutor's scene
   // expects it absent.
   add('overview-good-to-know', ['representative', 'tutor'], who => (who === 'tutor' ? { state: 'as-loaded', opens: [], absent: ['.wpcpm-institution__news a[href*="wpcpm_view=institution"]'] } : { state: 'as-loaded', opens: ['.wpcpm-institution__news a[href*="wpcpm_view=institution"]'] }));
+  // 1.123.98: each narrowed list the Overview's facts open (See them), for the reader offered it (a tutor the two lists of
+  // facts alone), its sentence, Show all students and one list; a student's card opened from the list of students who have
+  // not signed in yet (the invited student, with Send the invitation again); and Your institution of the settled school
+  // whose only person is its contact with no account, for an Administrator: the people card's head reads "0 people".
+  for (const key of ONLY_KEYS) {
+    add(`only-${key}`, key === 'finishing' || key === 'pending-graduation' ? ['representative', 'tutor'] : ['representative'], { args: { wpcpm_only: key }, state: 'as-loaded', opens: ['#wpcpm-roster .wpcpm-ui-list'], texts: [['#wpcpm-roster', ONLY_WORDS[key]], ['#wpcpm-roster', 'Show all students']] });
+  }
+  add('only-no-sign-in-student-card', ['representative'], { args: { wpcpm_only: 'no-sign-in', wpcpm_institution_student: '{DESIGN_STUDENT_INVITED}' }, state: 'as-loaded', opens: ['.wpcpm-ui-item__head', '#wpcpm-student-invite'] });
+  add('people-0', ['admin-viewing-people0'], { state: 'all-open', act: { open: 'main' }, opens: ['#wpcpm-people'], texts: [['#wpcpm-people', '0 people']] });
   return out;
 }
 

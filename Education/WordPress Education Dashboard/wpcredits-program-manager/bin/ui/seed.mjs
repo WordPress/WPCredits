@@ -44,9 +44,18 @@ export const CHECKED_LIST = [...Array.from({ length: 11 }, (v, i) => ({ name: `E
 // The update institutions read, written in the post editor: invented words only.
 export const UPDATE = { title: 'Example update for schools', body: 'An invented update for the picture rig: the spring term opens on an example date, and every school is asked to check its list of students before then.' };
 // Every invented school and person the seed makes, the students, colleague and tutor included.
-export const INVENTED = { STATE_COLLEGE, UNIVERSITY, DESIGN, INSTITUTE, COMMUNITY, TAYLOR, TUTOR, NOAGREEMENT, UPDATE, GENERATED, RETURNED, REVOKED, LONGWORD, LONG_STUDENT, LONG_TUTOR, LONG_OTHER, GATE_B: { names: 'Enrollee Example, Refused Example, Exampleside, Hillford, Drew Example, Sky Example' }, OTHERS: { names: 'Drew Example, Sky Example, Pat Example, Lee Example, Ash Example, Blake Example, Emery Example, Finley Example, Example Polytechnic, Example Academy of Arts, Example Technical School, Example Hosting Co, Example Plugins Ltd, Jamie Example, Taylor Sample, Casey Example, Morgan Example, Riley Example' }, GATE_7: { names: 'Riley Example, Examplegraduatewaitingonthefinalquizpass Example, Sage Example, TEST Example Academy, Example Academy of Arts, Harper Example, Exampleinstituteforappliedwebengineering, Christopherexample Wojciechowskaexample, Unlisted Example, TEST Example Academy of Design Media and the Applied Arts, Rowan Mentor Example, Indigo Example, Marlowe Example, Learner Example' } };
+// 1.123.98: the design school's students in every state the Overview's facts read, and a settled school whose only person
+// is its contact, with no account (seed-states.php, `overview-more`).
+export const PEOPLE0 = { name: 'Example Conservatory of Media', city: 'Examplemere', website: 'conservatory.example.org', contact: 'Kai Example', email: 'kai.example@example.org' };
+export const OVERVIEW_MORE = { names: 'Nia Example, Oakley Example, Penn Example, Quill Example, Remy Example, Sol Example, Tam Example, Uma Example, Vale Example, Wren Example, Xan Example, Examplecontributorteamwithanunbrokenname, Core, Accessibility' };
+export const INVENTED = { PEOPLE0, OVERVIEW_MORE, STATE_COLLEGE, UNIVERSITY, DESIGN, INSTITUTE, COMMUNITY, TAYLOR, TUTOR, NOAGREEMENT, UPDATE, GENERATED, RETURNED, REVOKED, LONGWORD, LONG_STUDENT, LONG_TUTOR, LONG_OTHER, GATE_B: { names: 'Enrollee Example, Refused Example, Exampleside, Hillford, Drew Example, Sky Example' }, OTHERS: { names: 'Drew Example, Sky Example, Pat Example, Lee Example, Ash Example, Blake Example, Emery Example, Finley Example, Example Polytechnic, Example Academy of Arts, Example Technical School, Example Hosting Co, Example Plugins Ltd, Jamie Example, Taylor Sample, Casey Example, Morgan Example, Riley Example' }, GATE_7: { names: 'Riley Example, Examplegraduatewaitingonthefinalquizpass Example, Sage Example, TEST Example Academy, Example Academy of Arts, Harper Example, Exampleinstituteforappliedwebengineering, Christopherexample Wojciechowskaexample, Unlisted Example, TEST Example Academy of Design Media and the Applied Arts, Rowan Mentor Example, Indigo Example, Marlowe Example, Learner Example' } };
 // The two pictures the invented sponsor application's logos are, written into a folder the copy has already.
 export const LOGOS = { colour: 'uploads/2026/10/ui-rig-logo-colour.png', white: 'uploads/2026/10/ui-rig-logo-white.png' };
+// The two site icons the Institution Dashboard's head is drawn beside (1.123.97), each a path under the copy's own
+// wp-content, so neither the copy nor the browser asks anything off this machine: `loads` is a picture the seed
+// writes, the design school's; `fails` names a file the seed never writes, the long-word school's, so the copy answers
+// 404 and the icon takes itself off the page. seed-states.php stores each as its school's cached site icon (`icons`).
+export const ICONS = { loads: 'uploads/2026/10/ui-rig-school-icon.png', fails: 'uploads/2026/10/ui-rig-school-icon-missing.png' };
 const FFMPEG = process.env.WPCPM_FFMPEG || 'ffmpeg';
 
 /** Run a little PHP on the copy and answer its last line. */
@@ -122,7 +131,15 @@ export function lookups() {
     RETURNED_LOGIN: inState(RETURNED, 'returned', () => loginOf(RETURNED.email)), RETURNED_RECORD: inState(RETURNED, 'returned', () => recordOf(RETURNED.name)),
     REVOKED_LOGIN: inState(REVOKED, 'revoked', () => loginOf(REVOKED.email)), REVOKED_RECORD: inState(REVOKED, 'revoked', () => recordOf(REVOKED.name)),
     INSTITUTE_LOGIN: inState(INSTITUTE, 'newer-copy', () => loginOf(INSTITUTE.email)), INSTITUTE_RECORD: inState(INSTITUTE, 'newer-copy', () => recordOf(INSTITUTE.name)),
-    LONG_LOGIN: longWords(() => loginOf(LONGWORD.email)), LONG_RECORD: longWords(() => recordOf(LONGWORD.name)), LONG_BATCH: longWords(() => batchOf(recordOf(LONGWORD.name))) };
+    LONG_LOGIN: longWords(() => loginOf(LONGWORD.email)), LONG_RECORD: longWords(() => recordOf(LONGWORD.name)), LONG_BATCH: longWords(() => batchOf(recordOf(LONGWORD.name))),
+    // 1.123.98: the school whose only person is its contact with no account, by its index row (it has no application).
+    PEOPLE_ZERO_RECORD: people0Record() };
+}
+
+/** The record of the settled school whose only person is its contact (PEOPLE0), while nobody holds its contact's address; or ''. */
+export function people0Record() {
+  const out = php(`$o = ''; foreach ( WPCPM_Institutions_Index::rows() as $id => $r ) { if ( is_array( $r ) && ${JSON.stringify(PEOPLE0.name)} === ( $r['name'] ?? '' ) && WPCPM_Institution_Agreement::is_settled( (string) $id ) && ! get_user_by( 'email', ${JSON.stringify(PEOPLE0.email)} ) ) { $o = (string) $id; } } echo $o;`);
+  return /^rec[A-Za-z0-9]{14}$/.test(out) ? out : '';
 }
 
 // The summaries lookups() reads, once a call (each read is a WP-CLI process).
@@ -782,6 +799,8 @@ async function make(newContext, BASE) {
   // Gate B: a details request the school asked, decided ("Good to know"), and one of two changes waiting at another school.
   await soft('details-request-declined', () => askAndDecline(newContext, BASE));
   await soft('details-request-waiting-elsewhere', () => askElsewhere(newContext, BASE));
+  // 1.123.98: the Overview's facts and figures in every state, and the school whose only person is its contact.
+  overviewMore();
 }
 
 /**
@@ -801,6 +820,22 @@ export function applyAccounts() {
   return JSON.parse(last);
 }
 
+/**
+ * 1.123.98: the design school's roster in every state the Overview's facts and figures read, and the settled school whose
+ * only person is its contact (seed-states.php, `overview-more`), once the students' accounts are made. Throws when a state
+ * was not made: the round's numbers would be of another roster.
+ */
+export function overviewMore() {
+  const stage = join(DOCKER, 'release/ui-rig');
+  mkdirSync(stage, { recursive: true });
+  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), 'seed-states.php'), join(stage, 'seed-states.php'));
+  const out = wp(['eval-file', join(stage, 'seed-states.php'), JSON.stringify({ schools: { [DESIGN.name]: recordOf(DESIGN.name) }, admin: process.env.WPCPM_UI_LOGIN || 'wpcredits-local', only: ['overview-more'] })], { all: true }).trim().split('\n');
+  for (const line of out.slice(0, -1)) console.log('  overview: ' + line);
+  const missed = out.filter(l => l.startsWith('not made'));
+  if (missed.length || !out[out.length - 1].startsWith('[')) throw new Error(`the Overview's states were not all made: ${missed.join('; ') || out[out.length - 1]}`);
+  return JSON.parse(out[out.length - 1]);
+}
+
 /** Two small pictures for the sponsor application's logos, in colour and in white, recorded for restore. */
 function writeLogos() {
   for (const [key, colour] of [['colour', '0x3858e9'], ['white', 'white']]) {
@@ -817,20 +852,39 @@ function writeLogos() {
 }
 
 /**
+ * The picture the design school's site icon is (a plain square, as the logos are plain), recorded for restore. The
+ * address that must fail is refused when a file of that name is on the copy: it would load.
+ */
+function writeIcon() {
+  const file = join(DOCKER, 'site/wp-content', ICONS.loads);
+  const mine = existsSync(CREATED) && readFileSync(CREATED, 'utf8').split('\n').includes(ICONS.loads);
+  if (existsSync(file) && !mine) throw new Error(`refusing: ${ICONS.loads} is on the copy already`);
+  if (existsSync(join(DOCKER, 'site/wp-content', ICONS.fails))) throw new Error(`refusing: ${ICONS.fails} is on the copy, so the icon that must not load would`);
+  const tmp = join(WORK, 'school-icon.png');
+  execFileSync(FFMPEG, ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x3858e9:s=96x96', '-frames:v', '1', tmp]);
+  copyFileSync(tmp, file);
+  if (!mine) appendFileSync(CREATED, ICONS.loads + '\n', { mode: 0o600 });
+}
+
+/**
  * The states no form makes in one sitting (bin/ui/seed-states.php, through the plugin's own classes and post
  * meta copied from the invented items above). Prints what it made and what it could not; answers the list made.
  */
 export function states() {
   writeLogos();
+  writeIcon();
   const stage = join(DOCKER, 'release/ui-rig');
   mkdirSync(stage, { recursive: true });
   copyFileSync(join(dirname(fileURLToPath(import.meta.url)), 'seed-states.php'), join(stage, 'seed-states.php'));
   const schools = Object.fromEntries([DESIGN, UNIVERSITY, INSTITUTE, COMMUNITY].map(s => [s.name, recordOf(s.name)]));
-  const input = { schools, apps: { [STATE_COLLEGE.name]: applicationId(STATE_COLLEGE.name) }, logos: LOGOS, admin: process.env.WPCPM_UI_LOGIN || 'wpcredits-local', rep: loginOf(UNIVERSITY.email), joiner: 'drew.example@example.org' };
+  // The head beside a site icon (1.123.97): the design school's loads, the long-word school's does not (ICONS). The
+  // long-word school is a soft step of the seed: with no record of it, its icon is said "not made", and its scenes skip.
+  const icons = [{ school: DESIGN.name, record: schools[DESIGN.name], picture: ICONS.loads }, { school: LONGWORD.name, record: recordOf(LONGWORD.name), picture: ICONS.fails }];
+  const input = { schools, apps: { [STATE_COLLEGE.name]: applicationId(STATE_COLLEGE.name) }, logos: LOGOS, icons, admin: process.env.WPCPM_UI_LOGIN || 'wpcredits-local', rep: loginOf(UNIVERSITY.email), joiner: 'drew.example@example.org' };
   // The events go in a process of their own: the sponsors' index keeps the rows it read in memory for the rest
   // of a request, so an event approved in the process that gave its sponsor a tier would read no tier.
   const made = [];
-  for (const only of [['applications', 'agreements', 'requests', 'reports', 'sponsors', 'sponsor-apps', 'watch'], ['events']]) {
+  for (const only of [['applications', 'agreements', 'requests', 'reports', 'sponsors', 'sponsor-apps', 'watch', 'icons'], ['events']]) {
     const out = wp(['eval-file', join(stage, 'seed-states.php'), JSON.stringify({ ...input, only })], { all: true }).trim().split('\n');
     for (const line of out.slice(0, -1)) console.log('  seed: ' + line);
     if (out[out.length - 1].startsWith('[')) made.push(...JSON.parse(out[out.length - 1]));

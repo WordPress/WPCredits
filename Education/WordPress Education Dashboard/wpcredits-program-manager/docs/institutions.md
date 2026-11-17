@@ -123,7 +123,7 @@ On a narrower screen the menu shows its icons alone, and on a phone it opens as 
 
 The Overview opens with your institution's name, with the icon of your institution's own website beside it when that website has one. Under the name are the city and country, the website as a link, and "Contact:" with the name of the person the program writes to. They are what the program has on record for your institution. A representative corrects them on the card **Your institution's details**, on **Your institution**: *Your details, your representatives and your agreement* covers it. **Enroll students**, beside them, opens the **Enroll students** view while it is in your menu.
 
-Next comes a row of figures for the semester the **Students** view opens on: how many students signed up, how many graduated, how many are on the program now and how many are waiting for a mentor. A figure with nothing to count is left out, and with nothing at all to count there is no row of figures and no line under it.
+Next comes a row of figures for the semester the **Students** view opens on: how many students signed up, how many graduated, how many are waiting to graduate, how many are on the program now and how many are waiting for a mentor. Since 1.123.98 a student waiting to graduate has a figure of their own, and "on the program now" and "waiting for a mentor" no longer count them, so the figures after "signed up" never add up to more than it. A figure with nothing to count is left out, and with nothing at all to count there is no row of figures and no line under it.
 
 #### Waiting for you
 
@@ -131,7 +131,6 @@ Next comes a row of figures for the semester the **Students** view opens on: how
 
 - *Collaboration Agreement not signed yet*, *Collaboration Agreement returned* or *Collaboration Agreement revoked*, with **Open the agreement**, while your agreement waits for your institution. A signed copy you uploaded waits for an Administrator, not for you, so it is no row.
 - *A checked list of students waits to be created*, with **Open the list**, while a list you checked on **Enroll students** has not been created.
-
 When nothing waits, the Overview says "Nothing waits for you." The tag says "Waits" in words, so the red is never the only sign.
 
 #### Good to know
@@ -141,8 +140,18 @@ When nothing waits, the Overview says "Nothing waits for you." The tag says "Wai
 - *A list of students is being created*, tagged "In progress", while the list is being created. It carries on by itself.
 - *Your semester report for* a semester *is ready*, with "Approved on" and the day, and **Read the report**, for thirty days after an Administrator approves it.
 - *Your request was decided*, with what became of your request to correct your institution's name and address, and **See your details**, for thirty days after it was decided and until the next request is sent.
-
 A row tagged "New" is news. It waits for nothing, and nothing has to be done about it.
+
+Since 1.123.98 four facts about your students follow, each with no tag and **See them**, which lists the students it counts. They are counted nowhere, and each is there only while it counts at least one student. They count your students of every semester, where the figures above count the one semester named under them, so a fact and a figure with the same words can differ:
+
+- *2 students have not signed in yet*: students on the program now or waiting for a mentor, whose account here was made since the site began recording sign-ins (the day a student's card names) and who have no sign-in on record. Accounts made before that day are not counted, because the site kept no sign-in record before then. "Open a student to send them an invitation." The page says only whether a sign-in is on record, never when. A tutor is not shown it.
+- *2 students finish within 30 days*: students on the program now or waiting for a mentor whose end date is today or in the next 30 days.
+- *1 placement ended and is still open*: students on the program now or waiting for a mentor whose end date has passed. "The end date has passed and the student is still on the program. Correct the date if the placement goes on." On the student's card, correct the date under **Correct this student's details**, or record how the placement ended under **Finishing this placement**. A graduation the card does not offer, or a student with no account, goes through your contact at the program. A tutor is not shown it.
+- *1 student is waiting to graduate*: "The program is checking their work." and, when the site knows it, the day the wait began. There is nothing for you to do.
+
+#### What your students work on
+
+**What your students work on** (since 1.123.98) follows when there is something to say: a table of the teams the students of the semester the **Students** view opens on contribute to, with how many students are on each, most first, counted as the semester report counts its Contribution Teams; then one line that says how many different mentors your students on the program now have and, of that semester's students, for how many hours are on record. A student on two teams counts for each, and a student counts for hours when more than zero hours are on record. The page does not say why a student has no hours on record. The teams are counted from today's roster; a semester report keeps the numbers of the day it was made and takes each student's team from its own records, so the two can differ.
 
 #### Your contact at the program
 
@@ -188,7 +197,7 @@ Under the form, headed with the semester's name, is a summary of the cohort: how
 
 The students are filed in four groups. Each group is a card of its own, with its count in words beside its name, such as "2 students", and a line under it that says what it holds. A group folds and unfolds with one press on its title; **Current** and **Waiting for a mentor** start open, unless a group holds more than twelve students, and **Finished** and **Not on the program now** start closed.
 
-- **Current**: "On the program now, with a mentor assigned or a progress record already started."
+- **Current**: "With a mentor assigned or a progress record already started, students waiting to graduate included." Since 1.123.98 the Overview's figure "on the program now" leaves out the students waiting to graduate, who have a figure of their own, so this group can hold more students than that figure.
 - **Waiting for a mentor**: "Signed up, with no mentor assigned and no progress record yet." That is the whole of what the group says. It lists the students the program's records show as signed up with neither, and the page says no more than that.
 - **Finished**: "Mentoring has finished. Their details are kept for reference."
 - **Not on the program now**: "Students who have not started yet, never began the program, or stopped before finishing it."
@@ -196,6 +205,10 @@ The students are filed in four groups. Each group is a card of its own, with its
 A fifth list, **Enrollment not recorded yet**, appears only when students are reporting their progress and the program's records hold no enrollment for them. They are not counted in the groups, and the list says an Administrator needs to complete the record.
 
 Each student is a row that opens. The closed row shows the student's photo, or the first letter of their name, the name, the program they are on as a tag, their dates and the name of their mentor when the page has one. A group that holds one student shows that row open. For a student who has an account on this site the name is a link that opens the student's own card, described below. For a student who has none the name is not a link and there is no card of their own; their row in the roster still opens like any other. Opened, a row lists **Program**, **Dates**, **Days left**, **Mentor**, **WordPress.org**, **Team**, **Website**, **Field of study**, **Tutor** and **Hours**. A row with nothing in it reads "Not recorded". The **Mentor** row reads "No mentor yet." for a student with none on record. When the program's records name a mentor and the name has not reached the page, the row says so in a sentence of its own instead.
+
+### A narrowed list from the Overview
+
+**See them**, on a row of the Overview, opens **Students** with that row's students alone (since 1.123.98): one sentence that says what the list is, such as "2 students have not signed in yet.", then **Show all students**, which brings the whole roster back, then one list with a row per student: the name, a link to the student's card when the student has an account here, the program they are on as a tag, the semester they started in and their dates. There is no form, no group and no semester to choose. The list of students who have not signed in yet adds one line under its sentence: "Accounts made before" the day the site began recording sign-ins "are not counted: the site kept no sign-in record before then." When the list is empty, or the address names a list the Overview does not offer you, **Students** shows the whole roster. A student's card opened from the list is the ordinary card: **Students** in the menu leads to the whole roster, and your browser's Back returns to the list.
 
 ### Opening a student's card
 
@@ -290,7 +303,7 @@ Once the request is decided, every representative of your institution reads what
 
 ### Your representatives
 
-**Representatives and tutors** lists the people who can sign in for your institution, with how many there are. Each person has a row: the name, with a tag, **the institution's contact**, on the account whose email address is the one the program writes to, and under it the email address, whether they are a **Representative** or a **Tutor**, and how their access came about and since when ("Added by an Administrator", "Joined by invitation" and so on). When the program's records name a contact who has no account here yet, that person is listed too, with the sentence "Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page." Everyone with an account can see your students. Representatives can remove anyone, themselves included. A tutor sees the students, their Student Report Cards and the semester reports, and changes nothing, so a tutor is shown no **Remove** and no **Leave**, no invitations waiting and no invitation form.
+**Representatives and tutors** lists the people who can sign in for your institution, with how many there are in its title. Each person has a row: the name, with a tag, **the institution's contact**, on the account whose email address is the one the program writes to, and under it the email address, whether they are a **Representative** or a **Tutor**, and how their access came about and since when ("Added by an Administrator", "Joined by invitation" and so on). When the program's records name a contact who has no account here yet, that person is listed too, with the sentence "Named in the program records, with no account on this site yet. An Administrator can add one so they can see this page.", and is not counted in the title, since they cannot sign in yet. Everyone with an account can see your students. Representatives can remove anyone, themselves included. A tutor sees the students, their Student Report Cards and the semester reports, and changes nothing, so a tutor is shown no **Remove** and no **Leave**, no invitations waiting and no invitation form.
 
 - **Remove** takes a colleague's access away, and **Leave** on your own row takes yours. The page asks you to confirm first. The account is kept and nobody at the institution is emailed; when no one would be left, the Administrators are told. The program goes on writing to the contact's address until an Administrator changes it. To change who the program writes to, correct the **Contact person** with **Correct these** and ask to correct the **Contact's email** with **Ask to correct these**.
 - **Invitations waiting** lists the invitations not yet accepted, each with who sent it, when, and the day it stops working. **Resend** sends a new link, and the link in the earlier email stops working; **Cancel invitation** asks first, then stops the link at once.

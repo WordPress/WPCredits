@@ -159,15 +159,16 @@ class WPCPM_Institution_People {
 	}
 
 	/**
-	 * How many people the card names: the live members, and the contact the program records name when no member holds
-	 * that address.
+	 * How many people act for the institution, for the card's head: the live members, the people with an account here.
+	 * The contact the program records name, drawn in a row of their own when no member holds that address, has no
+	 * account and is not counted (1.123.98): a school whose only row is that contact reads 0, beside the line that says
+	 * nobody can act for it.
 	 *
-	 * @param WP_User[] $members       Every live member.
-	 * @param bool      $contact_shown Whether the contact's own row is drawn.
+	 * @param WP_User[] $members Every live member.
 	 * @return int
 	 */
-	private static function head_count( array $members, $contact_shown ) {
-		return count( $members ) + ( $contact_shown ? 1 : 0 );
+	private static function head_count( array $members ) {
+		return count( $members );
 	}
 
 	/**
@@ -359,7 +360,7 @@ class WPCPM_Institution_People {
 	 * @param string    $origin        `RETURN_ADMIN` from the manager screen, '' from the dashboard, for the rows' forms.
 	 */
 	private static function render_parts( $record_id, array $context, array $members, $name, $contact, $viewer, $can_change, $can_manage, $contact_name, $contact_shown, $read, array $shows, $origin ) {
-		$count = self::head_count( $members, $contact_shown );
+		$count = self::head_count( $members );
 
 		WPCPM_Dashboard_Card::open(
 			array(
@@ -907,7 +908,7 @@ class WPCPM_Institution_People {
 		printf(
 			'<h3 class="wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h3>',
 			esc_html__( 'Representatives and tutors', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
+			esc_html( number_format_i18n( self::head_count( $members ) ) )
 		);
 
 		self::render_messages( $record_id );

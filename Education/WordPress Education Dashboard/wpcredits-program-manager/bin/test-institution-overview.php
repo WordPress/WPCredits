@@ -59,6 +59,10 @@ function apply_filters( $hook, $value, ...$args ) {
 class WP_User {
 	public $ID;
 	public $user_login;
+	/** 1.123.98, fix round 1: what the Overview's sign-in fact asks of a student's account. */
+	public $roles           = array();
+	public $user_email      = '';
+	public $user_registered = '';
 	public function __construct( $id = 0, $login = '' ) {
 		$this->ID         = (int) $id;
 		$this->user_login = (string) $login;
@@ -78,6 +82,9 @@ $GLOBALS['q'] = array();
 function asked( $name ) { $GLOBALS['q'][ $name ] = ( $GLOBALS['q'][ $name ] ?? 0 ) + 1; }
 
 class WPCPM_Institution_Policy {
+	// 1.123.98: the two acts the Overview's rows that wait ask for.
+	const ACT_RESEND_INVITE = 'resend_invite';
+	const ACT_EDIT_STUDENT  = 'edit_student';
 	const ACT_VIEW_ROSTER          = 'view_roster';
 	const ACT_ADD_STUDENT          = 'add_student';
 	const ACT_VIEW_SEMESTER_REPORT = 'view_semester_report';
@@ -144,6 +151,7 @@ $GLOBALS['reports'] = array();
 class WPCPM_Semester_Report {
 	const STATE_APPROVED = 'approved';
 	public static function reports_of( $institution ) { asked( 'reports_of' ); return $GLOBALS['reports']; }
+	public static function team_counts( array $rows, $cohort ) { asked( 'team_counts' ); return $GLOBALS['team_counts'] ?? array(); }
 	public static function state( $post ) { return $post->state; }
 	public static function approved_at( $post ) { return $post->at > 0 ? array( 'at' => $post->at, 'by' => 1 ) : array(); }
 	public static function cohort_of( $post ) { return $post->cohort; }
@@ -171,6 +179,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import-form.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-details-card.php';
+// 1.123.98: what the Overview's new rows ask, where this suite stands in for none of it.
+require_once __DIR__ . '/stubs/overview-more.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php';
 
 $GLOBALS['failed'] = 0;
@@ -365,7 +375,10 @@ $views_once   = WPCPM_Institutions_Dashboard::views_for( $rec, $rep, false );
 $twice        = WPCPM_Institutions_Dashboard::waiting_items( $rec, $rep, false );
 ck( 'two calls and the menu\'s views: one set of queries, the same rows', array( $GLOBALS['q'], $twice ), array( $first, $once ) );
 // Task 25, fix round 1, B2: the details row asks the details card's own question, once.
-ck( 'the one set asks each thing once', $first, array( 'decide' => 4, 'is_settled' => 2, 'active_for' => 1, 'batch' => 1, 'reports_of' => 1, 'latest_details_outcome' => 1, 'open_details_for' => 1 ) );
+// 1.123.98: two more of the policy's answers, whether the reader may resend an invitation and edit a student (the rows
+// that wait on the Students view), each asked once, and whether the agreement is settled, asked once for the new rows;
+// the roster is empty here, so nothing else is read.
+ck( 'the one set asks each thing once', $first, array( 'decide' => 6, 'is_settled' => 3, 'active_for' => 1, 'batch' => 1, 'reports_of' => 1, 'latest_details_outcome' => 1, 'open_details_for' => 1 ) );
 // Task 25, fix round 1, B2: a tutor is not drawn the details card, so a tutor has no request row.
 ck( 'another reader is worked out on their own', array_column( WPCPM_Institutions_Dashboard::waiting_items( $rec, $tutor, false ), 'card' ), array( 'report' ) );
 $GLOBALS['active_batch'] = 0;
@@ -439,6 +452,175 @@ ck( 'its kind and tag, and the counts', kinds( $run ), array( array( 'neutral:In
 // Task 28, W4: under "In progress" the title says the list is being created; the checked list's title is the waiting one.
 ck( 'a creation in progress is titled so', field( $run, 0, 'title' ), 'A list of students is being created' );
 
+echo "\n=== 1.123.98: the students' rows, from the roster's rows and one read of the accounts ===\n";
+
+// The suite's day is 2026-10-24. Seven students of every cohort: two without a sign-in on record on the program now or
+// waiting for a mentor, a placement that ended and is still open, two waiting to graduate (the longer since NOW less 20
+// days), two finishing within 30 days (one today), and a graduate without a sign-in, who is no row's.
+function o98_row( $id, $status, $start, $end, $user, $mentor = true, array $more = array() ) {
+	return array_merge( array( 'record_id' => $id, 'name' => 'Student ' . $id, 'email_key' => strtolower( $id ) . '@example.org', 'status' => $status, 'start' => $start, 'end' => $end, 'has_mentor' => $mentor, 'reports' => array(), 'user_id' => $user, 'institution' => 'recEXA00000000002', 'team' => '', 'hours' => '', 'mentor_name' => '' ), $more );
+}
+$o98_rows = array(
+	'recSTU00000000001' => o98_row( 'recSTU00000000001', 'Developer Track', '2026-07-01', '2026-11-03', 101 ),
+	'recSTU00000000002' => o98_row( 'recSTU00000000002', 'Developer Track', '2026-07-01', '2026-10-23', 102 ),
+	'recSTU00000000003' => o98_row( 'recSTU00000000003', 'In Sensei', '2026-07-01', '2026-12-23', 103, false ),
+	'recSTU00000000004' => o98_row( 'recSTU00000000004', 'Pending graduation', '2026-01-10', '2026-06-30', 104 ),
+	'recSTU00000000005' => o98_row( 'recSTU00000000005', 'Pending graduation', '2026-01-10', '2026-06-30', 105 ),
+	'recSTU00000000006' => o98_row( 'recSTU00000000006', 'Graduate', '2026-01-10', '2026-06-30', 106 ),
+	'recSTU00000000007' => o98_row( 'recSTU00000000007', 'Designer Track', '2026-07-01', '2026-10-24', 0 ),
+);
+// Fix round 1, B2: the site records sign-ins since NOW less 40 days. The students' accounts were made after it, but for
+// three rows with no sign-in: 108's account made before the record began, 109's account gone, 110's not a student's.
+$o98_rows['recSTU00000000008'] = o98_row( 'recSTU00000000008', 'Developer Track', '2026-07-01', '2026-12-31', 108 );
+$o98_rows['recSTU00000000009'] = o98_row( 'recSTU00000000009', 'Developer Track', '2026-07-01', '2026-12-31', 109 );
+$o98_rows['recSTU00000000010'] = o98_row( 'recSTU00000000010', 'Developer Track', '2026-07-01', '2026-12-31', 110 );
+$GLOBALS['opts']['wpcpm_sign_ins_since'] = NOW - 40 * DAY;
+foreach ( array( 101, 102, 103, 104, 105, 106, 108, 110 ) as $o98_id ) {
+	$o98_user                  = new WP_User( $o98_id, 'student' . $o98_id );
+	$o98_user->roles           = 110 === $o98_id ? array( 'subscriber' ) : array( 'wpcpm_student' );
+	$o98_user->user_email      = 'student' . $o98_id . '@example.org';
+	$o98_user->user_registered = gmdate( 'Y-m-d H:i:s', 108 === $o98_id ? NOW - 41 * DAY : NOW - 39 * DAY );
+	$GLOBALS['users'][ $o98_id ] = $o98_user;
+}
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec ] = wpcpm_test_roster( $o98_rows );
+$GLOBALS['umeta'] = array(
+	102 => array( 'wpcpm_last_sign_in' => NOW - 5 * DAY ),
+	104 => array( 'wpcpm_last_sign_in' => NOW - 9 * DAY, 'wpcpm_student_pending_since' => array( 'at' => NOW - 20 * DAY, 'before' => false ) ),
+	105 => array( 'wpcpm_last_sign_in' => NOW - 9 * DAY, 'wpcpm_student_pending_since' => array( 'at' => NOW - 5 * DAY, 'before' => false ) ),
+);
+$GLOBALS['allow']['rep'] += array( 'resend_invite' => true, 'edit_student' => true );
+$GLOBALS['allow']['admin'] += array( 'resend_invite' => true, 'edit_student' => true );
+$GLOBALS['settled']      = true;
+$GLOBALS['active_batch'] = 0;
+$GLOBALS['reports']      = array();
+$GLOBALS['outcome']      = array();
+
+$o98_keys = array();
+foreach ( array( 'no-sign-in', 'ended-open', 'pending-graduation', 'finishing' ) as $o98_key ) {
+	WPCPM_Institutions_Dashboard::forget();
+	$o98_keys[ $o98_key ] = array_keys( method_exists( 'WPCPM_Institutions_Dashboard', 'only_rows' ) ? WPCPM_Institutions_Dashboard::only_rows( $rec, $o98_key ) : array() );
+}
+ck( 'the four lists hold the students each names, from every cohort', $o98_keys, array(
+	'no-sign-in'         => array( 'recSTU00000000001', 'recSTU00000000003' ),
+	'ended-open'         => array( 'recSTU00000000002' ),
+	'pending-graduation' => array( 'recSTU00000000004', 'recSTU00000000005' ),
+	'finishing'          => array( 'recSTU00000000001', 'recSTU00000000007' ),
+) );
+// Fix round 1, B5: words for one: one placement ended has the singular line; several the plural; one student waiting has
+// "The wait", several "The longest wait".
+$o98_plural = $o98_rows;
+$o98_plural['recSTU00000000011'] = o98_row( 'recSTU00000000011', 'Developer Track', '2026-07-01', '2026-10-20', 0 );
+unset( $o98_plural['recSTU00000000005'] );
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec ] = wpcpm_test_roster( $o98_plural );
+$o98_words = items( $rec, $rep, false );
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec ] = wpcpm_test_roster( $o98_rows );
+WPCPM_Institutions_Dashboard::forget();
+
+$GLOBALS['cache_users_calls'] = array();
+$GLOBALS['q']                 = array();
+$o98_rep = items( $rec, $rep, false );
+$o98_row = static function ( array $items, $only ) {
+	foreach ( $items as $item ) {
+		if ( ( $item['args']['wpcpm_only'] ?? '' ) === $only ) {
+			return array( $item['card'], $item['kind'], $item['tag'], $item['title'], $item['why'], $item['action'] );
+		}
+	}
+	return null;
+};
+ck( 'B5: several placements ended say so for several, one student waiting to graduate says "The wait"', array( $o98_row( $o98_words, 'ended-open' )[3] ?? null, $o98_row( $o98_words, 'ended-open' )[4] ?? null, $o98_row( $o98_words, 'pending-graduation' )[4] ?? null ), array( '2 placements ended and are still open', 'The end dates have passed and the students are still on the program. Correct a date if its placement goes on.', 'The program is checking their work. The wait began on ' . gmdate( 'F j, Y', NOW - 20 * DAY ) . '.' ) );
+// Fix round 1, B1 (the owner's decision): the four are facts of the school, with no tag and counted nowhere, in the order
+// a placement runs.
+ck( 'a representative: the four facts with no tag, counted nowhere, in the order a placement runs', array(
+	array_map( static function ( $i ) { return $i['args']['wpcpm_only'] ?? ''; }, array_values( array_filter( $o98_rep, static function ( $i ) { return isset( $i['args']['wpcpm_only'] ); } ) ) ),
+	$o98_row( $o98_rep, 'no-sign-in' ),
+	$o98_row( $o98_rep, 'finishing' ),
+	$o98_row( $o98_rep, 'ended-open' ),
+	$o98_row( $o98_rep, 'pending-graduation' ),
+	WPCPM_Institutions_Dashboard::waiting_by_view( $o98_rep ),
+), array(
+	array( 'no-sign-in', 'finishing', 'ended-open', 'pending-graduation' ),
+	array( 'roster', 'neutral', '', '2 students have not signed in yet', 'Open a student to send them an invitation.', 'See them' ),
+	array( 'roster', 'neutral', '', '2 students finish within 30 days', '', 'See them' ),
+	array( 'roster', 'neutral', '', '1 placement ended and is still open', 'The end date has passed and the student is still on the program. Correct the date if the placement goes on.', 'See them' ),
+	array( 'roster', 'neutral', '', '2 students are waiting to graduate', 'The program is checking their work. The longest wait began on ' . gmdate( 'F j, Y', NOW - 20 * DAY ) . '.', 'See them' ),
+	array(),
+) );
+ck( 'and the accounts\' meta is read once on the Overview, for the school\'s account holders', $GLOBALS['cache_users_calls'], array( array( 101, 102, 103, 104, 105, 106, 108, 109, 110 ) ) );
+
+$GLOBALS['cache_users_calls'] = array();
+$GLOBALS['q']                 = array();
+WPCPM_Institutions_Dashboard::forget();
+$o98_menu = WPCPM_Institutions_Dashboard::waiting_by_view( WPCPM_Institutions_Dashboard::waiting_items( $rec, $rep, false, false ) );
+ck( 'the menu\'s count holds none of them and reads no account; it asks for no fact and no team', array( $o98_menu, count( $GLOBALS['cache_users_calls'] ), isset( $GLOBALS['q']['team_counts'] ) ), array( array(), 0, false ) );
+
+$o98_admin = items( $rec, $admin, true );
+ck( 'an Administrator looking at the school: the four facts as the school has them, no tag, counted nowhere', array(
+	array_slice( (array) $o98_row( $o98_admin, 'no-sign-in' ), 1, 2 ),
+	array_slice( (array) $o98_row( $o98_admin, 'finishing' ), 1, 2 ),
+	array_slice( (array) $o98_row( $o98_admin, 'ended-open' ), 1, 2 ),
+	array_slice( (array) $o98_row( $o98_admin, 'pending-graduation' ), 1, 2 ),
+	WPCPM_Institutions_Dashboard::waiting_by_view( $o98_admin ),
+), array( array( 'neutral', '' ), array( 'neutral', '' ), array( 'neutral', '' ), array( 'neutral', '' ), array() ) );
+
+$o98_tutor = items( $rec, $tutor, false );
+ck( 'a tutor: the two facts, and neither row that waits', array( null === $o98_row( $o98_tutor, 'no-sign-in' ), null === $o98_row( $o98_tutor, 'ended-open' ), null !== $o98_row( $o98_tutor, 'pending-graduation' ), null !== $o98_row( $o98_tutor, 'finishing' ) ), array( true, true, true, true ) );
+
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec_locked ] = wpcpm_test_roster( $o98_rows );
+$GLOBALS['settled'] = false;
+ck( 'a school with no settled agreement: none of them, for its representative or an Administrator', array(
+	array_filter( array_map( static function ( $i ) { return $i['args']['wpcpm_only'] ?? null; }, items( $rec_locked, $locked, false ) ) ),
+	array_filter( array_map( static function ( $i ) { return $i['args']['wpcpm_only'] ?? null; }, items( $rec_locked, $admin, true ) ) ),
+), array( array(), array() ) );
+$GLOBALS['settled'] = true;
+
+// The longest wait is said only when it is true: a stamp that says the student was waiting before stamping began has no
+// day to say "began on".
+$GLOBALS['umeta'][104]['wpcpm_student_pending_since']['before'] = true;
+ck( 'a longest wait whose stamp began before stamping is not said', $o98_row( items( $rec, $rep, false ), 'pending-graduation' )[4] ?? null, 'The program is checking their work.' );
+$GLOBALS['umeta'][104]['wpcpm_student_pending_since']['before'] = false;
+
+ck( 'the offered lists: a tutor is offered the facts and not the rows that wait; an unknown key nobody', array(
+	WPCPM_Institutions_Dashboard::only_offered( 'no-sign-in', $rec, $tutor, false ),
+	WPCPM_Institutions_Dashboard::only_offered( 'ended-open', $rec, $tutor, false ),
+	WPCPM_Institutions_Dashboard::only_offered( 'pending-graduation', $rec, $tutor, false ),
+	WPCPM_Institutions_Dashboard::only_offered( 'finishing', $rec, $tutor, false ),
+	WPCPM_Institutions_Dashboard::only_offered( 'no-sign-in', $rec, $rep, false ),
+	WPCPM_Institutions_Dashboard::only_offered( 'no-sign-in', $rec, $admin, true ),
+	WPCPM_Institutions_Dashboard::only_offered( 'everyone', $rec, $rep, false ),
+	WPCPM_Institutions_Dashboard::only_offered( 'finishing', $rec_locked, $locked, false ),
+), array( false, false, true, true, true, true, false, false ) );
+
+// The sign-in fence: WHETHER a sign-in is on record, and nothing more. The rows say no date of a sign-in, and the class
+// reads the sign-in record through `has_signed_in()` alone.
+$o98_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php' );
+ck( 'the sign-in fence: has_signed_in() alone, no latest trace, no since, no sign-in date in any row', array(
+	substr_count( $o98_src, 'WPCPM_Sign_Ins::has_signed_in( $' ),
+	substr_count( $o98_src, 'WPCPM_Sign_Ins::latest_trace(' ) + substr_count( $o98_src, 'META_SIGN_IN' ),
+	false !== strpos( serialize( $o98_rep ), gmdate( 'F j, Y', NOW - 5 * DAY ) ) || false !== strpos( serialize( $o98_rep ), gmdate( 'F j, Y', NOW - 9 * DAY ) ),
+	// Fix round 1, B2: `user_registered` is read once, for the comparison with the record's start, and printed nowhere.
+	substr_count( $o98_src, 'user_registered' ) - substr_count( $o98_src, '`user_registered`' ),
+	false !== strpos( serialize( $o98_rep ), gmdate( 'Y-m-d H:i:s', NOW - 39 * DAY ) ) || false !== strpos( serialize( $o98_rep ), gmdate( 'F j, Y', NOW - 39 * DAY ) ),
+), array( 1, 0, false, 1, false ) );
+ck( 'B2: counted only an account that exists, is a student\'s with an address, was made since the record began and has no sign-in', array_keys( WPCPM_Institutions_Dashboard::only_rows( $rec, 'no-sign-in' ) ), array( 'recSTU00000000001', 'recSTU00000000003' ) );
+$GLOBALS['opts']['wpcpm_sign_ins_since'] = 0;
+WPCPM_Institutions_Dashboard::forget();
+ck( 'and a site that records no sign-in counts nobody', WPCPM_Institutions_Dashboard::only_rows( $rec, 'no-sign-in' ), array() );
+$GLOBALS['opts']['wpcpm_sign_ins_since'] = NOW - 40 * DAY;
+WPCPM_Institutions_Dashboard::forget();
+
+// Fix round 2, F1: a student waiting to graduate is counted under that fact alone, so one with a new account and no
+// sign-in on record is not on the list of students who have not signed in yet (a finished student needs no invitation).
+$o98_signed_105 = $GLOBALS['umeta'][105]['wpcpm_last_sign_in'];
+unset( $GLOBALS['umeta'][105]['wpcpm_last_sign_in'] );
+WPCPM_Institutions_Dashboard::forget();
+ck( 'F1: a student waiting to graduate who has not signed in is not counted as not signed in yet, and stays under waiting to graduate', array( array_keys( WPCPM_Institutions_Dashboard::only_rows( $rec, 'no-sign-in' ) ), isset( WPCPM_Institutions_Dashboard::only_rows( $rec, 'pending-graduation' )['recSTU00000000005'] ) ), array( array( 'recSTU00000000001', 'recSTU00000000003' ), true ) );
+$GLOBALS['umeta'][105]['wpcpm_last_sign_in'] = $o98_signed_105;
+WPCPM_Institutions_Dashboard::forget();
+
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec ]        = wpcpm_test_roster( array() );
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec_locked ] = wpcpm_test_roster( array() );
+WPCPM_Institutions_Dashboard::forget();
+
 echo "\n=== Every row opens a view in the reader's menu, on a card drawn for them (Task 25, fix round 1, B2) ===\n";
 
 // The question each card asks before it draws anything: the panel, the import form, the report screen and the details
@@ -450,6 +632,12 @@ $card_act = array(
 	'details'   => 'edit_details',
 );
 $sweep = array();
+// 1.123.98: the students' rows open the Students view; each asks its own question (the two that wait the reader's acts,
+// the two facts the roster's), and every school holds the seven students of the rows above.
+$only_act = array( 'no-sign-in' => 'resend_invite', 'ended-open' => 'edit_student', 'pending-graduation' => 'view_roster', 'finishing' => 'view_roster' );
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec ]        = wpcpm_test_roster( $o98_rows );
+$GLOBALS['opts'][ 'wpcpm_roster_' . $rec_locked ] = wpcpm_test_roster( $o98_rows );
+$sweep_seen = array();
 $readers = array(
 	'a representative of a settled school' => array( $rec, $rep, false, true ),
 	'a tutor of a settled school'          => array( $rec, $tutor, false, true ),
@@ -474,7 +662,10 @@ foreach ( array( 'none', 'generated', 'submitted', 'returned', 'revoked', 'accep
 		$sweep_views = WPCPM_Institutions_Dashboard::views_for( $sweep_rec, $sweep_user, $sweep_manage );
 		foreach ( $sweep_items as $sweep_item ) {
 			$sweep_view = WPCPM_Institutions_Dashboard::view_of( (string) $sweep_item['card'] );
-			$sweep_act  = $card_act[ $sweep_item['card'] ] ?? '';
+			$sweep_act  = 'roster' === $sweep_item['card'] ? ( $only_act[ $sweep_item['args']['wpcpm_only'] ?? '' ] ?? '' ) : ( $card_act[ $sweep_item['card'] ] ?? '' );
+			if ( 'roster' === $sweep_item['card'] ) {
+				$sweep_seen[ $sweep_name ][ $sweep_item['args']['wpcpm_only'] ?? '' ] = true;
+			}
 			if ( ! in_array( $sweep_view, $sweep_views, true ) || '' === $sweep_act || empty( $GLOBALS['allow'][ $sweep_user->user_login ][ $sweep_act ] ) ) {
 				$sweep[] = $sweep_name . ', ' . $sweep_state . ': ' . $sweep_item['title'];
 			}
@@ -482,6 +673,19 @@ foreach ( array( 'none', 'generated', 'submitted', 'returned', 'revoked', 'accep
 	}
 }
 ck( 'no reader is given a row whose view is not in their menu or whose card is not drawn for them', array_values( array_unique( $sweep ) ), array() );
+ck( 'and the students\' rows reach the readers they are for, and no school with no settled agreement', array_map( 'array_keys', $sweep_seen ), array(
+	'a representative of a settled school' => array( 'no-sign-in', 'finishing', 'ended-open', 'pending-graduation' ),
+	'a tutor of a settled school'          => array( 'finishing', 'pending-graduation' ),
+	'an Administrator, a settled school'   => array( 'no-sign-in', 'finishing', 'ended-open', 'pending-graduation' ),
+) );
+// And the menu counts none of them for any reader (fix round 1, B1).
+$o98_counts = array();
+foreach ( $readers as $sweep_name => $sweep_reader ) {
+	list( $sweep_rec, $sweep_user, $sweep_manage ) = $sweep_reader;
+	WPCPM_Institutions_Dashboard::forget();
+	$o98_counts[ $sweep_name ] = WPCPM_Institutions_Dashboard::waiting_by_view( WPCPM_Institutions_Dashboard::waiting_items( $sweep_rec, $sweep_user, $sweep_manage, false ) )['students'] ?? 0;
+}
+ck( 'and the menu counts none of them on Students, for any reader', array_sum( $o98_counts ), 0 );
 $sweep_tutor = 0;
 foreach ( array( 'none', 'generated', 'submitted', 'returned', 'revoked', 'accepted' ) as $sweep_state ) {
 	$GLOBALS['settled'] = false;

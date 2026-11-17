@@ -93,7 +93,7 @@ class WP_Error {
 	public function get_error_code() { return $this->c; }
 }
 class WP_User {
-	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array();
+	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array(), $user_registered = '';
 	public function __construct( $id = 0, $name = '', $email = '', $roles = array() ) {
 		$this->ID = $id; $this->display_name = $name; $this->user_email = $email;
 		$this->user_login = strtolower( str_replace( ' ', '', $name ) ); $this->roles = $roles;
@@ -490,6 +490,9 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 	 * because it must recognize a locked member as a member.
 	 */
 	class WPCPM_Institution_Policy {
+		// 1.123.98: the two acts the Overview's rows that wait ask for.
+		const ACT_RESEND_INVITE = 'resend_invite';
+		const ACT_EDIT_STUDENT  = 'edit_student';
 		const GROUND_MANAGER = 'manager';
 		const GROUND_MEMBER  = 'member';
 		const GROUND_TUTOR   = 'tutor';
@@ -685,6 +688,8 @@ if ( ! class_exists( 'WPCPM_Updates' ) ) {
 }
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php';
 
+// 1.123.98: what the Overview's new rows ask, where this suite stands in for none of it.
+require_once __DIR__ . '/stubs/overview-more.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php';
 // The real rule for a test name and the one helper that asks it, loaded so the guard below bites if the
 // dashboard ever drew a mark (Ruling 7: the institution's own dashboard holds neither mark nor label).
@@ -948,6 +953,8 @@ $GLOBALS['quiet_cards'] = false;
 if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
 	class WPCPM_Semester_Report {
 		const STATE_APPROVED = 'approved';
+		/** 1.123.98: the teams the Overview's block lists, from the suite's global, none by default. */
+		public static function team_counts( array $rows, $cohort ) { return $GLOBALS['team_counts'] ?? array(); }
 		/** No report approved, unless a scene of the Overview (Task 6) holds some: cohort to `state` and `at`. */
 		public static function reports_of( $record ) { $GLOBALS['reports_of_calls'] = ( $GLOBALS['reports_of_calls'] ?? 0 ) + 1; return $GLOBALS['reports'][ (string) $record ] ?? array(); }
 		public static function state( $post ) { return (string) ( $post['state'] ?? '' ); }
@@ -3039,7 +3046,157 @@ if ( function_exists( 'wpcpm_layout_keep' ) ) {
 	wpcpm_layout_keep( 'Institution Dashboard Overview, representative: no figures, no rows, no contact', main_html( overview_no_contact( $rep ) ) );
 	hold_counts( 5, 1, 3, 1 );
 	$GLOBALS['users'][13]->user_email = 'alex.example@example.org';
+	// The head beside the school's site icon and without one, under a name short enough for one line (1.123.97): the
+	// layout suite draws the first twice, with the icon's address answered and with it refused (the icon then takes
+	// itself off the page), and the second as it is (bin/test-ui-layout.php, "the head beside a school's site icon").
+	// The second is the same school once its site has answered with no icon, cached as '' (`site_icon()`): the two
+	// pages differ in the icon and the head's class, and in nothing else.
+	$icon_key = 'wpcpm_icon_' . md5( 'www.example.org' );
+	$icon_was = $GLOBALS['transients'][ $icon_key ];
+	wpcpm_layout_keep( 'Institution Dashboard Overview, representative: short name, site icon', main_html( overview_as( $rep, school( array( 'name' => 'Example College' ) ) ) ) );
+	$GLOBALS['transients'][ $icon_key ] = '';
+	wpcpm_layout_keep( 'Institution Dashboard Overview, representative: short name, no site icon', main_html( overview_as( $rep, school( array( 'name' => 'Example College' ) ) ) ) );
+	$GLOBALS['transients'][ $icon_key ] = $icon_was;
 }
+
+echo "\n=== 1.123.98: the Overview tells a school more ===\n";
+
+/**
+ * Hold the school's students for the Overview's new rows and block: the opening cohort's six, of whom one waits to
+ * graduate, two have not signed in, one placement ended and is still open, two finish within 30 days, three teams, two
+ * mentors and hours on record for three. Every one of them is in the roster's groups of every cohort ('').
+ *
+ * @param bool $teams Whether the semester report's count finds teams.
+ */
+function hold_more( $teams = true ) {
+	global $rec;
+	$day  = static function ( $n ) { return gmdate( 'Y-m-d', time() + $n * DAY_IN_SECONDS ); };
+	$base = array( 'start' => '2026-02-16', 'has_mentor' => true, 'reports' => array(), 'institution' => $rec, 'team' => '', 'hours' => '', 'mentor_name' => '' );
+	$rows = array(
+		'recSTU00000000101' => array_merge( $base, array( 'name' => 'Ada Example', 'status' => 'Developer Track', 'end' => $day( 10 ), 'user_id' => 301, 'mentor_name' => 'Mia Example', 'hours' => '12' ) ),
+		'recSTU00000000102' => array_merge( $base, array( 'name' => 'Bo Example', 'status' => 'Developer Track', 'end' => $day( -2 ), 'user_id' => 302, 'mentor_name' => 'Mia Example', 'hours' => '40.5' ) ),
+		'recSTU00000000103' => array_merge( $base, array( 'name' => 'Cy Example', 'status' => 'In Sensei', 'end' => $day( 90 ), 'user_id' => 303, 'has_mentor' => false, 'hours' => '0' ) ),
+		'recSTU00000000104' => array_merge( $base, array( 'name' => 'Di Example', 'status' => 'Pending graduation', 'end' => $day( -30 ), 'user_id' => 304, 'mentor_name' => 'Noor Example', 'hours' => '150' ) ),
+		'recSTU00000000105' => array_merge( $base, array( 'name' => 'Ed Example', 'status' => 'Designer Track', 'end' => $day( 0 ), 'user_id' => 0, 'mentor_name' => 'Noor Example' ) ),
+		'recSTU00000000106' => array_merge( $base, array( 'name' => 'Fi Example', 'status' => 'Graduate', 'end' => $day( -60 ), 'user_id' => 306 ) ),
+	);
+	$GLOBALS['opts'][ 'wpcpm_roster_' . $rec ] = array( 'v' => 1, 'read' => 1792800000, 'rows' => $rows );
+	$active = array_intersect_key( $rows, array_flip( array( 'recSTU00000000101', 'recSTU00000000102', 'recSTU00000000104', 'recSTU00000000105' ) ) );
+	$GLOBALS['groups'][ $rec ]['']        = array( 'current' => $active, 'waiting' => array( 'recSTU00000000103' => $rows['recSTU00000000103'] ), 'finished' => array( 'recSTU00000000106' => $rows['recSTU00000000106'] ), 'not_started' => array() );
+	$GLOBALS['groups'][ $rec ]['2026-H1'] = $GLOBALS['groups'][ $rec ][''];
+	// Fix round 1, B2: the site records sign-ins since 40 days ago, and every student's account was made after that.
+	$GLOBALS['opts']['wpcpm_sign_ins_since'] = time() - 40 * DAY_IN_SECONDS;
+	foreach ( array( 301 => 'Ada Example', 302 => 'Bo Example', 303 => 'Cy Example', 304 => 'Di Example', 306 => 'Fi Example' ) as $more_id => $more_name ) {
+		$GLOBALS['users'][ $more_id ]                  = new WP_User( $more_id, $more_name, strtolower( str_replace( ' ', '.', $more_name ) ) . '@example.org', array( 'wpcpm_student' ) );
+		$GLOBALS['users'][ $more_id ]->user_registered = gmdate( 'Y-m-d H:i:s', time() - 39 * DAY_IN_SECONDS );
+	}
+	$GLOBALS['umeta'][302]['wpcpm_last_sign_in'] = time() - 3 * DAY_IN_SECONDS;
+	$GLOBALS['umeta'][304]['wpcpm_last_sign_in'] = time() - 3 * DAY_IN_SECONDS;
+	$GLOBALS['umeta'][304]['wpcpm_student_pending_since'] = array( 'at' => 1792800000, 'before' => false );
+	$GLOBALS['team_counts'] = $teams ? array( array( 'team' => 'Polyglots', 'count' => 3 ), array( 'team' => 'Core', 'count' => 2 ), array( 'team' => 'Training', 'count' => 1 ) ) : array();
+}
+/** The school's students as they were before this scene. */
+function drop_more() {
+	global $rec;
+	unset( $GLOBALS['groups'][ $rec ][''], $GLOBALS['umeta'][302], $GLOBALS['umeta'][304], $GLOBALS['users'][301], $GLOBALS['users'][302], $GLOBALS['users'][303], $GLOBALS['users'][304], $GLOBALS['users'][306], $GLOBALS['opts']['wpcpm_sign_ins_since'] );
+	$GLOBALS['team_counts'] = array();
+	hold_counts( 5, 1, 3, 1 );
+}
+/** The block What your students work on, or ''. */
+function work_html( $html ) {
+	return preg_match( '#<section class="wpcpm-institution__work".*?</section>#s', (string) $html, $m ) ? $m[0] : '';
+}
+hold_more();
+$more_rep = overview_as( $rep, $school );
+// Fix round 1, B3: the figures are disjoint: the student waiting to graduate is counted there alone, beside the graduates.
+ck( 'A1: the figures gain waiting to graduate, beside graduated, and add up to no more than signed up', array( figure_labels( $more_rep ), figure_values( $more_rep ) ), array( array( 'signed up', 'graduated', 'waiting to graduate', 'on the program now', 'waiting for a mentor' ), array( '6', '1', '1', '3', '1' ) ) );
+// Fix round 1, B1: the four are facts of the school under Good to know, with no tag, counted nowhere.
+ck( 'A2 to A5: nothing waits; the four facts with no tag under Good to know, in the order a placement runs', groups_of( $more_rep ), array(
+	'Waiting for you' => array( 'Nothing waits for you.' ),
+	'Good to know'    => array( ': 2 students have not signed in yet', ': 2 students finish within 30 days', ': 1 placement ended and is still open', ': 1 student is waiting to graduate' ),
+) );
+ck( 'each opens its narrowed list on the Students view', array_map( static function ( $row ) { preg_match( '#<a class="wpcpm-btn wpcpm-btn--secondary" href="([^"]+)">See them</a>#', $row, $m ); return html_entity_decode( $m[1] ?? '' ); }, array_merge( group_rows( $more_rep, 'waiting' ), group_rows( $more_rep, 'news' ) ) ), array(
+	$page . '?wpcpm_view=students&wpcpm_only=no-sign-in#wpcpm-roster',
+	$page . '?wpcpm_view=students&wpcpm_only=finishing#wpcpm-roster',
+	$page . '?wpcpm_view=students&wpcpm_only=ended-open#wpcpm-roster',
+	$page . '?wpcpm_view=students&wpcpm_only=pending-graduation#wpcpm-roster',
+) );
+ck( 'the wait to graduate of one student says when it began, in the site\'s date format', false !== strpos( $more_rep, 'The program is checking their work. The wait began on ' . gmdate( 'F j, Y', 1792800000 ) . '.' ), true );
+ck( 'A6 and A7: What your students work on, under Good to know: the teams most first in the key and value table, then one muted line', array(
+	strpos( $more_rep, 'wpcpm-institution__work' ) > strpos( $more_rep, 'wpcpm-institution__news' ) && strpos( $more_rep, 'wpcpm-institution__work' ) < strpos( $more_rep, 'wpcpm-institution__contact' ),
+	work_html( $more_rep ),
+), array( true, '<section class="wpcpm-institution__work" aria-labelledby="wpcpm-institution-overview-work"><h2 class="wpcpm-ui-h" id="wpcpm-institution-overview-work">What your students work on</h2>'
+	. '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue" role="table" aria-labelledby="wpcpm-institution-overview-work"><tbody role="rowgroup">'
+	. '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Polyglots</th><td class="wpcpm-ui-cell--text" role="cell">3 students</td></tr>'
+	. '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Core</th><td class="wpcpm-ui-cell--text" role="cell">2 students</td></tr>'
+	. '<tr role="row"><th scope="row" role="rowheader" class="wpcpm-ui-cell--text">Training</th><td class="wpcpm-ui-cell--text" role="cell">1 student</td></tr>'
+	. '</tbody></table><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">2 mentors work with your students. Hours are on record for 3 of 6 students.</p></section>' ) );
+hold_more( false );
+ck( 'with no team, the line alone under the heading', work_html( overview_as( $rep, $school ) ), '<section class="wpcpm-institution__work" aria-labelledby="wpcpm-institution-overview-work"><h2 class="wpcpm-ui-h" id="wpcpm-institution-overview-work">What your students work on</h2><p class="wpcpm-ui-intro wpcpm-ui-intro--muted">2 mentors work with your students. Hours are on record for 3 of 6 students.</p></section>' );
+hold_more();
+$more_tutor = overview_as( $tutor, $school );
+ck( 'a tutor: the two facts for every reader of the roster and the block, neither fact a tutor cannot act on', array( groups_of( $more_tutor )['Waiting for you'] ?? null, groups_of( $more_tutor )['Good to know'] ?? null, '' !== work_html( $more_tutor ) ), array( array( 'Nothing waits for you.' ), array( ': 2 students finish within 30 days', ': 1 student is waiting to graduate' ), true ) );
+$more_admin = overview_as( $admin, $school );
+ck( 'an Administrator looking at the school: the four facts as the school has them, no tag, then the block', array( groups_of( $more_admin ), '' !== work_html( $more_admin ) ), array( array(
+	'Waiting for you' => array( 'Nothing waits for you.' ),
+	'Good to know'    => array( ': 2 students have not signed in yet', ': 2 students finish within 30 days', ': 1 placement ended and is still open', ': 1 student is waiting to graduate' ),
+), true ) );
+$more_locked = overview_as( $locked, $school );
+ck( 'a school with no settled agreement: none of it', array( strpos( $more_locked, 'signed in yet' ), strpos( $more_locked, 'waiting to graduate' ), work_html( $more_locked ) ), array( false, false, '' ) );
+$more_badge = static function ( $html ) { return preg_match( '#<span class="wpcpm-frame__label">Students<span class="screen-reader-text">, ([^<]+)</span>#', (string) $html, $m ) ? $m[1] : ''; };
+ck( 'the menu counts none of them beside Students, for any reader', array( $more_badge( $more_rep ), $more_badge( $more_tutor ), $more_badge( $more_admin ) ), array( '', '', '' ) );
+// Fix round 1, B3: the figures never add up to more than signed up, on every Overview this suite draws.
+$more_sums = array();
+foreach ( array( 'held' => $more_rep, 'tutor' => $more_tutor, 'admin' => $more_admin, 'five' => overview_with_counts( 5, 1, 3, 1 ), 'two' => overview_with_counts( 3, 0, 2, 1 ) ) as $more_name => $more_html ) {
+	$more_v = array_map( 'intval', figure_values( $more_html ) );
+	$more_sums[ $more_name ] = array() === $more_v || array_sum( array_slice( $more_v, 1 ) ) <= $more_v[0];
+}
+ck( 'B3: graduated, waiting to graduate, on the program now and waiting for a mentor never add up to more than signed up', array_values( array_unique( $more_sums ) ), array( true ) );
+
+// Fix round 4 (read off the pictures): the block's table stands on the page with no card around it, and its team names
+// stood 12px in from the heading above them and the line under them. The page's sheet sets the table's outer cells at
+// the table's edges, as the parts set a card's table.
+$more_inst_css = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/institution.css' );
+ck(
+	'What your students work on: the table\'s outer cells have no padding at its edges, so the team names line up with the heading',
+	array(
+		preg_match( '/\.wpcpm-frame \.wpcpm-institution__work \.wpcpm-ui-table th:first-child,\s*\.wpcpm-frame \.wpcpm-institution__work \.wpcpm-ui-table td:first-child\s*\{\s*padding-inline-start:\s*0;/', $more_inst_css ),
+		preg_match( '/\.wpcpm-frame \.wpcpm-institution__work \.wpcpm-ui-table th:last-child,\s*\.wpcpm-frame \.wpcpm-institution__work \.wpcpm-ui-table td:last-child\s*\{\s*padding-inline-end:\s*0;/', $more_inst_css ),
+		false !== strpos( work_html( $more_rep ), '<table class="wpcpm-ui-table wpcpm-ui-table--keyvalue"' ),
+	),
+	array( 1, 1, true )
+);
+
+// Fix round 2 (found in the pictures): with five figures the band kept its four columns, the fifth figure wrapped under
+// the first and the band's line color filled the three empty places beside it. The band counts its cells in its class,
+// and the frame's sheet gives five a row of their own, stacked in the narrow form as the other counts are.
+$more_frame_css = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/dashboard-frame.css' );
+ck(
+	'five figures: the band says five, the frame\'s sheet draws five in one row, and one under another in the narrow form',
+	array(
+		false !== strpos( $more_rep, '<section class="wpcpm-figures wpcpm-figures--5" aria-label="Your students at a glance">' ),
+		preg_match( '/\n\.wpcpm-figures--5\s*\{\s*grid-template-columns:\s*repeat\(\s*5,\s*minmax\(\s*0,\s*1fr\s*\)\s*\);\s*\}/', $more_frame_css ),
+		preg_match( '/@container wpcpm-main \( max-width: 760px \) \{.*?\.wpcpm-figures--3,\s*\.wpcpm-figures--5\s*\{\s*grid-template-columns:\s*minmax\(\s*0,\s*1fr\s*\);/s', $more_frame_css ),
+	),
+	array( true, 1, 1 )
+);
+
+// No remote read because of this release: on the Overview and on every view, with the new rows held, nothing is fetched
+// (the icon is the transient's), and the Airtable, Report Card and feedback classes are not loaded in this suite at all,
+// so a read of one would stop it.
+$GLOBALS['fetched'] = array();
+foreach ( array( array( $rep, array() ), array( $tutor, array() ), array( $admin, array( 'wpcpm_institution_view' => $rec ) ), array( $rep, array( 'wpcpm_view' => 'students' ) ), array( $rep, array( 'wpcpm_view' => 'institution' ) ), array( $rep, array( 'wpcpm_view' => 'reports' ) ) ) as $more_scene ) {
+	render_as( $more_scene[0], $more_scene[1] );
+}
+ck( 'no remote read on the Overview or any view, with every new row held', array( $GLOBALS['fetched'], class_exists( 'WPCPM_Airtable', false ), class_exists( 'WPCPM_Student_Report_Form', false ), class_exists( 'WPCPM_Feedback', false ) ), array( array(), false, false, false ) );
+
+if ( function_exists( 'wpcpm_layout_keep' ) ) {
+	wpcpm_layout_keep( 'Institution Dashboard Overview, 1.123.98: every new row and the block, a representative', main_html( $more_rep ) );
+	wpcpm_layout_keep( 'Institution Dashboard Overview, 1.123.98: the facts and the block, an Administrator viewing a school', main_html( $more_admin ) );
+	hold_more( false );
+	wpcpm_layout_keep( 'Institution Dashboard Overview, 1.123.98: the block with its line alone, a tutor', main_html( overview_as( $tutor, $school ) ) );
+}
+drop_more();
 
 echo "\n=== An old link that names only an anchor: the Overview's map (Task 10) ===\n";
 

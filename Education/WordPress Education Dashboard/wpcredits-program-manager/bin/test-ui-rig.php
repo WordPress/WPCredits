@@ -250,6 +250,82 @@ ck( 'and writes the sync error as an option only, never starting a sync', array(
 ck( 'seed-states.php refuses unless it runs on the prepared local copy, before it writes anything', 1 === preg_match( "/^<\\?php.*?if \\( 'http:\\/\\/localhost:8900' !== \\(string\\) get_option\\( 'siteurl' \\) \\|\\| 'http:\\/\\/localhost:8900' !== \\(string\\) get_option\\( 'home' \\) \\|\\| ! defined\\( 'WPCPM_UI_RIG' \\) \\) \\{\\s*echo [^;]+;\\s*return;/s", $rig_texts['bin/ui/seed-states.php'] ) && strpos( $rig_texts['bin/ui/seed-states.php'], 'WPCPM_UI_RIG' ) < strpos( $rig_texts['bin/ui/seed-states.php'], 'wp_insert_post' ) );
 ck( 'the seed records the logo pictures it writes on the copy for restore', 1 === preg_match( '/copyFileSync\(tmp, file\);\s*if \(!mine\) appendFileSync\(CREATED, LOGOS\[key\]/', $rig_texts['bin/ui/seed.mjs'] ) );
 ck( 'seed() refuses unless the copy answers as BASE, before it makes anything', 1 === preg_match( '/export async function seed\(newContext, BASE\) \{\s*refuseUnlessCopy\(BASE\);/', $rig_texts['bin/ui/seed.mjs'] ) );
+// 1.123.97: one seeded school's site icon loads and another's address fails, so a picture round draws the Institution
+// Dashboard's head both ways. Both are files of the copy's own uploads, one written and one never written: the seed
+// holds no address for either, and the copy looks nothing up.
+$seed_text = $rig_texts['bin/ui/seed.mjs'];
+ck( 'the seed names two site icons, each a path under the copy\'s own uploads and neither an address', 1 === preg_match( "/^export const ICONS = \\{ loads: 'uploads\\/[a-z0-9\\/-]+\\.png', fails: 'uploads\\/[a-z0-9\\/-]+\\.png' \\};$/m", $seed_text ) );
+ck( 'it writes the one that loads, records it for restore, and refuses when a file stands where the other must fail', array( 1, 1, 0 ), array( preg_match( '/copyFileSync\(tmp, file\);\s*if \(!mine\) appendFileSync\(CREATED, ICONS\.loads/', $seed_text ), preg_match( "/if \\(existsSync\\(join\\(DOCKER, 'site\\/wp-content', ICONS\\.fails\\)\\)\\) throw new Error\\(`refusing: /", $seed_text ), preg_match( '/(copyFileSync|writeFileSync|appendFileSync)\([^\n]*ICONS\.fails/', $seed_text ) ) );
+ck( 'and states() writes it before it hands both to seed-states.php, in the pass that makes the section icons', array( true, true ), array( 1 === preg_match( '/export function states\(\) \{\s*writeLogos\(\);\s*writeIcon\(\);/', $seed_text ), false !== strpos( $seed_text, "logos: LOGOS, icons, admin:" ) && false !== strpos( $seed_text, "'watch', 'icons'], ['events']]" ) ) );
+// The section itself, run here on stand-ins: a school's website as the index holds it, with its scheme or without, an
+// entry a page view cached with its week, and the transients as WordPress keeps them (a value and a timeout).
+$icons_section = preg_match( '/^if \( \$run\( \'icons\' \) \) :\n(.*?)^endif;$/ms', $rig_texts['bin/ui/seed-states.php'], $m ) ? $m[1] : '';
+ck( 'seed-states.php holds the section icons', '' !== $icons_section );
+$icons_stubs = <<<'PHP'
+<?php
+$GLOBALS['t']        = array( 'wpcpm_icon_' . md5( 'design.example.org' ) => '' );
+$GLOBALS['timeouts'] = array( '_transient_timeout_wpcpm_icon_' . md5( 'design.example.org' ) => 1800000000 );
+$GLOBALS['asked']    = 0;
+class WPCPM_Institutions_Index {
+	public static function row( $record ) {
+		$rows = array(
+			'recEXA00000000001' => array( 'website' => 'design.example.org' ),
+			'recEXA00000000002' => array( 'website' => 'https://Polytechnic.Example.org/about/' ),
+			'recEXA00000000003' => array( 'website' => '' ),
+		);
+		return isset( $rows[ $record ] ) ? $rows[ $record ] : null;
+	}
+}
+function wp_parse_url( $u, $c = -1 ) { return parse_url( (string) $u, $c ); }
+function content_url( $p = '' ) { return 'http://localhost:8900/wp-content/' . ltrim( (string) $p, '/' ); }
+function delete_transient( $k ) { unset( $GLOBALS['t'][ $k ], $GLOBALS['timeouts'][ '_transient_timeout_' . $k ] ); return true; }
+function set_transient( $k, $v, $ttl = 0 ) { $GLOBALS['t'][ $k ] = $v; if ( $ttl ) { $GLOBALS['timeouts'][ '_transient_timeout_' . $k ] = time() + $ttl; } return true; }
+function get_transient( $k ) { return array_key_exists( $k, $GLOBALS['t'] ) ? $GLOBALS['t'][ $k ] : false; }
+function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['timeouts'] ) ? $GLOBALS['timeouts'][ $k ] : $d; }
+function wp_safe_remote_get() { $GLOBALS['asked']++; return array(); }
+function wp_remote_get() { $GLOBALS['asked']++; return array(); }
+$said = array();
+$say  = static function ( $state, $result ) use ( &$said ) { $said[ $state ] = $result; };
+$in   = json_decode( getenv( 'RIG_ICONS' ), true );
+PHP;
+$icons_in = array(
+	'icons' => array(
+		array( 'school' => 'Example School of Design', 'record' => 'recEXA00000000001', 'picture' => 'uploads/2026/10/ui-rig-school-icon.png' ),
+		array( 'school' => 'Example Polytechnic', 'record' => 'recEXA00000000002', 'picture' => 'uploads/2026/10/ui-rig-school-icon-missing.png' ),
+		array( 'school' => 'Example College of No Website', 'record' => 'recEXA00000000003', 'picture' => 'uploads/2026/10/ui-rig-school-icon.png' ),
+		array( 'school' => 'Example College of No Record', 'record' => '', 'picture' => 'uploads/2026/10/ui-rig-school-icon.png' ),
+		array( 'school' => 'Example College of Another Address', 'record' => 'recEXA00000000001', 'picture' => 'https://icons.example.org/icon.png' ),
+	),
+);
+putenv( 'RIG_ICONS=' . json_encode( $icons_in ) );
+list( $out, , $err ) = run_php( $icons_stubs . "\n" . $icons_section . "\necho json_encode( array( 'said' => \$said, 'transients' => \$GLOBALS['t'], 'timeouts' => \$GLOBALS['timeouts'], 'asked' => \$GLOBALS['asked'] ) );" );
+$icons_got = json_decode( $out, true );
+ck(
+	'the section stores each school\'s icon under the host of its website, an address of the copy\'s own uploads, with no expiry (the cached entry\'s week removed), and says which it could not: no website, no record, an address that is not a picture under uploads',
+	array( $icons_got, $err ),
+	array(
+		array(
+			'said'       => array(
+				'site-icon Example School of Design'           => true,
+				'site-icon Example Polytechnic'                => true,
+				'site-icon Example College of No Website'      => 'no website on its record',
+				'site-icon Example College of No Record'       => 'no website on its record',
+				'site-icon Example College of Another Address' => 'not a picture under uploads',
+			),
+			'transients' => array(
+				'wpcpm_icon_' . md5( 'design.example.org' )      => 'http://localhost:8900/wp-content/uploads/2026/10/ui-rig-school-icon.png',
+				'wpcpm_icon_' . md5( 'polytechnic.example.org' ) => 'http://localhost:8900/wp-content/uploads/2026/10/ui-rig-school-icon-missing.png',
+			),
+			'timeouts'   => array(),
+			'asked'      => 0,
+		),
+		'',
+	)
+);
+// What the seed relies on in the plugin: the dashboard reads the icon it cached for the website's host under that key,
+// and prints a cached address as it is, with no lookup. A change there must be followed here.
+$dashboard = read_rig( $root . '/includes/modules/class-wpcpm-institutions-dashboard.php' );
+ck( 'and that is the key site_icon() reads, a cached address answered as it is with no lookup', 1 === preg_match( '/\$key    = \'wpcpm_icon_\' \. md5\( \$host \);\s*\$cached = get_transient\( \$key \);\s*if \( false !== \$cached \) \{\s*return is_string\( \$cached \) \? \$cached : \'\';\s*\}/', $dashboard ) && 1 === preg_match( '/\$host = strtolower\( \(string\) wp_parse_url\( \$website, PHP_URL_HOST \) \);/', $dashboard ) );
 ck( 'compare.mjs needs no site: no refuseUnlessCopy, no browser', false === strpos( $rig_texts['bin/ui/compare.mjs'], 'refuseUnlessCopy' ) && false === strpos( $rig_texts['bin/ui/compare.mjs'], 'chromium' ) );
 
 // The must-use plugin and real-names.php, each loaded on stand-ins in a process of its own.

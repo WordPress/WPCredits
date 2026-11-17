@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.97
+Stable tag: 1.123.98
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,18 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.98 =
+
+* Institution Dashboard, Overview: the figures add how many students are waiting to graduate, beside graduated. "On the program now" and "waiting for a mentor" no longer count those students, so the figures after "signed up" never add up to more than it.
+* Good to know adds four facts about the school's students, each with See them and no tag, counted nowhere: the students who have not signed in yet (only accounts made since the site began recording sign-ins; the page says whether, never when), the students who finish within 30 days, the placements that ended and are still open, and the students waiting to graduate, with the day the wait began when the site knows it. A tutor is not shown the first or the third. An Administrator viewing the school sees them as the school does.
+* A new block, What your students work on, lists the teams of the semester's students with how many are on each, and says how many mentors work with the students on the program now and for how many of the semester's students more than zero hours are on record.
+* See them opens the Students view with those students alone, and Show all students brings the whole roster back. The list of students who have not signed in yet says which accounts it leaves out.
+* Students: the Current group keeps the students waiting to graduate and its line says so ("With a mentor assigned or a progress record already started, students waiting to graduate included."), since the Overview's "on the program now" no longer counts them.
+* Representatives and tutors counts the people with an account here: the program's contact who has no account yet is still listed and no longer counted, on the dashboard and on the Institutions screen.
+* The head's icon column is the icon's own width, so the school's name stands one gap from its icon.
+* A school whose Collaboration Agreement is not settled is shown none of the above.
+* Administrator guide: a clip under "Invite a representative or a tutor for a school, and keep its tutor list" shows the job on the new Institution Dashboard.
 
 = 1.123.97 =
 
