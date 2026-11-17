@@ -1,7 +1,8 @@
 <?php
 /**
  * The Administrator guide on its bare canvas (theme 1.32.23, with WPCredits Program Manager 1.123.70), and the
- * Sponsor Dashboard, its guide and a sponsor's updates on theirs (theme 1.32.27, with the plugin's 1.123.78).
+ * Sponsor Dashboard, its guide and a sponsor's updates on theirs (theme 1.32.27, with the plugin's 1.123.78), and
+ * the Institution Dashboard, its guide and an institution's updates on theirs.
  *
  * The guide's page names the Documentation template; while the plugin can draw the guide in the
  * Administrator Dashboard's frame, the theme draws it on `page-administrator-guide` instead, and loads
@@ -31,6 +32,8 @@ function get_queried_object() { return $GLOBALS['req']['object']; }
 // The Administrator and Sponsor Dashboards' own page tests are template-tags.php's; here they are switches.
 function wpcredits_is_administrator_page() { return $GLOBALS['req']['dashboard']; }
 function wpcredits_is_sponsor_page() { return ! empty( $GLOBALS['req']['sponsor_dashboard'] ); }
+// The real test also asks for the plugin's class, `WPCPM_Institutions_Dashboard`; here that is a switch too.
+function wpcredits_is_institution_page() { return ! empty( $GLOBALS['req']['institution_dashboard'] ) && empty( $GLOBALS['req']['no_institutions_class'] ); }
 
 class WP_Post {
 	public $post_name = '';
@@ -47,6 +50,9 @@ class WPCPM_Administrator_Guide_View {
 		if ( 'administrator-guide' === $post->post_name ) {
 			return 'administrator-guide';
 		}
+		if ( 'institution-guide' === $post->post_name ) {
+			return ! empty( $GLOBALS['req']['institution_reader'] ) ? 'institution-guide' : '';
+		}
 		return 'sponsor-guide' === $post->post_name && ! empty( $GLOBALS['req']['sponsor_reader'] ) ? 'sponsor-guide' : '';
 	}
 }
@@ -62,7 +68,10 @@ class WPCPM_Administrator_Updates_View {
 		if ( ! empty( $GLOBALS['req']['manager'] ) ) {
 			return 'administrator';
 		}
-		return ! empty( $GLOBALS['req']['member'] ) ? 'sponsor' : '';
+		if ( ! empty( $GLOBALS['req']['member'] ) ) {
+			return 'sponsor';
+		}
+		return ! empty( $GLOBALS['req']['school_contact'] ) ? 'institution' : '';
 	}
 }
 
@@ -153,7 +162,7 @@ foreach ( $kept as $name => $case ) {
 ck( 'anywhere else the post keeps the templates core made for it', $as_core, array_fill_keys( array_keys( $kept ), array( true, false ) ) );
 ck( 'the update\'s canvas is the dashboard\'s, and functions.php names the updates for the frame', array(
 	file_get_contents( WPCREDITS_THEME_DIR . 'templates/single-administrator-update.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--administrator-update', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
-	false !== strpos( file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), "add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates' ) );" ),
+	false !== strpos( file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), "add_theme_support( 'wpcpm-dashboard-frame', array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates', 'institution', 'institution-guide', 'institution-updates' ) );" ),
 ), array( true, true ) );
 
 // Theme 1.32.27, with the plugin's 1.123.78: the Sponsor Dashboard, the Sponsor guide and each update a sponsor
@@ -190,6 +199,83 @@ ck( 'the Sponsor Dashboard\'s, the Sponsor guide\'s and a sponsor\'s update\'s c
 	file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-sponsor-guide.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--sponsor-guide', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
 	file_get_contents( WPCREDITS_THEME_DIR . 'templates/single-sponsor-update.html' ) === str_replace( 'wpc-main--administrator', 'wpc-main--sponsor-update', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-administrator-dashboard.html' ) ),
 ), array( true, true, true ) );
+
+// The Institution Dashboard, the Institution guide and each update an institution reads, in the Institution
+// Dashboard's frame, each on a bare canvas of its own: the sponsor's, with `sponsor` read as `institution`.
+$every = array( array( 'administrator', 'administrator-guide', 'administrator-updates', 'sponsor', 'sponsor-guide', 'sponsor-updates', 'institution', 'institution-guide', 'institution-updates' ) );
+
+ck( 'functions.php names the Institution Dashboard, its guide and its updates for the frame, after the sponsor\'s', false !== strpos( file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ), "'sponsor', 'sponsor-guide', 'sponsor-updates', 'institution', 'institution-guide', 'institution-updates' ) );" ), true );
+
+on( 'institution-dashboard', array( 'institution_dashboard' => true, 'support' => $every ) );
+ck( 'the Institution Dashboard is a page in the frame while the plugin\'s class exists and functions.php names it', wpcredits_is_frame_page(), true );
+$institution_left = array(
+	'a theme that names the sponsor\'s pages only'  => array( 'support' => $all ),
+	'a theme that names the guide and updates only' => array( 'support' => array( array( 'institution-guide', 'institution-updates' ) ) ),
+	'a site without the plugin\'s class'            => array( 'support' => $every, 'no_institutions_class' => true ),
+);
+$as_today = array();
+foreach ( $institution_left as $name => $change ) {
+	on( 'institution-dashboard', array_merge( array( 'institution_dashboard' => true ), $change ) );
+	$as_today[ $name ] = wpcredits_is_frame_page();
+}
+ck( 'and is not, as today, without the name or without the plugin', $as_today, array_fill_keys( array_keys( $institution_left ), false ) );
+ck( 'the real page test still asks for the plugin\'s class first', 1 === preg_match( "/function wpcredits_is_institution_page\(\) \{\s*if \( ! wpcredits_plugin_active\(\) \|\| ! is_singular\(\) \|\| ! class_exists\( 'WPCPM_Institutions_Dashboard' \) \) \{\s*return false;/", file_get_contents( WPCREDITS_THEME_DIR . 'inc/template-tags.php' ) ), true );
+
+$institution_hierarchy = array( 'page-documentation', 'page-institution-guide.php', 'page-1880.php', 'page.php' );
+on( 'institution-guide', array( 'institution_reader' => true, 'support' => $every ) );
+ck( 'the Institution guide, for a reader the plugin draws it for, is moved onto page-institution-guide, once, ahead of the Documentation template, and is a page in the frame', array( wpcredits_guide_frame_template( $institution_hierarchy ), wpcredits_is_frame_page() ), array( array( 'page-institution-guide.php', 'page-documentation', 'page-1880.php', 'page.php' ), true ) );
+$guide_left = array(
+	'a reader the plugin does not draw it for'  => array( 'support' => $every ),
+	'a theme that names the sponsor\'s pages only' => array( 'institution_reader' => true, 'support' => $all ),
+);
+$guide_kept = array();
+foreach ( $guide_left as $name => $change ) {
+	on( 'institution-guide', $change );
+	$guide_kept[ $name ] = array( wpcredits_guide_frame_template( $institution_hierarchy ) === $institution_hierarchy, wpcredits_is_guide_frame_page() );
+}
+ck( 'anywhere else the Institution guide keeps the Documentation template it names', $guide_kept, array_fill_keys( array_keys( $guide_left ), array( true, false ) ) );
+
+on( 'site-update', array( 'is_page' => false, 'is_single' => true, 'school_contact' => true, 'support' => $every ) );
+ck( 'an update an institution reads is on single-institution-update, first, and is a page in the frame', array( wpcredits_update_frame_template( $single ), wpcredits_is_frame_page() ), array( array( 'single-institution-update.php', 'single-post-site-update.php', 'single-post.php', 'single.php' ), true ) );
+on( 'site-update', array( 'is_page' => false, 'is_single' => true, 'school_contact' => true, 'support' => $all ) );
+ck( 'and keeps its own templates while functions.php does not name the institution\'s updates', array( wpcredits_update_frame_template( $single ) === $single, wpcredits_is_update_frame_page() ), array( true, false ) );
+
+// Every other page resolves what it resolved before the institution's names were added.
+$before_after = array();
+foreach ( array( 'before' => $all, 'after' => $every ) as $when => $support ) {
+	$answers = array();
+	on( 'administrator-dashboard', array( 'dashboard' => true, 'support' => $support ) );
+	$answers['Administrator Dashboard in the frame'] = wpcredits_is_frame_page();
+	on( 'sponsor-dashboard', array( 'sponsor_dashboard' => true, 'support' => $support ) );
+	$answers['Sponsor Dashboard in the frame'] = wpcredits_is_frame_page();
+	on( 'administrator-guide', array( 'support' => $support ) );
+	$answers['Administrator guide'] = array( wpcredits_guide_frame_template( $hierarchy ), wpcredits_is_frame_page() );
+	on( 'sponsor-guide', array( 'sponsor_reader' => true, 'support' => $support ) );
+	$answers['Sponsor guide'] = array( wpcredits_guide_frame_template( $sponsor_hierarchy ), wpcredits_is_frame_page() );
+	on( 'site-update', array( 'is_page' => false, 'is_single' => true, 'manager' => true, 'support' => $support ) );
+	$answers['an Administrator\'s update'] = array( wpcredits_update_frame_template( $single ), wpcredits_is_frame_page() );
+	on( 'site-update', array( 'is_page' => false, 'is_single' => true, 'member' => true, 'support' => $support ) );
+	$answers['a sponsor\'s update'] = array( wpcredits_update_frame_template( $single ), wpcredits_is_frame_page() );
+	on( 'mentor-guide', array( 'support' => $support ) );
+	$answers['another page'] = array( wpcredits_guide_frame_template( $hierarchy ), wpcredits_is_frame_page() );
+	$before_after[ $when ] = $answers;
+}
+ck( 'the Administrator\'s and the sponsor\'s pages answer as they did before the institution\'s names', $before_after['after'], $before_after['before'] );
+
+$sponsor_dashboard = file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-sponsor-dashboard.html' );
+$institution_page  = (string) file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-institution-dashboard.html' );
+ck( 'the Institution Dashboard\'s, the Institution guide\'s and an institution\'s update\'s canvases are the sponsor\'s, with `sponsor` read as `institution` in the class only', array(
+	$institution_page === str_replace( 'wpc-main--sponsor', 'wpc-main--institution', $sponsor_dashboard ),
+	@file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-institution-guide.html' ) === str_replace( 'wpc-main--sponsor-guide', 'wpc-main--institution-guide', file_get_contents( WPCREDITS_THEME_DIR . 'templates/page-sponsor-guide.html' ) ),
+	@file_get_contents( WPCREDITS_THEME_DIR . 'templates/single-institution-update.html' ) === str_replace( 'wpc-main--sponsor-update', 'wpc-main--institution-update', file_get_contents( WPCREDITS_THEME_DIR . 'templates/single-sponsor-update.html' ) ),
+), array( true, true, true ) );
+ck( 'the Institution Dashboard\'s canvas holds the app\'s main area, the WordPress.org bar once, and no site header part or post title', array(
+	false !== strpos( $institution_page, 'wpc-main wpc-main--app wpc-main--institution' ),
+	substr_count( $institution_page, '"slug":"wporg-header"' ),
+	false !== strpos( $institution_page, '"slug":"header"' ),
+	false !== strpos( $institution_page, 'wp:post-title' ),
+), array( true, 1, false, false ) );
+ck( 'the body class wpc-institution-page still comes from the institution page test', 1 === preg_match( "/if \( wpcredits_is_institution_page\(\) \) \{\s*\\\$classes\[\] = 'wpc-institution-page';/", file_get_contents( WPCREDITS_THEME_DIR . 'functions.php' ) ), true );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

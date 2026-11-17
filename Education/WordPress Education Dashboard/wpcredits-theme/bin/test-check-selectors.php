@@ -261,7 +261,7 @@ ck( 'a box named only in a comment of the plugin is not printed: the old-way rul
 // kept is still a miss, and the check still fails on it.
 $root   = made_up_plugin(
 	array(
-		'includes/class-admin.php'               => $admin_box . "printf( '<table class=\"wpcpm-admin-table\">' );\n",
+		'includes/class-admin.php'               => $admin_box . "printf( '<p class=\"wpcpm-dashboard__switcher-none\">' );\n",
 		'includes/modules/class-sponsor-usage.php' => $usage_box,
 		'assets/css/administrator.css'           => $admin_rule,
 		'assets/css/sponsor.css'                 => $usage_rule,
@@ -283,16 +283,16 @@ $class_line = static function ( $class ) use ( $output ) {
 	return 'printed';
 };
 
-ck( 'a kept class nothing prints, .wpcpm-attention__tile, is reported as kept, not missed',
-	$class_line( 'wpcpm-attention__tile' ),
+ck( 'a kept class nothing prints, .wpcpm-dashboard__detail, is reported as kept, not missed',
+	$class_line( 'wpcpm-dashboard__detail' ),
 	'kept' );
 
-ck( 'its line names the last plugin that printed it, 1.123.90',
-	(bool) preg_grep( '/^  kept   \.wpcpm-attention__tile\s+last printed by plugin 1\.123\.90 /', $output ),
+ck( 'its line names the last plugin that printed it, 1.123.57',
+	(bool) preg_grep( '/^  kept   \.wpcpm-dashboard__detail\s+last printed by plugin 1\.123\.57 /', $output ),
 	true );
 
-ck( 'a kept class the plugin still prints, .wpcpm-admin-table, is neither kept nor missed',
-	$class_line( 'wpcpm-admin-table' ),
+ck( 'a kept class the plugin still prints, .wpcpm-dashboard__switcher-none, is neither kept nor missed',
+	$class_line( 'wpcpm-dashboard__switcher-none' ),
 	'printed' );
 
 ck( 'a class neither printed nor kept, .wpcpm-usage, is still a miss',

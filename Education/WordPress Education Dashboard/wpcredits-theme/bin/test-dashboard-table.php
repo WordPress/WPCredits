@@ -27,10 +27,17 @@
  * card's CSV form, which now follows the box and not the table, keeps its 16px above it.
  * The render itself is measured in a browser at 320, 375, 390 and 1280px.
  *
+ * Since plugin 1.123.92 the Administrator Dashboard draws its queues with the shared interface parts, which
+ * stack a table on a phone and print neither the box nor the queues' table class, so the theme's rules for
+ * them went with the Institution Dashboard's frame, and the file pins that they are gone and that the shared
+ * rule and the phone query hold the Usage card's alone.
+ *
  * The same file pins the Sponsor Dashboard's At a glance strip (theme 1.32.8): the tier tile's figure
  * is a word, and a word at the numbers' 28px ran up to 14.5px past its tile's content where the tile is
  * narrowest, so the tile is an inline-size container and the word takes its size from the tile's width.
  * Since theme 1.32.27 (plugin 1.123.78) the page draws no strip, and the file pins that those rules are gone.
+ * The Administrator Dashboard's strip, which shared the tile's and the number's rules, went with plugin
+ * 1.123.92's parts, and so did those two rules.
  *
  * Run from the theme root:  php bin/test-dashboard-table.php
  *
@@ -218,8 +225,6 @@ function classes_in( $selector ) {
 
 $phone = '@media ( max-width: 782px )';
 $frame = '1px solid var( --wpc-line-card )';
-$box   = '.wpc-dashboard-page .wpcpm-administrator__scroll';
-$inner = '.wpc-dashboard-page .wpcpm-administrator__scroll .wpcpm-admin-table';
 $ubox  = '.wpc-dashboard-page .wpcpm-usage__scroll';
 $uin   = '.wpc-dashboard-page .wpcpm-usage__scroll .wpcpm-usage';
 $csv   = '.wpc-sponsor-page .wpcpm-usage__scroll + .wpcpm-inline-form';
@@ -231,12 +236,12 @@ $shared = array();
 foreach ( sheet_rules( 'assets/css/dashboard.css' ) as $rule ) {
 	$members = array_map( 'trim', explode( ',', $rule['selector'] ) );
 
-	if ( '' === $rule['at'] && in_array( '.wpc-dashboard-page .wpcpm-admin-table', $members, true ) ) {
+	if ( '' === $rule['at'] && in_array( '.wpc-dashboard-page .wpcpm-usage', $members, true ) ) {
 		$shared[] = $rule;
 	}
 }
 
-ck( 'one shared rule, outside every at-rule, still draws the frame (border, surface, collapsed borders, 14px face, full width) on the four dashboard tables: the student\'s, the Institution Dashboard\'s, the Usage card\'s and the Administrator Dashboard\'s',
+ck( 'one shared rule, outside every at-rule, still draws the frame (border, surface, collapsed borders, 14px face, full width) on the three dashboard tables left to it: the student\'s, the Institution Dashboard\'s and the Usage card\'s, the Administrator Dashboard\'s queues being the parts\' tables now',
 	array(
 		count( $shared ),
 		$shared ? $shared[0]['selector'] : '',
@@ -244,7 +249,7 @@ ck( 'one shared rule, outside every at-rule, still draws the frame (border, surf
 	),
 	array(
 		1,
-		'.wpc-dashboard-page .wpcpm-student__table, .wpc-dashboard-page .wpcpm-mentee__table, .wpc-dashboard-page .wpcpm-usage, .wpc-dashboard-page .wpcpm-admin-table',
+		'.wpc-dashboard-page .wpcpm-student__table, .wpc-dashboard-page .wpcpm-mentee__table, .wpc-dashboard-page .wpcpm-usage',
 		array(
 			'background: var( --wpc-surface );',
 			'border: ' . $frame . ';',
@@ -254,42 +259,15 @@ ck( 'one shared rule, outside every at-rule, still draws the frame (border, surf
 		),
 	) );
 
-$named  = box_rules( 'wpcpm-administrator__scroll' );
 $unamed = array_values( array_filter( box_rules( 'wpcpm-usage__scroll' ), static function ( $rule ) use ( $csv ) { return $csv !== $rule['one']; } ) );
 
-ck( 'the Administrator Dashboard\'s box is named by two rules of dashboard.css and both sit in the phone query: nothing above 782px reaches it',
-	array( count( $named ), array_values( array_unique( array_column( $named, 'at' ) ) ) ),
-	array( 2, array( $phone ) ) );
+ck( 'no rule of dashboard.css names the Administrator Dashboard\'s old box or its queues\' old table any more: plugin 1.123.92 draws the queues with the shared parts, which print neither',
+	array( count( box_rules( 'wpcpm-administrator__scroll' ) ), count( box_rules( 'wpcpm-admin-table' ) ) ),
+	array( 0, 0 ) );
 
 ck( 'the Usage card\'s box is named by two rules for its frame, both in the phone query, and by one more, the CSV form\'s top margin; nothing else above 782px reaches the box or the table in it',
 	array( count( $unamed ), array_values( array_unique( array_column( $unamed, 'at' ) ) ), count( box_rules( 'wpcpm-usage__scroll' ) ) ),
 	array( 2, array( $phone ), 3 ) );
-
-echo "\n=== From 782px down the frame is on the box ===\n";
-
-ck( 'the phone query is the plugin\'s own, `max-width: 782px` (administrator.css lets the box scroll in it), written once in this form for the box\'s rule and once for the table\'s',
-	array( count( dashboard_rules_of( $box, $phone ) ), count( dashboard_rules_of( $inner, $phone ) ) ),
-	array( 1, 1 ) );
-
-ck( 'the box takes the frame: the table\'s own 1px line, said as the shared rule says it, and nothing else (no outline, no overflow, no offset: the box\'s ring and its scrolling are not this rule\'s to touch)',
-	dashboard_rules_of( $box, $phone ),
-	array( array( 'border: ' . $frame . ';' ) ) );
-
-ck( 'the table inside the box has none, and nothing else is said of it: its surface, its collapsed borders, its face and its width stay the shared rule\'s',
-	dashboard_rules_of( $inner, $phone ),
-	array( array( 'border: 0;' ) ) );
-
-ck( 'the table\'s rule is heavier than the shared one (three classes against two), so it wins wherever the sheet puts it, and is under the dashboards\' body class like the rest of the sheet',
-	array(
-		classes_in( $inner ) > classes_in( '.wpc-dashboard-page .wpcpm-admin-table' ),
-		classes_in( $box ) > classes_in( '.wpcpm-administrator__scroll' ),
-		array_values( array_unique( array_map( static function ( $rule ) { return 0 === strpos( $rule['one'], '.wpc-dashboard-page ' ); }, $named ) ) ),
-	),
-	array( true, true, array( true ) ) );
-
-ck( 'the box is not drawn a second time by the Administrator Dashboard\'s own block: no `.wpc-administrator-page` rule names it',
-	count( array_filter( $named, static function ( $rule ) { return false !== strpos( $rule['one'], 'wpc-administrator-page' ); } ) ),
-	0 );
 
 echo "\n=== The Sponsor Dashboard's Usage card, from 782px down ===\n";
 
@@ -313,20 +291,20 @@ ck( 'the table\'s rule is heavier than the shared one (three classes against two
 	),
 	array( true, true, array( true ) ) );
 
-// The four rules are one block of the sheet, next to each other: the Administrator Dashboard's two
-// and the Usage card's two, in the one query.
+// The Usage card's two rules are one block of the sheet, next to each other, in the one query the Administrator
+// Dashboard's two shared until they went.
 $sheet_text = preg_replace( '#/\*.*?\*/#s', '', theme_file( 'assets/css/dashboard.css' ) );
 $in_one     = 0;
 
 if ( preg_match_all( '/@media \( max-width: 782px \) \{((?:[^{}]|\{[^{}]*\})*)\}/', $sheet_text, $queries ) ) {
 	foreach ( $queries[1] as $inside ) {
-		if ( false !== strpos( $inside, $box . ' {' ) && false !== strpos( $inside, $inner . ' {' ) && false !== strpos( $inside, $ubox . ' {' ) && false !== strpos( $inside, $uin . ' {' ) ) {
+		if ( false !== strpos( $inside, $ubox . ' {' ) && false !== strpos( $inside, $uin . ' {' ) ) {
 			++$in_one;
 		}
 	}
 }
 
-ck( 'the Usage card\'s two rules sit in the same `@media ( max-width: 782px )` block as the Administrator Dashboard\'s two, next to them, not in a query of their own',
+ck( 'the Usage card\'s two rules sit in one `@media ( max-width: 782px )` block, next to each other',
 	$in_one,
 	1 );
 
@@ -347,7 +325,7 @@ foreach ( sheet_rules( 'style.css' ) as $rule ) {
 	}
 }
 
-ck( 'the boxes are `[tabindex]`s (the Administrator Dashboard\'s and the Usage card\'s), so each takes the theme\'s one ring: 2px solid brand at an offset of 2px, which sits outside the border-box, so the frame on the box leaves it whole',
+ck( 'the Usage card\'s box is a `[tabindex]`, so it takes the theme\'s one ring: 2px solid brand at an offset of 2px, which sits outside the border-box, so the frame on the box leaves it whole',
 	$ring,
 	array( array( 'outline: 2px solid var( --wpc-brand );', 'outline-offset: 2px;' ) ) );
 
@@ -380,22 +358,15 @@ $figure = '.wpc-administrator-page .wpcpm-attention__n, .wpc-sponsor-page .wpcpm
 $tile   = '.wpc-sponsor-page .wpcpm-attention__tile';
 $word   = '.wpc-sponsor-page .wpcpm-attention__n--word';
 
-ck( 'numbers keep 28px on a 32px line with the hair of tracking, in the one rule both strips share',
-	dashboard_rules_of( $figure ),
-	array( array( 'font: 700 28px/32px var( --wpc-font );', 'letter-spacing: -0.01em;' ) ) );
-
 $shared_tile = '.wpc-administrator-page .wpcpm-attention__tile, .wpc-sponsor-page .wpcpm-attention__tile';
 
 // The Sponsor Dashboard draws no At a glance strip since WPCredits Program Manager 1.123.78, so the rules that
-// sized a tier's name to its tile went with it (theme 1.32.27): no tile is a container, no rule sizes a word,
-// and the rule both strips shared draws the tile as it did, for the Administrator Dashboard.
-ck( 'the tile rule both strips share still draws the tile as it did, and no rule makes the Sponsor Dashboard\'s tile a container or sizes a tier\'s word, now that the page draws no strip',
-	array( dashboard_rules_of( $shared_tile ), dashboard_rules_of( $tile ), dashboard_rules_of( $word ) ),
-	array(
-		array( array( 'background: var( --wpc-surface );', 'border: 1px solid var( --wpc-line-card );', 'border-radius: var( --wpc-radius-card );' ) ),
-		array(),
-		array(),
-	) );
+// sized a tier's name to its tile went with it (theme 1.32.27): no tile is a container and no rule sizes a word.
+// The Administrator Dashboard's strip went with plugin 1.123.92's parts, so the number's and the tile's rules
+// both strips shared went too.
+ck( 'no rule draws the strips\' numbers or tiles any more, none makes the Sponsor Dashboard\'s tile a container and none sizes a tier\'s word: neither page draws a strip',
+	array( dashboard_rules_of( $figure ), dashboard_rules_of( $shared_tile ), dashboard_rules_of( $tile ), dashboard_rules_of( $word ) ),
+	array( array(), array(), array(), array() ) );
 
 $administrator = array();
 
@@ -405,9 +376,36 @@ foreach ( $sheet as $rule ) {
 	}
 }
 
-ck( 'the Administrator Dashboard\'s strip is untouched: no rule under its body class makes a tile a container or sizes a word',
+ck( 'no rule under the Administrator Dashboard\'s body class makes a tile a container or sizes a word',
 	$administrator,
 	array() );
+
+echo "\n=== The parts' choice is dressed once ===\n";
+
+// The shared parts draw a choice as `label.wpcpm-ui-choice` holding its box, a 24px target with the box beside the
+// first line of words (the parts' design 2.4). The sheet's rules for a label holding a checkbox or a radio, and for
+// the box, weigh more than the part's own and centered the box and padded the label 3px, so they leave the part out;
+// the report's and the rating's exclusions keep their bytes.
+$choice_rules = array();
+
+foreach ( $sheet as $rule ) {
+	if ( '' === $rule['at'] && ( false !== strpos( $rule['selector'], 'label:has( > input[type="checkbox"] )' ) || 0 === strpos( $rule['selector'], '.wpc-dashboard-page input[type="checkbox"]:not(' ) ) ) {
+		$choice_rules[] = array( $rule['selector'], $rule['declarations'] );
+	}
+}
+
+ck( 'the label rule and the box rule leave the parts\' choice out, keep the report\'s and the rating\'s exclusions as they were, and give every other label a 24px flex target and its box 16px with no margin, as before',
+	$choice_rules,
+	array(
+		array(
+			'.wpc-dashboard-page label:has( > input[type="checkbox"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ):not( .wpcpm-ui-choice ), .wpc-dashboard-page label:has( > input[type="radio"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ):not( .wpcpm-ui-choice )',
+			array( 'align-items: center;', 'display: flex;', 'gap: 8px;', 'min-height: 24px;', 'padding: 3px 0;' ),
+		),
+		array(
+			'.wpc-dashboard-page input[type="checkbox"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ):not( .wpcpm-ui-choice input ), .wpc-dashboard-page input[type="radio"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ):not( .wpcpm-ui-choice input )',
+			array( 'height: 16px;', 'margin: 0;', 'width: 16px;' ),
+		),
+	) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 

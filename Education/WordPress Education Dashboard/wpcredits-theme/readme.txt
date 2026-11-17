@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.32.28
+Stable tag: 1.32.29
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -220,6 +220,10 @@ WPCredits bundles two typefaces for the Education Hub's pages, each under the SI
 * Inter, Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter), in `assets/fonts/inter/`.
 
 == Changelog ==
+
+= 1.32.29 =
+
+* The Institution Dashboard, the Institution guide and each program update a school reads are drawn in WPCredits Program Manager 1.123.96's frame, each on the frame's bare canvas, as the Administrator Dashboard and the Sponsor Dashboard are. The old rules for the Institution Dashboard and the Administrator Dashboard are removed, and the theme no longer dresses the plugin's choice boxes. Install this release the same day as plugin 1.123.96, the plugin first, and roll them back together. If the plugin alone is rolled back under this release, the Institution Dashboard of plugin 1.123.95 or older has no site header and no title, and this sheet does not dress it.
 
 = 1.32.28 =
 

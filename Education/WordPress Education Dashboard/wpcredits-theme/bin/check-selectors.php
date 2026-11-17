@@ -261,36 +261,12 @@ $kept = array(
 	'wpcpm-sponsor__group'       => '1.123.37',
 	'wpcpm-sponsor__group-title' => '1.123.37',
 	'wpcpm-sponsor__group-lead'  => '1.123.37',
+	// The Sponsor Dashboard's program contact in a column of its own, the third of its help's thirds, which plugin
+	// 1.123.37 was the last to print; the Institution Dashboard's help, the class's other printer, went into its frame.
+	'wpcpm-resources__contact'   => '1.123.37',
 	// The Sponsor Dashboard's outcome detail line went into the card's own message in plugin 1.123.58
 	// (every dashboard outcome inside the card it came from), so 1.123.57 was the last to print it.
 	'wpcpm-dashboard__detail'    => '1.123.57',
-	// The old Administrator Dashboard markup went with its move to the shared parts in plugin 1.123.92, so 1.123.90,
-	// the release before it, was the last to print these; they are removed with the theme release that follows the
-	// Institution Dashboard's frame.
-	'wpcpm-admin-table'                  => '1.123.90',
-	'wpcpm-administrator__details'       => '1.123.90',
-	'wpcpm-administrator__item'          => '1.123.90',
-	'wpcpm-administrator__note'          => '1.123.90',
-	'wpcpm-administrator__scroll'        => '1.123.90',
-	'wpcpm-administrator__subheading'    => '1.123.90',
-	'wpcpm-attention__l'                 => '1.123.90',
-	'wpcpm-attention__n'                 => '1.123.90',
-	'wpcpm-attention__none'              => '1.123.90',
-	'wpcpm-attention__tile'              => '1.123.90',
-	'wpcpm-overview__row'                => '1.123.90',
-	'wpcpm-request__decide'              => '1.123.90',
-	'wpcpm-review__form--accept'         => '1.123.90',
-	'wpcpm-sponsor-agreement__decide'    => '1.123.90',
-	'wpcpm-sponsor-agreement__form'      => '1.123.90',
-	'wpcpm-sponsor-agreement__return'    => '1.123.90',
-	'wpcpm-sponsor-offer__decide'        => '1.123.90',
-	'wpcpm-sponsor-offer__form'          => '1.123.90',
-	'wpcpm-sponsor-offer__return'        => '1.123.90',
-	'wpcpm-sponsor-post__decide'         => '1.123.90',
-	'wpcpm-sponsor-post__return'         => '1.123.90',
-	'wpcpm-timeline-chip'                => '1.123.90',
-	'wpcpm-timeline-outlook'             => '1.123.90',
-	'wpcpm-timeline-table'               => '1.123.90',
 );
 
 // Since plugin 1.123.58 every dashboard outcome is printed by one builder, `WPCPM_Dashboard_Card::message()`,
@@ -555,17 +531,7 @@ printf( "%d plugin %s read by the theme's scripts, %d set by nothing.\n", count(
 // a desktop width and at 900px, where the dashboards narrow their inset: a rule that matches later
 // wins, so a rule written after the 900px list, or a second rule for the same block, shows here.
 //
-//   - The Institution Dashboard's blocks each set their own inset, 32px and 20px under 900px (the
-//     shell's comment by the institution rules). The events from sponsors are drawn after the
-//     modules with no card of their own, and stood at the frame's edge while every module stood
-//     32px in: a page with two left edges.
-//   - The Sponsor Dashboard's four sections are modules in the Institution Dashboard's shape
-//     (Institutions release 3, theme 1.32.5), so a section's line and room, the room between
-//     sections, its cards' bare top and the gap between them, its title's and lead's inset and the
-//     lead's margins read what the Institution Dashboard's read at every width, the strip stands
-//     the header's 21px over the help's hairline as the header does, the strip's waiting tile keeps
-//     its red leading edge past the tile rule that resets the border, and nothing of the theme puts
-//     the help at the foot of the page.
+//   - Nothing of the theme puts the Sponsor Dashboard's help at the foot of the page.
 //   - The Sponsor Dashboard's Events card opens its Change the event fold with the room the
 //     offers' own fold opens with, and a sub-heading that follows something in a card stands
 //     24px under it, as the offers' own sub-headings do.
@@ -728,18 +694,6 @@ function wpcredits_declared( array $rules, $selector, $prop, $width ) {
 $placed    = wpcredits_rules( (string) file_get_contents( $theme . '/assets/css/dashboard.css' ) );
 $misplaced = array();
 
-foreach ( array( '.wpc-institution-page .wpcpm-institution__identity', '.wpc-institution-page .wpcpm-institution__card', '.wpc-institution-page .wpcpm-roster', '.wpc-institution-page .wpcpm-institution__module-title', '.wpc-institution-page .wpcpm-institution__module-lead', '.wpc-institution-page .wpcpm-sevents' ) as $block ) {
-	foreach ( array( 1280 => '32px', 900 => '20px' ) as $width => $inset ) {
-		foreach ( array( 'left', 'right' ) as $side ) {
-			$got = wpcredits_side( $placed, $block, 'padding', $side, $width );
-
-			if ( $inset !== $got ) {
-				$misplaced[] = sprintf( '%s  padding-%s at %dpx is %s, not the Institution Dashboard\'s %s', $block, $side, $width, '' === $got ? 'unset' : $got, $inset );
-			}
-		}
-	}
-}
-
 foreach ( array( 1280, 900 ) as $width ) {
 	$fold = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-offer__edit[open] > summary', 'margin', 'bottom', $width );
 	$got  = wpcredits_side( $placed, '.wpc-sponsor-page .wpcpm-sevent__change[open] > summary', 'margin', 'bottom', $width );
@@ -749,33 +703,40 @@ foreach ( array( 1280, 900 ) as $width ) {
 	}
 }
 
-// The Sponsor Dashboard's sections, twin by twin: each selector of the Institution Dashboard's module
-// rules, the property each sets, and the sponsor selector that has to read the same at every width
-// (the page's phone value is the 900px query's, so 375px reads it too).
-$twins = array(
-	array( '.wpc-institution-page .wpcpm-module', '.wpc-sponsor-page .wpcpm-module', array( 'border-top', 'padding-top' ) ),
-	array( '.wpc-institution-page .wpcpm-module + .wpcpm-module', '.wpc-sponsor-page .wpcpm-module + .wpcpm-module', array( 'margin-top' ) ),
-	array( '.wpc-institution-page .wpcpm-module > .wpcpm-institution__card', '.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card', array( 'border-top', 'margin-bottom', 'margin-top', 'padding-top' ) ),
-	array( '.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card', '.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card + .wpcpm-sponsor__card', array( 'margin-top' ) ),
+// The Sponsor Dashboard's sections' titles and leads, its At a glance strip with its waiting tile's red edge,
+// and the Offers card's two columns are gone since WPCredits Program Manager 1.123.78, which draws the page in
+// its frame, a view for each section; the placements this checker held them to went with them (theme 1.32.27).
+// The module twins that held its sections to the Institution Dashboard's modules went with the Institution
+// Dashboard's module rules, which match nothing since that page is drawn in its frame too. The Sponsor
+// Dashboard's own module rules stay for a plugin rolled back before 1.123.78, so they are held to the values the
+// twins held them to, at every width (the page's phone value is the 900px query's, so 375px reads it too): one
+// line and 20px over a section's title, 22px between two sections, a card's bare top, 10px between two cards.
+$sponsor_modules = array(
+	'.wpc-sponsor-page .wpcpm-module'                                               => array(
+		'border-top'  => '1px solid var( --wpc-line-soft )',
+		'padding-top' => '20px',
+	),
+	'.wpc-sponsor-page .wpcpm-module + .wpcpm-module'                               => array( 'margin-top' => '22px' ),
+	'.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card'                        => array(
+		'border-top'    => '0',
+		'margin-bottom' => '0',
+		'margin-top'    => '0',
+		'padding-top'   => '0',
+	),
+	'.wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card + .wpcpm-sponsor__card' => array( 'margin-top' => '10px' ),
 );
 
-foreach ( $twins as $twin ) {
+foreach ( $sponsor_modules as $selector => $props ) {
 	foreach ( array( 1280, 900, 375 ) as $width ) {
-		foreach ( $twin[2] as $prop ) {
-			$want = wpcredits_declared( $placed, $twin[0], $prop, $width );
-			$got  = wpcredits_declared( $placed, $twin[1], $prop, $width );
+		foreach ( $props as $prop => $want ) {
+			$got = wpcredits_declared( $placed, $selector, $prop, $width );
 
-			if ( '' === $want || $want !== $got ) {
-				$misplaced[] = sprintf( '%s  %s at %dpx is %s, the Institution Dashboard\'s %s', $twin[1], $prop, $width, '' === $got ? 'unset' : $got, '' === $want ? 'unset' : $want );
+			if ( $want !== $got ) {
+				$misplaced[] = sprintf( '%s  %s at %dpx is %s, not the module\'s %s', $selector, $prop, $width, '' === $got ? 'unset' : $got, $want );
 			}
 		}
 	}
 }
-
-// The Sponsor Dashboard's sections' titles and leads, its At a glance strip with its waiting tile's red edge,
-// and the Offers card's two columns are gone since WPCredits Program Manager 1.123.78, which draws the page in
-// its frame, a view for each section; the placements this checker held them to went with them (theme 1.32.27).
-// The module twins above stay, for a plugin rolled back before it.
 
 // The help was the third block of the Sponsor Dashboard, under the strip, until plugin 1.123.78 moved its
 // links into the frame's menu. No selector of the theme that names the Sponsor Dashboard places it, which is

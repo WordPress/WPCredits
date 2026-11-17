@@ -503,15 +503,14 @@
 	padding: 16px 18px;
 }
 
-/* The shared rule leaves no space beneath, because on the mentor page the header that
-   follows brings its own 18px of top padding. The student page's switcher is followed
-   straight into the two-column grid, whose first section carries a top rule - so the
-   hairline was drawn hard against the bottom of the switcher box with nothing between
-   them. Matching the mentor page's gap here rather than adding it to the shared rule:
-   there it would land on top of padding that already exists. The sponsor page opens the way the
-   institution page does, switcher then header, and takes the same gap (theme 1.18.2). */
+/* The shared rule leaves no space beneath, because on the mentor page the header that follows
+   brings its own 18px of top padding. The student page's switcher is followed straight into the
+   two-column grid, whose first section carries a top rule - so the hairline was drawn hard against
+   the bottom of the switcher box with nothing between them. Matching the mentor page's gap here
+   rather than adding it to the shared rule: there it would land on top of padding that already
+   exists. The sponsor page opens on its switcher, then its header, and takes the same gap (theme
+   1.18.2). */
 .wpc-student-page .wpcpm-dashboard__switcher,
-.wpc-institution-page .wpcpm-dashboard__switcher,
 .wpc-sponsor-page .wpcpm-dashboard__switcher {
 	margin-bottom: 18px;
 }
@@ -752,107 +751,58 @@
 	padding-right: 60px;
 }
 
-/* The Institution Dashboard's three modules (plugin 1.96.4): each starts with an eyebrow title
-   and a lead sentence at the cards' 32px inset, the shapes and values of the Sponsor Dashboard's
-   groups (`.wpcpm-sponsor__group-title` and `-lead` below), and the modules are divided the way
-   those groups are: one line, the card base's 2.5em margin and 2em padding. The mover rules
-   above are the dashboards' now, not the student page's alone.
+/* The mover rules above are the dashboards' now, not the student page's alone.
 
    The Sponsor Dashboard's four sections are the same modules since Institutions release 3 (theme
-   1.32.5): `WPCPM_Module_Order::render_module()` prints both pages', with `wpcpm-sponsor__module-title`
-   and `-lead` where the institution's carry theirs, and the sponsor's cards are all
-   `wpcpm-sponsor__card` where the institution's are a roster, cards and an agreement card. So each
-   rule below that dresses a module takes the sponsor page's selector in the same rule, value for
-   value, and the two pages' modules cannot drift apart (the owner's rule that the dashboards look
-   alike). The groups' own rules, further down, stay for a plugin rolled back to 1.123.37. Since plugin
+   1.32.5), printed by `WPCPM_Module_Order::render_module()`, their cards all `wpcpm-sponsor__card`;
+   the rules below keep the values the Institution Dashboard's modules had (the owner's rule that the
+   dashboards look alike). The groups' own rules, further down, stay for a plugin rolled back to 1.123.37. Since plugin
    1.123.78 each Sponsor Dashboard section is a view of its own in the frame and no longer a module; its
    selectors here stay for a plugin rolled back before it. */
 /* The one line a module draws is the one above its title, first module included (owner,
    1.23.12), and 20px over every title - the student section's top padding - so the title's line
    sits where the arrows expect it (18px down, centered on a 14px/20px line), the way it does on
    the Student Report Card. */
-.wpc-institution-page .wpcpm-module,
 .wpc-sponsor-page .wpcpm-module {
 	border-top: 1px solid var( --wpc-line-soft );
 	padding-top: 20px;
 }
 
-.wpc-institution-page .wpcpm-module + .wpcpm-module,
 .wpc-sponsor-page .wpcpm-module + .wpcpm-module {
 	/* The room between the last row of a module and the next module's line is the room between
 	   the last row of the page and its bottom border: the root's 22px (owner, 1.23.13). */
 	margin-top: 22px;
 }
 
-/* Inside a module the cards draw no line of their own: the plugin's card base puts one over
-   every card with 2.5em of margin and 2em of padding, which read as a rule under the title and
-   between the roster and the enrollment form. The first card follows the lead's own 16px; the
-   next ones keep 10px between them, unlined. The Collaboration Agreement card loses its grey
-   box too and is the same disclosure as the representatives above it (owner, 1.23.12). The
-   Sponsor Dashboard's cards, one class for all of them, take the same rule. */
-.wpc-institution-page .wpcpm-module > .wpcpm-roster,
-.wpc-institution-page .wpcpm-module > .wpcpm-institution__card,
-.wpc-institution-page .wpcpm-module > .wpcpm-agreement-card,
+/* Inside a module the cards draw no line of their own: the plugin's card base puts one over every
+   card with 2.5em of margin and 2em of padding, which read as a rule under the title and between
+   two cards. The first card follows the lead's own 16px; the next ones keep 10px between them,
+   unlined. The Sponsor Dashboard's cards are one class for all of them. */
 .wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card {
 	border-top: 0;
 	/* No bottom margin either: the plugin's card base gives every card 1.25em below, which
-	   collapsed with the 10px above the next card into 18px between the representatives and the
-	   agreement. The gap is the next card's own 10px, and the module's own 22px (1.23.14). */
+	   collapsed with the 10px above the next card into 18px between two cards. The gap is the next
+	   card's own 10px, and the module's own 22px (1.23.14). */
 	margin-bottom: 0;
 	margin-top: 0;
 	padding-top: 0;
 }
 
-.wpc-institution-page .wpcpm-module > .wpcpm-roster + .wpcpm-institution__card,
-.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card,
-.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-agreement-card,
 .wpc-sponsor-page .wpcpm-module > .wpcpm-sponsor__card + .wpcpm-sponsor__card {
-	/* The gap between two disclosures in the roster, 10px, between two cards of a module too
-	   (owner, 1.23.13). It is four classes deep on the Sponsor Dashboard, one more than its group
-	   rule for a card after a card (below), so a module's cards keep this gap and a group's, for a
-	   plugin rolled back, keeps its own. */
+	/* 10px between two cards of a module (owner, 1.23.13). It is four classes deep on the Sponsor
+	   Dashboard, one more than its group rule for a card after a card (below), so a module's cards
+	   keep this gap and a group's, for a plugin rolled back, keeps its own. */
 	margin-top: 10px;
 }
 
-/* The page ends the way the Student Report Card ends (plugin 1.96.5): the read line under its
-   own hairline, the student page's values (`.wpc-student-page .wpcpm-dashboard__updated`), 22px
-   over the line - the root's bottom room - and the root's bottom padding stood down so the
-   line's own 18px is the last thing on the page. */
+/* The page ends the way the Student Report Card ends (plugin 1.96.5): the read line under its own
+   hairline, the student page's values (`.wpc-student-page .wpcpm-dashboard__updated`), 22px over
+   the line. */
 .wpc-institution-page .wpcpm-dashboard__updated {
 	border-top: 1px solid var( --wpc-line-soft );
 	color: var( --wpc-ink-60 );
 	margin: 22px 0 0;
 	padding: 14px 32px 18px;
-}
-
-.wpc-institution-page .wpcpm-institution:has( > .wpcpm-dashboard__updated ) {
-	padding-bottom: 0;
-}
-
-.wpc-institution-page .wpcpm-agreement-card {
-	background: none;
-	border: 0;
-	border-radius: 0;
-	padding: 0;
-}
-
-.wpc-institution-page .wpcpm-institution__module-title,
-.wpc-institution-page .wpcpm-institution__module-lead {
-	padding-left: 32px;
-	padding-right: 32px;
-}
-
-.wpc-institution-page .wpcpm-institution__module-lead {
-	margin-bottom: 16px;
-	margin-top: 0;
-}
-
-/* The gap the "Invite a colleague" heading was missing under the representatives' list
-   (owner, 1.23.10): the people card's own rhythm, 24px. The institution's details card puts its
-   second heading under the first group's fold, so it takes the same 24px (1.32.4). */
-.wpc-institution-page .wpcpm-people__list + .wpcpm-people__subtitle,
-.wpc-institution-page .wpcpm-details__more + .wpcpm-details__subtitle {
-	margin-top: 24px;
 }
 
 .wpc-dashboard-page .wpcpm-module__move {
@@ -875,12 +825,6 @@
 
 	.wpc-dashboard-page .wpcpm-module__mover {
 		right: 20px;
-	}
-
-	.wpc-institution-page .wpcpm-institution__module-title,
-	.wpc-institution-page .wpcpm-institution__module-lead {
-		padding-left: 20px;
-		padding-right: 20px;
 	}
 }
 
@@ -912,101 +856,52 @@
    rule - the `:first-of-type` exception would leave the two columns mismatched -
    and the divider between them becomes a vertical rule on the second. The sections
    stretch to the taller of the two, so that rule runs the full height. */
-/* The institution page opens on the same shape as the student page: the switcher, the
-   identity header, and then a section. So it wants the rule back for the same reason - the
-   section that follows is not the first thing on the page, and without the hairline the
-   announcements read as part of the header above them. The sponsor page (theme 1.18.1) opened
-   the same way, header then section, until plugin 1.118.0 moved its Resources section below the
-   cards and put the At a glance strip under the header, drawing this line itself (the Sponsor
-   Dashboard block). Since Institutions release 3 (theme 1.32.5) the section is back under the strip.
-   With the strip drawn it is the root's second `section`, which this rule does not reach and which
-   the shared section rule above gives the same hairline and the same 20px under it; with no strip
-   (a sponsor the store holds no row for) it is the first, under the header as on the Institution
-   Dashboard, and this rule gives it the line. */
-.wpc-institution-page .wpcpm-student__section:first-of-type,
+/* The sponsor page (theme 1.18.1) opened as the student page does, header then section, until
+   plugin 1.118.0 moved its Resources section below the cards and put the At a glance strip under
+   the header, drawing this line itself (the Sponsor Dashboard block). Since Institutions release 3
+   (theme 1.32.5) the section is back under the strip. With the strip drawn it is the root's second
+   `section`, which this rule does not reach and which the shared section rule above gives the same
+   hairline and the same 20px under it; with no strip (a sponsor the store holds no row for) it is
+   the first, under the header, and this rule gives it the line. */
 .wpc-sponsor-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
 }
 
-/* The dashboard shell carries no global padding of its own: every block in it sets its own
-   32px, the way `.wpc-dash__band` and `.wpcpm-student__section` above do. The Institution
-   Dashboard reached that shell later than its stylesheet did - until theme 1.16.0 it fell
-   through to the article template, whose `has-global-padding` was quietly supplying the
-   inset for the whole page. The moment the page moved onto the dashboard template, every
-   block the institution stylesheet owns came to rest against the card's border while the
-   heading and the resources section stayed inset, which is a page with two left edges.
+/* The dashboard shell carries no global padding of its own: every block in it sets its own 32px,
+   the way `.wpc-dash__band` and `.wpcpm-student__section` above do.
 
    The sections take padding, so the rules above them keep running the full width of the
    card - that full-bleed hairline over inset content is the shape the other two dashboards
    have. The bordered blocks take a margin instead, so their border lands on the inset
-   rather than 32px inside it and they line up with the switcher's box above them.
-
-   The events from sponsors (plugin 1.117.0) are drawn after the modules with no card of their
-   own, so the section takes the padding itself, and its bordered items land on the inset: before
-   it did, the heading, the zone line and the items stood at the frame's edge, 32px left of every
-   module above them (theme 1.28.1). */
-.wpc-institution-page .wpcpm-institution__identity,
-.wpc-institution-page .wpcpm-institution__card,
-.wpc-institution-page .wpcpm-roster,
-.wpc-institution-page .wpcpm-sevents {
-	padding-left: 32px;
-	padding-right: 32px;
-}
-
-.wpc-institution-page .wpcpm-agreement-card,
-.wpc-institution-page .wpcpm-agreement-panel,
-.wpc-institution-page .wpcpm-institution__banner,
-/* A direct child, because `wpcpm-dashboard__intro` is a shared class rather than a place on
-   the page: the identity header reuses it for the city and country line, which already sits
-   inside the header's own inset. Insetting it by class gave that one line 32px twice, so it
-   hung off to the right of the name above it and the website below. */
-.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro,
-/* The Administrator Dashboard's one sentence under the title (plugin 1.119.0) is its root's direct
-   child in the same way. */
-.wpc-administrator-page .wpcpm-administrator > .wpcpm-dashboard__intro,
-/* The sponsor page's message under the switcher is its one bordered block outside a section,
-   the institution banner's counterpart, so it takes the banner's inset (theme 1.18.2). */
+   rather than 32px inside it and they line up with the switcher's box above them. */
+/* The sponsor page's message under the switcher is its one bordered block outside a section, so it
+   takes the inset (theme 1.18.2). */
 .wpc-sponsor-page .wpcpm-dashboard__message,
 /* The Administrator Dashboard's message, which a decision leaves between the sentence under the
-   title and the strip, takes the same inset (theme 1.30.0), so it lines up with the two, which both
-   stand 32px in; until then it stood at the frame's edge. A direct child, because the Tools section
-   prints a message of its own, which the section's padding already sets at the inset. */
+   title and the strip, takes the same inset (theme 1.30.0); until then it stood at the frame's
+   edge. A direct child, because the Tools section prints a message of its own, which the section's
+   padding already sets at the inset. */
 .wpc-administrator-page .wpcpm-administrator > .wpcpm-dashboard__message {
 	margin-left: 32px;
 	margin-right: 32px;
 }
 
-/* The Administrator Dashboard's sentence under the title (plugin 1.119.0) stands as far over what
-   follows it as the Institution Dashboard's identity header, the block that page's own intro line
-   sits in, stands over the first block after it: 21px, the header's 1.5em bottom margin at its
-   14px (assets/css/institution.css in the plugin). In pixels, since at the sentence's own 16px the
-   same 1.5em would be 24px. */
-.wpc-administrator-page .wpcpm-administrator > .wpcpm-dashboard__intro {
-	margin-bottom: 21px;
-}
-
-/* The shell leaves the foot of the card to whatever block ends the page, and on the other
-   two dashboards that block is unbordered text carrying padding of its own, so it clears
-   the card's edge without being asked. The Institution Dashboard ends on the agreement
-   panel, which is bordered: its border came to rest 1px from the card's own, while the
-   title at the other end sits 22px inside. Taking the title's inset rather than inventing a
-   third number, and put on the root so it holds whichever block happens to be last - the
-   panel, the People card, or the notice a member sees before their agreement is settled. The
-   sponsor page took the same inset while it ended on its People card, a bordered disclosure
-   (1.18.2). From plugin 1.118.0 to 1.123.37 it ended on its Resources section, unbordered text
-   with its own 24px under it, and the root's room stood down there; since Institutions release 3
-   (theme 1.32.5) the help sits under the strip and the page ends on its last module again, whose
-   last card carries no margin below it, so the root's 22px is the room under the last row, the
-   room a module leaves before the next one's line, as it is on the Institution Dashboard. */
-.wpc-institution-page .wpcpm-institution,
+/* The shell leaves the foot of the card to whatever block ends the page, and on the other two
+   dashboards that block is unbordered text carrying padding of its own, so it clears the card's
+   edge without being asked. The sponsor page takes the 22px inset its title sits at, on the root so
+   it holds whichever block happens to be last; it took it while it ended on its People card, a
+   bordered disclosure (1.18.2). From plugin 1.118.0 to 1.123.37 it ended on its Resources section,
+   unbordered text with its own 24px under it, and the root's room stood down there; since
+   Institutions release 3 (theme 1.32.5) the help sits under the strip and the page ends on its last
+   module again, whose last card carries no margin below it, so the root's 22px is the room under
+   the last row, the room a module leaves before the next one's line. */
 .wpc-sponsor-page .wpcpm-sponsor {
 	padding-bottom: 22px;
 }
 
-/* The hairline under the title that the Student Report Card's first section and the Mentor
-   Report Card's band draw, on these two pages too: the dashboard root is the first thing under
-   the title, so its top edge is the line (owner, 1.23.8). */
-.wpc-institution-page .wpcpm-dashboard.wpcpm-institution,
+/* The hairline under the title that the Student Report Card's first section and the Mentor Report
+   Card's band draw, on this page too: the dashboard root is the first thing under the title, so its
+   top edge is the line (owner, 1.23.8). */
 .wpc-sponsor-page .wpcpm-dashboard.wpcpm-sponsor {
 	border-top: 1px solid var( --wpc-line-soft );
 	/* The room under the line the switcher used to bring with its own 22px top margin before
@@ -1079,48 +974,46 @@
    Dashboard tables
 
    One dressing for every table a dashboard draws: the Student Report Card's My profile and My
-   mentor tables, the Institution Dashboard's roster and student tables, the Sponsor Dashboard's
-   Usage card and the Administrator Dashboard's queues. All four are the same markup - a table
-   with `<th scope="col">` column headers and `<th scope="row">` row headers - and until 1.24.3
-   each was dressed by its own page's block. A row header weighed 700 on the Sponsor Dashboard,
-   500 on the Institution Dashboard and, once 1.24.1's `font` shorthand reset the weight along
-   with the size, 400 on the Administrator Dashboard; between them the three used three paddings,
-   two rule colors and a 13px uppercase column header nobody else had. A manager moving between
-   the pages saw the same table drawn three ways (deep check FFRNT-7). The Institution
-   Dashboard's values are the ones kept, and they are written once, here.
+   mentor tables, the Mentor Report Card's student table and the Sponsor Dashboard's Usage card (the
+   Administrator Dashboard's queues were the fourth until plugin 1.123.92 drew them with the shared
+   parts). All four were the same markup - a table with `<th scope="col">` column headers and
+   `<th scope="row">` row headers - and until 1.24.3 each was dressed by its own page's block. A row
+   header weighed 700 on the Sponsor Dashboard, 500 on the Institution Dashboard and, once 1.24.1's
+   `font` shorthand reset the weight along with the size, 400 on the Administrator Dashboard;
+   between them the three used three paddings, two rule colors and a 13px uppercase column header
+   nobody else had. A manager moving between the pages saw the same table drawn three ways (deep
+   check FFRNT-7). The Institution Dashboard's values are the ones kept, and they are written once,
+   here.
 
    The page blocks further down add layout and nothing else: a label column's width, a totals
    row's weight, a cell's vertical alignment, the narrow-screen stack. None of them says the
    face, the padding or the line again.
 
-   `thead`, `tbody` and `tfoot` are in the cell selectors on purpose. The plugin dresses the
-   Institution Dashboard's cells as `.wpcpm-mentee__table tbody th`, so a rule one element
-   shorter would lose to the plugin's own gray however late this sheet loads.
+   `thead`, `tbody` and `tfoot` are in the cell selectors on purpose. The plugin dresses the Mentor
+   Report Card's cells as `.wpcpm-mentee__table tbody th`, so a rule one element shorter would lose
+   to the plugin's own gray however late this sheet loads.
 
    And `.wpc-dashboard-page` is on every one of them, as it is on the rest of this sheet. 1.24.3
-   wrote the block once and dropped the page prefixes with the duplication, which widened it
-   from "a table on a dashboard" to "any table this theme draws" - a post's table included.
-   Nothing shows it today, because the plugin has no rule heavier than these; the next one would
-   be the bug (the whole-branch review of 1.99.0). The class is on the body of all five
-   dashboards, so one prefix covers the four tables. `bin/check-selectors.php` refuses a shared
-   table rule without it.
+   wrote the block once and dropped the page prefixes with the duplication, which widened it from "a
+   table on a dashboard" to "any table this theme draws" - a post's table included. Nothing shows it
+   today, because the plugin has no rule heavier than these; the next one would be the bug (the
+   whole-branch review of 1.99.0). The class is on the body of all five dashboards, so one prefix
+   covers the three tables. `bin/check-selectors.php` refuses a shared table rule without it.
    ------------------------------------------------------------------------- */
 .wpc-dashboard-page .wpcpm-student__table,
 .wpc-dashboard-page .wpcpm-mentee__table,
-.wpc-dashboard-page .wpcpm-usage,
-.wpc-dashboard-page .wpcpm-admin-table {
+.wpc-dashboard-page .wpcpm-usage {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
 	border-collapse: collapse;
-	/* 14px: every label and every value on all four (the student's were 13px until 1.19.5). */
+	/* 14px: every label and every value on all three (the student's were 13px until 1.19.5). */
 	font: 14px/20px var( --wpc-font );
 	width: 100%;
 }
 
 /* No `thead` for the student's tables or the Institution Dashboard's: both are label-and-value
-   tables of `<th scope="row">` rows, so a `thead th` selector for either dressed nothing and
-   was dropped in the fix wave. The Usage card and the Administrator Dashboard's queues do have
-   column headers, and theirs are below. */
+   tables of `<th scope="row">` rows, so a `thead th` selector for either dressed nothing and was
+   dropped in the fix wave. The Usage card does have column headers, and they are below. */
 .wpc-dashboard-page .wpcpm-student__table tbody th,
 .wpc-dashboard-page .wpcpm-student__table tbody td,
 .wpc-dashboard-page .wpcpm-mentee__table tbody th,
@@ -1129,10 +1022,7 @@
 .wpc-dashboard-page .wpcpm-usage tbody th,
 .wpc-dashboard-page .wpcpm-usage tbody td,
 .wpc-dashboard-page .wpcpm-usage tfoot th,
-.wpc-dashboard-page .wpcpm-usage tfoot td,
-.wpc-dashboard-page .wpcpm-admin-table thead th,
-.wpc-dashboard-page .wpcpm-admin-table tbody th,
-.wpc-dashboard-page .wpcpm-admin-table tbody td {
+.wpc-dashboard-page .wpcpm-usage tfoot td {
 	border-bottom: 1px solid var( --wpc-line-soft );
 	padding: 9px 12px;
 	vertical-align: top;
@@ -1143,8 +1033,7 @@
 .wpc-dashboard-page .wpcpm-student__table tbody th,
 .wpc-dashboard-page .wpcpm-mentee__table tbody th,
 .wpc-dashboard-page .wpcpm-usage tbody th,
-.wpc-dashboard-page .wpcpm-usage tfoot th,
-.wpc-dashboard-page .wpcpm-admin-table tbody th {
+.wpc-dashboard-page .wpcpm-usage tfoot th {
 	font: 500 14px/20px var( --wpc-font );
 	text-align: left;
 }
@@ -1152,8 +1041,7 @@
 /* A column header names its column, so it is the heavier of the two - and at the same size as
    everything under it, not the 13px uppercase the Administrator Dashboard alone used to draw.
    Left, because a `th` is centered until something says otherwise. */
-.wpc-dashboard-page .wpcpm-usage thead th,
-.wpc-dashboard-page .wpcpm-admin-table thead th {
+.wpc-dashboard-page .wpcpm-usage thead th {
 	font: 700 14px/20px var( --wpc-font );
 	text-align: left;
 }
@@ -1168,36 +1056,28 @@
 .wpc-dashboard-page .wpcpm-usage tbody:last-child tr:last-child th,
 .wpc-dashboard-page .wpcpm-usage tbody:last-child tr:last-child td,
 .wpc-dashboard-page .wpcpm-usage tfoot tr:last-child th,
-.wpc-dashboard-page .wpcpm-usage tfoot tr:last-child td,
-.wpc-dashboard-page .wpcpm-admin-table tbody:last-child tr:last-child th,
-.wpc-dashboard-page .wpcpm-admin-table tbody:last-child tr:last-child td {
+.wpc-dashboard-page .wpcpm-usage tfoot tr:last-child td {
 	border-bottom: 0;
 }
 
-/* The Administrator Dashboard's queues, on a phone (1.24.27). From 782px down the plugin makes the
-   box printed around each queue, `.wpcpm-administrator__scroll`, the thing that scrolls sideways,
-   not the table in it (plugin 1.122.35). The frame above is on the table, so it scrolled with the
-   table and its side edges slid out of view. Here the frame is on the box, which stays put around
-   the visible window, and the table inside has none, so the one line is drawn once. The surface
-   stays on the table, which is never narrower than the box. The query is the plugin's own, so the
-   box and its frame switch at the same width; above it nothing here applies and the frame is the
-   table's, as it is on the other dashboards. The box's focus ring is the theme's one ring on every
-   `[tabindex]` (style.css), offset 2px, which is outside the box's border, so the border does not
-   hide it; and the box says nothing here about its outline or its overflow. The second rule has
-   three classes against the shared rule's two, so it wins wherever the sheet puts it.
-   The Sponsor Dashboard's Usage card is the same (private theme line 1.31.8, plugin 1.123.17):
-   its table sits in `.wpcpm-usage__scroll`, which scrolls from 782px down in the plugin's
-   sponsor.css, so the frame is on that box and the table inside has none, in this one query.
-   `bin/test-dashboard-table.php` pins the four rules and the query. */
+/* A table in a box that scrolls, on a phone (1.24.27, first for the Administrator Dashboard's
+   queues, plugin 1.122.35). From 782px down the plugin makes the box printed around the table the
+   thing that scrolls sideways, not the table in it. The frame above is on the table, so it scrolled
+   with the table and its side edges slid out of view. Here the frame is on the box, which stays put
+   around the visible window, and the table inside has none, so the one line is drawn once. The
+   surface stays on the table, which is never narrower than the box. The query is the plugin's own,
+   so the box and its frame switch at the same width; above it nothing here applies and the frame is
+   the table's, as it is on the other dashboards. The box's focus ring is the theme's one ring on
+   every `[tabindex]` (style.css), offset 2px, which is outside the box's border, so the border does
+   not hide it; and the box says nothing here about its outline or its overflow. The second rule has
+   three classes against the shared rule's two, so it wins wherever the sheet puts it. The Sponsor
+   Dashboard's Usage card is the same (private theme line 1.31.8, plugin 1.123.17): its table sits
+   in `.wpcpm-usage__scroll`, which scrolls from 782px down in the plugin's sponsor.css, so the
+   frame is on that box and the table inside has none, in this one query. Since plugin 1.123.92 the
+   Administrator Dashboard draws its queues with the shared parts, which stack a table on a phone
+   and print no box, so the Usage card's two rules are the query's only ones.
+   `bin/test-dashboard-table.php` pins the two rules and the query. */
 @media ( max-width: 782px ) {
-	.wpc-dashboard-page .wpcpm-administrator__scroll {
-		border: 1px solid var( --wpc-line-card );
-	}
-
-	.wpc-dashboard-page .wpcpm-administrator__scroll .wpcpm-admin-table {
-		border: 0;
-	}
-
 	.wpc-dashboard-page .wpcpm-usage__scroll {
 		border: 1px solid var( --wpc-line-card );
 	}
@@ -1290,10 +1170,8 @@
 }
 
 /* The note voice the dashboards share: a gray, never a dimmed ink (the rule at the top of this
-   file). The Administrator Dashboard's strip takes it for its one sentence when nothing waits for a
-   manager (plugin 1.119.0), which the plugin's base draws at 0.875em and 0.72 opacity. */
-.wpc-dashboard-page .wpcpm-student__note,
-.wpc-administrator-page .wpcpm-attention__none {
+   file). */
+.wpc-dashboard-page .wpcpm-student__note {
 	color: var( --wpc-ink-60 );
 	font: 14px/20px var( --wpc-font );
 	opacity: 1;
@@ -1574,53 +1452,13 @@
 }
 
 /*
- * **On the Institution Dashboard that 32px is the second one, and it shows.**
- *
- * The Mentor Report Card puts its groups straight into the card, so the inset above is what
- * holds them off the card's edge and it is the only one they get. The institution page puts
- * everything inside a section that is already inset by 32px, so a group summary lands at 64
- * while the heading above it, the filter bar, the cohort strip, the student cards, the people
- * rows and the agreement panel all sit at 32. One thing on the page stepped right, and it was
- * the row a reader clicks.
- *
- * Measured before this rule: every one of those at 353, the summaries alone at 385.
- *
- * The shared rule above has carried its own margin-left/margin-right: 0 since 1.21.0, so this
- * copy now changes nothing on this page; it stays as a guard against that shared zero moving
- * or being overridden, not because this page still needs its own.
- */
-.wpc-institution-page .wpcpm-group__summary,
-.wpc-institution-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
-	margin-left: 0;
-	margin-right: 0;
-}
-
-/*
- * The same second inset, in the other half of the component. An open group draws its name as a
- * heading rather than as a clickable row, and that heading carries the 32px in padding where
- * the row carries it in margin. Zeroing only the row left "Current" and "Waiting for a mentor"
- * standing 32px right of every other line on the page while the collapsed rows beneath them
- * had moved: the two shapes have to be answered together or the page looks half fixed, which
- * is what it looked like.
- *
- * Only the heading form. Inside a summary the same class is a span whose offset comes from the
- * row's own padding, and that one is right where it is.
- */
-.wpc-institution-page .wpcpm-group > .wpcpm-group__title {
-	padding-left: 0;
-	padding-right: 0;
-}
-
-/*
- * The Administrator Dashboard draws every card as a disclosure inside a section already inset
- * by 32px, the way the Institution Dashboard draws its disclosures, so it needs the same answer:
- * the clickable row loses its horizontal margin, or every row on the page steps 32px right of
- * the strip above it (theme 1.16.5 and 1.16.6 were this bug on the institution page). Every
- * such disclosure here is a card's, never drawn as an already-open plain heading, so the
- * institution page's other rule - zeroing that heading's own padding - has nothing on this page
- * to match and is not copied here (1.17.0 removed a copy of it that never did). The page's three
- * groups of cards (plugin 1.119.0) are plain wrappers, not disclosures: they take the Sponsor
- * Dashboard's group rules by selector, further down.
+ * The Administrator Dashboard draws every card as a disclosure inside a section already inset by
+ * 32px, so the clickable row loses its horizontal margin, or every row steps 32px right of the
+ * strip above it (theme 1.16.5 and 1.16.6). Every such disclosure here is a card's, never drawn as
+ * an already-open plain heading, so a rule zeroing that heading's own padding has nothing on this
+ * page to match (1.17.0 removed a copy of one that never did). The page's three groups of cards
+ * (plugin 1.119.0) are plain wrappers, not disclosures: they take the Sponsor Dashboard's group
+ * rules by selector, further down.
  *
  * The shared rule above has carried this same zero since 1.21.0, so this copy now guards
  * rather than fixes - kept in case that ever changes.
@@ -1636,43 +1474,7 @@
 	padding-right: 32px;
 }
 
-/* The attention strip: a row of tiles that wraps, in the card's own surface and line, or one
-   sentence when nothing needs a manager (plugin 1.119.0, below). The Sponsor Dashboard's At a glance
-   strip (plugin 1.118.0) is this strip, markup for markup, so it takes these rules by its page's
-   selector rather than a copy of their values, and the two cannot drift apart. */
-.wpc-administrator-page .wpcpm-attention__tile,
-.wpc-sponsor-page .wpcpm-attention__tile {
-	background: var( --wpc-surface );
-	border: 1px solid var( --wpc-line-card );
-	border-radius: var( --wpc-radius-card );
-}
-
-/* A hair of tracking off the number. The longest word the tiles hold, a tier's name on the Sponsor
-   Dashboard, ran 0.75px into its tile's line where the tile is narrowest, 152px wide in a 601px
-   window; with it the word clears the line by 1.5px, and the two rules after this one keep it
-   inside the tile's padding where a tile is narrow. The Administrator Dashboard's numbers take the
-   same value, so the two strips stay one. */
-.wpc-administrator-page .wpcpm-attention__n,
-.wpc-sponsor-page .wpcpm-attention__n {
-	font: 700 28px/32px var( --wpc-font );
-	letter-spacing: -0.01em;
-}
-
-.wpc-administrator-page .wpcpm-attention__l,
-.wpc-sponsor-page .wpcpm-attention__l {
-	font: 600 13px/18px var( --wpc-font );
-	letter-spacing: 0.04em;
-}
-
-/* With no tile to draw, the strip holds one sentence in its tiles' place, in the note voice (the
-   shared note rule), and it starts where the tiles start, at the strip's top: the plugin's base
-   gives it a 1em top margin that the tiles' list does not keep. Its right edge is the strip's
-   inset, as the tiles' is. */
-.wpc-administrator-page .wpcpm-attention__none {
-	margin: 0;
-}
-
-/* The programs tiles share the strip's surface. */
+/* The programs tiles: the card's surface and line. */
 .wpc-administrator-page .wpcpm-programs__tile {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
@@ -1683,23 +1485,13 @@
 	font: 700 24px/28px var( --wpc-font );
 }
 
-/* The queues take the shared dashboard table above, face, padding and line. 1.24.1's rule for a
-   row header - the offer's name in Offers running low is a `th` with scope="row" - and the
-   uppercase column header it was correcting both went there in 1.24.3, where every dashboard
-   gets them (deep check FFRNT-7). What is left here is layout: a row's text sits on the same
-   line as its button, not at the top of a 55px cell. */
-.wpc-administrator-page .wpcpm-admin-table tbody td {
-	vertical-align: middle;
-}
-
 /*
- * The six decisions, the request buttons and Draft now are drawn by the wp-admin queue with
- * core's button classes, which the front end never loads. They take the theme's secondary
- * button here, at the shared `.wpcpm-button` size (~line 431), so a decision reads as a decision
- * and not as unstyled text, and matches every other button on a dashboard page.
+ * The six decisions and Draft now are drawn by the wp-admin queue with core's button classes, which
+ * the front end never loads. They take the theme's secondary button here, at the shared
+ * `.wpcpm-button` size (~line 431), so a decision reads as a decision and not as unstyled text, and
+ * matches every other button on a dashboard page.
  */
 .wpc-administrator-page .wpcpm-app-action .button,
-.wpc-administrator-page .wpcpm-request__decide .button,
 .wpc-administrator-page .wpcpm-report-card__generate .button {
 	background: none;
 	border: 1px solid var( --wpc-brand );
@@ -1710,14 +1502,12 @@
 	padding: 6px 14px;
 }
 
-.wpc-administrator-page .wpcpm-app-action .button-primary,
-.wpc-administrator-page .wpcpm-request__decide .button-primary {
+.wpc-administrator-page .wpcpm-app-action .button-primary {
 	background: var( --wpc-brand );
 	color: #fff;
 }
 
-.wpc-administrator-page .wpcpm-app-action textarea,
-.wpc-administrator-page .wpcpm-request__decide textarea {
+.wpc-administrator-page .wpcpm-app-action textarea {
 	/* The control border, not the card hairline: 3:1 against the page (WCAG 1.4.11; 1.19.3). */
 	border: 1px solid var( --wpc-control-border );
 	border-radius: 8px;
@@ -1729,128 +1519,10 @@
 	width: 100%;
 }
 
-/* Only the request form's textarea needs this: the application decision forms wrap theirs in a
-   <p>, which already carries a margin, so they were getting about 26px here to the request
-   form's 12px. The same 12px every form on the site puts between a control and its button
-   row. Not the description box of the program's own event forms, which is one of the event
-   planner's rows, its hint under it and no button: it keeps the rows' own rhythm, as it does on
-   the Sponsor Dashboard. */
-.wpc-administrator-page .wpcpm-request__decide textarea:not( .wpcpm-sponsor__field > textarea ) {
-	margin-bottom: 12px;
-}
-
-/* A sponsor post waiting for review (plugin 1.95.5): the decision is one row of Preview, Publish
-   and the folded Return with a note; the disclosure's summary is a button (the `.button` rule
-   above dresses it) with its marker removed, and when it opens it takes the whole row so the
-   note and its button sit under the three, the textarea in the request form's own rule. Values:
-   the Sponsor Dashboard's decide row of 1.22.2 and the request form's controls. The Sponsor
-   Collaboration Agreements card (plugin 1.96.1) draws the same row for a document, so its
-   classes ride on every rule here (1.23.1), and so does the Sponsor offers to review card
-   (plugin 1.123.18), whose Approve and folded Return with a note are the same row for an offer. */
-.wpc-administrator-page .wpcpm-sponsor-post__decide,
-.wpc-administrator-page .wpcpm-sponsor-agreement__decide,
-.wpc-administrator-page .wpcpm-sponsor-offer__decide {
-	align-items: center;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px 12px;
-	margin: 12px 0 0;
-}
-
-.wpc-administrator-page .wpcpm-sponsor-post__form,
-.wpc-administrator-page .wpcpm-sponsor-agreement__form,
-.wpc-administrator-page .wpcpm-sponsor-offer__form {
+/* The program's own event form, which the event queue prints with the sponsor post's form class
+   (plugin 1.95.5), takes no margin of its own. */
+.wpc-administrator-page .wpcpm-sponsor-post__form {
 	margin: 0;
-}
-
-.wpc-administrator-page .wpcpm-sponsor-post__return > summary,
-.wpc-administrator-page .wpcpm-sponsor-agreement__return > summary,
-.wpc-administrator-page .wpcpm-sponsor-offer__return > summary {
-	display: inline-block;
-	list-style: none;
-}
-
-.wpc-administrator-page .wpcpm-sponsor-post__return > summary::-webkit-details-marker,
-.wpc-administrator-page .wpcpm-sponsor-agreement__return > summary::-webkit-details-marker,
-.wpc-administrator-page .wpcpm-sponsor-offer__return > summary::-webkit-details-marker {
-	display: none;
-}
-
-.wpc-administrator-page .wpcpm-sponsor-post__return[open],
-.wpc-administrator-page .wpcpm-sponsor-agreement__return[open],
-.wpc-administrator-page .wpcpm-sponsor-offer__return[open] {
-	flex: 1 1 100%;
-}
-
-.wpc-administrator-page .wpcpm-sponsor-post__return .wpcpm-administrator__note,
-.wpc-administrator-page .wpcpm-sponsor-agreement__return .wpcpm-administrator__note,
-.wpc-administrator-page .wpcpm-sponsor-offer__return .wpcpm-administrator__note {
-	margin: 12px 0 8px;
-}
-
-/* The whole application folded on the Administrator Dashboard's card (plugin 1.98.0): the
-   summary reads as the mentor page's availability panel does, 12px under the notes and 12px
-   over the decisions; open, the answers table takes the card's own table look. */
-.wpc-administrator-page .wpcpm-administrator__details {
-	margin: 12px 0;
-}
-
-.wpc-administrator-page .wpcpm-administrator__details > summary {
-	color: var( --wpc-brand );
-	cursor: pointer;
-	font: 600 14px/20px var( --wpc-font );
-}
-
-.wpc-administrator-page .wpcpm-administrator__details[open] > summary {
-	margin-bottom: 12px;
-}
-
-/* Inside the folded application (final review of S6): the plugin's logo figures are dressed in
-   wp-admin's admin.css only, so on the front end the white logo sat white on white and the
-   figures lost their row. The values are admin.css's, in the theme's tokens: a flex row of
-   160px figures, each image framed on the surface, the white half on the ink ground; and the
-   block's own h3 lines (Logo, What the base already has) take the item's heading size so
-   they do not outrank the card's titles. */
-.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logos {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 16px;
-	margin: 8px 0 4px;
-}
-
-.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo {
-	margin: 0;
-	max-width: 160px;
-	text-align: center;
-}
-
-.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo img {
-	background: var( --wpc-surface );
-	border: 1px solid var( --wpc-line );
-	border-radius: 4px;
-	box-sizing: border-box;
-	display: block;
-	height: auto;
-	margin: 0 auto;
-	max-width: 100%;
-	padding: 8px;
-}
-
-.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo--white img {
-	background: var( --wpc-ink );
-	border-color: var( --wpc-ink );
-}
-
-.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo figcaption {
-	color: var( --wpc-ink-70 );
-	font: 14px/20px var( --wpc-font );
-	margin-top: 4px;
-}
-
-.wpc-administrator-page .wpcpm-administrator__details h3 {
-	color: var( --wpc-ink );
-	font: 600 14px/20px var( --wpc-font );
-	margin: 16px 0 8px;
 }
 
 .wpc-administrator-page .wpcpm-app-answers {
@@ -1871,25 +1543,6 @@
 	color: var( --wpc-ink-70 );
 	font-weight: 600;
 	width: 34%;
-}
-
-/* The "Out of force" subheading inside the agreements card: the eyebrow of a group title, at
-   the items' inset, with room above it so the revoked rows read as their own list (1.23.1). */
-.wpc-administrator-page .wpcpm-administrator__subheading {
-	color: var( --wpc-ink-70 );
-	font: 700 14px/20px var( --wpc-font );
-	letter-spacing: .04em;
-	margin: 24px 0 8px;
-	text-transform: uppercase;
-}
-
-/* One request from the next: room, as the institution's people rows have. The line itself
-   stays the plugin's single border (border-top on every .wpcpm-administrator__item after the
-   first, assets/css/administrator.css) - repeating it here would draw it twice - only its
-   color is repainted, to the theme's soft line rather than the plugin's own. */
-.wpc-administrator-page .wpcpm-administrator__item + .wpcpm-administrator__item {
-	border-top-color: var( --wpc-line-soft );
-	padding-top: 18px;
 }
 
 /* wpcpm-dashboard__message: the plugin's own base rule (assets/css/administrator.css) draws
@@ -1956,19 +1609,14 @@
 	vertical-align: top;
 }
 
-.wpc-administrator-page .wpcpm-review__form--accept {
-	margin-right: 16px;
-}
-
 /*
- * The Sponsor Dashboard (theme 1.18.0). The same two answers as the institution and
- * administrator pages, because its groups sit inside a section already inset by 32px: the
- * clickable row loses its horizontal margin and the open body its, or every row steps 32px
- * right of the identity block above it (theme 1.16.5 and 1.16.6 were this bug).
+ * The Sponsor Dashboard (theme 1.18.0). The same two answers as the administrator page, because its
+ * groups sit inside a section already inset by 32px: the clickable row loses its horizontal margin
+ * and the open body its, or every row steps 32px right of the identity block above it (theme 1.16.5
+ * and 1.16.6 were this bug).
  *
  * The shared rule above has carried this same zero since 1.21.0, so this copy now guards
- * rather than fixes too - kept for the same reason the institution and administrator copies
- * are.
+ * rather than fixes too - kept for the same reason the administrator copy is.
  */
 .wpc-sponsor-page .wpcpm-group__summary,
 .wpc-sponsor-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
@@ -1981,13 +1629,10 @@
 	padding-right: 32px;
 }
 
-/* The first block of an open card starts 30px under the card's line on the Institution
-   Dashboard and the Sponsor Dashboard alike: the body's 16px and the 14px a note carries. The
-   roster's notes already sat there; a form's first label, a lede and a list sat 18px under the
-   line, and the Interests card's "Ways to support the program" read as stuck to its heading
-   (owner, 1.23.19: "spacing again"). A note keeps its own 14px, so nothing that was right
-   moves. */
-.wpc-institution-page .wpcpm-group__disclosure[open] .wpcpm-group__body > :first-child,
+/* The first block of an open card starts 30px under the card's line on the Sponsor Dashboard: the
+   body's 16px and the 14px a note carries. A form's first label, a lede and a list sat 18px under
+   the line, and the Interests card's "Ways to support the program" read as stuck to its heading
+   (owner, 1.23.19: "spacing again"). A note keeps its own 14px, so nothing that was right moves. */
 .wpc-sponsor-page .wpcpm-group__disclosure[open] .wpcpm-group__body > :first-child {
 	margin-top: 14px;
 }
@@ -3221,25 +2866,6 @@
 	margin-top: 10px;
 }
 
-/* The institution's student rows take the mentor page's row: avatar, name, the facts in the
-   middle, the badge at the right, one line tall. The markup is the same; only the mentor
-   page had the layout (consistency pass, 1.21.0). */
-.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__identity {
-	display: contents;
-}
-
-.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__preview {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-badge {
-	order: 3;
-}
-
 .wpc-dashboard-page .wpcpm-group__summary .wpcpm-group__title {
 	margin: 0;
 	padding: 0;
@@ -3252,59 +2878,6 @@
 
 .wpc-dashboard-page .wpcpm-group__body {
 	padding: 0;
-}
-
-/* The people on an institution's card, and the invitations waiting behind them, are a list of
-   cards, not a bulleted list. The plugin resets the padding, and a core list rule out-specifies
-   it, so the first card sat indented from the paragraph above it while nothing else on the page
-   did. */
-.wpc-dashboard-page .wpcpm-people__list,
-.wpc-dashboard-page .wpcpm-people__invites {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-/* Core's `.button` and `.description` classes never load on the front end, so the invite form,
-   Resend, Cancel and Remove would otherwise print as browser defaults. The values are the shared
-   `.wpcpm-button` rule's (~line 431) and the Administrator Dashboard's `.button` rule's outline
-   treatment. */
-.wpc-institution-page .wpcpm-people__form .button,
-.wpc-institution-page .wpcpm-people__remove {
-	background: none;
-	border: 1px solid var( --wpc-brand );
-	border-radius: 8px;
-	color: var( --wpc-brand );
-	cursor: pointer;
-	font: 600 14px/20px var( --wpc-font );
-	padding: 6px 14px;
-}
-
-.wpc-institution-page .wpcpm-people__form .button-primary {
-	background: var( --wpc-brand );
-	color: #fff;
-}
-
-/* Resend and Cancel are forms for a reason the plugin explains (a link that changes state is
-   followed by mail scanners), drawn as text links so a waiting invitation is one line. */
-.wpc-institution-page .wpcpm-people__form--inline .button-link {
-	background: none;
-	border: 0;
-	padding: 0;
-	text-decoration: underline;
-}
-
-.wpc-institution-page .wpcpm-people__form input[type="email"] {
-	border: 1px solid var( --wpc-control-border );
-	border-radius: var( --wpc-radius-control );
-	font: 14px/20px var( --wpc-font );
-	padding: 6px 8px;
-}
-
-.wpc-institution-page .wpcpm-people__form .description,
-.wpc-institution-page .wpcpm-people__invite-facts {
-	color: var( --wpc-ink-70 );
-	font: 14px/20px var( --wpc-font );
 }
 
 /* The plugin's base rule draws the flash's shape (assets/css/institution.css) with a logical
@@ -4496,13 +4069,6 @@
 		white-space: normal;
 		width: 150px;
 	}
-
-	/* The 150px cap above makes room for the mentor page's columns. The institution row has no
-	   columns, and the cap only sent a long name over the facts beside it: the name keeps its
-	   own width here (consistency pass, 1.21.0). */
-	.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__name {
-		width: auto;
-	}
 }
 
 /* ==========================================================================
@@ -4529,26 +4095,17 @@
 	.wpc-dash__hint,
 	.wpc-dash__ordering,
 	.wpcpm-dashboard__empty,
-	.wpc-institution-page .wpcpm-institution__identity,
-	.wpc-institution-page .wpcpm-institution__card,
 	.wpc-administrator-page .wpcpm-administrator__card,
 	.wpc-sponsor-page .wpcpm-sponsor__card,
 	.wpc-sponsor-page .wpcpm-sponsor__group-title,
 	.wpc-sponsor-page .wpcpm-sponsor__group-lead,
 	.wpc-administrator-page .wpcpm-administrator__group-title,
-	.wpc-administrator-page .wpcpm-administrator__group-lead,
-	.wpc-institution-page .wpcpm-roster,
-	.wpc-institution-page .wpcpm-sevents {
+	.wpc-administrator-page .wpcpm-administrator__group-lead {
 		padding-left: 20px;
 		padding-right: 20px;
 	}
 
 	.wpcpm-dashboard__switcher,
-	.wpc-institution-page .wpcpm-agreement-card,
-	.wpc-institution-page .wpcpm-agreement-panel,
-	.wpc-institution-page .wpcpm-institution__banner,
-	.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro,
-	.wpc-administrator-page .wpcpm-administrator > .wpcpm-dashboard__intro,
 	.wpc-sponsor-page .wpcpm-dashboard__message,
 	.wpc-administrator-page .wpcpm-administrator > .wpcpm-dashboard__message {
 		margin-left: 20px;
@@ -4639,20 +4196,6 @@
 		flex-basis: 100%;
 		order: 9;
 		padding-left: 60px;
-	}
-
-	/* The institution row takes the mentor page's two lines here: identity and badge on the
-	   first, the facts on the second, indented past the triangle and the portrait the same 60px
-	   (consistency pass, 1.21.0). */
-	.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__preview {
-		flex-basis: 100%;
-		order: 9;
-		padding-left: 60px;
-		white-space: normal;
-	}
-
-	.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-badge {
-		order: 0;
 	}
 
 	.wpc-row__flag {
@@ -5015,13 +4558,14 @@
 	padding: 0;
 }
 
-/* A choice is a 24px target (WCAG 2.5.8): the label is the hit area, so it gets the height,
-   and the glyph is 16px rather than the browser's 13. The rating stars and the team tiles are
-   left out: both lay themselves out, and a tile sizes its own box at 1.35em. The flex is block
-   level rather than inline, because the Sponsor Dashboard stacks its choice lists one label to
-   a line and an inline box would run them together. */
-.wpc-dashboard-page label:has( > input[type="checkbox"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ),
-.wpc-dashboard-page label:has( > input[type="radio"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ) {
+/* A choice is a 24px target (WCAG 2.5.8): the label is the hit area, so it gets the height, and the
+   glyph is 16px rather than the browser's 13. The rating stars and the team tiles are left out:
+   both lay themselves out, and a tile sizes its own box at 1.35em. The flex is block level rather
+   than inline, because the Sponsor Dashboard stacks its choice lists one label to a line and an
+   inline box would run them together. The shared parts' choice (`.wpcpm-ui-choice`) is left out
+   too: the plugin's parts.css draws it, its box beside the first line of words. */
+.wpc-dashboard-page label:has( > input[type="checkbox"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ):not( .wpcpm-ui-choice ),
+.wpc-dashboard-page label:has( > input[type="radio"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ):not( .wpcpm-ui-choice ) {
 	align-items: center;
 	display: flex;
 	gap: 8px;
@@ -5029,8 +4573,8 @@
 	padding: 3px 0;
 }
 
-.wpc-dashboard-page input[type="checkbox"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ),
-.wpc-dashboard-page input[type="radio"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ) {
+.wpc-dashboard-page input[type="checkbox"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ):not( .wpcpm-ui-choice input ),
+.wpc-dashboard-page input[type="radio"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ):not( .wpcpm-ui-choice input ) {
 	height: 16px;
 	margin: 0;
 	width: 16px;
@@ -5613,8 +5157,7 @@
 	margin-top: 0;
 }
 
-.wpc-administrator-page .wpc-main--app .wpcpm-administrator__card > .wpcpm-group__disclosure,
-.wpc-administrator-page .wpc-main--app .wpcpm-overview__row {
+.wpc-administrator-page .wpc-main--app .wpcpm-administrator__card > .wpcpm-group__disclosure {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line );
 	border-radius: var( --wpc-radius-control );
@@ -5716,7 +5259,7 @@
 	border-radius: var( --wpc-radius-control );
 }
 
-.wpc-main--app :is( .wpcpm-timeline, .wpcpm-timeline-stats, .wpcpm-timeline-outlook, .wpcpm-timeline-intakes, .wpcpm-timeline-chip, .wpcpm-timeline-table ) {
+.wpc-main--app :is( .wpcpm-timeline, .wpcpm-timeline-stats, .wpcpm-timeline-intakes ) {
 	--wpcpm-tl-radius: var( --wpc-radius-control );
 }
 

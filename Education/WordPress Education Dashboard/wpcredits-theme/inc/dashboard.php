@@ -195,6 +195,7 @@ function wpcredits_handbook_available() {
 function wpcredits_is_frame_page() {
 	return ( wpcredits_frame_names( 'administrator' ) && wpcredits_is_administrator_page() )
 		|| ( wpcredits_frame_names( 'sponsor' ) && wpcredits_is_sponsor_page() )
+		|| ( wpcredits_frame_names( 'institution' ) && wpcredits_is_institution_page() )
 		|| wpcredits_is_guide_frame_page()
 		|| wpcredits_is_update_frame_page();
 }
@@ -214,10 +215,10 @@ function wpcredits_frame_names( $page ) {
 
 /**
  * The frame a guide being viewed is drawn in, as functions.php names it: `administrator-guide` for the
- * Administrator guide (plugin 1.123.70), `sponsor-guide` for the Sponsor guide (plugin 1.123.78), or '' for
- * any other page. Only while a plugin that can draw it is active and draws it for this reader, so a site
- * without one, and a reader the plugin does not draw it for, keep the guide on the Documentation template
- * the page names.
+ * Administrator guide (plugin 1.123.70), `sponsor-guide` for the Sponsor guide (plugin 1.123.78),
+ * `institution-guide` for the Institution guide, or '' for any other page. Only while a plugin that can
+ * draw it is active and draws it for this reader, so a site without one, and a reader the plugin does not
+ * draw it for, keep the guide on the Documentation template the page names.
  *
  * @return string
  */
@@ -248,7 +249,7 @@ function wpcredits_is_guide_frame_page() {
 }
 
 /**
- * Draw a guide on its bare canvas, `page-administrator-guide` or `page-sponsor-guide`, ahead of the
+ * Draw a guide on its bare canvas, `page-administrator-guide`, `page-sponsor-guide` or `page-institution-guide`, ahead of the
  * Documentation template the page itself names. The page keeps naming it, so the day the plugin cannot draw
  * the frame the guide is a Documentation page again, with nothing to change on it.
  *
@@ -275,9 +276,9 @@ add_filter( 'page_template_hierarchy', 'wpcredits_guide_frame_template' );
 
 /**
  * Whose frame a program update being viewed is drawn in: `administrator` (plugin 1.123.71), `sponsor`
- * (plugin 1.123.78), or '' for any other post. The plugin decides, post by post and reader by reader: a
- * public update is read by everybody, and only an Administrator, or somebody who acts for a sponsor, gets a
- * frame.
+ * (plugin 1.123.78), `institution`, or '' for any other post. The plugin decides, post by post and reader
+ * by reader: a public update is read by everybody, and only an Administrator, or somebody who acts for a
+ * sponsor, gets a frame.
  *
  * @return string
  */
@@ -308,8 +309,8 @@ function wpcredits_is_update_frame_page() {
 }
 
 /**
- * Draw such an update on its bare canvas, `single-administrator-update` or `single-sponsor-update`, ahead of
- * every template core would pick for the post.
+ * Draw such an update on its bare canvas, `single-administrator-update`, `single-sponsor-update` or
+ * `single-institution-update`, ahead of every template core would pick for the post.
  *
  * @param string[] $templates The post's templates, the first found wins.
  * @return string[]
