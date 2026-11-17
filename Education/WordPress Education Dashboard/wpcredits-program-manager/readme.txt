@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.123.96
+Stable tag: 1.123.97
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -295,6 +295,10 @@ Yes. A password named for Claude access reaches the site only at the REST addres
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.123.97 =
+
+* The Institution Dashboard's head keeps its width when a school's site icon does not load. In 1.123.96 the title and the facts were squeezed into a narrow column for such a school.
 
 = 1.123.96 =
 

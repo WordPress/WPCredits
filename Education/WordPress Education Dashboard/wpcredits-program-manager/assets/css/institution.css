@@ -596,3 +596,10 @@
 		order: 2;
 	}
 }
+
+/* The head when the school's site icon is gone (1.123.97). The icon removes itself when its file does not load
+   (`onerror`), and the head still carries the frame's two columns for a logo: the copy, then the head's only child,
+   fell into the logo's 88px column and broke the title word by word. Alone, the copy takes the whole head. */
+.wpcpm-frame .wpcpm-institution .wpcpm-head--logo > .wpcpm-head__copy:only-child {
+	grid-column: 1 / -1;
+}
